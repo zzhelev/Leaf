@@ -219,4 +219,11 @@
 
     <string name="error_sign_ssh_key_not_found">Could not find signing key specified in your config</string>
 
+    <string name="error_git_cli_not_found">Git could not be found. Install git or set the path to its executable in Settings > Environment. Searched in: %1$s</string>
+    <string name="error_git_cli_invalid_configured_path">The configured git executable "%1$s" can't be used: %2$s</string>
+    <string name="error_git_cli_unsupported_version">Git %2$s at "%1$s" is too old, version %3$s or newer is required</string>
+    <string name="error_git_cli_command_failed">"%1$s" failed with exit code %2$d: %3$s</string>
+    <string name="error_git_cli_timed_out">"%1$s" did not finish within %2$d seconds</string>
+    <string name="error_git_cli_start_failed">"%1$s" could not be started: %2$s</string>
+
 </resources>

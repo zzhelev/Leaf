@@ -30,6 +30,7 @@ interface AppSettingsRepository {
     val fastForwardMerge: Flow<Boolean?>
     val autoStashOnMerge: Flow<Boolean?>
     val cloneDefaultDirectory: Flow<String?>
+    val gitExecutablePath: Flow<String?>
 
     // Network
     val useProxy: Flow<Boolean?>

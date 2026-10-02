@@ -30,4 +30,5 @@ sealed interface AppConfig {
     data class DiffTextViewType(val value: com.jetpackduba.gitnuro.domain.models.DiffTextViewType) : AppConfig
     data class ShowChangesAsTree(val value: Boolean) : AppConfig
     data class TerminalPath(val value: String) : AppConfig
+    data class GitExecutablePath(val value: String) : AppConfig
 }

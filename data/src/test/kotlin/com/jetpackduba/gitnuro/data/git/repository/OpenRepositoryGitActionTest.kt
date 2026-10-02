@@ -81,24 +81,22 @@ class OpenRepositoryGitActionTest {
     }
 
     @Test
-    fun `returns an error when the folder is not a repository`() = runBlocking {
+    fun `returns an error when the folder is not a repository`(): Unit = runBlocking {
         val folder = File(tempDir, "plain").apply { mkdirs() }
 
         val result = openRepositoryGitAction(folder.absolutePath)
 
         assertInstanceOf(Either.Err::class.java, result)
-        Unit
     }
 
     @Test
-    fun `returns an error instead of throwing when the git file points to a missing directory`() = runBlocking {
+    fun `returns an error instead of throwing when the git file points to a missing directory`(): Unit = runBlocking {
         val folder = File(tempDir, "broken").apply { mkdirs() }
         File(folder, ".git").writeText("gitdir: ${File(tempDir, "missing").absolutePath}\n")
 
         val result = openRepositoryGitAction(folder.absolutePath)
 
         assertInstanceOf(Either.Err::class.java, result)
-        Unit
     }
 
     private fun assertOpens(directory: File, expectedGitDir: File, expectedBranch: String) = runBlocking {

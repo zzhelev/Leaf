@@ -36,6 +36,7 @@ class AppSettingsService @Inject constructor(
     val fastForwardMerge: Flow<Boolean> get() = appSettingsRepository.fastForwardMerge.defaultIfNull { DEFAULT_FAST_FORWARD_MERGE }
     val autoStashOnMerge: Flow<Boolean> get() = appSettingsRepository.autoStashOnMerge.defaultIfNull { DEFAULT_AUTO_STASH_ON_MERGE }
     val cloneDefaultDirectory: Flow<String?> get() = appSettingsRepository.cloneDefaultDirectory
+    val gitExecutablePath: Flow<String?> get() = appSettingsRepository.gitExecutablePath
     val useProxy: Flow<Boolean> get() = appSettingsRepository.useProxy.defaultIfNull { DEFAULT_USE_PROXY }
     val proxyUseAuth: Flow<Boolean> get() = appSettingsRepository.proxyUseAuth.defaultIfNull { DEFAULT_PROXY_USE_AUTH }
     val proxyType: Flow<ProxyType> get() = appSettingsRepository.proxyType.defaultIfNull { DEFAULT_PROXY_TYPE }

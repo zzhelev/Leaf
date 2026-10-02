@@ -4,6 +4,12 @@ import androidx.compose.runtime.Composable
 import com.jetpackduba.gitnuro.app.generated.resources.Res
 import com.jetpackduba.gitnuro.app.generated.resources.error_create_branch_already_exists
 import com.jetpackduba.gitnuro.app.generated.resources.error_create_branch_name_not_allowed
+import com.jetpackduba.gitnuro.app.generated.resources.error_git_cli_command_failed
+import com.jetpackduba.gitnuro.app.generated.resources.error_git_cli_invalid_configured_path
+import com.jetpackduba.gitnuro.app.generated.resources.error_git_cli_not_found
+import com.jetpackduba.gitnuro.app.generated.resources.error_git_cli_start_failed
+import com.jetpackduba.gitnuro.app.generated.resources.error_git_cli_timed_out
+import com.jetpackduba.gitnuro.app.generated.resources.error_git_cli_unsupported_version
 import com.jetpackduba.gitnuro.app.generated.resources.error_hook_rejection
 import com.jetpackduba.gitnuro.app.generated.resources.error_open_repository_dir_not_found
 import com.jetpackduba.gitnuro.app.generated.resources.error_open_repository_path_is_not_dir
@@ -37,6 +43,15 @@ fun AppError.getErrorText(): String {
             OpenRepoError.PathIsNotDirectory -> stringResource(Res.string.error_open_repository_path_is_not_dir)
             is OpenRepoError.RepositoryLoadFailed -> stringResource(Res.string.error_open_repository_repository_load, this.error)
             OpenRepoError.RepositoryNotFoundInPath -> stringResource(Res.string.error_open_repository_repo_not_found)
+        }
+
+        is GitCliError -> when (this) {
+            is GitCliError.GitNotFound -> stringResource(Res.string.error_git_cli_not_found, this.searchedPaths.joinToString(", "))
+            is GitCliError.InvalidConfiguredPath -> stringResource(Res.string.error_git_cli_invalid_configured_path, this.path, this.reason)
+            is GitCliError.UnsupportedVersion -> stringResource(Res.string.error_git_cli_unsupported_version, this.path, this.version, this.minimumVersion)
+            is GitCliError.CommandFailed -> stringResource(Res.string.error_git_cli_command_failed, this.command, this.exitCode, this.stderr)
+            is GitCliError.TimedOut -> stringResource(Res.string.error_git_cli_timed_out, this.command, this.timeoutSeconds)
+            is GitCliError.StartFailed -> stringResource(Res.string.error_git_cli_start_failed, this.command, this.message)
         }
 
         is SshSigningError.InvalidPassword -> throw IllegalStateException("InvalidPassword error should never trigger")

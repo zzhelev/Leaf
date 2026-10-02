@@ -51,6 +51,7 @@ private val autoStashOnMergePreference get() = booleanPreferencesKey("auto_stash
 private val pullWithRebasePreference get() = booleanPreferencesKey("pull_with_rebase")
 private val pushWithLeasePreference get() = booleanPreferencesKey("push_with_lease")
 private val cloneDefaultDirectoryPreference get() = stringPreferencesKey("clone_default_directory")
+private val gitExecutablePathPreference get() = stringPreferencesKey("git_executable_path")
 
 private val useProxyPreference get() = booleanPreferencesKey("use_proxy")
 private val proxyUseAuthPreference get() = booleanPreferencesKey("proxy_use_auth")
@@ -115,6 +116,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val fastForwardMerge get() = preferences.data[fastForwardMergePreference]
     override val autoStashOnMerge get() = preferences.data[autoStashOnMergePreference]
     override val cloneDefaultDirectory get() = preferences.data[cloneDefaultDirectoryPreference]
+    override val gitExecutablePath get() = preferences.data[gitExecutablePathPreference]
 
 
     // Network
@@ -137,6 +139,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
             when (appConfig) {
                 is AppConfig.AutoStashOnMerge -> setValue(autoStashOnMergePreference, appConfig.value)
                 is AppConfig.CloneDefaultDirectory -> setValue(cloneDefaultDirectoryPreference, appConfig.value)
+                is AppConfig.GitExecutablePath -> setValue(gitExecutablePathPreference, appConfig.value)
                 is AppConfig.DateFormatCustomFormat -> setValue(dateFormatCustomFormatPreference, appConfig.value)
                 is AppConfig.DateFormatIs24h -> setValue(dateFormatIs24hPreference, appConfig.value)
                 is AppConfig.DateFormatUseDefault -> setValue(dateFormatUseDefaultPreference, appConfig.value)
