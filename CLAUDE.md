@@ -34,7 +34,8 @@ Run everything from the repo root, with `JAVA_HOME` set as above.
 
 ```bash
 ./gradlew build                          # full build + (currently empty) tests; ~5.5 min cold, Rust included
-./gradlew test                           # runs, but every module reports NO-SOURCE: there are no tests yet
+./gradlew test                           # all tests; only :data has tests so far
+./gradlew :data:test                     # ~25 s when the build is warm
 ./gradlew :app:run                       # launch the app
 ./gradlew :app:run --args="/path/to/repo"  # launch and open a repo/dir in a new tab (App.getDirToOpen)
 ```
@@ -64,7 +65,7 @@ Not yet verified: packaging (`:app:packageDmg`, `:app:createDistributable`). Pac
 
 ## Module map
 
-- `app`: Compose Desktop UI and entry point (`Main.kt`, `App.kt`).
+- `app`: Compose Desktop UI and entry point (`main.kt`, `App.kt`).
   - Also holds the view models (`viewmodels/`, `repositoryopen/RepositoryOpenViewModel.kt`), Dagger components and
     modules (`di/`), dialogs, theme, keybindings, terminal launchers, LFS glue and the update checker.
   - Its build script holds the Rust build glue and the packaging config.
@@ -101,6 +102,8 @@ Not yet verified: packaging (`:app:packageDmg`, `:app:createDistributable`). Pac
 - Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper).
 - `Git` instances are never closed.
 - `provide` does not switch dispatchers. Many actions call `withContext(Dispatchers.IO)` themselves.
+- JGit auto-gc is turned off by `NoAutoGcSystemReader` (`data/git/`), which `main.kt` installs before Dagger is
+  created. JGit's gc is not worktree-aware. Never run JGit gc; leave it to the git CLI.
 
 **`repositoryPath` is the git dir** (for example `/repo/.git`), not the working tree. It comes from
 `OpenRepositoryGitAction`. Get the working tree with `GetWorktreeUseCase` / `IGetWorktreePathGitAction`. In existing
@@ -250,7 +253,13 @@ common `refs/` and `packed-refs` are not watched.
 - `TerminalPath` is the closest precedent for a "git executable path" setting.
 
 **Tests:**
-- None exist. They were removed in the 2.0 refactor (commit `36a92c60`).
-- JUnit 5 and MockK are already declared in `app`, `data` and `domain`.
-- New tests that touch git must create temp repos (`git init` / `git worktree add` in a temp dir), never use real
+- Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
+  `data/src/test/kotlin`.
+- JUnit 5 and MockK are already declared in `app`, `data` and `domain`. The `buildsrc` convention plugin enables the
+  JUnit platform, so new test files need no build changes. `kotlinx-coroutines-test` is not a dependency; use
+  `runBlocking`.
+- Tests that touch git must create temp repos with `@TempDir` (`git init` / `git worktree add` there), never real
   repos.
+- JGit tests must not read the developer's `~/.gitconfig` or JGit config. Install a `SystemReader.Delegate` that
+  points the user, system and JGit configs at temp files, and restore the original in `@AfterEach`. See
+  `NoAutoGcSystemReaderTest.isolatedSystemReader()`.

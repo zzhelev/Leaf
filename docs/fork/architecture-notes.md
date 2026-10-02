@@ -195,7 +195,15 @@ worktree references.
 - The risk needs two JGit GC runs, at least two weeks apart, triggered from a Gitnuro tab on the same repository. The
   chance is low, but the loss is silent and permanent.
 
-**Options for Phase 1 (to decide; none chosen):**
+**Decision (1.0, branch `fix/jgit-autogc`):** the option chosen is none of (a)–(c) below. A JGit
+`SystemReader.Delegate` (`G/NoAutoGcSystemReader.kt`, installed in `A/main.kt`) injects `gc.auto=0` and
+`gc.autoPackLimit=0` underneath every config file.
+- Because the values are injected in memory and are never part of any file's own content, JGit's config reloads don't
+  lose them.
+- Explicit settings still win, and nothing is written to disk.
+- Covered by `NoAutoGcSystemReaderTest`.
+
+**Options considered:**
 - **(a)** When the repository has linked worktrees, disable auto-GC for Gitnuro's JGit instances by overriding
   `gc.auto` / `gc.autoPackLimit` in the in-memory config only. This is fragile: `FileRepository.getConfig()` reloads
   the config when the file changes.
