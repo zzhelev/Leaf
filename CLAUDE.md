@@ -126,7 +126,8 @@ code, "worktree" means the working directory, not linked worktrees.
 **Concurrency:**
 - There is no mutex around git operations. Foreground tasks only block UI input.
 - There is no `CoroutineExceptionHandler`. An exception that escapes as a throw, rather than as `Either.Err`, kills
-  its coroutine silently, with only a stderr stack trace. Opening a linked worktree hits exactly this.
+  its coroutine silently, with only a stderr stack trace. Return errors from git actions; don't throw them. Opening a
+  linked worktree used to hit this.
 
 **External processes:** the `git` CLI is never invoked. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
 (credential helpers, Windows hooks, terminals, opening a file manager) and in `FileExtensions.kt`.
@@ -260,6 +261,9 @@ common `refs/` and `packed-refs` are not watched.
   `runBlocking`.
 - Tests that touch git must create temp repos with `@TempDir` (`git init` / `git worktree add` there), never real
   repos.
-- JGit tests must not read the developer's `~/.gitconfig` or JGit config. Install a `SystemReader.Delegate` that
-  points the user, system and JGit configs at temp files, and restore the original in `@AfterEach`. See
-  `NoAutoGcSystemReaderTest.isolatedSystemReader()`.
+- Shared helpers live in `data/src/test/kotlin/com/jetpackduba/gitnuro/data/git/TestGit.kt`:
+  - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
+    `SystemReader.setInstance` and restore the original in `@AfterEach`.
+  - `TestGitCli` runs the git CLI with global and system config ignored. JGit can't create linked worktrees, so use
+    the CLI to set them up.
+  - See `OpenRepositoryGitActionTest` for the pattern.

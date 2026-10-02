@@ -2,6 +2,28 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## Open linked worktrees (branch `fix/open-linked-worktree`)
+
+- **Linked worktrees now open.** `OpenRepositoryGitAction` used to treat every `.git` file as a submodule. Now, when
+  the `gitdir:` target contains a `commondir` file, it opens the folder directly as a linked worktree. Absolute and
+  relative `gitdir:` paths both work. This covers sibling worktrees (`../repo-feature`), which used to fail silently,
+  and nested ones (`.claude/worktrees/<name>`), which used to work only by accident.
+- **Failures surface.** Opening a repository no longer throws. Failures come back as `OpenRepoError`, so the error
+  dialog appears instead of the open dying silently.
+- **"Open in terminal"** now uses the working tree instead of the parent of the git dir, which for a linked worktree
+  was `<common>/.git/worktrees`.
+- **Tests:** `OpenRepositoryGitActionTest` covers seven cases: a regular repo, sibling, nested and relative-path
+  worktrees, a submodule, a non-repo folder, and a broken `.git` file.
+  - Against the old code, the sibling, relative-path and broken-file cases fail, and the other four pass. So the fix
+    is what makes them pass, and existing behaviour is unchanged.
+- **Shared test helpers:** `IsolatedSystemReader`, plus `TestGitCli`, which runs git with the developer's global and
+  system config ignored.
+- **Manual check:** on macOS, both a sibling and a nested temp worktree open in the app, with no errors, and both are
+  added to recent repos.
+- **Still open:**
+  - Tab subtitle and persisted path show `<common>/.git/worktrees/<name>` (Phase 2b).
+  - The watcher doesn't cover the common `refs/` (Phase 1.5).
+
 ## 1.0: Turn off JGit auto-GC (branch `fix/jgit-autogc`)
 
 - JGit's automatic gc is now off by default. JGit runs it after merges, rebases, fetches and pushes, and it is not

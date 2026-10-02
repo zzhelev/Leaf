@@ -19,7 +19,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/com/jetpackduba/gitnuro/`,
 | Question | Answer | Severity |
 |---|---|---|
 | JGit version | `7.7.0.202606012155-r`. It can read linked worktrees, but has no API that lists the worktrees of a repo. | — |
-| Can Gitnuro open a linked worktree? | **No** for a sibling folder (`../wt-test`): the open fails silently. Yes, by accident, for a worktree nested inside the main working tree. | High (blocks the whole plan) |
+| Can Gitnuro open a linked worktree? | **No** for a sibling folder (`../wt-test`): the open fails silently. Yes, by accident, for a worktree nested inside the main working tree. **Fixed on `fix/open-linked-worktree`.** | High (blocks the whole plan) |
 | Does checkout refuse a branch that is checked out in another worktree? | **No.** Both worktrees end up on the same branch. | High |
 | Does branch deletion refuse a branch that is checked out in another worktree? | **No.** Deletion is always forced, has no confirmation, and leaves the other worktree on an unborn branch. | High |
 | Does Gitnuro run gc or prune? | Not explicitly. JGit's auto-GC can run during merge, rebase, fetch and push. JGit GC **ignores other worktrees' HEADs, indexes, per-worktree refs and reflogs**. Objects only they reference are deleted on a later GC, once they are more than two weeks old. | Medium (rare, but data loss) |
@@ -91,15 +91,16 @@ from the code; they were not exercised in the app.
   For a linked worktree these don't exist (`add_watch` errors are ignored), and the common dir's `refs/`,
   `packed-refs` and `config` are never watched. Branch changes made from other worktrees or the CLI won't refresh the tab.
 
-### Fix direction (Phase 1)
+### Fixed (branch `fix/open-linked-worktree`)
 
-In `OpenRepositoryGitAction`, distinguish a linked worktree from a submodule before taking the submodule path:
-- The target of a linked worktree's `gitdir:` contains a `commondir` file.
-- Alternatively, let JGit resolve the folder with `FileRepositoryBuilder().findGitDir(dir)`.
-
-Also return failures as `Either.Err` instead of throwing.
-
-The watcher should additionally watch `<common>/refs`, `<common>/packed-refs` and `<common>/worktrees/` (Phase 1.5).
+- `OpenRepositoryGitAction` now detects a linked worktree before it considers the submodule path: the `gitdir:`
+  target contains a `commondir` file.
+  - It opens the worktree with `FileRepositoryBuilder().setGitDir(adminDir).setWorkTree(dir)`.
+  - It returns every failure as `Either.Err` instead of throwing.
+- "Open in terminal" now uses the working tree.
+- Still open:
+  - The watcher should also watch `<common>/refs`, `<common>/packed-refs` and `<common>/worktrees/` (Phase 1.5).
+  - The tab subtitle and persisted path still show the admin dir (Phase 2b).
 
 ## 3. Checkout guard
 
@@ -251,5 +252,7 @@ All verified in source.
   `.gitignore`, `.gitattributes` and `.github/`, so editing them triggers a full refresh.
 - `D/usecases/ObserveRepositoryToRefreshUseCase.kt:113`: strips the git-dir prefix instead of the working-tree prefix,
   so that ignore check never matches.
+- `A/repositoryopen/RepositoryOpenViewModel.kt:1037-1046`: `openSubmodule` builds `"$repositoryPath/$path"` from
+  the git dir, which gives `/repo/.git/<sub>`. It should use the working tree, and its own TODO says so.
 - `app/build.gradle.kts`: Rust build failures are ignored (`isIgnoreExitValue = true`).
 - `DEVELOPMENT.md` is outdated: it says JDK 17+ (25 is needed) and that `cargo-kotars` is required (uniffi is used now).
