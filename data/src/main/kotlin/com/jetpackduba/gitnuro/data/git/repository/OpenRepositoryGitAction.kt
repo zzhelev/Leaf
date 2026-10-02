@@ -5,10 +5,12 @@ import com.jetpackduba.gitnuro.common.systemSeparator
 import com.jetpackduba.gitnuro.domain.errors.AppError
 import com.jetpackduba.gitnuro.domain.errors.Either
 import com.jetpackduba.gitnuro.domain.errors.OpenRepoError
-import com.jetpackduba.gitnuro.domain.exceptions.InvalidDirectoryException
+import com.jetpackduba.gitnuro.domain.errors.handleException
+import com.jetpackduba.gitnuro.domain.errors.raiseError
 import com.jetpackduba.gitnuro.domain.interfaces.IOpenRepositoryGitAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
 import org.eclipse.jgit.submodule.SubmoduleWalk
@@ -31,24 +33,62 @@ class OpenRepositoryGitAction @Inject constructor() : IOpenRepositoryGitAction {
             return Either.Err(OpenRepoError.PathIsNotDirectory)
         }
 
-        val repository = if (directory.listFiles()?.any { it.name == ".git" && it.isFile } == true) {
-            openSubmoduleRepository(directory)
-        } else {
-            openRepository(directory)
-        }
+        return handleException<String, OpenRepoError>(
+            dispatcher = Dispatchers.IO,
+            exceptionMapper = { e ->
+                printError(TAG, "Can't open git repo", e)
+                OpenRepoError.RepositoryLoadFailed(e.message.orEmpty())
+            },
+        ) {
+            val linkedWorktreeGitDir = getLinkedWorktreeGitDir(directory)
 
-        if (repository == null) {
-            printError(TAG, "Can't open git repo, specified path is not a directory")
-            return Either.Err(OpenRepoError.RepositoryNotFoundInPath)
-        }
+            val repository = when {
+                linkedWorktreeGitDir != null -> openLinkedWorktree(directory, linkedWorktreeGitDir)
+                directory.listFiles()?.any { it.name == ".git" && it.isFile } == true -> openSubmoduleRepository(directory)
+                else -> openRepository(directory)
+            }
 
-        try {
+            if (repository == null) {
+                printError(TAG, "Can't open git repo, no repository found in the specified path")
+                raiseError(OpenRepoError.RepositoryNotFoundInPath)
+            }
+
             repository.workTree // test if repository is valid
-            return Either.Ok(repository.directory.absolutePath)
-        } catch (e: Exception) {
-            printError(TAG, "Can't open git repo", e)
-            return Either.Err(OpenRepoError.RepositoryLoadFailed(e.message.orEmpty()))
+            repository.directory.absolutePath
         }
+    }
+
+    /**
+     * Linked worktrees (`git worktree add`) have a `.git` file like submodules, but the git dir it points to
+     * (`<common dir>/worktrees/<name>`) contains a `commondir` file.
+     */
+    private fun getLinkedWorktreeGitDir(directory: File): File? {
+        val dotGitFile = File(directory, Constants.DOT_GIT)
+
+        if (!dotGitFile.isFile) {
+            return null
+        }
+
+        val content = dotGitFile.readText().trim()
+
+        if (!content.startsWith(Constants.GITDIR)) {
+            return null
+        }
+
+        val gitDir = File(content.removePrefix(Constants.GITDIR).trim())
+            .let { if (it.isAbsolute) it else File(directory, it.path) }
+            .normalize()
+
+        return gitDir.takeIf { File(it, Constants.COMMONDIR_FILE).isFile }
+    }
+
+    private suspend fun openLinkedWorktree(directory: File, gitDir: File): Repository = withContext(Dispatchers.IO) {
+        FileRepositoryBuilder()
+            .setGitDir(gitDir)
+            .setWorkTree(directory)
+            .readEnvironment() // scan environment GIT_* variables
+            .setMustExist(true)
+            .build()
     }
 
     private suspend fun openRepository(directory: File): Repository = withContext(Dispatchers.IO) {
@@ -71,7 +111,11 @@ class OpenRepositoryGitAction @Inject constructor() : IOpenRepositoryGitAction {
 
     private suspend fun openSubmoduleRepository(directory: File): Repository? = withContext(Dispatchers.IO) {
         val parent = getRepositoryParent(directory)
-            ?: throw InvalidDirectoryException("Submodule's parent repository not found")
+
+        if (parent == null) {
+            printError(TAG, "Can't open git repo, submodule's parent repository not found")
+            return@withContext null
+        }
 
         val repository = openRepository(parent)
 

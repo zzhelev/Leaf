@@ -1,7 +1,6 @@
 package com.jetpackduba.gitnuro.data.git
 
 import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.lib.ConfigConstants
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.NullProgressMonitor
@@ -45,8 +44,9 @@ class NoAutoGcSystemReaderTest {
 
     @Test
     fun `explicit user config takes precedence`() {
-        File(tempDir, "user.gitconfig").writeText("[gc]\n\tauto = 42\n\tautoPackLimit = 7\n")
-        SystemReader.setInstance(NoAutoGcSystemReader(isolatedSystemReader()))
+        val isolatedReader = isolatedSystemReader()
+        isolatedReader.userConfigFile.writeText("[gc]\n\tauto = 42\n\tautoPackLimit = 7\n")
+        SystemReader.setInstance(NoAutoGcSystemReader(isolatedReader))
 
         initRepository().use { repository ->
             assertEquals(42, repository.config.getInt(GC, AUTO, -1))
@@ -56,7 +56,8 @@ class NoAutoGcSystemReaderTest {
 
     @Test
     fun `defaults are never written to config files`() {
-        SystemReader.setInstance(NoAutoGcSystemReader(isolatedSystemReader()))
+        val isolatedReader = isolatedSystemReader()
+        SystemReader.setInstance(NoAutoGcSystemReader(isolatedReader))
         val reader = SystemReader.getInstance()
 
         initRepository().use { repository ->
@@ -65,8 +66,8 @@ class NoAutoGcSystemReaderTest {
             repository.config.save()
 
             val configFiles = listOf(
-                File(tempDir, "jgit.config"),
-                File(tempDir, "user.gitconfig"),
+                isolatedReader.jGitConfigFile,
+                isolatedReader.userConfigFile,
                 File(repository.directory, Constants.CONFIG),
             )
 
@@ -99,17 +100,7 @@ class NoAutoGcSystemReaderTest {
         }
     }
 
-    /** Keeps the developer's own git and JGit config files out of the tests. */
-    private fun isolatedSystemReader() = object : SystemReader.Delegate(originalReader) {
-        override fun openUserConfig(parent: Config?, fs: FS) =
-            FileBasedConfig(parent, File(tempDir, "user.gitconfig"), fs)
-
-        override fun openSystemConfig(parent: Config?, fs: FS) =
-            FileBasedConfig(parent, File(tempDir, "system.gitconfig"), fs)
-
-        override fun openJGitConfig(parent: Config?, fs: FS) =
-            FileBasedConfig(parent, File(tempDir, "jgit.config"), fs)
-    }
+    private fun isolatedSystemReader() = IsolatedSystemReader(tempDir, originalReader)
 
     private fun initRepository(): Repository = Git.init()
         .setDirectory(File(tempDir, "repo"))

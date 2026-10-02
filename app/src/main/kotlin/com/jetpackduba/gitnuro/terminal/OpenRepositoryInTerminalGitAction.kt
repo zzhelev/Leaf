@@ -2,11 +2,11 @@ package com.jetpackduba.gitnuro.terminal
 
 import com.jetpackduba.gitnuro.data.repositories.configuration.DataStoreAppSettingsRepository
 import com.jetpackduba.gitnuro.domain.TabCoroutineScope
-import com.jetpackduba.gitnuro.domain.repositories.RepositoryDataRepository
+import com.jetpackduba.gitnuro.domain.errors.okOrNull
+import com.jetpackduba.gitnuro.domain.usecases.GetWorktreeUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 // For flatpak: https://github.com/flathub/com.visualstudio.code#use-host-shell-in-the-integrated-terminal
@@ -14,13 +14,13 @@ import javax.inject.Inject
 class OpenRepositoryInTerminalGitAction @Inject constructor(
     private val terminalProvider: ITerminalProvider,
     private val settings: DataStoreAppSettingsRepository,
-    private val repositoryDataRepository: RepositoryDataRepository,
+    private val getWorktreeUseCase: GetWorktreeUseCase,
     private val tabScope: TabCoroutineScope,
 ) {
     operator fun invoke() = tabScope.launch {
         val terminalEmulators = terminalProvider.getTerminalEmulators()
-        val repositoryPath = repositoryDataRepository.repositoryPath ?: return@launch
-        val repositoryDir = File(repositoryPath).parentFile.absolutePath
+        // The repository path is the git dir, whose parent is not the working tree for linked worktrees
+        val repositoryDir = getWorktreeUseCase().okOrNull() ?: return@launch
 
         val terminalPath = settings.terminalPath.firstOrNull()
 
