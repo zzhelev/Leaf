@@ -2,6 +2,39 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## 1.1: Git CLI adapter (branch `feature/git-cli-adapter`)
+
+The fork-only code is in `data/git/cli/` and `domain/gitcli/`.
+
+- **`ProcessRunner`:** a coroutine-friendly process runner.
+  - It reads stdout and stderr concurrently and closes stdin.
+  - On timeout or cancellation it kills the whole process tree with SIGTERM, then SIGKILL, so no process outlives
+    its coroutine.
+- **`GitExecutableLocator`:** finds git.
+  - Search order: the configured path, then `/opt/homebrew/bin/git`, `/usr/local/bin/git`, `/usr/bin/git`, then
+    PATH. Linux and Windows have their own orders.
+  - It skips the macOS `/usr/bin/git` shim when the Command Line Tools are missing, which avoids the install popup.
+  - It verifies `git --version` ≥ 2.36 and caches the result.
+- **`GitCli.run(workingDirectory, args, timeout)`:** returns stdout, or a `GitCliError`.
+  - It runs git with `LC_ALL=C`, `GIT_TERMINAL_PROMPT=0` and `GIT_OPTIONAL_LOCKS=0`. The last means polling never
+    takes `index.lock` while agents work.
+  - It strips inherited repo-locating `GIT_*` variables.
+- **Setting:** "Git executable" in Settings → Environment, stored in DataStore as `git_executable_path`. It shows the
+  detected path and version, or the error. An invalid configured path is reported, never silently replaced.
+- **Errors:** `GitCliError` (in `domain/errors`), with user-facing text in `ui/Errors.kt`.
+- **Tests:** `ProcessRunnerTest`, `GitExecutableLocatorTest`, `GitCliTest` and `GitVersionTest`. Script-based tests
+  are skipped on Windows. They cover:
+  - output and exit codes;
+  - large output;
+  - stdin;
+  - killing the process on timeout and on cancellation;
+  - candidate order per OS;
+  - version checks;
+  - configured-path errors;
+  - caching;
+  - the environment.
+- There is no consumer yet; 1.2 is the first. Flatpak (`flatpak-spawn --host`) is not handled.
+
 ## Open linked worktrees (branch `fix/open-linked-worktree`)
 
 - **Linked worktrees now open.** `OpenRepositoryGitAction` used to treat every `.git` file as a submodule. Now, when

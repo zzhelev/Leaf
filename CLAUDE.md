@@ -129,7 +129,15 @@ code, "worktree" means the working directory, not linked worktrees.
   its coroutine silently, with only a stderr stack trace. Return errors from git actions; don't throw them. Opening a
   linked worktree used to hit this.
 
-**External processes:** the `git` CLI is never invoked. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
+**Git CLI (fork-only, `data/git/cli/`, `domain/gitcli/`):** use it for anything JGit can't do, starting with linked
+worktrees.
+- Call `GitCli.run(workingDirectory, args, timeout)`. It returns `Either<String /* stdout */, GitCliError>`.
+- `GitCli` locates the binary through `GitExecutableLocator` (the configured path from settings, or auto-detection,
+  cached) and sets a non-interactive, `LC_ALL=C` environment.
+- Use porcelain or `-z` output and parse it in the data layer.
+- Never shell out to git through `ShellManager`.
+
+**External processes (upstream code):** upstream never invokes the `git` CLI. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
 (credential helpers, Windows hooks, terminals, opening a file manager) and in `FileExtensions.kt`.
 
 Worktree operations will go through a fork-only git CLI adapter in its own package (Phase 1.1).
@@ -255,10 +263,16 @@ common `refs/` and `packed-refs` are not watched.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
-  `data/src/test/kotlin`.
+  `data/src/test/kotlin` and `domain/src/test/kotlin`.
 - JUnit 5 and MockK are already declared in `app`, `data` and `domain`. The `buildsrc` convention plugin enables the
   JUnit platform, so new test files need no build changes. `kotlinx-coroutines-test` is not a dependency; use
   `runBlocking`.
+- **Declare `: Unit` on `fun test() = runBlocking { ... }`.** Otherwise the function returns its last expression,
+  for example from `assertInstanceOf`, and JUnit silently skips non-void test methods. Compare each class's `tests=`
+  count in `build/test-results` against its `@Test` count.
+- MockK can't mock final classes such as `AppSettingsService` on JDK 25. Mock the interface (`AppSettingsRepository`)
+  and wrap it in the real class.
+- Tests that run shell scripts (fake git executables, `sh -c`) are annotated `@DisabledOnOs(OS.WINDOWS)`.
 - Tests that touch git must create temp repos with `@TempDir` (`git init` / `git worktree add` there), never real
   repos.
 - Shared helpers live in `data/src/test/kotlin/com/jetpackduba/gitnuro/data/git/TestGit.kt`:
