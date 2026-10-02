@@ -174,6 +174,10 @@
     <!-- Settings -->
     <string name="settings_environment_default_clone_directory_title">Default clone directory</string>
     <string name="settings_environment_default_clone_directory_description">Directory that will be used as default when cloning a repository</string>
+    <string name="settings_environment_git_executable_title">Git executable</string>
+    <string name="settings_environment_git_executable_description">Used for worktree operations. Leave empty to detect it automatically.</string>
+    <string name="settings_environment_git_executable_detecting">Looking for git…</string>
+    <string name="settings_environment_git_executable_detected">Using git %1$s at %2$s</string>
     <string name="settings_section_user_interface">User interface</string>
     <string name="settings_entry_appearance">Appearance</string>
     <string name="settings_entry_layout">Layout</string>

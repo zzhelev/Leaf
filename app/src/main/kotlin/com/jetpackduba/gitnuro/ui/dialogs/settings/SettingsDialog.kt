@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jetpackduba.gitnuro.app.generated.resources.*
 import com.jetpackduba.gitnuro.common.printError
+import com.jetpackduba.gitnuro.domain.errors.Either
 import com.jetpackduba.gitnuro.domain.models.AppConfig
 import com.jetpackduba.gitnuro.domain.models.AvatarProviderType
 import com.jetpackduba.gitnuro.domain.models.Error
@@ -40,6 +41,7 @@ import com.jetpackduba.gitnuro.ui.context_menu.ContextMenuElement
 import com.jetpackduba.gitnuro.ui.context_menu.DropDownMenuText
 import com.jetpackduba.gitnuro.ui.dialogs.base.MaterialDialog
 import com.jetpackduba.gitnuro.ui.dropdowns.DropDownOption
+import com.jetpackduba.gitnuro.ui.getErrorText
 import com.jetpackduba.gitnuro.viewmodels.SettingsAction
 import com.jetpackduba.gitnuro.viewmodels.SettingsViewModel
 import com.jetpackduba.gitnuro.viewmodels.SettingsViewState
@@ -447,6 +449,34 @@ private fun Environment(settingsViewState: SettingsViewState, onAction: (Setting
         onValueChanged = { value ->
             defaultCloneDir = value
             onAction(SettingsAction.SetConfig(AppConfig.CloneDefaultDirectory(value)))
+        },
+    )
+
+    GitExecutableSetting(settingsViewState, onAction)
+}
+
+@Composable
+private fun GitExecutableSetting(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+    val gitExecutable = settingsViewState.gitExecutable
+
+    val status = when (gitExecutable) {
+        null -> stringResource(Res.string.settings_environment_git_executable_detecting)
+        is Either.Ok -> stringResource(
+            Res.string.settings_environment_git_executable_detected,
+            gitExecutable.value.version.toString(),
+            gitExecutable.value.path,
+        )
+
+        is Either.Err -> gitExecutable.error.getErrorText()
+    }
+
+    SettingTextInput(
+        title = stringResource(Res.string.settings_environment_git_executable_title),
+        subtitle = stringResource(Res.string.settings_environment_git_executable_description) + "\n" + status,
+        value = settingsViewState.gitExecutablePath.orEmpty(),
+        isError = gitExecutable is Either.Err,
+        onValueChanged = { value ->
+            onAction(SettingsAction.SetConfig(AppConfig.GitExecutablePath(value)))
         },
     )
 }

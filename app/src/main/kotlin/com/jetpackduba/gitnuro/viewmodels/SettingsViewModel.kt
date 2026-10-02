@@ -5,6 +5,10 @@ import com.jetpackduba.gitnuro.LogsRepository
 import com.jetpackduba.gitnuro.TabViewModel
 import com.jetpackduba.gitnuro.common.flows.combine
 import com.jetpackduba.gitnuro.common.printError
+import com.jetpackduba.gitnuro.domain.errors.Either
+import com.jetpackduba.gitnuro.domain.errors.GitCliError
+import com.jetpackduba.gitnuro.domain.gitcli.GitExecutable
+import com.jetpackduba.gitnuro.domain.gitcli.IGitExecutableLocator
 import com.jetpackduba.gitnuro.domain.models.AppConfig
 import com.jetpackduba.gitnuro.domain.models.AvatarProviderType
 import com.jetpackduba.gitnuro.domain.models.ProxyType
@@ -13,7 +17,10 @@ import com.jetpackduba.gitnuro.domain.models.ui.Theme
 import com.jetpackduba.gitnuro.domain.services.AppSettingsService
 import com.jetpackduba.gitnuro.extensions.stateIn
 import com.jetpackduba.gitnuro.system.OpenUrlInBrowserUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,7 +30,17 @@ class SettingsViewModel @Inject constructor(
     private val appSettingsService: AppSettingsService,
     private val logsRepository: LogsRepository,
     private val openUrlInBrowserUseCase: OpenUrlInBrowserUseCase,
+    private val gitExecutableLocator: IGitExecutableLocator,
 ) : TabViewModel() {
+    /** Emits null while git is being located, as running `git --version` takes a moment. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val gitExecutable: Flow<Either<GitExecutable, GitCliError>?> = appSettingsService.gitExecutablePath
+        .distinctUntilChanged()
+        .transformLatest { path ->
+            emit(null)
+            emit(gitExecutableLocator.locate(path))
+        }
+
     val settingsViewState = settingsState()
         .stateIn(emptySettingsState())
 
@@ -73,6 +90,8 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.verifySsl,
             appSettingsService.cacheCredentialsInMemory,
             appSettingsService.terminalPath,
+            appSettingsService.gitExecutablePath,
+            gitExecutable,
         ) { scaleUi,
             theme,
             customTheme,
@@ -97,7 +116,9 @@ class SettingsViewModel @Inject constructor(
             proxyHostPassword,
             verifySsl,
             cacheCredentialsInMemory,
-            terminalPath ->
+            terminalPath,
+            gitExecutablePath,
+            gitExecutable ->
 
             SettingsViewState(
                 scaleUi,
@@ -125,6 +146,8 @@ class SettingsViewModel @Inject constructor(
                 verifySsl,
                 cacheCredentialsInMemory,
                 terminalPath,
+                gitExecutablePath,
+                gitExecutable,
             )
         }
     }
@@ -156,6 +179,8 @@ class SettingsViewModel @Inject constructor(
             verifySsl = false,
             cacheCredentialsInMemory = false,
             terminalPath = "",
+            gitExecutablePath = "",
+            gitExecutable = null,
         )
     }
 }
@@ -187,6 +212,9 @@ data class SettingsViewState(
     val verifySsl: Boolean,
     val cacheCredentialsInMemory: Boolean,
     val terminalPath: String?,
+    val gitExecutablePath: String?,
+    /** Null while git is being located. */
+    val gitExecutable: Either<GitExecutable, GitCliError>?,
 )
 
 sealed interface SettingsAction {
