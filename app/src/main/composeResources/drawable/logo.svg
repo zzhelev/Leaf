@@ -1,17 +1,20 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g clip-path="url(#clip0_513_2)">
-        <rect width="512" height="512" rx="121" fill="#D3EFFF"/>
-        <path d="M277 0H235V512H277V0Z" fill="#4898F7"/>
-        <path d="M353.999 265.001L404.012 241.846C439.369 225.477 461.999 190.062 461.999 151.1L461.999 -3.99901"
-              stroke="#FF8888" stroke-width="42"/>
-        <path d="M158 265L107.987 241.845C72.6301 225.476 50 190.061 50 151.099L50 -3.99999" stroke="#FF8888"
-              stroke-width="42"/>
-        <path d="M255.914 363.828C315.513 363.828 363.828 315.513 363.828 255.914C363.828 196.315 315.513 148 255.914 148C196.315 148 148 196.315 148 255.914C148 315.513 196.315 363.828 255.914 363.828Z"
-              fill="white" stroke="#2775D1" stroke-width="24"/>
-    </g>
+<svg width="824" height="824" viewBox="0 0 824 824" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-        <clipPath id="clip0_513_2">
-            <rect width="512" height="512" rx="121" fill="white"/>
-        </clipPath>
+        <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="824">
+            <stop offset="0" stop-color="#134B30"/>
+            <stop offset="1" stop-color="#013520"/>
+        </linearGradient>
     </defs>
+    <rect x="0" y="0" width="824" height="824" rx="185" fill="url(#tile)"/>
+    <path d="M236.6 587.4A330 330 0 0 1 632.6 191.4A330 330 0 0 1 236.6 587.4Z" fill="#8EDC72"/>
+    <g stroke="url(#tile)" stroke-width="22" stroke-linecap="round">
+        <path d="M264.9 559.1L583.1 240.9"/>
+        <path d="M314.4 509.6Q287.1 445.2 315.4 370.0"/>
+        <path d="M356.8 467.2Q424.4 495.9 503.4 466.1"/>
+        <path d="M399.3 424.7Q371.3 358.9 400.3 282.2"/>
+        <path d="M441.7 382.3Q501.9 407.9 572.3 381.4"/>
+        <path d="M484.1 339.9Q462.1 287.8 484.9 227.2"/>
+        <path d="M526.6 297.4Q567.6 314.8 615.3 296.8"/>
+    </g>
+    <path d="M250.8 573.2L173.0 651.0" stroke="#8EDC72" stroke-width="30" stroke-linecap="round"/>
 </svg>
