@@ -2,6 +2,27 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Version 1.0.0 and the release workflow (branch `feature/release-workflow`)
+
+- **Version 1.0.0** (app code 26) in `app/build.gradle.kts` and `AppConstants.kt`. `latest.json` stays at code 25
+  until 1.0.0 is published, so installed copies don't announce a release that doesn't exist yet.
+- **Release workflow rewritten:**
+  - Runs on GitHub's own runners: `macos-latest` (Apple Silicon), `windows-latest`, and `ubuntu-latest` with `cross`
+    for x86_64 and aarch64.
+  - Uses the JetBrains JDK 25.
+  - Fails early when the fonts are Git LFS pointers, when the Rust library is missing, or when the tag doesn't match
+    `projectVersion`.
+  - Names files `Leaf-<version>-<platform>`, each with a `.sha256`.
+  - Creates a draft release with the built-in `GITHUB_TOKEN`.
+  - Triggers on `leaf-*` tags only, plus manual build-only runs.
+- **Windows installer:** `leaf.iss` now names it `Leaf-<version>-windows-x64-setup.exe`.
+- **Tags:** `origin` fetches only `leaf-*` tags, and Gitnuro's tags are fetched into `refs/upstream-tags/*`. The copies
+  of Gitnuro's tags in local `refs/tags` were removed, and all 24 copied Gitnuro tags were deleted from
+  `zzhelev/Leaf`, which now has only `leaf-*` tags.
+- **`leaf-0.1.0`:** published by hand as a pre-release with the macOS DMG.
+- **Verified locally:** the 1.0.0 DMG packages, the app reports 1.0.0, the tests pass, and the workflow YAML parses.
+  The workflow hasn't run on GitHub yet.
+
 ## Native access for the Rust library and JNA (branch `chore/native-access`)
 
 - **Launch option:** `--enable-native-access=ALL-UNNAMED` is in `compose.desktop.application.jvmArgs`, so packaged

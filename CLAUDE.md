@@ -45,6 +45,28 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   ```bash
   git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push https://github.com/zzhelev/Leaf.git main
   ```
+- **Tags:** Leaf's tags are `leaf-X.Y.Z`. `origin` fetches only `leaf-*` tags. Gitnuro's tags come from `upstream`
+  into `refs/upstream-tags/*` (list them with `git for-each-ref refs/upstream-tags`), so `git push --tags` never sends
+  them.
+
+## Releases
+
+- **Version:** `projectVersion` and `projectVersionSimplified` in `app/build.gradle.kts`, plus `APP_VERSION` and
+  `APP_VERSION_CODE` in `AppConstants.kt`. The code goes up by one per release. The macOS packager needs the first
+  number to be 1 or more.
+- **Steps:**
+  1. Bump the version in both files, commit and push `main`.
+  2. Tag `leaf-X.Y.Z` (it must equal `projectVersion`) and push the tag, with the push command above and
+     `refs/tags/leaf-X.Y.Z` in place of `main`.
+  3. The Release Build workflow builds everything and creates a draft release: a macOS DMG (Apple Silicon, signed ad
+     hoc), a Windows installer and portable ZIP, Linux jars (x86_64 and aarch64), and a `.sha256` file for each.
+     Review the draft, write the notes, publish.
+  4. After publishing, update `latest.json` on `main` (`appVersion`, `appCode` = the new `APP_VERSION_CODE`,
+     `downloadUrl` = the release page) and push. Installed copies then show the update banner.
+- **Test run without releasing:** Actions → Release Build → Run workflow. It only builds, and keeps the files as
+  workflow artifacts for a week.
+- `leaf-0.1.0` was published by hand before the workflow existed. It's macOS only, and the app still reported
+  2.0-beta03.
 
 ## Toolchain (verified on macOS 26.6 arm64, 2026-10-02)
 
