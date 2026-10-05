@@ -1,0 +1,23 @@
+package dev.app.leaf.data.mappers
+
+import dev.app.leaf.domain.models.Tag
+import org.eclipse.jgit.lib.Ref
+import javax.inject.Inject
+
+class JGitTagMapper @Inject constructor(): DataMapper<Tag?, Ref?> {
+    override fun toData(value: Tag?): Nothing {
+        throw NotImplementedError()
+    }
+
+    override fun toDomain(value: Ref?): Tag? {
+        val value = value ?: return null
+
+        val commitHash = value.peeledObjectId?.name ?: value.objectId?.name ?: return null
+
+        return Tag(
+            commitHash = commitHash,
+            hash = value.objectId.name,
+            name = value.name,
+        )
+    }
+}

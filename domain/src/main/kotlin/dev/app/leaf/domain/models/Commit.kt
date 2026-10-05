@@ -1,0 +1,24 @@
+package dev.app.leaf.domain.models
+
+import androidx.compose.runtime.Immutable
+
+@Immutable
+data class Commit(
+    val hash: String,
+    val message: String,
+    val committer: Identity,
+    val author: Identity,
+    val date: Long,
+    val parentsHashes: List<String>,
+) {
+    val parentCount = parentsHashes.count()
+
+    val shortHash: String
+        get() = this.hash.orEmpty().take(7)
+
+    val shortMessage: String
+        get() = this.message
+            .trimStart()
+            .replace("\r\n", "\n")
+            .takeWhile { it != '\n' }
+}

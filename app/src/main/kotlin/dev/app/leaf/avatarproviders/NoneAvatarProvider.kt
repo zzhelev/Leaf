@@ -1,0 +1,8 @@
+package dev.app.leaf.avatarproviders
+
+
+class NoneAvatarProvider : AvatarProvider {
+    override fun getAvatarUrl(hashedEmail: String): String? {
+        return null
+    }
+}
