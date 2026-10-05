@@ -2,6 +2,35 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## Own storage for Leaf (branch `feature/leaf-own-storage`)
+
+- **Leaf no longer shares data with Gitnuro.** Every storage name now comes from the fork-only `AppStorage`
+  (`common/storage/`), and none of them mention Gitnuro. On macOS, a packaged Leaf uses:
+  - the prefs node `LeafConfig` for tabs, recent repos and pane widths (was `GitnuroConfig`);
+  - `~/Library/Application Support/leaf/` for the settings file and `tmp/` (were `.../gitnuro/` and
+    `~/Library/Application/gitnuro/`);
+  - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log` (was `com.jetpackduba.Gitnuro/gitnuro.log`);
+  - `<git dir>/leaf` for per-repository settings such as sign-off (was `<git dir>/gitnuro`).
+
+  Linux and Windows use `leaf` in place of `gitnuro` or `Gitnuro` in the same paths.
+- **Fresh start.** Nothing is imported from Gitnuro. Tabs, recent repos, settings and per-repository settings start
+  empty.
+- **Dev runs are separate.** Without jpackage's `jpackage.app-version` property, Leaf uses `LeafDevConfig`, `leaf-dev`
+  and `io.github.zzhelev.leaf-dev`. So `./gradlew :app:run` can't change an installed Leaf's tabs or overwrite the
+  native library a running Leaf extracted. A Linux `java -jar` run also counts as a dev run.
+- **Fixed in passing:** the macOS app folder was `~/Library/Application/gitnuro`, missing "Support" (an upstream bug).
+- **Unchanged:** the Rust crate name, so the extracted library is still `libgitnuro_rs.dylib` (PLAN.md, rule 8).
+- **Tests:** `AppStorageTest` has four tests:
+  - packaged names;
+  - dev and packaged runs share no name;
+  - no name mentions Gitnuro;
+  - the test JVM counts as a dev run.
+- **Manual check (macOS):** with Gitnuro 1.5 running, launched and quit the packaged Leaf, then ran and stopped
+  `./gradlew :app:run`.
+  - Leaf created `LeafConfig` and the dev run created `LeafDevConfig`, each with its own folders and log.
+  - Gitnuro's prefs node and settings file were byte-for-byte unchanged.
+  - The per-repository `<git dir>/leaf` file was not exercised manually.
+
 ## macOS packaging fixes (branch `fix/macos-bundle-id`)
 
 Both bugs come from upstream commit `a9a0f318` ("Added config to build MacOS DMG"), which landed after
