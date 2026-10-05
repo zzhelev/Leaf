@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## Leaf app icon (branch `feature/leaf-icon`)
+
+- **New icon, "Midrib":** a lime leaf on a forest-green tile. Its veins are cut out of the leaf and branch off the
+  midrib the way branches leave `main`. It was designed in the Claude Design project "Leaf app icon", which also holds
+  the two rejected options.
+- **Files were replaced in place**, so no config changed. `app/build.gradle.kts`, `gitnuro.iss` and the native-image
+  reachability metadata still point at the same paths.
+  - `icons/icon.icns`: macOS grid (an 824 px tile on a 1024 px canvas), with all ten iconset sizes from 16 to 1024.
+    The old file only had 512.
+  - `icons/icon.ico`: full-bleed, at 16, 24, 32, 48, 64, 128 and 256. The old file only had 256.
+  - `icons/logo.svg` and `app/src/main/composeResources/drawable/logo.svg` (the window icon): full-bleed SVG.
+- **The SVGs use only paths, strokes and one linear gradient.** There are no masks, transforms or clip paths; the vein
+  cuts are painted with the tile's gradient. They were checked with Skia's SVG renderer, which Compose uses.
+- The display name, package names and bundle ID still say Gitnuro (PLAN.md, rule 8).
+
 ## 1.1: Git CLI adapter (branch `feature/git-cli-adapter`)
 
 The fork-only code is in `data/git/cli/` and `domain/gitcli/`.
