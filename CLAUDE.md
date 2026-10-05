@@ -103,6 +103,9 @@ rm -rf /Applications/Leaf.app && ditto app/build/compose/binaries/main/app/Leaf.
   storage (see Name), so it doesn't touch an installed Gitnuro's tabs, settings or logs.
 - The packaged skiko jar still contains `libskiko-macos-x64.dylib`, because skiko's macos-arm64 runtime jar ships both
   architectures. Only the extracted arm64 library is loaded.
+- The app starts with `--enable-native-access=ALL-UNNAMED` (`compose.desktop.application.jvmArgs`), and the Linux fat
+  jar's manifest sets `Enable-Native-Access: ALL-UNNAMED`. Without them, JDK 25 warns when the Rust library and JNA
+  load native code, and a later JDK will refuse.
 
 Packaging config lives in `app/build.gradle.kts` (`compose.desktop.nativeDistributions`). Do not touch it without
 asking.

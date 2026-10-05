@@ -2,6 +2,16 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Native access for the Rust library and JNA (branch `chore/native-access`)
+
+- **Launch option:** `--enable-native-access=ALL-UNNAMED` is in `compose.desktop.application.jvmArgs`, so packaged
+  apps on every platform and `./gradlew :app:run` start with native access.
+- **Linux fat jar:** its manifest gets `Enable-Native-Access: ALL-UNNAMED`, for `java -jar`.
+- **Why:** JDK 25 printed "A restricted method in java.lang.System has been called" when Leaf loaded the Rust library,
+  and a later JDK will refuse to load it at all.
+- **Verified:** the packaged app was launched with a temp repo. stderr stayed empty, and the Rust file watcher reported
+  a change.
+
 ## Leaf on `main` (branch `chore/use-main`)
 
 - **`main` is Leaf's branch.** The local `fork/main` became `main`, tracking `origin/main`, which is the default branch
