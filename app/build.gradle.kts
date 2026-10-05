@@ -22,7 +22,7 @@ val linuxX64Target = "x86_64-unknown-linux-gnu"
 // Remember to update Constants.APP_VERSION when changing this version
 val projectVersion = "2.0-beta03"
 
-val projectName = "Gitnuro"
+val projectName = "Leaf"
 
 // Required for JPackage, as it doesn't accept additional suffixes after the version.
 val projectVersionSimplified = "2.0.0"
@@ -162,7 +162,7 @@ compose.desktop {
                     "-Dapple.awt.application.appearance=system"
                 )
                 iconFile.set(project.file("../icons/icon.icns"))
-                bundleID = packageName
+                bundleID = "io.github.zzhelev.leaf"
                 signing {
                     sign.set(true)
                     identity.set(providers.environmentVariable("SIGNING_IDENTITY"))

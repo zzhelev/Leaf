@@ -41,8 +41,8 @@ jobs:
           repository: JetpackDuba/Gitnuro
           with:
           files: |
-            app/build/libs/Gitnuro-linux-x86_64-*.jar
-            app/build/libs/Gitnuro-linux-x86_64-*.jar.sum
+            app/build/libs/Leaf-linux-x86_64-*.jar
+            app/build/libs/Leaf-linux-x86_64-*.jar.sum
           token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
 
   build_linux_aarch64:
@@ -78,8 +78,8 @@ jobs:
           repository: JetpackDuba/Gitnuro
           with:
           files: |
-            app/build/libs/Gitnuro-linux-arm_aarch64-*.jar
-            app/build/libs/Gitnuro-linux-arm_aarch64-*.jar.sum
+            app/build/libs/Leaf-linux-arm_aarch64-*.jar
+            app/build/libs/Leaf-linux-arm_aarch64-*.jar.sum
           token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
 
   build_windows:
@@ -109,7 +109,7 @@ jobs:
           path: gitnuro.iss
           options: /O+ /DMyAppVersion="${{github.ref_name}}"
       - name: Windows portable ZIP
-        run: Compress-Archive -Path app/build/compose/binaries/main/app/Gitnuro/* -Destination Output/Gitnuro_Windows_Portable_${{github.ref_name}}.zip
+        run: Compress-Archive -Path app/build/compose/binaries/main/app/Leaf/* -Destination Output/Leaf_Windows_Portable_${{github.ref_name}}.zip
       - name: Generate SHA256 Checksum
         shell: bash
         working-directory: ./Output/
@@ -124,9 +124,9 @@ jobs:
           repository: JetpackDuba/Gitnuro
           with:
           files: |
-            Output/Gitnuro*.exe
-            Output/Gitnuro*.sum
-            Output/Gitnuro*.zip
+            Output/Leaf*.exe
+            Output/Leaf*.sum
+            Output/Leaf*.zip
           token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
 
   build_macos:
@@ -151,7 +151,7 @@ jobs:
         run: mkdir Output
       - name: MacOS DMG
         working-directory: app/build/compose/binaries/main/app/
-        run: zip -r ../../../../../../Output/Gitnuro_macos_${{github.ref_name}}.zip .
+        run: zip -r ../../../../../../Output/Leaf_macos_${{github.ref_name}}.zip .
       - name: Generate SHA256 Checksum
         working-directory: ./Output/
         run: find . -type f -exec bash -c "shasum -a 256 {}  > {}.sum " \;
@@ -165,6 +165,6 @@ jobs:
           repository: JetpackDuba/Gitnuro
           with:
           files: |
-            Output/Gitnuro*.zip
-            Output/Gitnuro*.sum
+            Output/Leaf*.zip
+            Output/Leaf*.sum
           token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}

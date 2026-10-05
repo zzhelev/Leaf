@@ -388,7 +388,7 @@ private fun Authentication(settingsViewState: SettingsViewState, onAction: (Sett
 
     SettingToggle(
         title = "Cache HTTP credentials in memory",
-        subtitle = "If active, HTTP Credentials will be remembered until Gitnuro is closed",
+        subtitle = "If active, HTTP Credentials will be remembered until Leaf is closed",
         value = cacheCredentialsInMemory,
         onValueChanged = { value ->
             onAction(SettingsAction.SetConfig(AppConfig.CacheCredentialsInMemory(value)))
@@ -416,7 +416,7 @@ fun Terminal(settingsViewState: SettingsViewState, onAction: (SettingsAction) ->
 
     SettingTextInput(
         title = "Custom terminal path",
-        subtitle = "If empty, Gitnuro will try to open the default terminal emulator",
+        subtitle = "If empty, Leaf will try to open the default terminal emulator",
         value = terminalPath,
         onValueChanged = { value ->
             onAction(SettingsAction.SetConfig(AppConfig.TerminalPath(value)))

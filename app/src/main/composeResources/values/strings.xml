@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Gitnuro</string>
+    <string name="app_name">Leaf</string>
 
     <!-- Generic -->
     <string name="generic_button_ok">OK</string>
@@ -45,7 +45,7 @@
     <string name="menu_actions">Actions</string>
     <string name="menu_actions_tooltip">Additional actions</string>
     <string name="menu_settings">Settings</string>
-    <string name="menu_settings_tooltip">Gitnuro's settings</string>
+    <string name="menu_settings_tooltip">Leaf's settings</string>
 
     <string name="rebase_interactive_view_title">Rebase interactive</string>
     <string name="rebase_interactive_view_button_complete_rebase">Complete rebase</string>
@@ -211,7 +211,7 @@
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 
-    <string name="error_repository_path_not_set">Repository path is not stored, if you believe this is a bug, please report it to Gitnuro's issue tracker.</string>
+    <string name="error_repository_path_not_set">Repository path is not stored, if you believe this is a bug, please report it to Leaf's issue tracker.</string>
     <string name="error_repository_read_error">Failed to read a repository: %1$s. Please verify the repository exists and it's accessible.</string>
 
     <string name="error_stash_no_data">No data to stash</string>
