@@ -17,7 +17,7 @@ Every change should be upstreamable to `JetpackDuba/Gitnuro` where reasonable.
 
 1. Plan before coding. For each work item, explore the relevant code, write a short plan, and wait for approval before
    implementing.
-2. One branch per work item, created off `fork/main` (see Phase 0). Keep commits small and focused.
+2. One branch per work item, created off `main` (see Phase 0). Keep commits small and focused.
 3. Stay upstreamable. Follow the existing code style and module boundaries. No unrelated refactors, no mass
    reformatting, no renames of existing packages or classes.
 4. Ask before adding dependencies, changing architecture across modules, or touching build or packaging config.
@@ -36,6 +36,8 @@ Every change should be upstreamable to `JetpackDuba/Gitnuro` where reasonable.
    lives on upstream `main` or another branch.
     * Create `fork/main` from it. That's our integration branch.
     * Keep the local `main` as a pristine mirror of upstream.
+    * Superseded on 2026-10-05: `fork/main` became `main`, published as the default branch of `zzhelev/Leaf`, and
+      the local mirror was dropped. Sync through `upstream/main` instead.
 3. Build and run on macOS.
     * Read `DEVELOPMENT.md` and follow it exactly.
     * Note the toolchain requirements: JDK version (2.0 betas reportedly need Java 25), the Rust toolchain for the `rs/`
@@ -203,8 +205,8 @@ squash-merge one, rebase one, discard one. Afterwards no stale entries remain in
 
 ## Keeping in sync with upstream
 
-* Weekly: Fetch `upstream`, fast-forward the local `main`, then rebase `fork/main` onto it, resolving conflicts in the
-  fork-only package first.
+* Weekly: Fetch `upstream` and merge `upstream/main` into `main`, resolving conflicts in the fork-only code first.
+  `main` is published, so merge instead of rebasing it.
 * After each sync: Run the full test suite, then launch the app and smoke-test the worktree sidebar.
 * Upstreaming: For each feature, keep a clean branch rebased on upstream's development line so it can become a PR
   without fork-only scaffolding.

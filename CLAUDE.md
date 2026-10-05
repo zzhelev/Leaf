@@ -16,7 +16,7 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   `dev.app.leaf.app.generated.resources`), the root Gradle project `Leaf`, the Rust crate `leaf_rs` (native library
   `libleaf_rs.dylib`) and `LeafException`.
 - **Links:** the Welcome page's "Source code" and "Report a bug", the bottom bar's Releases link, `VERSION_CHECK_URL`
-  (Leaf's `latest.json` on the `fork/main` branch) and the publishing target in `.github/workflows/release.yml` all
+  (Leaf's `latest.json` on the `main` branch) and the publishing target in `.github/workflows/release.yml` all
   point at `zzhelev/Leaf`. The release workflow still names upstream's self-hosted runners.
 - **Own storage:** every storage name comes from the fork-only `AppStorage` (`common/.../common/storage/`), so Leaf
   never reads or writes an installed Gitnuro's data. On macOS, a packaged Leaf uses:
@@ -31,10 +31,20 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
 
 ## Branches and remotes
 
-- `origin` = fork (`zzhelev/Leaf`), `upstream` = `JetpackDuba/Gitnuro`.
-- The 2.0 rewrite lives on `upstream/main` (tags `2.0.0-beta01..03`). The other upstream branches are stale.
-- Local `main` mirrors `upstream/main` (it tracks it). Never commit to it.
-- `fork/main` is the integration branch (created from `upstream/main`). Work items branch off `fork/main`.
+- `origin` = Leaf (`zzhelev/Leaf`), `upstream` = `JetpackDuba/Gitnuro`.
+- `main` is Leaf's integration branch. It tracks `origin/main`, which is the default branch on GitHub. Work items
+  branch off `main`. Until 2026-10-05 it was called `fork/main`, and the local `main` mirrored upstream.
+- The 2.0 rewrite lives on `upstream/main` (tags `2.0.0-beta01..03`). The other upstream branches are stale. There is
+  no local mirror branch: sync by fetching `upstream` and merging `upstream/main` into `main`. `main` is published, so
+  never rebase it.
+- **Commit identity:** `Zhelyazko Zhelev <zzhelev@gmail.com>`, set in the repo's own `.git/config`. Never commit under
+  another identity.
+- **Pushing:** the SSH key on this machine belongs to another GitHub account and can't push to `zzhelev/Leaf`. Push over
+  HTTPS with the `gh` login (zzhelev, which has the `workflow` scope that changes to `.github/workflows/` need):
+
+  ```bash
+  git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push https://github.com/zzhelev/Leaf.git main
+  ```
 
 ## Toolchain (verified on macOS 26.6 arm64, 2026-10-02)
 

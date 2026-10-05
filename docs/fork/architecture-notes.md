@@ -220,8 +220,9 @@ worktree references.
   - The 2.0 rewrite is on `upstream/main`. `2.0.0-beta03` is an ancestor of it, and HEAD is `2.0.0-beta03-4-g62442f26`.
   - The other upstream branches are stale: `devel_extend_terminal_button` and `devel_multifile_selection` (2024-12),
     `persist_graph_padding` (2023-11), and `re2` (one unmerged commit from 2026-06-03, "Added progress logs to push").
-- **Local branches.** `fork/main` was created from `upstream/main` with no tracking set. Local `main` already tracks
-  `upstream/main`.
+- **Local branches.** `fork/main` was created from `upstream/main` with no tracking set, and local `main` tracked
+  `upstream/main`. Since 2026-10-05, `main` is Leaf's branch and tracks `origin/main`, and there is no local mirror of
+  upstream.
 
 ### State, refresh and concurrency
 

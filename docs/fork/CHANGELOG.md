@@ -1,6 +1,19 @@
 # Fork changelog
 
-This file covers fork-only changes on `fork/main`. Upstream history is in git.
+This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
+
+## Leaf on `main` (branch `chore/use-main`)
+
+- **`main` is Leaf's branch.** The local `fork/main` became `main`, tracking `origin/main`, which is the default branch
+  of `zzhelev/Leaf`. The local mirror of upstream's `main` was dropped. Syncing goes through `upstream/main` and is a
+  merge, because `main` is published.
+- **Update check:** reads `latest.json` from `refs/heads/main`.
+- **Before the first push**, the fork's commits were rewritten to the identity `Zhelyazko Zhelev <zzhelev@gmail.com>`.
+  Only the author and committer emails changed: trees, messages and author dates are the same. The repo's own
+  `.git/config` now sets that identity.
+- **Funding:** `.github/FUNDING.yml` points the Sponsor button at `zzhelev`.
+- **CLAUDE.md** records the branch model, the commit identity, and how to push: over HTTPS through `gh`, because the
+  machine's SSH key belongs to another account.
 
 ## AGPL for Leaf's own code, and the Leaf name (branch `feature/leaf-identity`)
 
