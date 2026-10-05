@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## macOS packaging fixes (branch `fix/macos-bundle-id`)
+
+Both bugs come from upstream commit `a9a0f318` ("Added config to build MacOS DMG"), which landed after
+`2.0.0-beta03`.
+
+- **Bundle ID was null.** Inside `macOS { }`, `packageName` resolved to the DSL's own nullable `packageName`, not the
+  script's value, so `createDistributable` failed with "bundleID is empty or null". The Leaf rename replaced it with
+  the literal `io.github.zzhelev.leaf`, which fixes it in the fork, so this branch has no commit for it.
+- **Signing couldn't be turned off.** `sign.set(true)` overrode the `compose.desktop.mac.sign` Gradle property. In
+  Compose 1.12.0 the property only sets the default, despite what the Compose docs say. Signing stays on by default,
+  and `-Pcompose.desktop.mac.sign=false` now turns it off.
+- **Verified:** `:app:packageDmg` with a JBR SDK 25 produces `Leaf-2.0.0.dmg` (175 MB).
+  - All 46 native binaries in `Leaf.app`, and `libgitnuro_rs.dylib` inside the app jar, are arm64.
+  - `codesign --verify --deep --strict` passes (ad hoc signature).
+  - The bundled runtime has no `/opt/homebrew` links, and the real fonts are packed.
+- **Not yet done:** launching the packaged app. Leaf still shares `GitnuroConfig` with an installed Gitnuro.
+
 ## Renamed to Leaf (branch `feature/rename-to-leaf`)
 
 This is one isolated commit touching only display name and packaging (PLAN.md, rule 8).

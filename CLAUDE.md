@@ -34,6 +34,18 @@ The fork ships as **Leaf**. Only the display name and packaging changed.
   On this machine, IntelliJ IDEA's bundled runtime works:
   `export JAVA_HOME="$HOME/Applications/IntelliJ IDEA.app/Contents/jbr/Contents/Home"` (JBR 25.0.4.1).
   DEVELOPMENT.md still says "JDK 17 or higher", which is outdated.
+- **Packaging needs a full JDK 25 with jmods.** IntelliJ's bundled JBR has no `jlink` or `jpackage`, so it builds and
+  runs the app but can't package it. Tried on 2026-10-05:
+  - JBR SDK 25 (`jbrsdk-25.0.4.1-osx-aarch64-*.tar.gz` from the JetBrainsRuntime GitHub releases): works. It has
+    jmods and no Homebrew links, and upstream CI uses the JetBrains distribution too. On this machine it is at
+    `~/Library/Java/JavaVirtualMachines/jbrsdk-25.0.4.1/Contents/Home`.
+  - Homebrew `openjdk@25`: rejected by Compose's `checkRuntime`. Its native libraries link to `/opt/homebrew`
+    (harfbuzz, freetype and others), and a packaged app crashes on launch without them (compose-multiplatform#3107).
+  - Temurin 25: ships no jmods, so `jlink` can't build an image containing `jdk.jlink`, which
+    `includeAllModules = true` asks for.
+- **Git LFS.** The 27 fonts in `app/src/main/composeResources/font/` are LFS-tracked. Without `git-lfs` they are
+  131-byte pointer files, and every build (dev runs too) ships broken fonts. Install `git-lfs`, then run `git lfs pull`.
+  `git lfs ls-files` marks downloaded files with `*` and pointer-only files with `-`.
 - Gradle 9.3.1, via the wrapper.
 - **Rust nightly.** `rs/rust-toolchain.toml` pins `nightly`, and rustup installs it automatically on first use.
   `cargo` must be on `PATH` (`~/.cargo/bin`).
@@ -54,8 +66,27 @@ Run everything from the repo root, with `JAVA_HOME` set as above.
 ./gradlew :app:run --args="/path/to/repo"  # launch and open a repo/dir in a new tab (App.getDirToOpen)
 ```
 
-Not yet verified: packaging (`:app:packageDmg`, `:app:createDistributable`). Packaging config lives in
-`app/build.gradle.kts` (`compose.desktop.nativeDistributions`). Do not touch it without asking.
+Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOME` (see Toolchain):
+
+```bash
+./gradlew :app:createDistributable -Pcompose.desktop.mac.sign=false  # .app in app/build/compose/binaries/main/app/
+./gradlew :app:packageDmg -Pcompose.desktop.mac.sign=false           # .dmg in app/build/compose/binaries/main/dmg/
+rm -rf /Applications/Leaf.app && ditto app/build/compose/binaries/main/app/Leaf.app /Applications/Leaf.app
+```
+
+- The last line installs without the DMG. Remove the old app first: `ditto` merges into an existing bundle, and jar
+  names change between builds, so leftover jars would break the code signature.
+
+- Without a Developer ID certificate, pass `-Pcompose.desktop.mac.sign=false`. jpackage then signs ad hoc, with the
+  hardened runtime and the JIT and library-validation entitlements the JVM needs. That build runs on the machine that
+  built it. Sharing it needs a Developer ID and notarization (`SIGNING_IDENTITY` and `NOTARIZATION_*` env vars).
+- The app is `Leaf.app` with bundle ID `io.github.zzhelev.leaf`, so it installs alongside Gitnuro. It still shares the
+  `GitnuroConfig` prefs, DataStore and logs with an installed Gitnuro (see Name and Build gotchas).
+- The packaged skiko jar still contains `libskiko-macos-x64.dylib`, because skiko's macos-arm64 runtime jar ships both
+  architectures. Only the extracted arm64 library is loaded.
+
+Packaging config lives in `app/build.gradle.kts` (`compose.desktop.nativeDistributions`). Do not touch it without
+asking.
 
 ### Build gotchas
 

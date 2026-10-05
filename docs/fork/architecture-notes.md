@@ -255,4 +255,8 @@ All verified in source.
 - `A/repositoryopen/RepositoryOpenViewModel.kt:1037-1046`: `openSubmodule` builds `"$repositoryPath/$path"` from
   the git dir, which gives `/repo/.git/<sub>`. It should use the working tree, and its own TODO says so.
 - `app/build.gradle.kts`: Rust build failures are ignored (`isIgnoreExitValue = true`).
+- `app/build.gradle.kts` (from upstream `a9a0f318`): inside `macOS { }`, `bundleID = packageName` read the DSL's null
+  `packageName`, and `sign.set(true)` blocked the `compose.desktop.mac.sign` opt-out. In the fork, the Leaf rename's
+  literal bundle ID fixes the first and `fix/macos-bundle-id` fixes the second. Both are candidates for an upstream PR.
 - `DEVELOPMENT.md` is outdated: it says JDK 17+ (25 is needed) and that `cargo-kotars` is required (uniffi is used now).
+  It also doesn't mention Git LFS, which the fonts need.
