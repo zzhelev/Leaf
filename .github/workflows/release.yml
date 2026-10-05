@@ -38,7 +38,7 @@ jobs:
           body: "Beta release"
           prerelease: true
           draft: true
-          repository: JetpackDuba/Gitnuro
+          repository: zzhelev/Leaf
           with:
           files: |
             app/build/libs/Leaf-linux-x86_64-*.jar
@@ -75,7 +75,7 @@ jobs:
           body: "Beta release"
           prerelease: true
           draft: true
-          repository: JetpackDuba/Gitnuro
+          repository: zzhelev/Leaf
           with:
           files: |
             app/build/libs/Leaf-linux-arm_aarch64-*.jar
@@ -106,7 +106,7 @@ jobs:
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          path: gitnuro.iss
+          path: leaf.iss
           options: /O+ /DMyAppVersion="${{github.ref_name}}"
       - name: Windows portable ZIP
         run: Compress-Archive -Path app/build/compose/binaries/main/app/Leaf/* -Destination Output/Leaf_Windows_Portable_${{github.ref_name}}.zip
@@ -121,7 +121,7 @@ jobs:
           body: "Beta release"
           prerelease: true
           draft: true
-          repository: JetpackDuba/Gitnuro
+          repository: zzhelev/Leaf
           with:
           files: |
             Output/Leaf*.exe
@@ -162,7 +162,7 @@ jobs:
           body: "Beta release"
           prerelease: true
           draft: true
-          repository: JetpackDuba/Gitnuro
+          repository: zzhelev/Leaf
           with:
           files: |
             Output/Leaf*.zip

@@ -258,7 +258,7 @@ fun HomeButtons(
             title = stringResource(Res.string.home_button_source_code),
             painter = painterResource(Res.drawable.code),
             onClick = {
-                onOpenUrlInBrowser("https://github.com/JetpackDuba/Gitnuro")
+                onOpenUrlInBrowser("https://github.com/zzhelev/Leaf")
             }
         )
 
@@ -266,7 +266,7 @@ fun HomeButtons(
             title = stringResource(Res.string.home_button_report_bug),
             painter = painterResource(Res.drawable.bug),
             onClick = {
-                onOpenUrlInBrowser("https://github.com/JetpackDuba/Gitnuro/issues")
+                onOpenUrlInBrowser("https://github.com/zzhelev/Leaf/issues")
             }
         )
 

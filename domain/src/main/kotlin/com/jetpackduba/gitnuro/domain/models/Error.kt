@@ -1,6 +1,6 @@
 package com.jetpackduba.gitnuro.domain.models
 
-import com.jetpackduba.gitnuro.domain.exceptions.GitnuroException
+import com.jetpackduba.gitnuro.domain.exceptions.LeafException
 
 data class Error(
     val taskType: TaskType,
@@ -18,6 +18,6 @@ fun newErrorNow(
         taskType = taskType,
         date = System.currentTimeMillis(),
         exception = exception,
-        isUnhandled = exception !is GitnuroException
+        isUnhandled = exception !is LeafException
     )
 }

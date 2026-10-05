@@ -48,7 +48,7 @@ fun BottomInfoBar(
             style = MaterialTheme.typography.body2,
             maxLines = 1,
             modifier = Modifier.handMouseClickable {
-                onOpenUrlInBrowser("https://github.com/JetpackDuba/Gitnuro/releases")
+                onOpenUrlInBrowser("https://github.com/zzhelev/Leaf/releases")
             }
         )
     }

@@ -1,3 +1,3 @@
 package com.jetpackduba.gitnuro.domain.exceptions
 
-class HookException(message: String): GitnuroException(message)
+class HookException(message: String): LeafException(message)

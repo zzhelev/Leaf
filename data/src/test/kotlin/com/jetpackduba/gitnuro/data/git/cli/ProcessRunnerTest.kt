@@ -44,8 +44,8 @@ class ProcessRunnerTest {
     @Test
     fun `adds and removes environment variables`() {
         val outcome = sh(
-            "echo \"\$GITNURO_TEST_VARIABLE|\${HOME-removed}\"",
-            environment = mapOf("GITNURO_TEST_VARIABLE" to "added", "HOME" to null),
+            "echo \"\$LEAF_TEST_VARIABLE|\${HOME-removed}\"",
+            environment = mapOf("LEAF_TEST_VARIABLE" to "added", "HOME" to null),
         )
 
         assertEquals(ProcessOutcome.Completed(0, "added|removed\n", ""), outcome)

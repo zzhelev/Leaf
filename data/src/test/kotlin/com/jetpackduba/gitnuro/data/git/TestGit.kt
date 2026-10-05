@@ -36,7 +36,7 @@ class TestGitCli(private val emptyGlobalConfig: File) {
 
         val command = listOf(
             "git",
-            "-c", "user.name=Gitnuro Test",
+            "-c", "user.name=Leaf Test",
             "-c", "user.email=test@example.invalid",
             "-c", "init.defaultBranch=main",
             "-c", "commit.gpgSign=false",

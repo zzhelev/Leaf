@@ -116,7 +116,7 @@ class NoAutoGcSystemReaderTest {
             save()
         }
 
-        val ident = PersonIdent("Gitnuro Test", "test@example.invalid")
+        val ident = PersonIdent("Leaf Test", "test@example.invalid")
         Git(repository).commit()
             .setMessage("Initial commit")
             .setAllowEmpty(true)
