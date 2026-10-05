@@ -3,6 +3,7 @@ package com.jetpackduba.gitnuro.domain
 import com.jetpackduba.gitnuro.common.OS
 import com.jetpackduba.gitnuro.common.currentOs
 import com.jetpackduba.gitnuro.common.printError
+import com.jetpackduba.gitnuro.common.storage.AppStorage
 import com.jetpackduba.gitnuro.domain.extensions.openDirectory
 import java.io.File
 import javax.inject.Inject
@@ -39,7 +40,7 @@ class AppFilesManager @Inject constructor() {
             }
 
             OS.WINDOWS -> System.getenv("APPDATA").orEmpty()
-            OS.MAC -> System.getProperty("user.home") + "/Library/Application"
+            OS.MAC -> System.getProperty("user.home") + "/Library/Application Support"
             else -> {
                 printError(TAG, "Unknown OS")
                 throw Exception("Invalid OS")
@@ -50,7 +51,7 @@ class AppFilesManager @Inject constructor() {
 
         baseFolder.mkdirs()
 
-        val appFolder = File(baseFolder, "gitnuro")
+        val appFolder = File(baseFolder, AppStorage.current.directoryName)
         // TODO test if mkdir fails for some reason
         if (!appFolder.exists() || !appFolder.isDirectory)
             appFolder.mkdir()

@@ -2,6 +2,7 @@ package com.jetpackduba.gitnuro
 
 import com.jetpackduba.gitnuro.common.OS
 import com.jetpackduba.gitnuro.common.currentOs
+import com.jetpackduba.gitnuro.common.storage.AppStorage
 import com.jetpackduba.gitnuro.domain.extensions.openDirectory
 import org.apache.log4j.*
 import java.io.File
@@ -50,12 +51,12 @@ class LogsRepository @Inject constructor() {
     private fun defaultLogsPath(): File {
         val homePath = System.getProperty("user.home").orEmpty()
 
-        return File("$homePath/gitnuro/")
+        return File("$homePath/${AppStorage.current.directoryName}/")
     }
 
     private fun macLogsDirectory(): File {
         val logsDir = File(System.getProperty("user.home") + "/Library/Logs/")
-            .openDirectory("com.jetpackduba.Gitnuro")
+            .openDirectory(AppStorage.current.macLogsDirectoryName)
 
         return logsDir
     }
@@ -63,8 +64,8 @@ class LogsRepository @Inject constructor() {
     private fun windowsLogsDirectory(): File {
         val localAppData = System.getenv("LOCALAPPDATA")
 
-        val gitnuroDir = File(localAppData).openDirectory("Gitnuro")
-        val logsDir = gitnuroDir.openDirectory("logs")
+        val appDir = File(localAppData).openDirectory(AppStorage.current.directoryName)
+        val logsDir = appDir.openDirectory("logs")
 
         return logsDir
     }
@@ -79,14 +80,14 @@ class LogsRepository @Inject constructor() {
         else
             xdgStateHome
 
-        val gitnuroDir = File(safeXdgStateHome).openDirectory("gitnuro")
-        val logsDir = gitnuroDir.openDirectory("logs")
+        val appDir = File(safeXdgStateHome).openDirectory(AppStorage.current.directoryName)
+        val logsDir = appDir.openDirectory("logs")
 
         return logsDir
     }
 
     private fun logsFile(): String {
-        val file = File(logsDirectory, "gitnuro.log")
+        val file = File(logsDirectory, AppStorage.LOG_FILE_NAME)
 
         return file.absolutePath
     }

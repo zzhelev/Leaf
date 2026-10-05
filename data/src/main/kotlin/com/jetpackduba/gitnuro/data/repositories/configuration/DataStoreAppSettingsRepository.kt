@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import com.jetpackduba.gitnuro.common.OS
 import com.jetpackduba.gitnuro.common.currentOs
+import com.jetpackduba.gitnuro.common.storage.AppStorage
 import com.jetpackduba.gitnuro.common.systemSeparator
 import com.jetpackduba.gitnuro.data.UserSettingsDataStore
 import com.jetpackduba.gitnuro.data.repositories.configuration.mappers.AvatarProviderMapper
@@ -18,8 +19,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import java.util.prefs.Preferences as LegacyPreferences
-
-private const val PREFERENCES_NAME = "GitnuroConfig"
 
 private const val PREF_LATEST_REPOSITORIES_TABS_OPENED = "latestRepositoriesTabsOpened"
 private const val PREF_LATEST_REPOSITORY_TAB_SELECTED = "latestRepositoryTabSelected"
@@ -173,7 +172,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
         }
     }
 
-    private val preferencesLegacy: LegacyPreferences = LegacyPreferences.userRoot().node(PREFERENCES_NAME)
+    private val preferencesLegacy: LegacyPreferences =
+        LegacyPreferences.userRoot().node(AppStorage.current.preferencesNode)
 
     override var latestTabsOpened: String
         get() = preferencesLegacy.get(PREF_LATEST_REPOSITORIES_TABS_OPENED, "")
@@ -228,9 +228,9 @@ fun initPreferencesPath() {
 
         val settingsPath = if (xdgConfigHome.isNullOrBlank()) {
             val home = System.getProperty("user.home").orEmpty()
-            "$home/.config/gitnuro"
+            "$home/.config/${AppStorage.current.directoryName}"
         } else {
-            "$xdgConfigHome/gitnuro"
+            "$xdgConfigHome/${AppStorage.current.directoryName}"
         }
 
         System.setProperty("java.util.prefs.userRoot", settingsPath)
@@ -246,20 +246,20 @@ fun getPreferencesPath(): String {
             val xdgConfigHome: String? = System.getenv("XDG_CONFIG_HOME")
 
             val settingsPath = if (xdgConfigHome.isNullOrBlank()) {
-                "$home/.config/gitnuro"
+                "$home/.config/${AppStorage.current.directoryName}"
             } else {
-                "$xdgConfigHome/gitnuro"
+                "$xdgConfigHome/${AppStorage.current.directoryName}"
             }
 
             settingsPath
         }
 
         OS.MAC -> {
-            "$home/Library/Application Support/gitnuro"
+            "$home/Library/Application Support/${AppStorage.current.directoryName}"
         }
 
         else -> {
-            System.getProperty("java.util.prefs.userRoot") ?: "$home${systemSeparator}gitnuro"
+            System.getProperty("java.util.prefs.userRoot") ?: "$home$systemSeparator${AppStorage.current.directoryName}"
         }
     } + systemSeparator + "user_prefs.preferences_pb"
 }
