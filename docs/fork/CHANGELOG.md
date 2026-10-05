@@ -2,6 +2,28 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## Leaf identity (branch `feature/leaf-identity`)
+
+- **Links:** "Source code", "Report a bug" and "Releases" open `github.com/zzhelev/Leaf`.
+- **Update check:** reads `latest.json` from `zzhelev/Leaf` on the `fork/main` branch. `latest.json` now describes Leaf
+  (2.0-beta03, app code 25). Until `fork/main` is on GitHub, the URL returns 404, the JSON parse throws, and that
+  update check stops with a stack trace on stderr, as it does offline.
+- **Release workflow:** publishes to `zzhelev/Leaf`. It still names upstream's self-hosted runners.
+- **Renamed:** `gitnuro.iss` to `leaf.iss`, the root Gradle project to `Leaf`, `GitnuroException` to `LeafException`,
+  and the Gitnuro names in the test fixtures.
+- **Kotlin package** `com.jetpackduba.gitnuro` is now `dev.app.leaf`. The Gradle group, the Compose `Res` package
+  (`dev.app.leaf.app.generated.resources`), the main class, the uniffi package and the GraalVM metadata (now in
+  `META-INF/native-image/leaf/`) follow. Git records 72 small files as deleted and added rather than renamed, because
+  most of their lines changed, so `git log --follow` may not connect their history.
+- **Rust crate** `gitnuro_rs` is now `leaf_rs`: the native library is `libleaf_rs.dylib` and the bindings are
+  `leaf_rs.kt`.
+- **Kept on purpose:** the "based on Gitnuro" credit, the `libssh-rs` and `kotars` dependencies from JetpackDuba's
+  repositories, and the bundle ID `io.github.zzhelev.leaf`.
+- **Verified:** after a clean build all 45 tests pass. The packaged app was launched with a temp repo:
+  - the Rust file watcher reported a file change;
+  - the extracted native library is `libleaf_rs.dylib`;
+  - stderr has no exceptions besides the update check.
+
 ## README and DEVELOPMENT.md for Leaf (branch `docs/leaf-readme`)
 
 - **README.md** now describes Leaf. It opens with a "Built on Gitnuro" section that credits Gitnuro and its author,

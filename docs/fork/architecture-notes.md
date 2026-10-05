@@ -11,8 +11,8 @@
 same way Gitnuro does, and is driven by `docs/fork/probes/worktree-probe.sh` against throwaway repos in `$TMPDIR`.
 Re-run the script after a JGit upgrade or a Phase 1 fix. Line numbers are relative to `62442f26`.
 
-Path prefixes: `A/` = `app/src/main/kotlin/com/jetpackduba/gitnuro/`,
-`D/` = `domain/src/main/kotlin/com/jetpackduba/gitnuro/domain/`, `G/` = `data/src/main/kotlin/com/jetpackduba/gitnuro/data/git/`.
+Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`,
+`D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`, `G/` = `data/src/main/kotlin/dev/app/leaf/data/git/`.
 
 ## Summary
 
