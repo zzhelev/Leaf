@@ -138,8 +138,19 @@ Colors are in ARGB Hex format.
 
 > Why isn't the Mac version signed?
 
-Leaf isn't distributed as a signed and notarized app yet. A build you make yourself is signed ad hoc and runs on the
-machine that built it.
+Leaf isn't distributed as a signed and notarized app yet, because that needs a paid Apple Developer account. A build you
+make yourself is signed ad hoc and runs on the machine that built it.
+
+macOS quarantines a build you download and then refuses to open it, saying that Leaf "is damaged and can't be opened"
+or that Apple could not verify it. Move Leaf to Applications, then remove the quarantine flag in Terminal. `sudo` is
+needed because some license files inside the app are read-only:
+
+```
+sudo xattr -dr com.apple.quarantine /Applications/Leaf.app
+```
+
+This skips Gatekeeper's check for Leaf, so only do it for a copy from a source you trust, such as Leaf's GitHub
+releases.
 
 > Authentication has failed. What's wrong?
 
