@@ -1,170 +1,193 @@
 name: Release Build
 
+# Builds Leaf for macOS (Apple Silicon), Windows (x64) and Linux (x86_64 and aarch64 jars).
+# - Pushing a tag named leaf-X.Y.Z builds everything and creates a draft GitHub release with the files attached.
+#   The tag must match projectVersion in app/build.gradle.kts. Review the draft, write the notes, then publish it.
+# - Running the workflow by hand (Actions tab, "Run workflow") only builds. The files are kept as workflow artifacts
+#   for a week.
+# The macOS build is signed ad hoc. Signing with a Developer ID and notarizing need Apple credentials as secrets.
+
 on:
   push:
     tags:
-      - '**'
+      - 'leaf-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build_linux_x86_64:
-    runs-on: [self-hosted, linux]
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          lfs: true
-      - name: Git LFS Pull
-        run: git lfs pull
-      - name: Verify LFS fonts are present
-        run: ls -lah app/src/main/composeResources/font
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install cross
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
-        with:
-          java-version: '25'
-          distribution: 'jetbrains'
-          architecture: x64
-      - name: Java version
-        run: java --version
-      - name: Build with Gradle
-        run: ./gradlew fatJarLinux -PisLinuxAarch64=false -PuseCross=true
-      - name: Generate SHA256 Checksum
-        working-directory: ./app/build/libs
-        run: find . -type f -exec bash -c "sha256sum {}  > {}.sum " \;
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          body: "Beta release"
-          prerelease: true
-          draft: true
-          repository: zzhelev/Leaf
-          with:
-          files: |
-            app/build/libs/Leaf-linux-x86_64-*.jar
-            app/build/libs/Leaf-linux-x86_64-*.jar.sum
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-
-  build_linux_aarch64:
-    runs-on: [self-hosted, linux]
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          lfs: true
-      - name: Git LFS Pull
-        run: git lfs pull
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-gnu
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
-        with:
-          java-version: '25'
-          distribution: 'jetbrains'
-          architecture: x64
-      - run: cargo install cross
-      - name: Build with Gradle
-        run: ./gradlew fatJarLinux -PisLinuxAarch64=true -PuseCross=true
-      - name: Generate SHA256 Checksum
-        working-directory: ./app/build/libs
-        run: find . -type f -exec bash -c "sha256sum {}  > {}.sum " \;
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          body: "Beta release"
-          prerelease: true
-          draft: true
-          repository: zzhelev/Leaf
-          with:
-          files: |
-            app/build/libs/Leaf-linux-arm_aarch64-*.jar
-            app/build/libs/Leaf-linux-arm_aarch64-*.jar.sum
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-
-  build_windows:
-    runs-on: windows-latest
-    steps:
-      - name: Print Tag
-        run: echo ${{github.ref_name}}
-      - uses: actions/checkout@v7
-        with:
-          lfs: true
-      - name: Git LFS Pull
-        run: git lfs pull
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
-        with:
-          java-version: '25'
-          distribution: 'jetbrains'
-          architecture: x64
-      - name: Run rust tasks
-        run: cmd /C gradlew.bat rustTasks
-      - name: Run gradle build
-        run: cmd /C gradlew.bat createDistributable
-      - name: Compile .ISS to .EXE Installer
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-        with:
-          path: leaf.iss
-          options: /O+ /DMyAppVersion="${{github.ref_name}}"
-      - name: Windows portable ZIP
-        run: Compress-Archive -Path app/build/compose/binaries/main/app/Leaf/* -Destination Output/Leaf_Windows_Portable_${{github.ref_name}}.zip
-      - name: Generate SHA256 Checksum
-        shell: bash
-        working-directory: ./Output/
-        run: find -type f -exec bash -c "sha256sum {}  > {}.sum " \;
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          body: "Beta release"
-          prerelease: true
-          draft: true
-          repository: zzhelev/Leaf
-          with:
-          files: |
-            Output/Leaf*.exe
-            Output/Leaf*.sum
-            Output/Leaf*.zip
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+      - id: version
+        name: Work out the version
+        run: |
+          declared=$(sed -n 's/^val projectVersion = "\(.*\)"$/\1/p' app/build.gradle.kts)
+          if [[ "$GITHUB_REF" == refs/tags/leaf-* ]]; then
+            version="${GITHUB_REF_NAME#leaf-}"
+            if [[ "$version" != "$declared" ]]; then
+              echo "::error::Tag $GITHUB_REF_NAME doesn't match projectVersion $declared in app/build.gradle.kts"
+              exit 1
+            fi
+          else
+            version="$declared-dev.${GITHUB_SHA::8}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
 
   build_macos:
-    runs-on: [self-hosted, macOS]
+    needs: version
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
           lfs: true
-      - name: Git LFS Pull
-        run: git lfs pull
+      - name: Check the fonts are real files, not Git LFS pointers
+        run: |
+          if find app/src/main/composeResources/font -name '*.ttf' -size -2k | grep -q .; then
+            echo "::error::The fonts are Git LFS pointers"
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@stable
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
+      - name: Set up the JetBrains JDK 25, which includes jlink, jpackage and the jmods
+        uses: actions/setup-java@v6
         with:
           java-version: '25'
           distribution: 'jetbrains'
-      - name: Run rust tasks
-        run: ./gradlew rustTasks
-      - name: Build with Gradle
-        run: ./gradlew createDistributable
-      - name: Create output directory
-        run: mkdir Output
-      - name: MacOS DMG
-        working-directory: app/build/compose/binaries/main/app/
-        run: zip -r ../../../../../../Output/Leaf_macos_${{github.ref_name}}.zip .
-      - name: Generate SHA256 Checksum
-        working-directory: ./Output/
-        run: find . -type f -exec bash -c "shasum -a 256 {}  > {}.sum " \;
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Build the DMG
+        run: ./gradlew :app:packageDmg -Pcompose.desktop.mac.sign=false
+      - name: Check the Rust library was built
+        run: test -f app/src/main/resources/libleaf_rs.dylib
+      - name: Collect the files
+        run: |
+          mkdir Output
+          mv app/build/compose/binaries/main/dmg/Leaf-*.dmg "Output/Leaf-$VERSION-macos-arm64.dmg"
+          cd Output && for f in *; do shasum -a 256 "$f" > "$f.sha256"; done
+      - uses: actions/upload-artifact@v7
         with:
-          body: "Beta release"
-          prerelease: true
+          name: leaf-macos-arm64
+          path: Output/*
+          retention-days: 7
+
+  build_windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - name: Check the fonts are real files, not Git LFS pointers
+        shell: bash
+        run: |
+          if find app/src/main/composeResources/font -name '*.ttf' -size -2k | grep -q .; then
+            echo "::error::The fonts are Git LFS pointers"
+            exit 1
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Set up the JetBrains JDK 25, which includes jlink, jpackage and the jmods
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'jetbrains'
+          architecture: x64
+      - name: Build the app
+        shell: cmd
+        run: gradlew.bat createDistributable
+      - name: Check the Rust library was built
+        shell: bash
+        run: test -f app/src/main/resources/leaf_rs.dll
+      - name: Build the installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
+        with:
+          path: leaf.iss
+          options: /O+ /DMyAppVersion=${{ needs.version.outputs.version }}
+      - name: Build the portable ZIP
+        shell: pwsh
+        run: Compress-Archive -Path app/build/compose/binaries/main/app/Leaf/* -DestinationPath "Output/Leaf-$env:VERSION-windows-x64-portable.zip"
+      - name: Add checksums
+        shell: bash
+        run: cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: leaf-windows-x64
+          path: Output/*
+          retention-days: 7
+
+  build_linux:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suffix: x86_64
+            aarch64: 'false'
+            target: x86_64-unknown-linux-gnu
+          - suffix: arm_aarch64
+            aarch64: 'true'
+            target: aarch64-unknown-linux-gnu
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - name: Check the fonts are real files, not Git LFS pointers
+        run: |
+          if find app/src/main/composeResources/font -name '*.ttf' -size -2k | grep -q .; then
+            echo "::error::The fonts are Git LFS pointers"
+            exit 1
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cross and the Rust target
+        run: |
+          cargo install cross --locked
+          cd rs && rustup target add ${{ matrix.target }}
+      - name: Set up the JetBrains JDK 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'jetbrains'
+          architecture: x64
+      - name: Build the jar
+        run: ./gradlew fatJarLinux -PisLinuxAarch64=${{ matrix.aarch64 }} -PuseCross=true
+      - name: Check the Rust library was built
+        run: test -f app/src/main/resources/libleaf_rs.so
+      - name: Collect the files
+        run: |
+          mkdir Output
+          mv app/build/libs/Leaf-linux-${{ matrix.suffix }}-*.jar "Output/Leaf-$VERSION-linux-${{ matrix.suffix }}.jar"
+          cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: leaf-linux-${{ matrix.suffix }}
+          path: Output/*
+          retention-days: 7
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/leaf-')
+    needs: [version, build_macos, build_windows, build_linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: Output
+          merge-multiple: true
+      - name: Create a draft release
+        uses: softprops/action-gh-release@v3
+        with:
           draft: true
-          repository: zzhelev/Leaf
-          with:
-          files: |
-            Output/Leaf*.zip
-            Output/Leaf*.sum
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+          name: Leaf ${{ needs.version.outputs.version }}
+          body: |
+            Draft created by the release workflow. Write the release notes, then publish it.
+          files: Output/*
