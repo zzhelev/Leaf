@@ -1,36 +1,33 @@
-# Gitnuro - Multiplatform Git Client
+# Leaf - Multiplatform Git Client
 
-[![Latest release](https://img.shields.io/github/v/release/JetpackDuba/Gitnuro?color=blue&label=latest%20release)](https://github.com/JetpackDuba/Gitnuro/releases/latest)
+## Built on Gitnuro
 
-![Icon](res/img/cover.png)
+Leaf is built on [Gitnuro](https://github.com/JetpackDuba/Gitnuro), the open source Git client created by Abdelilah El
+Aissaoui with the help of its contributors. Gitnuro offered a foundation very close to one I had in mind and was
+planning to build myself, and I'm grateful for the work and care that went into it.
+
+Leaf develops that foundation along a different roadmap, centred on first-class support for git worktrees in workflows
+where AI coding agents work side by side. Those ideas needed to move quickly, so Leaf continues as its own project. It
+was forked from Gitnuro's 2.0 development branch in October 2026 and keeps Gitnuro's license, the GNU General Public
+License v3.0.
+
+If both projects keep evolving and their directions line up, I'd be glad to see work and ideas shared between them, in
+either direction.
+
+## About
 
 A FOSS Git client based on (Jetbrains) Compose and JGit.
 
-The main goal of Gitnuro is to provide a multiplatform open source Git client without any kind of constraint to how you
-can use it nor relying on web technologies.
+Leaf shares Gitnuro's goal of a multiplatform open source Git client, without any kind of constraint to how you can use
+it and without relying on web technologies.
 
 ## Download/Install
 
-Linux:
-
-- Available as Flatpak [here](https://flathub.org/apps/details/com.jetpackduba.Gitnuro) or by
-  running `flatpak install com.jetpackduba.Gitnuro` if you have Flatpak & Flathub already setup.
-    - If Flathub is not set up, you can add the source with the following
-      command `flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo`.
-- JAR file can be executed as a portable version (Requires JRE 17).
-
-Windows:
-
-- [Installable & portable version](https://github.com/JetpackDuba/Gitnuro/releases/latest).
-
-MacOS:
-
-- [ZIP which contains the app bundle](https://github.com/JetpackDuba/Gitnuro/releases/latest).
-- Using hombrew: `brew install jetpackduba/apps/gitnuro`
+Leaf has no published releases yet. To build and run it from source, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Features
 
-Gitnuro has support for the following features:
+Leaf has support for the following features:
 
 - View diffs for text based files.
 - View your history log and all its branches.
@@ -87,17 +84,17 @@ See [this page](DEVELOPMENT.md) for how to set up your development environment.
 
 ## FAQ
 
-> Is Gitnuro completly free?
+> Is Leaf completely free?
 
 Yes, free in both meanings of the word (in money and freedom).
 
-> Does Gitnuro keep track of my data?
+> Does Leaf keep track of my data?
 
-Gitnuro does not track data in any way, don't worry.
+Leaf does not track data in any way, don't worry.
 
 > I don't like the built-in themes, can I create a custom one?
 
-Gitnuro includes the option to set custom themes in a JSON format. Keep in mind that themes may break with new releases,
+Leaf includes the option to set custom themes in a JSON format. Keep in mind that themes may break with new releases,
 making the default theme the fallback option.
 
 For the latest stable version, you can use this JSON as an example:
@@ -140,12 +137,13 @@ Colors are in ARGB Hex format.
 
 > Why isn't the Mac version signed?
 
-The cost of the Apple Developer Program is quite high with a platform that currently has very few users. I may pay for
-it if it's a very requested feature but not for now.
+Leaf isn't distributed as a signed and notarized app yet. A build you make yourself is signed ad hoc and runs on the
+machine that built it.
 
 > Authentication has failed. What's wrong?
 
-Currently there are some limitations regarding this topic. Here are some known problematic setups:
+Currently there are some limitations regarding this topic. Here are some known problematic setups, tracked in
+Gitnuro's issues:
 
 - Multicast DNS remote URL (https://github.com/JetpackDuba/Gitnuro/issues/19) with this
   workaround (https://github.com/JetpackDuba/Gitnuro/issues/19#issuecomment-1374431720).
@@ -172,7 +170,7 @@ Example for windows (you may want to edit `C:\Program Files\Git\etc\gitconfig`):
    helper = C:/Program Files/Git/mingw64/bin/git-credential-manager-core.exe
 ```
 
-## Sponsors
+## License
 
-Thank you to all the sponsors for helping improve Gitnuro and JetBrains for providing the necessary tooling.
+Leaf is licensed under the [GNU General Public License v3.0](LICENSE), like Gitnuro.
 
