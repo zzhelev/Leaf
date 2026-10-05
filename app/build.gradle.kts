@@ -142,6 +142,9 @@ compose.desktop {
     application {
         mainClass = "dev.app.leaf.MainKt"
 
+        // The Rust library and JNA load native code: JDK 25 warns without this, and a later JDK will refuse.
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
+
         sourceSets.forEach {
             it.java.srcDir(rustGeneratedSource)
         }
@@ -193,6 +196,7 @@ tasks.register("fatJarLinux", type = Jar::class) {
         attributes["Implementation-Title"] = name
         attributes["Implementation-Version"] = projectVersion
         attributes["Main-Class"] = "dev.app.leaf.MainKt"
+        attributes["Enable-Native-Access"] = "ALL-UNNAMED"
     }
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
         exclude(
