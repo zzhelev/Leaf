@@ -6,6 +6,20 @@ starting any work item. Findings about JGit and worktrees are in `docs/fork/arch
 
 This file and everything under `docs/fork/` are fork-only. Keep them out of upstream PRs.
 
+## Name
+
+The fork ships as **Leaf**. Only the display name and packaging changed.
+- **Leaf:** `AppConstants.APP_NAME` and the user-facing strings. Also `projectName` in `app/build.gradle.kts`, which
+  produces `Leaf.app`, `Leaf-*.dmg` and `Leaf-linux-*.jar`. Also the macOS bundle ID `io.github.zzhelev.leaf` and
+  `gitnuro.iss`, which has its own AppId.
+- **Still Gitnuro:**
+  - the Kotlin packages (`com.jetpackduba.gitnuro`), the Gradle `group` and the root project name;
+  - the Rust crate (`gitnuro_rs`);
+  - every storage location: the `GitnuroConfig` prefs node and DataStore, the logs in `com.jetpackduba.Gitnuro`, and
+    temp files. So Leaf and an installed Gitnuro share settings, tabs and logs.
+- **Still upstream:** the Welcome page's "Source code" and "Report a bug" links, the Releases link in the bottom bar,
+  `VERSION_CHECK_URL`, and the publishing target in `.github/workflows/release.yml`.
+
 ## Branches and remotes
 
 - `origin` = fork (`zzhelev/Leaf`), `upstream` = `JetpackDuba/Gitnuro`.

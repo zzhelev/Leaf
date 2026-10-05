@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## Renamed to Leaf (branch `feature/rename-to-leaf`)
+
+This is one isolated commit touching only display name and packaging (PLAN.md, rule 8).
+
+- **Display name:** the window title, Welcome page, About dialog, Settings subtitles, the settings tooltip and two
+  error messages now say Leaf. The About text credits Gitnuro ("based on Gitnuro").
+- **Packaging:**
+  - `projectName` is `Leaf`, so the outputs are `Leaf.app`, `Leaf-<version>.dmg` and `Leaf-linux-*.jar`.
+  - The macOS bundle ID is `io.github.zzhelev.leaf`, so Leaf and an installed Gitnuro are separate apps to macOS.
+  - `gitnuro.iss` has a new AppId, so a Windows Leaf install doesn't replace Gitnuro. It also has new publisher, URL
+    and exe name, and paths that follow the new build output.
+  - In `.github/workflows/release.yml`, artifact names and paths follow `projectName`.
+- **Unchanged:**
+  - Kotlin package names.
+  - The Rust crate.
+  - Storage locations. Leaf still shares settings, tabs and logs with an installed Gitnuro.
+  - The upstream links: Source code, Report a bug, Releases.
+  - The update check against upstream's `latest.json`.
+  - The release workflow's publishing target (`JetpackDuba/Gitnuro`, self-hosted runners).
+
 ## Leaf app icon (branch `feature/leaf-icon`)
 
 - **New icon, "Midrib":** a lime leaf on a forest-green tile. Its veins are cut out of the leaf and branch off the
