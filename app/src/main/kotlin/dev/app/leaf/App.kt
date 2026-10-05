@@ -231,26 +231,26 @@ class App @Inject constructor(
     }
 
     private fun initNativeDependencies() {
-        val gitnuroRsName = when (currentOs) {
-            OS.LINUX -> "libgitnuro_rs.so"
-            OS.WINDOWS -> "gitnuro_rs.dll"
-            OS.MAC -> "libgitnuro_rs.dylib"
+        val leafRsName = when (currentOs) {
+            OS.LINUX -> "libleaf_rs.so"
+            OS.WINDOWS -> "leaf_rs.dll"
+            OS.MAC -> "libleaf_rs.dylib"
             else -> throw Exception("OS not supported")
         }
 
-        val gitnuroRsInputStream = javaClass.getResourceAsStream("/$gitnuroRsName")
+        val leafRsInputStream = javaClass.getResourceAsStream("/$leafRsName")
 
-        gitnuroRsInputStream?.use { inputStream ->
+        leafRsInputStream?.use { inputStream ->
             val tempDir = tempFilesManager.tempDir()
-            val gitnuroRsFile = File(tempDir, gitnuroRsName)
-            val outputStream = FileOutputStream(gitnuroRsFile)
+            val leafRsFile = File(tempDir, leafRsName)
+            val outputStream = FileOutputStream(leafRsFile)
 
             inputStream.copyTo(outputStream)
             outputStream.flush()
             outputStream.close()
 
-            System.load(gitnuroRsFile.absolutePath)
-        } ?: throw Exception("GitnuroRs native dependency not found")
+            System.load(leafRsFile.absolutePath)
+        } ?: throw Exception("LeafRs native dependency not found")
     }
 
     private fun initProxySettings() {

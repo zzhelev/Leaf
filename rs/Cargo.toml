@@ -1,11 +1,11 @@
 [package]
-name = "gitnuro-rs"
+name = "leaf-rs"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
-name = "gitnuro_rs"
+name = "leaf_rs"
 
 [dependencies]
 notify = "8.0.0"

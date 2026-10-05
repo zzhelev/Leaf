@@ -7802,13 +7802,13 @@
       "glob": "fonts/NotoSansMono/NotoSansMono-Regular.ttf"
     },
     {
-      "glob": "libgitnuro_rs.so"
+      "glob": "libleaf_rs.so"
     },
     {
       "glob": "libskiko-linux-x64.so.sha256"
     },
     {
-      "glob": "linux-x86-64/libgitnuro_rs.so"
+      "glob": "linux-x86-64/libleaf_rs.so"
     },
     {
       "glob": "log4j.properties"

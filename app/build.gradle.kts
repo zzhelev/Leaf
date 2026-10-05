@@ -365,9 +365,9 @@ fun findBinaryInPath(binaryName: String): String? {
 }
 
 val libName = when (currentOs()) {
-    OS.LINUX -> "libgitnuro_rs.so"
-    OS.WINDOWS -> "gitnuro_rs.dll"
-    OS.MAC -> "libgitnuro_rs.dylib"
+    OS.LINUX -> "libleaf_rs.so"
+    OS.WINDOWS -> "leaf_rs.dll"
+    OS.MAC -> "libleaf_rs.dylib"
 }
 
 
