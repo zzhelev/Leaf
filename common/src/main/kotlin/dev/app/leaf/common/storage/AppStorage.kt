@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package dev.app.leaf.common.storage
 
 /** Set by jpackage's launcher in packaged apps. `./gradlew :app:run` and `java -jar` don't set it. */

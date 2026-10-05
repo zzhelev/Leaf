@@ -8,8 +8,9 @@ planning to build myself, and I'm grateful for the work and care that went into 
 
 Leaf develops that foundation along a different roadmap, centred on first-class support for git worktrees in workflows
 where AI coding agents work side by side. Those ideas needed to move quickly, so Leaf continues as its own project. It
-was forked from Gitnuro's 2.0 development branch in October 2026 and keeps Gitnuro's license, the GNU General Public
-License v3.0.
+was forked from Gitnuro's 2.0 development branch in October 2026. The code that comes from Gitnuro keeps Gitnuro's
+license, the GNU General Public License v3.0, and the code written for Leaf is licensed under the GNU Affero General
+Public License v3.0 (see [License](#license)).
 
 If both projects keep evolving and their directions line up, I'd be glad to see work and ideas shared between them, in
 either direction.
@@ -172,5 +173,21 @@ Example for windows (you may want to edit `C:\Program Files\Git\etc\gitconfig`):
 
 ## License
 
-Leaf is licensed under the [GNU General Public License v3.0](LICENSE), like Gitnuro.
+Leaf combines code under two licenses:
+
+- **Files that come from Gitnuro** are licensed under the [GNU General Public License v3.0](LICENSE)
+  (GPL-3.0-only).
+- **Files written for Leaf** are licensed under the
+  [GNU Affero General Public License v3.0](LICENSES/AGPL-3.0-only.txt) (AGPL-3.0-only). They start with an
+  `SPDX-License-Identifier: AGPL-3.0-only` header.
+
+As section 13 of the GPL v3 allows, Leaf as a whole is distributed as a combined work, and the network interaction
+requirements of section 13 of the AGPL v3 apply to that combination. In short, if you modify Leaf and let other people
+use it over a network, you must offer them the source code of your version.
+
+## Name and logo
+
+The licenses cover Leaf's code, but they don't grant permission to use the Leaf name or logo to identify other software
+(section 7(e) of both licenses allows this). You're welcome to fork and modify Leaf, but please give your version its
+own name and logo, so people can tell it apart from Leaf.
 

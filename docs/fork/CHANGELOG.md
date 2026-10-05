@@ -2,6 +2,18 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## AGPL for Leaf's own code, and the Leaf name (branch `feature/leaf-identity`)
+
+- **AGPL-3.0-only:** the 18 files written for Leaf carry SPDX headers, and the license text is in
+  `LICENSES/AGPL-3.0-only.txt`. The files are the git CLI adapter, the JGit auto-gc guard, the storage names, and the
+  fork's tests.
+- **GPL-3.0-only:** files that come from Gitnuro stay under `LICENSE`, even where the fork edited them.
+- **Combined work:** GPL-3.0 section 13 lets Leaf be distributed as a combined work. AGPL-3.0 section 13, on network
+  interaction, then applies to the whole.
+- **README:** the License section explains the split, and the credit's license sentence matches it. A new "Name and
+  logo" section declines trademark rights to the Leaf name and logo (section 7(e) of both licenses).
+- **CLAUDE.md:** documents the header rule for new files.
+
 ## Leaf identity (branch `feature/leaf-identity`)
 
 - **Links:** "Source code", "Report a bug" and "Releases" open `github.com/zzhelev/Leaf`.

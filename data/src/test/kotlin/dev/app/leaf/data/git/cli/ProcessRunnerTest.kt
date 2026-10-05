@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package dev.app.leaf.data.git.cli
 
 import kotlinx.coroutines.Dispatchers

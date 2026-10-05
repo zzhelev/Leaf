@@ -305,6 +305,13 @@ common `refs/` and `packed-refs` are not watched.
 - Classes are named `XUseCase`, `IXGitAction` / `XGitAction`, `XViewModel`.
 - Composables are PascalCase. Side panel sections are lowerCamel `LazyListScope` extensions. Callbacks are `onXxx`.
 
+**Licensing:**
+- New files written for Leaf start with these two lines, then a blank line:
+  `// SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev` and `// SPDX-License-Identifier: AGPL-3.0-only`.
+- Files that come from Gitnuro stay GPL-3.0-only and get no header, even when the fork edits them.
+- The AGPL text is in `LICENSES/AGPL-3.0-only.txt` and the GPL text in `LICENSE`. README's License section explains
+  the split, and its "Name and logo" section keeps the Leaf name and logo out of both licenses.
+
 **Resources:**
 - Strings go in Compose resources (`app/src/main/composeResources/values/strings.xml`) with area-prefixed snake_case
   keys (`side_pane_*`, `branch_context_menu_*`, `settings_*`). Some older UI still hardcodes strings; prefer resources

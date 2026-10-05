@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package dev.app.leaf.domain.errors
 
 /** Errors of operations that run the git CLI instead of JGit. */
