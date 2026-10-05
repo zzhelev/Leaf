@@ -261,4 +261,4 @@ All verified in source.
 - `D/TempFilesManager.kt` (`AppFilesManager`): the macOS app folder is `~/Library/Application/gitnuro`, which is
   missing "Support". The fork fixed it as part of `feature/leaf-own-storage`.
 - `DEVELOPMENT.md` is outdated: it says JDK 17+ (25 is needed) and that `cargo-kotars` is required (uniffi is used now).
-  It also doesn't mention Git LFS, which the fonts need.
+  It also doesn't mention Git LFS, which the fonts need. The fork corrected its copy on `docs/leaf-readme`.

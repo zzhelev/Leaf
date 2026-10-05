@@ -11,7 +11,7 @@ This file and everything under `docs/fork/` are fork-only. Keep them out of upst
 The fork ships as **Leaf**. The display name, packaging and storage locations changed.
 - **Leaf:** `AppConstants.APP_NAME` and the user-facing strings. Also `projectName` in `app/build.gradle.kts`, which
   produces `Leaf.app`, `Leaf-*.dmg` and `Leaf-linux-*.jar`. Also the macOS bundle ID `io.github.zzhelev.leaf` and
-  `gitnuro.iss`, which has its own AppId.
+  `gitnuro.iss`, which has its own AppId. Also `README.md`, which opens with a credit to Gitnuro, and `DEVELOPMENT.md`.
 - **Own storage:** every storage name comes from the fork-only `AppStorage` (`common/.../common/storage/`), so Leaf
   never reads or writes an installed Gitnuro's data. On macOS, a packaged Leaf uses:
   - the `java.util.prefs` node `LeafConfig` (tabs, recent repos, pane widths);
@@ -39,7 +39,7 @@ The fork ships as **Leaf**. The display name, packaging and storage locations ch
   Gradle fails with "Cannot find a Java installation ... languageVersion=25" unless `JAVA_HOME` points at a JDK 25.
   On this machine, IntelliJ IDEA's bundled runtime works:
   `export JAVA_HOME="$HOME/Applications/IntelliJ IDEA.app/Contents/jbr/Contents/Home"` (JBR 25.0.4.1).
-  DEVELOPMENT.md still says "JDK 17 or higher", which is outdated.
+  The fork's DEVELOPMENT.md says JDK 25; upstream's still says "JDK 17 or higher".
 - **Packaging needs a full JDK 25 with jmods.** IntelliJ's bundled JBR has no `jlink` or `jpackage`, so it builds and
   runs the app but can't package it. Tried on 2026-10-05:
   - JBR SDK 25 (`jbrsdk-25.0.4.1-osx-aarch64-*.tar.gz` from the JetBrainsRuntime GitHub releases): works. It has
@@ -55,7 +55,7 @@ The fork ships as **Leaf**. The display name, packaging and storage locations ch
 - Gradle 9.3.1, via the wrapper.
 - **Rust nightly.** `rs/rust-toolchain.toml` pins `nightly`, and rustup installs it automatically on first use.
   `cargo` must be on `PATH` (`~/.cargo/bin`).
-- `cargo-kotars` is **not** needed, despite DEVELOPMENT.md. Bindings are generated with uniffi
+- `cargo-kotars` is **not** needed, despite upstream's DEVELOPMENT.md. Bindings are generated with uniffi
   (`cargo run --bin uniffi-bindgen`, defined in `rs/`). The build passed without kotars installed.
 - Perl is needed to build the vendored OpenSSL (`/usr/bin/perl` is fine).
 - git 2.54 (Apple Git) is at `/usr/bin/git`. The app itself does not use the git CLI yet.

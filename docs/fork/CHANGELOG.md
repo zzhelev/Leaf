@@ -2,6 +2,20 @@
 
 This file covers fork-only changes on `fork/main`. Upstream history is in git.
 
+## README and DEVELOPMENT.md for Leaf (branch `docs/leaf-readme`)
+
+- **README.md** now describes Leaf. It opens with a "Built on Gitnuro" section that credits Gitnuro and its author,
+  explains Leaf's separate roadmap, gives the fork date and the license, and welcomes sharing work in either direction.
+  - Removed, because they describe Gitnuro and not Leaf:
+    - the upstream release badge;
+    - the Gitnuro screenshot (`res/img/cover.png` is kept);
+    - the Flathub, Homebrew and release download links;
+    - the Sponsors section.
+  - Added a License section. Links to Gitnuro's issue tracker stay.
+- **DEVELOPMENT.md** says Leaf. It also corrects the requirements: JDK 25 (and a full JDK for packaging), no
+  `cargo-kotars`, and Git LFS for the fonts.
+- `CLAUDE.md` and `docs/fork/` still name Gitnuro where they mean the upstream project or an installed Gitnuro.
+
 ## Own storage for Leaf (branch `feature/leaf-own-storage`)
 
 - **Leaf no longer shares data with Gitnuro.** Every storage name now comes from the fork-only `AppStorage`
