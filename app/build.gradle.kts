@@ -164,7 +164,7 @@ compose.desktop {
                 iconFile.set(project.file("../icons/icon.icns"))
                 bundleID = "io.github.zzhelev.leaf"
                 signing {
-                    sign.set(true)
+                    sign.set(providers.gradleProperty("compose.desktop.mac.sign").map(String::toBoolean).orElse(true))
                     identity.set(providers.environmentVariable("SIGNING_IDENTITY"))
                 }
                 notarization {
