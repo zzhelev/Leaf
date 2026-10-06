@@ -20,6 +20,7 @@ class SaveLocalRepositoryConfigGitAction @Inject constructor(
         configFile.createNewFile()
 
         val config = FileBasedConfig(configFile, repository.fs)
+        config.loadOrStartEmpty() // Keep the other sections of the file
 
         config.setBoolean(
             SignOffConstants.SECTION,

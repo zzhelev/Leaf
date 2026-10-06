@@ -29,6 +29,9 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
     override val remotes: Flow<DataState<List<RemoteInfo>>>
         field = MutableStateFlow<DataState<List<RemoteInfo>>>(DataState.Loading)
 
+    override val refDates: Flow<DataState<RefDates>>
+        field = MutableStateFlow<DataState<RefDates>>(DataState.Loading)
+
     override val log: StateFlow<DataState<GraphCommits>>
         field = MutableStateFlow<DataState<GraphCommits>>(DataState.Loading)
 
@@ -71,6 +74,7 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         localBranches.value = DataState.Loading
         tags.value = DataState.Loading
         remotes.value = DataState.Loading
+        refDates.value = DataState.Loading
         log.value = DataState.Loading
         stashes.value = DataState.Loading
         rebaseInteractiveState.value = DataState.Loading
@@ -99,6 +103,10 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
 
     override suspend fun updateRemotes(block: suspend () -> Either<List<RemoteInfo>, AppError>) {
         handleDataState(remotes, block)
+    }
+
+    override suspend fun updateRefDates(block: suspend () -> Either<RefDates, AppError>) {
+        handleDataState(refDates, block)
     }
 
     override suspend fun updateStashes(block: suspend () -> Either<List<Commit>, AppError>) {

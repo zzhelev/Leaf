@@ -5,7 +5,9 @@ import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.author.SaveAuthorGitAction
 import dev.app.leaf.data.git.branches.*
+import dev.app.leaf.data.git.config.LoadRefFolderExpansionGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
+import dev.app.leaf.data.git.config.SaveRefFolderExpansionGitAction
 import dev.app.leaf.data.git.config.SaveLocalRepositoryConfigGitAction
 import dev.app.leaf.data.git.diff.*
 import dev.app.leaf.data.git.lfs.*
@@ -454,4 +456,16 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetPersistedCommitMessagesGitAction(walker: GetPersistedCommitMessagesGitAction): IGetPersistedCommitMessagesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetRefDatesGitAction(action: GetRefDatesGitAction): IGetRefDatesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsLoadRefFolderExpansionGitAction(action: LoadRefFolderExpansionGitAction): ILoadRefFolderExpansionGitAction
+
+    @Binds
+    @TabScope
+    fun bindsSaveRefFolderExpansionGitAction(action: SaveRefFolderExpansionGitAction): ISaveRefFolderExpansionGitAction
 }

@@ -15,6 +15,7 @@ import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.repositories.AppSettingsRepository
+import dev.app.leaf.domain.sorting.SortSettingsCodec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -37,6 +38,8 @@ private val swapStatusPanesPreference get() = booleanPreferencesKey("swap_status
 private val diffDisplayFullFilePreference get() = booleanPreferencesKey("diff_display_full_file")
 private val diffTextViewTypePreference get() = stringPreferencesKey("diff_text_view")
 private val showChangesAsTreePreference get() = booleanPreferencesKey("show_changes_as_tree")
+private val refPanelSettingsPreference get() = stringPreferencesKey("side_panel_sort")
+private val filesChangedViewPreference get() = stringPreferencesKey("files_changed_view")
 
 private val dateFormatUseDefaultPreference get() = booleanPreferencesKey("date_format_use_default")
 private val dateFormatCustomFormatPreference get() = stringPreferencesKey("date_format_custom_format")
@@ -108,6 +111,10 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val showChangesAsTree get() = preferences.data[showChangesAsTreePreference]
     override val diffDisplayFullFile get() = preferences.data[diffDisplayFullFilePreference]
     override val diffTextViewType get() = preferences.data[diffTextViewTypePreference].map { textDiffViewTypeMapper.toDomain(it) }
+    override val refPanelSettings get() = preferences.data[refPanelSettingsPreference]
+        .map { it?.let(SortSettingsCodec::decodeRefPanelSettings) }
+    override val filesChangedView get() = preferences.data[filesChangedViewPreference]
+        .map { it?.let(SortSettingsCodec::decodeFilesViewState) }
 
     // Git
     override val pullWithRebase get() = preferences.data[pullWithRebasePreference]
@@ -168,6 +175,15 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.DiffTextViewType -> setValue(diffTextViewTypePreference, textDiffViewTypeMapper.toData(appConfig.value))
                 is AppConfig.ShowChangesAsTree -> setValue(showChangesAsTreePreference, appConfig.value)
                 is AppConfig.TerminalPath -> setValue(terminalPathPreference, appConfig.value)
+                is AppConfig.RefPanel -> setValue(
+                    refPanelSettingsPreference,
+                    SortSettingsCodec.encodeRefPanelSettings(appConfig.value)
+                )
+
+                is AppConfig.FilesChangedView -> setValue(
+                    filesChangedViewPreference,
+                    SortSettingsCodec.encodeFilesViewState(appConfig.value)
+                )
             }
         }
     }

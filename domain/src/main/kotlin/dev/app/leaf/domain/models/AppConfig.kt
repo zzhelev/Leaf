@@ -1,6 +1,8 @@
 package dev.app.leaf.domain.models
 
 import dev.app.leaf.domain.models.ui.LinesHeightType
+import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.RefPanelSettings
 
 sealed interface AppConfig {
     data class ScaleUi(val value: Float?) : AppConfig
@@ -31,4 +33,6 @@ sealed interface AppConfig {
     data class ShowChangesAsTree(val value: Boolean) : AppConfig
     data class TerminalPath(val value: String) : AppConfig
     data class GitExecutablePath(val value: String) : AppConfig
+    data class RefPanel(val value: RefPanelSettings) : AppConfig
+    data class FilesChangedView(val value: FilesViewState) : AppConfig
 }

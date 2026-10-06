@@ -30,6 +30,7 @@ class RefreshDataUseCase @Inject constructor(
     private val getRemotesUseCase: GetRemotesUseCase,
     private val getSubmodulesGitAction: IGetSubmodulesGitAction,
     private val getTagsGitAction: IGetTagsGitAction,
+    private val getRefDatesGitAction: IGetRefDatesGitAction,
     private val getRepositoryState: IGetRepositoryStateGitAction,
     private val getRebaseInteractiveTodoLinesUseCase: GetRebaseInteractiveTodoLinesUseCase,
     private val getRebaseLinesFullMessageUseCase: GetRebaseLinesFullMessageUseCase,
@@ -77,6 +78,15 @@ class RefreshDataUseCase @Inject constructor(
 
         if (isRefreshAll || dataToRefresh.contains(DataToRefresh.LOG)) {
             refreshLog()
+        }
+
+        // Only used to sort the side panel, so it comes last and never delays the log
+        val refsChanged = dataToRefresh.any {
+            it == DataToRefresh.BRANCHES || it == DataToRefresh.REMOTES || it == DataToRefresh.TAGS
+        }
+
+        if (isRefreshAll || refsChanged) {
+            refreshRefDates()
         }
     }
 
@@ -148,6 +158,14 @@ class RefreshDataUseCase @Inject constructor(
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
             repositoryDataRepository.updateTags {
                 getTagsGitAction(repositoryPath)
+            }
+        }
+    }
+
+    private suspend fun refreshRefDates() {
+        useCaseExecutor.executeWithoutResult { repositoryPath ->
+            repositoryDataRepository.updateRefDates {
+                getRefDatesGitAction(repositoryPath)
             }
         }
     }

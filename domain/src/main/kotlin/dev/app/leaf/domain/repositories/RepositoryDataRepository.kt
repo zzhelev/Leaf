@@ -12,6 +12,7 @@ interface RepositoryDataRepository {
     val currentBranch: Flow<DataState<Branch?>>
     val tags: Flow<DataState<List<Tag>>>
     val remotes: Flow<DataState<List<RemoteInfo>>>
+    val refDates: Flow<DataState<RefDates>>
     val log: StateFlow<DataState<GraphCommits>>
     val stashes: Flow<DataState<List<Commit>>>
     val repositorySelectionState: StateFlow<RepositorySelectionState>
@@ -31,6 +32,7 @@ interface RepositoryDataRepository {
     suspend fun updateTags(block: suspend () -> Either<List<Tag>, AppError>)
     suspend fun updateLog(block: suspend () -> Either<GraphCommits, AppError>)
     suspend fun updateRemotes(block: suspend () -> Either<List<RemoteInfo>, AppError>)
+    suspend fun updateRefDates(block: suspend () -> Either<RefDates, AppError>)
     suspend fun updateStashes(block: suspend () -> Either<List<Commit>, AppError>)
     suspend fun updateSubmodules(block: suspend () -> Either<Map<String, Submodule>, AppError>)
     suspend fun updateAuthor(block: suspend () -> Either<AuthorInfo, AppError>)

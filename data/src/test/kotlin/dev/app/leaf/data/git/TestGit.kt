@@ -33,7 +33,10 @@ class IsolatedSystemReader(
  * and system git config.
  */
 class TestGitCli(private val emptyGlobalConfig: File) {
-    fun run(workingDir: File, vararg args: String): String {
+    fun run(workingDir: File, vararg args: String): String = run(workingDir, emptyMap(), *args)
+
+    /** Runs git with extra environment variables, for example `GIT_COMMITTER_DATE` to fix commit and reflog dates. */
+    fun run(workingDir: File, env: Map<String, String>, vararg args: String): String {
         emptyGlobalConfig.parentFile.mkdirs()
         emptyGlobalConfig.createNewFile()
 
@@ -53,6 +56,7 @@ class TestGitCli(private val emptyGlobalConfig: File) {
             .apply {
                 environment()["GIT_CONFIG_GLOBAL"] = emptyGlobalConfig.absolutePath
                 environment()["GIT_CONFIG_NOSYSTEM"] = "1"
+                environment().putAll(env)
             }
             .start()
 
