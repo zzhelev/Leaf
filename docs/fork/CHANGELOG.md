@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Settings stored as JSON (branch `feature/datastore-json`)
+
+- **Why:** DataStore Preferences' file format goes through its bundled protobuf, which calls `sun.misc.Unsafe`. JDK 25
+  printed "A terminally deprecated method in sun.misc.Unsafe has been called" whenever Leaf read its settings, and a
+  later JDK will remove the method. Upgrading DataStore didn't help (1.3.0-alpha11 still calls it).
+- **JSON format:** `JsonPreferencesSerializer` (fork-only) stores the settings in `user_prefs.json`, each key with its
+  type and value. It's plugged into DataStore with `PreferenceDataStoreFactory.create(storage = OkioStorage(...))`, so
+  `DataStoreAppSettingsRepository` and the rest of the settings code are unchanged.
+- **Migration:** `ProtobufPreferencesMigration` (fork-only) moves an existing `user_prefs.preferences_pb` into the
+  JSON file once, then renames it to `user_prefs.preferences_pb.migrated`. Values already in the JSON file win. The
+  `Unsafe` warning shows only on the launch that migrates.
+- **Damaged file:** a `user_prefs.json` that can't be read is logged and replaced with the defaults.
+- **Tests:** `JsonPreferencesSerializerTest` (9) covers every value type, special floating point values, empty files
+  and the corruption cases. `ProtobufPreferencesMigrationTest` (3) covers migrating, no migration, and JSON values
+  winning.
+- **Verified:** a dev run migrated a copy of the real settings into `leaf-dev`, keeping all six of them and showing the
+  warning once. The next run showed no `Unsafe` warning and didn't rewrite the file.
+
 ## Install task and unsigned default (branch `feature/install-task`)
 
 - **`./gradlew :app:installMacApp`** (macOS only) builds `Leaf.app` and installs it into `/Applications`, or into

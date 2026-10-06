@@ -21,7 +21,7 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
 - **Own storage:** every storage name comes from the fork-only `AppStorage` (`common/.../common/storage/`), so Leaf
   never reads or writes an installed Gitnuro's data. On macOS, a packaged Leaf uses:
   - the `java.util.prefs` node `LeafConfig` (tabs, recent repos, pane widths);
-  - `~/Library/Application Support/leaf/` (the settings file `user_prefs.preferences_pb`, and `tmp/`);
+  - `~/Library/Application Support/leaf/` (the settings file `user_prefs.json`, and `tmp/`);
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
   - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
     state, shared by the worktrees). They are the same file in a repository's main worktree.
@@ -133,10 +133,11 @@ Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOM
 - The app starts with `--enable-native-access=ALL-UNNAMED` (`compose.desktop.application.jvmArgs`), and the Linux fat
   jar's manifest sets `Enable-Native-Access: ALL-UNNAMED`. Without them, JDK 25 warns when the Rust library and JNA
   load native code, and a later JDK will refuse.
-- **Known warning:** JDK 25 prints "A terminally deprecated method in sun.misc.Unsafe has been called" when settings
-  are read. It comes from the protobuf copy inside DataStore Preferences
-  (`androidx.datastore.preferences.protobuf.UnsafeUtil`). DataStore 1.2.1 and 1.3.0-alpha11 both trigger it, so
-  upgrading doesn't help.
+- **Settings are JSON, not protobuf.** DataStore Preferences' own file format goes through its bundled protobuf,
+  which calls `sun.misc.Unsafe`, and JDK 25 warns about it. DataStore 1.2.1 and 1.3.0-alpha11 both do. So
+  `DatastoreModule` stores the settings with the fork-only `JsonPreferencesSerializer`.
+  `ProtobufPreferencesMigration` moves an old `user_prefs.preferences_pb` over once, then renames it to
+  `.migrated`; the warning shows only on that launch.
 
 Packaging config lives in `app/build.gradle.kts` (`compose.desktop.nativeDistributions`). Do not touch it without
 asking.
@@ -383,6 +384,8 @@ common `refs/` and `packed-refs` are not watched.
 **Settings:**
 - Chain: `AppConfig` (domain model) → `AppSettingsRepository` → `DataStoreAppSettingsRepository` →
   `AppSettingsService` (defaults) → `SettingsViewModel` / `SettingsDialog.kt`.
+- DataStore keeps them in `user_prefs.json` (`getPreferencesPath()`), written by `JsonPreferencesSerializer`. Each
+  key stores its type and value. A damaged file is logged and replaced with the defaults.
 - `TerminalPath` is the closest precedent for a "git executable path" setting.
 
 **Tests:**
