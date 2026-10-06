@@ -1,7 +1,11 @@
 package dev.app.leaf.viewmodels.sidepanel
 
+import dev.app.leaf.common.flows.combine
 import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.sorting.RefRow
+import dev.app.leaf.domain.sorting.RefSection
+import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.ui.UiDataState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,7 +14,12 @@ import kotlinx.coroutines.flow.combine
 
 data class SubmodulesState(val isLoading: Boolean, val submodules: List<Pair<String, Submodule>>, val isExpanded: Boolean)
 
-data class TagsState(val tags: List<Tag>, val isExpanded: Boolean)
+data class TagsState(
+    val tags: List<Tag>,
+    val isExpanded: Boolean,
+    val rows: List<RefRow<Tag>> = emptyList(),
+    val sortState: RefSortState = RefSortState(),
+)
 
 data class StashesState(val stashes: List<Commit>, val isExpanded: Boolean)
 
@@ -20,38 +29,57 @@ data class BranchesState(
     val branches: List<Branch>,
     val isExpanded: Boolean,
     val currentBranch: Branch?,
+    val rows: List<RefRow<Branch>> = emptyList(),
+    val sortState: RefSortState = RefSortState(),
 )
 
 fun combineBranchesState(
     branches: Flow<UiDataState<List<Branch>>>,
     currentBranch: Flow<UiDataState<Branch?>>,
     isExpandedBranches: MutableStateFlow<Boolean>,
-    filter: MutableStateFlow<String>
+    filter: MutableStateFlow<String>,
+    rowsContext: Flow<RefRowsContext>,
 ): Flow<BranchesState> {
-    return combine(branches, currentBranch, isExpandedBranches, filter) { branches, currentBranch, isExpanded, filter ->
+    return combine(
+        branches,
+        currentBranch,
+        isExpandedBranches,
+        filter,
+        rowsContext,
+    ) { branches, currentBranch, isExpanded, filter, rowsContext ->
+        val branchesFiltered = branches.data
+            .orEmpty()
+            .filter { it.name.lowercaseContains(filter) }
+
         BranchesState(
             isLoading = branches.isLoading || currentBranch.isLoading,
-            branches = branches.data
-                .orEmpty()
-                .filter { it.name.lowercaseContains(filter) }
-                .sortedWith { branch, branch1 ->
-                    if (branch == currentBranch.data) return@sortedWith -1
-                    if (branch1 == currentBranch.data) return@sortedWith 1
-                    else branch.name.compareTo(branch1.name, ignoreCase = true)
-                },
+            branches = branchesFiltered,
             isExpanded = isExpanded,
-            currentBranch = currentBranch.data
+            currentBranch = currentBranch.data,
+            rows = localBranchRows(
+                branches = branchesFiltered,
+                currentBranch = currentBranch.data,
+                context = rowsContext,
+                isSearching = filter.isNotBlank(),
+                nowMillis = System.currentTimeMillis(),
+            ),
+            sortState = rowsContext.settings.sortOf(RefSection.Local),
         )
     }
 }
 
 
-data class RemoteView(val remoteInfo: RemoteInfo, val isExpanded: Boolean)
+data class RemoteView(
+    val remoteInfo: RemoteInfo,
+    val isExpanded: Boolean,
+    val rows: List<RefRow<Branch>> = emptyList(),
+)
 
 data class RemotesState(
     val remotes: List<RemoteView> = emptyList(),
     val isExpanded: Boolean = false,
-    val currentBranch: Branch? = null
+    val currentBranch: Branch? = null,
+    val sortState: RefSortState = RefSortState(),
 )
 
 fun combineRemotesState(
@@ -60,6 +88,7 @@ fun combineRemotesState(
     filter: MutableStateFlow<String>,
     currentBranch: Flow<UiDataState<Branch?>>,
     remotesContracted: MutableStateFlow<Set<Remote>>,
+    rowsContext: Flow<RefRowsContext>,
 ): Flow<RemotesState> {
     return combine(
         remotes,
@@ -67,7 +96,9 @@ fun combineRemotesState(
         filter,
         currentBranch,
         remotesContracted,
-    ) { remotes, isExpanded, filter, currentBranch, remotesContracted ->
+        rowsContext,
+    ) { remotes, isExpanded, filter, currentBranch, remotesContracted, rowsContext ->
+        val nowMillis = System.currentTimeMillis()
         val remotesFiltered = remotes.data.orEmpty().map { remoteInfo ->
             val newRemoteInfo = remoteInfo.copy(
                 branchesList = remoteInfo.branchesList.filter { branch ->
@@ -75,13 +106,18 @@ fun combineRemotesState(
                 }
             )
 
-            RemoteView(newRemoteInfo, isExpanded = !remotesContracted.contains(newRemoteInfo.remote))
+            RemoteView(
+                newRemoteInfo,
+                isExpanded = !remotesContracted.contains(newRemoteInfo.remote),
+                rows = remoteBranchRows(newRemoteInfo, rowsContext, isSearching = filter.isNotBlank(), nowMillis),
+            )
         }
 
         RemotesState(
             remotesFiltered,
             isExpanded,
             currentBranch.data,
+            sortState = rowsContext.settings.sortOf(RefSection.Remote),
         )
     }
 }

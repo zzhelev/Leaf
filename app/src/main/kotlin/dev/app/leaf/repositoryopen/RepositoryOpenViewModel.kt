@@ -9,6 +9,7 @@ import dev.app.leaf.app.generated.resources.pull_with_merge_automatic_stash_desc
 import dev.app.leaf.app.generated.resources.pull_with_merge_from_specific_branch_automatic_stash_description
 import dev.app.leaf.collectLatestInViewModel
 import dev.app.leaf.common.flows.invert
+import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.domain.TabCoroutineScope
@@ -23,6 +24,11 @@ import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.*
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.RefFolderExpansion
+import dev.app.leaf.domain.sorting.RefPanelSettings
+import dev.app.leaf.domain.sorting.RefSection
+import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenFilePickerUseCase
@@ -139,6 +145,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val fetchAllUseCase: FetchAllBranchUseCase,
     private val stashChangesUseCase: StashChangesUseCase,
     private val openRepositoryInTerminalGitAction: OpenRepositoryInTerminalGitAction,
+    private val loadRefFolderExpansionUseCase: LoadRefFolderExpansionUseCase,
+    private val saveRefFolderExpansionUseCase: SaveRefFolderExpansionUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -270,8 +278,29 @@ class RepositoryOpenViewModel @Inject constructor(
                 .toHashSet()
         }
 
+    val refPanelSettings: StateFlow<RefPanelSettings> = appSettings.refPanelSettings
+        .stateIn(RefPanelSettings())
+
+    private val refPanelSettingsMutex = Mutex()
+
+    private val refFolderExpansion = MutableStateFlow(RefFolderExpansion())
+    private val refFolderExpansionSaveMutex = Mutex()
+
+    /** Folders closed during the current search. Cleared when a search starts or ends. */
+    private val searchCollapsedFolders = MutableStateFlow<Set<String>>(emptySet())
+
+    private val refRowsContext = combine(
+        refPanelSettings,
+        repositoryDataRepository.refDates.toUiDataState(),
+        refFolderExpansion,
+        searchCollapsedFolders,
+    ) { settings, refDates, expansion, searchCollapsed ->
+        RefRowsContext(settings, refDates.data ?: RefDates(), expansion, searchCollapsed)
+    }
+        .distinctUntilChanged()
+
     val branchesState =
-        combineBranchesState(branches, currentBranch, isExpandedBranches, filter)
+        combineBranchesState(branches, currentBranch, isExpandedBranches, filter, refRowsContext)
             .stateIn(BranchesState(isLoading = true, emptyList(), isExpandedBranches.value, null))
 
     private val remotesContracted = MutableStateFlow<Set<Remote>>(emptySet())
@@ -282,6 +311,7 @@ class RepositoryOpenViewModel @Inject constructor(
             filter,
             currentBranch,
             remotesContracted,
+            refRowsContext,
         ).stateIn(RemotesState())
 
     val stashesState: StateFlow<StashesState> =
@@ -301,10 +331,15 @@ class RepositoryOpenViewModel @Inject constructor(
             repositoryDataRepository.tags.toUiDataState(),
             isExpandedTags,
             filter,
-        ) { tags, isExpanded, filter ->
+            refRowsContext,
+        ) { tags, isExpanded, filter, rowsContext ->
+            val tagsFiltered = tags.data.orEmpty().filter { tag -> tag.simpleName.lowercaseContains(filter) }
+
             TagsState(
-                tags.data.orEmpty().filter { tag -> tag.simpleName.lowercaseContains(filter) },
+                tagsFiltered,
                 isExpanded,
+                rows = tagRows(tagsFiltered, rowsContext, isSearching = filter.isNotBlank(), System.currentTimeMillis()),
+                sortState = rowsContext.settings.sortOf(RefSection.Tags),
             )
         }.stateIn(TagsState(emptyList(), isExpandedTags.value))
 
@@ -381,13 +416,13 @@ class RepositoryOpenViewModel @Inject constructor(
     )
     private val commitChangesViewModelExtender = commitChangesViewModelExtenderFactory.create(
         viewModelScope,
-        showAsTree,
+        appSettings.filesChangedView.stateIn(FilesViewState()),
         selectedItem,
         diffSelected,
         onDiffSelected = {
             diffSelected.value = it
         },
-        onAlternateShowAsTree = ::alternateShowAsTree,
+        onViewStateChanged = ::setFilesChangedView,
         addCloseableView = ::addCloseableView,
         removeCloseableView = ::removeCloseableView,
     )
@@ -442,9 +477,20 @@ class RepositoryOpenViewModel @Inject constructor(
                 is LogSearch.SearchResults -> addSearchToCloseableView()
             }
         }
+
+        repositoryDataRepository.repositorySelectionState.collectLatestInViewModel { state ->
+            if (state is RepositorySelectionState.Open) {
+                loadRefFolderExpansionUseCase().okOrNull()?.let { refFolderExpansion.value = it }
+            }
+        }
     }
 
     fun newFilter(newValue: String) {
+        if (filter.value.isBlank() != newValue.isBlank()) {
+            // Folders closed during a search open again for the next one, and the saved state comes back after it
+            searchCollapsedFolders.value = emptySet()
+        }
+
         filter.value = newValue
     }
 
@@ -476,6 +522,40 @@ class RepositoryOpenViewModel @Inject constructor(
         isExpandedTags.invert()
     }
 
+
+    fun onRefSortChanged(section: RefSection, sortState: RefSortState) = updateRefPanelSettings {
+        it.withSort(section, sortState)
+    }
+
+    fun onKeepHeadOnTopToggled() = updateRefPanelSettings { it.copy(keepHeadOnTop = !it.keepHeadOnTop) }
+
+    fun onGroupByPrefixToggled() = updateRefPanelSettings { it.copy(groupByPrefix = !it.groupByPrefix) }
+
+    private fun updateRefPanelSettings(update: (RefPanelSettings) -> RefPanelSettings) = tabScope.launch {
+        refPanelSettingsMutex.withLock {
+            appSettings.setConfiguration(AppConfig.RefPanel(update(appSettings.refPanelSettings.first())))
+        }
+    }
+
+    fun onRefFolderToggled(key: String) {
+        if (filter.value.isNotBlank()) {
+            searchCollapsedFolders.update { if (key in it) it - key else it + key }
+            return
+        }
+
+        val isDefaultExpanded = key == headFolderKey(branchesState.value.currentBranch)
+        refFolderExpansion.update { it.toggled(key, isDefaultExpanded) }
+
+        tabScope.launch {
+            refFolderExpansionSaveMutex.withLock {
+                val result = saveRefFolderExpansionUseCase(refFolderExpansion.value)
+
+                if (result is Either.Err) {
+                    printError(TAG, "Failed to save the side panel folders: ${result.error}")
+                }
+            }
+        }
+    }
 
     fun onRemoteClicked(remoteClicked: RemoteView) {
         remotesContracted.value = if (remotesContracted.value.contains(remoteClicked.remoteInfo.remote)) {
@@ -931,6 +1011,10 @@ class RepositoryOpenViewModel @Inject constructor(
 
     private fun alternateShowAsTree() = tabScope.launch {
         appSettings.setConfiguration(AppConfig.ShowChangesAsTree(!appSettings.showChangesAsTree.first()))
+    }
+
+    private fun setFilesChangedView(viewState: FilesViewState) = tabScope.launch {
+        appSettings.setConfiguration(AppConfig.FilesChangedView(viewState))
     }
 
     private val refreshDiffFlow = repositoryStateRepository

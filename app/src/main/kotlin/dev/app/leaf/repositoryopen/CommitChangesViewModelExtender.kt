@@ -13,13 +13,17 @@ import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.CloseableView
+import dev.app.leaf.domain.sorting.FileChangeKind
+import dev.app.leaf.domain.sorting.FileItem
+import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.buildFileRows
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.extensions.stateIn
-import dev.app.leaf.ui.tree_files.entriesToTreeEntry
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -30,11 +34,11 @@ import kotlin.time.Duration.Companion.milliseconds
 class CommitChangesViewModelExtender @AssistedInject constructor(
     private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
     @Assisted private val viewModelScope: CoroutineScope,
-    @Assisted private val showAsTree: StateFlow<Boolean>,
+    @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val selectedItem: StateFlow<SelectedItem>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
     @Assisted private val onDiffSelected: (DiffSelected) -> Unit,
-    @Assisted private val onAlternateShowAsTree: () -> Unit,
+    @Assisted private val onViewStateChanged: (FilesViewState) -> Unit,
     @Assisted("addCloseableView") private val addCloseableView: (CloseableView) -> Unit,
     @Assisted("removeCloseableView") private val removeCloseableView: (CloseableView) -> Unit,
 ) : CoroutineScope by viewModelScope {
@@ -43,11 +47,11 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
     interface Factory {
         fun create(
             viewModelScope: CoroutineScope,
-            showAsTree: StateFlow<Boolean>,
+            filesViewState: StateFlow<FilesViewState>,
             selectedItem: StateFlow<SelectedItem>,
             diffSelected: StateFlow<DiffSelected?>,
             onDiffSelected: (DiffSelected) -> Unit,
-            onAlternateShowAsTree: () -> Unit,
+            onViewStateChanged: (FilesViewState) -> Unit,
             @Assisted("addCloseableView") addCloseableView: (CloseableView) -> Unit,
             @Assisted("removeCloseableView") removeCloseableView: (CloseableView) -> Unit,
         ): CommitChangesViewModelExtender
@@ -59,37 +63,48 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
     val searchFilter: StateFlow<TextFieldValue>
         field = MutableStateFlow(TextFieldValue(""))
 
-    private val commitChangesTreeContractedDirectories = MutableStateFlow(emptyList<String>())
+    /** Folders closed in the folder tree, by full path. Reset when another commit is selected. */
+    private val collapsedDirectories = MutableStateFlow(emptySet<String>())
+
+    /** Folders closed during the current search. Every folder with matches is open unless listed here. */
+    private val searchCollapsedDirectories = MutableStateFlow(emptySet<String>())
 
     // Preserve the last loaded changes (from the previously selected commit) to prevent the UI from flickering while loading the data
     private val lastLoadedCommitsChanges = MutableStateFlow<List<DiffEntry>>(emptyList())
 
-    val commitChangesState = combine(
-        selectedItem,
-        showAsTree,
-        commitChangesTreeContractedDirectories,
-    ) { item, showAsTree, treeContractedDirectories ->
-        loadCommitChangesFlow(item, showAsTree, treeContractedDirectories)
-    }
-        .flattenConcat()
-        .combine(showSearch, searchFilter) { state, showSearch, searchFilter ->
-            val changesFiltered = if (showSearch && searchFilter.text.isNotBlank()) {
-                state?.changes?.filter { it.filePath.lowercaseContains(searchFilter.text) }.orEmpty()
-            } else {
-                emptyList()
-            }
+    private val isSearching = combine(showSearch, searchFilter) { showSearch, searchFilter ->
+        showSearch && searchFilter.text.isNotBlank()
+    }.distinctUntilChanged()
 
-            state?.copy(
-                showSearch = showSearch,
-                searchFilter = searchFilter,
-                changesFiltered = changesFiltered,
-                changesTreeFiltered = entriesToTreeEntry(
-                    showAsTree = state.showAsTree,
-                    changesFiltered,
-                    state.treeContractedDirectories,
-                ) { it.filePath },
-            )
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val commitChangesState = combine(
+        selectedItem.flatMapLatest { item -> loadCommitChangesFlow(item) },
+        filesViewState,
+        collapsedDirectories,
+        searchCollapsedDirectories,
+        showSearch,
+        searchFilter,
+    ) { state, viewState, collapsed, searchCollapsed, showSearch, searchFilter ->
+        if (state == null) return@combine null
+
+        val searching = showSearch && searchFilter.text.isNotBlank()
+        val visibleChanges = if (searching) {
+            state.changes.filter { it.filePath.lowercaseContains(searchFilter.text) }
+        } else {
+            state.changes
         }
+
+        state.copy(
+            viewState = viewState,
+            showSearch = showSearch,
+            searchFilter = searchFilter,
+            rows = buildFileRows(
+                files = visibleChanges.toFileItems(),
+                state = viewState,
+                isCollapsed = if (searching) searchCollapsed::contains else collapsed::contains,
+            ),
+        )
+    }
         .onEach {
             if (it != null && !it.isLoading && it.changes.isNotEmpty()) {
                 lastLoadedCommitsChanges.value = it.changes
@@ -97,17 +112,12 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
         }
         .stateIn(null as CommitChangesState?)
 
-    private fun loadCommitChangesFlow(
-        item: SelectedItem,
-        showAsTree: Boolean,
-        treeContractedDirectories: List<String>
-    ) = channelFlow {
+    private fun loadCommitChangesFlow(item: SelectedItem) = channelFlow {
         if (item is SelectedItem.CommitBasedItem) {
             send(
                 CommitChangesState(
                     isLoading = false,
                     commit = item.commit,
-                    showAsTree = showAsTree,
                     showSearch = false,
                     searchFilter = TextFieldValue(""),
                     changes = lastLoadedCommitsChanges.value
@@ -124,7 +134,6 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
                         CommitChangesState(
                             isLoading = true,
                             commit = item.commit,
-                            showAsTree = showAsTree,
                             showSearch = false,
                             searchFilter = TextFieldValue(""),
                         )
@@ -141,13 +150,8 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
             val state = CommitChangesState(
                 commit = item.commit,
                 changes = changes.orEmpty(),
-                changesTree = entriesToTreeEntry(
-                    showAsTree = showAsTree, changes.orEmpty(), treeContractedDirectories
-                ) { it.filePath },
-                showAsTree = showAsTree,
                 showSearch = false,
                 searchFilter = TextFieldValue(""),
-                treeContractedDirectories = treeContractedDirectories,
                 error = error,
                 isLoading = false,
             )
@@ -158,7 +162,6 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
         }
     }
 
-
     init {
         showSearch.collectLatestInCoroutineScope {
             if (it) {
@@ -167,6 +170,13 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
                 removeCommitChangesSearchFromCloseableView()
             }
         }
+
+        selectedItem
+            .map { (it as? SelectedItem.CommitBasedItem)?.commit?.hash }
+            .distinctUntilChanged()
+            .collectLatestInCoroutineScope { collapsedDirectories.value = emptySet() }
+
+        isSearching.collectLatestInCoroutineScope { searchCollapsedDirectories.value = emptySet() }
     }
 
     fun onAction(action: CommitChangesAction) {
@@ -177,7 +187,7 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
                 onDiffSelected(DiffSelected.CommitedChanges(setOf(DiffType.CommitDiff(action.entry))))
             }
 
-            CommitChangesAction.ToggleShowAsTree -> onAlternateShowAsTree()
+            is CommitChangesAction.ViewStateChanged -> onViewStateChanged(action.viewState)
 
             is CommitChangesAction.TreeDirectoryToggle -> onDirectoryVisibilityToggle(action.path)
             CommitChangesAction.AddSearchToCloseables -> addSearchToCloseableView()
@@ -194,13 +204,10 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
     }
 
     fun onDirectoryVisibilityToggle(directoryPath: String) {
-        val contractedDirectories = commitChangesTreeContractedDirectories.value
+        val searching = showSearch.value && searchFilter.value.text.isNotBlank()
+        val directories = if (searching) searchCollapsedDirectories else collapsedDirectories
 
-        if (contractedDirectories.contains(directoryPath)) {
-            commitChangesTreeContractedDirectories.value -= directoryPath
-        } else {
-            commitChangesTreeContractedDirectories.value += directoryPath
-        }
+        directories.update { if (directoryPath in it) it - directoryPath else it + directoryPath }
     }
 
     fun searchFilterToggled(show: Boolean) {
@@ -209,3 +216,28 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
     }
 
 }
+
+private fun List<DiffEntry>.toFileItems(): List<FileItem<DiffEntry>> {
+    val keyCounts = HashMap<String, Int>()
+
+    return map { entry ->
+        val path = entry.filePath
+        val baseKey = "${entry.changeType}:$path"
+        val count = keyCounts.merge(baseKey, 1, Int::plus) ?: 1
+
+        FileItem(
+            item = entry,
+            key = if (count == 1) baseKey else "$baseKey#$count",
+            path = path,
+            kind = entry.changeKind,
+        )
+    }
+}
+
+private val DiffEntry.changeKind: FileChangeKind
+    get() = when (changeType) {
+        DiffEntry.ChangeType.ADD, DiffEntry.ChangeType.COPY -> FileChangeKind.Added
+        DiffEntry.ChangeType.RENAME -> FileChangeKind.Renamed
+        DiffEntry.ChangeType.DELETE -> FileChangeKind.Deleted
+        else -> FileChangeKind.Modified
+    }

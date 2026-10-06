@@ -32,6 +32,7 @@ fun SideMenuHeader(
     isExpanded: Boolean,
     onExpand: () -> Unit = {},
     hoverIcon: @Composable (() -> Unit)? = null,
+    sortAction: @Composable (() -> Unit)? = null,
 ) {
     val hoverInteraction = remember { MutableInteractionSource() }
     val isHovered by hoverInteraction.collectIsHoveredAsState()
@@ -63,17 +64,33 @@ fun SideMenuHeader(
             )
         }
 
-        Text(
-            text = text,
-            modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .weight(1f),
-            maxLines = 1,
-            style = MaterialTheme.typography.body2,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colors.onBackground,
-            overflow = TextOverflow.Ellipsis,
-        )
+        val title = @Composable { modifier: Modifier ->
+            Text(
+                text = text,
+                modifier = modifier,
+                maxLines = 1,
+                style = MaterialTheme.typography.body2,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colors.onBackground,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        if (sortAction != null) {
+            TitleWithTrailingAction(
+                title = { title(Modifier) },
+                action = { sortAction() },
+                modifier = Modifier
+                    .padding(start = 8.dp, end = 4.dp)
+                    .weight(1f),
+            )
+        } else {
+            title(
+                Modifier
+                    .padding(horizontal = 8.dp)
+                    .weight(1f)
+            )
+        }
 
         if (hoverIcon != null && isHovered) {
             hoverIcon()

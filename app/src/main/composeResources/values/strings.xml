@@ -66,6 +66,39 @@
     <string name="side_pane_stashes_title">Stashes</string>
     <string name="side_pane_submodules_title">Submodules</string>
 
+    <!-- Sort and group menus (side pane and files changed) -->
+    <string name="sort_menu_tooltip">Sort and group</string>
+    <string name="sort_menu_title_local_branches">Sort local branches by</string>
+    <string name="sort_menu_title_remote_branches">Sort remote branches by</string>
+    <string name="sort_menu_title_tags">Sort tags by</string>
+    <string name="sort_key_name">Name</string>
+    <string name="sort_key_last_commit">Last commit</string>
+    <string name="sort_key_last_checkout">Last checked out</string>
+    <string name="sort_key_last_checkout_short">Checked out</string>
+    <string name="sort_key_tag_date">Tag date</string>
+    <string name="sort_order_a_to_z">A → Z</string>
+    <string name="sort_order_z_to_a">Z → A</string>
+    <string name="sort_order_newest_first">Newest first</string>
+    <string name="sort_order_oldest_first">Oldest first</string>
+    <string name="sort_keep_head_on_top">Keep current branch on top</string>
+    <string name="sort_group_by_prefix">Group by prefix</string>
+    <string name="sort_group_by_prefix_hint">Applies to all sections</string>
+    <string name="files_changed_sort_menu_title">Sort files by</string>
+    <string name="files_changed_sort_path">Path</string>
+    <string name="files_changed_sort_file_name">File name</string>
+    <string name="files_changed_sort_change_type">Change type</string>
+    <string name="files_changed_sort_added_first">Added first</string>
+    <string name="files_changed_sort_modified_first">Modified first</string>
+    <string name="files_changed_show_as">Show as</string>
+    <string name="files_changed_view_flat_list">Flat list</string>
+    <string name="files_changed_view_flat_list_hint">Full path on one line</string>
+    <string name="files_changed_view_split_columns">Split columns</string>
+    <string name="files_changed_view_split_columns_hint">File name | directory</string>
+    <string name="files_changed_view_folder_tree">Folder tree</string>
+    <string name="files_changed_view_folder_tree_hint">Nested, chains collapsed</string>
+    <string name="files_changed_column_file">File</string>
+    <string name="files_changed_column_directory">Directory</string>
+
     <!-- Uncommited changes view -->
     <string name="uncommited_changes_unstaged_title">Unstaged</string>
     <string name="uncommited_changes_unstaged_all_items_action">Stage all</string>

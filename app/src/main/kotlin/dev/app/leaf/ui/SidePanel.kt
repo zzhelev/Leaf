@@ -2,14 +2,21 @@
 
 package dev.app.leaf.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -18,6 +25,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.Screen
@@ -29,14 +37,21 @@ import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.models.Submodule
 import dev.app.leaf.domain.models.Tag
 import dev.app.leaf.domain.models.ui.SelectedItem
+import dev.app.leaf.domain.sorting.RefPanelSettings
+import dev.app.leaf.domain.sorting.RefRow
+import dev.app.leaf.domain.sorting.RefSection
+import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
+import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.AdjustableOutlinedTextField
+import dev.app.leaf.ui.components.FolderEntryContent
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.SideMenuHeader
 import dev.app.leaf.ui.components.SideMenuSubentry
+import dev.app.leaf.ui.components.sort.RefSortMenuButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.*
 import dev.app.leaf.viewmodels.sidepanel.*
@@ -60,6 +75,7 @@ fun SidePanel(
     val tagsState by viewModel.tagsState.collectAsState()
     val stashesState by viewModel.stashesState.collectAsState()
     val submodulesState by viewModel.submodulesState.collectAsState()
+    val refPanelSettings by viewModel.refPanelSettings.collectAsState()
 
     val searchFocusRequester = remember { FocusRequester() }
     val tabFocusRequester = LocalTabFocusRequester.current
@@ -95,6 +111,7 @@ fun SidePanel(
         ) {
             localBranches(
                 branchesState = branchesState,
+                refPanelSettings = refPanelSettings,
                 selectedItem = selectedItem,
                 viewModel = viewModel,
                 onChangeDefaultUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
@@ -103,12 +120,14 @@ fun SidePanel(
 
             remotes(
                 remotesState = remotesState,
+                refPanelSettings = refPanelSettings,
                 viewModel = viewModel,
                 onShowAddEditRemoteDialog = { onNavigate(Screen.AddEditRemote(it)) },
             )
 
             tags(
                 tagsState = tagsState,
+                refPanelSettings = refPanelSettings,
                 selectedItem = selectedItem,
                 viewModel = viewModel,
             )
@@ -171,9 +190,10 @@ fun FilterTextField(
     )
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 fun LazyListScope.localBranches(
     branchesState: BranchesState,
+    refPanelSettings: RefPanelSettings,
     selectedItem: SelectedItem,
     viewModel: RepositoryOpenViewModel,
     onChangeDefaultUpstreamBranch: (Branch) -> Unit,
@@ -183,86 +203,121 @@ fun LazyListScope.localBranches(
     val branches = branchesState.branches
     val currentBranch = branchesState.currentBranch
 
-    item {
-        ContextMenu(
-            items = { emptyList() }
-        ) {
-            SideMenuHeader(
-                text = stringResource(Res.string.side_pane_local_branches_title),
-                icon = painterResource(Res.drawable.branch),
-                itemsCount = branches.count(),
-                hoverIcon = null,
-                isExpanded = isExpanded,
-                onExpand = { viewModel.onExpandBranches() }
-            )
+    stickyHeader(key = "header:local") {
+        SectionHeaderBackground {
+            ContextMenu(
+                items = { emptyList() }
+            ) {
+                SideMenuHeader(
+                    text = stringResource(Res.string.side_pane_local_branches_title),
+                    icon = painterResource(Res.drawable.branch),
+                    itemsCount = branches.count(),
+                    hoverIcon = null,
+                    isExpanded = isExpanded,
+                    onExpand = { viewModel.onExpandBranches() },
+                    sortAction = {
+                        RefSortMenuButton(
+                            section = RefSection.Local,
+                            sortState = branchesState.sortState,
+                            settings = refPanelSettings,
+                            onSortChange = { viewModel.onRefSortChanged(RefSection.Local, it) },
+                            onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
+                            onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
+                        )
+                    },
+                )
+            }
         }
     }
 
     if (isExpanded) {
-        items(branches, key = { it.name }) { branch ->
-            val scope = rememberCoroutineScope()
-            val clipboard = LocalClipboard.current
+        items(branchesState.rows, key = { it.key }) { row ->
+            when (row) {
+                is RefRow.Folder -> RefFolder(row, onClick = { viewModel.onRefFolderToggled(row.key) })
+                is RefRow.Item -> {
+                    val branch = row.entry.item
+                    val scope = rememberCoroutineScope()
+                    val clipboard = LocalClipboard.current
 
-            Branch(
-                branch = branch,
-                isSelectedItem = selectedItem is SelectedItem.BranchItem && selectedItem.branch == branch,
-                currentBranch = currentBranch,
-                onBranchClicked = { viewModel.selectBranch(branch) },
-                onBranchDoubleClicked = { viewModel.checkoutBranch(branch) },
-                onCheckoutBranch = { viewModel.checkoutBranch(branch) },
-                onMergeBranch = { viewModel.mergeBranch(branch) },
-                onRebaseBranch = { viewModel.rebaseBranch(branch) },
-                onDeleteBranch = { viewModel.deleteBranch(branch) },
-                onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(branch) },
-                onRenameBranch = { onRenameBranch(branch) },
-                onCopyBranchNameToClipboard = {
-                    scope.launch {
-                        clipboard.setClipboardText(branch.simpleName)
-                    }
-                },
-            )
+                    Branch(
+                        branch = branch,
+                        displayName = row.displayName,
+                        depth = row.depth,
+                        ageLabel = row.ageLabel,
+                        isSelectedItem = selectedItem is SelectedItem.BranchItem && selectedItem.branch == branch,
+                        currentBranch = currentBranch,
+                        onBranchClicked = { viewModel.selectBranch(branch) },
+                        onBranchDoubleClicked = { viewModel.checkoutBranch(branch) },
+                        onCheckoutBranch = { viewModel.checkoutBranch(branch) },
+                        onMergeBranch = { viewModel.mergeBranch(branch) },
+                        onRebaseBranch = { viewModel.rebaseBranch(branch) },
+                        onDeleteBranch = { viewModel.deleteBranch(branch) },
+                        onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(branch) },
+                        onRenameBranch = { onRenameBranch(branch) },
+                        onCopyBranchNameToClipboard = {
+                            scope.launch {
+                                clipboard.setClipboardText(branch.simpleName)
+                            }
+                        },
+                    )
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.remotes(
     remotesState: RemotesState,
+    refPanelSettings: RefPanelSettings,
     viewModel: RepositoryOpenViewModel,
     onShowAddEditRemoteDialog: (Remote?) -> Unit,
 ) {
     val isExpanded = remotesState.isExpanded
     val remotes = remotesState.remotes
 
-    item {
-        SideMenuHeader(
-            text = stringResource(Res.string.side_pane_remotes_title),
-            icon = painterResource(Res.drawable.cloud),
-            itemsCount = remotes.count(),
-            hoverIcon = {
-                IconButton(
-                    onClick = { onShowAddEditRemoteDialog(null) },
-                    modifier = Modifier
-                        .padding(end = 16.dp)
-                        .size(16.dp)
-                        .handOnHover(),
-                ) {
-                    Icon(
-                        painter = painterResource(Res.drawable.add),
-                        contentDescription = null,
+    stickyHeader(key = "header:remotes") {
+        SectionHeaderBackground {
+            SideMenuHeader(
+                text = stringResource(Res.string.side_pane_remotes_title),
+                icon = painterResource(Res.drawable.cloud),
+                itemsCount = remotes.count(),
+                hoverIcon = {
+                    IconButton(
+                        onClick = { onShowAddEditRemoteDialog(null) },
                         modifier = Modifier
-                            .fillMaxSize(),
-                        tint = MaterialTheme.colors.onBackground,
+                            .padding(end = 16.dp)
+                            .size(16.dp)
+                            .handOnHover(),
+                    ) {
+                        Icon(
+                            painter = painterResource(Res.drawable.add),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize(),
+                            tint = MaterialTheme.colors.onBackground,
+                        )
+                    }
+                },
+                isExpanded = isExpanded,
+                onExpand = { viewModel.onExpandRemotes() },
+                sortAction = {
+                    RefSortMenuButton(
+                        section = RefSection.Remote,
+                        sortState = remotesState.sortState,
+                        settings = refPanelSettings,
+                        onSortChange = { viewModel.onRefSortChanged(RefSection.Remote, it) },
+                        onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
+                        onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
                     )
-                }
-            },
-            isExpanded = isExpanded,
-            onExpand = { viewModel.onExpandRemotes() }
-        )
+                },
+            )
+        }
     }
 
     if (isExpanded) {
         for (remote in remotes) {
-            item {
+            item(key = "remoteRow:${remote.remoteInfo.remote.name}") {
                 Remote(
                     remote = remote,
                     onEditRemote = {
@@ -276,25 +331,38 @@ fun LazyListScope.remotes(
             }
 
             if (remote.isExpanded) {
-                items(remote.remoteInfo.branchesList) { remoteBranch ->
-                    val scope = rememberCoroutineScope()
-                    val clipboard = LocalClipboard.current
-                    RemoteBranches(
-                        remoteBranch = remoteBranch,
-                        currentBranch = remotesState.currentBranch,
-                        onBranchClicked = { viewModel.selectBranch(remoteBranch) },
-                        onCheckoutBranch = { viewModel.checkoutRemoteBranch(remoteBranch) },
-                        onDeleteBranch = { viewModel.deleteRemoteBranch(remoteBranch) },
-                        onPushRemoteBranch = { viewModel.pushToRemoteBranch(remoteBranch) },
-                        onPullRemoteBranch = { viewModel.pullFromRemoteBranch(remoteBranch) },
-                        onRebaseRemoteBranch = { viewModel.rebaseBranch(remoteBranch) },
-                        onMergeRemoteBranch = { viewModel.mergeBranch(remoteBranch) },
-                        onCopyBranchNameToClipboard = {
-                            scope.launch {
-                                clipboard.setClipboardText(remoteBranch.simpleName)
-                            }
+                items(remote.rows, key = { it.key }) { row ->
+                    when (row) {
+                        is RefRow.Folder -> RefFolder(
+                            row,
+                            extraPadding = REMOTE_BRANCH_PADDING,
+                            onClick = { viewModel.onRefFolderToggled(row.key) },
+                        )
+                        is RefRow.Item -> {
+                            val remoteBranch = row.entry.item
+                            val scope = rememberCoroutineScope()
+                            val clipboard = LocalClipboard.current
+                            RemoteBranches(
+                                remoteBranch = remoteBranch,
+                                displayName = row.displayName,
+                                depth = row.depth,
+                                ageLabel = row.ageLabel,
+                                currentBranch = remotesState.currentBranch,
+                                onBranchClicked = { viewModel.selectBranch(remoteBranch) },
+                                onCheckoutBranch = { viewModel.checkoutRemoteBranch(remoteBranch) },
+                                onDeleteBranch = { viewModel.deleteRemoteBranch(remoteBranch) },
+                                onPushRemoteBranch = { viewModel.pushToRemoteBranch(remoteBranch) },
+                                onPullRemoteBranch = { viewModel.pullFromRemoteBranch(remoteBranch) },
+                                onRebaseRemoteBranch = { viewModel.rebaseBranch(remoteBranch) },
+                                onMergeRemoteBranch = { viewModel.mergeBranch(remoteBranch) },
+                                onCopyBranchNameToClipboard = {
+                                    scope.launch {
+                                        clipboard.setClipboardText(remoteBranch.simpleName)
+                                    }
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
         }
@@ -302,42 +370,67 @@ fun LazyListScope.remotes(
 }
 
 
+@OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.tags(
     tagsState: TagsState,
+    refPanelSettings: RefPanelSettings,
     viewModel: RepositoryOpenViewModel,
     selectedItem: SelectedItem,
 ) {
     val isExpanded = tagsState.isExpanded
     val tags = tagsState.tags
 
-    item {
-        ContextMenu(
-            items = { emptyList() }
-        ) {
-            SideMenuHeader(
-                text = stringResource(Res.string.side_pane_tags_title),
-                icon = painterResource(Res.drawable.tag),
-                itemsCount = tags.count(),
-                hoverIcon = null,
-                isExpanded = isExpanded,
-                onExpand = { viewModel.onExpandTags() }
-            )
+    stickyHeader(key = "header:tags") {
+        SectionHeaderBackground {
+            ContextMenu(
+                items = { emptyList() }
+            ) {
+                SideMenuHeader(
+                    text = stringResource(Res.string.side_pane_tags_title),
+                    icon = painterResource(Res.drawable.tag),
+                    itemsCount = tags.count(),
+                    hoverIcon = null,
+                    isExpanded = isExpanded,
+                    onExpand = { viewModel.onExpandTags() },
+                    sortAction = {
+                        RefSortMenuButton(
+                            section = RefSection.Tags,
+                            sortState = tagsState.sortState,
+                            settings = refPanelSettings,
+                            onSortChange = { viewModel.onRefSortChanged(RefSection.Tags, it) },
+                            onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
+                            onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
+                        )
+                    },
+                )
+            }
         }
     }
 
     if (isExpanded) {
-        items(tags, key = { it.name }) { tag ->
-            Tag(
-                tag,
-                isSelected = selectedItem is SelectedItem.TagItem && selectedItem.tag == tag,
-                onTagClicked = { viewModel.selectTag(tag) },
-                onCheckoutTag = { viewModel.checkoutTagCommit(tag) },
-                onDeleteTag = { viewModel.deleteTag(tag) }
-            )
+        items(tagsState.rows, key = { it.key }) { row ->
+            when (row) {
+                is RefRow.Folder -> RefFolder(row, onClick = { viewModel.onRefFolderToggled(row.key) })
+                is RefRow.Item -> {
+                    val tag = row.entry.item
+
+                    Tag(
+                        tag,
+                        displayName = row.displayName,
+                        depth = row.depth,
+                        ageLabel = row.ageLabel,
+                        isSelected = selectedItem is SelectedItem.TagItem && selectedItem.tag == tag,
+                        onTagClicked = { viewModel.selectTag(tag) },
+                        onCheckoutTag = { viewModel.checkoutTagCommit(tag) },
+                        onDeleteTag = { viewModel.deleteTag(tag) }
+                    )
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.stashes(
     stashesState: StashesState,
     viewModel: RepositoryOpenViewModel,
@@ -346,18 +439,20 @@ fun LazyListScope.stashes(
     val isExpanded = stashesState.isExpanded
     val stashes = stashesState.stashes
 
-    item {
-        ContextMenu(
-            items = { emptyList() }
-        ) {
-            SideMenuHeader(
-                text = stringResource(Res.string.side_pane_stashes_title),
-                icon = painterResource(Res.drawable.stash),
-                itemsCount = stashes.count(),
-                hoverIcon = null,
-                isExpanded = isExpanded,
-                onExpand = { viewModel.onExpandStashes() }
-            )
+    stickyHeader(key = "header:stashes") {
+        SectionHeaderBackground {
+            ContextMenu(
+                items = { emptyList() }
+            ) {
+                SideMenuHeader(
+                    text = stringResource(Res.string.side_pane_stashes_title),
+                    icon = painterResource(Res.drawable.stash),
+                    itemsCount = stashes.count(),
+                    hoverIcon = null,
+                    isExpanded = isExpanded,
+                    onExpand = { viewModel.onExpandStashes() }
+                )
+            }
         }
     }
 
@@ -375,6 +470,7 @@ fun LazyListScope.stashes(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.submodules(
     submodulesState: SubmodulesState,
     viewModel: RepositoryOpenViewModel,
@@ -383,34 +479,36 @@ fun LazyListScope.submodules(
     val isExpanded = submodulesState.isExpanded
     val submodules = submodulesState.submodules
 
-    item {
-        ContextMenu(
-            items = { emptyList() }
-        ) {
-            SideMenuHeader(
-                text = stringResource(Res.string.side_pane_submodules_title),
-                icon = painterResource(Res.drawable.topic),
-                itemsCount = submodules.count(),
-                hoverIcon = {
-                    IconButton(
-                        onClick = onAddSubmodule,
-                        modifier = Modifier
-                            .padding(end = 16.dp)
-                            .size(16.dp)
-                            .handOnHover(),
-                    ) {
-                        Icon(
-                            painter = painterResource(Res.drawable.add),
-                            contentDescription = null,
+    stickyHeader(key = "header:submodules") {
+        SectionHeaderBackground {
+            ContextMenu(
+                items = { emptyList() }
+            ) {
+                SideMenuHeader(
+                    text = stringResource(Res.string.side_pane_submodules_title),
+                    icon = painterResource(Res.drawable.topic),
+                    itemsCount = submodules.count(),
+                    hoverIcon = {
+                        IconButton(
+                            onClick = onAddSubmodule,
                             modifier = Modifier
-                                .fillMaxSize(),
-                            tint = MaterialTheme.colors.onBackground,
-                        )
-                    }
-                },
-                isExpanded = isExpanded,
-                onExpand = { viewModel.onExpandSubmodules() }
-            )
+                                .padding(end = 16.dp)
+                                .size(16.dp)
+                                .handOnHover(),
+                        ) {
+                            Icon(
+                                painter = painterResource(Res.drawable.add),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize(),
+                                tint = MaterialTheme.colors.onBackground,
+                            )
+                        }
+                    },
+                    isExpanded = isExpanded,
+                    onExpand = { viewModel.onExpandSubmodules() }
+                )
+            }
         }
     }
 
@@ -429,9 +527,67 @@ fun LazyListScope.submodules(
     }
 }
 
+/** Left padding of remote branches, which sit under their remote's row. */
+private val REMOTE_BRANCH_PADDING = 24.dp
+
+/** Extra left padding of refs inside a folder. */
+private val FOLDER_DEPTH_PADDING = 22.dp
+
+/** Opaque background so rows don't show through a pinned section header. */
+@Composable
+private fun SectionHeaderBackground(content: @Composable () -> Unit) {
+    Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
+        content()
+    }
+}
+
+@Composable
+private fun RefFolder(
+    folder: RefRow.Folder,
+    extraPadding: Dp = 0.dp,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .height(MaterialTheme.linesHeight.sidePanelItemHeight)
+            .fillMaxWidth()
+            .handMouseClickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FolderEntryContent(
+            label = folder.label,
+            count = folder.count,
+            isExpanded = folder.isExpanded,
+            startPadding = 14.dp + extraPadding,
+        )
+    }
+}
+
+/** A compact age such as `3d`, or the HEAD label of the current branch when no date sort is active. */
+@Composable
+private fun RefTrailingLabel(ageLabel: String?, isCurrentBranch: Boolean) {
+    val text = ageLabel ?: if (isCurrentBranch) {
+        stringResource(Res.string.side_pane_local_branches_current_branch_label)
+    } else {
+        return
+    }
+
+    Text(
+        text = text,
+        color = MaterialTheme.colors.onBackgroundSecondary,
+        style = MaterialTheme.typography.caption,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+}
+
 @Composable
 private fun Branch(
     branch: Branch,
+    displayName: String,
+    depth: Int,
+    ageLabel: String?,
     currentBranch: Branch?,
     isSelectedItem: Boolean,
     onBranchClicked: () -> Unit,
@@ -466,22 +622,15 @@ private fun Branch(
         }
     ) {
         SideMenuSubentry(
-            text = branch.simpleName,
+            text = displayName,
             fontWeight = if (isCurrentBranch) FontWeight.Bold else FontWeight.Normal,
             iconResourcePath = Res.drawable.branch,
             isSelected = isSelectedItem,
+            extraPadding = FOLDER_DEPTH_PADDING * depth,
             onClick = onBranchClicked,
             onDoubleClick = onBranchDoubleClicked,
         ) {
-            if (isCurrentBranch) {
-                Text(
-                    text = stringResource(Res.string.side_pane_local_branches_current_branch_label),
-                    color = MaterialTheme.colors.onBackgroundSecondary,
-                    style = MaterialTheme.typography.caption,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
+            RefTrailingLabel(ageLabel, isCurrentBranch)
         }
     }
 }
@@ -517,6 +666,9 @@ private fun Remote(
 @Composable
 private fun RemoteBranches(
     remoteBranch: Branch,
+    displayName: String,
+    depth: Int,
+    ageLabel: String?,
     currentBranch: Branch?,
     onBranchClicked: () -> Unit,
     onCheckoutBranch: () -> Unit,
@@ -548,19 +700,24 @@ private fun RemoteBranches(
         }
     ) {
         SideMenuSubentry(
-            text = remoteBranch.simpleName,
-            extraPadding = 24.dp,
+            text = displayName,
+            extraPadding = REMOTE_BRANCH_PADDING + FOLDER_DEPTH_PADDING * depth,
             isSelected = false,
             iconResourcePath = Res.drawable.branch,
             onClick = onBranchClicked,
             onDoubleClick = onCheckoutBranch,
-        )
+        ) {
+            RefTrailingLabel(ageLabel, isCurrentBranch = false)
+        }
     }
 }
 
 @Composable
 private fun Tag(
     tag: Tag,
+    displayName: String,
+    depth: Int,
+    ageLabel: String?,
     isSelected: Boolean,
     onTagClicked: () -> Unit,
     onCheckoutTag: () -> Unit,
@@ -575,11 +732,14 @@ private fun Tag(
         }
     ) {
         SideMenuSubentry(
-            text = tag.simpleName,
+            text = displayName,
             isSelected = isSelected,
             iconResourcePath = Res.drawable.tag,
+            extraPadding = FOLDER_DEPTH_PADDING * depth,
             onClick = onTagClicked,
-        )
+        ) {
+            RefTrailingLabel(ageLabel, isCurrentBranch = false)
+        }
     }
 }
 

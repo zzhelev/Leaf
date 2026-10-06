@@ -45,7 +45,10 @@ fun FilesChangedHeader(
     showActionForSelected: Boolean,
     actionInfo: ActionInfo? = null,
     onAllAction: (() -> Unit)? = null,
-    onAlternateShowAsTree: () -> Unit,
+    /** Shows the list/tree toggle when set. */
+    onAlternateShowAsTree: (() -> Unit)?,
+    /** Shown before the search button, for example a sort and view menu. */
+    sortAction: (@Composable () -> Unit)? = null,
     onSearchFilterToggled: (Boolean) -> Unit,
     onSearchFocused: () -> Unit,
     searchFilter: TextFieldValue,
@@ -81,19 +84,23 @@ fun FilesChangedHeader(
                 maxLines = 1,
             )
 
-            IconButton(
-                onClick = {
-                    onAlternateShowAsTree()
-                },
-                modifier = Modifier.handOnHover()
-            ) {
-                Icon(
-                    painter = painterResource(if (showAsTree) Res.drawable.list else Res.drawable.tree),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colors.onBackground,
-                )
+            if (onAlternateShowAsTree != null) {
+                IconButton(
+                    onClick = {
+                        onAlternateShowAsTree()
+                    },
+                    modifier = Modifier.handOnHover()
+                ) {
+                    Icon(
+                        painter = painterResource(if (showAsTree) Res.drawable.list else Res.drawable.tree),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colors.onBackground,
+                    )
+                }
             }
+
+            sortAction?.invoke()
 
             IconButton(
                 onClick = {

@@ -4,7 +4,6 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -21,15 +20,13 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.compose.rememberInTab
-import dev.app.leaf.domain.extensions.fileName
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.Identity
+import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.extensions.handMouseClickable
-import dev.app.leaf.extensions.icon
-import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.repositoryopen.CommitChangesAction
 import dev.app.leaf.repositoryopen.CommitChangesState
@@ -37,9 +34,8 @@ import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.*
-import dev.app.leaf.ui.context_menu.ContextMenuElement
+import dev.app.leaf.ui.components.sort.FilesSortMenuButton
 import dev.app.leaf.ui.context_menu.committedChangesEntriesContextMenuItems
-import dev.app.leaf.ui.tree_files.TreeItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -75,8 +71,8 @@ fun CommitChanges(
         onSearchFilterChanged = { filter ->
             viewModel.onAction(CommitChangesAction.SearchFilterChanged(filter))
         },
-        onDirectoryClicked = { viewModel.onAction(CommitChangesAction.TreeDirectoryToggle(it.fullPath)) },
-        onAlternateShowAsTree = { viewModel.onAction(CommitChangesAction.ToggleShowAsTree) },
+        onDirectoryClicked = { viewModel.onAction(CommitChangesAction.TreeDirectoryToggle(it)) },
+        onViewStateChanged = { viewModel.onAction(CommitChangesAction.ViewStateChanged(it)) },
     )
 }
 
@@ -91,8 +87,8 @@ private fun CommitChangesView(
     onSearchFilterToggled: (Boolean) -> Unit,
     onSearchFocused: () -> Unit,
     onSearchFilterChanged: (TextFieldValue) -> Unit,
-    onDirectoryClicked: (TreeItem.Dir) -> Unit,
-    onAlternateShowAsTree: () -> Unit,
+    onDirectoryClicked: (path: String) -> Unit,
+    onViewStateChanged: (FilesViewState) -> Unit,
 ) {
     val tabFocusRequester = LocalTabFocusRequester.current
     val commit = commitChangesState.commit
@@ -104,7 +100,7 @@ private fun CommitChangesView(
     }
 
     val showSearch = commitChangesState.showSearch
-    val showAsTree = commitChangesState.showAsTree
+    val viewState = commitChangesState.viewState
 
     // TODO Is this needed?
     var searchFilter by remember(commitChangesState.searchFilter, showSearch, commitChangesState) {
@@ -133,9 +129,12 @@ private fun CommitChangesView(
         ) {
             FilesChangedHeader(
                 title = "Files changed",
-                showAsTree = showAsTree,
+                showAsTree = false,
                 showSearch = showSearch,
-                onAlternateShowAsTree = onAlternateShowAsTree,
+                onAlternateShowAsTree = null,
+                sortAction = {
+                    FilesSortMenuButton(viewState = viewState, onViewStateChange = onViewStateChanged)
+                },
                 searchFilter = searchFilter,
                 onSearchFocused = onSearchFocused,
                 onSearchFilterToggled = onSearchFilterToggled,
@@ -147,46 +146,24 @@ private fun CommitChangesView(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
-            if (commitChangesState.showAsTree) {
-                TreeCommitLogChanges(
-                    diffSelected = diffSelected,
-                    changesListScroll = changesListScroll,
-                    treeItems = if (showSearch && searchFilter.text.isNotBlank()) {
-                        commitChangesState.changesTreeFiltered
-                    } else {
-                        commitChangesState.changesTree
-                    },
-                    onDiffSelected = onDiffSelected,
-                    onGenerateContextMenu = { diffEntry ->
-                        committedChangesEntriesContextMenuItems(
-                            diffEntry,
-                            onBlame = { onBlame(diffEntry.filePath) },
-                            onHistory = { onHistory(diffEntry.filePath) },
-                            onOpenFileInFolder = { onOpenFileInFolder(diffEntry.parentDirectoryPath) },
-                        )
-                    },
-                    onDirectoryClicked = onDirectoryClicked,
-                )
-            } else {
-                ListCommitLogChanges(
-                    diffSelected = diffSelected,
-                    changesListScroll = changesListScroll,
-                    diffEntries = if (showSearch && searchFilter.text.isNotBlank()) {
-                        commitChangesState.changesFiltered
-                    } else {
-                        commitChangesState.changes
-                    },
-                    onDiffSelected = onDiffSelected,
-                    onGenerateContextMenu = { diffEntry ->
-                        committedChangesEntriesContextMenuItems(
-                            diffEntry,
-                            onBlame = { onBlame(diffEntry.filePath) },
-                            onHistory = { onHistory(diffEntry.filePath) },
-                            onOpenFileInFolder = { onOpenFileInFolder(diffEntry.parentDirectoryPath) },
-                        )
-                    }
-                )
-            }
+            ChangedFilesList(
+                rows = commitChangesState.rows,
+                viewState = viewState,
+                selectedEntries = diffSelected?.items?.map { it.diffEntry }.orEmpty(),
+                listState = changesListScroll,
+                resetKey = commit,
+                onFileClick = onDiffSelected,
+                onFolderToggle = onDirectoryClicked,
+                onSplitRatioChange = { onViewStateChanged(viewState.copy(splitRatio = it)) },
+                onGenerateContextMenu = { diffEntry ->
+                    committedChangesEntriesContextMenuItems(
+                        diffEntry,
+                        onBlame = { onBlame(diffEntry.filePath) },
+                        onHistory = { onHistory(diffEntry.filePath) },
+                        onOpenFileInFolder = { onOpenFileInFolder(diffEntry.parentDirectoryPath) },
+                    )
+                },
+            )
         }
 
         MessageAuthorFooter(
@@ -316,112 +293,4 @@ fun CommitFooter(
             }
         }
     }
-}
-
-@Composable
-fun ListCommitLogChanges(
-    diffEntries: List<DiffEntry>,
-    diffSelected: DiffSelected.CommitedChanges?,
-    changesListScroll: LazyListState,
-    onDiffSelected: (DiffEntry) -> Unit,
-    onGenerateContextMenu: (DiffEntry) -> List<ContextMenuElement>,
-) {
-    ScrollableLazyColumn(
-        modifier = Modifier
-            .fillMaxSize(),
-        state = changesListScroll,
-    ) {
-        items(items = diffEntries) { diffEntry ->
-            FileEntry(
-                icon = diffEntry.icon,
-                iconColor = diffEntry.iconColor,
-                parentDirectoryPath = diffEntry.parentDirectoryPath,
-                fileName = diffEntry.fileName,
-                isSelected = diffSelected?.items?.any { it.diffEntry == diffEntry} ?: false,
-                onClick = { onDiffSelected(diffEntry) },
-                onDoubleClick = {},
-                onGenerateContextMenu = { onGenerateContextMenu(diffEntry) },
-                trailingAction = null,
-            )
-        }
-    }
-}
-
-@Composable
-fun TreeCommitLogChanges(
-    treeItems: List<TreeItem<DiffEntry>>,
-    diffSelected: DiffSelected.CommitedChanges?,
-    changesListScroll: LazyListState,
-    onDiffSelected: (DiffEntry) -> Unit,
-    onDirectoryClicked: (TreeItem.Dir) -> Unit,
-    onGenerateContextMenu: (DiffEntry) -> List<ContextMenuElement>,
-) {
-    ScrollableLazyColumn(
-        modifier = Modifier
-            .fillMaxSize(),
-        state = changesListScroll,
-    ) {
-        items(items = treeItems) { entry ->
-            CommitTreeItemEntry(
-                entry = entry,
-                isSelected = entry is TreeItem.File &&
-                        diffSelected?.items?.any { it.diffEntry == entry.data } ?: false,
-                onFileClick = { onDiffSelected(it) },
-                onDirectoryClick = { onDirectoryClicked(it) },
-                onGenerateContextMenu = onGenerateContextMenu,
-                onGenerateDirectoryContextMenu = { emptyList() },
-            )
-        }
-    }
-}
-
-
-@Composable
-private fun CommitTreeItemEntry(
-    entry: TreeItem<DiffEntry>,
-    isSelected: Boolean,
-    onFileClick: (DiffEntry) -> Unit,
-    onDirectoryClick: (TreeItem.Dir) -> Unit,
-    onGenerateContextMenu: (DiffEntry) -> List<ContextMenuElement>,
-    onGenerateDirectoryContextMenu: (TreeItem.Dir) -> List<ContextMenuElement>,
-) {
-    when (entry) {
-        is TreeItem.File -> CommitFileEntry(
-            fileEntry = entry,
-            isSelected = isSelected,
-            onClick = { onFileClick(entry.data) },
-            onGenerateContextMenu = onGenerateContextMenu,
-        )
-
-        is TreeItem.Dir -> DirectoryEntry(
-            dirName = entry.displayName,
-            isExpanded = entry.isExpanded,
-            onClick = { onDirectoryClick(entry) },
-            depth = entry.depth,
-            onGenerateContextMenu = { onGenerateDirectoryContextMenu(entry) },
-        )
-    }
-}
-
-@Composable
-private fun CommitFileEntry(
-    fileEntry: TreeItem.File<DiffEntry>,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onGenerateContextMenu: (DiffEntry) -> List<ContextMenuElement>,
-) {
-    val diffEntry = fileEntry.data
-
-    FileEntry(
-        icon = diffEntry.icon,
-        iconColor = diffEntry.iconColor,
-        parentDirectoryPath = "",
-        fileName = diffEntry.fileName,
-        isSelected = isSelected,
-        onClick = onClick,
-        onDoubleClick = {},
-        depth = fileEntry.depth,
-        onGenerateContextMenu = { onGenerateContextMenu(diffEntry) },
-        trailingAction = null,
-    )
 }
