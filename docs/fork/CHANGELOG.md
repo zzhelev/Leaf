@@ -2,6 +2,17 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Real storage for the Linux jar (branch `fix/linux-jar-storage`)
+
+- **The problem:** `AppStorage` only counted a run as packaged when jpackage's launcher set `jpackage.app-version`.
+  The Linux fat jar runs with `java -jar`, so it kept its settings under the dev names (`leaf-dev`, `LeafDevConfig`).
+  That was the known issue in the 1.0.0 release notes.
+- **The fix:** `fatJarLinux` writes `Leaf-Packaged: true` into the jar's manifest. `AppStorage` also counts a run as
+  packaged when the jar it was loaded from has that attribute. `./gradlew :app:run` and IDE runs load module jars or
+  class folders without it, so they keep the dev storage.
+- **Tests:** `AppStorageTest` gained three tests. A jar with the attribute counts as packaged. Jars without it, or with
+  another value, don't. Neither do folders, missing files, or files that aren't jars.
+
 ## Settings stored as JSON (branch `feature/datastore-json`)
 
 - **Why:** DataStore Preferences' file format goes through its bundled protobuf, which calls `sun.misc.Unsafe`. JDK 25
