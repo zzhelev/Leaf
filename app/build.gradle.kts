@@ -181,6 +181,54 @@ compose.desktop {
     }
 }
 
+// Builds Leaf.app and installs it into /Applications, replacing an existing copy. macOS only.
+// -PinstallDir=<dir> installs somewhere else, for example $HOME/Applications.
+if (currentOs() == OS.MAC) {
+    tasks.register("installMacApp") {
+        group = "compose desktop"
+        description = "Builds $projectName.app and installs it into /Applications, replacing an existing copy."
+        dependsOn("createDistributable")
+
+        val builtApp = layout.buildDirectory.dir("compose/binaries/main/app/$projectName.app")
+        val installDir = providers.gradleProperty("installDir").orElse("/Applications")
+
+        doLast {
+            val target = File(installDir.get(), "$projectName.app")
+            // Matches processes whose command line starts with the app's executable, so a shell or editor that merely
+            // mentions the path doesn't count. A Leaf that was quit a moment ago can take a few seconds to exit, so
+            // wait up to 5 s before giving up.
+            val escapedPath = "${target.absolutePath}/Contents/MacOS/".replace(Regex("""[.^$|?*+()\[\]{}\\]""")) {
+                "\\" + it.value
+            }
+            val executablePattern = "^$escapedPath"
+            fun runningProcesses(): String {
+                val pgrep = ProcessBuilder("pgrep", "-fl", executablePattern).start()
+                val output = pgrep.inputStream.bufferedReader().readText().trim()
+                return if (pgrep.waitFor() == 0) output else ""
+            }
+            var running = runningProcesses()
+            repeat(5) {
+                if (running.isNotEmpty()) {
+                    Thread.sleep(1000)
+                    running = runningProcesses()
+                }
+            }
+            check(running.isEmpty()) {
+                "$projectName is running from $target. Quit it, then run installMacApp again.\n$running"
+            }
+
+            // ditto keeps the bundle's symlinks, permissions and code signature, but it merges into an existing
+            // bundle, so the old copy goes first: leftover jars would break the signature. rm doesn't follow
+            // symlinks out of the bundle.
+            val removed = ProcessBuilder("/bin/rm", "-rf", target.absolutePath).inheritIO().start().waitFor()
+            check(removed == 0) { "Couldn't remove the old $target (rm exit code $removed)" }
+            val copied = ProcessBuilder("ditto", builtApp.get().asFile.absolutePath, target.absolutePath)
+                .inheritIO().start().waitFor()
+            check(copied == 0) { "ditto failed with exit code $copied" }
+            println("Installed $target")
+        }
+    }
+}
 
 tasks.register("fatJarLinux", type = Jar::class) {
     val archSuffix = if (isLinuxAarch64) {
