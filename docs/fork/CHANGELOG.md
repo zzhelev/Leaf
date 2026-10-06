@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Install task and unsigned default (branch `feature/install-task`)
+
+- **`./gradlew :app:installMacApp`** (macOS only) builds `Leaf.app` and installs it into `/Applications`, or into
+  `-PinstallDir=<dir>`.
+  - If Leaf is running from there, it waits up to 5 s, then stops. It only counts processes whose command line starts
+    with the app's executable.
+  - It removes the old copy, then copies the new one with `ditto`.
+- **Ad hoc signing by default:** `gradle.properties` sets `compose.desktop.mac.sign=false`, so builds no longer need
+  `-Pcompose.desktop.mac.sign=false`. Signing with a Developer ID takes `-Pcompose.desktop.mac.sign=true`.
+- **DataStore:** I tried 1.3.0-alpha11 to get rid of JDK 25's `sun.misc.Unsafe` warning. It still warns, because its
+  bundled protobuf calls `Unsafe`, so the bump was reverted. CLAUDE.md lists the warning as known.
+- **Verified:**
+  - The default build came out ad hoc signed, and the 45 tests pass.
+  - `installMacApp` refused while Leaf ran from `/Applications`, naming only the Leaf process.
+  - It waited for a Leaf that had just quit, then installed a bundle that passes `codesign --verify --deep --strict`.
+
 ## Sorting and grouping in the side panel and Files changed (branch `feature/sort-and-group`)
 
 - **Side panel:** Local branches, Remotes and Tags each have a sort button left of the count. It opens a menu:
@@ -33,6 +49,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Verified:** rendered offscreen against a temp repo with prefixed branches, a remote and tags, in both themes, with
   scripted clicks and keys. 1,500 refs sort and group in about 1 ms; one layout of 6,000 changed files takes about
   10–15 ms.
+
 
 ## Version 1.0.0 and the release workflow (branch `feature/release-workflow`)
 

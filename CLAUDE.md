@@ -111,17 +111,21 @@ Run everything from the repo root, with `JAVA_HOME` set as above.
 Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOME` (see Toolchain):
 
 ```bash
-./gradlew :app:createDistributable -Pcompose.desktop.mac.sign=false  # .app in app/build/compose/binaries/main/app/
-./gradlew :app:packageDmg -Pcompose.desktop.mac.sign=false           # .dmg in app/build/compose/binaries/main/dmg/
-rm -rf /Applications/Leaf.app && ditto app/build/compose/binaries/main/app/Leaf.app /Applications/Leaf.app
+./gradlew :app:createDistributable  # .app in app/build/compose/binaries/main/app/
+./gradlew :app:packageDmg           # .dmg in app/build/compose/binaries/main/dmg/
+./gradlew :app:installMacApp        # builds Leaf.app and installs it into /Applications
 ```
 
-- The last line installs without the DMG. Remove the old app first: `ditto` merges into an existing bundle, and jar
-  names change between builds, so leftover jars would break the code signature.
-
-- Without a Developer ID certificate, pass `-Pcompose.desktop.mac.sign=false`. jpackage then signs ad hoc, with the
-  hardened runtime and the JIT and library-validation entitlements the JVM needs. That build runs on the machine that
-  built it. Sharing it needs a Developer ID and notarization (`SIGNING_IDENTITY` and `NOTARIZATION_*` env vars).
+- `installMacApp` (macOS only) builds `Leaf.app` and replaces `/Applications/Leaf.app`; `-PinstallDir=<dir>` installs
+  elsewhere.
+  - If Leaf is running from there, it waits up to 5 s, then stops. It only counts processes whose command line starts
+    with the app's executable.
+  - It removes the old copy before copying with `ditto`. `ditto` merges into an existing bundle, and jar names change
+    between builds, so leftover jars would break the code signature.
+- `gradle.properties` sets `compose.desktop.mac.sign=false`, so jpackage signs ad hoc, with the hardened runtime and
+  the JIT and library-validation entitlements the JVM needs. That build runs on the machine that built it. Sharing it
+  needs a Developer ID and notarization: set `SIGNING_IDENTITY` and the `NOTARIZATION_*` env vars, and pass
+  `-Pcompose.desktop.mac.sign=true`.
 - The app is `Leaf.app` with bundle ID `io.github.zzhelev.leaf`, so it installs alongside Gitnuro. It has its own
   storage (see Name), so it doesn't touch an installed Gitnuro's tabs, settings or logs.
 - The packaged skiko jar still contains `libskiko-macos-x64.dylib`, because skiko's macos-arm64 runtime jar ships both
@@ -129,6 +133,10 @@ rm -rf /Applications/Leaf.app && ditto app/build/compose/binaries/main/app/Leaf.
 - The app starts with `--enable-native-access=ALL-UNNAMED` (`compose.desktop.application.jvmArgs`), and the Linux fat
   jar's manifest sets `Enable-Native-Access: ALL-UNNAMED`. Without them, JDK 25 warns when the Rust library and JNA
   load native code, and a later JDK will refuse.
+- **Known warning:** JDK 25 prints "A terminally deprecated method in sun.misc.Unsafe has been called" when settings
+  are read. It comes from the protobuf copy inside DataStore Preferences
+  (`androidx.datastore.preferences.protobuf.UnsafeUtil`). DataStore 1.2.1 and 1.3.0-alpha11 both trigger it, so
+  upgrading doesn't help.
 
 Packaging config lives in `app/build.gradle.kts` (`compose.desktop.nativeDistributions`). Do not touch it without
 asking.
