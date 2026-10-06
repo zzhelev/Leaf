@@ -245,6 +245,8 @@ tasks.register("fatJarLinux", type = Jar::class) {
         attributes["Implementation-Version"] = projectVersion
         attributes["Main-Class"] = "dev.app.leaf.MainKt"
         attributes["Enable-Native-Access"] = "ALL-UNNAMED"
+        // Makes AppStorage use Leaf's real storage, not the dev one, although java -jar sets no jpackage property.
+        attributes["Leaf-Packaged"] = "true"
     }
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
         exclude(
