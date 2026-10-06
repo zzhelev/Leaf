@@ -2,6 +2,38 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Sorting and grouping in the side panel and Files changed (branch `feature/sort-and-group`)
+
+- **Side panel:** Local branches, Remotes and Tags each have a sort button left of the count. It opens a menu:
+  - Sort by Name (natural order, so `3.9.0` < `3.10.0`), Last commit, Last checked out (local branches, from the
+    HEAD reflog) or Tag date (tagger date, or the commit date for lightweight tags).
+  - Order: A → Z / Z → A, or Newest / Oldest first. Ties go by name; refs without a date go last.
+  - Keep current branch on top (local branches, on by default).
+  - Group by prefix, one setting for all three sections. Folders use the text before the first `/`; inside Remotes,
+    each remote groups its own branches (`origin` → `feature`).
+- The button is muted at the defaults and accent-colored otherwise. It shows the sort's name when that fits next to
+  the section title, and a folder icon while grouping is on. Date sorts show compact ages (`now`, `3d`, `2w`, `5mo`).
+- **Section headers** of the side panel are sticky.
+- **Folder state** is saved per repository in `<common git dir>/leaf` (section `sidePanel`), so linked worktrees share
+  it. By default only the folder of the current branch is open. Searching opens every folder with matches and hides
+  the rest; clearing the search brings the saved state back. Saving sign-off settings now keeps the file's other
+  sections.
+- **Files changed:** the list/tree toggle became a sort and view menu:
+  - Sort by Path, File name or Change type (Added → Modified → Renamed → Deleted, or "Modified first").
+  - Show as Flat list, Split columns (file | directory, with a draggable divider; the directory drops its start,
+    `…/screen/settings/memory`) or Folder tree (single-child folder chains merged, recursive file counts).
+  - Up/Down move the selection in every view; Left/Right close, open and move between folders in the tree.
+  - Default: Split columns by file name. Staged/Unstaged keep their old list/tree toggle.
+- **Settings:** the side panel sorts and the Files changed view are JSON values in the DataStore settings file.
+- **Code:** the sorting, grouping and tree logic is pure Kotlin in `domain/.../sorting/`. `GetRefDatesGitAction`
+  reads the dates once per refresh and caches commit times by object id.
+- **Tests:** 44 domain tests (sorting, grouping, tree, ages, reflog parsing, settings round-trip) and 8 temp-repo
+  tests for the dates and the per-repository folder file, including an unreadable file, which is now replaced on the
+  next save instead of blocking it.
+- **Verified:** rendered offscreen against a temp repo with prefixed branches, a remote and tags, in both themes, with
+  scripted clicks and keys. 1,500 refs sort and group in about 1 ms; one layout of 6,000 changed files takes about
+  10–15 ms.
+
 ## Version 1.0.0 and the release workflow (branch `feature/release-workflow`)
 
 - **Version 1.0.0** (app code 26) in `app/build.gradle.kts` and `AppConstants.kt`. `latest.json` stays at code 25

@@ -23,7 +23,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   - the `java.util.prefs` node `LeafConfig` (tabs, recent repos, pane widths);
   - `~/Library/Application Support/leaf/` (the settings file `user_prefs.preferences_pb`, and `tmp/`);
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
-  - the per-repository file `<git dir>/leaf` (sign-off).
+  - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
+    state, shared by the worktrees). They are the same file in a repository's main worktree.
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
 - **Kept on purpose:** the credit ("based on Gitnuro" in the About text, and the README), and the Rust dependencies
@@ -310,6 +311,21 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,
 `SidePanel.kt`, a context menu file, `strings.xml`, and a drawable.
 
+**Sorting and grouping (fork-only):**
+- Pure logic in `domain/.../sorting/`: `naturalCompare`, `buildRefRows` (sort, keep HEAD on top, group by prefix into
+  `RefRow.Folder`/`Item`), `buildFileRows` (flat or compacted folder tree into `FileRow`), `formatAge`, the reflog
+  parser, and the settings models with their JSON codec.
+- Section rows are built in `viewmodels/sidepanel/RefRowsBuilder.kt` from `RefRowsContext` (settings, `RefDates`,
+  folder state). Section headers are `stickyHeader`s; the sort button and menu are in `ui/components/sort/`.
+- Dates come from `GetRefDatesGitAction`, refreshed with branches, remotes or tags (`repositoryDataRepository.refDates`).
+- Settings: `AppConfig.RefPanel` and `AppConfig.FilesChangedView`, as JSON in the DataStore file. Folder open/closed
+  state is per repository in `<common git dir>/leaf`, section `sidePanel` (`RefFolderExpansionConfig`).
+- Files changed renders `CommitChangesState.rows` with `ui/ChangedFilesList.kt`. The Staged/Unstaged panes still use
+  `entriesToTreeEntry` and the `showChangesAsTree` toggle.
+- **Offscreen UI checks:** an `ImageComposeScene` built from the real Dagger graph can render `SidePanel` and
+  `CommitChanges` to PNG without a window. Drive it on `Dispatchers.Swing`: on any other thread Compose 1.12.0's
+  RectManager intermittently throws "LayoutNode … not found in RectList". `CommitChanges` also needs `LocalTab`.
+
 ## Refresh
 
 **Rust** (`rs/src/lib.rs`):
@@ -379,5 +395,6 @@ common `refs/` and `packed-refs` are not watched.
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.
   - `TestGitCli` runs the git CLI with global and system config ignored. JGit can't create linked worktrees, so use
-    the CLI to set them up.
+    the CLI to set them up. `run(dir, env, args)` adds environment variables, for example `GIT_COMMITTER_DATE` to fix
+    commit, tag and reflog dates (`GetRefDatesGitActionTest`).
   - See `OpenRepositoryGitActionTest` for the pattern.
