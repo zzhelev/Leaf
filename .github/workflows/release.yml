@@ -105,10 +105,11 @@ jobs:
         shell: bash
         run: test -f app/src/main/resources/leaf_rs.dll
       - name: Build the installer
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
-        with:
-          path: leaf.iss
-          options: /O+ /DMyAppVersion=${{ needs.version.outputs.version }}
+        # Calls Inno Setup's compiler directly: the Inno-Setup-Action didn't pass /DMyAppVersion through to it.
+        shell: cmd
+        run: |
+          if not exist "%ProgramFiles(x86)%\Inno Setup 6\iscc.exe" choco install innosetup -y --no-progress
+          "%ProgramFiles(x86)%\Inno Setup 6\iscc.exe" /O+ "/DMyAppVersion=%VERSION%" leaf.iss
       - name: Build the portable ZIP
         shell: pwsh
         run: Compress-Archive -Path app/build/compose/binaries/main/app/Leaf/* -DestinationPath "Output/Leaf-$env:VERSION-windows-x64-portable.zip"
