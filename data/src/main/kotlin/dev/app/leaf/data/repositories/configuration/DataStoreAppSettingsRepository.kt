@@ -253,8 +253,14 @@ fun initPreferencesPath() {
     }
 }
 
+/** The settings file, stored as JSON by [JsonPreferencesSerializer]. */
+fun getPreferencesPath(): String = getSettingsDirectory() + systemSeparator + "user_prefs.json"
+
+/** DataStore's protobuf settings file from before the JSON format. [ProtobufPreferencesMigration] moves it over. */
+fun getProtobufPreferencesPath(): String = getSettingsDirectory() + systemSeparator + "user_prefs.preferences_pb"
+
 // TODO verify this after refactor. Are the paths for mac and windows correct?
-fun getPreferencesPath(): String {
+private fun getSettingsDirectory(): String {
     val home = System.getProperty("user.home").orEmpty()
 
     return when (currentOs) {
@@ -277,5 +283,5 @@ fun getPreferencesPath(): String {
         else -> {
             System.getProperty("java.util.prefs.userRoot") ?: "$home$systemSeparator${AppStorage.current.directoryName}"
         }
-    } + systemSeparator + "user_prefs.preferences_pb"
+    }
 }
