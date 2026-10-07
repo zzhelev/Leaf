@@ -48,7 +48,10 @@ class WindowsFs : FS_Win32 {
             "Git Bash was not found. It is needed to run the hook '$hookName' on Windows"
         )
 
-        val processBuilder = ProcessBuilder(gitBash.hookCommand(hook.absolutePath, args.map { it.orEmpty() }))
+        // In a linked worktree or a submodule, commit-msg gets the message file's absolute path, with forward slashes
+        val hookArgs = hookArguments(repository, hookName, args) { it.absolutePath.replace('\\', '/') }
+
+        val processBuilder = ProcessBuilder(gitBash.hookCommand(hook.absolutePath, hookArgs.map { it.orEmpty() }))
             .directory(hookRunDirectory(repository))
 
         processBuilder.environment().apply {

@@ -162,6 +162,26 @@ class WindowsFsTest {
     }
 
     @Test
+    fun `in a linked worktree, commit-msg gets the message file's absolute path`() {
+        val worktree = File(tempDir, "feature")
+        git.run(repository, "worktree", "add", worktree.absolutePath, "-b", "feature")
+        val received = File(tempDir, "commit-msg.txt")
+        addHook(
+            "commit-msg",
+            "printf '%s\\n' \"\$1\" > '$received'\nprintf '%s, checked\\n' \"\$(cat \"\$1\")\" > \"\$1\"",
+        )
+        val worktreeGitDir = File(repository, ".git/worktrees/feature")
+
+        val commit = withGit(gitDir = worktreeGitDir) { it.commitChange() }
+
+        assertEquals("Change, checked\n", commit.fullMessage)
+        assertEquals(
+            listOf(File(worktreeGitDir, "COMMIT_EDITMSG").canonicalPath),
+            received.readLines().map { File(it).canonicalPath },
+        )
+    }
+
+    @Test
     fun `a hook without Git Bash fails with a clear error`() {
         addHook("pre-commit", "exit 0")
 

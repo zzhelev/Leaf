@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
@@ -46,15 +47,29 @@ class PosixFsTest {
         SystemReader.setInstance(originalReader)
     }
 
-    private fun addHook(name: String, content: String) {
-        File(repository, ".git/hooks/$name").writeExecutable(content)
+    private fun addHook(name: String, content: String, hooksDir: File = File(repository, ".git/hooks")) {
+        File(hooksDir, name).writeExecutable(content)
     }
 
-    private suspend fun commit(jgit: JGit): Either<RevCommit, GitError> = jgit.provide(gitDir) { git ->
-        File(repository, "file.txt").appendText("change\n")
-        git.add().addFilepattern("file.txt").call()
-        git.commit().setMessage("Change").setSign(false).call()
+    private suspend fun commit(jgit: JGit, gitDir: String = this.gitDir): Either<RevCommit, GitError> =
+        jgit.provide(gitDir) { git ->
+            File(git.repository.workTree, "file.txt").appendText("change\n")
+            git.add().addFilepattern("file.txt").call()
+            git.commit().setMessage("Change").setSign(false).call()
+        }
+
+    /** The new commit's message, or a failure that says why the commit failed. */
+    private fun Either<RevCommit, GitError>.commitMessage(): String = when (this) {
+        is Either.Ok -> value.fullMessage
+        is Either.Err -> fail("The commit failed: $error")
     }
+
+    /**
+     * A commit-msg hook that writes the path it gets as `$1` to [received], then edits the message in that file, as
+     * `commitlint --edit "$1"` reads it. It fails when `$1` isn't a file.
+     */
+    private fun commitMsgHook(received: File) =
+        "#!/bin/sh\nprintf '%s\\n' \"\$1\" > '$received'\nprintf '%s, checked\\n' \"\$(cat \"\$1\")\" > \"\$1\"\n"
 
     @Test
     fun `a hook finds a tool that is only on the login shell's PATH`(): Unit = runBlocking {
@@ -107,6 +122,51 @@ class PosixFsTest {
 
         assertInstanceOf(Either.Ok::class.java, result)
         assertTrue(File(tools, "ran").exists())
+    }
+
+    @Test
+    fun `commit-msg gets the message file relative to the working tree`(): Unit = runBlocking {
+        val received = File(tempDir, "commit-msg.txt")
+        addHook("commit-msg", commitMsgHook(received))
+
+        val result = commit(testJGit())
+
+        assertEquals("Change, checked\n", result.commitMessage())
+        assertEquals(listOf(".git/COMMIT_EDITMSG"), received.readLines())
+    }
+
+    @Test
+    fun `in a linked worktree, commit-msg gets the message file's absolute path`(): Unit = runBlocking {
+        val worktree = File(tempDir, "feature")
+        git.run(repository, "worktree", "add", worktree.absolutePath, "-b", "feature")
+        val received = File(tempDir, "commit-msg.txt")
+        addHook("commit-msg", commitMsgHook(received))
+        val worktreeGitDir = File(repository, ".git/worktrees/feature")
+
+        val result = commit(testJGit(), worktreeGitDir.absolutePath)
+
+        assertEquals("Change, checked\n", result.commitMessage())
+        assertEquals(
+            listOf(File(worktreeGitDir, "COMMIT_EDITMSG").canonicalPath),
+            received.readLines().map { it.canonicalOr() },
+        )
+    }
+
+    @Test
+    fun `in a submodule, commit-msg gets the message file's absolute path`(): Unit = runBlocking {
+        val library = git.initRepository(File(tempDir, "library"))
+        git.run(repository, "submodule", "add", library.absolutePath, "library")
+        val received = File(tempDir, "commit-msg.txt")
+        val submoduleGitDir = File(repository, ".git/modules/library")
+        addHook("commit-msg", commitMsgHook(received), hooksDir = File(submoduleGitDir, "hooks"))
+
+        val result = commit(testJGit(), submoduleGitDir.absolutePath)
+
+        assertEquals("Change, checked\n", result.commitMessage())
+        assertEquals(
+            listOf(File(submoduleGitDir, "COMMIT_EDITMSG").canonicalPath),
+            received.readLines().map { it.canonicalOr() },
+        )
     }
 
     /** Resolves `/var` and `/private/var` on macOS to the same path, leaving other lines as they are. */
