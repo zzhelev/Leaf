@@ -53,8 +53,10 @@ class OpenRepositoryGitAction @Inject constructor() : IOpenRepositoryGitAction {
                 raiseError(OpenRepoError.RepositoryNotFoundInPath)
             }
 
-            repository.workTree // test if repository is valid
-            repository.directory.absolutePath
+            repository.use { repository ->
+                repository.workTree // test if repository is valid
+                repository.directory.absolutePath
+            }
         }
     }
 

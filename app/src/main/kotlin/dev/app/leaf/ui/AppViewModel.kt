@@ -2,10 +2,10 @@ package dev.app.leaf.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.app.leaf.data.repositories.configuration.DataStoreAppSettingsRepository
 import dev.app.leaf.di.TabComponent
 import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.repositories.AppSettingsRepository
+import dev.app.leaf.domain.usecases.CleanRepositoriesResourcesUseCase
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +21,7 @@ import javax.inject.Singleton
 class AppViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val tabComponentFactory: TabComponent.Factory,
+    private val cleanRepositoriesResourcesUseCase: CleanRepositoriesResourcesUseCase,
 ) : ViewModel() {
     val tabs: StateFlow<List<TabInformation<RepositoryTabViewModel>>>
         field = MutableStateFlow<List<TabInformation<RepositoryTabViewModel>>>(emptyList())
@@ -119,19 +120,34 @@ class AppViewModel @Inject constructor(
             tabs.value = tabsList
         }
 
+        val remainingTabs = tabsList.mapNotNull {
+            if (it.data.isLoaded) {
+                it.data.repositoryPath.value
+            } else {
+                null
+            }
+        }
+
+        cleanRepositoriesResourcesUseCase(remainingTabs)
+
         updatePersistedTabs()
         System.gc()
     }
 
     suspend fun updatePersistedTabs() {
-        val tabs = tabs
+        val tabsToPersist = tabs
             .value
-            .filter { it.data.repositorySelectionState.value is RepositorySelectionState.Open }
+            .mapNotNull {
+                when (val selectionState = it.data.repositorySelectionState.value) {
+                    RepositorySelectionState.None -> null
+                    is RepositorySelectionState.Open -> it to selectionState.path
+                    is RepositorySelectionState.Opening -> it to selectionState.path
+                    RepositorySelectionState.Unknown -> it to it.data.repositoryPath.value
+                }
+            }
 
-        val tabsPaths = tabs.map { it.data.repositoryPath.firstOrNull().orEmpty() }
-
-        appSettingsRepository.latestTabsOpened = Json.encodeToString(tabsPaths)
-        appSettingsRepository.latestRepositoryTabSelected = tabs.indexOf(currentTab.value)
+        appSettingsRepository.latestTabsOpened = Json.encodeToString(tabsToPersist.map { it.second })
+        appSettingsRepository.latestRepositoryTabSelected = tabsToPersist.indexOfFirst { it.first == currentTab.value }
     }
 
     fun addNewEmptyTab() {

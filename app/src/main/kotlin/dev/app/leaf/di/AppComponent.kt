@@ -15,6 +15,7 @@ import javax.inject.Singleton
         RepositoriesModule::class,
         DatastoreModule::class,
         GitCliModule::class,
+        ServicesModule::class,
     ]
 )
 interface AppComponent {
