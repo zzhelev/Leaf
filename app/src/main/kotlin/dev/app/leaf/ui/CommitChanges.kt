@@ -27,6 +27,8 @@ import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.extensions.handMouseClickable
+import dev.app.leaf.extensions.icon
+import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.repositoryopen.CommitChangesAction
 import dev.app.leaf.repositoryopen.CommitChangesState
@@ -129,9 +131,7 @@ private fun CommitChangesView(
         ) {
             FilesChangedHeader(
                 title = "Files changed",
-                showAsTree = false,
                 showSearch = showSearch,
-                onAlternateShowAsTree = null,
                 sortAction = {
                     FilesSortMenuButton(viewState = viewState, onViewStateChange = onViewStateChanged)
                 },
@@ -152,6 +152,8 @@ private fun CommitChangesView(
                 selectedEntries = diffSelected?.items?.map { it.diffEntry }.orEmpty(),
                 listState = changesListScroll,
                 resetKey = commit,
+                fileIcon = { it.icon },
+                fileIconColor = { it.iconColor },
                 onFileClick = onDiffSelected,
                 onFolderToggle = onDirectoryClicked,
                 onSplitRatioChange = { onViewStateChanged(viewState.copy(splitRatio = it)) },

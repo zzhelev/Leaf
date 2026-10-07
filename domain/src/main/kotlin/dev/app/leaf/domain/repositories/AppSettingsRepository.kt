@@ -22,6 +22,7 @@ interface AppSettingsRepository {
     val dateFormatUseRelative: Flow<Boolean?>
     val avatarProvider: Flow<AvatarProviderType?>
     val swapStatusPanes: Flow<Boolean?>
+    /** Read only: the list/tree toggle of Leaf 1.1.0 and older, the default for [filesChangedView] until it is saved. */
     val showChangesAsTree: Flow<Boolean?>
     val diffDisplayFullFile: Flow<Boolean?>
     val diffTextViewType: Flow<DiffTextViewType?>

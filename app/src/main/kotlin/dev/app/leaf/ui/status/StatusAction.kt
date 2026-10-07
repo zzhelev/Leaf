@@ -5,7 +5,7 @@ import dev.app.leaf.domain.models.AuthorInfo
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
-import dev.app.leaf.ui.tree_files.TreeItem
+import dev.app.leaf.domain.sorting.FilesViewState
 
 sealed interface StatusAction {
     data class EntryAction(val statusEntry: StatusEntry) : StatusAction
@@ -17,15 +17,19 @@ sealed interface StatusAction {
         val isCtrlPressed: Boolean,
         val isMetaPressed: Boolean,
         val isShiftPressed: Boolean,
-        val diffEntries: List<TreeItem<StatusEntry>>,
+        /** The files of the pane in the order shown, for Shift ranges. */
+        val diffEntries: List<StatusEntry>,
         val selectedEntries: List<DiffType.UncommittedDiff>,
     ) : StatusAction
     data class DiscardSelected(val entryType: EntryType) : StatusAction
     data class SelectedEntriesAction(val entryType: EntryType) : StatusAction
     data class OpenInFolder(val path: String) : StatusAction
-    data class TreeDirectoryToggle(val path: String) : StatusAction
-    data object ToggleShowAsTree : StatusAction
+    data class TreeDirectoryToggle(val path: String, val entryType: EntryType) : StatusAction
+    data class ViewStateChanged(val viewState: FilesViewState) : StatusAction
     data class DirectoryAction(val path: String, val entryType: EntryType) : StatusAction
+
+    /** Stages or unstages what a folder row shows: the whole directory, or its search matches during a search. */
+    data class FolderRowAction(val path: String, val entryType: EntryType) : StatusAction
     data class SearchFilterChanged(val filter: TextFieldValue, val entryType: EntryType) : StatusAction
     data class Commit(val message: String) : StatusAction
     data class ContinueRebase(val message: String) : StatusAction

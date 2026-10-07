@@ -12,11 +12,12 @@ import dev.app.leaf.domain.repositories.CloseableView
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.sorting.CollapsedFolders
+import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.ui.status.*
 import dev.app.leaf.ui.toUiDataState
-import dev.app.leaf.ui.tree_files.TreeItem
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -50,13 +51,13 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val persistCommitMessageUseCase: PersistCommitMessageUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
     @Assisted private val viewModelScope: CoroutineScope,
-    @Assisted private val showAsTree: Flow<Boolean>,
+    @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
     @Assisted private val rebaseInteractiveState: StateFlow<RebaseInteractiveState>,
     @Assisted private val onOpenFileInFolder: (String) -> Unit,
     @Assisted private val onDiffSelected: (DiffSelected) -> Unit,
     @Assisted private val onRemoveEntriesFromSelection: (Set<DiffType.UncommittedDiff>, EntryType) -> Unit,
-    @Assisted private val onAlternateShowAsTree: () -> Unit,
+    @Assisted private val onViewStateChanged: (FilesViewState) -> Unit,
     @Assisted("addCloseableView") private val addCloseableView: (CloseableView) -> Unit,
     @Assisted("removeCloseableView") private val removeCloseableView: (CloseableView) -> Unit,
 ) : CoroutineScope by viewModelScope {
@@ -65,13 +66,13 @@ class StatusViewModelExtender @AssistedInject constructor(
     interface Factory {
         fun create(
             viewModelScope: CoroutineScope,
-            showAsTree: Flow<Boolean>,
+            filesViewState: StateFlow<FilesViewState>,
             diffSelected: StateFlow<DiffSelected?>,
             rebaseInteractiveState: StateFlow<RebaseInteractiveState>,
             onOpenFileInFolder: (String) -> Unit,
             onDiffSelected: (DiffSelected) -> Unit,
             onRemoveEntriesFromSelection: (Set<DiffType.UncommittedDiff>, EntryType) -> Unit,
-            onAlternateShowAsTree: () -> Unit,
+            onViewStateChanged: (FilesViewState) -> Unit,
             @Assisted("addCloseableView") addCloseableView: (CloseableView) -> Unit,
             @Assisted("removeCloseableView") removeCloseableView: (CloseableView) -> Unit,
         ): StatusViewModelExtender
@@ -89,8 +90,9 @@ class StatusViewModelExtender @AssistedInject constructor(
     val searchFilterStaged: StateFlow<TextFieldValue>
         field = MutableStateFlow(TextFieldValue(""))
 
-    private val treeContractedDirectories = MutableStateFlow(emptyList<String>())
-
+    /** Folders closed in each pane's folder tree. Kept while the tab is open. */
+    private val stagedCollapsedFolders = MutableStateFlow(CollapsedFolders())
+    private val unstagedCollapsedFolders = MutableStateFlow(CollapsedFolders())
 
     val swapUncommittedChanges = appSettings.swapStatusPanes
 
@@ -194,8 +196,9 @@ class StatusViewModelExtender @AssistedInject constructor(
         searchFilterStaged,
         showSearchUnstaged,
         searchFilterUnstaged,
-        showAsTree,
-        treeContractedDirectories,
+        filesViewState,
+        stagedCollapsedFolders,
+        unstagedCollapsedFolders,
         swapUncommittedChanges,
         isAmend,
         isAmendRebaseInteractive,
@@ -227,6 +230,13 @@ class StatusViewModelExtender @AssistedInject constructor(
             }
         }
 
+        isSearchingFlow(EntryType.STAGED).collectLatestInCoroutineScope {
+            stagedCollapsedFolders.update(CollapsedFolders::withoutSearch)
+        }
+
+        isSearchingFlow(EntryType.UNSTAGED).collectLatestInCoroutineScope {
+            unstagedCollapsedFolders.update(CollapsedFolders::withoutSearch)
+        }
 
 
         diffSelected
@@ -279,6 +289,8 @@ class StatusViewModelExtender @AssistedInject constructor(
             EntryType.UNSTAGED -> stageByDirectory(action.path)
         }
 
+        is StatusAction.FolderRowAction -> folderRowAction(action.path, action.entryType)
+
         is StatusAction.OpenInFolder -> onOpenFileInFolder(action.path)
         is StatusAction.SearchFilterChanged -> when (action.entryType) {
             EntryType.STAGED -> onSearchFilterChangedStaged(action.filter)
@@ -294,8 +306,8 @@ class StatusViewModelExtender @AssistedInject constructor(
             entry = action.statusEntry
         )
 
-        StatusAction.ToggleShowAsTree -> onAlternateShowAsTree()
-        is StatusAction.TreeDirectoryToggle -> toggleTreeDirectoryVisibility(action.path)
+        is StatusAction.ViewStateChanged -> onViewStateChanged(action.viewState)
+        is StatusAction.TreeDirectoryToggle -> toggleTreeDirectoryVisibility(action.path, action.entryType)
         is StatusAction.DiscardSelected -> when (action.entryType) {
             EntryType.STAGED -> discardSelectedStaged()
             EntryType.UNSTAGED -> discardSelectedUnstaged()
@@ -391,13 +403,35 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     private fun stageByDirectory(dir: String) = stageByDirectoryUseCase(dir)
 
+    private fun folderRowAction(path: String, entryType: EntryType) {
+        if (!isSearching(entryType)) {
+            when (entryType) {
+                EntryType.STAGED -> unstageByDirectory(path)
+                EntryType.UNSTAGED -> stageByDirectory(path)
+            }
+
+            return
+        }
+
+        // During a search the folder shows only its matching files, so only those are staged or unstaged
+        val entries = statusState.value.searchMatchesUnder(path, entryType)
+
+        // An empty list would mean every file
+        if (entries.isEmpty()) return
+
+        when (entryType) {
+            EntryType.STAGED -> unstageAllUseCase(entries)
+            EntryType.UNSTAGED -> stageAllUseCase(entries)
+        }
+    }
+
     private fun unstageByDirectory(dir: String) = unstageByDirectoryUseCase(dir)
 
     fun selectEntries(
         isCtrlPressed: Boolean,
         isMetaPressed: Boolean,
         isShiftPressed: Boolean,
-        diffEntries: List<TreeItem<StatusEntry>>,
+        diffEntries: List<StatusEntry>,
         selectedEntries: List<DiffType.UncommittedDiff>,
         entry: StatusEntry,
     ) {
@@ -440,7 +474,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         isCtrlPressed: Boolean,
         isMetaPressed: Boolean,
         isShiftPressed: Boolean,
-        diffEntries: List<TreeItem<StatusEntry>>,
+        diffEntries: List<StatusEntry>,
         selectedEntries: List<DiffType.UncommittedDiff>,
         entry: StatusEntry,
     ): SelectionType<StatusEntry> {
@@ -471,22 +505,20 @@ class StatusViewModelExtender @AssistedInject constructor(
     }
 
     private fun getEntriesInBetween(
-        diffEntries: List<TreeItem<StatusEntry>>,
+        diffEntries: List<StatusEntry>,
         selectedEntries: List<DiffType>,
         entry: StatusEntry,
     ): List<StatusEntry> {
         val entries = diffEntries
-            .filterIsInstance<TreeItem.File<StatusEntry>>()
-            .map { it.data }
 
         val last = selectedEntries.lastOrNull()
+        // Should always be uncommitted diff at this point
+        val lastItemIndex = (last as? DiffType.UncommittedDiff)?.let { entries.indexOf(it.statusEntry) } ?: -1
 
-        return if (last == null) {
+        // The last selected file can be hidden by the search or inside a closed folder
+        return if (lastItemIndex == -1) {
             listOf(entry)
         } else {
-            // Should always be uncommitted diff at this point
-            val statusEntry = (last as DiffType.UncommittedDiff).statusEntry
-            val lastItemIndex = entries.indexOf(statusEntry)
             val selectedItemIndex = entries.indexOf(entry)
 
             val entriesToSelect =
@@ -564,14 +596,29 @@ class StatusViewModelExtender @AssistedInject constructor(
         removeCloseableView(view)
     }
 
-    fun toggleTreeDirectoryVisibility(directoryPath: String) {
-        val contractedDirectories = treeContractedDirectories.value
-
-        if (contractedDirectories.contains(directoryPath)) {
-            treeContractedDirectories.value -= directoryPath
-        } else {
-            treeContractedDirectories.value += directoryPath
+    fun toggleTreeDirectoryVisibility(directoryPath: String, entryType: EntryType) {
+        val isSearching = isSearching(entryType)
+        val folders = when (entryType) {
+            EntryType.STAGED -> stagedCollapsedFolders
+            EntryType.UNSTAGED -> unstagedCollapsedFolders
         }
+
+        folders.update { it.toggled(directoryPath, isSearching) }
+    }
+
+    private fun isSearching(entryType: EntryType): Boolean = when (entryType) {
+        EntryType.STAGED -> showSearchStaged.value && searchFilterStaged.value.text.isNotBlank()
+        EntryType.UNSTAGED -> showSearchUnstaged.value && searchFilterUnstaged.value.text.isNotBlank()
+    }
+
+    private fun isSearchingFlow(entryType: EntryType): Flow<Boolean> {
+        val (showSearch, searchFilter) = when (entryType) {
+            EntryType.STAGED -> showSearchStaged to searchFilterStaged
+            EntryType.UNSTAGED -> showSearchUnstaged to searchFilterUnstaged
+        }
+
+        return combine(showSearch, searchFilter) { show, filter -> show && filter.text.isNotBlank() }
+            .distinctUntilChanged()
     }
 
 

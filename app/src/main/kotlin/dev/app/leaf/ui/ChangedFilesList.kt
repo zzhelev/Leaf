@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -22,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onSizeChanged
@@ -40,8 +43,6 @@ import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.SortSettingsCodec
 import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.handMouseClickable
-import dev.app.leaf.extensions.icon
-import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.extensions.onDoubleClick
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
@@ -55,7 +56,6 @@ import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import kotlinx.coroutines.launch
-import org.eclipse.jgit.diff.DiffEntry
 import org.jetbrains.compose.resources.stringResource
 
 /** Width of the change icon with its padding, where the file name starts. */
@@ -66,21 +66,34 @@ private val TREE_INDENT = 18.dp
 private val TREE_FOLDER_START = 10.dp
 
 /**
- * The files of the Files changed pane as a flat list, split columns or a folder tree. Up and Down move the selection;
- * in the tree, Left and Right close and open folders or move to the parent or first child.
+ * Changed files as a flat list, split columns or a folder tree, for the Files changed, Staged and Unstaged panes.
+ * Up and Down move the selection; in the tree, Left and Right close and open folders or move to the parent or first
+ * child.
+ *
+ * @param selectedEntries The selected files. The keyboard moves from the last one.
+ * @param onKeyboardSelect Selects a file the keyboard moved to, [onFileClick] by default.
+ * @param fileTrailingAction Drawn over the end of a file row, for example a button shown while it is hovered.
  */
 @Composable
-fun ChangedFilesList(
-    rows: List<FileRow<DiffEntry>>,
+fun <T> ChangedFilesList(
+    rows: List<FileRow<T>>,
     viewState: FilesViewState,
-    selectedEntries: List<DiffEntry>,
+    selectedEntries: List<T>,
     listState: LazyListState,
     /** Resets the keyboard position on folders, for example when another commit is selected. */
-    resetKey: Any,
-    onFileClick: (DiffEntry) -> Unit,
+    resetKey: Any?,
+    fileIcon: (T) -> ImageVector,
+    fileIconColor: @Composable (T) -> Color,
+    onFileClick: (T) -> Unit,
     onFolderToggle: (path: String) -> Unit,
     onSplitRatioChange: (Float) -> Unit,
-    onGenerateContextMenu: (DiffEntry) -> List<ContextMenuElement>,
+    onGenerateContextMenu: (T) -> List<ContextMenuElement>,
+    modifier: Modifier = Modifier,
+    onKeyboardSelect: (T) -> Unit = onFileClick,
+    onFileDoubleClick: ((T) -> Unit)? = null,
+    onGenerateFolderContextMenu: ((FileRow.Folder) -> List<ContextMenuElement>)? = null,
+    fileTrailingAction: (@Composable BoxScope.(file: T, isHovered: Boolean) -> Unit)? = null,
+    folderTrailingAction: (@Composable BoxScope.(folder: FileRow.Folder, isHovered: Boolean) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
@@ -92,10 +105,24 @@ fun ChangedFilesList(
     var splitRatio by remember(viewState.splitRatio) { mutableStateOf(viewState.splitRatio) }
 
     val indexByKey = remember(rows) { rows.withIndex().associate { (index, row) -> row.key to index } }
-    val selectedKey = remember(rows, selectedEntries) {
-        rows.firstOrNull { it is FileRow.File && selectedEntries.contains(it.file.item) }?.key
+    val selectedItems = remember(selectedEntries) { selectedEntries.toSet() }
+    val cursorKey = remember(rows, selectedEntries) {
+        val cursorItem = selectedEntries.lastOrNull()
+
+        rows.firstOrNull { it is FileRow.File && it.file.item == cursorItem }?.key
     }
-    val cursorIndex = folderCursorKey?.let { indexByKey[it] } ?: selectedKey?.let { indexByKey[it] }
+    val cursorIndex = folderCursorKey?.let { indexByKey[it] } ?: cursorKey?.let { indexByKey[it] }
+
+    // The list keeps the first visible row by its key, which lands mid-list once the rows are ordered differently
+    val layoutKey = Triple(viewState.viewMode, viewState.sortKey, viewState.ascending)
+    var shownLayoutKey by remember { mutableStateOf(layoutKey) }
+
+    LaunchedEffect(layoutKey) {
+        if (layoutKey != shownLayoutKey) {
+            shownLayoutKey = layoutKey
+            listState.scrollToItem(cursorIndex ?: 0)
+        }
+    }
 
     fun moveTo(index: Int) {
         val row = rows.getOrNull(index) ?: return
@@ -103,7 +130,7 @@ fun ChangedFilesList(
         when (row) {
             is FileRow.File -> {
                 folderCursorKey = null
-                onFileClick(row.file.item)
+                onKeyboardSelect(row.file.item)
             }
 
             is FileRow.Folder -> folderCursorKey = row.key
@@ -172,7 +199,7 @@ fun ChangedFilesList(
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
             .onFocusChanged { isFocused = it.hasFocus }
@@ -204,11 +231,16 @@ fun ChangedFilesList(
                             focusRequester.requestFocus()
                             onFolderToggle(row.path)
                         },
+                        onGenerateContextMenu = onGenerateFolderContextMenu?.let { generate -> { generate(row) } },
+                        trailingAction = folderTrailingAction?.let { action ->
+                            { isHovered -> action(row, isHovered) }
+                        },
                     )
 
                     is FileRow.File -> ChangedFileRow(
-                        entry = row.file.item,
-                        isSelected = row.key == selectedKey,
+                        icon = fileIcon(row.file.item),
+                        iconColor = fileIconColor(row.file.item),
+                        isSelected = row.file.item in selectedItems,
                         startPadding = if (viewState.viewMode == FilesViewMode.FolderTree) {
                             TREE_FOLDER_START + TREE_INDENT * row.depth + 10.dp
                         } else {
@@ -219,7 +251,11 @@ fun ChangedFilesList(
                             focusRequester.requestFocus()
                             onFileClick(row.file.item)
                         },
+                        onDoubleClick = onFileDoubleClick?.let { action -> { action(row.file.item) } },
                         onGenerateContextMenu = { onGenerateContextMenu(row.file.item) },
+                        trailingAction = fileTrailingAction?.let { action ->
+                            { isHovered -> action(row.file.item, isHovered) }
+                        },
                     ) {
                         when (viewState.viewMode) {
                             FilesViewMode.FlatList -> if (viewState.sortKey == FileSortKey.FileName) {
@@ -325,39 +361,69 @@ private fun FolderRow(
     folder: FileRow.Folder,
     hasKeyboardFocus: Boolean,
     onClick: () -> Unit,
+    onGenerateContextMenu: (() -> List<ContextMenuElement>)?,
+    trailingAction: (@Composable BoxScope.(isHovered: Boolean) -> Unit)?,
 ) {
-    Row(
+    val hoverInteraction = remember { MutableInteractionSource() }
+    val isHovered by hoverInteraction.collectIsHoveredAsState()
+
+    @Composable
+    fun FolderContent() {
+        Row(
+            modifier = Modifier
+                .height(MaterialTheme.linesHeight.fileHeight)
+                .fillMaxWidth()
+                .backgroundIf(hasKeyboardFocus, MaterialTheme.colors.backgroundSelected.copy(alpha = 0.6f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FolderEntryContent(
+                label = folder.label,
+                count = folder.fileCount,
+                isExpanded = folder.isExpanded,
+                startPadding = TREE_FOLDER_START + TREE_INDENT * folder.depth,
+            )
+        }
+    }
+
+    Box(
         modifier = Modifier
-            .height(MaterialTheme.linesHeight.fileHeight)
             .fillMaxWidth()
             .handMouseClickable { onClick() }
-            .backgroundIf(hasKeyboardFocus, MaterialTheme.colors.backgroundSelected.copy(alpha = 0.6f)),
-        verticalAlignment = Alignment.CenterVertically,
+            .hoverable(hoverInteraction)
     ) {
-        FolderEntryContent(
-            label = folder.label,
-            count = folder.fileCount,
-            isExpanded = folder.isExpanded,
-            startPadding = TREE_FOLDER_START + TREE_INDENT * folder.depth,
-        )
+        if (onGenerateContextMenu != null) {
+            ContextMenu(items = onGenerateContextMenu) { FolderContent() }
+        } else {
+            FolderContent()
+        }
+
+        trailingAction?.invoke(this, isHovered)
     }
 }
 
 @Composable
 private fun ChangedFileRow(
-    entry: DiffEntry,
+    icon: ImageVector,
+    iconColor: Color,
     isSelected: Boolean,
     startPadding: Dp,
     onClick: () -> Unit,
+    onDoubleClick: (() -> Unit)?,
     onGenerateContextMenu: () -> List<ContextMenuElement>,
+    trailingAction: (@Composable BoxScope.(isHovered: Boolean) -> Unit)?,
     content: @Composable RowScope.() -> Unit,
 ) {
     val hoverInteraction = remember { MutableInteractionSource() }
+    val isHovered by hoverInteraction.collectIsHoveredAsState()
+
+    // The first click of a double click selects the file, which rebuilds the rows and so the lambda. A new key would
+    // restart the double click detection and lose that first click.
+    val currentOnDoubleClick by rememberUpdatedState(onDoubleClick)
 
     Box(
         modifier = Modifier
             .handMouseClickable { onClick() }
-            .onDoubleClick {}
+            .then(if (onDoubleClick != null) Modifier.onDoubleClick { currentOnDoubleClick?.invoke() } else Modifier)
             .fillMaxWidth()
             .hoverable(hoverInteraction)
     ) {
@@ -371,17 +437,19 @@ private fun ChangedFileRow(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = entry.icon,
+                    imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier
                         .padding(horizontal = 8.dp)
                         .size(16.dp),
-                    tint = entry.iconColor,
+                    tint = iconColor,
                 )
 
                 content()
             }
         }
+
+        trailingAction?.invoke(this, isHovered)
     }
 }
 

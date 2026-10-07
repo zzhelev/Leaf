@@ -10,7 +10,9 @@ import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.RefPanelSettings
+import dev.app.leaf.domain.sorting.SortSettingsCodec
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
 
 class AppSettingsService @Inject constructor(
@@ -30,11 +32,15 @@ class AppSettingsService @Inject constructor(
     val dateFormatUseRelative: Flow<Boolean> get() = appSettingsRepository.dateFormatUseRelative.defaultIfNull { DEFAULT_DATE_USE_RELATIVE }
     val avatarProvider: Flow<AvatarProviderType> get() = appSettingsRepository.avatarProvider.defaultIfNull { DEFAULT_AVATAR_PROVIDER }
     val swapStatusPanes: Flow<Boolean> get() = appSettingsRepository.swapStatusPanes.defaultIfNull { DEFAULT_SWAP_STATUS_PANES }
-    val showChangesAsTree: Flow<Boolean> get() = appSettingsRepository.showChangesAsTree.defaultIfNull { DEFAULT_SHOW_CHANGES_AS_TREE }
     val diffDisplayFullFile: Flow<Boolean> get() = appSettingsRepository.diffDisplayFullFile.defaultIfNull { DEFAULT_DIFF_DISPLAY_FULL_FILE }
     val diffTextViewType: Flow<DiffTextViewType> get() = appSettingsRepository.diffTextViewType.defaultIfNull { DEFAULT_DIFF_TEXT_VIEW_TYPE }
     val refPanelSettings: Flow<RefPanelSettings> get() = appSettingsRepository.refPanelSettings.defaultIfNull { RefPanelSettings() }
-    val filesChangedView: Flow<FilesViewState> get() = appSettingsRepository.filesChangedView.defaultIfNull { FilesViewState() }
+    val filesChangedView: Flow<FilesViewState>
+        get() = combine(
+            appSettingsRepository.filesChangedView,
+            appSettingsRepository.showChangesAsTree,
+            SortSettingsCodec::filesViewStateOrLegacy,
+        )
     val pullWithRebase: Flow<Boolean> get() = appSettingsRepository.pullWithRebase.defaultIfNull { DEFAULT_PULL_WITH_REBASE }
     val pushWithLease: Flow<Boolean> get() = appSettingsRepository.pushWithLease.defaultIfNull { DEFAULT_PUSH_WITH_LEASE }
     val fastForwardMerge: Flow<Boolean> get() = appSettingsRepository.fastForwardMerge.defaultIfNull { DEFAULT_FAST_FORWARD_MERGE }
@@ -61,7 +67,6 @@ class AppSettingsService @Inject constructor(
         const val DEFAULT_DATE_CUSTOM_FORMAT = "dd MMM yyyy"
         val DEFAULT_AVATAR_PROVIDER = AvatarProviderType.Gravatar
         const val DEFAULT_SWAP_STATUS_PANES = false
-        const val DEFAULT_SHOW_CHANGES_AS_TREE = false
         const val DEFAULT_DIFF_DISPLAY_FULL_FILE = false
         val DEFAULT_DIFF_TEXT_VIEW_TYPE = DiffTextViewType.Unified
         const val DEFAULT_PULL_WITH_REBASE = false

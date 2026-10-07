@@ -30,7 +30,6 @@ sealed interface AppConfig {
     data class SwapStatusPanes(val value: Boolean) : AppConfig
     data class DiffDisplayFullFile(val value: Boolean) : AppConfig
     data class DiffTextViewType(val value: dev.app.leaf.domain.models.DiffTextViewType) : AppConfig
-    data class ShowChangesAsTree(val value: Boolean) : AppConfig
     data class TerminalPath(val value: String) : AppConfig
     data class GitExecutablePath(val value: String) : AppConfig
     data class RefPanel(val value: RefPanelSettings) : AppConfig

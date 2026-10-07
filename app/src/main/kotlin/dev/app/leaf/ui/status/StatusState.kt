@@ -6,9 +6,12 @@ import dev.app.leaf.common.flows.combine
 import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.sorting.CollapsedFolders
+import dev.app.leaf.domain.sorting.FileRow
+import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.buildFileRows
+import dev.app.leaf.domain.sorting.toFileItems
 import dev.app.leaf.ui.UiDataState
-import dev.app.leaf.ui.tree_files.TreeItem
-import dev.app.leaf.ui.tree_files.entriesToTreeEntry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -25,10 +28,13 @@ sealed interface SelectionType<T> {
 @Immutable
 data class StatusState(
     val isLoading: Boolean = true,
-    val staged: List<TreeItem<StatusEntry>> = emptyList(),
-    val filteredStaged: List<TreeItem<StatusEntry>> = emptyList(),
-    val unstaged: List<TreeItem<StatusEntry>> = emptyList(),
-    val filteredUnstaged: List<TreeItem<StatusEntry>> = emptyList(),
+    /** Every staged entry, one per path. */
+    val staged: List<StatusEntry> = emptyList(),
+    /** Every unstaged entry, one per path, keeping the conflicting one when git reports a path twice. */
+    val unstaged: List<StatusEntry> = emptyList(),
+    /** The rows of the Staged and Unstaged panes, filtered by their searches. */
+    val stagedRows: List<FileRow<StatusEntry>> = emptyList(),
+    val unstagedRows: List<FileRow<StatusEntry>> = emptyList(),
     val swapUncommittedChanges: Boolean = false,
     val isAmend: Boolean = false,
     val isAmendRebaseInteractive: Boolean = false,
@@ -40,7 +46,7 @@ data class StatusState(
     val searchFilterStaged: TextFieldValue = TextFieldValue(""),
     val showSearchUnstaged: Boolean = false,
     val searchFilterUnstaged: TextFieldValue = TextFieldValue(""),
-    val showAsTree: Boolean = false,
+    val viewState: FilesViewState = FilesViewState(),
     val commitMessage: TextFieldValue = TextFieldValue(""),
     val previousCommitMessage: String? = null,
     val repositoryState: RepositoryState = RepositoryState.SAFE,
@@ -48,15 +54,25 @@ data class StatusState(
 ) {
     val hasPreviousCommits: Boolean = previousCommitMessage != null
 
-    val haveConflictsBeenSolved: Boolean = unstaged.none {
-        it is TreeItem.File && it.data.statusType == StatusType.CONFLICTING
-    }
+    val haveConflictsBeenSolved: Boolean = unstaged.none { it.statusType == StatusType.CONFLICTING }
 
     fun getEntriesByEntryType(entryType: EntryType): List<StatusEntry> {
         return when (entryType) {
-            EntryType.STAGED -> staged.mapNotNull { (it as? TreeItem.File)?.data }
-            EntryType.UNSTAGED -> unstaged.mapNotNull { (it as? TreeItem.File)?.data }
+            EntryType.STAGED -> staged
+            EntryType.UNSTAGED -> unstaged
         }
+    }
+
+    /** The files under [folderPath] that a pane's search matches, including those inside closed folders. */
+    fun searchMatchesUnder(folderPath: String, entryType: EntryType): List<StatusEntry> {
+        val searchFilter = when (entryType) {
+            EntryType.STAGED -> activeSearch(showSearchStaged, searchFilterStaged)
+            EntryType.UNSTAGED -> activeSearch(showSearchUnstaged, searchFilterUnstaged)
+        }
+
+        return getEntriesByEntryType(entryType)
+            .filteredBySearch(searchFilter)
+            .filter { it.filePath.startsWith("$folderPath/") }
     }
 
     val hasStagedFiles = staged.isNotEmpty()
@@ -69,8 +85,9 @@ fun combineStatusState(
     searchFilterStaged: MutableStateFlow<TextFieldValue>,
     showSearchUnstaged: MutableStateFlow<Boolean>,
     searchFilterUnstaged: MutableStateFlow<TextFieldValue>,
-    showAsTree: Flow<Boolean>,
-    treeContractedDirectories: MutableStateFlow<List<String>>,
+    viewState: Flow<FilesViewState>,
+    stagedCollapsedFolders: Flow<CollapsedFolders>,
+    unstagedCollapsedFolders: Flow<CollapsedFolders>,
     swapUncommittedChanges: Flow<Boolean>,
     isAmend: Flow<Boolean>,
     isAmendRebaseInteractive: Flow<Boolean>,
@@ -89,8 +106,9 @@ fun combineStatusState(
         searchFilterStaged,
         showSearchUnstaged,
         searchFilterUnstaged,
-        showAsTree,
-        treeContractedDirectories,
+        viewState,
+        stagedCollapsedFolders,
+        unstagedCollapsedFolders,
         swapUncommittedChanges,
         isAmend,
         isAmendRebaseInteractive,
@@ -108,8 +126,9 @@ fun combineStatusState(
             searchFilterStaged,
             showSearchUnstaged,
             searchFilterUnstaged,
-            showAsTree,
-            contractedDirectories,
+            viewState,
+            stagedCollapsedFolders,
+            unstagedCollapsedFolders,
             swapUncommittedChanges,
             isAmend,
             isAmendRebaseInteractive,
@@ -124,41 +143,26 @@ fun combineStatusState(
         ->
         val status = statusDataState.data ?: Status()
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
-        val filteredUnstaged = if (showSearchUnstaged && searchFilterUnstaged.text.isNotBlank()) {
-            status.unstaged.filter { it.filePath.lowercaseContains(searchFilterUnstaged.text) }
-        } else {
-            status.unstaged
-        }.prioritizeConflicts()
-
-        val filteredStaged = if (showSearchStaged && searchFilterStaged.text.isNotBlank()) {
-            status.staged.filter { it.filePath.lowercaseContains(searchFilterStaged.text) }
-        } else {
-            status.staged
-        }.prioritizeConflicts()
+        val staged = status.staged.prioritizeConflicts()
+        val unstaged = status.unstaged.prioritizeConflicts()
 
         val isLoading = statusDataState.isLoading || repositoryStateDateState.isLoading
 
         StatusState(
             isLoading = isLoading,
-            staged = statusEntriesToTreeEntry(
-                showAsTree,
-                status.staged,
-                contractedDirectories
+            staged = staged,
+            unstaged = unstaged,
+            stagedRows = statusPaneRows(
+                staged,
+                viewState,
+                searchFilter = activeSearch(showSearchStaged, searchFilterStaged),
+                stagedCollapsedFolders,
             ),
-            filteredStaged = statusEntriesToTreeEntry(
-                showAsTree,
-                filteredStaged,
-                contractedDirectories
-            ),
-            unstaged = statusEntriesToTreeEntry(
-                showAsTree,
-                status.unstaged,
-                contractedDirectories
-            ),
-            filteredUnstaged = statusEntriesToTreeEntry(
-                showAsTree,
-                filteredUnstaged,
-                contractedDirectories
+            unstagedRows = statusPaneRows(
+                unstaged,
+                viewState,
+                searchFilter = activeSearch(showSearchUnstaged, searchFilterUnstaged),
+                unstagedCollapsedFolders,
             ),
             swapUncommittedChanges = swapUncommittedChanges,
             isAmend = isAmend,
@@ -171,7 +175,7 @@ fun combineStatusState(
             searchFilterStaged = searchFilterStaged,
             showSearchUnstaged = showSearchUnstaged,
             searchFilterUnstaged = searchFilterUnstaged,
-            showAsTree = showAsTree,
+            viewState = viewState,
             commitMessage = commitMessage,
             previousCommitMessage = previousCommitMessage,
             repositoryState = repositoryState,
@@ -180,17 +184,26 @@ fun combineStatusState(
     }
 }
 
-private fun statusEntriesToTreeEntry(
-    showAsTree: Boolean,
+/** The rows of one pane. [searchFilter] is the search text, or null when the pane isn't searching. */
+private fun statusPaneRows(
     entries: List<StatusEntry>,
-    contractedDirectories: List<String>
-): List<TreeItem<StatusEntry>> {
-    return entriesToTreeEntry(
-        showAsTree,
-        entries,
-        contractedDirectories
-    ) { it.filePath }
+    viewState: FilesViewState,
+    searchFilter: String?,
+    collapsedFolders: CollapsedFolders,
+): List<FileRow<StatusEntry>> {
+    val isSearching = searchFilter != null
+
+    return buildFileRows(entries.filteredBySearch(searchFilter).toFileItems(), viewState) { path ->
+        collapsedFolders.isCollapsed(path, isSearching)
+    }
 }
+
+/** A pane's search text, or null when the pane isn't searching. */
+private fun activeSearch(showSearch: Boolean, searchFilter: TextFieldValue): String? =
+    searchFilter.text.takeIf { showSearch && it.isNotBlank() }
+
+private fun List<StatusEntry>.filteredBySearch(searchFilter: String?): List<StatusEntry> =
+    if (searchFilter == null) this else filter { it.filePath.lowercaseContains(searchFilter) }
 
 private fun List<StatusEntry>.prioritizeConflicts(): List<StatusEntry> {
     return this.groupBy { it.filePath }

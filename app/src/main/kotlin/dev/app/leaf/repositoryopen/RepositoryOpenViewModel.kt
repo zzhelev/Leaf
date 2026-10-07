@@ -151,9 +151,6 @@ class RepositoryOpenViewModel @Inject constructor(
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
 
-    val showAsTree = appSettings.showChangesAsTree
-        .stateIn(false)
-
     val isPullWithRebaseDefault = settings.pullWithRebase
 
     val lastLoadedTabs = appStateManager.latestOpenedRepositoriesPaths
@@ -398,9 +395,12 @@ class RepositoryOpenViewModel @Inject constructor(
         .stateIn(LogState(true))
 
 
+    /** How Files changed, Staged and Unstaged sort and show files. They share one setting. */
+    private val filesViewState = appSettings.filesChangedView.stateIn(FilesViewState())
+
     private val statusViewModelExtender = statusViewModelExtenderFactory.create(
         viewModelScope,
-        showAsTree,
+        filesViewState,
         diffSelected,
         rebaseInteractiveState,
         onOpenFileInFolder = ::openFileInFolder,
@@ -410,13 +410,13 @@ class RepositoryOpenViewModel @Inject constructor(
         onRemoveEntriesFromSelection = { entries, entryType ->
             removeSelectedDiff(entries, entryType)
         },
-        onAlternateShowAsTree = ::alternateShowAsTree,
+        onViewStateChanged = ::setFilesChangedView,
         addCloseableView = ::addCloseableView,
         removeCloseableView = ::removeCloseableView,
     )
     private val commitChangesViewModelExtender = commitChangesViewModelExtenderFactory.create(
         viewModelScope,
-        appSettings.filesChangedView.stateIn(FilesViewState()),
+        filesViewState,
         selectedItem,
         diffSelected,
         onDiffSelected = {
@@ -1007,10 +1007,6 @@ class RepositoryOpenViewModel @Inject constructor(
 
             increaseLogCountUseCase(numberOfCommitsDisplayed + INCREMENTAL_COMMITS_LOAD)
         }
-    }
-
-    private fun alternateShowAsTree() = tabScope.launch {
-        appSettings.setConfiguration(AppConfig.ShowChangesAsTree(!appSettings.showChangesAsTree.first()))
     }
 
     private fun setFilesChangedView(viewState: FilesViewState) = tabScope.launch {

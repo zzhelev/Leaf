@@ -17,12 +17,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.app.generated.resources.Res
-import dev.app.leaf.app.generated.resources.list
 import dev.app.leaf.app.generated.resources.search
-import dev.app.leaf.app.generated.resources.tree
 import dev.app.leaf.theme.tertiarySurface
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -40,14 +39,11 @@ data class ActionInfo(
 @Composable
 fun FilesChangedHeader(
     title: String,
-    showAsTree: Boolean,
     showSearch: Boolean,
     showActionForSelected: Boolean,
     actionInfo: ActionInfo? = null,
     onAllAction: (() -> Unit)? = null,
-    /** Shows the list/tree toggle when set. */
-    onAlternateShowAsTree: (() -> Unit)?,
-    /** Shown before the search button, for example a sort and view menu. */
+    /** Shown before the search button, for example a sort and view menu. The title keeps priority over it. */
     sortAction: (@Composable () -> Unit)? = null,
     onSearchFilterToggled: (Boolean) -> Unit,
     onSearchFocused: () -> Unit,
@@ -72,35 +68,29 @@ fun FilesChangedHeader(
                 .hoverable(headerHoverInteraction),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                modifier = Modifier
-                    .padding(start = 16.dp, end = 8.dp)
-                    .weight(1f),
-                text = title,
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.Left,
-                color = MaterialTheme.colors.onBackground,
-                style = MaterialTheme.typography.body2,
-                maxLines = 1,
-            )
-
-            if (onAlternateShowAsTree != null) {
-                IconButton(
-                    onClick = {
-                        onAlternateShowAsTree()
-                    },
-                    modifier = Modifier.handOnHover()
-                ) {
-                    Icon(
-                        painter = painterResource(if (showAsTree) Res.drawable.list else Res.drawable.tree),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colors.onBackground,
-                    )
-                }
+            @Composable
+            fun Title(modifier: Modifier) {
+                Text(
+                    modifier = modifier.padding(start = 16.dp, end = 8.dp),
+                    text = title,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Left,
+                    color = MaterialTheme.colors.onBackground,
+                    style = MaterialTheme.typography.body2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
 
-            sortAction?.invoke()
+            if (sortAction != null) {
+                TitleWithTrailingAction(
+                    title = { Title(Modifier) },
+                    action = sortAction,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                Title(Modifier.weight(1f))
+            }
 
             IconButton(
                 onClick = {

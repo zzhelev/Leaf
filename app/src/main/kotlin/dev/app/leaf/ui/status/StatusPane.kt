@@ -10,9 +10,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.*
@@ -36,10 +34,11 @@ import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.compose.rememberInTab
-import dev.app.leaf.domain.extensions.fileName
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
+import dev.app.leaf.domain.sorting.FileRow
+import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.icon
 import dev.app.leaf.extensions.iconColor
@@ -48,13 +47,14 @@ import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.abortButton
 import dev.app.leaf.theme.textFieldColors
+import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.*
+import dev.app.leaf.ui.components.sort.FilesSortMenuButton
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntryContextMenuItems
 import dev.app.leaf.ui.dialogs.CommitAuthorDialog
-import dev.app.leaf.ui.tree_files.TreeItem
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -85,7 +85,6 @@ fun StatusPane(
     val selectedUnstagedDiffEntries = statusState.selectedUnstagedDiffEntries
     val selectedStagedDiffEntries = statusState.selectedStagedDiffEntries
 
-    val showAsTree = statusState.showAsTree
     val showSearchStaged = statusState.showSearchStaged
     val searchFilterStaged = statusState.searchFilterStaged
     val showSearchUnstaged = statusState.showSearchUnstaged
@@ -143,7 +142,6 @@ fun StatusPane(
                     entryType = EntryType.STAGED,
                     statusState,
                     showSearchStaged,
-                    showAsTree = showAsTree,
                     searchFilter = searchFilterStaged,
                     listState = stagedListState,
                     selectedEntries = selectedStagedDiffEntries,
@@ -161,7 +159,6 @@ fun StatusPane(
                     entryType = EntryType.UNSTAGED,
                     statusState = statusState,
                     showSearch = showSearchUnstaged,
-                    showAsTree = showAsTree,
                     searchFilter = searchFilterUnstaged,
                     listState = unstagedListState,
                     selectedEntries = selectedUnstagedDiffEntries,
@@ -231,7 +228,6 @@ fun ColumnScope.StatusChangesList(
     entryType: EntryType,
     statusState: StatusState,
     showSearch: Boolean,
-    showAsTree: Boolean,
     searchFilter: TextFieldValue,
     listState: LazyListState,
     selectedEntries: List<DiffType.UncommittedDiff>,
@@ -250,25 +246,18 @@ fun ColumnScope.StatusChangesList(
     }
 
     val actionInfo = getActionInfo(entryType)
-    val entries = if (searchFilter.text.trim().isEmpty()) {
-        when (entryType) {
-            EntryType.STAGED -> statusState.staged
-            EntryType.UNSTAGED -> statusState.unstaged
-        }
-    } else {
-        when (entryType) {
-            EntryType.STAGED -> statusState.filteredStaged
-            EntryType.UNSTAGED -> statusState.filteredUnstaged
-        }
+    val rows = when (entryType) {
+        EntryType.STAGED -> statusState.stagedRows
+        EntryType.UNSTAGED -> statusState.unstagedRows
     }
 
     this.ChangesList(
         title = title,
         actionInfo = actionInfo,
         entryType = entryType,
-        entries = entries,
+        rows = rows,
+        viewState = statusState.viewState,
         showSearch = showSearch,
-        showAsTree = showAsTree,
         searchFilter = searchFilter,
         listState = listState,
         selectedEntries = selectedEntries,
@@ -290,12 +279,12 @@ fun ColumnScope.ChangesList(
     title: String,
     actionInfo: ActionInfo,
     entryType: EntryType,
+    rows: List<FileRow<StatusEntry>>,
+    viewState: FilesViewState,
     showSearch: Boolean,
     searchFilter: TextFieldValue,
     listState: LazyListState,
     selectedEntries: List<DiffType.UncommittedDiff>,
-    showAsTree: Boolean,
-    entries: List<TreeItem<StatusEntry>>,
     onSearchFilterToggled: (Boolean) -> Unit,
     onSearchFocused: () -> Unit,
     onBlameFile: (String) -> Unit,
@@ -338,124 +327,114 @@ fun ColumnScope.ChangesList(
     }
 
     val showActionForSelected = remember(selectedEntries) { selectedEntries.count() > 1 }
+    val selectedStatusEntries = remember(selectedEntries) { selectedEntries.map { it.statusEntry } }
     val keyboardModifiers = LocalWindowInfo.current.keyboardModifiers
 
-    ChangesList(
-        title = title,
-        actionInfo = actionInfo,
-        showSearch = showSearch,
-        showAsTree = showAsTree,
-        showActionForSelected = showActionForSelected,
-        searchFilter = searchFilter,
-        onSearchFilterToggled = onSearchFilterToggled,
-        onSearchFocused = onSearchFocused,
-        onSearchFilterChanged = { onAction(StatusAction.SearchFilterChanged(it, entryType)) },
-        listState = listState,
-        onAllAction = { onAction(StatusAction.AllEntriesAction(entryType)) },
-        onAlternateShowAsTree = { onAction(StatusAction.ToggleShowAsTree) },
-    ) {
-        items(entries, key = { it.fullPath }) { treeEntry ->
-            val isEntrySelected = treeEntry is TreeItem.File<StatusEntry> &&
-                    selectedEntries.any { entry ->
-                        entry.statusEntry == treeEntry.data && ((entry.isUnstagedDiff && entryType == EntryType.UNSTAGED) ||
-                                (entry.isStagedDiff && entryType == EntryType.STAGED))
-                    }
-
-            UncommittedTreeItemEntry(
-                treeEntry,
-                isSelected = isEntrySelected,
-                actionTitle = actionInfo.applyToOneTitle,
-                actionColor = actionInfo.color,
-                showAsTree = showAsTree,
-                onClick = {
-                    if (treeEntry is TreeItem.File<StatusEntry>) {
-                        onAction(
-                            StatusAction.SelectEntry(
-                                statusEntry = treeEntry.data,
-                                isCtrlPressed = keyboardModifiers.isCtrlPressed,
-                                isMetaPressed = keyboardModifiers.isMetaPressed,
-                                isShiftPressed = keyboardModifiers.isShiftPressed,
-                                diffEntries = entries,
-                                selectedEntries = selectedEntries,
-                            )
-                        )
-                    } else if (treeEntry is TreeItem.Dir) {
-                        onAction(
-                            StatusAction.TreeDirectoryToggle(
-                                treeEntry.fullPath
-                            )
-                        )
-                    }
-                },
-                onButtonClick = {
-                    if (treeEntry is TreeItem.File<StatusEntry>) {
-                        onAction(StatusAction.EntryAction(treeEntry.data))
-                    }
-                },
-                onGenerateContextMenu = if (isEntrySelected && selectedEntries.count() > 1)
-                    selectedEntriesContextMenu()
-                else
-                    entriesContextMenu(),
-                onGenerateDirectoryContextMenu = { dir ->
-                    statusDirEntriesContextMenuItems(
-                        entryType = entryType,
-                        onStageChanges = { onAction(StatusAction.DirectoryAction(dir.fullPath, entryType)) },
-                        onDiscardDirectoryChanges = {},
-                    )
-                },
+    fun selectEntry(statusEntry: StatusEntry, isCtrlPressed: Boolean, isMetaPressed: Boolean, isShiftPressed: Boolean) {
+        onAction(
+            StatusAction.SelectEntry(
+                statusEntry = statusEntry,
+                isCtrlPressed = isCtrlPressed,
+                isMetaPressed = isMetaPressed,
+                isShiftPressed = isShiftPressed,
+                diffEntries = rows.mapNotNull { (it as? FileRow.File)?.file?.item },
+                selectedEntries = selectedEntries,
             )
-        }
+        )
     }
-}
 
-@Composable
-fun ColumnScope.ChangesList(
-    title: String,
-    actionInfo: ActionInfo,
-    showSearch: Boolean,
-    showAsTree: Boolean,
-    showActionForSelected: Boolean,
-    searchFilter: TextFieldValue,
-    listState: LazyListState,
-    onSearchFilterToggled: (Boolean) -> Unit,
-    onSearchFocused: () -> Unit,
-    onSearchFilterChanged: (TextFieldValue) -> Unit,
-    onAllAction: () -> Unit,
-    onAlternateShowAsTree: () -> Unit,
-    content: LazyListScope.() -> Unit,
-) {
-    val modifier = Modifier
-        .weight(5f)
-        .padding(bottom = 4.dp)
-        .fillMaxWidth()
     Column(
-        modifier = modifier
+        modifier = Modifier
+            .weight(5f)
+            .padding(bottom = 4.dp)
+            .fillMaxWidth()
     ) {
         FilesChangedHeader(
             title = title,
             actionInfo = actionInfo,
-            onAllAction = onAllAction,
-            onAlternateShowAsTree = onAlternateShowAsTree,
+            onAllAction = { onAction(StatusAction.AllEntriesAction(entryType)) },
+            sortAction = {
+                FilesSortMenuButton(
+                    viewState = viewState,
+                    onViewStateChange = { onAction(StatusAction.ViewStateChanged(it)) },
+                )
+            },
             searchFilter = searchFilter,
-            onSearchFilterChanged = onSearchFilterChanged,
+            onSearchFilterChanged = { onAction(StatusAction.SearchFilterChanged(it, entryType)) },
             onSearchFilterToggled = onSearchFilterToggled,
             onSearchFocused = onSearchFocused,
-            showAsTree = showAsTree,
             showSearch = showSearch,
             showActionForSelected = showActionForSelected,
         )
 
-        ScrollableLazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colors.background),
-            state = listState,
-        ) {
-            this.content()
-        }
+        ChangedFilesList(
+            rows = rows,
+            viewState = viewState,
+            selectedEntries = selectedStatusEntries,
+            listState = listState,
+            resetKey = null,
+            modifier = Modifier.background(MaterialTheme.colors.background),
+            fileIcon = { it.icon },
+            fileIconColor = { it.iconColor },
+            onFileClick = { statusEntry ->
+                selectEntry(
+                    statusEntry,
+                    isCtrlPressed = keyboardModifiers.isCtrlPressed,
+                    isMetaPressed = keyboardModifiers.isMetaPressed,
+                    isShiftPressed = keyboardModifiers.isShiftPressed,
+                )
+            },
+            onKeyboardSelect = { statusEntry ->
+                selectEntry(statusEntry, isCtrlPressed = false, isMetaPressed = false, isShiftPressed = false)
+            },
+            onFolderToggle = { path -> onAction(StatusAction.TreeDirectoryToggle(path, entryType)) },
+            onSplitRatioChange = { onAction(StatusAction.ViewStateChanged(viewState.copy(splitRatio = it))) },
+            onGenerateContextMenu = { statusEntry ->
+                if (selectedEntries.count() > 1 && statusEntry in selectedStatusEntries) {
+                    selectedEntriesContextMenu()(statusEntry)
+                } else {
+                    entriesContextMenu()(statusEntry)
+                }
+            },
+            onFileDoubleClick = { statusEntry -> onAction(StatusAction.EntryAction(statusEntry)) },
+            onGenerateFolderContextMenu = { folder ->
+                statusDirEntriesContextMenuItems(
+                    entryType = entryType,
+                    onStageChanges = { onAction(StatusAction.DirectoryAction(folder.path, entryType)) },
+                    onDiscardDirectoryChanges = {},
+                )
+            },
+            fileTrailingAction = { statusEntry, isHovered ->
+                EntryHoverAction(isHovered, actionInfo) { onAction(StatusAction.EntryAction(statusEntry)) }
+            },
+            folderTrailingAction = { folder, isHovered ->
+                EntryHoverAction(isHovered, actionInfo) {
+                    onAction(StatusAction.FolderRowAction(folder.path, entryType))
+                }
+            },
+        )
     }
 }
 
+/** The Stage or Unstage button shown at the end of a hovered file or folder. */
+@Composable
+private fun BoxScope.EntryHoverAction(isHovered: Boolean, actionInfo: ActionInfo, onClick: () -> Unit) {
+    AnimatedVisibility(
+        modifier = Modifier
+            .align(Alignment.CenterEnd),
+        visible = isHovered,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        SecondaryButton(
+            onClick = onClick,
+            text = actionInfo.applyToOneTitle,
+            backgroundButton = actionInfo.color,
+            modifier = Modifier
+                .padding(horizontal = 16.dp),
+        )
+    }
+}
 
 @Composable
 private fun CommitField(
@@ -802,106 +781,6 @@ fun ConfirmationButton(
         Text(
             text = text,
             style = MaterialTheme.typography.body1.copy(color = contentColor),
-        )
-    }
-}
-
-@Composable
-private fun UncommittedFileEntry(
-    statusEntry: StatusEntry,
-    isSelected: Boolean,
-    showDirectory: Boolean,
-    actionTitle: String,
-    actionColor: Color,
-    onClick: () -> Unit,
-    onButtonClick: () -> Unit,
-    depth: Int = 0,
-    onGenerateContextMenu: (StatusEntry) -> List<ContextMenuElement>,
-) {
-    FileEntry(
-        icon = statusEntry.icon,
-        depth = depth,
-        iconColor = statusEntry.iconColor,
-        parentDirectoryPath = if (showDirectory) statusEntry.parentDirectoryPath else "",
-        fileName = statusEntry.fileName,
-        isSelected = isSelected,
-        onClick = onClick,
-        onDoubleClick = onButtonClick,
-        onGenerateContextMenu = { onGenerateContextMenu(statusEntry) },
-        trailingAction = { isHovered ->
-            AnimatedVisibility(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd),
-                visible = isHovered,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                SecondaryButton(
-                    onClick = onButtonClick,
-                    text = actionTitle,
-                    backgroundButton = actionColor,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp),
-                )
-            }
-        }
-    )
-}
-
-@Composable
-private fun TreeFileEntry(
-    fileEntry: TreeItem.File<StatusEntry>,
-    isSelected: Boolean,
-    actionTitle: String,
-    actionColor: Color,
-    showAsTree: Boolean,
-    onClick: () -> Unit,
-    onDoubleClick: () -> Unit,
-    onGenerateContextMenu: (StatusEntry) -> List<ContextMenuElement>,
-) {
-    UncommittedFileEntry(
-        statusEntry = fileEntry.data,
-        isSelected = isSelected,
-        showDirectory = !showAsTree,
-        actionTitle = actionTitle,
-        actionColor = actionColor,
-        onClick = onClick,
-        onButtonClick = onDoubleClick,
-        depth = fileEntry.depth,
-        onGenerateContextMenu = onGenerateContextMenu,
-    )
-}
-
-@Composable
-private fun UncommittedTreeItemEntry(
-    entry: TreeItem<StatusEntry>,
-    isSelected: Boolean,
-    actionTitle: String,
-    actionColor: Color,
-    showAsTree: Boolean,
-    onClick: () -> Unit,
-    onButtonClick: () -> Unit,
-    onGenerateContextMenu: (StatusEntry) -> List<ContextMenuElement>,
-    onGenerateDirectoryContextMenu: (TreeItem.Dir) -> List<ContextMenuElement>,
-) {
-    when (entry) {
-        is TreeItem.File -> TreeFileEntry(
-            entry,
-            isSelected,
-            actionTitle,
-            actionColor,
-            showAsTree,
-            onClick,
-            onButtonClick,
-            onGenerateContextMenu,
-        )
-
-        is TreeItem.Dir -> DirectoryEntry(
-            dirName = entry.displayName,
-            isExpanded = entry.isExpanded,
-            onClick = onClick,
-            depth = entry.depth,
-            onGenerateContextMenu = { onGenerateDirectoryContextMenu(entry) },
         )
     }
 }

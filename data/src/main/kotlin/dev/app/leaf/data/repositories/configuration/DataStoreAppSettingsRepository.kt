@@ -173,7 +173,6 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.SwapStatusPanes -> setValue(swapStatusPanesPreference, appConfig.value)
                 is AppConfig.DiffDisplayFullFile -> setValue(diffDisplayFullFilePreference, appConfig.value)
                 is AppConfig.DiffTextViewType -> setValue(diffTextViewTypePreference, textDiffViewTypeMapper.toData(appConfig.value))
-                is AppConfig.ShowChangesAsTree -> setValue(showChangesAsTreePreference, appConfig.value)
                 is AppConfig.TerminalPath -> setValue(terminalPathPreference, appConfig.value)
                 is AppConfig.RefPanel -> setValue(
                     refPanelSettingsPreference,
