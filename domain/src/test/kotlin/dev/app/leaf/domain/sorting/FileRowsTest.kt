@@ -79,6 +79,29 @@ class FileRowsTest {
     }
 
     @Test
+    fun `conflicts come first in both change type orders and sort by name otherwise`() {
+        val list = listOf(
+            file("a.txt", FileChangeKind.Added),
+            file("z.txt", FileChangeKind.Conflicting),
+            file("m.txt", FileChangeKind.Modified),
+            file("c.txt", FileChangeKind.Conflicting),
+        )
+
+        assertEquals(
+            listOf("c.txt", "z.txt", "a.txt", "m.txt"),
+            sortFiles(list, FileSortKey.ChangeType, ascending = true).paths(),
+        )
+        assertEquals(
+            listOf("c.txt", "z.txt", "m.txt", "a.txt"),
+            sortFiles(list, FileSortKey.ChangeType, ascending = false).paths(),
+        )
+        assertEquals(
+            listOf("a.txt", "c.txt", "m.txt", "z.txt"),
+            sortFiles(list, FileSortKey.FileName, ascending = true).paths(),
+        )
+    }
+
+    @Test
     fun `compacts single-child directory chains`() {
         val tree = compactChains(buildFileTree(files))
 

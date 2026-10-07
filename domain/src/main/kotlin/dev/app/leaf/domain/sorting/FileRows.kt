@@ -14,8 +14,8 @@ enum class FilesViewMode { FlatList, SplitColumns, FolderTree }
 const val DEFAULT_FILES_SPLIT_RATIO = 0.4f
 
 /**
- * How the Files changed pane sorts and shows files. [ascending] means A → Z for [FileSortKey.Path] and
- * [FileSortKey.FileName], and "Added first" for [FileSortKey.ChangeType].
+ * How the Files changed, Staged and Unstaged panes sort and show files. [ascending] means A → Z for
+ * [FileSortKey.Path] and [FileSortKey.FileName], and "Added first" for [FileSortKey.ChangeType].
  */
 @Serializable
 data class FilesViewState(
@@ -31,8 +31,8 @@ data class FilesViewState(
     val isDefault: Boolean get() = isSortDefault && viewMode == FilesViewMode.SplitColumns
 }
 
-/** Change types in their "Added first" order. */
-enum class FileChangeKind { Added, Modified, Renamed, Deleted }
+/** Change types in their "Added first" order. Conflicts block a commit, so they come first in both orders. */
+enum class FileChangeKind { Conflicting, Added, Modified, Renamed, Deleted }
 
 /**
  * A changed file to sort and group.
@@ -88,8 +88,8 @@ data class FileNode<out T>(
 
 /**
  * Sorts a flat list of files. Path compares directory by directory; File name breaks ties by path. Change type uses
- * Added → Modified → Renamed → Deleted, or Modified → Added → Renamed → Deleted when not [ascending], with ties by path
- * A → Z.
+ * Conflicting → Added → Modified → Renamed → Deleted, or Conflicting → Modified → Added → Renamed → Deleted when not
+ * [ascending], with ties by path A → Z.
  */
 fun <T> sortFiles(files: List<FileItem<T>>, sortKey: FileSortKey, ascending: Boolean): List<FileItem<T>> {
     val comparator: Comparator<FileItem<T>> = when (sortKey) {
@@ -169,6 +169,28 @@ fun <T> flattenTree(
     return rows
 }
 
+/**
+ * The folders closed in one folder tree, by full path. A search opens every folder that has matches, so folders closed
+ * during a search are kept apart in [searchCollapsed], to be dropped when the search ends.
+ */
+data class CollapsedFolders(
+    val collapsed: Set<String> = emptySet(),
+    val searchCollapsed: Set<String> = emptySet(),
+) {
+    fun isCollapsed(path: String, isSearching: Boolean): Boolean =
+        path in (if (isSearching) searchCollapsed else collapsed)
+
+    fun toggled(path: String, isSearching: Boolean): CollapsedFolders = if (isSearching) {
+        copy(searchCollapsed = searchCollapsed.toggled(path))
+    } else {
+        copy(collapsed = collapsed.toggled(path))
+    }
+
+    fun withoutSearch(): CollapsedFolders = copy(searchCollapsed = emptySet())
+
+    private fun Set<String>.toggled(path: String) = if (path in this) this - path else this + path
+}
+
 /** The rows for [state]: a sorted flat list, or the compacted folder tree. */
 fun <T> buildFileRows(
     files: List<FileItem<T>>,
@@ -188,8 +210,8 @@ fun <T> buildFileRows(
 
 private fun changeRank(kind: FileChangeKind, addedFirst: Boolean): Int = when {
     addedFirst -> kind.ordinal
-    kind == FileChangeKind.Modified -> 0
-    kind == FileChangeKind.Added -> 1
+    kind == FileChangeKind.Modified -> FileChangeKind.Added.ordinal
+    kind == FileChangeKind.Added -> FileChangeKind.Modified.ordinal
     else -> kind.ordinal
 }
 

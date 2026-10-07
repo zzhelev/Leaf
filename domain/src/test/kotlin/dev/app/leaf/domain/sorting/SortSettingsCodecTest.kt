@@ -82,4 +82,17 @@ class SortSettingsCodecTest {
             panel.withSort(RefSection.Tags, RefSortState(RefSortKey.TagDate)).sortOf(RefSection.Tags),
         )
     }
+
+    @Test
+    fun `carries the old tree toggle over until a files view is saved`() {
+        val saved = FilesViewState(FileSortKey.Path, ascending = true, FilesViewMode.FlatList)
+
+        assertEquals(FilesViewState(), SortSettingsCodec.filesViewStateOrLegacy(null, null))
+        assertEquals(FilesViewState(), SortSettingsCodec.filesViewStateOrLegacy(null, false))
+        assertEquals(
+            FilesViewState(viewMode = FilesViewMode.FolderTree),
+            SortSettingsCodec.filesViewStateOrLegacy(null, true),
+        )
+        assertEquals(saved, SortSettingsCodec.filesViewStateOrLegacy(saved, true))
+    }
 }

@@ -35,6 +35,16 @@ object SortSettingsCodec {
         }
     }
 
+    /**
+     * The files view when none is saved yet. Up to Leaf 1.1.0, Staged and Unstaged had a list/tree toggle instead of
+     * the view menu, and a tree turned on there carries over.
+     */
+    fun filesViewStateOrLegacy(saved: FilesViewState?, legacyShowAsTree: Boolean?): FilesViewState = when {
+        saved != null -> saved
+        legacyShowAsTree == true -> FilesViewState(viewMode = FilesViewMode.FolderTree)
+        else -> FilesViewState()
+    }
+
     const val MIN_SPLIT_RATIO = 0.15f
     const val MAX_SPLIT_RATIO = 0.85f
 
