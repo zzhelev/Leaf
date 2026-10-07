@@ -283,6 +283,11 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - `sealed interface Screen` in `App.kt`, `entry<Screen.X>` in `ui/AppTab.kt`.
 - Opened with `backStack.add(...)`, through an `onNavigate` lambda.
 - `ui/dialogs/base/IconBasedDialog.kt` is the base for confirm-style dialogs.
+- Every dialog renders through `ui/dialogs/base/MaterialDialog.kt`. `DialogSceneStrategy` uses Compose's common
+  `Dialog`, which on desktop draws on the main window's canvas, not in an OS window, and only takes clicks inside its
+  content's bounds. So `MaterialDialog` fills the space it's given and places the dialog itself, centered plus the drag
+  offset. Its top 16 dp are a drag strip, so keep controls out of them; `Modifier.dialogDragHandle()` (from
+  `MaterialDialogScope`) adds more handles, like the Settings title.
 - Some destructive actions have no confirmation today; for example, delete branch is forced and immediate.
 
 ## Repository tabs

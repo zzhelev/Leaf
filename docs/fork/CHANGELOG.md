@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Movable dialogs (branch `feature/draggable-dialogs`)
+
+- **Why they couldn't move:** Navigation3's `DialogSceneStrategy` shows a dialog with Compose's common `Dialog`, which
+  on desktop draws on the main window's canvas (`compose.layers.type` is unset, so `LayerType.OnSameCanvas`). There is
+  no OS window or title bar, and `MaterialDialog` had no drag handling.
+- **Drag strip:** the top 16 dp of every `MaterialDialog` move the dialog, with a move cursor and a small grip that
+  brightens on hover. Every current dialog leaves that band free of controls. The dialog stays inside the window and
+  is centered again each time it opens.
+- **More handles:** `MaterialDialogScope.dialogDragHandle()` makes any element a handle. The Settings title uses it.
+- **Layout:** a dialog layer only takes clicks inside its content's bounds, so a dialog that was only offset stopped
+  taking clicks wherever it left its centered place. `MaterialDialog` now fills the space it's given and places the
+  dialog itself. Two dialogs aren't Navigation3 destinations and are drawn inline: `AppInfoDialog` on the Welcome page
+  and `CommitAuthorDialog` in the status pane. They are now centered in the area they're drawn in.
+- **Verified:** an offscreen harness with a real Compose `Dialog` and Leaf's dialog properties. It checked centering,
+  dragging by the strip, a click on a button moved fully outside the original bounds, that dragging the content doesn't
+  move the dialog, clamping at both corners with no hidden overshoot, and the real Settings dialog dragged by its title
+  and by the strip, with Accept still working.
+
 ## Compose Multiplatform 1.12.1 (branch `chore/compose-1.12.1`)
 
 - **Bump:** `compose` in `gradle/libs.versions.toml`, from 1.12.0 to 1.12.1. That covers the Gradle plugin and every
