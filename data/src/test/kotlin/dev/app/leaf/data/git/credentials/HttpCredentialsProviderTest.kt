@@ -52,12 +52,20 @@ class HttpCredentialsProviderTest {
     /** Holds the helpers and the tools they run, on no PATH unless a test puts it there, like Homebrew's folder. */
     private val tools by lazy { File(tempDir, "tools").apply { mkdirs() } }
 
-    /** What the login shell adds: its PATH includes [tools], and git ignores the developer's own config. */
+    /**
+     * What the login shell adds: its PATH includes [tools], and git ignores the developer's own config. Git's `store`
+     * and `cache` helpers keep their credentials in the test's folder: `~/.git-credentials` and
+     * `$XDG_CACHE_HOME/git/credential/socket`.
+     */
     private val shellVariables by lazy {
         mapOf(
             "PATH" to "${tools.absolutePath}:${System.getenv("PATH")}",
             "GIT_CONFIG_NOSYSTEM" to "1",
             "GIT_CONFIG_GLOBAL" to File(tempDir, "empty.gitconfig").apply { createNewFile() }.absolutePath,
+            "HOME" to tempDir.absolutePath,
+            "XDG_CONFIG_HOME" to File(tempDir, "xdg-config").absolutePath,
+            // Short, as a socket's path can't be longer than 104 bytes on macOS
+            "XDG_CACHE_HOME" to tempDir.absolutePath,
         )
     }
 
@@ -167,6 +175,46 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
+    fun `store gives back saved credentials, with an equals sign in the password`() {
+        runGit(
+            listOf("credential-store", "store"),
+            input = "${EXPECTED_INPUT}username=saved-user\npassword=saved=password==\n",
+        )
+
+        val answer = requestCredentials(helper = "store")
+
+        assertEquals(Answer("saved-user", "saved=password=="), answer)
+    }
+
+    @Test
+    fun `store saves the credentials that Leaf asks for, and gives them back next time`() {
+        assertEquals(Answer("prompted-user", "prompted-password"), requestCredentials(helper = "store"))
+        assertEquals(
+            "https://prompted-user:prompted-password@example.invalid\n",
+            awaitFile(File(tempDir, ".git-credentials")).readText(),
+        )
+
+        val answer = requestCredentials(helper = "store", promptAnswer = Answer("asked-again", "asked-again"))
+
+        assertEquals(Answer("prompted-user", "prompted-password"), answer)
+    }
+
+    @Test
+    fun `cache keeps the credentials that Leaf asks for, and gives them back next time`() {
+        try {
+            assertEquals(Answer("prompted-user", "prompted-password"), requestCredentials(helper = "cache"))
+            awaitCachedCredentials()
+
+            val answer = requestCredentials(helper = "cache", promptAnswer = Answer("asked-again", "asked-again"))
+
+            assertEquals(Answer("prompted-user", "prompted-password"), answer)
+        } finally {
+            // Stops the cache daemon that the first store started
+            runCatching { runGit(listOf("credential-cache", "exit"), input = "") }
+        }
+    }
+
+    @Test
     fun `helper commands are built the way git builds them`() {
         assertEquals(
             listOf("/bin/sh", "-c", "git credential-osxkeychain get"),
@@ -179,6 +227,10 @@ class HttpCredentialsProviderTest {
         assertEquals(
             listOf("/bin/sh", "-c", "/usr/local/bin/git-credential-manager erase"),
             posixCredentialHelperCommand("/usr/local/bin/git-credential-manager", "erase"),
+        )
+        assertEquals(
+            listOf("/bin/sh", "-c", "git credential-store --file ~/.leaf-credentials get"),
+            posixCredentialHelperCommand("store --file ~/.leaf-credentials", "get"),
         )
     }
 
@@ -202,13 +254,14 @@ class HttpCredentialsProviderTest {
 
     /**
      * Asks [HttpCredentialsProvider] for the credentials of [REMOTE_URL], with [helper] as `credential.helper`. If
-     * Leaf asks the user instead, the answer is `prompted-user` and `prompted-password`.
+     * Leaf asks the user instead, the answer is [promptAnswer].
      */
     private fun requestCredentials(
         helper: String,
         shellVariables: Map<String, String> = this.shellVariables,
         gitCredentialsManagerProvider: IGitCredentialsManagerProvider = NoCredentialsManager,
         shellManager: IShellManager = ShellManager(),
+        promptAnswer: Answer = Answer("prompted-user", "prompted-password"),
     ): Answer = runBlocking {
         Git.init().setDirectory(File(tempDir, "repository")).call().use { git ->
             git.repository.config.apply {
@@ -229,7 +282,7 @@ class HttpCredentialsProviderTest {
 
             val prompt = launch(Dispatchers.Default) {
                 credentialsStateManager.credentialsState.first { it == CredentialsRequest.HttpCredentialsRequest }
-                credentialsStateManager.httpCredentialsAccepted("prompted-user", "prompted-password")
+                credentialsStateManager.httpCredentialsAccepted(promptAnswer.user, promptAnswer.password)
             }
 
             val accepted = withContext(Dispatchers.IO) { provider.get(URIish(REMOTE_URL), user, password) }
@@ -249,6 +302,29 @@ class HttpCredentialsProviderTest {
         }
 
         file
+    }
+
+    /** Waits until git's cache daemon has the credentials, which Leaf stores after it has moved on. */
+    private fun awaitCachedCredentials() = runBlocking {
+        withTimeout(10_000) {
+            while (!runGit(listOf("credential-cache", "get"), EXPECTED_INPUT).contains("username=")) {
+                delay(20)
+            }
+        }
+    }
+
+    /** Runs git with [args] and [input], ignoring the developer's git config, and returns its output. */
+    private fun runGit(args: List<String>, input: String): String {
+        val process = ProcessBuilder(listOf("git") + args)
+            .apply { environment().putAll(shellVariables) }
+            .start()
+
+        process.outputStream.bufferedWriter().use { it.write(input) }
+        val output = process.inputStream.bufferedReader().readText()
+        val error = process.errorStream.bufferedReader().readText()
+        check(process.waitFor() == 0) { "git ${args.joinToString(" ")} failed: $error" }
+
+        return output
     }
 
     private data class Answer(val user: String, val password: String)

@@ -208,9 +208,9 @@ class HttpCredentialsProvider @AssistedInject constructor(
             while (bufferedReader.readLine().also { line = it } != null && !(usernameSet && passwordSet)) {
                 val safeLine = line ?: continue
 
+                // A value is everything after the first "=", as passwords and tokens can contain "="
                 if (safeLine.startsWith("username=")) {
-                    val split = safeLine.split("=")
-                    val userName = split.getOrNull(1) ?: return ExternalCredentialsRequestResult.CREDENTIALS_NOT_STORED
+                    val userName = safeLine.substringAfter("=")
 
                     val userNameItem = items.firstOrNull { it is Username }
 
@@ -220,8 +220,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
                     }
 
                 } else if (safeLine.startsWith("password=")) {
-                    val split = safeLine.split("=")
-                    val password = split.getOrNull(1) ?: return ExternalCredentialsRequestResult.CREDENTIALS_NOT_STORED
+                    val password = safeLine.substringAfter("=")
 
                     val passwordItem = items.firstOrNull { it is Password }
 
@@ -274,7 +273,8 @@ class HttpCredentialsProvider @AssistedInject constructor(
         val uriSpecificCredentialHelper = config.getString("credential", hostWithProtocol, "helper")
         var credentialHelperPath = uriSpecificCredentialHelper ?: genericCredentialHelper ?: return null
 
-        if (credentialHelperPath == "cache" || credentialHelperPath == "store") {
+        // On macOS and Linux they run as git credential-cache and git credential-store (posixCredentialHelperCommand)
+        if (currentOs == OS.WINDOWS && (credentialHelperPath == "cache" || credentialHelperPath == "store")) {
             printError(TAG, "Invalid credentials helper: \"$credentialHelperPath\" is not yet supported")
             return null
         }
