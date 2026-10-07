@@ -2,6 +2,27 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Resizable Staged, Unstaged and commit field (branch `feature/status-resizable-sections`)
+
+- **Before:** Staged and Unstaged always split their space 50/50, and the commit field was fixed at 192 dp.
+- **Handles:** one between the two lists and one above the commit field, with the north–south resize cursor. A
+  double-click resets that handle: the lists to 50/50, the commit field to 192 dp. The lists divider moves the two
+  lists. The commit divider moves the bottom list and the commit field, and the top list gives way only once the
+  bottom one is at its minimum.
+- **Limits:** each list keeps 100 dp (its header, the column header of Split columns and a row) and the commit field
+  140 dp (a one-line message box, the Amend checkbox and the buttons). A shorter window shrinks the sections without
+  changing what's saved, and a taller one brings them back.
+- **Swap setting:** the lists divider keeps Staged's share, so the sizes follow the sections when Unstaged is shown on
+  top.
+- **Saved globally**, in the prefs node next to the pane widths (`statusStagedShare`, `statusCommitFieldHeight`), when
+  a drag ends or a handle is reset. Every tab shares them. Damaged values fall back to the defaults.
+- **Spacing:** the 8 dp handles replace the 4 dp gaps below each list.
+- **Tests:** `StatusSectionSizesTest` (13) covers fitting, the minimums, a pane too short for them, both dividers in
+  both orders, moving back at once after hitting a limit, and damaged values.
+- **Verified:** an offscreen harness on the real status pane, with a temporary repository that has staged and
+  unstaged files. It dragged both handles, hit every limit, double-clicked both resets, flipped the order, shrank and
+  restored the window, and checked the prefs node. A second JVM read the saved sizes back.
+
 ## Discard changes on folders (branch `fix/discard-folder`)
 
 - **Before:** "Discard changes" in an Unstaged folder's right-click menu did nothing. Upstream wired it to an empty

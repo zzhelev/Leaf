@@ -354,6 +354,13 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
 - Files changed, Staged and Unstaged render `FileRow`s with `ui/ChangedFilesList.kt` (`CommitChangesState.rows`,
   `StatusState.stagedRows`/`unstagedRows`) and share `AppConfig.FilesChangedView`. The old `show_changes_as_tree` key
   is only read, as that setting's default until it's saved.
+- **Status pane sections (fork-only):** two 8 dp handles resize Staged, Unstaged and the commit field.
+  - `StatusSectionSizes` (`domain/models/`) holds Staged's share of the lists and the commit field's height. `fitTo`
+    fits them to the pane: each list keeps 100 dp and the commit field 140 dp. The drag functions start from the
+    fitted heights, so a drag never has to undo an overshoot.
+  - They are global: `StatusSectionsConfig` (app singleton) → `AppSettingsRepository.statusSectionSizes`, stored in the
+    prefs node as `statusStagedShare` and `statusCommitFieldHeight`, like the pane widths. `StatusPane` keeps a local
+    copy during a drag and sends `StatusAction.SectionSizesChanged` when it ends.
 - **Offscreen UI checks:** an `ImageComposeScene` built from the real Dagger graph can render `SidePanel` and
   `CommitChanges` to PNG without a window. Drive it on `Dispatchers.Swing`, like a real window. On another thread,
   Compose 1.12.0 intermittently threw "LayoutNode … not found in RectList"; 1.12.1 fixes one cause of that, but the
@@ -361,6 +368,13 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   `LocalTab`.
   `LocalWindowInfo.current.keyboardModifiers`, which Staged/Unstaged read for Shift and Ctrl clicks, only follows a
   real window; offscreen, set `WindowInfoImpl`'s `GlobalKeyboardModifiers` state through reflection.
+  - `StatusPane` renders too, with `LocalTab` and the tab's `repositoryOpenViewModel()`. Find elements through
+    `scene.semanticsOwners`, and simulate a window resize by setting `scene.constraints`.
+  - Only one Dagger graph per JVM: DataStore refuses a second instance on `user_prefs.json`. To check what survives
+    a restart, write in one Gradle run and read in another.
+  - The harness is a dev run, so it writes to the `LeafDevConfig` prefs node. Remove the keys it adds afterwards.
+    `openRepository` also adds the temp repository to `lastOpenedRepositoriesList`, where it shows up as a dead
+    entry under the Welcome page's recent repositories; restore that list too.
 
 ## Refresh
 
