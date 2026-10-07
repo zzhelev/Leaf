@@ -316,10 +316,10 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     the server rejected them.
   - LFS (`ProvideLfsCredentialsGitAction`) first sends a request without credentials, and only after a 401 looks
     for some, like git-lfs (lfsapi/auth.go):
-    - With a helper, it asks it about the remote's URL when the LFS server has the remote's scheme, host and port
+    - With helpers, it asks them about the remote's URL when the LFS server has the remote's scheme, host and port
       (`lfsCredentialsUri`, `getCredURLForAPI` in git-lfs), and about the server's URL otherwise. `GetLfsUrlGitAction`
-      gives both, as `LfsServer`. The helper's credentials are tried once, and erased if the server rejects them. Then
-      Leaf asks until the server takes them, and stores those with the helper.
+      gives both, as `LfsServer`. The helpers' credentials are tried once, and erased if the server rejects them.
+      Then Leaf asks until the server takes them, and stores those with the helpers.
     - Without one, it uses Leaf's cache with `isLfs = true`, keyed by the LFS server's URL: rejected entries are
       removed, typed credentials are cached once the server takes them.
     - Only a request that succeeds stores or caches anything, as in git-lfs. Unlike git-lfs, credentials from the
@@ -332,13 +332,28 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     (`team/project.git`). Never use `URIish.path`, which JGit decodes its own way.
   - Like git, Leaf runs no helper for a URL with a newline, or for a value to send with a newline or a carriage return,
     and `get` gives no credentials. Such a value could add a second `host` line.
-  - `credential.<url>.helper` and `.useHttpPath` apply as in git's urlmatch.c (`credentialConfigSubsections`):
-    - The scheme, host and port must match, ignoring case and the default port, and `*` stands for one host label.
-    - The key's path must be the remote's or a folder above it, and a user name in the key must be the remote's.
-    - A key that isn't a URL, such as `example.com:8443`, is a partial URL whose parts must equal the remote's.
-
-    Git applies every match in config order and tries each helper. Leaf runs one helper and takes each setting from
-    the most specific match, then from `credential.*`.
+  - `CredentialHelpers.find` applies the config the way git's `credential_apply_config` does
+    (`credentialSettings`), to every `credential.*` entry in the order git reads them:
+    - `credential.<url>.*` applies as in git's urlmatch.c (`credentialUrlApplies`). The scheme, host and port must
+      match, ignoring case and the default port, and `*` stands for one host label. The key's path must be the
+      remote's or a folder above it, and a user name in the key must be the remote's. A key that isn't a URL, such as
+      `example.com:8443`, is a partial URL whose parts must equal the remote's.
+    - Each `helper` joins the list and an empty one clears it. The last `useHttpPath` and `username` win, and the URL's
+      user name beats `credential.username`. A setting without a value is skipped (git refuses it).
+  - The entries come from `git config --list -z` through `GitCli`, which also follows `includeIf` (JGit doesn't).
+    It runs with `--git-dir=<repository's git dir>`. Without a repository (cloning), it runs with a git dir that
+    doesn't exist, so git reads only the global and system config.
+    - If git can't run, `jgitCredentialEntries` reads JGit's config instead. JGit doesn't keep the order of different
+      subsections, so it lists `credential.*` first, then the matching subsections from the least specific to the
+      most. JGit gives `null` for an empty value and `""` for a key without `=`, the other way round from git.
+  - `get` asks the helpers in turn, like `credential_fill`. Each helper is sent the user name known so far (the URL's,
+    `credential.username`, or an earlier helper's) and any password an earlier helper gave. It stops at the first
+    one that completes both, so a helper may answer with the password alone. A helper that can't be started is
+    skipped, and `quit=1` stops the search with no credentials.
+  - `store` and `erase` go to every helper, and `erase` waits for each `store` it follows.
+  - Leaf still asks for both the user name and the password, even when it knows the user name (git asks only for
+    the password). It doesn't store a helper's credentials in the other helpers after a success, as git's
+    `credential_approve` does.
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
 
@@ -543,6 +558,9 @@ common `refs/` and `packed-refs` are not watched.
 - Tests that run git's `store` or `cache` helpers point `HOME`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` at the temp
   folder (`HttpCredentialsProviderTest`), and stop the cache daemon with `git credential-cache exit`. A socket's path
   can't be longer than 104 bytes on macOS, so the socket goes directly under the temp folder.
+- `CredentialHelpersTest` checks the helper list against `git credential fill`. Each helper is
+  `!leaf-helper <name>`, which records that it ran and what it read, and answers from `<name>.answer`. An `includeIf`
+  pattern must use the real path (`canonicalPath`): git compares it with `/private/var/...` on macOS.
 - `CredentialUrlTest` uses the git CLI as the reference: `git credential fill` and `approve` with a helper that saves
   its input, and `credential.<key>.helper` with one that leaves a file. Git runs in the temp folder with
   `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.
@@ -552,6 +570,8 @@ common `refs/` and `packed-refs` are not watched.
   - `TestGitCli` runs the git CLI with global and system config ignored. JGit can't create linked worktrees, so use
     the CLI to set them up. `run(dir, env, args)` adds environment variables, for example `GIT_COMMITTER_DATE` to fix
     commit, tag and reflog dates (`GetRefDatesGitActionTest`).
+  - `testGitCli(shellVariables, configuredPath)` builds a `GitCli`. Credential tests always give it the variables
+    that keep git away from the developer's config, even when the helpers run without them.
   - `testJGit(shellVariables)` builds a `JGit` whose login shell environment is the given map. Hook tests use
     `File.writeExecutable`, and `createHookTool`, which makes a `leaf-hook-tool` command that is on no PATH
     (`PosixFsTest`, `GitCliTest`).

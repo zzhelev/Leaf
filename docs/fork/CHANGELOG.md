@@ -2,6 +2,69 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Every matching credential helper runs, with the user name (branch `feature/credential-helper-list`)
+
+Closes the first three gaps listed under "Credential helpers get the host and path that git gives them".
+
+- **Before:**
+  - Leaf ran one credential helper: the last `helper` value of the most specific `credential.<url>` subsection, or of
+    `credential`. Git (`credential_apply_config` in `credential.c`) collects every `helper` that applies, in config
+    order, and an empty value clears the ones before it. It runs `get` with each in turn until one gives a user name
+    and a password, and `store` and `erase` with all of them.
+  - So with `osxkeychain` from the system config and `store` from `~/.gitconfig`, Leaf asked only `store`, and stored
+    and erased only there. An empty `helper =`, written to drop the helpers set before it, still ran
+    `git credential- get`.
+  - Leaf sent no user name. Git sends the URL's (`https://alice@host/...`), or else `credential.username`.
+    `osxkeychain` then answers with the password alone. Leaf counted that as no credentials and asked the user.
+  - JGit reads no `includeIf`, so settings from conditionally included files never applied.
+  - Without a repository (cloning), Leaf read only `~/.gitconfig`, from the JVM's `user.home`, not the XDG or system
+    config.
+- **Now:**
+  - `CredentialHelpers.find` lists the config with `git config --list -z` through `GitCli`. That gives every entry in
+    the order git reads them, includes and `includeIf` too, with `--git-dir` set to the repository's. Without a
+    repository, `--git-dir` names one that doesn't exist, so git reads only the global and system config, as `git
+    clone` does.
+  - `credentialSettings` (in `CredentialUrl.kt`) then applies them as git does: the helper list with empty values
+    clearing it, the last `useHttpPath` and `username`, and the URL's user name ahead of `credential.username`.
+  - If git can't be run, Leaf falls back to JGit's config. JGit doesn't keep the order across subsections, so the
+    fallback takes `credential.*` first, then the matching subsections from the least specific to the most. JGit gives
+    `null` for `helper =` and `""` for a bare `helper`, the other way round from git, so the fallback swaps them back.
+  - `get` asks each helper in turn, sending the user name known so far and any password an earlier helper gave. It
+    stops at the first helper that completes both, so a password alone is enough when the user name is known. A
+    helper that can't be started is skipped, as in git. One that answers `quit=1` stops the search with no
+    credentials, where git dies.
+  - Leaf fills JGit's `Username` item with the user name it has, and the LFS action does the same.
+  - `store` and `erase` go to every helper, the HTTPS provider's and LFS's alike. `reset` waits for every `store`
+    before erasing.
+- **Still unlike git:**
+  - When Leaf asks the user, the dialog still asks for the user name too. Git asks only for the password once it
+    knows the user name.
+  - Credentials that one helper gave aren't stored in the others after a success, as `credential_approve` does.
+  - A setting without a value is skipped; git stops with an error. A helper that runs more than a minute still ends
+    the search with no credentials; git waits.
+- **Tests:** git 2.54 is the reference wherever it can be.
+  - The new `CredentialHelpersTest` has 7 tests. Its helpers are all `!leaf-helper <name>`, which records that it
+    ran and what it read.
+    - One config spreads helpers, resets, `useHttpPath` and `username` over the global and local files, with an
+      `includeIf`. For four URLs, Leaf's helpers and their order, and what the first one reads, must equal what
+      `git credential fill` runs. One URL has a port, one a user name, and one has no repository.
+    - Helpers that give the user name and the password separately get the same answer and input as with git, and so
+      does a password-only helper for a URL with a user name.
+    - Also: `quit` stops the search, a helper that can't start is skipped, `store` and `erase` reach every helper,
+      and the JGit fallback's order.
+  - `HttpCredentialsProviderTest` (+3): a password-only helper for `https://alice@...`, a clone that finds its helper
+    in the global config, and typed credentials stored with both git's `store` and a second helper, then erased from
+    both.
+  - `CredentialUrlTest` (+2): `git config --list -z` output with empty, bare, quoted and multi-line values, and
+    settings without a value.
+  - The existing credential and LFS tests pass unchanged, apart from building `CredentialHelpers` with a `GitCli`.
+    That `GitCli` always gets the variables that keep git off the developer's config.
+  - 22 mutations were each caught, across the settings, the config listing, the JGit fallback, `get`, `store` and
+    `erase`, and the provider. All 247 tests pass (158 in `:data`, 82 in `:domain`, 7 in `:common`), and `:app`
+    compiles.
+- **Not tried** on Windows, where the helpers go through the same list, or with a real `osxkeychain` or credential
+  manager.
+
 ## LFS over HTTPS uses the credential helper and caches credentials (branch `claude/lfs-credentials`)
 
 - **Before:** after a 401 from an LFS server, `ProvideLfsCredentialsGitAction` looked in Leaf's in-memory cache
