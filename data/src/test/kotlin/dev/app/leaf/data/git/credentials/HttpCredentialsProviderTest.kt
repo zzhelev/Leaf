@@ -27,6 +27,7 @@ import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
@@ -69,6 +70,9 @@ class HttpCredentialsProviderTest {
         )
     }
 
+    /** The repositories that [createProvider] opened. */
+    private val repositories = mutableListOf<Git>()
+
     @BeforeEach
     fun isolateJGitConfig() {
         SystemReader.setInstance(IsolatedSystemReader(File(tempDir, "config"), originalReader))
@@ -76,6 +80,7 @@ class HttpCredentialsProviderTest {
 
     @AfterEach
     fun restoreSystemReader() {
+        repositories.forEach { it.close() }
         SystemReader.setInstance(originalReader)
     }
 
@@ -215,6 +220,61 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
+    fun `credentials that the server rejects are erased with the helper, which gets them as git sends them`() {
+        createRecordingHelper(answer = Answer("helper-user", "helper=password"))
+        val provider = createProvider(helper = "leaf-test", useHttpPath = true)
+
+        assertEquals(Answer("helper-user", "helper=password"), provider.requestCredentials())
+        provider.reset(URIish(REMOTE_URL))
+        // JGit resets only after a get, but a second reset must not erase them again
+        provider.reset(URIish(REMOTE_URL))
+
+        assertEquals(listOf("get", "erase"), File(tools, "operations").readLines())
+        val getInput = File(tools, "get.input").readText()
+        assertTrue(getInput.contains("\npath="), getInput)
+        assertEquals(
+            "${getInput}username=helper-user\npassword=helper=password\n",
+            File(tools, "erase.input").readText(),
+        )
+    }
+
+    @Test
+    fun `store forgets credentials that the server rejects, so Leaf asks for new ones and stores them`() {
+        runGit(
+            listOf("credential-store", "store"),
+            input = "${EXPECTED_INPUT}username=saved-user\npassword=wrong=password\n",
+        )
+        val credentialsFile = File(tempDir, ".git-credentials")
+        val provider = createProvider(helper = "store")
+
+        assertEquals(Answer("saved-user", "wrong=password"), provider.requestCredentials())
+        provider.reset(URIish(REMOTE_URL))
+
+        assertEquals("", credentialsFile.readText())
+
+        val answer = provider.requestCredentials(promptAnswer = Answer("new-user", "new-password"))
+
+        assertEquals(Answer("new-user", "new-password"), answer)
+        assertEquals("https://new-user:new-password@example.invalid\n", awaitText(credentialsFile))
+    }
+
+    @Test
+    fun `credentials that Leaf asked for are erased when the server rejects them, once the helper has stored them`() {
+        // Leaf stores them before the server answers and doesn't wait, so the erase has to wait for the slow store
+        createRecordingHelper(answer = null, storeSeconds = "0.5")
+        val provider = createProvider(helper = "leaf-test")
+
+        assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials())
+        provider.reset(URIish(REMOTE_URL))
+
+        assertEquals(listOf("get", "store", "erase"), File(tools, "operations").readLines())
+        assertEquals(
+            "${EXPECTED_INPUT}username=prompted-user\npassword=prompted-password\n",
+            File(tools, "erase.input").readText(),
+        )
+    }
+
+    @Test
     fun `helper commands are built the way git builds them`() {
         assertEquals(
             listOf("/bin/sh", "-c", "git credential-osxkeychain get"),
@@ -253,8 +313,30 @@ class HttpCredentialsProviderTest {
     }
 
     /**
-     * Asks [HttpCredentialsProvider] for the credentials of [REMOTE_URL], with [helper] as `credential.helper`. If
-     * Leaf asks the user instead, the answer is [promptAnswer].
+     * Creates the helper `git-credential-leaf-test` in [tools]. It writes the input of each operation to
+     * `<operation>.input`, and each operation to `operations` when it finishes. It answers `get` with [answer], if
+     * there is one, and `store` takes [storeSeconds].
+     */
+    private fun createRecordingHelper(answer: Answer?, storeSeconds: String = "0") {
+        val answerGet = answer?.let { "printf 'username=${it.user}\\npassword=${it.password}\\n'" } ?: ":"
+
+        File(tools, "git-credential-leaf-test").writeExecutable(
+            """
+            |#!/bin/sh
+            |dir="${'$'}(dirname "${'$'}0")"
+            |operation="${'$'}1"
+            |cat > "${'$'}dir/${'$'}operation.input"
+            |[ "${'$'}operation" = store ] && sleep $storeSeconds
+            |echo "${'$'}operation" >> "${'$'}dir/operations"
+            |[ "${'$'}operation" = get ] && $answerGet
+            |exit 0
+            |""".trimMargin()
+        )
+    }
+
+    /**
+     * Asks a new [HttpCredentialsProvider] for the credentials of [REMOTE_URL], with [helper] as `credential.helper`.
+     * If Leaf asks the user instead, the answer is [promptAnswer].
      */
     private fun requestCredentials(
         helper: String,
@@ -262,35 +344,56 @@ class HttpCredentialsProviderTest {
         gitCredentialsManagerProvider: IGitCredentialsManagerProvider = NoCredentialsManager,
         shellManager: IShellManager = ShellManager(),
         promptAnswer: Answer = Answer("prompted-user", "prompted-password"),
-    ): Answer = runBlocking {
-        Git.init().setDirectory(File(tempDir, "repository")).call().use { git ->
-            git.repository.config.apply {
-                setString("credential", null, "helper", helper)
-                save()
-            }
+    ): Answer = createProvider(helper, shellVariables, gitCredentialsManagerProvider, shellManager)
+        .requestCredentials(promptAnswer)
 
-            val provider = HttpCredentialsProvider(
-                credentialsStateManager = credentialsStateManager,
-                shellManager = shellManager,
-                credentialsCacheRepository = NoCachedCredentials,
-                gitCredentialsManagerProvider = gitCredentialsManagerProvider,
-                loginShellEnvironment = LoginShellEnvironment { shellVariables },
-                git = git,
-            )
-            val user = CredentialItem.Username()
-            val password = CredentialItem.Password()
+    /** An [HttpCredentialsProvider] for a repository whose `credential.helper` is [helper]. */
+    private fun createProvider(
+        helper: String,
+        shellVariables: Map<String, String> = this.shellVariables,
+        gitCredentialsManagerProvider: IGitCredentialsManagerProvider = NoCredentialsManager,
+        shellManager: IShellManager = ShellManager(),
+        useHttpPath: Boolean = false,
+    ): HttpCredentialsProvider {
+        val git = Git.init().setDirectory(File(tempDir, "repository")).call()
+        repositories += git
 
-            val prompt = launch(Dispatchers.Default) {
-                credentialsStateManager.credentialsState.first { it == CredentialsRequest.HttpCredentialsRequest }
-                credentialsStateManager.httpCredentialsAccepted(promptAnswer.user, promptAnswer.password)
-            }
-
-            val accepted = withContext(Dispatchers.IO) { provider.get(URIish(REMOTE_URL), user, password) }
-            prompt.cancel()
-
-            check(accepted) { "The provider gave no credentials" }
-            Answer(user.value, String(password.value))
+        git.repository.config.apply {
+            setString("credential", null, "helper", helper)
+            setBoolean("credential", null, "useHttpPath", useHttpPath)
+            save()
         }
+
+        return HttpCredentialsProvider(
+            credentialsStateManager = credentialsStateManager,
+            shellManager = shellManager,
+            credentialsCacheRepository = NoCachedCredentials,
+            gitCredentialsManagerProvider = gitCredentialsManagerProvider,
+            loginShellEnvironment = LoginShellEnvironment { shellVariables },
+            git = git,
+        )
+    }
+
+    /**
+     * Asks this provider for the credentials of [REMOTE_URL], as JGit does. If Leaf asks the user, the answer is
+     * [promptAnswer].
+     */
+    private fun HttpCredentialsProvider.requestCredentials(
+        promptAnswer: Answer = Answer("prompted-user", "prompted-password"),
+    ): Answer = runBlocking {
+        val user = CredentialItem.Username()
+        val password = CredentialItem.Password()
+
+        val prompt = launch(Dispatchers.Default) {
+            credentialsStateManager.credentialsState.first { it == CredentialsRequest.HttpCredentialsRequest }
+            credentialsStateManager.httpCredentialsAccepted(promptAnswer.user, promptAnswer.password)
+        }
+
+        val accepted = withContext(Dispatchers.IO) { get(URIish(REMOTE_URL), user, password) }
+        prompt.cancel()
+
+        check(accepted) { "The provider gave no credentials" }
+        Answer(user.value, String(password.value))
     }
 
     /** Waits for [file], which a helper writes after Leaf has moved on, as Leaf doesn't wait for `store` to finish. */
@@ -302,6 +405,17 @@ class HttpCredentialsProviderTest {
         }
 
         file
+    }
+
+    /** Waits until [file] has some text, which a helper writes after Leaf has moved on, and returns it. */
+    private fun awaitText(file: File): String = runBlocking {
+        withTimeout(10_000) {
+            while (file.readText().isEmpty()) {
+                delay(20)
+            }
+        }
+
+        file.readText()
     }
 
     /** Waits until git's cache daemon has the credentials, which Leaf stores after it has moved on. */

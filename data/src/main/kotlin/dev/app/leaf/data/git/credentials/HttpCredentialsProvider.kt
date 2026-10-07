@@ -9,6 +9,7 @@ import dev.app.leaf.domain.IShellManager
 import dev.app.leaf.domain.credentials.CredentialsAccepted
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.credentials.external.IGitCredentialsManagerProvider
+import dev.app.leaf.domain.exceptions.CommandExecutionFailed
 import dev.app.leaf.domain.exceptions.NotSupportedHelper
 import dev.app.leaf.domain.models.CredentialsType
 import dev.app.leaf.domain.repositories.CredentialsRepository
@@ -48,6 +49,9 @@ class HttpCredentialsProvider @AssistedInject constructor(
 
     private var credentialsCached: CredentialsType.HttpCredentials? = null
 
+    /** The credentials that [get] last gave while a credential helper is configured, which [reset] erases. */
+    private var helperCredentials: HelperCredentials? = null
+
     override fun isInteractive() = true
 
     override fun supports(vararg items: CredentialItem?): Boolean {
@@ -64,6 +68,8 @@ class HttpCredentialsProvider @AssistedInject constructor(
     }
 
     override fun get(uri: URIish, vararg items: CredentialItem): Boolean {
+        helperCredentials = null
+
         val itemsMap = items.map { "${it::class.simpleName} - ${it.promptText}" }
 
         printLog(TAG, "Items are $itemsMap")
@@ -123,14 +129,38 @@ class HttpCredentialsProvider @AssistedInject constructor(
             }
         } else {
             when (handleExternalCredentialHelper(externalCredentialsHelper, uri, items)) {
-                ExternalCredentialsRequestResult.SUCCESS -> return true
+                ExternalCredentialsRequestResult.SUCCESS -> {
+                    helperCredentials = HelperCredentials(
+                        helper = externalCredentialsHelper,
+                        uri = uri,
+                        user = userItem.value,
+                        password = String(passwordItem.value),
+                        store = null,
+                    )
+
+                    return true
+                }
+
                 ExternalCredentialsRequestResult.FAIL -> return false
                 ExternalCredentialsRequestResult.CREDENTIALS_NOT_STORED -> {
                     val credentials = askForCredentials()
                     userItem.value = credentials.user
                     passwordItem.value = credentials.password.toCharArray()
 
-                    saveCredentialsInExternalHelper(uri, externalCredentialsHelper, credentials)
+                    // Git stores them once the server accepts them, Leaf right away: reset erases them if it doesn't
+                    helperCredentials = HelperCredentials(
+                        helper = externalCredentialsHelper,
+                        uri = uri,
+                        user = credentials.user,
+                        password = credentials.password,
+                        store = sendCredentialsToExternalHelper(
+                            operation = "store",
+                            uri = uri,
+                            externalCredentialsHelper = externalCredentialsHelper,
+                            user = credentials.user,
+                            password = credentials.password,
+                        ),
+                    )
 
                     return true
                 }
@@ -138,12 +168,47 @@ class HttpCredentialsProvider @AssistedInject constructor(
         }
     }
 
-    private fun saveCredentialsInExternalHelper(
+    /**
+     * JGit calls this when the server rejects the credentials that [get] gave, before it calls [get] again. Like git
+     * (`credential_reject`), Leaf then runs the credential helper with `erase`, whether the credentials came from the
+     * helper or from the user, so that the helper doesn't give them back and Leaf asks the user instead.
+     */
+    override fun reset(uri: URIish) {
+        val rejected = helperCredentials ?: return
+        helperCredentials = null
+
+        try {
+            // Erasing them before the helper has stored them would leave them stored
+            rejected.store?.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES)
+
+            val process = sendCredentialsToExternalHelper(
+                operation = "erase",
+                uri = rejected.uri,
+                externalCredentialsHelper = rejected.helper,
+                user = rejected.user,
+                password = rejected.password,
+            )
+
+            // The next get must not find them
+            if (!process.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES)) {
+                process.destroy()
+                printError(TAG, "The credential helper did not finish erasing the rejected credentials")
+            }
+        } catch (e: CommandExecutionFailed) {
+            // Like git, carries on without the helper
+            printError(TAG, "The credential helper could not erase the rejected credentials: ${e.message}")
+        }
+    }
+
+    /** Runs the helper's [operation] (`store` or `erase`) for these credentials, without waiting for it to finish. */
+    private fun sendCredentialsToExternalHelper(
+        operation: String,
         uri: URIish,
         externalCredentialsHelper: ExternalCredentialsHelper,
-        credentials: CredentialsAccepted.HttpCredentialsAccepted,
-    ) {
-        val process = startCredentialsHelper(externalCredentialsHelper, "store")
+        user: String,
+        password: String,
+    ): Process {
+        val process = startCredentialsHelper(externalCredentialsHelper, operation)
 
         val output = process.outputStream // write to the input stream of the helper
         val bufferedWriter = BufferedWriter(OutputStreamWriter(output))
@@ -156,12 +221,14 @@ class HttpCredentialsProvider @AssistedInject constructor(
                 bufferedWriter.write("path=${uri.path}\n")
             }
 
-            bufferedWriter.write("username=${credentials.user}\n")
-            bufferedWriter.write("password=${credentials.password}\n")
+            bufferedWriter.write("username=$user\n")
+            bufferedWriter.write("password=$password\n")
             bufferedWriter.write("")
 
             bufferedWriter.flush()
         }
+
+        return process
     }
 
     private fun askForCredentials(): CredentialsAccepted.HttpCredentialsAccepted = runBlocking {
@@ -323,6 +390,18 @@ data class ExternalCredentialsHelper(
         }
     }
 }
+
+/**
+ * Credentials that [HttpCredentialsProvider.get] gave while [helper] is configured, for [uri]. [store] is the helper's
+ * `store` of them, when Leaf asked the user for them; it may still be running.
+ */
+private class HelperCredentials(
+    val helper: ExternalCredentialsHelper,
+    val uri: URIish,
+    val user: String,
+    val password: String,
+    val store: Process?,
+)
 
 enum class ExternalCredentialsRequestResult {
     SUCCESS,
