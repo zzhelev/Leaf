@@ -309,6 +309,20 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     `credential_reject`. Git stores typed credentials only once the server accepts them; Leaf stores them at once, so
     `reset` first waits for that `store`, then for the `erase`. Without a helper nothing is erased, and Leaf's
     in-memory cache keeps rejected credentials.
+  - What a helper reads comes from `credentialHelperInput` (fork-only `CredentialUrl.kt`), shared by `get`, `store`
+    and `erase` on every OS. It matches git's `credential_from_url`, so Leaf and the git CLI find each other's
+    credentials: `host` has the port when the URL has one (`example.com:8443`), and the `useHttpPath` path comes
+    from `URIish.rawPath`, without its leading and trailing slashes, decoded like git's `url_decode`
+    (`team/project.git`). Never use `URIish.path`, which JGit decodes its own way.
+  - Like git, Leaf runs no helper for a URL with a newline, or for a value to send with a newline or a carriage return,
+    and `get` gives no credentials. Such a value could add a second `host` line.
+  - `credential.<url>.helper` and `.useHttpPath` apply as in git's urlmatch.c (`credentialConfigSubsections`):
+    - The scheme, host and port must match, ignoring case and the default port, and `*` stands for one host label.
+    - The key's path must be the remote's or a folder above it, and a user name in the key must be the remote's.
+    - A key that isn't a URL, such as `example.com:8443`, is a partial URL whose parts must equal the remote's.
+
+    Git applies every match in config order and tries each helper. Leaf runs one helper and takes each setting from
+    the most specific match, then from `credential.*`.
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
 
@@ -513,6 +527,9 @@ common `refs/` and `packed-refs` are not watched.
 - Tests that run git's `store` or `cache` helpers point `HOME`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` at the temp
   folder (`HttpCredentialsProviderTest`), and stop the cache daemon with `git credential-cache exit`. A socket's path
   can't be longer than 104 bytes on macOS, so the socket goes directly under the temp folder.
+- `CredentialUrlTest` uses the git CLI as the reference: `git credential fill` and `approve` with a helper that saves
+  its input, and `credential.<key>.helper` with one that leaves a file. Git runs in the temp folder with
+  `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.

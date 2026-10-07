@@ -2,6 +2,69 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Credential helpers get the host and path that git gives them (branch `claude/epic-newton-39ddf6`)
+
+- **Before:** for `get`, `store` and `erase`, Leaf wrote `host=${uri.host}` and, with `credential.useHttpPath`,
+  `path=${uri.path}`. Git (`credential_from_url` in `credential.c`) writes the host with its port
+  (`host=example.com:8443`) and the path without its leading and trailing slashes (`path=team/project.git`, where
+  Leaf wrote `/team/project.git`). So for a remote with a port, or with `useHttpPath`, Leaf didn't find what the git CLI
+  had saved, the git CLI didn't find what Leaf had saved, and `erase` missed the entry. For a remote on port 8443, Leaf
+  could also get the credentials saved for the same host on the default port.
+- **Newlines:** `URIish.path` is already decoded, so a `%0A` in the path became a line of its own. With `useHttpPath`,
+  a remote such as `https://evil.example/x%0Ahost=github.com%0Apath=org/repo.git` made git's `store` give Leaf the
+  credentials saved for `github.com/org/repo.git`, to send to `evil.example` (checked with `git credential-store`). Git
+  refuses such URLs since CVE-2020-5260.
+- **Config lookup:** `getExternalCredentialsHelper` read `credential.<scheme>://<host>.helper` and `.useHttpPath` by
+  that exact name, without the port. `[credential "https://example.com"]` applied to `https://example.com:8443`, and
+  `[credential "https://example.com:8443"]` never applied. Keys with a trailing slash, other letter case, a path, `*`
+  or a user name never applied either, and `useHttpPath = yes`, `on` or `1` under a URL counted as false.
+- **Now:** the fork-only `CredentialUrl.kt` has both parts.
+  - `credentialHelperInput` builds what every helper operation reads, on every OS: the protocol; the host, with the
+    port when the URL has one; and with `useHttpPath`, the path from `URIish.rawPath`, trimmed and then decoded like
+    git's `url_decode`. That leaves `%00`, invalid escapes and everything before the first colon as they are:
+    `a%20b:c%20d/` becomes `a%20b:c d`.
+  - Like git, Leaf runs no helper for a URL with a newline in it, or for a value to send with a newline or a carriage
+    return (git's `credential.protectProtocol`, on by default). `get` then gives no credentials, so the fetch fails
+    as it does with git, and `store` and `erase` are skipped and logged.
+  - `credentialConfigSubsections` picks the `credential.<url>` subsections that apply, using the rules of git's
+    `urlmatch.c` and `match_partial_url`:
+    - The scheme, host and port must match, ignoring case and the scheme's default port. A `*` stands for one host
+      label.
+    - The key's path must be the remote's or a folder above it, and a user name in the key must be the remote's.
+    - A key that isn't a URL, such as `example.com:8443` or `https://`, matches when the parts it has equal the
+      remote's.
+
+    Git applies every match in config order. Leaf takes `helper` and `useHttpPath` each from the most specific match
+    that sets it (longest host, then longest path, then a user name, then partial URLs), then from `credential.*`.
+    `useHttpPath` is read with JGit's `getBoolean`, so `yes`, `on` and `1` count.
+- **Tests:** the expected results come from git 2.54 itself, not from Leaf's reading of it.
+  - `CredentialUrlTest` (4, new) runs the git CLI. For 13 URLs, with and without `useHttpPath`, Leaf's input must
+    equal what `git credential fill` (get) and `git credential approve` (store) write to a helper. The URLs cover
+    ports, IPv6, extra slashes, escapes before and after a colon, `%00`, UTF-8, a query and a newline. For 31 pairs of
+    URL and key, Leaf must apply `credential.<key>.helper` where git runs it. A further test checks the order of
+    matches, and one checks the newline and carriage return refusals.
+  - `HttpCredentialsProviderTest` (+5) uses git's real `store` with `useHttpPath`. Leaf finds what `git credential
+    approve` saved for `https://example.invalid:8443/team/project.git`, ahead of newer entries for the same path
+    without the port and for another path. `git credential fill` finds what Leaf stored, and Leaf's `erase` removes
+    git's entry and nothing else. Settings under `https://example.invalid` don't apply on port 8443, while
+    `https://EXAMPLE.invalid:8443/team` and `https://*.invalid:8443` do. A URL with `%0A` in its path runs no helper
+    and asks nothing.
+  - Each of 21 mutations broke at least one test: in the input (no port, slashes kept, not decoded, decoded before
+    the colon, JGit's path, `%00` decoded, no newline or carriage return check, store and erase without the path), in
+    the matching (port, default port, `*`, folder boundary, user name, letter case, partial URLs, order), and in the
+    provider (only `scheme://host`, generic `useHttpPath` only, asking the user for a refused URL).
+  - All 216 tests pass (127 in `:data`, 82 in `:domain`, 7 in `:common`). Not tried on Windows, where the same code
+    builds the input.
+- **Gaps left (follow-ups):**
+  - Leaf runs one helper. Git runs every `credential.helper` that applies, in config order, until one gives
+    credentials, and an empty value clears the ones before it. Leaf takes the last value of the chosen key, and an
+    empty one still runs `git credential- get`.
+  - Leaf sends no `username` in `get`. Git sends the URL's user name, or `credential.username`, which Leaf doesn't read.
+    A helper with several accounts for one host may give Leaf a different one than git gets.
+  - `.` and `..` in a key's path aren't resolved, and a URL with a port and a `%XX` in its host differs from git in
+    the host it sends. Neither should come up in practice.
+  - Without a repository (cloning), Leaf still reads only `~/.gitconfig`, not the XDG or system config.
+
 ## Debian packages for Linux (branch `feature/linux-deb`)
 
 - **New files:** releases get `Leaf-<version>-linux-amd64.deb` and `Leaf-<version>-linux-arm64.deb`, each with a
