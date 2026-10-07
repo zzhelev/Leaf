@@ -1,6 +1,7 @@
 name: Release Build
 
-# Builds Leaf for macOS (Apple Silicon), Windows (x64) and Linux (x86_64 and aarch64 jars).
+# Builds Leaf for macOS (Apple Silicon), Windows (x64) and Linux (x86_64 and aarch64 jars, amd64 and arm64 .deb
+# packages).
 # - Pushing a tag named leaf-X.Y.Z builds everything and creates a draft GitHub release with the files attached.
 #   The tag must match projectVersion in app/build.gradle.kts. Review the draft, write the notes, then publish it.
 # - Running the workflow by hand (Actions tab, "Run workflow") only builds. The files are kept as workflow artifacts
@@ -173,9 +174,60 @@ jobs:
           path: Output/*
           retention-days: 7
 
+  build_linux_deb:
+    needs: version
+    # Built natively on Ubuntu 22.04, because jpackage can't build a package for another CPU, and because the package
+    # works on systems as old as the one it was built on:
+    # - The package's dependencies are the build system's package names. Ubuntu 24.04's renamed libraries (such as
+    #   libasound2t64) don't exist on Debian 12 or Ubuntu 22.04, while 24.04 still accepts 22.04's names.
+    # - The Rust library needs the build system's glibc or newer (2.35 on 22.04).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - name: Check the fonts are real files, not Git LFS pointers
+        run: |
+          if find app/src/main/composeResources/font -name '*.ttf' -size -2k | grep -q .; then
+            echo "::error::The fonts are Git LFS pointers"
+            exit 1
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install fakeroot, which jpackage needs to build a .deb
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+      - name: Set up the JetBrains JDK 25, which includes jlink, jpackage and the jmods
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'jetbrains'
+      - name: Build the package
+        run: ./gradlew :app:packageDeb
+      - name: Check the Rust library was built
+        run: test -f app/src/main/resources/libleaf_rs.so
+      - name: Collect the files
+        run: |
+          mkdir Output
+          mv app/build/compose/binaries/main/deb/leaf_*_${{ matrix.arch }}.deb "Output/Leaf-$VERSION-linux-${{ matrix.arch }}.deb"
+          cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: leaf-linux-deb-${{ matrix.arch }}
+          path: Output/*
+          retention-days: 7
+
   release:
     if: startsWith(github.ref, 'refs/tags/leaf-')
-    needs: [version, build_macos, build_windows, build_linux]
+    needs: [version, build_macos, build_windows, build_linux, build_linux_deb]
     runs-on: ubuntu-latest
     permissions:
       contents: write

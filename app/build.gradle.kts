@@ -154,10 +154,23 @@ compose.desktop {
             packageName = projectName
             version = projectVersionSimplified
             description = "Multiplatform Git client"
-            targetFormats(TargetFormat.Dmg)
+            // The .deb's Maintainer field is "<vendor> <debMaintainer>".
+            vendor = "Zhelyazko Zhelev"
+            // Each format builds only on its own OS. Elsewhere its task is skipped, e.g. packageDeb on macOS.
+            targetFormats(TargetFormat.Dmg, TargetFormat.Deb)
 
             windows {
                 iconFile.set(project.file("../icons/icon.ico"))
+            }
+
+            linux {
+                iconFile.set(project.file("../icons/icon.png"))
+                // Installs to /opt/leaf, with a launcher in the desktop's application menu.
+                packageName = "leaf"
+                debMaintainer = "zzhelev@gmail.com"
+                appCategory = "vcs"
+                menuGroup = "Development;RevisionControl;"
+                shortcut = true
             }
 
             macOS {

@@ -24,7 +24,18 @@ it and without relying on web technologies.
 
 ## Download/Install
 
-Leaf has no published releases yet. To build and run it from source, see [DEVELOPMENT.md](DEVELOPMENT.md).
+Download Leaf from the [releases page](https://github.com/zzhelev/Leaf/releases):
+
+- **macOS (Apple Silicon):** `Leaf-<version>-macos-arm64.dmg`. macOS refuses to open it at first, because it isn't
+  notarized; the FAQ entry "Why isn't the Mac version signed?" below explains the fix.
+- **Windows (x64):** the installer `Leaf-<version>-windows-x64-setup.exe`, or `Leaf-<version>-windows-x64-portable.zip`.
+- **Debian and Ubuntu (amd64 and arm64):** `Leaf-<version>-linux-amd64.deb` or `Leaf-<version>-linux-arm64.deb`, from
+  the release after 1.1.1. Install it with `sudo apt install ./Leaf-<version>-linux-amd64.deb`. It needs Debian 12,
+  Ubuntu 22.04 or newer, and installs Leaf to `/opt/leaf` with an entry in the applications menu.
+- **Other Linux distributions:** `Leaf-<version>-linux-x86_64.jar` or `Leaf-<version>-linux-arm_aarch64.jar`. Run it
+  with `java -jar`, which needs Java 25.
+
+To build and run Leaf from source, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Features
 
