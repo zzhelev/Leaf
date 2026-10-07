@@ -4,6 +4,7 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IUploadLfsObjectGitAction
 import dev.app.leaf.domain.lfs.LfsObject
+import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.network.NetworkConstants
 import dev.app.leaf.domain.repositories.LfsRepository
 import org.eclipse.jgit.lfs.Lfs
@@ -16,9 +17,9 @@ class UploadLfsObjectGitAction @Inject constructor(
     private val provideLfsCredentialsGitAction: ProvideLfsCredentialsGitAction,
 ) : IUploadLfsObjectGitAction {
     override suspend operator fun invoke(
-        lfsServerUrl: String,
-        lfsObject: LfsObject,
         repository: Repository,
+        lfsServer: LfsServer,
+        lfsObject: LfsObject,
         oid: AnyLongObjectId,
     ): Either<Unit, LfsError> {
         val uploadUrl = lfsObject.actions?.upload?.href ?: return Either.Ok(Unit)
@@ -37,9 +38,7 @@ class UploadLfsObjectGitAction @Inject constructor(
                 null,
             )
         } else {
-            provideLfsCredentialsGitAction(
-                url = lfsServerUrl,
-            ) { user, password ->
+            provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
                 lfsRepository.uploadObject(
                     uploadUrl,
                     oid.name(),

@@ -8,6 +8,7 @@ import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.extensions.isHttpOrHttps
 import dev.app.leaf.domain.lfs.LfsObjectBatch
 import dev.app.leaf.domain.lfs.LfsObjects
+import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.models.OperationType
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -69,18 +70,19 @@ class LfsSmudgeFilter @AssistedInject constructor(
         lfsPointer: LfsPointer,
     ) = runBlocking {
 
-        val lfsServerUrl = getLfsUrlGitAction(repository, null) ?: throw Exception("LFS Url not found")
-        val isHttpUrl = lfsServerUrl.isHttpOrHttps()
+        val lfsServer = getLfsUrlGitAction(repository, null) ?: throw Exception("LFS Url not found")
+        val isHttpUrl = lfsServer.url.isHttpOrHttps()
 
         val lfsObjectBatches = listOf(LfsObjectBatch(lfsPointer.oid.name(), lfsPointer.size))
 
         val lfsObjects: Either<LfsObjects, LfsError>
-        val finalServerUrl: String
+        val finalServer: LfsServer
 
         if (isHttpUrl) {
-            finalServerUrl = lfsServerUrl
+            finalServer = lfsServer
             lfsObjects = getLfsObjectsGitAction(
-                lfsServerUrl,
+                repository,
+                lfsServer,
                 operationType = OperationType.DOWNLOAD,
                 lfsObjectBatches = lfsObjectBatches,
                 branch = repository.fullBranch,
@@ -88,14 +90,15 @@ class LfsSmudgeFilter @AssistedInject constructor(
             )
         } else {
             val lfsServerInfo = authenticateLfsServerWithSshGitAction(
-                lfsServerUrl = lfsServerUrl,
+                lfsServerUrl = lfsServer.url,
                 operationType = OperationType.DOWNLOAD
             )
 
-            finalServerUrl = lfsServerInfo.href
+            finalServer = LfsServer(lfsServerInfo.href, lfsServer.remoteUrl)
 
             lfsObjects = getLfsObjectsGitAction(
-                lfsServerInfo.href,
+                repository,
+                finalServer,
                 operationType = OperationType.DOWNLOAD,
                 lfsObjectBatches = lfsObjectBatches,
                 branch = repository.fullBranch,
@@ -112,7 +115,7 @@ class LfsSmudgeFilter @AssistedInject constructor(
                 if (lfsObject != null) {
                     downloadLfsObjectGitAction(
                         repository = repository,
-                        lfsServerUrl = finalServerUrl,
+                        lfsServer = finalServer,
                         lfsObject = lfsObject,
                         lfsPointer.oid,
                     )

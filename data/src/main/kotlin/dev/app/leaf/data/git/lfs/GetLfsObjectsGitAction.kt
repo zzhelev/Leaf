@@ -5,9 +5,11 @@ import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IGetLfsObjectsGitAction
 import dev.app.leaf.domain.lfs.LfsObjectBatch
 import dev.app.leaf.domain.lfs.LfsObjects
+import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.models.OperationType
 import dev.app.leaf.domain.network.NetworkConstants
 import dev.app.leaf.domain.repositories.LfsRepository
+import org.eclipse.jgit.lib.Repository
 import javax.inject.Inject
 
 class GetLfsObjectsGitAction @Inject constructor(
@@ -15,7 +17,8 @@ class GetLfsObjectsGitAction @Inject constructor(
     private val provideLfsCredentialsGitAction: ProvideLfsCredentialsGitAction,
 ) : IGetLfsObjectsGitAction {
     override suspend operator fun invoke(
-        lfsServerUrl: String,
+        repository: Repository,
+        lfsServer: LfsServer,
         operationType: OperationType,
         branch: String,
         lfsObjectBatches: List<LfsObjectBatch>,
@@ -23,7 +26,7 @@ class GetLfsObjectsGitAction @Inject constructor(
     ): Either<LfsObjects, LfsError> {
         return if (headers.containsKey(NetworkConstants.AUTH_HEADER)) {
             lfsRepository.getLfsObjects(
-                lfsServerUrl,
+                lfsServer.url,
                 operationType = operationType,
                 branch = branch,
                 objects = lfsObjectBatches,
@@ -32,11 +35,9 @@ class GetLfsObjectsGitAction @Inject constructor(
                 password = null,
             )
         } else {
-            provideLfsCredentialsGitAction(
-                url = lfsServerUrl,
-            ) { user, password ->
+            provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
                 lfsRepository.getLfsObjects(
-                    lfsServerUrl,
+                    lfsServer.url,
                     operationType = operationType,
                     branch = branch,
                     objects = lfsObjectBatches,

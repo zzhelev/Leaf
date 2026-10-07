@@ -9,6 +9,7 @@ import dev.app.leaf.domain.extensions.isHttpOrHttps
 import dev.app.leaf.domain.interfaces.IGetCurrentBranchGitAction
 import dev.app.leaf.domain.interfaces.IGetRemotesGitAction
 import dev.app.leaf.domain.interfaces.IGetTrackingBranchGitAction
+import dev.app.leaf.domain.lfs.LfsServer
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.Repository
@@ -23,7 +24,11 @@ class GetLfsUrlGitAction @Inject constructor(
     private val getCurrentBranchGitAction: GetCurrentBranchGitAction,
     private val getRemotesGitAction: GetRemotesGitAction,
 ) {
-    suspend operator fun invoke(repository: Repository, remoteName: String?): String? {
+    /**
+     * The LFS server for the remote [remoteName], or for the current branch's remote: the one `.lfsconfig` sets, or
+     * else the one at the remote's URL.
+     */
+    suspend operator fun invoke(repository: Repository, remoteName: String?): LfsServer? {
         val git = Git(repository)
         // TODO This only gets the URL from considering happy path config
         val configFile = File(repository.workTree, ".lfsconfig")
@@ -33,11 +38,13 @@ class GetLfsUrlGitAction @Inject constructor(
 
         val lfsConfigUrl = config.getString("lfs", null, "url")
 
-        return lfsConfigUrl ?: getLfsUrlFromRemote(git, remoteName)
+        return getLfsServer(git, remoteName, lfsConfigUrl)
     }
 
-    private suspend fun getLfsUrlFromRemote(git: Git, remoteName: String?): String? {
+    private suspend fun getLfsServer(git: Git, remoteName: String?, lfsConfigUrl: String?): LfsServer? {
         val repositoryPath = git.repository.directory.absolutePath
+        // Without a remote, credential helpers are asked about the LFS server's own URL
+        val withoutRemote = lfsConfigUrl?.let { LfsServer(it, remoteUrl = null) }
 
         val remotePath = if (remoteName != null) {
             remoteName
@@ -45,8 +52,10 @@ class GetLfsUrlGitAction @Inject constructor(
             val currentBranch = getCurrentBranchGitAction(repositoryPath).okOrNull() // TODO Proper error handling?
 
             if (currentBranch == null) {
-                printError(TAG, "Current branch is null and couldn't obtain tracking branch remote.")
-                return null
+                if (withoutRemote == null) {
+                    printError(TAG, "Current branch is null and couldn't obtain tracking branch remote.")
+                }
+                return withoutRemote
             }
 
             val trackingBranch =
@@ -59,7 +68,8 @@ class GetLfsUrlGitAction @Inject constructor(
                 val remotes = getRemotesGitAction(repositoryPath).okOrNull().orEmpty()
 
                 return if (remotes.count() == 1) {
-                    val remote = remotes[0].fetchUri.removeSuffix("/")
+                    val remoteUrl = remotes[0].fetchUri
+                    val remote = remoteUrl.removeSuffix("/")
                         .let {
                             if (it.endsWith(".git")) {
                                 it
@@ -67,10 +77,12 @@ class GetLfsUrlGitAction @Inject constructor(
                                 "$it.git"
                             }
                         }
-                    "$remote/info/lfs"
+                    LfsServer(lfsConfigUrl ?: "$remote/info/lfs", remoteUrl)
                 } else {
-                    printError(TAG, "Remote name is null and couldn't obtain tracking branch remote.")
-                    null
+                    if (withoutRemote == null) {
+                        printError(TAG, "Remote name is null and couldn't obtain tracking branch remote.")
+                    }
+                    withoutRemote
                 }
             }
         }
@@ -81,11 +93,14 @@ class GetLfsUrlGitAction @Inject constructor(
             .firstOrNull { Constants.R_REMOTES + it.name == remotePath }
             ?.urIs
             ?.firstOrNull()
+            ?: return withoutRemote
 
-        return if (remoteUrl != null && remoteUrl.toString().isHttpOrHttps()) {
-            "$remoteUrl/info/lfs"
-        } else {
-            remoteUrl?.toString()
+        val lfsUrl = when {
+            lfsConfigUrl != null -> lfsConfigUrl
+            remoteUrl.toString().isHttpOrHttps() -> "$remoteUrl/info/lfs"
+            else -> remoteUrl.toString()
         }
+
+        return LfsServer(lfsUrl, remoteUrl.toString())
     }
 }

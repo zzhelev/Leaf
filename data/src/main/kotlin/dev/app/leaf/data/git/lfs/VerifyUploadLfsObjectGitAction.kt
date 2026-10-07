@@ -4,9 +4,11 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IVerifyUploadLfsObjectGitAction
 import dev.app.leaf.domain.lfs.LfsObject
+import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.network.NetworkConstants
 import dev.app.leaf.domain.repositories.LfsRepository
 import org.eclipse.jgit.lfs.lib.AnyLongObjectId
+import org.eclipse.jgit.lib.Repository
 import javax.inject.Inject
 
 
@@ -15,7 +17,8 @@ class VerifyUploadLfsObjectGitAction @Inject constructor(
     private val provideLfsCredentialsGitAction: ProvideLfsCredentialsGitAction,
 ) : IVerifyUploadLfsObjectGitAction {
     override suspend operator fun invoke(
-        lfsServerUrl: String,
+        repository: Repository,
+        lfsServer: LfsServer,
         lfsObject: LfsObject,
         oid: AnyLongObjectId,
     ): Either<Unit, LfsError> {
@@ -33,9 +36,7 @@ class VerifyUploadLfsObjectGitAction @Inject constructor(
                     null,
                 )
             } else {
-                provideLfsCredentialsGitAction(
-                    url = lfsServerUrl,
-                ) { user, password ->
+                provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
                     lfsRepository.verify(
                         verifyUrl,
                         oid.name(),

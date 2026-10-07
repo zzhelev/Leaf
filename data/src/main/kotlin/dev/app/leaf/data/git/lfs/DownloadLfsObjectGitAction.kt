@@ -2,6 +2,7 @@ package dev.app.leaf.data.git.lfs
 
 import dev.app.leaf.domain.interfaces.IDownloadLfsObjectGitAction
 import dev.app.leaf.domain.lfs.LfsObject
+import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.network.NetworkConstants
 import dev.app.leaf.domain.repositories.LfsRepository
 import org.eclipse.jgit.lfs.Lfs
@@ -15,7 +16,7 @@ class DownloadLfsObjectGitAction @Inject constructor(
 ) : IDownloadLfsObjectGitAction {
     override suspend operator fun invoke(
         repository: Repository,
-        lfsServerUrl: String,
+        lfsServer: LfsServer,
         lfsObject: LfsObject,
         oid: AnyLongObjectId,
     ) {
@@ -32,9 +33,7 @@ class DownloadLfsObjectGitAction @Inject constructor(
                 password = null
             )
         } else {
-            provideLfsCredentialsGitAction(
-                lfsServerUrl
-            ) { user, password ->
+            provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
                 lfsRepository.downloadObject(
                     downloadUrl = downloadUrl,
                     outPath = lfs.getMediaFile(oid),

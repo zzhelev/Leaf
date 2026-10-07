@@ -9,6 +9,7 @@ import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.extensions.isHttpOrHttps
 import dev.app.leaf.domain.lfs.LfsObjectBatch
 import dev.app.leaf.domain.lfs.LfsObjects
+import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.models.OperationType
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -251,18 +252,19 @@ class LfsPrePushHook @AssistedInject constructor(
         }
 
         if (!isDryRun) {
-            val lfsServerUrl = getLfsUrlGitAction(repository, remote()) ?: throw Exception("LFS Url not found")
-            val isHttpUrl = lfsServerUrl.isHttpOrHttps()
+            val lfsServer = getLfsUrlGitAction(repository, remote()) ?: throw Exception("LFS Url not found")
+            val isHttpUrl = lfsServer.url.isHttpOrHttps()
 
             val lfsObjectBatches = toPush.map { LfsObjectBatch(it.oid.name(), it.size) }
 
             val lfsObjects: Either<LfsObjects, LfsError>
-            val finalServerUrl: String
+            val finalServer: LfsServer
 
             if (isHttpUrl) {
-                finalServerUrl = lfsServerUrl
+                finalServer = lfsServer
                 lfsObjects = getLfsObjectsGitAction(
-                    lfsServerUrl,
+                    repository,
+                    lfsServer,
                     operationType = OperationType.UPLOAD,
                     lfsObjectBatches = lfsObjectBatches,
                     branch = repository.fullBranch,
@@ -270,11 +272,12 @@ class LfsPrePushHook @AssistedInject constructor(
                 )
             } else {
                 val lfsServerInfo =
-                    authenticateLfsServerWithSshGitAction(lfsServerUrl, operationType = OperationType.UPLOAD)
-                finalServerUrl = lfsServerInfo.href
+                    authenticateLfsServerWithSshGitAction(lfsServer.url, operationType = OperationType.UPLOAD)
+                finalServer = LfsServer(lfsServerInfo.href, lfsServer.remoteUrl)
 
                 lfsObjects = getLfsObjectsGitAction(
-                    lfsServerInfo.href,
+                    repository,
+                    finalServer,
                     operationType = OperationType.UPLOAD,
                     lfsObjectBatches = lfsObjectBatches,
                     branch = repository.fullBranch,
@@ -290,9 +293,9 @@ class LfsPrePushHook @AssistedInject constructor(
 
                         if (lfsObject != null) {
                             val uploadEither = uploadLfsObjectGitAction(
-                                lfsServerUrl = finalServerUrl,
-                                lfsObject = lfsObject,
                                 repository = repository,
+                                lfsServer = finalServer,
+                                lfsObject = lfsObject,
                                 oid = p.oid,
                             )
 
@@ -301,7 +304,8 @@ class LfsPrePushHook @AssistedInject constructor(
                             }
 
                             val verifyEither = verifyUploadLfsObjectGitAction(
-                                lfsServerUrl = finalServerUrl,
+                                repository = repository,
+                                lfsServer = finalServer,
                                 lfsObject = lfsObject,
                                 oid = p.oid,
                             )

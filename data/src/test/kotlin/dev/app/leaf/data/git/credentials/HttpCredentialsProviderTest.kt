@@ -490,10 +490,12 @@ class HttpCredentialsProviderTest {
 
         return HttpCredentialsProvider(
             credentialsStateManager = credentialsStateManager,
-            shellManager = shellManager,
             credentialsCacheRepository = credentialsCache,
-            gitCredentialsManagerProvider = gitCredentialsManagerProvider,
-            loginShellEnvironment = LoginShellEnvironment { shellVariables },
+            credentialHelpers = CredentialHelpers(
+                shellManager = shellManager,
+                gitCredentialsManagerProvider = gitCredentialsManagerProvider,
+                loginShellEnvironment = LoginShellEnvironment { shellVariables },
+            ),
             git = git,
         )
     }

@@ -1,16 +1,8 @@
 package dev.app.leaf.data.git.credentials
 
-import dev.app.leaf.common.OS
-import dev.app.leaf.common.currentOs
-import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
-import dev.app.leaf.data.shell.LoginShellEnvironment
-import dev.app.leaf.domain.IShellManager
 import dev.app.leaf.domain.credentials.CredentialsAccepted
 import dev.app.leaf.domain.credentials.CredentialsStateManager
-import dev.app.leaf.domain.credentials.external.IGitCredentialsManagerProvider
-import dev.app.leaf.domain.exceptions.CommandExecutionFailed
-import dev.app.leaf.domain.exceptions.NotSupportedHelper
 import dev.app.leaf.domain.models.CredentialsType
 import dev.app.leaf.domain.repositories.CredentialsRepository
 import dagger.assisted.Assisted
@@ -24,12 +16,9 @@ import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.CredentialItem.*
 import org.eclipse.jgit.transport.CredentialsProvider
 import org.eclipse.jgit.transport.URIish
-import java.io.*
-import java.util.concurrent.TimeUnit
+import java.io.File
 
-private const val TIMEOUT_MIN = 1L
 private const val TAG = "HttpCredentialsProvider"
-private const val GH_CLI_ARGS = "auth git-credential"
 
 
 @AssistedFactory
@@ -39,11 +28,9 @@ interface HttpCredentialsFactory {
 
 class HttpCredentialsProvider @AssistedInject constructor(
     private val credentialsStateManager: CredentialsStateManager,
-    private val shellManager: IShellManager,
     // private val appSettingsRepository: AppSettingsRepository,
     private val credentialsCacheRepository: CredentialsRepository,
-    private val gitCredentialsManagerProvider: IGitCredentialsManagerProvider,
-    private val loginShellEnvironment: LoginShellEnvironment,
+    private val credentialHelpers: CredentialHelpers,
     @Assisted val git: Git?,
 ) : CredentialsProvider(), CredentialsCache {
 
@@ -99,7 +86,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
             //  sslTrustNowItem.value = appSettingsRepository.verifySsl
         }
 
-        val externalCredentialsHelper = getExternalCredentialsHelper(uri, git)
+        val externalCredentialsHelper = credentialHelpers.find(credentialsConfig(), uri)
 
         if (externalCredentialsHelper == null) {
             val cachedCredentials = credentialsCacheRepository.getCachedHttpCredentials(
@@ -133,21 +120,24 @@ class HttpCredentialsProvider @AssistedInject constructor(
                 return true
             }
         } else {
-            when (handleExternalCredentialHelper(externalCredentialsHelper, uri, items)) {
-                ExternalCredentialsRequestResult.SUCCESS -> {
+            when (val answer = credentialHelpers.get(externalCredentialsHelper, uri)) {
+                is HelperAnswer.Credentials -> {
+                    userItem.value = answer.user
+                    passwordItem.value = answer.password.toCharArray()
+
                     helperCredentials = HelperCredentials(
                         helper = externalCredentialsHelper,
                         uri = uri,
-                        user = userItem.value,
-                        password = String(passwordItem.value),
+                        user = answer.user,
+                        password = answer.password,
                         store = null,
                     )
 
                     return true
                 }
 
-                ExternalCredentialsRequestResult.FAIL -> return false
-                ExternalCredentialsRequestResult.CREDENTIALS_NOT_STORED -> {
+                HelperAnswer.Failed -> return false
+                HelperAnswer.NotStored -> {
                     val credentials = askForCredentials()
                     userItem.value = credentials.user
                     passwordItem.value = credentials.password.toCharArray()
@@ -158,10 +148,10 @@ class HttpCredentialsProvider @AssistedInject constructor(
                         uri = uri,
                         user = credentials.user,
                         password = credentials.password,
-                        store = sendCredentialsToExternalHelper(
+                        store = credentialHelpers.send(
                             operation = "store",
+                            helper = externalCredentialsHelper,
                             uri = uri,
-                            externalCredentialsHelper = externalCredentialsHelper,
                             user = credentials.user,
                             password = credentials.password,
                         ),
@@ -191,216 +181,32 @@ class HttpCredentialsProvider @AssistedInject constructor(
         val rejected = helperCredentials ?: return
         helperCredentials = null
 
-        try {
-            // Erasing them before the helper has stored them would leave them stored
-            rejected.store?.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES)
-
-            val process = sendCredentialsToExternalHelper(
-                operation = "erase",
-                uri = rejected.uri,
-                externalCredentialsHelper = rejected.helper,
-                user = rejected.user,
-                password = rejected.password,
-            ) ?: return
-
-            // The next get must not find them
-            if (!process.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES)) {
-                process.destroy()
-                printError(TAG, "The credential helper did not finish erasing the rejected credentials")
-            }
-        } catch (e: CommandExecutionFailed) {
-            // Like git, carries on without the helper
-            printError(TAG, "The credential helper could not erase the rejected credentials: ${e.message}")
-        }
-    }
-
-    /**
-     * Runs the helper's [operation] (`store` or `erase`) for these credentials, without waiting for it to finish. Null
-     * if git would refuse to send them (see [credentialHelperInput]).
-     */
-    private fun sendCredentialsToExternalHelper(
-        operation: String,
-        uri: URIish,
-        externalCredentialsHelper: ExternalCredentialsHelper,
-        user: String,
-        password: String,
-    ): Process? {
-        val input = credentialHelperInput(uri, externalCredentialsHelper.useHttpPath, user, password)
-
-        if (input == null) {
-            printError(TAG, "Not running the credential helper's $operation: a value has a newline or carriage return")
-            return null
-        }
-
-        val process = startCredentialsHelper(externalCredentialsHelper, operation)
-
-        val output = process.outputStream // write to the input stream of the helper
-        val bufferedWriter = BufferedWriter(OutputStreamWriter(output))
-
-        bufferedWriter.useForHelperInput {
-            bufferedWriter.write(input)
-            bufferedWriter.flush()
-        }
-
-        return process
+        credentialHelpers.erase(rejected.helper, rejected.uri, rejected.user, rejected.password, rejected.store)
     }
 
     private fun askForCredentials(): CredentialsAccepted.HttpCredentialsAccepted = runBlocking {
         credentialsStateManager.requestHttpCredentials()
     }
 
-    private fun handleExternalCredentialHelper(
-        externalCredentialsHelper: ExternalCredentialsHelper, uri: URIish, items: Array<out CredentialItem>,
-    ): ExternalCredentialsRequestResult {
-        // Like git, which refuses the URL, gives no credentials rather than asking
-        val helperInput = credentialHelperInput(uri, externalCredentialsHelper.useHttpPath)
-
-        if (helperInput == null) {
-            printError(TAG, "Not running the credential helper: the URL has a newline or carriage return")
-            return ExternalCredentialsRequestResult.FAIL
+    /** The config that sets the credential helper: the repository's, or `~/.gitconfig` without one (cloning). */
+    private fun credentialsConfig(): Config {
+        if (git != null) {
+            return git.repository.config
         }
 
-        val process = startCredentialsHelper(externalCredentialsHelper, "get")
+        val homePath = System.getProperty("user.home")
+        val configFile = File("$homePath/.gitconfig")
 
-        val output = process.outputStream // write to the input stream of the helper
-        val input = process.inputStream // reads from the output stream of the helper
-
-        val bufferedWriter = BufferedWriter(OutputStreamWriter(output))
-        val bufferedReader = BufferedReader(InputStreamReader(input))
-
-        bufferedWriter.useForHelperInput {
-            bufferedWriter.write(helperInput)
-            bufferedWriter.flush()
-        }
-
-        var usernameSet = false
-        var passwordSet = false
-
-        process.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES)
-
-        // If the process is alive after $TIMEOUT_MIN, it means that it hasn't given an answer and then finished
-        if (process.isAlive) {
-            process.destroy()
-            return ExternalCredentialsRequestResult.FAIL
-        }
-
-        bufferedReader.use {
-            var line: String?
-            while (bufferedReader.readLine().also { line = it } != null && !(usernameSet && passwordSet)) {
-                val safeLine = line ?: continue
-
-                // A value is everything after the first "=", as passwords and tokens can contain "="
-                if (safeLine.startsWith("username=")) {
-                    val userName = safeLine.substringAfter("=")
-
-                    val userNameItem = items.firstOrNull { it is Username }
-
-                    if (userNameItem is Username) {
-                        userNameItem.value = userName
-                        usernameSet = true
-                    }
-
-                } else if (safeLine.startsWith("password=")) {
-                    val password = safeLine.substringAfter("=")
-
-                    val passwordItem = items.firstOrNull { it is Password }
-
-                    if (passwordItem is Password) {
-                        passwordItem.value = password.toCharArray()
-                        passwordSet = true
-                    }
-                }
+        return Config().apply {
+            if (configFile.exists()) {
+                fromText(configFile.readText())
             }
         }
-
-        return if (usernameSet && passwordSet) {
-            ExternalCredentialsRequestResult.SUCCESS
-        } else
-            ExternalCredentialsRequestResult.CREDENTIALS_NOT_STORED
-    }
-
-    /**
-     * On macOS and Linux the helper runs the way git runs it, with the login shell's environment, so that it's found
-     * when Leaf was opened from the Finder, the Dock or a desktop launcher.
-     */
-    private fun startCredentialsHelper(helper: ExternalCredentialsHelper, operation: String): Process {
-        return if (currentOs == OS.WINDOWS) {
-            shellManager.runCommandProcess(helper.sanitizedCommand() + operation)
-        } else {
-            shellManager.runCommandProcess(
-                command = posixCredentialHelperCommand(helper.path, operation),
-                environment = loginShellEnvironment.variablesBlocking(),
-            )
-        }
-    }
-
-    private fun getExternalCredentialsHelper(uri: URIish, git: Git?): ExternalCredentialsHelper? {
-        val config = if (git == null) {
-            val homePath = System.getProperty("user.home")
-            val configFile = File("$homePath/.gitconfig")
-
-            Config().apply {
-                if (configFile.exists()) {
-                    fromText(configFile.readText())
-                }
-            }
-        } else {
-            git.repository.config
-        }
-
-        // The credential.<url> subsections that apply to this URL, as git matches them, then credential.* (null)
-        val subsections = credentialConfigSubsections(config, uri) + null
-
-        val helperSubsection = subsections.firstOrNull { config.getString("credential", it, "helper") != null }
-        var credentialHelperPath = config.getString("credential", helperSubsection, "helper") ?: return null
-
-        // On macOS and Linux they run as git credential-cache and git credential-store (posixCredentialHelperCommand)
-        if (currentOs == OS.WINDOWS && (credentialHelperPath == "cache" || credentialHelperPath == "store")) {
-            printError(TAG, "Invalid credentials helper: \"$credentialHelperPath\" is not yet supported")
-            return null
-        }
-
-        // TODO Try to use "git-credential-manager-core" when "manager-core" is detected. Works for linux but requires testing for mac/windows
-        // On macOS and Linux, git's own lookup finds it (posixCredentialHelperCommand)
-        if (currentOs == OS.WINDOWS && (credentialHelperPath == "manager-core" || credentialHelperPath == "manager")) {
-            val credentialsPath = gitCredentialsManagerProvider.loadPath()
-                ?: throw NotSupportedHelper("Could not find git credentials manager path")
-
-            credentialHelperPath = credentialsPath
-        }
-
-        // getString finds where it's set, as getBoolean gives the default where it isn't
-        val useHttpPathSubsection = subsections.firstOrNull {
-            config.getString("credential", it, "useHttpPath") != null
-        }
-        val useHttpPath = config.getBoolean("credential", useHttpPathSubsection, "useHttpPath", false)
-
-        return ExternalCredentialsHelper(credentialHelperPath, useHttpPath)
     }
 
     override suspend fun cacheCredentialsIfNeeded() {
         credentialsCached?.let {
             credentialsCacheRepository.cacheHttpCredentials(it)
-        }
-    }
-}
-
-data class ExternalCredentialsHelper(
-    val path: String,
-    val useHttpPath: Boolean,
-) {
-    /**
-     * Sometimes the git credentials manager path also includes these arguments (detected on Linux), they should be
-     * treated as arguments instead of part of the binary path
-     */
-    fun sanitizedCommand(): List<String> {
-        return if (path.endsWith(GH_CLI_ARGS)) {
-            val path = path.removeSuffix(GH_CLI_ARGS).trim()
-            val arguments = GH_CLI_ARGS.split(" ")
-
-            listOf(path) + arguments
-        } else {
-            listOf(path)
         }
     }
 }
@@ -416,9 +222,3 @@ private class HelperCredentials(
     val password: String,
     val store: Process?,
 )
-
-enum class ExternalCredentialsRequestResult {
-    SUCCESS,
-    FAIL,
-    CREDENTIALS_NOT_STORED;
-}
