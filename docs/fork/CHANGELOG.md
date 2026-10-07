@@ -2,6 +2,33 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Hooks get the login shell's PATH (branch `worktree-hooks-shell-path`)
+
+- **Before:** Leaf opened from the Finder or the Dock inherits launchd's PATH (`/usr/bin:/bin:/usr/sbin:/sbin`). A
+  hook that runs node, npx, lefthook, husky or pre-commit, or anything else from Homebrew or nvm, failed with
+  `command not found` and blocked the commit (Gitnuro#236, #321, #298). The same went for post-checkout hooks and LFS
+  filters run by `git worktree add`.
+- **Now:** at startup `LoginShellEnvironment` runs the user's shell once in the background, as an interactive login
+  shell (`$SHELL -i -l -c`), and reads its environment. Hooks, clean and smudge filters and diff tools run by JGit
+  (through the new `PosixFs`) and every git CLI run get the new and changed variables. JGit's `GIT_DIR` and GitCli's
+  `LC_ALL=C` still win.
+- **Skipped** on Windows, and when `TERM` is set, as an app started from a terminal already has the shell's
+  environment. A failing shell, or one that takes more than 10 s, leaves the inherited environment and logs why. The
+  log names only how many variables were added, never their values.
+- **Startup files** can check `LEAF_RESOLVING_SHELL_ENVIRONMENT=1` to skip slow work.
+- **Also fixed:** `JGit.provideOptional`, which fetch, pull and push use, opened repositories with JGit's default
+  `FS`. When it was the first to open a repository, the cached `Git` never used Leaf's own `FS`, on Windows either.
+  Both paths now share `JGit.open`.
+- **Tests:** `LoginShellEnvironmentTest` (14), `PosixFsTest` (4) and two in `GitCliTest`. Removing the fix from
+  `JGit`, `GitCli` or `provideOptional` makes the matching tests fail. All 154 tests pass.
+- **Verified** in a Finder-like environment: no `TERM` and launchd's PATH, with this machine's real zsh and startup
+  files.
+  - Without the fix, a pre-commit hook running `node -v` was rejected with `node: command not found`.
+  - With it, the shell's 20 variables were read in 0.9 s, the commit went through and the hook printed v26.10.0.
+  - A `git worktree add` through `GitCli` ran its post-checkout hook with node too.
+  - The dev app started in that environment logged the shell lookup at startup (0.8 s).
+- **Not covered:** credential helpers and terminals, which `ShellManager` starts, still get the inherited environment.
+
 ## Dense lists spacing and a compact commit graph (branch `feature/dense-lists-spacing`)
 
 - **Dense:** a third "Lists spacing" option, after Spaced (38 dp rows, 36 dp in the side panel) and Compact (34 dp).

@@ -211,7 +211,9 @@ asking.
 4. Use case `domain/.../usecases/XUseCase.kt`.
 
 **`JGit.provide`** (`data/git/JGit.kt`):
-- The class is a `@Singleton` cache from path to `Git`, opened with `Git.open(File(repositoryPath))`.
+- The class is a `@Singleton` cache from path to `Git`. `JGit.open` opens repositories with Leaf's own JGit `FS`:
+  `WindowsFs` on Windows (hooks through Git Bash), and the fork-only `PosixFs` on macOS and Linux (see Login shell
+  environment). `provide` and `provideOptional` share the cache, so both go through `open`.
 - Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper).
 - Closing a tab closes and drops the cached `Git` of every repository that no remaining tab has open
   (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
@@ -249,9 +251,27 @@ code, "worktree" means the working directory, not linked worktrees.
 worktrees.
 - Call `GitCli.run(workingDirectory, args, timeout)`. It returns `Either<String /* stdout */, GitCliError>`.
 - `GitCli` locates the binary through `GitExecutableLocator` (the configured path from settings, or auto-detection,
-  cached) and sets a non-interactive, `LC_ALL=C` environment.
+  cached). It adds the login shell's variables, then its own non-interactive, `LC_ALL=C` environment on top.
 - Use porcelain or `-z` output and parse it in the data layer.
 - Never shell out to git through `ShellManager`.
+
+**Login shell environment (fork-only, `data/shell/LoginShellEnvironment.kt`):** an app opened from the Finder, the
+Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find node, npx or other Homebrew and nvm tools
+(Gitnuro#236).
+- At startup, `App.start` calls `prewarm()`. On macOS and Linux, this runs `$SHELL -i -l -c` once in the background,
+  with a 10 s timeout, and reads `env -0` printed between random markers (startup files may print, for example
+  iTerm's escape codes).
+- Only new or changed variables are kept. Shell-process variables (`PWD`, `SHLVL`, `TERM`, …) and the `GIT_DIR`
+  family are dropped. Only the count is logged, as values can hold secrets.
+- Skipped when `TERM` is set: Leaf was started from a terminal and already has the user's environment. Dev runs
+  through Gradle in a terminal skip it too.
+- On failure or timeout the inherited environment is kept and the reason is logged. Startup files can check
+  `LEAF_RESOLVING_SHELL_ENVIRONMENT=1` to skip slow work.
+- Used by `PosixFs`, which overrides `FS.runInShell`. That covers hooks, clean and smudge filters, and diff and merge
+  tools, and JGit sets `GIT_DIR` and its other variables after it. Also used by `GitCli`, as `git worktree add` runs
+  post-checkout hooks and LFS filters.
+- Not used by `ShellManager`, which starts credential helpers and terminals, or by `GitExecutableLocator`, which
+  already searches the Homebrew locations.
 
 **External processes (upstream code):** upstream never invokes the `git` CLI. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
 (credential helpers, Windows hooks, terminals, opening a file manager) and in `FileExtensions.kt`.
@@ -450,4 +470,7 @@ common `refs/` and `packed-refs` are not watched.
   - `TestGitCli` runs the git CLI with global and system config ignored. JGit can't create linked worktrees, so use
     the CLI to set them up. `run(dir, env, args)` adds environment variables, for example `GIT_COMMITTER_DATE` to fix
     commit, tag and reflog dates (`GetRefDatesGitActionTest`).
+  - `testJGit(shellVariables)` builds a `JGit` whose login shell environment is the given map. Hook tests use
+    `File.writeExecutable`, and `createHookTool`, which makes a `leaf-hook-tool` command that is on no PATH
+    (`PosixFsTest`, `GitCliTest`).
   - See `OpenRepositoryGitActionTest` for the pattern.
