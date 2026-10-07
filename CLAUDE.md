@@ -348,8 +348,10 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   `StatusState.stagedRows`/`unstagedRows`) and share `AppConfig.FilesChangedView`. The old `show_changes_as_tree` key
   is only read, as that setting's default until it's saved.
 - **Offscreen UI checks:** an `ImageComposeScene` built from the real Dagger graph can render `SidePanel` and
-  `CommitChanges` to PNG without a window. Drive it on `Dispatchers.Swing`: on any other thread Compose 1.12.0's
-  RectManager intermittently throws "LayoutNode … not found in RectList". `CommitChanges` also needs `LocalTab`.
+  `CommitChanges` to PNG without a window. Drive it on `Dispatchers.Swing`, like a real window. On another thread,
+  Compose 1.12.0 intermittently threw "LayoutNode … not found in RectList"; 1.12.1 fixes one cause of that, but the
+  harness no longer reproduced it on either version, so the fix is unverified there. `CommitChanges` also needs
+  `LocalTab`.
   `LocalWindowInfo.current.keyboardModifiers`, which Staged/Unstaged read for Shift and Ctrl clicks, only follows a
   real window; offscreen, set `WindowInfoImpl`'s `GlobalKeyboardModifiers` state through reflection.
 

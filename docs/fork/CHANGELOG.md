@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Compose Multiplatform 1.12.1 (branch `chore/compose-1.12.1`)
+
+- **Bump:** `compose` in `gradle/libs.versions.toml`, from 1.12.0 to 1.12.1. That covers the Gradle plugin and every
+  Compose library. Material icons stay on 1.7.3, which is versioned separately. Navigation3 (1.1.1) and Lifecycle
+  (2.10.0) are unchanged, although the 1.12.1 release lists 1.1.2 and 2.11.0 alongside it.
+- **Why:** 1.12.0 can throw "LayoutNode … not found in RectList" when a node is placed while its parent works out
+  alignment lines. 1.12.1 merges androidx.compose 1.12.1, which fixes that in `MeasurePassDelegate` and adds
+  `testRectListDuringAlignment_withLayoutModifier`. It also fixes a crash when selecting text with the mouse in a
+  `SelectionContainer` (the commit message uses one) and one when Skia returns a null `ColorFilter`.
+- **Verified:**
+  - The full build passes with 124 tests, and every Compose artifact on the runtime classpath resolves to 1.12.1.
+  - A dev run showed the log, side panel and status panes normally.
+  - `createDistributable` with the JBR SDK built a bundle with the 1.12.1 jars that passes
+    `codesign --verify --deep --strict`.
+  - The offscreen harness ran the side panel and Files changed 8 times off the Swing thread without the crash. 1.12.0
+    also passed 8 times, though, so the harness no longer reproduces it.
+
 ## Sort and view menu in Staged and Unstaged (branch `feature/status-sort-view`)
 
 - **Menu:** the Staged and Unstaged headers have the Files changed sort and view button in place of the list/tree
