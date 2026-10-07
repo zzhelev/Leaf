@@ -203,8 +203,10 @@ jobs:
             exit 1
           fi
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install fakeroot, which jpackage needs to build a .deb
-        run: sudo apt-get update && sudo apt-get install -y fakeroot
+      # jpackage lists only the libraries it finds installed as dependencies. skiko's arm64 library needs libEGL.so.1,
+      # and the arm64 runner has no libegl1, so without it the package would lack that dependency.
+      - name: Install fakeroot, which jpackage needs to build a .deb, and libegl1
+        run: sudo apt-get update && sudo apt-get install -y fakeroot libegl1
       - name: Set up the JetBrains JDK 25, which includes jlink, jpackage and the jmods
         uses: actions/setup-java@v6
         with:
@@ -214,6 +216,13 @@ jobs:
         run: ./gradlew :app:packageDeb
       - name: Check the Rust library was built
         run: test -f app/src/main/resources/libleaf_rs.so
+      - name: Check the arm64 package depends on libegl1
+        if: matrix.arch == 'arm64'
+        run: |
+          if ! dpkg-deb --field app/build/compose/binaries/main/deb/leaf_*_arm64.deb Depends | grep -qw libegl1; then
+            echo "::error::The package doesn't depend on libegl1, which skiko's arm64 library needs"
+            exit 1
+          fi
       - name: Collect the files
         run: |
           mkdir Output

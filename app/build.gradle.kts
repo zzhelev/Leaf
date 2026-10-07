@@ -1,7 +1,9 @@
 import org.gradle.jvm.tasks.Jar
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 import java.io.FileOutputStream
 import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 
 plugins {    // Apply the shared build logic from a convention plugin.
     // The shared code is located in `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts`.
@@ -239,6 +241,53 @@ if (currentOs() == OS.MAC) {
                 .inheritIO().start().waitFor()
             check(copied == 0) { "ditto failed with exit code $copied" }
             println("Installed $target")
+        }
+    }
+}
+
+// jpackage's .deb registers its menu entry by calling xdg-desktop-menu from the install scripts. That fails where there
+// is no system menu directory (/etc/xdg/menus), such as WSL or a minimal install, and leaves the package half
+// configured. So the .deb is repacked: the entry becomes a regular file in /usr/share/applications, which dpkg installs
+// and removes like any other, and the xdg-desktop-menu calls go. Linux only, like packageDeb itself.
+if (currentOs() == OS.LINUX) {
+    tasks.withType<AbstractJPackageTask>().matching { it.targetFormat == TargetFormat.Deb }.configureEach {
+        val debDir = destinationDir
+        val repackDir = temporaryDir.resolve("repack")
+
+        doLast {
+            fun runCommand(vararg command: String) {
+                val exitCode = ProcessBuilder(*command).inheritIO().start().waitFor()
+                check(exitCode == 0) { "${command.joinToString(" ")} failed with exit code $exitCode" }
+            }
+
+            val deb = debDir.get().asFile.listFiles { file -> file.extension == "deb" }.orEmpty().singleOrNull()
+                ?: error("Expected one .deb in ${debDir.get()}")
+            repackDir.deleteRecursively()
+            runCommand("dpkg-deb", "--raw-extract", deb.absolutePath, repackDir.absolutePath)
+
+            val postinst = repackDir.resolve("DEBIAN/postinst")
+            val prerm = repackDir.resolve("DEBIAN/prerm")
+            val entryPath = Regex("""^xdg-desktop-menu install (\S+)$""", RegexOption.MULTILINE)
+                .find(postinst.readText())?.groupValues?.get(1)
+                ?: error("jpackage's postinst no longer calls xdg-desktop-menu install. Is the repack still needed?")
+            val entry = repackDir.resolve(entryPath.removePrefix("/"))
+
+            val directoryMode = PosixFilePermissions.fromString("rwxr-xr-x")
+            for (directory in listOf("usr", "usr/share", "usr/share/applications")) {
+                val path = Files.createDirectories(repackDir.resolve(directory).toPath())
+                Files.setPosixFilePermissions(path, directoryMode)
+            }
+            Files.move(entry.toPath(), repackDir.resolve("usr/share/applications/${entry.name}").toPath())
+
+            for (script in listOf(postinst, prerm)) {
+                val lines = script.readLines()
+                val kept = lines.filterNot { "xdg-desktop-menu " in it }
+                check(kept.size == lines.size - 1) { "Expected one xdg-desktop-menu call in $script" }
+                script.writeText(kept.joinToString("\n", postfix = "\n"))
+            }
+
+            runCommand("dpkg-deb", "--root-owner-group", "--build", repackDir.absolutePath, deb.absolutePath)
+            println("Repacked $deb: ${entry.name} is in /usr/share/applications, with no xdg-desktop-menu calls")
         }
     }
 }
