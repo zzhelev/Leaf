@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Clicking a branch or tag in the log selects its commit (branch `fix/log-chip-click`)
+
+- **Before:** a single click on a branch or tag chip in the log did nothing. `Chip` used
+  `combinedClickable(onDoubleClick = checkout, onClick = {})`, which took the click away from the commit line, so the
+  commit stayed unselected.
+- **Now:** `Chip` has no `clickable`, only the `onDoubleClick` modifier, which lets the first click through. A single
+  left click on a chip reaches the line and selects the commit at once, like a click on the message. A double click
+  selects the commit and then checks out the branch or tag, as before. Right click still opens the chip's own menu.
+  The checkout lambda goes through `rememberUpdatedState`, because selecting the commit recomposes the line between
+  the two clicks, and a new key would restart the double click detection (the same as `ChangedFileRow`).
+- **Verified:** an offscreen harness rendered `Log` for a temp repository and sent mouse events to its chips. A left
+  click on a local branch, a tag and the current branch selected that commit within 50 ms, and left HEAD alone. Middle
+  and right clicks changed nothing (right click showed the branch menu). A double click on a branch checked it out, and
+  on a tag detached HEAD there. Without the change, single clicks on chips left the previous commit selected.
+
 ## In-memory credential cache forgets rejected credentials (branch `claude/infallible-hodgkin-b61517`)
 
 - **Before:** without a `credential.helper`, Leaf keeps the HTTPS credentials the user types in an in-memory cache
