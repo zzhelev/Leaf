@@ -152,8 +152,10 @@ asking.
 ### Build gotchas
 
 - **Rust builds at configuration time.** In `app/build.gradle.kts`, `tasks.register("rustTasks") { rustTasks() }`
-  runs inside the configuration block. So any Gradle invocation that configures `:app` (even `help`) runs
-  `cargo build --release`, then a debug build, then bindgen.
+  runs `cargo build --release`, then a debug build, then bindgen, inside the task's configuration block. That block
+  runs whenever `rustTasks` is in the task graph, which `:app:compileKotlin` puts it in (any app build, run or test).
+  `help` or a `:domain`-only build doesn't. So a fresh checkout or worktree has no `leaf_rs.kt` bindings, and
+  `:domain` alone fails with unresolved `Session` and `Channel`, until `./gradlew :app:rustTasks` (a few minutes cold).
 - **Rust failures do not fail the build.** `executePrintingData` sets `isIgnoreExitValue = true` and only prints
   `Code is N`. If something Rust-related looks stale, grep the Gradle output for `Code is` and `failed with exit value`.
 - Generated, gitignored outputs:

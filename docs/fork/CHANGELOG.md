@@ -2,6 +2,25 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Discard changes on folders (branch `fix/discard-folder`)
+
+- **Before:** "Discard changes" in an Unstaged folder's right-click menu did nothing. Upstream wired it to an empty
+  lambda.
+- **Now:** it asks first, then discards the unstaged changes of the files the folder row stands for. That's every
+  file under it, including those in closed subfolders, or only the search matches during a search. Modified and
+  deleted files go back to their staged or committed version, and a conflicted file to the current branch's version.
+- **New files are kept**, as a single new file offers "Delete file" rather than "Discard". The dialog says how many are
+  kept, and a folder holding only new files doesn't offer the item.
+- **Dialog:** `Screen.DiscardFolderChanges` opens `DiscardChangesDialog`, and its `DiscardChangesViewModel` calls the
+  existing `DiscardEntriesUseCase`. The texts are in `strings.xml`, with plural forms.
+- **Unchanged:** discarding a single file or a selection still has no confirmation.
+- **Tests:** `DiscardEntriesGitActionTest` (2, on temp repos) checks that a folder's tracked files come back while new
+  files and other folders are kept, and that a conflicted file gets the current branch's version. `StatusFileItemsTest`
+  gained 2 tests, for `inFolder` and `discardable`.
+- **Verified:** offscreen renders of the folder menu with and without the item, and of the dialog for one file, for
+  several files with new files kept, and during a search. Also a confirmed discard on a demo repository, which
+  restored the folder's two modified files and kept its new file.
+
 ## Movable dialogs (branch `feature/draggable-dialogs`)
 
 - **Why they couldn't move:** Navigation3's `DialogSceneStrategy` shows a dialog with Compose's common `Dialog`, which
