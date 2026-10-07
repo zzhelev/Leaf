@@ -294,10 +294,11 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
 - Used by `PosixFs`, which overrides `FS.runInShell`. That covers hooks, clean and smudge filters, and diff and merge
   tools, and JGit sets `GIT_DIR` and its other variables after it. Also used by `GitCli`, as `git worktree add` runs
   post-checkout hooks and LFS filters.
-- Also used by HTTPS credential helpers (`HttpCredentialsProvider`). On macOS and Linux they run the way git runs them
-  (`posixCredentialHelperCommand`): `!command` as a shell command, an absolute path as it is, and a name such as
-  `osxkeychain` or `manager` as `git credential-<name>`, with the `git` on the shell's PATH. The command runs through
-  `/bin/sh -c`, with the shell's variables passed to `IShellManager.runCommandProcess(environment = ...)`.
+- Also used by HTTPS credential helpers, which `CredentialHelpers` (`data/.../credentials/`) finds and runs for
+  `HttpCredentialsProvider` and for LFS (`ProvideLfsCredentialsGitAction`). On macOS and Linux they run the way git
+  runs them (`posixCredentialHelperCommand`): `!command` as a shell command, an absolute path as it is, and a name
+  such as `osxkeychain` or `manager` as `git credential-<name>`, with the `git` on the shell's PATH. The command runs
+  through `/bin/sh -c`, with the shell's variables passed to `IShellManager.runCommandProcess(environment = ...)`.
   - The shell is needed: Java looks a program name up on the PATH Leaf started with, not the PATH given to the
     process.
   - `git credential-<name>` is part of the helper protocol, not a git operation, so it doesn't go through `GitCli`.
@@ -313,8 +314,17 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     like `git credential-store erase`. Typed credentials are cached when the operation succeeds
     (`HandleTransportGitAction` → `cacheCredentialsIfNeeded`) and replace the URL's entry; `reset` drops them first if
     the server rejected them.
-  - LFS (`ProvideLfsCredentialsGitAction`) reads that cache with `isLfs = true`, but nothing has cached LFS credentials
-    since upstream's 7277d40c, so it asks after every 401.
+  - LFS (`ProvideLfsCredentialsGitAction`) first sends a request without credentials, and only after a 401 looks
+    for some, like git-lfs (lfsapi/auth.go):
+    - With a helper, it asks it about the remote's URL when the LFS server has the remote's scheme, host and port
+      (`lfsCredentialsUri`, `getCredURLForAPI` in git-lfs), and about the server's URL otherwise. `GetLfsUrlGitAction`
+      gives both, as `LfsServer`. The helper's credentials are tried once, and erased if the server rejects them. Then
+      Leaf asks until the server takes them, and stores those with the helper.
+    - Without one, it uses Leaf's cache with `isLfs = true`, keyed by the LFS server's URL: rejected entries are
+      removed, typed credentials are cached once the server takes them.
+    - Only a request that succeeds stores or caches anything, as in git-lfs. Unlike git-lfs, credentials from the
+      helper aren't stored back, and Leaf asks about the LFS server even for object URLs on other hosts (git-lfs asks
+      about those URLs).
   - What a helper reads comes from `credentialHelperInput` (fork-only `CredentialUrl.kt`), shared by `get`, `store`
     and `erase` on every OS. It matches git's `credential_from_url`, so Leaf and the git CLI find each other's
     credentials: `host` has the port when the URL has one (`example.com:8443`), and the `useHttpPath` path comes

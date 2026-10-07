@@ -2,6 +2,51 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS over HTTPS uses the credential helper and caches credentials (branch `claude/lfs-credentials`)
+
+- **Before:** after a 401 from an LFS server, `ProvideLfsCredentialsGitAction` looked in Leaf's in-memory cache
+  (`isLfs = true`) and then asked the user until the server took the answer. It never ran a credential helper, and
+  nothing has cached LFS credentials since upstream's 7277d40c replaced `GLfsFactory`, the one place that did. So
+  Leaf asked for every LFS request that needed credentials, which is each file a checkout downloads, even with
+  `osxkeychain` or gh holding the remote's credentials.
+- **Now,** like git-lfs (`lfsapi/auth.go`), Leaf still sends each request without credentials first, and after a 401:
+  - with a `credential.helper`, it asks the helper. It asks about the remote's URL when the LFS server has the
+    remote's scheme, host and port (`getCredURLForAPI`), so LFS gets the credentials git uses for the remote, and
+    about the server's URL otherwise. The helper's credentials are tried once, and erased if the server rejects them.
+    Then Leaf asks the user until the server takes the answer, and stores that with the helper.
+  - without one, it tries the cached credentials for the LFS server's URL, and removes them if the server rejects
+    them. Then it asks the user and caches the answer that the server takes.
+  - Only a request that succeeds stores or caches anything. Typed credentials that the server rejects were never
+    stored, so nothing is erased for them.
+- **Shared helper code:** the new `CredentialHelpers` finds the helper for a URL and runs `get`, `store` and `erase`,
+  for both `HttpCredentialsProvider` and LFS. The code moved out of `HttpCredentialsProvider` almost unchanged: `get`
+  now returns a `HelperAnswer` instead of filling JGit's credential items. As Gitnuro's code, the file stays
+  GPL-3.0-only and has no SPDX header.
+- **Remote URL:** `GetLfsUrlGitAction` now returns an `LfsServer`, a new domain model with the LFS URL and the remote's
+  URL. The URL from `.lfsconfig` still comes first, but the remote is now looked up too. Its "couldn't obtain the
+  remote" errors are logged only when there is no URL at all. The LFS git actions take the repository, for its
+  config, and the `LfsServer`.
+- **Unlike git-lfs:**
+  - credentials from the helper aren't stored back after a request succeeds;
+  - for object URLs on another host, Leaf asks about the LFS server, where git-lfs asks about the object's URL;
+  - Leaf doesn't remember that a server needs credentials (git-lfs saves `lfs.<url>.access`);
+  - helper answers aren't kept in memory, so each request that needs credentials runs `get` again.
+- **Tests:** `ProvideLfsCredentialsGitActionTest` has 11 tests, run against a fake LFS server and a helper that
+  records what it gets. They cover:
+  - the helper is asked about the remote's URL, with `useHttpPath`;
+  - rejected helper credentials are erased, and typed ones are stored once taken;
+  - typed credentials the server rejects are neither stored nor erased;
+  - the cache is left alone when there is a helper;
+  - without a helper, cached credentials are used, removed when rejected (even when the user then cancels), and
+    typed ones are cached only after a success;
+  - a URL that git refuses gets no credentials and no prompt;
+  - when the remote's URL is used.
+
+  `HttpCredentialsProviderTest` passes unchanged apart from building `CredentialHelpers`. Fourteen mutations were
+  each caught: twelve in the LFS code, and two in the moved helper code (`erase` not waiting for `store`, a cut
+  password from `get`). All 235 tests pass (146 in `:data`, 82 in `:domain`, 7 in `:common`), and `:app` compiles.
+- **Not tried** against a real LFS server, or on Windows.
+
 ## Clicking a branch or tag in the log selects its commit (branch `fix/log-chip-click`)
 
 - **Before:** a single click on a branch or tag chip in the log did nothing. `Chip` used
