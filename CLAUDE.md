@@ -214,6 +214,10 @@ asking.
 - The class is a `@Singleton` cache from path to `Git`. `JGit.open` opens repositories with Leaf's own JGit `FS`:
   `WindowsFs` on Windows (hooks through Git Bash), and the fork-only `PosixFs` on macOS and Linux (see Login shell
   environment). `provide` and `provideOptional` share the cache, so both go through `open`.
+- `WindowsFs` finds hooks with JGit's `findHook` (`core.hooksPath`, the common git dir) and runs them with Git for
+  Windows' `bin\bash.exe` (`GitBash`, which also quotes arguments for MSYS2), with JGit's folder and `GIT_*`
+  variables. It must return `ProcessResult(exitCode, OK)`: JGit takes `ProcessResult(OK)` alone (exit code -1) as a
+  failed hook.
 - Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper).
 - Closing a tab closes and drops the cached `Git` of every repository that no remaining tab has open
   (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
@@ -274,7 +278,8 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   already searches the Homebrew locations.
 
 **External processes (upstream code):** upstream never invokes the `git` CLI. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
-(credential helpers, Windows hooks, terminals, opening a file manager) and in `FileExtensions.kt`.
+(credential helpers, terminals, opening a file manager) and in `FileExtensions.kt`. Leaf's `WindowsFs` runs Windows
+hooks with JGit's `FS.runProcess` instead.
 
 Worktree operations will go through a fork-only git CLI adapter in its own package (Phase 1.1).
 
@@ -473,4 +478,6 @@ common `refs/` and `packed-refs` are not watched.
   - `testJGit(shellVariables)` builds a `JGit` whose login shell environment is the given map. Hook tests use
     `File.writeExecutable`, and `createHookTool`, which makes a `leaf-hook-tool` command that is on no PATH
     (`PosixFsTest`, `GitCliTest`).
+  - `WindowsFsTest` runs `WindowsFs` on macOS and Linux, with `/bin/sh` standing in for Git Bash
+    (`GitBash("/bin/sh", quoteArgument = { it })`), through `Git.open(gitDir, fs)` rather than `JGit`.
   - See `OpenRepositoryGitActionTest` for the pattern.

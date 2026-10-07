@@ -2,6 +2,46 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Hooks run on Windows again (branch `claude/funny-vaughan-00e1d8`)
+
+- **Before:** `WindowsFs`, from upstream's c43e8e26 (Gitnuro#314), ran hooks with Git Bash but returned
+  `ProcessResult(Status.OK)`, whose exit code is -1. JGit counts an OK result with a non-zero exit code as a failed
+  hook, so any pre-commit, commit-msg or pre-push hook rejected every commit or push, even one that exited 0. It also:
+  - ignored the hook's exit code;
+  - passed no arguments (commit-msg's message file, pre-push's remote) and no input (pre-push's refs), and never
+    closed the input, so a hook that read it waited forever;
+  - read the output only after the hook ended, so a hook that printed more than a pipe holds (about 64 KB) hung;
+  - looked only in `<git dir>\hooks`. It ignored `core.hooksPath`, the setup in #314, and in a linked worktree it
+    missed the main repository's hooks and skipped them without a message;
+  - went through `cmd /C`, which splits a path at `&`.
+- **Now:** the hook is found with JGit's `findHook`, so `core.hooksPath` and the common git dir count. It runs with Git
+  for Windows' `bin\bash.exe` in the working tree, with JGit's `GIT_DIR`, `GIT_COMMON_DIR` and `GIT_WORK_TREE`, its
+  arguments and its input. JGit's `runProcess` reads both output streams while it runs. The result carries the real
+  exit code.
+- **Git Bash** is looked for in each Git for Windows folder on PATH (`cmd`, `bin`, `mingw64\bin`, `usr\bin`), then in
+  the default install folders that are searched for the git CLI too. When a hook exists and Git Bash doesn't, the
+  commit fails with "Git Bash was not found. It is needed to run the hook '…' on Windows". Without hooks, Git Bash
+  isn't needed.
+- **Arguments** are quoted for MSYS2 the way Git for Windows quotes them, so a path with spaces, a `'`
+  (`C:\Users\O'Brien`), `{`, `*`, `?` or `~` arrives intact. The hook path gets forward slashes, so a hook that runs
+  `dirname "$0"` (husky) works.
+- **Unchanged:** bash reads the hook as a shell script and ignores its `#!` line, as before, so a
+  `#!/usr/bin/env node` hook doesn't run with node. Clean and smudge filters and diff tools still run through
+  `cmd.exe` (`FS_Win32.runInShell`).
+- **Tests:** `GitBashTest` (8) and `WindowsFsTest` (10). `WindowsFsTest` runs `WindowsFs` on macOS and Linux, with
+  `/bin/sh` in place of Git Bash, through JGit's own commit and push. Putting back each old behavior makes the
+  matching tests fail:
+  - the -1 result: 8 tests, and a hook that exits 0 gives "Rejected by "pre-commit" hook";
+  - no arguments, or no input: the commit-msg and pre-push tests;
+  - reading the output after the hook ends: the large output test times out;
+  - the `<git dir>\hooks` lookup: the `core.hooksPath` and linked worktree tests.
+
+  All 172 tests pass (100 in `:data`, 72 in `:domain`), and `:app` compiles.
+- **Not tried on Windows.** The quoting follows Git for Windows' `quote_arg_msys2` and Java's command line rules.
+- **Found on the way, not fixed:** in a linked worktree JGit gives commit-msg an empty `$1`, on every system.
+  `CommitMsgHook` makes the message file's path relative to the working tree with `Repository.stripWorkDir`, which
+  returns `""` for a file outside it, and a linked worktree's `COMMIT_EDITMSG` is in `.git/worktrees/<name>`.
+
 ## Hooks get the login shell's PATH (branch `worktree-hooks-shell-path`)
 
 - **Before:** Leaf opened from the Finder or the Dock inherits launchd's PATH (`/usr/bin:/bin:/usr/sbin:/sbin`). A
