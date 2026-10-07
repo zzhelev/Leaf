@@ -285,8 +285,11 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - The shell is needed: Java looks a program name up on the PATH Leaf started with, not the PATH given to the
     process.
   - `git credential-<name>` is part of the helper protocol, not a git operation, so it doesn't go through `GitCli`.
-  - Windows is unchanged: the helper runs directly, and `WindowsGitCredentialsManagerProvider` finds `manager`.
-    `NixGitCredentialsManagerProvider` is no longer called.
+  - `store` and `cache` run as `git credential-store` and `git credential-cache`, like any other name.
+  - Windows is unchanged: the helper runs directly, `WindowsGitCredentialsManagerProvider` finds `manager`, and
+    `store` and `cache` are refused. `NixGitCredentialsManagerProvider` is no longer called.
+  - Leaf never runs a helper's `erase`: `HttpCredentialsProvider` doesn't override `reset`, which JGit calls after a
+    rejection. So a wrong saved password comes back on each of JGit's 3 attempts, then "not authorized".
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
 
@@ -488,6 +491,9 @@ common `refs/` and `packed-refs` are not watched.
 - Tests that run shell scripts (fake git executables, `sh -c`) are annotated `@DisabledOnOs(OS.WINDOWS)`.
 - Tests that touch git must create temp repos with `@TempDir` (`git init` / `git worktree add` there), never real
   repos.
+- Tests that run git's `store` or `cache` helpers point `HOME`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` at the temp
+  folder (`HttpCredentialsProviderTest`), and stop the cache daemon with `git credential-cache exit`. A socket's path
+  can't be longer than 104 bytes on macOS, so the socket goes directly under the temp folder.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.

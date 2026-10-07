@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## `store` and `cache` credential helpers (branch `feature/credential-store-cache`)
+
+- **Before:** Leaf refused `credential.helper` set to `store` or `cache`, logged "not yet supported", and asked for
+  the password itself, keeping it only in memory. With options, such as `store --file <path>`, they weren't refused,
+  and they ran since `fix/credential-helpers`.
+- **Now:** on macOS and Linux they run as `git credential-store` and `git credential-cache`, like any helper given by
+  name. Leaf gets saved credentials from them, and stores the ones it asks for: in `~/.git-credentials`, or in git's
+  cache daemon, which the first store starts.
+- **Windows** still refuses them. There Leaf runs a helper as a program, not through git, and Git for Windows has no
+  `credential-cache`.
+- **Also fixed:** Leaf read a helper's `username=` and `password=` lines only up to the next `=`, so a password or
+  token containing `=` (base64 padding, for example) was cut short. It now keeps everything after the first `=`. This
+  applied to every helper.
+- **Tests:** three in `HttpCredentialsProviderTest`, with git's real `store` and `cache` and with `HOME` and the XDG
+  folders in the test's folder. Refusing `store` and `cache` again makes all three fail, and the old parsing fails
+  the `=` test. All 197 tests pass. The credential tests also pass in a Finder-like environment.
+- **Not covered:** Leaf never runs a helper's `erase` when credentials are rejected, as git does. A wrong saved
+  password is given again on each of JGit's 3 attempts, and the fetch fails with "not authorized". It has to be
+  removed by hand, from `~/.git-credentials` or with `git credential-cache exit`. This applies to every helper.
+
 ## Resizable commit message in Files changed (branch `feature/commit-message-resize`)
 
 - **Before:** the commit message below the Files changed list was fixed at 120 dp, so a long message had to be read
