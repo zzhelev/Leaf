@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Credential helpers forget rejected credentials (branch `claude/priceless-kepler-d25412`)
+
+- **Before:** `HttpCredentialsProvider` didn't override JGit's `CredentialsProvider.reset`, which does nothing. After
+  a 401, JGit 7.7 calls `reset` and then `get` again, up to 3 attempts. So a wrong password saved in `osxkeychain`,
+  `store`, `cache`, gh or a credential manager was sent 3 times, the fetch or push failed with "not authorized", and
+  every later one failed the same way until the user deleted it by hand.
+- **Now:** `reset` runs the helper with `erase`, as git does after a 401 (`credential_reject`, called from
+  `handle_curl_result` in `http.c`). It writes what `store` writes: protocol, host, the path with `useHttpPath`,
+  username and password. The next `get` finds nothing, so Leaf asks, and stores what the user types. The helper runs
+  through `startCredentialsHelper`, so macOS and Linux get the login shell's variables and Windows is unchanged.
+- **Typed credentials are erased too.** Git erases with every helper whatever the credentials came from, and stores
+  only once the server accepts them. Leaf stores typed credentials right away, since JGit tells the provider nothing
+  about success. If the server rejects them, the erase takes them back out, so the next attempt asks again instead of
+  sending them from the helper. `reset` waits for that `store` before erasing, and for the `erase` before returning
+  (up to a minute each, like `get`). A helper that can't be started is logged and skipped, as git skips it.
+- **Unchanged without a helper**, as in git: credentials from the prompt or Leaf's in-memory cache go to no helper.
+  The in-memory cache still keeps rejected credentials until Leaf restarts.
+- **Tests:** three in `HttpCredentialsProviderTest`. A fake helper checks that `erase` gets what `get` sent (with
+  `useHttpPath`) plus the credentials, once; git's real `store` forgets a rejected password containing `=`, then
+  stores the one Leaf asks for; and a fake helper with a slow `store` checks that typed credentials are erased after
+  they're stored. Each of these breaks at least one of them: no erase, typed credentials not erased, not waiting for
+  the `store`, not waiting for the `erase`, erasing twice, and no password in the `erase` input. All 207 tests pass
+  (118 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried on Windows**, or against a real server: the tests call `get` and `reset` in the order JGit's
+  `TransportHttp` does.
+
 ## `store` and `cache` credential helpers (branch `feature/credential-store-cache`)
 
 - **Before:** Leaf refused `credential.helper` set to `store` or `cache`, logged "not yet supported", and asked for

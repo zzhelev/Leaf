@@ -288,8 +288,11 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - `store` and `cache` run as `git credential-store` and `git credential-cache`, like any other name.
   - Windows is unchanged: the helper runs directly, `WindowsGitCredentialsManagerProvider` finds `manager`, and
     `store` and `cache` are refused. `NixGitCredentialsManagerProvider` is no longer called.
-  - Leaf never runs a helper's `erase`: `HttpCredentialsProvider` doesn't override `reset`, which JGit calls after a
-    rejection. So a wrong saved password comes back on each of JGit's 3 attempts, then "not authorized".
+  - After a 401, JGit calls `reset` and then `get` again, up to 3 attempts. `HttpCredentialsProvider.reset` runs the
+    helper's `erase` with the credentials it last gave, from the helper or typed by the user, like git's
+    `credential_reject`. Git stores typed credentials only once the server accepts them; Leaf stores them at once, so
+    `reset` first waits for that `store`, then for the `erase`. Without a helper nothing is erased, and Leaf's
+    in-memory cache keeps rejected credentials.
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
 
