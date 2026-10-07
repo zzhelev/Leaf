@@ -1450,7 +1450,7 @@ fun TagChip(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun Chip(
     modifier: Modifier = Modifier,
@@ -1461,12 +1461,17 @@ fun Chip(
     contextMenuItemsList: () -> List<ContextMenuElement>,
     endingContent: @Composable () -> Unit = {},
 ) {
+    // The first click of a double click selects the commit, which recomposes the line. A new lambda as key would
+    // restart the double click detection and lose that first click.
+    val currentOnCheckoutRef by rememberUpdatedState(onCheckoutRef)
+
     Box(
         modifier = Modifier
             .padding(horizontal = 4.dp)
             .clip(RoundedCornerShape(16.dp))
             .border(width = 2.dp, color = color, shape = RoundedCornerShape(16.dp))
-            .combinedClickable(onDoubleClick = onCheckoutRef, onClick = {})
+            // Not clickable, so a single click reaches the commit line and selects the commit.
+            .onDoubleClick { currentOnCheckoutRef() }
             .handOnHover()
     ) {
         ContextMenu(
