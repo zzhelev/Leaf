@@ -274,8 +274,17 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
 - Used by `PosixFs`, which overrides `FS.runInShell`. That covers hooks, clean and smudge filters, and diff and merge
   tools, and JGit sets `GIT_DIR` and its other variables after it. Also used by `GitCli`, as `git worktree add` runs
   post-checkout hooks and LFS filters.
-- Not used by `ShellManager`, which starts credential helpers and terminals, or by `GitExecutableLocator`, which
-  already searches the Homebrew locations.
+- Also used by HTTPS credential helpers (`HttpCredentialsProvider`). On macOS and Linux they run the way git runs them
+  (`posixCredentialHelperCommand`): `!command` as a shell command, an absolute path as it is, and a name such as
+  `osxkeychain` or `manager` as `git credential-<name>`, with the `git` on the shell's PATH. The command runs through
+  `/bin/sh -c`, with the shell's variables passed to `IShellManager.runCommandProcess(environment = ...)`.
+  - The shell is needed: Java looks a program name up on the PATH Leaf started with, not the PATH given to the
+    process.
+  - `git credential-<name>` is part of the helper protocol, not a git operation, so it doesn't go through `GitCli`.
+  - Windows is unchanged: the helper runs directly, and `WindowsGitCredentialsManagerProvider` finds `manager`.
+    `NixGitCredentialsManagerProvider` is no longer called.
+- Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
+  Homebrew locations.
 
 **External processes (upstream code):** upstream never invokes the `git` CLI. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
 (credential helpers, terminals, opening a file manager) and in `FileExtensions.kt`. Leaf's `WindowsFs` runs Windows

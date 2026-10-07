@@ -2,6 +2,38 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Credential helpers run the way git runs them (branch `fix/credential-helpers`)
+
+- **Before:** Leaf ran the `credential.helper` value of an HTTPS remote as a program. On macOS and Linux:
+  - `osxkeychain`, the default of Apple's and Homebrew's git, failed with `Cannot run program "osxkeychain"`, as did
+    any helper given by name. This happened from a terminal too.
+  - `!gh auth git-credential`, which `gh auth setup-git` writes, failed on the `!`.
+  - `manager` was looked up with `which` on the inherited PATH. Opened from the Finder or the Dock, Leaf has launchd's
+    PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), so a credential manager in `/usr/local/bin` wasn't found, and the fetch
+    failed with "Could not find git credentials manager path".
+  - A helper given by its path started, but couldn't run tools from Homebrew or nvm, so Leaf asked for the password.
+- **Now:** on macOS and Linux Leaf builds the command as git does (`credential.c`). `!command` is a shell command, an
+  absolute path runs as it is, and a name runs as `git credential-<name>`. The command runs through `/bin/sh -c` with
+  the login shell's environment (`LoginShellEnvironment`).
+  - The shell is needed: Java looks a program name up on the PATH Leaf started with, not on the PATH given to the
+    process.
+  - `IShellManager.runCommandProcess` takes an `environment` parameter. `FlatpakShellManager` ignores it, as the command
+    runs on the host and the variables come from the sandbox.
+- **Also fixed:** like git, Leaf ignores a helper that exits without reading its input. Writing to it could fail with
+  "Broken pipe" and end the fetch, depending on timing; now Leaf asks for the credentials.
+- **Unchanged:** Windows, where `WindowsGitCredentialsManagerProvider` still finds `manager`.
+  `NixGitCredentialsManagerProvider` is no longer called; it stays to keep upstream merges simple. `store` and
+  `cache` are still refused, so Leaf asks for the password itself. Terminals still get the inherited environment.
+- **Tests:** `HttpCredentialsProviderTest` (8). Without the login shell's environment 5 fail, with the old command
+  building 6 fail, with the old `manager` lookup 1 fails, and without the broken pipe handling 1 fails. All 180 tests
+  pass.
+- **Verified** in a Finder-like environment: no `TERM` and launchd's PATH.
+  - Before: `osxkeychain`, `!<path>/gh auth git-credential` and `!gh auth git-credential` failed, as from a terminal.
+    With a fake credential manager on the terminal's PATH, `manager` failed only in the Finder-like environment, and
+    so did a helper given by its path that runs a tool from that PATH.
+  - After: the login shell's 20 variables were read in 1.3 s. The real `git credential-osxkeychain get` ran (the test
+    host had no entry, so Leaf asked), and the real `!gh auth git-credential` returned the github.com credentials.
+
 ## Hooks run on Windows again (branch `claude/funny-vaughan-00e1d8`)
 
 - **Before:** `WindowsFs`, from upstream's c43e8e26 (Gitnuro#314), ran hooks with Git Bash but returned
