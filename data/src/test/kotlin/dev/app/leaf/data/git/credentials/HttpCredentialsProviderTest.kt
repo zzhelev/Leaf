@@ -5,14 +5,13 @@ package dev.app.leaf.data.git.credentials
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.writeExecutable
+import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.IShellManager
 import dev.app.leaf.domain.ShellManager
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.credentials.external.IGitCredentialsManagerProvider
-import dev.app.leaf.domain.models.CredentialsType
-import dev.app.leaf.domain.repositories.CredentialsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -28,6 +27,7 @@ import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -43,7 +43,10 @@ private const val REMOTE_URL = "https://example.invalid/team/project.git"
 private const val EXPECTED_INPUT = "protocol=https\nhost=example.invalid\n"
 private const val PORT_URL = "https://example.invalid:8443/team/project.git"
 
-/** Credential helpers that [HttpCredentialsProvider] starts on macOS and Linux, for HTTPS remotes. */
+/**
+ * The credentials that [HttpCredentialsProvider] gives for HTTPS remotes on macOS and Linux: from the credential
+ * helpers it starts, or from Leaf's in-memory cache when there is no helper.
+ */
 @DisabledOnOs(OS.WINDOWS)
 class HttpCredentialsProviderTest {
     @TempDir
@@ -51,6 +54,9 @@ class HttpCredentialsProviderTest {
 
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val credentialsStateManager = CredentialsStateManager()
+
+    /** Leaf's in-memory cache, which [HttpCredentialsProvider] uses when no credential helper is configured. */
+    private val credentialsCache = CredentialsCacheRepository()
 
     /** Holds the helpers and the tools they run, on no PATH unless a test puts it there, like Homebrew's folder. */
     private val tools by lazy { File(tempDir, "tools").apply { mkdirs() } }
@@ -341,6 +347,53 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
+    fun `without a helper, cached credentials that the server rejects are dropped, and the new ones cached`() {
+        cacheInMemory(Answer("cached-user", "old-password"))
+        val provider = createProvider(helper = null)
+
+        assertEquals(Answer("cached-user", "old-password"), provider.requestCredentials())
+        provider.reset(URIish(REMOTE_URL))
+
+        assertNull(cachedInMemory())
+
+        val answer = provider.requestCredentials(promptAnswer = Answer("cached-user", "new-password"))
+        // The operation succeeded
+        runBlocking { provider.cacheCredentialsIfNeeded() }
+
+        assertEquals(Answer("cached-user", "new-password"), answer)
+        assertEquals(Answer("cached-user", "new-password"), cachedInMemory())
+    }
+
+    @Test
+    fun `without a helper, credentials that the user typed and the server rejected are never cached`() {
+        val provider = createProvider(helper = null)
+
+        assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials())
+        // Meanwhile another tab's operation succeeds with other credentials, which the reset must keep
+        cacheInMemory(Answer("other-user", "other-password"))
+        provider.reset(URIish(REMOTE_URL))
+
+        assertEquals(Answer("other-user", "other-password"), provider.requestCredentials())
+        // The operation succeeded with the other tab's credentials
+        runBlocking { provider.cacheCredentialsIfNeeded() }
+
+        assertEquals(Answer("other-user", "other-password"), cachedInMemory())
+    }
+
+    @Test
+    fun `with a helper, the in-memory cache is neither read nor changed`() {
+        cacheInMemory(Answer("cached-user", "cached-password"))
+        createRecordingHelper(answer = Answer("helper-user", "helper-password"))
+        val provider = createProvider(helper = "leaf-test")
+
+        assertEquals(Answer("helper-user", "helper-password"), provider.requestCredentials())
+        provider.reset(URIish(REMOTE_URL))
+
+        assertEquals(listOf("get", "erase"), File(tools, "operations").readLines())
+        assertEquals(Answer("cached-user", "cached-password"), cachedInMemory())
+    }
+
+    @Test
     fun `helper commands are built the way git builds them`() {
         assertEquals(
             listOf("/bin/sh", "-c", "git credential-osxkeychain get"),
@@ -438,7 +491,7 @@ class HttpCredentialsProviderTest {
         return HttpCredentialsProvider(
             credentialsStateManager = credentialsStateManager,
             shellManager = shellManager,
-            credentialsCacheRepository = NoCachedCredentials,
+            credentialsCacheRepository = credentialsCache,
             gitCredentialsManagerProvider = gitCredentialsManagerProvider,
             loginShellEnvironment = LoginShellEnvironment { shellVariables },
             git = git,
@@ -466,6 +519,15 @@ class HttpCredentialsProviderTest {
 
         if (accepted) Answer(user.value, String(password.value)) else null
     }
+
+    /** Puts [credentials] for [REMOTE_URL] in Leaf's in-memory cache, as a successful operation does. */
+    private fun cacheInMemory(credentials: Answer) = runBlocking {
+        credentialsCache.cacheHttpCredentials(REMOTE_URL, credentials.user, credentials.password, isLfs = false)
+    }
+
+    /** The credentials for [REMOTE_URL] in Leaf's in-memory cache. */
+    private fun cachedInMemory(): Answer? = credentialsCache.getCachedHttpCredentials(REMOTE_URL, isLfs = false)
+        ?.let { Answer(it.user, it.password) }
 
     /** Waits for [file], which a helper writes after Leaf has moved on, as Leaf doesn't wait for `store` to finish. */
     private fun awaitFile(file: File): File = runBlocking {
@@ -565,15 +627,5 @@ class HttpCredentialsProviderTest {
 
     private object NoCredentialsManager : IGitCredentialsManagerProvider {
         override fun loadPath(): String? = null
-    }
-
-    private object NoCachedCredentials : CredentialsRepository {
-        override fun getCachedHttpCredentials(url: String, isLfs: Boolean): CredentialsType.HttpCredentials? = null
-        override fun getCachedSshCredentials(url: String): CredentialsType.SshCredentials? = null
-        override suspend fun cacheHttpCredentials(credentials: CredentialsType.HttpCredentials) = Unit
-        override suspend fun cacheHttpCredentials(url: String, userName: String, password: String, isLfs: Boolean) =
-            Unit
-
-        override suspend fun cacheSshCredentials(url: String, password: String) = Unit
     }
 }

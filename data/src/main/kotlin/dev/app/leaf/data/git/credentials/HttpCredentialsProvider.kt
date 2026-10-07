@@ -49,6 +49,9 @@ class HttpCredentialsProvider @AssistedInject constructor(
 
     private var credentialsCached: CredentialsType.HttpCredentials? = null
 
+    /** The credentials that [get] last gave from Leaf's in-memory cache, which [reset] removes from it. */
+    private var memoryCachedCredentials: CredentialsType.HttpCredentials? = null
+
     /** The credentials that [get] last gave while a credential helper is configured, which [reset] erases. */
     private var helperCredentials: HelperCredentials? = null
 
@@ -69,6 +72,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
 
     override fun get(uri: URIish, vararg items: CredentialItem): Boolean {
         helperCredentials = null
+        memoryCachedCredentials = null
 
         val itemsMap = items.map { "${it::class.simpleName} - ${it.promptText}" }
 
@@ -124,6 +128,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
             } else {
                 userItem.value = cachedCredentials.user
                 passwordItem.value = cachedCredentials.password.toCharArray()
+                memoryCachedCredentials = cachedCredentials
 
                 return true
             }
@@ -171,9 +176,18 @@ class HttpCredentialsProvider @AssistedInject constructor(
     /**
      * JGit calls this when the server rejects the credentials that [get] gave, before it calls [get] again. Like git
      * (`credential_reject`), Leaf then runs the credential helper with `erase`, whether the credentials came from the
-     * helper or from the user, so that the helper doesn't give them back and Leaf asks the user instead.
+     * helper or from the user, so that the helper doesn't give them back and Leaf asks the user instead. Without a
+     * helper, Leaf removes them from its in-memory cache, for the same reason.
      */
     override fun reset(uri: URIish) {
+        // Typed credentials are cached once the operation succeeds, but the server rejected these
+        credentialsCached = null
+
+        memoryCachedCredentials?.let { rejected ->
+            memoryCachedCredentials = null
+            runBlocking { credentialsCacheRepository.removeCachedHttpCredentials(rejected) }
+        }
+
         val rejected = helperCredentials ?: return
         helperCredentials = null
 

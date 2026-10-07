@@ -46,13 +46,22 @@ class CredentialsCacheRepository @Inject constructor() : CredentialsRepository {
         val passwordEncrypted = password.cipherEncrypt()
 
         credentialsLock.withLock {
-            val previouslyCached = credentialsCached.any {
-                it is CredentialsType.HttpCredentials && it.url == url
-            }
+            // They come from an operation that just succeeded, and the ones cached before may be outdated
+            credentialsCached.removeAll { it is CredentialsType.HttpCredentials && it.url == url && it.isLfs == isLfs }
 
-            if (!previouslyCached) {
-                val credentials = CredentialsType.HttpCredentials(url, userName, passwordEncrypted, isLfs)
-                credentialsCached.add(credentials)
+            val credentials = CredentialsType.HttpCredentials(url, userName, passwordEncrypted, isLfs)
+            credentialsCached.add(credentials)
+        }
+    }
+
+    override suspend fun removeCachedHttpCredentials(credentials: CredentialsType.HttpCredentials) {
+        credentialsLock.withLock {
+            credentialsCached.removeAll {
+                it is CredentialsType.HttpCredentials &&
+                        it.url == credentials.url &&
+                        it.isLfs == credentials.isLfs &&
+                        it.user == credentials.user &&
+                        it.password.cipherDecrypt() == credentials.password
             }
         }
     }
