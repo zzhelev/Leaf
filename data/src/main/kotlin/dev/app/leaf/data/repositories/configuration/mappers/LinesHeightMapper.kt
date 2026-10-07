@@ -6,12 +6,14 @@ import javax.inject.Inject
 
 private const val SPACED = "spaced"
 private const val COMPACT = "compact"
+private const val DENSE = "dense"
 
 class LinesHeightMapper @Inject constructor(): DataMapper<LinesHeightType?, String?>  {
     override fun toData(value: LinesHeightType?): String? {
         return when (value) {
             LinesHeightType.SPACED -> SPACED
             LinesHeightType.COMPACT -> COMPACT
+            LinesHeightType.DENSE -> DENSE
             null -> null
         }
     }
@@ -20,6 +22,7 @@ class LinesHeightMapper @Inject constructor(): DataMapper<LinesHeightType?, Stri
         return when (value) {
             SPACED -> LinesHeightType.SPACED
             COMPACT -> LinesHeightType.COMPACT
+            DENSE -> LinesHeightType.DENSE
             null -> null
             else -> throw IllegalStateException("Unhandled linesHeightType $value")
         }

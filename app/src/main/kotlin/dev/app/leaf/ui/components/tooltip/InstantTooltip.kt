@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -28,6 +29,7 @@ import dev.app.leaf.theme.isDark
 @Composable
 fun InstantTooltip(
     text: String?,
+    leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     position: InstantTooltipPosition = InstantTooltipPosition.BOTTOM,
@@ -97,7 +99,14 @@ fun InstantTooltip(
                             this
                     }
                     .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (leadingContent != null) {
+                    leadingContent()
+
+                    Spacer(Modifier.width(8.dp))
+                }
+
                 Text(
                     text = text,
                     fontSize = 12.sp,

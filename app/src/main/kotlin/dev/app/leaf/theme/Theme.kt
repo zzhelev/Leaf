@@ -21,6 +21,8 @@ class LinesHeight internal constructor(
     val fileHeight: Dp,
     val logCommitHeight: Dp,
     val sidePanelItemHeight: Dp,
+    /** The padding around the icon of a branch or tag chip in the log, which sets the chip's height. */
+    val refChipIconPadding: Dp = 6.dp,
 )
 
 val spacedLineHeight = LinesHeight(
@@ -33,6 +35,14 @@ val compactLineHeight = LinesHeight(
     fileHeight = 34.dp,
     logCommitHeight = 34.dp,
     sidePanelItemHeight = 34.dp
+)
+
+// The hovered file's Stage/Unstage button is 24 dp tall, so rows can't go much lower.
+val denseLineHeight = LinesHeight(
+    fileHeight = 26.dp,
+    logCommitHeight = 26.dp,
+    sidePanelItemHeight = 26.dp,
+    refChipIconPadding = 4.dp,
 )
 
 @Composable
@@ -51,6 +61,7 @@ fun AppTheme(
     val lineHeight = when (linesHeightType) {
         LinesHeightType.SPACED -> spacedLineHeight
         LinesHeightType.COMPACT -> compactLineHeight
+        LinesHeightType.DENSE -> denseLineHeight
     }
 
     appTheme.value = theme

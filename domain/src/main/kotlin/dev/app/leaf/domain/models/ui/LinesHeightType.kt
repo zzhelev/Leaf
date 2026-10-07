@@ -2,7 +2,8 @@ package dev.app.leaf.domain.models.ui
 
 enum class LinesHeightType(val value: Int) {
     SPACED(0),
-    COMPACT(1);
+    COMPACT(1),
+    DENSE(2);
 
     // TODO This should be in the data layer as the domain doesn't care of how this is persisted
     companion object {

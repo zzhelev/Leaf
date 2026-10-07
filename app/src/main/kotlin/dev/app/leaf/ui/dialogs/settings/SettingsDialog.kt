@@ -137,6 +137,7 @@ val settings = listOf(
 val linesHeightTypesList = listOf(
     DropDownOption(LinesHeightType.SPACED, "Spaced"),
     DropDownOption(LinesHeightType.COMPACT, "Compact"),
+    DropDownOption(LinesHeightType.DENSE, "Dense"),
 )
 
 @Composable

@@ -29,7 +29,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -79,8 +78,10 @@ private val colors = listOf(
     Color(0xFFec407a),
 )
 
-private const val CANVAS_MIN_WIDTH = 100
-private const val CANVAS_DEFAULT_WIDTH = 120
+// The column fits the graph's lanes, but by default never grows past the width it always had. Below the minimum, the
+// "Graph" header would be cut.
+private const val CANVAS_MIN_WIDTH = 56
+private const val CANVAS_MAX_DEFAULT_WIDTH = 120
 private const val MIN_GRAPH_LANES = 2
 
 private const val HORIZONTAL_SCROLL_PIXELS_MULTIPLIER = 10
@@ -92,7 +93,9 @@ private const val ARC_DIRECTION_RIGHT = 1
  * Additional number of lanes to simulate to create a margin at the end of the graph.
  */
 private const val MARGIN_GRAPH_LANES = 2
-private const val LANE_WIDTH = 30f
+private const val LANE_WIDTH = 14f
+private val COMMIT_NODE_SIZE = 10.dp
+private val COMMIT_TOOLTIP_AVATAR_SIZE = 20.dp
 private const val DIVIDER_WIDTH = 8
 
 private const val LOG_BOTTOM_PADDING = 80
@@ -221,16 +224,16 @@ private fun LogView(
             .background(MaterialTheme.colors.background)
             .fillMaxSize()
     ) {
-        var graphWidth = (CANVAS_DEFAULT_WIDTH + graphPadding).dp
-
-        if (graphWidth.value < CANVAS_MIN_WIDTH) graphWidth = CANVAS_MIN_WIDTH.dp
-
         val maxLinePosition = if (commitList.isNotEmpty())
             commitList.maxLane
         else
             MIN_GRAPH_LANES
 
         var graphRealWidth = ((maxLinePosition + MARGIN_GRAPH_LANES) * LANE_WIDTH).dp
+
+        var graphWidth = (graphRealWidth.value.coerceAtMost(CANVAS_MAX_DEFAULT_WIDTH.toFloat()) + graphPadding).dp
+
+        if (graphWidth.value < CANVAS_MIN_WIDTH) graphWidth = CANVAS_MIN_WIDTH.dp
 
         // Using remember(graphRealWidth, graphWidth) makes the selected background color glitch when changing tabs
         if (graphRealWidth < graphWidth) {
@@ -707,7 +710,7 @@ fun UncommittedChangesLine(
             .height(MaterialTheme.linesHeight.logCommitHeight)
             .padding(start = graphWidth)
             .backgroundIf(isSelected, MaterialTheme.colors.backgroundSelected)
-            .padding(DIVIDER_WIDTH.dp),
+            .padding(horizontal = DIVIDER_WIDTH.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val text = when {
@@ -1206,7 +1209,9 @@ fun CommitsGraph(
         CommitNode(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = ((itemPosition + 1) * 30 - 15).dp),
+                .padding(start = (LANE_WIDTH * itemPosition + LANE_WIDTH / 2).dp)
+                .fillMaxHeight()
+                .width(LANE_WIDTH.dp),
             author = plotCommit.author,
             isMerge = plotCommit.commit.parentCount > 1,
             isStash = isStash,
@@ -1246,6 +1251,7 @@ private fun DrawScope.graphArc(
     )
 }
 
+/** A dot centered in [modifier]'s box. Hovering it shows the author with their avatar. */
 @Composable
 fun CommitNode(
     modifier: Modifier = Modifier,
@@ -1256,42 +1262,45 @@ fun CommitNode(
 ) {
     if (isStash) {
         Box(
-            modifier = modifier
-                .size(30.dp)
-                .border(2.dp, color, shape = CircleShape)
-                .clip(CircleShape)
-                .background(MaterialTheme.colors.background),
+            modifier = modifier,
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                painterResource(Res.drawable.stash),
-                modifier = Modifier.size(20.dp),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(color),
+            Box(
+                modifier = Modifier
+                    .size(COMMIT_NODE_SIZE)
+                    .border(2.dp, color, shape = CircleShape)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colors.background),
             )
         }
     } else {
         val shape = if (isMerge) {
-            RoundedCornerShape(4.dp)
+            RoundedCornerShape(2.dp)
         } else {
             CircleShape
         }
 
         InstantTooltip(
-            "${author.name} <${author.email}>",
+            text = "${author.name} <${author.email}>",
+            leadingContent = {
+                AvatarImage(
+                    modifier = Modifier.size(COMMIT_TOOLTIP_AVATAR_SIZE),
+                    personIdent = author,
+                    color = color,
+                )
+            },
+            modifier = modifier,
             position = InstantTooltipPosition.RIGHT,
         ) {
             Box(
-                modifier = modifier
-                    .size(30.dp)
-                    .border(2.dp, color, shape = shape)
-                    .clip(shape)
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
             ) {
-                AvatarImage(
-                    modifier = Modifier.fillMaxSize(),
-                    personIdent = author,
-                    shape = shape,
-                    color = color,
+                Box(
+                    modifier = Modifier
+                        .size(COMMIT_NODE_SIZE)
+                        .clip(shape)
+                        .background(color),
                 )
             }
         }
@@ -1326,7 +1335,7 @@ fun UncommittedChangesGraphNode(
 
                 drawCircle(
                     color = colors[0],
-                    radius = 15f * density,
+                    radius = COMMIT_NODE_SIZE.toPx() / 2,
                     center = Offset(laneWidthWithDensity, this.center.y),
                 )
             }
@@ -1470,7 +1479,7 @@ fun Chip(
                 Box(modifier = Modifier.background(color = color)) {
                     Icon(
                         modifier = Modifier
-                            .padding(6.dp)
+                            .padding(MaterialTheme.linesHeight.refChipIconPadding)
                             .size(14.dp),
                         painter = painterResource(icon),
                         contentDescription = null,
