@@ -2,6 +2,35 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Sort and view menu in Staged and Unstaged (branch `feature/status-sort-view`)
+
+- **Menu:** the Staged and Unstaged headers have the Files changed sort and view button in place of the list/tree
+  toggle: sort by Path, File name or Change type, the order, and Flat list, Split columns or Folder tree. The three
+  panes share one setting.
+- **Old toggle:** `AppConfig.ShowChangesAsTree` is gone, but its stored `show_changes_as_tree` is still read: if it was
+  on and no files view has been saved yet, the panes start in Folder tree.
+- **Staging works as before:** the hover Stage/Unstage button, double-click, Stage all and Stage selected, Ctrl/Cmd and
+  Shift selection, and the right-click menus. Shift ranges now follow the order on screen. In the tree, folder rows
+  also get the hover button. During a search it stages or unstages only the folder's matching files; the right-click
+  menu's "Stage changes in the directory" still takes the whole folder.
+- **Conflicts:** sorting by Change type lists conflicting files first, in both orders (`FileChangeKind.Conflicting`).
+- **Tree:** single-child folder chains merge into one row with a file count, Up/Down and Left/Right move through it,
+  and search opens the folders with matches. Each pane keeps its own closed folders while the tab is open.
+- **Fixed along the way:**
+  - A sort or view change left the list scrolled partway, because the list keeps its first visible row by key. It now
+    scrolls to the selected file, or to the top. Files changed had this too.
+  - Shift-clicking while the last selected file was hidden by the search threw an exception. It now adds the clicked
+    file to the selection.
+  - Closing a folder dropped its files from the selection, and its conflicts stopped counting as unsolved.
+- **Removed:** `ui/tree_files/Tree.kt`, `ui/components/FileEntry.kt`, and the `list` and `tree` icons.
+- **Tests:** `StatusFileItemsTest` (4) covers the change kinds, repeated paths, conflicts in a tree, and folders closed
+  during a search. `FileRowsTest` and `SortSettingsCodecTest` gained one test each, for the conflict order and the old
+  toggle.
+- **Verified:** offscreen renders of both panes in all three views, against a repository with staged, unstaged,
+  untracked and conflicting files. Checked the hover buttons, double-click and folder staging (on the real index),
+  Shift and Ctrl selection, both right-click menus, search, the tree keys, a 290dp pane, the light theme, and Files
+  changed. Also a run of the app.
+
 ## Upstream sync: repository cleanup and tab saving (branch `sync/upstream-2026-10-07`)
 
 - **Merged:** `upstream/main` up to `415b3729`, the first sync since the fork point `62442f26`. It brings two commits:

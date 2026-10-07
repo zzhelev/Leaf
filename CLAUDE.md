@@ -344,11 +344,14 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
 - Dates come from `GetRefDatesGitAction`, refreshed with branches, remotes or tags (`repositoryDataRepository.refDates`).
 - Settings: `AppConfig.RefPanel` and `AppConfig.FilesChangedView`, as JSON in the DataStore file. Folder open/closed
   state is per repository in `<common git dir>/leaf`, section `sidePanel` (`RefFolderExpansionConfig`).
-- Files changed renders `CommitChangesState.rows` with `ui/ChangedFilesList.kt`. The Staged/Unstaged panes still use
-  `entriesToTreeEntry` and the `showChangesAsTree` toggle.
+- Files changed, Staged and Unstaged render `FileRow`s with `ui/ChangedFilesList.kt` (`CommitChangesState.rows`,
+  `StatusState.stagedRows`/`unstagedRows`) and share `AppConfig.FilesChangedView`. The old `show_changes_as_tree` key
+  is only read, as that setting's default until it's saved.
 - **Offscreen UI checks:** an `ImageComposeScene` built from the real Dagger graph can render `SidePanel` and
   `CommitChanges` to PNG without a window. Drive it on `Dispatchers.Swing`: on any other thread Compose 1.12.0's
   RectManager intermittently throws "LayoutNode … not found in RectList". `CommitChanges` also needs `LocalTab`.
+  `LocalWindowInfo.current.keyboardModifiers`, which Staged/Unstaged read for Shift and Ctrl clicks, only follows a
+  real window; offscreen, set `WindowInfoImpl`'s `GlobalKeyboardModifiers` state through reflection.
 
 ## Refresh
 
