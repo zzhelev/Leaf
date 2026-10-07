@@ -21,8 +21,8 @@ object AppConstants {
     const val APP_NAME = "Leaf"
     const val APP_DESCRIPTION =
         "Leaf is a Git client, based on Gitnuro, that allows you to manage multiple repositories with a modern experience and live visual representation of your repositories' state."
-    const val APP_VERSION = "1.1.0"
-    const val APP_VERSION_CODE = 27
+    const val APP_VERSION = "1.1.1"
+    const val APP_VERSION_CODE = 28
     const val VERSION_CHECK_URL = "https://raw.githubusercontent.com/zzhelev/Leaf/refs/heads/main/latest.json"
 }
 
