@@ -2,6 +2,27 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## commit-msg gets its message file in linked worktrees (branch `claude/inspiring-hopper-5659c3`)
+
+- **Before:** in a linked worktree, JGit gave the commit-msg hook an empty `$1`, on every system. `CommitMsgHook`
+  makes the message file's path relative to the working tree with `Repository.stripWorkDir`, which returns `""` for a
+  file outside it, and a linked worktree's `COMMIT_EDITMSG` is in `<main>/.git/worktrees/<name>`. The same went for
+  submodules, whose git dir is `<parent>/.git/modules/<name>`. A hook that reads or rewrites `"$1"`, as message checks
+  such as `commitlint --edit "$1"` (husky) do, had no file to work on, and one that failed on that blocked the commit.
+- **Now:** when JGit passes commit-msg an empty path, `PosixFs` and `WindowsFs` pass the absolute path of
+  `<git dir>/COMMIT_EDITMSG` instead (`hookArguments`). JGit writes the message to that file and reads it back after
+  the hook, and the git CLI gives the hook the same absolute path in a linked worktree. `WindowsFs` writes it with
+  forward slashes, like the hook's own path.
+- **Unchanged:** in a regular repository the hook still gets `.git/COMMIT_EDITMSG`, relative to the working tree,
+  which is also what the git CLI passes.
+- **Tests:** 4 new. In `PosixFsTest`: a regular repository, a linked worktree and a submodule. In `WindowsFsTest`: a
+  linked worktree (its regular repository test was already there). Each hook writes the `$1` it gets to a file and
+  appends ", checked" to the message in it. Putting back the old behavior makes the linked worktree and submodule
+  tests fail with `cat: : No such file or directory`, while the regular repository tests still pass. All 184 tests
+  pass (112 in `:data`, 72 in `:domain`).
+- **Not tried on Windows.** On macOS and Linux the path has no backslashes, so the switch to forward slashes isn't
+  exercised.
+
 ## Credential helpers run the way git runs them (branch `fix/credential-helpers`)
 
 - **Before:** Leaf ran the `credential.helper` value of an HTTPS remote as a program. On macOS and Linux:
@@ -70,7 +91,8 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 
   All 172 tests pass (100 in `:data`, 72 in `:domain`), and `:app` compiles.
 - **Not tried on Windows.** The quoting follows Git for Windows' `quote_arg_msys2` and Java's command line rules.
-- **Found on the way, not fixed:** in a linked worktree JGit gives commit-msg an empty `$1`, on every system.
+- **Found on the way, fixed separately (see above):** in a linked worktree JGit gives commit-msg an empty `$1`, on
+  every system.
   `CommitMsgHook` makes the message file's path relative to the working tree with `Repository.stripWorkDir`, which
   returns `""` for a file outside it, and a linked worktree's `COMMIT_EDITMSG` is in `.git/worktrees/<name>`.
 

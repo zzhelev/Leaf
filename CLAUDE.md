@@ -218,6 +218,10 @@ asking.
   Windows' `bin\bash.exe` (`GitBash`, which also quotes arguments for MSYS2), with JGit's folder and `GIT_*`
   variables. It must return `ProcessResult(exitCode, OK)`: JGit takes `ProcessResult(OK)` alone (exit code -1) as a
   failed hook.
+- JGit passes commit-msg an empty path when the git dir is outside the working tree (linked worktrees, submodules):
+  `CommitMsgHook` uses `Repository.stripWorkDir`. `PosixFs` and `WindowsFs` both override `runHookIfPresent` to pass
+  the absolute path of `<git dir>/COMMIT_EDITMSG` instead (`hookArguments`), as the git CLI does. Another `FS` that
+  runs hooks needs the same.
 - Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper).
 - Closing a tab closes and drops the cached `Git` of every repository that no remaining tab has open
   (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
