@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Resizable commit message in Files changed (branch `feature/commit-message-resize`)
+
+- **Before:** the commit message below the Files changed list was fixed at 120 dp, so a long message had to be read
+  through a small scrolling box.
+- **Handle:** an 8 dp handle between the files list and the message, with the north–south resize cursor, like the
+  status pane's. Dragging it up grows the message; a double-click resets it to 120 dp. The author footer below the
+  message keeps its size.
+- **Limits:** the files list keeps 100 dp (its header, the column header of Split columns and a row) and the message
+  40 dp (one line). A shorter window shrinks the message without changing what's saved, and a taller one brings it
+  back.
+- **Saved globally**, in the prefs node next to the pane widths (`commitMessageHeight`), when a drag ends or the
+  handle is reset. Every tab shares it. A damaged value falls back to 120 dp.
+- **Spacing:** the 8 dp handle replaces the 4 dp gap below the files list. The message and the footer keep their
+  rounded corners, now drawn as the message's top and the footer's bottom.
+- **Shared handle:** `SectionDivider` moved from `StatusPane.kt` to `ui/components/`, and
+  `STATUS_SECTION_DIVIDER_HEIGHT` became `SECTION_DIVIDER_HEIGHT`. The status pane is unchanged.
+- **Tests:** `CommitChangesSectionSizesTest` (10) covers the default, fitting, both minimums, a pane too short for
+  them, dragging both ways, moving back at once after hitting a limit or after the window shrank the message, and
+  damaged values.
+- **Verified:** an offscreen harness on the real Files changed pane, with a temporary repository whose commit has a
+  42-line message. It dragged the handle up and down past both limits, double-clicked the reset, shrank and restored
+  the window, scrolled the message to its end, and checked the prefs node. A second JVM read the saved height back.
+
 ## commit-msg gets its message file in linked worktrees (branch `claude/inspiring-hopper-5659c3`)
 
 - **Before:** in a linked worktree, JGit gave the commit-msg hook an empty `$1`, on every system. `CommitMsgHook`

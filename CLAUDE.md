@@ -399,6 +399,12 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   - They are global: `StatusSectionsConfig` (app singleton) → `AppSettingsRepository.statusSectionSizes`, stored in the
     prefs node as `statusStagedShare` and `statusCommitFieldHeight`, like the pane widths. `StatusPane` keeps a local
     copy during a drag and sends `StatusAction.SectionSizesChanged` when it ends.
+- **Files changed pane sections (fork-only):** one handle resizes the commit message below the files list, the same
+  way. `CommitChangesSectionSizes` holds the message height (default 120 dp); the files list keeps 100 dp and the
+  message 40 dp. The author footer is laid out outside the fitted area, so its 72 dp isn't part of the model. Saved
+  through `CommitChangesSectionsConfig` → `AppSettingsRepository.commitChangesSectionSizes`, prefs key
+  `commitMessageHeight`.
+  - Both panes use `ui/components/SectionDivider.kt` (`SECTION_DIVIDER_HEIGHT`, 8 dp).
 - **Offscreen UI checks:** an `ImageComposeScene` built from the real Dagger graph can render `SidePanel` and
   `CommitChanges` to PNG without a window. Drive it on `Dispatchers.Swing`, like a real window. On another thread,
   Compose 1.12.0 intermittently threw "LayoutNode … not found in RectList"; 1.12.1 fixes one cause of that, but the
