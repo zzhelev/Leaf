@@ -1,7 +1,7 @@
 package dev.app.leaf.data.git.lfs
 
 import dev.app.leaf.data.git.credentials.CredentialHelpers
-import dev.app.leaf.data.git.credentials.ExternalCredentialsHelper
+import dev.app.leaf.data.git.credentials.CredentialSettings
 import dev.app.leaf.data.git.credentials.HelperAnswer
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
@@ -33,7 +33,7 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
         }
 
         val credentialsUri = lfsCredentialsUri(lfsServer)
-        val helper = credentialHelpers.find(repository.config, credentialsUri)
+        val helper = credentialHelpers.find(repository, credentialsUri)
 
         return if (helper != null) {
             withHelper(helper, credentialsUri, unauthorized = res, callback)
@@ -43,11 +43,11 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
     }
 
     /**
-     * Like git-lfs: the helper's credentials, then the user's. Credentials that the server rejects are erased with the
-     * helper, and the ones the user typed are stored with it once the server takes them.
+     * Like git-lfs: the helpers' credentials, then the user's. Credentials that the server rejects are erased with
+     * the helpers, and the ones the user typed are stored with them once the server takes them.
      */
     private suspend fun <T> withHelper(
-        helper: ExternalCredentialsHelper,
+        helper: CredentialSettings,
         uri: URIish,
         unauthorized: Either<T, LfsError>,
         callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,

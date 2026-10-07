@@ -157,6 +157,50 @@ class CredentialUrlTest {
         )
     }
 
+    @Test
+    fun `config entries are read as git config --list prints them`() {
+        val configFile = File(tempDir, "list.gitconfig")
+        configFile.writeText(
+            """
+            |[credential]
+            |	helper = "!f() { echo a=b; }; f"
+            |	helper =
+            |	helper
+            |	username = "line\nbreak"
+            |[credential "https://Example.invalid:8443/team"]
+            |	useHttpPath = yes
+            |""".trimMargin()
+        )
+        val process = ProcessBuilder("git", "config", "--file", configFile.absolutePath, "--list", "-z")
+            .directory(tempDir)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+
+        assertEquals(
+            listOf(
+                ConfigEntry("credential.helper", "!f() { echo a=b; }; f"),
+                ConfigEntry("credential.helper", ""),
+                ConfigEntry("credential.helper", null),
+                ConfigEntry("credential.username", "line\nbreak"),
+                ConfigEntry("credential.https://Example.invalid:8443/team.usehttppath", "yes"),
+            ),
+            parseConfigList(output),
+        )
+    }
+
+    @Test
+    fun `credential settings without a value are skipped, where git stops with an error`() {
+        val entries = listOf(
+            ConfigEntry("credential.helper", "first"),
+            ConfigEntry("credential.helper", null),
+            ConfigEntry("credential.username", null),
+            ConfigEntry("credential.useHttpPath", null),
+        )
+
+        assertEquals(CredentialSettings(listOf("first"), false, null), credentialSettings(entries, URIish(PORT_URL)))
+    }
+
     /**
      * What git writes to a credential helper for [url]: for `get` with `git credential fill`, or for `store` with
      * `git credential approve` when there's a [password]. Null if git doesn't run the helper.

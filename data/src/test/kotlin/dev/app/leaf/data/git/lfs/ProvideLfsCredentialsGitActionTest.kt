@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.lfs
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.credentials.CredentialHelpers
+import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -299,6 +300,7 @@ class ProvideLfsCredentialsGitActionTest {
                 shellManager = ShellManager(),
                 gitCredentialsManagerProvider = NoCredentialsManager,
                 loginShellEnvironment = LoginShellEnvironment { shellVariables },
+                gitCli = testGitCli(shellVariables),
             ),
         )
 

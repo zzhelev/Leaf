@@ -3,7 +3,15 @@
 
 package dev.app.leaf.data.git
 
+import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.GitExecutableLocator
+import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.shell.LoginShellEnvironment
+import dev.app.leaf.domain.repositories.AppSettingsRepository
+import dev.app.leaf.domain.services.AppSettingsService
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.storage.file.FileBasedConfig
 import org.eclipse.jgit.util.FS
@@ -14,6 +22,23 @@ import javax.inject.Provider
 /** A [JGit] for tests on macOS and Linux, where [shellVariables] stand for what the login shell adds to hooks. */
 fun testJGit(shellVariables: Map<String, String> = emptyMap()) =
     JGit(Provider { error("Only used on Windows") }, LoginShellEnvironment { shellVariables })
+
+/**
+ * A [GitCli] for tests, where [shellVariables] stand for what the login shell adds, and [configuredPath] for the git
+ * executable set in Leaf's settings.
+ */
+fun testGitCli(shellVariables: Map<String, String> = emptyMap(), configuredPath: String? = null): GitCli {
+    val appSettingsRepository = mockk<AppSettingsRepository> {
+        every { gitExecutablePath } returns flowOf(configuredPath)
+    }
+
+    return GitCli(
+        GitExecutableLocator(ProcessRunner()),
+        ProcessRunner(),
+        AppSettingsService(appSettingsRepository),
+        LoginShellEnvironment { shellVariables },
+    )
+}
 
 /**
  * Points JGit's user, system and JGit config files to [configDir], keeping the developer's own config out of tests.

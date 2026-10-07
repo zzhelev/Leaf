@@ -142,27 +142,130 @@ private fun hexValue(byte: Byte): Int = when (val char = byte.toInt().toChar()) 
 }
 
 /**
- * The subsections of `credential` in [config] whose settings git applies to [uri], as `credential.<url>.<name>`
- * (`credential_apply_config` and urlmatch.c), the most specific first:
+ * The credential settings that git applies to a URL (`credential_apply_config` in git's credential.c):
+ * - [helpers], the `credential.helper` values, in the order git runs them;
+ * - [useHttpPath], whether helpers get the URL's path;
+ * - [username], the user name that git already knows and sends the helpers: the URL's, or else
+ *   `credential.username`.
+ */
+data class CredentialSettings(
+    val helpers: List<String>,
+    val useHttpPath: Boolean,
+    val username: String?,
+)
+
+/**
+ * A config entry as `git config --list` gives it: its [key], such as `credential.https://example.com.helper`, and its
+ * [value], which is null for a key written without `=`.
+ */
+internal data class ConfigEntry(val key: String, val value: String?)
+
+/** The entries that `git config --list -z` prints: each is the key, then a newline and the value if it has one. */
+internal fun parseConfigList(output: String): List<ConfigEntry> = output
+    .split('\u0000')
+    .filter { it.isNotEmpty() }
+    .map { entry ->
+        val newline = entry.indexOf('\n')
+
+        if (newline < 0) {
+            ConfigEntry(entry, null)
+        } else {
+            ConfigEntry(entry.substring(0, newline), entry.substring(newline + 1))
+        }
+    }
+
+/**
+ * The credential settings that [entries], in the order git reads them (system, global, local and worktree config,
+ * each from top to bottom), give [uri]. Like git, every `credential.<name>`, and every `credential.<url>.<name>` whose
+ * URL applies to [uri] ([credentialUrlApplies]), counts in turn: a `helper` joins the list, or clears it when it's
+ * empty, and a later `useHttpPath` or `username` replaces an earlier one.
+ */
+internal fun credentialSettings(entries: List<ConfigEntry>, uri: URIish): CredentialSettings {
+    val helpers = mutableListOf<String>()
+    var useHttpPath = false
+    var configUsername: String? = null
+
+    for ((key, value) in entries) {
+        if (!key.startsWith("$CREDENTIAL_SECTION.", ignoreCase = true)) {
+            continue
+        }
+
+        val rest = key.substring(CREDENTIAL_SECTION.length + 1)
+        val lastDot = rest.lastIndexOf('.')
+
+        // Git stops at a setting without a value, or at a boolean it can't read; Leaf skips them
+        if (value == null || (lastDot >= 0 && !credentialUrlApplies(rest.substring(0, lastDot), uri))) {
+            continue
+        }
+
+        when (rest.substring(lastDot + 1).lowercase()) {
+            "helper" -> if (value.isEmpty()) helpers.clear() else helpers += value
+            "username" -> configUsername = value
+            "usehttppath" -> gitBoolean(value)?.let { useHttpPath = it }
+        }
+    }
+
+    return CredentialSettings(
+        helpers = helpers,
+        useHttpPath = useHttpPath,
+        // credential.username doesn't replace the URL's own
+        username = uri.user?.takeIf { it.isNotEmpty() } ?: configUsername,
+    )
+}
+
+/**
+ * The `credential.*` entries of [config] that apply to [uri], for when git can't list them. JGit doesn't keep the
+ * order of different subsections, so the general ones come first, then those of the subsections that apply, from the
+ * least specific to the most. Each key keeps the order of the config files. JGit also skips `includeIf`.
+ */
+internal fun jgitCredentialEntries(config: Config, uri: URIish): List<ConfigEntry> {
+    val subsections = listOf<String?>(null) + credentialConfigSubsections(config, uri).reversed()
+
+    return subsections.flatMap { subsection ->
+        listOf("helper", "username", "useHttpPath").flatMap { name ->
+            config.getStringList(CREDENTIAL_SECTION, subsection, name).map { value ->
+                // JGit gives null for an empty value (`helper =`), and an empty string for a key without `=`
+                val gitValue = if (value == null) "" else value.ifEmpty { null }
+
+                ConfigEntry(listOfNotNull(CREDENTIAL_SECTION, subsection, name).joinToString("."), gitValue)
+            }
+        }
+    }
+}
+
+/** A git boolean (`git_config_bool`), or null if git can't read it. */
+internal fun gitBoolean(value: String): Boolean? = when (value.lowercase()) {
+    "true", "yes", "on" -> true
+    "", "false", "no", "off" -> false
+    else -> value.toLongOrNull()?.let { it != 0L }
+}
+
+/**
+ * Whether git applies the settings `credential.<url>.<name>` to [uri] (urlmatch.c):
  * - a URL applies when it has the remote's scheme, host and port, ignoring case and the scheme's default port. `*` in
  *   its host stands for one name between dots. Its path is the remote's or a folder above it, and a user name in it
  *   must be the remote's. So `https://example.com` doesn't apply to `https://example.com:8443/team/project.git`, but
  *   `https://example.com:8443/team` does.
- * - anything else is a partial URL, such as `example.com:8443` or `https://`, whose parts must equal the remote's.
- *
- * Git applies every one that matches, in the order of the config files, and runs each helper they list. Leaf runs one
- * helper and takes each setting from the first subsection here that has it: the longest host, then the longest path,
- * then one with a user name, and partial URLs last.
+ * - anything else is a partial URL, such as `example.com:8443` or `https://`, whose parts must equal the remote's
+ *   (`match_partial_url`).
+ */
+internal fun credentialUrlApplies(url: String, uri: URIish): Boolean {
+    val normalized = normalizeUrl(url)
+
+    return if (normalized != null) {
+        normalized.match(normalizedRemote(uri)) != null
+    } else {
+        partialUrlMatches(url, credentialAttributes(uri))
+    }
+}
+
+/**
+ * The subsections of `credential` in [config] that apply to [uri] ([credentialUrlApplies]), the most specific first:
+ * the longest host, then the longest path, then one with a user name, and partial URLs last.
  */
 internal fun credentialConfigSubsections(config: Config, uri: URIish): List<String> {
     val attributes = credentialAttributes(uri)
-    val remote = NormalizedUrl(
-        scheme = uri.scheme.orEmpty().lowercase(),
-        user = attributes.username,
-        host = uri.host.orEmpty().lowercase(),
-        port = uri.port.takeIf { it > 0 && it != defaultPort(uri.scheme.orEmpty().lowercase()) },
-        path = "/" + attributes.path.orEmpty(),
-    )
+    val remote = normalizedRemote(uri)
 
     val subsections = config.getSubsections(CREDENTIAL_SECTION)
 
@@ -190,6 +293,20 @@ private class NormalizedUrl(
     val port: Int?,
     val path: String,
 )
+
+/** [uri] as git compares it with the URLs in config keys, from what it gives helpers (`credential_format`). */
+private fun normalizedRemote(uri: URIish): NormalizedUrl {
+    val attributes = credentialAttributes(uri)
+    val scheme = uri.scheme.orEmpty().lowercase()
+
+    return NormalizedUrl(
+        scheme = scheme,
+        user = attributes.username,
+        host = uri.host.orEmpty().lowercase(),
+        port = uri.port.takeIf { it > 0 && it != defaultPort(scheme) },
+        path = "/" + attributes.path.orEmpty(),
+    )
+}
 
 /** How closely a config URL matches the remote, to pick the most specific one (`cmp_matches` in urlmatch.c). */
 private class UrlMatch(val hostLength: Int, val pathLength: Int, val userMatched: Boolean)

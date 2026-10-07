@@ -4,6 +4,7 @@
 package dev.app.leaf.data.git.credentials
 
 import dev.app.leaf.data.git.IsolatedSystemReader
+import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -347,6 +348,48 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
+    fun `with a user name in the URL, a helper that gives only the password is enough`() {
+        // Like osxkeychain, which gives only the password when git sends the user name
+        File(tools, "git-credential-leaf-test").writeExecutable(
+            "#!/bin/sh\ncat > /dev/null\n[ \"\$1\" = get ] && echo password=helper-password\nexit 0\n"
+        )
+        val provider = createProvider(helper = "leaf-test")
+
+        val answer = provider.requestCredentials(url = "https://alice@example.invalid/team/project.git")
+
+        assertEquals(Answer("alice", "helper-password"), answer)
+    }
+
+    @Test
+    fun `without a repository, as when cloning, the user's git config sets the helper`() {
+        createRecordingHelper(answer = Answer("helper-user", "helper-password"))
+        File(shellVariables.getValue("GIT_CONFIG_GLOBAL")).writeText("[credential]\n\thelper = leaf-test\n")
+        val provider = createProvider(helper = null, inRepository = false)
+
+        assertEquals(Answer("helper-user", "helper-password"), provider.requestCredentials())
+    }
+
+    @Test
+    fun `typed credentials are stored with every helper, and erased from every helper when the server rejects them`() {
+        createRecordingHelper(answer = null)
+        val credentialsFile = File(tempDir, ".git-credentials")
+        val provider = createProvider(helper = null) {
+            setStringList("credential", null, "helper", listOf("store", "leaf-test"))
+        }
+
+        assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials())
+        assertEquals("https://prompted-user:prompted-password@example.invalid\n", awaitText(awaitFile(credentialsFile)))
+        provider.reset(URIish(REMOTE_URL))
+
+        assertEquals("", credentialsFile.readText())
+        assertEquals(listOf("get", "store", "erase"), File(tools, "operations").readLines())
+        assertEquals(
+            "${EXPECTED_INPUT}username=prompted-user\npassword=prompted-password\n",
+            File(tools, "erase.input").readText(),
+        )
+    }
+
+    @Test
     fun `without a helper, cached credentials that the server rejects are dropped, and the new ones cached`() {
         cacheInMemory(Answer("cached-user", "old-password"))
         val provider = createProvider(helper = null)
@@ -468,7 +511,8 @@ class HttpCredentialsProviderTest {
 
     /**
      * An [HttpCredentialsProvider] for a repository whose `credential.helper` is [helper], if there is one, with
-     * [configure] for any other settings.
+     * [configure] for any other settings. Without [inRepository], it has no repository, as when cloning. Helpers run
+     * with [shellVariables], while git always reads the test's config.
      */
     private fun createProvider(
         helper: String?,
@@ -476,12 +520,13 @@ class HttpCredentialsProviderTest {
         gitCredentialsManagerProvider: IGitCredentialsManagerProvider = NoCredentialsManager,
         shellManager: IShellManager = ShellManager(),
         useHttpPath: Boolean = false,
+        inRepository: Boolean = true,
         configure: Config.() -> Unit = {},
     ): HttpCredentialsProvider {
-        val git = Git.init().setDirectory(File(tempDir, "repository")).call()
-        repositories += git
+        val git = if (inRepository) Git.init().setDirectory(File(tempDir, "repository")).call() else null
+        git?.let { repositories += it }
 
-        git.repository.config.apply {
+        git?.repository?.config?.apply {
             helper?.let { setString("credential", null, "helper", it) }
             setBoolean("credential", null, "useHttpPath", useHttpPath)
             configure()
@@ -495,6 +540,7 @@ class HttpCredentialsProviderTest {
                 shellManager = shellManager,
                 gitCredentialsManagerProvider = gitCredentialsManagerProvider,
                 loginShellEnvironment = LoginShellEnvironment { shellVariables },
+                gitCli = testGitCli(this.shellVariables),
             ),
             git = git,
         )

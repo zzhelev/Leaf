@@ -11,12 +11,10 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.internal.JGitText
-import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.CredentialItem.*
 import org.eclipse.jgit.transport.CredentialsProvider
 import org.eclipse.jgit.transport.URIish
-import java.io.File
 
 private const val TAG = "HttpCredentialsProvider"
 
@@ -86,9 +84,9 @@ class HttpCredentialsProvider @AssistedInject constructor(
             //  sslTrustNowItem.value = appSettingsRepository.verifySsl
         }
 
-        val externalCredentialsHelper = credentialHelpers.find(credentialsConfig(), uri)
+        val helperSettings = runBlocking { credentialHelpers.find(git?.repository, uri) }
 
-        if (externalCredentialsHelper == null) {
+        if (helperSettings == null) {
             val cachedCredentials = credentialsCacheRepository.getCachedHttpCredentials(
                 url = uri.toString(),
                 isLfs = false,
@@ -120,17 +118,17 @@ class HttpCredentialsProvider @AssistedInject constructor(
                 return true
             }
         } else {
-            when (val answer = credentialHelpers.get(externalCredentialsHelper, uri)) {
+            when (val answer = credentialHelpers.get(helperSettings, uri)) {
                 is HelperAnswer.Credentials -> {
                     userItem.value = answer.user
                     passwordItem.value = answer.password.toCharArray()
 
                     helperCredentials = HelperCredentials(
-                        helper = externalCredentialsHelper,
+                        settings = helperSettings,
                         uri = uri,
                         user = answer.user,
                         password = answer.password,
-                        store = null,
+                        stores = emptyList(),
                     )
 
                     return true
@@ -144,13 +142,13 @@ class HttpCredentialsProvider @AssistedInject constructor(
 
                     // Git stores them once the server accepts them, Leaf right away: reset erases them if it doesn't
                     helperCredentials = HelperCredentials(
-                        helper = externalCredentialsHelper,
+                        settings = helperSettings,
                         uri = uri,
                         user = credentials.user,
                         password = credentials.password,
-                        store = credentialHelpers.send(
+                        stores = credentialHelpers.send(
                             operation = "store",
-                            helper = externalCredentialsHelper,
+                            settings = helperSettings,
                             uri = uri,
                             user = credentials.user,
                             password = credentials.password,
@@ -181,27 +179,11 @@ class HttpCredentialsProvider @AssistedInject constructor(
         val rejected = helperCredentials ?: return
         helperCredentials = null
 
-        credentialHelpers.erase(rejected.helper, rejected.uri, rejected.user, rejected.password, rejected.store)
+        credentialHelpers.erase(rejected.settings, rejected.uri, rejected.user, rejected.password, rejected.stores)
     }
 
     private fun askForCredentials(): CredentialsAccepted.HttpCredentialsAccepted = runBlocking {
         credentialsStateManager.requestHttpCredentials()
-    }
-
-    /** The config that sets the credential helper: the repository's, or `~/.gitconfig` without one (cloning). */
-    private fun credentialsConfig(): Config {
-        if (git != null) {
-            return git.repository.config
-        }
-
-        val homePath = System.getProperty("user.home")
-        val configFile = File("$homePath/.gitconfig")
-
-        return Config().apply {
-            if (configFile.exists()) {
-                fromText(configFile.readText())
-            }
-        }
     }
 
     override suspend fun cacheCredentialsIfNeeded() {
@@ -212,13 +194,13 @@ class HttpCredentialsProvider @AssistedInject constructor(
 }
 
 /**
- * Credentials that [HttpCredentialsProvider.get] gave while [helper] is configured, for [uri]. [store] is the helper's
- * `store` of them, when Leaf asked the user for them; it may still be running.
+ * Credentials that [HttpCredentialsProvider.get] gave for [uri] while credential helpers are configured ([settings]).
+ * [stores] are the helpers' `store` of them, when Leaf asked the user for them; they may still be running.
  */
 private class HelperCredentials(
-    val helper: ExternalCredentialsHelper,
+    val settings: CredentialSettings,
     val uri: URIish,
     val user: String,
     val password: String,
-    val store: Process?,
+    val stores: List<Process>,
 )
