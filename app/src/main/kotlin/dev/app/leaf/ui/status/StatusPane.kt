@@ -9,6 +9,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,8 +29,11 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isMetaPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -56,6 +63,7 @@ import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntryContextMenuItems
 import dev.app.leaf.ui.dialogs.CommitAuthorDialog
+import dev.app.leaf.ui.resizePointerIconNorth
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -123,6 +131,13 @@ fun StatusPane(
         )
     }
 
+    // A drag changes this copy at once; the saved sizes only change when the drag ends, and come back through the state.
+    var sectionSizes by remember { mutableStateOf(statusState.sectionSizes) }
+
+    LaunchedEffect(statusState.sectionSizes) {
+        sectionSizes = statusState.sectionSizes
+    }
+
     Column(
         modifier = Modifier
             .padding(end = 8.dp, bottom = 8.dp)
@@ -136,9 +151,18 @@ fun StatusPane(
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colors.primaryVariant)
         }
 
-        Column(
+        BoxWithConstraints(
             modifier = Modifier.weight(1f),
         ) {
+            val paneHeight = maxHeight.value
+            val heights = sectionSizes.fitTo(paneHeight)
+            val stagedOnTop = !swapUncommittedChanges
+
+            fun saveSectionSizes(sizes: StatusSectionSizes) {
+                sectionSizes = sizes
+                onAction(StatusAction.SectionSizesChanged(sizes))
+            }
+
             @Composable
             fun staged() {
                 StatusChangesList(
@@ -154,6 +178,7 @@ fun StatusPane(
                     onHistoryFile = onHistoryFile,
                     onDiscardFolderChanges = onDiscardFolderChanges,
                     onAction = { onAction(it) },
+                    modifier = Modifier.height(heights.staged.dp),
                 )
             }
 
@@ -172,64 +197,109 @@ fun StatusPane(
                     onHistoryFile = onHistoryFile,
                     onDiscardFolderChanges = onDiscardFolderChanges,
                     onAction = { onAction(it) },
+                    modifier = Modifier.height(heights.unstaged.dp),
                 )
             }
 
-            if (swapUncommittedChanges) {
-                unstaged()
-                staged()
-            } else {
-                staged()
-                unstaged()
+            Column {
+                if (stagedOnTop) staged() else unstaged()
+
+                SectionDivider(
+                    onDrag = { delta ->
+                        sectionSizes = sectionSizes.withListsDividerMoved(paneHeight, delta, stagedOnTop)
+                    },
+                    onDragStopped = { saveSectionSizes(sectionSizes) },
+                    onDoubleClick = { saveSectionSizes(sectionSizes.copy(stagedShare = STATUS_DEFAULT_STAGED_SHARE)) },
+                )
+
+                if (stagedOnTop) unstaged() else staged()
+
+                SectionDivider(
+                    onDrag = { delta ->
+                        sectionSizes = sectionSizes.withCommitDividerMoved(paneHeight, delta, stagedOnTop)
+                    },
+                    onDragStopped = { saveSectionSizes(sectionSizes) },
+                    onDoubleClick = {
+                        saveSectionSizes(sectionSizes.copy(commitFieldHeight = STATUS_DEFAULT_COMMIT_FIELD_HEIGHT))
+                    },
+                )
+
+                CommitField(
+                    canCommit,
+                    isAmend,
+                    canAmend,
+                    doCommit,
+                    commitMessage,
+                    previousCommitMessage = statusState.previousCommitMessage,
+                    statusState.repositoryState,
+                    isAmenableRebaseInteractive,
+                    statusState.hasUnstagedFiles,
+                    rebaseInteractiveState,
+                    statusState.hasStagedFiles,
+                    isAmendRebaseInteractive,
+                    !statusState.isLoading && statusState.haveConflictsBeenSolved,
+                    setCommitMessage = {
+                        onAction(StatusAction.UpdateCommitMessage(it))
+                    },
+                    onResetRepoState = {
+                        onAction(StatusAction.ResetRepositoryState)
+                        onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
+                    },
+                    onAbortRebase = {
+                        onAction(StatusAction.AbortRebase)
+                        onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
+                    },
+                    onAmendChecked = { amend ->
+                        if (amend && commitMessage.text.isEmpty()) {
+                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
+                        }
+                        onAction(StatusAction.ToggleAmend(amend))
+                    },
+                    onContinueRebase = { onAction(StatusAction.ContinueRebase(commitMessage.text)) },
+                    onSkipRebase = { onAction(StatusAction.SkipRebase) },
+                    onAmendRebaseInteractiveChecked = { amend ->
+                        if (amend && commitMessage.text.isEmpty()) {
+                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
+                        }
+
+                        onAction(StatusAction.ToggleAmendRebaseInteractive(amend))
+                    },
+                    modifier = Modifier.height(heights.commitField.dp),
+                )
             }
         }
-
-        CommitField(
-            canCommit,
-            isAmend,
-            canAmend,
-            doCommit,
-            commitMessage,
-            previousCommitMessage = statusState.previousCommitMessage,
-            statusState.repositoryState,
-            isAmenableRebaseInteractive,
-            statusState.hasUnstagedFiles,
-            rebaseInteractiveState,
-            statusState.hasStagedFiles,
-            isAmendRebaseInteractive,
-            !statusState.isLoading && statusState.haveConflictsBeenSolved,
-            setCommitMessage = {
-                onAction(StatusAction.UpdateCommitMessage(it))
-            },
-            onResetRepoState = {
-                onAction(StatusAction.ResetRepositoryState)
-                onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
-            },
-            onAbortRebase = {
-                onAction(StatusAction.AbortRebase)
-                onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
-            },
-            onAmendChecked = { amend ->
-                if (amend && commitMessage.text.isEmpty()) {
-                    onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
-                }
-                onAction(StatusAction.ToggleAmend(amend))
-            },
-            onContinueRebase = { onAction(StatusAction.ContinueRebase(commitMessage.text)) },
-            onSkipRebase = { onAction(StatusAction.SkipRebase) },
-            onAmendRebaseInteractiveChecked = { amend ->
-                if (amend && commitMessage.text.isEmpty()) {
-                    onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
-                }
-
-                onAction(StatusAction.ToggleAmendRebaseInteractive(amend))
-            }
-        )
     }
 }
 
+/** The handle between two sections of the pane. Dragging it resizes them, and a double-click resets them. */
 @Composable
-fun ColumnScope.StatusChangesList(
+private fun SectionDivider(
+    /** How far the handle moved down, in dp. */
+    onDrag: (Float) -> Unit,
+    onDragStopped: () -> Unit,
+    onDoubleClick: () -> Unit,
+) {
+    val density = LocalDensity.current.density
+    val currentOnDoubleClick by rememberUpdatedState(onDoubleClick)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(STATUS_SECTION_DIVIDER_HEIGHT.dp)
+            .pointerHoverIcon(resizePointerIconNorth)
+            .draggable(
+                state = rememberDraggableState { onDrag(it / density) },
+                orientation = Orientation.Vertical,
+                onDragStopped = { onDragStopped() },
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(onDoubleTap = { currentOnDoubleClick() })
+            }
+    )
+}
+
+@Composable
+fun StatusChangesList(
     entryType: EntryType,
     statusState: StatusState,
     showSearch: Boolean,
@@ -242,6 +312,7 @@ fun ColumnScope.StatusChangesList(
     onHistoryFile: (String) -> Unit,
     onDiscardFolderChanges: (folderPath: String, entries: List<StatusEntry>, keptNewFiles: Int) -> Unit,
     onAction: (StatusAction) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -269,7 +340,7 @@ fun ColumnScope.StatusChangesList(
         }
     }
 
-    this.ChangesList(
+    ChangesList(
         title = title,
         actionInfo = actionInfo,
         entryType = entryType,
@@ -289,12 +360,13 @@ fun ColumnScope.StatusChangesList(
             scope.launch {
                 copyEntriesPath(clipboard, entries, relative, statusState.repositoryPath)
             }
-        }
+        },
+        modifier = modifier,
     )
 }
 
 @Composable
-fun ColumnScope.ChangesList(
+fun ChangesList(
     title: String,
     actionInfo: ActionInfo,
     entryType: EntryType,
@@ -312,6 +384,7 @@ fun ColumnScope.ChangesList(
     onHistoryFile: (String) -> Unit,
     onAction: (StatusAction) -> Unit,
     onCopy: (relative: Boolean, entries: List<StatusEntry>) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     fun entriesContextMenu(): (StatusEntry) -> List<ContextMenuElement> = { statusEntry ->
         statusEntryContextMenuItems(
@@ -365,9 +438,7 @@ fun ColumnScope.ChangesList(
     }
 
     Column(
-        modifier = Modifier
-            .weight(5f)
-            .padding(bottom = 4.dp)
+        modifier = modifier
             .fillMaxWidth()
     ) {
         FilesChangedHeader(
@@ -479,11 +550,11 @@ private fun CommitField(
     onSkipRebase: () -> Unit,
     onAmendChecked: (Boolean) -> Unit,
     onAmendRebaseInteractiveChecked: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     Column(
-        modifier = Modifier
-            .height(192.dp)
+        modifier = modifier
             .fillMaxWidth()
     ) {
         TextField(

@@ -5,6 +5,7 @@ import dev.app.leaf.domain.models.AuthorInfo
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
+import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.sorting.FilesViewState
 
 sealed interface StatusAction {
@@ -47,4 +48,7 @@ sealed interface StatusAction {
 
     data class ToggleAmend(val toggle: Boolean): StatusAction
     data class ToggleAmendRebaseInteractive(val toggle: Boolean): StatusAction
+
+    /** The user finished resizing the pane's sections. */
+    data class SectionSizesChanged(val sizes: StatusSectionSizes) : StatusAction
 }

@@ -52,6 +52,7 @@ data class StatusState(
     val previousCommitMessage: String? = null,
     val repositoryState: RepositoryState = RepositoryState.SAFE,
     val repositoryPath: String? = null,
+    val sectionSizes: StatusSectionSizes = StatusSectionSizes(),
 ) {
     val hasPreviousCommits: Boolean = previousCommitMessage != null
 
@@ -103,6 +104,7 @@ fun combineStatusState(
     previousCommitMessage: Flow<String?>,
     repositoryState: Flow<UiDataState<RepositoryState>>,
     repositoryPath: Flow<String?>,
+    sectionSizes: Flow<StatusSectionSizes>,
 ): Flow<StatusState> {
     return combine(
         status,
@@ -124,6 +126,7 @@ fun combineStatusState(
         previousCommitMessage,
         repositoryState,
         repositoryPath,
+        sectionSizes,
     ) {
             statusDataState,
             showSearchStaged,
@@ -144,6 +147,7 @@ fun combineStatusState(
             previousCommitMessage,
             repositoryStateDateState,
             repositoryPath,
+            sectionSizes,
         ->
         val status = statusDataState.data ?: Status()
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
@@ -184,6 +188,7 @@ fun combineStatusState(
             previousCommitMessage = previousCommitMessage,
             repositoryState = repositoryState,
             repositoryPath = repositoryPath,
+            sectionSizes = sectionSizes,
         )
     }
 }

@@ -4,6 +4,7 @@ import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.ProxyType
+import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -58,4 +59,5 @@ interface AppSettingsRepository {
     var latestOpenedRepositoriesPath: String
     var firstPaneWidth: Float
     var thirdPaneWidth: Float
+    var statusSectionSizes: StatusSectionSizes
 }

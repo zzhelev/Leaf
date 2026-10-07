@@ -13,6 +13,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapp
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.ProxyType
+import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.SortSettingsCodec
@@ -27,6 +28,8 @@ private const val PREF_LAST_OPENED_REPOSITORIES_PATH = "lastOpenedRepositoriesLi
 private const val PREF_WINDOW_PLACEMENT = "windowsPlacement"
 private const val PREF_FIRST_PANE_WIDTH = "firstPaneWidth"
 private const val PREF_THIRD_PANE_WIDTH = "thirdPaneWidth"
+private const val PREF_STATUS_STAGED_SHARE = "statusStagedShare"
+private const val PREF_STATUS_COMMIT_FIELD_HEIGHT = "statusCommitFieldHeight"
 private const val DEFAULT_FIRST_PANE_WIDTH = 220f
 private const val DEFAULT_THIRD_PANE_WIDTH = 330f
 
@@ -222,6 +225,20 @@ class DataStoreAppSettingsRepository @Inject constructor(
         }
         set(value) {
             preferencesLegacy.putFloat(PREF_THIRD_PANE_WIDTH, value)
+        }
+
+    override var statusSectionSizes: StatusSectionSizes
+        get() {
+            val defaults = StatusSectionSizes()
+
+            return StatusSectionSizes(
+                stagedShare = preferencesLegacy.getFloat(PREF_STATUS_STAGED_SHARE, defaults.stagedShare),
+                commitFieldHeight = preferencesLegacy.getFloat(PREF_STATUS_COMMIT_FIELD_HEIGHT, defaults.commitFieldHeight),
+            ).orDefaults()
+        }
+        set(value) {
+            preferencesLegacy.putFloat(PREF_STATUS_STAGED_SHARE, value.stagedShare)
+            preferencesLegacy.putFloat(PREF_STATUS_COMMIT_FIELD_HEIGHT, value.commitFieldHeight)
         }
 
 

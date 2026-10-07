@@ -50,6 +50,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val unstageByDirectoryUseCase: UnstageByDirectoryUseCase,
     private val persistCommitMessageUseCase: PersistCommitMessageUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
+    private val statusSectionsConfig: StatusSectionsConfig,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -210,6 +211,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         previousCommitMessage,
         repositoryDataRepository.repositoryState.toUiDataState(),
         repositoryPath,
+        statusSectionsConfig.sizes,
     )
         .stateIn(StatusState())
 
@@ -332,6 +334,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.ToggleAmend -> amend(action.toggle)
         is StatusAction.ToggleAmendRebaseInteractive -> amendRebaseInteractive(action.toggle)
         is StatusAction.UpdateCommitMessage -> updateCommitMessage(action.message)
+        is StatusAction.SectionSizesChanged -> statusSectionsConfig.save(action.sizes)
     }
 
     fun rejectCommitterData() {
