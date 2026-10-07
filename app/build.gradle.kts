@@ -245,10 +245,15 @@ if (currentOs() == OS.MAC) {
     }
 }
 
-// jpackage's .deb registers its menu entry by calling xdg-desktop-menu from the install scripts. That fails where there
-// is no system menu directory (/etc/xdg/menus), such as WSL or a minimal install, and leaves the package half
-// configured. So the .deb is repacked: the entry becomes a regular file in /usr/share/applications, which dpkg installs
-// and removes like any other, and the xdg-desktop-menu calls go. Linux only, like packageDeb itself.
+// jpackage's .deb needs two fixes, so packageDeb repacks it. Linux only, like packageDeb itself.
+// - Its install scripts register the menu entry with xdg-desktop-menu, which fails where there is no system menu
+//   directory (/etc/xdg/menus), such as WSL or a minimal install, and leaves the package half configured. The entry
+//   becomes a regular file in /usr/share/applications, which dpkg installs and removes like any other, and the
+//   xdg-desktop-menu calls go.
+// - Its launcher reads the launch data from a pipe with a single read() (JDK-8380085, fixed in JDK 27). Once the user
+//   has many pipes open, Linux gives new pipes 8 KB, and longer launch data crashes the launcher with SIGSEGV. Most of
+//   Leaf's was the hash Compose adds to each jar name, so the hashes go, except for 8 characters where two jars would
+//   otherwise get the same name. The build fails if the classpath still gets too long.
 if (currentOs() == OS.LINUX) {
     tasks.withType<AbstractJPackageTask>().matching { it.targetFormat == TargetFormat.Deb }.configureEach {
         val debDir = destinationDir
@@ -271,6 +276,9 @@ if (currentOs() == OS.LINUX) {
                 .find(postinst.readText())?.groupValues?.get(1)
                 ?: error("jpackage's postinst no longer calls xdg-desktop-menu install. Is the repack still needed?")
             val entry = repackDir.resolve(entryPath.removePrefix("/"))
+            val appDir = entry.parentFile.resolve("app")
+            val cfg = appDir.listFiles { file -> file.extension == "cfg" }.orEmpty().singleOrNull()
+                ?: error("Expected one launcher .cfg in $appDir")
 
             val directoryMode = PosixFilePermissions.fromString("rwxr-xr-x")
             for (directory in listOf("usr", "usr/share", "usr/share/applications")) {
@@ -286,8 +294,41 @@ if (currentOs() == OS.LINUX) {
                 script.writeText(kept.joinToString("\n", postfix = "\n"))
             }
 
+            val hashSuffix = Regex("""-([0-9a-f]{16,32})\.jar$""")
+            fun withoutHash(name: String) = name.replace(hashSuffix, ".jar")
+            val jars = appDir.listFiles { file -> file.extension == "jar" }.orEmpty().map { it.name }
+            val jarsPerName = jars.groupingBy(::withoutHash).eachCount()
+            val newNames = jars.associateWith { name ->
+                if (jarsPerName.getValue(withoutHash(name)) == 1) {
+                    withoutHash(name)
+                } else {
+                    name.replace(hashSuffix) { "-${it.groupValues[1].take(8)}.jar" }
+                }
+            }
+            check(newNames.values.toSet().size == newNames.size) { "Shortened jar names collide: $newNames" }
+            for ((oldName, newName) in newNames) {
+                if (oldName != newName) Files.move(appDir.resolve(oldName).toPath(), appDir.resolve(newName).toPath())
+            }
+            val classpathEntry = "app.classpath=\$APPDIR/"
+            cfg.writeText(cfg.readLines().joinToString("\n", postfix = "\n") { line ->
+                if (line.startsWith(classpathEntry)) {
+                    classpathEntry + newNames.getValue(line.removePrefix(classpathEntry))
+                } else {
+                    line
+                }
+            })
+            // As the launcher expands $APPDIR. The rest of its launch data (JVM options, paths) is a few hundred bytes.
+            val classpathBytes = newNames.values.sumOf { "/${appDir.relativeTo(repackDir)}/$it:".length }
+            check(classpathBytes <= 7000) {
+                "The classpath is $classpathBytes bytes. Above about 8 KB of launch data in all, jpackage's launcher " +
+                    "can crash (JDK-8380085). Shorten the jar names further, or package with a JDK that has the fix."
+            }
+
             runCommand("dpkg-deb", "--root-owner-group", "--build", repackDir.absolutePath, deb.absolutePath)
-            println("Repacked $deb: ${entry.name} is in /usr/share/applications, with no xdg-desktop-menu calls")
+            println(
+                "Repacked $deb: ${entry.name} is in /usr/share/applications, with no xdg-desktop-menu calls, and the " +
+                    "classpath is $classpathBytes bytes"
+            )
         }
     }
 }
