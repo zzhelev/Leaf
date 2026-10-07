@@ -3,8 +3,8 @@
 
 package dev.app.leaf.domain.models
 
-/** Height of each handle between two sections, in dp. */
-const val STATUS_SECTION_DIVIDER_HEIGHT = 8f
+/** Height of the handle between two resizable sections of a pane, in dp. */
+const val SECTION_DIVIDER_HEIGHT = 8f
 
 /** The smallest Staged or Unstaged list, in dp: the header, the column header of Split columns and one row. */
 const val STATUS_MIN_LIST_HEIGHT = 100f
@@ -37,7 +37,7 @@ data class StatusSectionSizes(
      * that, the commit field keeps its minimum and the lists split what's left evenly.
      */
     fun fitTo(height: Float): StatusSectionHeights {
-        val available = (height - 2 * STATUS_SECTION_DIVIDER_HEIGHT).coerceAtLeast(0f)
+        val available = (height - 2 * SECTION_DIVIDER_HEIGHT).coerceAtLeast(0f)
         val commitField = commitFieldHeight
             .coerceAtMost(available - 2 * STATUS_MIN_LIST_HEIGHT)
             .coerceAtLeast(STATUS_MIN_COMMIT_FIELD_HEIGHT)
@@ -72,7 +72,7 @@ data class StatusSectionSizes(
      */
     fun withCommitDividerMoved(height: Float, delta: Float, stagedOnTop: Boolean): StatusSectionSizes {
         val heights = fitTo(height)
-        val available = height - 2 * STATUS_SECTION_DIVIDER_HEIGHT
+        val available = height - 2 * SECTION_DIVIDER_HEIGHT
         val maxCommitField = available - 2 * STATUS_MIN_LIST_HEIGHT
 
         if (maxCommitField < STATUS_MIN_COMMIT_FIELD_HEIGHT) return this

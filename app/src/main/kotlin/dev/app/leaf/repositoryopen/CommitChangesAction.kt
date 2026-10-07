@@ -1,6 +1,7 @@
 package dev.app.leaf.repositoryopen
 
 import androidx.compose.ui.text.input.TextFieldValue
+import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.sorting.FilesViewState
 import org.eclipse.jgit.diff.DiffEntry
 
@@ -11,4 +12,7 @@ sealed interface CommitChangesAction {
     data class SearchFilterChanged(val filter: TextFieldValue) : CommitChangesAction
     data class SearchFilterToggle(val show: Boolean) : CommitChangesAction
     data object AddSearchToCloseables : CommitChangesAction
+
+    /** The user finished resizing the commit message. */
+    data class SectionSizesChanged(val sizes: CommitChangesSectionSizes) : CommitChangesAction
 }

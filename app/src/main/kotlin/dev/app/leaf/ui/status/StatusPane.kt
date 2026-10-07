@@ -9,10 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,11 +25,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isMetaPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
-import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -63,7 +56,6 @@ import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntryContextMenuItems
 import dev.app.leaf.ui.dialogs.CommitAuthorDialog
-import dev.app.leaf.ui.resizePointerIconNorth
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -269,33 +261,6 @@ fun StatusPane(
             }
         }
     }
-}
-
-/** The handle between two sections of the pane. Dragging it resizes them, and a double-click resets them. */
-@Composable
-private fun SectionDivider(
-    /** How far the handle moved down, in dp. */
-    onDrag: (Float) -> Unit,
-    onDragStopped: () -> Unit,
-    onDoubleClick: () -> Unit,
-) {
-    val density = LocalDensity.current.density
-    val currentOnDoubleClick by rememberUpdatedState(onDoubleClick)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(STATUS_SECTION_DIVIDER_HEIGHT.dp)
-            .pointerHoverIcon(resizePointerIconNorth)
-            .draggable(
-                state = rememberDraggableState { onDrag(it / density) },
-                orientation = Orientation.Vertical,
-                onDragStopped = { onDragStopped() },
-            )
-            .pointerInput(Unit) {
-                detectTapGestures(onDoubleTap = { currentOnDoubleClick() })
-            }
-    )
 }
 
 @Composable

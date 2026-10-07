@@ -13,6 +13,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapp
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.ProxyType
+import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -30,6 +31,7 @@ private const val PREF_FIRST_PANE_WIDTH = "firstPaneWidth"
 private const val PREF_THIRD_PANE_WIDTH = "thirdPaneWidth"
 private const val PREF_STATUS_STAGED_SHARE = "statusStagedShare"
 private const val PREF_STATUS_COMMIT_FIELD_HEIGHT = "statusCommitFieldHeight"
+private const val PREF_COMMIT_MESSAGE_HEIGHT = "commitMessageHeight"
 private const val DEFAULT_FIRST_PANE_WIDTH = 220f
 private const val DEFAULT_THIRD_PANE_WIDTH = 330f
 
@@ -239,6 +241,18 @@ class DataStoreAppSettingsRepository @Inject constructor(
         set(value) {
             preferencesLegacy.putFloat(PREF_STATUS_STAGED_SHARE, value.stagedShare)
             preferencesLegacy.putFloat(PREF_STATUS_COMMIT_FIELD_HEIGHT, value.commitFieldHeight)
+        }
+
+    override var commitChangesSectionSizes: CommitChangesSectionSizes
+        get() {
+            val defaults = CommitChangesSectionSizes()
+
+            return CommitChangesSectionSizes(
+                messageHeight = preferencesLegacy.getFloat(PREF_COMMIT_MESSAGE_HEIGHT, defaults.messageHeight),
+            ).orDefaults()
+        }
+        set(value) {
+            preferencesLegacy.putFloat(PREF_COMMIT_MESSAGE_HEIGHT, value.messageHeight)
         }
 
 

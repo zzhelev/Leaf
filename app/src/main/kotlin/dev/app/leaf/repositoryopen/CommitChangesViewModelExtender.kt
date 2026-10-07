@@ -33,6 +33,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class CommitChangesViewModelExtender @AssistedInject constructor(
     private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
+    private val commitChangesSectionsConfig: CommitChangesSectionsConfig,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val selectedItem: StateFlow<SelectedItem>,
@@ -84,7 +85,8 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
         searchCollapsedDirectories,
         showSearch,
         searchFilter,
-    ) { state, viewState, collapsed, searchCollapsed, showSearch, searchFilter ->
+        commitChangesSectionsConfig.sizes,
+    ) { state, viewState, collapsed, searchCollapsed, showSearch, searchFilter, sectionSizes ->
         if (state == null) return@combine null
 
         val searching = showSearch && searchFilter.text.isNotBlank()
@@ -103,6 +105,7 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
                 state = viewState,
                 isCollapsed = if (searching) searchCollapsed::contains else collapsed::contains,
             ),
+            sectionSizes = sectionSizes,
         )
     }
         .onEach {
@@ -191,6 +194,7 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
 
             is CommitChangesAction.TreeDirectoryToggle -> onDirectoryVisibilityToggle(action.path)
             CommitChangesAction.AddSearchToCloseables -> addSearchToCloseableView()
+            is CommitChangesAction.SectionSizesChanged -> commitChangesSectionsConfig.save(action.sizes)
         }
     }
 

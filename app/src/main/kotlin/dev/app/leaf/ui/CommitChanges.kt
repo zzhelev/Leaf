@@ -22,7 +22,7 @@ import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.parentDirectoryPath
-import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -75,6 +75,7 @@ fun CommitChanges(
         },
         onDirectoryClicked = { viewModel.onAction(CommitChangesAction.TreeDirectoryToggle(it)) },
         onViewStateChanged = { viewModel.onAction(CommitChangesAction.ViewStateChanged(it)) },
+        onSectionSizesChanged = { viewModel.onAction(CommitChangesAction.SectionSizesChanged(it)) },
     )
 }
 
@@ -91,6 +92,7 @@ private fun CommitChangesView(
     onSearchFilterChanged: (TextFieldValue) -> Unit,
     onDirectoryClicked: (path: String) -> Unit,
     onViewStateChanged: (FilesViewState) -> Unit,
+    onSectionSizesChanged: (CommitChangesSectionSizes) -> Unit,
 ) {
     val tabFocusRequester = LocalTabFocusRequester.current
     val commit = commitChangesState.commit
@@ -117,93 +119,120 @@ private fun CommitChangesView(
         ScrollState(0)
     }
 
+    // A drag changes this copy at once. The saved size changes when the drag ends and comes back through the state.
+    var sectionSizes by remember { mutableStateOf(commitChangesState.sectionSizes) }
+
+    LaunchedEffect(commitChangesState.sectionSizes) {
+        sectionSizes = commitChangesState.sectionSizes
+    }
+
     Column(
         modifier = Modifier
             .padding(end = 8.dp, bottom = 8.dp)
             .fillMaxSize(),
     ) {
-        Column(
-            modifier = Modifier
-                .padding(bottom = 4.dp)
-                .fillMaxWidth()
-                .weight(1f, fill = true)
-                .background(MaterialTheme.colors.background)
+        BoxWithConstraints(
+            modifier = Modifier.weight(1f),
         ) {
-            FilesChangedHeader(
-                title = "Files changed",
-                showSearch = showSearch,
-                sortAction = {
-                    FilesSortMenuButton(viewState = viewState, onViewStateChange = onViewStateChanged)
-                },
-                searchFilter = searchFilter,
-                onSearchFocused = onSearchFocused,
-                onSearchFilterToggled = onSearchFilterToggled,
-                onSearchFilterChanged = onSearchFilterChanged,
-                showActionForSelected = false,
-            )
+            val paneHeight = maxHeight.value
+            val heights = sectionSizes.fitTo(paneHeight)
 
-            if (commitChangesState.isLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            fun saveSectionSizes(sizes: CommitChangesSectionSizes) {
+                sectionSizes = sizes
+                onSectionSizesChanged(sizes)
             }
 
-            ChangedFilesList(
-                rows = commitChangesState.rows,
-                viewState = viewState,
-                selectedEntries = diffSelected?.items?.map { it.diffEntry }.orEmpty(),
-                listState = changesListScroll,
-                resetKey = commit,
-                fileIcon = { it.icon },
-                fileIconColor = { it.iconColor },
-                onFileClick = onDiffSelected,
-                onFolderToggle = onDirectoryClicked,
-                onSplitRatioChange = { onViewStateChanged(viewState.copy(splitRatio = it)) },
-                onGenerateContextMenu = { diffEntry ->
-                    committedChangesEntriesContextMenuItems(
-                        diffEntry,
-                        onBlame = { onBlame(diffEntry.filePath) },
-                        onHistory = { onHistory(diffEntry.filePath) },
-                        onOpenFileInFolder = { onOpenFileInFolder(diffEntry.parentDirectoryPath) },
+            Column {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(heights.files.dp)
+                        .background(MaterialTheme.colors.background)
+                ) {
+                    FilesChangedHeader(
+                        title = "Files changed",
+                        showSearch = showSearch,
+                        sortAction = {
+                            FilesSortMenuButton(viewState = viewState, onViewStateChange = onViewStateChanged)
+                        },
+                        searchFilter = searchFilter,
+                        onSearchFocused = onSearchFocused,
+                        onSearchFilterToggled = onSearchFilterToggled,
+                        onSearchFilterChanged = onSearchFilterChanged,
+                        showActionForSelected = false,
                     )
-                },
-            )
+
+                    if (commitChangesState.isLoading) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+
+                    ChangedFilesList(
+                        rows = commitChangesState.rows,
+                        viewState = viewState,
+                        selectedEntries = diffSelected?.items?.map { it.diffEntry }.orEmpty(),
+                        listState = changesListScroll,
+                        resetKey = commit,
+                        fileIcon = { it.icon },
+                        fileIconColor = { it.iconColor },
+                        onFileClick = onDiffSelected,
+                        onFolderToggle = onDirectoryClicked,
+                        onSplitRatioChange = { onViewStateChanged(viewState.copy(splitRatio = it)) },
+                        onGenerateContextMenu = { diffEntry ->
+                            committedChangesEntriesContextMenuItems(
+                                diffEntry,
+                                onBlame = { onBlame(diffEntry.filePath) },
+                                onHistory = { onHistory(diffEntry.filePath) },
+                                onOpenFileInFolder = { onOpenFileInFolder(diffEntry.parentDirectoryPath) },
+                            )
+                        },
+                    )
+                }
+
+                SectionDivider(
+                    onDrag = { delta -> sectionSizes = sectionSizes.withDividerMoved(paneHeight, delta) },
+                    onDragStopped = { saveSectionSizes(sectionSizes) },
+                    onDoubleClick = { saveSectionSizes(CommitChangesSectionSizes()) },
+                )
+
+                CommitMessage(
+                    message = commit.message,
+                    textScroll = textScroll,
+                    modifier = Modifier.height(heights.message.dp),
+                )
+            }
         }
 
-        MessageAuthorFooter(
-            commit,
-            textScroll,
-        )
+        // The message above and this footer look like one box, with rounded corners at the top and the bottom.
+        Box(
+            modifier = Modifier.clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp)),
+        ) {
+            CommitFooter(
+                shortHash = commit.shortHash,
+                hash = commit.hash,
+                date = commit.date,
+                author = commit.author,
+            )
+        }
     }
 }
 
 @Composable
-private fun MessageAuthorFooter(
-    commit: Commit,
+private fun CommitMessage(
+    message: String,
     textScroll: ScrollState,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colors.background),
-    ) {
-        SelectionContainer {
-            Text(
-                text = commit.message,
-                style = MaterialTheme.typography.body1,
-                color = MaterialTheme.colors.onBackground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .padding(8.dp)
-                    .verticalScroll(textScroll),
-            )
-        }
-
-        CommitFooter(
-            shortHash = commit.shortHash,
-            hash = commit.hash,
-            date = commit.date,
-            author = commit.author,
+    SelectionContainer {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.body1,
+            color = MaterialTheme.colors.onBackground,
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                .background(MaterialTheme.colors.background)
+                .padding(8.dp)
+                .verticalScroll(textScroll),
         )
     }
 }

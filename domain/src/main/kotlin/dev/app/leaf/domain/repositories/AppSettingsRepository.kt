@@ -4,6 +4,7 @@ import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.ProxyType
+import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -60,4 +61,5 @@ interface AppSettingsRepository {
     var firstPaneWidth: Float
     var thirdPaneWidth: Float
     var statusSectionSizes: StatusSectionSizes
+    var commitChangesSectionSizes: CommitChangesSectionSizes
 }
