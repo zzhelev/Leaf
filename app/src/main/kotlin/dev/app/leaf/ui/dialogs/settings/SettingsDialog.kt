@@ -175,7 +175,10 @@ fun SettingsDialog(
                     text = "Settings",
                     style = MaterialTheme.typography.h3,
                     color = MaterialTheme.colors.onBackground,
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .dialogDragHandle()
+                        .padding(16.dp),
                     fontWeight = FontWeight.Bold,
                 )
 
