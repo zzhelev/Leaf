@@ -10,6 +10,7 @@ import dev.app.leaf.domain.sorting.CollapsedFolders
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.buildFileRows
+import dev.app.leaf.domain.sorting.inFolder
 import dev.app.leaf.domain.sorting.toFileItems
 import dev.app.leaf.ui.UiDataState
 import kotlinx.coroutines.flow.Flow
@@ -63,8 +64,11 @@ data class StatusState(
         }
     }
 
-    /** The files under [folderPath] that a pane's search matches, including those inside closed folders. */
-    fun searchMatchesUnder(folderPath: String, entryType: EntryType): List<StatusEntry> {
+    /**
+     * The files a folder row stands for: every file under [folderPath], including those inside closed folders, or only
+     * the search matches while the pane is searching.
+     */
+    fun entriesShownUnder(folderPath: String, entryType: EntryType): List<StatusEntry> {
         val searchFilter = when (entryType) {
             EntryType.STAGED -> activeSearch(showSearchStaged, searchFilterStaged)
             EntryType.UNSTAGED -> activeSearch(showSearchUnstaged, searchFilterUnstaged)
@@ -72,7 +76,7 @@ data class StatusState(
 
         return getEntriesByEntryType(entryType)
             .filteredBySearch(searchFilter)
-            .filter { it.filePath.startsWith("$folderPath/") }
+            .inFolder(folderPath)
     }
 
     val hasStagedFiles = staged.isNotEmpty()

@@ -193,6 +193,17 @@
     <string name="status_dir_entries_context_menu_stage_changes">Stage changes in the directory</string>
     <string name="status_dir_entries_context_menu_discard_changes">Discard changes</string>
 
+    <string name="discard_folder_dialog_title">Discard changes</string>
+    <plurals name="discard_folder_dialog_subtitle">
+        <item quantity="one">Discard the unstaged changes to %1$d file in %2$s? This can't be undone.</item>
+        <item quantity="other">Discard the unstaged changes to %1$d files in %2$s? This can't be undone.</item>
+    </plurals>
+    <plurals name="discard_folder_dialog_new_files_kept">
+        <item quantity="one">%1$d new file is kept.</item>
+        <item quantity="other">%1$d new files are kept.</item>
+    </plurals>
+    <string name="discard_folder_dialog_discard">Discard</string>
+
     <!-- Submodules context menu -->
     <string name="submodules_context_menu_initialize_submodule">Initialize submodule</string>
     <string name="submodules_context_menu_open_submodule_in_tab">Open submodule in new tab</string>

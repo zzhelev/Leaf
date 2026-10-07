@@ -73,4 +73,32 @@ class StatusFileItemsTest {
         assertEquals(folders, searching.withoutSearch())
         assertEquals(CollapsedFolders(), folders.toggled("src", isSearching = false))
     }
+
+    @Test
+    fun `finds the entries inside a folder at any depth`() {
+        val entries = listOf(
+            unstaged("src/a.kt", StatusType.MODIFIED),
+            unstaged("src/deep/b.kt", StatusType.MODIFIED),
+            unstaged("srcs/c.kt", StatusType.MODIFIED),
+            unstaged("README.md", StatusType.MODIFIED),
+        )
+
+        assertEquals(listOf("src/a.kt", "src/deep/b.kt"), entries.inFolder("src").map { it.filePath })
+        assertEquals(listOf("src/deep/b.kt"), entries.inFolder("src/deep").map { it.filePath })
+    }
+
+    @Test
+    fun `discarding leaves new files alone`() {
+        val entries = listOf(
+            unstaged("src/added.kt", StatusType.ADDED),
+            unstaged("src/modified.kt", StatusType.MODIFIED),
+            unstaged("src/removed.kt", StatusType.REMOVED),
+            unstaged("src/conflict.kt", StatusType.CONFLICTING),
+        )
+
+        assertEquals(
+            listOf("src/modified.kt", "src/removed.kt", "src/conflict.kt"),
+            entries.discardable().map { it.filePath },
+        )
+    }
 }

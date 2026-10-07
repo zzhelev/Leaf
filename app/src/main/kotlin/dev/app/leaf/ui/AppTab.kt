@@ -326,6 +326,19 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.DiscardFolderChanges>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            DiscardChangesDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider.discardChangesViewModelFactory().create(entry.entries)
+                                },
+                                folderPath = entry.folderPath,
+                                fileCount = entry.entries.size,
+                                keptNewFiles = entry.keptNewFiles,
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.QuickActions>(
                             metadata = dialogsMetadata
                         ) { entry ->

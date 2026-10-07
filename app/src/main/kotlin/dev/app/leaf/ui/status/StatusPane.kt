@@ -39,6 +39,7 @@ import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.discardable
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.icon
 import dev.app.leaf.extensions.iconColor
@@ -66,6 +67,8 @@ fun StatusPane(
     onAction: (StatusAction) -> Unit,
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
+    /** Asks to discard [entries], the unstaged changes of a folder, keeping its [keptNewFiles] new files. */
+    onDiscardFolderChanges: (folderPath: String, entries: List<StatusEntry>, keptNewFiles: Int) -> Unit,
     completedTasks: StateFlow<List<CompletedTask>>,
 ) {
     val swapUncommittedChanges = statusState.swapUncommittedChanges
@@ -149,6 +152,7 @@ fun StatusPane(
                     onSearchFocused = { onAction(StatusAction.AddStagedSearchToCloseableView) },
                     onBlameFile = onBlameFile,
                     onHistoryFile = onHistoryFile,
+                    onDiscardFolderChanges = onDiscardFolderChanges,
                     onAction = { onAction(it) },
                 )
             }
@@ -166,6 +170,7 @@ fun StatusPane(
                     onSearchFocused = { onAction(StatusAction.AddUnstagedSearchToCloseableView) },
                     onBlameFile = onBlameFile,
                     onHistoryFile = onHistoryFile,
+                    onDiscardFolderChanges = onDiscardFolderChanges,
                     onAction = { onAction(it) },
                 )
             }
@@ -235,6 +240,7 @@ fun ColumnScope.StatusChangesList(
     onSearchFocused: () -> Unit,
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
+    onDiscardFolderChanges: (folderPath: String, entries: List<StatusEntry>, keptNewFiles: Int) -> Unit,
     onAction: (StatusAction) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -251,11 +257,24 @@ fun ColumnScope.StatusChangesList(
         EntryType.UNSTAGED -> statusState.unstagedRows
     }
 
+    // Unstaged only, and only for a folder with something to restore
+    val folderDiscardAction: (folderPath: String) -> (() -> Unit)? = { folderPath ->
+        val shownEntries = statusState.entriesShownUnder(folderPath, entryType)
+        val entries = shownEntries.discardable()
+
+        if (entryType == EntryType.UNSTAGED && entries.isNotEmpty()) {
+            { onDiscardFolderChanges(folderPath, entries, shownEntries.size - entries.size) }
+        } else {
+            null
+        }
+    }
+
     this.ChangesList(
         title = title,
         actionInfo = actionInfo,
         entryType = entryType,
         rows = rows,
+        folderDiscardAction = folderDiscardAction,
         viewState = statusState.viewState,
         showSearch = showSearch,
         searchFilter = searchFilter,
@@ -280,6 +299,8 @@ fun ColumnScope.ChangesList(
     actionInfo: ActionInfo,
     entryType: EntryType,
     rows: List<FileRow<StatusEntry>>,
+    /** What discarding a folder does, or null when its menu shouldn't offer it. */
+    folderDiscardAction: (folderPath: String) -> (() -> Unit)?,
     viewState: FilesViewState,
     showSearch: Boolean,
     searchFilter: TextFieldValue,
@@ -401,7 +422,7 @@ fun ColumnScope.ChangesList(
                 statusDirEntriesContextMenuItems(
                     entryType = entryType,
                     onStageChanges = { onAction(StatusAction.DirectoryAction(folder.path, entryType)) },
-                    onDiscardDirectoryChanges = {},
+                    onDiscardDirectoryChanges = folderDiscardAction(folder.path),
                 )
             },
             fileTrailingAction = { statusEntry, isHovered ->

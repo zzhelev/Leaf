@@ -30,3 +30,13 @@ fun List<StatusEntry>.toFileItems(): List<FileItem<StatusEntry>> {
         )
     }
 }
+
+/** The entries inside [folderPath], at any depth. */
+fun List<StatusEntry>.inFolder(folderPath: String): List<StatusEntry> =
+    filter { it.filePath.startsWith("$folderPath/") }
+
+/**
+ * The unstaged entries that discarding changes restores. A new (untracked) file has no earlier version to go back to,
+ * so it is left alone, as a single new file offers "Delete file" instead of discarding.
+ */
+fun List<StatusEntry>.discardable(): List<StatusEntry> = filter { it.statusType != StatusType.ADDED }

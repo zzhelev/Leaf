@@ -346,7 +346,10 @@ fun MainContentView(
                         completedTasks = viewModel.completedTasks,
                         onAction = { viewModel.onAction(it) },
                         onBlameFile = { viewModel.blameFile(it) },
-                        onHistoryFile = { viewModel.fileHistory(it) }
+                        onHistoryFile = { viewModel.fileHistory(it) },
+                        onDiscardFolderChanges = { folderPath, entries, keptNewFiles ->
+                            onNavigate(Screen.DiscardFolderChanges(folderPath, entries, keptNewFiles))
+                        },
                     )
                 }
             }

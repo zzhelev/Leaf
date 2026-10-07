@@ -414,7 +414,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         }
 
         // During a search the folder shows only its matching files, so only those are staged or unstaged
-        val entries = statusState.value.searchMatchesUnder(path, entryType)
+        val entries = statusState.value.entriesShownUnder(path, entryType)
 
         // An empty list would mean every file
         if (entries.isEmpty()) return

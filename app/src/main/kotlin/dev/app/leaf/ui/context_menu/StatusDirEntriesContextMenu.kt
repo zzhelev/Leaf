@@ -8,7 +8,8 @@ import org.jetbrains.compose.resources.stringResource
 fun statusDirEntriesContextMenuItems(
     entryType: EntryType,
     onStageChanges: () -> Unit,
-    onDiscardDirectoryChanges: () -> Unit,
+    /** Shown in Unstaged when set. */
+    onDiscardDirectoryChanges: (() -> Unit)?,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
         addContextMenu(
@@ -29,7 +30,7 @@ fun statusDirEntriesContextMenuItems(
             onClick = onStageChanges,
         )
 
-        if (entryType == EntryType.UNSTAGED) {
+        if (entryType == EntryType.UNSTAGED && onDiscardDirectoryChanges != null) {
             add(ContextMenuElement.ContextSeparator)
 
             addContextMenu(
