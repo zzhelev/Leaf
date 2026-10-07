@@ -4,9 +4,9 @@
 package dev.app.leaf.data.services
 
 import dev.app.leaf.data.git.IsolatedSystemReader
-import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.repository.OpenRepositoryGitAction
+import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
@@ -18,14 +18,13 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import javax.inject.Provider
 
 class GitProviderServiceTest {
     @TempDir
     lateinit var tempDir: File
 
     private val originalReader: SystemReader = SystemReader.getInstance()
-    private val jgit = JGit(Provider { error("Only used on Windows") })
+    private val jgit = testJGit()
     private val gitProviderService = GitProviderService(jgit)
     private val openRepositoryGitAction = OpenRepositoryGitAction()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }

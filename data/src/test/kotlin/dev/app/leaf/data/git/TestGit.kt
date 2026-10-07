@@ -3,11 +3,17 @@
 
 package dev.app.leaf.data.git
 
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.storage.file.FileBasedConfig
 import org.eclipse.jgit.util.FS
 import org.eclipse.jgit.util.SystemReader
 import java.io.File
+import javax.inject.Provider
+
+/** A [JGit] for tests on macOS and Linux, where [shellVariables] stand for what the login shell adds to hooks. */
+fun testJGit(shellVariables: Map<String, String> = emptyMap()) =
+    JGit(Provider { error("Only used on Windows") }, LoginShellEnvironment { shellVariables })
 
 /**
  * Points JGit's user, system and JGit config files to [configDir], keeping the developer's own config out of tests.
@@ -79,3 +85,25 @@ class TestGitCli(private val emptyGlobalConfig: File) {
         return directory
     }
 }
+
+/** Writes [content] to this file and makes it executable, for hooks, fake shells and fake tools. */
+fun File.writeExecutable(content: String): File {
+    parentFile.mkdirs()
+    writeText(content)
+    check(setExecutable(true)) { "Could not make $this executable" }
+
+    return this
+}
+
+/**
+ * Creates the command `leaf-hook-tool` in [directory], which is on no PATH unless a test puts it there, like a tool
+ * installed with Homebrew or nvm. Each run creates the file `ran` next to it. Returns [directory].
+ */
+fun createHookTool(directory: File): File {
+    File(directory, "leaf-hook-tool").writeExecutable("#!/bin/sh\ntouch \"\$(dirname \"\$0\")/ran\"\n")
+
+    return directory
+}
+
+/** A hook that runs `leaf-hook-tool` and fails, as `sh` does, when it isn't found. */
+const val HOOK_RUNNING_TOOL = "#!/bin/sh\nleaf-hook-tool\n"

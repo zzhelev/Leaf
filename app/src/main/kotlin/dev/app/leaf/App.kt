@@ -32,6 +32,7 @@ import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.data.git.signers.AppGpgSigner
 import dev.app.leaf.data.git.signers.SshSigner
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.TempFilesManager
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.models.*
@@ -107,6 +108,7 @@ class App @Inject constructor(
     private val gpgSigner: AppGpgSigner,
     private val sshSigner: SshSigner,
     private val lfsFactory: AppLfsFactory,
+    private val loginShellEnvironment: LoginShellEnvironment,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -114,6 +116,8 @@ class App @Inject constructor(
     suspend fun start(args: Array<String>) {
         initNativeDependencies()
         logsRepository.initLogging()
+        // In the background, so that the shell has usually finished before the first hook needs its PATH
+        loginShellEnvironment.prewarm()
         initProxySettings()
 
         Signers.set(GpgConfig.GpgFormat.OPENPGP, gpgSigner)

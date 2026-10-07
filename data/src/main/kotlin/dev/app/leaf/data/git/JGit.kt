@@ -2,9 +2,11 @@ package dev.app.leaf.data.git
 
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.errors.*
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.util.FS
+import org.eclipse.jgit.util.FS_POSIX
 import org.eclipse.jgit.util.FS_Win32
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -15,6 +17,7 @@ import javax.inject.Singleton
 @Singleton
 class JGit @Inject constructor(
     private val windowsFs: Provider<WindowsFs>,
+    private val loginShellEnvironment: LoginShellEnvironment,
 ) {
     // Concurrent because cleanupExcept iterates it while other tabs open repositories
     private val repositories = ConcurrentHashMap<String, Git>()
@@ -30,16 +33,7 @@ class JGit @Inject constructor(
             val newGit = handleException(
                 exceptionMapper = { RepositoryReadError(it.message.orEmpty()) }
             ) {
-                val fs = FS.detect()
-
-                val fsToUse = if (fs is FS_Win32) {
-                    windowsFs.get()
-                } else {
-                    fs
-                }
-
-                Git
-                    .open(File(repositoryPath), fsToUse)
+                open(repositoryPath)
             }.bind()
 
             repositories[repositoryPath] = newGit
@@ -69,8 +63,7 @@ class JGit @Inject constructor(
                 val newGit = handleException(
                     exceptionMapper = { RepositoryReadError(it.message.orEmpty()) }
                 ) {
-                    Git
-                        .open(File(repositoryPath))
+                    open(repositoryPath)
                 }.bind()
 
                 repositories[repositoryPath] = newGit
@@ -88,6 +81,21 @@ class JGit @Inject constructor(
             val error = errorHandle?.invoke(ex) ?: GenericError(ex.message.orEmpty(), ex)
             Either.Err(error)
         }
+    }
+
+    /**
+     * Opens a repository with Leaf's file system, which decides how hooks run: through Git Bash on Windows, with the
+     * login shell's environment on macOS and Linux. [provide] and [provideOptional] both use it, as they share the
+     * cache.
+     */
+    private fun open(repositoryPath: String): Git {
+        val fs = when (val detected = FS.detect()) {
+            is FS_Win32 -> windowsFs.get()
+            is FS_POSIX -> PosixFs(loginShellEnvironment)
+            else -> detected
+        }
+
+        return Git.open(File(repositoryPath), fs)
     }
 
     fun cleanupExcept(repositoriesToKeep: Set<String>) {

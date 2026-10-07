@@ -3,6 +3,11 @@
 
 package dev.app.leaf.data.git.cli
 
+import dev.app.leaf.data.git.HOOK_RUNNING_TOOL
+import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.createHookTool
+import dev.app.leaf.data.git.writeExecutable
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -25,12 +30,17 @@ class GitCliTest {
     @TempDir
     lateinit var tempDir: File
 
-    private fun gitCli(configuredPath: String? = null): GitCli {
+    private fun gitCli(configuredPath: String? = null, shellVariables: Map<String, String> = emptyMap()): GitCli {
         val appSettingsRepository = mockk<AppSettingsRepository> {
             every { gitExecutablePath } returns flowOf(configuredPath)
         }
 
-        return GitCli(GitExecutableLocator(ProcessRunner()), ProcessRunner(), AppSettingsService(appSettingsRepository))
+        return GitCli(
+            GitExecutableLocator(ProcessRunner()),
+            ProcessRunner(),
+            AppSettingsService(appSettingsRepository),
+            LoginShellEnvironment { shellVariables },
+        )
     }
 
     @Test
@@ -76,6 +86,42 @@ class GitCliTest {
         val result = gitCli(fakeGit.path).run(tempDir, listOf("fetch"), timeout = 1.seconds)
 
         assertEquals(Either.Err(GitCliError.TimedOut("git fetch", 1)), result)
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `adds the login shell's variables, but its own environment wins`(): Unit = runBlocking {
+        val fakeGit = fakeGitExecutable(tempDir, "git", body = "env")
+        val shellVariables = mapOf("LEAF_SHELL_VARIABLE" to "from the shell", "LC_ALL" to "en_US.UTF-8")
+
+        val result = gitCli(fakeGit.path, shellVariables).run(tempDir, listOf("status"))
+
+        val environment = (result as Either.Ok).value.lines()
+        assertTrue("LEAF_SHELL_VARIABLE=from the shell" in environment, "$environment")
+        assertTrue("LC_ALL=C" in environment, "$environment")
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `hooks that git runs find the tools on the login shell's PATH`(): Unit = runBlocking {
+        val globalConfig = File(tempDir, "config/global.gitconfig")
+        val repository = TestGitCli(globalConfig).initRepository(File(tempDir, "repo"))
+        val tools = createHookTool(File(tempDir, "tools"))
+        File(repository, ".git/hooks/post-checkout").writeExecutable(HOOK_RUNNING_TOOL)
+        // Keeps the developer's git config out, as TestGitCli does
+        val isolated = mapOf("GIT_CONFIG_GLOBAL" to globalConfig.absolutePath, "GIT_CONFIG_NOSYSTEM" to "1")
+        val shellPath = isolated + ("PATH" to "${tools.absolutePath}:${System.getenv("PATH")}")
+
+        fun worktreeAdd(branch: String) = listOf("worktree", "add", "-b", branch, "../$branch")
+
+        val withoutPath = gitCli(shellVariables = isolated).run(repository, worktreeAdd("a"))
+        val withPath = gitCli(shellVariables = shellPath).run(repository, worktreeAdd("b"))
+
+        // git creates the worktree, then exits with the post-checkout hook's code
+        val error = (withoutPath as Either.Err).error as GitCliError.CommandFailed
+        assertTrue("leaf-hook-tool" in error.stderr, error.stderr)
+        assertInstanceOf(Either.Ok::class.java, withPath)
+        assertTrue(File(tools, "ran").exists())
     }
 
     @Test

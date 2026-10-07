@@ -4,8 +4,8 @@
 package dev.app.leaf.data.git.config
 
 import dev.app.leaf.data.git.IsolatedSystemReader
-import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.SignOffConfig
 import dev.app.leaf.domain.sorting.RefFolderExpansion
@@ -17,7 +17,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import javax.inject.Provider
 
 class RefFolderExpansionGitActionTest {
     @TempDir
@@ -25,7 +24,7 @@ class RefFolderExpansionGitActionTest {
 
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
-    private val jgit = JGit(Provider { error("Only used on Windows") })
+    private val jgit = testJGit()
     private val load = LoadRefFolderExpansionGitAction(jgit)
     private val save = SaveRefFolderExpansionGitAction(jgit)
 

@@ -4,8 +4,8 @@
 package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.data.git.IsolatedSystemReader
-import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import javax.inject.Provider
 
 /** Discarding a folder from the Unstaged pane, as `StatusPane` does: its discardable entries go to the git action. */
 class DiscardEntriesGitActionTest {
@@ -30,7 +29,7 @@ class DiscardEntriesGitActionTest {
 
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
-    private val jgit = JGit(Provider { error("Only used on Windows") })
+    private val jgit = testJGit()
     private val discard = DiscardEntriesGitAction(jgit)
     private val getStatus = GetStatusGitAction(jgit)
 

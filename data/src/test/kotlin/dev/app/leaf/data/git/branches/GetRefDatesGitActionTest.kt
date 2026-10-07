@@ -4,8 +4,8 @@
 package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.IsolatedSystemReader
-import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.RefDates
 import kotlinx.coroutines.runBlocking
@@ -17,7 +17,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import javax.inject.Provider
 
 private const val JAN_1 = 1_767_225_600L // 2026-01-01T00:00:00Z
 private const val FEB_1 = 1_769_904_000L
@@ -31,7 +30,7 @@ class GetRefDatesGitActionTest {
 
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
-    private val action = GetRefDatesGitAction(JGit(Provider { error("Only used on Windows") }))
+    private val action = GetRefDatesGitAction(testJGit())
 
     @BeforeEach
     fun isolateJGitConfig() {

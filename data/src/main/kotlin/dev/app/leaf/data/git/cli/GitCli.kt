@@ -4,6 +4,7 @@
 package dev.app.leaf.data.git.cli
 
 import dev.app.leaf.common.printLog
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.services.AppSettingsService
@@ -37,12 +38,16 @@ internal val gitCliEnvironment: Map<String, String?> = mapOf(
     "GIT_NAMESPACE" to null,
 )
 
-/** Runs the git CLI, for the operations JGit doesn't support (such as linked worktrees). */
+/**
+ * Runs the git CLI, for the operations JGit doesn't support (such as linked worktrees). Git gets the login shell's
+ * environment, as the hooks and filters it runs (`post-checkout`, `git-lfs`) need the user's PATH.
+ */
 @Singleton
 class GitCli @Inject constructor(
     private val gitExecutableLocator: GitExecutableLocator,
     private val processRunner: ProcessRunner,
     private val appSettingsService: AppSettingsService,
+    private val loginShellEnvironment: LoginShellEnvironment,
 ) {
     /** Runs `git <args>` in [workingDirectory], returning its stdout if it exits with code 0. */
     suspend fun run(
@@ -64,8 +69,11 @@ class GitCli @Inject constructor(
 
         printLog(TAG, "Running '$commandDescription' in $workingDirectory")
 
+        // Leaf's own variables come last, so that the shell's (for example its locale) can't override them
+        val environment = loginShellEnvironment.variables() + gitCliEnvironment
+
         val outcome = try {
-            processRunner.run(listOf(executable.path) + args, workingDirectory, gitCliEnvironment, timeout)
+            processRunner.run(listOf(executable.path) + args, workingDirectory, environment, timeout)
         } catch (e: IOException) {
             gitExecutableLocator.invalidate()
             return Either.Err(GitCliError.StartFailed(commandDescription, e.message.orEmpty()))
