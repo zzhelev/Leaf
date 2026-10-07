@@ -14,7 +14,13 @@ interface IShellManager {
     fun runCommand(command: List<String>): String?
     fun runCommandInPath(command: List<String>, path: String)
     fun runCommandWithoutResult(command: List<String>): Boolean
-    fun runCommandProcess(command: List<String>, directory: File? = null): Process
+
+    /** @param environment variables to add to the inherited environment of the process. */
+    fun runCommandProcess(
+        command: List<String>,
+        directory: File? = null,
+        environment: Map<String, String> = emptyMap(),
+    ): Process
 }
 
 class ShellManager @Inject constructor() : IShellManager {
@@ -78,7 +84,7 @@ class ShellManager @Inject constructor() : IShellManager {
         }
     }
 
-    override fun runCommandProcess(command: List<String>, directory: File?): Process {
+    override fun runCommandProcess(command: List<String>, directory: File?, environment: Map<String, String>): Process {
         printLog(TAG, "runCommandProcess: " + command.joinToString(" "))
         try {
             return ProcessBuilder(command)
@@ -89,6 +95,7 @@ class ShellManager @Inject constructor() : IShellManager {
                         this
                     }
                 }
+                .also { it.environment().putAll(environment) }
                 .start()
         } catch (ex: IOException) {
             throw CommandExecutionFailed(ex.message.orEmpty(), ex)
@@ -116,7 +123,8 @@ class FlatpakShellManager @Inject constructor(
         return shellManager.runCommandWithoutResult(flatpakPrefix + command)
     }
 
-    override fun runCommandProcess(command: List<String>, directory: File?): Process {
+    // The environment isn't passed on: the command runs on the host, and the variables come from inside the sandbox
+    override fun runCommandProcess(command: List<String>, directory: File?, environment: Map<String, String>): Process {
         return shellManager.runCommandProcess(flatpakPrefix + command)
     }
 

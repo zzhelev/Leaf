@@ -1,7 +1,10 @@
 package dev.app.leaf.data.git.credentials
 
+import dev.app.leaf.common.OS
+import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.IShellManager
 import dev.app.leaf.domain.credentials.CredentialsAccepted
 import dev.app.leaf.domain.credentials.CredentialsStateManager
@@ -39,6 +42,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
     // private val appSettingsRepository: AppSettingsRepository,
     private val credentialsCacheRepository: CredentialsRepository,
     private val gitCredentialsManagerProvider: IGitCredentialsManagerProvider,
+    private val loginShellEnvironment: LoginShellEnvironment,
     @Assisted val git: Git?,
 ) : CredentialsProvider(), CredentialsCache {
 
@@ -139,13 +143,12 @@ class HttpCredentialsProvider @AssistedInject constructor(
         externalCredentialsHelper: ExternalCredentialsHelper,
         credentials: CredentialsAccepted.HttpCredentialsAccepted,
     ) {
-        val arguments = listOf("store")
-        val process = shellManager.runCommandProcess(externalCredentialsHelper.sanitizedCommand() + arguments)
+        val process = startCredentialsHelper(externalCredentialsHelper, "store")
 
         val output = process.outputStream // write to the input stream of the helper
         val bufferedWriter = BufferedWriter(OutputStreamWriter(output))
 
-        bufferedWriter.use {
+        bufferedWriter.useForHelperInput {
             bufferedWriter.write("protocol=${uri.scheme}\n")
             bufferedWriter.write("host=${uri.host}\n")
 
@@ -168,9 +171,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
     private fun handleExternalCredentialHelper(
         externalCredentialsHelper: ExternalCredentialsHelper, uri: URIish, items: Array<out CredentialItem>,
     ): ExternalCredentialsRequestResult {
-        // auth git-credential
-        val arguments = listOf("get")
-        val process = shellManager.runCommandProcess(externalCredentialsHelper.sanitizedCommand() + arguments)
+        val process = startCredentialsHelper(externalCredentialsHelper, "get")
 
         val output = process.outputStream // write to the input stream of the helper
         val input = process.inputStream // reads from the output stream of the helper
@@ -178,7 +179,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
         val bufferedWriter = BufferedWriter(OutputStreamWriter(output))
         val bufferedReader = BufferedReader(InputStreamReader(input))
 
-        bufferedWriter.use {
+        bufferedWriter.useForHelperInput {
             bufferedWriter.write("protocol=${uri.scheme}\n")
             bufferedWriter.write("host=${uri.host}\n")
 
@@ -238,6 +239,21 @@ class HttpCredentialsProvider @AssistedInject constructor(
             ExternalCredentialsRequestResult.CREDENTIALS_NOT_STORED
     }
 
+    /**
+     * On macOS and Linux the helper runs the way git runs it, with the login shell's environment, so that it's found
+     * when Leaf was opened from the Finder, the Dock or a desktop launcher.
+     */
+    private fun startCredentialsHelper(helper: ExternalCredentialsHelper, operation: String): Process {
+        return if (currentOs == OS.WINDOWS) {
+            shellManager.runCommandProcess(helper.sanitizedCommand() + operation)
+        } else {
+            shellManager.runCommandProcess(
+                command = posixCredentialHelperCommand(helper.path, operation),
+                environment = loginShellEnvironment.variablesBlocking(),
+            )
+        }
+    }
+
     private fun getExternalCredentialsHelper(uri: URIish, git: Git?): ExternalCredentialsHelper? {
         val config = if (git == null) {
             val homePath = System.getProperty("user.home")
@@ -264,7 +280,8 @@ class HttpCredentialsProvider @AssistedInject constructor(
         }
 
         // TODO Try to use "git-credential-manager-core" when "manager-core" is detected. Works for linux but requires testing for mac/windows
-        if (credentialHelperPath == "manager-core" || credentialHelperPath == "manager") {
+        // On macOS and Linux, git's own lookup finds it (posixCredentialHelperCommand)
+        if (currentOs == OS.WINDOWS && (credentialHelperPath == "manager-core" || credentialHelperPath == "manager")) {
             val credentialsPath = gitCredentialsManagerProvider.loadPath()
                 ?: throw NotSupportedHelper("Could not find git credentials manager path")
 
