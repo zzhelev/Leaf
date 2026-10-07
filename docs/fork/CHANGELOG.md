@@ -2,6 +2,47 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Debian packages for Linux (branch `feature/linux-deb`)
+
+- **New files:** releases get `Leaf-<version>-linux-amd64.deb` and `Leaf-<version>-linux-arm64.deb`, each with a
+  `.sha256`. The `build_linux_deb` job runs `./gradlew :app:packageDeb` natively on `ubuntu-22.04` and
+  `ubuntu-22.04-arm`. jpackage can't build for another CPU, and the package only works on systems as new as the one it
+  was built on: its dependencies are the build system's package names (24.04's renamed `libasound2t64` and others
+  don't exist on 22.04 or Debian 12, while 24.04 still accepts the old names), and the Rust library needs glibc 2.34.
+- **Package:** `nativeDistributions` adds `TargetFormat.Deb`, a `vendor` and a `linux {}` block: package `leaf`,
+  installed to `/opt/leaf`, maintainer `Zhelyazko Zhelev <zzhelev@gmail.com>`, section `vcs`, menu group
+  `Development;RevisionControl;`, and the new 512 px `icons/icon.png`. The launcher sets `jpackage.app-version`, so a
+  `.deb` install uses Leaf's real storage (`~/.config/leaf`, `~/.local/state/leaf/logs/`).
+- **Menu entry without a desktop:** jpackage's install scripts register the menu entry with `xdg-desktop-menu`, which
+  exits with code 3 where there is no `/etc/xdg/menus`. GNOME, KDE and Xfce provide one; WSL, minimal installs and
+  bare window managers don't. There dpkg left `leaf` half configured, and removing it failed the same way. Compose
+  clears jpackage's resource folder before packaging, so the scripts can't be swapped. Instead `packageDeb` repacks the
+  finished `.deb` with `dpkg-deb`: `leaf-Leaf.desktop` moves to `/usr/share/applications` as an ordinary packaged
+  file, and the two `xdg-desktop-menu` lines go. The build fails if jpackage's scripts change shape.
+- **`libegl1` on arm64:** skiko's arm64 library needs `libEGL.so.1`; the x64 one doesn't. jpackage only lists the
+  libraries it finds installed, and the arm64 runner has no `libegl1`, so the package didn't depend on it and Leaf
+  crashed at launch with an `UnsatisfiedLinkError` where it was missing. The job installs `libegl1` before packaging
+  and checks that the arm64 package depends on it.
+- **Launcher crash on a busy system:** jpackage's Linux launcher forks, and the child sends the launch data back through
+  a pipe that the parent reads with a single `read()` ([JDK-8380085](https://bugs.openjdk.org/browse/JDK-8380085), fixed
+  in JDK 27, not in any JBR 25). Once the user has about 1,024 pipes open (`pipe-user-pages-soft`), Linux gives new
+  pipes 2 pages (8 KB). Leaf's launch data was 9.9 KB, so the launcher got part of it and segfaulted in `setenv` before
+  starting the JVM. 3.7 KB of it was the 32-character hash Compose adds to each of the 117 jar names. The repack drops
+  those hashes, keeping 8 characters for the 6 jars that would otherwise share a name (two each of `library-desktop`,
+  `runtime-desktop` and `runtime-saveable-desktop`), and rewrites `Leaf.cfg` to match. The classpath is now 5.8 KB, and
+  the build fails if it passes 7 KB. Once JBR has the fix, this step can go.
+- **README:** the Download section lists the files for every platform, in place of "no published releases yet". The
+  `.deb` files start with the release after 1.1.1.
+- **Verified:** Release Build run 37610735694 passed every job. Its two packages were installed in Debian 12, Ubuntu
+  22.04 and Ubuntu 24.04 containers (arm64 natively, amd64 under emulation) with no desktop environment, as root on a
+  Docker VM where root has enough pipes open to get throttled 8 KB pipes. Each one installs with the menu entry in
+  place, Leaf starts under Xvfb and is still running after 45 s (90 s on amd64), it writes to `~/.config/leaf` and
+  `~/.local/state/leaf` rather than `leaf-dev`, and `apt remove` takes away the entry and `/opt/leaf`. Before the fixes,
+  all six failed to install, Ubuntu 22.04 arm64 crashed on `libEGL.so.1`, and the launcher segfaulted under the same
+  pipe pressure, while a fresh user started it fine.
+- **Not covered:** a real desktop session (Xvfb has no GPU, so skiko drew in software), and the Start menu entry under
+  WSLg.
+
 ## Credential helpers forget rejected credentials (branch `claude/priceless-kepler-d25412`)
 
 - **Before:** `HttpCredentialsProvider` didn't override JGit's `CredentialsProvider.reset`, which does nothing. After
