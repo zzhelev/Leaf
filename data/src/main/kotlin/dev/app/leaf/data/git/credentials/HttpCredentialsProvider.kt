@@ -187,7 +187,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
                 externalCredentialsHelper = rejected.helper,
                 user = rejected.user,
                 password = rejected.password,
-            )
+            ) ?: return
 
             // The next get must not find them
             if (!process.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES)) {
@@ -200,31 +200,31 @@ class HttpCredentialsProvider @AssistedInject constructor(
         }
     }
 
-    /** Runs the helper's [operation] (`store` or `erase`) for these credentials, without waiting for it to finish. */
+    /**
+     * Runs the helper's [operation] (`store` or `erase`) for these credentials, without waiting for it to finish. Null
+     * if git would refuse to send them (see [credentialHelperInput]).
+     */
     private fun sendCredentialsToExternalHelper(
         operation: String,
         uri: URIish,
         externalCredentialsHelper: ExternalCredentialsHelper,
         user: String,
         password: String,
-    ): Process {
+    ): Process? {
+        val input = credentialHelperInput(uri, externalCredentialsHelper.useHttpPath, user, password)
+
+        if (input == null) {
+            printError(TAG, "Not running the credential helper's $operation: a value has a newline or carriage return")
+            return null
+        }
+
         val process = startCredentialsHelper(externalCredentialsHelper, operation)
 
         val output = process.outputStream // write to the input stream of the helper
         val bufferedWriter = BufferedWriter(OutputStreamWriter(output))
 
         bufferedWriter.useForHelperInput {
-            bufferedWriter.write("protocol=${uri.scheme}\n")
-            bufferedWriter.write("host=${uri.host}\n")
-
-            if (externalCredentialsHelper.useHttpPath) {
-                bufferedWriter.write("path=${uri.path}\n")
-            }
-
-            bufferedWriter.write("username=$user\n")
-            bufferedWriter.write("password=$password\n")
-            bufferedWriter.write("")
-
+            bufferedWriter.write(input)
             bufferedWriter.flush()
         }
 
@@ -238,6 +238,14 @@ class HttpCredentialsProvider @AssistedInject constructor(
     private fun handleExternalCredentialHelper(
         externalCredentialsHelper: ExternalCredentialsHelper, uri: URIish, items: Array<out CredentialItem>,
     ): ExternalCredentialsRequestResult {
+        // Like git, which refuses the URL, gives no credentials rather than asking
+        val helperInput = credentialHelperInput(uri, externalCredentialsHelper.useHttpPath)
+
+        if (helperInput == null) {
+            printError(TAG, "Not running the credential helper: the URL has a newline or carriage return")
+            return ExternalCredentialsRequestResult.FAIL
+        }
+
         val process = startCredentialsHelper(externalCredentialsHelper, "get")
 
         val output = process.outputStream // write to the input stream of the helper
@@ -247,15 +255,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
         val bufferedReader = BufferedReader(InputStreamReader(input))
 
         bufferedWriter.useForHelperInput {
-            bufferedWriter.write("protocol=${uri.scheme}\n")
-            bufferedWriter.write("host=${uri.host}\n")
-
-            if (externalCredentialsHelper.useHttpPath) {
-                bufferedWriter.write("path=${uri.path}\n")
-            }
-
-            bufferedWriter.write("")
-
+            bufferedWriter.write(helperInput)
             bufferedWriter.flush()
         }
 
@@ -334,11 +334,11 @@ class HttpCredentialsProvider @AssistedInject constructor(
             git.repository.config
         }
 
-        val hostWithProtocol = "${uri.scheme}://${uri.host}"
+        // The credential.<url> subsections that apply to this URL, as git matches them, then credential.* (null)
+        val subsections = credentialConfigSubsections(config, uri) + null
 
-        val genericCredentialHelper = config.getString("credential", null, "helper")
-        val uriSpecificCredentialHelper = config.getString("credential", hostWithProtocol, "helper")
-        var credentialHelperPath = uriSpecificCredentialHelper ?: genericCredentialHelper ?: return null
+        val helperSubsection = subsections.firstOrNull { config.getString("credential", it, "helper") != null }
+        var credentialHelperPath = config.getString("credential", helperSubsection, "helper") ?: return null
 
         // On macOS and Linux they run as git credential-cache and git credential-store (posixCredentialHelperCommand)
         if (currentOs == OS.WINDOWS && (credentialHelperPath == "cache" || credentialHelperPath == "store")) {
@@ -355,11 +355,11 @@ class HttpCredentialsProvider @AssistedInject constructor(
             credentialHelperPath = credentialsPath
         }
 
-        // Use getString instead of getBoolean as boolean has a default value by we want null if the config field is not set
-        val uriSpecificUseHttpHelper = config.getString("credential", hostWithProtocol, "useHttpPath")
-        val genericUseHttpHelper = config.getBoolean("credential", "useHttpPath", false)
-
-        val useHttpPath = uriSpecificUseHttpHelper?.toBoolean() ?: genericUseHttpHelper
+        // getString finds where it's set, as getBoolean gives the default where it isn't
+        val useHttpPathSubsection = subsections.firstOrNull {
+            config.getString("credential", it, "useHttpPath") != null
+        }
+        val useHttpPath = config.getBoolean("credential", useHttpPathSubsection, "useHttpPath", false)
 
         return ExternalCredentialsHelper(credentialHelperPath, useHttpPath)
     }

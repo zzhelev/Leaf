@@ -21,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.util.SystemReader
@@ -40,6 +41,7 @@ import java.io.OutputStream
 
 private const val REMOTE_URL = "https://example.invalid/team/project.git"
 private const val EXPECTED_INPUT = "protocol=https\nhost=example.invalid\n"
+private const val PORT_URL = "https://example.invalid:8443/team/project.git"
 
 /** Credential helpers that [HttpCredentialsProvider] starts on macOS and Linux, for HTTPS remotes. */
 @DisabledOnOs(OS.WINDOWS)
@@ -275,6 +277,70 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
+    fun `credentials that git stores for a URL with a port and a path are found by Leaf`() {
+        storeWithGit(PORT_URL, Answer("saved-user", "saved-password"))
+        // Stored after it, so listed first: what Leaf would find without the port, or without the path
+        storeWithGit("https://example.invalid/team/project.git", Answer("no-port", "no-port"))
+        storeWithGit("https://example.invalid:8443/team/other.git", Answer("other-path", "other-path"))
+
+        val answer = createProvider(helper = "store", useHttpPath = true).requestCredentials(url = PORT_URL)
+
+        assertEquals(Answer("saved-user", "saved-password"), answer)
+    }
+
+    @Test
+    fun `credentials that Leaf stores for a URL with a port and a path are found by git`() {
+        val provider = createProvider(helper = "store", useHttpPath = true)
+
+        assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials(url = PORT_URL))
+        awaitFile(File(tempDir, ".git-credentials"))
+
+        assertEquals(Answer("prompted-user", "prompted-password"), fillWithGit(PORT_URL))
+    }
+
+    @Test
+    fun `credentials that git stores for a URL with a port and a path are erased when the server rejects them`() {
+        storeWithGit(PORT_URL, Answer("saved-user", "wrong-password"))
+        storeWithGit("https://example.invalid:8443/team/other.git", Answer("other-path", "other-path"))
+        val provider = createProvider(helper = "store", useHttpPath = true)
+
+        assertEquals(Answer("saved-user", "wrong-password"), provider.requestCredentials(url = PORT_URL))
+        provider.reset(URIish(PORT_URL))
+
+        assertEquals(null, fillWithGit(PORT_URL))
+        assertEquals(Answer("other-path", "other-path"), fillWithGit("https://example.invalid:8443/team/other.git"))
+    }
+
+    @Test
+    fun `credential settings for a URL apply when it has the remote's port, as in git`() {
+        createRecordingHelper(answer = Answer("helper-user", "helper-password"))
+        val provider = createProvider(helper = null) {
+            // For the default port, so not for the remote
+            setString("credential", "https://example.invalid", "helper", "leaf-wrong")
+            setString("credential", "https://EXAMPLE.invalid:8443/team", "helper", "leaf-test")
+            setString("credential", "https://*.invalid:8443", "useHttpPath", "true")
+        }
+
+        assertEquals(Answer("helper-user", "helper-password"), provider.requestCredentials(url = PORT_URL))
+        assertEquals(
+            "protocol=https\nhost=example.invalid:8443\npath=team/project.git\n",
+            File(tools, "get.input").readText(),
+        )
+    }
+
+    @Test
+    fun `a URL with a newline in its path doesn't reach the helper, as git refuses it`() {
+        createRecordingHelper(answer = Answer("helper-user", "helper-password"))
+        val provider = createProvider(helper = "leaf-test", useHttpPath = true)
+
+        // The helper would read a second host, and give that server's credentials
+        val answer = provider.requestCredentials(url = "https://example.invalid/team%0Ahost=other.invalid/project.git")
+
+        assertEquals(null, answer)
+        assertFalse(File(tools, "operations").exists())
+    }
+
+    @Test
     fun `helper commands are built the way git builds them`() {
         assertEquals(
             listOf("/bin/sh", "-c", "git credential-osxkeychain get"),
@@ -344,23 +410,28 @@ class HttpCredentialsProviderTest {
         gitCredentialsManagerProvider: IGitCredentialsManagerProvider = NoCredentialsManager,
         shellManager: IShellManager = ShellManager(),
         promptAnswer: Answer = Answer("prompted-user", "prompted-password"),
-    ): Answer = createProvider(helper, shellVariables, gitCredentialsManagerProvider, shellManager)
+    ): Answer? = createProvider(helper, shellVariables, gitCredentialsManagerProvider, shellManager)
         .requestCredentials(promptAnswer)
 
-    /** An [HttpCredentialsProvider] for a repository whose `credential.helper` is [helper]. */
+    /**
+     * An [HttpCredentialsProvider] for a repository whose `credential.helper` is [helper], if there is one, with
+     * [configure] for any other settings.
+     */
     private fun createProvider(
-        helper: String,
+        helper: String?,
         shellVariables: Map<String, String> = this.shellVariables,
         gitCredentialsManagerProvider: IGitCredentialsManagerProvider = NoCredentialsManager,
         shellManager: IShellManager = ShellManager(),
         useHttpPath: Boolean = false,
+        configure: Config.() -> Unit = {},
     ): HttpCredentialsProvider {
         val git = Git.init().setDirectory(File(tempDir, "repository")).call()
         repositories += git
 
         git.repository.config.apply {
-            setString("credential", null, "helper", helper)
+            helper?.let { setString("credential", null, "helper", it) }
             setBoolean("credential", null, "useHttpPath", useHttpPath)
+            configure()
             save()
         }
 
@@ -375,12 +446,13 @@ class HttpCredentialsProviderTest {
     }
 
     /**
-     * Asks this provider for the credentials of [REMOTE_URL], as JGit does. If Leaf asks the user, the answer is
-     * [promptAnswer].
+     * Asks this provider for the credentials of [url], as JGit does, and returns them, or null if it gives none. If
+     * Leaf asks the user, the answer is [promptAnswer].
      */
     private fun HttpCredentialsProvider.requestCredentials(
         promptAnswer: Answer = Answer("prompted-user", "prompted-password"),
-    ): Answer = runBlocking {
+        url: String = REMOTE_URL,
+    ): Answer? = runBlocking {
         val user = CredentialItem.Username()
         val password = CredentialItem.Password()
 
@@ -389,11 +461,10 @@ class HttpCredentialsProviderTest {
             credentialsStateManager.httpCredentialsAccepted(promptAnswer.user, promptAnswer.password)
         }
 
-        val accepted = withContext(Dispatchers.IO) { get(URIish(REMOTE_URL), user, password) }
+        val accepted = withContext(Dispatchers.IO) { get(URIish(url), user, password) }
         prompt.cancel()
 
-        check(accepted) { "The provider gave no credentials" }
-        Answer(user.value, String(password.value))
+        if (accepted) Answer(user.value, String(password.value)) else null
     }
 
     /** Waits for [file], which a helper writes after Leaf has moved on, as Leaf doesn't wait for `store` to finish. */
@@ -427,16 +498,52 @@ class HttpCredentialsProviderTest {
         }
     }
 
-    /** Runs git with [args] and [input], ignoring the developer's git config, and returns its output. */
-    private fun runGit(args: List<String>, input: String): String {
+    /**
+     * Saves credentials for [url] with git's `store`, with `credential.useHttpPath`, as git does when the server
+     * accepts them.
+     */
+    private fun storeWithGit(url: String, answer: Answer) {
+        runGit(
+            listOf("-c", "credential.helper=store", "-c", "credential.useHttpPath=true", "credential", "approve"),
+            input = "url=$url\nusername=${answer.user}\npassword=${answer.password}\n",
+        )
+    }
+
+    /**
+     * The credentials that git's `store` gives `git credential fill` for [url], with `credential.useHttpPath`, or null
+     * if it has none.
+     */
+    private fun fillWithGit(url: String): Answer? {
+        val output = runGit(
+            listOf("-c", "credential.helper=store", "-c", "credential.useHttpPath=true", "credential", "fill"),
+            input = "url=$url\n",
+            // Without credentials, git fails as it can't ask for them
+            requireSuccess = false,
+        )
+        val values = output.lines().filter { "=" in it }.associate { it.substringBefore("=") to it.substringAfter("=") }
+
+        return values["password"]?.let { Answer(values.getValue("username"), it) }
+    }
+
+    /**
+     * Runs git with [args] and [input] outside any repository, ignoring the developer's git config and never prompting,
+     * and returns its output.
+     */
+    private fun runGit(args: List<String>, input: String, requireSuccess: Boolean = true): String {
         val process = ProcessBuilder(listOf("git") + args)
-            .apply { environment().putAll(shellVariables) }
+            .directory(tempDir)
+            .apply {
+                environment().putAll(shellVariables)
+                environment()["GIT_TERMINAL_PROMPT"] = "0"
+                environment().remove("GIT_ASKPASS")
+                environment().remove("SSH_ASKPASS")
+            }
             .start()
 
         process.outputStream.bufferedWriter().use { it.write(input) }
         val output = process.inputStream.bufferedReader().readText()
         val error = process.errorStream.bufferedReader().readText()
-        check(process.waitFor() == 0) { "git ${args.joinToString(" ")} failed: $error" }
+        check(process.waitFor() == 0 || !requireSuccess) { "git ${args.joinToString(" ")} failed: $error" }
 
         return output
     }
