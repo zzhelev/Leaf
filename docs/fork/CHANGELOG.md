@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Dense lists spacing and a compact commit graph (branch `feature/dense-lists-spacing`)
+
+- **Dense:** a third "Lists spacing" option, after Spaced (38 dp rows, 36 dp in the side panel) and Compact (34 dp).
+  File, commit and side panel rows are 26 dp, the lowest height that still fits a hovered file's 24 dp Stage/Unstage
+  button. Branch and tag chips in the log shrink from 26 to 22 dp (`LinesHeight.refChipIconPadding`). The setting is
+  stored as `dense` under `lines_height`.
+- **Going back to an older Leaf:** 1.1.1 and earlier throw at startup on a `lines_height` value they don't know. Switch
+  to Spaced or Compact before installing one.
+- **Uncommitted changes row:** its 8 dp padding is now horizontal only. The vertical part only shrank the centered
+  content, and in a 26 dp row it left 10 dp for the text.
+- **Commit graph:** dots instead of avatars, in every spacing mode. Lanes are 14 dp instead of 30 dp, and commits are
+  10 dp dots: circles, small squares for merges, rings for stashes. Nine lanes take 140 dp instead of 300 dp.
+- **Author on hover:** the dot's tooltip shows the avatar (Gravatar, or the colored initial) before the name and email.
+  The hover area is the dot's lane for the full row height. Avatars load only on hover now. `InstantTooltip` gained a
+  `leadingContent` slot, and its content is now vertically centered.
+- **Graph column:** it fits the lanes instead of always starting at 120 dp: at least 56 dp, so the "Graph" header
+  fits, and at most 120 dp unless dragged wider. A repository with 3 lanes went from 120 to 56 dp. The column can
+  widen while scrolling, up to the cap, when older history brings more lanes. The dragged width is still not saved.
+- **Verified:** offscreen renders of the real repository tab in all three modes, on a demo repository, a clone of Leaf
+  and a repository with 9 active branches. Also a hovered file's Stage button in Dense, the dot tooltip on a commit and
+  on a merge, and a toolbar tooltip with its keybinding hint. The 141 existing tests pass; the change is UI only and
+  adds no tests.
+
 ## Resizable Staged, Unstaged and commit field (branch `feature/status-resizable-sections`)
 
 - **Before:** Staged and Unstaged always split their space 50/50, and the commit field was fixed at 192 dp.

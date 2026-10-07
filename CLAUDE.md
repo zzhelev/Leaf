@@ -373,8 +373,9 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   - Only one Dagger graph per JVM: DataStore refuses a second instance on `user_prefs.json`. To check what survives
     a restart, write in one Gradle run and read in another.
   - The harness is a dev run, so it writes to the `LeafDevConfig` prefs node. Remove the keys it adds afterwards.
-    `openRepository` also adds the temp repository to `lastOpenedRepositoriesList`, where it shows up as a dead
-    entry under the Welcome page's recent repositories; restore that list too.
+    `openRepository` also writes `lastOpenedRepositoriesList`. `AppStateManager` only knows the saved list after
+    `loadRepositoriesTabs()`, so the harness replaces the whole list with the temp repository, a dead entry under
+    the Welcome page's recent repositories. Save that key first and put it back afterwards.
 
 ## Refresh
 
