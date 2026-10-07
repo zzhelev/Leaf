@@ -2,6 +2,39 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## In-memory credential cache forgets rejected credentials (branch `claude/infallible-hodgkin-b61517`)
+
+- **Before:** without a `credential.helper`, Leaf keeps the HTTPS credentials the user types in an in-memory cache
+  (`CredentialsCacheRepository`, an app singleton) once the operation succeeds. Nothing ever removed an entry, and
+  caching never replaced one (`if (!previouslyCached)`). After a password change on the server, `get` gave the old
+  password from the cache on each of JGit's 3 attempts, and every fetch, pull, push or clone of that URL failed with
+  "not authorized" until Leaf restarted.
+- **Now:** `HttpCredentialsProvider.reset` removes the credentials that `get` took from the cache (the new
+  `CredentialsRepository.removeCachedHttpCredentials`), so the next `get` asks the user. Like
+  `git credential-store erase`, it removes them only while they are still the URL's cached ones, so it doesn't drop
+  credentials that another tab cached meanwhile. Caching after a successful operation replaces the URL's entry. Entries
+  are now replaced by URL and `isLfs`, the same key `getCachedHttpCredentials` looks up.
+- **Typed credentials that the server rejects are never cached.** `reset` drops them. Otherwise, now that caching
+  replaces, an attempt that then succeeded with credentials another tab had cached would swap those for the rejected
+  ones.
+- **LFS needs nothing:** `ProvideLfsCredentialsGitAction` reads the cache with `isLfs = true`, but nothing has cached
+  LFS credentials since upstream's 7277d40c replaced `GLfsFactory`, the one place that did. So it asks after every
+  401, and has no rejected entry to keep. If LFS caching comes back, it should cache only what the server accepted,
+  and replacing on success then covers a rejected entry.
+- **Helpers unchanged:** with a `credential.helper`, the in-memory cache is neither read nor written.
+- **Tests:** `HttpCredentialsProviderTest` now uses the real `CredentialsCacheRepository` instead of a stub that
+  cached nothing, and has three new tests:
+  - a rejected cached password is dropped, and the new one cached;
+  - typed credentials that the server rejected aren't cached when another tab's credentials then succeed;
+  - with a helper, the in-memory cache is left alone.
+
+  The new `CredentialsCacheRepositoryTest` (5 tests) covers replacing, keeping LFS and git entries apart, and removing
+  only matching credentials. Ten mutations were each caught by one of these tests: not removing, not dropping typed
+  credentials, not recording where `get` got them, removing whatever is cached for the URL, keeping the old entry,
+  replacing by URL alone, and removing without matching the URL, `isLfs`, user or password. All 224 tests pass
+  (135 in `:data`, 82 in `:domain`, 7 in `:common`), on top of the host and path change below.
+- **Not tried against a real server:** the tests call `get` and `reset` in the order JGit's `TransportHttp` does.
+
 ## Credential helpers get the host and path that git gives them (branch `claude/epic-newton-39ddf6`)
 
 - **Before:** for `get`, `store` and `erase`, Leaf wrote `host=${uri.host}` and, with `credential.useHttpPath`,

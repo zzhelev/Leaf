@@ -307,8 +307,14 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - After a 401, JGit calls `reset` and then `get` again, up to 3 attempts. `HttpCredentialsProvider.reset` runs the
     helper's `erase` with the credentials it last gave, from the helper or typed by the user, like git's
     `credential_reject`. Git stores typed credentials only once the server accepts them; Leaf stores them at once, so
-    `reset` first waits for that `store`, then for the `erase`. Without a helper nothing is erased, and Leaf's
-    in-memory cache keeps rejected credentials.
+    `reset` first waits for that `store`, then for the `erase`.
+  - Without a helper, `get` gives credentials from Leaf's in-memory cache (`CredentialsCacheRepository`, app singleton)
+    or asks. `reset` removes the ones it took from the cache, but only while they are still the URL's cached ones,
+    like `git credential-store erase`. Typed credentials are cached when the operation succeeds
+    (`HandleTransportGitAction` → `cacheCredentialsIfNeeded`) and replace the URL's entry; `reset` drops them first if
+    the server rejected them.
+  - LFS (`ProvideLfsCredentialsGitAction`) reads that cache with `isLfs = true`, but nothing has cached LFS credentials
+    since upstream's 7277d40c, so it asks after every 401.
   - What a helper reads comes from `credentialHelperInput` (fork-only `CredentialUrl.kt`), shared by `get`, `store`
     and `erase` on every OS. It matches git's `credential_from_url`, so Leaf and the git CLI find each other's
     credentials: `host` has the port when the URL has one (`example.com:8443`), and the `useHttpPath` path comes
