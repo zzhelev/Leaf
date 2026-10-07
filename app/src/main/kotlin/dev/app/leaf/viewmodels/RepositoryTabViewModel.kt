@@ -63,7 +63,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val repositoryStateRepository: RepositoryStateRepository,
     private val setRepositorySelectionStateToNoneUseCase: SetRepositorySelectionStateToNoneUseCase,
     private val tabComponent: TabComponent,
-    @Assisted private val initialPath: String?,
+    @Assisted val initialPath: String?,
     updatesRepository: UpdatesRepository,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel(),

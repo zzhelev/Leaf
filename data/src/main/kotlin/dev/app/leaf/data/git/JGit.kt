@@ -7,6 +7,7 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.util.FS
 import org.eclipse.jgit.util.FS_Win32
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -15,7 +16,8 @@ import javax.inject.Singleton
 class JGit @Inject constructor(
     private val windowsFs: Provider<WindowsFs>,
 ) {
-    private val repositories = mutableMapOf<String, Git>()
+    // Concurrent because cleanupExcept iterates it while other tabs open repositories
+    private val repositories = ConcurrentHashMap<String, Git>()
 
     suspend fun <T> provide(
         repositoryPath: String,
@@ -51,8 +53,6 @@ class JGit @Inject constructor(
         } catch (ex: Exception) {
             val error = errorHandle?.invoke(ex) ?: GenericError(ex.message.orEmpty(), ex)
             Either.Err(error)
-        } finally {
-//            git.close()
         }
     }
 

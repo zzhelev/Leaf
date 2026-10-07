@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.app.leaf.di.TabComponent
 import dev.app.leaf.domain.models.RepositorySelectionState
+import dev.app.leaf.domain.models.pathToPersist
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.usecases.CleanRepositoriesResourcesUseCase
 import dev.app.leaf.ui.components.TabInformation
@@ -120,15 +121,12 @@ class AppViewModel @Inject constructor(
             tabs.value = tabsList
         }
 
-        val remainingTabs = tabsList.mapNotNull {
-            if (it.data.isLoaded) {
-                it.data.repositoryPath.value
-            } else {
-                null
-            }
+        // Git dirs, the keys of the JGit cache
+        val remainingRepositories = tabsList.mapNotNull {
+            (it.data.repositorySelectionState.value as? RepositorySelectionState.Open)?.path
         }
 
-        cleanRepositoriesResourcesUseCase(remainingTabs)
+        cleanRepositoriesResourcesUseCase(remainingRepositories)
 
         updatePersistedTabs()
         System.gc()
@@ -137,13 +135,10 @@ class AppViewModel @Inject constructor(
     suspend fun updatePersistedTabs() {
         val tabsToPersist = tabs
             .value
-            .mapNotNull {
-                when (val selectionState = it.data.repositorySelectionState.value) {
-                    RepositorySelectionState.None -> null
-                    is RepositorySelectionState.Open -> it to selectionState.path
-                    is RepositorySelectionState.Opening -> it to selectionState.path
-                    RepositorySelectionState.Unknown -> it to it.data.repositoryPath.value
-                }
+            .mapNotNull { tab ->
+                tab.data.repositorySelectionState.value
+                    .pathToPersist(initialPath = tab.data.initialPath)
+                    ?.let { path -> tab to path }
             }
 
         appSettingsRepository.latestTabsOpened = Json.encodeToString(tabsToPersist.map { it.second })

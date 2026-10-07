@@ -8,6 +8,6 @@ class GitProviderService @Inject constructor(
     private val jgit: JGit,
 ) : IGitProviderService {
     override fun cleanupExcept(repositoriesToKeep: Set<String>) {
-        jgit.cleanupExcept(repositoriesToKeep.map { "$it/.git" }.toSet())
+        jgit.cleanupExcept(repositoriesToKeep)
     }
 }
