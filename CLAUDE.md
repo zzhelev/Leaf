@@ -38,6 +38,13 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
 - The 2.0 rewrite lives on `upstream/main` (tags `2.0.0-beta01..03`). The other upstream branches are stale. There is
   no local mirror branch: sync by fetching `upstream` and merging `upstream/main` into `main`. `main` is published, so
   never rebase it.
+- **Syncing and the package rename:** git follows the rename to `dev/app/leaf` for most files, but not all:
+  - A file upstream adds next to existing files comes up as a "file location" conflict, already at the Leaf path.
+  - A file upstream adds in a new folder lands under `com/jetpackduba/gitnuro/` without any conflict.
+  - A file the fork rewrote comes up as modify/delete, and upstream's change has to be ported by hand.
+
+  After resolving, `git ls-files '*jetpackduba*'` must print nothing, and new files need `dev.app.leaf` packages. The
+  first sync (2026-10-07) is described in `docs/fork/CHANGELOG.md`.
 - **Commit identity:** `Zhelyazko Zhelev <zzhelev@gmail.com>`, set in the repo's own `.git/config`. Never commit under
   another identity.
 - **Pushing:** the SSH key on this machine belongs to another GitHub account and can't push to `zzhelev/Leaf`. Push over
@@ -165,8 +172,6 @@ asking.
     `FileSystemPreferencesFactory` is unavailable on macOS, and `-Duser.home` does not affect them.
   - Passing `-Duser.home` to `:app:run` through an init script did not take effect; the Compose plugin sets the run
     task's JVM args.
-  - A dev run that restores tabs lazily can wipe the persisted tab list; this happened once, when dev runs still
-    shared Gitnuro's node. It can now only wipe the dev tab list.
 
 ## Module map
 
@@ -206,7 +211,10 @@ asking.
 **`JGit.provide`** (`data/git/JGit.kt`):
 - The class is a `@Singleton` cache from path to `Git`, opened with `Git.open(File(repositoryPath))`.
 - Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper).
-- `Git` instances are never closed.
+- Closing a tab closes and drops the cached `Git` of every repository that no remaining tab has open
+  (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
+  dirs from `RepositorySelectionState.Open.path`, never `<working tree>/.git`: linked worktrees and submodules have no
+  such folder. The cache is a `ConcurrentHashMap`, because tabs add to it while another tab closes.
 - `provide` does not switch dispatchers. Many actions call `withContext(Dispatchers.IO)` themselves.
 - JGit auto-gc is turned off by `NoAutoGcSystemReader` (`data/git/`), which `main.kt` installs before Dagger is
   created. JGit's gc is not worktree-aware. Never run JGit gc; leave it to the git CLI.
@@ -299,7 +307,10 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - Persisted keys in the prefs node (`LeafConfig`, see Name): `latestRepositoriesTabsOpened` (JSON),
   `latestRepositoryTabSelected`, and
   `lastOpenedRepositoriesList`.
-- Only tabs in the `Open` state are persisted.
+- What is saved: open tabs as their git dir (`Open.path`), and tabs that haven't loaded yet as the path they were
+  created with (`RepositoryTabViewModel.initialPath`). Tabs on the welcome page (`None`) are skipped.
+- Never save `repositoryPath.value`. It is started lazily and stays `null` until something collects it, which tabs
+  scrolled out of the tab bar never do. A `null` in the saved list makes `loadPersistedTabs` throw at startup.
 
 ## Sidebar and branch list
 

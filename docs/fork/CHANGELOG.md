@@ -2,6 +2,35 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Upstream sync: repository cleanup and tab saving (branch `sync/upstream-2026-10-07`)
+
+- **Merged:** `upstream/main` up to `415b3729`, the first sync since the fork point `62442f26`. It brings two commits:
+  - `721611cd`: closing a tab closes the cached JGit repositories that no other tab uses, and opening a repository
+    closes the one it opened only to check the path.
+  - `415b3729`: tabs that haven't loaded yet are saved too, so restoring tabs lazily no longer drops them.
+- **Conflicts:** imports and packages from the rename, and `GitCliModule` next to the new `ServicesModule`.
+  `OpenRepositoryGitAction` came up as modify/delete, because the fork rewrote it, so its `use {}` was ported by hand.
+  `data/services/GitProviderService.kt` landed under `com/jetpackduba/gitnuro/` without a conflict and was moved.
+- **Fixed on top:**
+  - Upstream picked the repositories to keep as each tab's working tree + `/.git`. A linked worktree's git dir is
+    `<main>/.git/worktrees/<name>`, a submodule's is under `.git/modules/`, and Windows uses `\`. So closing any tab
+    closed every open linked worktree's repository, which was then reopened on its next use. The keep list is now the
+    tabs' `Open.path`, which is the cache key.
+  - The JGit cache is a `ConcurrentHashMap`, because the cleanup iterates it while other tabs may add to it.
+  - Upstream saved a tab that hadn't loaded as `repositoryPath.value`, which is `null` until something collects it.
+    Tabs scrolled out of the tab bar never do. Launching with 20 saved tabs wrote 11 `null`s, and the next launch died
+    in `loadPersistedTabs` with a `JsonDecodingException`, as would every launch until the saved tab list was
+    cleared. Such tabs are now saved as the path they were created with, and a new empty tab isn't saved
+    (`RepositorySelectionState.pathToPersist`).
+- **Changed:** open tabs are saved as their git dir (`/repo/.git`) instead of the working tree. Both restore the same
+  way. Linked worktree tabs were already saved as their git dir.
+- **Tests:** `GitProviderServiceTest` (2) opens a main repository, a linked worktree and a submodule, and checks that
+  cleanup keeps exactly the open ones. It fails on the linked worktree with upstream's key mapping.
+  `RepositorySelectionStateTest` (4) covers the saved path per tab state. 118 tests in total.
+- **Verified:** the merge alone builds and passes the 112 existing tests. With the fix, the 20-tab launch saves all 20
+  paths, and the next launch starts and restores them. The dev prefs were backed up before these runs and restored
+  after.
+
 ## Real storage for the Linux jar (branch `fix/linux-jar-storage`)
 
 - **The problem:** `AppStorage` only counted a run as packaged when jpackage's launcher set `jpackage.app-version`.
