@@ -12,6 +12,11 @@ sealed interface CreateBranchError : GitError {
     data class NameNotAllowed(val name: String): CreateBranchError
 }
 
+sealed interface CheckoutBranchError : GitError {
+    /** Checking out [remoteBranch] creates a local branch named [localBranch], and one already exists. */
+    data class LocalBranchAlreadyExists(val localBranch: String, val remoteBranch: String) : CheckoutBranchError
+}
+
 /**
  * A branch or tag deletion refused without force. [commitsOnlyOnRef] commits are on no other branch, tag or HEAD, so
  * deleting the ref with force leaves them on none.
