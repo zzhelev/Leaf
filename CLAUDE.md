@@ -305,18 +305,37 @@ worktrees.
 - `GitCli.execute` returns the output whatever the exit code (`GitCliOutput`), takes extra variables, and streams
   stderr to a callback. `run` is built on it.
 
-**Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push and remote branch deletion
-run `git push --porcelain --progress` (`GitCliPushBranchGitAction`, `GitCliDeleteRemoteBranchGitAction`). Fetch, pull
-and clone still use JGit (stages 2 and 3 of `docs/fork/remote-operations.md`).
-- **Choice:** `SelectingPushBranchGitAction` and `SelectingDeleteRemoteBranchGitAction` are bound to the domain
-  interfaces. `RemoteOperationsBackend` picks the git CLI unless:
+**Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch and pull run the git
+CLI. Clone still uses JGit (stage 3 of `docs/fork/remote-operations.md`).
+- Push and remote branch deletion run `git push --porcelain --progress` (`GitCliPushBranchGitAction`,
+  `GitCliDeleteRemoteBranchGitAction`).
+- Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
+  one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
+  dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
+- Pull (`GitCliPullBranchGitAction`) fetches with git, then JGit merges or rebases, as its `PullCommand` does after its
+  own fetch: Leaf's automatic stash, conflict handling and built-in LFS stay, and git never opens an editor.
+  - What is pulled is what `PullCommand` pulls: the chosen remote branch, or the upstream (`branch.<name>.remote` and
+    `.merge`), or the branch of the same name on `origin`. An upstream is fetched with `git fetch <remote>`, which
+    updates every remote-tracking branch and marks it for merge in `FETCH_HEAD`. Anything else is fetched by name.
+    The commit comes from the `FETCH_HEAD` line marked for merge (`parseFetchHead`), never from a remote-tracking
+    branch, which may be stale.
+  - The merge message names it with git's own description from `FETCH_HEAD` (`branch 'main' of <url>`), and JGit adds
+    ` into <branch>`. `pull.ff` is read as `PullCommand` reads it. An upstream that is a local branch (remote `.`) is
+    merged without fetching, and a branch without commits takes the pulled commit.
+  - `mergeHasConflicts` and `rebaseHasConflicts` (`remote_operations/PullOutcome.kt`) tell both pulls, JGit's and the
+    CLI's, what happened. A merge that would overwrite local changes throws `PullWouldOverwriteException` (JGit
+    returns `FAILED`, or throws `CheckoutConflictException` for a fast-forward); it used to count as a pull without
+    conflicts. The CLI pull then drops its backup stash, since nothing changed.
+- **Choice:** the `Selecting…GitAction`s are bound to the domain interfaces. `RemoteOperationsBackend` picks the git CLI
+  unless:
   - the "Use git for remote operations" setting (`AppConfig.RemoteOperationsWithGit`, on by default) is off;
   - no usable git was found, or the build has no helper;
   - a push of an LFS repository (an `lfs` folder in the common git dir, or `filter=lfs` in the root `.gitattributes`)
     wouldn't upload its objects: its `pre-push` hook doesn't run git-lfs, or `git lfs version` fails. JGit uploads
     them itself.
 
-  It decides before git starts, never after a failure, which could push twice.
+  It decides before git starts, never after a failure, which could push twice. The LFS condition applies only to
+  push: a fetch doesn't involve git-lfs, and JGit does a pull's merge either way.
 - **Running:** `GitCliRemoteCommand` runs git with no timeout, the askpass variables, Leaf's in-memory cache as git's
   last credential helper (`-c credential.helper=!'<helper>' credential`, only with "Cache HTTP credentials in
   memory"), and git's progress in `RepositoryStateRepository.taskProgress`. Never set `GIT_SSH_COMMAND`: the user's
@@ -741,7 +760,7 @@ common `refs/` and `packed-refs` are not watched.
   - `builtAskpassHelper()` finds the helper in `app/src/main/resources`. Tests that run it are skipped without it.
   - `answeringDialogs` plays the user: it answers each `CredentialsRequest` in turn and returns the dialogs shown.
   - `TestRemoteCommand` builds a `GitCliRemoteCommand` with git kept away from the developer's config.
-  - `GitCliPushBranchGitActionTest` pushes to a bare repository on disk. `GitCliHttpsPushTest` runs
-    `git http-backend` as CGI behind Basic authentication in a JDK `HttpServer`. `GitCliSshPushTest` runs sshd with
+  - `GitCliPushBranchGitActionTest` and `GitCliFetchPullTest` use bare repositories on disk, which another clone
+    changes. `GitCliHttpsTest` runs `git http-backend` as CGI behind Basic authentication in a JDK `HttpServer`. `GitCliSshPushTest` runs sshd with
     forced commands, and sets `core.sshCommand` (`-F /dev/null`, its own known_hosts, `IdentityAgent=none`,
     `-i <key>`), so that ssh never reads the developer's `~/.ssh`.

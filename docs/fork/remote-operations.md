@@ -24,7 +24,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
   - The Cancel button does nothing, and SSH reads have no timeout.
 - **Recommendation:** move remote operations to the git CLI in stages: push first, then fetch and pull, then clone.
   Keep JGit and libssh only as a fallback when no usable git is found. Fix the TLS problem now, whatever the
-  decision. Section 4 has the plan. Stage 0 and stage 1 (push) are done.
+  decision. Section 4 has the plan. Stages 0, 1 (push) and 2 (fetch and pull) are done.
 
 ## 1. How remote operations work today
 
@@ -360,12 +360,21 @@ Found while building it:
 - Not done: ssh's notices (`SSH_ASKPASS_PROMPT=none`, such as "Confirm user presence" for a security key) aren't
   shown, so the processing screen is all the user sees while ssh waits for a touch. Windows isn't tested.
 
-**Stage 2: fetch and pull (M).**
+**Stage 2: fetch and pull (M), done on branch `feat/git-cli-fetch-pull`.** The fork changelog and CLAUDE.md
+("Remote operations") describe what was built; the plan as written before follows.
 - Fetch: `git fetch --prune <remote>` per remote, so each remote reports its own error.
 - Pull: `git fetch`, then the existing JGit merge or rebase. That keeps Leaf's autostash, conflict detection and
   built-in LFS, and avoids editor prompts.
 - Touches `FetchAllRemotesGitAction` and `PullBranchGitAction`, each with a CLI counterpart.
 - Tests: pruning a deleted branch, one failing remote among several, merge and rebase conflicts after a CLI fetch.
+
+Found while building it:
+- The commit to merge comes from `FETCH_HEAD`, as with `git pull`: fetching the upstream's remote marks the upstream
+  for merge even when the fetch refspec doesn't cover it, and git writes the lines marked for merge first. A
+  remote-tracking branch could be stale.
+- JGit's merge of a pull that would overwrite local changes returns `FAILED` (or throws `CheckoutConflictException`
+  for a fast-forward), and Leaf's JGit pull reported it as "Pull completed". Both pulls now report the files.
+- JGit's merge message adds ` into main`, which git leaves out for `main` and `master`. Both pulls keep JGit's.
 
 **Stage 3: clone and submodules (M).**
 - Clone: `git clone --progress --no-checkout`, then today's JGit checkout with built-in LFS, so git-lfs isn't

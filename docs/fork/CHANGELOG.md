@@ -2,6 +2,41 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Fetch and pull run the git CLI (branch `feat/git-cli-fetch-pull`)
+
+Stage 2 of `docs/fork/remote-operations.md`.
+
+- **Before:** fetch and pull ran JGit over Leaf's own SSH and HTTPS code, like push before stage 1.
+- **Now:** both go through the git CLI and the system's ssh, with the askpass helper, the progress and the Cancel button
+  of stage 1, and the same "Use git for remote operations" setting.
+  - **Fetch** runs `git fetch --prune` for each remote in turn. A remote that fails no longer hides the others: they
+    are still fetched, and the error lists each failure with git's output. A remote whose dialog was closed isn't
+    reported, as with JGit.
+  - **Pull** fetches with git, then JGit merges or rebases, as it did after its own fetch. So the automatic stash, the
+    conflict handling and the built-in LFS are unchanged, and git never opens an editor. It pulls the same branch as
+    before: the chosen remote branch, the upstream, or the branch of the same name on `origin`. The commit comes from
+    `FETCH_HEAD`, as with `git pull`, and the merge message names it as git does (`branch 'main' of <url>`). An
+    upstream that is a local branch is merged without fetching, and a branch without commits takes the pulled commit.
+- **Fixed for both pulls:** a merge that would overwrite uncommitted changes was reported as "Pull completed", though
+  nothing was merged, and so was a pull that `pull.ff=only` stopped because the branches had diverged. The first now
+  fails with the files to commit or stash (the CLI pull also removes the backup stash it made, since nothing
+  changed), and the second says that the branches diverged.
+- **Tests:** 24 new, all in `:data`, none skipped here.
+  - `GitCliFetchPullTest` (18) fetches and pulls from bare repositories on disk, which another clone changes:
+    - fetch: two remotes, with a branch deleted and one added; a remote that fails among others; a chosen remote;
+    - pull: a fast-forward that also updates the other remote branches, a merge with git's description of the
+      upstream, a rebase, merge and rebase conflicts (the backup stash is kept), local changes that a fast-forward or
+      a merge would overwrite (nothing changes, no stash is left), `pull.ff` set to `false` and to `only`, a chosen
+      remote branch, a branch without upstream, a local upstream, an upstream missing on the remote, a failing fetch,
+      and a branch without commits.
+  - `GitCliHttpsTest` (stage 1's `GitCliHttpsPushTest`, renamed; 7, 2 new): a fetch asks through the same dialog and
+    the pull then uses the cached credentials, and a fetch whose dialog is closed reports nothing.
+  - `PullOutcomeTest` (4) checks what both pulls report, with JGit's own merge and rebase results.
+  - Fifteen mutations were each caught, among them dropping `--prune`, the `FETCH_HEAD` merge mark, the upstream
+    fetch, `pull.ff`, the rebase, the local upstream or the old "Pull completed" bug.
+  - `./gradlew build` passes, with 439 tests (350 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** the running app, Windows, and pulling submodules (`fetch.recurseSubmodules` is left to git).
+
 ## installMacApp cleans up LaunchServices (branch `fix/install-launchservices`)
 
 - **Before:** an installed `/Applications/Leaf.app` showed the leaf icon until it launched, then the Dock showed the
