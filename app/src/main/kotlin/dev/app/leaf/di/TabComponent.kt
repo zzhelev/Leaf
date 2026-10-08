@@ -5,6 +5,7 @@ import dev.app.leaf.di.modules.FileWatcherModule
 import dev.app.leaf.di.modules.TabModule
 import dev.app.leaf.di.modules.TabRepositoriesModule
 import dev.app.leaf.di.modules.TabScopeGitActionsModule
+import dev.app.leaf.di.modules.WorktreeGitActionsModule
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.ui.dialogs.*
 import dev.app.leaf.viewmodels.*
@@ -18,6 +19,7 @@ import dagger.Subcomponent
         TabRepositoriesModule::class,
         FileWatcherModule::class,
         TabScopeGitActionsModule::class,
+        WorktreeGitActionsModule::class,
     ],
 )
 interface TabComponent {
