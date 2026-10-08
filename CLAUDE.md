@@ -401,8 +401,13 @@ merges, rebases and tags all find them through `gpg.format`, and `CreateTagGitAc
   "Exception caught during execution of commit command". `JGit.provide` finds it in the cause chain and returns its
   `GpgSigningError` before the operation's own `errorHandle` runs.
 - JGit's BouncyCastle signer (Leaf's old `AppGpgSigner`) is gone: it couldn't find keys kept by keyboxd
-  (`use-keyboxd`, GnuPG 2.4's default), and its ED25519 signatures failed to verify (Gitnuro#194, #293). The
-  `jgit-gpg` dependency stays, as `main.kt` also registers BouncyCastle's JCE provider.
+  (`use-keyboxd`, GnuPG 2.4's default), and its ED25519 signatures failed to verify (Gitnuro#194, #293).
+- BouncyCastle is gone too. `jgit-gpg`, `bcpg` and the JCE provider that `main.kt` registered were only there for that
+  signer:
+  - Leaf's own JCE calls (AES, SHA-256) and the TLS of JGit, Ktor and OkHttp use the JDK's providers.
+  - SSH and SSH signing run in the Rust library, which has its own OpenSSL.
+  - Leaf never verifies signatures. Without `jgit-gpg`, JGit has no OpenPGP verifier for `Git.verifySignature()`;
+    verifying would mean running gpg, as signing does.
 
 **External processes (upstream code):** upstream never invokes the `git` CLI. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
 (credential helpers, terminals, opening a file manager) and in `FileExtensions.kt`. Leaf's `WindowsFs` runs Windows

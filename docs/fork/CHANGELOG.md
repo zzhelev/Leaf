@@ -2,6 +2,38 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## BouncyCastle is removed (branch `claude/dreamy-bun-29d0bf`)
+
+- **Before:** `app`, `data` and `domain` depended on `jgit-gpg` (JGit's BouncyCastle signer) and `bcpg`, and `main.kt`
+  registered BouncyCastle's JCE provider. Upstream added the provider and `bcpg` with JGit 7.0.0 (`398d7265`), for
+  `AppGpgSigner`, which extended JGit's BouncyCastle signer. Since `GpgProgramSigner` (entry below), nothing used them.
+- **Now:** both dependencies, their catalog entries and the provider are gone. So are the 104 BouncyCastle entries in
+  the GraalVM reachability metadata: the provider's algorithm classes and JGit's BouncyCastle signer factory.
+- **Size:** the packaged macOS app loses five jars (`bcprov`, `bcpkix`, `bcpg`, `bcutil`, `jgit-gpg`).
+  `Contents/app` goes from 130.2 MB to 118.6 MB, and `Leaf.app` from 303 MB to 292 MB. The Linux launcher's
+  classpath, which `packageDeb` keeps under 7 KB, gets five names shorter.
+- **Why nothing else needs them:**
+  - Leaf's own JCE calls are AES/CBC (the credentials cache) and SHA-256, both in the JDK.
+  - Git over HTTPS uses JGit's JDK `HttpURLConnection`, LFS and the update check use Ktor CIO, and avatars use OkHttp.
+    All of them take their crypto from the JDK's providers. BouncyCastle was registered last, so it could only have
+    supplied an algorithm no JDK provider has. OkHttp's BouncyCastle support needs `bctls` and BCJSSE as the first
+    provider, which Leaf never had.
+  - SSH and SSH signing run in the Rust library, which has its own vendored OpenSSL.
+  - Nothing verifies signatures. In JGit core only `VerifySignatureCommand` (`Git.verifySignature()`) reaches the
+    verifier that `jgit-gpg` registered, and Leaf never calls it.
+  - Nothing else brought BouncyCastle in (`:app:dependencies`). Of the other runtime jars, only OkHttp and JGit core
+    mention it, for the cases above.
+- **Checked:** `./gradlew build` passes with the same 279 tests. A throwaway test on the app's classpath, with no `BC`
+  provider and no BouncyCastle classes, ran against the live servers:
+  - `ls-remote` of Leaf's repository over HTTPS;
+  - `latest.json` through Leaf's Ktor client and through a plain CIO client;
+  - Leaf's own LFS batch request and download of one of its LFS fonts, whose SHA-256 matched;
+  - a Gravatar request through OkHttp.
+
+  A dev run started, restored its tab and checked for updates without errors.
+- **Not tried:** SSH against a server (the JVM takes no part in it), a GraalVM native image, and the Windows and Linux
+  packages.
+
 ## On Windows, gpg is found where Git for Windows' git finds it (branch `claude/gracious-booth-8370d2`)
 
 - **Before:** on Windows, `GpgProgramSigner` gave the `gpg.program` name (`gpg` by default) to `ProcessBuilder`, so

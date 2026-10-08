@@ -26,7 +26,8 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`,
 
 ## 1. JGit version
 
-`gradle/libs.versions.toml:5` sets `jgit = "7.7.0.202606012155-r"`, covering `jgit-core`, `jgit-gpg` and `jgit-lfs`.
+`gradle/libs.versions.toml:5` sets `jgit = "7.7.0.202606012155-r"`, covering `jgit-core` and `jgit-lfs`
+(`jgit-gpg` was dropped with BouncyCastle on 2026-10-08).
 
 **What JGit 7.7 supports** (confirmed by `javap` on the jar and by the probe results below):
 - Reading a linked worktree: `Repository.getCommonDirectory()`, `BaseRepositoryBuilder.setGitCommonDir()` and
