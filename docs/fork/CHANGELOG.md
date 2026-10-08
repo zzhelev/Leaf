@@ -2,6 +2,54 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Credentials are stored with every helper once the server takes them (branch `feature/credential-approve`)
+
+Closes the last gap listed under "Still unlike git" in "Only the password is asked for when the user name is
+known", and the one noted for LFS ("Unlike git-lfs, credentials from the helper aren't stored back").
+
+- **Before:**
+  - When a helper's credentials worked, Leaf stored them nowhere else. Git (`credential_approve` in credential.c)
+    sends `store` to every helper once the server takes them, the helper that gave them included. So with
+    `osxkeychain` and `cache`, git fills the cache from the keychain, and Leaf didn't.
+  - Git-lfs does the same with `git credential approve`.
+  - Leaf read only `username`, `password` and `quit` from a helper. Git also keeps `oauth_refresh_token` and
+    `password_expiry_utc`, passes them to the next helpers, and sends them back with `store` and `erase`.
+  - Git drops a password whose expiry has passed and asks the next helpers. Leaf used it.
+- **Now:**
+  - `HelperCredential` (in `CredentialUrl.kt`) is what git keeps between helpers: the user name, the password, the
+    refresh token and the expiry. `credentialHelperInput` writes the parts that are known, in git's order, and
+    refuses newlines in all of them.
+  - `get` merges each answer field by field, as `credential_read` does. It drops an expired password with its expiry,
+    keeping the user name and the refresh token, as `credential_fill` does. `gitExpiry` reads the expiry as git's
+    `parse_timestamp`: the leading number, with 0 or no number meaning none.
+  - The new `CredentialHelpers.approve` sends `store` to every helper and waits for them, as git does. It stores
+    nothing without a user name and a password, or once the password has expired.
+  - HTTPS approves the helpers' credentials in `cacheCredentialsIfNeeded`, which runs once the operation succeeds.
+    Typed credentials still go to the helpers when the user gives them, and aren't approved again.
+  - LFS approves whatever the server took: the helpers' credentials, typed ones, or a mix. It used to `store` only
+    typed credentials.
+  - Typed parts are stored with whatever the helpers gave besides, such as a refresh token, as git keeps it.
+- **Still unlike git:** git approves after the first request that succeeds. Leaf approves once the whole operation
+  succeeds, so a pull whose fetch worked but whose merge throws approves nothing.
+- **Tests:** git 2.54 is the reference: its `credential.c` for the rules, and `git credential fill` and
+  `git credential approve` with recording helpers for the behaviour.
+  - `CredentialHelpersTest` (+4):
+    - A refresh token and an expiry from one helper reach the next. `approve` gives both helpers the same input that
+      `git credential approve` gives them.
+    - An expired password is dropped, and the next helper reads what git sends it.
+    - Incomplete or expired credentials aren't approved, as with git.
+    - Eight `password_expiry_utc` values, read as git reads them.
+  - `HttpCredentialsProviderTest` (+3):
+    - After a success, a helper's credentials, with their refresh token and expiry, reach git's `store` and come
+      back to the helper.
+    - A typed password is stored with the helper's refresh token.
+    - Typed credentials are stored once.
+  - `ProvideLfsCredentialsGitActionTest` (+3, one existing test changed):
+    - The helper's credentials reach git's `store` once the server takes them, and aren't stored after a 500.
+    - The helper's extras are stored with a typed user name or password.
+    - The test where the helper gives the credentials now expects the `store` that follows the `get`.
+  - Mutation check: 22 mutations of the new code, all caught.
+
 ## SSH errors show the server's message (branch `fix/ssh-server-messages`)
 
 Stage 0b of `docs/fork/remote-operations.md`, and the message part of Gitnuro#294.

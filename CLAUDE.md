@@ -330,9 +330,10 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
       Then Leaf asks until the server takes them, and stores those with the helpers.
     - Without one, it uses Leaf's cache with `isLfs = true`, keyed by the LFS server's URL: rejected entries are
       removed, typed credentials are cached once the server takes them.
-    - Only a request that succeeds stores or caches anything, as in git-lfs. Unlike git-lfs, credentials from the
-      helper aren't stored back, and Leaf asks about the LFS server even for object URLs on other hosts (git-lfs asks
-      about those URLs).
+    - Only a request that succeeds stores or caches anything, as in git-lfs. With helpers, whatever the server took
+      is stored with every helper (`approve`), as git-lfs does with `git credential approve`: the helpers' own
+      credentials too. Unlike git-lfs, Leaf asks about the LFS server even for object URLs on other hosts (git-lfs
+      asks about those URLs).
   - What a helper reads comes from `credentialHelperInput` (fork-only `CredentialUrl.kt`), shared by `get`, `store`
     and `erase` on every OS. It matches git's `credential_from_url`, so Leaf and the git CLI find each other's
     credentials: `host` has the port when the URL has one (`example.com:8443`), and the `useHttpPath` path comes
@@ -355,12 +356,25 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     - If git can't run, `jgitCredentialEntries` reads JGit's config instead. JGit doesn't keep the order of different
       subsections, so it lists `credential.*` first, then the matching subsections from the least specific to the
       most. JGit gives `null` for an empty value and `""` for a key without `=`, the other way round from git.
-  - `get` asks the helpers in turn, like `credential_fill`. Each helper is sent the user name known so far (the URL's,
-    `credential.username`, or an earlier helper's) and any password an earlier helper gave. It stops at the first
-    one that completes both, so a helper may answer with the password alone. A helper that can't be started is
-    skipped, and `quit=1` stops the search with no credentials. Otherwise it returns `NotStored(user, password)`: the
-    user name known after the last helper, or the password a helper gave without one.
+  - What git keeps between helpers is a `HelperCredential` (in `CredentialUrl.kt`, like git's `struct credential`).
+    It holds the user name, the password, and what a helper may give besides: `oauth_refresh_token`, and
+    `password_expiry_utc` (read like git's `parse_timestamp`, `gitExpiry`). Every helper call, `get`, `store` or
+    `erase`, sends the parts that are known, so a helper gets back the refresh token and the expiry it gave.
+  - `get` asks the helpers in turn, like `credential_fill`. Each helper is sent what the helpers before it gave,
+    starting with the user name that git knows (the URL's or `credential.username`). It stops at the first one that
+    completes the user name and the password, so a helper may answer with the password alone.
+    - A password whose expiry has passed is dropped, with its expiry, and the next helpers are asked. The user name
+      and the refresh token stay.
+    - A helper that can't be started is skipped, and `quit=1` stops the search with no credentials.
+    - Otherwise it returns `NotStored(credential)`, with at most one of the user name and the password. What the
+      user then types is stored together with the rest, such as a refresh token.
   - `store` and `erase` go to every helper, and `erase` waits for each `store` it follows.
+  - Once an operation succeeds, `approve` stores the helpers' credentials with every helper, like git's
+    `credential_approve`, the helper that gave them included, and waits for them. Like git, it stores nothing
+    without a user name and a password, or once the password has expired.
+    - HTTPS approves in `cacheCredentialsIfNeeded`, which `HandleTransportGitAction` calls when the block returns
+      (each remote of a fetch-all has its own). Typed credentials aren't approved again: they went to the helpers
+      when the user gave them.
   - Leaf asks only for what git doesn't know, like git's `credential_getpass`, for HTTPS and LFS alike:
     - When it knows the user name (with or without helpers), it asks only for the password.
       `HttpCredentialsRequest.user` and `LfsCredentialsRequest.user` carry the name, and `UserPasswordDialog` shows
@@ -375,8 +389,8 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
       them, and erased if not, and then Leaf asks for both.
     - After the server rejects a helper's credentials, LFS shows the user name from the settings, not the rejected
       one.
-  - Still unlike git: after a success, Leaf doesn't store a helper's credentials in the other helpers, as git's
-    `credential_approve` does.
+  - Still unlike git: git approves after the first request that succeeds. Leaf approves only once the whole
+    operation succeeds, so a pull whose fetch succeeded but whose merge throws approves nothing.
 - Also used by `GpgProgramSigner`, which runs gpg (see Commit and tag signing).
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
@@ -630,6 +644,8 @@ common `refs/` and `packed-refs` are not watched.
 - `CredentialHelpersTest` checks the helper list against `git credential fill`. Each helper is
   `!leaf-helper <name>`, which records that it ran and what it read, and answers from `<name>.answer`. An `includeIf`
   pattern must use the real path (`canonicalPath`): git compares it with `/private/var/...` on macOS.
+  `runGitCredentialApprove` feeds `git credential approve` what `fill` gave, and returns what each helper was given
+  to store.
 - `GpgProgramSignerTest` uses a fake gpg that records its arguments and input. `GpgProgramSignerRealGpgTest` runs only
   when gpg is installed: it creates an ED25519 key in a throwaway `GNUPGHOME` with `use-keyboxd`, and checks signatures
   with `git verify-commit` and `verify-tag`. That home is a short folder (`<temp>/g`), because gpg-agent's sockets go
