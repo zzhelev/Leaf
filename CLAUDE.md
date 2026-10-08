@@ -366,8 +366,33 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
       user name, and keeps the helper's password.
     - After a success, Leaf doesn't store a helper's credentials in the other helpers, as git's
       `credential_approve` does.
+- Also used by `GpgProgramSigner`, which runs gpg (see Commit and tag signing).
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
+
+**Commit and tag signing (fork-only `data/.../signers/GpgProgramSigner.kt`):** `App.start` registers the signers with
+JGit's `Signers`: `GpgProgramSigner` for `openpgp`, the default `gpg.format`, and `SshSigner` for `ssh`. Commits,
+merges, rebases and tags all find them through `gpg.format`, and `CreateTagGitAction` leaves `tag.gpgSign` and
+`tag.forceSignAnnotated` to JGit's `TagCommand`.
+- `GpgProgramSigner` runs gpg as git does (`sign_buffer_gpg` in gpg-interface.c):
+  - the program is `gpg.openpgp.program` or `gpg.program`, by default `gpg`;
+  - it runs with `--status-fd=2 -bsau <key>`, the data on stdin (`ProcessRunner`'s `input`) and the armored signature
+    on stdout;
+  - it must exit with 0 and print `[GNUPG:] SIG_CREATED` at the start of a status line;
+  - the key is `user.signingKey`, or else the committer's `Name <email>`. JGit's `TagCommand` passes no key, so signers
+    read `config.signingKey` themselves; `SshSigner` does too.
+- gpg gets `LoginShellEnvironment`'s variables. A program name is looked up on that PATH, then on macOS in the Homebrew
+  and GPG Suite folders, since Java's `ProcessBuilder` would search the PATH Leaf started with.
+- gpg-agent's pinentry asks for passphrases; Leaf has no prompt of its own for gpg. Without a terminal,
+  `pinentry-curses` (Homebrew's default) fails with "Inappropriate ioctl for device". The `FAILURE` status codes show
+  it, and it becomes `GpgSigningError.PinentryUnavailable`, which suggests pinentry-mac.
+- Signing times out after 2 minutes, as nothing can cancel a commit while it runs.
+- Failures throw `GpgSigningException`, a `CanceledException`, because JGit wraps a signer's other exceptions into
+  "Exception caught during execution of commit command". `JGit.provide` finds it in the cause chain and returns its
+  `GpgSigningError` before the operation's own `errorHandle` runs.
+- JGit's BouncyCastle signer (Leaf's old `AppGpgSigner`) is gone: it couldn't find keys kept by keyboxd
+  (`use-keyboxd`, GnuPG 2.4's default), and its ED25519 signatures failed to verify (Gitnuro#194, #293). The
+  `jgit-gpg` dependency stays, as `main.kt` also registers BouncyCastle's JCE provider.
 
 **External processes (upstream code):** upstream never invokes the `git` CLI. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
 (credential helpers, terminals, opening a file manager) and in `FileExtensions.kt`. Leaf's `WindowsFs` runs Windows
@@ -576,6 +601,10 @@ common `refs/` and `packed-refs` are not watched.
 - `CredentialHelpersTest` checks the helper list against `git credential fill`. Each helper is
   `!leaf-helper <name>`, which records that it ran and what it read, and answers from `<name>.answer`. An `includeIf`
   pattern must use the real path (`canonicalPath`): git compares it with `/private/var/...` on macOS.
+- `GpgProgramSignerTest` uses a fake gpg that records its arguments and input. `GpgProgramSignerRealGpgTest` runs only
+  when gpg is installed: it creates an ED25519 key in a throwaway `GNUPGHOME` with `use-keyboxd`, and checks signatures
+  with `git verify-commit` and `verify-tag`. That home is a short folder (`<temp>/g`), because gpg-agent's sockets go
+  in it, and `gpgconf --kill all` stops its gpg-agent and keyboxd afterwards. Never point these tests at `~/.gnupg`.
 - `CredentialUrlTest` uses the git CLI as the reference: `git credential fill` and `approve` with a helper that saves
   its input, and `credential.<key>.helper` with one that leaves a file. Git runs in the temp folder with
   `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.

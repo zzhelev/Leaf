@@ -2,6 +2,34 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Commits and tags are signed by running gpg (branch `claude/dazzling-murdock-cc2402`)
+
+- **Before:** OpenPGP signing used JGit's BouncyCastle signer (`AppGpgSigner`). It couldn't find keys kept by keyboxd
+  (`use-keyboxd`, GnuPG 2.4's default) and made ED25519 signatures that failed to verify (Gitnuro#194, #293). Tag
+  signing also threw "Unsupported gpg format: null" unless `gpg.format` was `gpg`, a value git doesn't have.
+- **Now:** the new `GpgProgramSigner` runs gpg as git does: `gpg.program` (default `gpg`) with
+  `--status-fd=2 -bsau <key>`, the data on stdin, and `[GNUPG:] SIG_CREATED` required. The key is `user.signingKey`, or
+  else the committer's identity. gpg gets the login shell's environment, and a program name is looked up on that PATH.
+  gpg-agent's pinentry asks for passphrases. `canLocateSigningKey` runs `gpg --list-secret-keys`.
+- **Errors:** the new `GpgSigningError` (not found, start failed, timed out after 2 minutes, pinentry needs a terminal,
+  gpg's own messages). `GpgSigningException` is a `CanceledException`, so JGit doesn't hide it behind a generic
+  message, and `JGit.provide` maps it for every operation that signs.
+- **Tags:** `CreateTagGitAction` leaves signing to JGit's `TagCommand` (`tag.gpgSign`, `tag.forceSignAnnotated`,
+  the signer of `gpg.format`). `SshSigner` falls back to `user.signingKey`, as `TagCommand` passes no key.
+- `ProcessRunner.run` takes an optional `input` for stdin, written while the output is drained.
+- **Removed:** `AppGpgSigner`, with no BouncyCastle fallback: anyone with OpenPGP keys has gpg, which made them, and a
+  fallback would silently bring back the bad signatures. Also Leaf's own GPG passphrase dialog, as gpg-agent's
+  pinentry asks now, as it does for the git CLI: `GpgCredentialsProvider`, `GpgPasswordDialog`, `Screen.GpgCredentials`,
+  the GPG request and answer in `CredentialsStateManager`, and the `key.svg` icon only that dialog used. Someone whose
+  only pinentry is `pinentry-curses` and who opens Leaf from the Finder now gets an error that suggests pinentry-mac,
+  where Leaf used to ask.
+- **Tests:** `GpgProgramSignerTest` (17, fake gpg), `GpgProgramSignerRealGpgTest` (3, real gpg in a throwaway
+  `GNUPGHOME` with keyboxd and an ED25519 key, checked with `git verify-commit` and `verify-tag`),
+  `CreateTagGitActionTest` (3) and 3 new `ProcessRunnerTest` tests. Eleven mutations were each caught, among them
+  dropping the `SIG_CREATED` check, the PATH lookup, the `user.signingKey` and identity fallbacks, and the mapping
+  in `JGit.provide`. `./gradlew build` passes, with 279 tests (190 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** a commit from the running app, the pinentry error as the dialog shows it, or Windows.
+
 ## Only the password is asked for when the user name is known (branch `feature/prompt-known-username`)
 
 Closes the first gap listed under "Still unlike git" in the entry below.
