@@ -10,12 +10,17 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.GetTrackingBranchGitAction
 import dev.app.leaf.data.git.cli.askpass.answeringDialogs
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
+import dev.app.leaf.data.mappers.JGitCommitMapper
+import dev.app.leaf.data.mappers.JGitIdentityMapper
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteOperationError
+import dev.app.leaf.domain.models.PullType
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
@@ -37,12 +42,12 @@ private const val USER = "leaf"
 private const val PASSWORD = "s3cret"
 
 /**
- * Pushes over HTTP with the git CLI to `git http-backend`, which a small server runs as CGI behind Basic
- * authentication. git asks for the credentials through the askpass helper, and Leaf answers with its dialogs and its
+ * Pushes, fetches and pulls over HTTP with the git CLI, to `git http-backend`, which a small server runs as CGI behind
+ * Basic authentication. git asks for the credentials through the askpass helper, and Leaf answers with its dialogs and its
  * in-memory cache. Skipped when the askpass helper isn't built.
  */
 @DisabledOnOs(OS.WINDOWS)
-class GitCliHttpsPushTest {
+class GitCliHttpsTest {
     @TempDir
     lateinit var tempDir: File
 
@@ -145,6 +150,48 @@ class GitCliHttpsPushTest {
         remote.credentialsStateManager.answeringDialogs(answer) { push(remote) }
         commit("second")
         val (result, dialogs) = remote.credentialsStateManager.answeringDialogs(answer) { push(remote) }
+
+        assertEquals(Either.Ok(Unit), result)
+        assertEquals(1, dialogs.size)
+    }
+
+    @Test
+    fun `fetch asks through the same dialog, and pull uses the credentials it cached`(): Unit = runBlocking {
+        val pusher = remoteWithUrl("http://127.0.0.1:${server.address.port}/repo.git")
+        pusher.credentialsStateManager.answeringDialogs({ httpCredentialsAccepted(USER, PASSWORD) }) { push(pusher) }
+
+        // A new session of Leaf, with nothing cached
+        val remote = TestRemoteCommand(helper, globalConfig)
+        val (fetched, fetchDialogs) = remote.credentialsStateManager.answeringDialogs(
+            { httpCredentialsAccepted(USER, PASSWORD) },
+        ) {
+            GitCliFetchAllRemotesGitAction(jgit, remote.command)(gitDir, specificRemote = null)
+        }
+
+        assertEquals(Either.Ok(Unit), fetched)
+        assertEquals(listOf(CredentialsRequest.HttpCredentialsRequest(user = null, askPassword = true)), fetchDialogs)
+
+        val (pulled, pullDialogs) = remote.credentialsStateManager.answeringDialogs {
+            GitCliPullBranchGitAction(
+                jgit = jgit,
+                remoteCommand = remote.command,
+                checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
+                deleteStashGitAction = DeleteStashGitAction(jgit),
+                commitMapper = JGitCommitMapper(JGitIdentityMapper()),
+            )(gitDir, PullType.MERGE, mergeAutoStash = true, remoteBranch = null, "automatic stash")
+        }
+
+        assertEquals(Either.Ok(false), pulled)
+        assertEquals(emptyList<CredentialsRequest>(), pullDialogs)
+    }
+
+    @Test
+    fun `a fetch whose dialog is closed reports nothing, as with JGit`(): Unit = runBlocking {
+        val remote = remoteWithUrl("http://127.0.0.1:${server.address.port}/repo.git")
+
+        val (result, dialogs) = remote.credentialsStateManager.answeringDialogs({ credentialsDenied() }) {
+            GitCliFetchAllRemotesGitAction(jgit, remote.command)(gitDir, specificRemote = null)
+        }
 
         assertEquals(Either.Ok(Unit), result)
         assertEquals(1, dialogs.size)

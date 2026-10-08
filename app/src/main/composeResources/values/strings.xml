@@ -304,7 +304,7 @@
     <string name="settings_entry_terminal">Terminal</string>
     <string name="settings_entry_logs">Logs</string>
     <string name="settings_remote_operations_with_git_title">Use git for remote operations</string>
-    <string name="settings_remote_operations_with_git_subtitle">Push with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation.</string>
+    <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation.</string>
 
     <!-- Notifications -->
     <string name="notification_copied_branch_to_clipboard">"%1$s" copied to clipboard</string>
@@ -346,6 +346,7 @@
     <string name="error_git_cli_timed_out">"%1$s" did not finish within %2$d seconds</string>
     <string name="error_git_cli_start_failed">"%1$s" could not be started: %2$s</string>
 
+    <string name="error_fetch_remote_failed">Couldn't fetch %1$s.</string>
     <string name="error_remote_refs_rejected">The remote refused the push:</string>
     <string name="error_remote_ref_fetch_first">%1$s: the remote has commits that you don't have yet. Pull, then push again.</string>
     <string name="error_remote_ref_non_fast_forward">%1$s: your branch is behind the remote one. Pull, then push again.</string>

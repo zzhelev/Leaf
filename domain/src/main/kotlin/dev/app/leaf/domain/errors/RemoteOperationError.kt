@@ -4,7 +4,7 @@
 package dev.app.leaf.domain.errors
 
 /**
- * A push (later fetch, pull or clone) run with the git CLI that failed. [output] is what git printed to stderr, which
+ * A push, fetch or pull (later clone) run with the git CLI that failed. [output] is what git printed to stderr, which
  * often has the server's own message, so it's always shown below the explanation.
  */
 sealed interface RemoteOperationError : GitError {
@@ -37,6 +37,11 @@ sealed interface RemoteOperationError : GitError {
     /** Any other failure, explained by git's [output] alone. */
     data class Failed(val exitCode: Int, override val output: String) : RemoteOperationError
 }
+
+/** Fetching some remotes failed. The others were fetched. */
+data class FetchRemotesError(val failures: List<RemoteFetchFailure>) : GitError
+
+data class RemoteFetchFailure(val remote: String, val error: RemoteOperationError)
 
 /** A ref that the remote refused: `!  <source>:<destination>  [rejected] (<reason>)` in `git push --porcelain`. */
 data class RejectedRef(val destination: String, val reason: RejectReason, val detail: String)

@@ -8,6 +8,7 @@ import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_not_merged
 import dev.app.leaf.app.generated.resources.error_delete_tag_has_own_commits
+import dev.app.leaf.app.generated.resources.error_fetch_remote_failed
 import dev.app.leaf.app.generated.resources.error_git_cli_command_failed
 import dev.app.leaf.app.generated.resources.error_git_cli_invalid_configured_path
 import dev.app.leaf.app.generated.resources.error_git_cli_not_found
@@ -101,6 +102,10 @@ fun AppError.getErrorText(): String {
         }
 
         is RemoteOperationError -> getRemoteOperationErrorText()
+        is FetchRemotesError -> failures.map { failure ->
+            stringResource(Res.string.error_fetch_remote_failed, failure.remote) + " " +
+                failure.error.getRemoteOperationErrorText()
+        }.joinToString("\n\n")
 
         is SshSigningError.InvalidPassword -> throw IllegalStateException("InvalidPassword error should never trigger")
         is SshSigningError.KeyNotFound -> stringResource(Res.string.error_sign_ssh_key_not_found)

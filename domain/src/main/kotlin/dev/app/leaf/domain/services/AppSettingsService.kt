@@ -48,7 +48,7 @@ class AppSettingsService @Inject constructor(
     val cloneDefaultDirectory: Flow<String?> get() = appSettingsRepository.cloneDefaultDirectory
     val gitExecutablePath: Flow<String?> get() = appSettingsRepository.gitExecutablePath
 
-    /** Whether push runs the git CLI, or JGit, Leaf's built-in implementation. */
+    /** Whether push, fetch and pull run the git CLI, or JGit, Leaf's built-in implementation. */
     val remoteOperationsWithGit: Flow<Boolean>
         get() = appSettingsRepository.remoteOperationsWithGit.defaultIfNull { DEFAULT_REMOTE_OPERATIONS_WITH_GIT }
     val useProxy: Flow<Boolean> get() = appSettingsRepository.useProxy.defaultIfNull { DEFAULT_USE_PROXY }

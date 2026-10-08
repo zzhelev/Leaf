@@ -9,12 +9,19 @@ import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.GitExecutableLocator
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.remote_operations.DeleteRemoteBranchGitAction
+import dev.app.leaf.data.git.remote_operations.FetchAllRemotesGitAction
+import dev.app.leaf.data.git.remote_operations.PullBranchGitAction
 import dev.app.leaf.data.git.remote_operations.PushBranchGitAction
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.interfaces.IDeleteRemoteBranchGitAction
+import dev.app.leaf.domain.interfaces.IFetchAllRemotesGitAction
+import dev.app.leaf.domain.interfaces.IPullBranchGitAction
 import dev.app.leaf.domain.interfaces.IPushBranchGitAction
+import dev.app.leaf.domain.interfaces.PullHasConflicts
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.PullType
+import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.services.AppSettingsService
 import kotlinx.coroutines.flow.first
 import java.io.File
@@ -32,6 +39,8 @@ private val LFS_VERSION_TIMEOUT = 10.seconds
  * - no usable git was found, or this build has no askpass helper;
  * - the push sends commits of a repository that uses LFS, but git wouldn't upload its LFS objects: the repository's
  *   `pre-push` hook doesn't run git-lfs, or git-lfs isn't installed. JGit uploads them itself.
+ *
+ * Fetch and pull use it the same way. A fetch doesn't involve git-lfs, and JGit does a pull's merge either way.
  *
  * It never switches after git has started: a push could then run twice.
  */
@@ -129,4 +138,43 @@ class SelectingDeleteRemoteBranchGitAction @Inject constructor(
         } else {
             jGitDeleteRemoteBranchGitAction(repositoryPath, ref)
         }
+}
+
+/**
+ * Fetches with the git CLI or with JGit, as [RemoteOperationsBackend] decides. A fetch uploads nothing, and git-lfs
+ * doesn't take part in it.
+ */
+class SelectingFetchAllRemotesGitAction @Inject constructor(
+    private val backend: RemoteOperationsBackend,
+    private val gitCliFetchAllRemotesGitAction: GitCliFetchAllRemotesGitAction,
+    private val jGitFetchAllRemotesGitAction: FetchAllRemotesGitAction,
+) : IFetchAllRemotesGitAction {
+    override suspend fun invoke(repositoryPath: String, specificRemote: Remote?): Either<Unit, GitError> =
+        if (backend.useGitCli(repositoryPath, uploadsObjects = false)) {
+            gitCliFetchAllRemotesGitAction(repositoryPath, specificRemote)
+        } else {
+            jGitFetchAllRemotesGitAction(repositoryPath, specificRemote)
+        }
+}
+
+/**
+ * Pulls with the git CLI's fetch or with JGit, as [RemoteOperationsBackend] decides. Either way JGit merges, with its
+ * built-in LFS, so git-lfs doesn't take part.
+ */
+class SelectingPullBranchGitAction @Inject constructor(
+    private val backend: RemoteOperationsBackend,
+    private val gitCliPullBranchGitAction: GitCliPullBranchGitAction,
+    private val jGitPullBranchGitAction: PullBranchGitAction,
+) : IPullBranchGitAction {
+    override suspend fun invoke(
+        repositoryPath: String,
+        pullType: PullType,
+        mergeAutoStash: Boolean,
+        remoteBranch: Branch?,
+        automaticStashDescription: String,
+    ): Either<PullHasConflicts, GitError> = if (backend.useGitCli(repositoryPath, uploadsObjects = false)) {
+        gitCliPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
+    } else {
+        jGitPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
+    }
 }
