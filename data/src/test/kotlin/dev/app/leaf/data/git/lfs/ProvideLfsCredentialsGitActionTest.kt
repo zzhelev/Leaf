@@ -29,6 +29,7 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.api.function.Executable
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
@@ -105,12 +107,77 @@ class ProvideLfsCredentialsGitActionTest {
 
         assertEquals(Either.Ok("objects"), result)
         assertEquals(listOf(null, Answer("helper-user", "helper-password")), server.attempts)
-        assertEquals(listOf("get"), File(tools, "operations").readLines())
+        assertEquals(listOf("get", "store"), File(tools, "operations").readLines())
         // The remote's path, not the LFS server's .../info/lfs, so the helper finds what git stored
         assertEquals(
             "protocol=https\nhost=example.invalid\npath=team/project.git\n",
             File(tools, "get.input").readText(),
         )
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `the helper's credentials are stored with every helper once the server takes them, as git-lfs approves them`() {
+        createRecordingHelper(answer = Answer("helper-user", "helper-password"))
+        git.repository.config.apply {
+            setStringList("credential", null, "helper", listOf("leaf-test", "store"))
+            save()
+        }
+        val server = FakeServer(accepts = Answer("helper-user", "helper-password"))
+
+        val result = provideCredentials(server)
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf("get", "store"), File(tools, "operations").readLines())
+        assertEquals(
+            "https://helper-user:helper-password@example.invalid\n",
+            File(tempDir, ".git-credentials").readText(),
+        )
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `what the helper gave besides is stored with the typed part once the server takes them`() {
+        setHelper("leaf-test")
+        val expectedStore = "protocol=https\nhost=example.invalid\nusername=typed-user\npassword=typed-password\n" +
+                "oauth_refresh_token=refresh\n"
+        // The helper gives the user name, or the password, and a refresh token
+        val cases = listOf(
+            listOf("username=typed-user", "oauth_refresh_token=refresh"),
+            listOf("password=typed-password", "oauth_refresh_token=refresh"),
+        )
+
+        assertAll(
+            cases.map { answer ->
+                Executable {
+                    File(tools, "operations").delete()
+                    createRecordingHelperAnswering(answer)
+                    val server = FakeServer(accepts = Answer("typed-user", "typed-password"))
+
+                    val result = provideCredentials(server, prompts = listOf(Answer("typed-user", "typed-password")))
+
+                    assertEquals(Either.Ok("objects"), result)
+                    assertEquals(listOf("get", "store"), File(tools, "operations").readLines(), "$answer")
+                    assertEquals(expectedStore, File(tools, "store.input").readText(), "$answer")
+                }
+            }
+        )
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `the helper's credentials are not stored when the server fails for another reason`() {
+        setHelper("leaf-test")
+        createRecordingHelper(answer = Answer("helper-user", "helper-password"))
+        val server = FakeServer(
+            accepts = Answer("helper-user", "helper-password"),
+            failure = HttpStatusCode.InternalServerError,
+        )
+
+        val result = provideCredentials(server)
+
+        assertEquals(Either.Err(LfsError.HttpError(HttpStatusCode.InternalServerError)), result)
+        assertEquals(listOf("get"), File(tools, "operations").readLines())
     }
 
     @Test

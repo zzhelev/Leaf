@@ -493,6 +493,62 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
+    fun `credentials that a helper gave are stored with every helper once the operation succeeds, as git does`() {
+        createRecordingHelperAnswering(
+            listOf(
+                "username=helper-user",
+                "password=helper-password",
+                "oauth_refresh_token=refresh",
+                "password_expiry_utc=4102444800",
+            )
+        )
+        val provider = createProvider(helper = null) {
+            setStringList("credential", null, "helper", listOf("leaf-test", "store"))
+        }
+
+        assertEquals(Answer("helper-user", "helper-password"), provider.requestCredentials())
+        // The operation succeeded
+        runBlocking { provider.cacheCredentialsIfNeeded() }
+
+        val credentialsFile = File(tempDir, ".git-credentials")
+        assertEquals("https://helper-user:helper-password@example.invalid\n", credentialsFile.readText())
+        // The helper that gave them gets them back, with its refresh token and expiry
+        assertEquals(listOf("get", "store"), File(tools, "operations").readLines())
+        assertEquals(
+            "${EXPECTED_INPUT}username=helper-user\npassword=helper-password\noauth_refresh_token=refresh\n" +
+                    "password_expiry_utc=4102444800\n",
+            File(tools, "store.input").readText(),
+        )
+    }
+
+    @Test
+    fun `what the helpers gave besides is stored with the typed password, as git does`() {
+        createRecordingHelperAnswering(listOf("username=helper-user", "oauth_refresh_token=refresh"))
+        val provider = createProvider(helper = "leaf-test")
+
+        assertEquals(Answer("helper-user", "prompted-password"), provider.requestCredentials())
+        awaitLines(File(tools, "operations"), 2)
+
+        assertEquals(
+            "${EXPECTED_INPUT}username=helper-user\npassword=prompted-password\noauth_refresh_token=refresh\n",
+            File(tools, "store.input").readText(),
+        )
+    }
+
+    @Test
+    fun `typed credentials are stored once, when the user gives them`() {
+        createRecordingHelper(answer = null)
+        val provider = createProvider(helper = "leaf-test")
+
+        assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials())
+        awaitLines(File(tools, "operations"), 2)
+        // The operation succeeded
+        runBlocking { provider.cacheCredentialsIfNeeded() }
+
+        assertEquals(listOf("get", "store"), File(tools, "operations").readLines())
+    }
+
+    @Test
     fun `without a helper, cached credentials that the server rejects are dropped, and the new ones cached`() {
         cacheInMemory(Answer("cached-user", "old-password"))
         val provider = createProvider(helper = null)
@@ -706,6 +762,15 @@ class HttpCredentialsProviderTest {
         }
 
         file.readText()
+    }
+
+    /** Waits until [file] has [count] lines, which helpers add after Leaf has moved on. */
+    private fun awaitLines(file: File, count: Int) = runBlocking {
+        withTimeout(10_000) {
+            while (!file.exists() || file.readLines().size < count) {
+                delay(20)
+            }
+        }
     }
 
     /** Waits until git's cache daemon has the credentials, which Leaf stores after it has moved on. */

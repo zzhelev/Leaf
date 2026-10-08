@@ -39,9 +39,53 @@ private fun credentialAttributes(uri: URIish) = CredentialAttributes(
 )
 
 /**
+ * A credential as git keeps it between credential helpers (`struct credential` in git's credential.h), apart from the
+ * URL. Any part may still be unknown. Git writes it whole to each helper's `get`, `store` and `erase`, so that what one
+ * helper gave reaches the next helpers, and goes back to all of them after a success:
+ * - [username] and [password];
+ * - [oauthRefreshToken], which a helper may give with an OAuth access token as the password;
+ * - [passwordExpiryUtc], when the password expires, in seconds since the epoch.
+ */
+data class HelperCredential(
+    val username: String? = null,
+    val password: String? = null,
+    val oauthRefreshToken: String? = null,
+    val passwordExpiryUtc: Long? = null,
+) {
+    /** Whether the password has expired, which makes git drop it (`credential_fill`) and not store it. */
+    fun isExpired(nowSeconds: Long = System.currentTimeMillis() / 1000) =
+        passwordExpiryUtc != null && passwordExpiryUtc < nowSeconds
+
+    /**
+     * This credential with what a helper answered to `get` ([answer]), like git's `credential_read`: each value the
+     * helper gives replaces the one before.
+     */
+    fun with(answer: Map<String, String>) = HelperCredential(
+        username = answer["username"] ?: username,
+        password = answer["password"] ?: password,
+        oauthRefreshToken = answer["oauth_refresh_token"] ?: oauthRefreshToken,
+        passwordExpiryUtc = if ("password_expiry_utc" in answer) {
+            gitExpiry(answer.getValue("password_expiry_utc"))
+        } else {
+            passwordExpiryUtc
+        },
+    )
+}
+
+/**
+ * A `password_expiry_utc` as git reads it: the number at the start, after any spaces and a `+`, or no expiry for 0, an
+ * overflow or no number (`parse_timestamp`, which gives `TIME_MAX`).
+ */
+internal fun gitExpiry(value: String): Long? {
+    val digits = Regex("^\\s*\\+?(\\d+)").find(value)?.groupValues?.get(1) ?: return null
+
+    return digits.toLongOrNull()?.takeIf { it != 0L }
+}
+
+/**
  * The input that git writes to a credential helper for [uri] (`credential_write`): `protocol`, `host`, `path` with
- * [useHttpPath], and [username] and [password] when given. Get, store and erase all send this, so that each finds what
- * the others, or the git CLI, saved.
+ * [useHttpPath], and the parts of [credential] that are known. Get, store and erase all send this, so that each finds
+ * what the others, or the git CLI, saved.
  *
  * Null where git refuses to run the helper: the URL has a newline, or a value to send has a newline or a carriage
  * return (unless `credential.protectProtocol` is off). Either could add a line, such as a second `host`, and get
@@ -50,8 +94,7 @@ private fun credentialAttributes(uri: URIish) = CredentialAttributes(
 internal fun credentialHelperInput(
     uri: URIish,
     useHttpPath: Boolean,
-    username: String? = null,
-    password: String? = null,
+    credential: HelperCredential = HelperCredential(),
 ): String? {
     val attributes = credentialAttributes(uri)
 
@@ -59,8 +102,10 @@ internal fun credentialHelperInput(
         "protocol" to attributes.protocol,
         "host" to attributes.host,
         "path" to attributes.path?.takeIf { useHttpPath },
-        "username" to username,
-        "password" to password,
+        "username" to credential.username,
+        "password" to credential.password,
+        "oauth_refresh_token" to credential.oauthRefreshToken,
+        "password_expiry_utc" to credential.passwordExpiryUtc?.toString(),
     ).mapNotNull { (key, value) -> value?.let { key to it } }
 
     if (attributes.hasNewline || values.any { (_, value) -> '\n' in value || '\r' in value }) {

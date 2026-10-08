@@ -141,7 +141,7 @@ class CredentialHelpersTest {
                     assertEquals(gitRun.helpers, helpers, "the helpers for $url")
                     assertEquals(
                         gitRun.firstInput,
-                        credentialHelperInput(URIish(url), settings.useHttpPath, settings.username),
+                        credentialHelperInput(URIish(url), settings.useHttpPath, HelperCredential(settings.username)),
                         "what the first helper reads for $url",
                     )
                 }
@@ -213,6 +213,105 @@ class CredentialHelpersTest {
     }
 
     @Test
+    fun `a refresh token and an expiry reach the next helpers, and every helper once approved, as git sends them`() {
+        File(tools, "first.answer").writeText(
+            "username=first-user\noauth_refresh_token=refresh\npassword_expiry_utc=4102444800\n"
+        )
+        File(tools, "second.answer").writeText("password=second-password\n")
+        globalConfig.writeText("[credential]\n\thelper = !leaf-helper first\n\thelper = !leaf-helper second\n")
+        val gitRun = runGitCredentialFill(repository, REMOTE_URL)
+        val secondGitInput = File(tools, "second.get.input").readText()
+        val gitStores = runGitCredentialApprove(repository, gitRun.output)
+        val helpers = credentialHelpers()
+        val settings = find(repository, REMOTE_URL)
+
+        val answer = helpers.get(settings, URIish(REMOTE_URL))
+        helpers.approve(settings, URIish(REMOTE_URL), (answer as HelperAnswer.Credentials).credential)
+
+        assertEquals(
+            HelperAnswer.Credentials(HelperCredential("first-user", "second-password", "refresh", 4102444800)),
+            answer,
+        )
+        assertEquals(gitRun.answer, answer)
+        assertEquals(secondGitInput, File(tools, "second.get.input").readText())
+        // Both helpers, the ones that gave the credentials too, get all of them
+        val expectedStore = "protocol=https\nhost=example.invalid\nusername=first-user\npassword=second-password\n" +
+                "oauth_refresh_token=refresh\npassword_expiry_utc=4102444800\n"
+        assertEquals(mapOf("first" to expectedStore, "second" to expectedStore), gitStores)
+        assertEquals(gitStores, storeInputs())
+    }
+
+    @Test
+    fun `a password that has expired is dropped, and the next helpers are asked, as git does`() {
+        File(tools, "first.answer").writeText(
+            "username=first-user\npassword=old-password\noauth_refresh_token=refresh\npassword_expiry_utc=1000\n"
+        )
+        File(tools, "second.answer").writeText("password=new-password\n")
+        globalConfig.writeText("[credential]\n\thelper = !leaf-helper first\n\thelper = !leaf-helper second\n")
+        val gitRun = runGitCredentialFill(repository, REMOTE_URL)
+        val secondGitInput = File(tools, "second.get.input").readText()
+
+        val answer = credentialHelpers().get(find(repository, REMOTE_URL), URIish(REMOTE_URL))
+
+        assertEquals(HelperAnswer.Credentials(HelperCredential("first-user", "new-password", "refresh")), answer)
+        assertEquals(gitRun.answer, answer)
+        // The user name and the refresh token stay, without the password or its expiry
+        assertEquals(
+            "protocol=https\nhost=example.invalid\nusername=first-user\noauth_refresh_token=refresh\n",
+            secondGitInput,
+        )
+        assertEquals(secondGitInput, File(tools, "second.get.input").readText())
+
+        // With no other helper, only the user name and the refresh token are known
+        File(tools, "second.answer").delete()
+        assertEquals(
+            HelperAnswer.NotStored(HelperCredential("first-user", oauthRefreshToken = "refresh")),
+            credentialHelpers().get(find(repository, REMOTE_URL), URIish(REMOTE_URL)),
+        )
+    }
+
+    @Test
+    fun `credentials are not approved without a user name and a password, or once expired, as git doesn't`() {
+        globalConfig.writeText("[credential]\n\thelper = !leaf-helper first\n")
+        val settings = find(repository, REMOTE_URL)
+        val helpers = credentialHelpers()
+        val uri = URIish(REMOTE_URL)
+
+        val gitStores = runGitCredentialApprove(
+            repository,
+            "protocol=https\nhost=example.invalid\nusername=user\npassword=pass\npassword_expiry_utc=1000\n",
+        )
+        helpers.approve(settings, uri, HelperCredential("user", "pass", passwordExpiryUtc = 1000))
+        helpers.approve(settings, uri, HelperCredential("user"))
+        helpers.approve(settings, uri, HelperCredential(password = "pass"))
+
+        assertEquals(emptyMap<String, String>(), gitStores)
+        assertEquals(emptyList<String>(), runs())
+
+        // A password that expires later is stored
+        helpers.approve(settings, uri, HelperCredential("user", "pass", passwordExpiryUtc = 4102444800))
+        assertEquals(listOf("first"), runs())
+    }
+
+    @Test
+    fun `password_expiry_utc is read as git reads it`() {
+        File(tools, "first.answer").writeText("username=user\npassword=pass\n")
+        globalConfig.writeText("[credential]\n\thelper = !leaf-helper first\n")
+        val values = listOf("4102444800", " 4102444800", "+4102444800", "4102444800abc", "0", "abc", "", "4102444800.5")
+
+        assertAll(
+            values.map { value ->
+                Executable {
+                    File(tools, "first.answer").writeText("username=user\npassword=pass\npassword_expiry_utc=$value\n")
+                    val gitExpiry = runGitCredentialFill(repository, REMOTE_URL).answer?.credential?.passwordExpiryUtc
+
+                    assertEquals(gitExpiry, gitExpiry(value), "password_expiry_utc=$value")
+                }
+            }
+        )
+    }
+
+    @Test
     fun `a helper that says quit stops the search`() {
         File(tools, "first.answer").writeText("username=first-user\nquit=1\n")
         globalConfig.writeText("[credential]\n\thelper = !leaf-helper first\n\thelper = !leaf-helper second\n")
@@ -254,8 +353,8 @@ class CredentialHelpersTest {
         val helpers = credentialHelpers()
         val expectedInput = "protocol=https\nhost=example.invalid\nusername=user\npassword=pass=word\n"
 
-        val stores = helpers.send("store", settings, URIish(REMOTE_URL), "user", "pass=word")
-        helpers.erase(settings, URIish(REMOTE_URL), "user", "pass=word", stores)
+        val stores = helpers.send("store", settings, URIish(REMOTE_URL), HelperCredential("user", "pass=word"))
+        helpers.erase(settings, URIish(REMOTE_URL), HelperCredential("user", "pass=word"), stores)
 
         val runs = File(tools, "runs").readLines()
 
@@ -319,16 +418,64 @@ class CredentialHelpersTest {
 
         val helpers = runs()
         val values = output.lines().filter { "=" in it }.associate { it.substringBefore("=") to it.substringAfter("=") }
-        val answer = values["password"]?.let { HelperAnswer.Credentials(values.getValue("username"), it) }
+        val answer = values["password"]?.let { password ->
+            HelperAnswer.Credentials(
+                HelperCredential(
+                    username = values.getValue("username"),
+                    password = password,
+                    oauthRefreshToken = values["oauth_refresh_token"],
+                    passwordExpiryUtc = values["password_expiry_utc"]?.toLong(),
+                )
+            )
+        }
 
         return GitRun(
             helpers = helpers,
             firstInput = helpers.firstOrNull()?.let { File(tools, "$it.get.input").readText() },
             answer = answer,
+            output = output,
         )
     }
 
-    private class GitRun(val helpers: List<String>, val firstInput: String?, val answer: HelperAnswer.Credentials?)
+    /**
+     * Runs `git credential approve` with [input], as git does once the server took the credentials, in [repository]'s
+     * working tree, and returns what each helper was given to store, by name. It clears the runs and the stores
+     * afterwards, for Leaf's turn.
+     */
+    private fun runGitCredentialApprove(repository: Repository, input: String): Map<String, String> {
+        File(tools, "runs").delete()
+
+        val process = ProcessBuilder("git", "credential", "approve")
+            .directory(repository.workTree)
+            .apply {
+                environment().putAll(shellVariables)
+                environment()["GIT_CEILING_DIRECTORIES"] = tempDir.absolutePath
+            }
+            .start()
+
+        process.outputStream.bufferedWriter().use { it.write(input) }
+        process.inputStream.readAllBytes()
+        process.errorStream.readAllBytes()
+        process.waitFor(30, TimeUnit.SECONDS)
+
+        val stores = storeInputs()
+        File(tools, "runs").delete()
+        tools.listFiles { file -> file.name.endsWith(".store.input") }?.forEach { it.delete() }
+
+        return stores
+    }
+
+    /** What each helper was given to store, by name. */
+    private fun storeInputs(): Map<String, String> = tools.listFiles { file -> file.name.endsWith(".store.input") }
+        .orEmpty()
+        .associate { it.name.removeSuffix(".store.input") to it.readText() }
+
+    private class GitRun(
+        val helpers: List<String>,
+        val firstInput: String?,
+        val answer: HelperAnswer.Credentials?,
+        val output: String,
+    )
 
     private object NoCredentialsManager : IGitCredentialsManagerProvider {
         override fun loadPath(): String? = null

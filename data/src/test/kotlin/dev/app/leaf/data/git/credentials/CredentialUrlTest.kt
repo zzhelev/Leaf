@@ -57,7 +57,7 @@ class CredentialUrlTest {
                         Executable {
                             assertEquals(
                                 gitHelperInput(url, useHttpPath, "user", "pass=word"),
-                                credentialHelperInput(URIish(url), useHttpPath, "user", "pass=word"),
+                                credentialHelperInput(URIish(url), useHttpPath, HelperCredential("user", "pass=word")),
                                 "store for $url, useHttpPath=$useHttpPath",
                             )
                         },
@@ -77,8 +77,9 @@ class CredentialUrlTest {
         assertEquals("protocol=https\nhost=example.invalid\n", credentialHelperInput(url, useHttpPath = false))
         assertEquals(gitHelperInput(url.toString(), useHttpPath = false), credentialHelperInput(url, false))
 
-        assertNull(credentialHelperInput(URIish(PORT_URL), useHttpPath = false, "user", "pass\nhost=other.invalid"))
-        assertNull(credentialHelperInput(URIish(PORT_URL), useHttpPath = false, "user\r", "password"))
+        val portUrl = URIish(PORT_URL)
+        assertNull(credentialHelperInput(portUrl, false, HelperCredential("user", "pass\nhost=other.invalid")))
+        assertNull(credentialHelperInput(portUrl, false, HelperCredential("user\r", "password")))
     }
 
     @Test

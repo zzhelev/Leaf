@@ -108,15 +108,15 @@ class CredentialHelpers @Inject constructor(
     /**
      * Asks the helpers for the credentials of [uri] (`get`), one after the other, like git's `credential_fill`, until
      * one completes the user name and the password. Each helper gets the user name that git knows, and what the
-     * helpers before it gave, so a helper can answer with the password alone.
+     * helpers before it gave, so a helper can answer with the password alone. Like git, a password whose
+     * `password_expiry_utc` has passed is dropped, and the next helpers are asked.
      */
     fun get(settings: CredentialSettings, uri: URIish): HelperAnswer {
-        var user = settings.username
-        var password: String? = null
+        var credential = HelperCredential(username = settings.username)
 
         for (helper in settings.helpers) {
             // Like git, which refuses the URL, gives no credentials rather than asking
-            val helperInput = credentialHelperInput(uri, settings.useHttpPath, user, password)
+            val helperInput = credentialHelperInput(uri, settings.useHttpPath, credential)
 
             if (helperInput == null) {
                 printError(TAG, "Not running the credential helper: the URL has a newline or carriage return")
@@ -125,14 +125,14 @@ class CredentialHelpers @Inject constructor(
 
             val answer = ask(helper, helperInput) ?: return HelperAnswer.Failed
 
-            answer["username"]?.let { user = it }
-            answer["password"]?.let { password = it }
+            credential = credential.with(answer)
 
-            val givenUser = user
-            val givenPassword = password
+            if (credential.isExpired()) {
+                credential = credential.copy(password = null, passwordExpiryUtc = null)
+            }
 
-            if (givenUser != null && givenPassword != null) {
-                return HelperAnswer.Credentials(givenUser, givenPassword)
+            if (credential.username != null && credential.password != null) {
+                return HelperAnswer.Credentials(credential)
             }
 
             if (answer["quit"]?.let(::gitBoolean) == true) {
@@ -141,7 +141,7 @@ class CredentialHelpers @Inject constructor(
             }
         }
 
-        return HelperAnswer.NotStored(user, password)
+        return HelperAnswer.NotStored(credential)
     }
 
     /** What [helper] answers to `get` with [helperInput], or null if it didn't answer within a minute. */
@@ -191,10 +191,9 @@ class CredentialHelpers @Inject constructor(
         operation: String,
         settings: CredentialSettings,
         uri: URIish,
-        user: String,
-        password: String,
+        credential: HelperCredential,
     ): List<Process> {
-        val input = credentialHelperInput(uri, settings.useHttpPath, user, password)
+        val input = credentialHelperInput(uri, settings.useHttpPath, credential)
 
         if (input == null) {
             printError(TAG, "Not running the credential helper's $operation: a value has a newline or carriage return")
@@ -222,23 +221,46 @@ class CredentialHelpers @Inject constructor(
     }
 
     /**
-     * Erases these credentials, which the server rejected, with every helper, like git's `credential_reject`, and
-     * waits for them, so that the next `get` doesn't find them. [stores] are the helpers' `store` of them, which may
-     * still be running: erasing them before they finish would leave them stored.
+     * Stores [credential], which the server took, with every helper, like git's `credential_approve`, and waits for
+     * them: the helper that gave it too. So what one helper gave reaches the others, and a helper gets back the
+     * refresh token and the expiry it gave. Like git, nothing is stored without a user name and a password, or once
+     * the password has expired.
+     */
+    fun approve(settings: CredentialSettings, uri: URIish, credential: HelperCredential) {
+        if (credential.username == null || credential.password == null || credential.isExpired()) {
+            return
+        }
+
+        sendAndWait("store", settings, uri, credential)
+    }
+
+    /**
+     * Erases [credential], which the server rejected, with every helper, like git's `credential_reject`, and waits for
+     * them, so that the next `get` doesn't find it. [stores] are the helpers' `store` of it, which may still be
+     * running: erasing it before they finish would leave it stored.
      */
     fun erase(
         settings: CredentialSettings,
         uri: URIish,
-        user: String,
-        password: String,
+        credential: HelperCredential,
         stores: List<Process> = emptyList(),
     ) {
         stores.forEach { it.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES) }
 
-        send("erase", settings, uri, user, password).forEach { process ->
+        sendAndWait("erase", settings, uri, credential)
+    }
+
+    /** Runs every helper's [operation] for [credential], like [send], and waits up to a minute for each. */
+    private fun sendAndWait(
+        operation: String,
+        settings: CredentialSettings,
+        uri: URIish,
+        credential: HelperCredential,
+    ) {
+        send(operation, settings, uri, credential).forEach { process ->
             if (!process.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES)) {
                 process.destroy()
-                printError(TAG, "The credential helper did not finish erasing the rejected credentials")
+                printError(TAG, "The credential helper did not finish its $operation within a minute")
             }
         }
     }
@@ -261,14 +283,24 @@ class CredentialHelpers @Inject constructor(
 
 /** What the credential helpers answered to `get`. */
 sealed interface HelperAnswer {
-    data class Credentials(val user: String, val password: String) : HelperAnswer
+    /** The helpers gave a user name and a password, with anything else they gave, in [credential]. */
+    data class Credentials(val credential: HelperCredential) : HelperAnswer {
+        init {
+            require(credential.username != null && credential.password != null) { "Incomplete credentials" }
+        }
+
+        constructor(user: String, password: String) : this(HelperCredential(user, password))
+
+        val user: String get() = credential.username!!
+        val password: String get() = credential.password!!
+    }
 
     /**
-     * No helper has complete credentials for the URL, so Leaf asks the user for the rest, as git does. At most one is
-     * known: the [user] name, from the URL, `credential.username` or a helper, or the [password] that a helper gave
-     * without a user name.
+     * No helper has complete credentials for the URL, so Leaf asks the user for the rest, as git does. At most one of
+     * the user name and the password is known in [credential]: the user name, from the URL, `credential.username` or
+     * a helper, or the password that a helper gave without a user name.
      */
-    data class NotStored(val user: String?, val password: String?) : HelperAnswer
+    data class NotStored(val credential: HelperCredential) : HelperAnswer
 
     /**
      * Leaf gives no credentials: git refuses the URL, a helper said `quit`, or a helper didn't answer within a

@@ -3,6 +3,7 @@ package dev.app.leaf.data.git.lfs
 import dev.app.leaf.data.git.credentials.CredentialHelpers
 import dev.app.leaf.data.git.credentials.CredentialSettings
 import dev.app.leaf.data.git.credentials.HelperAnswer
+import dev.app.leaf.data.git.credentials.HelperCredential
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
@@ -44,9 +45,10 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
 
     /**
      * Like git-lfs: the helpers' credentials, then the user's. Credentials that the server rejects are erased with
-     * the helpers, and the ones the user typed are stored with them once the server takes them. When git knows the
-     * user name, the user is asked only for the password, and when a helper gave only the password, only for the
-     * user name.
+     * the helpers. Once the server takes them, they are stored with every helper, as git-lfs does with
+     * `git credential approve`: the helpers' too, so that they reach the helpers that didn't have them. When git
+     * knows the user name, the user is asked only for the password, and when a helper gave only the password, only for
+     * the user name.
      */
     private suspend fun <T> withHelper(
         helper: CredentialSettings,
@@ -54,59 +56,57 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
         unauthorized: Either<T, LfsError>,
         callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,
     ): Either<T, LfsError> {
-        // After a rejection, like git-lfs, the user name that git knows rather than the rejected one
-        val knownUser = when (val answer = withContext(Dispatchers.IO) { credentialHelpers.get(helper, uri) }) {
+        // What Leaf knows when it asks the user. After a rejection, like git-lfs, only the user name that git knows
+        val known = when (val answer = withContext(Dispatchers.IO) { credentialHelpers.get(helper, uri) }) {
             is HelperAnswer.Credentials -> {
-                val res = callback(answer.user, answer.password)
-
-                if (!res.isUnauthorizedError()) {
-                    return res
-                }
-
-                withContext(Dispatchers.IO) { credentialHelpers.erase(helper, uri, answer.user, answer.password) }
-                helper.username
+                tryOnce(helper, uri, answer.credential, callback)?.let { return it }
+                HelperCredential(username = helper.username)
             }
 
             HelperAnswer.Failed -> return unauthorized
             is HelperAnswer.NotStored -> {
-                answer.password?.let { password ->
-                    withHelperPassword(helper, uri, password, callback)?.let { return it }
-                }
+                val helperPassword = answer.credential.password
 
-                answer.user
+                if (helperPassword == null) {
+                    answer.credential
+                } else {
+                    // Like git, only the user name to go with the helper's password
+                    val typed = credentialsStateManager.requestLfsCredentials(user = null, password = helperPassword)
+                    val credential = answer.credential.copy(username = typed.user, password = typed.password)
+
+                    tryOnce(helper, uri, credential, callback)?.let { return it }
+                    HelperCredential(username = helper.username)
+                }
             }
         }
 
-        return askForCredentials(knownUser, callback) { user, password ->
-            withContext(Dispatchers.IO) { credentialHelpers.send("store", helper, uri, user, password) }
+        return askForCredentials(known.username, callback) { user, password ->
+            val credential = known.copy(username = user, password = password)
+            withContext(Dispatchers.IO) { credentialHelpers.approve(helper, uri, credential) }
         }
     }
 
     /**
-     * Like git, asks only for the user name to go with the [password] that a helper gave without one. Like the helpers'
-     * credentials, they are tried once: stored with the helpers if the server takes them, and erased if it rejects
-     * them, which gives null.
+     * Tries [credential], which came from the helpers at least in part, once: it is stored with every helper if the
+     * server takes it, and erased with them if it rejects it, which gives null.
      */
-    private suspend fun <T> withHelperPassword(
+    private suspend fun <T> tryOnce(
         helper: CredentialSettings,
         uri: URIish,
-        password: String,
+        credential: HelperCredential,
         callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,
     ): Either<T, LfsError>? {
-        val credentials = credentialsStateManager.requestLfsCredentials(user = null, password = password)
-        val res = callback(credentials.user, credentials.password)
+        val res = callback(credential.username, credential.password)
 
         if (!res.isUnauthorizedError()) {
             if (res is Either.Ok) {
-                withContext(Dispatchers.IO) {
-                    credentialHelpers.send("store", helper, uri, credentials.user, credentials.password)
-                }
+                withContext(Dispatchers.IO) { credentialHelpers.approve(helper, uri, credential) }
             }
 
             return res
         }
 
-        withContext(Dispatchers.IO) { credentialHelpers.erase(helper, uri, credentials.user, credentials.password) }
+        withContext(Dispatchers.IO) { credentialHelpers.erase(helper, uri, credential) }
         return null
     }
 
