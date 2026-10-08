@@ -131,6 +131,11 @@ Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOM
     with the app's executable.
   - It removes the old copy before copying with `ditto`. `ditto` merges into an existing bundle, and jar names change
     between builds, so leftover jars would break the code signature.
+  - Then it unregisters the LaunchServices records of Leaf copies that no longer exist (found with
+    `lsregister -dump Bundle`), and registers the installed copy again. macOS registers every copy it sees, such as
+    the temporary one in `packageDmg`'s `dmg-workdir`. With such records left over, the Dock showed the generic "exec"
+    icon for the running app (2026-10-08). If it happens anyway, run `killall Dock` and reopen Leaf. Failures here
+    only warn.
 - `gradle.properties` sets `compose.desktop.mac.sign=false`, so jpackage signs ad hoc, with the hardened runtime and
   the JIT and library-validation entitlements the JVM needs. That build runs on the machine that built it. Sharing it
   needs a Developer ID and notarization: set `SIGNING_IDENTITY` and the `NOTARIZATION_*` env vars, and pass

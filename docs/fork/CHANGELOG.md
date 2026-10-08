@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## installMacApp cleans up LaunchServices (branch `fix/install-launchservices`)
+
+- **Before:** an installed `/Applications/Leaf.app` showed the leaf icon until it launched, then the Dock showed the
+  generic "exec" icon. The bundle was fine. LaunchServices had six records for `io.github.zzhelev.leaf`, and four of
+  them were copies that no longer existed: three from `packageDmg`'s temporary `dmg-workdir` and one from a scratch
+  build. Unregistering them, registering `/Applications/Leaf.app` again and restarting the Dock fixed it.
+- **Now:** after copying, `installMacApp` does the first two itself. It reads `lsregister -dump Bundle`, unregisters
+  each record with Leaf's bundle ID whose path is gone (printing it), then runs `lsregister -f` on the installed copy.
+  The bundle ID comes from `nativeDistributions.macOS.bundleID`. As the app is installed by then, a failing
+  `lsregister` only warns.
+- **Verified,** with `-PinstallDir` set to a scratch folder:
+  - A copy registered and then deleted was unregistered and named in the output. `/Applications/Leaf.app` and the
+    build folder's copy, which exist, were kept, and the installed copy was registered.
+  - A second run found nothing to unregister. The installed copy passes `codesign --verify --deep --strict`.
+  - The warning paths weren't run.
+
 ## The update check survives failures, and runs once for the app (branch `fix/update-check`)
 
 - **Before:** each tab's two view models (the Welcome page's and the open repository's) ran their own check of
