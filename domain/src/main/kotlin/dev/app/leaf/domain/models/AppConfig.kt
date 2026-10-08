@@ -32,6 +32,7 @@ sealed interface AppConfig {
     data class DiffTextViewType(val value: dev.app.leaf.domain.models.DiffTextViewType) : AppConfig
     data class TerminalPath(val value: String) : AppConfig
     data class GitExecutablePath(val value: String) : AppConfig
+    data class RemoteOperationsWithGit(val value: Boolean) : AppConfig
     data class RefPanel(val value: RefPanelSettings) : AppConfig
     data class FilesChangedView(val value: FilesViewState) : AppConfig
 }

@@ -47,6 +47,10 @@ class AppSettingsService @Inject constructor(
     val autoStashOnMerge: Flow<Boolean> get() = appSettingsRepository.autoStashOnMerge.defaultIfNull { DEFAULT_AUTO_STASH_ON_MERGE }
     val cloneDefaultDirectory: Flow<String?> get() = appSettingsRepository.cloneDefaultDirectory
     val gitExecutablePath: Flow<String?> get() = appSettingsRepository.gitExecutablePath
+
+    /** Whether push runs the git CLI, or JGit, Leaf's built-in implementation. */
+    val remoteOperationsWithGit: Flow<Boolean>
+        get() = appSettingsRepository.remoteOperationsWithGit.defaultIfNull { DEFAULT_REMOTE_OPERATIONS_WITH_GIT }
     val useProxy: Flow<Boolean> get() = appSettingsRepository.useProxy.defaultIfNull { DEFAULT_USE_PROXY }
     val proxyUseAuth: Flow<Boolean> get() = appSettingsRepository.proxyUseAuth.defaultIfNull { DEFAULT_PROXY_USE_AUTH }
     val proxyType: Flow<ProxyType> get() = appSettingsRepository.proxyType.defaultIfNull { DEFAULT_PROXY_TYPE }
@@ -71,6 +75,7 @@ class AppSettingsService @Inject constructor(
         val DEFAULT_DIFF_TEXT_VIEW_TYPE = DiffTextViewType.Unified
         const val DEFAULT_PULL_WITH_REBASE = false
         const val DEFAULT_PUSH_WITH_LEASE = true
+        const val DEFAULT_REMOTE_OPERATIONS_WITH_GIT = true
         const val DEFAULT_FAST_FORWARD_MERGE = true
         const val DEFAULT_AUTO_STASH_ON_MERGE = true
         const val DEFAULT_USE_PROXY = false

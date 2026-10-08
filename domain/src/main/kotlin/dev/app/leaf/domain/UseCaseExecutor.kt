@@ -11,6 +11,8 @@ import dev.app.leaf.domain.usecases.DataToRefresh
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Provider
@@ -118,7 +120,13 @@ class UseCaseExecutor @Inject constructor(
     ): Either<T, AppError> {
         try {
             val repositoryPath = repositoryDataRepository.repositoryPath ?: return Either.Err(RepositoryPathNotSetError)
-            return either { block(repositoryPath) }.apply {
+            val result = either { block(repositoryPath) }
+
+            // A task that the user cancelled has no result to report, even if its code turned the cancellation into
+            // an error (JGit.provide does)
+            currentCoroutineContext().ensureActive()
+
+            return result.apply {
                 if (this is Either.Ok || refreshEvenIfFailed) {
                     if (dataToRefresh.isNotEmpty()) {
                         refreshDataUseCase.get()(*dataToRefresh)
@@ -126,6 +134,7 @@ class UseCaseExecutor @Inject constructor(
                 }
             }
         } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
             return Either.Err(GenericError(e.message.orEmpty(), e))
         }
     }

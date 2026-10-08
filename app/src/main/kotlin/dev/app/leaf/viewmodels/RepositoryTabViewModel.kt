@@ -15,6 +15,7 @@ import dev.app.leaf.domain.extensions.removeGitSuffix
 import dev.app.leaf.domain.interfaces.IFileChangesWatcher
 import dev.app.leaf.domain.interfaces.IInitLocalRepositoryGitAction
 import dev.app.leaf.domain.models.RepositorySelectionState
+import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
@@ -166,6 +167,8 @@ class RepositoryTabViewModel @AssistedInject constructor(
         .debounce(300L.milliseconds)
         .stateIn(initialValue = null)
 
+    val taskProgress: StateFlow<TaskProgress?> = repositoryStateRepository.taskProgress
+
     val credentialsState: StateFlow<CredentialsState> = credentialsStateManager.credentialsState
 
 
@@ -206,6 +209,14 @@ class RepositoryTabViewModel @AssistedInject constructor(
         credentialsStateManager.lfsCredentialsAccepted(user, password)
     }
 
+    fun promptAnswered(answer: String) {
+        credentialsStateManager.promptAnswered(answer)
+    }
+
+    fun confirmed() {
+        credentialsStateManager.confirmed()
+    }
+
     override fun dispose() {
         fileChangesWatcher.close()
         tabScope.cancel()
@@ -226,8 +237,9 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
     val update: StateFlow<Update?> = updatesRepository.hasUpdatesFlow.stateIn(null)
 
+    /** Stops the foreground task, which only the tasks that report progress (the git CLI's) can do. */
     fun cancelOngoingTask() {
-        // TODO Do something at some point?
+        repositoryStateRepository.cancelCurrentTask()
     }
 
     fun openUrlInBrowser(url: String) {

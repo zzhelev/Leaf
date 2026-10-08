@@ -383,6 +383,15 @@ private fun RemoteActions(settingsViewState: SettingsViewState, onAction: (Setti
             onAction(SettingsAction.SetConfig(AppConfig.PushWithLease(value)))
         }
     )
+
+    SettingToggle(
+        title = stringResource(Res.string.settings_remote_operations_with_git_title),
+        subtitle = stringResource(Res.string.settings_remote_operations_with_git_subtitle),
+        value = settingsViewState.remoteOperationsWithGit,
+        onValueChanged = { value ->
+            onAction(SettingsAction.SetConfig(AppConfig.RemoteOperationsWithGit(value)))
+        }
+    )
 }
 
 

@@ -2,11 +2,14 @@ package dev.app.leaf.data.repositories
 
 import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.usecases.DataToRefresh
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
@@ -20,17 +23,35 @@ class InMemoryRepositoryStateRepository @Inject constructor() : RepositoryStateR
     }
     override val refreshTriggered: Flow<List<DataToRefresh>>
         field = MutableSharedFlow()
+    override val taskProgress: StateFlow<TaskProgress?>
+        field = MutableStateFlow(null)
+
+    @Volatile
+    private var currentTaskJob: Job? = null
 
     override suspend fun <T> runOperation(taskType: TaskType, isForegroundTask: Boolean, block: suspend () -> T): T {
         try {
             if (isForegroundTask) {
                 currentTask.value = taskType
+                currentTaskJob = currentCoroutineContext()[Job]
             }
             return block()
         } finally {
             if (isForegroundTask) {
                 currentTask.value = null
+                currentTaskJob = null
+                taskProgress.value = null
             }
+        }
+    }
+
+    override fun updateTaskProgress(progress: TaskProgress?) {
+        taskProgress.value = progress
+    }
+
+    override fun cancelCurrentTask() {
+        if (taskProgress.value != null) {
+            currentTaskJob?.cancel()
         }
     }
 

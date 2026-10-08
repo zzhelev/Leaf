@@ -13,11 +13,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.generic_button_cancel
+import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
+import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.ui.components.SecondaryButton
+import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Covers the tab while a foreground task runs. A task that reports [progress] (the git CLI's) shows git's current stage
+ * and can be cancelled.
+ */
 @Composable
 fun ProcessingScreen(
     processingTask: TaskType,
+    progress: TaskProgress?,
     onCancelOnGoingTask: () -> Unit,
 ) {
     Box(
@@ -51,11 +62,40 @@ fun ProcessingScreen(
 //                )
 //            }
 
-            LinearProgressIndicator(
-                modifier = Modifier.width(280.dp)
-                    .padding(bottom = 32.dp),
-                color = MaterialTheme.colors.secondary,
-            )
+            val stage = progress?.stage
+
+            if (stage != null) {
+                Text(
+                    text = if (progress.percent != null) "$stage ${progress.percent}%" else stage,
+                    style = MaterialTheme.typography.body1,
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                )
+            }
+
+            val percent = progress?.percent
+
+            if (percent != null) {
+                LinearProgressIndicator(
+                    progress = percent / 100f,
+                    modifier = Modifier.width(280.dp)
+                        .padding(bottom = 32.dp),
+                    color = MaterialTheme.colors.secondary,
+                )
+            } else {
+                LinearProgressIndicator(
+                    modifier = Modifier.width(280.dp)
+                        .padding(bottom = 32.dp),
+                    color = MaterialTheme.colors.secondary,
+                )
+            }
+
+            if (progress != null) {
+                SecondaryButton(
+                    text = stringResource(Res.string.generic_button_cancel),
+                    onClick = onCancelOnGoingTask,
+                )
+            }
         }
     }
 }

@@ -48,6 +48,21 @@ class CredentialsStateManager @Inject constructor() {
         )
     }
 
+    /**
+     * Asks the user to answer a [prompt] from git or ssh that Leaf has no dialog of its own for, such as a password for
+     * SSH password authentication or a security key's PIN. The answer to a [secret] prompt is hidden while it's typed.
+     */
+    suspend fun requestPromptAnswer(prompt: String, secret: Boolean): String {
+        return requestAwaitingCredentials<CredentialsAccepted.PromptAnswered>(
+            CredentialsRequest.PromptRequest(prompt, secret)
+        ).answer
+    }
+
+    /** Asks the user to allow what ssh asks about with `SSH_ASKPASS_PROMPT=confirm`, such as using a key. */
+    suspend fun requestConfirmation(prompt: String) {
+        requestAwaitingCredentials<CredentialsAccepted.Confirmed>(CredentialsRequest.ConfirmRequest(prompt))
+    }
+
     /** Asks the user for the credentials of an LFS server, like [requestHttpCredentials]. */
     suspend fun requestLfsCredentials(user: String?, password: String?): CredentialsAccepted.LfsCredentialsAccepted {
         val accepted = requestAwaitingCredentials<CredentialsAccepted.LfsCredentialsAccepted>(
@@ -77,16 +92,26 @@ class CredentialsStateManager @Inject constructor() {
         credentialsState.value = CredentialsAccepted.SshHostKeyTrusted
     }
 
+    fun promptAnswered(answer: String) {
+        credentialsState.value = CredentialsAccepted.PromptAnswered(answer)
+    }
+
+    fun confirmed() {
+        credentialsState.value = CredentialsAccepted.Confirmed
+    }
+
     private suspend inline fun <reified T : CredentialsAccepted> requestAwaitingCredentials(credentialsRequest: CredentialsRequest): T {
         mutex.withLock {
             assert(this.credentialsState.value is CredentialsState.None)
 
             credentialsState.value = credentialsRequest
 
-            val credentialsResult = this.credentialsState
-                .first { it !is CredentialsRequest }
-
-            credentialsState.value = CredentialsState.None
+            val credentialsResult = try {
+                this.credentialsState.first { it !is CredentialsRequest }
+            } finally {
+                // Also when the operation that asked is cancelled, so that its dialog closes
+                credentialsState.value = CredentialsState.None
+            }
 
             return when (credentialsResult) {
                 is T -> credentialsResult
@@ -105,6 +130,8 @@ sealed interface CredentialsState {
 sealed interface CredentialsAccepted : CredentialsState {
     data class SshCredentialsAccepted(val password: String) : CredentialsAccepted
     data object SshHostKeyTrusted : CredentialsAccepted
+    data class PromptAnswered(val answer: String) : CredentialsAccepted
+    data object Confirmed : CredentialsAccepted
     data class HttpCredentialsAccepted(val user: String, val password: String) : CredentialsAccepted
     data class LfsCredentialsAccepted(val user: String, val password: String) : CredentialsAccepted {
         companion object {
@@ -129,6 +156,14 @@ sealed interface CredentialsRequest : CredentialsState {
      */
     @Immutable
     data class HttpCredentialsRequest(val user: String?, val askPassword: Boolean) : CredentialsRequest
+
+    /** A prompt from git or ssh, shown as it is, with a field for the answer, hidden while typed if [secret]. */
+    @Immutable
+    data class PromptRequest(val prompt: String, val secret: Boolean) : CredentialsRequest
+
+    /** A question from ssh that only needs a yes or a no. */
+    @Immutable
+    data class ConfirmRequest(val prompt: String) : CredentialsRequest
 
     /** Like [HttpCredentialsRequest], for an LFS server. */
     @Immutable

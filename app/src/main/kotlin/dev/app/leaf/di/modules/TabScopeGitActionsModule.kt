@@ -5,6 +5,8 @@ import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.author.SaveAuthorGitAction
 import dev.app.leaf.data.git.branches.*
+import dev.app.leaf.data.git.cli.remote.SelectingDeleteRemoteBranchGitAction
+import dev.app.leaf.data.git.cli.remote.SelectingPushBranchGitAction
 import dev.app.leaf.data.git.config.LoadRefFolderExpansionGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveRefFolderExpansionGitAction
@@ -120,7 +122,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsDeleteRemoteBranchGitAction(action: DeleteRemoteBranchGitAction): IDeleteRemoteBranchGitAction
+    fun bindsDeleteRemoteBranchGitAction(action: SelectingDeleteRemoteBranchGitAction): IDeleteRemoteBranchGitAction
 
     @Binds
     @TabScope
@@ -324,7 +326,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsPushBranchGitAction(action: PushBranchGitAction): IPushBranchGitAction
+    fun bindsPushBranchGitAction(action: SelectingPushBranchGitAction): IPushBranchGitAction
 
     @Binds
     @TabScope

@@ -12,11 +12,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
+import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.time.Duration
 
 private const val DESTROY_GRACE_PERIOD_MS = 2_000L
+private const val READ_BUFFER_SIZE = 4096
 
 sealed interface ProcessOutcome {
     data class Completed(val exitCode: Int, val stdout: String, val stderr: String) : ProcessOutcome
@@ -31,6 +34,7 @@ class ProcessRunner @Inject constructor() {
     /**
      * @param environment variables to add to the inherited environment; a null value removes the variable.
      * @param input written to the process's stdin, which is then closed; without it stdin is closed at once.
+     * @param onStderr receives stderr as the process writes it, for progress, besides the whole of it in the outcome.
      * @throws java.io.IOException if the process can't be started.
      */
     suspend fun run(
@@ -39,6 +43,7 @@ class ProcessRunner @Inject constructor() {
         environment: Map<String, String?>,
         timeout: Duration,
         input: ByteArray? = null,
+        onStderr: ((String) -> Unit)? = null,
     ): ProcessOutcome = withContext(Dispatchers.IO) {
         val process = ProcessBuilder(command)
             .directory(workingDirectory)
@@ -68,7 +73,13 @@ class ProcessRunner @Inject constructor() {
 
             // Both streams have to be drained while the process runs, otherwise it blocks once a pipe buffer is full
             val stdout = async { process.inputStream.readBytes().decodeToString() }
-            val stderr = async { process.errorStream.readBytes().decodeToString() }
+            val stderr = async {
+                if (onStderr == null) {
+                    process.errorStream.readBytes().decodeToString()
+                } else {
+                    process.errorStream.readAsWritten(onStderr)
+                }
+            }
 
             try {
                 val exitCode = withTimeoutOrNull(timeout) { process.onExit().await().exitValue() }
@@ -85,6 +96,25 @@ class ProcessRunner @Inject constructor() {
                     process.destroyTree()
                 }
             }
+        }
+    }
+
+    /** Reads the stream to its end, passing each piece of text to [onText] as soon as it's read, and returns all of it. */
+    private fun InputStream.readAsWritten(onText: (String) -> Unit): String {
+        val reader = InputStreamReader(this, Charsets.UTF_8)
+        val text = StringBuilder()
+        val buffer = CharArray(READ_BUFFER_SIZE)
+
+        while (true) {
+            val count = reader.read(buffer)
+
+            if (count < 0) {
+                return text.toString()
+            }
+
+            val piece = String(buffer, 0, count)
+            text.append(piece)
+            onText(piece)
         }
     }
 

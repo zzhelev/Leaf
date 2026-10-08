@@ -81,6 +81,12 @@ class CredentialsCacheRepository @Inject constructor() : CredentialsRepository {
         }
     }
 
+    override suspend fun removeCachedSshCredentials(url: String) {
+        credentialsLock.withLock {
+            credentialsCached.removeAll { it is CredentialsType.SshCredentials && it.url == url }
+        }
+    }
+
     private fun String.cipherEncrypt(): String {
         val secretKeySpec = SecretKeySpec(encryptionKey, "AES")
         val ivParameterSpec = IvParameterSpec(encryptionKey)

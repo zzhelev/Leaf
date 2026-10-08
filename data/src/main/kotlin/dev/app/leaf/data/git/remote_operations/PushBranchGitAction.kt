@@ -3,7 +3,6 @@ package dev.app.leaf.data.git.remote_operations
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.branches.GetTrackingBranchGitAction
 import dev.app.leaf.data.git.branches.SetTrackingBranchGitAction
-import dev.app.leaf.domain.BranchesConstants
 import dev.app.leaf.data.git.credentials.CredentialsHandler
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.interfaces.IPushBranchGitAction
@@ -42,9 +41,10 @@ class PushBranchGitAction @Inject constructor(
         val tracking = if (specificBranch == null) {
             getTrackingBranchGitAction(repositoryPath, currentBranch).bind()
         } else {
+            // specificBranch is a remote-tracking branch (refs/remotes/<remote>/<branch>)
             TrackingBranch(
                 remote = specificBranch.remoteName,
-                branch = specificBranch.name.removePrefix(BranchesConstants.UPSTREAM_BRANCH_CONFIG_PREFIX)
+                branch = specificBranch.simpleName,
             )
         }
 

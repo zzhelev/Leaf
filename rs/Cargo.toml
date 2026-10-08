@@ -26,3 +26,7 @@ strip = true
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
+
+[[bin]]
+name = "leaf-askpass"
+path = "leaf-askpass.rs"

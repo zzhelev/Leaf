@@ -13,7 +13,7 @@ class DeleteRemoteBranchUseCase @Inject constructor(
 ) {
     operator fun invoke(branch: Branch) {
         useCaseExecutor.executeLaunch(
-            TaskType.DeleteBranch,
+            TaskType.DeleteRemoteBranch,
             dataToRefresh = arrayOf(DataToRefresh.ALL), // TODO Refresh only log?
         ) { repositoryPath ->
             deleteRemoteBranchGitAction(repositoryPath, branch)

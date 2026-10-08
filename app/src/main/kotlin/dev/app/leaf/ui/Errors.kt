@@ -23,11 +23,26 @@ import dev.app.leaf.app.generated.resources.error_open_repository_dir_not_found
 import dev.app.leaf.app.generated.resources.error_open_repository_path_is_not_dir
 import dev.app.leaf.app.generated.resources.error_open_repository_repo_not_found
 import dev.app.leaf.app.generated.resources.error_open_repository_repository_load
+import dev.app.leaf.app.generated.resources.error_remote_access_denied
+import dev.app.leaf.app.generated.resources.error_remote_authentication_failed
+import dev.app.leaf.app.generated.resources.error_remote_certificate_problem
+import dev.app.leaf.app.generated.resources.error_remote_connection_failed
+import dev.app.leaf.app.generated.resources.error_remote_failed
+import dev.app.leaf.app.generated.resources.error_remote_host_key_changed
+import dev.app.leaf.app.generated.resources.error_remote_host_key_not_verified
+import dev.app.leaf.app.generated.resources.error_remote_prompt_refused
+import dev.app.leaf.app.generated.resources.error_remote_ref_fetch_first
+import dev.app.leaf.app.generated.resources.error_remote_ref_non_fast_forward
+import dev.app.leaf.app.generated.resources.error_remote_ref_other
+import dev.app.leaf.app.generated.resources.error_remote_ref_remote_rejected
+import dev.app.leaf.app.generated.resources.error_remote_ref_stale_info
+import dev.app.leaf.app.generated.resources.error_remote_refs_rejected
 import dev.app.leaf.app.generated.resources.error_repository_path_not_set
 import dev.app.leaf.app.generated.resources.error_repository_read_error
 import dev.app.leaf.app.generated.resources.error_sign_ssh_key_not_found
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.errors.*
+import org.eclipse.jgit.lib.Constants
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -76,7 +91,44 @@ fun AppError.getErrorText(): String {
             is GpgSigningError.SigningFailed -> stringResource(Res.string.error_gpg_signing_failed, this.program, this.output)
         }
 
+        is RemoteOperationError -> getRemoteOperationErrorText()
+
         is SshSigningError.InvalidPassword -> throw IllegalStateException("InvalidPassword error should never trigger")
         is SshSigningError.KeyNotFound -> stringResource(Res.string.error_sign_ssh_key_not_found)
+    }
+}
+
+/** The explanation, then what git printed, which often has the server's own message. */
+@Composable
+private fun RemoteOperationError.getRemoteOperationErrorText(): String {
+    val explanation = when (this) {
+        is RemoteOperationError.RefsRejected -> {
+            val refs = refs.map { it.getRejectionText() }
+            (listOf(stringResource(Res.string.error_remote_refs_rejected)) + refs).joinToString("\n")
+        }
+
+        is RemoteOperationError.PromptRefused -> stringResource(Res.string.error_remote_prompt_refused)
+        is RemoteOperationError.AuthenticationFailed -> stringResource(Res.string.error_remote_authentication_failed)
+        is RemoteOperationError.AccessDenied -> stringResource(Res.string.error_remote_access_denied)
+        is RemoteOperationError.HostKeyChanged -> stringResource(Res.string.error_remote_host_key_changed)
+        is RemoteOperationError.HostKeyNotVerified -> stringResource(Res.string.error_remote_host_key_not_verified)
+        is RemoteOperationError.ConnectionFailed -> stringResource(Res.string.error_remote_connection_failed)
+        is RemoteOperationError.CertificateProblem -> stringResource(Res.string.error_remote_certificate_problem)
+        is RemoteOperationError.Failed -> stringResource(Res.string.error_remote_failed, exitCode)
+    }
+
+    return listOf(explanation, output).filter { it.isNotBlank() }.joinToString("\n\n")
+}
+
+@Composable
+private fun RejectedRef.getRejectionText(): String {
+    val name = destination.removePrefix(Constants.R_HEADS).removePrefix(Constants.R_TAGS)
+
+    return when (reason) {
+        RejectReason.FETCH_FIRST -> stringResource(Res.string.error_remote_ref_fetch_first, name)
+        RejectReason.NON_FAST_FORWARD -> stringResource(Res.string.error_remote_ref_non_fast_forward, name)
+        RejectReason.STALE_INFO -> stringResource(Res.string.error_remote_ref_stale_info, name)
+        RejectReason.REMOTE_REJECTED -> stringResource(Res.string.error_remote_ref_remote_rejected, name, detail)
+        RejectReason.OTHER -> stringResource(Res.string.error_remote_ref_other, name, detail)
     }
 }

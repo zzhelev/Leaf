@@ -38,6 +38,9 @@ internal val gitCliEnvironment: Map<String, String?> = mapOf(
     "GIT_NAMESPACE" to null,
 )
 
+/** What a git command printed, and how it exited. */
+data class GitCliOutput(val exitCode: Int, val stdout: String, val stderr: String)
+
 /**
  * Runs the git CLI, for the operations JGit doesn't support (such as linked worktrees). Git gets the login shell's
  * environment, as the hooks and filters it runs (`post-checkout`, `git-lfs`) need the user's PATH.
@@ -55,7 +58,33 @@ class GitCli @Inject constructor(
         args: List<String>,
         timeout: Duration = DEFAULT_TIMEOUT,
     ): Either<String, GitCliError> {
-        val commandDescription = (listOf("git") + args).joinToString(" ")
+        val output = when (val result = execute(workingDirectory, args, timeout)) {
+            is Either.Err -> return result
+            is Either.Ok -> result.value
+        }
+
+        return if (output.exitCode == 0) {
+            Either.Ok(output.stdout)
+        } else {
+            Either.Err(GitCliError.CommandFailed(describe(args), output.exitCode, output.stderr.trim()))
+        }
+    }
+
+    /**
+     * Runs `git <args>` like [run], but returns the output whatever the exit code, for commands whose failures are read
+     * from it: `git push --porcelain` lists the refs that the remote refused, and exits with 1.
+     *
+     * @param environment variables added after Leaf's own, such as the askpass helper's.
+     * @param onStderr receives stderr as git writes it, for progress.
+     */
+    suspend fun execute(
+        workingDirectory: File,
+        args: List<String>,
+        timeout: Duration = DEFAULT_TIMEOUT,
+        environment: Map<String, String?> = emptyMap(),
+        onStderr: ((String) -> Unit)? = null,
+    ): Either<GitCliOutput, GitCliError> {
+        val commandDescription = describe(args)
 
         val configuredPath = appSettingsService.gitExecutablePath.firstOrNull()
         val executable = when (val result = gitExecutableLocator.locate(configuredPath)) {
@@ -70,10 +99,16 @@ class GitCli @Inject constructor(
         printLog(TAG, "Running '$commandDescription' in $workingDirectory")
 
         // Leaf's own variables come last, so that the shell's (for example its locale) can't override them
-        val environment = loginShellEnvironment.variables() + gitCliEnvironment
+        val processEnvironment = loginShellEnvironment.variables() + gitCliEnvironment + environment
 
         val outcome = try {
-            processRunner.run(listOf(executable.path) + args, workingDirectory, environment, timeout)
+            processRunner.run(
+                command = listOf(executable.path) + args,
+                workingDirectory = workingDirectory,
+                environment = processEnvironment,
+                timeout = timeout,
+                onStderr = onStderr,
+            )
         } catch (e: IOException) {
             gitExecutableLocator.invalidate()
             return Either.Err(GitCliError.StartFailed(commandDescription, e.message.orEmpty()))
@@ -81,11 +116,9 @@ class GitCli @Inject constructor(
 
         return when (outcome) {
             ProcessOutcome.TimedOut -> Either.Err(GitCliError.TimedOut(commandDescription, timeout.inWholeSeconds))
-            is ProcessOutcome.Completed -> if (outcome.exitCode == 0) {
-                Either.Ok(outcome.stdout)
-            } else {
-                Either.Err(GitCliError.CommandFailed(commandDescription, outcome.exitCode, outcome.stderr.trim()))
-            }
+            is ProcessOutcome.Completed -> Either.Ok(GitCliOutput(outcome.exitCode, outcome.stdout, outcome.stderr))
         }
     }
+
+    private fun describe(args: List<String>) = (listOf("git") + args).joinToString(" ")
 }

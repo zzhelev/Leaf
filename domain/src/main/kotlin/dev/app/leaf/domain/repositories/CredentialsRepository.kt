@@ -18,4 +18,7 @@ interface CredentialsRepository {
     suspend fun removeCachedHttpCredentials(credentials: CredentialsType.HttpCredentials)
 
     suspend fun cacheSshCredentials(url: String, password: String)
+
+    /** Removes the SSH credentials cached for [url], which turned out to be wrong. */
+    suspend fun removeCachedSshCredentials(url: String)
 }

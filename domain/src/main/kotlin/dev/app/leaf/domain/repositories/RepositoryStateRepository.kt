@@ -1,6 +1,7 @@
 package dev.app.leaf.domain.repositories
 
 import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.usecases.DataToRefresh
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +13,17 @@ interface RepositoryStateRepository {
     val lastOperationTimestamp: Flow<Long>
     val refreshTriggered: Flow<List<DataToRefresh>>
 
+    /**
+     * The foreground task's progress, set by the operations that run the git CLI. They are also the tasks that stop
+     * when cancelled, so a task with progress can be cancelled. Null for other tasks.
+     */
+    val taskProgress: StateFlow<TaskProgress?>
+
     suspend fun <T> runOperation(taskType: TaskType, isForegroundTask: Boolean, block: suspend () -> T): T
+    fun updateTaskProgress(progress: TaskProgress?)
+
+    /** Cancels the foreground task, if it can be cancelled (see [taskProgress]). */
+    fun cancelCurrentTask()
     suspend fun addCompletedTaskSuccessfully(completedTask: TaskType)
     suspend fun addCompletedTaskFailed(completedTask: TaskType, reason: AppError, severity: FailureSeverity)
     suspend fun refreshTriggered(dataToRefresh: List<DataToRefresh>)

@@ -19,6 +19,7 @@ import dev.app.leaf.Screen
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.lfs
 import dev.app.leaf.domain.credentials.CredentialsRequest
+import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.models.NotificationData
 import dev.app.leaf.domain.models.NotificationType
 import dev.app.leaf.domain.models.RepositorySelectionState
@@ -61,6 +62,7 @@ fun AppTab(
     val repositorySelectionStatus = repositoryTabViewModel.repositorySelectionState.collectAsState()
     val repositorySelectionStatusValue = repositorySelectionStatus.value
     val processingTask = repositoryTabViewModel.processingTask.collectAsState().value
+    val taskProgress = repositoryTabViewModel.taskProgress.collectAsState().value
 
     val backStack = repositoryTabViewModel.backStack
     val dialogStrategy = remember { DialogSceneStrategy<NavKey>() }
@@ -107,11 +109,16 @@ fun AppTab(
             is CredentialsRequest.LfsCredentialsRequest -> Screen.LfsCredentials(state)
             is CredentialsRequest.SshCredentialsRequest -> Screen.SshCredentials(state)
             is CredentialsRequest.SshHostKeyRequest -> Screen.SshHostKey(state)
+            is CredentialsRequest.PromptRequest -> Screen.AskpassPrompt(state)
+            is CredentialsRequest.ConfirmRequest -> Screen.AskpassConfirm(state)
             else -> null
         }
 
         if (destination != null) {
             backStack.add(destination)
+        } else if (credentialsState is CredentialsState.None) {
+            // The operation that asked ended or was cancelled, so its dialog has nothing left to answer
+            backStack.removeAll { it.isCredentialsDialog() }
         }
     }
 
@@ -292,6 +299,36 @@ fun AppTab(
                                 },
                             )
                         }
+                        entry<Screen.AskpassPrompt>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            AskpassPromptDialog(
+                                request = entry.request,
+                                onAnswer = { answer ->
+                                    repositoryTabViewModel.promptAnswered(answer)
+                                    backStack.removeLastOrNull()
+                                },
+                                onReject = {
+                                    repositoryTabViewModel.credentialsDenied()
+                                    backStack.removeLastOrNull()
+                                },
+                            )
+                        }
+                        entry<Screen.AskpassConfirm>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            AskpassConfirmDialog(
+                                request = entry.request,
+                                onConfirm = {
+                                    repositoryTabViewModel.confirmed()
+                                    backStack.removeLastOrNull()
+                                },
+                                onReject = {
+                                    repositoryTabViewModel.credentialsDenied()
+                                    backStack.removeLastOrNull()
+                                },
+                            )
+                        }
                         entry<Screen.LfsCredentials>(
                             metadata = dialogsMetadata
                         ) { entry ->
@@ -424,6 +461,7 @@ fun AppTab(
         if (processingTask != null) {
             ProcessingScreen(
                 processingTask,
+                progress = taskProgress,
                 onCancelOnGoingTask = { repositoryTabViewModel.cancelOngoingTask() }
             )
         }
@@ -463,4 +501,15 @@ fun CompletedTask.toNotificationData(): NotificationData? {
 
 
     return NotificationData(type, message)
+}
+
+private fun Screen.isCredentialsDialog() = when (this) {
+    is Screen.HttpCredentials,
+    is Screen.SshCredentials,
+    is Screen.SshHostKey,
+    is Screen.LfsCredentials,
+    is Screen.AskpassPrompt,
+    is Screen.AskpassConfirm -> true
+
+    else -> false
 }

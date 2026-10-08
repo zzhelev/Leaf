@@ -22,3 +22,4 @@ src/main/resources/*leaf_rs*
 *.dylib
 *.dll
 *.so
+/app/src/main/resources/leaf-askpass*

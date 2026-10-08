@@ -38,6 +38,7 @@ interface AppSettingsRepository {
     val autoStashOnMerge: Flow<Boolean?>
     val cloneDefaultDirectory: Flow<String?>
     val gitExecutablePath: Flow<String?>
+    val remoteOperationsWithGit: Flow<Boolean?>
 
     // Network
     val useProxy: Flow<Boolean?>

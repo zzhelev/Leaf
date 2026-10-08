@@ -3,6 +3,7 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 import java.io.FileOutputStream
 import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermissions
 
 plugins {    // Apply the shared build logic from a convention plugin.
@@ -511,6 +512,12 @@ fun copyRustBuild() {
 
     Files.copy(originFile.toPath(), FileOutputStream(destinyFile))
 
+    // The askpass helper of the git commands Leaf runs. It ships in the jar like the library, and Leaf extracts it.
+    val askpassOrigin = File(workingDir, askpassName)
+    val askpassDestiny = File(directory, askpassName)
+
+    Files.copy(askpassOrigin.toPath(), askpassDestiny.toPath(), StandardCopyOption.REPLACE_EXISTING)
+
     println("Copy rs build completed")
 }
 
@@ -522,6 +529,11 @@ val libName = when (currentOs()) {
     OS.LINUX -> "libleaf_rs.so"
     OS.WINDOWS -> "leaf_rs.dll"
     OS.MAC -> "libleaf_rs.dylib"
+}
+
+val askpassName = when (currentOs()) {
+    OS.WINDOWS -> "leaf-askpass.exe"
+    else -> "leaf-askpass"
 }
 
 
