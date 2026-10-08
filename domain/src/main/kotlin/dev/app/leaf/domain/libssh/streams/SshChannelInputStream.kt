@@ -1,40 +1,36 @@
 package dev.app.leaf.domain.libssh.streams
 
 import dev.app.leaf.Channel
-import dev.app.leaf.domain.exceptions.SshException
+import java.io.IOException
 import java.io.InputStream
+
+private const val READ_FAILED =
+    "Could not read result from SSH channel. Please check your network connectivity and try again."
 
 class SshChannelInputStream(private val sshChannel: Channel) : InputStream() {
     override fun read(b: ByteArray, off: Int, len: Int): Int {
         val result = sshChannel.read(false, len.toULong())
-            ?: throw SshException("Could not read result from SSH channel. Please check your network connectivity and try again.")
+            ?: throw IOException(READ_FAILED)
 
         if (result.readCount == 0.toULong()) {
             return -1
         }
 
-        val byteArray = result.data
-        val read = result.readCount
+        val read = result.readCount.toInt()
+        result.data.copyInto(b, destinationOffset = off, endIndex = read)
 
-        for (i in 0 until len) {
-            b[off + i] = byteArray[i]
-        }
-
-        return read.toInt()
+        return read
     }
 
     override fun read(): Int {
-
         val result = sshChannel.read(false, 1L.toULong())
-            ?: throw SshException("Could not read result from SSH channel. Please check your network connectivity and try again.")
+            ?: throw IOException(READ_FAILED)
 
         if (result.readCount == 0.toULong()) {
             return -1
         }
 
-        val first = result.data.first()
-
-        return first.toInt()
+        return result.data.first().toInt() and 0xff
     }
 
     override fun close() {

@@ -33,17 +33,17 @@ class SshProcess : Process() {
     }
 
     override fun waitFor(): Int {
-        if (isRunning())
-            Thread.sleep(100)
-
-        return exitValue()
+        return channel.waitForExitStatus()
     }
 
+    // JGit asks for the exit status after an error, once it has closed the connection: 127 means that the server
+    // couldn't find git-upload-pack or git-receive-pack
     override fun exitValue(): Int {
-        check(!isRunning())
-        println("exitValue called")
+        if (isRunning()) {
+            throw IllegalThreadStateException("The SSH command is still running")
+        }
 
-        return 0
+        return channel.waitForExitStatus()
     }
 
     override fun destroy() {
@@ -55,7 +55,7 @@ class SshProcess : Process() {
     }
 
     private fun isRunning(): Boolean {
-        return channel.isOpen()
+        return !channel.isEof()
     }
 
     fun setup(session: Session, commandName: String) {

@@ -8,7 +8,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, LockResult, RwLock, RwLockWriteGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use libssh_rs::{PollStatus, SignAlgorithm, SshKey, SshOption, ssh_sign};
+use libssh_rs::{SignAlgorithm, SshKey, SshOption, ssh_sign};
 
 #[allow(unused_imports)]
 use libssh_rs::AuthStatus;
@@ -581,28 +581,56 @@ impl Channel {
         }
     }
 
-    pub fn poll_has_bytes(&self, is_stderr: bool) -> bool {
-        let channel_holder = self.channel.as_ref().unwrap();
-        let channel = match channel_holder.channel.write() {
-            Ok(s) => s,
+    /// Reads what has already arrived, without waiting for more. A read count of 0 means that nothing has arrived
+    /// yet, or that the stream has ended (see `is_eof`).
+    ///
+    /// libssh-rs's `poll_timeout` can't be used to wait for data: it passes `is_stderr` and the timeout to
+    /// `ssh_channel_poll_timeout` in the wrong order, so it polls stderr for at most 1 ms whichever stream is asked.
+    pub fn read_available(&self, is_stderr: bool, len: u64) -> Option<ReadResult> {
+        let channel = match self.get_channel() {
+            Ok(c) => c,
             Err(e) => {
                 println!("Something failed obtaining write channel: {e:?}");
-                return false;
+                return None;
             }
         };
 
-        let poll_timeout = match channel.poll_timeout(is_stderr, None) {
-            Ok(timeout) => timeout,
+        let mut buffer = vec![0; len as usize];
+        let read = match channel.read_nonblocking(&mut buffer, is_stderr) {
+            Ok(s) => s,
             Err(e) => {
                 let message = libssh_error_to_message(&e);
-                println!("{message}");
-                return false;
+                println!("Something failed reading SSH channel: {message}");
+                return None;
             }
         };
 
-        match poll_timeout {
-            PollStatus::AvailableBytes(count) => count > 0,
-            PollStatus::EndOfFile => false,
+        Some(ReadResult {
+            read_count: read as u64,
+            data: buffer,
+        })
+    }
+
+    /// Whether the server has ended its output, and everything it sent on both streams has been read.
+    pub fn is_eof(&self) -> bool {
+        match self.get_channel() {
+            Ok(channel) => channel.is_eof(),
+            Err(e) => {
+                println!("Something failed obtaining write channel: {e:?}");
+                true
+            }
+        }
+    }
+
+    /// The command's exit status, or -1 if the server closed the channel without one. Waits until the server sends
+    /// it.
+    pub fn exit_status(&self) -> i32 {
+        match self.get_channel() {
+            Ok(channel) => channel.get_exit_status().unwrap_or(-1),
+            Err(e) => {
+                println!("Something failed obtaining write channel: {e:?}");
+                -1
+            }
         }
     }
 
