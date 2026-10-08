@@ -350,22 +350,25 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - `get` asks the helpers in turn, like `credential_fill`. Each helper is sent the user name known so far (the URL's,
     `credential.username`, or an earlier helper's) and any password an earlier helper gave. It stops at the first
     one that completes both, so a helper may answer with the password alone. A helper that can't be started is
-    skipped, and `quit=1` stops the search with no credentials. Otherwise it returns `NotStored(user)`, with the user
-    name known after the last helper.
+    skipped, and `quit=1` stops the search with no credentials. Otherwise it returns `NotStored(user, password)`: the
+    user name known after the last helper, or the password a helper gave without one.
   - `store` and `erase` go to every helper, and `erase` waits for each `store` it follows.
-  - When Leaf knows the user name, it asks only for the password, like git's `credential_getpass`. This holds for
-    HTTPS and LFS, with or without helpers.
-    - `HttpCredentialsRequest.user` and `LfsCredentialsRequest.user` carry the name.
-    - `UserPasswordDialog` shows it in a disabled field and starts in the password field.
-    - `requestHttpCredentials(user)` and `requestLfsCredentials(user)` return that name, whatever the dialog sends:
-      the helpers store the credentials under it, and look them up by it.
+  - Leaf asks only for what git doesn't know, like git's `credential_getpass`, for HTTPS and LFS alike:
+    - When it knows the user name (with or without helpers), it asks only for the password.
+      `HttpCredentialsRequest.user` and `LfsCredentialsRequest.user` carry the name, and `UserPasswordDialog` shows
+      it in a disabled field and starts in the password field.
+    - When a helper gave a password but no user name, it asks only for the user name (`askPassword = false`), and
+      the dialog has no password field. The password stays out of `credentialsState`.
+    - `requestHttpCredentials(user, password)` and `requestLfsCredentials(user, password)` answer with what git knew
+      in place of what the dialog sends: the helpers store the credentials under that user name, and look them up by
+      it.
+    - HTTPS stores a typed user name with a helper's password at once, like typed credentials, and `reset` erases
+      them. LFS tries them once, like a helper's credentials: they're stored with the helpers if the server takes
+      them, and erased if not, and then Leaf asks for both.
     - After the server rejects a helper's credentials, LFS shows the user name from the settings, not the rejected
       one.
-  - Still unlike git:
-    - When a helper gives a password but no user name, and none is known, Leaf asks for both. Git asks only for the
-      user name, and keeps the helper's password.
-    - After a success, Leaf doesn't store a helper's credentials in the other helpers, as git's
-      `credential_approve` does.
+  - Still unlike git: after a success, Leaf doesn't store a helper's credentials in the other helpers, as git's
+    `credential_approve` does.
 - Also used by `GpgProgramSigner`, which runs gpg (see Commit and tag signing).
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
@@ -595,9 +598,10 @@ common `refs/` and `packed-refs` are not watched.
 - Tests that run git's `store` or `cache` helpers point `HOME`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` at the temp
   folder (`HttpCredentialsProviderTest`), and stop the cache daemon with `git credential-cache exit`. A socket's path
   can't be longer than 104 bytes on macOS, so the socket goes directly under the temp folder.
-- `HttpCredentialsProviderTest` checks the user name in Leaf's prompt against git (`userThatGitShows`), by running
+- `HttpCredentialsProviderTest` checks what Leaf asks the user against git (`requestThatGitMakes`), by running
   `git credential fill` with a `GIT_ASKPASS` script that records git's prompts. If git asks for `Username`, the name
-  wasn't known. Otherwise the password prompt shows it: `Password for 'https://bob@host': `.
+  wasn't known; if it asks for no `Password`, a helper gave it. Otherwise the password prompt shows the user name:
+  `Password for 'https://bob@host': `.
 - `CredentialHelpersTest` checks the helper list against `git credential fill`. Each helper is
   `!leaf-helper <name>`, which records that it ran and what it read, and answers from `<name>.answer`. An `includeIf`
   pattern must use the real path (`canonicalPath`): git compares it with `/private/var/...` on macOS.

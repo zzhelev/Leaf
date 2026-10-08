@@ -2,6 +2,36 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Only the user name is asked for when a helper gave the password (branch `feature/helper-password-only`)
+
+Closes the gap listed under "Still unlike git" in "Only the password is asked for when the user name is known".
+
+- **Before:** a helper could answer `get` with a password but no user name, when no user name was known. Leaf then
+  asked for both and dropped the helper's password. Git (`credential_getpass`) asks only for the user name
+  (`Username for 'https://host': `), and uses the helper's password with it.
+- **Now:**
+  - `HelperAnswer.NotStored` carries that password. `HttpCredentialsRequest` and `LfsCredentialsRequest` gain
+    `askPassword`, which is false in this case.
+  - The dialog then shows only the user name field, and Enter accepts it. The HTTPS subtitle says that the credential
+    helper gave the password.
+  - `requestHttpCredentials(user, password)` and `requestLfsCredentials(user, password)` answer with the helper's
+    password, whatever the dialog sends. The password never enters `credentialsState`, which the UI reads.
+  - HTTPS stores the typed user name and the helper's password with every helper at once, as it does typed
+    credentials. If the server rejects them, `reset` erases them, as git's `credential_reject` does.
+  - LFS tries them once, like a helper's credentials. They're stored with the helpers if the server takes them. If
+    it rejects them, they're erased, and Leaf asks for both.
+- **Tests:**
+  - `HttpCredentialsProviderTest` (+1): the comparison with git now covers what git asks for, not only the user
+    name it shows, and has an eighth case, a helper that gives only the password. There, git asks only for
+    `Username`, and Leaf asks only for the user name and answers with the helper's password. The new test stores
+    the typed user name with the helper's password in git's `store` and a second helper, then erases them from both.
+  - `ProvideLfsCredentialsGitActionTest` (+2): the helper's password with the typed user name is sent and stored once
+    the server takes it. Rejected, it's erased, and then both are asked for.
+  - Both classes now record the whole request, not just the user name.
+  - The dialog was checked offscreen: in the new mode it has one field, which has the focus, and Enter accepts it.
+    The other two modes are unchanged.
+  - Mutation check: 13 mutations of the new code, all caught.
+
 ## Commits and tags are signed by running gpg (branch `claude/dazzling-murdock-cc2402`)
 
 - **Before:** OpenPGP signing used JGit's BouncyCastle signer (`AppGpgSigner`). It couldn't find keys kept by keyboxd
