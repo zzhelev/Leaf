@@ -15,7 +15,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
 - **#294 reproduced on macOS.** "Something failed writing to channel STDIN: … Remote channel is closed" is what Leaf
   shows whenever an SSH server accepts the key, then refuses the command, for example GitHub with another account's
   key. The server's own message is lost. Three bugs in Leaf's SSH plumbing cause it (section 2), and with all three
-  patched in a test harness, JGit reported the server's message instead.
+  patched in a test harness, JGit reported the server's message instead. Stage 0b fixed them.
 - **The libssh path has gaps beyond #294.** Some are security problems:
   - It never verifies the server's host key. Leaf pushed to a server whose key had changed, where the git CLI refused
     with "REMOTE HOST IDENTIFICATION HAS CHANGED".
@@ -313,13 +313,14 @@ the CLI reproduces. Effort sizes are rough: S, M, L.
 - **0a (S), done on branch `fix/lfs-tls-verification`.** The update check and LFS check TLS certificates. LFS skips
   the check only for a URL whose `http.sslVerify` is false, as git-lfs does
   (`data/src/main/kotlin/dev/app/leaf/data/network/HttpClients.kt`).
-- **0b (S–M).** Make the libssh path report the server's message. It fixes #294's message upstream too.
-  - `D/libssh/streams/SshChannelOutputStream.kt` and `SshChannelInputErrStream.kt` must throw `IOException`s and
-    read stderr until EOF.
-  - `D/credentials/SshProcess.kt` must make `waitFor`/`exitValue` safe after `destroy`, and return the real exit
-    status, which needs `ssh_channel_get_exit_status` exposed in `R/lib.rs`.
-  - The `poll_timeout` argument order needs a patch in the libssh-rs fork.
-  - Test: the sshd harness above, as a test that is skipped without `/usr/sbin/sshd` or the native library.
+- **0b (S–M), done on branch `fix/ssh-server-messages`.** The libssh path reports the server's message. It fixes
+  #294's message upstream too.
+  - `D/libssh/streams/*` throw `IOException`s, and stderr is read until the output ends.
+  - `D/credentials/SshProcess.kt` and `D/libssh/ChannelWrapper.kt` keep stderr and the real exit status when the
+    channel closes, and `exitValue` works after `destroy`.
+  - No libssh-rs patch was needed: `R/lib.rs` uses libssh-rs's `read_nonblocking`, `is_eof` and `get_exit_status`
+    in place of `poll_timeout`.
+  - Test: `SshRemoteSessionTest`, the sshd harness above, skipped without OpenSSH or the native library.
 - **0c (M).** Host key verification in `R/lib.rs` (`ssh_session_is_known_server`, `ssh_session_update_known_hosts`)
   and `SshRemoteSession`, with a confirmation dialog. It is required if the SSH fallback stays.
 - 0a and 0c affect upstream Gitnuro too, and should go to it as a private security advisory, not a public issue.

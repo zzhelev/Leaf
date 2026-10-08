@@ -213,6 +213,9 @@ asking.
 - `rs`: Rust cdylib `leaf_rs`, exported via uniffi.
   - `FileWatcher` uses notify 8.
   - libssh `Session`/`Channel` provide SSH transport.
+  - Never use libssh-rs's `poll_timeout`: it passes `is_stderr` and the timeout to libssh in the wrong order.
+    `SshChannelInputErrStream` polls with `read_available` instead, and `ChannelWrapper.close` keeps stderr and the
+    exit status, which JGit reads after it closes the connection (`SshRemoteSessionTest`).
 - `buildSrc`: convention plugin `buildsrc.convention.kotlin-jvm`. It sets toolchain 25, `-Xexplicit-backing-fields`,
   `-Xcontext-parameters` and the JUnit platform.
 

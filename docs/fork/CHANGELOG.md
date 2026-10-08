@@ -2,6 +2,51 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## SSH errors show the server's message (branch `fix/ssh-server-messages`)
+
+Stage 0b of `docs/fork/remote-operations.md`, and the message part of Gitnuro#294.
+
+- **Before:** when an SSH server accepted the key and then refused the command, push, fetch and clone failed with
+  "Something failed writing to channel STDIN: … Remote channel is closed". GitHub does that for another account's
+  key ("ERROR: Permission to … denied to …"), and so does any server for a repository the user can't reach. Three
+  bugs hid the server's message:
+  - **stderr was never read.** `SshChannelInputErrStream` returned the end of the stream whenever no byte was there
+    yet. It asked through libssh-rs's `poll_timeout`, which passes `is_stderr` and the timeout to
+    `ssh_channel_poll_timeout` in the wrong order, so it waited 1 ms. JGit's thread that copies stderr stopped before
+    the server wrote anything.
+  - **The cleanup error replaced the real one.** After the failed read, JGit closes the connection, which writes a
+    flush packet to the closed channel. `SshChannelOutputStream` threw an `SshException`, which isn't an
+    `IOException`, so JGit's `endOut` didn't catch it, and it replaced JGit's own exception.
+  - **`exitValue` broke after closing.** JGit 7.7 reads `exitValue()` after closing the connection, to report exit
+    status 127 as "cannot execute". `SshProcess` asked the destroyed channel whether it was open, and threw
+    `IllegalStateException`. It also always returned 0.
+- **Now:**
+  - `rs/src/lib.rs`: `Channel.read_available` (libssh-rs's `read_nonblocking`), `is_eof` and `exit_status` replace
+    `poll_has_bytes`. The fork of libssh-rs needs no patch.
+  - `SshChannelInputErrStream` polls every 20 ms without holding the session, until the server's output has ended.
+    `ChannelWrapper.close` first keeps what stderr has received, and the exit status once the output has ended, so
+    JGit reads both after closing. Closing doesn't wait for a command that is still running, and logs a failure
+    instead of throwing it.
+  - The streams throw `IOException`s. `SshChannelOutputStream` writes a whole buffer in one native call instead of
+    one byte per call, and `SshChannelInputStream.read()` returns bytes above 127 as positive values, as
+    `InputStream` requires.
+  - `SshProcess.exitValue` returns the real exit status, or -1 when the server sent none, and throws
+    `IllegalThreadStateException` while the command runs, as `Process` requires.
+  - LFS over SSH (`AuthenticateLfsServerWithSshGitAction`) gets the server's error output too.
+- **Tests:** `SshRemoteSessionTest` (5) runs JGit over Leaf's libssh transport against a local sshd.
+  - The sshd's forced command serves one repository, refuses others with a message on stderr, and exits with 127 for
+    another. A temporary ssh-agent holds the key, set as `SSH_AUTH_SOCK` in the native environment through JNA,
+    as libssh reads it there.
+  - It covers a push that succeeds, a refused push, fetch and clone, which now show the server's message, and the
+    127 case, which shows JGit's "cannot execute" with the server's output.
+  - It is skipped without sshd, ssh-agent or the native library (`./gradlew :app:rustTasks`), and on Windows.
+  - Five mutations were each caught: throwing `SshException` from writes, ending stderr when it's empty, closing
+    without keeping stderr, closing without the exit status, and `exitValue` always 0. The server waits 0.2 s
+    before it refuses, so that ending stderr early is caught every time.
+  - Logging a failure to close the channel, instead of throwing it, isn't tested: closing never failed here.
+  - `./gradlew build` passes, with 300 tests (211 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** the running app, Windows, and the #294 reporter's setup (Windows, two GitHub accounts).
+
 ## Other actions that can lose work ask first (branch `claude/dazzling-leakey-b0b642`)
 
 - **Before:** these ran on the first click: deleting a submodule (its folder and its repository in `.git/modules`),
@@ -143,7 +188,7 @@ Stage 0a of `docs/fork/remote-operations.md`.
   - Six mutations were each caught: trusting every certificate by default, `GetLfsObjectsGitAction` ignoring the
     config, the server's URL in place of the download URL, `LfsNetworkDataSource` or `NetworkLfsRepository` dropping
     the flag, and `isSslVerify` always true.
-  - `./gradlew build` passes, with 287 tests (198 in `:data`, 82 in `:domain`, 7 in `:common`).
+  - `./gradlew build` passes, with 290 tests (201 in `:data`, 82 in `:domain`, 7 in `:common`), on `main` at the time.
 - **Verified:** the verifying client gets `latest.json` from GitHub (status 200).
 - **Not tried:** LFS against a real server in the running app, or Windows.
 
