@@ -71,6 +71,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
      arm64), and a `.sha256` file for each. Review the draft, write the notes, publish.
   4. After publishing, update `latest.json` on `main` (`appVersion`, `appCode` = the new `APP_VERSION_CODE`,
      `downloadUrl` = the release page) and push. Installed copies then show the update banner.
+     `UpdatesRepository.update` checks once for the whole app, every 5 minutes, and compares `appCode` only. A failed
+     check is logged and keeps the last answer.
 - **Test run without releasing:** Actions → Release Build → Run workflow. It only builds, and keeps the files as
   workflow artifacts for a week.
 - `leaf-0.1.0` was published by hand before the workflow existed. It's macOS only, and the app still reported
@@ -109,7 +111,7 @@ Run everything from the repo root, with `JAVA_HOME` set as above.
 
 ```bash
 ./gradlew build                          # full build + (currently empty) tests; ~5.5 min cold, Rust included
-./gradlew test                           # all tests; only :data has tests so far
+./gradlew test                           # all tests (:app, :common, :data, :domain)
 ./gradlew :data:test                     # ~25 s when the build is warm
 ./gradlew :app:run                       # launch the app
 ./gradlew :app:run --args="/path/to/repo"  # launch and open a repo/dir in a new tab (App.getDirToOpen)
@@ -679,7 +681,7 @@ common `refs/` and `packed-refs` are not watched.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
-  `data/src/test/kotlin` and `domain/src/test/kotlin`.
+  `data/src/test/kotlin`, `domain/src/test/kotlin`, `common/src/test/kotlin` and `app/src/test/kotlin`.
 - JUnit 5 and MockK are already declared in `app`, `data` and `domain`. The `buildsrc` convention plugin enables the
   JUnit platform, so new test files need no build changes. `kotlinx-coroutines-test` is not a dependency; use
   `runBlocking`.

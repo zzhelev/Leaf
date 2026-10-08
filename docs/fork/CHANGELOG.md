@@ -2,6 +2,28 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The update check survives failures, and runs once for the app (branch `fix/update-check`)
+
+- **Before:** each tab's two view models (the Welcome page's and the open repository's) ran their own check of
+  `latest.json` every 5 minutes, so several open tabs meant several requests. A check that failed (offline, DNS, an
+  error page, a file that doesn't parse) threw out of the loop: that coroutine ended with only a stack trace on stderr,
+  and the tab never checked again, so the update banner never appeared until the tab was reopened. Upstream has the
+  same code.
+- **Now:** `UpdatesRepository.update` is one `StateFlow` for the whole app, in the repository's own scope. It starts
+  when the first tab shows it, checks every 5 minutes, and every tab reads it.
+  - A failed check is logged as one line (`Checking for updates failed: ...`) and keeps the last answer, so a banner
+    already shown stays. The next check runs 5 minutes later.
+  - An answer that isn't 2xx counts as a failure, even when its body would parse.
+- **Tests:** `UpdatesRepositoryTest` (6), the first tests in `:app`. They run the real Ktor client against a JDK
+  `HttpServer` on 127.0.0.1: a newer release, one that isn't newer, a dropped connection, 500, 404, an error page
+  holding a valid release and a body that isn't JSON before a release, a failure after an update was found, a later
+  release, and six collectors sharing one request.
+  - Six mutations were each caught: no catch, a failure resetting the update, `>=` for the version, a flow per
+    collector, no status check, and stopping after the first update.
+  - `./gradlew build` passes, with 421 tests (6 in `:app`, 326 in `:data`, 82 in `:domain`, 7 in `:common`).
+  - A dev run of the app checked once at startup, with no errors.
+- **Not tried:** going offline and back while the app runs.
+
 ## Checking out a remote branch whose local branch exists says so (branch `fix/remote-checkout-message`)
 
 - **Before:** double-clicking a remote branch such as `origin/develop` while a local `develop` existed showed JGit's
