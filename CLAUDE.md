@@ -236,7 +236,7 @@ asking.
 - `WindowsFs` finds hooks with JGit's `findHook` (`core.hooksPath`, the common git dir) and runs them with Git for
   Windows' `bin\bash.exe` (`GitBash`, which also quotes arguments for MSYS2), with JGit's folder and `GIT_*`
   variables. It must return `ProcessResult(exitCode, OK)`: JGit takes `ProcessResult(OK)` alone (exit code -1) as a
-  failed hook.
+  failed hook. The install is `findGitForWindows`'s: the first one on PATH, or in the default folders, with Git Bash.
 - JGit passes commit-msg an empty path when the git dir is outside the working tree (linked worktrees, submodules):
   `CommitMsgHook` uses `Repository.stripWorkDir`. `PosixFs` and `WindowsFs` both override `runHookIfPresent` to pass
   the absolute path of `<git dir>/COMMIT_EDITMSG` instead (`hookArguments`), as the git CLI does. Another `FS` that
@@ -389,6 +389,10 @@ merges, rebases and tags all find them through `gpg.format`, and `CreateTagGitAc
     read `config.signingKey` themselves; `SshSigner` does too.
 - gpg gets `LoginShellEnvironment`'s variables. A program name is looked up on that PATH, then on macOS in the Homebrew
   and GPG Suite folders, since Java's `ProcessBuilder` would search the PATH Leaf started with.
+- On Windows, a program name is looked up as Git for Windows' git does: first in the `ucrt64\bin` (`mingw64\bin`
+  before 2.56) and `usr\bin` of the Git install that `findGitForWindows` (`GitBash.kt`) picks for hooks, then on PATH,
+  as `<name>.exe` and then the name as it is. So the gpg bundled with Git wins over Gpg4win's, as with
+  `git commit -S`, unless `gpg.program` names a path. Not run on Windows yet.
 - gpg-agent's pinentry asks for passphrases; Leaf has no prompt of its own for gpg. Without a terminal,
   `pinentry-curses` (Homebrew's default) fails with "Inappropriate ioctl for device". The `FAILURE` status codes show
   it, and it becomes `GpgSigningError.PinentryUnavailable`, which suggests pinentry-mac.

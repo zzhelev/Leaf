@@ -2,6 +2,44 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## On Windows, gpg is found where Git for Windows' git finds it (branch `claude/gracious-booth-8370d2`)
+
+- **Before:** on Windows, `GpgProgramSigner` gave the `gpg.program` name (`gpg` by default) to `ProcessBuilder`, so
+  Windows looked for `gpg.exe` in Leaf's own folder, the system folders and Leaf's PATH. Git for Windows bundles gpg in
+  `usr\bin`, which its installer doesn't put on PATH by default. So Leaf said gpg wasn't found, or ran Gpg4win's gpg
+  with its own keyring, where `git commit -S` runs the bundled gpg.
+- **How git finds it** (read on 2026-10-08):
+  - Git for Windows' git puts `<Git>\ucrt64\bin` (`mingw64\bin` before 2.56) and `<Git>\usr\bin` ahead of PATH before
+    it runs anything: `setup_environment` in `mingw-w64-git/git-wrapper.c` (git-for-windows/MINGW-packages) for
+    `cmd\git.exe`, and `append_system_bin_dirs` in `compat/mingw.c` (git-for-windows/git) for a `git.exe` started
+    without `MSYSTEM`.
+  - `path_lookup` in `compat/mingw.c` then tries `<name>.exe`, and then the name as it is, in each folder.
+  - Nothing prefers Gpg4win. Its installer adds `GnuPG\bin` to PATH, after Git's folders, so git runs Gpg4win's gpg
+    only when `gpg.program` points to it.
+  - The full installer ships the `gnupg` package, MinGit doesn't (`make-file-list.sh` in git-for-windows/build-extra).
+  - Git for Windows 2.56 moved from MINGW64 to UCRT64 (its release notes).
+- **Now:**
+  - On Windows, `locateGpgProgram` searches like git: the MSYS2 `bin` folders (`ucrt64`, `mingw64`, `clangarm64`,
+    `mingw32`) and `usr\bin` of the Git for Windows install, then PATH, with `<name>.exe` before the name.
+  - The install is the one `WindowsFs` runs hooks with. The new `findGitForWindows` in `GitBash.kt` takes the first
+    install on PATH, or in the default folders, that has Git Bash. `gitBashCandidates` became
+    `gitForWindowsInstalls`, which returns the installs, and `ucrt64\bin` on PATH now counts as a Git folder.
+  - A `gpg.program` with `\` or `/` is used as it is. When gpg is found nowhere, the error is still `ProgramNotFound`.
+- **Still unlike git:**
+  - Git also puts `%HOME%\bin` on PATH, which Leaf leaves out.
+  - Git sets `HOME`, `MSYSTEM` and its longer PATH for gpg. Leaf doesn't. Without `HOME`, the bundled gpg takes the
+    Windows home folder (`db_home: env windows` in Git for Windows' `nsswitch.conf`), which is git's `HOME` in usual
+    setups.
+  - A file without an extension is found, as git finds it, but Java can't start it. Git runs it with the interpreter
+    of its `#!` line.
+  - With several installs, git uses its own, and Leaf the first one with Git Bash.
+- **Tests:** 5 new in `GpgProgramSignerTest` (22 now). They lay out a Git install and PATH folders under `@TempDir`
+  and pass `OS.WINDOWS` in, so they run on macOS and Linux. `GitBashTest` (8) covers `gitForWindowsInstalls`,
+  `ucrt64\bin` and `findGitForWindows`. Nine mutations were each caught, among them searching PATH before Git's
+  folders, `usr\bin` before `ucrt64\bin`, the name before `<name>.exe`, `exists` for `isFile`, and an install without
+  Git Bash. `./gradlew build` passes, with 295 tests (206 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not run on Windows.** Nothing tests that `GpgProgramSigner` passes the install in, as it reads the real OS.
+
 ## LFS and the update check verify TLS certificates (branch `fix/lfs-tls-verification`)
 
 Stage 0a of `docs/fork/remote-operations.md`.
