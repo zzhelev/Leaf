@@ -2,6 +2,36 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS and the update check verify TLS certificates (branch `fix/lfs-tls-verification`)
+
+Stage 0a of `docs/fork/remote-operations.md`.
+
+- **Before:** the Ktor client from `NetworkModule` had an `X509TrustManager` that accepted every certificate. Git
+  LFS batch requests, uploads, downloads and verifications, the credentials sent with them, and the update check
+  (`latest.json`) could be read or changed by anyone between Leaf and the server. Upstream has the same code.
+- **Now:** the new fork-only `data/.../network/HttpClients.kt` builds the clients. `createHttpClient` checks
+  certificates against the JVM's trust store, as JGit's HTTPS transport does, and `NetworkModule` provides it.
+- **`http.sslVerify`:** git-lfs skips the check for a request whose URL has `http.sslVerify` false
+  (`http.<url>.sslVerify` for the best match, then `http.sslVerify`). JGit's transport already honours it, so someone
+  with a self-signed server has set it, and LFS would otherwise stop working for them.
+  - Each LFS action reads it for its request's URL from the repository's config, through JGit's `HttpConfig`
+    (`Config.isSslVerify`). Download, upload and verify URLs can be on another host than the LFS server.
+  - `LfsRepository`'s methods take `sslVerify`. When it's false, `LfsNetworkDataSource` uses a second client that
+    accepts any certificate, made the first time it's needed.
+  - Like JGit, Leaf ignores `GIT_SSL_NO_VERIFY`, which git and git-lfs honour.
+- **Tests:** `HttpClientsTest` (8) runs a local HTTPS server with a self-signed certificate made by keytool.
+  - The default client refuses the certificate and the other client accepts it. LFS batch requests check it unless
+    `sslVerify` is false.
+  - `isSslVerify` follows `http.sslVerify` and `http.<url>.sslVerify`.
+  - `GetLfsObjectsGitAction` and `DownloadLfsObjectGitAction` read the setting for their request's URL from the
+    repository's config. A setting for the LFS server's URL doesn't apply to a download from another path.
+  - Six mutations were each caught: trusting every certificate by default, `GetLfsObjectsGitAction` ignoring the
+    config, the server's URL in place of the download URL, `LfsNetworkDataSource` or `NetworkLfsRepository` dropping
+    the flag, and `isSslVerify` always true.
+  - `./gradlew build` passes, with 287 tests (198 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Verified:** the verifying client gets `latest.json` from GitHub (status 200).
+- **Not tried:** LFS against a real server in the running app, or Windows.
+
 ## Only the user name is asked for when a helper gave the password (branch `feature/helper-password-only`)
 
 Closes the gap listed under "Still unlike git" in "Only the password is asked for when the user name is known".

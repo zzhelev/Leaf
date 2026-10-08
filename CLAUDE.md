@@ -206,6 +206,9 @@ asking.
   - Not pure: it depends on JGit and Compose, and many interfaces still leak JGit types.
 - `data`: JGit implementations of the git actions (`data/git/**`), the JGit instance cache (`data/git/JGit.kt`), the
   file watcher wrapper, in-memory tab repositories, DataStore-backed settings, and JGit→domain mappers.
+  - The fork-only `network/HttpClients.kt` builds the Ktor clients for LFS and the update check. They check TLS
+    certificates against the JVM's trust store. An LFS request skips the check only when `http.sslVerify` is false
+    for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
 - `rs`: Rust cdylib `leaf_rs`, exported via uniffi.
   - `FileWatcher` uses notify 8.

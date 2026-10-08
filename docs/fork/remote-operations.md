@@ -19,7 +19,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
 - **The libssh path has gaps beyond #294.** Some are security problems:
   - It never verifies the server's host key. Leaf pushed to a server whose key had changed, where the git CLI refused
     with "REMOTE HOST IDENTIFICATION HAS CHANGED".
-  - The Ktor client used for LFS and the update check trusts every TLS certificate.
+  - The Ktor client used for LFS and the update check trusts every TLS certificate (fixed by stage 0a).
   - It has no FIDO2 keys, no `ProxyCommand`, no `Include` with wildcards, and no SSH agent on Windows.
   - The Cancel button does nothing, and SSH reads have no timeout.
 - **Recommendation:** move remote operations to the git CLI in stages: push first, then fetch and pull, then clone.
@@ -106,7 +106,7 @@ screen's Cancel button can't stop a hung operation.
   - No git-lfs install is needed.
 - **Transfers:** objects move through the Ktor client from `A/di/modules/NetworkModule.kt`, whose `X509TrustManager`
   accepts every certificate. LFS uploads, downloads and the credentials sent with them, and the update check
-  (`UpdatesRepository`), are open to a man in the middle.
+  (`UpdatesRepository`), are open to a man in the middle. Stage 0a fixed this; see section 4.
 - **Credentials:** `G/lfs/ProvideLfsCredentialsGitAction.kt` follows git-lfs's 401 flow, with helpers, the cache and
   the dialog.
 
@@ -238,7 +238,7 @@ The helper has to reach the running app. Precedents:
 - VS Code: `extensions/git/src/askpass.sh` and `ssh-askpass.sh`, which run Electron as Node and talk over an IPC
   handle.
 
-Options for Leaf:
+Options for Leaf (decided on 2026-10-08: (a)):
 - (a) A small Rust `[[bin]]` in `rs/`. It starts fast and is a real `.exe` on Windows, which Windows' own OpenSSH
   needs (it starts `SSH_ASKPASS` with `CreateProcess`).
 - (b) A jpackage `--add-launcher` running a Java main. It is slower to start (a JVM per prompt) and changes the
@@ -310,7 +310,9 @@ imitating git's credential handling, using the git CLI to do it. Agents push fro
 the CLI reproduces. Effort sizes are rough: S, M, L.
 
 **Stage 0: independent of the decision.**
-- **0a (S).** Remove the trust-all `X509TrustManager` from `A/di/modules/NetworkModule.kt`.
+- **0a (S), done on branch `fix/lfs-tls-verification`.** The update check and LFS check TLS certificates. LFS skips
+  the check only for a URL whose `http.sslVerify` is false, as git-lfs does
+  (`data/src/main/kotlin/dev/app/leaf/data/network/HttpClients.kt`).
 - **0b (S–M).** Make the libssh path report the server's message. It fixes #294's message upstream too.
   - `D/libssh/streams/SshChannelOutputStream.kt` and `SshChannelInputErrStream.kt` must throw `IOException`s and
     read stderr until EOF.
@@ -360,9 +362,10 @@ describes its result completely.
 **Later.** Let git-lfs handle LFS transfers when it's installed. Decide whether to retire libssh, which also needs
 SSH signing to move.
 
-### Decisions for you
+### Decisions
 
-1. The askpass helper: a Rust binary (recommended) or a jpackage launcher. Both change the build or packaging.
+1. The askpass helper: **a Rust binary** (decided on 2026-10-08). It changes the build, so its build steps still need
+   approval.
 2. Whether to keep a user-visible "Built-in" backend setting during the transition.
 3. SSH passphrases: rely on ssh-agent, or let Leaf cache them per key for the session.
 4. Whether 0b and 0c are worth doing if the fallback is meant to be rare.
