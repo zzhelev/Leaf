@@ -353,14 +353,13 @@ class CredentialHelpersTest {
         val helpers = credentialHelpers()
         val expectedInput = "protocol=https\nhost=example.invalid\nusername=user\npassword=pass=word\n"
 
-        val stores = helpers.send("store", settings, URIish(REMOTE_URL), HelperCredential("user", "pass=word"))
-        helpers.erase(settings, URIish(REMOTE_URL), HelperCredential("user", "pass=word"), stores)
+        helpers.approve(settings, URIish(REMOTE_URL), HelperCredential("user", "pass=word"))
+        helpers.erase(settings, URIish(REMOTE_URL), HelperCredential("user", "pass=word"))
 
         val runs = File(tools, "runs").readLines()
 
-        assertEquals(2, stores.size)
-        assertEquals(listOf("first store", "second store"), runs.filter { it.endsWith("store") }.sorted())
-        // Erasing waits for the stores
+        // Each waits for its helpers
+        assertEquals(listOf("first store", "second store"), runs.take(2).sorted())
         assertEquals(listOf("first erase", "second erase"), runs.drop(2).sorted())
         listOf("first", "second").forEach { name ->
             assertEquals(expectedInput, File(tools, "$name.store.input").readText(), name)

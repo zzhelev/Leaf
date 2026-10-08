@@ -6,10 +6,12 @@ import dev.app.leaf.data.git.credentials.CredentialsHandler
 import dev.app.leaf.data.git.credentials.GSessionManager
 import dev.app.leaf.data.git.credentials.HttpCredentialsFactory
 import dev.app.leaf.data.git.credentials.SshCredentialsProvider
+import dev.app.leaf.data.git.credentials.reportAcceptedCredentials
 import dev.app.leaf.domain.credentials.*
 import org.eclipse.jgit.transport.HttpTransport
 import org.eclipse.jgit.transport.SshTransport
 import org.eclipse.jgit.transport.Transport
+import org.eclipse.jgit.transport.TransportHttp
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -38,6 +40,10 @@ class HandleTransportGitAction @Inject constructor(
 
                             val httpCredentials = httpCredentialsProvider.create(git)
                             transport.credentialsProvider = httpCredentials
+                            // Like git, which stores credentials once a request succeeds with them
+                            if (transport is TransportHttp) {
+                                transport.reportAcceptedCredentials(httpCredentials::credentialsAccepted)
+                            }
                             httpCredentials
                         }
 

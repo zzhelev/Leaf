@@ -34,13 +34,20 @@ class HttpCredentialsProvider @AssistedInject constructor(
     @Assisted val git: Git?,
 ) : CredentialsProvider(), CredentialsCache {
 
+    /** The credentials that the user typed without a helper, which [credentialsAccepted] caches. */
     private var credentialsCached: CredentialsType.HttpCredentials? = null
 
     /** The credentials that [get] last gave from Leaf's in-memory cache, which [reset] removes from it. */
     private var memoryCachedCredentials: CredentialsType.HttpCredentials? = null
 
-    /** The credentials that [get] last gave while a credential helper is configured, which [reset] erases. */
+    /**
+     * The credentials that [get] last gave while a credential helper is configured, which [credentialsAccepted]
+     * stores and [reset] erases.
+     */
     private var helperCredentials: HelperCredentials? = null
+
+    /** Whether the server accepted the credentials that [get] last gave, which stores them only once. */
+    private var accepted = false
 
     override fun isInteractive() = true
 
@@ -60,6 +67,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
     override fun get(uri: URIish, vararg items: CredentialItem): Boolean {
         helperCredentials = null
         memoryCachedCredentials = null
+        accepted = false
 
         val itemsMap = items.map { "${it::class.simpleName} - ${it.promptText}" }
 
@@ -125,13 +133,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
                     userItem.value = answer.user
                     passwordItem.value = answer.password.toCharArray()
 
-                    helperCredentials = HelperCredentials(
-                        settings = helperSettings,
-                        uri = uri,
-                        credential = answer.credential,
-                        fromHelpers = true,
-                        stores = emptyList(),
-                    )
+                    helperCredentials = HelperCredentials(helperSettings, uri, answer.credential)
 
                     return true
                 }
@@ -144,15 +146,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
                     userItem.value = typed.user
                     passwordItem.value = typed.password.toCharArray()
 
-                    // Git stores them once the server accepts them, Leaf right away: reset erases them if it doesn't.
-                    // That includes a password from a helper, as git's credential_reject erases it too
-                    helperCredentials = HelperCredentials(
-                        settings = helperSettings,
-                        uri = uri,
-                        credential = credential,
-                        fromHelpers = false,
-                        stores = credentialHelpers.send("store", helperSettings, uri, credential),
-                    )
+                    helperCredentials = HelperCredentials(helperSettings, uri, credential)
 
                     return true
                 }
@@ -167,7 +161,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
      * helper, Leaf removes them from its in-memory cache, for the same reason.
      */
     override fun reset(uri: URIish) {
-        // Typed credentials are cached once the operation succeeds, but the server rejected these
+        // Typed credentials are cached once the server accepts them, but it rejected these
         credentialsCached = null
 
         memoryCachedCredentials?.let { rejected ->
@@ -178,7 +172,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
         val rejected = helperCredentials ?: return
         helperCredentials = null
 
-        credentialHelpers.erase(rejected.settings, rejected.uri, rejected.credential, rejected.stores)
+        credentialHelpers.erase(rejected.settings, rejected.uri, rejected.credential)
     }
 
     /**
@@ -189,32 +183,45 @@ class HttpCredentialsProvider @AssistedInject constructor(
         runBlocking { credentialsStateManager.requestHttpCredentials(user, password) }
 
     /**
-     * Called once the operation succeeded. Credentials that the user typed without a helper go into Leaf's in-memory
-     * cache. Credentials that the helpers gave are stored with every helper, like git's `credential_approve`, so that
-     * they reach the helpers that didn't have them. Typed credentials went to the helpers when the user gave them.
+     * Called when the server answers a request that carried the credentials that [get] last gave with success. Like
+     * git (`handle_curl_result`, which calls `credential_approve`), Leaf stores them then, at the first request that
+     * succeeds, and not again for the requests after it:
+     * - with helpers, they go to every helper, whether the helpers or the user gave them;
+     * - without one, typed credentials go into Leaf's in-memory cache.
+     *
+     * If the server then rejects them after all, [reset] erases them, or removes them from the cache.
      */
-    override suspend fun cacheCredentialsIfNeeded() {
-        credentialsCached?.let {
-            credentialsCacheRepository.cacheHttpCredentials(it)
+    fun credentialsAccepted() {
+        if (accepted) {
+            return
         }
 
-        helperCredentials?.takeIf { it.fromHelpers }?.let { approved ->
-            withContext(Dispatchers.IO) {
-                credentialHelpers.approve(approved.settings, approved.uri, approved.credential)
-            }
+        accepted = true
+
+        credentialsCached?.let { typed ->
+            credentialsCached = null
+            runBlocking { credentialsCacheRepository.cacheHttpCredentials(typed) }
+            memoryCachedCredentials = typed
         }
+
+        helperCredentials?.let { credentialHelpers.approve(it.settings, it.uri, it.credential) }
+    }
+
+    /**
+     * Called once the operation succeeded, which means the server accepted the credentials, in case no request
+     * reported it (see [credentialsAccepted]).
+     */
+    override suspend fun cacheCredentialsIfNeeded() {
+        withContext(Dispatchers.IO) { credentialsAccepted() }
     }
 }
 
 /**
- * Credentials that [HttpCredentialsProvider.get] gave for [uri] while credential helpers are configured ([settings]).
- * When the helpers gave them ([fromHelpers]), they are stored with every helper once the operation succeeds. When Leaf
- * asked the user for them, [stores] are the helpers' `store` of them, which may still be running.
+ * Credentials that [HttpCredentialsProvider.get] gave for [uri] while credential helpers are configured ([settings]),
+ * from the helpers, the user, or both.
  */
 private class HelperCredentials(
     val settings: CredentialSettings,
     val uri: URIish,
     val credential: HelperCredential,
-    val fromHelpers: Boolean,
-    val stores: List<Process>,
 )

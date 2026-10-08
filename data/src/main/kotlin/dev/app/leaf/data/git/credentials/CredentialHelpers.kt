@@ -187,7 +187,7 @@ class CredentialHelpers @Inject constructor(
      * `credential_reject`, without waiting for them to finish. None run if git would refuse to send the credentials
      * (see [credentialHelperInput]), and like git, it carries on past a helper that can't be started.
      */
-    fun send(
+    private fun send(
         operation: String,
         settings: CredentialSettings,
         uri: URIish,
@@ -236,17 +236,9 @@ class CredentialHelpers @Inject constructor(
 
     /**
      * Erases [credential], which the server rejected, with every helper, like git's `credential_reject`, and waits for
-     * them, so that the next `get` doesn't find it. [stores] are the helpers' `store` of it, which may still be
-     * running: erasing it before they finish would leave it stored.
+     * them, so that the next `get` doesn't find it.
      */
-    fun erase(
-        settings: CredentialSettings,
-        uri: URIish,
-        credential: HelperCredential,
-        stores: List<Process> = emptyList(),
-    ) {
-        stores.forEach { it.waitFor(TIMEOUT_MIN, TimeUnit.MINUTES) }
-
+    fun erase(settings: CredentialSettings, uri: URIish, credential: HelperCredential) {
         sendAndWait("erase", settings, uri, credential)
     }
 
