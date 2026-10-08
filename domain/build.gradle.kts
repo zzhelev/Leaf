@@ -24,7 +24,6 @@ dependencies {
 
     // TODO This should be removed after refactor is finished
     implementation(libs.jgit.core)
-    implementation(libs.jgit.gpg)
     implementation(libs.jgit.lfs)
 
     implementation(libs.kotlinx.serialization.json)
@@ -38,8 +37,6 @@ dependencies {
     implementation(libs.kotlin.logging)
     implementation(libs.slf4j.api)
     implementation(libs.slf4j.reload4j)
-
-    implementation(libs.bouncycastle)
 
     implementation(libs.ktor.client)
     implementation(libs.ktor.client.cio)

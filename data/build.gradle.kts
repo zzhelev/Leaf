@@ -22,7 +22,6 @@ dependencies {
     implementation(composeDependency)
 
     implementation(libs.jgit.core)
-    implementation(libs.jgit.gpg)
     implementation(libs.jgit.lfs)
 
     implementation(libs.coroutines)
@@ -44,8 +43,6 @@ dependencies {
     implementation(libs.kotlin.logging)
     implementation(libs.slf4j.api)
     implementation(libs.slf4j.reload4j)
-
-    implementation(libs.bouncycastle)
 
     implementation(libs.ktor.client)
     implementation(libs.ktor.client.cio)

@@ -9,7 +9,6 @@ junit-bom = "5.9.2"
 mockk = "1.14.6"
 kotlin-logging = "7.0.13"
 slf4j = "2.0.17"
-bouncycastle = "1.81"
 ktor = "3.3.2"
 coil = "3.3.0"
 compose = "1.12.1"
@@ -30,7 +29,6 @@ compose-material-icons-extended = { group = "org.jetbrains.compose.material", na
 compose-navigation3 = { group = "org.jetbrains.androidx.navigation3", name = "navigation3-ui", version.ref = "composeNav" }
 
 jgit-core = { group = "org.eclipse.jgit", name = "org.eclipse.jgit", version.ref = "jgit" }
-jgit-gpg = { group = "org.eclipse.jgit", name = "org.eclipse.jgit.gpg.bc", version.ref = "jgit" }
 jgit-lfs = { group = "org.eclipse.jgit", name = "org.eclipse.jgit.lfs", version.ref = "jgit" }
 
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -52,8 +50,6 @@ kotlinx-coroutines-jvm = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-sw
 
 slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
 slf4j-reload4j = { group = "org.slf4j", name = "slf4j-reload4j", version.ref = "slf4j" }
-
-bouncycastle = { group = "org.bouncycastle", name = "bcpg-jdk18on", version.ref = "bouncycastle" }
 
 ktor-client = { group = "io.ktor", name = "ktor-client", version.ref = "ktor" }
 ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }

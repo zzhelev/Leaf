@@ -3,8 +3,6 @@ package dev.app.leaf
 import dev.app.leaf.data.git.disableJGitAutoGc
 import dev.app.leaf.data.repositories.configuration.initPreferencesPath
 import dev.app.leaf.di.DaggerAppComponent
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import java.security.Security
 
 
 suspend fun main(args: Array<String>) {
@@ -13,8 +11,6 @@ suspend fun main(args: Array<String>) {
 
         System.setProperty("java.home", currentDir)
     }
-
-    Security.addProvider(BouncyCastleProvider())
 
     initPreferencesPath()
     disableJGitAutoGc()
