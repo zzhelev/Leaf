@@ -235,7 +235,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
         openRepository(dir)
     }
 
-    val update: StateFlow<Update?> = updatesRepository.hasUpdatesFlow.stateIn(null)
+    val update: StateFlow<Update?> = updatesRepository.update
 
     /** Stops the foreground task, which only the tasks that report progress (the git CLI's) can do. */
     fun cancelOngoingTask() {

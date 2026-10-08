@@ -732,7 +732,7 @@ class RepositoryOpenViewModel @Inject constructor(
         return openFilePickerUseCase(PickerType.DIRECTORIES, latestDirectoryOpened)
     }
 
-    val update: StateFlow<Update?> = updatesRepository.hasUpdatesFlow.stateIn(null)
+    val update: StateFlow<Update?> = updatesRepository.update
 
     fun blameFile(filePath: String) {
         viewModelScope.launch {
