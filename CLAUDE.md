@@ -320,13 +320,13 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     `store` and `cache` are refused. `NixGitCredentialsManagerProvider` is no longer called.
   - After a 401, JGit calls `reset` and then `get` again, up to 3 attempts. `HttpCredentialsProvider.reset` runs the
     helper's `erase` with the credentials it last gave, from the helper or typed by the user, like git's
-    `credential_reject`. Git stores typed credentials only once the server accepts them; Leaf stores them at once, so
-    `reset` first waits for that `store`, then for the `erase`.
+    `credential_reject`. Like git, Leaf stores credentials only once a request succeeds with them (see `approve`
+    below), so rejected ones were never stored.
   - Without a helper, `get` gives credentials from Leaf's in-memory cache (`CredentialsCacheRepository`, app singleton)
     or asks. `reset` removes the ones it took from the cache, but only while they are still the URL's cached ones,
-    like `git credential-store erase`. Typed credentials are cached when the operation succeeds
-    (`HandleTransportGitAction` → `cacheCredentialsIfNeeded`) and replace the URL's entry; `reset` drops them first if
-    the server rejected them.
+    like `git credential-store erase`. Typed credentials are cached, replacing the URL's entry, once a request
+    succeeds with them (`credentialsAccepted`, see `approve` below), and `reset` removes them if a later request
+    rejects them.
   - LFS (`ProvideLfsCredentialsGitAction`) first sends a request without credentials, and only after a 401 looks
     for some, like git-lfs (lfsapi/auth.go):
     - With helpers, it asks them about the remote's URL when the LFS server has the remote's scheme, host and port
@@ -374,12 +374,20 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     - Otherwise it returns `NotStored(credential)`, with at most one of the user name and the password. What the
       user then types is stored together with the rest, such as a refresh token.
   - `store` and `erase` go to every helper, and `erase` waits for each `store` it follows.
-  - Once an operation succeeds, `approve` stores the helpers' credentials with every helper, like git's
-    `credential_approve`, the helper that gave them included, and waits for them. Like git, it stores nothing
-    without a user name and a password, or once the password has expired.
-    - HTTPS approves in `cacheCredentialsIfNeeded`, which `HandleTransportGitAction` calls when the block returns
-      (each remote of a fetch-all has its own). Typed credentials aren't approved again: they went to the helpers
-      when the user gave them.
+  - Once the server accepts credentials, `approve` stores them with every helper, like git's `credential_approve`,
+    the helper that gave them included, and waits for them. Like git, it stores nothing without a user name and a
+    password, or once the password has expired.
+    - HTTPS approves at the first request that succeeds with the credentials, as git's `handle_curl_result` does,
+      whether the helpers or the user gave them. JGit doesn't tell its `CredentialsProvider` when credentials work, so
+      `HandleTransportGitAction` wraps each `TransportHttp`'s connection factory (`reportAcceptedCredentials`,
+      fork-only `AcceptedCredentials.kt`).
+    - A 2xx answer to a request with an `Authorization` header calls `HttpCredentialsProvider.credentialsAccepted`.
+      That approves what `get` last gave, once per `get`, or caches typed credentials when there is no helper.
+    - `cacheCredentialsIfNeeded`, which `HandleTransportGitAction` calls when the block returns, does the same in
+      case no request reported it. Each remote of a fetch-all has its own provider.
+    - The wrapper keeps a factory's `HttpConnectionFactory2` sessions working: they get the connection that the
+      factory created, as JGit's JDK session refuses any other class. A plain factory stays plain, so JGit applies
+      `http.sslVerify` itself.
   - Leaf asks only for what git doesn't know, like git's `credential_getpass`, for HTTPS and LFS alike:
     - When it knows the user name (with or without helpers), it asks only for the password.
       `HttpCredentialsRequest.user` and `LfsCredentialsRequest.user` carry the name, and `UserPasswordDialog` shows
@@ -389,13 +397,11 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     - `requestHttpCredentials(user, password)` and `requestLfsCredentials(user, password)` answer with what git knew
       in place of what the dialog sends: the helpers store the credentials under that user name, and look them up by
       it.
-    - HTTPS stores a typed user name with a helper's password at once, like typed credentials, and `reset` erases
-      them. LFS tries them once, like a helper's credentials: they're stored with the helpers if the server takes
-      them, and erased if not, and then Leaf asks for both.
+    - HTTPS stores a typed user name with a helper's password once a request succeeds with them, like any
+      credentials, and `reset` erases them. LFS tries them once, like a helper's credentials: they're stored with the
+      helpers if the server takes them, and erased if not, and then Leaf asks for both.
     - After the server rejects a helper's credentials, LFS shows the user name from the settings, not the rejected
       one.
-  - Still unlike git: git approves after the first request that succeeds. Leaf approves only once the whole
-    operation succeeds, so a pull whose fetch succeeded but whose merge throws approves nothing.
 - Also used by `GpgProgramSigner`, which runs gpg (see Commit and tag signing).
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
@@ -646,6 +652,12 @@ common `refs/` and `packed-refs` are not watched.
   `git credential fill` with a `GIT_ASKPASS` script that records git's prompts. If git asks for `Username`, the name
   wasn't known; if it asks for no `Password`, a helper gave it. Otherwise the password prompt shows the user name:
   `Password for 'https://bob@host': `.
+  - `requestCredentials(serverAccepts = true)` then reports the credentials accepted, as the transport does.
+  - `fetchThroughLeaf` runs a real JGit fetch through `HandleTransportGitAction` against `FakeGitServer`, a smart HTTP
+    server on 127.0.0.1 (the JDK's `com.sun.net.httpserver`). The server wants Basic credentials, advertises a branch
+    and fails the `git-upload-pack` POST, so the fetch fails after a request succeeded with the credentials. JGit's
+    stateless fetch needs `multi_ack_detailed` in the advertisement. Git's `store` writes the host's port colon as
+    `%3a`.
 - `CredentialHelpersTest` checks the helper list against `git credential fill`. Each helper is
   `!leaf-helper <name>`, which records that it ran and what it read, and answers from `<name>.answer`. An `includeIf`
   pattern must use the real path (`canonicalPath`): git compares it with `/private/var/...` on macOS.

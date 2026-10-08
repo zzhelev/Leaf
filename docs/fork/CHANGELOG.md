@@ -44,6 +44,52 @@ Stage 0c of `docs/fork/remote-operations.md`.
   - `./gradlew build` passes, with 321 tests (232 in `:data`, 82 in `:domain`, 7 in `:common`).
 - **Not tried:** the dialog in the running app, and Windows.
 
+## Credentials are stored at the first request that succeeds with them (branch `feature/approve-on-first-success`)
+
+Closes the "Still unlike git" item in "Credentials are stored with every helper once the server takes them".
+
+- **Before:**
+  - Over HTTPS, Leaf approved the helpers' credentials only once the whole operation had succeeded. JGit doesn't tell
+    its `CredentialsProvider` when credentials work, so the end of the operation was the only signal. A pull whose
+    fetch worked but whose merge threw approved nothing.
+  - Git approves at the first request that succeeds with them (`handle_curl_result` in http.c calls
+    `credential_approve`).
+  - Typed credentials went to the helpers before the server had answered. If it rejected them, `reset` had to wait
+    for that `store` before the `erase`. Git stores nothing until a request succeeds.
+  - Without helpers, typed credentials reached Leaf's in-memory cache only at the end of the operation.
+- **Now:**
+  - `HandleTransportGitAction` wraps each `TransportHttp`'s connection factory (fork-only `AcceptedCredentials.kt`).
+    A 2xx answer to a request that carried an `Authorization` header calls the new
+    `HttpCredentialsProvider.credentialsAccepted`.
+  - `credentialsAccepted` stores the credentials that `get` last gave with every helper, from the helpers or typed,
+    or caches typed ones when there is no helper. It does this once per `get`, like git's `approved` flag. A later
+    rejection still erases them, or removes them from the cache.
+  - Typed credentials are no longer stored before the server accepts them, so `erase` no longer waits for a
+    `store`. `CredentialHelpers.send` is private now.
+  - At the end of the operation, `cacheCredentialsIfNeeded` approves too, in case no request reported it.
+  - The wrapper hands the factory's sessions (`HttpConnectionFactory2`) the connection the factory created, because
+    JGit's JDK session refuses any other class, and it's the session that turns off TLS verification for
+    `http.sslVerify = false`. A plain factory stays plain, so JGit's own fallback still applies.
+  - LFS already approved right after the request that the server took, as git-lfs does, and is unchanged.
+- **Tests:**
+  - `HttpCredentialsProviderTest` (+5), with a real JGit fetch through `HandleTransportGitAction` against a fake
+    smart HTTP server on 127.0.0.1. The server wants Basic credentials, advertises a branch, and fails the
+    `git-upload-pack` POST with a 500.
+    - A helper's credentials reach git's `store` even though the fetch then fails, after the requests
+      `GET 401`, `GET 200`, `POST 500`.
+    - Credentials that `store` gave and the server rejected are erased, and the typed ones that the server took are
+      stored.
+    - Without a helper, typed credentials are cached even though the fetch fails.
+    - New credentials are stored after a rejection, and cached typed credentials leave the cache when a later request
+      rejects them.
+    - The tests that expected typed credentials to be stored at once now have the server accept them first, and
+      check that nothing is stored before.
+  - `AcceptedCredentialsTest` (new, 2):
+    - Only a 2xx answer to a request with credentials is reported, and a plain factory stays plain.
+    - JGit's own factory still configures its connections through a session.
+  - `CredentialHelpersTest`: the store-and-erase test goes through `approve` and `erase`.
+  - Mutation check: 15 mutations of the new code, all caught.
+
 ## Credentials are stored with every helper once the server takes them (branch `feature/credential-approve`)
 
 Closes the last gap listed under "Still unlike git" in "Only the password is asked for when the user name is
