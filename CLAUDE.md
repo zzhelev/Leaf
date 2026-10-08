@@ -259,7 +259,9 @@ code, "worktree" means the working directory, not linked worktrees.
   `useCaseExecutor.executeLaunch(TaskType.X, dataToRefresh = arrayOf(DataToRefresh...)) { repositoryPath -> ... }`.
   This fires and forgets, shows the blocking `ProcessingScreen`, records the completed or failed task, and refreshes
   on success.
-- Queries are `suspend` and use `useCaseExecutor.execute`.
+- Queries are `suspend` and use `useCaseExecutor.execute`. So do mutations whose dialog shows the result, such as
+  rename branch and delete branch or tag: `execute` records no task, so they get no ProcessingScreen, toast or
+  `ErrorDialog`.
 - See `domain/.../UseCaseExecutor.kt`.
 
 **Errors:**
@@ -447,7 +449,8 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
   content's bounds. So `MaterialDialog` fills the space it's given and places the dialog itself, centered plus the drag
   offset. Its top 16 dp are a drag strip, so keep controls out of them; `Modifier.dialogDragHandle()` (from
   `MaterialDialogScope`) adds more handles, like the Settings title.
-- Some destructive actions have no confirmation today; for example, delete branch is forced and immediate.
+- Some destructive actions have no confirmation today, for example dropping a stash or discarding a file. Deleting a
+  branch or a tag goes through `DeleteRefDialog`: without force first, then "Delete anyway" once git refuses.
 
 ## Repository tabs
 

@@ -2,6 +2,27 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Deleting a branch or a tag asks first, and keeps unmerged work (branch `claude/dazzling-leakey-b0b642`)
+
+- **Before:** "Delete branch" in the side panel and on the log's branch chips deleted at once, and always with force
+  (`setForce(true) // TODO Should it be forced?`), so one misclick lost a branch whose commits were on no other ref
+  (Gitnuro#137). "Delete tag" deleted at once too.
+- **Now** both open a confirmation dialog (`Screen.BranchDelete`, `Screen.TagDelete`, `DeleteRefDialog.kt`):
+  - A branch is deleted without force first. When JGit refuses because it isn't merged into HEAD (as `git branch -d`
+    checks), the dialog says so, with the number of commits that are on no other branch, tag or HEAD, and offers
+    "Delete anyway". An unborn HEAD counts as not merged; JGit threw a NullPointerException there.
+  - A tag that is the only ref on some commits (for example a backup tag after a reset) is kept the same way, with
+    the count, until "Delete anyway".
+  - Other errors show in the dialog. The use cases now return their result (`useCaseExecutor.execute`, like rename),
+    so there is no "Branch deleted" or "Tag deleted" toast any more.
+- **Counting:** `Repository.countCommitsOnlyOn` (fork-only `CommitsOnlyOnRef.kt`) walks the ref's commits, excluding
+  everything every other ref and HEAD reach: remote-tracking branches, tags (annotated ones by their commit) and the
+  stash. Symbolic refs to the ref itself are skipped.
+- Deleting a remote branch still deletes its remote-tracking ref with force, like `git branch -d -r`.
+- **Not covered:** a branch checked out in another worktree can still be deleted if it is merged (Phase 1.3).
+- **Tests:** `DeleteBranchGitActionTest` (7), `DeleteTagGitActionTest` (5), `CommitsOnlyOnRefTest` (5). Each new guard
+  was broken once to check that a test fails.
+
 ## BouncyCastle is removed (branch `claude/dreamy-bun-29d0bf`)
 
 - **Before:** `app`, `data` and `domain` depended on `jgit-gpg` (JGit's BouncyCastle signer) and `bcpg`, and `main.kt`
@@ -268,6 +289,7 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
     compiles.
 - **Not tried** on Windows, where the helpers go through the same list, or with a real `osxkeychain` or credential
   manager.
+
 
 ## LFS over HTTPS uses the credential helper and caches credentials (branch `claude/lfs-credentials`)
 
