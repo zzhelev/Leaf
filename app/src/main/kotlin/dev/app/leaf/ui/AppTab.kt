@@ -436,14 +436,8 @@ fun AppTab(
                             QuickActionsDialog(
                                 viewModel = tabViewModel(entry) { it.quickActionsViewModel() },
                                 onDismiss = { backStack.removeLastOrNull() },
-                                onShowSignOff = {
-                                    backStack.removeLastOrNull()
-                                    backStack.add(Screen.SignOffData)
-                                },
-                                onShowClone = {
-                                    backStack.removeLastOrNull()
-                                    backStack.add(Screen.Clone)
-                                },
+                                onShowSignOff = { backStack.add(Screen.SignOffData) },
+                                onShowClone = { backStack.add(Screen.CloneRepository) },
                             )
                         }
                         entry<Screen.Author>(

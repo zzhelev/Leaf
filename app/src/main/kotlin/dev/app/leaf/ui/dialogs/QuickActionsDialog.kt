@@ -60,14 +60,15 @@ fun QuickActionsDialog(
         selectedIndex = selectedIndex,
         filteredItems = filteredItems,
         onAction = { action ->
+            // First: dismissing removes the top of the back stack, which afterwards is the dialog the action opened
+            onDismiss()
+
             when (action) {
                 QuickActionType.OPEN_DIR_IN_FILE_MANAGER -> viewModel.openProjectInFileExplorer()
                 QuickActionType.CLONE -> onShowClone()
                 QuickActionType.REFRESH -> viewModel.refreshRepository()
                 QuickActionType.SIGN_OFF -> onShowSignOff()
             }
-            
-            onDismiss()
         },
         searchFilter = searchFilter,
         textFieldFocusRequester = textFieldFocusRequester,
