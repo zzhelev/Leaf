@@ -2,6 +2,7 @@ import org.gradle.jvm.tasks.Jar
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 import java.io.FileOutputStream
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermissions
@@ -204,6 +205,7 @@ if (currentOs() == OS.MAC) {
 
         val builtApp = layout.buildDirectory.dir("compose/binaries/main/app/$projectName.app")
         val installDir = providers.gradleProperty("installDir").orElse("/Applications")
+        val bundleId = checkNotNull(compose.desktop.application.nativeDistributions.macOS.bundleID)
 
         doLast {
             val target = File(installDir.get(), "$projectName.app")
@@ -239,6 +241,38 @@ if (currentOs() == OS.MAC) {
                 .inheritIO().start().waitFor()
             check(copied == 0) { "ditto failed with exit code $copied" }
             println("Installed $target")
+
+            // macOS registers every copy of the app it comes across with LaunchServices, such as the temporary one that
+            // each packageDmg run makes and deletes. Registrations of deleted copies can make the Dock show the generic
+            // "exec" icon for the running app, so they go, and the installed copy is registered again. The app is
+            // installed by now, so problems here only warn.
+            val lsregisterPath = "/System/Library/Frameworks/CoreServices.framework/Frameworks/" +
+                "LaunchServices.framework/Support/lsregister"
+            fun lsregister(vararg args: String): String? = try {
+                val process = ProcessBuilder(lsregisterPath, *args)
+                    .redirectError(ProcessBuilder.Redirect.INHERIT)
+                    .start()
+                val output = process.inputStream.bufferedReader().readText()
+                val exitCode = process.waitFor()
+                if (exitCode != 0) logger.warn("lsregister ${args.joinToString(" ")} failed with exit code $exitCode")
+                output.takeIf { exitCode == 0 }
+            } catch (e: IOException) {
+                logger.warn("Couldn't run lsregister: ${e.message}")
+                null
+            }
+            // The dump has one record per bundle, between lines of dashes, with lines such as
+            // "path:   /Applications/Leaf.app (0x2c9c)" and "identifier:   io.github.zzhelev.leaf".
+            val pathLine = Regex("""^path:\s+(.+) \(0x\p{XDigit}+\)\s*$""", RegexOption.MULTILINE)
+            val identifierLine = Regex("""^identifier:\s+(\S+)\s*$""", RegexOption.MULTILINE)
+            val deletedCopies = lsregister("-dump", "Bundle").orEmpty()
+                .split(Regex("""^-{10,}$""", RegexOption.MULTILINE))
+                .filter { record -> identifierLine.find(record)?.groupValues?.get(1) == bundleId }
+                .mapNotNull { record -> pathLine.find(record)?.groupValues?.get(1) }
+                .filterNot { path -> File(path).exists() }
+            deletedCopies.forEach { path ->
+                if (lsregister("-u", path) != null) println("Unregistered the deleted copy $path")
+            }
+            lsregister("-f", target.absolutePath)
         }
     }
 }
