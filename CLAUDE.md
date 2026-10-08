@@ -333,7 +333,8 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - Like git, Leaf runs no helper for a URL with a newline, or for a value to send with a newline or a carriage return,
     and `get` gives no credentials. Such a value could add a second `host` line.
   - `CredentialHelpers.find` applies the config the way git's `credential_apply_config` does
-    (`credentialSettings`), to every `credential.*` entry in the order git reads them:
+    (`credentialSettings`), to every `credential.*` entry in the order git reads them. It always returns the settings,
+    with no helpers when none applies, so `credential.username` counts without a helper too:
     - `credential.<url>.*` applies as in git's urlmatch.c (`credentialUrlApplies`). The scheme, host and port must
       match, ignoring case and the default port, and `*` stands for one host label. The key's path must be the
       remote's or a folder above it, and a user name in the key must be the remote's. A key that isn't a URL, such as
@@ -349,11 +350,22 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - `get` asks the helpers in turn, like `credential_fill`. Each helper is sent the user name known so far (the URL's,
     `credential.username`, or an earlier helper's) and any password an earlier helper gave. It stops at the first
     one that completes both, so a helper may answer with the password alone. A helper that can't be started is
-    skipped, and `quit=1` stops the search with no credentials.
+    skipped, and `quit=1` stops the search with no credentials. Otherwise it returns `NotStored(user)`, with the user
+    name known after the last helper.
   - `store` and `erase` go to every helper, and `erase` waits for each `store` it follows.
-  - Leaf still asks for both the user name and the password, even when it knows the user name (git asks only for
-    the password). It doesn't store a helper's credentials in the other helpers after a success, as git's
-    `credential_approve` does.
+  - When Leaf knows the user name, it asks only for the password, like git's `credential_getpass`. This holds for
+    HTTPS and LFS, with or without helpers.
+    - `HttpCredentialsRequest.user` and `LfsCredentialsRequest.user` carry the name.
+    - `UserPasswordDialog` shows it in a disabled field and starts in the password field.
+    - `requestHttpCredentials(user)` and `requestLfsCredentials(user)` return that name, whatever the dialog sends:
+      the helpers store the credentials under it, and look them up by it.
+    - After the server rejects a helper's credentials, LFS shows the user name from the settings, not the rejected
+      one.
+  - Still unlike git:
+    - When a helper gives a password but no user name, and none is known, Leaf asks for both. Git asks only for the
+      user name, and keeps the helper's password.
+    - After a success, Leaf doesn't store a helper's credentials in the other helpers, as git's
+      `credential_approve` does.
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
 
@@ -558,6 +570,9 @@ common `refs/` and `packed-refs` are not watched.
 - Tests that run git's `store` or `cache` helpers point `HOME`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` at the temp
   folder (`HttpCredentialsProviderTest`), and stop the cache daemon with `git credential-cache exit`. A socket's path
   can't be longer than 104 bytes on macOS, so the socket goes directly under the temp folder.
+- `HttpCredentialsProviderTest` checks the user name in Leaf's prompt against git (`userThatGitShows`), by running
+  `git credential fill` with a `GIT_ASKPASS` script that records git's prompts. If git asks for `Username`, the name
+  wasn't known. Otherwise the password prompt shows it: `Password for 'https://bob@host': `.
 - `CredentialHelpersTest` checks the helper list against `git credential fill`. Each helper is
   `!leaf-helper <name>`, which records that it ran and what it read, and answers from `<name>.answer`. An `includeIf`
   pattern must use the real path (`canonicalPath`): git compares it with `/private/var/...` on macOS.

@@ -2,6 +2,52 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Only the password is asked for when the user name is known (branch `feature/prompt-known-username`)
+
+Closes the first gap listed under "Still unlike git" in the entry below.
+
+- **Before:**
+  - When no helper had credentials, or none was set, Leaf's dialog asked for a user name and a password, even when it
+    already knew the user name. The name could come from the URL (`https://alice@host/...`), from
+    `credential.username`, or from a helper that gave only a user name.
+  - Git (`credential_getpass`) asks only for the password then, and the prompt shows the name:
+    `Password for 'https://alice@host': `.
+  - Without a helper, Leaf didn't apply `credential.username` at all, as `find` returned null when no helper was set.
+  - A user name typed in place of the known one was stored with the helpers, which git and Leaf then never asked
+    for it. So Leaf asked again every time.
+- **Now:**
+  - `HttpCredentialsRequest` and `LfsCredentialsRequest` carry `user`, the name git knows, or null.
+    `requestHttpCredentials(user)` and `requestLfsCredentials(user)` return that name with the typed password,
+    whatever the dialog sends.
+  - When the name is known, the dialog shows it in a disabled field and starts in the password field. The subtitle
+    asks only for the password.
+  - The name is read-only, as in git. The helpers store credentials under that name and look them up by it, so a
+    different name would end up where nothing looks. To use another name, change the remote's URL or
+    `credential.username`.
+  - `CredentialHelpers.find` always returns the settings, with no helpers when none applies, so `credential.username`
+    counts without a helper too. `HelperAnswer.NotStored` carries the user name known after the helpers.
+  - LFS asks the same way. After the server rejects a helper's credentials, the prompt shows the user name git knows
+    (the URL's or `credential.username`), not the rejected one. Git-lfs does the same, as it asks git again.
+- **Still unlike git:** a helper may give a password without a user name, when no name is known. Git then asks only
+  for the user name and keeps the helper's password. Leaf asks for both.
+- **Tests:**
+  - `HttpCredentialsProviderTest` (+2):
+    - Seven configs and URLs, compared with `git credential fill`, which asks through a `GIT_ASKPASS` script. Leaf
+      must ask for the user name exactly when git does, and show the same name that git's password prompt shows.
+    - The cases: no name known, the URL's, `credential.username`, the URL's ahead of `credential.username`, a
+      `credential.<url>.username` that applies and one that doesn't, and a helper that gives only the user name.
+    - With `credential.username`, typed credentials go into git's `store` under that name, and
+      `git credential fill` then gives them back without asking.
+  - `ProvideLfsCredentialsGitActionTest` (+4):
+    - A user name in the remote's URL is shown, sent to the server and stored, whatever the dialog sends.
+    - A user name a helper gives is shown.
+    - After a rejection, the prompt shows `credential.username`, not the helper's user name.
+    - Without a helper, `credential.username` is shown and cached.
+  - The dialog was checked offscreen in an `ImageComposeScene` harness that isn't committed. With a known user, the
+    disabled field shows the name and can't take focus, the password field has the focus, and Enter accepts the known
+    name with the typed password. Without one, the dialog is unchanged.
+  - Mutation check: 15 mutations of the new code, all caught.
+
 ## Every matching credential helper runs, with the user name (branch `feature/credential-helper-list`)
 
 Closes the first three gaps listed under "Credential helpers get the host and path that git gives them".
