@@ -2,6 +2,39 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## 1.2: Worktree model and status (branch `feature/worktree-model`)
+
+Phase 1.2 of `PLAN.md`. This is data only: nothing shows it yet (that's 1.4), and nothing refreshes it (1.5).
+- **Models** (`domain/models/Worktree.kt`):
+  - `Worktree`, with the plan's fields. `branch` is a full ref, as in `Branch.name`. `locked` and `prunable` are
+    null when not set, and git's reason (maybe empty) otherwise.
+  - `WorktreeStatus`: staged, unstaged, untracked and conflicted counts, plus the upstream and how far ahead and behind
+    it the branch is.
+  - `AheadBehind`, `WorktreeInfo` and `WorktreeList`.
+- **Git actions** (`data/git/worktrees/`), bound in the new `WorktreeGitActionsModule`:
+  - `GetWorktreesGitAction` runs `git worktree list --porcelain -z` from the tab's git dir, and marks the tab's
+    worktree as current by comparing canonical paths.
+  - `GetWorktreeStatusGitAction` runs `git status --porcelain=v2 --branch -z --no-renames` in the worktree. Without
+    rename detection, a rename counts as a deletion and an addition.
+  - `GetAheadBehindGitAction` runs `git rev-list --left-right --count <base>...<target>`.
+  - `GetDefaultBaseBranchGitAction` picks the local branch that `origin/HEAD` points to, then `main`, then `master`.
+  - `GetCommitTimesGitAction` reads commit times with JGit, as the worktrees share their objects.
+- **`GetWorktreesInfoUseCase`** puts it together. It runs at most 4 worktrees' git processes at once, and skips status
+  for bare and prunable worktrees. A part that fails for one worktree is logged and left null, rather than failing the
+  list.
+- **Parsers** (`WorktreeParsers.kt`) ignore attributes they don't know, so newer git versions don't break them. The
+  fixtures were copied from git 2.54's output for main, linked, detached, locked (with and without a reason),
+  prunable, bare, renamed, conflicted and untracked entries.
+- **Tests:**
+  - `WorktreeParsersTest` (9 tests) runs on those fixtures.
+  - `WorktreesTest` (7 tests) runs on a temp repository with six worktrees: main, ahead-and-behind with changes,
+    detached, locked, prunable, and nested in `.claude/worktrees/`. Commit dates are fixed. Git runs with the
+    developer's global and system config switched off, since settings such as `status.showUntrackedFiles` would
+    change the counts.
+  - **Mutation check:** 9 of 10 mutations were caught. The one missed is equivalent: reading a prunable worktree's
+    status already gives null, since `GitCli` refuses a missing working directory, so skipping it only saves a call.
+- **Not yet:** a per-repository base branch setting needs UI and storage, and comes with 1.4.
+
 ## Check for updates by hand (branch `feat/check-for-updates`)
 
 - **Before:** Leaf only checked by itself, every 5 minutes, and said nothing unless it found an update. There was no

@@ -307,6 +307,17 @@ worktrees.
 - `GitCli.execute` returns the output whatever the exit code (`GitCliOutput`), takes extra variables, and streams
   stderr to a callback. `run` is built on it.
 
+**Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
+- `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,
+  its `WorktreeStatus`, how it compares to the base, and the time of its last commit. It runs at most 4 worktrees'
+  git processes at once. A part that fails for one worktree is left null.
+- The git actions (`GetWorktreesGitAction`, `GetWorktreeStatusGitAction`, `GetAheadBehindGitAction`,
+  `GetDefaultBaseBranchGitAction`, `GetCommitTimesGitAction`) are bound in `WorktreeGitActionsModule`.
+- The output parsers are in `WorktreeParsers.kt`, with fixtures from git 2.54 in `WorktreeParsersTest`.
+- `Worktree.branch` is a full ref, as in `Branch.name`. `git worktree list` works from any git dir, a linked
+  worktree's included.
+- Nothing shows or refreshes this data yet (Phase 1.4 and 1.5).
+
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch and pull run the git
 CLI. Clone still uses JGit (stage 3 of `docs/fork/remote-operations.md`).
 - Push and remote branch deletion run `git push --porcelain --progress` (`GitCliPushBranchGitAction`,
