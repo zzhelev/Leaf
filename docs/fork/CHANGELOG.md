@@ -2,6 +2,67 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Push runs the git CLI (branch `feat/git-cli-push`)
+
+Stage 1 of `docs/fork/remote-operations.md`.
+
+- **Before:** push and remote branch deletion ran JGit, over Leaf's own SSH (libssh) and HTTPS code. It didn't follow
+  the user's ssh setup (`ProxyCommand`, `Include` with wildcards, FIDO2 keys, the Windows agent), showed no progress,
+  and the processing screen couldn't be cancelled.
+- **Now:** both run `git push --porcelain --progress`, so git and the system's ssh do what they do in a terminal:
+  ssh_config, the agent, known_hosts, `core.sshCommand`, credential helpers, hooks and git-lfs.
+  - **Prompts:** git and ssh ask through `leaf-askpass`, a small Rust program (`rs/leaf-askpass.rs`, standard library
+    only) set as `GIT_ASKPASS` and `SSH_ASKPASS`. It passes each prompt to Leaf over a Unix socket that only the user
+    can open (a loopback port on Windows), with a random token, and Leaf shows a dialog:
+    - HTTPS: one dialog for git's user name and password prompts, or for the password alone when git knows the user;
+    - an unknown SSH host: the host key dialog of stage 0c, and ssh adds the key to known_hosts;
+    - a key's passphrase: the SSH password dialog. Leaf keeps it for the session, per key file, as it did with JGit,
+      and asks again when ssh does;
+    - anything else (a password for SSH password authentication, a security key's PIN): a new dialog that shows the
+      prompt, and one that asks to allow or deny for `SSH_ASKPASS_PROMPT=confirm`.
+  - **Leaf's credential cache** is git's last credential helper (the same program, with `credential`), while "Cache
+    HTTP credentials in memory" is on: git stores in it what the server took, and erases what it refused.
+  - **Progress:** the processing screen shows git's stage and percentage, with a bar.
+  - **Cancel:** a push can be cancelled from the processing screen. Leaf stops git, ssh and the hooks, and shows no
+    error. The Cancel button only appears for tasks that can stop (those that run git); for the others it did
+    nothing before and isn't shown.
+  - **Errors** say what happened, then show git's own output, which often has the server's message: refs the remote
+    refused (behind the remote, a stale lease, a `pre-receive` hook), rejected credentials, access to the repository
+    refused, a changed or unverified host key, no connection, a certificate problem.
+  - **JGit** still pushes when the new setting "Use git for remote operations" (Settings > Remote actions, on by
+    default) is off, when no usable git is found, or for an LFS repository whose objects git wouldn't upload (its
+    `pre-push` hook doesn't run git-lfs, or git-lfs isn't installed). JGit uploads them itself.
+- **Build:** `rs/Cargo.toml` has a second binary, `leaf-askpass`, and `copyRustBuild` copies it into the app's
+  resources next to `libleaf_rs`. Leaf extracts it to its temp folder the first time it pushes. The packaging config
+  and the release workflow are unchanged: each release job builds the binary for its own platform.
+- **Also fixed:**
+  - "Push to remote branch" pushed to `refs/heads/refs/remotes/<remote>/<branch>` on the remote, which created a
+    branch of that name. Both paths now push to `<branch>`.
+  - Deleting a remote branch reported "Branch deleted" instead of "Remote branch deleted".
+- **Closing a dialog** stops git, and the error says so ("Git stopped, as its question was closed without an
+  answer"), followed by git's output. git's own message ("terminal prompts disabled") would mislead.
+- **Tests:** 74 new, all in `:data`, none skipped here.
+  - `GitCliPushBranchGitActionTest` (14) pushes to a bare repository on disk: a new branch gets its upstream, a push
+    behind the remote, a stale and a current lease, tags, a `pre-receive` refusal, a failing `pre-push` hook, pushing
+    to a chosen remote branch, a detached HEAD, cancelling (git and the hook are gone), and deleting remote branches,
+    including one already gone and one outside a single-branch fetch refspec.
+  - `GitCliHttpsPushTest` (5) pushes to `git http-backend` behind Basic authentication: one dialog for both prompts
+    and the cache answering the next push, a user name in the URL, wrong credentials, a closed dialog, and the cache
+    setting turned off.
+  - `GitCliSshPushTest` (6) pushes through the system's ssh to a local sshd whose keys act like accounts: an unknown
+    host key trusted and not trusted, a changed one, another account's key (the server's message is shown), and a
+    passphrase that is asked for once and then kept, or asked for again when it's wrong.
+  - `AskpassServerTest` (10) runs the built helper as git and ssh do. `AskpassAnswersTest` (11), `AskpassPromptTest`
+    (9) and `GitOutputParsersTest` (7) use what git 2.54 and OpenSSH 10.3 wrote. `RemoteOperationsBackendTest` (9)
+    covers the choice of git or JGit, and `TaskCancellationTest` (3) the Cancel button.
+  - Sixteen mutations were each caught, among them dropping `SSH_ASKPASS_REQUIRE=force`, the upstream, the lease,
+    the token check, the kept passphrase or the `\r\n` handling.
+  - The new dialogs and the processing screen were rendered offscreen in the dark and light themes.
+  - `./gradlew build` passes, with 412 tests (323 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** the dialogs and the Cancel button in the running app, Windows (the helper, the loopback port, Git
+  Bash quoting of the credential helper), security keys, and a notarized build. The helper sits in the jar, signed
+  ad hoc like `libleaf_rs`, so a notarized build would have to sign both.
+
 ## SSH checks the server's host key (branch `fix/ssh-host-key-check`)
 
 Stage 0c of `docs/fork/remote-operations.md`.
@@ -41,7 +102,7 @@ Stage 0c of `docs/fork/remote-operations.md`.
   - Five mutations were each caught: skipping the check, not saving a trusted key, connecting despite a changed key
     or a key of another type, and dropping the explanation when the user doesn't trust the key.
   - The dialog was rendered offscreen in the dark and light themes.
-  - `./gradlew build` passes, with 321 tests (232 in `:data`, 82 in `:domain`, 7 in `:common`).
+  - `./gradlew build` passes, with 331 tests (242 in `:data`, 82 in `:domain`, 7 in `:common`).
 - **Not tried:** the dialog in the running app, and Windows.
 
 ## Credentials are stored at the first request that succeeds with them (branch `feature/approve-on-first-success`)

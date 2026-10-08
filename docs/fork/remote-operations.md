@@ -24,7 +24,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
   - The Cancel button does nothing, and SSH reads have no timeout.
 - **Recommendation:** move remote operations to the git CLI in stages: push first, then fetch and pull, then clone.
   Keep JGit and libssh only as a fallback when no usable git is found. Fix the TLS problem now, whatever the
-  decision. Section 4 has the plan.
+  decision. Section 4 has the plan. Stage 0 and stage 1 (push) are done.
 
 ## 1. How remote operations work today
 
@@ -327,8 +327,9 @@ the CLI reproduces. Effort sizes are rough: S, M, L.
   read.
 - 0a and 0c affect upstream Gitnuro too, and should go to it as a private security advisory, not a public issue.
 
-**Stage 1: push (L).** Push first: #294 is about push, push doesn't touch the working tree, and `--porcelain`
-describes its result completely.
+**Stage 1: push (L), done on branch `feat/git-cli-push`.** Push first: #294 is about push, push doesn't touch the
+working tree, and `--porcelain` describes its result completely. What was built is described in the fork changelog
+and in CLAUDE.md ("Remote operations"); the plan as written before follows.
 - New fork-only code under `G/cli/` (for example `GitCliPushGitAction`, `GitProgressParser`, `PushPorcelainParser`,
   `RemoteErrorParser`).
 - `G/cli/ProcessRunner.kt` and `GitCli.kt`: streaming, cancellation, and askpass variables for network commands.
@@ -348,6 +349,16 @@ describes its result completely.
   - Sshd tests, skipped without sshd: the wrong-account message, the host key prompt and a passphrase key through
     askpass. They need agent sockets in short paths, and `core.sshCommand` in the temp repository's config, so the
     developer's `~/.ssh` is never read.
+
+Found while building it:
+- OpenSSH 10 asks about an unknown host with `ED25519 key fingerprint is: SHA256:...`, where older versions wrote
+  `is SHA256:....`, and ends its stderr lines with `\r\n`. Both are handled and tested.
+- "Push to remote branch" sent `refs/heads/refs/remotes/<remote>/<branch>` with JGit, so it created a branch of that
+  name on the remote. Both paths now push to `<branch>`.
+- Deleting a remote branch that the remote no longer has succeeds with a full ref name (`git push --delete
+  refs/heads/x`), with a warning from the remote, as JGit's `NON_EXISTING` did.
+- Not done: ssh's notices (`SSH_ASKPASS_PROMPT=none`, such as "Confirm user presence" for a security key) aren't
+  shown, so the processing screen is all the user sees while ssh waits for a touch. Windows isn't tested.
 
 **Stage 2: fetch and pull (M).**
 - Fetch: `git fetch --prune <remote>` per remote, so each remote reports its own error.
@@ -369,7 +380,9 @@ SSH signing to move.
 
 1. The askpass helper: **a Rust binary** (decided on 2026-10-08). It changes the build, so its build steps still need
    approval.
-2. Whether to keep a user-visible "Built-in" backend setting during the transition.
-3. SSH passphrases: rely on ssh-agent, or let Leaf cache them per key for the session.
+2. A user-visible backend setting during the transition: **yes**, "Use git for remote operations" in Settings, on by
+   default (decided on 2026-10-08).
+3. SSH passphrases: **Leaf keeps them per key file for the session**, as it did with JGit, and drops one that ssh
+   asks for again (decided on 2026-10-08).
 4. Whether 0b and 0c are worth doing if the fallback is meant to be rare: **both done** (2026-10-08).
 5. Whether to report the host-key and TLS findings to upstream privately.
