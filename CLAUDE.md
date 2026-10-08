@@ -604,6 +604,12 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 - Model: `domain/models/Branch.kt` (`hash`, full ref `name`, `isLocal`). It has no tracking or ahead/behind fields.
 - Loaded by `GetBranchesGitAction` (`git.branchList()`) via `RefreshDataUseCase.refreshBranches`.
 - Double-clicking a local branch checks it out immediately, with no guard.
+- Double-clicking a remote branch (fork-only, `RepositoryOpenViewModel.checkoutRemoteBranch`) checks out the local
+  branch with its name, or creates one that tracks it. `GetRemoteBranchCheckoutGitAction` compares the two first: a
+  local branch that is behind with no commits of its own gets `FastForwardOnCheckoutDialog` (through
+  `fastForwardOffers` and `Screen.FastForwardOnCheckout`), any other is checked out as it is.
+  `CheckoutRemoteBranchGitAction` moves a branch that isn't checked out with a `RefUpdate` before the checkout, and
+  the current branch with `merge --ff-only`.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,

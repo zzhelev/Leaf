@@ -2,6 +2,44 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A remote branch checkout uses the local branch, and offers to fast-forward it (branch `feat/remote-checkout-fast-forward`)
+
+- **Before:** double-clicking a remote branch such as `origin/develop` (in the log or the side panel) always created a
+  local branch from it, so with a local `develop` it failed with `CheckoutBranchError.LocalBranchAlreadyExists`.
+- **Now:** it checks out the local `develop`, like `git switch develop`, which never creates a second branch.
+  - Behind `origin/develop`, with no commits of its own: `FastForwardOnCheckoutDialog` says how many commits behind it
+    is and offers Fast-forward (move it to `origin/develop`, then check it out), Check out only, or Cancel. When
+    `develop` is already checked out, only Fast-forward and Cancel.
+  - At the same commit, ahead, or diverged: checked out as it is, without a question. Nothing is moved or merged.
+  - No local `develop`: created to track `origin/develop` and checked out, as before.
+  - The comparison is with the double-clicked branch, whatever `develop` tracks.
+- **Why ask:** git's own `git switch develop` checks out the branch and only says it "can be fast-forwarded". Fork
+  (1.0.80, "Propose to fast-forward on remote branch checkout") asks. GitKraken (10.5.0) fast-forwards without asking,
+  and SourceGit (PR #1416) does too. Asking keeps git's behaviour one click away, and the fast-forward is the default
+  button.
+- **How:** `GetRemoteBranchCheckoutGitAction` compares the branches (`RemoteBranchCheckout`, ahead and behind counted
+  like `git rev-list --left-right --count`), then `CheckoutRemoteBranchGitAction` checks out. The view model asks
+  through `fastForwardOffers`, which `RepositoryOpen` turns into `Screen.FastForwardOnCheckout`.
+  - A branch that isn't checked out moves first, as `git fetch . origin/develop:develop` would, with the reflog
+    message of `git merge --ff-only`. If uncommitted changes then block the checkout, it stays moved: that loses
+    nothing, and the error is JGit's checkout conflict.
+  - The current branch moves with JGit's `merge --ff-only`, which leaves everything as it was when uncommitted changes
+    are in the way.
+  - If the branches diverged between the question and the click, the fast-forward is refused with
+    `CheckoutBranchError.CannotFastForward`, which replaces `LocalBranchAlreadyExists`, and nothing changes.
+  - `CheckoutBranchGitAction` is back to upstream's version. Only local branches reach it now.
+  - `IconBasedDialog` has an optional second action, for "Check out only".
+- **Tests:** `CheckoutRemoteBranchGitActionTest` (13) and `GetRemoteBranchCheckoutGitActionTest` (8), on temp clones:
+  each case above, the working tree and reflog after each kind of fast-forward, uncommitted changes that do and don't
+  block it, branch names with folders, and the counts against `git rev-list --left-right --count`.
+- **Verified:** a throwaway harness on the real Dagger graph opened a temp clone. Double-clicking `origin/develop` with
+  `develop` 3 commits behind emitted the offer and changed nothing; Fast-forward then left `develop` checked out at
+  `origin/develop`; a diverged `feature` was checked out without an offer and didn't move. Offscreen renders of the
+  dialog (both variants, a long agent branch name) and of the new error.
+- **Not handled:** a `develop` that is checked out in another worktree. Leaf checks it out here too, as it already does
+  when a local branch is double-clicked, and a fast-forward moves it under the other worktree's files. git refuses
+  both. That waits for the Phase 1.3 guard (`docs/fork/architecture-notes.md` §3).
+
 ## Fetch and pull run the git CLI (branch `feat/git-cli-fetch-pull`)
 
 Stage 2 of `docs/fork/remote-operations.md`.
