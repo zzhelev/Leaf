@@ -26,8 +26,10 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Asks for a user name and a password. With a [user] name that git already knows, it shows it and asks only for the
- * password, as git does, and [onAccept] gets [user].
+ * Asks for a user name and a password, or only for the part that git doesn't know, as git does:
+ * - with a [user] name that git already knows, it shows it and asks only for the password, and [onAccept] gets [user];
+ * - without [askPassword], a credential helper gave the password, so it asks only for the user name, and [onAccept]
+ *   gets an empty password.
  */
 @Composable
 fun UserPasswordDialog(
@@ -35,6 +37,7 @@ fun UserPasswordDialog(
     subtitle: String,
     icon: Painter,
     user: String? = null,
+    askPassword: Boolean = true,
     onDismiss: () -> Unit,
     onAccept: (user: String, password: String) -> Unit,
 ) {
@@ -57,7 +60,7 @@ fun UserPasswordDialog(
         primaryActionText = stringResource(Res.string.generic_button_continue),
         onDismiss = onDismiss,
         onPrimaryActionClicked = acceptDialog,
-        beforeActionsFocusRequester = passwordFieldFocusRequester,
+        beforeActionsFocusRequester = if (askPassword) passwordFieldFocusRequester else userFieldFocusRequester,
         actionsFocusRequester = actionsFocusRequester,
         afterActionsFocusRequester = firstFieldFocusRequester,
     ) {
@@ -67,12 +70,18 @@ fun UserPasswordDialog(
                 .padding(bottom = 8.dp)
                 .focusRequester(userFieldFocusRequester)
                 .focusProperties {
-                    this.next = passwordFieldFocusRequester
+                    if (askPassword) {
+                        this.next = passwordFieldFocusRequester
+                    }
                 }
                 .width(300.dp)
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.matchesBinding(KeybindingOption.SIMPLE_ACCEPT)) {
-                        passwordFieldFocusRequester.requestFocus()
+                        if (askPassword) {
+                            passwordFieldFocusRequester.requestFocus()
+                        } else {
+                            acceptDialog()
+                        }
                         true
                     } else {
                         false
@@ -97,57 +106,60 @@ fun UserPasswordDialog(
             },
         )
 
-        AdjustableOutlinedTextField(
-            modifier = Modifier
-                .padding(bottom = 8.dp)
-                .focusRequester(passwordFieldFocusRequester)
-                .focusProperties {
-                    if (user == null) {
-                        this.previous = userFieldFocusRequester
+        // Not asked for when a credential helper gave it
+        if (askPassword) {
+            AdjustableOutlinedTextField(
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+                    .focusRequester(passwordFieldFocusRequester)
+                    .focusProperties {
+                        if (user == null) {
+                            this.previous = userFieldFocusRequester
+                        }
+                        this.next = actionsFocusRequester
                     }
-                    this.next = actionsFocusRequester
-                }
-                .width(300.dp)
-                .onPreviewKeyEvent { keyEvent ->
-                    if (keyEvent.matchesBinding(KeybindingOption.SIMPLE_ACCEPT)) {
-                        acceptDialog()
-                        true
-                    } else {
-                        false
-                    }
-                },
-            value = passwordField,
-            maxLines = 1,
-            singleLine = true,
-            colors = outlinedTextFieldColors(),
-            hint = "Password",
-            onValueChange = {
-                passwordField = it
-            },
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                val visibilityIcon = if (showPassword) {
-                    Res.drawable.visibility_off
-                } else {
-                    Res.drawable.visibility
-                }
-
-                IconButton(
-                    onClick = {
-                        showPassword = !showPassword
-                        passwordFieldFocusRequester.requestFocus()
+                    .width(300.dp)
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.matchesBinding(KeybindingOption.SIMPLE_ACCEPT)) {
+                            acceptDialog()
+                            true
+                        } else {
+                            false
+                        }
                     },
-                    modifier = Modifier.handOnHover()
-                        .size(20.dp),
-                ) {
-                    Icon(
-                        painterResource(visibilityIcon),
-                        contentDescription = null,
-                        tint = MaterialTheme.colors.onBackground,
-                    )
+                value = passwordField,
+                maxLines = 1,
+                singleLine = true,
+                colors = outlinedTextFieldColors(),
+                hint = "Password",
+                onValueChange = {
+                    passwordField = it
+                },
+                visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val visibilityIcon = if (showPassword) {
+                        Res.drawable.visibility_off
+                    } else {
+                        Res.drawable.visibility
+                    }
+
+                    IconButton(
+                        onClick = {
+                            showPassword = !showPassword
+                            passwordFieldFocusRequester.requestFocus()
+                        },
+                        modifier = Modifier.handOnHover()
+                            .size(20.dp),
+                    ) {
+                        Icon(
+                            painterResource(visibilityIcon),
+                            contentDescription = null,
+                            tint = MaterialTheme.colors.onBackground,
+                        )
+                    }
                 }
-            }
-        )
+            )
+        }
 
         LaunchedEffect(Unit) {
             firstFieldFocusRequester.requestFocus()

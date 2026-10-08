@@ -10,7 +10,7 @@ import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.IShellManager
 import dev.app.leaf.domain.ShellManager
-import dev.app.leaf.domain.credentials.CredentialsRequest
+import dev.app.leaf.domain.credentials.CredentialsRequest.HttpCredentialsRequest
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.credentials.external.IGitCredentialsManagerProvider
 import kotlinx.coroutines.Dispatchers
@@ -85,11 +85,8 @@ class HttpCredentialsProviderTest {
     /** The user's git config, which git reads also without a repository. */
     private val globalConfig by lazy { File(shellVariables.getValue("GIT_CONFIG_GLOBAL")) }
 
-    /**
-     * The user name that each prompt showed, when Leaf asked for the password alone, or null when it asked for the user
-     * name too.
-     */
-    private val askedUsers = mutableListOf<String?>()
+    /** What Leaf asked the user each time: the user name it showed, if any, and whether it asked for the password. */
+    private val requests = mutableListOf<HttpCredentialsRequest>()
 
     /** The repositories that [createProvider] opened. */
     private val repositories = mutableListOf<Git>()
@@ -390,7 +387,7 @@ class HttpCredentialsProviderTest {
         }
 
         assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials())
-        assertEquals(listOf<String?>(null), askedUsers)
+        assertEquals(listOf(HttpCredentialsRequest(null, askPassword = true)), requests)
         assertEquals("https://prompted-user:prompted-password@example.invalid\n", awaitText(awaitFile(credentialsFile)))
         provider.reset(URIish(REMOTE_URL))
 
@@ -403,38 +400,77 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
-    fun `Leaf asks for the password alone when git does, and shows the user name that git shows`() {
+    fun `Leaf asks for what git asks for, and shows the user name that git shows`() {
         File(tools, "leaf-username").writeExecutable(
             "#!/bin/sh\ncat > /dev/null\n[ \"\$1\" = get ] && echo username=carol\nexit 0\n"
+        )
+        File(tools, "leaf-password").writeExecutable(
+            "#!/bin/sh\ncat > /dev/null\n[ \"\$1\" = get ] && echo password=helper-password\nexit 0\n"
         )
         val aliceUrl = "https://alice@example.invalid/team/project.git"
         val bob = "[credential]\n\tusername = bob\n"
         val dora = "[credential \"https://example.invalid\"]\n\tusername = dora\n"
-        // The user's config, the URL, and the user name that git shows
+        val askBoth = HttpCredentialsRequest(null, askPassword = true)
+        fun askPassword(user: String) = HttpCredentialsRequest(user, askPassword = true)
+        // The user's config, the URL, and what git asks for
         val cases = listOf(
-            Triple("", REMOTE_URL, null),
-            Triple("", aliceUrl, "alice"),
-            Triple(bob, REMOTE_URL, "bob"),
-            Triple(bob, aliceUrl, "alice"),
-            Triple(dora, REMOTE_URL, "dora"),
-            Triple(dora, "https://other.invalid/team/project.git", null),
+            Triple("", REMOTE_URL, askBoth),
+            Triple("", aliceUrl, askPassword("alice")),
+            Triple(bob, REMOTE_URL, askPassword("bob")),
+            Triple(bob, aliceUrl, askPassword("alice")),
+            Triple(dora, REMOTE_URL, askPassword("dora")),
+            Triple(dora, "https://other.invalid/team/project.git", askBoth),
             // A helper that gives only the user name
-            Triple("[credential]\n\thelper = !leaf-username\n", REMOTE_URL, "carol"),
+            Triple("[credential]\n\thelper = !leaf-username\n", REMOTE_URL, askPassword("carol")),
+            // A helper that gives only the password
+            Triple(
+                "[credential]\n\thelper = !leaf-password\n",
+                REMOTE_URL,
+                HttpCredentialsRequest(null, askPassword = false),
+            ),
         )
 
         assertAll(
-            cases.map { (config, url, expectedUser) ->
+            cases.map { (config, url, expected) ->
                 Executable {
                     globalConfig.writeText(config)
-                    askedUsers.clear()
+                    requests.clear()
 
                     val answer = createProvider(helper = null, inRepository = false).requestCredentials(url = url)
 
-                    assertEquals(expectedUser, userThatGitShows(url), "the user name git shows for $url with $config")
-                    assertEquals(listOf(expectedUser), askedUsers, "the user name shown for $url with $config")
-                    assertEquals(Answer(expectedUser ?: "prompted-user", "prompted-password"), answer)
+                    assertEquals(expected, requestThatGitMakes(url), "what git asks for $url with $config")
+                    assertEquals(listOf(expected), requests, "what Leaf asks for $url with $config")
+                    // Whatever the dialog gives for a part that git knows, git's is the one used
+                    assertEquals(
+                        Answer(
+                            expected.user ?: "prompted-user",
+                            if (expected.askPassword) "prompted-password" else "helper-password",
+                        ),
+                        answer,
+                    )
                 }
             }
+        )
+    }
+
+    @Test
+    fun `a helper's password with the typed user name is stored with every helper, and erased when rejected`() {
+        createRecordingHelperAnswering(listOf("password=helper-password"))
+        val credentialsFile = File(tempDir, ".git-credentials")
+        val provider = createProvider(helper = null) {
+            setStringList("credential", null, "helper", listOf("leaf-test", "store"))
+        }
+
+        assertEquals(Answer("prompted-user", "helper-password"), provider.requestCredentials())
+        assertEquals(listOf(HttpCredentialsRequest(null, askPassword = false)), requests)
+        assertEquals("https://prompted-user:helper-password@example.invalid\n", awaitText(awaitFile(credentialsFile)))
+        provider.reset(URIish(REMOTE_URL))
+
+        assertEquals("", credentialsFile.readText())
+        assertEquals(listOf("get", "store", "erase"), File(tools, "operations").readLines())
+        assertEquals(
+            "${EXPECTED_INPUT}username=prompted-user\npassword=helper-password\n",
+            File(tools, "erase.input").readText(),
         )
     }
 
@@ -445,7 +481,7 @@ class HttpCredentialsProviderTest {
 
         // Whatever user name the dialog gives, the request's is the one used
         assertEquals(Answer("bob", "prompted-password"), provider.requestCredentials())
-        assertEquals(listOf<String?>("bob"), askedUsers)
+        assertEquals(listOf(HttpCredentialsRequest("bob", askPassword = true)), requests)
         assertEquals("https://bob:prompted-password@example.invalid\n", awaitText(awaitFile(credentialsFile)))
 
         // Git, with the same settings, gives them without asking
@@ -546,8 +582,14 @@ class HttpCredentialsProviderTest {
      * `<operation>.input`, and each operation to `operations` when it finishes. It answers `get` with [answer], if
      * there is one, and `store` takes [storeSeconds].
      */
-    private fun createRecordingHelper(answer: Answer?, storeSeconds: String = "0") {
-        val answerGet = answer?.let { "printf 'username=${it.user}\\npassword=${it.password}\\n'" } ?: ":"
+    private fun createRecordingHelper(answer: Answer?, storeSeconds: String = "0") = createRecordingHelperAnswering(
+        answer?.let { listOf("username=${it.user}", "password=${it.password}") }.orEmpty(),
+        storeSeconds,
+    )
+
+    /** Like [createRecordingHelper], answering `get` with the [lines]. */
+    private fun createRecordingHelperAnswering(lines: List<String>, storeSeconds: String = "0") {
+        val answerGet = if (lines.isEmpty()) ":" else "printf '${lines.joinToString("") { "$it\\n" }}'"
 
         File(tools, "git-credential-leaf-test").writeExecutable(
             """
@@ -625,11 +667,7 @@ class HttpCredentialsProviderTest {
         val password = CredentialItem.Password()
 
         val prompt = launch(Dispatchers.Default) {
-            val request = credentialsStateManager.credentialsState
-                .filterIsInstance<CredentialsRequest.HttpCredentialsRequest>()
-                .first()
-
-            askedUsers += request.user
+            requests += credentialsStateManager.credentialsState.filterIsInstance<HttpCredentialsRequest>().first()
             credentialsStateManager.httpCredentialsAccepted(promptAnswer.user, promptAnswer.password)
         }
 
@@ -707,10 +745,11 @@ class HttpCredentialsProviderTest {
     }
 
     /**
-     * The user name that `git credential fill` shows for [url], with the user's config, when it asks for the password
-     * alone, or null if it asks for the user name too. Git asks through `GIT_ASKPASS`.
+     * What `git credential fill` asks the user for [url], with the user's config, as a request of Leaf's: the user
+     * name that it shows when it asks for the password alone, and whether it asks for the password. Git asks through
+     * `GIT_ASKPASS`.
      */
-    private fun userThatGitShows(url: String): String? {
+    private fun requestThatGitMakes(url: String): HttpCredentialsRequest {
         val prompts = File(tempDir, "prompts").apply { delete() }
         val askpass = File(tempDir, "askpass").writeExecutable(
             "#!/bin/sh\necho \"\$1\" >> '${prompts.absolutePath}'\necho typed\n"
@@ -718,13 +757,15 @@ class HttpCredentialsProviderTest {
 
         runGit(listOf("credential", "fill"), "url=$url\n", environment = mapOf("GIT_ASKPASS" to askpass.absolutePath))
         val asked = prompts.readLines()
+        val passwordPrompt = asked.singleOrNull { it.startsWith("Password") }
 
         // When git asks for the user name, the password prompt shows the typed one
         if (asked.any { it.startsWith("Username") }) {
-            return null
+            return HttpCredentialsRequest(null, askPassword = passwordPrompt != null)
         }
 
-        return Regex("^Password for 'https://([^@]+)@").find(asked.single())!!.groupValues[1]
+        val shownUser = Regex("^Password for 'https://([^@]+)@").find(checkNotNull(passwordPrompt))!!.groupValues[1]
+        return HttpCredentialsRequest(shownUser, askPassword = true)
     }
 
     /**

@@ -141,7 +141,7 @@ class CredentialHelpers @Inject constructor(
             }
         }
 
-        return HelperAnswer.NotStored(user)
+        return HelperAnswer.NotStored(user, password)
     }
 
     /** What [helper] answers to `get` with [helperInput], or null if it didn't answer within a minute. */
@@ -264,10 +264,11 @@ sealed interface HelperAnswer {
     data class Credentials(val user: String, val password: String) : HelperAnswer
 
     /**
-     * No helper has credentials for the URL, so Leaf asks the user. [user] is the user name known so far, from the URL,
-     * `credential.username` or a helper: then Leaf asks only for the password, as git does.
+     * No helper has complete credentials for the URL, so Leaf asks the user for the rest, as git does. At most one is
+     * known: the [user] name, from the URL, `credential.username` or a helper, or the [password] that a helper gave
+     * without a user name.
      */
-    data class NotStored(val user: String?) : HelperAnswer
+    data class NotStored(val user: String?, val password: String?) : HelperAnswer
 
     /**
      * Leaf gives no credentials: git refuses the URL, a helper said `quit`, or a helper didn't answer within a

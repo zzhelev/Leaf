@@ -240,6 +240,7 @@ fun AppTab(
                         ) { entry ->
                             HttpCredentialsDialog(
                                 user = entry.credentialsRequest.user,
+                                askPassword = entry.credentialsRequest.askPassword,
                                 onDismiss = {
                                     repositoryTabViewModel.credentialsDenied()
                                     backStack.removeLastOrNull()
@@ -269,17 +270,18 @@ fun AppTab(
                             metadata = dialogsMetadata
                         ) { entry ->
                             // TODO Refactor dialogs to have their own view models and not rely on repositoryTabViewModel
-                            val user = entry.credentialsRequest.user
+                            val request = entry.credentialsRequest
 
                             UserPasswordDialog(
                                 title = "LFS Server Credentials",
-                                subtitle = if (user == null) {
-                                    "Introduce the credentials for your LFS server"
-                                } else {
-                                    "Introduce the password for your LFS server"
+                                subtitle = when {
+                                    request.user != null -> "Introduce the password for your LFS server"
+                                    !request.askPassword -> "Introduce the username for your LFS server"
+                                    else -> "Introduce the credentials for your LFS server"
                                 },
                                 icon = painterResource(Res.drawable.lfs),
-                                user = user,
+                                user = request.user,
+                                askPassword = request.askPassword,
                                 onDismiss = {
                                     repositoryTabViewModel.credentialsDenied()
                                     backStack.removeLastOrNull()

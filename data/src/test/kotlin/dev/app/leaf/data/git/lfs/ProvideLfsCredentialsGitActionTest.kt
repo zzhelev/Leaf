@@ -10,7 +10,7 @@ import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.ShellManager
-import dev.app.leaf.domain.credentials.CredentialsRequest
+import dev.app.leaf.domain.credentials.CredentialsRequest.LfsCredentialsRequest
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.credentials.external.IGitCredentialsManagerProvider
 import dev.app.leaf.domain.errors.Either
@@ -65,11 +65,8 @@ class ProvideLfsCredentialsGitActionTest {
         )
     }
 
-    /**
-     * The user name that each prompt showed, when Leaf asked for the password alone, or null when it asked for the user
-     * name too.
-     */
-    private val askedUsers = mutableListOf<String?>()
+    /** What Leaf asked the user each time: the user name it showed, if any, and whether it asked for the password. */
+    private val requests = mutableListOf<LfsCredentialsRequest>()
 
     private lateinit var git: Git
 
@@ -155,7 +152,7 @@ class ProvideLfsCredentialsGitActionTest {
         )
 
         assertEquals(Either.Ok("objects"), result)
-        assertEquals(listOf<String?>(null, null), askedUsers)
+        assertEquals(List(2) { LfsCredentialsRequest(null, askPassword = true) }, requests)
         awaitOperations(2)
         assertEquals(listOf("get", "store"), File(tools, "operations").readLines())
         assertEquals(
@@ -180,7 +177,7 @@ class ProvideLfsCredentialsGitActionTest {
         )
 
         assertEquals(Either.Ok("objects"), result)
-        assertEquals(listOf<String?>("alice"), askedUsers)
+        assertEquals(listOf(LfsCredentialsRequest("alice", askPassword = true)), requests)
         assertEquals(listOf(null, Answer("alice", "typed-password")), server.attempts)
         awaitOperations(2)
         assertEquals("protocol=https\nhost=example.invalid\nusername=alice\n", File(tools, "get.input").readText())
@@ -202,7 +199,57 @@ class ProvideLfsCredentialsGitActionTest {
         val result = provideCredentials(server, prompts = listOf(Answer("carol", "typed-password")))
 
         assertEquals(Either.Ok("objects"), result)
-        assertEquals(listOf<String?>("carol"), askedUsers)
+        assertEquals(listOf(LfsCredentialsRequest("carol", askPassword = true)), requests)
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `with a password from the helper, only the user name is asked for, and both are stored once accepted`() {
+        setHelper("leaf-test")
+        createRecordingHelperAnswering(listOf("password=helper-password"))
+        val server = FakeServer(accepts = Answer("typed-user", "helper-password"))
+
+        // Whatever password the dialog gives, the helper's is the one used
+        val result = provideCredentials(server, prompts = listOf(Answer("typed-user", "other-password")))
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf(LfsCredentialsRequest(null, askPassword = false)), requests)
+        assertEquals(listOf(null, Answer("typed-user", "helper-password")), server.attempts)
+        awaitOperations(2)
+        assertEquals(listOf("get", "store"), File(tools, "operations").readLines())
+        assertEquals(
+            "protocol=https\nhost=example.invalid\nusername=typed-user\npassword=helper-password\n",
+            File(tools, "store.input").readText(),
+        )
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `a helper's password that the server rejects is erased, and then both are asked for`() {
+        setHelper("leaf-test")
+        createRecordingHelperAnswering(listOf("password=helper-password"))
+        val server = FakeServer(accepts = Answer("typed-user", "typed-password"))
+
+        val result = provideCredentials(
+            server,
+            prompts = listOf(Answer("typed-user", "ignored"), Answer("typed-user", "typed-password")),
+        )
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(
+            listOf(LfsCredentialsRequest(null, askPassword = false), LfsCredentialsRequest(null, askPassword = true)),
+            requests,
+        )
+        assertEquals(
+            listOf(null, Answer("typed-user", "helper-password"), Answer("typed-user", "typed-password")),
+            server.attempts,
+        )
+        awaitOperations(3)
+        assertEquals(listOf("get", "erase", "store"), File(tools, "operations").readLines())
+        assertEquals(
+            "protocol=https\nhost=example.invalid\nusername=typed-user\npassword=helper-password\n",
+            File(tools, "erase.input").readText(),
+        )
     }
 
     @Test
@@ -215,7 +262,7 @@ class ProvideLfsCredentialsGitActionTest {
         val result = provideCredentials(server, prompts = listOf(Answer("bob", "new-password")))
 
         assertEquals(Either.Ok("objects"), result)
-        assertEquals(listOf<String?>("bob"), askedUsers)
+        assertEquals(listOf(LfsCredentialsRequest("bob", askPassword = true)), requests)
     }
 
     @Test
@@ -226,7 +273,7 @@ class ProvideLfsCredentialsGitActionTest {
         val result = provideCredentials(server, prompts = listOf(Answer("other-user", "typed-password")))
 
         assertEquals(Either.Ok("objects"), result)
-        assertEquals(listOf<String?>("bob"), askedUsers)
+        assertEquals(listOf(LfsCredentialsRequest("bob", askPassword = true)), requests)
         assertEquals(Answer("bob", "typed-password"), cachedInMemory())
     }
 
@@ -343,8 +390,13 @@ class ProvideLfsCredentialsGitActionTest {
      * `<operation>.input`, and each operation to `operations` when it finishes. It answers `get` with [answer], if
      * there is one.
      */
-    private fun createRecordingHelper(answer: Answer?) {
-        val answerGet = answer?.let { "printf 'username=${it.user}\\npassword=${it.password}\\n'" } ?: ":"
+    private fun createRecordingHelper(answer: Answer?) = createRecordingHelperAnswering(
+        answer?.let { listOf("username=${it.user}", "password=${it.password}") }.orEmpty()
+    )
+
+    /** Like [createRecordingHelper], answering `get` with the [lines]. */
+    private fun createRecordingHelperAnswering(lines: List<String>) {
+        val answerGet = if (lines.isEmpty()) ":" else "printf '${lines.joinToString("") { "$it\\n" }}'"
 
         File(tools, "git-credential-leaf-test").writeExecutable(
             """
@@ -381,11 +433,7 @@ class ProvideLfsCredentialsGitActionTest {
 
         val responder = launch(Dispatchers.Default) {
             for (answer in prompts) {
-                val request = credentialsStateManager.credentialsState
-                    .filterIsInstance<CredentialsRequest.LfsCredentialsRequest>()
-                    .first()
-
-                askedUsers += request.user
+                requests += credentialsStateManager.credentialsState.filterIsInstance<LfsCredentialsRequest>().first()
 
                 if (answer != null) {
                     credentialsStateManager.lfsCredentialsAccepted(answer.user, answer.password)

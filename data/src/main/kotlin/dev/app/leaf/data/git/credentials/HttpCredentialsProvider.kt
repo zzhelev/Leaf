@@ -93,7 +93,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
             )
             // TODO Reenable this after refactoring
             if (cachedCredentials == null /*|| !appSettingsRepository.cacheCredentialsInMemory*/) {
-                val credentials = askForCredentials(helperSettings.username)
+                val credentials = askForCredentials(helperSettings.username, password = null)
 
                 userItem.value = credentials.user
                 passwordItem.value = credentials.password.toCharArray()
@@ -136,11 +136,12 @@ class HttpCredentialsProvider @AssistedInject constructor(
 
                 HelperAnswer.Failed -> return false
                 is HelperAnswer.NotStored -> {
-                    val credentials = askForCredentials(answer.user)
+                    val credentials = askForCredentials(answer.user, answer.password)
                     userItem.value = credentials.user
                     passwordItem.value = credentials.password.toCharArray()
 
-                    // Git stores them once the server accepts them, Leaf right away: reset erases them if it doesn't
+                    // Git stores them once the server accepts them, Leaf right away: reset erases them if it doesn't.
+                    // That includes a password from a helper, as git's credential_reject erases it too
                     helperCredentials = HelperCredentials(
                         settings = helperSettings,
                         uri = uri,
@@ -182,10 +183,12 @@ class HttpCredentialsProvider @AssistedInject constructor(
         credentialHelpers.erase(rejected.settings, rejected.uri, rejected.user, rejected.password, rejected.stores)
     }
 
-    /** Asks the user for credentials, or only for the password when git knows the [user] name. */
-    private fun askForCredentials(user: String?): CredentialsAccepted.HttpCredentialsAccepted = runBlocking {
-        credentialsStateManager.requestHttpCredentials(user)
-    }
+    /**
+     * Asks the user for credentials, or only for the part that git doesn't know: the password when it knows the
+     * [user] name, or the user name when a helper gave the [password].
+     */
+    private fun askForCredentials(user: String?, password: String?): CredentialsAccepted.HttpCredentialsAccepted =
+        runBlocking { credentialsStateManager.requestHttpCredentials(user, password) }
 
     override suspend fun cacheCredentialsIfNeeded() {
         credentialsCached?.let {

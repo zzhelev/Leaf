@@ -45,7 +45,8 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
     /**
      * Like git-lfs: the helpers' credentials, then the user's. Credentials that the server rejects are erased with
      * the helpers, and the ones the user typed are stored with them once the server takes them. When git knows the
-     * user name, the user is asked only for the password.
+     * user name, the user is asked only for the password, and when a helper gave only the password, only for the
+     * user name.
      */
     private suspend fun <T> withHelper(
         helper: CredentialSettings,
@@ -67,12 +68,46 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
             }
 
             HelperAnswer.Failed -> return unauthorized
-            is HelperAnswer.NotStored -> answer.user
+            is HelperAnswer.NotStored -> {
+                answer.password?.let { password ->
+                    withHelperPassword(helper, uri, password, callback)?.let { return it }
+                }
+
+                answer.user
+            }
         }
 
         return askForCredentials(knownUser, callback) { user, password ->
             withContext(Dispatchers.IO) { credentialHelpers.send("store", helper, uri, user, password) }
         }
+    }
+
+    /**
+     * Like git, asks only for the user name to go with the [password] that a helper gave without one. Like the helpers'
+     * credentials, they are tried once: stored with the helpers if the server takes them, and erased if it rejects
+     * them, which gives null.
+     */
+    private suspend fun <T> withHelperPassword(
+        helper: CredentialSettings,
+        uri: URIish,
+        password: String,
+        callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,
+    ): Either<T, LfsError>? {
+        val credentials = credentialsStateManager.requestLfsCredentials(user = null, password = password)
+        val res = callback(credentials.user, credentials.password)
+
+        if (!res.isUnauthorizedError()) {
+            if (res is Either.Ok) {
+                withContext(Dispatchers.IO) {
+                    credentialHelpers.send("store", helper, uri, credentials.user, credentials.password)
+                }
+            }
+
+            return res
+        }
+
+        withContext(Dispatchers.IO) { credentialHelpers.erase(helper, uri, credentials.user, credentials.password) }
+        return null
     }
 
     /**
@@ -112,7 +147,7 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
         onAccepted: suspend (user: String, password: String) -> Unit,
     ): Either<T, LfsError> {
         while (true) {
-            val lfsCredentials = credentialsStateManager.requestLfsCredentials(user)
+            val lfsCredentials = credentialsStateManager.requestLfsCredentials(user, password = null)
             val res = callback(lfsCredentials.user, lfsCredentials.password)
 
             if (!res.isUnauthorizedError()) {

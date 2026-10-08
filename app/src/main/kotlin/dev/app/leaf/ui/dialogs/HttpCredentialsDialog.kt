@@ -9,18 +9,20 @@ import org.jetbrains.compose.resources.painterResource
 @Composable
 fun HttpCredentialsDialog(
     user: String?,
+    askPassword: Boolean,
     onDismiss: () -> Unit,
     onAccept: (user: String, password: String) -> Unit,
 ) {
     UserPasswordDialog(
         title = "Introduce your remote server credentials",
-        subtitle = if (user == null) {
-            "Your remote requires authentication with a\nusername and a password"
-        } else {
-            "Your remote requires the password\nof this user"
+        subtitle = when {
+            user != null -> "Your remote requires the password\nof this user"
+            !askPassword -> "Your credential helper gave the password.\nEnter the username that goes with it"
+            else -> "Your remote requires authentication with a\nusername and a password"
         },
         icon = painterResource(Res.drawable.lock),
         user = user,
+        askPassword = askPassword,
         onDismiss = onDismiss,
         onAccept = onAccept,
     )

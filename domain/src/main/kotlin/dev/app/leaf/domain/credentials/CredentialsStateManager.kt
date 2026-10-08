@@ -19,15 +19,19 @@ class CredentialsStateManager @Inject constructor() {
         field = MutableStateFlow<CredentialsState>(CredentialsState.None)
 
     /**
-     * Asks the user for the credentials of an HTTPS remote. When git already knows the [user] name, for the URL or
-     * from `credential.username`, the user is asked only for the password, as git does, and the answer has [user].
+     * Asks the user for the credentials of an HTTPS remote, or only for the part that git doesn't know yet, as git
+     * does, and answers with what git knew in place of what the dialog sent. At most one is known:
+     * - the [user] name, for the URL, from `credential.username` or from a credential helper: the user is asked only
+     *   for the password;
+     * - the [password] that a credential helper gave without a user name: the user is asked only for the user name.
+     *   It stays out of [credentialsState].
      */
-    suspend fun requestHttpCredentials(user: String?): CredentialsAccepted.HttpCredentialsAccepted {
+    suspend fun requestHttpCredentials(user: String?, password: String?): CredentialsAccepted.HttpCredentialsAccepted {
         val accepted = requestAwaitingCredentials<CredentialsAccepted.HttpCredentialsAccepted>(
-            CredentialsRequest.HttpCredentialsRequest(user)
+            CredentialsRequest.HttpCredentialsRequest(user, askPassword = password == null)
         )
 
-        return if (user == null) accepted else accepted.copy(user = user)
+        return CredentialsAccepted.HttpCredentialsAccepted(user ?: accepted.user, password ?: accepted.password)
     }
 
     suspend fun requestSshCredentials(isRetry: Boolean, password: String?): CredentialsAccepted.SshCredentialsAccepted {
@@ -35,12 +39,12 @@ class CredentialsStateManager @Inject constructor() {
     }
 
     /** Asks the user for the credentials of an LFS server, like [requestHttpCredentials]. */
-    suspend fun requestLfsCredentials(user: String?): CredentialsAccepted.LfsCredentialsAccepted {
+    suspend fun requestLfsCredentials(user: String?, password: String?): CredentialsAccepted.LfsCredentialsAccepted {
         val accepted = requestAwaitingCredentials<CredentialsAccepted.LfsCredentialsAccepted>(
-            CredentialsRequest.LfsCredentialsRequest(user)
+            CredentialsRequest.LfsCredentialsRequest(user, askPassword = password == null)
         )
 
-        return if (user == null) accepted else accepted.copy(user = user)
+        return CredentialsAccepted.LfsCredentialsAccepted(user ?: accepted.user, password ?: accepted.password)
     }
 
     fun credentialsDenied() {
@@ -100,12 +104,15 @@ sealed interface CredentialsRequest : CredentialsState {
     @Immutable
     data class SshCredentialsRequest(val isRetry: Boolean, val password: String) : CredentialsRequest
 
-    /** [user] is the user name that git knows for the URL, if any: then only the password is asked for. */
+    /**
+     * [user] is the user name that git knows for the URL, if any: then only the password is asked for. Without
+     * [askPassword], a credential helper gave the password but no user name, so only the user name is asked for.
+     */
     @Immutable
-    data class HttpCredentialsRequest(val user: String?) : CredentialsRequest
+    data class HttpCredentialsRequest(val user: String?, val askPassword: Boolean) : CredentialsRequest
 
-    /** [user] is the user name that git knows for the URL, if any: then only the password is asked for. */
+    /** Like [HttpCredentialsRequest], for an LFS server. */
     @Immutable
-    data class LfsCredentialsRequest(val user: String?) : CredentialsRequest
+    data class LfsCredentialsRequest(val user: String?, val askPassword: Boolean) : CredentialsRequest
 }
 
