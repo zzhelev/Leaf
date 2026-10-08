@@ -38,6 +38,16 @@ class CredentialsStateManager @Inject constructor() {
         return requestAwaitingCredentials(CredentialsRequest.SshCredentialsRequest(isRetry, password.orEmpty()))
     }
 
+    /**
+     * Asks whether to trust the SSH server [host], whose key isn't in known_hosts, by the key's [fingerprint]. Returns
+     * once the user trusts it, and throws a [CancellationException] if they don't, like the other requests.
+     */
+    suspend fun requestSshHostKeyTrust(host: String, fingerprint: String) {
+        requestAwaitingCredentials<CredentialsAccepted.SshHostKeyTrusted>(
+            CredentialsRequest.SshHostKeyRequest(host, fingerprint)
+        )
+    }
+
     /** Asks the user for the credentials of an LFS server, like [requestHttpCredentials]. */
     suspend fun requestLfsCredentials(user: String?, password: String?): CredentialsAccepted.LfsCredentialsAccepted {
         val accepted = requestAwaitingCredentials<CredentialsAccepted.LfsCredentialsAccepted>(
@@ -61,6 +71,10 @@ class CredentialsStateManager @Inject constructor() {
 
     fun lfsCredentialsAccepted(user: String, password: String) {
         credentialsState.value = CredentialsAccepted.LfsCredentialsAccepted(user, password)
+    }
+
+    fun sshHostKeyTrusted() {
+        credentialsState.value = CredentialsAccepted.SshHostKeyTrusted
     }
 
     private suspend inline fun <reified T : CredentialsAccepted> requestAwaitingCredentials(credentialsRequest: CredentialsRequest): T {
@@ -90,6 +104,7 @@ sealed interface CredentialsState {
 
 sealed interface CredentialsAccepted : CredentialsState {
     data class SshCredentialsAccepted(val password: String) : CredentialsAccepted
+    data object SshHostKeyTrusted : CredentialsAccepted
     data class HttpCredentialsAccepted(val user: String, val password: String) : CredentialsAccepted
     data class LfsCredentialsAccepted(val user: String, val password: String) : CredentialsAccepted {
         companion object {
@@ -103,6 +118,10 @@ sealed interface CredentialsAccepted : CredentialsState {
 sealed interface CredentialsRequest : CredentialsState {
     @Immutable
     data class SshCredentialsRequest(val isRetry: Boolean, val password: String) : CredentialsRequest
+
+    /** An SSH server whose key isn't in known_hosts: [fingerprint] is the key's, as ssh shows it ("SHA256:..."). */
+    @Immutable
+    data class SshHostKeyRequest(val host: String, val fingerprint: String) : CredentialsRequest
 
     /**
      * [user] is the user name that git knows for the URL, if any: then only the password is asked for. Without

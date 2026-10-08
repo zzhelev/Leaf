@@ -5,6 +5,13 @@ package dev.app.leaf.data.git.credentials
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.domain.credentials.CredentialsRequest
+import dev.app.leaf.domain.credentials.CredentialsStateManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.TransportConfigCallback
 import org.eclipse.jgit.transport.CredentialItem
@@ -60,6 +67,19 @@ class SshRemoteSessionTest {
     private val passwordPrompts = mutableListOf<String>()
     private val originalReader: SystemReader = SystemReader.getInstance()
 
+    private val credentialsStateManager = CredentialsStateManager()
+    private val hostKeyPrompts = mutableListOf<CredentialsRequest.SshHostKeyRequest>()
+
+    /** Whether the user trusts an unknown host key when Leaf asks. */
+    @Volatile
+    private var trustHostKeys = false
+
+    /** The known_hosts file that Leaf uses in place of the developer's. Each test starts with the server's key in it. */
+    private lateinit var knownHosts: File
+
+    /** The server's host key as ssh shows it, from ssh-keygen. */
+    private lateinit var hostKeyFingerprint: String
+
     @BeforeAll
     fun startServer() {
         val library = File("../app/src/main/resources", System.mapLibraryName("leaf_rs"))
@@ -73,6 +93,9 @@ class SshRemoteSessionTest {
 
         run(SSH_KEYGEN, "-q", "-t", "ed25519", "-N", "", "-f", File(labDir, "host_key").path)
         run(SSH_KEYGEN, "-q", "-t", "ed25519", "-N", "", "-f", File(labDir, "client_key").path)
+        // "256 SHA256:... comment (ED25519)"
+        hostKeyFingerprint = runAndRead(SSH_KEYGEN, "-l", "-E", "sha256", "-f", File(labDir, "host_key.pub").path)
+            .split(" ")[1]
 
         val serve = File(labDir, "serve.sh")
         serve.writeText(
@@ -151,64 +174,42 @@ class SshRemoteSessionTest {
     }
 
     @BeforeEach
-    fun clearPrompts() {
+    fun resetPromptsAndKnownHosts() {
         passwordPrompts.clear()
+        hostKeyPrompts.clear()
+        trustHostKeys = false
+        knownHosts = File(Files.createTempDirectory(tempDir.toPath(), "ssh").toFile(), "known_hosts")
+        knownHosts.writeText(knownHostsLine(File(labDir, "host_key.pub")))
     }
 
     @Test
     fun `a push the server allows succeeds`() {
-        val updates = createRepository().use { git ->
-            git.push()
-                .setRemote(url("allowed.git"))
-                .setRefSpecs(RefSpec("refs/heads/main:refs/heads/main"))
-                .setTransportConfigCallback(callback)
-                .call()
-                .flatMap { it.remoteUpdates }
-        }
-
-        assertEquals(listOf("OK"), updates.map { it.status.name })
+        assertEquals(listOf("OK"), push("allowed.git"))
         assertEquals(emptyList<String>(), passwordPrompts)
+        assertEquals(emptyList<CredentialsRequest.SshHostKeyRequest>(), hostKeyPrompts)
     }
 
     @Test
     fun `a refused push shows the server's message`() {
-        val error = errorMessages {
-            createRepository().use { git ->
-                git.push()
-                    .setRemote(url("team/denied.git"))
-                    .setRefSpecs(RefSpec("refs/heads/main:refs/heads/main"))
-                    .setTransportConfigCallback(callback)
-                    .call()
-            }
-        }
-
-        assertRefusalShown(error)
+        assertRefusalShown(errorMessages { push("team/denied.git") })
     }
 
     @Test
     fun `a refused fetch shows the server's message`() {
-        val error = errorMessages {
-            createRepository().use { git ->
-                git.fetch()
-                    .setRemote(url("team/denied.git"))
-                    .setRefSpecs(RefSpec("refs/heads/*:refs/remotes/origin/*"))
-                    .setTransportConfigCallback(callback)
-                    .call()
-            }
-        }
-
-        assertRefusalShown(error)
+        assertRefusalShown(errorMessages { fetch("team/denied.git") })
     }
 
     @Test
     fun `a refused clone shows the server's message`() {
         val error = errorMessages {
-            Git.cloneRepository()
-                .setURI(url("team/denied.git"))
-                .setDirectory(File(tempDir, "clone"))
-                .setTransportConfigCallback(callback)
-                .call()
-                .close()
+            answeringHostKeyPrompts {
+                Git.cloneRepository()
+                    .setURI(url("team/denied.git"))
+                    .setDirectory(File(tempDir, "clone"))
+                    .setTransportConfigCallback(callback)
+                    .call()
+                    .close()
+            }
         }
 
         assertRefusalShown(error)
@@ -216,24 +217,64 @@ class SshRemoteSessionTest {
 
     @Test
     fun `a command the server can't run reports exit status 127`() {
-        val error = errorMessages {
-            createRepository().use { git ->
-                git.fetch()
-                    .setRemote(url("missing-command.git"))
-                    .setRefSpecs(RefSpec("refs/heads/*:refs/remotes/origin/*"))
-                    .setTransportConfigCallback(callback)
-                    .call()
-            }
-        }
+        val error = errorMessages { fetch("missing-command.git") }
 
         // JGit's message for exit status 127, with the server's output as the cause
         assertTrue(error.contains("cannot execute: git-upload-pack '/missing-command.git'")) { error }
         assertTrue(error.contains("sh: git-upload-pack: command not found")) { error }
     }
 
+    @Test
+    fun `an unknown host key that the user trusts is added to known_hosts`() {
+        knownHosts.writeText("")
+        trustHostKeys = true
+
+        assertEquals(listOf("OK"), push("allowed.git"))
+        assertEquals(listOf(CredentialsRequest.SshHostKeyRequest(host, hostKeyFingerprint)), hostKeyPrompts)
+        assertTrue(knownHosts.readText().startsWith("$host ssh-ed25519 ")) { knownHosts.readText() }
+
+        // Known from then on
+        fetch("allowed.git")
+        assertEquals(1, hostKeyPrompts.size)
+    }
+
+    @Test
+    fun `an unknown host key that the user doesn't trust stops the connection`() {
+        knownHosts.delete()
+
+        val error = errorMessages { fetch("allowed.git") }
+
+        assertTrue(error.contains("Host key verification failed: the host key of $host wasn't trusted.")) { error }
+        assertEquals(listOf(CredentialsRequest.SshHostKeyRequest(host, hostKeyFingerprint)), hostKeyPrompts)
+        assertFalse(knownHosts.exists())
+    }
+
+    @Test
+    fun `a changed host key is refused`() {
+        knownHosts.writeText(knownHostsLine(newKey("ed25519")))
+
+        val error = errorMessages { fetch("allowed.git") }
+
+        assertTrue(error.contains("The host key of $host has changed, so Leaf didn't connect.")) { error }
+        assertTrue(error.contains("Its key is now $hostKeyFingerprint.")) { error }
+        assertEquals(emptyList<CredentialsRequest.SshHostKeyRequest>(), hostKeyPrompts)
+    }
+
+    @Test
+    fun `a host key of another type than the known one is refused`() {
+        knownHosts.writeText(knownHostsLine(newKey("ecdsa")))
+
+        val error = errorMessages { fetch("allowed.git") }
+
+        assertTrue(error.contains("$host sent a different type of host key")) { error }
+        assertEquals(emptyList<CredentialsRequest.SshHostKeyRequest>(), hostKeyPrompts)
+    }
+
     private val callback = TransportConfigCallback { transport ->
         transport as SshTransport
-        transport.sshSessionFactory = GSshSessionFactory(Provider { SshRemoteSession() })
+        transport.sshSessionFactory = GSshSessionFactory(
+            Provider { SshRemoteSession(credentialsStateManager, knownHosts.absolutePath) }
+        )
         transport.credentialsProvider = object : CredentialsProvider() {
             override fun isInteractive() = true
             override fun supports(vararg items: CredentialItem) = true
@@ -241,6 +282,67 @@ class SshRemoteSessionTest {
                 passwordPrompts += "$uri"
                 return false
             }
+        }
+    }
+
+    /** The server as ssh names it in known_hosts and in its messages. */
+    private val host get() = "[127.0.0.1]:$port"
+
+    private fun knownHostsLine(publicKey: File) = "$host ${publicKey.readText().trim()}\n"
+
+    /** A new key of [type], which isn't the server's, and returns its public key's file. */
+    private fun newKey(type: String): File {
+        val key = File(Files.createTempDirectory(tempDir.toPath(), "key").toFile(), "key")
+        run(SSH_KEYGEN, "-q", "-t", type, "-N", "", "-f", key.path)
+
+        return File("${key.path}.pub")
+    }
+
+    /** Pushes `main` to a new branch of [path] on the server, and returns the status of each ref. */
+    private fun push(path: String) = answeringHostKeyPrompts {
+        createRepository().use { git ->
+            git.push()
+                .setRemote(url(path))
+                .setRefSpecs(RefSpec("refs/heads/main:refs/heads/test-${System.nanoTime()}"))
+                .setTransportConfigCallback(callback)
+                .call()
+                .flatMap { it.remoteUpdates }
+                .map { it.status.name }
+        }
+    }
+
+    private fun fetch(path: String) = answeringHostKeyPrompts {
+        createRepository().use { git ->
+            git.fetch()
+                .setRemote(url(path))
+                .setRefSpecs(RefSpec("refs/heads/*:refs/remotes/origin/*"))
+                .setTransportConfigCallback(callback)
+                .call()
+        }
+    }
+
+    /**
+     * Runs [block], answering each host key question the way [trustHostKeys] says, as the user would in the dialog.
+     */
+    private fun <T> answeringHostKeyPrompts(block: () -> T): T = runBlocking {
+        val responder = launch(Dispatchers.Default) {
+            credentialsStateManager.credentialsState
+                .filterIsInstance<CredentialsRequest.SshHostKeyRequest>()
+                .collect { request ->
+                    hostKeyPrompts += request
+
+                    if (trustHostKeys) {
+                        credentialsStateManager.sshHostKeyTrusted()
+                    } else {
+                        credentialsStateManager.credentialsDenied()
+                    }
+                }
+        }
+
+        try {
+            withContext(Dispatchers.IO) { block() }
+        } finally {
+            responder.cancel()
         }
     }
 
@@ -259,6 +361,7 @@ class SshRemoteSessionTest {
         assertTrue(error.contains("ERROR: Permission to '/team/denied.git' denied to leaf-test.")) { error }
         assertFalse(error.contains("Remote channel is closed")) { error }
         assertEquals(emptyList<String>(), passwordPrompts)
+        assertEquals(emptyList<CredentialsRequest.SshHostKeyRequest>(), hostKeyPrompts)
     }
 
     /** The messages of the exception [block] throws and of its causes. */

@@ -198,6 +198,10 @@ class RepositoryTabViewModel @AssistedInject constructor(
         credentialsStateManager.sshCredentialsAccepted(password)
     }
 
+    fun sshHostKeyTrusted() {
+        credentialsStateManager.sshHostKeyTrusted()
+    }
+
     fun lfsCredentialsAccepted(user: String, password: String) {
         credentialsStateManager.lfsCredentialsAccepted(user, password)
     }

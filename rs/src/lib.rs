@@ -1,6 +1,7 @@
 extern crate notify;
 
 use std::collections::HashMap;
+use std::ffi::CStr;
 use std::fmt::Debug;
 use std::io::Write;
 use std::path::Path;
@@ -8,7 +9,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, LockResult, RwLock, RwLockWriteGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use libssh_rs::{SignAlgorithm, SshKey, SshOption, ssh_sign};
+use libssh_rs::{KnownHosts, PublicKeyHashType, SignAlgorithm, SshKey, SshOption, ssh_sign};
 
 #[allow(unused_imports)]
 use libssh_rs::AuthStatus;
@@ -383,7 +384,14 @@ impl Session {
         }
     }
 
-    pub fn setup(&self, host: String, user: String, port: Option<i32>) -> String {
+    /// Connects to `host`. `known_hosts_file` replaces the user's known_hosts file (`UserKnownHostsFile`), for tests.
+    pub fn setup(
+        &self,
+        host: String,
+        user: String,
+        port: Option<i32>,
+        known_hosts_file: Option<String>,
+    ) -> String {
         let session_holder = self.session_holder.as_ref().unwrap();
         let session = match session_holder.session.write() {
             Ok(s) => s,
@@ -423,12 +431,75 @@ impl Session {
             return format!("SSH Configuration parsing failed: {message}");
         }
 
+        // After the config, which could set it too
+        if let Some(file) = known_hosts_file {
+            if let Err(e) = session.set_option(SshOption::KnownHosts(Some(file))) {
+                let message = libssh_error_to_message(&e);
+                return format!("SSH known hosts option failed: {message}");
+            }
+        }
+
         if let Err(e) = session.connect() {
             let message = libssh_error_to_message(&e);
             return format!("Server connection failed: {message}");
         }
 
         String::new()
+    }
+
+    /// Compares the server's host key with the known_hosts files. Called after `setup`, before authenticating.
+    pub fn check_host_key(&self) -> HostKeyCheck {
+        let failed = |fingerprint: String, error: String| HostKeyCheck {
+            state: HostKeyState::Failed,
+            fingerprint,
+            error,
+        };
+
+        let session_holder = self.session_holder.as_ref().unwrap();
+        let session = match session_holder.session.write() {
+            Ok(s) => s,
+            Err(e) => {
+                return failed(String::new(), format!("Something failed obtaining write session: {e:?}"));
+            }
+        };
+
+        let fingerprint = match server_key_fingerprint(&session) {
+            Ok(fingerprint) => fingerprint,
+            Err(error) => return failed(String::new(), error),
+        };
+
+        let state = match session.is_known_server() {
+            Ok(KnownHosts::Ok) => HostKeyState::Known,
+            Ok(KnownHosts::Unknown) | Ok(KnownHosts::NotFound) => HostKeyState::Unknown,
+            Ok(KnownHosts::Changed) => HostKeyState::Changed,
+            Ok(KnownHosts::Other) => HostKeyState::OtherType,
+            Err(e) => return failed(fingerprint, libssh_error_to_message(&e)),
+        };
+
+        HostKeyCheck {
+            state,
+            fingerprint,
+            error: String::new(),
+        }
+    }
+
+    /// Adds the server's host key to the user's known_hosts file, as ssh does once the user trusts it.
+    pub fn accept_host_key(&self) -> String {
+        let session_holder = self.session_holder.as_ref().unwrap();
+        let session = match session_holder.session.write() {
+            Ok(s) => s,
+            Err(e) => {
+                return format!("Something failed obtaining write session: {e:?}");
+            }
+        };
+
+        match session.update_known_hosts_file() {
+            Ok(_) => String::new(),
+            Err(e) => {
+                let message = libssh_error_to_message(&e);
+                format!("Could not add the host key to known_hosts: {message}")
+            }
+        }
     }
 
     pub fn public_key_auth(&self, password: String) -> i32 {
@@ -712,6 +783,58 @@ fn to_int(auth_status: AuthStatus) -> i32 {
         AuthStatus::Info => 4,
         AuthStatus::Again => 5,
     }
+}
+
+/// How the server's host key compares with the known_hosts files.
+#[derive(uniffi::Enum)]
+pub enum HostKeyState {
+    /// The key is in a known_hosts file.
+    Known,
+    /// The host isn't in any known_hosts file, or there is none.
+    Unknown,
+    /// A known_hosts file has another key for the host.
+    Changed,
+    /// A known_hosts file has a key of another type for the host.
+    OtherType,
+    /// The key couldn't be checked, see `HostKeyCheck::error`.
+    Failed,
+}
+
+#[derive(uniffi::Record)]
+pub struct HostKeyCheck {
+    pub state: HostKeyState,
+    /// The server's key as ssh shows it ("SHA256:..."), or empty when it couldn't be read.
+    pub fingerprint: String,
+    pub error: String,
+}
+
+/// The SHA256 fingerprint of the server's host key, in ssh's format.
+fn server_key_fingerprint(session: &libssh_rs::Session) -> Result<String, String> {
+    let key = session
+        .get_server_public_key()
+        .map_err(|e| libssh_error_to_message(&e))?;
+    let mut hash = key
+        .get_public_key_hash(PublicKeyHashType::Sha256)
+        .map_err(|e| libssh_error_to_message(&e))?;
+
+    let fingerprint = unsafe {
+        libssh_rs_sys::ssh_get_fingerprint_hash(
+            libssh_rs_sys::ssh_publickey_hash_type::SSH_PUBLICKEY_HASH_SHA256,
+            hash.as_mut_ptr(),
+            hash.len(),
+        )
+    };
+
+    if fingerprint.is_null() {
+        return Err("Could not format the host key's fingerprint".to_string());
+    }
+
+    let text = unsafe { CStr::from_ptr(fingerprint) }
+        .to_string_lossy()
+        .into_owned();
+    unsafe { libssh_rs_sys::ssh_string_free_char(fingerprint) };
+
+    Ok(text)
 }
 
 fn libssh_error_to_message(err: &libssh_rs::Error) -> String {

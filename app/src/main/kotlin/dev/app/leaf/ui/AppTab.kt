@@ -106,6 +106,7 @@ fun AppTab(
             is CredentialsRequest.HttpCredentialsRequest -> Screen.HttpCredentials(state)
             is CredentialsRequest.LfsCredentialsRequest -> Screen.LfsCredentials(state)
             is CredentialsRequest.SshCredentialsRequest -> Screen.SshCredentials(state)
+            is CredentialsRequest.SshHostKeyRequest -> Screen.SshHostKey(state)
             else -> null
         }
 
@@ -274,6 +275,21 @@ fun AppTab(
                                     repositoryTabViewModel.sshCredentialsAccepted(password)
                                     backStack.removeLastOrNull()
                                 }
+                            )
+                        }
+                        entry<Screen.SshHostKey>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            SshHostKeyDialog(
+                                request = entry.request,
+                                onTrust = {
+                                    repositoryTabViewModel.sshHostKeyTrusted()
+                                    backStack.removeLastOrNull()
+                                },
+                                onReject = {
+                                    repositoryTabViewModel.credentialsDenied()
+                                    backStack.removeLastOrNull()
+                                },
                             )
                         }
                         entry<Screen.LfsCredentials>(

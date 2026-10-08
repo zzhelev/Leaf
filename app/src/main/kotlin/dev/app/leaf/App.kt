@@ -87,6 +87,7 @@ sealed interface Screen : NavKey {
     data object SubmoduleAdd : Screen
     data class HttpCredentials(val credentialsRequest: CredentialsRequest.HttpCredentialsRequest) : Screen
     data class SshCredentials(val credentialsRequest: CredentialsRequest.SshCredentialsRequest) : Screen
+    data class SshHostKey(val request: CredentialsRequest.SshHostKeyRequest) : Screen
     data class LfsCredentials(val credentialsRequest: CredentialsRequest.LfsCredentialsRequest) : Screen
     data object QuickActions : Screen
     data object SignOffData : Screen

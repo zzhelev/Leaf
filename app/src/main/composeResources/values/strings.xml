@@ -220,6 +220,11 @@
 
     <!-- Confirmations of actions that can lose work -->
     <string name="confirm_dialog_delete">Delete</string>
+    <string name="ssh_host_key_dialog_title">Trust this SSH server?</string>
+    <string name="ssh_host_key_dialog_subtitle">%1$s isn't in your known_hosts file yet</string>
+    <string name="ssh_host_key_dialog_fingerprint">The fingerprint of its host key is:</string>
+    <string name="ssh_host_key_dialog_explanation">Compare it with the fingerprint that your Git host publishes before you trust it. Leaf then adds the key to known_hosts, as ssh does, and refuses the server if its key ever changes.</string>
+    <string name="ssh_host_key_dialog_trust">Trust and connect</string>
     <string name="delete_submodule_dialog_title">Delete submodule</string>
     <string name="delete_submodule_dialog_subtitle">Delete submodule "%1$s"?</string>
     <string name="delete_submodule_dialog_warning">Its folder and its repository are deleted, with any changes, commits and stashes that aren't pushed.</string>
