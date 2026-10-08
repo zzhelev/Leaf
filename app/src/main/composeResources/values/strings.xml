@@ -218,6 +218,20 @@
     <string name="delete_ref_dialog_delete">Delete</string>
     <string name="delete_ref_dialog_delete_anyway">Delete anyway</string>
 
+    <!-- Checking out a remote branch whose local branch is behind it -->
+    <string name="fast_forward_dialog_title_checkout">Check out branch</string>
+    <string name="fast_forward_dialog_title_current">Fast-forward branch</string>
+    <plurals name="fast_forward_dialog_subtitle_checkout">
+        <item quantity="one">"%2$s" is %1$d commit behind "%3$s".\nFast-forward it before checking it out?</item>
+        <item quantity="other">"%2$s" is %1$d commits behind "%3$s".\nFast-forward it before checking it out?</item>
+    </plurals>
+    <plurals name="fast_forward_dialog_subtitle_current">
+        <item quantity="one">"%2$s" is %1$d commit behind "%3$s".\nFast-forward it?</item>
+        <item quantity="other">"%2$s" is %1$d commits behind "%3$s".\nFast-forward it?</item>
+    </plurals>
+    <string name="fast_forward_dialog_fast_forward">Fast-forward</string>
+    <string name="fast_forward_dialog_check_out_only">Check out only</string>
+
     <!-- Confirmations of actions that can lose work -->
     <string name="confirm_dialog_delete">Delete</string>
     <string name="ssh_host_key_dialog_title">Trust this SSH server?</string>
@@ -322,8 +336,7 @@
     <string name="error_create_branch_name_not_allowed">Branch name "%1$s" is not allowed, please use only alphanumeric characters.</string>
     <string name="error_delete_branch_not_merged">Branch "%1$s" isn't merged into the current branch</string>
     <string name="error_delete_tag_has_own_commits">Tag "%1$s" is the only branch or tag on some commits</string>
-    <string name="error_checkout_local_branch_already_exists">Checking out "%2$s" would create a local branch named "%1$s", but you already have one.</string>
-    <string name="error_checkout_local_branch_already_exists_hint">To bring "%1$s" up to date, check it out and pull, or merge "%2$s" into it.</string>
+    <string name="error_checkout_cannot_fast_forward">"%1$s" has commits that "%2$s" doesn't have, so it can't be fast-forwarded. Nothing was changed.</string>
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 

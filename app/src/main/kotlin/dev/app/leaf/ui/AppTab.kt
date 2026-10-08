@@ -418,6 +418,18 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.FastForwardOnCheckout>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            FastForwardOnCheckoutDialog(
+                                offer = entry.offer,
+                                onCheckout = { fastForward ->
+                                    backStack.removeLastOrNull()
+                                    entry.onCheckout(fastForward)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.QuickActions>(
                             metadata = dialogsMetadata
                         ) { entry ->

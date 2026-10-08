@@ -2,8 +2,7 @@ package dev.app.leaf.ui
 
 import androidx.compose.runtime.Composable
 import dev.app.leaf.app.generated.resources.Res
-import dev.app.leaf.app.generated.resources.error_checkout_local_branch_already_exists
-import dev.app.leaf.app.generated.resources.error_checkout_local_branch_already_exists_hint
+import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_not_merged
@@ -57,10 +56,8 @@ fun AppError.getErrorText(): String {
         }
 
         is CheckoutBranchError -> when (this) {
-            is CheckoutBranchError.LocalBranchAlreadyExists -> listOf(
-                stringResource(Res.string.error_checkout_local_branch_already_exists, localBranch, remoteBranch),
-                stringResource(Res.string.error_checkout_local_branch_already_exists_hint, localBranch, remoteBranch),
-            ).joinToString("\n\n")
+            is CheckoutBranchError.CannotFastForward ->
+                stringResource(Res.string.error_checkout_cannot_fast_forward, localBranch, remoteBranch)
         }
 
         is DeleteRefError -> when (this) {

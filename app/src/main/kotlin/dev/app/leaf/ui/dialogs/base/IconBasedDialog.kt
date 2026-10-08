@@ -55,6 +55,8 @@ fun IconBasedDialog(
     isPrimaryActionEnabled: Boolean = true,
     showCancelAction: Boolean = true,
     cancelActionText: String = stringResource(Res.string.generic_button_cancel),
+    secondaryActionText: String? = null,
+    onSecondaryActionClicked: () -> Unit = {},
     beforeActionsFocusRequester: FocusRequester?,
     actionsFocusRequester: FocusRequester?,
     afterActionsFocusRequester: FocusRequester?,
@@ -124,6 +126,15 @@ fun IconBasedDialog(
                                 }
                             },
                         onClick = onDismiss,
+                        backgroundColor = Color.Transparent,
+                        textColor = MaterialTheme.colors.onBackground,
+                    )
+                }
+                if (secondaryActionText != null) {
+                    PrimaryButton(
+                        text = secondaryActionText,
+                        modifier = Modifier.padding(end = 8.dp),
+                        onClick = onSecondaryActionClicked,
                         backgroundColor = Color.Transparent,
                         textColor = MaterialTheme.colors.onBackground,
                     )

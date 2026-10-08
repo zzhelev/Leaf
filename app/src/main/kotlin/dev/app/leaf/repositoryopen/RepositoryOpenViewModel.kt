@@ -38,6 +38,7 @@ import dev.app.leaf.terminal.OpenRepositoryInTerminalGitAction
 import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
+import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.status.StatusAction
 import dev.app.leaf.ui.toUiDataState
 import dev.app.leaf.updates.Update
@@ -107,6 +108,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val deleteSubmoduleUseCase: DeleteSubmoduleUseCase,
     private val mergeBranchUseCase: MergeBranchUseCase,
     private val checkoutBranchUseCase: CheckoutBranchUseCase,
+    private val getRemoteBranchCheckoutUseCase: GetRemoteBranchCheckoutUseCase,
+    private val checkoutRemoteBranchUseCase: CheckoutRemoteBranchUseCase,
     private val updateSubmoduleUseCase: UpdateSubmoduleUseCase,
     private val syncSubmoduleUseCase: SyncSubmoduleUseCase,
     private val pushBranchUseCase: PushBranchUseCase,
@@ -192,6 +195,10 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val freeSearchFocusFlow: SharedFlow<Unit>
         field = MutableSharedFlow<Unit>()
+
+    /** Remote branches being checked out whose local branch can be fast-forwarded first, if the user wants to. */
+    val fastForwardOffers: SharedFlow<FastForwardOffer>
+        field = MutableSharedFlow<FastForwardOffer>()
 
     val diffSelected: StateFlow<DiffSelected?>
         field = MutableStateFlow<DiffSelected?>(null)
@@ -620,7 +627,25 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun deleteRemoteBranch(branch: Branch) = deleteRemoteBranchUseCase(branch)
 
-    fun checkoutRemoteBranch(remoteBranch: Branch) = checkoutBranchUseCase(remoteBranch)
+    /**
+     * Checks out the local branch of [remoteBranch], which is created if it doesn't exist. When it exists and is behind
+     * [remoteBranch], an offer on [fastForwardOffers] lets the user choose whether to fast-forward it first.
+     */
+    fun checkoutRemoteBranch(remoteBranch: Branch) {
+        viewModelScope.launch {
+            // If this fails, the checkout fails too and reports why
+            val checkout = getRemoteBranchCheckoutUseCase(remoteBranch).okOrNull()
+
+            if (checkout is RemoteBranchCheckout.ChecksOutLocalBranch && checkout.canFastForward) {
+                fastForwardOffers.emit(FastForwardOffer(remoteBranch, checkout))
+            } else {
+                checkoutRemoteBranchUseCase(remoteBranch, fastForward = false)
+            }
+        }
+    }
+
+    fun checkoutRemoteBranch(remoteBranch: Branch, fastForward: Boolean) =
+        checkoutRemoteBranchUseCase(remoteBranch, fastForward)
 
     fun applyStash(stash: Commit) = applyStashUseCase(stash)
     fun popStash(stash: Commit) = popStashUseCase(stash)

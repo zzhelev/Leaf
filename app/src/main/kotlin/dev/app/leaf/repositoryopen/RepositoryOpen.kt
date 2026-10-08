@@ -176,6 +176,16 @@ fun RepositoryOpenPage(
     LaunchedEffect(repositoryOpenViewModel) {
         focusRequester.requestFocus()
     }
+
+    LaunchedEffect(repositoryOpenViewModel) {
+        repositoryOpenViewModel.fastForwardOffers.collect { offer ->
+            onNavigate(
+                Screen.FastForwardOnCheckout(offer) { fastForward ->
+                    repositoryOpenViewModel.checkoutRemoteBranch(offer.remoteBranch, fastForward)
+                }
+            )
+        }
+    }
 }
 
 @Composable

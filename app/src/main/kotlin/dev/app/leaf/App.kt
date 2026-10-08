@@ -51,6 +51,7 @@ import dev.app.leaf.ui.components.TabsRow
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.context_menu.AppPopupMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
+import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -97,6 +98,11 @@ sealed interface Screen : NavKey {
     data object StashWithMessage : Screen
     /** Asks before [action], which [onConfirm] runs. */
     data class ConfirmAction(val action: ConfirmableAction, val onConfirm: () -> Unit) : Screen
+    /** Asks whether to fast-forward [offer]'s local branch, then [onCheckout] checks it out. */
+    data class FastForwardOnCheckout(
+        val offer: FastForwardOffer,
+        val onCheckout: (fastForward: Boolean) -> Unit,
+    ) : Screen
     data class DiscardFolderChanges(
         val folderPath: String,
         val entries: List<StatusEntry>,

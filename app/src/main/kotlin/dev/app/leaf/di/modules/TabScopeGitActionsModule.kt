@@ -84,6 +84,14 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
+    fun bindsCheckoutRemoteBranchGitAction(action: CheckoutRemoteBranchGitAction): ICheckoutRemoteBranchGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetRemoteBranchCheckoutGitAction(action: GetRemoteBranchCheckoutGitAction): IGetRemoteBranchCheckoutGitAction
+
+    @Binds
+    @TabScope
     fun bindsCherryPickCommitGitAction(action: CherryPickCommitGitAction): ICherryPickCommitGitAction
 
     @Binds

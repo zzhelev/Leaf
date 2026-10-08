@@ -13,8 +13,11 @@ sealed interface CreateBranchError : GitError {
 }
 
 sealed interface CheckoutBranchError : GitError {
-    /** Checking out [remoteBranch] creates a local branch named [localBranch], and one already exists. */
-    data class LocalBranchAlreadyExists(val localBranch: String, val remoteBranch: String) : CheckoutBranchError
+    /**
+     * Checking out [remoteBranch] was to fast-forward the local branch [localBranch] to it, but they have diverged
+     * since the user chose to: [localBranch] has commits that [remoteBranch] doesn't have. Nothing changed.
+     */
+    data class CannotFastForward(val localBranch: String, val remoteBranch: String) : CheckoutBranchError
 }
 
 /**
