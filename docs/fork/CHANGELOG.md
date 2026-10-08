@@ -2,6 +2,48 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## SSH checks the server's host key (branch `fix/ssh-host-key-check`)
+
+Stage 0c of `docs/fork/remote-operations.md`.
+
+- **Before:** Leaf's SSH transport (libssh) never compared the server's key with known_hosts. It connected to any
+  server, unknown or with a changed key, and sent it the user's credentials. Upstream has the same code.
+- **Now:** `SshRemoteSession` checks the key after connecting and before authenticating, as ssh does with its default
+  `StrictHostKeyChecking ask`. Push, fetch, pull, clone, submodules and LFS over SSH all go through it.
+  - **Known key:** Leaf connects.
+  - **Unknown host, or no known_hosts file:** the new `SshHostKeyDialog` shows the host and its key's fingerprint as
+    ssh prints it (`SHA256:...`). Once the user trusts it, libssh adds the key to the user's known_hosts file
+    (`UserKnownHostsFile`, `~/.ssh/known_hosts` by default), which ssh shares. Cancel stops the connection with "Host
+    key verification failed".
+  - **Changed key, or a key of another type than the known one:** Leaf refuses, explains that someone may be
+    intercepting the connection, shows the new fingerprint, and points to `ssh-keygen -R`. There is no way to
+    connect anyway, as with ssh.
+  - Failures are JGit `TransportException`s: JGit reports anything else from the session as "remote hung up
+    unexpectedly", which hid the reason.
+- **Code:**
+  - `rs/src/lib.rs`: `Session.check_host_key` (libssh's `ssh_session_is_known_server`, and the fingerprint from
+    `ssh_get_fingerprint_hash`) returns a `HostKeyCheck` with a `HostKeyState`. `Session.accept_host_key` runs
+    `ssh_session_update_known_hosts`. `Session.setup` takes an optional known_hosts file, which only tests pass.
+  - `CredentialsStateManager.requestSshHostKeyTrust`, `CredentialsRequest.SshHostKeyRequest` and
+    `CredentialsAccepted.SshHostKeyTrusted`, shown as `Screen.SshHostKey`.
+- **Unlike ssh:** Leaf doesn't read `StrictHostKeyChecking` from ssh_config (libssh can't report it), so it always
+  asks about an unknown host and never connects to a changed one. libssh-rs doesn't give the key's type, so the
+  dialog shows only the fingerprint.
+  - libssh reads hashed known_hosts entries, but not `@cert-authority` or `@revoked` lines (from its source, not
+    tested). A host that ssh trusts through a certificate authority is asked about, and a revoked key counts as
+    unknown.
+- **Tests:** `SshRemoteSessionTest` (9, 4 new) gives Leaf a known_hosts file of its own, so the developer's isn't read
+  or written.
+  - An unknown key that the user trusts is added, with the host as `[127.0.0.1]:<port>` and the fingerprint that
+    ssh-keygen shows, and isn't asked about again.
+  - An unknown key that the user doesn't trust stops the connection, and no known_hosts file is created.
+  - A changed key, and a known ECDSA key where the server has ED25519, are refused without asking.
+  - Five mutations were each caught: skipping the check, not saving a trusted key, connecting despite a changed key
+    or a key of another type, and dropping the explanation when the user doesn't trust the key.
+  - The dialog was rendered offscreen in the dark and light themes.
+  - `./gradlew build` passes, with 321 tests (232 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** the dialog in the running app, and Windows.
+
 ## Credentials are stored with every helper once the server takes them (branch `feature/credential-approve`)
 
 Closes the last gap listed under "Still unlike git" in "Only the password is asked for when the user name is
@@ -92,7 +134,7 @@ Stage 0b of `docs/fork/remote-operations.md`, and the message part of Gitnuro#29
     without keeping stderr, closing without the exit status, and `exitValue` always 0. The server waits 0.2 s
     before it refuses, so that ending stderr early is caught every time.
   - Logging a failure to close the channel, instead of throwing it, isn't tested: closing never failed here.
-  - `./gradlew build` passes, with 300 tests (211 in `:data`, 82 in `:domain`, 7 in `:common`).
+  - `./gradlew build` passes, with 317 tests (228 in `:data`, 82 in `:domain`, 7 in `:common`), on `main` at the time.
 - **Not tried:** the running app, Windows, and the #294 reporter's setup (Windows, two GitHub accounts).
 
 ## Other actions that can lose work ask first (branch `claude/dazzling-leakey-b0b642`)

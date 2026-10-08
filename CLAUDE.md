@@ -216,6 +216,11 @@ asking.
   - Never use libssh-rs's `poll_timeout`: it passes `is_stderr` and the timeout to libssh in the wrong order.
     `SshChannelInputErrStream` polls with `read_available` instead, and `ChannelWrapper.close` keeps stderr and the
     exit status, which JGit reads after it closes the connection (`SshRemoteSessionTest`).
+  - `SshRemoteSession` checks the server's host key (`Session.check_host_key`) before it authenticates. An unknown key
+    is asked about (`CredentialsRequest.SshHostKeyRequest`, `SshHostKeyDialog`) and then added to the user's
+    known_hosts, and a changed one is refused. Errors from the session must be JGit `TransportException`s: JGit reports
+    anything else as "remote hung up unexpectedly". Tests pass a known_hosts file of their own to `SshRemoteSession`,
+    so the developer's is never written.
 - `buildSrc`: convention plugin `buildsrc.convention.kotlin-jvm`. It sets toolchain 25, `-Xexplicit-backing-fields`,
   `-Xcontext-parameters` and the JUnit platform.
 

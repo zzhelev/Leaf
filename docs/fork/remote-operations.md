@@ -18,7 +18,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
   patched in a test harness, JGit reported the server's message instead. Stage 0b fixed them.
 - **The libssh path has gaps beyond #294.** Some are security problems:
   - It never verifies the server's host key. Leaf pushed to a server whose key had changed, where the git CLI refused
-    with "REMOTE HOST IDENTIFICATION HAS CHANGED".
+    with "REMOTE HOST IDENTIFICATION HAS CHANGED". Stage 0c fixed this.
   - The Ktor client used for LFS and the update check trusts every TLS certificate (fixed by stage 0a).
   - It has no FIDO2 keys, no `ProxyCommand`, no `Include` with wildcards, and no SSH agent on Windows.
   - The Cancel button does nothing, and SSH reads have no timeout.
@@ -55,7 +55,7 @@ screen's Cancel button can't stop a hung operation.
   - It sets `PublicKeyAcceptedTypes` to a list without any `sk-*` (FIDO2) type.
   - It calls `options_parse_config(None)`, which reads `~/.ssh/config`, then `/etc/ssh/ssh_config`. libssh finds
     `~` with `getpwuid`, not `$HOME`.
-  - It connects. **No host key check:** nothing calls `ssh_session_is_known_server`.
+  - It connects. **No host key check** until stage 0c: nothing called `ssh_session_is_known_server`.
 - **Authentication:**
   - `userauth_public_key_auto("")` tries the agent first, then the `IdentityFile` entries (prepended), then
     `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa`.
@@ -321,8 +321,10 @@ the CLI reproduces. Effort sizes are rough: S, M, L.
   - No libssh-rs patch was needed: `R/lib.rs` uses libssh-rs's `read_nonblocking`, `is_eof` and `get_exit_status`
     in place of `poll_timeout`.
   - Test: `SshRemoteSessionTest`, the sshd harness above, skipped without OpenSSH or the native library.
-- **0c (M).** Host key verification in `R/lib.rs` (`ssh_session_is_known_server`, `ssh_session_update_known_hosts`)
-  and `SshRemoteSession`, with a confirmation dialog. It is required if the SSH fallback stays.
+- **0c (M), done on branch `fix/ssh-host-key-check`.** Host key verification in `R/lib.rs`
+  (`ssh_session_is_known_server`, `ssh_session_update_known_hosts`) and `SshRemoteSession`, with a confirmation
+  dialog (`SshHostKeyDialog`), as ssh does with `StrictHostKeyChecking ask`. `StrictHostKeyChecking` itself isn't
+  read.
 - 0a and 0c affect upstream Gitnuro too, and should go to it as a private security advisory, not a public issue.
 
 **Stage 1: push (L).** Push first: #294 is about push, push doesn't touch the working tree, and `--porcelain`
@@ -369,5 +371,5 @@ SSH signing to move.
    approval.
 2. Whether to keep a user-visible "Built-in" backend setting during the transition.
 3. SSH passphrases: rely on ssh-agent, or let Leaf cache them per key for the session.
-4. Whether 0b and 0c are worth doing if the fallback is meant to be rare.
+4. Whether 0b and 0c are worth doing if the fallback is meant to be rare: **both done** (2026-10-08).
 5. Whether to report the host-key and TLS findings to upstream privately.
