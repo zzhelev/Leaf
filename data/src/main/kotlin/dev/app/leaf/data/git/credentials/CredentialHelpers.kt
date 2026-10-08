@@ -42,14 +42,13 @@ class CredentialHelpers @Inject constructor(
 ) {
     /**
      * The credential settings that git applies to [uri] in [repository], or without one (cloning) in the user's and
-     * the system's config. Null if they set no helper.
+     * the system's config. Their helpers are the ones Leaf can run here, and may be none.
      */
-    suspend fun find(repository: Repository?, uri: URIish): CredentialSettings? {
+    suspend fun find(repository: Repository?, uri: URIish): CredentialSettings {
         val entries = gitConfigEntries(repository) ?: jgitCredentialEntries(jgitConfig(repository), uri)
         val settings = credentialSettings(entries, uri)
-        val helpers = settings.helpers.mapNotNull { helper -> platformHelper(helper) }
 
-        return if (helpers.isEmpty()) null else settings.copy(helpers = helpers)
+        return settings.copy(helpers = settings.helpers.mapNotNull { helper -> platformHelper(helper) })
     }
 
     /**
@@ -142,7 +141,7 @@ class CredentialHelpers @Inject constructor(
             }
         }
 
-        return HelperAnswer.NotStored
+        return HelperAnswer.NotStored(user)
     }
 
     /** What [helper] answers to `get` with [helperInput], or null if it didn't answer within a minute. */
@@ -264,8 +263,11 @@ class CredentialHelpers @Inject constructor(
 sealed interface HelperAnswer {
     data class Credentials(val user: String, val password: String) : HelperAnswer
 
-    /** No helper has credentials for the URL, so Leaf asks the user. */
-    data object NotStored : HelperAnswer
+    /**
+     * No helper has credentials for the URL, so Leaf asks the user. [user] is the user name known so far, from the URL,
+     * `credential.username` or a helper: then Leaf asks only for the password, as git does.
+     */
+    data class NotStored(val user: String?) : HelperAnswer
 
     /**
      * Leaf gives no credentials: git refuses the URL, a helper said `quit`, or a helper didn't answer within a

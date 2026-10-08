@@ -18,8 +18,16 @@ class CredentialsStateManager @Inject constructor() {
     val credentialsState: StateFlow<CredentialsState>
         field = MutableStateFlow<CredentialsState>(CredentialsState.None)
 
-    suspend fun requestHttpCredentials(): CredentialsAccepted.HttpCredentialsAccepted {
-        return requestAwaitingCredentials(CredentialsRequest.HttpCredentialsRequest)
+    /**
+     * Asks the user for the credentials of an HTTPS remote. When git already knows the [user] name, for the URL or
+     * from `credential.username`, the user is asked only for the password, as git does, and the answer has [user].
+     */
+    suspend fun requestHttpCredentials(user: String?): CredentialsAccepted.HttpCredentialsAccepted {
+        val accepted = requestAwaitingCredentials<CredentialsAccepted.HttpCredentialsAccepted>(
+            CredentialsRequest.HttpCredentialsRequest(user)
+        )
+
+        return if (user == null) accepted else accepted.copy(user = user)
     }
 
     suspend fun requestSshCredentials(isRetry: Boolean, password: String?): CredentialsAccepted.SshCredentialsAccepted {
@@ -30,8 +38,13 @@ class CredentialsStateManager @Inject constructor() {
         return requestAwaitingCredentials(CredentialsRequest.GpgCredentialsRequest(isRetry, password))
     }
 
-    suspend fun requestLfsCredentials(): CredentialsAccepted.LfsCredentialsAccepted {
-        return requestAwaitingCredentials(CredentialsRequest.LfsCredentialsRequest)
+    /** Asks the user for the credentials of an LFS server, like [requestHttpCredentials]. */
+    suspend fun requestLfsCredentials(user: String?): CredentialsAccepted.LfsCredentialsAccepted {
+        val accepted = requestAwaitingCredentials<CredentialsAccepted.LfsCredentialsAccepted>(
+            CredentialsRequest.LfsCredentialsRequest(user)
+        )
+
+        return if (user == null) accepted else accepted.copy(user = user)
     }
 
     fun credentialsDenied() {
@@ -97,7 +110,13 @@ sealed interface CredentialsRequest : CredentialsState {
     data class SshCredentialsRequest(val isRetry: Boolean, val password: String) : CredentialsRequest
     @Immutable
     data class GpgCredentialsRequest(val isRetry: Boolean, val password: String) : CredentialsRequest
-    data object HttpCredentialsRequest : CredentialsRequest
-    data object LfsCredentialsRequest : CredentialsRequest
+
+    /** [user] is the user name that git knows for the URL, if any: then only the password is asked for. */
+    @Immutable
+    data class HttpCredentialsRequest(val user: String?) : CredentialsRequest
+
+    /** [user] is the user name that git knows for the URL, if any: then only the password is asked for. */
+    @Immutable
+    data class LfsCredentialsRequest(val user: String?) : CredentialsRequest
 }
 

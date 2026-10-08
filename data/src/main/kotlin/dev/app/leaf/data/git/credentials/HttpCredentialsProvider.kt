@@ -86,14 +86,14 @@ class HttpCredentialsProvider @AssistedInject constructor(
 
         val helperSettings = runBlocking { credentialHelpers.find(git?.repository, uri) }
 
-        if (helperSettings == null) {
+        if (helperSettings.helpers.isEmpty()) {
             val cachedCredentials = credentialsCacheRepository.getCachedHttpCredentials(
                 url = uri.toString(),
                 isLfs = false,
             )
             // TODO Reenable this after refactoring
             if (cachedCredentials == null /*|| !appSettingsRepository.cacheCredentialsInMemory*/) {
-                val credentials = askForCredentials()
+                val credentials = askForCredentials(helperSettings.username)
 
                 userItem.value = credentials.user
                 passwordItem.value = credentials.password.toCharArray()
@@ -135,8 +135,8 @@ class HttpCredentialsProvider @AssistedInject constructor(
                 }
 
                 HelperAnswer.Failed -> return false
-                HelperAnswer.NotStored -> {
-                    val credentials = askForCredentials()
+                is HelperAnswer.NotStored -> {
+                    val credentials = askForCredentials(answer.user)
                     userItem.value = credentials.user
                     passwordItem.value = credentials.password.toCharArray()
 
@@ -182,8 +182,9 @@ class HttpCredentialsProvider @AssistedInject constructor(
         credentialHelpers.erase(rejected.settings, rejected.uri, rejected.user, rejected.password, rejected.stores)
     }
 
-    private fun askForCredentials(): CredentialsAccepted.HttpCredentialsAccepted = runBlocking {
-        credentialsStateManager.requestHttpCredentials()
+    /** Asks the user for credentials, or only for the password when git knows the [user] name. */
+    private fun askForCredentials(user: String?): CredentialsAccepted.HttpCredentialsAccepted = runBlocking {
+        credentialsStateManager.requestHttpCredentials(user)
     }
 
     override suspend fun cacheCredentialsIfNeeded() {

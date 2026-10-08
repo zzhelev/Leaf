@@ -82,10 +82,10 @@ sealed interface Screen : NavKey {
     data class AddEditRemote(val remote: Remote?) : Screen
     data class Error(val error: CompletedTask.Failure) : Screen
     data object SubmoduleAdd : Screen
-    data object HttpCredentials : Screen
+    data class HttpCredentials(val credentialsRequest: CredentialsRequest.HttpCredentialsRequest) : Screen
     data class SshCredentials(val credentialsRequest: CredentialsRequest.SshCredentialsRequest) : Screen
     data class GpgCredentials(val credentialsRequest: CredentialsRequest.GpgCredentialsRequest) : Screen
-    data object LfsCredentials : Screen
+    data class LfsCredentials(val credentialsRequest: CredentialsRequest.LfsCredentialsRequest) : Screen
     data object QuickActions : Screen
     data object SignOffData : Screen
     data object Author : Screen

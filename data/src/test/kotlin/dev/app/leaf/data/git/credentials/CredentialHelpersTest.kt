@@ -135,13 +135,13 @@ class CredentialHelpersTest {
                 Executable {
                     val gitRun = runGitCredentialFill(repository, url)
                     val settings = find(repository, url)
-                    val helpers = settings?.helpers?.map { it.removePrefix("!leaf-helper ") }
+                    val helpers = settings.helpers.map { it.removePrefix("!leaf-helper ") }
 
                     assertEquals(expectedHelpers, gitRun.helpers, "the helpers git runs for $url")
                     assertEquals(gitRun.helpers, helpers, "the helpers for $url")
                     assertEquals(
                         gitRun.firstInput,
-                        settings?.let { credentialHelperInput(URIish(url), it.useHttpPath, it.username) },
+                        credentialHelperInput(URIish(url), settings.useHttpPath, settings.username),
                         "what the first helper reads for $url",
                     )
                 }
@@ -187,7 +187,7 @@ class CredentialHelpersTest {
         val secondGitInput = File(tools, "second.get.input").readText()
         File(tools, "runs").delete()
 
-        val answer = credentialHelpers().get(find(repository, REMOTE_URL)!!, URIish(REMOTE_URL))
+        val answer = credentialHelpers().get(find(repository, REMOTE_URL), URIish(REMOTE_URL))
 
         assertEquals(HelperAnswer.Credentials("first-user", "second=password"), answer)
         assertEquals(gitRun.answer, answer)
@@ -202,7 +202,7 @@ class CredentialHelpersTest {
         globalConfig.writeText("[credential]\n\thelper = !leaf-helper keychain\n\tusername = config-user\n")
         val url = "https://alice@example.invalid/team/project.git"
 
-        val answer = credentialHelpers().get(find(repository, url)!!, URIish(url))
+        val answer = credentialHelpers().get(find(repository, url), URIish(url))
 
         assertEquals(HelperAnswer.Credentials("alice", "keychain-password"), answer)
         assertEquals(
@@ -217,7 +217,7 @@ class CredentialHelpersTest {
         File(tools, "first.answer").writeText("username=first-user\nquit=1\n")
         globalConfig.writeText("[credential]\n\thelper = !leaf-helper first\n\thelper = !leaf-helper second\n")
 
-        val answer = credentialHelpers().get(find(repository, REMOTE_URL)!!, URIish(REMOTE_URL))
+        val answer = credentialHelpers().get(find(repository, REMOTE_URL), URIish(REMOTE_URL))
 
         assertEquals(HelperAnswer.Failed, answer)
         assertEquals(listOf("first"), runs())
@@ -242,7 +242,7 @@ class CredentialHelpersTest {
         }
 
         val answer = credentialHelpers(shellManager = shellManager)
-            .get(find(repository, REMOTE_URL)!!, URIish(REMOTE_URL))
+            .get(find(repository, REMOTE_URL), URIish(REMOTE_URL))
 
         assertEquals(HelperAnswer.Credentials("second-user", "second-password"), answer)
     }
@@ -250,7 +250,7 @@ class CredentialHelpersTest {
     @Test
     fun `credentials are stored with every helper, and erased from every helper`() {
         globalConfig.writeText("[credential]\n\thelper = !leaf-helper first\n\thelper = !leaf-helper second\n")
-        val settings = find(repository, REMOTE_URL)!!
+        val settings = find(repository, REMOTE_URL)
         val helpers = credentialHelpers()
         val expectedInput = "protocol=https\nhost=example.invalid\nusername=user\npassword=pass=word\n"
 
@@ -274,7 +274,7 @@ class CredentialHelpersTest {
         repository: Repository?,
         url: String,
         gitCli: GitCli = testGitCli(shellVariables),
-    ): CredentialSettings? = runBlocking { credentialHelpers(gitCli).find(repository, URIish(url)) }
+    ): CredentialSettings = runBlocking { credentialHelpers(gitCli).find(repository, URIish(url)) }
 
     private fun credentialHelpers(
         gitCli: GitCli = testGitCli(shellVariables),

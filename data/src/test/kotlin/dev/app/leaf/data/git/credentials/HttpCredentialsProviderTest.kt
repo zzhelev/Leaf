@@ -15,6 +15,7 @@ import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.credentials.external.IGitCredentialsManagerProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -26,6 +27,7 @@ import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -34,6 +36,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.api.function.Executable
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.io.IOException
@@ -78,6 +81,15 @@ class HttpCredentialsProviderTest {
             "XDG_CACHE_HOME" to tempDir.absolutePath,
         )
     }
+
+    /** The user's git config, which git reads also without a repository. */
+    private val globalConfig by lazy { File(shellVariables.getValue("GIT_CONFIG_GLOBAL")) }
+
+    /**
+     * The user name that each prompt showed, when Leaf asked for the password alone, or null when it asked for the user
+     * name too.
+     */
+    private val askedUsers = mutableListOf<String?>()
 
     /** The repositories that [createProvider] opened. */
     private val repositories = mutableListOf<Git>()
@@ -363,7 +375,7 @@ class HttpCredentialsProviderTest {
     @Test
     fun `without a repository, as when cloning, the user's git config sets the helper`() {
         createRecordingHelper(answer = Answer("helper-user", "helper-password"))
-        File(shellVariables.getValue("GIT_CONFIG_GLOBAL")).writeText("[credential]\n\thelper = leaf-test\n")
+        globalConfig.writeText("[credential]\n\thelper = leaf-test\n")
         val provider = createProvider(helper = null, inRepository = false)
 
         assertEquals(Answer("helper-user", "helper-password"), provider.requestCredentials())
@@ -378,6 +390,7 @@ class HttpCredentialsProviderTest {
         }
 
         assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials())
+        assertEquals(listOf<String?>(null), askedUsers)
         assertEquals("https://prompted-user:prompted-password@example.invalid\n", awaitText(awaitFile(credentialsFile)))
         provider.reset(URIish(REMOTE_URL))
 
@@ -387,6 +400,60 @@ class HttpCredentialsProviderTest {
             "${EXPECTED_INPUT}username=prompted-user\npassword=prompted-password\n",
             File(tools, "erase.input").readText(),
         )
+    }
+
+    @Test
+    fun `Leaf asks for the password alone when git does, and shows the user name that git shows`() {
+        File(tools, "leaf-username").writeExecutable(
+            "#!/bin/sh\ncat > /dev/null\n[ \"\$1\" = get ] && echo username=carol\nexit 0\n"
+        )
+        val aliceUrl = "https://alice@example.invalid/team/project.git"
+        val bob = "[credential]\n\tusername = bob\n"
+        val dora = "[credential \"https://example.invalid\"]\n\tusername = dora\n"
+        // The user's config, the URL, and the user name that git shows
+        val cases = listOf(
+            Triple("", REMOTE_URL, null),
+            Triple("", aliceUrl, "alice"),
+            Triple(bob, REMOTE_URL, "bob"),
+            Triple(bob, aliceUrl, "alice"),
+            Triple(dora, REMOTE_URL, "dora"),
+            Triple(dora, "https://other.invalid/team/project.git", null),
+            // A helper that gives only the user name
+            Triple("[credential]\n\thelper = !leaf-username\n", REMOTE_URL, "carol"),
+        )
+
+        assertAll(
+            cases.map { (config, url, expectedUser) ->
+                Executable {
+                    globalConfig.writeText(config)
+                    askedUsers.clear()
+
+                    val answer = createProvider(helper = null, inRepository = false).requestCredentials(url = url)
+
+                    assertEquals(expectedUser, userThatGitShows(url), "the user name git shows for $url with $config")
+                    assertEquals(listOf(expectedUser), askedUsers, "the user name shown for $url with $config")
+                    assertEquals(Answer(expectedUser ?: "prompted-user", "prompted-password"), answer)
+                }
+            }
+        )
+    }
+
+    @Test
+    fun `typed credentials are stored with the user name that git knows, where git finds them`() {
+        val credentialsFile = File(tempDir, ".git-credentials")
+        val provider = createProvider(helper = "store") { setString("credential", null, "username", "bob") }
+
+        // Whatever user name the dialog gives, the request's is the one used
+        assertEquals(Answer("bob", "prompted-password"), provider.requestCredentials())
+        assertEquals(listOf<String?>("bob"), askedUsers)
+        assertEquals("https://bob:prompted-password@example.invalid\n", awaitText(awaitFile(credentialsFile)))
+
+        // Git, with the same settings, gives them without asking
+        val filled = runGit(
+            listOf("-c", "credential.helper=store", "-c", "credential.username=bob", "credential", "fill"),
+            input = "url=$REMOTE_URL\n",
+        )
+        assertEquals("${EXPECTED_INPUT}username=bob\npassword=prompted-password\n", filled)
     }
 
     @Test
@@ -558,7 +625,11 @@ class HttpCredentialsProviderTest {
         val password = CredentialItem.Password()
 
         val prompt = launch(Dispatchers.Default) {
-            credentialsStateManager.credentialsState.first { it == CredentialsRequest.HttpCredentialsRequest }
+            val request = credentialsStateManager.credentialsState
+                .filterIsInstance<CredentialsRequest.HttpCredentialsRequest>()
+                .first()
+
+            askedUsers += request.user
             credentialsStateManager.httpCredentialsAccepted(promptAnswer.user, promptAnswer.password)
         }
 
@@ -636,10 +707,36 @@ class HttpCredentialsProviderTest {
     }
 
     /**
+     * The user name that `git credential fill` shows for [url], with the user's config, when it asks for the password
+     * alone, or null if it asks for the user name too. Git asks through `GIT_ASKPASS`.
+     */
+    private fun userThatGitShows(url: String): String? {
+        val prompts = File(tempDir, "prompts").apply { delete() }
+        val askpass = File(tempDir, "askpass").writeExecutable(
+            "#!/bin/sh\necho \"\$1\" >> '${prompts.absolutePath}'\necho typed\n"
+        )
+
+        runGit(listOf("credential", "fill"), "url=$url\n", environment = mapOf("GIT_ASKPASS" to askpass.absolutePath))
+        val asked = prompts.readLines()
+
+        // When git asks for the user name, the password prompt shows the typed one
+        if (asked.any { it.startsWith("Username") }) {
+            return null
+        }
+
+        return Regex("^Password for 'https://([^@]+)@").find(asked.single())!!.groupValues[1]
+    }
+
+    /**
      * Runs git with [args] and [input] outside any repository, ignoring the developer's git config and never prompting,
      * and returns its output.
      */
-    private fun runGit(args: List<String>, input: String, requireSuccess: Boolean = true): String {
+    private fun runGit(
+        args: List<String>,
+        input: String,
+        requireSuccess: Boolean = true,
+        environment: Map<String, String> = emptyMap(),
+    ): String {
         val process = ProcessBuilder(listOf("git") + args)
             .directory(tempDir)
             .apply {
@@ -647,6 +744,7 @@ class HttpCredentialsProviderTest {
                 environment()["GIT_TERMINAL_PROMPT"] = "0"
                 environment().remove("GIT_ASKPASS")
                 environment().remove("SSH_ASKPASS")
+                environment().putAll(environment)
             }
             .start()
 

@@ -3,6 +3,7 @@ package dev.app.leaf.ui.dialogs.base
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
+import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -18,28 +19,36 @@ import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
+import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.outlinedTextFieldColors
 import dev.app.leaf.ui.components.AdjustableOutlinedTextField
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Asks for a user name and a password. With a [user] name that git already knows, it shows it and asks only for the
+ * password, as git does, and [onAccept] gets [user].
+ */
 @Composable
 fun UserPasswordDialog(
     title: String,
     subtitle: String,
     icon: Painter,
+    user: String? = null,
     onDismiss: () -> Unit,
     onAccept: (user: String, password: String) -> Unit,
 ) {
-    var userField by remember { mutableStateOf("") }
+    var userField by remember { mutableStateOf(user.orEmpty()) }
     var passwordField by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     val userFieldFocusRequester = remember { FocusRequester() }
     val passwordFieldFocusRequester = remember { FocusRequester() }
     val actionsFocusRequester = remember { FocusRequester() }
     val acceptDialog = {
-        onAccept(userField, passwordField)
+        onAccept(user ?: userField, passwordField)
     }
+    // The first field that the user can edit
+    val firstFieldFocusRequester = if (user == null) userFieldFocusRequester else passwordFieldFocusRequester
 
     IconBasedDialog(
         icon = icon,
@@ -50,8 +59,9 @@ fun UserPasswordDialog(
         onPrimaryActionClicked = acceptDialog,
         beforeActionsFocusRequester = passwordFieldFocusRequester,
         actionsFocusRequester = actionsFocusRequester,
-        afterActionsFocusRequester = userFieldFocusRequester,
+        afterActionsFocusRequester = firstFieldFocusRequester,
     ) {
+        // A known user name is shown but can't be changed: git sends it to the credential helpers
         AdjustableOutlinedTextField(
             modifier = Modifier
                 .padding(bottom = 8.dp)
@@ -69,6 +79,15 @@ fun UserPasswordDialog(
                     }
                 },
             value = userField,
+            enabled = user == null,
+            textStyle = LocalTextStyle.current.copy(
+                fontSize = MaterialTheme.typography.body1.fontSize,
+                color = if (user == null) {
+                    MaterialTheme.colors.onBackground
+                } else {
+                    MaterialTheme.colors.onBackgroundSecondary
+                },
+            ),
             colors = outlinedTextFieldColors(),
             maxLines = 1,
             singleLine = true,
@@ -83,7 +102,9 @@ fun UserPasswordDialog(
                 .padding(bottom = 8.dp)
                 .focusRequester(passwordFieldFocusRequester)
                 .focusProperties {
-                    this.previous = userFieldFocusRequester
+                    if (user == null) {
+                        this.previous = userFieldFocusRequester
+                    }
                     this.next = actionsFocusRequester
                 }
                 .width(300.dp)
@@ -129,7 +150,7 @@ fun UserPasswordDialog(
         )
 
         LaunchedEffect(Unit) {
-            userFieldFocusRequester.requestFocus()
+            firstFieldFocusRequester.requestFocus()
         }
     }
 }

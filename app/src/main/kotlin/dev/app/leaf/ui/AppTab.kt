@@ -104,8 +104,8 @@ fun AppTab(
     LaunchedEffect(credentialsState) {
         val destination = when (val state = credentialsState) {
             is CredentialsRequest.GpgCredentialsRequest -> Screen.GpgCredentials(state)
-            CredentialsRequest.HttpCredentialsRequest -> Screen.HttpCredentials
-            CredentialsRequest.LfsCredentialsRequest -> Screen.LfsCredentials
+            is CredentialsRequest.HttpCredentialsRequest -> Screen.HttpCredentials(state)
+            is CredentialsRequest.LfsCredentialsRequest -> Screen.LfsCredentials(state)
             is CredentialsRequest.SshCredentialsRequest -> Screen.SshCredentials(state)
             else -> null
         }
@@ -240,6 +240,7 @@ fun AppTab(
                             metadata = dialogsMetadata
                         ) { entry ->
                             HttpCredentialsDialog(
+                                user = entry.credentialsRequest.user,
                                 onDismiss = {
                                     repositoryTabViewModel.credentialsDenied()
                                     backStack.removeLastOrNull()
@@ -284,10 +285,17 @@ fun AppTab(
                             metadata = dialogsMetadata
                         ) { entry ->
                             // TODO Refactor dialogs to have their own view models and not rely on repositoryTabViewModel
+                            val user = entry.credentialsRequest.user
+
                             UserPasswordDialog(
                                 title = "LFS Server Credentials",
-                                subtitle = "Introduce the credentials for your LFS server",
+                                subtitle = if (user == null) {
+                                    "Introduce the credentials for your LFS server"
+                                } else {
+                                    "Introduce the password for your LFS server"
+                                },
                                 icon = painterResource(Res.drawable.lfs),
+                                user = user,
                                 onDismiss = {
                                     repositoryTabViewModel.credentialsDenied()
                                     backStack.removeLastOrNull()

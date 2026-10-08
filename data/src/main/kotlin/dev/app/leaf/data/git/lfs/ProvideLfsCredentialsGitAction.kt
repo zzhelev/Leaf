@@ -33,18 +33,19 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
         }
 
         val credentialsUri = lfsCredentialsUri(lfsServer)
-        val helper = credentialHelpers.find(repository, credentialsUri)
+        val settings = credentialHelpers.find(repository, credentialsUri)
 
-        return if (helper != null) {
-            withHelper(helper, credentialsUri, unauthorized = res, callback)
+        return if (settings.helpers.isNotEmpty()) {
+            withHelper(settings, credentialsUri, unauthorized = res, callback)
         } else {
-            withCachedCredentials(lfsServer.url, callback)
+            withCachedCredentials(lfsServer.url, settings.username, callback)
         }
     }
 
     /**
      * Like git-lfs: the helpers' credentials, then the user's. Credentials that the server rejects are erased with
-     * the helpers, and the ones the user typed are stored with them once the server takes them.
+     * the helpers, and the ones the user typed are stored with them once the server takes them. When git knows the
+     * user name, the user is asked only for the password.
      */
     private suspend fun <T> withHelper(
         helper: CredentialSettings,
@@ -52,7 +53,8 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
         unauthorized: Either<T, LfsError>,
         callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,
     ): Either<T, LfsError> {
-        when (val answer = withContext(Dispatchers.IO) { credentialHelpers.get(helper, uri) }) {
+        // After a rejection, like git-lfs, the user name that git knows rather than the rejected one
+        val knownUser = when (val answer = withContext(Dispatchers.IO) { credentialHelpers.get(helper, uri) }) {
             is HelperAnswer.Credentials -> {
                 val res = callback(answer.user, answer.password)
 
@@ -61,23 +63,26 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
                 }
 
                 withContext(Dispatchers.IO) { credentialHelpers.erase(helper, uri, answer.user, answer.password) }
+                helper.username
             }
 
             HelperAnswer.Failed -> return unauthorized
-            HelperAnswer.NotStored -> Unit
+            is HelperAnswer.NotStored -> answer.user
         }
 
-        return askForCredentials(callback) { user, password ->
+        return askForCredentials(knownUser, callback) { user, password ->
             withContext(Dispatchers.IO) { credentialHelpers.send("store", helper, uri, user, password) }
         }
     }
 
     /**
-     * Without a helper: the credentials that Leaf cached for [url], then the user's. Cached credentials that the
-     * server rejects are removed, and the ones the user typed are cached once the server takes them.
+     * Without a helper: the credentials that Leaf cached for [url], then the user's, asked only for the password when
+     * git knows the [user] name. Cached credentials that the server rejects are removed, and the ones the user typed
+     * are cached once the server takes them.
      */
     private suspend fun <T> withCachedCredentials(
         url: String,
+        user: String?,
         callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,
     ): Either<T, LfsError> {
         val credentialsCached = credentialsCacheRepository.getCachedHttpCredentials(url, isLfs = true)
@@ -92,21 +97,22 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
             credentialsCacheRepository.removeCachedHttpCredentials(credentialsCached)
         }
 
-        return askForCredentials(callback) { user, password ->
-            credentialsCacheRepository.cacheHttpCredentials(url, user, password, isLfs = true)
+        return askForCredentials(user, callback) { acceptedUser, password ->
+            credentialsCacheRepository.cacheHttpCredentials(url, acceptedUser, password, isLfs = true)
         }
     }
 
     /**
      * Asks the user for credentials until the server takes them, or the user cancels, and passes the ones it took to
-     * [onAccepted].
+     * [onAccepted]. When git knows the [user] name, the user is asked only for the password.
      */
     private suspend fun <T> askForCredentials(
+        user: String?,
         callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,
         onAccepted: suspend (user: String, password: String) -> Unit,
     ): Either<T, LfsError> {
         while (true) {
-            val lfsCredentials = credentialsStateManager.requestLfsCredentials()
+            val lfsCredentials = credentialsStateManager.requestLfsCredentials(user)
             val res = callback(lfsCredentials.user, lfsCredentials.password)
 
             if (!res.isUnauthorizedError()) {

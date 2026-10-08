@@ -19,6 +19,7 @@ import dev.app.leaf.domain.lfs.LfsServer
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -63,6 +64,12 @@ class ProvideLfsCredentialsGitActionTest {
             "HOME" to tempDir.absolutePath,
         )
     }
+
+    /**
+     * The user name that each prompt showed, when Leaf asked for the password alone, or null when it asked for the user
+     * name too.
+     */
+    private val askedUsers = mutableListOf<String?>()
 
     private lateinit var git: Git
 
@@ -148,12 +155,79 @@ class ProvideLfsCredentialsGitActionTest {
         )
 
         assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf<String?>(null, null), askedUsers)
         awaitOperations(2)
         assertEquals(listOf("get", "store"), File(tools, "operations").readLines())
         assertEquals(
             "protocol=https\nhost=example.invalid\nusername=user\npassword=right-password\n",
             File(tools, "store.input").readText(),
         )
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `with a user name in the remote's URL, only the password is asked for, and stored with that user name`() {
+        setHelper("leaf-test")
+        createRecordingHelper(answer = null)
+        val server = FakeServer(accepts = Answer("alice", "typed-password"))
+        val remoteUrl = "https://alice@example.invalid/team/project.git"
+
+        // Whatever user name the dialog gives, the request's is the one used
+        val result = provideCredentials(
+            server,
+            prompts = listOf(Answer("other-user", "typed-password")),
+            lfsServer = LfsServer(LFS_URL, remoteUrl),
+        )
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf<String?>("alice"), askedUsers)
+        assertEquals(listOf(null, Answer("alice", "typed-password")), server.attempts)
+        awaitOperations(2)
+        assertEquals("protocol=https\nhost=example.invalid\nusername=alice\n", File(tools, "get.input").readText())
+        assertEquals(
+            "protocol=https\nhost=example.invalid\nusername=alice\npassword=typed-password\n",
+            File(tools, "store.input").readText(),
+        )
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `a user name that the helper gives without a password is the one shown`() {
+        setHelper("leaf-test")
+        File(tools, "git-credential-leaf-test").writeExecutable(
+            "#!/bin/sh\ncat > /dev/null\n[ \"\$1\" = get ] && echo username=carol\nexit 0\n"
+        )
+        val server = FakeServer(accepts = Answer("carol", "typed-password"))
+
+        val result = provideCredentials(server, prompts = listOf(Answer("carol", "typed-password")))
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf<String?>("carol"), askedUsers)
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    fun `after the helper's credentials are rejected, the prompt shows the user name that git knows`() {
+        setHelper("leaf-test", username = "bob")
+        createRecordingHelper(answer = Answer("helper-user", "old-password"))
+        val server = FakeServer(accepts = Answer("bob", "new-password"))
+
+        val result = provideCredentials(server, prompts = listOf(Answer("bob", "new-password")))
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf<String?>("bob"), askedUsers)
+    }
+
+    @Test
+    fun `without a helper, credential username is the user name shown, and cached`() {
+        setHelper(null, username = "bob")
+        val server = FakeServer(accepts = Answer("bob", "typed-password"))
+
+        val result = provideCredentials(server, prompts = listOf(Answer("other-user", "typed-password")))
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf<String?>("bob"), askedUsers)
+        assertEquals(Answer("bob", "typed-password"), cachedInMemory())
     }
 
     @Test
@@ -254,11 +328,12 @@ class ProvideLfsCredentialsGitActionTest {
         assertEquals(URIish(LFS_URL), credentialsUrl(LFS_URL, "git@example.invalid:team/project.git"))
     }
 
-    /** Sets [helper] as the repository's `credential.helper`. */
-    private fun setHelper(helper: String, useHttpPath: Boolean = false) {
+    /** Sets [helper], if there is one, as the repository's `credential.helper`, and [username] if there is one. */
+    private fun setHelper(helper: String?, useHttpPath: Boolean = false, username: String? = null) {
         git.repository.config.apply {
-            setString("credential", null, "helper", helper)
+            helper?.let { setString("credential", null, "helper", it) }
             setBoolean("credential", null, "useHttpPath", useHttpPath)
+            username?.let { setString("credential", null, "username", it) }
             save()
         }
     }
@@ -306,7 +381,11 @@ class ProvideLfsCredentialsGitActionTest {
 
         val responder = launch(Dispatchers.Default) {
             for (answer in prompts) {
-                credentialsStateManager.credentialsState.first { it == CredentialsRequest.LfsCredentialsRequest }
+                val request = credentialsStateManager.credentialsState
+                    .filterIsInstance<CredentialsRequest.LfsCredentialsRequest>()
+                    .first()
+
+                askedUsers += request.user
 
                 if (answer != null) {
                     credentialsStateManager.lfsCredentialsAccepted(answer.user, answer.password)
