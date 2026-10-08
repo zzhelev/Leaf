@@ -26,31 +26,49 @@ internal class GitBash(
     }
 
     companion object {
-        /** The first of [gitBashCandidates] that exists, or null when Git for Windows isn't installed. */
+        /** The Git Bash of [findGitForWindows], or null when Git for Windows isn't installed. */
         fun find(
             pathVariable: String?,
             getenv: (String) -> String?,
             isFile: (String) -> Boolean = { File(it).isFile },
-        ): GitBash? = gitBashCandidates(pathVariable, getenv).firstOrNull(isFile)?.let { GitBash(it) }
+        ): GitBash? = findGitForWindows(pathVariable, getenv, isFile)?.let { GitBash(it + GIT_BASH) }
     }
 }
 
-/** The folders of a Git for Windows install that can be on PATH, relative to the install. Longest first. */
+/** Git Bash, relative to a Git for Windows install. */
+private const val GIT_BASH = "\\bin\\bash.exe"
+
+/**
+ * The folders of a Git for Windows install that can be on PATH, relative to the install. Longest first. Git for
+ * Windows 2.56 moved from `mingw64` to `ucrt64`.
+ */
 private val GIT_FOLDERS_ON_PATH = listOf(
     "\\mingw64\\bin",
     "\\mingw32\\bin",
     "\\clangarm64\\bin",
+    "\\ucrt64\\bin",
     "\\usr\\bin",
     "\\cmd",
     "\\bin",
 )
 
 /**
- * Where Git Bash may be, in search order: in each Git for Windows install on PATH (its installer adds `cmd`, and
- * optionally `mingw64\bin` and `usr\bin`), then in its default install folders, which `gitExecutableCandidates`
- * searches for git too.
+ * The Git for Windows install that Leaf takes as the git CLI's: the first of [gitForWindowsInstalls] with Git Bash.
+ * [WindowsFs] runs hooks with its Git Bash, and `locateGpgProgram` looks for gpg in its folders first, as its git
+ * does. Null when Git for Windows isn't installed.
  */
-internal fun gitBashCandidates(pathVariable: String?, getenv: (String) -> String?): List<String> {
+internal fun findGitForWindows(
+    pathVariable: String?,
+    getenv: (String) -> String?,
+    isFile: (String) -> Boolean = { File(it).isFile },
+): String? = gitForWindowsInstalls(pathVariable, getenv).firstOrNull { isFile(it + GIT_BASH) }
+
+/**
+ * Where Git for Windows may be installed, in search order: each install on PATH (its installer adds `cmd`, and
+ * optionally `mingw64\bin` or `ucrt64\bin`, and `usr\bin`), then its default install folders, which
+ * `gitExecutableCandidates` searches for git too.
+ */
+internal fun gitForWindowsInstalls(pathVariable: String?, getenv: (String) -> String?): List<String> {
     val installsOnPath = pathVariable.orEmpty()
         .split(';')
         .map { it.trim().removeSurrounding("\"").trimEnd('\\', '/') }
@@ -67,7 +85,7 @@ internal fun gitBashCandidates(pathVariable: String?, getenv: (String) -> String
         getenv("LOCALAPPDATA")?.let { "$it\\Programs\\Git" },
     )
 
-    return (installsOnPath + defaultInstalls).map { "$it\\bin\\bash.exe" }.distinct()
+    return (installsOnPath + defaultInstalls).distinct()
 }
 
 /** Characters that the MSYS2 runtime expands or treats as quotes in a command line, besides whitespace. */

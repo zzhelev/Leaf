@@ -7,28 +7,27 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
-/** How [WindowsFs] finds Git Bash and builds the command line for a hook. Pure, so it runs on every system. */
+/**
+ * How Leaf finds Git for Windows and its Git Bash, and builds the command line for a hook. Pure, so it runs on every
+ * system.
+ */
 class GitBashTest {
     @Test
-    fun `finds Git Bash in each Git for Windows folder that can be on PATH`() {
+    fun `finds the Git for Windows install of each of its folders that can be on PATH`() {
         val path = listOf(
             "C:\\Windows\\system32",
             "C:\\Program Files\\Git\\cmd",
             "D:\\PortableGit\\mingw64\\bin\\",
             "\"E:\\Git Tools\\usr\\bin\"",
             "F:\\Git\\BIN",
+            "G:\\Git\\ucrt64\\bin",
         ).joinToString(";")
 
-        val candidates = gitBashCandidates(path) { null }
+        val installs = gitForWindowsInstalls(path) { null }
 
         assertEquals(
-            listOf(
-                "C:\\Program Files\\Git\\bin\\bash.exe",
-                "D:\\PortableGit\\bin\\bash.exe",
-                "E:\\Git Tools\\bin\\bash.exe",
-                "F:\\Git\\bin\\bash.exe",
-            ),
-            candidates,
+            listOf("C:\\Program Files\\Git", "D:\\PortableGit", "E:\\Git Tools", "F:\\Git", "G:\\Git"),
+            installs,
         )
     }
 
@@ -39,35 +38,32 @@ class GitBashTest {
             "LOCALAPPDATA" to "C:\\Users\\me\\AppData\\Local",
         )
 
-        val candidates = gitBashCandidates("C:\\Program Files\\Git\\cmd") { environment[it] }
+        val installs = gitForWindowsInstalls("C:\\Program Files\\Git\\cmd") { environment[it] }
 
         assertEquals(
-            listOf(
-                "C:\\Program Files\\Git\\bin\\bash.exe",
-                "C:\\Users\\me\\AppData\\Local\\Programs\\Git\\bin\\bash.exe",
-            ),
-            candidates,
+            listOf("C:\\Program Files\\Git", "C:\\Users\\me\\AppData\\Local\\Programs\\Git"),
+            installs,
         )
     }
 
     @Test
     fun `ignores PATH entries outside a Git for Windows install`() {
-        assertEquals(emptyList<String>(), gitBashCandidates("C:\\Windows;;C:\\cmdtools;\\cmd") { null })
-        assertEquals(emptyList<String>(), gitBashCandidates(null) { null })
+        assertEquals(emptyList<String>(), gitForWindowsInstalls("C:\\Windows;;C:\\cmdtools;\\cmd") { null })
+        assertEquals(emptyList<String>(), gitForWindowsInstalls(null) { null })
     }
 
     @Test
-    fun `uses the first candidate that exists`() {
+    fun `uses the first install with Git Bash`() {
         val installed = "C:\\Program Files\\Git\\bin\\bash.exe"
-        val path = "D:\\OldGit\\cmd;C:\\Program Files\\Git\\cmd"
+        val path = "D:\\MinGit\\cmd;C:\\Program Files\\Git\\cmd"
 
-        val gitBash = GitBash.find(path, { null }, isFile = { it == installed })
-
-        assertEquals(installed, gitBash?.executable)
+        assertEquals("C:\\Program Files\\Git", findGitForWindows(path, { null }, isFile = { it == installed }))
+        assertEquals(installed, GitBash.find(path, { null }, isFile = { it == installed })?.executable)
     }
 
     @Test
     fun `finds nothing without Git for Windows`() {
+        assertNull(findGitForWindows("C:\\Program Files\\Git\\cmd", { null }, isFile = { false }))
         assertNull(GitBash.find("C:\\Program Files\\Git\\cmd", { null }, isFile = { false }))
     }
 
