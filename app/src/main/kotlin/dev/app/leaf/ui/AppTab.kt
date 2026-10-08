@@ -139,7 +139,8 @@ fun AppTab(
                             WelcomePage(
                                 repositoryTabViewModel = repositoryTabViewModel,
                                 onShowCloneDialog = { backStack.add(Screen.CloneRepository) },
-                                onShowSettings = { backStack.add(Screen.Settings) }
+                                onShowSettings = { backStack.add(Screen.Settings) },
+                                onCheckForUpdates = { backStack.add(Screen.CheckForUpdates) },
                             )
                         }
                         entry<Screen.RepositoryLoading> {
@@ -438,6 +439,7 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                                 onShowSignOff = { backStack.add(Screen.SignOffData) },
                                 onShowClone = { backStack.add(Screen.CloneRepository) },
+                                onCheckForUpdates = { backStack.add(Screen.CheckForUpdates) },
                             )
                         }
                         entry<Screen.Author>(
@@ -448,6 +450,14 @@ fun AppTab(
                             AuthorDialog(
                                 viewModel = viewModel,
                                 onDismiss = { backStack.removeLastOrNull() }
+                            )
+                        }
+                        entry<Screen.CheckForUpdates>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            CheckForUpdatesDialog(
+                                viewModel = tabViewModel(entry) { it.checkForUpdatesViewModel() },
+                                onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
                         entry<Screen.StashWithMessage>(

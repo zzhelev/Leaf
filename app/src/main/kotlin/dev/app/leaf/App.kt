@@ -18,12 +18,15 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.navigation3.runtime.NavKey
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.app_menu_check_for_updates
+import dev.app.leaf.app.generated.resources.app_menu_help
 import dev.app.leaf.app.generated.resources.logo
 import dev.app.leaf.avatarproviders.GravatarAvatarProvider
 import dev.app.leaf.avatarproviders.NoneAvatarProvider
@@ -60,6 +63,7 @@ import org.eclipse.jgit.lib.GpgConfig
 import org.eclipse.jgit.lib.Signers
 import org.eclipse.jgit.util.LfsFactory
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Paths
@@ -96,6 +100,7 @@ sealed interface Screen : NavKey {
     data object SignOffData : Screen
     data object Author : Screen
     data object StashWithMessage : Screen
+    data object CheckForUpdates : Screen
     /** Asks before [action], which [onConfirm] runs. */
     data class ConfirmAction(val action: ConfirmableAction, val onConfirm: () -> Unit) : Screen
     /** Asks whether to fast-forward [offer]'s local branch, then [onCheckout] checks it out. */
@@ -220,6 +225,25 @@ class App @Inject constructor(
                 state = windowState,
                 icon = painterResource(Res.drawable.logo),
             ) {
+                // Windows and Linux would show a Swing menu bar inside the window, which doesn't look like the rest of
+                // Leaf. macOS shows it in the system menu bar, where apps usually let you check for updates.
+                if (currentOs == OS.MAC) {
+                    MenuBar {
+                        Menu(stringResource(Res.string.app_menu_help)) {
+                            Item(
+                                text = stringResource(Res.string.app_menu_check_for_updates),
+                                onClick = {
+                                    val backStack = currentTab?.data?.backStack
+
+                                    if (backStack != null && Screen.CheckForUpdates !in backStack) {
+                                        backStack.add(Screen.CheckForUpdates)
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+
                 val compositionValues: MutableList<ProvidedValue<*>> =
                     mutableListOf(LocalTextContextMenu provides AppPopupMenu())
 

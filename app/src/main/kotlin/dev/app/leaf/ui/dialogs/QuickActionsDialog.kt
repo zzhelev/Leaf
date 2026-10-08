@@ -25,6 +25,7 @@ import dev.app.leaf.ui.components.AdjustableOutlinedTextField
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun QuickActionsDialog(
@@ -32,16 +33,19 @@ fun QuickActionsDialog(
     onDismiss: () -> Unit,
     onShowSignOff: () -> Unit,
     onShowClone: () -> Unit,
+    onCheckForUpdates: () -> Unit,
 ) {
     val textFieldFocusRequester = remember { FocusRequester() }
+    val checkForUpdates = stringResource(Res.string.quick_actions_check_for_updates)
 
     // TODO Extract list of actions strings
-    val items = remember {
+    val items = remember(checkForUpdates) {
         listOf(
             QuickAction(Res.drawable.code, "Open repository in file manager", QuickActionType.OPEN_DIR_IN_FILE_MANAGER),
             QuickAction(Res.drawable.download, "Clone new repository", QuickActionType.CLONE),
             QuickAction(Res.drawable.refresh, "Refresh repository data", QuickActionType.REFRESH),
             QuickAction(Res.drawable.sign, "Signoff config", QuickActionType.SIGN_OFF),
+            QuickAction(Res.drawable.update, checkForUpdates, QuickActionType.CHECK_FOR_UPDATES),
         )
     }
 
@@ -68,6 +72,7 @@ fun QuickActionsDialog(
                 QuickActionType.CLONE -> onShowClone()
                 QuickActionType.REFRESH -> viewModel.refreshRepository()
                 QuickActionType.SIGN_OFF -> onShowSignOff()
+                QuickActionType.CHECK_FOR_UPDATES -> onCheckForUpdates()
             }
         },
         searchFilter = searchFilter,
@@ -166,5 +171,6 @@ enum class QuickActionType {
     OPEN_DIR_IN_FILE_MANAGER,
     CLONE,
     REFRESH,
-    SIGN_OFF
+    SIGN_OFF,
+    CHECK_FOR_UPDATES,
 }

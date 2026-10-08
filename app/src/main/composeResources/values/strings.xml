@@ -15,6 +15,7 @@
     <string name="home_button_source_code">Source code</string>
     <string name="home_button_report_bug">Report a bug</string>
     <string name="home_button_additional_information">Additional information</string>
+    <string name="home_button_check_for_updates">Check for updates</string>
     <string name="home_button_settings">Settings</string>
 
     <string name="home_recent_repositories_search_label">Search for recent repositories</string>
@@ -56,6 +57,19 @@
     <string name="bottom_info_bar_email_not_set">Email not set</string>
     <string name="bottom_info_bar_update_available">Update %1$s available</string>
     <string name="bottom_info_bar_app_version">Version %1$s</string>
+
+    <!-- Check for updates: the Actions list, the Welcome page and the macOS Help menu -->
+    <string name="quick_actions_check_for_updates">Check for updates</string>
+    <string name="app_menu_help">Help</string>
+    <string name="app_menu_check_for_updates">Check for Updates…</string>
+    <string name="check_for_updates_dialog_title">Check for updates</string>
+    <string name="check_for_updates_dialog_checking">Checking for updates…</string>
+    <string name="check_for_updates_dialog_available">Leaf %1$s is available. You have %2$s.</string>
+    <string name="check_for_updates_dialog_up_to_date">Leaf %1$s is up to date.</string>
+    <string name="check_for_updates_dialog_failed">Couldn't check for updates.</string>
+    <string name="check_for_updates_dialog_download">Download</string>
+    <string name="check_for_updates_dialog_try_again">Try again</string>
+    <string name="check_for_updates_dialog_close">Close</string>
 
     <!-- Side pane view -->
     <string name="side_pane_search_hint">Search for branches, tags &amp; more</string>

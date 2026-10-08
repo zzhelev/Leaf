@@ -60,6 +60,7 @@ fun WelcomePage(
     repositoryTabViewModel: RepositoryTabViewModel,
     onShowCloneDialog: () -> Unit,
     onShowSettings: () -> Unit,
+    onCheckForUpdates: () -> Unit,
 ) {
     val recentlyOpenedRepositories by repositoryTabViewModel.appStateManager.latestOpenedRepositoriesPaths.collectAsState()
     val newUpdate by repositoryTabViewModel.update.collectAsState()
@@ -69,6 +70,7 @@ fun WelcomePage(
         newUpdate,
         onShowCloneDialog = onShowCloneDialog,
         onShowSettings = onShowSettings,
+        onCheckForUpdates = onCheckForUpdates,
         onOpenRepository = {
             val repo = repositoryTabViewModel.openDirectoryPicker()
 
@@ -104,6 +106,7 @@ fun WelcomeViewPreview() {
             newUpdate = null,
             onShowCloneDialog = {},
             onShowSettings = {},
+            onCheckForUpdates = {},
             onOpenRepository = {},
             onOpenKnownRepository = {},
             onStartRepository = {},
@@ -119,6 +122,7 @@ fun WelcomeView(
     newUpdate: Update?,
     onShowCloneDialog: () -> Unit,
     onShowSettings: () -> Unit,
+    onCheckForUpdates: () -> Unit,
     onOpenRepository: () -> Unit,
     onOpenKnownRepository: (String) -> Unit,
     onStartRepository: () -> Unit,
@@ -175,6 +179,7 @@ fun WelcomeView(
                     onShowCloneView = onShowCloneDialog,
                     onShowAdditionalInfo = { showAdditionalInfo = true },
                     onShowSettings = onShowSettings,
+                    onCheckForUpdates = onCheckForUpdates,
                     onOpenUrlInBrowser = onOpenUrlInBrowser,
                 )
 
@@ -224,6 +229,7 @@ fun HomeButtons(
     onShowCloneView: () -> Unit,
     onShowAdditionalInfo: () -> Unit,
     onShowSettings: () -> Unit,
+    onCheckForUpdates: () -> Unit,
     onOpenUrlInBrowser: (String) -> Unit,
 ) {
     Column {
@@ -274,6 +280,12 @@ fun HomeButtons(
             title = stringResource(Res.string.home_button_additional_information),
             painter = painterResource(Res.drawable.info),
             onClick = onShowAdditionalInfo
+        )
+
+        IconTextButton(
+            title = stringResource(Res.string.home_button_check_for_updates),
+            painter = painterResource(Res.drawable.update),
+            onClick = onCheckForUpdates
         )
 
         IconTextButton(
