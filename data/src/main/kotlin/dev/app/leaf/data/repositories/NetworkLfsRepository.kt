@@ -23,6 +23,7 @@ class NetworkLfsRepository @Inject constructor(
         username: String?,
         password: String?,
         headers: Map<String, String>,
+        sslVerify: Boolean,
     ): Either<LfsObjects, LfsError> {
         return postBatchObjects(
             lfsServerUrl,
@@ -34,6 +35,7 @@ class NetworkLfsRepository @Inject constructor(
             headers = headers,
             username,
             password,
+            sslVerify,
         )
     }
 

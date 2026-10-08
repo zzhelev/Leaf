@@ -1,5 +1,6 @@
 package dev.app.leaf.data.git.lfs
 
+import dev.app.leaf.data.network.isSslVerify
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IGetLfsObjectsGitAction
@@ -24,6 +25,8 @@ class GetLfsObjectsGitAction @Inject constructor(
         lfsObjectBatches: List<LfsObjectBatch>,
         headers: Map<String, String>,
     ): Either<LfsObjects, LfsError> {
+        val sslVerify = repository.config.isSslVerify(lfsServer.url)
+
         return if (headers.containsKey(NetworkConstants.AUTH_HEADER)) {
             lfsRepository.getLfsObjects(
                 lfsServer.url,
@@ -33,6 +36,7 @@ class GetLfsObjectsGitAction @Inject constructor(
                 headers = headers,
                 username = null,
                 password = null,
+                sslVerify = sslVerify,
             )
         } else {
             provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
@@ -44,6 +48,7 @@ class GetLfsObjectsGitAction @Inject constructor(
                     headers = headers,
                     username = user,
                     password = password,
+                    sslVerify = sslVerify,
                 )
             }
         }

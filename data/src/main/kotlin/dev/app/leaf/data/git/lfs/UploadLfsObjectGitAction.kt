@@ -1,5 +1,6 @@
 package dev.app.leaf.data.git.lfs
 
+import dev.app.leaf.data.network.isSslVerify
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IUploadLfsObjectGitAction
@@ -26,6 +27,7 @@ class UploadLfsObjectGitAction @Inject constructor(
 
         val lfs = Lfs(repository)
         val uploadHeaders = lfsObject.actions?.upload?.header.orEmpty()
+        val sslVerify = repository.config.isSslVerify(uploadUrl)
 
         return if (uploadHeaders.containsKey(NetworkConstants.AUTH_HEADER)) {
             lfsRepository.uploadObject(
@@ -36,6 +38,7 @@ class UploadLfsObjectGitAction @Inject constructor(
                 uploadHeaders,
                 null,
                 null,
+                sslVerify,
             )
         } else {
             provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
@@ -47,6 +50,7 @@ class UploadLfsObjectGitAction @Inject constructor(
                     uploadHeaders,
                     user,
                     password,
+                    sslVerify,
                 )
             }
         }

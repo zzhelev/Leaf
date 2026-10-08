@@ -1,5 +1,6 @@
 package dev.app.leaf.data.repositories
 
+import dev.app.leaf.data.network.createHttpClientWithoutTlsVerification
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.network.NetworkConstants
 import dev.app.leaf.domain.errors.LfsError
@@ -30,14 +31,20 @@ class LfsNetworkDataSource @Inject constructor(
 ) : LfsRepository {
     private val json = Json { ignoreUnknownKeys = true }
 
+    // Created only for a server whose http.sslVerify is false
+    private val clientWithoutTlsVerification by lazy { createHttpClientWithoutTlsVerification() }
+
+    private fun client(sslVerify: Boolean) = if (sslVerify) client else clientWithoutTlsVerification
+
     override suspend fun postBatchObjects(
         remoteUrl: String,
         lfsPrepareUploadObjectBatch: LfsPrepareUploadObjectBatch,
         headers: Map<String, String>,
         username: String?,
         password: String?,
+        sslVerify: Boolean,
     ): Either<LfsObjects, LfsError> {
-        val response = client.post("${remoteUrl.removeSuffix("/")}/objects/batch") {
+        val response = client(sslVerify).post("${remoteUrl.removeSuffix("/")}/objects/batch") {
             setHeadersAndBasicAuth(headers, username, password)
 
             this.contentType(ContentType("application", "vnd.git-lfs+json"))
@@ -60,8 +67,9 @@ class LfsNetworkDataSource @Inject constructor(
         headers: Map<String, String>,
         username: String?,
         password: String?,
+        sslVerify: Boolean,
     ): Either<Unit, LfsError> {
-        val response = client.put(uploadUrl) {
+        val response = client(sslVerify).put(uploadUrl) {
             setHeadersAndBasicAuth(headers, username, password)
 
             this.headers[NetworkConstants.CONTENT_LENGTH_HEADER] = size.toString()
@@ -83,8 +91,9 @@ class LfsNetworkDataSource @Inject constructor(
         headers: Map<String, String>,
         username: String?,
         password: String?,
+        sslVerify: Boolean,
     ): Either<Unit, LfsError> {
-        val response = client.post(url) {
+        val response = client(sslVerify).post(url) {
             setHeadersAndBasicAuth(headers, username, password)
 
             val body = LfsObjectBatch(oid, size)
@@ -104,8 +113,9 @@ class LfsNetworkDataSource @Inject constructor(
         headers: Map<String, String>,
         username: String?,
         password: String?,
+        sslVerify: Boolean,
     ): Either<Unit, LfsError> {
-        val response = client.get(downloadUrl) {
+        val response = client(sslVerify).get(downloadUrl) {
             setHeadersAndBasicAuth(headers, username, password)
         }
 
@@ -139,7 +149,8 @@ class LfsNetworkDataSource @Inject constructor(
         objects: List<dev.app.leaf.domain.lfs.LfsObjectBatch>,
         username: String?,
         password: String?,
-        headers: Map<String, String>
+        headers: Map<String, String>,
+        sslVerify: Boolean,
     ): Either<dev.app.leaf.domain.lfs.LfsObjects, LfsError> {
         TODO("Not yet implemented")
     }
