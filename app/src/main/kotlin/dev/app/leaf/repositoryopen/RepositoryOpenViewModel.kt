@@ -102,7 +102,6 @@ class RepositoryOpenViewModel @Inject constructor(
     private val fetchRemotesUseCase: FetchRemotesUseCase,
     private val deleteRemoteInfoUseCase: DeleteRemoteInfoUseCase,
     private val checkoutCommitUseCase: CheckoutCommitUseCase,
-    private val deleteBranchUseCase: DeleteBranchUseCase,
     private val rebaseBranchUseCase: RebaseBranchUseCase,
     private val deleteRemoteBranchUseCase: DeleteRemoteBranchUseCase,
     private val deleteSubmoduleUseCase: DeleteSubmoduleUseCase,
@@ -113,7 +112,6 @@ class RepositoryOpenViewModel @Inject constructor(
     private val pushBranchUseCase: PushBranchUseCase,
     private val pullBranchUseCase: PullBranchUseCase,
     private val initializeSubmoduleUseCase: InitializeSubmoduleUseCase,
-    private val deleteTagUseCase: DeleteTagUseCase,
     private val applyStashUseCase: ApplyStashUseCase,
     private val popStashUseCase: PopStashUseCase,
     private val deleteStashUseCase: DeleteStashUseCase,
@@ -616,8 +614,6 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    fun deleteBranch(branch: Branch) = deleteBranchUseCase(branch)
-
     fun checkoutBranch(branch: Branch) = checkoutBranchUseCase(branch)
 
     fun rebaseBranch(branch: Branch) = rebaseBranchUseCase(branch)
@@ -676,7 +672,6 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    fun deleteTag(tag: Tag) = deleteTagUseCase(tag)
     fun selectStash(stash: Commit) {
         selectCommit(stash)
     }
@@ -838,10 +833,8 @@ class RepositoryOpenViewModel @Inject constructor(
             is LogAction.CheckoutTag -> checkoutTag(action.tag)
             is LogAction.CherryPickCommit -> cherryPickCommit(action.commit)
             is LogAction.CommitSelected -> selectCommit(action.commit)
-            is LogAction.DeleteBranch -> deleteBranch(action.branch)
             is LogAction.DeleteRemoteBranch -> deleteRemoteBranch(action.branch)
             is LogAction.DeleteStash -> deleteStash(action.commit)
-            is LogAction.DeleteTag -> deleteTag(action.tag)
             is LogAction.Merge -> mergeBranch(action.branch)
             is LogAction.PopStash -> popStash(action.commit)
             is LogAction.PullFromRemoteBranch -> pullFromRemoteBranch(action.branch)

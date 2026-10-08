@@ -311,6 +311,8 @@ fun MainContentView(
                                     onCreateTag = { onNavigate(Screen.TagCreate(it)) },
                                     onChangeUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
                                     onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
+                                    onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
+                                    onDeleteTag = { onNavigate(Screen.TagDelete(it)) },
                                 )
                             }
                         }

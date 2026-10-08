@@ -204,6 +204,20 @@
     </plurals>
     <string name="discard_folder_dialog_discard">Discard</string>
 
+    <!-- Delete branch and tag dialogs -->
+    <string name="delete_branch_dialog_title">Delete branch</string>
+    <string name="delete_branch_dialog_subtitle">Delete branch "%1$s"?</string>
+    <string name="delete_branch_dialog_not_merged">"%1$s" isn't merged into the current branch.</string>
+    <string name="delete_tag_dialog_title">Delete tag</string>
+    <string name="delete_tag_dialog_subtitle">Delete tag "%1$s"?</string>
+    <plurals name="delete_ref_dialog_commits_lost">
+        <item quantity="one">%1$d commit is on no other branch or tag, and will be lost.</item>
+        <item quantity="other">%1$d commits are on no other branch or tag, and will be lost.</item>
+    </plurals>
+    <string name="delete_ref_dialog_no_commits_lost">Its commits are on other branches or tags too, so none will be lost.</string>
+    <string name="delete_ref_dialog_delete">Delete</string>
+    <string name="delete_ref_dialog_delete_anyway">Delete anyway</string>
+
     <!-- Submodules context menu -->
     <string name="submodules_context_menu_initialize_submodule">Initialize submodule</string>
     <string name="submodules_context_menu_open_submodule_in_tab">Open submodule in new tab</string>
@@ -252,6 +266,8 @@
     <!-- Errors -->
     <string name="error_create_branch_already_exists">Branch "%1$s" already exists, please try with a different name</string>
     <string name="error_create_branch_name_not_allowed">Branch name "%1$s" is not allowed, please use only alphanumeric characters.</string>
+    <string name="error_delete_branch_not_merged">Branch "%1$s" isn't merged into the current branch</string>
+    <string name="error_delete_tag_has_own_commits">Tag "%1$s" is the only branch or tag on some commits</string>
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 

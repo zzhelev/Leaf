@@ -77,7 +77,9 @@ sealed interface Screen : NavKey {
     data class BranchRename(val ref: Branch) : Screen
     data class BranchChangeUpstream(val ref: Branch) : Screen
     data class BranchCreate(val targetCommit: Commit?) : Screen
+    data class BranchDelete(val branch: Branch) : Screen
     data class TagCreate(val targetCommit: Commit) : Screen
+    data class TagDelete(val tag: Tag) : Screen
     data class BranchReset(val targetCommit: Commit) : Screen
     data class AddEditRemote(val remote: Remote?) : Screen
     data class Error(val error: CompletedTask.Failure) : Screen

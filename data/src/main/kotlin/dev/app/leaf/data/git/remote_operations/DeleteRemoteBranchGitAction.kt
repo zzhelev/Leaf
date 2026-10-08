@@ -56,7 +56,8 @@ class DeleteRemoteBranchGitAction @Inject constructor(
             }
         }
 
-        deleteBranchGitAction(repositoryPath, ref).bind() /// TODO Handle error?
+        // Like git branch -d -r, which skips the merge check for remote-tracking branches
+        deleteBranchGitAction(repositoryPath, ref, force = true).bind() /// TODO Handle error?
 
     }
 }

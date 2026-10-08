@@ -13,6 +13,20 @@ sealed interface CreateBranchError : GitError {
 }
 
 /**
+ * A branch or tag deletion refused without force. [commitsOnlyOnRef] commits are on no other branch, tag or HEAD, so
+ * deleting the ref with force leaves them on none.
+ */
+sealed interface DeleteRefError : GitError {
+    val commitsOnlyOnRef: Int
+
+    /** The branch isn't merged into HEAD, as `git branch -d` checks. */
+    data class BranchNotMerged(val branchName: String, override val commitsOnlyOnRef: Int) : DeleteRefError
+
+    /** The tag is the only ref left on some commits. */
+    data class TagHasOwnCommits(val tagName: String, override val commitsOnlyOnRef: Int) : DeleteRefError
+}
+
+/**
  * Repository path for current tab is not set
  */
 data object RepositoryPathNotSetError : GitError

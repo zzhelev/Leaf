@@ -7,7 +7,6 @@ import dev.app.leaf.domain.models.Tag
 sealed interface LogAction {
     data class Merge(val branch: Branch) : LogAction
     data class Rebase(val branch: Branch) : LogAction
-    data class DeleteBranch(val branch: Branch) : LogAction
     data class CheckoutCommit(val commit: Commit) : LogAction
     data class RevertCommit(val commit: Commit) : LogAction
     data class CherryPickCommit(val commit: Commit) : LogAction
@@ -22,7 +21,6 @@ sealed interface LogAction {
     data class PopStash(val commit: Commit) : LogAction
     data class CheckoutTag(val tag: Tag) : LogAction
     data class DeleteRemoteBranch(val branch: Branch) : LogAction
-    data class DeleteTag(val tag: Tag) : LogAction
     data class PushToRemoteBranch(val branch: Branch) : LogAction
     data class PullFromRemoteBranch(val branch: Branch) : LogAction
     data class SearchValueChange(val filter: String) : LogAction

@@ -192,6 +192,16 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.BranchDelete>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            DeleteBranchDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider.deleteBranchViewModelFactory().create(entry.branch)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.BranchChangeUpstream>(
                             metadata = dialogsMetadata
                         ) { entry ->
@@ -306,6 +316,16 @@ fun AppTab(
                             CreateTagDialog(
                                 viewModel = tabViewModel(entry) { viewModelsProvider ->
                                     viewModelsProvider.createTagViewModelFactory().create(entry.targetCommit)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
+                        entry<Screen.TagDelete>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            DeleteTagDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider.deleteTagViewModelFactory().create(entry.tag)
                                 },
                                 onDismiss = { backStack.removeLastOrNull() },
                             )

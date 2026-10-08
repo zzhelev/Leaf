@@ -116,6 +116,7 @@ fun SidePanel(
                 viewModel = viewModel,
                 onChangeDefaultUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
                 onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
+                onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
             )
 
             remotes(
@@ -130,6 +131,7 @@ fun SidePanel(
                 refPanelSettings = refPanelSettings,
                 selectedItem = selectedItem,
                 viewModel = viewModel,
+                onDeleteTag = { onNavigate(Screen.TagDelete(it)) },
             )
 
             stashes(
@@ -198,6 +200,7 @@ fun LazyListScope.localBranches(
     viewModel: RepositoryOpenViewModel,
     onChangeDefaultUpstreamBranch: (Branch) -> Unit,
     onRenameBranch: (Branch) -> Unit,
+    onDeleteBranch: (Branch) -> Unit,
 ) {
     val isExpanded = branchesState.isExpanded
     val branches = branchesState.branches
@@ -251,7 +254,7 @@ fun LazyListScope.localBranches(
                         onCheckoutBranch = { viewModel.checkoutBranch(branch) },
                         onMergeBranch = { viewModel.mergeBranch(branch) },
                         onRebaseBranch = { viewModel.rebaseBranch(branch) },
-                        onDeleteBranch = { viewModel.deleteBranch(branch) },
+                        onDeleteBranch = { onDeleteBranch(branch) },
                         onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(branch) },
                         onRenameBranch = { onRenameBranch(branch) },
                         onCopyBranchNameToClipboard = {
@@ -376,6 +379,7 @@ fun LazyListScope.tags(
     refPanelSettings: RefPanelSettings,
     viewModel: RepositoryOpenViewModel,
     selectedItem: SelectedItem,
+    onDeleteTag: (Tag) -> Unit,
 ) {
     val isExpanded = tagsState.isExpanded
     val tags = tagsState.tags
@@ -422,7 +426,7 @@ fun LazyListScope.tags(
                         isSelected = selectedItem is SelectedItem.TagItem && selectedItem.tag == tag,
                         onTagClicked = { viewModel.selectTag(tag) },
                         onCheckoutTag = { viewModel.checkoutTagCommit(tag) },
-                        onDeleteTag = { viewModel.deleteTag(tag) }
+                        onDeleteTag = { onDeleteTag(tag) }
                     )
                 }
             }

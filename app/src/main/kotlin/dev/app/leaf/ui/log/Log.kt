@@ -115,6 +115,8 @@ fun Log(
     onCreateTag: (Commit) -> Unit,
     onChangeUpstreamBranch: (Branch) -> Unit,
     onRenameBranch: (Branch) -> Unit,
+    onDeleteBranch: (Branch) -> Unit,
+    onDeleteTag: (Tag) -> Unit,
 ) {
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
@@ -151,6 +153,8 @@ fun Log(
             onCreateTag = onCreateTag,
             onChangeUpstreamBranch = onChangeUpstreamBranch,
             onRenameBranch = onRenameBranch,
+            onDeleteBranch = onDeleteBranch,
+            onDeleteTag = onDeleteTag,
             onGraphPaddingChange = { newGraphPadding ->
                 graphPadding += newGraphPadding
                 viewModel.graphPadding = graphPadding
@@ -183,6 +187,8 @@ private fun LogView(
     onCreateTag: (Commit) -> Unit,
     onChangeUpstreamBranch: (Branch) -> Unit,
     onRenameBranch: (Branch) -> Unit,
+    onDeleteBranch: (Branch) -> Unit,
+    onDeleteTag: (Tag) -> Unit,
     onGraphPaddingChange: (Float) -> Unit,
     onAction: (LogAction) -> Unit,
     searchView: @Composable (LogSearch.SearchResults) -> Unit,
@@ -291,6 +297,8 @@ private fun LogView(
                 onCreateTag = onCreateTag,
                 onChangeUpstreamBranch = onChangeUpstreamBranch,
                 onRenameBranch = onRenameBranch,
+                onDeleteBranch = onDeleteBranch,
+                onDeleteTag = onDeleteTag,
                 onAction = onAction,
             )
 
@@ -499,6 +507,8 @@ fun CommitsList(
     onCreateTag: (Commit) -> Unit,
     onChangeUpstreamBranch: (Branch) -> Unit,
     onRenameBranch: (Branch) -> Unit,
+    onDeleteBranch: (Branch) -> Unit,
+    onDeleteTag: (Tag) -> Unit,
     graphWidth: Dp,
     horizontalScrollState: ScrollState,
 ) {
@@ -600,10 +610,10 @@ fun CommitsList(
                 showCreateNewTag = { onCreateTag(graphNode.commit) },
                 resetBranch = { onResetBranch(graphNode.commit) },
                 onMergeBranch = { onAction(LogAction.Merge(it)) },
-                onDeleteBranch = { onAction(LogAction.DeleteBranch(it)) },
+                onDeleteBranch = { onDeleteBranch(it) },
                 onDeleteRemoteBranch = { onAction(LogAction.DeleteRemoteBranch(it)) },
                 onCheckoutTag = { onAction(LogAction.CheckoutTag(it)) },
-                onDeleteTag = { onAction(LogAction.DeleteTag(it)) },
+                onDeleteTag = { onDeleteTag(it) },
                 onPushToRemoteBranch = { onAction(LogAction.PushToRemoteBranch(it)) },
                 onPullFromRemoteBranch = { onAction(LogAction.PullFromRemoteBranch(it)) },
                 onRebaseBranch = { onAction(LogAction.Rebase(it)) },

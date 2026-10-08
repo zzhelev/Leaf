@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
+import dev.app.leaf.app.generated.resources.error_delete_branch_not_merged
+import dev.app.leaf.app.generated.resources.error_delete_tag_has_own_commits
 import dev.app.leaf.app.generated.resources.error_git_cli_command_failed
 import dev.app.leaf.app.generated.resources.error_git_cli_invalid_configured_path
 import dev.app.leaf.app.generated.resources.error_git_cli_not_found
@@ -34,6 +36,11 @@ fun AppError.getErrorText(): String {
         is CreateBranchError -> when (this) {
             is CreateBranchError.BranchAlreadyExists -> stringResource(Res.string.error_create_branch_already_exists, this.name)
             is CreateBranchError.NameNotAllowed -> stringResource(Res.string.error_create_branch_name_not_allowed, this.name)
+        }
+
+        is DeleteRefError -> when (this) {
+            is DeleteRefError.BranchNotMerged -> stringResource(Res.string.error_delete_branch_not_merged, this.branchName)
+            is DeleteRefError.TagHasOwnCommits -> stringResource(Res.string.error_delete_tag_has_own_commits, this.tagName)
         }
 
         is GenericError -> this.message
