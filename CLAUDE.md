@@ -449,8 +449,15 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
   content's bounds. So `MaterialDialog` fills the space it's given and places the dialog itself, centered plus the drag
   offset. Its top 16 dp are a drag strip, so keep controls out of them; `Modifier.dialogDragHandle()` (from
   `MaterialDialogScope`) adds more handles, like the Settings title.
-- Some destructive actions have no confirmation today, for example dropping a stash or discarding a file. Deleting a
-  branch or a tag goes through `DeleteRefDialog`: without force first, then "Delete anyway" once git refuses.
+- **Confirmations (fork-only):** actions that can lose work open a dialog first.
+  - Deleting a branch or a tag goes through `DeleteRefDialog`: without force first, then "Delete anyway" once git
+    refuses.
+  - The others go through `Screen.ConfirmAction(action, onConfirm)` and `ConfirmActionDialog`. `ConfirmableAction`
+    says what the dialog shows, and `onConfirm` is what the button used to run, so the action's own code is
+    unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote branch or a
+    remote, dropping a stash, aborting a merge, rebase, cherry-pick or revert, skipping a rebase commit, and force
+    push. The reset dialog warns when Hard would discard uncommitted changes.
+  - Still unconfirmed: discarding a file, a selection, a hunk or a line.
 
 ## Repository tabs
 

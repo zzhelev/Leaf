@@ -2,6 +2,30 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Other actions that can lose work ask first (branch `claude/dazzling-leakey-b0b642`)
+
+- **Before:** these ran on the first click: deleting a submodule (its folder and its repository in `.git/modules`),
+  "Delete file" in Unstaged (also offered for tracked files with changes), aborting a merge, cherry-pick or revert (a
+  hard reset that discards every uncommitted change, not only the merge's), aborting a rebase, skipping a rebase
+  commit, dropping a stash, deleting a remote branch on the server, force push and deleting a remote. The reset dialog
+  offered Hard with no warning.
+- **Now** each opens a confirmation dialog first, from every place that offers it (side panel, log, status pane, push
+  menu):
+  - One destination, `Screen.ConfirmAction(action, onConfirm)`, renders `ConfirmActionDialog`. `ConfirmableAction`
+    describes what to say, and `onConfirm` is the code the button ran before, so the actions themselves are
+    unchanged. The abort buttons still clear the commit message, now only once the user confirms.
+  - The aborts say how many files have uncommitted changes that will be discarded (`StatusState.changedFilesCount`).
+    "Delete file" says whether the file is untracked, so nothing can restore it, or tracked, so its unstaged changes
+    are lost.
+  - The reset dialog shows a warning with the same count while Hard is selected (`ResetBranchViewModel` reads the
+    status).
+  - The warning box is the shared `DialogWarning`, also used by `DeleteRefDialog`.
+- **Not changed:** discarding a file, a selection, a hunk or a line still runs at once. The interactive rebase's
+  Cancel, before anything is applied, doesn't ask either.
+- **Checked offscreen:** each dialog variant rendered with the real resources (Cancel only dismisses, the primary
+  button only confirms), the reset dialog with Hard selected, and the status pane during a real merge conflict:
+  Abort asked first and kept the merge, and confirming ended it.
+
 ## Deleting a branch or a tag asks first, and keeps unmerged work (branch `claude/dazzling-leakey-b0b642`)
 
 - **Before:** "Delete branch" in the side panel and on the log's branch chips deleted at once, and always with force
