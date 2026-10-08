@@ -50,6 +50,7 @@ import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.components.TabsRow
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.context_menu.AppPopupMenu
+import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -91,6 +92,8 @@ sealed interface Screen : NavKey {
     data object SignOffData : Screen
     data object Author : Screen
     data object StashWithMessage : Screen
+    /** Asks before [action], which [onConfirm] runs. */
+    data class ConfirmAction(val action: ConfirmableAction, val onConfirm: () -> Unit) : Screen
     data class DiscardFolderChanges(
         val folderPath: String,
         val entries: List<StatusEntry>,

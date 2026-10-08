@@ -54,6 +54,7 @@ import dev.app.leaf.ui.components.SideMenuSubentry
 import dev.app.leaf.ui.components.sort.RefSortMenuButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.*
+import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.viewmodels.sidepanel.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -79,6 +80,9 @@ fun SidePanel(
 
     val searchFocusRequester = remember { FocusRequester() }
     val tabFocusRequester = LocalTabFocusRequester.current
+    val onConfirmAction: (ConfirmableAction, () -> Unit) -> Unit = { action, onConfirm ->
+        onNavigate(Screen.ConfirmAction(action, onConfirm))
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.freeSearchFocusFlow.collectLatest {
@@ -124,6 +128,7 @@ fun SidePanel(
                 refPanelSettings = refPanelSettings,
                 viewModel = viewModel,
                 onShowAddEditRemoteDialog = { onNavigate(Screen.AddEditRemote(it)) },
+                onConfirmAction = onConfirmAction,
             )
 
             tags(
@@ -138,12 +143,14 @@ fun SidePanel(
                 stashesState = stashesState,
                 selectedItem = selectedItem,
                 viewModel = viewModel,
+                onConfirmAction = onConfirmAction,
             )
 
             submodules(
                 submodulesState = submodulesState,
                 viewModel = viewModel,
                 onAddSubmodule = { onNavigate(Screen.SubmoduleAdd) },
+                onConfirmAction = onConfirmAction,
             )
         }
     }
@@ -275,6 +282,7 @@ fun LazyListScope.remotes(
     refPanelSettings: RefPanelSettings,
     viewModel: RepositoryOpenViewModel,
     onShowAddEditRemoteDialog: (Remote?) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
 ) {
     val isExpanded = remotesState.isExpanded
     val remotes = remotesState.remotes
@@ -327,7 +335,11 @@ fun LazyListScope.remotes(
                         val wrapper = remote.remoteInfo.remote
                         onShowAddEditRemoteDialog(wrapper)
                     },
-                    onDeleteRemote = { viewModel.deleteRemote(remote.remoteInfo) },
+                    onDeleteRemote = {
+                        onConfirmAction(ConfirmableAction.DeleteRemote(remote.remoteInfo.remote.name)) {
+                            viewModel.deleteRemote(remote.remoteInfo)
+                        }
+                    },
                     onRemoteClicked = { viewModel.onRemoteClicked(remote) },
                     onFetchBranches = { viewModel.onFetchRemoteBranches(remote) },
                 )
@@ -353,7 +365,11 @@ fun LazyListScope.remotes(
                                 currentBranch = remotesState.currentBranch,
                                 onBranchClicked = { viewModel.selectBranch(remoteBranch) },
                                 onCheckoutBranch = { viewModel.checkoutRemoteBranch(remoteBranch) },
-                                onDeleteBranch = { viewModel.deleteRemoteBranch(remoteBranch) },
+                                onDeleteBranch = {
+                                    onConfirmAction(ConfirmableAction.DeleteRemoteBranch(remoteBranch)) {
+                                        viewModel.deleteRemoteBranch(remoteBranch)
+                                    }
+                                },
                                 onPushRemoteBranch = { viewModel.pushToRemoteBranch(remoteBranch) },
                                 onPullRemoteBranch = { viewModel.pullFromRemoteBranch(remoteBranch) },
                                 onRebaseRemoteBranch = { viewModel.rebaseBranch(remoteBranch) },
@@ -439,6 +455,7 @@ fun LazyListScope.stashes(
     stashesState: StashesState,
     viewModel: RepositoryOpenViewModel,
     selectedItem: SelectedItem,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
 ) {
     val isExpanded = stashesState.isExpanded
     val stashes = stashesState.stashes
@@ -468,7 +485,9 @@ fun LazyListScope.stashes(
                 onClick = { viewModel.selectStash(stash) },
                 onApply = { viewModel.applyStash(stash) },
                 onPop = { viewModel.popStash(stash) },
-                onDelete = { viewModel.deleteStash(stash) },
+                onDelete = {
+                    onConfirmAction(ConfirmableAction.DropStash(stash)) { viewModel.deleteStash(stash) }
+                },
             )
         }
     }
@@ -479,6 +498,7 @@ fun LazyListScope.submodules(
     submodulesState: SubmodulesState,
     viewModel: RepositoryOpenViewModel,
     onAddSubmodule: () -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
 ) {
     val isExpanded = submodulesState.isExpanded
     val submodules = submodulesState.submodules
@@ -525,7 +545,11 @@ fun LazyListScope.submodules(
                 onSyncSubmodule = { viewModel.syncSubmodule(submodule.first) },
                 onUpdateSubmodule = { viewModel.updateSubmodule(submodule.first) },
                 onOpenSubmoduleInTab = { viewModel.onOpenSubmoduleInTab(submodule.first) },
-                onDeleteSubmodule = { viewModel.deleteSubmodule(submodule.first) },
+                onDeleteSubmodule = {
+                    onConfirmAction(ConfirmableAction.DeleteSubmodule(submodule.first)) {
+                        viewModel.deleteSubmodule(submodule.first)
+                    }
+                },
             )
         }
     }

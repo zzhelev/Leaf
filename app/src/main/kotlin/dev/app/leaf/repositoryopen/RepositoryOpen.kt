@@ -30,6 +30,7 @@ import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.ui.*
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
+import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.log.Log
 import dev.app.leaf.ui.status.StatusPane
@@ -130,6 +131,14 @@ fun RepositoryOpenPage(
                     },
                     onQuickActions = { onNavigate(Screen.QuickActions) },
                     onShowSettingsDialog = { onNavigate(Screen.Settings) },
+                    onForcePush = {
+                        val branchName = repositoryOpenViewModel.branchesState.value.currentBranch?.simpleName.orEmpty()
+                        val action = ConfirmableAction.ForcePush(branchName)
+
+                        onNavigate(
+                            Screen.ConfirmAction(action) { repositoryOpenViewModel.push(force = true, pushTags = false) }
+                        )
+                    },
                     showOpenPopup = showOpenPopup,
                     onShowOpenPopupChange = { showOpenPopup = it }
                 )
@@ -313,6 +322,9 @@ fun MainContentView(
                                     onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
                                     onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
                                     onDeleteTag = { onNavigate(Screen.TagDelete(it)) },
+                                    onConfirmAction = { action, onConfirm ->
+                                        onNavigate(Screen.ConfirmAction(action, onConfirm))
+                                    },
                                 )
                             }
                         }
@@ -352,6 +364,7 @@ fun MainContentView(
                         onDiscardFolderChanges = { folderPath, entries, keptNewFiles ->
                             onNavigate(Screen.DiscardFolderChanges(folderPath, entries, keptNewFiles))
                         },
+                        onConfirmAction = { action, onConfirm -> onNavigate(Screen.ConfirmAction(action, onConfirm)) },
                     )
                 }
             }

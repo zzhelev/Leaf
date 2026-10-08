@@ -218,6 +218,49 @@
     <string name="delete_ref_dialog_delete">Delete</string>
     <string name="delete_ref_dialog_delete_anyway">Delete anyway</string>
 
+    <!-- Confirmations of actions that can lose work -->
+    <string name="confirm_dialog_delete">Delete</string>
+    <string name="delete_submodule_dialog_title">Delete submodule</string>
+    <string name="delete_submodule_dialog_subtitle">Delete submodule "%1$s"?</string>
+    <string name="delete_submodule_dialog_warning">Its folder and its repository are deleted, with any changes, commits and stashes that aren't pushed.</string>
+    <string name="delete_file_dialog_title">Delete file</string>
+    <string name="delete_file_dialog_subtitle">Delete "%1$s"?</string>
+    <string name="delete_file_dialog_warning_untracked">The file isn't in git, so it can't be restored.</string>
+    <string name="delete_file_dialog_warning_tracked">Its changes that aren't staged can't be restored.</string>
+    <string name="abort_dialog_title_merge">Abort merge</string>
+    <string name="abort_dialog_subtitle_merge">Abort the merge in progress?</string>
+    <string name="abort_dialog_title_rebase">Abort rebase</string>
+    <string name="abort_dialog_subtitle_rebase">Abort the rebase and put the branch back where it was?</string>
+    <string name="abort_dialog_title_cherry_pick">Abort cherry-pick</string>
+    <string name="abort_dialog_subtitle_cherry_pick">Abort the cherry-pick in progress?</string>
+    <string name="abort_dialog_title_revert">Abort revert</string>
+    <string name="abort_dialog_subtitle_revert">Abort the revert in progress?</string>
+    <plurals name="abort_dialog_changes_discarded">
+        <item quantity="one">The uncommitted changes in %1$d file are discarded, including resolved conflicts. They can't be restored.</item>
+        <item quantity="other">The uncommitted changes in %1$d files are discarded, including resolved conflicts. They can't be restored.</item>
+    </plurals>
+    <string name="abort_dialog_abort">Abort</string>
+    <string name="skip_rebase_dialog_title">Skip commit</string>
+    <string name="skip_rebase_dialog_subtitle">Leave the commit being applied out of the rebased branch?</string>
+    <string name="skip_rebase_dialog_skip">Skip</string>
+    <string name="drop_stash_dialog_title">Drop stash</string>
+    <string name="drop_stash_dialog_subtitle">Drop stash "%1$s"?</string>
+    <string name="drop_stash_dialog_warning">Its changes can't be restored.</string>
+    <string name="drop_stash_dialog_drop">Drop</string>
+    <string name="delete_remote_branch_dialog_title">Delete remote branch</string>
+    <string name="delete_remote_branch_dialog_subtitle">Delete branch "%1$s" on remote "%2$s"?</string>
+    <string name="delete_remote_branch_dialog_warning">It's deleted on the server, for everyone who uses the remote.</string>
+    <string name="force_push_dialog_title">Force push</string>
+    <string name="force_push_dialog_subtitle">Force push "%1$s"?</string>
+    <string name="force_push_dialog_warning">The branch on the remote is replaced, so commits there that "%1$s" doesn't have are lost.</string>
+    <string name="force_push_dialog_push">Force push</string>
+    <string name="delete_remote_dialog_title">Delete remote</string>
+    <string name="delete_remote_dialog_subtitle">Delete remote "%1$s"? Its remote-tracking branches are deleted too.</string>
+    <plurals name="reset_dialog_hard_warning">
+        <item quantity="one">A hard reset discards the uncommitted changes in %1$d file. They can't be restored.</item>
+        <item quantity="other">A hard reset discards the uncommitted changes in %1$d files. They can't be restored.</item>
+    </plurals>
+
     <!-- Submodules context menu -->
     <string name="submodules_context_menu_initialize_submodule">Initialize submodule</string>
     <string name="submodules_context_menu_open_submodule_in_tab">Open submodule in new tab</string>

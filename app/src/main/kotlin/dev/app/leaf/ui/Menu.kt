@@ -52,6 +52,7 @@ fun Menu(
     onStashWithMessage: () -> Unit,
     onQuickActions: () -> Unit,
     onShowSettingsDialog: () -> Unit,
+    onForcePush: () -> Unit,
     showOpenPopup: Boolean,
     onShowOpenPopupChange: (Boolean) -> Unit,
 ) {
@@ -133,9 +134,7 @@ fun Menu(
                 onPushWithTags = {
                     viewModel.push(force = false, pushTags = true)
                 },
-                onForcePush = {
-                    viewModel.push(force = true, pushTags = false)
-                }
+                onForcePush = onForcePush
             )
         )
 

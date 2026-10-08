@@ -353,6 +353,18 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.ConfirmAction>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            ConfirmActionDialog(
+                                action = entry.action,
+                                onConfirm = {
+                                    backStack.removeLastOrNull()
+                                    entry.onConfirm()
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.QuickActions>(
                             metadata = dialogsMetadata
                         ) { entry ->

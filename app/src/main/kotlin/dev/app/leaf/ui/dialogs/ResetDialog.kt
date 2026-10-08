@@ -15,11 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.reset_dialog_hard_warning
 import dev.app.leaf.app.generated.resources.undo
 import dev.app.leaf.domain.usecases.ResetType
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.pluralStringResource
 
 @Composable
 fun ResetBranchDialog(
@@ -27,6 +29,7 @@ fun ResetBranchDialog(
     onDismiss: () -> Unit,
 ) {
     var resetType by remember { mutableStateOf(ResetType.MIXED) }
+    val changedFilesCount by viewModel.changedFilesCount.collectAsState()
 
     IconBasedDialog(
         icon = painterResource(Res.drawable.undo),
@@ -69,6 +72,14 @@ fun ResetBranchDialog(
                     resetType = ResetType.HARD
                 },
             )
+
+            if (resetType == ResetType.HARD && changedFilesCount > 0) {
+                Box(modifier = Modifier.width(380.dp)) {
+                    DialogWarning(
+                        pluralStringResource(Res.plurals.reset_dialog_hard_warning, changedFilesCount, changedFilesCount)
+                    )
+                }
+            }
         }
     }
 }

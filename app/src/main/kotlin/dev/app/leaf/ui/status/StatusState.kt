@@ -82,6 +82,9 @@ data class StatusState(
 
     val hasStagedFiles = staged.isNotEmpty()
     val hasUnstagedFiles = unstaged.isNotEmpty()
+
+    /** The files with uncommitted changes, staged or not. */
+    val changedFilesCount = (staged + unstaged).map { it.filePath }.distinct().count()
 }
 
 fun combineStatusState(

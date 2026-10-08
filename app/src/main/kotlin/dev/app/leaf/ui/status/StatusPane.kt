@@ -55,6 +55,8 @@ import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntryContextMenuItems
+import dev.app.leaf.ui.dialogs.ConfirmableAction
+import dev.app.leaf.ui.dialogs.ConfirmableAction.AbortOperation.Operation as AbortedOperation
 import dev.app.leaf.ui.dialogs.CommitAuthorDialog
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -69,6 +71,7 @@ fun StatusPane(
     onHistoryFile: (String) -> Unit,
     /** Asks to discard [entries], the unstaged changes of a folder, keeping its [keptNewFiles] new files. */
     onDiscardFolderChanges: (folderPath: String, entries: List<StatusEntry>, keptNewFiles: Int) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     completedTasks: StateFlow<List<CompletedTask>>,
 ) {
     val swapUncommittedChanges = statusState.swapUncommittedChanges
@@ -169,6 +172,7 @@ fun StatusPane(
                     onBlameFile = onBlameFile,
                     onHistoryFile = onHistoryFile,
                     onDiscardFolderChanges = onDiscardFolderChanges,
+                    onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
                     modifier = Modifier.height(heights.staged.dp),
                 )
@@ -188,6 +192,7 @@ fun StatusPane(
                     onBlameFile = onBlameFile,
                     onHistoryFile = onHistoryFile,
                     onDiscardFolderChanges = onDiscardFolderChanges,
+                    onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
                     modifier = Modifier.height(heights.unstaged.dp),
                 )
@@ -234,12 +239,24 @@ fun StatusPane(
                         onAction(StatusAction.UpdateCommitMessage(it))
                     },
                     onResetRepoState = {
-                        onAction(StatusAction.ResetRepositoryState)
-                        onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
+                        val operation = when {
+                            statusState.repositoryState.isCherryPicking -> AbortedOperation.CHERRY_PICK
+                            statusState.repositoryState.isReverting -> AbortedOperation.REVERT
+                            else -> AbortedOperation.MERGE
+                        }
+
+                        onConfirmAction(ConfirmableAction.AbortOperation(operation, statusState.changedFilesCount)) {
+                            onAction(StatusAction.ResetRepositoryState)
+                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
+                        }
                     },
                     onAbortRebase = {
-                        onAction(StatusAction.AbortRebase)
-                        onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
+                        val action = ConfirmableAction.AbortOperation(AbortedOperation.REBASE, statusState.changedFilesCount)
+
+                        onConfirmAction(action) {
+                            onAction(StatusAction.AbortRebase)
+                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
+                        }
                     },
                     onAmendChecked = { amend ->
                         if (amend && commitMessage.text.isEmpty()) {
@@ -248,7 +265,9 @@ fun StatusPane(
                         onAction(StatusAction.ToggleAmend(amend))
                     },
                     onContinueRebase = { onAction(StatusAction.ContinueRebase(commitMessage.text)) },
-                    onSkipRebase = { onAction(StatusAction.SkipRebase) },
+                    onSkipRebase = {
+                        onConfirmAction(ConfirmableAction.SkipRebaseCommit) { onAction(StatusAction.SkipRebase) }
+                    },
                     onAmendRebaseInteractiveChecked = { amend ->
                         if (amend && commitMessage.text.isEmpty()) {
                             onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
@@ -276,6 +295,7 @@ fun StatusChangesList(
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
     onDiscardFolderChanges: (folderPath: String, entries: List<StatusEntry>, keptNewFiles: Int) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onAction: (StatusAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -320,6 +340,9 @@ fun StatusChangesList(
         onSearchFocused = onSearchFocused,
         onBlameFile = onBlameFile,
         onHistoryFile = onHistoryFile,
+        onDeleteFile = { statusEntry ->
+            onConfirmAction(ConfirmableAction.DeleteFile(statusEntry)) { onAction(StatusAction.Delete(statusEntry)) }
+        },
         onAction = onAction,
         onCopy = { relative, entries ->
             scope.launch {
@@ -347,6 +370,7 @@ fun ChangesList(
     onSearchFocused: () -> Unit,
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
+    onDeleteFile: (StatusEntry) -> Unit,
     onAction: (StatusAction) -> Unit,
     onCopy: (relative: Boolean, entries: List<StatusEntry>) -> Unit,
     modifier: Modifier = Modifier,
@@ -358,7 +382,7 @@ fun ChangesList(
             onBlame = { onBlameFile(statusEntry.filePath) },
             onHistory = { onHistoryFile(statusEntry.filePath) },
             onReset = { onAction(StatusAction.Reset(statusEntry)) },
-            onDelete = { onAction(StatusAction.Delete(statusEntry)) },
+            onDelete = { onDeleteFile(statusEntry) },
             onOpenFileInFolder = { onAction(StatusAction.OpenInFolder(statusEntry.parentDirectoryPath)) },
             onCopyFilePath = { relative ->
                 onCopy(

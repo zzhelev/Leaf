@@ -3,21 +3,14 @@
 
 package dev.app.leaf.ui.dialogs
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.errors.DeleteRefError
@@ -95,28 +88,14 @@ private fun DeleteRefDialog(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (refusal != null) {
-                DialogMessage(refusal.refusalText())
+                DialogWarning(refusal.refusalText())
             }
 
             if (error != null) {
-                DialogMessage(error.getErrorText())
+                DialogWarning(error.getErrorText())
             }
         }
     }
-}
-
-@Composable
-private fun DialogMessage(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colors.error)
-            .padding(vertical = 4.dp, horizontal = 8.dp),
-        color = MaterialTheme.colors.onError,
-        style = MaterialTheme.typography.body2,
-    )
 }
 
 @Composable

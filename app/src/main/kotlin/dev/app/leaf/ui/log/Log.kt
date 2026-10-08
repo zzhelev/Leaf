@@ -62,6 +62,7 @@ import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltipPosition
 import dev.app.leaf.ui.context_menu.*
+import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.resizePointerIconEast
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -117,6 +118,7 @@ fun Log(
     onRenameBranch: (Branch) -> Unit,
     onDeleteBranch: (Branch) -> Unit,
     onDeleteTag: (Tag) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
 ) {
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
@@ -155,6 +157,7 @@ fun Log(
             onRenameBranch = onRenameBranch,
             onDeleteBranch = onDeleteBranch,
             onDeleteTag = onDeleteTag,
+            onConfirmAction = onConfirmAction,
             onGraphPaddingChange = { newGraphPadding ->
                 graphPadding += newGraphPadding
                 viewModel.graphPadding = graphPadding
@@ -189,6 +192,7 @@ private fun LogView(
     onRenameBranch: (Branch) -> Unit,
     onDeleteBranch: (Branch) -> Unit,
     onDeleteTag: (Tag) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onGraphPaddingChange: (Float) -> Unit,
     onAction: (LogAction) -> Unit,
     searchView: @Composable (LogSearch.SearchResults) -> Unit,
@@ -299,6 +303,7 @@ private fun LogView(
                 onRenameBranch = onRenameBranch,
                 onDeleteBranch = onDeleteBranch,
                 onDeleteTag = onDeleteTag,
+                onConfirmAction = onConfirmAction,
                 onAction = onAction,
             )
 
@@ -509,6 +514,7 @@ fun CommitsList(
     onRenameBranch: (Branch) -> Unit,
     onDeleteBranch: (Branch) -> Unit,
     onDeleteTag: (Tag) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     graphWidth: Dp,
     horizontalScrollState: ScrollState,
 ) {
@@ -611,7 +617,11 @@ fun CommitsList(
                 resetBranch = { onResetBranch(graphNode.commit) },
                 onMergeBranch = { onAction(LogAction.Merge(it)) },
                 onDeleteBranch = { onDeleteBranch(it) },
-                onDeleteRemoteBranch = { onAction(LogAction.DeleteRemoteBranch(it)) },
+                onDeleteRemoteBranch = { branch ->
+                    onConfirmAction(ConfirmableAction.DeleteRemoteBranch(branch)) {
+                        onAction(LogAction.DeleteRemoteBranch(branch))
+                    }
+                },
                 onCheckoutTag = { onAction(LogAction.CheckoutTag(it)) },
                 onDeleteTag = { onDeleteTag(it) },
                 onPushToRemoteBranch = { onAction(LogAction.PushToRemoteBranch(it)) },
@@ -621,7 +631,11 @@ fun CommitsList(
                 onRevCommitSelected = { onAction(LogAction.CommitSelected(graphNode.commit)) },
                 onChangeDefaultUpstreamBranch = { onChangeUpstreamBranch(it) },
                 onRenameBranch = { onRenameBranch(it) },
-                onDeleteStash = { onAction(LogAction.DeleteStash(graphNode.commit)) },
+                onDeleteStash = {
+                    onConfirmAction(ConfirmableAction.DropStash(graphNode.commit)) {
+                        onAction(LogAction.DeleteStash(graphNode.commit))
+                    }
+                },
                 onApplyStash = { onAction(LogAction.ApplyStash(graphNode.commit)) },
                 onPopStash = { onAction(LogAction.PopStash(graphNode.commit)) },
                 onShowStatusAmending = { onAction(LogAction.ShowStatusAmending) },
