@@ -2,6 +2,7 @@ package dev.app.leaf.data.git
 
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
+import dev.app.leaf.data.git.signers.gpgSigningError
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.errors.*
 import org.eclipse.jgit.api.Git
@@ -45,8 +46,7 @@ class JGit @Inject constructor(
         try {
             Either.Ok(block(git))
         } catch (ex: Exception) {
-            val error = errorHandle?.invoke(ex) ?: GenericError(ex.message.orEmpty(), ex)
-            Either.Err(error)
+            Either.Err(ex.toGitError(errorHandle))
         }
     }
 
@@ -78,9 +78,16 @@ class JGit @Inject constructor(
         try {
             Either.Ok(block(git))
         } catch (ex: Exception) {
-            val error = errorHandle?.invoke(ex) ?: GenericError(ex.message.orEmpty(), ex)
-            Either.Err(error)
+            Either.Err(ex.toGitError(errorHandle))
         }
+    }
+
+    /**
+     * Signing errors come first: commits, merges, rebases and tags all sign, and an operation's own [errorHandle]
+     * doesn't know about them.
+     */
+    private fun Exception.toGitError(errorHandle: ((Exception) -> GitError)?): GitError {
+        return gpgSigningError() ?: errorHandle?.invoke(this) ?: GenericError(message.orEmpty(), this)
     }
 
     /**

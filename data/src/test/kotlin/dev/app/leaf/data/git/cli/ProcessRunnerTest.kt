@@ -60,6 +60,30 @@ class ProcessRunnerTest {
     }
 
     @Test
+    fun `writes the input to stdin and closes it`() {
+        val outcome = sh("cat; echo done >&2", input = "signed data\n".toByteArray())
+
+        assertEquals(ProcessOutcome.Completed(0, "signed data\n", "done\n"), outcome)
+    }
+
+    @Test
+    fun `does not fail when the process exits without reading its input`() {
+        assertEquals(ProcessOutcome.Completed(3, "", ""), sh("exit 3", input = ByteArray(1_000_000)))
+    }
+
+    @Test
+    fun `writes large input while the output is drained`() {
+        // tr writes while it reads, so a runner that wrote all of the input before draining stdout would block
+        val input = ByteArray(1_000_000) { 'a'.code.toByte() }
+
+        val outcome = sh("tr a b; head -c 1000000 /dev/zero | tr '\\0' c >&2", input = input)
+
+        outcome as ProcessOutcome.Completed
+        assertEquals("b".repeat(1_000_000), outcome.stdout)
+        assertEquals(1_000_000, outcome.stderr.length)
+    }
+
+    @Test
     fun `drains large output on both streams`() {
         val outcome = sh("head -c 1000000 /dev/zero | tr '\\0' a; head -c 1000000 /dev/zero | tr '\\0' b >&2")
 
@@ -111,8 +135,9 @@ class ProcessRunnerTest {
         script: String,
         timeout: Duration = 10.seconds,
         environment: Map<String, String?> = emptyMap(),
+        input: ByteArray? = null,
     ): ProcessOutcome = runBlocking {
-        processRunner.run(listOf("/bin/sh", "-c", script), tempDir, environment, timeout)
+        processRunner.run(listOf("/bin/sh", "-c", script), tempDir, environment, timeout, input)
     }
 
     private fun assertProcessExits(pid: Long) {

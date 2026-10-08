@@ -7,9 +7,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.time.Duration
@@ -28,6 +30,7 @@ sealed interface ProcessOutcome {
 class ProcessRunner @Inject constructor() {
     /**
      * @param environment variables to add to the inherited environment; a null value removes the variable.
+     * @param input written to the process's stdin, which is then closed; without it stdin is closed at once.
      * @throws java.io.IOException if the process can't be started.
      */
     suspend fun run(
@@ -35,6 +38,7 @@ class ProcessRunner @Inject constructor() {
         workingDirectory: File?,
         environment: Map<String, String?>,
         timeout: Duration,
+        input: ByteArray? = null,
     ): ProcessOutcome = withContext(Dispatchers.IO) {
         val process = ProcessBuilder(command)
             .directory(workingDirectory)
@@ -51,10 +55,17 @@ class ProcessRunner @Inject constructor() {
             }
             .start()
 
-        // Nothing is ever written to stdin, close it so commands that read it don't wait forever
-        process.outputStream.close()
+        if (input == null) {
+            // Close stdin, so that commands that read it don't wait forever
+            process.outputStream.close()
+        }
 
         coroutineScope {
+            if (input != null) {
+                // Written while the output is drained, as the process may write before it has read all of its input
+                launch { process.writeInput(input) }
+            }
+
             // Both streams have to be drained while the process runs, otherwise it blocks once a pipe buffer is full
             val stdout = async { process.inputStream.readBytes().decodeToString() }
             val stderr = async { process.errorStream.readBytes().decodeToString() }
@@ -74,6 +85,15 @@ class ProcessRunner @Inject constructor() {
                     process.destroyTree()
                 }
             }
+        }
+    }
+
+    private fun Process.writeInput(input: ByteArray) {
+        try {
+            outputStream.use { it.write(input) }
+        } catch (e: IOException) {
+            // The process exited without reading all of it. Like git, Leaf leaves it to the exit code and the output to
+            // tell what went wrong
         }
     }
 

@@ -10,6 +10,12 @@ import dev.app.leaf.app.generated.resources.error_git_cli_not_found
 import dev.app.leaf.app.generated.resources.error_git_cli_start_failed
 import dev.app.leaf.app.generated.resources.error_git_cli_timed_out
 import dev.app.leaf.app.generated.resources.error_git_cli_unsupported_version
+import dev.app.leaf.app.generated.resources.error_gpg_signing_failed
+import dev.app.leaf.app.generated.resources.error_gpg_signing_no_key
+import dev.app.leaf.app.generated.resources.error_gpg_signing_pinentry_unavailable
+import dev.app.leaf.app.generated.resources.error_gpg_signing_program_not_found
+import dev.app.leaf.app.generated.resources.error_gpg_signing_start_failed
+import dev.app.leaf.app.generated.resources.error_gpg_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_hook_rejection
 import dev.app.leaf.app.generated.resources.error_open_repository_dir_not_found
 import dev.app.leaf.app.generated.resources.error_open_repository_path_is_not_dir
@@ -52,6 +58,15 @@ fun AppError.getErrorText(): String {
             is GitCliError.CommandFailed -> stringResource(Res.string.error_git_cli_command_failed, this.command, this.exitCode, this.stderr)
             is GitCliError.TimedOut -> stringResource(Res.string.error_git_cli_timed_out, this.command, this.timeoutSeconds)
             is GitCliError.StartFailed -> stringResource(Res.string.error_git_cli_start_failed, this.command, this.message)
+        }
+
+        is GpgSigningError -> when (this) {
+            GpgSigningError.NoSigningKey -> stringResource(Res.string.error_gpg_signing_no_key)
+            is GpgSigningError.ProgramNotFound -> stringResource(Res.string.error_gpg_signing_program_not_found, this.program)
+            is GpgSigningError.StartFailed -> stringResource(Res.string.error_gpg_signing_start_failed, this.program, this.message)
+            is GpgSigningError.TimedOut -> stringResource(Res.string.error_gpg_signing_timed_out, this.program, this.timeoutSeconds)
+            is GpgSigningError.PinentryUnavailable -> stringResource(Res.string.error_gpg_signing_pinentry_unavailable, this.output)
+            is GpgSigningError.SigningFailed -> stringResource(Res.string.error_gpg_signing_failed, this.program, this.output)
         }
 
         is SshSigningError.InvalidPassword -> throw IllegalStateException("InvalidPassword error should never trigger")

@@ -25,15 +25,18 @@ class SshSigner @Inject constructor(
         signingKey: String?,
         credentialsProvider: CredentialsProvider?
     ): GpgSignature {
+        // JGit's TagCommand passes no key unless it's set on the command, its CommitCommand passes user.signingKey
+        val key = signingKey ?: config?.signingKey
+
         // TODO Do we handle null signing key differently?
-        if (signingKey == null) {
+        if (key == null) {
             throw CancellationException("Signing key not specified")
         }
 
         var password = ""
         var result: Either<String, SshSigningError>
         do {
-            result = signData(data, signingKey, password)
+            result = signData(data, key, password)
 
             if (result is Either.Ok) {
                 return GpgSignature(result.value.toByteArray(Charsets.UTF_8))

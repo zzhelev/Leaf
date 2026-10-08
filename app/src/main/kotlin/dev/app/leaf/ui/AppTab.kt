@@ -103,7 +103,6 @@ fun AppTab(
 
     LaunchedEffect(credentialsState) {
         val destination = when (val state = credentialsState) {
-            is CredentialsRequest.GpgCredentialsRequest -> Screen.GpgCredentials(state)
             is CredentialsRequest.HttpCredentialsRequest -> Screen.HttpCredentials(state)
             is CredentialsRequest.LfsCredentialsRequest -> Screen.LfsCredentials(state)
             is CredentialsRequest.SshCredentialsRequest -> Screen.SshCredentials(state)
@@ -262,21 +261,6 @@ fun AppTab(
                                 },
                                 onAccept = { password ->
                                     repositoryTabViewModel.sshCredentialsAccepted(password)
-                                    backStack.removeLastOrNull()
-                                }
-                            )
-                        }
-                        entry<Screen.GpgCredentials>(
-                            metadata = dialogsMetadata
-                        ) { entry ->
-                            GpgPasswordDialog(
-                                gpgCredentialsRequest = entry.credentialsRequest,
-                                onReject = {
-                                    repositoryTabViewModel.credentialsDenied()
-                                    backStack.removeLastOrNull()
-                                },
-                                onAccept = { password ->
-                                    repositoryTabViewModel.gpgCredentialsAccepted(password)
                                     backStack.removeLastOrNull()
                                 }
                             )

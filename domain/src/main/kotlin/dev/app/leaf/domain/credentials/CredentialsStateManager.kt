@@ -34,10 +34,6 @@ class CredentialsStateManager @Inject constructor() {
         return requestAwaitingCredentials(CredentialsRequest.SshCredentialsRequest(isRetry, password.orEmpty()))
     }
 
-    suspend fun requestGpgCredentials(isRetry: Boolean, password: String): CredentialsAccepted.GpgCredentialsAccepted {
-        return requestAwaitingCredentials(CredentialsRequest.GpgCredentialsRequest(isRetry, password))
-    }
-
     /** Asks the user for the credentials of an LFS server, like [requestHttpCredentials]. */
     suspend fun requestLfsCredentials(user: String?): CredentialsAccepted.LfsCredentialsAccepted {
         val accepted = requestAwaitingCredentials<CredentialsAccepted.LfsCredentialsAccepted>(
@@ -57,10 +53,6 @@ class CredentialsStateManager @Inject constructor() {
 
     fun sshCredentialsAccepted(password: String) {
         credentialsState.value = CredentialsAccepted.SshCredentialsAccepted(password)
-    }
-
-    fun gpgCredentialsAccepted(password: String) {
-        credentialsState.value = CredentialsAccepted.GpgCredentialsAccepted(password)
     }
 
     fun lfsCredentialsAccepted(user: String, password: String) {
@@ -94,7 +86,6 @@ sealed interface CredentialsState {
 
 sealed interface CredentialsAccepted : CredentialsState {
     data class SshCredentialsAccepted(val password: String) : CredentialsAccepted
-    data class GpgCredentialsAccepted(val password: String) : CredentialsAccepted
     data class HttpCredentialsAccepted(val user: String, val password: String) : CredentialsAccepted
     data class LfsCredentialsAccepted(val user: String, val password: String) : CredentialsAccepted {
         companion object {
@@ -108,8 +99,6 @@ sealed interface CredentialsAccepted : CredentialsState {
 sealed interface CredentialsRequest : CredentialsState {
     @Immutable
     data class SshCredentialsRequest(val isRetry: Boolean, val password: String) : CredentialsRequest
-    @Immutable
-    data class GpgCredentialsRequest(val isRetry: Boolean, val password: String) : CredentialsRequest
 
     /** [user] is the user name that git knows for the URL, if any: then only the password is asked for. */
     @Immutable

@@ -274,4 +274,11 @@
     <string name="error_git_cli_timed_out">"%1$s" did not finish within %2$d seconds</string>
     <string name="error_git_cli_start_failed">"%1$s" could not be started: %2$s</string>
 
+    <string name="error_gpg_signing_no_key">Could not sign: no signing key. Set user.signingKey, or user.name and user.email to sign with the key of that identity</string>
+    <string name="error_gpg_signing_program_not_found">Could not sign: "%1$s" was not found. Install GnuPG, or set gpg.program to the path of gpg</string>
+    <string name="error_gpg_signing_start_failed">Could not sign: "%1$s" could not be started: %2$s</string>
+    <string name="error_gpg_signing_timed_out">Could not sign: "%1$s" did not finish within %2$d seconds</string>
+    <string name="error_gpg_signing_pinentry_unavailable">Could not sign: gpg needs the key's passphrase, but its pinentry can't ask for it without a terminal. Install a pinentry that opens a window (pinentry-mac on macOS) and set it as pinentry-program in gpg-agent.conf. gpg said: %1$s</string>
+    <string name="error_gpg_signing_failed">%1$s failed to sign the data: %2$s</string>
+
 </resources>

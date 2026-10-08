@@ -198,10 +198,6 @@ class RepositoryTabViewModel @AssistedInject constructor(
         credentialsStateManager.sshCredentialsAccepted(password)
     }
 
-    fun gpgCredentialsAccepted(password: String) {
-        credentialsStateManager.gpgCredentialsAccepted(password)
-    }
-
     fun lfsCredentialsAccepted(user: String, password: String) {
         credentialsStateManager.lfsCredentialsAccepted(user, password)
     }

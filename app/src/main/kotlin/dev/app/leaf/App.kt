@@ -30,7 +30,7 @@ import dev.app.leaf.avatarproviders.NoneAvatarProvider
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.systemSeparator
-import dev.app.leaf.data.git.signers.AppGpgSigner
+import dev.app.leaf.data.git.signers.GpgProgramSigner
 import dev.app.leaf.data.git.signers.SshSigner
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.TempFilesManager
@@ -84,7 +84,6 @@ sealed interface Screen : NavKey {
     data object SubmoduleAdd : Screen
     data class HttpCredentials(val credentialsRequest: CredentialsRequest.HttpCredentialsRequest) : Screen
     data class SshCredentials(val credentialsRequest: CredentialsRequest.SshCredentialsRequest) : Screen
-    data class GpgCredentials(val credentialsRequest: CredentialsRequest.GpgCredentialsRequest) : Screen
     data class LfsCredentials(val credentialsRequest: CredentialsRequest.LfsCredentialsRequest) : Screen
     data object QuickActions : Screen
     data object SignOffData : Screen
@@ -105,7 +104,7 @@ class App @Inject constructor(
     private val appViewModel: AppViewModel,
     private val tempFilesManager: TempFilesManager,
     private val logsRepository: LogsRepository,
-    private val gpgSigner: AppGpgSigner,
+    private val gpgSigner: GpgProgramSigner,
     private val sshSigner: SshSigner,
     private val lfsFactory: AppLfsFactory,
     private val loginShellEnvironment: LoginShellEnvironment,
