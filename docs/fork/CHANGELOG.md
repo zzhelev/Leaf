@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Checking out a remote branch whose local branch exists says so (branch `fix/remote-checkout-message`)
+
+- **Before:** double-clicking a remote branch such as `origin/develop` while a local `develop` existed showed JGit's
+  own text, "Ref develop already exists". Checking out a remote branch always creates a local branch from it.
+- **Now:** `CheckoutBranchGitAction` turns JGit's `RefAlreadyExistsException` into
+  `CheckoutBranchError.LocalBranchAlreadyExists`, and the dialog names both branches in two paragraphs: checking out
+  "origin/develop" would create a local "develop", which already exists; to bring "develop" up to date, check it out
+  and pull, or merge "origin/develop" into it. The texts are in `strings.xml`.
+- **Unchanged:** the checkout still fails, and the title is still "Branch checkout failed", as remote checkouts run as
+  `TaskType.CheckoutBranch`.
+- **Tests:** `CheckoutBranchGitActionTest` (3, on temp clones) checks that a remote branch becomes a local branch that
+  tracks it, and that an existing local branch gives the new error with both names, also for a name with folders
+  (`origin/feature/login`).
+- **Verified:** an offscreen render of `ErrorDialog` with the old and the new error.
+
 ## Push runs the git CLI (branch `feat/git-cli-push`)
 
 Stage 1 of `docs/fork/remote-operations.md`.
