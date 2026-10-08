@@ -72,7 +72,9 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   4. After publishing, update `latest.json` on `main` (`appVersion`, `appCode` = the new `APP_VERSION_CODE`,
      `downloadUrl` = the release page) and push. Installed copies then show the update banner.
      `UpdatesRepository.update` checks once for the whole app, every 5 minutes, and compares `appCode` only. A failed
-     check is logged and keeps the last answer.
+     check is logged and keeps the last answer. Users can also check right away (`checkNow`, `CheckForUpdatesDialog`):
+     "Check for updates" in the Actions list and on the Welcome page, and on macOS "Check for Updates…" in the Help
+     menu, the only menu in Leaf's menu bar (`App.kt`, macOS only).
 - **Test run without releasing:** Actions → Release Build → Run workflow. It only builds, and keeps the files as
   workflow artifacts for a week.
 - `leaf-0.1.0` was published by hand before the workflow existed. It's macOS only, and the app still reported
@@ -543,6 +545,8 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 **Dialogs** are Navigation3 destinations:
 - `sealed interface Screen` in `App.kt`, `entry<Screen.X>` in `ui/AppTab.kt`.
 - Opened with `backStack.add(...)`, through an `onNavigate` lambda.
+- The Actions list (`QuickActionsDialog`) closes itself before it runs an action, so an action that opens a dialog only
+  adds it. Closing afterwards would remove the new dialog, the top of the back stack.
 - `ui/dialogs/base/IconBasedDialog.kt` is the base for confirm-style dialogs.
 - Every dialog renders through `ui/dialogs/base/MaterialDialog.kt`. `DialogSceneStrategy` uses Compose's common
   `Dialog`, which on desktop draws on the main window's canvas, not in an OS window, and only takes clicks inside its

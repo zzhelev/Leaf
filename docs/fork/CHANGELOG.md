@@ -2,6 +2,45 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Check for updates by hand (branch `feat/check-for-updates`)
+
+- **Before:** Leaf only checked by itself, every 5 minutes, and said nothing unless it found an update. There was no
+  way to check right away, or to tell that the checks were failing.
+- **Now:** "Check for updates" is in the toolbar's Actions list, on the Welcome page under Additional information, and
+  on macOS in a Help menu in the system menu bar ("Check for Updates…", added in `App.kt`). Windows and Linux get no
+  menu bar, as Compose would draw a Swing one inside the window.
+  - Each opens `CheckForUpdatesDialog`, which checks right away (`UpdatesRepository.checkNow`) and shows "Checking for
+    updates…", then one of:
+    - "Leaf 1.2.0 is available. You have 1.1.1.", with Download, which opens the release page;
+    - "Leaf 1.1.1 is up to date.";
+    - "Couldn't check for updates.", with the reason and Try again. The reason is `<url> answered 404 Not Found`,
+      `<url> didn't answer with a release`, `Couldn't find the address of <host>` (also when offline) or
+      `Couldn't reach <host>: <the error>`.
+  - An update found by hand also appears in the bottom bar of every tab, like one found by the 5-minute check, which
+    goes on as before.
+- **Fixed on the way:** "Clone new repository" and "Signoff config" in the Actions list did nothing. Their callbacks
+  closed the Actions list and opened their dialog, and then the list closed the top dialog again, which was the new
+  one. The list now closes first, and the callbacks only open their dialog. "Clone new repository" also opened
+  `Screen.Clone`, which has no destination; it now opens the Welcome page's Clone dialog. Upstream has the same code.
+- **Tests:** 7 more in `UpdatesRepositoryTest` (13 now), and `CheckForUpdatesViewModelTest` (3).
+  - A check by hand: each of the three results; the reasons for 404, a 503 holding a release, a body that isn't
+    JSON, a dropped connection, a closed port and an unknown host (`.invalid`); a found update reaching the shared
+    state, also when no tab was looking yet; a failure keeping the update found before.
+  - The dialog checks when it opens, starts no second check while one runs, and checks again on Try again.
+  - Ten mutations were each caught: `checkNow` not sharing its update, or sharing it with no replay; no unknown-host
+    reason; no status check; no JSON catch; a failure counted as up to date; a version off by one; no guard against a
+    second check; no "Checking" state on Try again; no check when the dialog opens.
+  - `./gradlew build` passes, with 473 tests (16 in `:app`, 368 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Verified:**
+  - Offscreen, the dialog in each state, against a local server: checking, failed, checking again after Try again,
+    available, up to date. Close and Try again worked.
+  - Offscreen, a real tab from the Dagger graph: the Welcome page's link and the Actions list's item each opened the
+    dialog, which checked Leaf's real `latest.json` ("Leaf 1.1.1 is up to date."), and Close went back to the page.
+    "Clone new repository" opened the Clone dialog, and "Signoff config" put the sign-off dialog on the back stack (not
+    rendered: it needs an open repository). The same clicks on `main`'s code left only the Welcome page.
+  - In a dev run on macOS, the Help menu showed in the system menu bar, and "Check for Updates…" opened the dialog
+    (clicked by hand).
+
 ## A remote branch checkout uses the local branch, and offers to fast-forward it (branch `feat/remote-checkout-fast-forward`)
 
 - **Before:** double-clicking a remote branch such as `origin/develop` (in the log or the side panel) always created a
