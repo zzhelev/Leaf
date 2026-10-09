@@ -57,6 +57,8 @@ import dev.app.leaf.repositoryopen.LogSearch
 import dev.app.leaf.repositoryopen.LogState
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.*
+import dev.app.leaf.ui.BranchWorktreeChipMark
+import dev.app.leaf.ui.LocalBranchWorktrees
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.sort.SortMenuItem
@@ -120,6 +122,7 @@ fun Log(
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
     val logColumns by viewModel.logColumns.collectAsState()
+    val branchWorktrees by viewModel.branchWorktrees.collectAsState()
 
     LaunchedEffect(logStatus.verticalScrollState, logStatus.commitList) {
         launch {
@@ -141,30 +144,32 @@ fun Log(
     }
 
     BoxWithConstraints {
-        LogView(
-            logState = logStatus,
-            logWidth = maxWidth.value,
-            selectedItem = selectedItem,
-            repositoryState = repositoryState,
-            savedColumns = logColumns,
-            onRequestMoreLogItems = { firstVisibleItemIndex -> viewModel.loadMoreLogItems(firstVisibleItemIndex) },
-            onCreateBranch = onCreateBranch,
-            onResetBranch = onResetBranch,
-            onCreateTag = onCreateTag,
-            onChangeUpstreamBranch = onChangeUpstreamBranch,
-            onRenameBranch = onRenameBranch,
-            onDeleteBranch = onDeleteBranch,
-            onDeleteTag = onDeleteTag,
-            onConfirmAction = onConfirmAction,
-            onAction = { viewModel.onAction(it) },
-            searchView = {
-                SearchFilter(
-                    logViewModel = viewModel,
-                    searchFilterResults = it,
-                    searchFocused = { viewModel.addSearchToCloseableView() },
-                )
-            }
-        )
+        CompositionLocalProvider(LocalBranchWorktrees provides branchWorktrees) {
+            LogView(
+                logState = logStatus,
+                logWidth = maxWidth.value,
+                selectedItem = selectedItem,
+                repositoryState = repositoryState,
+                savedColumns = logColumns,
+                onRequestMoreLogItems = { firstVisibleItemIndex -> viewModel.loadMoreLogItems(firstVisibleItemIndex) },
+                onCreateBranch = onCreateBranch,
+                onResetBranch = onResetBranch,
+                onCreateTag = onCreateTag,
+                onChangeUpstreamBranch = onChangeUpstreamBranch,
+                onRenameBranch = onRenameBranch,
+                onDeleteBranch = onDeleteBranch,
+                onDeleteTag = onDeleteTag,
+                onConfirmAction = onConfirmAction,
+                onAction = { viewModel.onAction(it) },
+                searchView = {
+                    SearchFilter(
+                        logViewModel = viewModel,
+                        searchFilterResults = it,
+                        searchFocused = { viewModel.addSearchToCloseableView() },
+                    )
+                }
+            )
+        }
 
         AnimatedVisibility(visible = logStatus.isLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -1424,6 +1429,9 @@ fun BranchChip(
     onRenameBranch: () -> Unit,
     color: Color,
 ) {
+    val branchWorktrees = LocalBranchWorktrees.current
+    val worktreeUsers = branchWorktrees.usersOf(ref)
+
     val contextMenuItemsList = {
         branchContextMenuItems(
             branch = ref,
@@ -1440,12 +1448,20 @@ fun BranchChip(
             onChangeDefaultUpstreamBranch = onChangeDefaultUpstreamBranch,
             onRenameBranch = onRenameBranch,
             onCopyBranchNameToClipboard = onCopyBranchNameToClipboard,
+            worktreeUsers = worktreeUsers,
         )
     }
 
-    var endingContent: @Composable () -> Unit = {}
-    if (isCurrentBranch) {
-        endingContent = {
+    val endingContent: @Composable () -> Unit = {
+        if (worktreeUsers != null) {
+            BranchWorktreeChipMark(
+                users = worktreeUsers,
+                baseBranch = branchWorktrees.baseBranch,
+                modifier = Modifier.padding(end = 6.dp),
+            )
+        }
+
+        if (isCurrentBranch) {
             Icon(
                 painter = painterResource(Res.drawable.location),
                 contentDescription = null,

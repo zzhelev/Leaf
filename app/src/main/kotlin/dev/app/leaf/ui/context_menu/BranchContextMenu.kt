@@ -2,6 +2,7 @@ package dev.app.leaf.ui.context_menu
 
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.BranchWorktreeUsers
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -20,15 +21,22 @@ fun branchContextMenuItems(
     onChangeDefaultUpstreamBranch: () -> Unit,
     onRenameBranch: () -> Unit,
     onCopyBranchNameToClipboard: () -> Unit,
+    worktreeUsers: BranchWorktreeUsers? = null,
 ): List<ContextMenuElement> {
+    // Leaves out what the worktree guards would refuse (fork-only)
+    val canCheckout = worktreeUsers?.canCheckout != false
+    val canRename = worktreeUsers?.canRename != false
+    val canDelete = worktreeUsers?.canDelete != false
 
     return mutableListOf<ContextMenuElement>().apply {
         if (!isCurrentBranch) {
-            addContextMenu(
-                composableLabel = { stringResource(Res.string.branch_context_menu_checkout_branch) },
-                icon = { painterResource(Res.drawable.start) },
-                onClick = onCheckoutBranch
-            )
+            if (canCheckout) {
+                addContextMenu(
+                    composableLabel = { stringResource(Res.string.branch_context_menu_checkout_branch) },
+                    icon = { painterResource(Res.drawable.start) },
+                    onClick = onCheckoutBranch
+                )
+            }
             if (currentBranch != null && currentBranch.name != "HEAD") {
                 addContextMenu(
                     composableLabel = { stringResource(Res.string.branch_context_menu_merge_branch) },
@@ -68,11 +76,13 @@ fun branchContextMenuItems(
         }
 
         if (isLocal) {
-            addContextMenu(
-                composableLabel = { stringResource(Res.string.branch_context_menu_rename_branch) },
-                icon = { painterResource(Res.drawable.edit) },
-                onClick = onRenameBranch,
-            )
+            if (canRename) {
+                addContextMenu(
+                    composableLabel = { stringResource(Res.string.branch_context_menu_rename_branch) },
+                    icon = { painterResource(Res.drawable.edit) },
+                    onClick = onRenameBranch,
+                )
+            }
 
             addContextMenu(
                 composableLabel = { stringResource(Res.string.branch_context_menu_change_default_upstream_branch) },
@@ -92,7 +102,7 @@ fun branchContextMenuItems(
             add(ContextMenuElement.ContextSeparator)
         }
 
-        if (isLocal && !isCurrentBranch) {
+        if (isLocal && !isCurrentBranch && canDelete) {
             addContextMenu(
                 composableLabel = { stringResource(Res.string.branch_context_menu_delete_branch) },
                 icon = { painterResource(Res.drawable.delete) },

@@ -105,6 +105,11 @@
     <string name="side_pane_worktree_tooltip_locked_reason">Locked: %1$s</string>
     <string name="side_pane_worktree_tooltip_prunable">The folder is missing: %1$s.\ngit worktree prune would remove this worktree.</string>
 
+    <!-- Branches that a worktree uses, in the branch list and the log (fork-only) -->
+    <string name="branch_worktree_tooltip_checked_out">Another worktree has this branch checked out, so it can't be checked out here or deleted.</string>
+    <string name="branch_worktree_tooltip_rebasing">Another worktree is rebasing this branch, so it can't be checked out here, deleted or renamed.</string>
+    <string name="branch_worktree_tooltip_bisecting">Another worktree is bisecting from this branch, so it can't be checked out here, deleted or renamed.</string>
+
     <!-- Sort and group menus (side pane and files changed) -->
     <string name="sort_menu_tooltip">Sort and group</string>
     <string name="sort_menu_title_local_branches">Sort local branches by</string>

@@ -36,6 +36,7 @@ import dev.app.leaf.system.OpenUrlInBrowserUseCase
 import dev.app.leaf.system.PickerType
 import dev.app.leaf.terminal.OpenRepositoryInTerminalGitAction
 import dev.app.leaf.ui.AppViewModel
+import dev.app.leaf.ui.BranchWorktreesState
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
 import dev.app.leaf.ui.dialogs.FastForwardOffer
@@ -372,6 +373,15 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val worktreesState: StateFlow<WorktreesState> =
         combineWorktreesState(worktrees, isExpandedWorktrees, filter).stateIn(WorktreesState())
+
+    /** The worktrees that use each local branch, for the branch list and the log. */
+    val branchWorktrees: StateFlow<BranchWorktreesState> = worktrees
+        .map { worktrees ->
+            val list = worktrees.data
+            BranchWorktreesState(list?.usersByBranch().orEmpty(), list?.baseBranch)
+        }
+        .distinctUntilChanged()
+        .stateIn(BranchWorktreesState())
 
     val hasUncommittedChanges = repositoryDataRepository
         .status

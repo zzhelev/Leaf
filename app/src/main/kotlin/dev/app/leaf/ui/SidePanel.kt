@@ -32,6 +32,7 @@ import dev.app.leaf.Screen
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.extensions.isValid
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.BranchWorktreeUsers
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.models.Submodule
@@ -77,6 +78,7 @@ fun SidePanel(
     val stashesState by viewModel.stashesState.collectAsState()
     val submodulesState by viewModel.submodulesState.collectAsState()
     val worktreesState by viewModel.worktreesState.collectAsState()
+    val branchWorktrees by viewModel.branchWorktrees.collectAsState()
     val refPanelSettings by viewModel.refPanelSettings.collectAsState()
 
     val searchFocusRequester = remember { FocusRequester() }
@@ -118,6 +120,7 @@ fun SidePanel(
         ) {
             localBranches(
                 branchesState = branchesState,
+                branchWorktrees = branchWorktrees,
                 refPanelSettings = refPanelSettings,
                 selectedItem = selectedItem,
                 viewModel = viewModel,
@@ -212,6 +215,7 @@ fun FilterTextField(
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 fun LazyListScope.localBranches(
     branchesState: BranchesState,
+    branchWorktrees: BranchWorktreesState,
     refPanelSettings: RefPanelSettings,
     selectedItem: SelectedItem,
     viewModel: RepositoryOpenViewModel,
@@ -266,6 +270,8 @@ fun LazyListScope.localBranches(
                         ageLabel = row.ageLabel,
                         isSelectedItem = selectedItem is SelectedItem.BranchItem && selectedItem.branch == branch,
                         currentBranch = currentBranch,
+                        worktreeUsers = branchWorktrees.usersOf(branch),
+                        worktreesBaseBranch = branchWorktrees.baseBranch,
                         onBranchClicked = { viewModel.selectBranch(branch) },
                         onBranchDoubleClicked = { viewModel.checkoutBranch(branch) },
                         onCheckoutBranch = { viewModel.checkoutBranch(branch) },
@@ -627,6 +633,8 @@ private fun Branch(
     depth: Int,
     ageLabel: String?,
     currentBranch: Branch?,
+    worktreeUsers: BranchWorktreeUsers?,
+    worktreesBaseBranch: String?,
     isSelectedItem: Boolean,
     onBranchClicked: () -> Unit,
     onBranchDoubleClicked: () -> Unit,
@@ -655,7 +663,8 @@ private fun Branch(
                 onPullFromRemoteBranch = {},
                 onChangeDefaultUpstreamBranch = onChangeDefaultUpstreamBranch,
                 onRenameBranch = onRenameBranch,
-                onCopyBranchNameToClipboard = onCopyBranchNameToClipboard
+                onCopyBranchNameToClipboard = onCopyBranchNameToClipboard,
+                worktreeUsers = worktreeUsers,
             )
         }
     ) {
@@ -668,6 +677,17 @@ private fun Branch(
             onClick = onBranchClicked,
             onDoubleClick = onBranchDoubleClicked,
         ) {
+            if (worktreeUsers != null) {
+                val hasTrailingLabel = ageLabel != null || isCurrentBranch
+
+                BranchWorktreeBadge(
+                    branchName = branch.name,
+                    users = worktreeUsers,
+                    baseBranch = worktreesBaseBranch,
+                    modifier = Modifier.padding(start = 8.dp, end = if (hasTrailingLabel) 0.dp else 16.dp),
+                )
+            }
+
             RefTrailingLabel(ageLabel, isCurrentBranch)
         }
     }
