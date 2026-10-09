@@ -824,7 +824,9 @@ them. By default only Date is on, as before.
 - The graph is as wide as its lanes, up to `graphMaxWidth` (120 dp by default, the old fixed limit), and at least
   56 dp (`graphColumnWidth`). Dragging its divider sets `graphMaxWidth` (`draggedGraphMaxWidth`): never past the
   lanes, and a drag that changes nothing on screen keeps the saved size, which may come from a busier repository.
-- "Show time" adds the time in Settings' date format, and widens Date to 150 dp if it's narrower.
+- "Show time" adds the time in Settings' date format, and widens Date to 170 dp if it's narrower.
+- The cells use the message's 13 sp text (`body2`); Date and Commit are grey. At 13 sp, "Dec 22, 2025" is 83 dp wide,
+  "Dec 22, 2025 10:48 AM" 143.5 dp and a short hash 55.5 dp, plus 16 dp of padding: hence 110, 170 and 80 dp.
 - The UI is in `ui/log/LogColumns.kt`. The menu reuses the sort menu's `SortMenuPopup`, which takes a position.
 - The commit row's menu has "Copy commit hash".
 

@@ -50,7 +50,7 @@ class LogColumnsTest {
         val withTime = LogColumnsSettings().withDateShowingTime(true)
 
         assertTrue(withTime.dateShowsTime)
-        assertEquals(150f, withTime.entry(LogColumn.Date).width)
+        assertEquals(170f, withTime.entry(LogColumn.Date).width)
 
         val wide = LogColumnsSettings().resized(LogColumn.Date, 180f).withDateShowingTime(true)
 
@@ -59,7 +59,7 @@ class LogColumnsTest {
         val withoutTime = withTime.withDateShowingTime(false)
 
         assertFalse(withoutTime.dateShowsTime)
-        assertEquals(150f, withoutTime.entry(LogColumn.Date).width)
+        assertEquals(170f, withoutTime.entry(LogColumn.Date).width)
     }
 
     @Test

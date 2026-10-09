@@ -194,7 +194,7 @@ private fun DateCell(graphCommit: GraphCommit, showTime: Boolean) {
     ) {
         Text(
             text = graphCommit.date.toSmartSystemString(showTime = showTime),
-            style = MaterialTheme.typography.caption,
+            style = MaterialTheme.typography.body2,
             color = MaterialTheme.colors.onBackgroundSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -210,7 +210,7 @@ private fun CommitCell(graphCommit: GraphCommit) {
     ) {
         Text(
             text = graphCommit.commit.shortHash,
-            style = MaterialTheme.typography.caption,
+            style = MaterialTheme.typography.body2,
             fontFamily = monoTypography(),
             color = MaterialTheme.colors.onBackgroundSecondary,
             maxLines = 1,

@@ -76,6 +76,7 @@ Phase 1.4 of `docs/fork/PLAN.md`.
   - **Author** shows the avatar and the name. Its tooltip gives the email, and who committed when that's someone else.
   - **Commit** shows the short hash in monospace, with the full hash in its tooltip.
   - **Show time**, in the menu while Date is on, adds the time in Settings' date format, and widens Date to fit it.
+  - The three columns use the message's 13 sp text, Date and Commit in grey. Dates were 11 sp before.
   - **Widths:** each column's header divider resizes it, and Message takes the rest. A divider stops where Message
     would drop below 200 dp.
   - **Narrow log:** checked columns give way until the message has 200 dp, Commit first, then Author, then Date. The
