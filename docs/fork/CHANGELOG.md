@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Worktree folders in error messages stand out and can be copied (branch `feat/worktree-error-paths`)
+
+A follow-up to the worktree guards, from their manual check.
+
+- **Before:** the checkout, delete and rename refusals named the worktree's folder in quotes in the middle of a
+  sentence, which long agent paths made hard to read. The red message box in dialogs couldn't be selected, so the
+  folder couldn't be copied.
+- **Now:**
+  - Those messages put the folder on a line of its own, between blank lines, in the monospace font
+    (`getStyledErrorText` and `monospaceParts` in `Errors.kt`). The rename that couldn't move a worktree's HEAD shows
+    its `git switch` command the same way.
+  - `DialogWarning`, the red box in the delete, rename, reset, confirmation and Check for updates dialogs, can be
+    selected and copied, with a selection color that shows on red. `ErrorDialog`, where checkout refusals appear, was
+    selectable already and now shows the styled text too.
+- **Tests:** none new, as this is display only. Offscreen renders of the delete and rename dialogs, with a selection
+  dragged over the delete message, and of `ErrorDialog` with a checkout refusal.
+
 ## A branch that a worktree uses can't be deleted, and renaming it moves the worktree along (branch `feat/worktree-delete-guard`)
 
 The deletion half of Phase 1.3 in `docs/fork/PLAN.md`, and the same fix for renaming, which PLAN.md doesn't list.

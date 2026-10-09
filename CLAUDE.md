@@ -288,7 +288,10 @@ code, "worktree" means the working directory, not linked worktrees.
 **Errors:**
 - A custom `Either` (`domain/errors/Either.kt`, with `either {}`, `bind()`, `mapErr`) plus the sealed
   `AppError`/`GitError` hierarchy (`domain/errors/AppError.kt`).
-- User-facing text: `app/.../ui/Errors.kt`.
+- User-facing text: `app/.../ui/Errors.kt`. Dialogs show `getStyledErrorText` (fork-only), which sets the folders and
+  commands an error names (`monospaceParts`) in the monospace font. Messages put such a folder on a line of its own,
+  between blank lines.
+  The text of `ErrorDialog` and of `DialogWarning`, the red box in dialogs, can be selected and copied.
 - HIGH-severity failures open `ErrorDialog`; others become toasts.
 
 **Concurrency:**
