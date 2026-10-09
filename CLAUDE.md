@@ -697,7 +697,7 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 
 **Rows:**
 - `ui/components/SideMenuEntry.kt` (`SideMenuHeader`) and `SideMenuSubentry.kt` (icon, text, `additionalInfo` slot,
-  `onDoubleClick`).
+  `onDoubleClick`, and the fork-only `textContent` slot, which replaces the text and `additionalInfo`).
 - Tooltips: `ui/components/tooltip/DelayedTooltip.kt` and `InstantTooltip.kt`.
 - Context menus: `ui/context_menu/*ContextMenu.kt`. `branchContextMenuItems` is shared with the log's `BranchChip`.
 
@@ -736,6 +736,9 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 - **Worktree badges and menus (fork-only, `ui/BranchWorktreeBadge.kt`):** a local branch that another worktree uses
   gets a folder icon, plus the worktree's folder name unless it repeats the branch's last part (`nameNextTo`), as
   agents' folders do. Its tooltip says how the worktree uses the branch and what that rules out.
+  - Local branch rows lay out their text with `BranchNameWithWorktree`, through `SideMenuSubentry`'s `textContent`.
+    The branch name comes first, and ends in "…" when it doesn't fit next to the icon. The worktree's name gets what's
+    left, and is left out below about five characters (`MIN_WORKTREE_NAME_WIDTH`, `worktreeNameWidth`).
   - `RepositoryOpenViewModel.branchWorktrees` (`BranchWorktreesState`) holds `WorktreeList.usersByBranch()`. The side
     panel passes it to its branch rows, and `Log` provides it to its branch chips as `LocalBranchWorktrees`, which
     keeps it out of the upstream composables in between.

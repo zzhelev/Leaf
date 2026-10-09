@@ -24,6 +24,8 @@ Phase 1.4 of `docs/fork/PLAN.md`.
     unless it repeats the branch's last part, as agents' folders do (`claude/x` in `.claude/worktrees/x`). The log's
     branch chips get the icon. The tooltip says how the worktree uses the branch and what that rules out, then
     describes the worktree.
+  - The branch name comes first in its row: it ends in "…" when the panel is too narrow for it and the icon. The
+    worktree's name gets what's left, and is left out below about five characters. The icon always shows.
   - The branch menus, in the side panel and in the log, leave out what the guards would refuse: Checkout while another
     worktree uses the branch, Delete while any worktree does, and Rename while one rebases it or bisects from it.
     Double-clicking such a branch still shows the checkout refusal.
@@ -38,27 +40,30 @@ Phase 1.4 of `docs/fork/PLAN.md`.
   - A rebase of a detached HEAD, or a bisect started on one, has no branch. The guards compared the commit that
     `BISECT_START` then holds with branch names, and no longer do.
   - The 1.3 entry's "menus still offer Delete for a branch that another worktree uses" no longer holds.
-- **Tests:** 28 new.
+- **Tests:** 32 new.
   - `:data` (4): `BranchWorktreesTest` reads each worktree's branch as a full name, and finds none for a rebase or a
     bisect started on a detached HEAD, as git does. `WorktreesTest` gets the rebased and bisected branches attached to
     the right worktrees, and compares those worktrees by them.
   - `:domain` (19): which worktree uses a branch and what that rules out (`WorktreeBranchUsersTest`), the refresh that
     lets one call through at a time (`ConflatedRunnerTest`), which refreshes include the worktrees, and the rows:
     order, names, labels, ages, the filter, and when the branch list names a worktree (`WorktreeRowsTest`).
-  - `:app` (5): the branch menu, with its labels read in a composition (`BranchContextMenuWorktreesTest`), and the
-    compact ahead/behind text.
-  - **Mutation check:** 26 mutations, 24 caught. The two missed are equivalent: matching worktrees by path without
+  - `:app` (9): the branch menu, with its labels read in a composition (`BranchContextMenuWorktreesTest`), how the
+    branch name and the worktree's name share a row (`BranchWorktreeBadgeTest`), and the compact ahead/behind text.
+  - **Mutation check:** 29 mutations, 27 caught. The two missed are equivalent: matching worktrees by path without
     making it canonical (git writes and lists real paths), and a shortcut for a blank filter (the filter already
     trims it), which is now gone. One mutation made `ConflatedRunnerTest` hang instead of fail; its tests now time out.
   - Checked once with a throwaway harness, deleted afterwards: the real side panel and log, rendered offscreen for a
     repository with an agent's worktree, a rebase stopped on a conflict, a locked, a detached and a deleted worktree,
-    at the default width (220 dp) and at 320 dp, with tooltips, a branch's right-click menu and the filter.
-  - `./gradlew build` passes, with 612 tests (21 in `:app`, 483 in `:data`, 101 in `:domain`, 7 in `:common`).
+    at the default width (220 dp) and at 320 dp, with tooltips, a branch's right-click menu and the filter. Three
+    ways of showing a worktree's name next to its branch were rendered side by side, and the branch-first one was
+    built.
+  - `./gradlew build` passes, with 679 tests (27 in `:app`, 522 in `:data`, 123 in `:domain`, 7 in `:common`), after
+    rebasing onto the log columns and libssh's removal.
 - **Not yet:**
   - A per-repository base branch setting. The 1.2 entry expected it with 1.4. The base is still origin's default
     branch, else `main`, else `master`.
   - Double-clicking a worktree or a marked branch to open that worktree (Phase 2a).
-  - At the default side panel width, a worktree name next to a long branch name leaves little room for the branch.
+  - Marks for the agent that made a worktree (Phase 4), next to the folder icon.
 
 ## Author, Date and Commit columns in the log (branch `feat/log-columns`)
 

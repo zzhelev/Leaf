@@ -34,6 +34,8 @@ fun SideMenuSubentry(
     onClick: () -> Unit,
     onDoubleClick: (() -> Unit)? = null,
     additionalInfo: @Composable () -> Unit = {},
+    // Fork-only: replaces the text and additionalInfo, for rows that lay them out themselves
+    textContent: (@Composable RowScope.() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -58,6 +60,11 @@ fun SideMenuSubentry(
                 .size(16.dp),
             tint = MaterialTheme.colors.primaryVariant,
         )
+
+        if (textContent != null) {
+            textContent()
+            return@Row
+        }
 
         Text(
             text = text,

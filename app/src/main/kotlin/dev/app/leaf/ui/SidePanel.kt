@@ -668,28 +668,31 @@ private fun Branch(
             )
         }
     ) {
+        val fontWeight = if (isCurrentBranch) FontWeight.Bold else FontWeight.Normal
+
         SideMenuSubentry(
             text = displayName,
-            fontWeight = if (isCurrentBranch) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = fontWeight,
             iconResourcePath = Res.drawable.branch,
             isSelected = isSelectedItem,
             extraPadding = FOLDER_DEPTH_PADDING * depth,
             onClick = onBranchClicked,
             onDoubleClick = onBranchDoubleClicked,
-        ) {
-            if (worktreeUsers != null) {
-                val hasTrailingLabel = ageLabel != null || isCurrentBranch
-
-                BranchWorktreeBadge(
+            textContent = {
+                // The branch name first, then the worktree that uses it (fork-only)
+                BranchNameWithWorktree(
+                    text = displayName,
+                    fontWeight = fontWeight,
                     branchName = branch.name,
                     users = worktreeUsers,
                     baseBranch = worktreesBaseBranch,
-                    modifier = Modifier.padding(start = 8.dp, end = if (hasTrailingLabel) 0.dp else 16.dp),
+                    hasTrailingLabel = ageLabel != null || isCurrentBranch,
+                    modifier = Modifier.weight(1f),
                 )
-            }
 
-            RefTrailingLabel(ageLabel, isCurrentBranch)
-        }
+                RefTrailingLabel(ageLabel, isCurrentBranch)
+            },
+        )
     }
 }
 
