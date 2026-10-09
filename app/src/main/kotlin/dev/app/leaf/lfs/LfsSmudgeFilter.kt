@@ -90,6 +90,7 @@ class LfsSmudgeFilter @AssistedInject constructor(
             )
         } else {
             val lfsServerInfo = authenticateLfsServerWithSshGitAction(
+                repository = repository,
                 lfsServerUrl = lfsServer.url,
                 operationType = OperationType.DOWNLOAD
             )

@@ -77,7 +77,9 @@ class GetLfsUrlGitAction @Inject constructor(
                                 "$it.git"
                             }
                         }
-                    LfsServer(lfsConfigUrl ?: "$remote/info/lfs", remoteUrl)
+                    // git-lfs asks an SSH remote itself where its LFS server is (git-lfs-authenticate)
+                    val remoteLfsUrl = if (remoteUrl.isHttpOrHttps()) "$remote/info/lfs" else remoteUrl
+                    LfsServer(lfsConfigUrl ?: remoteLfsUrl, remoteUrl)
                 } else {
                     if (withoutRemote == null) {
                         printError(TAG, "Remote name is null and couldn't obtain tracking branch remote.")

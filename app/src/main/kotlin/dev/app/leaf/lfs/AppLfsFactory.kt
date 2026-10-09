@@ -272,7 +272,7 @@ class LfsPrePushHook @AssistedInject constructor(
                 )
             } else {
                 val lfsServerInfo =
-                    authenticateLfsServerWithSshGitAction(lfsServer.url, operationType = OperationType.UPLOAD)
+                    authenticateLfsServerWithSshGitAction(repository, lfsServer.url, operationType = OperationType.UPLOAD)
                 finalServer = LfsServer(lfsServerInfo.href, lfsServer.remoteUrl)
 
                 lfsObjects = getLfsObjectsGitAction(

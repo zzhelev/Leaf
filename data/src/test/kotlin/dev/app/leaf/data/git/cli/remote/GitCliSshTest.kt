@@ -6,17 +6,26 @@ package dev.app.leaf.data.git.cli.remote
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.GetTrackingBranchGitAction
+import dev.app.leaf.data.git.cli.ProcessRunner
+import dev.app.leaf.data.git.cli.askpass.AskpassHelper
+import dev.app.leaf.data.git.cli.askpass.AskpassProcessRunner
 import dev.app.leaf.data.git.cli.askpass.answeringDialogs
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.lfs.AuthenticateLfsServerWithSshGitAction
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteOperationError
+import dev.app.leaf.domain.lfs.LfsSshAuthenticateResult
 import dev.app.leaf.domain.models.CloneState
+import dev.app.leaf.domain.models.OperationType
 import kotlinx.coroutines.flow.toList
+import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.attributes.FilterCommandRegistry
+import org.eclipse.jgit.lfs.errors.LfsException
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterAll
@@ -24,6 +33,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
@@ -94,11 +104,14 @@ class GitCliSshTest {
             """
             #!/bin/sh
             account=${'$'}1
+            echo "${'$'}SSH_ORIGINAL_COMMAND" >> "${labDir.absolutePath}/commands.log"
             case "${'$'}SSH_ORIGINAL_COMMAND" in
               "git-upload-pack "*) command=upload-pack ;;
               "git-receive-pack "*) command=receive-pack ;;
               # Where git-lfs finds the LFS server of an SSH remote. git-lfs-transfer is refused, so it asks this.
-              "git-lfs-authenticate "*) echo '{"href": "${lfsServer.url}", "header": {}}'; exit 0 ;;
+              "git-lfs-authenticate "*)
+                if [ "${'$'}account" = bob ]; then echo "ERROR: Permission to team/lfs.git denied to bob." >&2; exit 1; fi
+                echo '{"href": "${lfsServer.url}", "header": {}}'; exit 0 ;;
               *) echo "unsupported command" >&2; exit 1 ;;
             esac
             # "git-receive-pack '/name.git'" serves <labDir>/name.git
@@ -316,6 +329,84 @@ class GitCliSshTest {
             assertArrayEquals(file.readBytes(), File(destination, "big.bin").readBytes())
             assertEquals(emptyList<String>(), builtinDownloads)
         }
+
+    @Test
+    fun `Leaf's built-in LFS client asks the server for its LFS server with the command that git-lfs sends`(): Unit =
+        runBlocking {
+            useKey("alice")
+
+            val result = Git.open(work).use { git ->
+                authenticateLfsServer()(git.repository, remoteUrl(), OperationType.DOWNLOAD)
+            }
+
+            assertEquals(LfsSshAuthenticateResult(lfsServer.url, emptyMap()), result)
+            val leafCommand = serverCommands().single()
+            assertEquals("git-lfs-authenticate /${tempDir.name}.git download", leafCommand)
+
+            // git-lfs asks the same, for an LFS file that it doesn't have, after git-lfs-transfer is refused
+            assumeTrue(runCatching { runAndRead("git", "lfs", "version") }.isSuccess) { "git-lfs isn't installed" }
+            File(work, ".gitattributes").writeText("*.bin filter=lfs diff=lfs merge=lfs -text\n")
+            File(work, "missing.bin").writeText(
+                "version https://git-lfs.github.com/spec/v1\noid sha256:${"0".repeat(64)}\nsize 3\n"
+            )
+            git.run(work, "add", ".")
+            git.run(work, "commit", "-m", "LFS pointer")
+            git.runFailing(work, "lfs", "fetch", "origin", "HEAD")
+
+            assertEquals(leafCommand, serverCommands().last { it.startsWith("git-lfs-authenticate ") })
+        }
+
+    @Test
+    fun `Leaf's built-in LFS client asks about an unknown host key and a passphrase with Leaf's dialogs`(): Unit =
+        runBlocking {
+            knownHosts.writeText("")
+            useKey("dave")
+            val authenticate = authenticateLfsServer()
+
+            val (results, dialogs) = remote.credentialsStateManager.answeringDialogs(
+                { sshHostKeyTrusted() },
+                { sshCredentialsAccepted(PASSPHRASE) },
+            ) {
+                Git.open(work).use { git ->
+                    // The second time, the host key is known and the passphrase kept
+                    List(2) { authenticate(git.repository, remoteUrl(), OperationType.UPLOAD) }
+                }
+            }
+
+            assertEquals(List(2) { LfsSshAuthenticateResult(lfsServer.url, emptyMap()) }, results)
+            assertEquals(
+                listOf(
+                    CredentialsRequest.SshHostKeyRequest("[127.0.0.1]:$port", hostKeyFingerprint()),
+                    CredentialsRequest.SshCredentialsRequest(isRetry = false, password = ""),
+                ),
+                dialogs,
+            )
+        }
+
+    @Test
+    fun `Leaf's built-in LFS client reports the server's message when it refuses the key`(): Unit = runBlocking {
+        useKey("bob")
+
+        val exception = assertThrows(LfsException::class.java) {
+            runBlocking {
+                Git.open(work).use { git ->
+                    authenticateLfsServer()(git.repository, remoteUrl(), OperationType.DOWNLOAD)
+                }
+            }
+        }
+
+        assertTrue(exception.message!!.contains("denied to bob"), exception.message)
+    }
+
+    private fun authenticateLfsServer() = AuthenticateLfsServerWithSshGitAction(
+        AskpassProcessRunner(ProcessRunner(), AskpassHelper { helper }, remote.credentialsStateManager, remote.credentialsCache),
+        remote.gitCli,
+        LoginShellEnvironment { emptyMap() },
+    )
+
+    /** The commands that this test's repository got from ssh clients, as the server's forced command logged them. */
+    private fun serverCommands(): List<String> =
+        File(labDir, "commands.log").readLines().filter { it.contains("/${tempDir.name}.git") }
 
     /** Makes the repository's ssh use only [account]'s key, the test's known_hosts, and no config or agent. */
     private fun useKey(account: String) {

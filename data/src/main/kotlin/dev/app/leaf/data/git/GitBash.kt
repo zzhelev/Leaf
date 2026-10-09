@@ -25,6 +25,15 @@ internal class GitBash(
         return listOf(executable, quoteArgument(hookPath.replace('\\', '/'))) + args.map(quoteArgument)
     }
 
+    /**
+     * The command that runs [commandLine] with [args] after it, as git runs `core.sshCommand` with its shell:
+     * `sh -c '<command line> "$@"' '<command line>' <args>`.
+     */
+    fun shellCommand(commandLine: String, args: List<String>): List<String> {
+        return listOf(executable, "-c", quoteArgument("$commandLine \"\$@\""), quoteArgument(commandLine)) +
+            args.map(quoteArgument)
+    }
+
     companion object {
         /** The Git Bash of [findGitForWindows], or null when Git for Windows isn't installed. */
         fun find(
