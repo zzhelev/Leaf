@@ -193,6 +193,9 @@ class RepositoryOpenViewModel @Inject constructor(
     val isExpandedSubmodules: StateFlow<Boolean>
         field = MutableStateFlow<Boolean>(true)
 
+    val isExpandedWorktrees: StateFlow<Boolean>
+        field = MutableStateFlow<Boolean>(true)
+
     val freeSearchFocusFlow: SharedFlow<Unit>
         field = MutableSharedFlow<Unit>()
 
@@ -365,6 +368,11 @@ class RepositoryOpenViewModel @Inject constructor(
             )
         }.stateIn(SubmodulesState(isLoading = true, emptyList(), isExpandedSubmodules.value))
 
+    private val worktrees = repositoryDataRepository.worktrees.toUiDataState()
+
+    val worktreesState: StateFlow<WorktreesState> =
+        combineWorktreesState(worktrees, isExpandedWorktrees, filter).stateIn(WorktreesState())
+
     val hasUncommittedChanges = repositoryDataRepository
         .status
         .toUiDataState()
@@ -533,6 +541,10 @@ class RepositoryOpenViewModel @Inject constructor(
         isExpandedTags.invert()
     }
 
+    fun onExpandWorktrees() {
+        isExpandedWorktrees.invert()
+    }
+
 
     fun onRefSortChanged(section: RefSection, sortState: RefSortState) = updateRefPanelSettings {
         it.withSort(section, sortState)
@@ -587,6 +599,23 @@ class RepositoryOpenViewModel @Inject constructor(
 
         if (commit != null) {
             selectedItem.value = SelectedItem.BranchItem(branch, commit)
+        }
+    }
+
+    /** Selects the commit that [worktree] has checked out, as its branch's when it's on one. */
+    fun selectWorktree(worktree: Worktree) {
+        val branch = worktree.branch?.let { name -> branches.value.data?.firstOrNull { it.name == name } }
+        val headSha = worktree.headSha
+
+        when {
+            branch != null -> selectBranch(branch)
+            headSha != null -> viewModelScope.launch {
+                val commit = getCommitFromHashUseCase(headSha).okOrNull()
+
+                if (commit != null) {
+                    selectedItem.value = SelectedItem.CommitItem(commit, isStash = false)
+                }
+            }
         }
     }
 

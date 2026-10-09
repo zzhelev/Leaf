@@ -76,10 +76,13 @@ fun SidePanel(
     val tagsState by viewModel.tagsState.collectAsState()
     val stashesState by viewModel.stashesState.collectAsState()
     val submodulesState by viewModel.submodulesState.collectAsState()
+    val worktreesState by viewModel.worktreesState.collectAsState()
     val refPanelSettings by viewModel.refPanelSettings.collectAsState()
 
     val searchFocusRequester = remember { FocusRequester() }
     val tabFocusRequester = LocalTabFocusRequester.current
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
     val onConfirmAction: (ConfirmableAction, () -> Unit) -> Unit = { action, onConfirm ->
         onNavigate(Screen.ConfirmAction(action, onConfirm))
     }
@@ -121,6 +124,13 @@ fun SidePanel(
                 onChangeDefaultUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
                 onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
                 onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
+            )
+
+            worktrees(
+                worktreesState = worktreesState,
+                onExpand = { viewModel.onExpandWorktrees() },
+                onWorktreeClicked = { viewModel.selectWorktree(it.worktree) },
+                onCopyPath = { scope.launch { clipboard.setClipboardText(it.worktree.path) } },
             )
 
             remotes(
@@ -563,7 +573,7 @@ private val FOLDER_DEPTH_PADDING = 22.dp
 
 /** Opaque background so rows don't show through a pinned section header. */
 @Composable
-private fun SectionHeaderBackground(content: @Composable () -> Unit) {
+internal fun SectionHeaderBackground(content: @Composable () -> Unit) {
     Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
         content()
     }

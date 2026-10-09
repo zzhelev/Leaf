@@ -80,6 +80,31 @@
     <string name="side_pane_stashes_title">Stashes</string>
     <string name="side_pane_submodules_title">Submodules</string>
 
+    <!-- Worktrees section of the side pane (fork-only) -->
+    <string name="side_pane_worktrees_title">Worktrees</string>
+    <string name="side_pane_worktrees_error">Couldn't list the worktrees</string>
+    <string name="side_pane_worktree_copy_path">Copy path</string>
+    <string name="side_pane_worktree_missing">missing</string>
+    <string name="side_pane_worktree_rebasing">rebasing %1$s</string>
+    <string name="side_pane_worktree_bisecting">bisecting from %1$s</string>
+    <string name="side_pane_worktree_detached">detached at %1$s</string>
+    <string name="side_pane_worktree_bare">bare repository</string>
+    <string name="side_pane_worktree_tooltip_main">Main worktree</string>
+    <string name="side_pane_worktree_tooltip_current">Open in this tab</string>
+    <string name="side_pane_worktree_tooltip_main_current">Main worktree, open in this tab</string>
+    <string name="side_pane_worktree_tooltip_branch">On %1$s</string>
+    <string name="side_pane_worktree_tooltip_no_changes">No uncommitted changes</string>
+    <string name="side_pane_worktree_tooltip_changes">Changes: %1$s</string>
+    <string name="side_pane_worktree_tooltip_staged">%1$d staged</string>
+    <string name="side_pane_worktree_tooltip_unstaged">%1$d unstaged</string>
+    <string name="side_pane_worktree_tooltip_untracked">%1$d untracked</string>
+    <string name="side_pane_worktree_tooltip_conflicted">%1$d conflicted</string>
+    <string name="side_pane_worktree_tooltip_compared">Compared to %1$s: %2$d ahead, %3$d behind</string>
+    <string name="side_pane_worktree_tooltip_up_to_date">Up to date with %1$s</string>
+    <string name="side_pane_worktree_tooltip_locked">Locked</string>
+    <string name="side_pane_worktree_tooltip_locked_reason">Locked: %1$s</string>
+    <string name="side_pane_worktree_tooltip_prunable">The folder is missing: %1$s.\ngit worktree prune would remove this worktree.</string>
+
     <!-- Sort and group menus (side pane and files changed) -->
     <string name="sort_menu_tooltip">Sort and group</string>
     <string name="sort_menu_title_local_branches">Sort local branches by</string>

@@ -1,11 +1,14 @@
 package dev.app.leaf.viewmodels.sidepanel
 
 import dev.app.leaf.common.flows.combine
+import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.sorting.RefRow
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
+import dev.app.leaf.domain.worktrees.WorktreeRow
+import dev.app.leaf.domain.worktrees.worktreeRows
 import dev.app.leaf.ui.UiDataState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -118,6 +121,34 @@ fun combineRemotesState(
             isExpanded,
             currentBranch.data,
             sortState = rowsContext.settings.sortOf(RefSection.Remote),
+        )
+    }
+}
+
+/**
+ * The Worktrees section (fork-only).
+ *
+ * @param baseBranch the branch that the worktrees are compared to (`refs/heads/main`), null when there's none.
+ * @param error why the worktrees couldn't be listed, for example because git couldn't run. Null otherwise.
+ */
+data class WorktreesState(
+    val rows: List<WorktreeRow> = emptyList(),
+    val isExpanded: Boolean = true,
+    val baseBranch: String? = null,
+    val error: AppError? = null,
+)
+
+fun combineWorktreesState(
+    worktrees: Flow<UiDataState<WorktreeList>>,
+    isExpandedWorktrees: Flow<Boolean>,
+    filter: Flow<String>,
+): Flow<WorktreesState> {
+    return combine(worktrees, isExpandedWorktrees, filter) { worktrees, isExpanded, filter ->
+        WorktreesState(
+            rows = worktrees.data?.let { worktreeRows(it, filter, System.currentTimeMillis()) }.orEmpty(),
+            isExpanded = isExpanded,
+            baseBranch = worktrees.data?.baseBranch,
+            error = worktrees.error,
         )
     }
 }
