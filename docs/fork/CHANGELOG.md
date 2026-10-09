@@ -2,6 +2,53 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Hunk and line actions apply patches with git (branch `claude/funny-bhaskara-df3d47`)
+
+The code review of 2026-10-09 found these the only Gitnuro code whose approach needed replacing rather than fixing.
+
+- **Before:** staging, unstaging and discarding a hunk or a line edited the file's text with JGit.
+  - The text was decoded as UTF-8 and written back as UTF-8. In a Latin-1 or Windows-1252 file, which JGit shows as
+    text, every non-ASCII byte became U+FFFD (`EF BF BD`), in the index or in the working file.
+  - Discarding inserted or removed lines by number, without checking that they were still the lines the diff showed,
+    and wrote the whole file back. Once the file had changed (agents edit all the time, and the watcher drops events
+    for 1.5 s after a task), the wrong line went, without a word and without a way back.
+  - No test covered them.
+- **Now:** they build a patch of the hunk or the line, and apply it with `git apply`, as `git add -p`,
+  `git reset -p` and `git checkout -p` do: `--cached` to stage, `--cached -R` to unstage, `-R` to discard.
+  - The patch has the bytes that the diff compared, each line with its own line ending. Encodings, CRLF and a last
+    line without a line ending stay as they are.
+  - git checks that the index or the file still has the lines that the diff showed. When it doesn't, nothing changes,
+    and Leaf says that the file changed after the diff was shown, with git's message, and reloads the diff. Lines added
+    or removed elsewhere in the file don't stop it: git finds the hunk where it moved, and when a block repeats in the
+    file, it takes the copy that the diff showed.
+  - A line is selected as in `git add -p`'s hunk editing. Staging an added line keeps the removed lines around it in
+    the index, and discarding a removed line puts it back before the added ones. When the file's last line has no line
+    ending, a line staged after it goes before it, as the index can't give it one without staging that change too.
+  - Staging a hunk of an untracked file stages the file with its mode, and unstaging the whole of an added file leaves
+    it untracked. The diff pane only offers these actions for modified files, as before.
+  - The user's `apply.whitespace` and `apply.ignoreWhitespace` don't apply: lines go in as they are, and must match
+    exactly.
+  - They need a usable git. Without one, they fail with the git CLI's error and change nothing.
+- **Removed:** `HunkEdit`, `GetLinesFromRawTextGitAction`, `GetLinesFromTextGitAction` and their interfaces.
+- **Model:** `Hunk` has `oldText` and `newText`, the diff's two `RawText`s, which `FormatHunksGitAction` sets. A line's
+  `text` is decoded and can't give its bytes back.
+- **Tests:** 20 new in `:data` (`HunkActionsTest`), against repositories that the git CLI made, with the hunks that
+  `FormatDiffGitAction` gives the diff pane, and the index read back with `git cat-file`, byte for byte.
+  - UTF-8, Latin-1, CRLF, `core.autocrlf`, and last lines without a line ending: staging a hunk and a line, unstaging
+    a hunk and a line, discarding a hunk and a line.
+  - A file that changed after the diff was loaded, in the working tree or in the index, is refused and left as it is,
+    also when the change is only whitespace and `apply.ignoreWhitespace` is `change`. `apply.whitespace=fix` doesn't
+    change the staged lines.
+  - A hunk that moved down the file is discarded where it is now, and a repeated block is staged or discarded at the
+    copy that the diff showed.
+  - An untracked file, a file name with spaces, accents and a tab, and a missing git.
+  - **Mutation check:** 16 mutations, 14 caught. The two left can't change what git does: the start of an empty side
+    in the header (git reads 0 and 1 alike there), and context from the old side reversed (an exact diff's context is
+    the same bytes on both sides).
+  - `./gradlew build` passes, with 808 tests (45 in `:app`, 589 in `:data`, 167 in `:domain`, 7 in `:common`), after
+    rebasing onto the fixes for the failures that the data code dropped and for many tabs.
+- **Not done:** discarding a hunk or a line still doesn't ask first (a UI decision, left for later).
+
 ## Many tabs no longer stall each other (branch `fix/many-tabs-concurrency`)
 
 Five concurrency and lifecycle bugs in code from Gitnuro, which hurt most with one tab per agent's worktree. A review
@@ -44,6 +91,7 @@ on 2026-10-09 found them.
   - `:app` (3): `HistoryViewModelTest` and `CommitterDataRequestTest` (the dialog's wait leaves its thread free).
   - The tabs' tear-down has no unit test: `RepositoryTabViewModel` and `RepositoryOpenViewModel` are final classes
     with many dependencies, which MockK can't mock on JDK 25.
+
 
 ## Failures that the data code dropped (branch `claude/festive-lamport-994739`)
 

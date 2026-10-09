@@ -328,8 +328,39 @@ worktrees.
   cached). It adds the login shell's variables, then its own non-interactive, `LC_ALL=C` environment on top.
 - Use porcelain or `-z` output and parse it in the data layer.
 - Never shell out to git through `ShellManager`.
-- `GitCli.execute` returns the output whatever the exit code (`GitCliOutput`), takes extra variables, and streams
-  stderr to a callback. `run` is built on it.
+- `GitCli.execute` returns the output whatever the exit code (`GitCliOutput`), takes extra variables and stdin
+  (`input`), and streams stderr to a callback. `run` is built on it.
+
+**Hunk and line actions (fork-only, `data/git/workspace/HunkPatch.kt`, `ApplyHunkGitAction.kt`):** staging,
+unstaging and discarding a hunk or a line apply a patch with `git apply`, as `git add -p`, `git reset -p` and
+`git checkout -p` do: `--cached` to stage, `--cached -R` to unstage, `-R` to discard from the working tree. The six
+upstream actions (`StageHunkGitAction`, `DiscardUnstagedHunkLineGitAction`, …) only pick the action and the lines.
+- `hunkPatch` takes each line's bytes from `Hunk.oldText` and `Hunk.newText`, the `RawText`s that the diff compared,
+  which `FormatHunksGitAction` puts in every hunk. Never build a patch from `Line.text`: JGit decodes each line as
+  UTF-8, or byte for byte when it isn't valid UTF-8, so the bytes can't be told back. The patch keeps each line's
+  ending (`\r\n` stays) and `\ No newline at end of file`.
+- A line is selected as `git add -p`'s hunk editing does: applied forward, an unselected removed line becomes context
+  and an unselected added line is left out; reversed, the other way round. Lines are matched by type and numbers
+  (`isSameLine`), as the split view passes copies.
+- A line without a line ending has to stay last in its version of the file, which a selection can break
+  (`withLastLinesKeptLast`): such a context line moves after the lines that follow it, and a selected line that then
+  has a line after it gets a line ending (with `\r` in a CRLF file). Staging the line added after a last line without
+  one puts it before that line, as the index can't give that line an ending without staging that change too.
+- Context comes from the side that the patch applies to. git refuses the patch when that side no longer has the lines
+  that the diff showed, and writes nothing. Its messages (`patch does not apply`, `does not exist in index`, …) become
+  `StaleHunkError`, which says the file changed after the diff was shown. The six use cases refresh even then
+  (`refreshEvenIfFailed`), so the diff shows the file as it is. Lines added or removed elsewhere in the file don't stop
+  the patch: git finds the hunk at its new place, looking from the header's start, nearest first. Both sides of the
+  header start where the hunk is in the side that the patch applies to (`newLineNumber` reversed, `oldLineNumber`
+  forward), so that a block repeated in the file is found at the copy the diff showed.
+- `-c apply.ignoreWhitespace=no` and `--whitespace=nowarn` keep the user's `apply.*` config from loosening the check
+  or changing the lines.
+- A patch with the whole of an added file creates it (with its mode), and reversed removes it from the index, which
+  leaves it untracked. The same goes for a deleted file. Part of one changes the file instead. The diff pane offers
+  hunk and line actions for modified files only.
+- File names are quoted as git quotes them (`patchName`): a tab would end an unquoted name.
+- Without a usable git, the actions fail with `GitCliError` and change nothing. There is no JGit fallback: the old
+  JGit code decoded and re-encoded the text as UTF-8, and discarded lines by number without checking them.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,
@@ -1113,6 +1144,8 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - `WindowsFsTest` runs `WindowsFs` on macOS and Linux, with `/bin/sh` standing in for Git Bash
     (`GitBash("/bin/sh", quoteArgument = { it })`), through `Git.open(gitDir, fs)` rather than `JGit`.
   - See `OpenRepositoryGitActionTest` for the pattern.
+- `HunkActionsTest` loads hunks through the real `FormatDiffGitAction`, as the diff pane gets them, and reads the
+  index with `git cat-file blob :<path>`, so files in Latin-1 or with CRLF are compared byte for byte.
 - Remote operation tests (`data/.../git/cli/askpass/`, `cli/remote/`):
   - `builtAskpassHelper()` finds the helper in `app/src/main/resources`. Tests that run it are skipped without it.
   - `answeringDialogs` plays the user: it answers each `CredentialsRequest` in turn and returns the dialogs shown.
