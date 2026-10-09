@@ -1,6 +1,9 @@
 package dev.app.leaf.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.error_checkout_branch_bisected_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_branch_checked_out_in_worktree
@@ -55,8 +58,42 @@ import dev.app.leaf.app.generated.resources.error_sign_ssh_key_not_found
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.errors.*
 import dev.app.leaf.domain.models.WorktreeBranchUse
+import dev.app.leaf.theme.monoTypography
 import org.eclipse.jgit.lib.Constants
 import org.jetbrains.compose.resources.stringResource
+
+/**
+ * [getErrorText], with the folders and commands that the error names in a monospace font, so they stand out from the
+ * sentences around them.
+ */
+@Composable
+fun AppError.getStyledErrorText(): AnnotatedString {
+    val text = getErrorText()
+    val monospace = SpanStyle(fontFamily = monoTypography())
+
+    return buildAnnotatedString {
+        append(text)
+
+        for (part in monospaceParts().filter { it.isNotEmpty() }) {
+            var start = text.indexOf(part)
+
+            while (start >= 0) {
+                addStyle(monospace, start, start + part.length)
+                start = text.indexOf(part, start + part.length)
+            }
+        }
+    }
+}
+
+/** The parts of [getErrorText] that [getStyledErrorText] shows in a monospace font. */
+private fun AppError.monospaceParts(): List<String> = when (this) {
+    is CheckoutBranchError.BranchUsedByWorktree -> listOf(worktreePath)
+    is DeleteBranchError.BranchUsedByWorktree -> listOf(worktreePath)
+    is RenameBranchError.BranchRebasedInWorktree -> listOf(worktreePath)
+    is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
+    is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
+    else -> emptyList()
+}
 
 @Composable
 fun AppError.getErrorText(): String {

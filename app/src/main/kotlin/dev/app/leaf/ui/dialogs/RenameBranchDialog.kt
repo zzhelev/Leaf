@@ -12,7 +12,7 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.branch
 import dev.app.leaf.domain.errors.RenameBranchError
 import dev.app.leaf.ui.dialogs.base.SingleTextFieldDialog
-import dev.app.leaf.ui.getErrorText
+import dev.app.leaf.ui.getStyledErrorText
 import dev.app.leaf.viewmodels.RenameBranchDialogViewModel
 import dev.app.leaf.viewmodels.RenameState
 import org.jetbrains.compose.resources.painterResource
@@ -62,7 +62,7 @@ fun RenameBranchDialog(
             {
                 // As wide as the field, so the message doesn't widen the dialog
                 Box(modifier = Modifier.padding(top = 8.dp).width(300.dp)) {
-                    DialogWarning(failed.error.getErrorText())
+                    DialogWarning(failed.error.getStyledErrorText())
                 }
             }
         },

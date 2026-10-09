@@ -9,12 +9,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.Branch
@@ -87,19 +93,38 @@ fun ConfirmActionDialog(
     }
 }
 
-/** A message about work that the action loses. */
+/** A message about work that the action loses. Its text can be selected and copied. */
 @Composable
 fun DialogWarning(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colors.error)
-            .padding(vertical = 4.dp, horizontal = 8.dp),
-        color = MaterialTheme.colors.onError,
-        style = MaterialTheme.typography.body2,
+    DialogWarning(AnnotatedString(text))
+}
+
+/**
+ * A message about work that the action loses, or about why it can't be done. Its text can be selected and copied, for
+ * example a folder it names.
+ */
+@Composable
+fun DialogWarning(text: AnnotatedString) {
+    // The theme's selection color would hardly show on the error color
+    val selectionColors = TextSelectionColors(
+        handleColor = MaterialTheme.colors.onError,
+        backgroundColor = Color.Black.copy(alpha = 0.35f),
     )
+
+    CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
+        SelectionContainer {
+            Text(
+                text = text,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colors.error)
+                    .padding(vertical = 4.dp, horizontal = 8.dp),
+                color = MaterialTheme.colors.onError,
+                style = MaterialTheme.typography.body2,
+            )
+        }
+    }
 }
 
 @Composable

@@ -351,15 +351,15 @@
     <string name="error_delete_branch_not_merged">Branch "%1$s" isn't merged into the current branch</string>
     <string name="error_delete_tag_has_own_commits">Tag "%1$s" is the only branch or tag on some commits</string>
     <string name="error_checkout_cannot_fast_forward">"%1$s" has commits that "%2$s" doesn't have, so it can't be fast-forwarded. Nothing was changed.</string>
-    <string name="error_checkout_branch_checked_out_in_worktree">"%1$s" is checked out in the worktree at "%2$s", and a branch can be checked out in only one worktree at a time. Nothing was changed.</string>
-    <string name="error_checkout_branch_rebased_in_worktree">"%1$s" is being rebased in the worktree at "%2$s". Finish or abort the rebase there first. Nothing was changed.</string>
-    <string name="error_checkout_branch_bisected_in_worktree">The worktree at "%2$s" is bisecting from "%1$s". End the bisect there first, with git bisect reset. Nothing was changed.</string>
-    <string name="error_delete_branch_checked_out_in_worktree">"%1$s" is checked out in the worktree at "%2$s", so it can't be deleted. Check out another branch there first. Nothing was changed.</string>
-    <string name="error_delete_branch_rebased_in_worktree">"%1$s" is being rebased in the worktree at "%2$s", so it can't be deleted. Finish or abort the rebase there first. Nothing was changed.</string>
-    <string name="error_delete_branch_bisected_in_worktree">The worktree at "%2$s" is bisecting from "%1$s", so it can't be deleted. End the bisect there first, with git bisect reset. Nothing was changed.</string>
-    <string name="error_rename_branch_rebased_in_worktree">"%1$s" is being rebased in the worktree at "%2$s", so it can't be renamed. Finish or abort the rebase there first. Nothing was changed.</string>
-    <string name="error_rename_branch_bisected_in_worktree">The worktree at "%2$s" is bisecting from "%1$s", so it can't be renamed. End the bisect there first, with git bisect reset. Nothing was changed.</string>
-    <string name="error_rename_branch_worktree_head_not_moved">"%1$s" was renamed to "%2$s", but the worktree at "%3$s" couldn't be moved to "%2$s", as another program was using it. It is still on "%1$s", which no longer exists. Run git switch %2$s there.</string>
+    <string name="error_checkout_branch_checked_out_in_worktree">"%1$s" can't be checked out here, as it's checked out in the worktree at\n\n%2$s\n\nA branch can be checked out in only one worktree at a time. Nothing was changed.</string>
+    <string name="error_checkout_branch_rebased_in_worktree">"%1$s" can't be checked out here, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_checkout_branch_bisected_in_worktree">"%1$s" can't be checked out here, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_delete_branch_checked_out_in_worktree">"%1$s" can't be deleted, as it's checked out in the worktree at\n\n%2$s\n\nCheck out another branch there first. Nothing was changed.</string>
+    <string name="error_delete_branch_rebased_in_worktree">"%1$s" can't be deleted, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_delete_branch_bisected_in_worktree">"%1$s" can't be deleted, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_rename_branch_rebased_in_worktree">"%1$s" can't be renamed, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_rename_branch_bisected_in_worktree">"%1$s" can't be renamed, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_rename_branch_worktree_head_not_moved">"%1$s" was renamed to "%2$s", but another program was using the worktree at\n\n%3$s\n\nThat worktree is still on "%1$s", which no longer exists. To move it, run this there:\n\ngit switch %2$s</string>
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 

@@ -27,7 +27,7 @@ import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
-import dev.app.leaf.ui.getErrorText
+import dev.app.leaf.ui.getStyledErrorText
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -76,7 +76,7 @@ fun ErrorDialog(
 
             SelectionContainer {
                 Text(
-                    text = error.reason.getErrorText(),
+                    text = error.reason.getStyledErrorText(),
                     color = MaterialTheme.colors.onBackground,
                     modifier = Modifier
                         .padding(top = 16.dp)

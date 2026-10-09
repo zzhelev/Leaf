@@ -16,7 +16,7 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.errors.DeleteBranchError
 import dev.app.leaf.domain.errors.DeleteRefError
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
-import dev.app.leaf.ui.getErrorText
+import dev.app.leaf.ui.getStyledErrorText
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -97,7 +97,7 @@ private fun DeleteRefDialog(
             }
 
             if (error != null) {
-                DialogWarning(error.getErrorText())
+                DialogWarning(error.getStyledErrorText())
             }
         }
     }
