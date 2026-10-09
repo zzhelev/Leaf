@@ -13,6 +13,7 @@ import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -30,7 +31,8 @@ class GetRefDatesGitActionTest {
 
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
-    private val action = GetRefDatesGitAction(testJGit())
+    private val jgit = testJGit()
+    private val action = GetRefDatesGitAction(jgit)
 
     @BeforeEach
     fun isolateJGitConfig() {
@@ -85,6 +87,21 @@ class GetRefDatesGitActionTest {
         assertEquals(JAN_1 * 1000, dates.commitTimes["refs/heads/agent"])
         assertEquals((APR_1 + 200) * 1000, dates.lastCheckoutTimes["bugfix/b"], "The worktree's own HEAD reflog")
     }
+
+    @Test
+    fun `a linked worktree's checkouts made through Leaf count for its tab, not the main worktree's`(): Unit =
+        runBlocking {
+            val repository = createRepository()
+            val worktree = File(tempDir, "worktree")
+            git.run(repository, "worktree", "add", worktree.absolutePath, "-b", "agent")
+            val worktreeGitDir = File(repository, ".git/worktrees/worktree")
+
+            val checkout = jgit.provide(worktreeGitDir.absolutePath) { it.checkout().setName("bugfix/b").call() }
+
+            check(checkout is Either.Ok) { "The checkout failed: $checkout" }
+            assertTrue(load(worktreeGitDir).lastCheckoutTimes.containsKey("bugfix/b"), "The worktree's own HEAD reflog")
+            assertFalse(load(File(repository, ".git")).lastCheckoutTimes.containsKey("bugfix/b"), "Not the main's")
+        }
 
     private suspend fun load(gitDir: File): RefDates {
         val result = action(gitDir.absolutePath)

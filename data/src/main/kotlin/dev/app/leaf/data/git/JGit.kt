@@ -116,17 +116,21 @@ class JGit @Inject constructor(
 
     /**
      * Opens a repository with Leaf's file system, which decides how hooks run: through Git Bash on Windows, with the
-     * login shell's environment on macOS and Linux. [provide] and [provideOptional] both use it, as they share the
+     * login shell's environment on macOS and Linux. For a linked worktree, it also keeps HEAD's reflog in the
+     * worktree's own git dir ([LinkedWorktreeLogs]). [provide] and [provideOptional] both use it, as they share the
      * cache.
      */
     private fun open(repositoryPath: String): Git {
+        val gitDir = File(repositoryPath)
+        val linkedWorktreeLogs = LinkedWorktreeLogs.of(gitDir)
+
         val fs = when (val detected = FS.detect()) {
-            is FS_Win32 -> windowsFs.get()
-            is FS_POSIX -> PosixFs(loginShellEnvironment)
+            is FS_Win32 -> windowsFs.get().withLinkedWorktreeLogs(linkedWorktreeLogs)
+            is FS_POSIX -> PosixFs(loginShellEnvironment, linkedWorktreeLogs)
             else -> detected
         }
 
-        return Git.open(File(repositoryPath), fs)
+        return Git.open(gitDir, fs)
     }
 
     fun cleanupExcept(repositoriesToKeep: Set<String>) {

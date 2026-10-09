@@ -74,7 +74,9 @@ class RenameBranchGitAction @Inject constructor(
  * Points the HEAD of the worktree whose git dir is [gitDir] to the branch [branchName]. False when it couldn't, for
  * example because another program holds HEAD's lock.
  *
- * It writes no reflog entry: JGit 7.7 would write it to the main worktree's reflog, not to this worktree's.
+ * It writes no reflog entry, which git does. With the tab's file system, JGit would write it to the wrong reflog: the
+ * tab's worktree's, or the main worktree's for a tab on the main worktree (`LinkedWorktreeLogs` knows only the tab's
+ * own git dir).
  */
 private fun moveHead(gitDir: File, branchName: String, fs: FS): Boolean = try {
     FileRepositoryBuilder().setGitDir(gitDir).setFS(fs).setMustExist(true).build().use { worktree ->

@@ -8,6 +8,7 @@ import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.util.FS
 import org.eclipse.jgit.util.FS_POSIX
 import org.eclipse.jgit.util.ProcessResult
+import java.io.File
 import java.io.OutputStream
 
 /**
@@ -16,20 +17,29 @@ import java.io.OutputStream
  * sets its own variables, such as `GIT_DIR` for hooks, after [runInShell], so they still win.
  *
  * Also gives commit-msg its message file in linked worktrees and submodules, where JGit passes an empty path
- * ([hookArguments]).
+ * ([hookArguments]), and keeps a linked worktree's HEAD reflog in its own git dir ([linkedWorktreeLogs]).
  */
 class PosixFs : FS_POSIX {
     private val loginShellEnvironment: LoginShellEnvironment
+    private val linkedWorktreeLogs: LinkedWorktreeLogs?
 
-    constructor(loginShellEnvironment: LoginShellEnvironment) : super() {
+    constructor(
+        loginShellEnvironment: LoginShellEnvironment,
+        linkedWorktreeLogs: LinkedWorktreeLogs? = null,
+    ) : super() {
         this.loginShellEnvironment = loginShellEnvironment
+        this.linkedWorktreeLogs = linkedWorktreeLogs
     }
 
     private constructor(source: PosixFs) : super(source) {
         loginShellEnvironment = source.loginShellEnvironment
+        linkedWorktreeLogs = source.linkedWorktreeLogs
     }
 
     override fun newInstance(): FS = PosixFs(this)
+
+    override fun resolve(dir: File?, name: String): File =
+        linkedWorktreeLogs?.resolve(dir, name) ?: super.resolve(dir, name)
 
     override fun runInShell(cmd: String, args: Array<out String>): ProcessBuilder {
         return super.runInShell(cmd, args).apply {

@@ -17,22 +17,34 @@ import javax.inject.Inject
  * The hook is found like JGit finds it on other systems: in `core.hooksPath`, or in the `hooks` folder of the common
  * git dir, which linked worktrees share. It runs in the same folder and with the same `GIT_*` variables as JGit's own
  * hook runner, gets its arguments and standard input, and both of its output streams are read while it runs.
+ *
+ * Also keeps a linked worktree's HEAD reflog in its own git dir ([withLinkedWorktreeLogs]).
  */
 class WindowsFs : FS_Win32 {
     private val findGitBash: () -> GitBash?
+    private val linkedWorktreeLogs: LinkedWorktreeLogs?
 
     @Inject
     constructor() : this({ GitBash.find(System.getenv("PATH"), System::getenv) })
 
     internal constructor(findGitBash: () -> GitBash?) : super() {
         this.findGitBash = findGitBash
+        linkedWorktreeLogs = null
     }
 
-    private constructor(source: WindowsFs) : super(source) {
+    private constructor(source: WindowsFs, linkedWorktreeLogs: LinkedWorktreeLogs?) : super(source) {
         findGitBash = source.findGitBash
+        this.linkedWorktreeLogs = linkedWorktreeLogs
     }
 
-    override fun newInstance(): FS = WindowsFs(this)
+    override fun newInstance(): FS = WindowsFs(this, linkedWorktreeLogs)
+
+    /** A copy for the repository of a linked worktree, or this file system itself for any other repository. */
+    fun withLinkedWorktreeLogs(linkedWorktreeLogs: LinkedWorktreeLogs?): WindowsFs =
+        if (linkedWorktreeLogs == null) this else WindowsFs(this, linkedWorktreeLogs)
+
+    override fun resolve(dir: File?, name: String): File =
+        linkedWorktreeLogs?.resolve(dir, name) ?: super.resolve(dir, name)
 
     override fun runHookIfPresent(
         repository: Repository,
