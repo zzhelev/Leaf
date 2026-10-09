@@ -34,6 +34,7 @@ fun InstantTooltip(
     modifier: Modifier = Modifier,
     position: InstantTooltipPosition = InstantTooltipPosition.BOTTOM,
     enabled: Boolean = true,
+    maxLines: Int = 1,
     content: @Composable () -> Unit,
 ) {
     val hoverInteractionSource = remember { MutableInteractionSource() }
@@ -110,7 +111,7 @@ fun InstantTooltip(
                 Text(
                     text = text,
                     fontSize = 12.sp,
-                    maxLines = 1,
+                    maxLines = maxLines,
                     color = MaterialTheme.colors.onBackground
                 )
 

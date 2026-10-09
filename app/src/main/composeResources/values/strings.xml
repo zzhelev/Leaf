@@ -180,6 +180,17 @@
     <string name="log_context_menu_cherry_pick_commit">Cherry-pick commit</string>
     <string name="log_context_menu_reset_current_branch_to_commit">Reset current branch to this commit</string>
 
+    <!-- Log columns -->
+    <string name="log_column_author">Author</string>
+    <string name="log_column_date">Date</string>
+    <string name="log_column_commit">Commit</string>
+    <string name="log_column_author_committed_by">Committed by %1$s &lt;%2$s&gt;</string>
+    <string name="log_columns_menu_tooltip">Columns</string>
+    <string name="log_columns_menu_title">Columns</string>
+    <string name="log_columns_menu_needs_room">Needs more room</string>
+    <string name="log_columns_menu_show_time">Show time</string>
+    <string name="log_columns_menu_reset">Reset columns</string>
+
     <!-- Pull context menu -->
     <string name="pull_context_menu_pull_with_merge">Pull with merge</string>
     <string name="pull_context_menu_pull_with_rebase">Pull with rebase</string>

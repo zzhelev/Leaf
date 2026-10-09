@@ -59,6 +59,7 @@ import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.*
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
+import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltipPosition
 import dev.app.leaf.ui.context_menu.*
@@ -79,10 +80,6 @@ private val colors = listOf(
     Color(0xFFec407a),
 )
 
-// The column fits the graph's lanes, but by default never grows past the width it always had. Below the minimum, the
-// "Graph" header would be cut.
-private const val CANVAS_MIN_WIDTH = 56
-private const val CANVAS_MAX_DEFAULT_WIDTH = 120
 private const val MIN_GRAPH_LANES = 2
 
 private const val HORIZONTAL_SCROLL_PIXELS_MULTIPLIER = 10
@@ -122,7 +119,7 @@ fun Log(
 ) {
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
-    var graphPadding by remember(viewModel) { mutableStateOf(viewModel.graphPadding) }
+    val logColumns by viewModel.logColumns.collectAsState()
 
     LaunchedEffect(logStatus.verticalScrollState, logStatus.commitList) {
         launch {
@@ -143,12 +140,13 @@ fun Log(
         }
     }
 
-    Box {
+    BoxWithConstraints {
         LogView(
             logState = logStatus,
+            logWidth = maxWidth.value,
             selectedItem = selectedItem,
             repositoryState = repositoryState,
-            graphPadding = graphPadding,
+            savedColumns = logColumns,
             onRequestMoreLogItems = { firstVisibleItemIndex -> viewModel.loadMoreLogItems(firstVisibleItemIndex) },
             onCreateBranch = onCreateBranch,
             onResetBranch = onResetBranch,
@@ -158,10 +156,6 @@ fun Log(
             onDeleteBranch = onDeleteBranch,
             onDeleteTag = onDeleteTag,
             onConfirmAction = onConfirmAction,
-            onGraphPaddingChange = { newGraphPadding ->
-                graphPadding += newGraphPadding
-                viewModel.graphPadding = graphPadding
-            },
             onAction = { viewModel.onAction(it) },
             searchView = {
                 SearchFilter(
@@ -181,9 +175,10 @@ fun Log(
 @Composable
 private fun LogView(
     logState: LogState,
+    logWidth: Float,
     selectedItem: SelectedItem,
     repositoryState: RepositoryState,
-    graphPadding: Float,
+    savedColumns: LogColumnsSettings,
     onRequestMoreLogItems: (Int) -> Unit,
     onCreateBranch: (Commit) -> Unit,
     onResetBranch: (Commit) -> Unit,
@@ -193,7 +188,6 @@ private fun LogView(
     onDeleteBranch: (Branch) -> Unit,
     onDeleteTag: (Tag) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
-    onGraphPaddingChange: (Float) -> Unit,
     onAction: (LogAction) -> Unit,
     searchView: @Composable (LogSearch.SearchResults) -> Unit,
 ) {
@@ -229,6 +223,9 @@ private fun LogView(
         null
     }
 
+    // A local copy follows the dividers while they're dragged, and is saved when a drag ends
+    var columnSettings by remember(savedColumns) { mutableStateOf(savedColumns) }
+
     Column(
         modifier = Modifier
             .background(MaterialTheme.colors.background)
@@ -239,17 +236,26 @@ private fun LogView(
         else
             MIN_GRAPH_LANES
 
-        var graphRealWidth = ((maxLinePosition + MARGIN_GRAPH_LANES) * LANE_WIDTH).dp
-
-        var graphWidth = (graphRealWidth.value.coerceAtMost(CANVAS_MAX_DEFAULT_WIDTH.toFloat()) + graphPadding).dp
-
-        if (graphWidth.value < CANVAS_MIN_WIDTH) graphWidth = CANVAS_MIN_WIDTH.dp
+        val lanesWidth = (maxLinePosition + MARGIN_GRAPH_LANES) * LANE_WIDTH
+        val graphWidthValue = graphColumnWidth(lanesWidth, columnSettings.graphMaxWidth)
 
         // Using remember(graphRealWidth, graphWidth) makes the selected background color glitch when changing tabs
-        if (graphRealWidth < graphWidth) {
-            graphRealWidth = graphWidth
-        }
+        val graphWidth = graphWidthValue.dp
+        val graphRealWidth = maxOf(lanesWidth, graphWidthValue).dp
 
+        val onGraphDrag: (Float) -> Unit = { delta ->
+            val shownWidth = graphColumnWidth(lanesWidth, columnSettings.graphMaxWidth)
+            val maxWidth = draggedGraphMaxWidth(columnSettings.graphMaxWidth, shownWidth, lanesWidth, delta)
+
+            columnSettings = columnSettings.withGraphMaxWidth(maxWidth)
+        }
+        val onGraphDragStopped = { onAction(LogAction.SetGraphMaxWidth(columnSettings.graphMaxWidth)) }
+
+        // What's left for the message and the columns
+        val columnsWidth = logWidth - graphWidthValue - LOG_ROW_END_PADDING.value
+        val fittedColumns = columnSettings.fitting(columnsWidth, spacing = LOG_COLUMN_SPACING)
+        val columnsLayout = LogColumnsLayout(fittedColumns.shown, columnSettings.dateShowsTime)
+        val columnsMenuItems = logColumnsMenuItems(columnSettings, fittedColumns.leftOut, onAction)
 
         if (searchFilterValue is LogSearch.SearchResults) {
             searchView(searchFilterValue)
@@ -257,8 +263,18 @@ private fun LogView(
 
         GraphHeader(
             graphWidth = graphWidth,
-            onPaddingChange = {
-                onGraphPaddingChange(it)
+            columns = fittedColumns.shown,
+            columnsMenuItems = columnsMenuItems,
+            onGraphDrag = onGraphDrag,
+            onGraphDragStopped = onGraphDragStopped,
+            onColumnResize = { column, delta ->
+                val maxWidth = columnSettings.maxWidthFor(column, columnsWidth, spacing = LOG_COLUMN_SPACING)
+                val width = (columnSettings.entry(column).width - delta).coerceAtMost(maxWidth)
+
+                columnSettings = columnSettings.resized(column, width)
+            },
+            onColumnResizeFinished = { column ->
+                onAction(LogAction.ResizeColumn(column, columnSettings.entry(column).width))
             },
             onShowSearch = {
                 onAction(LogAction.SearchValueChange(""))
@@ -296,6 +312,7 @@ private fun LogView(
                 tags = logState.tags,
                 stashes = logState.stashes,
                 graphWidth = graphWidth,
+                columnsLayout = columnsLayout,
                 onCreateBranch = onCreateBranch,
                 onResetBranch = onResetBranch,
                 onCreateTag = onCreateTag,
@@ -311,8 +328,10 @@ private fun LogView(
             DividerLog(
                 modifier = Modifier.draggable(
                     rememberDraggableState {
-                        onGraphPaddingChange(it / density)
-                    }, Orientation.Horizontal
+                        onGraphDrag(it / density)
+                    },
+                    Orientation.Horizontal,
+                    onDragStopped = { onGraphDragStopped() },
                 ),
                 graphWidth = graphWidth,
             )
@@ -516,6 +535,7 @@ fun CommitsList(
     onDeleteTag: (Tag) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     graphWidth: Dp,
+    columnsLayout: LogColumnsLayout,
     horizontalScrollState: ScrollState,
 ) {
     val scope = rememberCoroutineScope()
@@ -603,6 +623,7 @@ fun CommitsList(
         { graphNode ->
             CommitLine(
                 graphWidth = graphWidth,
+                columnsLayout = columnsLayout,
                 graphNode = graphNode,
                 isSelected = selectedCommit?.hash == graphNode.hash,
                 showInAmend = logState.currentBranch?.hash == graphNode.hash && !hasUncommittedChanges,
@@ -662,9 +683,15 @@ fun CommitsList(
 @Composable
 fun GraphHeader(
     graphWidth: Dp,
-    onPaddingChange: (Float) -> Unit,
+    columns: List<LogColumnEntry>,
+    columnsMenuItems: List<SortMenuItem>,
+    onGraphDrag: (Float) -> Unit,
+    onGraphDragStopped: () -> Unit,
+    onColumnResize: (LogColumn, delta: Float) -> Unit,
+    onColumnResizeFinished: (LogColumn) -> Unit,
     onShowSearch: () -> Unit,
 ) {
+    LogColumnsHeaderMenu(columnsMenuItems) {
     Box(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -690,8 +717,10 @@ fun GraphHeader(
             SimpleDividerLog(
                 modifier = Modifier.draggable(
                     rememberDraggableState {
-                        onPaddingChange(it / density) // Divide by density for screens with scaling > 1
-                    }, Orientation.Horizontal
+                        onGraphDrag(it / density) // Divide by density for screens with scaling > 1
+                    },
+                    Orientation.Horizontal,
+                    onDragStopped = { onGraphDragStopped() },
                 ),
             )
 
@@ -704,6 +733,8 @@ fun GraphHeader(
                 style = MaterialTheme.typography.body2,
                 maxLines = 1,
             )
+
+            LogColumnsMenuButton(columnsMenuItems)
 
             IconButton(
                 modifier = Modifier
@@ -718,7 +749,12 @@ fun GraphHeader(
                     tint = MaterialTheme.colors.onBackground,
                 )
             }
+
+            LogColumnHeaders(columns, onColumnResize, onColumnResizeFinished)
+
+            Spacer(Modifier.width(LOG_ROW_END_PADDING))
         }
+    }
     }
 }
 
@@ -825,6 +861,7 @@ fun SummaryEntry(
 @Composable
 private fun CommitLine(
     graphWidth: Dp,
+    columnsLayout: LogColumnsLayout,
     graphNode: GraphCommit,
     isSelected: Boolean,
     currentBranch: Branch?,
@@ -933,10 +970,11 @@ private fun CommitLine(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = 4.dp),
+                        .padding(end = LOG_ROW_END_PADDING),
                 ) {
                     CommitMessage(
                         graphCommit = graphNode,
+                        columnsLayout = columnsLayout,
                         nodeColor = nodeColor,
                         matchesSearchFilter = matchesSearchFilter,
                         currentBranch = currentBranch,
@@ -971,6 +1009,7 @@ private fun CommitLine(
 @Composable
 fun CommitMessage(
     graphCommit: GraphCommit,
+    columnsLayout: LogColumnsLayout,
     currentBranch: Branch?,
     isStash: Boolean,
     tags: List<Tag>,
@@ -1080,19 +1119,12 @@ fun CommitMessage(
             overflow = TextOverflow.Ellipsis,
         )
 
-        InstantTooltip(
-            text = graphCommit.date.toSmartSystemString(allowRelative = false, showTime = true),
-            modifier = Modifier.padding(horizontal = 16.dp),
-            position = InstantTooltipPosition.RIGHT,
-        ) {
-            Text(
-                text = graphCommit.date.toSmartSystemString(),
-                style = MaterialTheme.typography.caption,
-                color = MaterialTheme.colors.onBackgroundSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        LogColumnCells(
+            graphCommit = graphCommit,
+            layout = columnsLayout,
+            nodeColor = nodeColor,
+            isDimmed = matchesSearchFilter == false,
+        )
     }
 }
 

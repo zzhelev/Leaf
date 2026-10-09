@@ -156,17 +156,22 @@ private fun Modifier.hiddenWhenTruncated() = layout { measurable, constraints ->
     }
 }
 
-/** A popup anchored below its parent, right-aligned with it. Arrow keys move between options; Esc closes it. */
+/**
+ * A popup anchored below its parent, right-aligned with it, unless a [positionProvider] places it. Arrow keys move
+ * between options; Esc closes it.
+ */
 @Composable
-private fun SortMenuPopup(
+internal fun SortMenuPopup(
     items: List<SortMenuItem>,
     onDismissRequest: () -> Unit,
+    positionProvider: PopupPositionProvider? = null,
 ) {
     val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
+    val belowRightAligned = remember(gap) { BelowRightAlignedPositionProvider(gap) }
 
     Popup(
         properties = PopupProperties(focusable = true),
-        popupPositionProvider = remember(gap) { BelowRightAlignedPositionProvider(gap) },
+        popupPositionProvider = positionProvider ?: belowRightAligned,
         onDismissRequest = onDismissRequest,
     ) {
         val focusRequester = remember { FocusRequester() }

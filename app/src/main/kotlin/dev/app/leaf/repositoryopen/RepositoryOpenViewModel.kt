@@ -832,7 +832,6 @@ class RepositoryOpenViewModel @Inject constructor(
     }
 
     var savedSearchFilter: String = ""
-    var graphPadding = 0f
 
     private var lastIndexUsedToLoadData = 0
     private val loadItemsMutex = Mutex()
