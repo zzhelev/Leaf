@@ -41,9 +41,9 @@ Closes the "Not yet" item of 1.4: PLAN.md 1.2 asked for a base branch "configura
     exists again. The header's menu says "Not found". This covers branches that agents or the CLI delete, a remote
     branch that a fetch prunes, and deleting it in Leaf, which doesn't clear the choice.
   - Renaming the branch in Leaf moves the choice to the new name, as git moves `branch.<name>` config.
-- **Found, not fixed here:** since `6c0498a2` (on `origin/main`), remote branch, tag and submodule rows in the side
-  panel show no name. `SideMenuSubentry`'s new last parameter, `textContent`, takes their trailing lambda, which was
-  meant for `additionalInfo`.
+- **Found here, fixed in the entry above:** since `6c0498a2`, remote branch, tag and submodule rows in the side panel
+  showed no name. `SideMenuSubentry`'s new last parameter, `textContent`, took their trailing lambda, which was meant
+  for `additionalInfo`. Fixed in `4b192ae9`.
 - **Tests:** 26 new.
   - `:data` (15): `WorktreeBaseBranchGitActionTest` saves and reads the choice, local or remote, as `git config`
     reads it. Going back to Automatic removes it, header included, and keeps sign-off and the folders. A missing
