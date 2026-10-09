@@ -715,6 +715,8 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 **Rows:**
 - `ui/components/SideMenuEntry.kt` (`SideMenuHeader`) and `SideMenuSubentry.kt` (icon, text, `additionalInfo` slot,
   `onDoubleClick`, and the fork-only `textContent` slot, which replaces the text and `additionalInfo`).
+  `additionalInfo` must stay the last parameter: upstream's calls pass it as a trailing lambda, which would otherwise
+  bind to the parameter after it, without a compile error.
 - Tooltips: `ui/components/tooltip/DelayedTooltip.kt` and `InstantTooltip.kt`.
 - Context menus: `ui/context_menu/*ContextMenu.kt`. `branchContextMenuItems` is shared with the log's `BranchChip`.
 

@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Remote branch, tag and submodule rows show their names again (branch `fix/side-panel-row-names`)
+
+- **Before:** since `6c0498a2` ("Gave the branch name the room before the worktree's name"), the side panel showed
+  remote branches, tags and submodules as their icon and their age or state letter, without their names. That commit
+  added the `textContent` slot as the last parameter of `SideMenuSubentry`, so the trailing lambda these rows pass for
+  `additionalInfo`, upstream's last parameter, went to `textContent` and replaced the name. It was in no release,
+  and was found while checking the worktrees' base branch (next entry).
+- **Now:** `textContent` comes before `additionalInfo`, which is last again, as in upstream. The rows' calls didn't
+  change, and an upstream call merged later that passes a trailing lambda reaches `additionalInfo` too.
+- **Tests:** 2 new in `:app` (`SideMenuSubentryTest`), which render a row offscreen and read its texts from the
+  semantics: a trailing lambda adds to the name, and `textContent` still replaces it. The first failed before the fix,
+  with the age label alone. Checked once with a throwaway harness, deleted afterwards: the real side panel, rendered
+  offscreen for a temporary repository with a remote, tags and a submodule, before and after the fix.
+  `./gradlew build` passes, with 735 tests (38 in `:app`, 539 in `:data`, 151 in `:domain`, 7 in `:common`), after
+  rebasing onto the worktrees' base branch.
+
 ## A base branch for the worktrees, chosen per repository (branch `feat/worktree-base-branch`)
 
 Closes the "Not yet" item of 1.4: PLAN.md 1.2 asked for a base branch "configurable per repo".

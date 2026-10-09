@@ -33,9 +33,10 @@ fun SideMenuSubentry(
     extraPadding: Dp = 0.dp,
     onClick: () -> Unit,
     onDoubleClick: (() -> Unit)? = null,
-    additionalInfo: @Composable () -> Unit = {},
-    // Fork-only: replaces the text and additionalInfo, for rows that lay them out themselves
+    // Fork-only: replaces the text and additionalInfo, for rows that lay them out themselves. It comes before
+    // additionalInfo, which upstream's calls pass as a trailing lambda, so additionalInfo must stay last.
     textContent: (@Composable RowScope.() -> Unit)? = null,
+    additionalInfo: @Composable () -> Unit = {},
 ) {
     Row(
         modifier = Modifier
