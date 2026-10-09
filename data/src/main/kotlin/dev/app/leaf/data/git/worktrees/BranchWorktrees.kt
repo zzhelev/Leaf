@@ -4,6 +4,7 @@
 package dev.app.leaf.data.git.worktrees
 
 import dev.app.leaf.domain.errors.CheckoutBranchError
+import dev.app.leaf.domain.errors.DeleteBranchError
 import dev.app.leaf.domain.errors.EitherContext
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.raiseError
@@ -14,8 +15,8 @@ import org.eclipse.jgit.lib.Repository
 import java.io.File
 import java.io.IOException
 
-/** A worktree that uses a branch. [path] is its folder, as git's messages name it. */
-internal data class WorktreeUsingBranch(val path: String, val use: WorktreeBranchUse)
+/** A worktree that uses a branch. [path] is its folder, as git's messages name it, and [gitDir] its git dir. */
+internal data class WorktreeUsingBranch(val path: String, val use: WorktreeBranchUse, val gitDir: File)
 
 /**
  * Refuses to check out the local branch [branchName] (`refs/heads/x`) when another worktree uses it, as `git checkout`
@@ -37,9 +38,35 @@ internal fun EitherContext<GitError>.refuseIfUsedByOtherWorktree(repository: Rep
 }
 
 /**
+ * Refuses to delete the local branch [branchName] (`refs/heads/x`) when a worktree uses it, [repository]'s own
+ * included, as `git branch -d` and `-D` do: that worktree would be left on a branch that doesn't exist.
+ */
+internal fun EitherContext<GitError>.refuseDeletingIfUsedByWorktree(repository: Repository, branchName: String) {
+    val worktree = repository.worktreesUsing(branchName).firstOrNull() ?: return
+
+    raiseError(
+        DeleteBranchError.BranchUsedByWorktree(
+            branch = Repository.shortenRefName(branchName),
+            worktreePath = worktree.path,
+            use = worktree.use,
+        )
+    )
+}
+
+/**
  * Finds a worktree other than this repository's that uses the branch [branchName] (`refs/heads/x`), as git's
- * `die_if_checked_out` does: its HEAD is the branch, or its HEAD is detached while it rebases the branch or bisects
- * from it. Null when none does.
+ * `die_if_checked_out` does. Null when none does. See [worktreesUsing].
+ */
+internal fun Repository.findOtherWorktreeUsing(branchName: String): WorktreeUsingBranch? {
+    val currentGitDir = directory.canonicalFile
+
+    return worktreesUsing(branchName).firstOrNull { worktree -> worktree.gitDir != currentGitDir }
+}
+
+/**
+ * Every worktree that uses the branch [branchName] (`refs/heads/x`), this repository's included, main worktree first,
+ * as git's `is_shared_symref` tells for each one: its HEAD is the branch, or its HEAD is detached while it rebases the
+ * branch or bisects from it.
  *
  * JGit knows nothing of other worktrees, so this reads their git dirs as git does: the main worktree's unless the
  * repository is bare, then each one in `<common git dir>/worktrees/`, including those whose folder was deleted.
@@ -47,14 +74,10 @@ internal fun EitherContext<GitError>.refuseIfUsedByOtherWorktree(repository: Rep
  * Worktrees whose refs are in a reftable aren't found: their HEAD file is only a stub. JGit 7.7 can't read their HEAD
  * either, as it reads every worktree's HEAD from the shared reftable.
  */
-internal fun Repository.findOtherWorktreeUsing(branchName: String): WorktreeUsingBranch? {
-    val currentGitDir = directory.canonicalFile
-
-    return worktreeGitDirs()
-        .filter { (gitDir, _) -> gitDir != currentGitDir }
-        .firstNotNullOfOrNull { (gitDir, path) ->
-            worktreeUse(gitDir, branchName)?.let { use -> WorktreeUsingBranch(path, use) }
-        }
+internal fun Repository.worktreesUsing(branchName: String): List<WorktreeUsingBranch> {
+    return worktreeGitDirs().mapNotNull { (gitDir, path) ->
+        worktreeUse(gitDir, branchName)?.let { use -> WorktreeUsingBranch(path, use, gitDir) }
+    }
 }
 
 /** Each worktree's git dir and folder, main worktree first, like git's `get_worktrees`. */

@@ -6,15 +6,18 @@ package dev.app.leaf.data.git.branches
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.domain.errors.DeleteBranchError
 import dev.app.leaf.domain.errors.DeleteRefError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.WorktreeBranchUse
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -138,6 +141,125 @@ class DeleteBranchGitActionTest {
         assertFalse(hasRef(repository, "refs/heads/feature"))
     }
 
+    @Test
+    fun `keeps a branch checked out in another worktree, even with force, as git does`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        val worktree = File(tempDir, "wt-agent")
+        git.run(repository, "worktree", "add", "-b", "agent", worktree.path)
+        git.run(worktree, "commit", "--allow-empty", "-m", "Agent's work")
+
+        for (force in listOf(false, true)) {
+            val result = action(gitDir(repository), branch("agent"), force)
+
+            assertEquals(
+                Either.Err(usedByWorktree("agent", gitRefusal(repository, "agent"), WorktreeBranchUse.CheckedOut)),
+                result,
+                "force = $force",
+            )
+        }
+
+        assertEquals(worktree.canonicalPath, gitRefusal(repository, "agent"))
+        assertTrue(hasRef(repository, "refs/heads/agent"))
+        assertEquals("agent", git.run(worktree, "branch", "--show-current").trim())
+    }
+
+    @Test
+    fun `keeps the main worktree's branch when deleting from a linked worktree`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        val worktree = File(tempDir, "wt-agent")
+        git.run(repository, "worktree", "add", "-b", "agent", worktree.path)
+
+        val result = action(File(repository, ".git/worktrees/wt-agent").path, branch("main"), force = true)
+
+        assertEquals(
+            Either.Err(usedByWorktree("main", gitRefusal(worktree, "main"), WorktreeBranchUse.CheckedOut)),
+            result,
+        )
+        assertEquals(repository.canonicalPath, gitRefusal(worktree, "main"))
+        assertTrue(hasRef(repository, "refs/heads/main"))
+    }
+
+    @Test
+    fun `keeps the branch of the worktree it is opened in, as git does`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+
+        val result = action(gitDir(repository), branch("main"), force = true)
+
+        assertEquals(
+            Either.Err(usedByWorktree("main", gitRefusal(repository, "main"), WorktreeBranchUse.CheckedOut)),
+            result,
+        )
+        assertTrue(hasRef(repository, "refs/heads/main"))
+    }
+
+    @Test
+    fun `keeps a branch that its own worktree is rebasing, whose HEAD is detached`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        File(repository, "README.md").writeText("Main")
+        git.run(repository, "commit", "-am", "Main")
+        git.run(repository, "switch", "-c", "feature", "HEAD~1")
+        File(repository, "README.md").writeText("Feature")
+        git.run(repository, "commit", "-am", "Feature")
+        git.runFailing(repository, "rebase", "main")
+
+        val result = action(gitDir(repository), branch("feature"), force = true)
+
+        assertEquals(
+            Either.Err(usedByWorktree("feature", gitRefusal(repository, "feature"), WorktreeBranchUse.Rebasing)),
+            result,
+        )
+        assertTrue(hasRef(repository, "refs/heads/feature"))
+        // The rebase can still finish
+        git.run(repository, "rebase", "--abort")
+        assertEquals("feature", git.run(repository, "branch", "--show-current").trim())
+    }
+
+    @Test
+    fun `keeps a branch that another worktree is bisecting from`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        val worktree = File(tempDir, "wt-feature")
+        git.run(repository, "worktree", "add", "-b", "feature", worktree.path)
+        repeat(3) { index -> git.run(worktree, "commit", "--allow-empty", "-m", "Feature $index") }
+        git.run(worktree, "bisect", "start", "HEAD", "HEAD~3")
+
+        val result = action(gitDir(repository), branch("feature"), force = true)
+
+        assertEquals(
+            Either.Err(usedByWorktree("feature", gitRefusal(repository, "feature"), WorktreeBranchUse.Bisecting)),
+            result,
+        )
+        assertTrue(hasRef(repository, "refs/heads/feature"))
+    }
+
+    @Test
+    fun `keeps a branch checked out in a worktree whose folder was deleted, as git does`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        val worktree = File(tempDir, "wt-agent")
+        git.run(repository, "worktree", "add", "-b", "agent", worktree.path)
+        worktree.deleteRecursively()
+
+        val result = action(gitDir(repository), branch("agent"), force = true)
+
+        assertEquals(
+            Either.Err(usedByWorktree("agent", gitRefusal(repository, "agent"), WorktreeBranchUse.CheckedOut)),
+            result,
+        )
+        assertTrue(hasRef(repository, "refs/heads/agent"))
+    }
+
+    @Test
+    fun `deletes a branch once its worktree has left it`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        val worktree = File(tempDir, "wt-agent")
+        git.run(repository, "worktree", "add", "-b", "agent", worktree.path)
+        git.run(worktree, "switch", "--detach")
+
+        val result = action(gitDir(repository), branch("agent"), force = false)
+
+        assertEquals(Either.Ok(Unit), result)
+        assertFalse(hasRef(repository, "refs/heads/agent"))
+    }
+
     /** Creates [name] from main with [commits] commits of its own, then checks out main again. */
     private fun createBranchWithCommits(repository: File, name: String, commits: Int) {
         git.run(repository, "switch", "-c", name)
@@ -148,6 +270,17 @@ class DeleteBranchGitActionTest {
 
         git.run(repository, "switch", "main")
     }
+
+    /** The worktree that git names when it refuses to delete [branch] from [worktree], even with `-D`. */
+    private fun gitRefusal(worktree: File, branch: String): String {
+        val refusal = Regex("cannot delete branch '${Regex.escape(branch)}' used by worktree at '(.+)'")
+        val output = git.runFailing(worktree, "branch", "-D", branch)
+
+        return refusal.find(output)?.groupValues?.get(1) ?: fail("git refused for another reason: $output")
+    }
+
+    private fun usedByWorktree(branch: String, worktreePath: String, use: WorktreeBranchUse) =
+        DeleteBranchError.BranchUsedByWorktree(branch, worktreePath, use)
 
     private fun hasRef(repository: File, refName: String) =
         git.run(repository, "for-each-ref", "--format=%(refname)", refName).isNotBlank()

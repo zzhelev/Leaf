@@ -2,6 +2,7 @@ package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.countCommitsOnlyOn
+import dev.app.leaf.data.git.worktrees.refuseDeletingIfUsedByWorktree
 import dev.app.leaf.domain.errors.DeleteRefError
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.IDeleteBranchGitAction
@@ -19,6 +20,12 @@ class DeleteBranchGitAction @Inject constructor(private val jgit: JGit) : IDelet
                 branchName = branch.simpleName,
                 commitsOnlyOnRef = repository.countCommitsOnlyOn(branch.name),
             )
+
+            // JGit deletes a branch that another worktree uses, unlike git, even with force. That worktree would be
+            // left on a branch that doesn't exist. git checks this before the merge, so -D doesn't get past it.
+            if (branch.name.startsWith(Constants.R_HEADS)) {
+                refuseDeletingIfUsedByWorktree(repository, branch.name)
+            }
 
             // JGit's merge check throws a NullPointerException when HEAD is unborn. Git refuses -d then too.
             if (!force && repository.resolve(Constants.HEAD) == null) {

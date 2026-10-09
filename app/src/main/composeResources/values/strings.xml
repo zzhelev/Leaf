@@ -354,6 +354,12 @@
     <string name="error_checkout_branch_checked_out_in_worktree">"%1$s" is checked out in the worktree at "%2$s", and a branch can be checked out in only one worktree at a time. Nothing was changed.</string>
     <string name="error_checkout_branch_rebased_in_worktree">"%1$s" is being rebased in the worktree at "%2$s". Finish or abort the rebase there first. Nothing was changed.</string>
     <string name="error_checkout_branch_bisected_in_worktree">The worktree at "%2$s" is bisecting from "%1$s". End the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_delete_branch_checked_out_in_worktree">"%1$s" is checked out in the worktree at "%2$s", so it can't be deleted. Check out another branch there first. Nothing was changed.</string>
+    <string name="error_delete_branch_rebased_in_worktree">"%1$s" is being rebased in the worktree at "%2$s", so it can't be deleted. Finish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_delete_branch_bisected_in_worktree">The worktree at "%2$s" is bisecting from "%1$s", so it can't be deleted. End the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_rename_branch_rebased_in_worktree">"%1$s" is being rebased in the worktree at "%2$s", so it can't be renamed. Finish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_rename_branch_bisected_in_worktree">The worktree at "%2$s" is bisecting from "%1$s", so it can't be renamed. End the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_rename_branch_worktree_head_not_moved">"%1$s" was renamed to "%2$s", but the worktree at "%3$s" couldn't be moved to "%2$s", as another program was using it. It is still on "%1$s", which no longer exists. Run git switch %2$s there.</string>
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 

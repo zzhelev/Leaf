@@ -9,7 +9,10 @@ import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
 import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
+import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_worktree
+import dev.app.leaf.app.generated.resources.error_delete_branch_checked_out_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_branch_not_merged
+import dev.app.leaf.app.generated.resources.error_delete_branch_rebased_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_tag_has_own_commits
 import dev.app.leaf.app.generated.resources.error_fetch_remote_failed
 import dev.app.leaf.app.generated.resources.error_git_cli_command_failed
@@ -43,6 +46,9 @@ import dev.app.leaf.app.generated.resources.error_remote_ref_other
 import dev.app.leaf.app.generated.resources.error_remote_ref_remote_rejected
 import dev.app.leaf.app.generated.resources.error_remote_ref_stale_info
 import dev.app.leaf.app.generated.resources.error_remote_refs_rejected
+import dev.app.leaf.app.generated.resources.error_rename_branch_bisected_in_worktree
+import dev.app.leaf.app.generated.resources.error_rename_branch_rebased_in_worktree
+import dev.app.leaf.app.generated.resources.error_rename_branch_worktree_head_not_moved
 import dev.app.leaf.app.generated.resources.error_repository_path_not_set
 import dev.app.leaf.app.generated.resources.error_repository_read_error
 import dev.app.leaf.app.generated.resources.error_sign_ssh_key_not_found
@@ -74,6 +80,35 @@ fun AppError.getErrorText(): String {
                 WorktreeBranchUse.Bisecting ->
                     stringResource(Res.string.error_checkout_branch_bisected_in_worktree, branch, worktreePath)
             }
+        }
+
+        is DeleteBranchError -> when (this) {
+            is DeleteBranchError.BranchUsedByWorktree -> when (use) {
+                WorktreeBranchUse.CheckedOut ->
+                    stringResource(Res.string.error_delete_branch_checked_out_in_worktree, branch, worktreePath)
+
+                WorktreeBranchUse.Rebasing ->
+                    stringResource(Res.string.error_delete_branch_rebased_in_worktree, branch, worktreePath)
+
+                WorktreeBranchUse.Bisecting ->
+                    stringResource(Res.string.error_delete_branch_bisected_in_worktree, branch, worktreePath)
+            }
+        }
+
+        is RenameBranchError -> when (this) {
+            is RenameBranchError.BranchRebasedInWorktree ->
+                stringResource(Res.string.error_rename_branch_rebased_in_worktree, branch, worktreePath)
+
+            is RenameBranchError.BranchBisectedInWorktree ->
+                stringResource(Res.string.error_rename_branch_bisected_in_worktree, branch, worktreePath)
+
+            is RenameBranchError.WorktreeHeadNotMoved ->
+                stringResource(
+                    Res.string.error_rename_branch_worktree_head_not_moved,
+                    oldBranch,
+                    newBranch,
+                    worktreePath,
+                )
         }
 
         is DeleteRefError -> when (this) {

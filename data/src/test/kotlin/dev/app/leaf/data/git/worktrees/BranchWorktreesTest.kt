@@ -54,7 +54,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(main, "develop")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(main, "develop"), WorktreeBranchUse.CheckedOut), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(main, "develop"),
+                WorktreeBranchUse.CheckedOut,
+                linkedGitDir(main, "wt-develop"),
+            ),
+            worktree,
+        )
         assertEquals(File(tempDir, "wt-develop").canonicalPath, worktree?.path)
     }
 
@@ -65,7 +72,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(main, "claude/agent-1")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(main, "claude/agent-1"), WorktreeBranchUse.CheckedOut), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(main, "claude/agent-1"),
+                WorktreeBranchUse.CheckedOut,
+                linkedGitDir(main, "agent-1"),
+            ),
+            worktree,
+        )
         assertEquals(File(main, ".claude/worktrees/agent-1").canonicalPath, worktree?.path)
     }
 
@@ -77,7 +91,10 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(linked, "main")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(linked, "main"), WorktreeBranchUse.CheckedOut), worktree)
+        assertEquals(
+            WorktreeUsingBranch(gitRefusal(linked, "main"), WorktreeBranchUse.CheckedOut, mainGitDir(main)),
+            worktree,
+        )
         assertEquals(main.canonicalPath, worktree?.path)
     }
 
@@ -90,7 +107,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(first, "second")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(first, "second"), WorktreeBranchUse.CheckedOut), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(first, "second"),
+                WorktreeBranchUse.CheckedOut,
+                linkedGitDir(main, "wt-second"),
+            ),
+            worktree,
+        )
     }
 
     @Test
@@ -122,7 +146,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(main, "feature")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(main, "feature"), WorktreeBranchUse.Rebasing), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(main, "feature"),
+                WorktreeBranchUse.Rebasing,
+                linkedGitDir(main, "wt-feature"),
+            ),
+            worktree,
+        )
         assertEquals(linked.canonicalPath, worktree?.path)
     }
 
@@ -133,7 +164,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(main, "feature")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(main, "feature"), WorktreeBranchUse.Rebasing), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(main, "feature"),
+                WorktreeBranchUse.Rebasing,
+                linkedGitDir(main, "wt-feature"),
+            ),
+            worktree,
+        )
     }
 
     @Test
@@ -146,7 +184,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(main, "feature")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(main, "feature"), WorktreeBranchUse.Bisecting), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(main, "feature"),
+                WorktreeBranchUse.Bisecting,
+                linkedGitDir(main, "wt-feature"),
+            ),
+            worktree,
+        )
     }
 
     @Test
@@ -158,7 +203,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(main, "develop")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(main, "develop"), WorktreeBranchUse.CheckedOut), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(main, "develop"),
+                WorktreeBranchUse.CheckedOut,
+                linkedGitDir(main, "wt-develop"),
+            ),
+            worktree,
+        )
     }
 
     @Test
@@ -170,7 +222,14 @@ class BranchWorktreesTest {
 
         val worktree = worktreeUsing(main, "develop")
 
-        assertEquals(WorktreeUsingBranch(gitRefusal(main, "develop"), WorktreeBranchUse.CheckedOut), worktree)
+        assertEquals(
+            WorktreeUsingBranch(
+                gitRefusal(main, "develop"),
+                WorktreeBranchUse.CheckedOut,
+                linkedGitDir(main, "wt-develop"),
+            ),
+            worktree,
+        )
         assertEquals(File(tempDir, "wt-develop").canonicalPath, worktree?.path)
     }
 
@@ -206,6 +265,40 @@ class BranchWorktreesTest {
         assertNull(worktreeUsing(main, "develop"))
     }
 
+    @Test
+    fun `lists every worktree that uses a branch, its own included, main worktree first`() {
+        val main = git.initRepository(File(tempDir, "main"))
+        val linked = File(tempDir, "wt-also-main")
+        // git checks out a branch in a second worktree only when forced
+        git.run(main, "worktree", "add", "--force", linked.path, "main")
+        git.run(main, "worktree", "add", "-b", "develop", "../wt-develop")
+
+        val expected = listOf(
+            WorktreeUsingBranch(main.canonicalPath, WorktreeBranchUse.CheckedOut, mainGitDir(main)),
+            WorktreeUsingBranch(linked.canonicalPath, WorktreeBranchUse.CheckedOut, linkedGitDir(main, "wt-also-main")),
+        )
+
+        assertEquals(expected, worktreesUsing(main, "main"))
+        assertEquals(expected, worktreesUsing(linked, "main"))
+        // git names the first one too
+        assertEquals(main.canonicalPath, gitRefusal(File(tempDir, "wt-develop"), "main"))
+    }
+
+    @Test
+    fun `lists the worktree it is asked from when it rebases the branch`() {
+        val main = git.initRepository(File(tempDir, "main"))
+        commitFile(main, "README.md", "Main")
+        git.run(main, "switch", "-c", "feature", "HEAD~1")
+        commitFile(main, "README.md", "Feature")
+        git.runFailing(main, "rebase", "main")
+
+        assertEquals(
+            listOf(WorktreeUsingBranch(main.canonicalPath, WorktreeBranchUse.Rebasing, mainGitDir(main))),
+            worktreesUsing(main, "feature"),
+        )
+        assertNull(worktreeUsing(main, "feature"), "findOtherWorktreeUsing leaves out the worktree it is asked from")
+    }
+
     /**
      * Adds the worktree `wt-feature` on a new branch `feature`, and runs `git <rebaseArgs>` there, which stops on a
      * conflict with a commit on main.
@@ -235,6 +328,21 @@ class BranchWorktreesTest {
 
         assertInstanceOf(Either.Ok::class.java, result).value as WorktreeUsingBranch?
     }
+
+    /** What [worktreesUsing] lists for [branch] from [worktree], opened as Leaf opens it, by its git dir. */
+    private fun worktreesUsing(worktree: File, branch: String): List<WorktreeUsingBranch> = runBlocking {
+        val gitDir = git.run(worktree, "rev-parse", "--absolute-git-dir").trim()
+        val result = jgit.provide(gitDir) { git -> git.repository.worktreesUsing("refs/heads/$branch") }
+
+        assertInstanceOf(Either.Ok::class.java, result).value.let { value ->
+            (value as List<*>).map { it as WorktreeUsingBranch }
+        }
+    }
+
+    private fun mainGitDir(main: File) = File(main, ".git").canonicalFile
+
+    /** The git dir of the linked worktree [name] of [main], which git names after the worktree's folder. */
+    private fun linkedGitDir(main: File, name: String) = File(main, ".git/worktrees/$name").canonicalFile
 
     /** The worktree that git names when it refuses to check out [branch] in [worktree]. */
     private fun gitRefusal(worktree: File, branch: String): String {

@@ -47,6 +47,44 @@ sealed interface DeleteRefError : GitError {
     data class TagHasOwnCommits(val tagName: String, override val commitsOnlyOnRef: Int) : DeleteRefError
 }
 
+/** A branch deletion refused even with force, unlike [DeleteRefError]. */
+sealed interface DeleteBranchError : GitError {
+    /**
+     * The local branch [branch] can't be deleted because the worktree at [worktreePath], possibly the one the tab shows,
+     * uses it ([use]). git refuses this even with `-D` ("cannot delete branch used by worktree at"). Nothing changed.
+     */
+    data class BranchUsedByWorktree(
+        val branch: String,
+        val worktreePath: String,
+        val use: WorktreeBranchUse,
+    ) : DeleteBranchError
+}
+
+sealed interface RenameBranchError : GitError {
+    /**
+     * The local branch [branch] can't be renamed because the worktree at [worktreePath] is rebasing it, as git refuses
+     * ("is being rebased at"). Nothing changed.
+     */
+    data class BranchRebasedInWorktree(val branch: String, val worktreePath: String) : RenameBranchError
+
+    /**
+     * The local branch [branch] can't be renamed because the worktree at [worktreePath] is bisecting from it, as git
+     * refuses ("is being bisected at"). Nothing changed.
+     */
+    data class BranchBisectedInWorktree(val branch: String, val worktreePath: String) : RenameBranchError
+
+    /**
+     * [oldBranch] was renamed to [newBranch], but the HEAD of the worktree at [worktreePath], which had [oldBranch]
+     * checked out, couldn't be moved to [newBranch], as something else was writing it. That worktree is on
+     * [oldBranch], which no longer exists, as after git's "branch renamed to, but HEAD is not updated".
+     */
+    data class WorktreeHeadNotMoved(
+        val oldBranch: String,
+        val newBranch: String,
+        val worktreePath: String,
+    ) : RenameBranchError
+}
+
 /**
  * Repository path for current tab is not set
  */

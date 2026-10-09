@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.errors.DeleteBranchError
 import dev.app.leaf.domain.errors.DeleteRefError
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
 import dev.app.leaf.ui.getErrorText
@@ -48,7 +49,10 @@ fun DeleteTagDialog(
     )
 }
 
-/** Confirms deleting a ref. When git refuses, says why, and the primary action becomes "Delete anyway". */
+/**
+ * Confirms deleting a ref. When git refuses, says why, and the primary action becomes "Delete anyway". When a worktree
+ * uses the branch, it says so and the primary action is disabled.
+ */
 @Composable
 private fun DeleteRefDialog(
     viewModel: DeleteRefViewModel,
@@ -75,7 +79,8 @@ private fun DeleteRefDialog(
         } else {
             stringResource(Res.string.delete_ref_dialog_delete_anyway)
         },
-        isPrimaryActionEnabled = !state.isDeleting && !state.isDeleted,
+        // A worktree uses the branch, which force doesn't get past either, so another try can't delete it
+        isPrimaryActionEnabled = !state.isDeleting && !state.isDeleted && error !is DeleteBranchError,
         onDismiss = onDismiss,
         onPrimaryActionClicked = { viewModel.delete() },
         beforeActionsFocusRequester = null,
