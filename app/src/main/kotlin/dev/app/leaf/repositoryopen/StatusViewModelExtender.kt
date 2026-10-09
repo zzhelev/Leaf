@@ -694,11 +694,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         ) {
             committerDataRequestState.value = CommitterDataRequestState.WaitingInput(author)
 
-            var committerData = committerDataRequestState.value
-
-            while (committerData is CommitterDataRequestState.WaitingInput) {
-                committerData = committerDataRequestState.value
-            }
+            val committerData = committerDataRequestState.awaitAnswer()
 
             if (committerData is CommitterDataRequestState.Accepted) {
                 val authorInfo = committerData.authorInfo

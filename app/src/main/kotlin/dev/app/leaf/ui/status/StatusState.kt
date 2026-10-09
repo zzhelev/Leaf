@@ -15,6 +15,7 @@ import dev.app.leaf.domain.sorting.toFileItems
 import dev.app.leaf.ui.UiDataState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 
 private const val TAG = "StatusState"
 
@@ -238,3 +239,10 @@ sealed interface CommitterDataRequestState {
     data class Accepted(val authorInfo: AuthorInfo, val persist: Boolean) : CommitterDataRequestState
     object Reject : CommitterDataRequestState
 }
+
+/**
+ * Fork-only: waits until the user accepts or rejects the commit identity dialog. It suspends; a loop that read the
+ * value kept a thread busy while the dialog was open, and forever when the tab closed.
+ */
+suspend fun Flow<CommitterDataRequestState>.awaitAnswer(): CommitterDataRequestState =
+    first { it !is CommitterDataRequestState.WaitingInput }
