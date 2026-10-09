@@ -12,7 +12,6 @@
   order to build Leaf properly. The Rust to Kotlin bindings are generated with uniffi as part of the build.
 - **Git LFS:** The bundled fonts are stored with [Git LFS](https://git-lfs.com/). Install it and run `git lfs pull`
   after cloning, otherwise the app is built with placeholder files instead of fonts.
-- **Perl:** Perl is required to build openssl (which is required for LibSSH to work).
 - **Packages for Linux ARM64/aarch64**: You need to install the `aarch64-linux-gnu-gcc` package to cross compile the
   Rust components to ARM from x86_64. You will also need to use `rustup` to add a new
   target: `rustup target add aarch64-unknown-linux-gnu`
