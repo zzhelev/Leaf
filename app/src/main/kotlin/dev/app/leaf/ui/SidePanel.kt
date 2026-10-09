@@ -24,6 +24,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,7 @@ import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.models.Submodule
 import dev.app.leaf.domain.models.Tag
 import dev.app.leaf.domain.models.ui.SelectedItem
+import dev.app.leaf.domain.refresh.WorktreesVisibility
 import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.RefRow
 import dev.app.leaf.domain.sorting.RefSection
@@ -93,6 +95,23 @@ fun SidePanel(
         viewModel.freeSearchFocusFlow.collectLatest {
             tabFocusRequester.requestFocus()
         }
+    }
+
+    // The worktree list refreshes on an interval while it's on screen
+    val isWindowFocused = LocalWindowInfo.current.isWindowFocused
+    val isWindowMinimized = LocalWindowMinimized.current
+
+    LaunchedEffect(viewModel, worktreesState.isExpanded, isWindowFocused, isWindowMinimized) {
+        viewModel.onWorktreesVisibilityChanged(
+            WorktreesVisibility(
+                isShown = worktreesState.isExpanded && !isWindowMinimized,
+                isWindowFocused = isWindowFocused,
+            )
+        )
+    }
+
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.onWorktreesVisibilityChanged(WorktreesVisibility.Hidden) }
     }
 
     Column {

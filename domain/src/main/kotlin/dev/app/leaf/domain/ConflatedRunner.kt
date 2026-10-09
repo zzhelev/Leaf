@@ -14,9 +14,14 @@ import javax.inject.Inject
  * while the block runs waits, then runs it once more, so its result reflects what happened before the call. Calls made
  * while one already waits return at once: that one's run starts after them too.
  */
-open class ConflatedRunner {
+open class ConflatedRunner(private val clock: () -> Long = System::currentTimeMillis) {
     private val mutex = Mutex()
     private val isCallWaiting = AtomicBoolean(false)
+
+    /** When the last run ended, failed or cancelled, in milliseconds from [clock]. 0 before the first one. */
+    @Volatile
+    var lastRunEndedAt: Long = 0
+        private set
 
     suspend fun run(block: suspend () -> Unit) {
         if (!isCallWaiting.compareAndSet(false, true)) return
@@ -27,7 +32,12 @@ open class ConflatedRunner {
             mutex.withLock {
                 isCallWaiting.set(false)
                 isWaiting = false
-                block()
+
+                try {
+                    block()
+                } finally {
+                    lastRunEndedAt = clock()
+                }
             }
         } finally {
             // Cancelled while waiting: the next call has to wait instead

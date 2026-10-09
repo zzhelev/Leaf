@@ -25,6 +25,7 @@ import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.Error
 import dev.app.leaf.domain.models.ProxyType
+import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
@@ -105,6 +106,9 @@ val settings = listOf(
         Res.drawable.cloud,
         Res.string.settings_entry_remote_actions
     ) { state, onAction -> RemoteActions(state, onAction) },
+    SettingsEntry.Entry(Res.drawable.folder_open, Res.string.settings_entry_worktrees) { state, onAction ->
+        Worktrees(state, onAction)
+    },
 
     SettingsEntry.Section(Res.string.settings_section_network),
     SettingsEntry.Entry(Res.drawable.network, Res.string.settings_entry_proxy) { state, onAction ->
@@ -394,6 +398,30 @@ private fun RemoteActions(settingsViewState: SettingsViewState, onAction: (Setti
     )
 }
 
+
+@Composable
+private fun Worktrees(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+    val current = settingsViewState.worktreesRefreshInterval
+    // Also a value that only the settings file has
+    val choices = (WorktreesRefreshIntervals.CHOICES + current).distinct().sorted()
+
+    SettingDropDown(
+        title = stringResource(Res.string.settings_worktrees_refresh_title),
+        subtitle = stringResource(Res.string.settings_worktrees_refresh_subtitle),
+        dropDownOptions = choices.map { seconds -> DropDownOption(seconds, worktreesRefreshIntervalName(seconds)) },
+        onOptionSelected = { option ->
+            onAction(SettingsAction.SetConfig(AppConfig.WorktreesRefreshInterval(option.value)))
+        },
+        currentOption = current,
+    )
+}
+
+@Composable
+private fun worktreesRefreshIntervalName(seconds: Int): String = when {
+    seconds <= 0 -> stringResource(Res.string.settings_worktrees_refresh_off)
+    seconds == 60 -> stringResource(Res.string.settings_worktrees_refresh_minute)
+    else -> stringResource(Res.string.settings_worktrees_refresh_seconds, seconds)
+}
 
 @Composable
 private fun Authentication(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
@@ -741,9 +769,9 @@ fun <T> SettingDropDown(
         modifier = Modifier.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FieldTitles(title, subtitle)
+        FieldTitles(title, subtitle, modifier = Modifier.weight(1f))
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(16.dp))
 
         DropDownMenuText(
             showIcons = false,
@@ -768,9 +796,9 @@ fun SettingButton(
         modifier = Modifier.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FieldTitles(title, subtitle)
+        FieldTitles(title, subtitle, modifier = Modifier.weight(1f))
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(16.dp))
 
         PrimaryButton(
             text = buttonText,
@@ -791,9 +819,9 @@ fun SettingToggle(
         modifier = Modifier.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FieldTitles(title, subtitle, enabled)
+        FieldTitles(title, subtitle, enabled, modifier = Modifier.weight(1f))
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(16.dp))
 
         AppSwitch(
             enabled = enabled,
@@ -815,9 +843,9 @@ fun SettingIntInput(
         modifier = Modifier.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FieldTitles(title, subtitle, enabled)
+        FieldTitles(title, subtitle, enabled, modifier = Modifier.weight(1f))
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(16.dp))
 
         var text by remember {
             mutableStateOf(value.toString())
@@ -871,9 +899,9 @@ fun SettingTextInput(
         modifier = Modifier.padding(vertical = 8.dp),
         verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
     ) {
-        FieldTitles(title, subtitle, enabled)
+        FieldTitles(title, subtitle, enabled, modifier = Modifier.weight(1f))
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(16.dp))
 
         var text by remember {
             mutableStateOf(value)
@@ -903,13 +931,16 @@ fun SettingTextInput(
     }
 }
 
+/** A setting's title and subtitle. Rows give it what their control leaves, so a long subtitle wraps instead. */
 @Composable
 private fun FieldTitles(
     title: String,
     subtitle: String,
     enabled: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
     Column(
+        modifier = modifier,
         verticalArrangement = Arrangement.Center
     ) {
         Text(

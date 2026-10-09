@@ -91,6 +91,21 @@ class ConflatedRunnerTest {
         assertEquals(listOf("first", "next"), runs)
     }
 
+    @Test
+    fun `notes when the last run ended, also when it failed`(): Unit = runWithTimeout {
+        var now = 100L
+        val runner = ConflatedRunner(clock = { now })
+
+        assertEquals(0L, runner.lastRunEndedAt)
+
+        runner.run { now = 250 }
+        assertEquals(250L, runner.lastRunEndedAt)
+
+        val failure = runCatching { runner.run { now = 400; error("failed") } }
+        assertEquals("failed", failure.exceptionOrNull()?.message)
+        assertEquals(400L, runner.lastRunEndedAt)
+    }
+
     private suspend fun waitUntil(condition: () -> Boolean) {
         while (!condition()) yield()
     }

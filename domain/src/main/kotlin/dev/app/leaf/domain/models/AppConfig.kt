@@ -36,4 +36,7 @@ sealed interface AppConfig {
     data class RefPanel(val value: RefPanelSettings) : AppConfig
     data class FilesChangedView(val value: FilesViewState) : AppConfig
     data class LogColumns(val value: LogColumnsSettings) : AppConfig
+
+    /** Seconds between two refreshes of the worktree list while it's shown, 0 for none. See [WorktreesRefreshIntervals]. */
+    data class WorktreesRefreshInterval(val seconds: Int) : AppConfig
 }

@@ -370,6 +370,7 @@
     <string name="settings_entry_environment">Environment</string>
     <string name="settings_entry_branches">Branches</string>
     <string name="settings_entry_remote_actions">Remote actions</string>
+    <string name="settings_entry_worktrees">Worktrees</string>
     <string name="settings_section_network">Network</string>
     <string name="settings_entry_proxy">Proxy</string>
     <string name="settings_entry_auth">Authentication</string>
@@ -378,6 +379,11 @@
     <string name="settings_entry_terminal">Terminal</string>
     <string name="settings_entry_logs">Logs</string>
     <string name="settings_remote_operations_with_git_title">Use git for remote operations</string>
+    <string name="settings_worktrees_refresh_title">Check the other worktrees for changes</string>
+    <string name="settings_worktrees_refresh_subtitle">How often Leaf looks for files changed in the other worktrees while the Worktrees section is shown, also when another app has the focus. What git does in them, such as commits, shows up right away.</string>
+    <string name="settings_worktrees_refresh_off">Never</string>
+    <string name="settings_worktrees_refresh_seconds">Every %1$d s</string>
+    <string name="settings_worktrees_refresh_minute">Every minute</string>
     <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation, which reaches HTTPS remotes but not SSH ones.</string>
 
     <!-- Notifications -->

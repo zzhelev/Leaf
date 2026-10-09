@@ -62,6 +62,7 @@ private val pushWithLeasePreference get() = booleanPreferencesKey("push_with_lea
 private val cloneDefaultDirectoryPreference get() = stringPreferencesKey("clone_default_directory")
 private val gitExecutablePathPreference get() = stringPreferencesKey("git_executable_path")
 private val remoteOperationsWithGitPreference get() = booleanPreferencesKey("remote_operations_with_git")
+private val worktreesRefreshIntervalPreference get() = intPreferencesKey("worktrees_refresh_interval")
 
 private val useProxyPreference get() = booleanPreferencesKey("use_proxy")
 private val proxyUseAuthPreference get() = booleanPreferencesKey("proxy_use_auth")
@@ -134,6 +135,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val cloneDefaultDirectory get() = preferences.data[cloneDefaultDirectoryPreference]
     override val gitExecutablePath get() = preferences.data[gitExecutablePathPreference]
     override val remoteOperationsWithGit get() = preferences.data[remoteOperationsWithGitPreference]
+    override val worktreesRefreshInterval get() = preferences.data[worktreesRefreshIntervalPreference]
 
 
     // Network
@@ -158,6 +160,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.CloneDefaultDirectory -> setValue(cloneDefaultDirectoryPreference, appConfig.value)
                 is AppConfig.GitExecutablePath -> setValue(gitExecutablePathPreference, appConfig.value)
                 is AppConfig.RemoteOperationsWithGit -> setValue(remoteOperationsWithGitPreference, appConfig.value)
+                is AppConfig.WorktreesRefreshInterval ->
+                    setValue(worktreesRefreshIntervalPreference, appConfig.seconds)
                 is AppConfig.DateFormatCustomFormat -> setValue(dateFormatCustomFormatPreference, appConfig.value)
                 is AppConfig.DateFormatIs24h -> setValue(dateFormatIs24hPreference, appConfig.value)
                 is AppConfig.DateFormatUseDefault -> setValue(dateFormatUseDefaultPreference, appConfig.value)

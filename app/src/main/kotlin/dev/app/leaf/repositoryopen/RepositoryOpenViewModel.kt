@@ -22,6 +22,7 @@ import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
+import dev.app.leaf.domain.refresh.WorktreesVisibility
 import dev.app.leaf.domain.repositories.*
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -149,6 +150,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val openRepositoryInTerminalGitAction: OpenRepositoryInTerminalGitAction,
     private val loadRefFolderExpansionUseCase: LoadRefFolderExpansionUseCase,
     private val saveRefFolderExpansionUseCase: SaveRefFolderExpansionUseCase,
+    private val pollWorktreesUseCase: PollWorktreesUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -374,6 +376,13 @@ class RepositoryOpenViewModel @Inject constructor(
     val worktreesState: StateFlow<WorktreesState> =
         combineWorktreesState(worktrees, isExpandedWorktrees, filter).stateIn(WorktreesState())
 
+    /** Whether the side panel shows the worktree list, which refreshes on an interval meanwhile. */
+    private val worktreesVisibility = MutableStateFlow(WorktreesVisibility.Hidden)
+
+    init {
+        viewModelScope.launch { pollWorktreesUseCase(worktreesVisibility) }
+    }
+
     /** The worktrees that use each local branch, for the branch list and the log. */
     val branchWorktrees: StateFlow<BranchWorktreesState> = worktrees
         .map { worktrees ->
@@ -553,6 +562,10 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun onExpandWorktrees() {
         isExpandedWorktrees.invert()
+    }
+
+    fun onWorktreesVisibilityChanged(visibility: WorktreesVisibility) {
+        worktreesVisibility.value = visibility
     }
 
 

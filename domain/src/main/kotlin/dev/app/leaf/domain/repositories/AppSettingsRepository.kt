@@ -41,6 +41,7 @@ interface AppSettingsRepository {
     val cloneDefaultDirectory: Flow<String?>
     val gitExecutablePath: Flow<String?>
     val remoteOperationsWithGit: Flow<Boolean?>
+    val worktreesRefreshInterval: Flow<Int?>
 
     // Network
     val useProxy: Flow<Boolean?>

@@ -6,6 +6,7 @@ import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.ProxyType
+import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -53,6 +54,12 @@ class AppSettingsService @Inject constructor(
     /** Whether push, fetch and pull run the git CLI, or JGit, Leaf's built-in implementation. */
     val remoteOperationsWithGit: Flow<Boolean>
         get() = appSettingsRepository.remoteOperationsWithGit.defaultIfNull { DEFAULT_REMOTE_OPERATIONS_WITH_GIT }
+
+    /** Seconds between two refreshes of the worktree list while it's shown, 0 for none. */
+    val worktreesRefreshInterval: Flow<Int>
+        get() = appSettingsRepository.worktreesRefreshInterval.defaultIfNull {
+            WorktreesRefreshIntervals.DEFAULT_SECONDS
+        }
     val useProxy: Flow<Boolean> get() = appSettingsRepository.useProxy.defaultIfNull { DEFAULT_USE_PROXY }
     val proxyUseAuth: Flow<Boolean> get() = appSettingsRepository.proxyUseAuth.defaultIfNull { DEFAULT_PROXY_USE_AUTH }
     val proxyType: Flow<ProxyType> get() = appSettingsRepository.proxyType.defaultIfNull { DEFAULT_PROXY_TYPE }

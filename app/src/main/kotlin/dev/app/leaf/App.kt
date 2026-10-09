@@ -50,6 +50,7 @@ import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.AppTab
 import dev.app.leaf.ui.AppViewModel
+import dev.app.leaf.ui.LocalWindowMinimized
 import dev.app.leaf.ui.components.TabsRow
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.context_menu.AppPopupMenu
@@ -258,6 +259,7 @@ class App @Inject constructor(
 
                 compositionValues.add(LocalAvatarProvider provides avatarProvider)
                 compositionValues.add(LocalDateTimeFormat provides dateFormat)
+                compositionValues.add(LocalWindowMinimized provides windowState.isMinimized)
 
                 CompositionLocalProvider(
                     values = compositionValues.toTypedArray()

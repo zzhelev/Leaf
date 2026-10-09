@@ -12,6 +12,7 @@ import dev.app.leaf.domain.gitcli.IGitExecutableLocator
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.ProxyType
+import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
@@ -78,6 +79,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.pullWithRebase,
             appSettingsService.pushWithLease,
             appSettingsService.remoteOperationsWithGit,
+            appSettingsService.worktreesRefreshInterval,
             appSettingsService.fastForwardMerge,
             appSettingsService.autoStashOnMerge,
             appSettingsService.cloneDefaultDirectory,
@@ -106,6 +108,7 @@ class SettingsViewModel @Inject constructor(
             pullWithRebase,
             pushWithLease,
             remoteOperationsWithGit,
+            worktreesRefreshInterval,
             fastForwardMerge,
             autoStashOnMerge,
             cloneDefaultDirectory,
@@ -136,6 +139,7 @@ class SettingsViewModel @Inject constructor(
                 pullWithRebase,
                 pushWithLease,
                 remoteOperationsWithGit,
+                worktreesRefreshInterval,
                 fastForwardMerge,
                 autoStashOnMerge,
                 cloneDefaultDirectory,
@@ -170,6 +174,7 @@ class SettingsViewModel @Inject constructor(
             pullWithRebase = false,
             pushWithLease = false,
             remoteOperationsWithGit = false,
+            worktreesRefreshInterval = WorktreesRefreshIntervals.DEFAULT_SECONDS,
             fastForwardMerge = false,
             autoStashOnMerge = false,
             cloneDefaultDirectory = "",
@@ -204,6 +209,8 @@ data class SettingsViewState(
     val pullWithRebase: Boolean,
     val pushWithLease: Boolean,
     val remoteOperationsWithGit: Boolean,
+    /** Seconds between two refreshes of the worktree list, 0 for none. */
+    val worktreesRefreshInterval: Int,
     val fastForwardMerge: Boolean,
     val autoStashOnMerge: Boolean,
     val cloneDefaultDirectory: String?,
