@@ -100,9 +100,9 @@ from the code; they were not exercised in the app.
   - It opens the worktree with `FileRepositoryBuilder().setGitDir(adminDir).setWorkTree(dir)`.
   - It returns every failure as `Either.Err` instead of throwing.
 - "Open in terminal" now uses the working tree.
-- Still open:
-  - The watcher should also watch `<common>/refs`, `<common>/packed-refs` and `<common>/worktrees/` (Phase 1.5).
-  - The tab subtitle and persisted path still show the admin dir (Phase 2b).
+- The watcher now watches the common git dir, its `refs/` and `worktrees/` for a linked worktree (Phase 1.5, branch
+  `feat/worktree-refresh`).
+- Still open: the tab subtitle and persisted path still show the admin dir (Phase 2b).
 
 ## 3. Checkout guard
 
@@ -421,7 +421,8 @@ doesn't cover this; (d)'s second change would.
     the filtered one.
 - **No duplicate-tab focusing.** Opening the same path twice creates two tabs, each with its own watcher, sharing one
   cached `Git`. This is relevant to Phase 2a.
-- **No polling and no refresh on window focus.** File watching is the only automatic refresh (Phase 1.5).
+- **No polling and no refresh on window focus.** File watching was the only automatic refresh. Since Phase 1.5 the
+  worktree list also refreshes on an interval while it's shown, and when the window gets the focus.
 - **#335 (UI freezes), a hypothesis I have not tested.**
   - Each opened tab runs the Rust `FileWatcher.watch()` blocking loop inside a `callbackFlow` on `Dispatchers.Default`
     (`G/FileChangesWatcher.kt`, `D/usecases/ObserveRepositoryToRefreshUseCase.kt:42-47`). That ties up one Default
@@ -437,7 +438,8 @@ All verified in source.
 - `A/ui/dialogs/settings/SettingsDialog.kt:297`: the proxy **Login** field saves `AppConfig.ProxyHostPassword`.
 - `A/ui/dialogs/settings/SettingsDialog.kt:406`: the "Do not verify SSL" toggle saves `AppConfig.CacheCredentialsInMemory`.
 - `D/usecases/ObserveRepositoryToRefreshUseCase.kt:74`: `startsWith(repositoryPath)` without a separator also matches
-  `.gitignore`, `.gitattributes` and `.github/`, so editing them triggers a full refresh.
+  `.gitignore`, `.gitattributes` and `.github/`, so editing them triggers a full refresh. Fixed in Phase 1.5
+  (`WatchedRepository`), not reported upstream.
 - `D/usecases/ObserveRepositoryToRefreshUseCase.kt:113`: strips the git-dir prefix instead of the working-tree prefix,
   so that ignore check never matches.
 - `A/repositoryopen/RepositoryOpenViewModel.kt:1037-1046`: `openSubmodule` builds `"$repositoryPath/$path"` from

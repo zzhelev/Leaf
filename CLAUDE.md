@@ -317,7 +317,8 @@ worktrees.
   its `WorktreeStatus`, how it compares to the base, and the time of its last commit. It runs at most 4 worktrees'
   git processes at once. A part that fails for one worktree is left null.
 - The git actions (`GetWorktreesGitAction`, `GetWorktreeStatusGitAction`, `GetAheadBehindGitAction`,
-  `GetDefaultBaseBranchGitAction`, `GetCommitTimesGitAction`) are bound in `WorktreeGitActionsModule`.
+  `GetDefaultBaseBranchGitAction`, `GetCommitTimesGitAction`) are bound in `WorktreeGitActionsModule`, with
+  `GetCommonGitDirGitAction` (JGit's `commonDirectory`, for the file watcher).
 - The output parsers are in `WorktreeParsers.kt`, with fixtures from git 2.54 in `WorktreeParsersTest`.
 - `Worktree.branch` is a full ref, as in `Branch.name`. `git worktree list` works from any git dir, a linked
   worktree's included.
@@ -326,9 +327,9 @@ worktrees.
   (`worktreeHeads` in `BranchWorktrees.kt`, which the guards read too), matched by canonical folder. Such a worktree
   is compared to the base by that branch, not by the commit it stopped at.
 - Each tab keeps the list in `RepositoryDataRepository.worktrees`. `RefreshDataUseCase` refreshes it last, with ALL,
-  BRANCHES, LOG or STATUS (`refreshesWorktrees`), through the tab's `WorktreesRefreshRunner` (`ConflatedRunner`):
-  one refresh at a time, and calls that come meanwhile share the next one. What other programs change in other
-  worktrees shows up only with such a refresh, until Phase 1.5.
+  BRANCHES, LOG or STATUS (`refreshesWorktrees`), and alone with WORKTREES, through the tab's
+  `WorktreesRefreshRunner` (`ConflatedRunner`): one refresh at a time, and calls that come meanwhile share the next
+  one. The file watcher and a poll keep it up to date with the other worktrees (see Refresh).
 - The side panel shows the list (Worktrees section) and marks the branches that worktrees use (see Sidebar and branch
   list).
 
@@ -859,20 +860,50 @@ resets them. By default only Date is on, as before.
 
 **`domain/.../usecases/ObserveRepositoryToRefreshUseCase.kt`:**
 - What it watches:
-  - the working-tree root and every non-ignored subdirectory, each non-recursive;
+  - the working-tree root and every non-ignored subdirectory, each non-recursive. Fork-only: except the folders of
+    the repository's linked worktrees inside it, such as agents' `.claude/worktrees/<name>`
+    (`WatchedRepository.isLinkedWorktreeFolder`: a `.git` file that points into `<common git dir>/worktrees/`).
+    Every file that an agent or its build wrote there used to refresh the tab's status and log, unless a gitignore
+    covered the folder. Submodules' `.git` files point into `modules/`, so they're still watched;
   - the git dir, non-recursive;
-  - `<gitdir>/refs` and `<gitdir>/modules`, recursive.
-- What a change triggers: under the git dir, `DataToRefresh.ALL`; otherwise `STATUS + LOG + REPO_STATE`.
+  - `<gitdir>/refs` and `<gitdir>/modules`, recursive;
+  - fork-only: `<common git dir>/worktrees`, recursive, added once git creates it (with the first linked worktree).
+    For a linked worktree, also the common git dir, non-recursive, and its `refs`, recursive.
+- What a batch of changes triggers comes from `WatchedRepository` (fork-only, `domain/.../refresh/`), by the most
+  important change in it:
+  - ALL for the tab's git dir, and in a linked worktree for the shared `refs/`, `packed-refs` and `config`;
+  - `STATUS + LOG + REPO_STATE` for anything else, the working tree (which refreshes the worktree list too);
+  - WORKTREES for another worktree's git dir under `<common>/worktrees/`, and in a linked worktree for the main
+    worktree's files in the common git dir (`HEAD`, `index`, …);
+  - nothing for Leaf's `leaf` file (and `leaf.lock`) and JGit's `.probe-` files in either git dir, or for
+    `COMMIT_EDITMSG`, `MERGE_MSG` and `SQUASH_MSG` in the tab's git dir.
+
+  Paths are compared as given and as real paths (macOS reports `/private/var/...`), and a folder only contains what
+  is under it with a separator. The old `startsWith(gitDir)` also matched `.gitignore` and `.github/`, which
+  refreshed everything.
+- WORKTREES alone goes through `WorktreeChangesRefresher`: right away, then at most once every 2 s while changes keep
+  coming. An agent that runs git rewrites its worktree's index all the time, and each refresh runs git in every
+  worktree.
 - Events are dropped (not deferred) while a task runs and for 1.5 s after one.
 
-**No polling and no refresh on window focus.** Manual refresh is F5 / Ctrl+R, which becomes Cmd+R on macOS
+**Polling (fork-only):** nothing watches the other worktrees' working trees, so what an agent changes in their files
+shows up through `PollWorktreesUseCase` (`worktreePollTicks` in `refresh/WorktreesPolling.kt`).
+- It refreshes the worktree list every `AppConfig.WorktreesRefreshInterval` seconds (Settings → Git → Worktrees:
+  never, 5, 10 by default, 30 or 60; never less than 2 s, whatever the settings file says) while
+  `WorktreesVisibility.isShown`: the tab is selected, its side panel shows the Worktrees section expanded, and the
+  window isn't minimized. Also while another app has the focus, as agents run in a terminal next to Leaf.
+- `SidePanel` reports it to `RepositoryOpenViewModel.onWorktreesVisibilityChanged`, with
+  `LocalWindowInfo.isWindowFocused` and the fork-only `LocalWindowMinimized` (provided in `App.kt`). Only the selected
+  tab's content is composed, so the other tabs don't poll.
+- A refresh comes an interval after the list's last one, whatever ran it (`ConflatedRunner.lastRunEndedAt`), so
+  right away when the list is older, as after switching back to the tab. When the window gets the focus while the
+  list is shown, it refreshes right away, unless it did in the last second.
+- None while an operation runs: the operation refreshes what it changed.
+- The section keeps the old list while a refresh runs, and an equal list doesn't recompose anything. In a test
+  repository with four worktrees, a refresh took 80 to 150 ms.
+
+**No other refresh on window focus.** Manual refresh is F5 / Ctrl+R, which becomes Cmd+R on macOS
 (`keybindings/Keybinding.kt`).
-
-**Linked worktree gap:** the git dir is `<common>/.git/worktrees/<name>`, so `<gitdir>/refs` does not exist, and the
-common `refs/` and `packed-refs` are not watched.
-
-**Worktree list:** it refreshes with the tab's ALL, BRANCHES, LOG and STATUS refreshes (see Linked worktrees under Git
-operations). Nothing watches the other worktrees yet (Phase 1.5).
 
 ## Conventions
 
@@ -906,6 +937,8 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 **Settings:**
 - Chain: `AppConfig` (domain model) → `AppSettingsRepository` → `DataStoreAppSettingsRepository` →
   `AppSettingsService` (defaults) → `SettingsViewModel` / `SettingsDialog.kt`.
+- Each row of `SettingsDialog` gives its title and subtitle (`FieldTitles`) `weight(1f)`, so a long subtitle wraps
+  and the control keeps its room. Before, the subtitle took the whole row and hid the control (`SettingsRowsTest`).
 - DataStore keeps them in `user_prefs.json` (`getPreferencesPath()`), written by `JsonPreferencesSerializer`. Each
   key stores its type and value. A damaged file is logged and replaced with the defaults.
 - `TerminalPath` is the closest precedent for a "git executable path" setting.

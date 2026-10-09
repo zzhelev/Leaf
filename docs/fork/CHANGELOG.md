@@ -2,6 +2,61 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Changes in other worktrees show up by themselves (branch `feat/worktree-refresh`)
+
+Phase 1.5 of `docs/fork/PLAN.md`.
+
+- **Before:** a tab refreshed its worktree list only with its own refreshes (F5, an operation, a change in its own
+  worktree). What an agent did in another worktree showed up only when its commit moved a ref, and only in a tab on the
+  main worktree: a tab on a linked worktree didn't watch the refs it shares. A tab on the main worktree also watched
+  every folder of an agent's worktree nested inside it, unless a gitignore covered the folder, so each file the agent
+  or its build wrote refreshed the tab's status and log.
+- **Now:**
+  - Each tab watches `<common git dir>/worktrees/`, so git working in another worktree (staging, committing,
+    switching, rebasing, adding or removing a worktree) refreshes the worktree list within about a second. Only the
+    list: a full refresh comes only when the shared refs change. While an agent keeps running git, the list
+    refreshes at most every 2 s.
+  - A tab on a linked worktree also watches the shared `refs/`, `packed-refs` and `config`: commits in the main
+    worktree or another one refresh it, as they did a tab on the main worktree.
+  - Files changed in the other worktrees, which nothing watches, show up through a refresh every 10 s while the
+    Worktrees section is shown, also while another app has the focus, as agents run in a terminal next to Leaf. Not
+    while the section is collapsed, the tab is in the background or the window is minimized. Settings → Git →
+    Worktrees sets it: never, every 5, 10, 30 seconds or every minute.
+  - When the window gets the focus, the list refreshes right away.
+  - The main worktree's tab no longer watches the folders of the repository's worktrees inside it, such as
+    `.claude/worktrees/<name>`: the worktree list follows them instead. Submodules are watched as before.
+- **Fixed on the way:**
+  - Editing `.gitignore`, `.gitattributes` or anything in `.github/` refreshed everything, because their paths start
+    like the git dir's. They now refresh the status, the log and the repository state, as other files do.
+  - Saving Leaf's per-repository settings (`<git dir>/leaf`, written when a side panel folder opens or closes)
+    refreshed everything. It now refreshes nothing.
+  - A setting whose subtitle wrapped left no room for its control, so the "Use git for remote operations" switch
+    (Settings → Git → Remote actions) didn't show. The title and subtitle now take what the control leaves.
+- **Tests:** 25 new.
+  - `:domain` (21): what each changed path refreshes, for a tab on the main worktree and on a linked one, with real
+    paths through a link and a git dir given with `..` (`WatchedRepositoryTest`); which folders are the repository's
+    linked worktrees, from their `.git` files; the 2 s gap between the watcher's refreshes; when the poll refreshes
+    (shown or hidden, off, a refresh from elsewhere, the window getting the focus, a tick during an operation); and
+    when a run ended.
+  - `:data` (2): the common git dir of the main and of linked worktrees, and the linked worktrees' folders as git
+    creates them, with absolute and relative paths (`WorktreesTest`).
+  - `:app` (2): a settings row keeps its switch or drop-down on screen next to a long subtitle, and at the end of the
+    row next to a short one, rendered offscreen (`SettingsRowsTest`).
+  - **Mutation check:** 30 mutations, 29 caught. The one missed is equivalent: making JGit's common git dir a plain
+    path, which JGit 7.7 already does. That code is gone.
+  - Checked in a dev run against a temporary repository with an agent's worktree nested in it, another in a folder
+    that no gitignore covers, and a sibling one, by making the changes from a terminal and reading what each refreshed
+    (a debug line now says). Staging in another worktree refreshed only the list, ten git commands in 1.5 s refreshed
+    it twice, commits refreshed everything, and the nested worktrees' files refreshed nothing until the next poll. A
+    tab on the sibling worktree refreshed for the main worktree's commits and packed refs. A worktree refresh took
+    80 to 150 ms. With the nested-folder check turned off, an edit in the unignored nested worktree refreshed the
+    main tab's status and log, as before.
+  - `./gradlew build` passes, with 707 tests (29 in `:app`, 524 in `:data`, 147 in `:domain`, 7 in `:common`), after
+    rebasing onto the Committer column.
+- **Not yet:**
+  - A tab doesn't watch the other worktrees' files, so their changes wait for the next poll, up to the interval.
+  - Opening a worktree from the list (Phase 2a).
+
 ## Who committed a commit, next to who wrote it (branch `feat/log-columns`)
 
 - **Before:** the log's Author column showed who wrote each commit, and only its tooltip said when someone else had
