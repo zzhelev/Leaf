@@ -24,7 +24,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
   - The Cancel button does nothing, and SSH reads have no timeout.
 - **Recommendation:** move remote operations to the git CLI in stages: push first, then fetch and pull, then clone.
   Keep JGit and libssh only as a fallback when no usable git is found. Fix the TLS problem now, whatever the
-  decision. Section 4 has the plan. Stages 0, 1 (push) and 2 (fetch and pull) are done.
+  decision. Section 4 has the plan. Stages 0, 1 (push), 2 (fetch and pull) and 3 (clone and submodules) are done.
 
 ## 1. How remote operations work today
 
@@ -376,14 +376,33 @@ Found while building it:
   for a fast-forward), and Leaf's JGit pull reported it as "Pull completed". Both pulls now report the files.
 - JGit's merge message adds ` into main`, which git leaves out for `main` and `master`. Both pulls keep JGit's.
 
-**Stage 3: clone and submodules (M).**
+**Stage 3: clone and submodules (M), done on branch `feat/git-cli-clone`.** The fork changelog and CLAUDE.md
+("Remote operations") describe what was built; the plan as written before follows.
 - Clone: `git clone --progress --no-checkout`, then today's JGit checkout with built-in LFS, so git-lfs isn't
   required. Progress goes into `CloneState`.
 - Submodules: `git submodule update --init --recursive` and `git submodule add`.
 - Tests: cloning over `file://` and the sshd, cancelling mid-clone, and checking the partial folder is removed.
 
+Found while building it:
+- git removes the folder of a clone that fails, and also when it gets SIGTERM, which is how Leaf stops it. When the
+  folder existed (empty) before, git keeps it and removes what's in it. JGit's clone does the same. Leaf's
+  `CloneViewModel` created the folder before cloning, so a failed clone always left an empty one; it no longer does.
+- Nothing removes what JGit's checkout or the submodules wrote, so Leaf removes a cancelled clone itself. Kotlin's
+  `File.deleteRecursively` follows symbolic links to folders, even when it's called on the link itself: with it, a
+  test whose clone had a link to an outside folder lost that folder's files. JGit's `FileUtils.delete` doesn't follow
+  them. Leaf's "Delete" in the Status pane and "Delete submodule" still use `deleteRecursively`, which is a separate
+  fix (it's upstream's code too).
+- Cloning an empty repository leaves HEAD unborn, and JGit's checkout of that branch fails, so Leaf skips it.
+- With JGit (the fallback), "Clone submodules" did nothing: `setCloneSubmodules` is ignored with `setNoCheckout`, and
+  Leaf then only ran `submodule init`, whether the box was ticked or not. JGit's submodule update doesn't go into
+  nested submodules either.
+- Since git 2.38.1, `git submodule` refuses `file://` and local paths unless `protocol.file.allow=always`
+  (CVE-2022-39253). JGit had no such check. Leaf keeps git's default.
+- A clone's URL may hold a password, and `GitCli` logged every command line; it now hides the password.
+
 **Later.** Let git-lfs handle LFS transfers when it's installed. Decide whether to retire libssh, which also needs
-SSH signing to move.
+SSH signing to move. Clone and pull still check out with JGit, so LFS objects come through Leaf's own client there;
+submodules are checked out by git, with git-lfs when it's installed.
 
 ### Decisions
 

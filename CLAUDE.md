@@ -318,8 +318,8 @@ worktrees.
   worktree's included.
 - Nothing shows or refreshes this data yet (Phase 1.4 and 1.5).
 
-**Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch and pull run the git
-CLI. Clone still uses JGit (stage 3 of `docs/fork/remote-operations.md`).
+**Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
+adding and updating submodules run the git CLI (stages 1 to 3 of `docs/fork/remote-operations.md`).
 - Push and remote branch deletion run `git push --porcelain --progress` (`GitCliPushBranchGitAction`,
   `GitCliDeleteRemoteBranchGitAction`).
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
@@ -339,6 +339,26 @@ CLI. Clone still uses JGit (stage 3 of `docs/fork/remote-operations.md`).
     CLI's, what happened. A merge that would overwrite local changes throws `PullWouldOverwriteException` (JGit
     returns `FAILED`, or throws `CheckoutConflictException` for a fast-forward); it used to count as a pull without
     conflicts. The CLI pull then drops its backup stash, since nothing changed.
+- Clone (`GitCliCloneRepositoryGitAction`) runs `git clone --progress --no-checkout -- <url> <folder>` from the
+  folder's parent, then JGit checks out HEAD with Leaf's built-in LFS, as after JGit's own clone, so git-lfs isn't
+  needed. An empty repository gets no checkout. With "Clone submodules", `git submodule update --init --recursive`
+  follows; without it, submodules aren't initialized, as with a plain `git clone`.
+  - Its progress goes into `CloneState.Cloning` (`GitCliRemoteCommand.run`'s `onProgress`), not to the tab's
+    processing screen: the clone dialog shows it and has its own Cancel.
+  - A clone that fails or is cancelled is removed: the folder, or what's in it when the user chose an empty folder.
+    git removes its own on failure and on SIGTERM, but not after JGit's checkout. A folder with files is refused by
+    git and left alone. The removal uses JGit's `FileUtils.delete`, which doesn't follow symbolic links; Kotlin's
+    `File.deleteRecursively` does, and would empty the folder that a link in the clone points to.
+  - Only a clone whose submodules failed is kept, as with `git clone --recurse-submodules`: `CloneSubmodulesError`
+    names its folder. The clone dialog's error box scrolls once it's 200 dp tall, as git's output can be long.
+  - `CloneViewModel` no longer creates the folder first, so a failed clone leaves none. JGit's clone, the fallback,
+    removes the folder too when it created it.
+- Submodules: "Initialize" and "Update" run `git submodule update --init --recursive --progress -- <path>`
+  (`GitCliUpdateSubmoduleGitAction`), so nested submodules are cloned too, which JGit didn't do. Adding one runs
+  `git submodule add --progress --name <name> -- <url> <path>` (`GitCliAddSubmoduleGitAction`). git checks submodules
+  out itself, with git-lfs when it's installed. Since git 2.38.1 a submodule from a local path or `file://` URL is
+  refused unless `protocol.file.allow=always`, as in a terminal. Sync, deinit and delete stay on JGit, as they don't
+  touch the network.
 - **Choice:** the `Selecting…GitAction`s are bound to the domain interfaces. `RemoteOperationsBackend` picks the git CLI
   unless:
   - the "Use git for remote operations" setting (`AppConfig.RemoteOperationsWithGit`, on by default) is off;
@@ -348,11 +368,13 @@ CLI. Clone still uses JGit (stage 3 of `docs/fork/remote-operations.md`).
     them itself.
 
   It decides before git starts, never after a failure, which could push twice. The LFS condition applies only to
-  push: a fetch doesn't involve git-lfs, and JGit does a pull's merge either way.
+  push: a fetch doesn't involve git-lfs, and JGit does a pull's merge and a clone's checkout either way. A clone has
+  no repository yet, so it asks `useGitCli()` without one.
 - **Running:** `GitCliRemoteCommand` runs git with no timeout, the askpass variables, Leaf's in-memory cache as git's
   last credential helper (`-c credential.helper=!'<helper>' credential`, only with "Cache HTTP credentials in
   memory"), and git's progress in `RepositoryStateRepository.taskProgress`. Never set `GIT_SSH_COMMAND`: the user's
-  `core.sshCommand` must apply.
+  `core.sshCommand` must apply. `GitCli` hides a URL's password (`redactUrlPassword`) in the command it logs and puts in
+  errors, as a clone's URL may hold one.
 - **Askpass:** `GIT_ASKPASS` and `SSH_ASKPASS` are the helper, with `SSH_ASKPASS_REQUIRE=force` (OpenSSH 8.4+), so
   ssh never prompts on a terminal. The helper reaches `withAskpassServer` through a Unix socket in a new 0700 temp
   folder (a loopback port on Windows), named by `LEAF_ASKPASS_SOCKET`, with a random `LEAF_ASKPASS_TOKEN`.
@@ -782,6 +804,10 @@ common `refs/` and `packed-refs` are not watched.
   - `answeringDialogs` plays the user: it answers each `CredentialsRequest` in turn and returns the dialogs shown.
   - `TestRemoteCommand` builds a `GitCliRemoteCommand` with git kept away from the developer's config.
   - `GitCliPushBranchGitActionTest` and `GitCliFetchPullTest` use bare repositories on disk, which another clone
-    changes. `GitCliHttpsTest` runs `git http-backend` as CGI behind Basic authentication in a JDK `HttpServer`. `GitCliSshPushTest` runs sshd with
-    forced commands, and sets `core.sshCommand` (`-F /dev/null`, its own known_hosts, `IdentityAgent=none`,
-    `-i <key>`), so that ssh never reads the developer's `~/.ssh`.
+    changes. `GitCliCloneTest` clones, and adds and updates submodules, from repositories on disk; its global config
+    sets `protocol.file.allow=always` for the local submodules.
+  - `GitCliHttpsTest` runs `git http-backend` as CGI behind Basic authentication in a JDK `HttpServer`. The clone
+    tests cancel while git waits for a dialog (`awaitDialog`), which is when git has made the folder.
+  - `GitCliSshTest` runs sshd with forced commands, and sets `core.sshCommand` (`-F /dev/null`, its own known_hosts,
+    `IdentityAgent=none`, `-i <key>`), so that ssh never reads the developer's `~/.ssh`. A clone has no repository
+    yet, so its test sets `core.sshCommand` in the test's global config.

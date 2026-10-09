@@ -2,6 +2,57 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Clone and submodules run the git CLI (branch `feat/git-cli-clone`)
+
+Stage 3 of `docs/fork/remote-operations.md`.
+
+- **Before:** clone, and adding and updating submodules, ran JGit over Leaf's own SSH and HTTPS code.
+- **Now:** they go through the git CLI and the system's ssh, with the askpass dialogs of stage 1 and the same "Use git
+  for remote operations" setting.
+  - **Clone** runs `git clone --no-checkout`, then JGit checks the files out with Leaf's built-in LFS, as it did after
+    its own clone, so git-lfs isn't needed. The clone dialog shows git's progress ("Receiving objects"), then JGit's
+    ("Checking out files"). An empty repository is cloned without a checkout.
+  - **Clone submodules** now clones them, with the submodules inside them (`git submodule update --init --recursive`).
+    With JGit it did nothing: the checkout came after JGit's own clone, which ignores submodules then, and Leaf only
+    registered them in the config, whether the box was ticked or not.
+  - **Initialize** and **Update** in the Submodules section run `git submodule update --init --recursive` for that
+    submodule, so nested submodules come too. **Add submodule** runs `git submodule add`. git checks submodules out
+    itself, with git-lfs when it's installed.
+  - **A clone that fails or is cancelled leaves nothing behind.** The clone dialog used to create the folder first,
+    so a failed or cancelled clone left an empty folder behind. Now the folder is removed, or emptied when it was an
+    empty folder that the user chose. A folder with files in it is refused by git and left as it is. Only a
+    clone whose submodules failed is kept, as with `git clone --recurse-submodules`, and the error says where it is.
+    Leaf removes the clone without following symbolic links in it.
+  - **Errors** use stage 1's explanations with git's output: no access, no connection, rejected credentials, a host
+    key problem. The clone dialog's error box now scrolls once it's 200 dp tall, so a long output no longer pushes
+    the Clone and Cancel buttons out of the dialog.
+- **Also fixed:** `GitCli` logs every git command line, and a clone's URL may hold a password
+  (`https://user:token@host/...`). The password is now hidden there and in errors.
+- **Different from JGit:** since git 2.38.1, a submodule from a local path or a `file://` URL is refused unless
+  `protocol.file.allow=always` is set, as in a terminal. JGit had no such check.
+- **Tests:** 21 new, all in `:data`, none skipped here.
+  - `GitCliCloneTest` (12) clones from repositories on disk: the checkout and git's progress, an empty repository, a
+    missing one (no folder left), a chosen empty folder (left empty), a folder with files (left as it is), nested
+    submodules, submodules not asked for, submodules that fail (the repository is kept), and updating and adding a
+    submodule, with their failures.
+  - `GitCliHttpsTest` (10, 3 new): a clone asks through the dialog; cancelling while git waits for the dialog leaves
+    no folder; cancelling while the submodules are cloned removes the clone but not the files that a symbolic link in
+    it points to.
+  - `GitCliSshTest` (stage 1's `GitCliSshPushTest`, renamed; 7, 1 new): a clone over SSH asks about an unknown host key.
+  - `RemoteOperationsBackendTest` (12, 3 new) covers the choice for a clone, and `GitCliTest` (10, 2 new) the hidden
+    password.
+  - Fourteen mutations were each caught, among them a cleanup that follows symbolic links (Kotlin's
+    `deleteRecursively`), no cleanup, removing a kept clone with failed submodules, a folder that had files or was
+    chosen empty, checking out an unborn HEAD, skipping the checkout, `--recursive`, `--init` and `--name` dropped,
+    submodules cloned when not asked for, progress sent to the processing screen, and no password hiding.
+  - Checked once through the app's real Dagger graph and `CloneViewModel` (a throwaway test, deleted): a clone with
+    the git CLI, checked out and clean; one whose `file://` submodules the developer's git refused ("transport 'file'
+    not allowed"), kept, with the error rendered in the clone dialog; and a missing repository, which left no folder.
+    The same throwaway test confirmed what JGit did: "Clone submodules" cloned nothing, JGit's update skipped nested
+    submodules, and its failed clone left no folder.
+  - `./gradlew build` passes, with 510 tests (16 in `:app`, 405 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** Windows, and LFS objects in a clone's checkout or in submodules.
+
 ## 1.2: Worktree model and status (branch `feature/worktree-model`)
 
 Phase 1.2 of `PLAN.md`. This is data only: nothing shows it yet (that's 1.4), and nothing refreshes it (1.5).
