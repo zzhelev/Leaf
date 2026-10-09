@@ -24,7 +24,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   - `~/Library/Application Support/leaf/` (the settings file `user_prefs.json`, and `tmp/`);
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
   - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
-    state, shared by the worktrees). They are the same file in a repository's main worktree.
+    state and the worktrees' base branch, shared by the worktrees). They are the same file in a repository's main
+    worktree.
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
 - **Kept on purpose:** the credit ("based on Gitnuro" in the About text, and the README).
@@ -317,8 +318,23 @@ worktrees.
   its `WorktreeStatus`, how it compares to the base, and the time of its last commit. It runs at most 4 worktrees'
   git processes at once. A part that fails for one worktree is left null.
 - The git actions (`GetWorktreesGitAction`, `GetWorktreeStatusGitAction`, `GetAheadBehindGitAction`,
-  `GetDefaultBaseBranchGitAction`, `GetCommitTimesGitAction`) are bound in `WorktreeGitActionsModule`, with
-  `GetCommonGitDirGitAction` (JGit's `commonDirectory`, for the file watcher).
+  `GetWorktreeBaseBranchGitAction`, `SaveWorktreeBaseBranchGitAction`, `GetCommitTimesGitAction`) are bound in
+  `WorktreeGitActionsModule`, with `GetCommonGitDirGitAction` (JGit's `commonDirectory`, for the file watcher).
+- **Base branch** (`WorktreeBaseBranch`): the worktrees are compared to the branch chosen for the repository, local or
+  remote (`refs/remotes/origin/main`), or else to the automatic one: the branch `origin/HEAD` points to, then `main`,
+  then `master`, as local branches.
+  - The choice is `worktrees.baseBranch` in `<common git dir>/leaf` (`WorktreeBaseBranchConfig`), a full ref, so every
+    worktree's tab shares it. No key means automatic, and a value outside `refs/heads/` and `refs/remotes/` counts as
+    automatic.
+  - It's read on every worktree refresh, not kept in the view model: a choice made in one tab reaches the others with
+    their next refresh. `SetWorktreeBaseBranchUseCase` saves it and refreshes only the list (`DataToRefresh.WORKTREES`).
+  - A chosen branch that doesn't exist (deleted, renamed outside Leaf, pruned) stays chosen, and the worktrees are
+    compared to the automatic one until a branch of that name exists again. Deleting it in Leaf doesn't clear it.
+    Renaming it in Leaf moves the choice to the new name (`RenameBranchGitAction`), as git moves `branch.<name>`
+    config.
+  - Chosen from the Worktrees section header's button (back to Automatic) and from a branch's right-click menu, in the
+    side panel and the log. Both are left out while the repository has only one worktree
+    (`WorktreeList.baseChoice()`); its row is still compared to the base.
 - The output parsers are in `WorktreeParsers.kt`, with fixtures from git 2.54 in `WorktreeParsersTest`.
 - `Worktree.branch` is a full ref, as in `Branch.name`. `git worktree list` works from any git dir, a linked
   worktree's included.
@@ -746,6 +762,9 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   - `branchContextMenuItems` takes the branch's `BranchWorktreeUsers` and leaves out what the guards would refuse:
     Checkout while another worktree uses the branch, Delete while any does, Rename while any rebases it or bisects
     from it. The guards still decide, as the list may be stale. Double-clicking still shows the checkout refusal.
+  - It also takes the base choice (`BranchWorktreesState.baseChoice`): "Compare worktrees to this branch" on any other
+    branch, local or remote, and "Compare worktrees automatically" on the chosen one. The log's chips get the callback
+    as `LocalOnChooseWorktreesBase`, next to `LocalBranchWorktrees`.
 
 **Worktrees section (fork-only, `ui/WorktreesSection.kt`):** one two-line row per worktree, in git's order, built by
 `worktreeRows` (`domain/worktrees/WorktreeRows.kt`) from `WorktreesState`.
@@ -758,6 +777,9 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 - A click selects the worktree's commit in the log (its branch when it's on one). The menu has "Copy path". The
   side panel's filter matches the folder name, the path and the branches. When git can't list the worktrees, one
   line says so, with the error in its tooltip.
+- The header's button (`WorktreesBaseMenuButton`, the sort button's `SortMenuButton` with the `compare_arrows` icon)
+  is muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows what Automatic
+  picks, the chosen branch (with "Not found" when it's missing), and a note pointing to the branch menus.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,

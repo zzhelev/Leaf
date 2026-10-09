@@ -2,6 +2,50 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A base branch for the worktrees, chosen per repository (branch `feat/worktree-base-branch`)
+
+Closes the "Not yet" item of 1.4: PLAN.md 1.2 asked for a base branch "configurable per repo".
+
+- **Before:** every worktree was compared to the base that Leaf picked: origin's default branch, else `main`, else
+  `master`. A repository whose agents branch off `develop`, or a user who wanted to see what isn't on `origin/main`
+  yet, had no way to change it.
+- **Now:**
+  - Any local or remote branch can be the base. The Worktrees section's `↑ahead ↓behind`, its tooltips and the branch
+    badges' tooltips use it, and the tooltips name a remote base with its remote (`origin/main`).
+  - A branch's right-click menu, in the side panel (local and remote) and on the log's chips, has "Compare worktrees
+    to this branch", and "Compare worktrees automatically" on the chosen one.
+  - The Worktrees header has a button with the compare icon. It is muted while Leaf picks the base, and shows the
+    chosen branch's name otherwise. Its menu shows what Automatic picks, the chosen branch, and how to choose another.
+  - The menus are left out while the repository has only one worktree. Its row is still compared to the base.
+- **Stored** in `<common git dir>/leaf` as `worktrees.baseBranch`, a full ref, next to the side panel's folders, so
+  every worktree's tab compares to the same branch. It's read on every worktree refresh, so another tab of the same
+  repository follows at its next refresh.
+- **Deleted or renamed:**
+  - A chosen branch that doesn't exist stays chosen, and the worktrees are compared to the automatic base until it
+    exists again. The header's menu says "Not found". This covers branches that agents or the CLI delete, a remote
+    branch that a fetch prunes, and deleting it in Leaf, which doesn't clear the choice.
+  - Renaming the branch in Leaf moves the choice to the new name, as git moves `branch.<name>` config.
+- **Found, not fixed here:** since `6c0498a2` (on `origin/main`), remote branch, tag and submodule rows in the side
+  panel show no name. `SideMenuSubentry`'s new last parameter, `textContent`, takes their trailing lambda, which was
+  meant for `additionalInfo`.
+- **Tests:** 26 new.
+  - `:data` (15): `WorktreeBaseBranchGitActionTest` saves and reads the choice, local or remote, as `git config`
+    reads it. Going back to Automatic removes it, header included, and keeps sign-off and the folders. A missing
+    branch falls back, a value that isn't a branch is ignored or refused, an unreadable file is replaced, and a linked
+    worktree's tab shares the choice. `WorktreesTest` compares every worktree to a chosen branch from any tab, to
+    `origin/main`, and to the automatic base after Leaf deletes the chosen branch until it's back.
+    `RenameBranchGitActionTest` moves the choice along, from a linked worktree's tab too, and leaves it alone when
+    another branch is renamed.
+  - `:domain` (4): which branch the worktrees are compared to (`WorktreeBaseBranchTest`).
+  - `:app` (7): the branch menu's compare items, local and remote (`BranchContextMenuWorktreesTest`), when the menus
+    offer a choice (`BaseChoiceTest`), and the base's name in tooltips.
+  - **Mutation check:** 9 mutations, all caught.
+  - Checked once with a throwaway harness, deleted afterwards: the real side panel, rendered offscreen for a
+    repository with an agent's worktree. Choosing `develop` and `origin/main` from their right-click menus, the
+    header's menu with Automatic, the chosen branch and "Not found" after git deleted it, and going back to Automatic.
+  - `./gradlew build` passes, with 733 tests (36 in `:app`, 539 in `:data`, 151 in `:domain`, 7 in `:common`), after
+    rebasing onto the worktree refresh (Phase 1.5), whose watcher already leaves out Leaf's own file.
+
 ## Changes in other worktrees show up by themselves (branch `feat/worktree-refresh`)
 
 Phase 1.5 of `docs/fork/PLAN.md`.
