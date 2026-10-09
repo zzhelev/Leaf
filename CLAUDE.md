@@ -259,7 +259,7 @@ asking.
   git dir's `logs`. For a git dir with a `commondir` file, `JGit.open` gives both file systems a `LinkedWorktreeLogs`,
   and their `resolve` answers `(<common git dir>, "logs")` with `<git dir>/logs`, which is where JGit already reads
   HEAD's log. Branch logs (`logs/refs/`) stay shared. Another `FS` needs the same. Drop it once a JGit release fixes
-  `logFor`: `LinkedWorktreeLogsTest` fails if JGit stops taking that folder from `FS.resolve`.
+  `logFor` (eclipse-jgit/jgit#306): `LinkedWorktreeLogsTest` fails if JGit stops taking that folder from `FS.resolve`.
   - Such a file system belongs to its repository. Another worktree opened with a tab's `repository.fs`, as
     `RenameBranchGitAction.moveHead` does, would log its HEAD in the tab's reflog. `moveHead` writes no reflog entry.
 - `WindowsFs` finds hooks with JGit's `findHook` (`core.hooksPath`, the common git dir) and runs them with Git for

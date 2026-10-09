@@ -322,9 +322,11 @@ never to run JGit gc.
 
 - Not fixed: `logFor`, `fileFor`, the `RefDirectory` constructor, `ReflogWriter` and `ReflogReaderImpl` are the same in
   7.7.0, 7.7.1, 7.8.0 (the newest release, 2026-09) and on master at `6e68739f` (2026-10-08).
-- Not reported: nothing on GitHub issues (`eclipse-jgit/jgit`), GerritHub or Bugzilla about reflog writes in a linked
-  worktree. The closest are two unresolved review comments on Gerrit 1194900: one asks for tests that the worktree's
-  index and reflogs are used, the other notes that HEAD isn't the only ref that belongs to a worktree (`refs/bisect`,
+- Reported on 2026-10-09 as [eclipse-jgit/jgit#306](https://github.com/eclipse-jgit/jgit/issues/306), with a smaller
+  reproduction on 7.8.0, the suggested `logFor` change and the ORIG_HEAD side finding.
+- Before that, nothing on GitHub issues, GerritHub or Bugzilla was about reflog writes in a linked worktree. The
+  closest are two unresolved review comments on Gerrit 1194900: one asks for tests that the worktree's index and
+  reflogs are used, the other notes that HEAD isn't the only ref that belongs to a worktree (`refs/bisect`,
   `refs/worktree`, `refs/rewritten`, pseudo-refs). Andre Bossert's older, unmerged
   [Gerrit 163940](https://eclipse.gerrithub.io/c/eclipse-jgit/jgit/+/163940) (bug 477475) also changed only the reader.
 - The open series that adds `git worktree` commands (Gerrit 1237449-1237454, 2026-05) doesn't touch `RefDirectory`.
@@ -362,8 +364,9 @@ never to run JGit gc.
     `getReflogReader(HEAD)` returns them.
   - A second change could apply git's whole per-worktree rule (pseudo-refs, `refs/bisect/`, `refs/worktree/`,
     `refs/rewritten/`) to `fileFor` and `logFor`. That also fixes the side finding below.
-  - Needs the contributor's ECA and a GerritHub account. JGit has released about once a quarter (7.7.0 in June, 7.8.0
-    in September), so Leaf would keep (a) until it upgrades to a release with the fix.
+  - Needs the contributor's ECA and a GerritHub account, so it wasn't sent: #306 reports the bug instead. JGit has
+    released about once a quarter (7.7.0 in June, 7.8.0 in September), so Leaf keeps (a) until it upgrades to a
+    release with the fix.
 - **Rejected:**
   - Moving entries back after each operation: it races with git in the main worktree appending to the same file.
   - Turning JGit's HEAD logging off and writing the entries ourselves: there's no switch for that.
@@ -383,7 +386,7 @@ never to run JGit gc.
 - Not covered: the ORIG_HEAD side finding below, and per-worktree refs (`refs/bisect/`, `refs/worktree/`,
   `refs/rewritten/`), which Leaf doesn't use.
 - `LinkedWorktreeLogsTest` fails if a JGit upgrade stops taking the folder from `FS.resolve`. Once a JGit release fixes
-  `logFor`, the override can go.
+  `logFor` (eclipse-jgit/jgit#306), the override can go.
 - The probe still shows JGit's own behaviour: it opens repositories without Leaf's file systems.
 
 ### Side finding: ORIG_HEAD after a squash

@@ -64,8 +64,9 @@ Stage 4 of `docs/fork/remote-operations.md`.
 - **How:** JGit's `RefDirectory` takes the folder for HEAD's log from `FS.resolve(<common git dir>, "logs")`. For a git
   dir with a `commondir` file, `JGit.open` gives `PosixFs` or `WindowsFs` a fork-only `LinkedWorktreeLogs`, and their
   `resolve` answers that call with `<git dir>/logs`.
-  - JGit 7.7.1, 7.8.0 and master have the same bug, and it isn't reported upstream (`architecture-notes.md` §6). Drop
-    the override once a JGit release fixes `RefDirectory.logFor`.
+  - JGit 7.7.1, 7.8.0 and master have the same bug, reported as
+    [eclipse-jgit/jgit#306](https://github.com/eclipse-jgit/jgit/issues/306) (`architecture-notes.md` §6). Drop the
+    override once a JGit release fixes `RefDirectory.logFor`.
   - Not fixed: an interactive rebase that squashes, in a linked worktree, still leaves the main worktree's
     `ORIG_HEAD` in it (§6, side finding).
 - **Tests:** 12 new, in `:data`, with the git CLI as the reference for where each entry lands.
