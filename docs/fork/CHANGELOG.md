@@ -2,6 +2,38 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Author, Date and Commit columns in the log (branch `feat/log-columns`)
+
+- **Before:** the log showed the graph, the message with its branch and tag chips, and an unnamed date. The author was
+  only in the graph node's tooltip, and the hash only in the commit details. The graph column's width, set by
+  dragging, was kept in memory per tab.
+- **Now:** a columns menu checks Author, Date and Commit. It opens from a new button next to search in the log's
+  header, or by right-clicking anywhere on the header.
+  - By default only Date is on, so the log looks as before, with a "Date" header.
+  - **Author** shows the avatar and the name. Its tooltip gives the email, and who committed when that's someone else.
+  - **Commit** shows the short hash in monospace, with the full hash in its tooltip.
+  - **Show time**, in the menu while Date is on, adds the time in Settings' date format, and widens Date to fit it.
+  - **Widths:** each column's header divider resizes it, and Message takes the rest. A divider stops where Message
+    would drop below 200 dp.
+  - **Narrow log:** checked columns give way until the message has 200 dp, Commit first, then Author, then Date. The
+    menu marks them "Needs more room". This resolves upstream's `TODO Min size for message column`.
+  - **Saved:** the columns, their widths, the time and the graph's width are one setting for every tab, kept across
+    restarts (`log_columns` in `user_prefs.json`). "Reset columns" restores the defaults.
+  - **Graph width:** the graph is as wide as its lanes, up to the width set by dragging (120 dp by default, the old
+    limit). Dragging past the lanes keeps a wider size set in a busier repository.
+  - The commit row's menu has **Copy commit hash**.
+- **Decided:** columns can't be reordered yet, but the setting stores them in display order, so reordering needs no
+  migration. Clicking a header doesn't sort: the log stays in graph order. Graph and Message can't be hidden.
+- **Tests:** 22 new in `:domain` (`LogColumnsTest` 15, `LogColumnsCodecTest` 7).
+  - 20 mutations of the column rules and the codec: 19 were caught. The other removed a branch of the graph drag rule
+    that couldn't change the result, so the code lost that branch, and its remaining branch's mutation is caught.
+  - Checked once with a throwaway offscreen harness, deleted afterwards: the real `Log` at 900, 560, 470 and 380 dp,
+    in all three row densities, light and dark, with the time, the menu from the button and from a right-click,
+    unchecking a column in the menu, dragging a column and the graph, search dimming, and the row menu.
+  - `./gradlew build` passes, with 647 tests (18 in `:app`, 518 in `:data`, 104 in `:domain`, 7 in `:common`).
+- **Not checked offscreen:** hover tooltips, which don't show in an `ImageComposeScene` (not even the graph node's
+  existing one).
+
 ## libssh is gone: SSH runs OpenSSH's programs (branch `feat/retire-libssh`)
 
 Stage 5 of `docs/fork/remote-operations.md`.

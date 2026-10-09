@@ -768,6 +768,31 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     `openRepository` also writes `lastOpenedRepositoriesList`. `AppStateManager` only knows the saved list after
     `loadRepositoriesTabs()`, so the harness replaces the whole list with the temp repository, a dead entry under
     the Welcome page's recent repositories. Save that key first and put it back afterwards.
+  - `Log` renders with just the tab's `repositoryOpenViewModel()`, its `selectedItem` and `repositoryState`, inside
+    `AppTheme`. Settings it changes go to the dev `user_prefs.json`; copy that file first and put it back.
+  - Hover tooltips (`InstantTooltip`) don't show offscreen, not even the graph node's, so check them in a dev run.
+
+## Log
+
+**Columns (fork-only):** after Graph and Message, the log can show Author, Date and Commit. The columns menu (the
+header's columns button, or a right-click anywhere on the header) checks them, adds the time to dates, and resets
+them. By default only Date is on, as before.
+- `LogColumnsSettings` (`domain/.../models/LogColumns.kt`) holds an ordered list of `(column, isVisible, width)`,
+  `dateShowsTime` and `graphMaxWidth`. The list's order is the display order, so reordering can come later without
+  migrating anyone's settings.
+- One setting for every tab: `AppConfig.LogColumns`, stored as JSON in `user_prefs.json` (key `log_columns`) by
+  `LogColumnsCodec`, which never fails to read.
+- Widths are in dp. A column's divider in the header resizes the column on its right, and Message takes what's
+  left. A divider stops where Message would drop below 200 dp (`maxWidthFor`). `LogView` keeps a local copy while a
+  divider is dragged and sends `LogAction.ResizeColumn` or `SetGraphMaxWidth` when the drag ends.
+- When the log is too narrow, `fitting` leaves out checked columns until Message has 200 dp: Commit first, then
+  Author, then Date. The menu marks them "Needs more room". `Log` measures its width with `BoxWithConstraints`.
+- The graph is as wide as its lanes, up to `graphMaxWidth` (120 dp by default, the old fixed limit), and at least
+  56 dp (`graphColumnWidth`). Dragging its divider sets `graphMaxWidth` (`draggedGraphMaxWidth`): never past the
+  lanes, and a drag that changes nothing on screen keeps the saved size, which may come from a busier repository.
+- "Show time" adds the time in Settings' date format, and widens Date to 150 dp if it's narrower.
+- The UI is in `ui/log/LogColumns.kt`. The menu reuses the sort menu's `SortMenuPopup`, which takes a position.
+- The commit row's menu has "Copy commit hash".
 
 ## Refresh
 
