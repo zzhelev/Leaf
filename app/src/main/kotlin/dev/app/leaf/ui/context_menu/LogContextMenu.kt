@@ -15,6 +15,7 @@ fun logContextMenu(
     onCherryPickCommit: () -> Unit,
     onResetBranch: () -> Unit,
     onRebaseInteractive: () -> Unit,
+    onCopyCommitHash: () -> Unit,
     isLastCommit: Boolean,
     showInAmend: Boolean,
 ) = mutableListOf<ContextMenuElement>().apply {
@@ -42,6 +43,11 @@ fun logContextMenu(
         composableLabel = { stringResource(Res.string.log_context_menu_create_tag) },
         icon = { painterResource(Res.drawable.tag) },
         onClick = onCreateNewTag
+    )
+    addContextMenu(
+        composableLabel = { stringResource(Res.string.log_context_menu_copy_commit_hash) },
+        icon = { painterResource(Res.drawable.copy) },
+        onClick = onCopyCommitHash
     )
 
     add(ContextMenuElement.ContextSeparator)

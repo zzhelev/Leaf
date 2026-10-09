@@ -179,6 +179,7 @@
     <string name="log_context_menu_revert_commit">Revert commit</string>
     <string name="log_context_menu_cherry_pick_commit">Cherry-pick commit</string>
     <string name="log_context_menu_reset_current_branch_to_commit">Reset current branch to this commit</string>
+    <string name="log_context_menu_copy_commit_hash">Copy commit hash</string>
 
     <!-- Log columns -->
     <string name="log_column_author">Author</string>

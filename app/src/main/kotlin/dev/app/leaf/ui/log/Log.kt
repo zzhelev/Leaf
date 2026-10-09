@@ -670,6 +670,11 @@ fun CommitsList(
                         clipboard.setClipboardText(it.simpleName)
                     }
                 },
+                onCopyCommitHash = {
+                    scope.launch {
+                        clipboard.setClipboardText(graphNode.hash)
+                    }
+                },
             )
         }
 
@@ -893,6 +898,7 @@ private fun CommitLine(
     onChangeDefaultUpstreamBranch: (Branch) -> Unit,
     onRenameBranch: (Branch) -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
+    onCopyCommitHash: () -> Unit,
     horizontalScrollState: ScrollState,
     branches: List<Branch>,
     tags: List<Tag>,
@@ -916,6 +922,7 @@ private fun CommitLine(
                     onRevertCommit = onRevertCommit,
                     onCherryPickCommit = onCherryPickCommit,
                     onRebaseInteractive = onRebaseInteractive,
+                    onCopyCommitHash = onCopyCommitHash,
                     onResetBranch = { resetBranch() },
                     isLastCommit = isLastCommitOfCurrentBranch,
                     showInAmend = showInAmend,
