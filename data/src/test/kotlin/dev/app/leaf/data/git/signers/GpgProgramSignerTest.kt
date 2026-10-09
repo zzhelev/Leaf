@@ -7,6 +7,7 @@ import dev.app.leaf.common.OS
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.cli.ProcessRunner
+import dev.app.leaf.data.git.cli.locateProgram
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -270,10 +271,10 @@ class GpgProgramSignerTest {
 
         assertEquals(
             File(bin, "gpg").path,
-            locateGpgProgram("gpg", OS.LINUX, "${tempDir.path}/not-executable:${bin.path}"),
+            locateProgram("gpg", OS.LINUX, "${tempDir.path}/not-executable:${bin.path}"),
         )
-        assertNull(locateGpgProgram("gpg", OS.LINUX, "${tempDir.path}/not-executable"))
-        assertEquals("/some/where/gpg2", locateGpgProgram("/some/where/gpg2", OS.LINUX, bin.path))
+        assertNull(locateProgram("gpg", OS.LINUX, "${tempDir.path}/not-executable"))
+        assertEquals("/some/where/gpg2", locateProgram("/some/where/gpg2", OS.LINUX, bin.path))
     }
 
     @Test
@@ -283,14 +284,14 @@ class GpgProgramSignerTest {
         val bundled = emptyFile(git, "usr/bin/gpg.exe")
         val path = windowsPath(gpg4win.parentFile, File(git, "cmd"))
 
-        assertEquals(bundled.path, locateGpgProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
-        assertEquals(gpg4win.path, locateGpgProgram("gpg", OS.WINDOWS, path, gitForWindows = null))
+        assertEquals(bundled.path, locateProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
+        assertEquals(gpg4win.path, locateProgram("gpg", OS.WINDOWS, path, gitForWindows = null))
 
         // Git's MSYS2 environment comes before usr\bin: ucrt64 since Git for Windows 2.56, mingw64 before
         val mingw64 = emptyFile(git, "mingw64/bin/gpg.exe")
-        assertEquals(mingw64.path, locateGpgProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
+        assertEquals(mingw64.path, locateProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
         val ucrt64 = emptyFile(git, "ucrt64/bin/gpg.exe")
-        assertEquals(ucrt64.path, locateGpgProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
+        assertEquals(ucrt64.path, locateProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
     }
 
     @Test
@@ -299,7 +300,7 @@ class GpgProgramSignerTest {
         val gpg4win = emptyFile(tempDir, "GnuPG/bin/gpg.exe")
         val path = windowsPath(File(tempDir, "empty"), gpg4win.parentFile)
 
-        assertEquals(gpg4win.path, locateGpgProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
+        assertEquals(gpg4win.path, locateProgram("gpg", OS.WINDOWS, path, gitForWindows = git))
     }
 
     @Test
@@ -311,13 +312,13 @@ class GpgProgramSignerTest {
         val script = emptyFile(first, "gpg")
 
         // Git takes a file without an extension too, and would run it with the interpreter of its #! line
-        assertEquals(script.path, locateGpgProgram("gpg", OS.WINDOWS, path))
+        assertEquals(script.path, locateProgram("gpg", OS.WINDOWS, path))
 
         val exe = emptyFile(first, "gpg.exe")
-        assertEquals(exe.path, locateGpgProgram("gpg", OS.WINDOWS, path))
-        assertEquals(exe.path, locateGpgProgram("gpg.exe", OS.WINDOWS, path))
+        assertEquals(exe.path, locateProgram("gpg", OS.WINDOWS, path))
+        assertEquals(exe.path, locateProgram("gpg.exe", OS.WINDOWS, path))
         val gpg2 = emptyFile(second, "gpg2.exe")
-        assertEquals(gpg2.path, locateGpgProgram("gpg2", OS.WINDOWS, path))
+        assertEquals(gpg2.path, locateProgram("gpg2", OS.WINDOWS, path))
     }
 
     @Test
@@ -326,19 +327,19 @@ class GpgProgramSignerTest {
         File(bin, "gpg.exe").mkdirs()
         File(bin, "gpg").mkdirs()
 
-        assertNull(locateGpgProgram("gpg", OS.WINDOWS, windowsPath(bin), gitForWindows = File(tempDir, "Git")))
-        assertNull(locateGpgProgram("gpg", OS.WINDOWS, null))
+        assertNull(locateProgram("gpg", OS.WINDOWS, windowsPath(bin), gitForWindows = File(tempDir, "Git")))
+        assertNull(locateProgram("gpg", OS.WINDOWS, null))
         // A name that ends with .exe gets no second one
         emptyFile(bin, "gpg2.exe.exe")
-        assertNull(locateGpgProgram("gpg2.exe", OS.WINDOWS, windowsPath(bin)))
+        assertNull(locateProgram("gpg2.exe", OS.WINDOWS, windowsPath(bin)))
     }
 
     @Test
     fun `on Windows, uses a path as it is`() {
         val gpg4win = "C:\\Program Files (x86)\\GnuPG\\bin\\gpg.exe"
 
-        assertEquals(gpg4win, locateGpgProgram(gpg4win, OS.WINDOWS, null, gitForWindows = File(tempDir, "Git")))
-        assertEquals("C:/GnuPG/bin/gpg", locateGpgProgram("C:/GnuPG/bin/gpg", OS.WINDOWS, null))
+        assertEquals(gpg4win, locateProgram(gpg4win, OS.WINDOWS, null, gitForWindows = File(tempDir, "Git")))
+        assertEquals("C:/GnuPG/bin/gpg", locateProgram("C:/GnuPG/bin/gpg", OS.WINDOWS, null))
     }
 
     @Test

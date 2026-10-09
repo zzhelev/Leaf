@@ -24,11 +24,15 @@ private const val GIT_CREDENTIAL_CACHE_PREFIX = "git-credential:"
  * - SSH passphrases are kept per key file for the session, as Leaf does with JGit. A passphrase that ssh asks for again
  *   was wrong, so it's dropped, and the user is asked again. A typed passphrase is kept only once the command
  *   [authenticated][commit].
- * - The SSH host key question uses the same dialog as Leaf's own SSH implementation, and other prompts a generic one.
+ * - The SSH host key question has a dialog of its own, and other prompts a generic one.
+ *
+ * @param passphraseKeyPath the key file that a passphrase prompt without a key is about: ssh-keygen before OpenSSH 10
+ * asks `Enter passphrase: ` for the key it signs with.
  */
 class AskpassAnswers(
     private val credentialsStateManager: CredentialsStateManager,
     private val credentialsRepository: CredentialsRepository,
+    private val passphraseKeyPath: String? = null,
 ) {
     /** The password typed together with a user name, for git's next prompt, which names that user. */
     private var typedPassword: TypedPassword? = null
@@ -36,6 +40,7 @@ class AskpassAnswers(
     /** The passphrase given last for each key file during this command. */
     private val passphrasesGiven = mutableMapOf<String, String>()
     private val passphrasesFromCache = mutableSetOf<String>()
+    private var unknownKeyPassphraseAsked = false
 
     // git and ssh wait for each answer, but the programs they start (git-lfs) could ask at the same time
     private val mutex = Mutex()
@@ -87,7 +92,10 @@ class AskpassAnswers(
             "yes"
         }
 
-        is AskpassPrompt.SshPassphrase -> answerPassphrase(prompt.keyPath)
+        is AskpassPrompt.SshPassphrase -> when (val keyPath = prompt.keyPath ?: passphraseKeyPath) {
+            null -> answerUnknownKeyPassphrase()
+            else -> answerPassphrase(keyPath)
+        }
 
         is AskpassPrompt.Other -> refusedAsNull {
             credentialsStateManager.requestPromptAnswer(prompt.text, prompt.secret)
@@ -120,6 +128,14 @@ class AskpassAnswers(
         passphrasesGiven[keyPath] = passphrase
 
         return passphrase
+    }
+
+    /** A passphrase for a key that isn't known, which can't be kept, as there's nothing to keep it for. */
+    private suspend fun answerUnknownKeyPassphrase(): String? {
+        val isRetry = unknownKeyPassphraseAsked
+        unknownKeyPassphraseAsked = true
+
+        return refusedAsNull { credentialsStateManager.requestSshCredentials(isRetry, password = null).password }
     }
 
     /**

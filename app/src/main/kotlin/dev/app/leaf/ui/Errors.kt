@@ -55,7 +55,13 @@ import dev.app.leaf.app.generated.resources.error_rename_branch_rebased_in_workt
 import dev.app.leaf.app.generated.resources.error_rename_branch_worktree_head_not_moved
 import dev.app.leaf.app.generated.resources.error_repository_path_not_set
 import dev.app.leaf.app.generated.resources.error_repository_read_error
-import dev.app.leaf.app.generated.resources.error_sign_ssh_key_not_found
+import dev.app.leaf.app.generated.resources.error_ssh_signing_cancelled
+import dev.app.leaf.app.generated.resources.error_ssh_signing_failed
+import dev.app.leaf.app.generated.resources.error_ssh_signing_no_key
+import dev.app.leaf.app.generated.resources.error_ssh_signing_program_not_found
+import dev.app.leaf.app.generated.resources.error_ssh_signing_start_failed
+import dev.app.leaf.app.generated.resources.error_ssh_signing_timed_out
+import dev.app.leaf.app.generated.resources.error_ssh_signing_unsupported
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.errors.*
 import dev.app.leaf.domain.models.WorktreeBranchUse
@@ -198,8 +204,15 @@ fun AppError.getErrorText(): String {
 
         is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
 
-        is SshSigningError.InvalidPassword -> throw IllegalStateException("InvalidPassword error should never trigger")
-        is SshSigningError.KeyNotFound -> stringResource(Res.string.error_sign_ssh_key_not_found)
+        is SshSigningError -> when (this) {
+            SshSigningError.NoSigningKey -> stringResource(Res.string.error_ssh_signing_no_key)
+            is SshSigningError.ProgramNotFound -> stringResource(Res.string.error_ssh_signing_program_not_found, this.program)
+            is SshSigningError.StartFailed -> stringResource(Res.string.error_ssh_signing_start_failed, this.program, this.message)
+            is SshSigningError.TimedOut -> stringResource(Res.string.error_ssh_signing_timed_out, this.program, this.timeoutSeconds)
+            is SshSigningError.SigningUnsupported -> stringResource(Res.string.error_ssh_signing_unsupported, this.program, this.output)
+            SshSigningError.Cancelled -> stringResource(Res.string.error_ssh_signing_cancelled)
+            is SshSigningError.SigningFailed -> stringResource(Res.string.error_ssh_signing_failed, this.program, this.output)
+        }
     }
 }
 

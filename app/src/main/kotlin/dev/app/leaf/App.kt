@@ -34,7 +34,7 @@ import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.data.git.signers.GpgProgramSigner
-import dev.app.leaf.data.git.signers.SshSigner
+import dev.app.leaf.data.git.signers.SshProgramSigner
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.TempFilesManager
 import dev.app.leaf.domain.credentials.CredentialsRequest
@@ -124,7 +124,7 @@ class App @Inject constructor(
     private val tempFilesManager: TempFilesManager,
     private val logsRepository: LogsRepository,
     private val gpgSigner: GpgProgramSigner,
-    private val sshSigner: SshSigner,
+    private val sshSigner: SshProgramSigner,
     private val lfsFactory: AppLfsFactory,
     private val loginShellEnvironment: LoginShellEnvironment,
 ) {

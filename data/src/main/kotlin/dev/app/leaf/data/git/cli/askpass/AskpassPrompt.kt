@@ -20,8 +20,12 @@ sealed interface AskpassPrompt {
     /** ssh, for a server whose host key isn't in known_hosts. It expects `yes`. */
     data class SshHostKey(val host: String, val fingerprint: String) : AskpassPrompt
 
-    /** ssh, for a key file protected with a passphrase: `Enter passphrase for key '/home/me/.ssh/id_ed25519': `. */
-    data class SshPassphrase(val keyPath: String) : AskpassPrompt
+    /**
+     * ssh, for a key file protected with a passphrase: `Enter passphrase for key '/home/me/.ssh/id_ed25519': `.
+     * ssh-keygen asks `Enter passphrase for "/home/me/.ssh/id_ed25519": ` since OpenSSH 10, and `Enter passphrase: `
+     * before, without the key: then [keyPath] is null.
+     */
+    data class SshPassphrase(val keyPath: String?) : AskpassPrompt
 
     /** Anything else, such as a password for SSH password authentication or a security key's PIN. */
     data class Other(val text: String, val secret: Boolean) : AskpassPrompt
@@ -31,6 +35,7 @@ sealed interface AskpassPrompt {
 private val HTTP_USERNAME = Regex("""^Username for (?:'(.+)': |"(.+)")$""")
 private val HTTP_PASSWORD = Regex("""^Password for (?:'(.+)': |"(.+)")$""")
 private val SSH_PASSPHRASE = Regex("""^Enter passphrase for key '(.+)': ?$""")
+private val SSH_KEYGEN_PASSPHRASE = Regex("""^Enter passphrase(?: for "(.+)")?: ?$""")
 private val SSH_HOST_KEY_HOST = Regex("""The authenticity of host '([^']+)' can't be established""")
 // "ED25519 key fingerprint is: SHA256:..." since OpenSSH 10, "... is SHA256:...." before
 private val SSH_HOST_KEY_FINGERPRINT = Regex("""key fingerprint is:? (\S+?)\.?$""", RegexOption.MULTILINE)
@@ -45,6 +50,9 @@ fun parseAskpassPrompt(text: String): AskpassPrompt {
     }
 
     SSH_PASSPHRASE.matchEntire(text)?.let { return AskpassPrompt.SshPassphrase(it.groupValues[1]) }
+    SSH_KEYGEN_PASSPHRASE.matchEntire(text)?.let {
+        return AskpassPrompt.SshPassphrase(it.groupValues[1].ifEmpty { null })
+    }
 
     if (text.contains(SSH_HOST_KEY_QUESTION)) {
         val host = SSH_HOST_KEY_HOST.find(text)?.groupValues?.get(1)

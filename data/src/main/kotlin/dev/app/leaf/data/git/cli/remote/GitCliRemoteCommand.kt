@@ -116,7 +116,7 @@ class GitCliRemoteCommand @Inject constructor(
  * even when Leaf was started from a terminal, which ssh would otherwise prompt on. git uses `GIT_ASKPASS` before
  * `core.askPass` and `SSH_ASKPASS`.
  */
-private fun askpassEnvironment(helper: File) = mapOf(
+internal fun askpassEnvironment(helper: File) = mapOf(
     "GIT_ASKPASS" to helper.absolutePath,
     "SSH_ASKPASS" to helper.absolutePath,
     "SSH_ASKPASS_REQUIRE" to "force",

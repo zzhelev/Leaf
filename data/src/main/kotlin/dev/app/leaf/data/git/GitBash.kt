@@ -54,7 +54,7 @@ private val GIT_FOLDERS_ON_PATH = listOf(
 
 /**
  * The Git for Windows install that Leaf takes as the git CLI's: the first of [gitForWindowsInstalls] with Git Bash.
- * [WindowsFs] runs hooks with its Git Bash, and `locateGpgProgram` looks for gpg in its folders first, as its git
+ * [WindowsFs] runs hooks with its Git Bash, and `locateProgram` looks for gpg in its folders first, as its git
  * does. Null when Git for Windows isn't installed.
  */
 internal fun findGitForWindows(

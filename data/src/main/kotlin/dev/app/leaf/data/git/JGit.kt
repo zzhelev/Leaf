@@ -3,6 +3,7 @@ package dev.app.leaf.data.git
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.signers.gpgSigningError
+import dev.app.leaf.data.git.signers.sshSigningError
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.errors.*
 import org.eclipse.jgit.api.Git
@@ -111,7 +112,8 @@ class JGit @Inject constructor(
      * doesn't know about them.
      */
     private fun Exception.toGitError(errorHandle: ((Exception) -> GitError)?): GitError {
-        return gpgSigningError() ?: errorHandle?.invoke(this) ?: GenericError(message.orEmpty(), this)
+        return gpgSigningError() ?: sshSigningError() ?: errorHandle?.invoke(this)
+            ?: GenericError(message.orEmpty(), this)
     }
 
     /**

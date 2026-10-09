@@ -141,6 +141,52 @@ class AskpassAnswersTest {
     }
 
     @Test
+    fun `ssh-keygen's passphrase prompt without a key is about the key it signs with, and kept for it`(): Unit =
+        runBlocking {
+            val signing = AskpassAnswers(credentialsStateManager, cache, passphraseKeyPath = KEY)
+
+            val (given, dialogs) = credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("phrase") }) {
+                signing.answer(AskpassRequest.Prompt("Enter passphrase: "))
+            }
+            signing.commit()
+
+            assertEquals("phrase", given)
+            assertEquals(listOf(CredentialsRequest.SshCredentialsRequest(isRetry = false, password = "")), dialogs)
+            assertEquals("phrase", cache.getCachedSshCredentials("ssh-key:$KEY")?.password)
+        }
+
+    @Test
+    fun `a passphrase prompt for an unknown key asks each time, and keeps nothing`(): Unit = runBlocking {
+        val answers = newCommand()
+
+        val (given, dialogs) = credentialsStateManager.answeringDialogs(
+            { sshCredentialsAccepted("wrong") },
+            { sshCredentialsAccepted("phrase") },
+        ) {
+            listOf(
+                answers.answer(AskpassRequest.Prompt("Enter passphrase: ")),
+                answers.answer(AskpassRequest.Prompt("Enter passphrase: ")),
+            )
+        }
+        answers.commit()
+
+        assertEquals(listOf("wrong", "phrase"), given)
+        assertEquals(
+            listOf(
+                CredentialsRequest.SshCredentialsRequest(isRetry = false, password = ""),
+                CredentialsRequest.SshCredentialsRequest(isRetry = true, password = ""),
+            ),
+            dialogs,
+        )
+
+        val (_, dialogsAgain) = credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("phrase") }) {
+            newCommand().answer(AskpassRequest.Prompt("Enter passphrase: "))
+        }
+
+        assertEquals(1, dialogsAgain.size)
+    }
+
+    @Test
     fun `other prompts and confirmations get generic dialogs`(): Unit = runBlocking {
         val answers = newCommand()
 

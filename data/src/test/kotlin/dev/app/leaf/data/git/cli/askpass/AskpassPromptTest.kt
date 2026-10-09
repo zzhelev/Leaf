@@ -95,6 +95,15 @@ class AskpassPromptTest {
     }
 
     @Test
+    fun `ssh-keygen's passphrase prompt names the key file since OpenSSH 10, and not before`() {
+        assertEquals(
+            AskpassPrompt.SshPassphrase("/home/me/.ssh/id_ed25519"),
+            parseAskpassPrompt("Enter passphrase for \"/home/me/.ssh/id_ed25519\": "),
+        )
+        assertEquals(AskpassPrompt.SshPassphrase(null), parseAskpassPrompt("Enter passphrase: "))
+    }
+
+    @Test
     fun `other prompts are secret, unless they ask for a user name`() {
         assertEquals(
             AskpassPrompt.Other("git@example.com's password: ", secret = true),

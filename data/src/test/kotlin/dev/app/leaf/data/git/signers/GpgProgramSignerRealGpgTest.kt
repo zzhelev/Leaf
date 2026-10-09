@@ -7,6 +7,7 @@ import dev.app.leaf.common.currentOs
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.cli.ProcessRunner
+import dev.app.leaf.data.git.cli.locateProgram
 import dev.app.leaf.data.git.tags.CreateTagGitAction
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -46,7 +47,7 @@ class GpgProgramSignerRealGpgTest {
     @TempDir
     lateinit var tempDir: File
 
-    private val gpg: String? = locateGpgProgram("gpg", currentOs, System.getenv("PATH"))
+    private val gpg: String? = locateProgram("gpg", currentOs, System.getenv("PATH"))
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
 
