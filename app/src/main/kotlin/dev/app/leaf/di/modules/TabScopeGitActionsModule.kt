@@ -5,10 +5,13 @@ import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.author.SaveAuthorGitAction
 import dev.app.leaf.data.git.branches.*
+import dev.app.leaf.data.git.cli.remote.SelectingAddSubmoduleGitAction
+import dev.app.leaf.data.git.cli.remote.SelectingCloneRepositoryGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingDeleteRemoteBranchGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingFetchAllRemotesGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingPullBranchGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingPushBranchGitAction
+import dev.app.leaf.data.git.cli.remote.SelectingUpdateSubmoduleGitAction
 import dev.app.leaf.data.git.config.LoadRefFolderExpansionGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveRefFolderExpansionGitAction
@@ -48,7 +51,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsAddSubmoduleGitAction(action: AddSubmoduleGitAction): IAddSubmoduleGitAction
+    fun bindsAddSubmoduleGitAction(action: SelectingAddSubmoduleGitAction): IAddSubmoduleGitAction
 
     @Binds
     @TabScope
@@ -96,7 +99,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsCloneRepositoryGitAction(action: CloneRepositoryGitAction): ICloneRepositoryGitAction
+    fun bindsCloneRepositoryGitAction(action: SelectingCloneRepositoryGitAction): ICloneRepositoryGitAction
 
     @Binds
     @TabScope
@@ -448,7 +451,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsUpdateSubmoduleGitAction(action: UpdateSubmoduleGitAction): IUpdateSubmoduleGitAction
+    fun bindsUpdateSubmoduleGitAction(action: SelectingUpdateSubmoduleGitAction): IUpdateSubmoduleGitAction
 
     @Binds
     @TabScope

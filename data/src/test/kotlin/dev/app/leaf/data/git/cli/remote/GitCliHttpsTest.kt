@@ -16,16 +16,27 @@ import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
 import dev.app.leaf.domain.credentials.CredentialsRequest
+import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteOperationError
+import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.PullType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -35,16 +46,18 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.nio.file.Files
 import java.util.Base64
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.seconds
 
 private const val USER = "leaf"
 private const val PASSWORD = "s3cret"
 
 /**
- * Pushes, fetches and pulls over HTTP with the git CLI, to `git http-backend`, which a small server runs as CGI behind
- * Basic authentication. git asks for the credentials through the askpass helper, and Leaf answers with its dialogs and its
- * in-memory cache. Skipped when the askpass helper isn't built.
+ * Pushes, fetches, pulls and clones over HTTP with the git CLI, to `git http-backend`, which a small server runs as
+ * CGI behind Basic authentication. git asks for the credentials through the askpass helper, and Leaf answers with its
+ * dialogs and its in-memory cache. Skipped when the askpass helper isn't built.
  */
 @DisabledOnOs(OS.WINDOWS)
 class GitCliHttpsTest {
@@ -197,10 +210,88 @@ class GitCliHttpsTest {
         assertEquals(1, dialogs.size)
     }
 
+    @Test
+    fun `a clone asks through Leaf's dialog`(): Unit = runBlocking {
+        publishWork()
+        val remote = TestRemoteCommand(helper, globalConfig)
+        val destination = File(tempDir, "clone")
+
+        val (states, dialogs) = remote.credentialsStateManager.answeringDialogs({ httpCredentialsAccepted(USER, PASSWORD) }) {
+            clone(remote, destination, servedUrl()).toList()
+        }
+
+        assertEquals(CloneState.Completed(destination), states.last())
+        assertEquals(listOf(CredentialsRequest.HttpCredentialsRequest(user = null, askPassword = true)), dialogs)
+        assertEquals("Test repository\n", File(destination, "README.md").readText())
+    }
+
+    @Test
+    fun `cancelling a clone while git waits for an answer leaves no folder`(): Unit = runBlocking {
+        publishWork()
+        val remote = TestRemoteCommand(helper, globalConfig)
+        val destination = File(tempDir, "clone")
+
+        val clone = launch(Dispatchers.Default) {
+            clone(remote, destination, servedUrl()).collect()
+        }
+        remote.awaitDialog()
+        assertTrue(File(destination, ".git").isDirectory)
+
+        clone.cancelAndJoin()
+
+        assertFalse(destination.exists())
+        assertEquals(CredentialsState.None, remote.credentialsStateManager.credentialsState.value)
+    }
+
+    @Test
+    fun `cancelling while submodules are cloned removes the clone, not what its links point to`(): Unit =
+        runBlocking {
+            publishWork()
+            val precious = File(tempDir, "precious").apply { mkdirs() }
+            File(precious, "keep.txt").writeText("keep")
+
+            // A superproject on disk with a link to the folder above, and a submodule that asks for credentials
+            val superproject = git.initRepository(File(tempDir, "super"))
+            Files.createSymbolicLink(File(superproject, "outside").toPath(), precious.toPath())
+            git.run(superproject, "submodule", "add", "file://${File(tempDir, "served/repo.git").absolutePath}", "lib")
+            git.run(superproject, "config", "--file", ".gitmodules", "submodule.lib.url", servedUrl())
+            git.run(superproject, "add", ".")
+            git.run(superproject, "commit", "-m", "Add lib")
+
+            val remote = TestRemoteCommand(helper, globalConfig)
+            val destination = File(tempDir, "clone")
+
+            val clone = launch(Dispatchers.Default) {
+                clone(remote, destination, "file://${superproject.absolutePath}", cloneSubmodules = true).collect()
+            }
+            remote.awaitDialog()
+            assertEquals("keep", File(destination, "outside/keep.txt").readText())
+
+            clone.cancelAndJoin()
+
+            assertFalse(destination.exists())
+            assertEquals("keep", File(precious, "keep.txt").readText())
+        }
+
     private fun remoteWithUrl(url: String, cacheCredentials: Boolean = true): TestRemoteCommand {
         git.run(work, "remote", "add", "origin", url)
 
         return TestRemoteCommand(helper, globalConfig, cacheCredentials)
+    }
+
+    private fun servedUrl() = "http://127.0.0.1:${server.address.port}/repo.git"
+
+    private fun clone(remote: TestRemoteCommand, destination: File, url: String, cloneSubmodules: Boolean = false) =
+        GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, url, cloneSubmodules)
+
+    /** Waits until git asks a question, which leaves it waiting for the dialog's answer. */
+    private suspend fun TestRemoteCommand.awaitDialog() {
+        withTimeout(30.seconds) { credentialsStateManager.credentialsState.first { it is CredentialsRequest } }
+    }
+
+    /** Pushes `work` to the served repository, with the credentials in the URL, so that it has something to clone. */
+    private fun publishWork() {
+        git.run(work, "push", "http://$USER:$PASSWORD@127.0.0.1:${server.address.port}/repo.git", "main")
     }
 
     private suspend fun push(remote: TestRemoteCommand): Either<Unit, GitError> =

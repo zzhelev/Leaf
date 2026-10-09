@@ -83,6 +83,30 @@ class JGit @Inject constructor(
     }
 
     /**
+     * Like [provide], but the repository isn't cached: it's opened for [block] and closed after it. For a repository
+     * that may be removed right after, such as one that is being cloned.
+     */
+    suspend fun <T> provideOnce(
+        repositoryPath: String,
+        errorHandle: ((Exception) -> GitError)? = null,
+        block: suspend EitherContext<GitError>.(Git) -> T,
+    ) = either<T, GitError> {
+        val git = handleException(
+            exceptionMapper = { RepositoryReadError(it.message.orEmpty()) }
+        ) {
+            open(repositoryPath)
+        }.bind()
+
+        git.use {
+            try {
+                Either.Ok(block(git))
+            } catch (ex: Exception) {
+                Either.Err(ex.toGitError(errorHandle))
+            }
+        }
+    }
+
+    /**
      * Signing errors come first: commits, merges, rebases and tags all sign, and an operation's own [errorHandle]
      * doesn't know about them.
      */

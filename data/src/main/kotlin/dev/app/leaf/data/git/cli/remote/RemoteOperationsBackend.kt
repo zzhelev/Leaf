@@ -8,22 +8,32 @@ import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.GitExecutableLocator
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
+import dev.app.leaf.data.git.remote_operations.CloneRepositoryGitAction
 import dev.app.leaf.data.git.remote_operations.DeleteRemoteBranchGitAction
 import dev.app.leaf.data.git.remote_operations.FetchAllRemotesGitAction
 import dev.app.leaf.data.git.remote_operations.PullBranchGitAction
 import dev.app.leaf.data.git.remote_operations.PushBranchGitAction
+import dev.app.leaf.data.git.submodules.AddSubmoduleGitAction
+import dev.app.leaf.data.git.submodules.UpdateSubmoduleGitAction
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.interfaces.IAddSubmoduleGitAction
+import dev.app.leaf.domain.interfaces.ICloneRepositoryGitAction
 import dev.app.leaf.domain.interfaces.IDeleteRemoteBranchGitAction
 import dev.app.leaf.domain.interfaces.IFetchAllRemotesGitAction
 import dev.app.leaf.domain.interfaces.IPullBranchGitAction
 import dev.app.leaf.domain.interfaces.IPushBranchGitAction
+import dev.app.leaf.domain.interfaces.IUpdateSubmoduleGitAction
 import dev.app.leaf.domain.interfaces.PullHasConflicts
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.PullType
 import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.services.AppSettingsService
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import java.io.File
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
@@ -40,7 +50,8 @@ private val LFS_VERSION_TIMEOUT = 10.seconds
  * - the push sends commits of a repository that uses LFS, but git wouldn't upload its LFS objects: the repository's
  *   `pre-push` hook doesn't run git-lfs, or git-lfs isn't installed. JGit uploads them itself.
  *
- * Fetch and pull use it the same way. A fetch doesn't involve git-lfs, and JGit does a pull's merge either way.
+ * Fetch, pull, clone, and adding or updating a submodule use it the same way, as they upload nothing. JGit does a
+ * pull's merge and a clone's checkout either way.
  *
  * It never switches after git has started: a push could then run twice.
  */
@@ -52,6 +63,20 @@ class RemoteOperationsBackend @Inject constructor(
     private val jgit: JGit,
 ) {
     suspend fun useGitCli(repositoryPath: String, uploadsObjects: Boolean): Boolean {
+        if (!useGitCli()) {
+            return false
+        }
+
+        if (uploadsObjects && !gitUploadsLfsObjects(repositoryPath)) {
+            printLog(TAG, "Using JGit, as git wouldn't upload this repository's LFS objects")
+            return false
+        }
+
+        return true
+    }
+
+    /** For an operation that uploads nothing, without a repository: a clone. */
+    suspend fun useGitCli(): Boolean {
         if (!appSettingsService.remoteOperationsWithGit.first()) {
             return false
         }
@@ -63,11 +88,6 @@ class RemoteOperationsBackend @Inject constructor(
 
         if (askpassHelper.path() == null) {
             printLog(TAG, "Using JGit, as the askpass helper is missing")
-            return false
-        }
-
-        if (uploadsObjects && !gitUploadsLfsObjects(repositoryPath)) {
-            printLog(TAG, "Using JGit, as git wouldn't upload this repository's LFS objects")
             return false
         }
 
@@ -176,5 +196,57 @@ class SelectingPullBranchGitAction @Inject constructor(
         gitCliPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
     } else {
         jGitPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
+    }
+}
+
+/**
+ * Clones with the git CLI or with JGit, as [RemoteOperationsBackend] decides when the clone starts. Either way JGit
+ * checks the files out, with its built-in LFS.
+ */
+class SelectingCloneRepositoryGitAction @Inject constructor(
+    private val backend: RemoteOperationsBackend,
+    private val gitCliCloneRepositoryGitAction: GitCliCloneRepositoryGitAction,
+    private val jGitCloneRepositoryGitAction: CloneRepositoryGitAction,
+) : ICloneRepositoryGitAction {
+    override fun invoke(directory: File, url: String, cloneSubmodules: Boolean): Flow<CloneState> = flow {
+        val states = if (backend.useGitCli()) {
+            gitCliCloneRepositoryGitAction(directory, url, cloneSubmodules)
+        } else {
+            jGitCloneRepositoryGitAction(directory, url, cloneSubmodules)
+        }
+
+        emitAll(states)
+    }
+}
+
+/** Clones or updates a submodule with the git CLI or with JGit, as [RemoteOperationsBackend] decides. */
+class SelectingUpdateSubmoduleGitAction @Inject constructor(
+    private val backend: RemoteOperationsBackend,
+    private val gitCliUpdateSubmoduleGitAction: GitCliUpdateSubmoduleGitAction,
+    private val jGitUpdateSubmoduleGitAction: UpdateSubmoduleGitAction,
+) : IUpdateSubmoduleGitAction {
+    override suspend fun invoke(repositoryPath: String, path: String): Either<Unit, GitError> =
+        if (backend.useGitCli(repositoryPath, uploadsObjects = false)) {
+            gitCliUpdateSubmoduleGitAction(repositoryPath, path)
+        } else {
+            jGitUpdateSubmoduleGitAction(repositoryPath, path)
+        }
+}
+
+/** Adds a submodule with the git CLI or with JGit, as [RemoteOperationsBackend] decides. */
+class SelectingAddSubmoduleGitAction @Inject constructor(
+    private val backend: RemoteOperationsBackend,
+    private val gitCliAddSubmoduleGitAction: GitCliAddSubmoduleGitAction,
+    private val jGitAddSubmoduleGitAction: AddSubmoduleGitAction,
+) : IAddSubmoduleGitAction {
+    override suspend fun invoke(
+        repositoryPath: String,
+        name: String,
+        path: String,
+        uri: String,
+    ): Either<Unit, GitError> = if (backend.useGitCli(repositoryPath, uploadsObjects = false)) {
+        gitCliAddSubmoduleGitAction(repositoryPath, name, path, uri)
+    } else {
+        jGitAddSubmoduleGitAction(repositoryPath, name, path, uri)
     }
 }

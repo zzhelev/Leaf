@@ -72,10 +72,8 @@ class CloneViewModel @Inject constructor(
                 appSettings.setConfiguration(AppConfig.CloneDefaultDirectory(directoryPath))
             }
 
+            // Not created here: the clone creates it, so that it removes it again if it fails or is cancelled
             val repoDir = File(directory, folder)
-            if (!repoDir.exists()) {
-                repoDir.mkdir()
-            }
 
             cloneRepositoryGitAction(repoDir, url, cloneSubmodules)
                 .flowOn(Dispatchers.IO)

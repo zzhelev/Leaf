@@ -374,6 +374,7 @@
     <string name="error_git_cli_start_failed">"%1$s" could not be started: %2$s</string>
 
     <string name="error_fetch_remote_failed">Couldn't fetch %1$s.</string>
+    <string name="error_clone_submodules_failed">The repository was cloned into %1$s, but not all of its submodules. Open it to try them again from the Submodules section of the side panel.</string>
     <string name="error_remote_refs_rejected">The remote refused the push:</string>
     <string name="error_remote_ref_fetch_first">%1$s: the remote has commits that you don't have yet. Pull, then push again.</string>
     <string name="error_remote_ref_non_fast_forward">%1$s: your branch is behind the remote one. Pull, then push again.</string>

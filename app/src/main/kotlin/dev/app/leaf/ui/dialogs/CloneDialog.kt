@@ -32,6 +32,7 @@ import dev.app.leaf.theme.textButtonColors
 import dev.app.leaf.ui.components.AdjustableOutlinedTextField
 import dev.app.leaf.ui.components.CheckboxText
 import dev.app.leaf.ui.components.PrimaryButton
+import dev.app.leaf.ui.components.ScrollableColumn
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import dev.app.leaf.ui.getErrorText
 import dev.app.leaf.viewmodels.CloneUiError
@@ -242,9 +243,11 @@ private fun CloneDialogView(
         }
 
         AnimatedVisibility(error != null) {
-            Box(
+            // git's output can be long, and must not push the buttons out of the dialog
+            ScrollableColumn(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 200.dp)
                     .padding(vertical = 4.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colors.error)

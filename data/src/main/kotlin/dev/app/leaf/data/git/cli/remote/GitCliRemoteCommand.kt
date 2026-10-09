@@ -48,11 +48,14 @@ class GitCliRemoteCommand @Inject constructor(
      *
      * @param authenticated tells from the output whether git got past authentication, so that the SSH passphrases the
      * user typed can be kept. By default, when git succeeded.
+     * @param onProgress receives git's progress, then null once git is done. By default it goes to the processing
+     * screen; a clone, which has no repository yet, shows it in its own dialog.
      */
     suspend fun run(
         workingDirectory: File,
         args: List<String>,
         authenticated: (GitCliOutput) -> Boolean = { it.exitCode == 0 },
+        onProgress: (TaskProgress?) -> Unit = repositoryStateRepository::updateTaskProgress,
     ): Either<GitCliOutput, GitError> {
         val helper = askpassHelper.path() ?: return Either.Err(
             GitCliError.StartFailed("git ${args.joinToString(" ")}", "Leaf's askpass helper is missing")
@@ -65,9 +68,9 @@ class GitCliRemoteCommand @Inject constructor(
             emptyList()
         }
 
-        repositoryStateRepository.updateTaskProgress(TaskProgress(stage = null, percent = null))
+        onProgress(TaskProgress(stage = null, percent = null))
         val progress = GitProgressParser {
-            repositoryStateRepository.updateTaskProgress(TaskProgress(it.stage, it.percent))
+            onProgress(TaskProgress(it.stage, it.percent))
         }
 
         val result = try {
@@ -82,7 +85,7 @@ class GitCliRemoteCommand @Inject constructor(
             }
         } finally {
             // git is done, so there is nothing left to cancel
-            repositoryStateRepository.updateTaskProgress(null)
+            onProgress(null)
         }
 
         if (result !is Either.Ok) {

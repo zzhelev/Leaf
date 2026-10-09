@@ -3,6 +3,7 @@ package dev.app.leaf.ui
 import androidx.compose.runtime.Composable
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
+import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_not_merged
@@ -103,6 +104,9 @@ fun AppError.getErrorText(): String {
             stringResource(Res.string.error_fetch_remote_failed, failure.remote) + " " +
                 failure.error.getRemoteOperationErrorText()
         }.joinToString("\n\n")
+
+        is CloneSubmodulesError -> stringResource(Res.string.error_clone_submodules_failed, directory) + " " +
+            error.getErrorText()
 
         is SshSigningError.InvalidPassword -> throw IllegalStateException("InvalidPassword error should never trigger")
         is SshSigningError.KeyNotFound -> stringResource(Res.string.error_sign_ssh_key_not_found)

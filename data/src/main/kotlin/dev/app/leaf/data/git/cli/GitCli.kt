@@ -120,5 +120,13 @@ class GitCli @Inject constructor(
         }
     }
 
-    private fun describe(args: List<String>) = (listOf("git") + args).joinToString(" ")
+    private fun describe(args: List<String>) = (listOf("git") + args.map(::redactUrlPassword)).joinToString(" ")
 }
+
+private val URL_PASSWORD = Regex("""(://[^/@:\s]*):[^/@\s]*@""")
+
+/**
+ * The argument with the password of a URL in it hidden, as a clone's URL may have one (`https://user:token@host/...`),
+ * and the command goes into the log and into error messages.
+ */
+internal fun redactUrlPassword(argument: String): String = argument.replace(URL_PASSWORD, "$1:***@")

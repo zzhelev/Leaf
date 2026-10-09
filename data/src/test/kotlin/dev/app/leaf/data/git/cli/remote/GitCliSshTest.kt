@@ -14,6 +14,8 @@ import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteOperationError
+import dev.app.leaf.domain.models.CloneState
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterAll
@@ -40,7 +42,7 @@ private const val SSH_KEYGEN = "/usr/bin/ssh-keygen"
 private const val PASSPHRASE = "correct horse"
 
 /**
- * Pushes over SSH with the git CLI and the system's ssh, to a local sshd whose keys act like accounts of a git host:
+ * Pushes and clones over SSH with the git CLI and the system's ssh, to a local sshd whose keys act like accounts of a git host:
  * `alice` and `dave` (whose key has a passphrase) may push, `bob` is refused with a message on stderr, as GitHub does
  * for another account's key. ssh asks through the askpass helper, and Leaf answers with its dialogs.
  *
@@ -49,7 +51,7 @@ private const val PASSPHRASE = "correct horse"
  */
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class GitCliSshPushTest {
+class GitCliSshTest {
     @TempDir
     lateinit var tempDir: File
 
@@ -160,7 +162,7 @@ class GitCliSshPushTest {
         git.run(labDir, "init", "--bare", repository)
 
         work = git.initRepository(File(tempDir, "work"))
-        git.run(work, "remote", "add", "origin", "ssh://${System.getProperty("user.name")}@127.0.0.1:$port/$repository")
+        git.run(work, "remote", "add", "origin", remoteUrl())
     }
 
     @AfterEach
@@ -254,9 +256,31 @@ class GitCliSshPushTest {
         )
     }
 
+    @Test
+    fun `a clone over SSH asks about an unknown host key through Leaf's dialog`(): Unit = runBlocking {
+        useKey("alice")
+        assertEquals(Either.Ok(Unit), push())
+        knownHosts.writeText("")
+        // There is no repository yet, whose config could hold it
+        git.run(tempDir, "config", "--file", globalConfig.path, "core.sshCommand", sshCommand("alice"))
+        val destination = File(tempDir, "clone")
+
+        val (states, dialogs) = remote.credentialsStateManager.answeringDialogs({ sshHostKeyTrusted() }) {
+            GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, remoteUrl(), cloneSubmodules = false)
+                .toList()
+        }
+
+        assertEquals(CloneState.Completed(destination), states.last())
+        assertEquals(listOf(CredentialsRequest.SshHostKeyRequest("[127.0.0.1]:$port", hostKeyFingerprint())), dialogs)
+        assertEquals("Test repository\n", File(destination, "README.md").readText())
+    }
+
     /** Makes the repository's ssh use only [account]'s key, the test's known_hosts, and no config or agent. */
     private fun useKey(account: String) {
-        val sshCommand = listOf(
+        git.run(work, "config", "core.sshCommand", sshCommand(account))
+    }
+
+    private fun sshCommand(account: String) = listOf(
             "ssh", "-F", "/dev/null",
             "-o", "UserKnownHostsFile=${knownHosts.absolutePath}",
             "-o", "GlobalKnownHostsFile=/dev/null",
@@ -265,8 +289,8 @@ class GitCliSshPushTest {
             "-i", File(labDir, account).absolutePath,
         ).joinToString(" ")
 
-        git.run(work, "config", "core.sshCommand", sshCommand)
-    }
+    /** The test's own repository on the server. */
+    private fun remoteUrl() = "ssh://${System.getProperty("user.name")}@127.0.0.1:$port/${tempDir.name}.git"
 
     private suspend fun push(): Either<Unit, GitError> =
         GitCliPushBranchGitAction(jgit, GetTrackingBranchGitAction(jgit), remote.command)(

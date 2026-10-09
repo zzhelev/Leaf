@@ -117,6 +117,22 @@ class RemoteOperationsBackendTest {
         assertTrue(backend(path = "/usr/bin:/bin").useGitCli(gitDir, uploadsObjects = false))
     }
 
+    @Test
+    fun `a clone uses the git CLI`(): Unit = runBlocking {
+        assertTrue(backend().useGitCli())
+    }
+
+    @Test
+    fun `the setting switches a clone to JGit`(): Unit = runBlocking {
+        assertFalse(backend(withGit = false).useGitCli())
+    }
+
+    @Test
+    fun `a clone without a usable git or the askpass helper uses JGit`(): Unit = runBlocking {
+        assertFalse(backend(gitPath = File(tempDir, "no-git").absolutePath).useGitCli())
+        assertFalse(backend(helper = null).useGitCli())
+    }
+
     private fun useLfs() {
         File(work, ".gitattributes").writeText("*.bin filter=lfs diff=lfs merge=lfs -text\n")
     }

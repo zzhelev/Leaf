@@ -4,8 +4,8 @@
 package dev.app.leaf.domain.errors
 
 /**
- * A push, fetch or pull (later clone) run with the git CLI that failed. [output] is what git printed to stderr, which
- * often has the server's own message, so it's always shown below the explanation.
+ * A push, fetch, pull, clone or submodule update run with the git CLI that failed. [output] is what git printed to
+ * stderr, which often has the server's own message, so it's always shown below the explanation.
  */
 sealed interface RemoteOperationError : GitError {
     val output: String
@@ -42,6 +42,12 @@ sealed interface RemoteOperationError : GitError {
 data class FetchRemotesError(val failures: List<RemoteFetchFailure>) : GitError
 
 data class RemoteFetchFailure(val remote: String, val error: RemoteOperationError)
+
+/**
+ * The repository was cloned into [directory] and checked out, but its submodules couldn't be cloned, as [error] says.
+ * The repository is kept, as with `git clone --recurse-submodules`.
+ */
+data class CloneSubmodulesError(val directory: String, val error: GitError) : GitError
 
 /** A ref that the remote refused: `!  <source>:<destination>  [rejected] (<reason>)` in `git push --porcelain`. */
 data class RejectedRef(val destination: String, val reason: RejectReason, val detail: String)

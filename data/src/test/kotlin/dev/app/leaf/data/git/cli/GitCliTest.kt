@@ -65,6 +65,28 @@ class GitCliTest {
     }
 
     @Test
+    fun `the password of a URL is hidden in the command that an error shows`(): Unit = runBlocking {
+        val notARepository = File(tempDir, "plain").apply { mkdirs() }
+
+        val url = "https://bob:t0ken@example.com/x.git"
+
+        val result = gitCli().run(notARepository, listOf("remote", "add", "origin", url))
+
+        val error = (result as Either.Err).error as GitCliError.CommandFailed
+        assertEquals("git remote add origin https://bob:***@example.com/x.git", error.command)
+    }
+
+    @Test
+    fun `only a URL's password is hidden`() {
+        assertEquals("https://bob:***@host:8443/x.git", redactUrlPassword("https://bob:t0ken@host:8443/x.git"))
+        assertEquals("ssh://git:***@example.com/x.git", redactUrlPassword("ssh://git:p%40ss@example.com/x.git"))
+        assertEquals("https://bob@example.com/x.git", redactUrlPassword("https://bob@example.com/x.git"))
+        assertEquals("git@github.com:team/x.git", redactUrlPassword("git@github.com:team/x.git"))
+        assertEquals("https://example.com:8443/a@b", redactUrlPassword("https://example.com:8443/a@b"))
+        assertEquals("--progress", redactUrlPassword("--progress"))
+    }
+
+    @Test
     @DisabledOnOs(OS.WINDOWS)
     fun `runs git with a non-interactive, parseable environment`(): Unit = runBlocking {
         val fakeGit = fakeGitExecutable(tempDir, "git", body = "env")
