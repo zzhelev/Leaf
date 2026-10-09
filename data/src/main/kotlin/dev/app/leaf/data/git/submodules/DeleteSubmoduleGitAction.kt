@@ -3,6 +3,7 @@ package dev.app.leaf.data.git.submodules
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.domain.interfaces.IDeleteSubmoduleGitAction
 import org.eclipse.jgit.storage.file.FileBasedConfig
+import org.eclipse.jgit.util.FileUtils
 import java.io.File
 import javax.inject.Inject
 
@@ -31,12 +32,9 @@ class DeleteSubmoduleGitAction @Inject constructor(
         val moduleDir = File(repository.directory, "modules/$path")
         val workspace = File(repository.workTree, path)
 
-        if (moduleDir.exists()) {
-            moduleDir.deleteRecursively()
-        }
-
-        if (workspace.exists()) {
-            workspace.deleteRecursively()
-        }
+        // JGit's delete doesn't follow symbolic links. Kotlin's deleteRecursively does, and would empty the folder that
+        // a link in the submodule points to, such as a link to a shared hooks folder in its git dir.
+        FileUtils.delete(moduleDir, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING)
+        FileUtils.delete(workspace, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING)
     }
 }

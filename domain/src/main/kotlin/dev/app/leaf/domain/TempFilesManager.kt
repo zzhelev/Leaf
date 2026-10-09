@@ -5,6 +5,7 @@ import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.storage.AppStorage
 import dev.app.leaf.domain.extensions.openDirectory
+import org.eclipse.jgit.util.FileUtils
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,7 +21,8 @@ class TempFilesManager @Inject constructor(
 
     fun clearAll() {
         val dir = tempDir()
-        dir.deleteRecursively()
+        // Best effort, as Kotlin's deleteRecursively was, but without following symbolic links out of the folder
+        FileUtils.delete(dir, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING or FileUtils.IGNORE_ERRORS)
     }
 }
 

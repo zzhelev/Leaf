@@ -12,6 +12,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import org.eclipse.jgit.util.FileUtils
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
@@ -154,7 +155,7 @@ private class AskpassListener(
 
     fun close() {
         channel.close()
-        socketDirectory?.deleteRecursively()
+        socketDirectory?.let(::deleteSocketDirectory)
     }
 
     companion object {
@@ -178,7 +179,7 @@ private class AskpassListener(
                 channel.bind(UnixDomainSocketAddress.of(socket))
             } catch (e: IOException) {
                 channel.close()
-                directory.toFile().deleteRecursively()
+                deleteSocketDirectory(directory.toFile())
                 throw e
             }
 
@@ -197,6 +198,11 @@ private class AskpassListener(
             return Files.createTempDirectory(Path.of("/tmp"), "leaf-askpass")
         }
     }
+}
+
+/** Best effort. JGit's delete, unlike Kotlin's deleteRecursively, doesn't follow symbolic links out of [directory]. */
+private fun deleteSocketDirectory(directory: File) {
+    FileUtils.delete(directory, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING or FileUtils.IGNORE_ERRORS)
 }
 
 /** Reads the request's fields, or returns null if the connection ends before it's complete. */

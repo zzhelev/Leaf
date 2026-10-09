@@ -17,6 +17,7 @@ import org.eclipse.jgit.storage.file.FileBasedConfig
 import org.eclipse.jgit.util.FS
 import org.eclipse.jgit.util.SystemReader
 import java.io.File
+import java.nio.file.Files
 import javax.inject.Provider
 
 /** A [JGit] for tests on macOS and Linux, where [shellVariables] stand for what the login shell adds to hooks. */
@@ -126,6 +127,14 @@ class TestGitCli(private val emptyGlobalConfig: File) {
 
         return directory
     }
+}
+
+/** Creates a symbolic link to [target] at this path, and the folders it's in. Returns the link. */
+fun File.symlinkTo(target: File): File {
+    parentFile.mkdirs()
+    Files.createSymbolicLink(toPath(), target.toPath())
+
+    return this
 }
 
 /** Writes [content] to this file and makes it executable, for hooks, fake shells and fake tools. */

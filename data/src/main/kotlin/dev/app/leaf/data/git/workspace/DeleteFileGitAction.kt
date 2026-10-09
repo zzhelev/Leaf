@@ -12,7 +12,9 @@ import dev.app.leaf.domain.models.StatusType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.util.FileUtils
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 
 class DeleteFileGitAction @Inject constructor(
@@ -24,8 +26,12 @@ class DeleteFileGitAction @Inject constructor(
     ) = jgit.provide(repositoryPath) { git ->
         val fileToDelete = File(git.repository.workTree, filePath)
 
-        if (!fileToDelete.deleteRecursively()) {
-            raiseError(GenericError("Delete file recursively failed"))
+        try {
+            // JGit's delete doesn't follow symbolic links. Kotlin's deleteRecursively does, even when called on the
+            // link itself, and would empty the folder that a link points to, possibly outside the repository.
+            FileUtils.delete(fileToDelete, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING)
+        } catch (e: IOException) {
+            raiseError(GenericError("Delete file recursively failed", e))
         }
     }
 }
