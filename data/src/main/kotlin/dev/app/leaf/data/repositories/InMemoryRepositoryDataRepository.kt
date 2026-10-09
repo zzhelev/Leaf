@@ -56,6 +56,9 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
     override val persistedCommitMessage: Flow<DataState<PersistedCommitMessage>>
         field = MutableStateFlow<DataState<PersistedCommitMessage>>(DataState.Loading)
 
+    override val worktrees: Flow<DataState<WorktreeList>>
+        field = MutableStateFlow<DataState<WorktreeList>>(DataState.Loading)
+
     override var maxCommitsToLoadLimit: Int = 0
 
     override val repositoryPath: String?
@@ -79,6 +82,7 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         stashes.value = DataState.Loading
         rebaseInteractiveState.value = DataState.Loading
         submodules.value = DataState.Loading
+        worktrees.value = DataState.Loading
     }
 
     override suspend fun updateStatus(block: suspend () -> Either<Status, AppError>) {
@@ -131,6 +135,10 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
 
     override suspend fun updatePersistedCommitMessages(block: suspend () -> Either<PersistedCommitMessage, AppError>) {
         handleDataState(persistedCommitMessage, block)
+    }
+
+    override suspend fun updateWorktrees(block: suspend () -> Either<WorktreeList, AppError>) {
+        handleDataState(worktrees, block)
     }
 
     private suspend inline fun <T> handleDataState(

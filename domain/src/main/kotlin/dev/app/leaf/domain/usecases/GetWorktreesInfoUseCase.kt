@@ -15,6 +15,7 @@ import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
 import dev.app.leaf.domain.interfaces.IGetDefaultBaseBranchGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeStatusGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreesGitAction
+import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeInfo
 import dev.app.leaf.domain.models.WorktreeList
@@ -81,16 +82,16 @@ class GetWorktreesInfoUseCase @Inject constructor(
             .okOrNull()
     }
 
-    private suspend fun aheadBehindBase(repositoryPath: String, worktree: Worktree, baseBranch: String?) = when {
-        baseBranch == null || worktree.branch == baseBranch -> null
-        else -> {
-            val target = worktree.branch ?: worktree.headSha
+    private suspend fun aheadBehindBase(repositoryPath: String, worktree: Worktree, baseBranch: String?): AheadBehind? {
+        // A worktree that rebases or bisects is detached, but its work is on that branch
+        val target = worktree.branch ?: worktree.rebasingBranch ?: worktree.bisectingBranch ?: worktree.headSha
 
-            target?.let {
-                getAheadBehindGitAction(repositoryPath, baseBranch, it)
-                    .onErr { printError(TAG, "Could not compare ${worktree.path} to $baseBranch: $it") }
-                    .okOrNull()
-            }
+        if (baseBranch == null || target == null || target == baseBranch) {
+            return null
         }
+
+        return getAheadBehindGitAction(repositoryPath, baseBranch, target)
+            .onErr { printError(TAG, "Could not compare ${worktree.path} to $baseBranch: $it") }
+            .okOrNull()
     }
 }

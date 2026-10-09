@@ -299,6 +299,73 @@ class BranchWorktreesTest {
         assertNull(worktreeUsing(main, "feature"), "findOtherWorktreeUsing leaves out the worktree it is asked from")
     }
 
+    @Test
+    fun `reads the branch that each worktree uses, as full names`() {
+        val main = git.initRepository(File(tempDir, "main"))
+        val rebasing = worktreeWithConflictingRebase(main, "rebase", "main")
+        val bisecting = File(tempDir, "wt-develop")
+        git.run(main, "worktree", "add", "-b", "develop", bisecting.path)
+        repeat(3) { commitFile(bisecting, "develop.txt", "develop $it") }
+        git.run(bisecting, "bisect", "start", "HEAD", "HEAD~3")
+        // git keeps the branch a bisect started from without refs/heads/
+        assertEquals("develop", File(linkedGitDir(main, "wt-develop"), "BISECT_START").readText().trim())
+
+        assertEquals(
+            listOf(
+                WorktreeHead(main.canonicalPath, mainGitDir(main), "refs/heads/main", null, null),
+                WorktreeHead(
+                    bisecting.canonicalPath,
+                    linkedGitDir(main, "wt-develop"),
+                    branch = null,
+                    rebasingBranch = null,
+                    bisectingBranch = "refs/heads/develop",
+                ),
+                WorktreeHead(
+                    rebasing.canonicalPath,
+                    linkedGitDir(main, "wt-feature"),
+                    branch = null,
+                    rebasingBranch = "refs/heads/feature",
+                    bisectingBranch = null,
+                ),
+            ),
+            worktreeHeads(main),
+        )
+    }
+
+    @Test
+    fun `finds no branch for a rebase started on a detached HEAD, as git does`() {
+        val main = git.initRepository(File(tempDir, "main"))
+        val linked = File(tempDir, "wt-develop")
+        git.run(main, "worktree", "add", "-b", "develop", linked.path)
+        commitFile(linked, "README.md", "Develop")
+        commitFile(main, "README.md", "Main")
+        git.run(linked, "switch", "--detach")
+        git.runFailing(linked, "rebase", "main")
+        val headName = File(linkedGitDir(main, "wt-develop"), "rebase-merge/head-name")
+        assertEquals("detached HEAD", headName.readText().trim())
+
+        assertNull(worktreeHeads(main).single { it.path == linked.canonicalPath }.rebasingBranch)
+        assertNull(worktreeUsing(main, "develop"))
+        git.run(main, "checkout", "develop")
+    }
+
+    @Test
+    fun `finds no branch for a bisect started on a detached HEAD, as git does`() {
+        val main = git.initRepository(File(tempDir, "main"))
+        val linked = File(tempDir, "wt-develop")
+        git.run(main, "worktree", "add", "-b", "develop", linked.path)
+        repeat(3) { commitFile(linked, "develop.txt", "develop $it") }
+        git.run(linked, "switch", "--detach")
+        git.run(linked, "bisect", "start", "HEAD", "HEAD~3")
+        // git keeps the commit instead of a branch
+        val bisectStart = File(linkedGitDir(main, "wt-develop"), "BISECT_START").readText().trim()
+        assertEquals(git.run(main, "rev-parse", "develop").trim(), bisectStart)
+
+        assertNull(worktreeHeads(main).single { it.path == linked.canonicalPath }.bisectingBranch)
+        assertNull(worktreeUsing(main, "develop"))
+        git.run(main, "checkout", "develop")
+    }
+
     /**
      * Adds the worktree `wt-feature` on a new branch `feature`, and runs `git <rebaseArgs>` there, which stops on a
      * conflict with a commit on main.
@@ -336,6 +403,16 @@ class BranchWorktreesTest {
 
         assertInstanceOf(Either.Ok::class.java, result).value.let { value ->
             (value as List<*>).map { it as WorktreeUsingBranch }
+        }
+    }
+
+    /** What [worktreeHeads] reads from [worktree], opened as Leaf opens it, by its git dir. */
+    private fun worktreeHeads(worktree: File): List<WorktreeHead> = runBlocking {
+        val gitDir = git.run(worktree, "rev-parse", "--absolute-git-dir").trim()
+        val result = jgit.provide(gitDir) { git -> git.repository.worktreeHeads() }
+
+        assertInstanceOf(Either.Ok::class.java, result).value.let { value ->
+            (value as List<*>).map { it as WorktreeHead }
         }
     }
 

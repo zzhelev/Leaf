@@ -14,6 +14,10 @@ package dev.app.leaf.domain.models
  * @param locked null if the worktree isn't locked, otherwise the reason given to `git worktree lock`, maybe empty.
  * @param prunable null unless `git worktree prune` would remove the worktree (for example, its folder was deleted),
  * otherwise git's reason.
+ * @param rebasingBranch the branch that the worktree rebases while its HEAD is detached (`refs/heads/x`), which
+ * `git worktree list` doesn't tell. Null otherwise.
+ * @param bisectingBranch the branch that the worktree's bisect started from while its HEAD is detached
+ * (`refs/heads/x`). Null otherwise.
  */
 data class Worktree(
     val path: String,
@@ -25,7 +29,25 @@ data class Worktree(
     val isBare: Boolean,
     val locked: String?,
     val prunable: String?,
-)
+    val rebasingBranch: String? = null,
+    val bisectingBranch: String? = null,
+) {
+    /**
+     * How this worktree uses the local branch [branchName] (`refs/heads/x`), as git tells when it refuses to check the
+     * branch out in another worktree (`is_shared_symref`): its HEAD is the branch, or its HEAD is detached while it
+     * rebases the branch or bisects from it. Null when it doesn't use it.
+     */
+    fun useOf(branchName: String): WorktreeBranchUse? = when {
+        branch != null -> if (branch == branchName) WorktreeBranchUse.CheckedOut else null
+        rebasingBranch == branchName -> WorktreeBranchUse.Rebasing
+        bisectingBranch == branchName -> WorktreeBranchUse.Bisecting
+        else -> null
+    }
+
+    /** The local branches this worktree uses (`refs/heads/x`), see [useOf]. */
+    val usedBranches: List<String>
+        get() = if (branch != null) listOf(branch) else listOfNotNull(rebasingBranch, bisectingBranch).distinct()
+}
 
 /**
  * The changes in a worktree, from `git status`. The counts are of `git status` entries, so a new folder whose files
@@ -55,7 +77,8 @@ data class AheadBehind(
  * What Leaf shows about a worktree. A part is null when it doesn't apply (a prunable worktree has no status) or
  * couldn't be read.
  *
- * @param aheadBehindBase how the worktree's branch, or its commit when detached, compares to [WorktreeList.baseBranch].
+ * @param aheadBehindBase how the worktree's branch compares to [WorktreeList.baseBranch]: the branch it has checked
+ * out, or rebases or bisects from, otherwise its commit.
  * @param lastCommitTime the committer time of the checked out commit, in milliseconds since the epoch.
  */
 data class WorktreeInfo(
@@ -75,3 +98,45 @@ data class WorktreeList(
     val baseBranch: String?,
     val worktrees: List<WorktreeInfo>,
 )
+
+/** A worktree that uses a local branch, and how. */
+data class WorktreeBranchUser(
+    val info: WorktreeInfo,
+    val use: WorktreeBranchUse,
+)
+
+/**
+ * The worktrees that use a local branch, main one first, and what Leaf's guards refuse to do with the branch because of
+ * them, as git does. The guards still decide: this only comes from the last time the worktrees were read.
+ */
+data class BranchWorktreeUsers(
+    val users: List<WorktreeBranchUser>,
+) {
+    /** The first worktree other than the tab's, which the branch list names. Null when only the tab's uses it. */
+    val other: WorktreeBranchUser?
+        get() = users.firstOrNull { !it.info.worktree.isCurrent }
+
+    /** The branch can't be checked out while another worktree uses it. */
+    val canCheckout: Boolean
+        get() = other == null
+
+    /** The branch can't be deleted while a worktree uses it, the tab's included. */
+    val canDelete: Boolean
+        get() = users.isEmpty()
+
+    /** The branch can't be renamed while a worktree rebases it or bisects from it, the tab's included. */
+    val canRename: Boolean
+        get() = users.all { it.use == WorktreeBranchUse.CheckedOut }
+}
+
+/** The worktrees that use each local branch (`refs/heads/x`), for the branches that any worktree uses. */
+fun WorktreeList.usersByBranch(): Map<String, BranchWorktreeUsers> {
+    return worktrees
+        .flatMap { info ->
+            info.worktree.usedBranches.mapNotNull { branch ->
+                info.worktree.useOf(branch)?.let { use -> branch to WorktreeBranchUser(info, use) }
+            }
+        }
+        .groupBy(keySelector = { it.first }, valueTransform = { it.second })
+        .mapValues { (_, users) -> BranchWorktreeUsers(users) }
+}

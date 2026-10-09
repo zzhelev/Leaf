@@ -21,11 +21,24 @@ class GetWorktreesGitAction @Inject constructor(
     override suspend operator fun invoke(repositoryPath: String): Either<List<Worktree>, GitError> = either {
         // git finds the repository from its git dir, including a linked worktree's (<common dir>/worktrees/<name>)
         val output = gitCli.run(File(repositoryPath), listOf("worktree", "list", "--porcelain", "-z")).bind()
-        val currentWorkTree = jgit.provide(repositoryPath) { git -> git.repository.workTree.canonicalFile }.bind()
+
+        val (currentWorkTree, heads) = jgit.provide(repositoryPath) { git ->
+            git.repository.workTree.canonicalFile to git.repository.worktreeHeads()
+        }.bind()
+
+        // git lists rebasing and bisecting worktrees as detached, so the branch they use comes from their git dirs
+        val headsByFolder = heads.associateBy { File(it.path).canonicalFile }
 
         Either.Ok(
             parseWorktreeList(output).map { worktree ->
-                worktree.copy(isCurrent = File(worktree.path).canonicalFile == currentWorkTree)
+                val folder = File(worktree.path).canonicalFile
+                val head = headsByFolder[folder]
+
+                worktree.copy(
+                    isCurrent = folder == currentWorkTree,
+                    rebasingBranch = head?.rebasingBranch,
+                    bisectingBranch = head?.bisectingBranch,
+                )
             }
         )
     }

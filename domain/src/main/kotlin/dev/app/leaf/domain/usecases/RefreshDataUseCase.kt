@@ -4,6 +4,7 @@ import dev.app.leaf.domain.Pagination
 import dev.app.leaf.domain.RebaseConstants
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
+import dev.app.leaf.domain.WorktreesRefreshRunner
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.flatten
 import dev.app.leaf.domain.errors.mapOk
@@ -36,6 +37,8 @@ class RefreshDataUseCase @Inject constructor(
     private val getRebaseLinesFullMessageUseCase: GetRebaseLinesFullMessageUseCase,
     private val getPersistedCommitMessagesGitAction: IGetPersistedCommitMessagesGitAction,
     private val getLogUseCase: GetLogUseCase,
+    private val getWorktreesInfoUseCase: GetWorktreesInfoUseCase,
+    private val worktreesRefreshRunner: WorktreesRefreshRunner,
     private val scope: TabCoroutineScope,
 ) {
     operator fun invoke(vararg dataToRefresh: DataToRefresh) = scope.launch {
@@ -87,6 +90,11 @@ class RefreshDataUseCase @Inject constructor(
 
         if (isRefreshAll || refsChanged) {
             refreshRefDates()
+        }
+
+        // Runs git in every worktree, so it comes after everything else
+        if (refreshesWorktrees(dataToRefresh.toList())) {
+            refreshWorktrees()
         }
     }
 
@@ -158,6 +166,14 @@ class RefreshDataUseCase @Inject constructor(
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
             repositoryDataRepository.updateTags {
                 getTagsGitAction(repositoryPath)
+            }
+        }
+    }
+
+    private suspend fun refreshWorktrees() {
+        worktreesRefreshRunner.run {
+            useCaseExecutor.executeWithoutResult {
+                repositoryDataRepository.updateWorktrees { getWorktreesInfoUseCase() }
             }
         }
     }
@@ -240,6 +256,14 @@ class RefreshDataUseCase @Inject constructor(
             amendFile.readText().removeSuffix("\n").removeSuffix("\r\n")
         }
     }
+}
+
+/**
+ * Whether refreshing [dataToRefresh] refreshes the worktrees too: their branches change with BRANCHES, their last
+ * commits and how they compare to the base with LOG, and the tab's worktree's changes with STATUS.
+ */
+internal fun refreshesWorktrees(dataToRefresh: List<DataToRefresh>): Boolean = dataToRefresh.any {
+    it == DataToRefresh.ALL || it == DataToRefresh.BRANCHES || it == DataToRefresh.LOG || it == DataToRefresh.STATUS
 }
 
 enum class DataToRefresh {

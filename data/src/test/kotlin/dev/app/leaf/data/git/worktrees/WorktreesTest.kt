@@ -12,6 +12,7 @@ import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AheadBehind
+import dev.app.leaf.domain.models.WorktreeList
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
@@ -129,6 +130,43 @@ class WorktreesTest {
     }
 
     @Test
+    fun `tells which branch a detached worktree rebases or bisects from`(): Unit = runBlocking {
+        val rebasing = File(tempDir, "rebasing")
+        git.run(main, "worktree", "add", rebasing.path, "-b", "rebased", "HEAD~1")
+        // main.txt is also on main, with other content
+        commit(rebasing, "main.txt", "Rebased work", FEATURE_DATE)
+        git.runFailing(rebasing, "rebase", "main")
+        repeat(3) { commit(agent, "agent.txt", "Agent work $it", FEATURE_DATE) }
+        git.run(agent, "bisect", "start", "HEAD", "HEAD~3")
+
+        // From a linked worktree, whose own folder git lists like the others
+        val worktrees = (GetWorktreesGitAction(gitCli, jgit)(gitDir(detached)) as Either.Ok).value
+        val byPath = worktrees.associateBy { it.path }
+
+        byPath.getValue(rebasing.canonicalPath).let {
+            assertNull(it.branch, "git lists a rebasing worktree as detached")
+            assertEquals("refs/heads/rebased", it.rebasingBranch)
+            assertNull(it.bisectingBranch)
+        }
+        byPath.getValue(agent.canonicalPath).let {
+            assertNull(it.branch, "git lists a bisecting worktree as detached")
+            assertNull(it.rebasingBranch)
+            assertEquals("refs/heads/agent", it.bisectingBranch)
+        }
+        for (worktree in listOf(main, feature, detached, locked, gone)) {
+            byPath.getValue(worktree.canonicalPath).let {
+                assertNull(it.rebasingBranch, worktree.name)
+                assertNull(it.bisectingBranch, worktree.name)
+            }
+        }
+
+        // Compared to main by the branch, not by the commit they stopped at
+        val infos = worktreesInfo(gitDir(main)).worktrees.associateBy { it.worktree.path }
+        assertEquals(AheadBehind(ahead = 1, behind = 1), infos.getValue(rebasing.canonicalPath).aheadBehindBase)
+        assertEquals(AheadBehind(ahead = 3, behind = 1), infos.getValue(agent.canonicalPath).aheadBehindBase)
+    }
+
+    @Test
     fun `reads a worktree's changes and how it compares to its upstream`(): Unit = runBlocking {
         val status = GetWorktreeStatusGitAction(gitCli)(feature.path)
 
@@ -180,22 +218,7 @@ class WorktreesTest {
 
     @Test
     fun `gives every worktree its changes, comparison to the base and last commit`(): Unit = runBlocking {
-        val repositoryPath = gitDir(main)
-        val useCase = GetWorktreesInfoUseCase(
-            GetWorktreesGitAction(gitCli, jgit),
-            GetWorktreeStatusGitAction(gitCli),
-            GetAheadBehindGitAction(gitCli),
-            GetDefaultBaseBranchGitAction(jgit),
-            GetCommitTimesGitAction(jgit),
-            UseCaseExecutor(
-                mockk<RepositoryDataRepository> { every { this@mockk.repositoryPath } returns repositoryPath },
-                InMemoryRepositoryStateRepository(),
-                Provider { error("Nothing is refreshed") },
-                TabCoroutineScope(),
-            ),
-        )
-
-        val list = (useCase() as Either.Ok).value
+        val list = worktreesInfo(gitDir(main))
         val byPath = list.worktrees.associateBy { it.worktree.path }
         val clean = WorktreeStatus(0, 0, 0, 0, null, null)
         val behindByOne = AheadBehind(ahead = 0, behind = 1)
@@ -227,6 +250,25 @@ class WorktreesTest {
             assertNull(it.status, "A prunable worktree has no folder to read")
             assertEquals(behindByOne, it.aheadBehindBase)
         }
+    }
+
+    /** What [GetWorktreesInfoUseCase] gives a tab that holds [repositoryPath]. */
+    private suspend fun worktreesInfo(repositoryPath: String): WorktreeList {
+        val useCase = GetWorktreesInfoUseCase(
+            GetWorktreesGitAction(gitCli, jgit),
+            GetWorktreeStatusGitAction(gitCli),
+            GetAheadBehindGitAction(gitCli),
+            GetDefaultBaseBranchGitAction(jgit),
+            GetCommitTimesGitAction(jgit),
+            UseCaseExecutor(
+                mockk<RepositoryDataRepository> { every { this@mockk.repositoryPath } returns repositoryPath },
+                InMemoryRepositoryStateRepository(),
+                Provider { error("Nothing is refreshed") },
+                TabCoroutineScope(),
+            ),
+        )
+
+        return (useCase() as Either.Ok).value
     }
 
     private fun commit(directory: File, fileName: String, message: String, date: String) {
