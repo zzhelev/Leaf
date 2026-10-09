@@ -1,26 +1,12 @@
 # Leaf - Multiplatform Git Client
 
-## Built on Gitnuro
-
-Leaf is built on [Gitnuro](https://github.com/JetpackDuba/Gitnuro), the open source Git client created by Abdelilah El
-Aissaoui with the help of its contributors. Gitnuro offered a foundation very close to one I had in mind and was
-planning to build myself, and I'm grateful for the work and care that went into it.
-
-Leaf develops that foundation along a different roadmap, centred on first-class support for git worktrees in workflows
-where AI coding agents work side by side. Those ideas needed to move quickly, so Leaf continues as its own project. It
-was forked from Gitnuro's 2.0 development branch in October 2026. The code that comes from Gitnuro keeps Gitnuro's
-license, the GNU General Public License v3.0, and the code written for Leaf is licensed under the GNU Affero General
-Public License v3.0 (see [License](#license)).
-
-If both projects keep evolving and their directions line up, I'd be glad to see work and ideas shared between them, in
-either direction.
-
 ## About
 
 A FOSS Git client based on (Jetbrains) Compose and JGit.
 
-Leaf shares Gitnuro's goal of a multiplatform open source Git client, without any kind of constraint to how you can use
-it and without relying on web technologies.
+Leaf aims to be a multiplatform open source Git client, without any kind of constraint to how you can use it and
+without relying on web technologies. It focuses on first-class support for git worktrees in workflows where AI coding
+agents work side by side.
 
 ## Download/Install
 
@@ -165,14 +151,9 @@ releases.
 
 > Authentication has failed. What's wrong?
 
-Currently there are some limitations regarding this topic. Here are some known problematic setups, tracked in
-Gitnuro's issues:
-
-- Multicast DNS remote URL (https://github.com/JetpackDuba/Gitnuro/issues/19) with this
-  workaround (https://github.com/JetpackDuba/Gitnuro/issues/19#issuecomment-1374431720).
-- Self signed server certificate (https://github.com/JetpackDuba/Gitnuro/issues/48)
-
-If the authentication fails and you think its due to a different reason, please open a new issue.
+Leaf runs the git command line for push, fetch, pull and clone, so authentication works as it does in a terminal, with
+your credential helpers, SSH config and keys. If the same command works in a terminal but fails in Leaf, please open an
+issue.
 
 
 > Does it support Git credentials manager (aka manager-core)?
@@ -195,7 +176,8 @@ Example for windows (you may want to edit `C:\Program Files\Git\etc\gitconfig`):
 
 ## License
 
-Leaf combines code under two licenses:
+Leaf is a modified version of [Gitnuro](https://github.com/JetpackDuba/Gitnuro), forked from its 2.0 development branch
+in October 2026. It combines code under two licenses:
 
 - **Files that come from Gitnuro** are licensed under the [GNU General Public License v3.0](LICENSE)
   (GPL-3.0-only).

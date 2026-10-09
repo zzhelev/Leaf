@@ -11,7 +11,7 @@ This file and everything under `docs/fork/` are fork-only. Keep them out of upst
 The fork ships as **Leaf**, and its code, build and storage use Leaf's own names.
 - **Leaf:** `AppConstants.APP_NAME` and the user-facing strings. Also `projectName` in `app/build.gradle.kts`, which
   produces `Leaf.app`, `Leaf-*.dmg` and `Leaf-linux-*.jar`. Also the macOS bundle ID `io.github.zzhelev.leaf` and
-  `leaf.iss`, which has its own AppId. Also `README.md`, which opens with a credit to Gitnuro, and `DEVELOPMENT.md`.
+  `leaf.iss`, which has its own AppId. Also `README.md` and `DEVELOPMENT.md`.
 - **Code and build:** the Kotlin package `dev.app.leaf` (also the Gradle `group`, so Compose's `Res` package is
   `dev.app.leaf.app.generated.resources`), the root Gradle project `Leaf`, the Rust crate `leaf_rs` (native library
   `libleaf_rs.dylib`) and `LeafException`.
@@ -28,7 +28,9 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
     worktree.
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
-- **Kept on purpose:** the credit ("based on Gitnuro" in the About text, and the README).
+- **Gitnuro is named only where GPL-3.0 needs it:** the README's License section says, in one dated sentence, that
+  Leaf is a modified version of Gitnuro (section 5a), and which files keep Gitnuro's license. The app's About text
+  doesn't name it (2026-10-09). Both stay as long as any code from Gitnuro is in Leaf.
 
 ## Branches and remotes
 
