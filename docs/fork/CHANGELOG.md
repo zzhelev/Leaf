@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Who committed a commit, next to who wrote it (branch `feat/log-columns`)
+
+- **Before:** the log's Author column showed who wrote each commit, and only its tooltip said when someone else had
+  committed it. The Date column shows the commit date, so after another person's rebase a row paired one person with
+  the date of the other's rebase.
+- **Now:**
+  - When someone else committed a commit (a rebase, cherry-pick or amend by another person, or a pull request merged
+    on GitHub's website, which records GitHub), the author's avatar carries the committer's smaller avatar, in grey.
+    Its tooltip names both, with the date each one wrote or committed it.
+  - A **Committer** column, off by default, comes after Author in the columns menu. Its avatar is grey when the
+    committer isn't the author. It gives way first when the log is narrow.
+  - The Date column keeps the commit date, which orders the log. Its tooltip adds the date the change was written
+    when that's different, as after a rebase or an amend.
+  - People are matched by email, ignoring case, so a name spelled differently with the same email doesn't count as
+    someone else.
+  - Saved column settings get Committer right after Author, hidden, and keep everything else.
+- **Tests:** 4 new in `:domain` (`LogColumnsTest` 17, `LogColumnsCodecTest` 8). 11 mutations of the new rules (the
+  matching of people, where a new column goes, the order in which columns give way) were all caught. Checked once with
+  a throwaway offscreen harness: the badge and the Committer column in dark and light, on a selected row, the names
+  lined up from row to row, and the menu. `./gradlew test` passes, with 682 tests (27 in `:app`, 522 in `:data`, 126
+  in `:domain`, 7 in `:common`).
+- **Not checked offscreen:** the tooltips, which don't show in an `ImageComposeScene`.
+
 ## Worktrees in the side panel (branch `feat/worktree-sidebar`)
 
 Phase 1.4 of `docs/fork/PLAN.md`.

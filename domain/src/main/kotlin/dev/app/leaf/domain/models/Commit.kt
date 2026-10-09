@@ -10,6 +10,8 @@ data class Commit(
     val author: Identity,
     val date: Long,
     val parentsHashes: List<String>,
+    /** When the author wrote the change. [date] is when it was committed, which a rebase or an amend changes. */
+    val authorDate: Long = date,
 ) {
     val parentCount = parentsHashes.count()
 

@@ -11,8 +11,8 @@ import kotlinx.serialization.json.Json
 
 /**
  * Stores [LogColumnsSettings] as JSON. Reading never fails: unknown columns and fields are skipped, a column listed
- * twice keeps its first entry, missing columns are added at the end with their defaults, bad widths become the
- * defaults, and unreadable text gives the default settings.
+ * twice keeps its first entry, missing columns are added with their defaults where they'd be by default, bad widths
+ * become the defaults, and unreadable text gives the default settings.
  */
 object LogColumnsCodec {
     private val json = Json {
@@ -41,16 +41,34 @@ object LogColumnsCodec {
             }
             .distinctBy { it.column }
 
-        val missing = LogColumnsSettings.DEFAULT_COLUMNS.filter { default -> known.none { it.column == default.column } }
-
         return LogColumnsSettings(
-            columns = known + missing,
+            columns = withMissingColumns(known),
             dateShowsTime = stored.dateShowsTime,
             graphMaxWidth = LogColumnsSettings.clampGraphWidth(
                 stored.graphMaxWidth ?: LogColumnsSettings.DEFAULT_GRAPH_MAX_WIDTH,
                 LogColumnsSettings.DEFAULT_GRAPH_MAX_WIDTH,
             ),
         )
+    }
+
+    /**
+     * Adds each column missing from [columns], such as one added after the settings were saved, right after the column
+     * that comes before it by default, or first when there's none.
+     */
+    private fun withMissingColumns(columns: List<LogColumnEntry>): List<LogColumnEntry> {
+        val result = columns.toMutableList()
+        val defaults = LogColumnsSettings.DEFAULT_COLUMNS
+
+        for ((index, default) in defaults.withIndex()) {
+            if (result.any { it.column == default.column }) continue
+
+            val previous = defaults.take(index).lastOrNull { before -> result.any { it.column == before.column } }
+            val position = if (previous == null) 0 else result.indexOfFirst { it.column == previous.column } + 1
+
+            result.add(position, default)
+        }
+
+        return result
     }
 
     private fun read(text: String?): StoredLogColumns? {

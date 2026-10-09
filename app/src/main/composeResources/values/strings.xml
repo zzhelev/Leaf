@@ -213,9 +213,13 @@
 
     <!-- Log columns -->
     <string name="log_column_author">Author</string>
+    <string name="log_column_committer">Committer</string>
     <string name="log_column_date">Date</string>
     <string name="log_column_commit">Commit</string>
-    <string name="log_column_author_committed_by">Committed by %1$s &lt;%2$s&gt;</string>
+    <string name="log_column_author_authored_by">Authored by %1$s &lt;%2$s&gt;, %3$s</string>
+    <string name="log_column_author_committed_by">Committed by %1$s &lt;%2$s&gt;, %3$s</string>
+    <string name="log_column_date_committed">Committed %1$s</string>
+    <string name="log_column_date_authored">Authored %1$s</string>
     <string name="log_columns_menu_tooltip">Columns</string>
     <string name="log_columns_menu_title">Columns</string>
     <string name="log_columns_menu_needs_room">Needs more room</string>

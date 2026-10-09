@@ -6,6 +6,7 @@ package dev.app.leaf.domain.models
 /** The log's optional columns, after Graph and Message, which are always shown. Widths are in dp. */
 enum class LogColumn(val defaultWidth: Float) {
     Author(150f),
+    Committer(150f),
     Date(110f),
     Commit(80f),
 }
@@ -102,7 +103,7 @@ data class LogColumnsSettings(
         }
 
         /** The order in which columns give way when the log is too narrow for all of them. */
-        val HIDE_ORDER = listOf(LogColumn.Commit, LogColumn.Author, LogColumn.Date)
+        val HIDE_ORDER = listOf(LogColumn.Committer, LogColumn.Commit, LogColumn.Author, LogColumn.Date)
 
         const val DATE_WITH_TIME_WIDTH = 180f
         const val MIN_COLUMN_WIDTH = 48f
@@ -143,4 +144,26 @@ fun draggedGraphMaxWidth(maxWidth: Float, shownWidth: Float, lanesWidth: Float, 
     val newWidth = (shownWidth + delta).coerceIn(LogColumnsSettings.MIN_GRAPH_WIDTH, fullWidth)
 
     return if (newWidth == fullWidth) maxOf(maxWidth, fullWidth) else newWidth
+}
+
+/**
+ * Whether someone other than the author committed this commit, as after another person's rebase, cherry-pick or
+ * amend, or a merge on GitHub's website, which records GitHub as the committer.
+ */
+val Commit.isCommittedBySomeoneElse: Boolean
+    get() = !committer.isSamePersonAs(author)
+
+/**
+ * Whether two identities are the same person: the same email, ignoring case, or the same name when either has no
+ * email. A name spelled differently with the same email is the same person.
+ */
+fun Identity.isSamePersonAs(other: Identity): Boolean {
+    val email = email?.trim().orEmpty()
+    val otherEmail = other.email?.trim().orEmpty()
+
+    return if (email.isNotEmpty() && otherEmail.isNotEmpty()) {
+        email.equals(otherEmail, ignoreCase = true)
+    } else {
+        name.orEmpty().trim() == other.name.orEmpty().trim()
+    }
 }

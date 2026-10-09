@@ -12,16 +12,21 @@ class LogColumnsTest {
     private val all = LogColumnsSettings()
         .toggled(LogColumn.Author)
         .toggled(LogColumn.Commit)
+    private val everyColumn = all.toggled(LogColumn.Committer)
 
     @Test
     fun `by default only the date is shown, as before the columns existed`() {
         val settings = LogColumnsSettings()
 
-        assertEquals(listOf(LogColumn.Author, LogColumn.Date, LogColumn.Commit), settings.columns.map { it.column })
+        assertEquals(
+            listOf(LogColumn.Author, LogColumn.Committer, LogColumn.Date, LogColumn.Commit),
+            settings.columns.map { it.column },
+        )
         assertFalse(settings.isVisible(LogColumn.Author))
+        assertFalse(settings.isVisible(LogColumn.Committer))
         assertTrue(settings.isVisible(LogColumn.Date))
         assertFalse(settings.isVisible(LogColumn.Commit))
-        assertEquals(listOf(150f, 110f, 80f), settings.columns.map { it.width })
+        assertEquals(listOf(150f, 150f, 110f, 80f), settings.columns.map { it.width })
         assertFalse(settings.dateShowsTime)
         assertEquals(120f, settings.graphMaxWidth)
     }
@@ -80,23 +85,32 @@ class LogColumnsTest {
     }
 
     @Test
-    fun `columns give way in the order commit, author, date`() {
+    fun `columns give way in the order committer, commit, author, date`() {
+        // 200 for the message + 150 + 150 + 110 + 80
+        assertTrue(everyColumn.fitting(availableWidth = 690f).leftOut.isEmpty())
         assertEquals(
-            FittedLogColumns(all.columns.filter { it.column != LogColumn.Commit }, setOf(LogColumn.Commit)),
-            all.fitting(availableWidth = 539f),
+            FittedLogColumns(everyColumn.columns.filter { it.column != LogColumn.Committer }, setOf(LogColumn.Committer)),
+            everyColumn.fitting(availableWidth = 689f),
         )
         assertEquals(
             FittedLogColumns(
-                all.columns.filter { it.column == LogColumn.Date },
-                setOf(LogColumn.Commit, LogColumn.Author),
+                everyColumn.columns.filter { it.column == LogColumn.Author || it.column == LogColumn.Date },
+                setOf(LogColumn.Committer, LogColumn.Commit),
             ),
-            all.fitting(availableWidth = 459f),
+            everyColumn.fitting(availableWidth = 539f),
         )
         assertEquals(
-            FittedLogColumns(emptyList(), setOf(LogColumn.Commit, LogColumn.Author, LogColumn.Date)),
-            all.fitting(availableWidth = 309f),
+            FittedLogColumns(
+                everyColumn.columns.filter { it.column == LogColumn.Date },
+                setOf(LogColumn.Committer, LogColumn.Commit, LogColumn.Author),
+            ),
+            everyColumn.fitting(availableWidth = 459f),
         )
-        assertEquals(listOf(LogColumn.Date), all.fitting(availableWidth = 310f).shown.map { it.column })
+        assertEquals(
+            FittedLogColumns(emptyList(), LogColumn.entries.toSet()),
+            everyColumn.fitting(availableWidth = 309f),
+        )
+        assertEquals(listOf(LogColumn.Date), everyColumn.fitting(availableWidth = 310f).shown.map { it.column })
     }
 
     @Test
@@ -174,5 +188,29 @@ class LogColumnsTest {
         // Never below the minimum or above the maximum
         assertEquals(48f, all.maxWidthFor(LogColumn.Date, availableWidth = 220f))
         assertEquals(600f, LogColumnsSettings().maxWidthFor(LogColumn.Date, availableWidth = 5000f))
+    }
+
+    @Test
+    fun `the same person is matched by email, ignoring case, or by name without one`() {
+        val ada = Identity("Ada Lovelace", "ada@example.com")
+
+        assertTrue(ada.isSamePersonAs(Identity("Ada King", " ADA@example.com")))
+        assertFalse(ada.isSamePersonAs(Identity("Ada Lovelace", "ada@work.example")))
+        assertTrue(ada.isSamePersonAs(Identity("Ada Lovelace", null)))
+        assertTrue(ada.isSamePersonAs(Identity("Ada Lovelace", " ")))
+        assertFalse(ada.isSamePersonAs(Identity("Grace Hopper", null)))
+        assertTrue(Identity(null, null).isSamePersonAs(Identity(null, "")))
+    }
+
+    @Test
+    fun `a commit is committed by someone else when the committer isn't its author`() {
+        val ada = Identity("Ada Lovelace", "ada@example.com")
+        val grace = Identity("Grace Hopper", "grace@example.com")
+
+        fun commit(committer: Identity, author: Identity) = Commit("abc", "Message", committer, author, 0, emptyList())
+
+        assertTrue(commit(committer = grace, author = ada).isCommittedBySomeoneElse)
+        assertFalse(commit(committer = ada, author = ada).isCommittedBySomeoneElse)
+        assertFalse(commit(committer = Identity("Ada", "Ada@Example.com"), author = ada).isCommittedBySomeoneElse)
     }
 }

@@ -808,19 +808,21 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
 
 ## Log
 
-**Columns (fork-only):** after Graph and Message, the log can show Author, Date and Commit. The columns menu (the
-header's columns button, or a right-click anywhere on the header) checks them, adds the time to dates, and resets
-them. By default only Date is on, as before.
+**Columns (fork-only):** after Graph and Message, the log can show Author, Committer, Date and Commit. The columns
+menu (the header's columns button, or a right-click anywhere on the header) checks them, adds the time to dates, and
+resets them. By default only Date is on, as before.
 - `LogColumnsSettings` (`domain/.../models/LogColumns.kt`) holds an ordered list of `(column, isVisible, width)`,
   `dateShowsTime` and `graphMaxWidth`. The list's order is the display order, so reordering can come later without
   migrating anyone's settings.
 - One setting for every tab: `AppConfig.LogColumns`, stored as JSON in `user_prefs.json` (key `log_columns`) by
-  `LogColumnsCodec`, which never fails to read.
+  `LogColumnsCodec`, which never fails to read. A column missing from the saved list, such as one a later version
+  added, goes right after the column before it in the default order (`withMissingColumns`): Committer lands after
+  Author.
 - Widths are in dp. A column's divider in the header resizes the column on its right, and Message takes what's
   left. A divider stops where Message would drop below 200 dp (`maxWidthFor`). `LogView` keeps a local copy while a
   divider is dragged and sends `LogAction.ResizeColumn` or `SetGraphMaxWidth` when the drag ends.
-- When the log is too narrow, `fitting` leaves out checked columns until Message has 200 dp: Commit first, then
-  Author, then Date. The menu marks them "Needs more room". `Log` measures its width with `BoxWithConstraints`.
+- When the log is too narrow, `fitting` leaves out checked columns until Message has 200 dp: Committer first, then
+  Commit, then Author, then Date. The menu marks them "Needs more room". `Log` measures its width with `BoxWithConstraints`.
 - The graph is as wide as its lanes, up to `graphMaxWidth` (120 dp by default, the old fixed limit), and at least
   56 dp (`graphColumnWidth`). Dragging its divider sets `graphMaxWidth` (`draggedGraphMaxWidth`): never past the
   lanes, and a drag that changes nothing on screen keeps the saved size, which may come from a busier repository.
@@ -830,6 +832,19 @@ them. By default only Date is on, as before.
 - The cells use the message's 13 sp text (`body2`); Date and Commit are grey. At 13 sp with tabular digits,
   "Dec 22, 2025" is 86.5 dp wide and a short hash 55.5 dp. With 16 dp of padding and an 8 dp gap before the time,
   "Dec 22, 2025" and "10:48 AM" fit in 180 dp: hence 110, 180 and 80 dp.
+- **Author and committer:** each row is a commit, and git records two people on it. Author is who wrote the change;
+  Committer is who put this version of it in the history, which differs after someone else's rebase, cherry-pick or
+  amend, and is GitHub for pull requests merged on its website.
+  - `Commit.isCommittedBySomeoneElse` compares them by email, ignoring case, or by name when either has no email.
+  - Then the author's avatar carries the committer's 10 dp avatar in grey on its bottom-right edge, and the Committer
+    cell's avatar is grey too. The badge's circle, plus a 1.5 dp ring, is cleared from the author's avatar
+    (`BlendMode.Clear` in an offscreen layer), so it stands apart on any row background, the selected row's included.
+  - `AvatarImage` draws the initial in `LocalTextStyle`, so the badge provides a 7 sp style.
+  - Every row keeps the badge's room (20 × 18 dp, then 4 dp before the name), so names line up.
+- **Dates:** Date is the commit date, by which the log orders its rows (`RevSort.COMMIT_TIME_DESC`). After a rebase,
+  the dates the changes were written would jump out of order. `Commit.authorDate` holds when the change was written.
+  The Date tooltip shows both when they differ as displayed (to the minute), and the Author tooltip shows both
+  people with their dates when someone else committed.
 - The UI is in `ui/log/LogColumns.kt`. The menu reuses the sort menu's `SortMenuPopup`, which takes a position.
 - The commit row's menu has "Copy commit hash".
 
