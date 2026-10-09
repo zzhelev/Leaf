@@ -104,7 +104,7 @@ data class LogColumnsSettings(
         /** The order in which columns give way when the log is too narrow for all of them. */
         val HIDE_ORDER = listOf(LogColumn.Commit, LogColumn.Author, LogColumn.Date)
 
-        const val DATE_WITH_TIME_WIDTH = 170f
+        const val DATE_WITH_TIME_WIDTH = 180f
         const val MIN_COLUMN_WIDTH = 48f
         const val MAX_COLUMN_WIDTH = 600f
         const val MESSAGE_MIN_WIDTH = 200f

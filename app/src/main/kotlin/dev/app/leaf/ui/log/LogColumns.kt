@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +34,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -47,12 +49,14 @@ import dev.app.leaf.domain.models.LogColumnEntry
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.toSmartSystemString
+import dev.app.leaf.extensions.toSystemTimeString
 import dev.app.leaf.repositoryopen.LogAction
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.ui.components.sort.SortMenuPopup
+import dev.app.leaf.ui.components.sort.hiddenWhenTruncated
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltipPosition
@@ -69,6 +73,11 @@ private val CELL_PADDING = 8.dp
 private val AUTHOR_AVATAR_SIZE = 16.dp
 private val AUTHOR_TOOLTIP_AVATAR_SIZE = 20.dp
 private const val REOPEN_GUARD_MS = 300
+
+/** OpenType's tabular figures: every digit is as wide as the others, so numbers line up from row to row. */
+private const val TABULAR_DIGITS = "tnum"
+private const val TIME_ALPHA = 0.75f
+private val DATE_TIME_GAP = 8.dp
 
 /** The columns that the header and the rows show after the message, in display order. */
 @Immutable
@@ -186,19 +195,48 @@ private fun AuthorCell(graphCommit: GraphCommit, nodeColor: Color, isDimmed: Boo
     }
 }
 
+/**
+ * The date, and with [showTime] the time at the cell's end, a shade lighter, so that the times line up in a column of
+ * their own. Digits are tabular, so that numbers line up too. When the cell is too narrow, the time is left out
+ * rather than cut, and the tooltip still has it.
+ */
 @Composable
 private fun DateCell(graphCommit: GraphCommit, showTime: Boolean) {
+    val style = MaterialTheme.typography.body2.copy(fontFeatureSettings = TABULAR_DIGITS)
+    val color = MaterialTheme.colors.onBackgroundSecondary
+
     InstantTooltip(
         text = graphCommit.date.toSmartSystemString(allowRelative = false, showTime = true),
+        modifier = Modifier.fillMaxWidth(),
         position = InstantTooltipPosition.RIGHT,
     ) {
-        Text(
-            text = graphCommit.date.toSmartSystemString(showTime = showTime),
-            style = MaterialTheme.typography.body2,
-            color = MaterialTheme.colors.onBackgroundSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = graphCommit.date.toSmartSystemString(),
+                style = style,
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            if (showTime) {
+                Text(
+                    text = graphCommit.date.toSystemTimeString(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = DATE_TIME_GAP)
+                        .hiddenWhenTruncated(),
+                    style = style,
+                    color = color.copy(alpha = TIME_ALPHA),
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 

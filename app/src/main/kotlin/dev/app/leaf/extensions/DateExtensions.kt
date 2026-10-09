@@ -23,6 +23,9 @@ fun Long.toSmartSystemString(
 }
 
 @Composable
+fun Long.toSystemTimeString(): String = Instant.ofEpochSecond(this).toSystemTimeString()
+
+@Composable
 fun Instant.toSmartSystemString(
     allowRelative: Boolean = true,
     useSystemDefaultFormat: Boolean? = null,
@@ -60,22 +63,30 @@ fun Instant.toSmartSystemString(
     }
 
     val formattedTime = if (showTime) {
-        val localDateTime = atZone(zoneId).toLocalDateTime()
-
-        val timeFormatter = if (useSystemDefault) {
-            DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-        } else if (dateTimeFormat.is24hours) {
-            DateTimeFormatter.ofPattern("HH:mm")
-        } else {
-            DateTimeFormatter.ofPattern("hh:mm a")
-        }
-
-        timeFormatter.format(localDateTime)
+        toSystemTimeString(useSystemDefault)
     } else {
         ""
     }
 
     return "${formattedDate.trim()} ${formattedTime.trim()}".trim()
+}
+
+/** The time of day, in the system's format or the 12 or 24-hour format chosen in the settings. */
+@Composable
+fun Instant.toSystemTimeString(useSystemDefaultFormat: Boolean? = null): String {
+    val dateTimeFormat = LocalDateTimeFormat.current
+    val useSystemDefault = useSystemDefaultFormat ?: dateTimeFormat.useSystemDefault
+    val localDateTime = atZone(ZoneId.systemDefault()).toLocalDateTime()
+
+    val timeFormatter = if (useSystemDefault) {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+    } else if (dateTimeFormat.is24hours) {
+        DateTimeFormatter.ofPattern("HH:mm")
+    } else {
+        DateTimeFormatter.ofPattern("hh:mm a")
+    }
+
+    return timeFormatter.format(localDateTime)
 }
 
 private fun LocalDate.isTodayOrYesterday(

@@ -147,7 +147,7 @@ fun SortMenuButton(
 }
 
 /** Shows the content in full or not at all, so a narrow header drops the label instead of cutting it. */
-private fun Modifier.hiddenWhenTruncated() = layout { measurable, constraints ->
+internal fun Modifier.hiddenWhenTruncated() = layout { measurable, constraints ->
     if (measurable.maxIntrinsicWidth(constraints.maxHeight) > constraints.maxWidth) {
         layout(0, 0) {}
     } else {
