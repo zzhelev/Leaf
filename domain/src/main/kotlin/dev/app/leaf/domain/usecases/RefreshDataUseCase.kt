@@ -261,7 +261,7 @@ class RefreshDataUseCase @Inject constructor(
 /**
  * Whether refreshing [dataToRefresh] refreshes the worktrees too: their branches change with BRANCHES, their last
  * commits and how they compare to the base with LOG, and the tab's worktree's changes with STATUS. WORKTREES refreshes
- * them alone, for changes in the other worktrees.
+ * them alone, for changes in the other worktrees or after another base branch is chosen.
  */
 internal fun refreshesWorktrees(dataToRefresh: List<DataToRefresh>): Boolean = dataToRefresh.any {
     it == DataToRefresh.ALL || it == DataToRefresh.BRANCHES || it == DataToRefresh.LOG ||

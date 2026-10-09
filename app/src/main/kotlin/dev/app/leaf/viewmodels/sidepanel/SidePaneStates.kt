@@ -129,12 +129,15 @@ fun combineRemotesState(
  * The Worktrees section (fork-only).
  *
  * @param baseBranch the branch that the worktrees are compared to (`refs/heads/main`), null when there's none.
+ * @param baseChoice the base branch and how it was chosen, for the menu that changes it, null when the
+ * repository has only one worktree (see [WorktreeList.baseChoice]).
  * @param error why the worktrees couldn't be listed, for example because git couldn't run. Null otherwise.
  */
 data class WorktreesState(
     val rows: List<WorktreeRow> = emptyList(),
     val isExpanded: Boolean = true,
     val baseBranch: String? = null,
+    val baseChoice: WorktreeBaseBranch? = null,
     val error: AppError? = null,
 )
 
@@ -148,7 +151,14 @@ fun combineWorktreesState(
             rows = worktrees.data?.let { worktreeRows(it, filter, System.currentTimeMillis()) }.orEmpty(),
             isExpanded = isExpanded,
             baseBranch = worktrees.data?.baseBranch,
+            baseChoice = worktrees.data?.baseChoice(),
             error = worktrees.error,
         )
     }
 }
+
+/**
+ * The base branch, for the menus that choose another one. Null when the repository has only one worktree: the menus
+ * stay out of the way of repositories that don't use worktrees.
+ */
+fun WorktreeList.baseChoice(): WorktreeBaseBranch? = base.takeIf { worktrees.size > 1 }

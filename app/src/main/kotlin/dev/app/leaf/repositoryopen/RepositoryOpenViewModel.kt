@@ -151,6 +151,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val loadRefFolderExpansionUseCase: LoadRefFolderExpansionUseCase,
     private val saveRefFolderExpansionUseCase: SaveRefFolderExpansionUseCase,
     private val pollWorktreesUseCase: PollWorktreesUseCase,
+    private val setWorktreeBaseBranchUseCase: SetWorktreeBaseBranchUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -387,7 +388,7 @@ class RepositoryOpenViewModel @Inject constructor(
     val branchWorktrees: StateFlow<BranchWorktreesState> = worktrees
         .map { worktrees ->
             val list = worktrees.data
-            BranchWorktreesState(list?.usersByBranch().orEmpty(), list?.baseBranch)
+            BranchWorktreesState(list?.usersByBranch().orEmpty(), list?.baseBranch, list?.baseChoice())
         }
         .distinctUntilChanged()
         .stateIn(BranchWorktreesState())
@@ -566,6 +567,20 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun onWorktreesVisibilityChanged(visibility: WorktreesVisibility) {
         worktreesVisibility.value = visibility
+    }
+
+    /**
+     * Compares the worktrees to [branch] (`refs/heads/x`, `refs/remotes/origin/x`), or to the automatic base when
+     * it's null.
+     */
+    fun chooseWorktreesBase(branch: String?) {
+        tabScope.launch {
+            val result = setWorktreeBaseBranchUseCase(branch)
+
+            if (result is Either.Err) {
+                printError(TAG, "Failed to choose $branch as the worktrees' base branch: ${result.error}")
+            }
+        }
     }
 
 

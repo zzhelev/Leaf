@@ -89,15 +89,37 @@ data class WorktreeInfo(
 )
 
 /**
+ * The branch that the worktrees of a repository are compared to.
+ *
+ * @param automatic the local branch that Leaf picks by itself (`refs/heads/main`): the one `origin/HEAD` points to,
+ * then `main`, then `master`, whichever exists first. Null when none does.
+ * @param chosen the branch chosen for the repository, local or remote (`refs/heads/develop`,
+ * `refs/remotes/origin/main`). Null when the choice is automatic.
+ * @param chosenExists whether [chosen] exists. While it doesn't, the worktrees are compared to [automatic].
+ */
+data class WorktreeBaseBranch(
+    val automatic: String?,
+    val chosen: String? = null,
+    val chosenExists: Boolean = false,
+) {
+    /** The full name of the branch that the worktrees are compared to, null when there's none. */
+    val effective: String?
+        get() = if (chosen != null && chosenExists) chosen else automatic
+}
+
+/**
  * The worktrees of a repository, main one first.
  *
- * @param baseBranch the full name of the branch the worktrees are compared to (`refs/heads/main`), null when the
- * repository has none of the default candidates.
+ * @param base the branch that the worktrees are compared to.
  */
 data class WorktreeList(
-    val baseBranch: String?,
+    val base: WorktreeBaseBranch,
     val worktrees: List<WorktreeInfo>,
-)
+) {
+    /** The full name of the branch the worktrees are compared to (`refs/heads/main`), null when there's none. */
+    val baseBranch: String?
+        get() = base.effective
+}
 
 /** A worktree that uses a local branch, and how. */
 data class WorktreeBranchUser(

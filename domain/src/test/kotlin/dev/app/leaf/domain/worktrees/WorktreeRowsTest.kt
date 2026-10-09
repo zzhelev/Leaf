@@ -4,6 +4,7 @@
 package dev.app.leaf.domain.worktrees
 
 import dev.app.leaf.domain.models.Worktree
+import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
 import dev.app.leaf.domain.models.WorktreeList
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -22,7 +23,7 @@ class WorktreeRowsTest {
     @Test
     fun `gives each worktree a row in git's order, named after its folder`() {
         val list = WorktreeList(
-            "refs/heads/main",
+            WorktreeBaseBranch("refs/heads/main"),
             listOf(info(main, lastCommitTime = NOW), info(agent, lastCommitTime = NOW - 3 * DAY), info(feature)),
         )
 
@@ -40,7 +41,7 @@ class WorktreeRowsTest {
 
     @Test
     fun `filters by folder name, path or branch, ignoring case`() {
-        val list = WorktreeList("refs/heads/main", listOf(info(main), info(agent), info(feature)))
+        val list = WorktreeList(WorktreeBaseBranch("refs/heads/main"), listOf(info(main), info(agent), info(feature)))
 
         fun names(filter: String) = worktreeRows(list, filter, NOW).map { it.name }
 

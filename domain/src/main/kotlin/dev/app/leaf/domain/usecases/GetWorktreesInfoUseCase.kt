@@ -12,11 +12,12 @@ import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.errors.onErr
 import dev.app.leaf.domain.interfaces.IGetAheadBehindGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
-import dev.app.leaf.domain.interfaces.IGetDefaultBaseBranchGitAction
+import dev.app.leaf.domain.interfaces.IGetWorktreeBaseBranchGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeStatusGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreesGitAction
 import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.Worktree
+import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
 import dev.app.leaf.domain.models.WorktreeList
 import kotlinx.coroutines.async
@@ -39,16 +40,18 @@ class GetWorktreesInfoUseCase @Inject constructor(
     private val getWorktreesGitAction: IGetWorktreesGitAction,
     private val getWorktreeStatusGitAction: IGetWorktreeStatusGitAction,
     private val getAheadBehindGitAction: IGetAheadBehindGitAction,
-    private val getDefaultBaseBranchGitAction: IGetDefaultBaseBranchGitAction,
+    private val getWorktreeBaseBranchGitAction: IGetWorktreeBaseBranchGitAction,
     private val getCommitTimesGitAction: IGetCommitTimesGitAction,
     private val useCaseExecutor: UseCaseExecutor,
 ) {
     suspend operator fun invoke(): Either<WorktreeList, AppError> = useCaseExecutor.execute { repositoryPath ->
         val worktrees = getWorktreesGitAction(repositoryPath).bind()
 
-        val baseBranch = getDefaultBaseBranchGitAction(repositoryPath)
+        val base = getWorktreeBaseBranchGitAction(repositoryPath)
             .onErr { printError(TAG, "Could not find the base branch: $it") }
             .okOrNull()
+            ?: WorktreeBaseBranch(automatic = null)
+        val baseBranch = base.effective
 
         val commitTimes = getCommitTimesGitAction(repositoryPath, worktrees.mapNotNull { it.headSha })
             .onErr { printError(TAG, "Could not read the commit times: $it") }
@@ -72,7 +75,7 @@ class GetWorktreesInfoUseCase @Inject constructor(
             }.awaitAll()
         }
 
-        Either.Ok(WorktreeList(baseBranch, infos))
+        Either.Ok(WorktreeList(base, infos))
     }
 
     private suspend fun status(worktree: Worktree) = when {

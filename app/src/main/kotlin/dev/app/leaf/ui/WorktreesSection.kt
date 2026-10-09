@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.AheadBehind
+import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
@@ -39,13 +40,15 @@ import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.modifyFile
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.SideMenuHeader
+import dev.app.leaf.ui.components.sort.SortMenuButton
+import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.addContextMenu
 import dev.app.leaf.viewmodels.sidepanel.WorktreesState
 import org.jetbrains.compose.resources.painterResource
-import org.eclipse.jgit.lib.Constants
+import org.eclipse.jgit.lib.Repository
 import org.jetbrains.compose.resources.stringResource
 
 /** Height of a worktree's row, which has two lines. */
@@ -64,8 +67,11 @@ fun LazyListScope.worktrees(
     onExpand: () -> Unit,
     onWorktreeClicked: (WorktreeInfo) -> Unit,
     onCopyPath: (WorktreeInfo) -> Unit,
+    onChooseBase: (branch: String?) -> Unit,
 ) {
     stickyHeader(key = "header:worktrees") {
+        val baseChoice = worktreesState.baseChoice
+
         SectionHeaderBackground {
             SideMenuHeader(
                 text = stringResource(Res.string.side_pane_worktrees_title),
@@ -73,6 +79,9 @@ fun LazyListScope.worktrees(
                 itemsCount = worktreesState.rows.count(),
                 isExpanded = worktreesState.isExpanded,
                 onExpand = onExpand,
+                sortAction = baseChoice?.let { base ->
+                    { WorktreesBaseMenuButton(base, onChooseBase) }
+                },
             )
         }
     }
@@ -295,7 +304,7 @@ internal fun worktreeTooltip(info: WorktreeInfo, baseBranch: String?): String {
     }
 
     if (baseBranch != null && aheadBehindBase != null) {
-        lines += aheadBehindBase.comparedText(baseBranch.removePrefix(Constants.R_HEADS))
+        lines += aheadBehindBase.comparedText(baseBranchName(baseBranch))
     }
 
     if (upstream != null && upstreamAheadBehind != null) {
@@ -340,3 +349,66 @@ private fun AheadBehind.comparedText(other: String): String = if (ahead == 0 && 
 } else {
     stringResource(Res.string.side_pane_worktree_tooltip_compared, other, ahead, behind)
 }
+
+/**
+ * The header button that chooses the branch the worktrees are compared to: muted while Leaf picks it, accent-colored
+ * with the branch's name once one is chosen. Its menu goes back to Automatic; other branches are chosen from their
+ * right-click menus.
+ */
+@Composable
+private fun WorktreesBaseMenuButton(base: WorktreeBaseBranch, onChooseBase: (branch: String?) -> Unit) {
+    val chosen = base.chosen
+    val automatic = base.automatic
+
+    val automaticHint = if (automatic != null) {
+        stringResource(Res.string.side_pane_worktrees_base_automatic_hint, baseBranchName(automatic))
+    } else {
+        stringResource(Res.string.side_pane_worktrees_base_automatic_none)
+    }
+
+    val chosenHint = when {
+        base.chosenExists -> null
+        automatic != null -> stringResource(Res.string.side_pane_worktrees_base_missing, baseBranchName(automatic))
+        else -> stringResource(Res.string.side_pane_worktrees_base_missing_none)
+    }
+
+    val items = buildList {
+        add(SortMenuItem.Title(stringResource(Res.string.side_pane_worktrees_base_title)))
+        add(
+            SortMenuItem.Option(
+                label = stringResource(Res.string.side_pane_worktrees_base_automatic),
+                hint = automaticHint,
+                isChecked = chosen == null,
+                closesMenu = true,
+                onClick = { if (chosen != null) onChooseBase(null) },
+            )
+        )
+
+        if (chosen != null) {
+            add(
+                SortMenuItem.Option(
+                    label = baseBranchName(chosen),
+                    hint = chosenHint,
+                    isChecked = true,
+                    closesMenu = true,
+                    onClick = {},
+                )
+            )
+        }
+
+        add(SortMenuItem.Divider)
+        add(SortMenuItem.Note(stringResource(Res.string.side_pane_worktrees_base_note)))
+    }
+
+    SortMenuButton(
+        isActive = chosen != null,
+        activeLabel = chosen?.let { baseBranchName(it) },
+        showFolderIcon = false,
+        menuItems = items,
+        icon = Res.drawable.compare_arrows,
+        tooltip = stringResource(Res.string.side_pane_worktrees_base_tooltip),
+    )
+}
+
+/** The name of a base branch as the user knows it: `main` for `refs/heads/main`, `origin/main` for a remote one. */
+internal fun baseBranchName(branch: String): String = Repository.shortenRefName(branch)

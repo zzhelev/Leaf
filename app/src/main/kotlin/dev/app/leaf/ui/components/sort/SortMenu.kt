@@ -46,6 +46,7 @@ import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.isDark
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -64,12 +65,16 @@ sealed interface SortMenuItem {
     ) : SortMenuItem
 
     data object Divider : SortMenuItem
+
+    /** A line of secondary text that can't be chosen, such as where to find more options. */
+    data class Note(val text: String) : SortMenuItem
 }
 
 /**
  * The "Sort and group" button of a section header, with its menu. Muted by default; accent-colored when [isActive],
  * with an optional [activeLabel] (for example "Last commit") and a folder icon when [showFolderIcon]. Its click never
- * reaches the parent, so it doesn't expand or collapse the section.
+ * reaches the parent, so it doesn't expand or collapse the section. Other header menus pass their own [icon] and
+ * [tooltip], such as the Worktrees section's base branch.
  */
 @Composable
 fun SortMenuButton(
@@ -78,6 +83,8 @@ fun SortMenuButton(
     showFolderIcon: Boolean,
     menuItems: List<SortMenuItem>,
     modifier: Modifier = Modifier,
+    icon: DrawableResource = Res.drawable.sort,
+    tooltip: String = stringResource(Res.string.sort_menu_tooltip),
 ) {
     var showMenu by remember { mutableStateOf(false) }
     // A press on the button while the menu is open first dismisses the menu as an outside click; this keeps the
@@ -86,7 +93,7 @@ fun SortMenuButton(
     val accent = MaterialTheme.colors.primaryVariant
 
     Box(modifier = modifier) {
-        DelayedTooltip(stringResource(Res.string.sort_menu_tooltip)) {
+        DelayedTooltip(tooltip) {
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
@@ -126,8 +133,8 @@ fun SortMenuButton(
                 }
 
                 Icon(
-                    painter = painterResource(Res.drawable.sort),
-                    contentDescription = stringResource(Res.string.sort_menu_tooltip),
+                    painter = painterResource(icon),
+                    contentDescription = tooltip,
                     tint = if (isActive) accent else MaterialTheme.colors.onBackgroundSecondary,
                     modifier = Modifier.size(14.dp),
                 )
@@ -230,6 +237,7 @@ internal fun SortMenuPopup(
                     )
 
                     SortMenuItem.Divider -> MenuDivider()
+                    is SortMenuItem.Note -> MenuNote(item.text)
                 }
             }
         }
@@ -311,6 +319,16 @@ private fun MenuOption(
             }
         }
     }
+}
+
+@Composable
+private fun MenuNote(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.caption,
+        color = MaterialTheme.colors.onBackgroundSecondary,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+    )
 }
 
 @Composable

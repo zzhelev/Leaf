@@ -15,4 +15,12 @@ class WorktreesSectionTest {
         assertEquals("↓4", AheadBehind(ahead = 0, behind = 4).compactText())
         assertEquals("", AheadBehind(ahead = 0, behind = 0).compactText())
     }
+
+    @Test
+    fun `names a local base branch without its prefix, and a remote one with its remote`() {
+        assertEquals("main", baseBranchName("refs/heads/main"))
+        assertEquals("feature/login", baseBranchName("refs/heads/feature/login"))
+        assertEquals("origin/main", baseBranchName("refs/remotes/origin/main"))
+        assertEquals("upstream/release/2.0", baseBranchName("refs/remotes/upstream/release/2.0"))
+    }
 }

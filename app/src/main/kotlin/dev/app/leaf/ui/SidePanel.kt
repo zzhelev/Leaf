@@ -38,6 +38,7 @@ import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.models.Submodule
 import dev.app.leaf.domain.models.Tag
+import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WorktreesVisibility
 import dev.app.leaf.domain.sorting.RefPanelSettings
@@ -153,10 +154,12 @@ fun SidePanel(
                 onExpand = { viewModel.onExpandWorktrees() },
                 onWorktreeClicked = { viewModel.selectWorktree(it.worktree) },
                 onCopyPath = { scope.launch { clipboard.setClipboardText(it.worktree.path) } },
+                onChooseBase = { viewModel.chooseWorktreesBase(it) },
             )
 
             remotes(
                 remotesState = remotesState,
+                worktreesBase = branchWorktrees.baseChoice,
                 refPanelSettings = refPanelSettings,
                 viewModel = viewModel,
                 onShowAddEditRemoteDialog = { onNavigate(Screen.AddEditRemote(it)) },
@@ -291,6 +294,7 @@ fun LazyListScope.localBranches(
                         currentBranch = currentBranch,
                         worktreeUsers = branchWorktrees.usersOf(branch),
                         worktreesBaseBranch = branchWorktrees.baseBranch,
+                        worktreesBase = branchWorktrees.baseChoice,
                         onBranchClicked = { viewModel.selectBranch(branch) },
                         onBranchDoubleClicked = { viewModel.checkoutBranch(branch) },
                         onCheckoutBranch = { viewModel.checkoutBranch(branch) },
@@ -299,6 +303,7 @@ fun LazyListScope.localBranches(
                         onDeleteBranch = { onDeleteBranch(branch) },
                         onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(branch) },
                         onRenameBranch = { onRenameBranch(branch) },
+                        onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                         onCopyBranchNameToClipboard = {
                             scope.launch {
                                 clipboard.setClipboardText(branch.simpleName)
@@ -314,6 +319,7 @@ fun LazyListScope.localBranches(
 @OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.remotes(
     remotesState: RemotesState,
+    worktreesBase: WorktreeBaseBranch?,
     refPanelSettings: RefPanelSettings,
     viewModel: RepositoryOpenViewModel,
     onShowAddEditRemoteDialog: (Remote?) -> Unit,
@@ -398,6 +404,7 @@ fun LazyListScope.remotes(
                                 depth = row.depth,
                                 ageLabel = row.ageLabel,
                                 currentBranch = remotesState.currentBranch,
+                                worktreesBase = worktreesBase,
                                 onBranchClicked = { viewModel.selectBranch(remoteBranch) },
                                 onCheckoutBranch = { viewModel.checkoutRemoteBranch(remoteBranch) },
                                 onDeleteBranch = {
@@ -409,6 +416,7 @@ fun LazyListScope.remotes(
                                 onPullRemoteBranch = { viewModel.pullFromRemoteBranch(remoteBranch) },
                                 onRebaseRemoteBranch = { viewModel.rebaseBranch(remoteBranch) },
                                 onMergeRemoteBranch = { viewModel.mergeBranch(remoteBranch) },
+                                onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                                 onCopyBranchNameToClipboard = {
                                     scope.launch {
                                         clipboard.setClipboardText(remoteBranch.simpleName)
@@ -654,6 +662,7 @@ private fun Branch(
     currentBranch: Branch?,
     worktreeUsers: BranchWorktreeUsers?,
     worktreesBaseBranch: String?,
+    worktreesBase: WorktreeBaseBranch?,
     isSelectedItem: Boolean,
     onBranchClicked: () -> Unit,
     onBranchDoubleClicked: () -> Unit,
@@ -663,6 +672,7 @@ private fun Branch(
     onDeleteBranch: () -> Unit,
     onChangeDefaultUpstreamBranch: () -> Unit,
     onRenameBranch: () -> Unit,
+    onChooseWorktreesBase: (branch: String?) -> Unit,
     onCopyBranchNameToClipboard: () -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
@@ -684,6 +694,8 @@ private fun Branch(
                 onRenameBranch = onRenameBranch,
                 onCopyBranchNameToClipboard = onCopyBranchNameToClipboard,
                 worktreeUsers = worktreeUsers,
+                worktreesBase = worktreesBase,
+                onChooseWorktreesBase = onChooseWorktreesBase,
             )
         }
     ) {
@@ -750,6 +762,7 @@ private fun RemoteBranches(
     depth: Int,
     ageLabel: String?,
     currentBranch: Branch?,
+    worktreesBase: WorktreeBaseBranch?,
     onBranchClicked: () -> Unit,
     onCheckoutBranch: () -> Unit,
     onDeleteBranch: () -> Unit,
@@ -757,6 +770,7 @@ private fun RemoteBranches(
     onPullRemoteBranch: () -> Unit,
     onRebaseRemoteBranch: () -> Unit,
     onMergeRemoteBranch: () -> Unit,
+    onChooseWorktreesBase: (branch: String?) -> Unit,
     onCopyBranchNameToClipboard: () -> Unit,
 ) {
     ContextMenu(
@@ -775,7 +789,9 @@ private fun RemoteBranches(
                 onPullFromRemoteBranch = onPullRemoteBranch,
                 onChangeDefaultUpstreamBranch = {},
                 onRenameBranch = {},
-                onCopyBranchNameToClipboard = onCopyBranchNameToClipboard
+                onCopyBranchNameToClipboard = onCopyBranchNameToClipboard,
+                worktreesBase = worktreesBase,
+                onChooseWorktreesBase = onChooseWorktreesBase,
             )
         }
     ) {

@@ -2,6 +2,7 @@ package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.config.WorktreeBaseBranchConfig
 import dev.app.leaf.data.git.worktrees.worktreesUsing
 import dev.app.leaf.data.mappers.JGitBranchMapper
 import dev.app.leaf.domain.errors.RenameBranchError
@@ -50,6 +51,9 @@ class RenameBranchGitAction @Inject constructor(
                 .setNewName(newName)
                 .call()
 
+            // The worktrees' base branch follows it, as git moves `branch.<name>` config along
+            moveWorktreeBaseBranch(repository, oldRefName, ref.name)
+
             // As git's `replace_each_worktree_head_symref`, after the rename
             val currentGitDir = repository.directory.canonicalFile
             val notMoved = worktrees
@@ -94,4 +98,16 @@ private fun moveHead(gitDir: File, branchName: String, fs: FS): Boolean = try {
 } catch (ex: IOException) {
     printError(TAG, "Moving the HEAD of $gitDir to $branchName failed", ex)
     false
+}
+
+/**
+ * Chooses [newName] as the worktrees' base branch if [oldName] was chosen. A failure is only logged: the branch is
+ * already renamed, and the worktrees are compared to the automatic base until another branch is chosen.
+ */
+private fun moveWorktreeBaseBranch(repository: Repository, oldName: String, newName: String) {
+    try {
+        WorktreeBaseBranchConfig.renamed(repository, oldName, newName)
+    } catch (ex: IOException) {
+        printError(TAG, "Choosing $newName as the worktrees' base branch failed", ex)
+    }
 }

@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.config.LocalConfigConstants
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.mappers.JGitBranchMapper
 import dev.app.leaf.domain.errors.Either
@@ -209,6 +210,44 @@ class RenameBranchGitActionTest {
             assertEquals("refs/heads/agent", head(worktree), "$worktree")
         }
     }
+
+    @Test
+    fun `moves the worktrees' base branch to the new name`(): Unit = runBlocking {
+        val (repository, worktree) = repositoryWithAgentWorktree("repo")
+        git.run(repository, "branch", "develop")
+        chooseBase(repository, "refs/heads/develop")
+
+        // From the linked worktree's tab too: the choice is in the common git dir
+        val worktreeGitDir = File(repository, ".git/worktrees/${worktree.name}").absolutePath
+        val result = action(worktreeGitDir, "develop", "release/develop")
+
+        assertEquals(Either.Ok(branch("release/develop", repository)), result)
+        assertEquals("refs/heads/release/develop", chosenBase(repository))
+
+        action(gitDir(repository), "refs/heads/release/develop", "trunk")
+        assertEquals("refs/heads/trunk", chosenBase(repository))
+    }
+
+    @Test
+    fun `leaves the worktrees' base branch alone when another branch is renamed`(): Unit = runBlocking {
+        val (repository, _) = repositoryWithAgentWorktree("repo")
+        git.run(repository, "branch", "develop")
+        chooseBase(repository, "refs/heads/develop")
+
+        action(gitDir(repository), "refs/heads/agent", "feature/agent")
+
+        assertEquals("refs/heads/develop", chosenBase(repository))
+    }
+
+    /** Chooses [branch] as the worktrees' base, as Leaf saves it in the repository's Leaf file. */
+    private fun chooseBase(repository: File, branch: String) {
+        git.run(repository, "config", "--file", leafFile(repository).path, "worktrees.baseBranch", branch)
+    }
+
+    private fun chosenBase(repository: File) =
+        git.run(repository, "config", "--file", leafFile(repository).path, "worktrees.baseBranch").trim()
+
+    private fun leafFile(repository: File) = File(repository, ".git/${LocalConfigConstants.CONFIG_FILE_NAME}")
 
     /**
      * Creates the repository [name] on main, and its linked worktree `wt-<name>` on the new branch agent, with a change

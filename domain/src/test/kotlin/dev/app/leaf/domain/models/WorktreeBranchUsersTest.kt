@@ -57,7 +57,8 @@ class WorktreeBranchUsersTest {
         val rebasing = info(worktree("/rebasing", rebasingBranch = "refs/heads/feature"))
         val detached = info(worktree("/detached"))
 
-        val users = WorktreeList("refs/heads/main", listOf(main, forced, rebasing, detached)).usersByBranch()
+        val list = WorktreeList(WorktreeBaseBranch("refs/heads/main"), listOf(main, forced, rebasing, detached))
+        val users = list.usersByBranch()
 
         assertEquals(
             mapOf(

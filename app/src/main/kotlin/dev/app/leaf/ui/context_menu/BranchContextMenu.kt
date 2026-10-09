@@ -3,6 +3,7 @@ package dev.app.leaf.ui.context_menu
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
+import dev.app.leaf.domain.models.WorktreeBaseBranch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -22,6 +23,8 @@ fun branchContextMenuItems(
     onRenameBranch: () -> Unit,
     onCopyBranchNameToClipboard: () -> Unit,
     worktreeUsers: BranchWorktreeUsers? = null,
+    worktreesBase: WorktreeBaseBranch? = null,
+    onChooseWorktreesBase: (branch: String?) -> Unit = {},
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -107,6 +110,30 @@ fun branchContextMenuItems(
                 composableLabel = { stringResource(Res.string.branch_context_menu_delete_branch) },
                 icon = { painterResource(Res.drawable.delete) },
                 onClick = onDeleteBranch,
+            )
+
+            add(ContextMenuElement.ContextSeparator)
+        }
+
+        // The branch that the worktrees are compared to (fork-only): its label, and the base it chooses
+        val compareWorktrees = when {
+            worktreesBase == null -> null
+            branch.name == worktreesBase.chosen ->
+                Res.string.branch_context_menu_compare_worktrees_automatically to null
+
+            branch.name != worktreesBase.effective ->
+                Res.string.branch_context_menu_compare_worktrees_to_branch to branch.name
+
+            else -> null
+        }
+
+        if (compareWorktrees != null) {
+            val (label, base) = compareWorktrees
+
+            addContextMenu(
+                composableLabel = { stringResource(label) },
+                icon = { painterResource(Res.drawable.compare_arrows) },
+                onClick = { onChooseWorktreesBase(base) },
             )
 
             add(ContextMenuElement.ContextSeparator)

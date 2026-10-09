@@ -20,7 +20,7 @@ internal object RefFolderExpansionConfig {
     private const val COLLAPSED = "collapsedFolder"
 
     fun load(repository: Repository): RefFolderExpansion {
-        val file = configFile(repository)
+        val file = commonConfigFile(repository)
 
         if (!file.exists()) return RefFolderExpansion()
 
@@ -35,7 +35,7 @@ internal object RefFolderExpansionConfig {
     }
 
     fun save(repository: Repository, expansion: RefFolderExpansion) {
-        val file = configFile(repository)
+        val file = commonConfigFile(repository)
         file.createNewFile()
 
         val config = FileBasedConfig(file, repository.fs)
@@ -53,10 +53,14 @@ internal object RefFolderExpansionConfig {
             setStringList(SECTION, null, name, values.sorted())
         }
     }
-
-    private fun configFile(repository: Repository) =
-        File(repository.commonDirectory ?: repository.directory, LocalConfigConstants.CONFIG_FILE_NAME)
 }
+
+/**
+ * The per-repository Leaf config file in the common git dir, which every worktree of the repository shares. In the main
+ * worktree it is also the file that holds sign-off.
+ */
+internal fun commonConfigFile(repository: Repository) =
+    File(repository.commonDirectory ?: repository.directory, LocalConfigConstants.CONFIG_FILE_NAME)
 
 private const val TAG = "RefFolderExpansionConfig"
 

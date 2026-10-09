@@ -4,6 +4,8 @@
 package dev.app.leaf.data.git.worktrees
 
 import dev.app.leaf.data.git.IsolatedSystemReader
+import dev.app.leaf.data.git.branches.DeleteBranchGitAction
+import dev.app.leaf.data.git.config.SaveWorktreeBaseBranchGitAction
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
@@ -12,6 +14,8 @@ import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AheadBehind
+import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeList
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.refresh.WatchedRepository
@@ -188,23 +192,23 @@ class WorktreesTest {
 
     @Test
     fun `picks origin's default branch, then main, then master as the base`(): Unit = runBlocking {
-        val getDefaultBaseBranch = GetDefaultBaseBranchGitAction(jgit)
-        assertEquals(Either.Ok("refs/heads/main"), getDefaultBaseBranch(gitDir(main)))
+        val getBaseBranch = GetWorktreeBaseBranchGitAction(jgit)
+        assertEquals(Either.Ok(WorktreeBaseBranch("refs/heads/main")), getBaseBranch(gitDir(main)))
 
         git.run(main, "branch", "develop")
         git.run(main, "update-ref", "refs/remotes/origin/develop", "HEAD")
         git.run(main, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
-        assertEquals(Either.Ok("refs/heads/develop"), getDefaultBaseBranch(gitDir(main)))
+        assertEquals(Either.Ok(WorktreeBaseBranch("refs/heads/develop")), getBaseBranch(gitDir(main)))
 
         val master = File(tempDir, "master").apply { mkdirs() }
         git.run(master, "init", "-b", "master")
         commit(master, "README.md", "Initial commit", INITIAL_DATE)
-        assertEquals(Either.Ok("refs/heads/master"), getDefaultBaseBranch(gitDir(master)))
+        assertEquals(Either.Ok(WorktreeBaseBranch("refs/heads/master")), getBaseBranch(gitDir(master)))
 
         val trunk = File(tempDir, "trunk").apply { mkdirs() }
         git.run(trunk, "init", "-b", "trunk")
         commit(trunk, "README.md", "Initial commit", INITIAL_DATE)
-        assertEquals(Either.Ok(null), getDefaultBaseBranch(gitDir(trunk)))
+        assertEquals(Either.Ok(WorktreeBaseBranch(null)), getBaseBranch(gitDir(trunk)))
     }
 
     @Test
@@ -224,6 +228,7 @@ class WorktreesTest {
         val clean = WorktreeStatus(0, 0, 0, 0, null, null)
         val behindByOne = AheadBehind(ahead = 0, behind = 1)
 
+        assertEquals(WorktreeBaseBranch("refs/heads/main"), list.base)
         assertEquals("refs/heads/main", list.baseBranch)
         assertEquals(main.canonicalPath, list.worktrees.first().worktree.path)
 
@@ -253,13 +258,77 @@ class WorktreesTest {
         }
     }
 
+    @Test
+    fun `compares every worktree to the branch chosen in any worktree's tab`(): Unit = runBlocking {
+        assertEquals(Either.Ok(Unit), SaveWorktreeBaseBranchGitAction(jgit)(gitDir(feature), "refs/heads/feature"))
+        val base = WorktreeBaseBranch("refs/heads/main", "refs/heads/feature", chosenExists = true)
+
+        for (tab in listOf(main, feature)) {
+            val byPath = worktreesInfo(gitDir(tab)).let { list ->
+                assertEquals(base, list.base)
+                list.worktrees.associate { it.worktree.path to it.aheadBehindBase }
+            }
+
+            assertEquals(AheadBehind(ahead = 1, behind = 1), byPath[main.canonicalPath], tab.name)
+            assertNull(byPath[feature.canonicalPath], "feature is the base")
+
+            for (worktree in listOf(detached, locked, gone, agent)) {
+                assertEquals(AheadBehind(ahead = 0, behind = 1), byPath[worktree.canonicalPath], worktree.name)
+            }
+        }
+    }
+
+    @Test
+    fun `compares a worktree on main to origin's main when that is chosen`(): Unit = runBlocking {
+        // origin's main is still at the first commit: main's last commit isn't pushed
+        git.run(main, "update-ref", "refs/remotes/origin/main", "HEAD~1")
+        SaveWorktreeBaseBranchGitAction(jgit)(gitDir(main), "refs/remotes/origin/main")
+
+        val list = worktreesInfo(gitDir(main))
+        val byPath = list.worktrees.associate { it.worktree.path to it.aheadBehindBase }
+
+        assertEquals("refs/remotes/origin/main", list.baseBranch)
+        assertEquals(AheadBehind(ahead = 1, behind = 0), byPath[main.canonicalPath])
+        assertEquals(AheadBehind(ahead = 1, behind = 0), byPath[feature.canonicalPath])
+
+        for (worktree in listOf(detached, locked, gone, agent)) {
+            assertEquals(AheadBehind(ahead = 0, behind = 0), byPath[worktree.canonicalPath], worktree.name)
+        }
+    }
+
+    @Test
+    fun `keeps a deleted base branch chosen, and compares to the automatic one until it's back`(): Unit = runBlocking {
+        git.run(main, "branch", "release")
+        SaveWorktreeBaseBranchGitAction(jgit)(gitDir(main), "refs/heads/release")
+        val release = Branch(git.run(main, "rev-parse", "release").trim(), "refs/heads/release", isLocal = true)
+
+        assertEquals(Either.Ok(Unit), DeleteBranchGitAction(jgit)(gitDir(main), release, force = false))
+
+        worktreesInfo(gitDir(main)).let { list ->
+            assertEquals(WorktreeBaseBranch("refs/heads/main", "refs/heads/release", chosenExists = false), list.base)
+            assertEquals("refs/heads/main", list.baseBranch)
+            assertEquals(AheadBehind(ahead = 1, behind = 1), list.info(feature).aheadBehindBase)
+        }
+
+        // A branch of that name is the base again
+        git.run(main, "branch", "release", "feature")
+
+        worktreesInfo(gitDir(main)).let { list ->
+            assertEquals("refs/heads/release", list.baseBranch)
+            assertEquals(AheadBehind(ahead = 0, behind = 0), list.info(feature).aheadBehindBase)
+            assertEquals(AheadBehind(ahead = 1, behind = 1), list.info(main).aheadBehindBase)
+        }
+    }
+
+    private fun WorktreeList.info(worktree: File) = worktrees.single { it.worktree.path == worktree.canonicalPath }
+
     /** What [GetWorktreesInfoUseCase] gives a tab that holds [repositoryPath]. */
     private suspend fun worktreesInfo(repositoryPath: String): WorktreeList {
         val useCase = GetWorktreesInfoUseCase(
             GetWorktreesGitAction(gitCli, jgit),
             GetWorktreeStatusGitAction(gitCli),
             GetAheadBehindGitAction(gitCli),
-            GetDefaultBaseBranchGitAction(jgit),
+            GetWorktreeBaseBranchGitAction(jgit),
             GetCommitTimesGitAction(jgit),
             UseCaseExecutor(
                 mockk<RepositoryDataRepository> { every { this@mockk.repositoryPath } returns repositoryPath },

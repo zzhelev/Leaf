@@ -104,6 +104,14 @@
     <string name="side_pane_worktree_tooltip_locked">Locked</string>
     <string name="side_pane_worktree_tooltip_locked_reason">Locked: %1$s</string>
     <string name="side_pane_worktree_tooltip_prunable">The folder is missing: %1$s.\ngit worktree prune would remove this worktree.</string>
+    <string name="side_pane_worktrees_base_tooltip">Compare worktrees to…</string>
+    <string name="side_pane_worktrees_base_title">Compare worktrees to</string>
+    <string name="side_pane_worktrees_base_automatic">Automatic</string>
+    <string name="side_pane_worktrees_base_automatic_hint">%1$s (origin's default branch, main or master)</string>
+    <string name="side_pane_worktrees_base_automatic_none">None found (origin's default branch, main or master)</string>
+    <string name="side_pane_worktrees_base_missing">Not found, comparing to %1$s</string>
+    <string name="side_pane_worktrees_base_missing_none">Not found, nothing is compared</string>
+    <string name="side_pane_worktrees_base_note">Right-click a branch to compare worktrees to it</string>
 
     <!-- Branches that a worktree uses, in the branch list and the log (fork-only) -->
     <string name="branch_worktree_tooltip_checked_out">Another worktree has this branch checked out, so it can't be checked out here or deleted.</string>
@@ -194,6 +202,8 @@
     <string name="branch_context_menu_delete_remote_branch">Delete remote branch</string>
     <string name="branch_context_menu_delete_branch">Delete branch</string>
     <string name="branch_context_menu_copy_branch_name">Copy branch name</string>
+    <string name="branch_context_menu_compare_worktrees_to_branch">Compare worktrees to this branch</string>
+    <string name="branch_context_menu_compare_worktrees_automatically">Compare worktrees automatically</string>
 
     <!-- Committed changes context menu -->
     <string name="committed_changes_context_menu_blame_file">Blame file</string>

@@ -9,6 +9,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
+import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeBranchUse
 import dev.app.leaf.domain.models.WorktreeBranchUser
 import dev.app.leaf.domain.worktrees.nameNextTo
@@ -46,10 +48,13 @@ private val ROW_END_PADDING = 16.dp
  * branch chips.
  *
  * @param baseBranch the branch that the worktrees are compared to (`refs/heads/main`), null when there's none.
+ * @param baseChoice the base branch and how it was chosen, for the menus that change it, null when the repository has
+ * only one worktree.
  */
 data class BranchWorktreesState(
     val usersByBranch: Map<String, BranchWorktreeUsers> = emptyMap(),
     val baseBranch: String? = null,
+    val baseChoice: WorktreeBaseBranch? = null,
 ) {
     /** The worktrees that use [branch], null for a remote branch or a branch that no worktree uses. */
     fun usersOf(branch: Branch): BranchWorktreeUsers? = if (branch.isLocal) usersByBranch[branch.name] else null
@@ -57,6 +62,12 @@ data class BranchWorktreesState(
 
 /** The worktrees that use each local branch, which the log provides to its branch chips. */
 val LocalBranchWorktrees = compositionLocalOf { BranchWorktreesState() }
+
+/**
+ * Chooses the branch that the worktrees are compared to, or goes back to the automatic one when null. The log provides
+ * it to its branch chips.
+ */
+val LocalOnChooseWorktreesBase = staticCompositionLocalOf<(String?) -> Unit> { {} }
 
 /**
  * A local branch's name in the branch list, followed by a folder icon when another worktree uses the branch, and that

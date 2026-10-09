@@ -59,6 +59,7 @@ import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.*
 import dev.app.leaf.ui.BranchWorktreeChipMark
 import dev.app.leaf.ui.LocalBranchWorktrees
+import dev.app.leaf.ui.LocalOnChooseWorktreesBase
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.sort.SortMenuItem
@@ -144,7 +145,10 @@ fun Log(
     }
 
     BoxWithConstraints {
-        CompositionLocalProvider(LocalBranchWorktrees provides branchWorktrees) {
+        CompositionLocalProvider(
+            LocalBranchWorktrees provides branchWorktrees,
+            LocalOnChooseWorktreesBase provides viewModel::chooseWorktreesBase,
+        ) {
             LogView(
                 logState = logStatus,
                 logWidth = maxWidth.value,
@@ -1431,6 +1435,7 @@ fun BranchChip(
 ) {
     val branchWorktrees = LocalBranchWorktrees.current
     val worktreeUsers = branchWorktrees.usersOf(ref)
+    val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
@@ -1449,6 +1454,8 @@ fun BranchChip(
             onRenameBranch = onRenameBranch,
             onCopyBranchNameToClipboard = onCopyBranchNameToClipboard,
             worktreeUsers = worktreeUsers,
+            worktreesBase = branchWorktrees.baseChoice,
+            onChooseWorktreesBase = onChooseWorktreesBase,
         )
     }
 
