@@ -271,8 +271,8 @@ asking.
   runs hooks needs the same.
 - Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper). `GpgSigningException`,
   `SshSigningException` and `SshNeedsGitException` are looked for in the cause chain first, as JGit wraps them.
-- Closing a tab closes and drops the cached `Git` of every repository that no remaining tab has open
-  (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
+- Closing a tab, or replacing it ("Open another repository"), closes and drops the cached `Git` of every repository
+  that no remaining tab has open (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
   dirs from `RepositorySelectionState.Open.path`, never `<working tree>/.git`: linked worktrees and submodules have no
   such folder. The cache is a `ConcurrentHashMap`, because tabs add to it while another tab closes.
 - `provide` does not switch dispatchers. Many actions call `withContext(Dispatchers.IO)` themselves.
@@ -288,6 +288,10 @@ code, "worktree" means the working directory, not linked worktrees.
   `useCaseExecutor.executeLaunch(TaskType.X, dataToRefresh = arrayOf(DataToRefresh...)) { repositoryPath -> ... }`.
   This fires and forgets, shows the blocking `ProcessingScreen`, records the completed or failed task, and refreshes
   on success.
+- A use case that runs inside another task's block calls a suspend function, never another mutation's `invoke`: that
+  starts a task of its own, which the running task doesn't wait for, and whose end clears `currentTask` (the
+  processing screen) while the first still runs. Fork-only: `DoCommitUseCase.commit` is the amend that continuing a
+  rebase makes; it used to be a `DoCommit` task that raced `git rebase --continue`, and a failed amend was ignored.
 - Queries are `suspend` and use `useCaseExecutor.execute`. So do mutations whose dialog shows the result, such as
   rename branch and delete branch or tag: `execute` records no task, so they get no ProcessingScreen, toast or
   `ErrorDialog`.
@@ -309,10 +313,13 @@ code, "worktree" means the working directory, not linked worktrees.
     Merge conflicts are `STOPPED`.
 
 **Concurrency:**
-- There is no mutex around git operations. Foreground tasks only block UI input.
+- There is no mutex around git operations. Foreground tasks only block UI input. A tab's refreshes take turns (see
+  Refresh).
 - There is no `CoroutineExceptionHandler`. An exception that escapes as a throw, rather than as `Either.Err`, kills
   its coroutine silently, with only a stderr stack trace. Return errors from git actions; don't throw them. Opening a
   linked worktree used to hit this.
+- `UseCaseExecutor` turns a throw inside its block into `GenericError`, and logs it (fork-only): callers that ignore
+  the result, such as refreshes, used to drop it without a trace.
 
 **Git CLI (fork-only, `data/git/cli/`, `domain/gitcli/`):** use it for anything JGit can't do, starting with linked
 worktrees.
@@ -666,6 +673,21 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - App-scoped: the `JGit` cache, `AppStateManager` (recent repos), settings.
 
 **Scopes:** `TabCoroutineScope` and `TabViewModel.viewModelScope` are both `SupervisorJob() + Dispatchers.Default`.
+- Never block their threads: `Dispatchers.Default` has one per core, shared by every tab. Blocking calls go to
+  `Dispatchers.IO`, and a loop that blocks for as long as the tab is open, like the file watcher's (see Refresh), to a
+  view of its own, `Dispatchers.IO.limitedParallelism(1)`, which doesn't count against IO's 64 threads.
+- Wait for a state with `first { ... }` on its flow, never a loop that reads `.value`: the commit identity dialog's
+  loop (`StatusViewModelExtender.getIdentity`, now `awaitAnswer`) kept a core busy while the dialog was open
+  (fork-only fix).
+- **Tear-down (fork-only):** closing a tab (`AppViewModel.closeTab`) or replacing it (`replaceTab`) calls
+  `RepositoryTabViewModel.dispose()`. That clears every view model in `viewModelsMap` and its own (`onClear`, which
+  cancels the children of `viewModelScope`), closes the watcher, cancels `TabCoroutineScope` and clears the data.
+  Before, only `TabCoroutineScope` was cancelled, and a replaced tab wasn't disposed at all.
+  - A view model collects in its own `viewModelScope`, not `TabCoroutineScope`, so that clearing it stops what it
+    started. `HistoryViewModel` collected the diff setting in the tab's scope, once more per file history opened.
+  - `RepositoryOpenViewModel.onClear` clears its `historyViewModel` and calls `super`; upstream had left it empty,
+    so its pipelines outlived it. It also runs when the `RepositoryOpen` entry leaves the tab's back stack
+    (`removeViewModel`), as when the tab opens a repository in place.
 
 **ViewModels:**
 - They extend `TabViewModel`. Child view models come from `tabViewModel(key) { component -> ... }`, with assisted
@@ -677,7 +699,8 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - Newer screens take `onAction(SealedAction)`.
 
 **Data state:** each piece of repository data is a `Flow<DataState<T>>` (Loading/Loaded/Error) in
-`InMemoryRepositoryDataRepository`. `RefreshDataUseCase` refreshes it per `DataToRefresh` value.
+`InMemoryRepositoryDataRepository`. `RefreshDataUseCase` refreshes it per `DataToRefresh` value. A step that throws
+ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without a log line.
 
 **Dialogs** are Navigation3 destinations:
 - `sealed interface Screen` in `App.kt`, `entry<Screen.X>` in `ui/AppTab.kt`.
@@ -707,6 +730,11 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - Paths in: `App.start` restores tabs from prefs (`AppViewModel.loadPersistedTabs`) and handles the CLI argument;
   the Welcome page (picker or recent repos) calls `RepositoryTabViewModel.openRepository`; the menu's "open another
   repository" replaces the current tab; switching to a worktree (fork-only, see Identity) selects or adds one.
+- `AppViewModel.addNewTabFromPath` only adds a tab. Replacing goes through `replaceTab(tab, path)` (fork-only), with the
+  tab from `LocalTab`, and disposes the old one (see DI, coroutines, state). The tab used to be found by path, which
+  matched any tab without one: the Welcome page, or a tab whose path nothing had collected yet (a lazy `stateIn`),
+  such as one scrolled out of the tab bar. So adding a tab from the CLI, a submodule or a worktree switch could
+  replace such a tab, which kept running.
 - Tabs load lazily. `AppTab` calls `loadTab()` when a tab is first composed.
 - Then `OpenRepositoryUseCase` → `OpenRepositoryGitAction`, which validates the path and returns the git dir. After
   that: `RepositorySelectionState.Open(gitDir)`, the working-tree path goes into recent repos, then
@@ -927,8 +955,10 @@ resets them. By default only Date is on, as before.
 **Rust** (`rs/src/lib.rs`):
 - `FileWatcher` on notify 8. `watch()` is a **blocking** loop that batches Create/Modify/Remove events and flushes
   them with a ~500 ms throttle.
-- It is called from a `callbackFlow` in `data/.../git/FileChangesWatcher.kt`, so it occupies a coroutine thread per
-  tab.
+- It is called from a `callbackFlow` in `data/.../git/FileChangesWatcher.kt`, which runs on a single-thread view of
+  `Dispatchers.IO` per tab (`flowOn`, fork-only). It used to run on the tab's `Dispatchers.Default`, one thread per
+  loaded tab, so with as many tabs as cores nothing else on Default ran. `FileChangesWatcherTest` (`:data`) loads the
+  library from `app/src/main/resources` through `uniffi.component.leaf_rs.libraryOverride`.
 - `add_watch` error codes are ignored.
 
 **`domain/.../usecases/ObserveRepositoryToRefreshUseCase.kt`:**
@@ -958,6 +988,17 @@ resets them. By default only Date is on, as before.
   coming. An agent that runs git rewrites its worktree's index all the time, and each refresh runs git in every
   worktree.
 - Events are dropped (not deferred) while a task runs and for 1.5 s after one.
+
+**Taking turns (fork-only, `domain/DataRefreshRunner.kt`):** a tab's refreshes run one at a time.
+- `RefreshDataUseCase` runs them through the tab's `DataRefreshRunner`. A call made while a refresh runs waits; calls
+  made while one waits add their `DataToRefresh` to its refresh and return at once, so a burst of changes queues one
+  refresh at most. Its job then ends before its data is refreshed.
+- Before, every call ran at once. While an agent wrote in the tab's worktree, the watcher's refreshes overlapped: two
+  walks of the log shared the tab's `GraphLogGenerator`, whose lanes aren't thread-safe, and the older result could
+  land last.
+- Loading more commits (`IncreaseLogCountUseCase`) runs between refreshes (`runAlone`), as it adds to the log they
+  replace.
+- The worktree list stays outside: it has its own runner, and a call for WORKTREES alone skips this one.
 
 **Polling (fork-only):** nothing watches the other worktrees' working trees, so what an agent changes in their files
 shows up through `PollWorktreesUseCase` (`worktreePollTicks` in `refresh/WorktreesPolling.kt`).

@@ -2,6 +2,49 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Many tabs no longer stall each other (branch `fix/many-tabs-concurrency`)
+
+Five concurrency and lifecycle bugs in code from Gitnuro, which hurt most with one tab per agent's worktree. A review
+on 2026-10-09 found them.
+
+- **File watcher:** each loaded tab's watch loop, which blocks, ran on `Dispatchers.Default`, where tabs and view
+  models do their work and which has one thread per core. With as many loaded tabs as cores, nothing else on it ran.
+  The loop now runs on a single-thread view of `Dispatchers.IO` per tab, which doesn't take IO's threads either.
+- **Tabs torn down:**
+  - Closing a tab cancelled only the tab's scope. The view models' own scopes kept running: `RepositoryOpenViewModel`
+    (its `onClear` was an empty override) and the file history's, which collected a setting in the tab's scope, once
+    more per file history opened. Now `dispose` clears every view model, and a file history stops when it closes.
+  - "Open another repository" replaced the tab without disposing it, and found it by path. A tab without a path
+    matched too: the Welcome page, or a tab whose path nothing had shown yet, such as one scrolled out of the tab bar.
+    Opening a folder from the command line, a submodule, or a worktree with "Switch to worktree" could replace such a
+    tab. Now `replaceTab` gets the tab itself and disposes it as closing it does, and adding a tab only adds.
+- **Commit identity dialog:** committing without `user.name` or `user.email` asks for them. While the dialog was open,
+  a loop read the answer without pause, taking a whole core, and forever if the tab closed. It now waits without a
+  thread.
+- **Amending while continuing a rebase:** "Continue" on a step marked to amend started the amend as a task of its own
+  and didn't wait: `git rebase --continue` raced it, a failed amend was ignored, and the amend's end took the
+  processing screen away while the rebase still ran. The amend now runs within the rebase's task, and the rebase stops
+  with the amend's error when it fails.
+- **Refreshes:**
+  - Every refresh ran at once. While an agent wrote in the tab's worktree, the watcher's refreshes overlapped: two
+    walks of the log shared the tab's graph generator, which isn't thread-safe, and the older result could land last.
+    Now a tab's refreshes take turns (`DataRefreshRunner`). A call made while one waits joins it with what it asks
+    for, so a burst of changes queues one refresh at most. Loading more commits runs between refreshes.
+  - A refresh step that threw (the log's walk when an object goes missing, for example) left its data Loading, with
+    nothing logged. It now ends as an error, with a log line, and `UseCaseExecutor` logs the throws it turns into
+    errors.
+- **Tests:** 15 new.
+  - `:domain` (5): `DataRefreshRunnerTest`: one refresh at a time, calls that join a waiting one, a waiting call
+    cancelled, a refresh that fails, and work that runs alone.
+  - `:data` (7): `FileChangesWatcherTest` runs the real watcher, through the Rust library in the app's resources, and
+    checks that other work runs on the thread that collects it, and that a change is reported. `ContinueRebaseAmendTest`
+    checks the amend's order and task, and a failed amend. `OverlappingRefreshesTest` sends ten refreshes at once
+    through a real `RefreshDataUseCase`. `RepositoryDataLoadingTest` covers a step that throws, fails, succeeds or is
+    cancelled.
+  - `:app` (3): `HistoryViewModelTest` and `CommitterDataRequestTest` (the dialog's wait leaves its thread free).
+  - The tabs' tear-down has no unit test: `RepositoryTabViewModel` and `RepositoryOpenViewModel` are final classes
+    with many dependencies, which MockK can't mock on JDK 25.
+
 ## Failures that the data code dropped (branch `claude/festive-lamport-994739`)
 
 Six fixes from the 2026-10-09 review of the code that comes from Gitnuro, where a failure was ignored or left bad
@@ -49,6 +92,7 @@ state behind.
   - **Mutation check:** 13 mutations, all caught. Not covered by a test: the smudge filter's size check, and the
     tab showing the init error.
   - `./gradlew test` passes, with 773 tests (42 in `:app`, 562 in `:data`, 162 in `:domain`, 7 in `:common`).
+
 
 ## Switching to a worktree opens its tab (branch `feat/open-worktree-tabs`)
 
