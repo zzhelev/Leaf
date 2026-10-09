@@ -17,6 +17,7 @@ import dev.app.leaf.data.git.submodules.AddSubmoduleGitAction
 import dev.app.leaf.data.git.submodules.UpdateSubmoduleGitAction
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.errors.SshNeedsGitError
 import dev.app.leaf.domain.interfaces.IAddSubmoduleGitAction
 import dev.app.leaf.domain.interfaces.ICloneRepositoryGitAction
 import dev.app.leaf.domain.interfaces.IDeleteRemoteBranchGitAction
@@ -54,6 +55,9 @@ private val LFS_VERSION_TIMEOUT = 10.seconds
  * pull's merge and a clone's checkout either way.
  *
  * It never switches after git has started: a push could then run twice.
+ *
+ * JGit can't reach SSH remotes, as Leaf has no SSH of its own: there, JGit fails before it connects, with the reason
+ * it ran ([whyNotGitCli]).
  */
 class RemoteOperationsBackend @Inject constructor(
     private val appSettingsService: AppSettingsService,
@@ -76,22 +80,28 @@ class RemoteOperationsBackend @Inject constructor(
     }
 
     /** For an operation that uploads nothing, without a repository: a clone. */
-    suspend fun useGitCli(): Boolean {
+    suspend fun useGitCli(): Boolean = whyNotGitCli() == null
+
+    /**
+     * Why an operation that uploads nothing runs with JGit, or null when it runs with the git CLI. JGit's SSH asks it
+     * ([dev.app.leaf.data.git.remote_operations.NoSshSessionFactory]), to tell the user what makes git run.
+     */
+    suspend fun whyNotGitCli(): SshNeedsGitError.Reason? {
         if (!appSettingsService.remoteOperationsWithGit.first()) {
-            return false
+            return SshNeedsGitError.Reason.SettingOff
         }
 
         if (gitExecutableLocator.locate(appSettingsService.gitExecutablePath.first()) is Either.Err) {
             printLog(TAG, "Using JGit, as no usable git was found")
-            return false
+            return SshNeedsGitError.Reason.GitNotFound
         }
 
         if (askpassHelper.path() == null) {
             printLog(TAG, "Using JGit, as the askpass helper is missing")
-            return false
+            return SshNeedsGitError.Reason.HelperMissing
         }
 
-        return true
+        return null
     }
 
     private suspend fun gitUploadsLfsObjects(repositoryPath: String): Boolean {

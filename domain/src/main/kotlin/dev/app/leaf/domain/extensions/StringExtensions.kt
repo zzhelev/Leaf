@@ -1,7 +1,6 @@
 package dev.app.leaf.domain.extensions
 
 import dev.app.leaf.common.systemSeparator
-import dev.app.leaf.domain.exceptions.SshException
 import java.security.MessageDigest
 
 @OptIn(ExperimentalStdlibApi::class)
@@ -59,12 +58,6 @@ val String.nullIfEmpty: String?
 
 fun String.lowercaseContains(other: String): Boolean {
     return this.lowercase().contains(other.lowercase().trim())
-}
-
-fun String.throwIfSshMessage() {
-    if (this.isNotEmpty()) {
-        throw SshException(this)
-    }
 }
 
 fun String.removeGitSuffix() = this.removeSuffix(systemSeparator)

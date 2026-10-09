@@ -3,9 +3,7 @@ package dev.app.leaf.data.git.remote_operations
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.credentials.CredentialsCache
 import dev.app.leaf.data.git.credentials.CredentialsHandler
-import dev.app.leaf.data.git.credentials.GSessionManager
 import dev.app.leaf.data.git.credentials.HttpCredentialsFactory
-import dev.app.leaf.data.git.credentials.SshCredentialsProvider
 import dev.app.leaf.data.git.credentials.reportAcceptedCredentials
 import dev.app.leaf.domain.credentials.*
 import org.eclipse.jgit.transport.HttpTransport
@@ -13,12 +11,10 @@ import org.eclipse.jgit.transport.SshTransport
 import org.eclipse.jgit.transport.Transport
 import org.eclipse.jgit.transport.TransportHttp
 import javax.inject.Inject
-import javax.inject.Provider
 
 class HandleTransportGitAction @Inject constructor(
-    private val sessionManager: GSessionManager,
+    private val noSshSessionFactory: NoSshSessionFactory,
     private val httpCredentialsProvider: HttpCredentialsFactory,
-    private val sshCredentialsProvider: Provider<SshCredentialsProvider>,
     private val jgit: JGit,
 ) {
     suspend operator fun <R> invoke(repositoryPath: String?, block: suspend CredentialsHandler.() -> R) =
@@ -28,12 +24,10 @@ class HandleTransportGitAction @Inject constructor(
                 override fun handleTransport(transport: Transport?) {
                     cache = when (transport) {
                         is SshTransport -> {
-                            val sshCredentialsProvider = sshCredentialsProvider.get()
-                            val sshSessionFactory = sessionManager.generateSshSessionFactory()
-                            transport.sshSessionFactory = sshSessionFactory
-                            transport.credentialsProvider = sshCredentialsProvider
+                            // Leaf reaches SSH remotes only with the git CLI, so this fails before it connects
+                            transport.sshSessionFactory = noSshSessionFactory
 
-                            sshCredentialsProvider
+                            null
                         }
 
                         is HttpTransport -> {

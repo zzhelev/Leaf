@@ -11,6 +11,7 @@ import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
+import dev.app.leaf.domain.errors.SshNeedsGitError
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.services.AppSettingsService
 import io.mockk.every
@@ -19,7 +20,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -131,6 +134,17 @@ class RemoteOperationsBackendTest {
     fun `a clone without a usable git or the askpass helper uses JGit`(): Unit = runBlocking {
         assertFalse(backend(gitPath = File(tempDir, "no-git").absolutePath).useGitCli())
         assertFalse(backend(helper = null).useGitCli())
+    }
+
+    @Test
+    fun `tells why JGit runs, which JGit's SSH says to the user`(): Unit = runBlocking {
+        assertEquals(SshNeedsGitError.Reason.SettingOff, backend(withGit = false).whyNotGitCli())
+        assertEquals(
+            SshNeedsGitError.Reason.GitNotFound,
+            backend(gitPath = File(tempDir, "no-git").absolutePath).whyNotGitCli(),
+        )
+        assertEquals(SshNeedsGitError.Reason.HelperMissing, backend(helper = null).whyNotGitCli())
+        assertNull(backend().whyNotGitCli())
     }
 
     private fun useLfs() {

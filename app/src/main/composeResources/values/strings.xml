@@ -332,7 +332,7 @@
     <string name="settings_entry_terminal">Terminal</string>
     <string name="settings_entry_logs">Logs</string>
     <string name="settings_remote_operations_with_git_title">Use git for remote operations</string>
-    <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation.</string>
+    <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation, which reaches HTTPS remotes but not SSH ones.</string>
 
     <!-- Notifications -->
     <string name="notification_copied_branch_to_clipboard">"%1$s" copied to clipboard</string>
@@ -405,6 +405,10 @@
     <string name="error_gpg_signing_timed_out">Could not sign: "%1$s" did not finish within %2$d seconds</string>
     <string name="error_gpg_signing_pinentry_unavailable">Could not sign: gpg needs the key's passphrase, but its pinentry can't ask for it without a terminal. Install a pinentry that opens a window (pinentry-mac on macOS) and set it as pinentry-program in gpg-agent.conf. gpg said: %1$s</string>
     <string name="error_gpg_signing_failed">%1$s failed to sign the data: %2$s</string>
+    <string name="error_ssh_needs_git_setting_off">Leaf reaches SSH remotes with git, and "Use git for remote operations" is off. Turn it on in Settings, then try again.</string>
+    <string name="error_ssh_needs_git_not_found">Leaf reaches SSH remotes with git, which it couldn't find, or which is older than 2.36. Install git, or set its path in Settings, then try again.</string>
+    <string name="error_ssh_needs_git_helper_missing">Leaf reaches SSH remotes with git, which needs Leaf's askpass helper, and this build of Leaf doesn't have it.</string>
+    <string name="error_ssh_needs_git_lfs">Leaf pushes to SSH remotes with git, but git wouldn't upload this repository's LFS files: git-lfs isn't installed, or the repository's pre-push hook doesn't run it. Install git-lfs, or if it's installed, run git lfs install in the repository, then push again.</string>
     <string name="error_ssh_signing_no_key">Could not sign: no SSH signing key. Set user.signingKey to the path of your key, or to key:: followed by its public key when ssh-agent has the key</string>
     <string name="error_ssh_signing_program_not_found">Could not sign: "%1$s" was not found. Install OpenSSH, or set gpg.ssh.program to the path of ssh-keygen</string>
     <string name="error_ssh_signing_start_failed">Could not sign: "%1$s" could not be started: %2$s</string>

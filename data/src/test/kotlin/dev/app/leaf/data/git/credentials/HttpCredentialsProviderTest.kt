@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.remote_operations.HandleTransportGitAction
+import dev.app.leaf.data.git.remote_operations.NoSshSessionFactory
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
@@ -55,7 +56,6 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.Base64
 import java.util.Collections
-import javax.inject.Provider
 
 private const val REMOTE_URL = "https://example.invalid/team/project.git"
 private const val EXPECTED_INPUT = "protocol=https\nhost=example.invalid\n"
@@ -854,11 +854,10 @@ class HttpCredentialsProviderTest {
     ): Either<FetchResult, GitError> = runBlocking {
         val git = checkNotNull(provider.git)
         val handleTransport = HandleTransportGitAction(
-            sessionManager = GSessionManager(GSshSessionFactory { error("No SSH in this test") }),
+            noSshSessionFactory = NoSshSessionFactory { error("No SSH in this test") },
             httpCredentialsProvider = object : HttpCredentialsFactory {
                 override fun create(git: Git?) = provider
             },
-            sshCredentialsProvider = Provider { error("No SSH in this test") },
             jgit = testJGit(shellVariables),
         )
 

@@ -2,6 +2,7 @@ package dev.app.leaf.data.git
 
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
+import dev.app.leaf.data.git.remote_operations.sshNeedsGitError
 import dev.app.leaf.data.git.signers.gpgSigningError
 import dev.app.leaf.data.git.signers.sshSigningError
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -109,10 +110,10 @@ class JGit @Inject constructor(
 
     /**
      * Signing errors come first: commits, merges, rebases and tags all sign, and an operation's own [errorHandle]
-     * doesn't know about them.
+     * doesn't know about them. So does JGit's refusal of SSH remotes, which every remote operation can meet.
      */
     private fun Exception.toGitError(errorHandle: ((Exception) -> GitError)?): GitError {
-        return gpgSigningError() ?: sshSigningError() ?: errorHandle?.invoke(this)
+        return gpgSigningError() ?: sshSigningError() ?: sshNeedsGitError() ?: errorHandle?.invoke(this)
             ?: GenericError(message.orEmpty(), this)
     }
 

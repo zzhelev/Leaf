@@ -55,6 +55,10 @@ import dev.app.leaf.app.generated.resources.error_rename_branch_rebased_in_workt
 import dev.app.leaf.app.generated.resources.error_rename_branch_worktree_head_not_moved
 import dev.app.leaf.app.generated.resources.error_repository_path_not_set
 import dev.app.leaf.app.generated.resources.error_repository_read_error
+import dev.app.leaf.app.generated.resources.error_ssh_needs_git_helper_missing
+import dev.app.leaf.app.generated.resources.error_ssh_needs_git_lfs
+import dev.app.leaf.app.generated.resources.error_ssh_needs_git_not_found
+import dev.app.leaf.app.generated.resources.error_ssh_needs_git_setting_off
 import dev.app.leaf.app.generated.resources.error_ssh_signing_cancelled
 import dev.app.leaf.app.generated.resources.error_ssh_signing_failed
 import dev.app.leaf.app.generated.resources.error_ssh_signing_no_key
@@ -99,6 +103,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RenameBranchError.BranchRebasedInWorktree -> listOf(worktreePath)
     is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
+    is SshNeedsGitError -> if (reason == SshNeedsGitError.Reason.LfsPushWithoutGitLfs) listOf("git lfs install") else emptyList()
     else -> emptyList()
 }
 
@@ -203,6 +208,13 @@ fun AppError.getErrorText(): String {
             error.getErrorText()
 
         is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
+
+        is SshNeedsGitError -> when (reason) {
+            SshNeedsGitError.Reason.SettingOff -> stringResource(Res.string.error_ssh_needs_git_setting_off)
+            SshNeedsGitError.Reason.GitNotFound -> stringResource(Res.string.error_ssh_needs_git_not_found)
+            SshNeedsGitError.Reason.HelperMissing -> stringResource(Res.string.error_ssh_needs_git_helper_missing)
+            SshNeedsGitError.Reason.LfsPushWithoutGitLfs -> stringResource(Res.string.error_ssh_needs_git_lfs)
+        }
 
         is SshSigningError -> when (this) {
             SshSigningError.NoSigningKey -> stringResource(Res.string.error_ssh_signing_no_key)
