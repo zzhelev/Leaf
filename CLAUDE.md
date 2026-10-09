@@ -254,6 +254,14 @@ asking.
 - The class is a `@Singleton` cache from path to `Git`. `JGit.open` opens repositories with Leaf's own JGit `FS`:
   `WindowsFs` on Windows (hooks through Git Bash), and the fork-only `PosixFs` on macOS and Linux (see Login shell
   environment). `provide` and `provideOptional` share the cache, so both go through `open`.
+- **HEAD reflog of a linked worktree (fork-only `LinkedWorktreeLogs`):** JGit 7.7 writes it into the main worktree's
+  `logs/HEAD` (`docs/fork/architecture-notes.md` §6), because `RefDirectory.logFor` resolves HEAD against the common
+  git dir's `logs`. For a git dir with a `commondir` file, `JGit.open` gives both file systems a `LinkedWorktreeLogs`,
+  and their `resolve` answers `(<common git dir>, "logs")` with `<git dir>/logs`, which is where JGit already reads
+  HEAD's log. Branch logs (`logs/refs/`) stay shared. Another `FS` needs the same. Drop it once a JGit release fixes
+  `logFor`: `LinkedWorktreeLogsTest` fails if JGit stops taking that folder from `FS.resolve`.
+  - Such a file system belongs to its repository. Another worktree opened with a tab's `repository.fs`, as
+    `RenameBranchGitAction.moveHead` does, would log its HEAD in the tab's reflog. `moveHead` writes no reflog entry.
 - `WindowsFs` finds hooks with JGit's `findHook` (`core.hooksPath`, the common git dir) and runs them with Git for
   Windows' `bin\bash.exe` (`GitBash`, which also quotes arguments for MSYS2), with JGit's folder and `GIT_*`
   variables. It must return `ProcessResult(exitCode, OK)`: JGit takes `ProcessResult(OK)` alone (exit code -1) as a

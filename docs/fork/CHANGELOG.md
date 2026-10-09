@@ -2,6 +2,38 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A linked worktree's HEAD reflog stays in the linked worktree (branch `fix/worktree-head-reflog`)
+
+- **Before:** in a tab on a linked worktree, JGit 7.7 logged every move of HEAD in the main worktree's `logs/HEAD`
+  (`architecture-notes.md` §6). That covered commit and amend, every checkout, reset, merge, pull, rebase, cherry-pick,
+  revert, and renaming the current branch.
+  - In the main worktree, `git reflog`, `HEAD@{1}` and `@{-1}` followed the linked worktree's history, so
+    `git checkout -` there switched to an agent's branch.
+  - In the linked worktree, `git reflog` showed none of what Leaf did.
+  - Leaf's "last checked out" order (`GetRefDatesGitAction`) missed a linked worktree's own checkouts, and the main
+    worktree's tab counted them.
+- **Now:** the entries go to the linked worktree's own `logs/HEAD`, as with git, and JGit reads them back from there.
+  Branch reflogs are shared and stay in the common git dir. Entries written in the wrong place before stay where they
+  are: an entry doesn't say which worktree wrote it.
+- **How:** JGit's `RefDirectory` takes the folder for HEAD's log from `FS.resolve(<common git dir>, "logs")`. For a git
+  dir with a `commondir` file, `JGit.open` gives `PosixFs` or `WindowsFs` a fork-only `LinkedWorktreeLogs`, and their
+  `resolve` answers that call with `<git dir>/logs`.
+  - JGit 7.7.1, 7.8.0 and master have the same bug, and it isn't reported upstream (`architecture-notes.md` §6). Drop
+    the override once a JGit release fixes `RefDirectory.logFor`.
+  - Not fixed: an interactive rebase that squashes, in a linked worktree, still leaves the main worktree's
+    `ORIG_HEAD` in it (§6, side finding).
+- **Tests:** 12 new, in `:data`, with the git CLI as the reference for where each entry lands.
+  - `LinkedWorktreeLogsTest` (11): the operations in the table of §6 through Leaf's `JGit`, then `git reflog` in each
+    worktree and the main worktree's `logs/HEAD` unchanged. Also `@{-1}`, JGit reading the entries back, branch logs
+    staying shared, the main worktree's own tab, a nested worktree, a bare repository's worktree, `WindowsFs`, and
+    `newInstance` copies.
+  - `GetRefDatesGitActionTest` (1): a checkout made through Leaf in a linked worktree counts for its tab only.
+  - Six mutations were each caught: no redirect in `PosixFs`, none from `JGit.open`, copies that drop it (`PosixFs`
+    and `WindowsFs`), redirecting every name, and comparing paths without making them canonical.
+  - `./gradlew build` passes, with 572 tests (16 in `:app`, 467 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** Windows, and the running app: no screen changes, and the tests open the repositories through Leaf's
+  own `JGit`, as a tab does.
+
 ## Worktree folders in error messages stand out and can be copied (branch `feat/worktree-error-paths`)
 
 A follow-up to the worktree guards, from their manual check.

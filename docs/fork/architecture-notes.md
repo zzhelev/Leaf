@@ -23,7 +23,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`,
 | Does checkout refuse a branch that is checked out in another worktree? | **No.** Both worktrees end up on the same branch. | High |
 | Does branch deletion refuse a branch that is checked out in another worktree? | **No.** Deletion is always forced, has no confirmation, and leaves the other worktree on an unborn branch. | High |
 | Does Gitnuro run gc or prune? | Not explicitly. JGit's auto-GC can run during merge, rebase, fetch and push. JGit GC **ignores other worktrees' HEADs, indexes, per-worktree refs and reflogs**. Objects only they reference are deleted on a later GC, once they are more than two weeks old. | Medium (rare, but data loss) |
-| Does JGit write a linked worktree's HEAD reflog in the right place? (found 2026-10-09) | **No.** In a tab on a linked worktree, every move of HEAD is logged in the main worktree's `logs/HEAD` (§6). git's gc loses nothing because of it, but `@{-1}`, `HEAD@{n}` and Leaf's checkout dates are wrong in both worktrees. | Medium |
+| Does JGit write a linked worktree's HEAD reflog in the right place? (found 2026-10-09) | **No.** In a tab on a linked worktree, every move of HEAD is logged in the main worktree's `logs/HEAD` (§6). git's gc loses nothing because of it, but `@{-1}`, `HEAD@{n}` and Leaf's checkout dates are wrong in both worktrees. **Fixed on `fix/worktree-head-reflog`.** | Medium |
 
 ## 1. JGit version
 
@@ -331,7 +331,7 @@ never to run JGit gc.
 - JGit takes changes through GerritHub only (`refs/for/master`), and contributors need a signed Eclipse Contributor
   Agreement ([CONTRIBUTING.md](https://github.com/eclipse-jgit/jgit/blob/master/CONTRIBUTING.md)).
 
-### Fix options (proposed 2026-10-09, not approved)
+### Fix options (2026-10-09; (a) was chosen)
 
 - **(a) Leaf: a per-repository `FS` that sends `<common>/logs` to `<git dir>/logs`.** Recommended.
   - `JGit.open` (`G/JGit.kt:122-130`) already gives each repository its own `PosixFs` or `WindowsFs`. For a linked
@@ -369,6 +369,22 @@ never to run JGit gc.
   - Turning JGit's HEAD logging off and writing the entries ourselves: there's no switch for that.
     `core.logAllRefUpdates` covers branches too, and JGit always appends to a log file that exists.
   - Running the operations that move HEAD through the git CLI: that would rewrite most of Leaf's git actions.
+
+### Fixed (branch `fix/worktree-head-reflog`)
+
+- Option (a): `LinkedWorktreeLogs` (`G/LinkedWorktreeLogs.kt`). `JGit.open` makes one for a git dir with a
+  `commondir` file and gives it to `PosixFs` or `WindowsFs`, whose `resolve` answers `(<common git dir>, "logs")` with
+  `<git dir>/logs`. The common git dir is read as JGit's `FS.getCommonDir` reads it, and compared as a canonical
+  path. Both file systems keep it in `newInstance`.
+- Every operation in the table above now logs in the linked worktree's own `logs/HEAD`, and git's `reflog` and `@{-1}`
+  agree in both worktrees. Branch logs stay in the common dir. A tab on the main worktree, and a bare repository's
+  linked worktree, are covered by tests too.
+- Entries already written in the wrong place stay in the main worktree's log.
+- Not covered: the ORIG_HEAD side finding below, and per-worktree refs (`refs/bisect/`, `refs/worktree/`,
+  `refs/rewritten/`), which Leaf doesn't use.
+- `LinkedWorktreeLogsTest` fails if a JGit upgrade stops taking the folder from `FS.resolve`. Once a JGit release fixes
+  `logFor`, the override can go.
+- The probe still shows JGit's own behaviour: it opens repositories without Leaf's file systems.
 
 ### Side finding: ORIG_HEAD after a squash
 
