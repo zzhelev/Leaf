@@ -2,6 +2,36 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Deletes no longer follow symbolic links (branch `fix/delete-without-following-links`)
+
+- **Before (from upstream):** Kotlin's `File.deleteRecursively` follows symbolic links to folders, even when called on
+  the link itself: it deletes the files in the folder that a link points to, then the link. Leaf used it on user data:
+  - **Delete** in the Status pane (`DeleteFileGitAction`). Deleting an untracked link to a folder, or an untracked
+    repository with such a link in it (the Status pane lists it as one entry), emptied the folder the link pointed to,
+    outside the repository too.
+  - **Delete submodule** (`DeleteSubmoduleGitAction`), for the submodule's folder and its git dir in `.git/modules`.
+    git checks out a link committed in the submodule's repository as it is, whatever it points to, so deleting the
+    submodule emptied that folder. So did a link the user made, such as `hooks` linked to a shared hooks folder.
+- **Now:** both use JGit's `FileUtils.delete` with `RECURSIVE` and `SKIP_MISSING`, as the clone cleanup already did. It
+  checks for folders without following links, and deletes a link as a link.
+  - Delete still reports a failure, now at the first file it can't remove. A file that's already gone still counts as
+    deleted.
+  - Delete submodule ignored the files it couldn't remove. It now reports them as a failed task.
+  - Leaf's own temporary folders use it too, still best effort (`IGNORE_ERRORS`): `TempFilesManager.clearAll` when the
+    window closes, and the askpass socket's folder. Nothing puts links there, but Leaf's code no longer calls
+    `deleteRecursively` at all. `CLAUDE.md` now says not to.
+- **Upstream:** Gitnuro's `main` has the same code in both actions and in `TempFilesManager`. Worth reporting there.
+- **Tests:** 6 new, all in `:data`, skipped on Windows, where creating links needs Developer Mode or admin rights.
+  - `DeleteFileGitActionTest` (4) takes its entries from the status, as the Status pane does: a link to a folder outside
+    the repository, and an untracked repository with such a link in it. Also a file that's already gone, and a file
+    that can't be removed (an error).
+  - `DeleteSubmoduleGitActionTest` (2): a submodule with a link committed in its repository, an untracked link, and a
+    folder with a link; and a submodule whose git dir has `hooks` linked to a shared folder.
+  - Seven mutations were each caught: `deleteRecursively` back in each of the three places, ignoring errors, not
+    skipping missing files, and not deleting the submodule's folder or its git dir.
+  - `./gradlew build` passes, with 541 tests (16 in `:app`, 436 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** Windows.
+
 ## A branch that another worktree uses can't be checked out (branch `feat/worktree-checkout-guard`)
 
 The checkout half of Phase 1.3 in `docs/fork/PLAN.md`.

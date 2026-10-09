@@ -750,6 +750,12 @@ common `refs/` and `packed-refs` are not watched.
 
 **Logging:** `printLog` / `printDebug` / `printError(TAG, ...)`, with `private const val TAG = "ClassName"`.
 
+**Deleting files:** never use Kotlin's `File.deleteRecursively`, or a delete built on `File.walk`. They follow symbolic
+links to folders, even when called on the link itself, and delete the files in the folder that a link points to,
+possibly outside the repository. Use JGit's `FileUtils.delete(file, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING)`,
+which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-effort cleanup. Without that flag it throws
+`IOException` at the first file it can't remove.
+
 **Settings:**
 - Chain: `AppConfig` (domain model) → `AppSettingsRepository` → `DataStoreAppSettingsRepository` →
   `AppSettingsService` (defaults) → `SettingsViewModel` / `SettingsDialog.kt`.
@@ -808,6 +814,8 @@ common `refs/` and `packed-refs` are not watched.
   - `testJGit(shellVariables)` builds a `JGit` whose login shell environment is the given map. Hook tests use
     `File.writeExecutable`, and `createHookTool`, which makes a `leaf-hook-tool` command that is on no PATH
     (`PosixFsTest`, `GitCliTest`).
+  - `File.symlinkTo(target)` creates a symbolic link. Tests that use it are `@DisabledOnOs(OS.WINDOWS)`, where links
+    need Developer Mode or admin rights (`DeleteFileGitActionTest`, `DeleteSubmoduleGitActionTest`).
   - `WindowsFsTest` runs `WindowsFs` on macOS and Linux, with `/bin/sh` standing in for Git Bash
     (`GitBash("/bin/sh", quoteArgument = { it })`), through `Git.open(gitDir, fs)` rather than `JGit`.
   - See `OpenRepositoryGitActionTest` for the pattern.
