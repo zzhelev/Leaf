@@ -57,6 +57,7 @@ sealed interface TaskType {
     data object ChangesDetection : TaskType
     data object RepositoryOpen : TaskType
     data object RepositoryClone : TaskType
+    data object RepositoryInit : TaskType
     data object AddRemote : TaskType
     data object UpdateRemote : TaskType
     data object DeleteRemote : TaskType

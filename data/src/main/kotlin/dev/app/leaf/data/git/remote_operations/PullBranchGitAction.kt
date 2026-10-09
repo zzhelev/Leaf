@@ -109,22 +109,24 @@ inline fun <R> useBuiltinLfs(
         true,
     )
 
-    val result = callback()
-
-    if (hadBuiltinLfsOriginalValueSet) {
-        repository.config.setBoolean(
-            ConfigConstants.CONFIG_FILTER_SECTION,
-            lfsSubsection,
-            ConfigConstants.CONFIG_KEY_USEJGITBUILTIN,
-            builtinLfsOriginalValue,
-        )
-    } else {
-        repository.config.unset(
-            ConfigConstants.CONFIG_FILTER_SECTION,
-            lfsSubsection,
-            ConfigConstants.CONFIG_KEY_USEJGITBUILTIN,
-        )
+    // Restored whatever happens: the next config.save() of the cached repository would write the value to the config
+    // file (fork-only)
+    try {
+        return callback()
+    } finally {
+        if (hadBuiltinLfsOriginalValueSet) {
+            repository.config.setBoolean(
+                ConfigConstants.CONFIG_FILTER_SECTION,
+                lfsSubsection,
+                ConfigConstants.CONFIG_KEY_USEJGITBUILTIN,
+                builtinLfsOriginalValue,
+            )
+        } else {
+            repository.config.unset(
+                ConfigConstants.CONFIG_FILTER_SECTION,
+                lfsSubsection,
+                ConfigConstants.CONFIG_KEY_USEJGITBUILTIN,
+            )
+        }
     }
-
-    return result
 }

@@ -52,7 +52,9 @@ class LfsSmudgeFilter @AssistedInject constructor(
                 val oid = res.oid
                 val lfs = Lfs(repository)
                 val mediaFile = lfs.getMediaFile(oid)
-                if (!Files.exists(mediaFile)) {
+                // Like git-lfs, a file of another size isn't the object: a download that broke off left it, before
+                // downloads were checked (fork-only)
+                if (!Files.exists(mediaFile) || Files.size(mediaFile) != res.size) {
                     downloadLfsResource(repository, res)
                 }
                 this.`in` = Files.newInputStream(mediaFile)
@@ -114,12 +116,19 @@ class LfsSmudgeFilter @AssistedInject constructor(
                 val lfsObject = lfsObjects.value.objects.firstOrNull() // There should be only one LFS object
 
                 if (lfsObject != null) {
-                    downloadLfsObjectGitAction(
+                    val download = downloadLfsObjectGitAction(
                         repository = repository,
                         lfsServer = finalServer,
                         lfsObject = lfsObject,
                         lfsPointer.oid,
                     )
+
+                    // Its failure used to be dropped, and the checkout then read whatever the download left (fork-only)
+                    if (download is Either.Err) {
+                        throw LfsException(
+                            "Downloading LFS object ${lfsPointer.oid.name()} failed with error: ${download.error}"
+                        )
+                    }
                 }
             }
         }

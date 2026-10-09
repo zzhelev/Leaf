@@ -24,6 +24,7 @@ import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -255,6 +256,21 @@ class GitCliFetchPullTest {
         assertEquals("uncommitted\n", File(work, "file.txt").readText())
         // Nothing was merged, so no backup of the local changes is left behind
         assertEquals("", git.run(work, "stash", "list"))
+    }
+
+    @Test
+    fun `a pull that fails doesn't leave JGit's built-in LFS on in the repository's config`(): Unit = runBlocking {
+        commitIn(other, "theirs")
+        git.run(other, "push", "origin", "main")
+        File(work, "file.txt").writeText("uncommitted\n")
+
+        assertInstanceOf(Either.Err::class.java, pull(PullType.MERGE))
+
+        // Saved as the next action that saves the config would, such as saving the author
+        jgit.provide(gitDir) { it.repository.config.save() }
+
+        val config = File(work, ".git/config").readText()
+        assertFalse(config.contains("usejgitbuiltin", ignoreCase = true), config)
     }
 
     @Test

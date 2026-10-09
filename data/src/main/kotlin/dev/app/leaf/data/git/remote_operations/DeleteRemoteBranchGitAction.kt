@@ -54,7 +54,7 @@ class DeleteRemoteBranchGitAction @Inject constructor(
 
                 throw Exception(error.toString())
             }
-        }
+        }.bind() // A remote that refused keeps its branch, so the remote-tracking branch stays too (fork-only)
 
         // Like git branch -d -r, which skips the merge check for remote-tracking branches
         deleteBranchGitAction(repositoryPath, ref, force = true).bind() /// TODO Handle error?

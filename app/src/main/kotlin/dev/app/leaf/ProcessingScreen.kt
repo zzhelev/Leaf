@@ -146,6 +146,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.RebaseInteractive -> "Rebasing interactively"
         TaskType.RenameBranch -> "Renaming branch"
         TaskType.RepositoryClone -> "Cloning repository"
+        TaskType.RepositoryInit -> "Creating repository"
         TaskType.RepositoryOpen -> "Opening repository"
         TaskType.ResetRepoState -> "Resetting repository state"
         TaskType.ResetToCommit -> "Resetting to commit"

@@ -33,6 +33,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lfs.Lfs
+import org.eclipse.jgit.lfs.lib.Constants
 import org.eclipse.jgit.lfs.lib.LongObjectId
 import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.util.SystemReader
@@ -186,7 +187,8 @@ class HttpClientsTest {
     @Test
     fun `an LFS download reads sslVerify for the download URL, not the server's`(): Unit = runBlocking {
         val action = DownloadLfsObjectGitAction(lfsRepository(), provideLfsCredentials())
-        val oid = LongObjectId.fromString("1".repeat(64))
+        // Downloads are checked against it
+        val oid = LongObjectId.fromRaw(Constants.newMessageDigest().digest(BATCH_RESPONSE.toByteArray()))
         val lfsObject = LfsObject(
             oid = oid.name(),
             size = BATCH_RESPONSE.length.toLong(),
@@ -205,7 +207,7 @@ class HttpClientsTest {
             setBoolean("http", "$serverUrl/objects", "sslVerify", false)
             save()
         }
-        download()
+        assertEquals(Either.Ok(Unit), download())
 
         assertEquals(BATCH_RESPONSE, Lfs(git.repository).getMediaFile(oid).toFile().readText())
     }

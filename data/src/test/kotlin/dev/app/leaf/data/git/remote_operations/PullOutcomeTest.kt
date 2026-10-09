@@ -90,6 +90,21 @@ class PullOutcomeTest {
         }
     }
 
+    @Test
+    fun `a rebase that local files stop has no conflicts, and fails with their files`() {
+        commitOnBranch("incoming", "new.txt", "incoming\n")
+        commit("other.txt", "ours\n")
+        File(work, "new.txt").writeText("untracked\n")
+
+        Git.open(work).use { jgit ->
+            val result = jgit.rebase().setUpstream(jgit.repository.resolve("incoming")).call()
+            assertEquals(RebaseResult.Status.CONFLICTS, result.status)
+
+            val error = assertThrows(PullWouldOverwriteException::class.java) { rebaseHasConflicts(result) }
+            assertTrue(error.message!!.contains("new.txt")) { error.message }
+        }
+    }
+
     private fun merge(branch: String): MergeResult = Git.open(work).use { jgit ->
         jgit.merge().include(jgit.repository.resolve(branch)).call()
     }

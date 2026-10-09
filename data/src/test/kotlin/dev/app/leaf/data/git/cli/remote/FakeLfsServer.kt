@@ -30,6 +30,10 @@ class FakeLfsServer(private val storage: File) : AutoCloseable {
     @Volatile
     var credentials: Pair<String, String>? = null
 
+    /** When set, a download sends only that many bytes of the object, then drops the connection. */
+    @Volatile
+    var dropDownloadsAfter: Int? = null
+
     /** `METHOD path user-agent` for each request. */
     val requests: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
@@ -121,8 +125,17 @@ class FakeLfsServer(private val storage: File) : AutoCloseable {
             return
         }
 
+        val cut = dropDownloadsAfter
+
         exchange.sendResponseHeaders(200, file.length())
-        exchange.responseBody.use { file.inputStream().use { input -> input.copyTo(it) } }
+
+        if (cut == null) {
+            exchange.responseBody.use { file.inputStream().use { input -> input.copyTo(it) } }
+        } else {
+            // Closing the exchange with fewer bytes than announced makes the server drop the connection
+            exchange.responseBody.write(file.readBytes(), 0, cut)
+            exchange.responseBody.flush()
+        }
     }
 
     private fun upload(exchange: HttpExchange, path: String) {

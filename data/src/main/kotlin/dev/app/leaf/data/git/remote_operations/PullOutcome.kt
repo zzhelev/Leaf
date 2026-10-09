@@ -35,9 +35,15 @@ class PullWouldOverwriteException(paths: Collection<String>) : Exception(
         "stash them, then pull again."
 )
 
-/** Whether the rebase of a pull stopped at conflicts, like [mergeHasConflicts]. */
+/**
+ * Whether the rebase of a pull stopped at conflicts, like [mergeHasConflicts]. JGit's CONFLICTS isn't one: local files
+ * stopped the checkout, and the branch is as it was. FAILED is the same for a commit that the rebase couldn't apply.
+ */
 fun rebaseHasConflicts(result: RebaseResult): PullHasConflicts = when (result.status) {
-    RebaseResult.Status.CONFLICTS, RebaseResult.Status.STOPPED -> true
+    RebaseResult.Status.STOPPED -> true
+
+    RebaseResult.Status.CONFLICTS -> throw PullWouldOverwriteException(result.conflicts.orEmpty())
+    RebaseResult.Status.FAILED -> throw PullWouldOverwriteException(result.failingPaths.orEmpty().keys)
 
     RebaseResult.Status.UNCOMMITTED_CHANGES ->
         throw Exception("The pull with rebase has failed because you have got uncommitted changes")

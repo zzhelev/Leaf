@@ -11,10 +11,12 @@ import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.credentials.CredentialsStateManager
+import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.IFileChangesWatcher
 import dev.app.leaf.domain.interfaces.IInitLocalRepositoryGitAction
 import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.models.TaskProgress
+import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
@@ -236,8 +238,18 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
     fun initLocalRepository(dir: String) = viewModelScope.launch {
         val repoDir = File(dir)
-        initLocalRepositoryGitAction(repoDir)
-        openRepository(dir)
+
+        // A failure, such as a folder that can't be written, is shown instead of being lost with the coroutine
+        // (fork-only)
+        when (val result = initLocalRepositoryGitAction(repoDir)) {
+            is Either.Err -> repositoryStateRepository.addCompletedTaskFailed(
+                TaskType.RepositoryInit,
+                result.error,
+                FailureSeverity.HIGH,
+            )
+
+            is Either.Ok -> openRepository(dir)
+        }
     }
 
     val update: StateFlow<Update?> = updatesRepository.update

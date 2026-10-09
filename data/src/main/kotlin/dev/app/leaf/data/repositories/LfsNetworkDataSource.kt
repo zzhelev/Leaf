@@ -16,10 +16,11 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.util.cio.*
 import io.ktor.utils.io.*
+import io.ktor.utils.io.jvm.javaio.copyTo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
+import java.nio.file.Files
 import java.nio.file.Path
 import javax.inject.Inject
 import kotlin.collections.iterator
@@ -115,31 +116,25 @@ class LfsNetworkDataSource @Inject constructor(
         password: String?,
         sslVerify: Boolean,
     ): Either<Unit, LfsError> {
-        val response = client(sslVerify).get(downloadUrl) {
+        // Streamed to the file (fork-only): get() reads the whole body into memory first
+        return client(sslVerify).prepareGet(downloadUrl) {
             setHeadersAndBasicAuth(headers, username, password)
-        }
-
-        if (response.status != HttpStatusCode.OK) {
-            return Either.Err(LfsError.HttpError(response.status))
-        }
-
-        val channel: ByteReadChannel = response.body()
-        val file = outPath.toFile()
-
-        withContext(Dispatchers.IO) {
-            file.parentFile?.mkdirs()
-            file.createNewFile()
-        }
-
-        while (!channel.isClosedForRead) {
-            val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
-            while (!packet.exhausted()) {
-                val bytes = packet.readByteArray()
-                file.appendBytes(bytes)
+        }.execute { response ->
+            if (response.status != HttpStatusCode.OK) {
+                return@execute Either.Err(LfsError.HttpError(response.status))
             }
-        }
 
-        return Either.Ok(Unit)
+            val channel: ByteReadChannel = response.bodyAsChannel()
+
+            withContext(Dispatchers.IO) {
+                Files.createDirectories(outPath.parent)
+
+                // Replaces what an earlier attempt wrote, which appending kept
+                Files.newOutputStream(outPath).use { output -> channel.copyTo(output) }
+            }
+
+            Either.Ok(Unit)
+        }
     }
 
     override suspend fun getLfsObjects(
