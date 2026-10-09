@@ -1,5 +1,6 @@
 package dev.app.leaf.domain
 
+import dev.app.leaf.common.printError
 import dev.app.leaf.domain.errors.*
 import dev.app.leaf.domain.extensions.runOperationInTabScope
 import dev.app.leaf.domain.extensions.runOperationInTabScopeAsync
@@ -16,6 +17,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Provider
+
+private const val TAG = "UseCaseExecutor"
 
 class UseCaseExecutor @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
@@ -135,6 +138,8 @@ class UseCaseExecutor @Inject constructor(
             }
         } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
+            // Fork-only: callers that don't look at the result, such as refreshes, used to drop it without a trace
+            printError(TAG, "Task failed with an exception", e)
             return Either.Err(GenericError(e.message.orEmpty(), e))
         }
     }

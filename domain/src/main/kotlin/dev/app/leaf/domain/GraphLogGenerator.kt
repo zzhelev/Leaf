@@ -11,6 +11,7 @@ import javax.inject.Inject
 import javax.inject.Provider
 import kotlin.math.max
 
+/** Not thread-safe (fork-only note): the log's refreshes and loading more commits take turns in [DataRefreshRunner]. */
 @TabScope
 class GraphLogGenerator @Inject constructor(
     private val graphRevWalkerProvider: Provider<GraphRevWalker>,

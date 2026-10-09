@@ -8,6 +8,8 @@ import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -146,7 +148,14 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         block: suspend () -> Either<T, AppError>
     ) {
         flow.value = DataState.Loading
-        val result = block()
+
+        // Fork-only: a step that throws, such as the log's walk when an object goes missing, left the data Loading
+        val result = try {
+            block()
+        } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
+            Either.Err(GenericError(e.message.orEmpty(), e))
+        }
 
         flow.value = when (result) {
             is Either.Err -> {

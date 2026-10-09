@@ -1,5 +1,6 @@
 package dev.app.leaf.domain.usecases
 
+import dev.app.leaf.domain.DataRefreshRunner
 import dev.app.leaf.domain.Pagination
 import dev.app.leaf.domain.RebaseConstants
 import dev.app.leaf.domain.TabCoroutineScope
@@ -39,9 +40,22 @@ class RefreshDataUseCase @Inject constructor(
     private val getLogUseCase: GetLogUseCase,
     private val getWorktreesInfoUseCase: GetWorktreesInfoUseCase,
     private val worktreesRefreshRunner: WorktreesRefreshRunner,
+    private val dataRefreshRunner: DataRefreshRunner,
     private val scope: TabCoroutineScope,
 ) {
     operator fun invoke(vararg dataToRefresh: DataToRefresh) = scope.launch {
+        // Fork-only: one refresh at a time, with what the calls made meanwhile asked for. The worktrees have their own.
+        if (dataToRefresh.any { it != DataToRefresh.WORKTREES }) {
+            dataRefreshRunner.run(dataToRefresh.toSet()) { refresh(it) }
+        }
+
+        // Runs git in every worktree, so it comes after everything else
+        if (refreshesWorktrees(dataToRefresh.toList())) {
+            refreshWorktrees()
+        }
+    }
+
+    private suspend fun refresh(dataToRefresh: Set<DataToRefresh>) {
         val isRefreshAll = dataToRefresh.contains(DataToRefresh.ALL)
 
         repositoryStateRepository.refreshTriggered(dataToRefresh.toList())
@@ -90,11 +104,6 @@ class RefreshDataUseCase @Inject constructor(
 
         if (isRefreshAll || refsChanged) {
             refreshRefDates()
-        }
-
-        // Runs git in every worktree, so it comes after everything else
-        if (refreshesWorktrees(dataToRefresh.toList())) {
-            refreshWorktrees()
         }
     }
 
