@@ -6,7 +6,7 @@ package dev.app.leaf.data.git.cli.askpass
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** The prompts as git 2.54 and OpenSSH 10.3 (and older OpenSSH) wrote them to the askpass program. */
+/** The prompts as git 2.54, git-lfs 3.8 and OpenSSH 10.3 (and older OpenSSH) wrote them to the askpass program. */
 class AskpassPromptTest {
     @Test
     fun `git's user name prompt names the URL`() {
@@ -37,6 +37,19 @@ class AskpassPromptTest {
         assertEquals(
             AskpassPrompt.HttpPassword("https://example.com/a@b", null),
             parseAskpassPrompt("Password for 'https://example.com/a@b': "),
+        )
+    }
+
+    @Test
+    fun `git-lfs's own prompts, without a credential helper, are understood too`() {
+        // As git-lfs 3.8 wrote them
+        assertEquals(
+            AskpassPrompt.HttpUsername("http://127.0.0.1:50626"),
+            parseAskpassPrompt("Username for \"http://127.0.0.1:50626\""),
+        )
+        assertEquals(
+            AskpassPrompt.HttpPassword("http://leaf@127.0.0.1:50626", "leaf"),
+            parseAskpassPrompt("Password for \"http://leaf@127.0.0.1:50626\""),
         )
     }
 

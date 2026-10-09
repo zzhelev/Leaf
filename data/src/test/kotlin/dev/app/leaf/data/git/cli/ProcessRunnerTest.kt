@@ -84,6 +84,25 @@ class ProcessRunnerTest {
     }
 
     @Test
+    fun `passes each stream on as it's written, and keeps all of it`(): Unit = runBlocking {
+        val stdout = StringBuffer()
+        val stderr = StringBuffer()
+
+        val outcome = processRunner.run(
+            listOf("/bin/sh", "-c", "echo out; echo err >&2; echo more"),
+            tempDir,
+            emptyMap(),
+            10.seconds,
+            onStderr = { stderr.append(it) },
+            onStdout = { stdout.append(it) },
+        )
+
+        assertEquals(ProcessOutcome.Completed(0, "out\nmore\n", "err\n"), outcome)
+        assertEquals("out\nmore\n", stdout.toString())
+        assertEquals("err\n", stderr.toString())
+    }
+
+    @Test
     fun `drains large output on both streams`() {
         val outcome = sh("head -c 1000000 /dev/zero | tr '\\0' a; head -c 1000000 /dev/zero | tr '\\0' b >&2")
 

@@ -5,12 +5,15 @@ package dev.app.leaf.data.git.cli.askpass
 
 /** A prompt that git or ssh gave the askpass helper, recognized so that Leaf can show the right dialog. */
 sealed interface AskpassPrompt {
-    /** git, for HTTPS: `Username for 'https://example.com': `. */
+    /**
+     * git, for HTTPS: `Username for 'https://example.com': `. git-lfs writes `Username for "https://example.com"` when
+     * it asks itself, which it does when no credential helper applies to the URL.
+     */
     data class HttpUsername(val url: String) : AskpassPrompt
 
     /**
-     * git, for HTTPS: `Password for 'https://bob@example.com': `. [url] is as git wrote it, user name included, and
-     * [user] is null when it has none.
+     * git, for HTTPS: `Password for 'https://bob@example.com': `, or git-lfs's `Password for "https://bob@..."`. [url]
+     * is as git wrote it, user name included, and [user] is null when it has none.
      */
     data class HttpPassword(val url: String, val user: String?) : AskpassPrompt
 
@@ -25,8 +28,8 @@ sealed interface AskpassPrompt {
 }
 
 // git's prompts are in English, as Leaf runs it with LC_ALL=C. ssh doesn't translate its prompts.
-private val HTTP_USERNAME = Regex("""^Username for '(.+)': $""")
-private val HTTP_PASSWORD = Regex("""^Password for '(.+)': $""")
+private val HTTP_USERNAME = Regex("""^Username for (?:'(.+)': |"(.+)")$""")
+private val HTTP_PASSWORD = Regex("""^Password for (?:'(.+)': |"(.+)")$""")
 private val SSH_PASSPHRASE = Regex("""^Enter passphrase for key '(.+)': ?$""")
 private val SSH_HOST_KEY_HOST = Regex("""The authenticity of host '([^']+)' can't be established""")
 // "ED25519 key fingerprint is: SHA256:..." since OpenSSH 10, "... is SHA256:...." before
@@ -34,10 +37,10 @@ private val SSH_HOST_KEY_FINGERPRINT = Regex("""key fingerprint is:? (\S+?)\.?$"
 private const val SSH_HOST_KEY_QUESTION = "Are you sure you want to continue connecting (yes/no"
 
 fun parseAskpassPrompt(text: String): AskpassPrompt {
-    HTTP_USERNAME.matchEntire(text)?.let { return AskpassPrompt.HttpUsername(it.groupValues[1]) }
+    HTTP_USERNAME.matchEntire(text)?.let { return AskpassPrompt.HttpUsername(it.quotedUrl()) }
 
     HTTP_PASSWORD.matchEntire(text)?.let {
-        val url = it.groupValues[1]
+        val url = it.quotedUrl()
         return AskpassPrompt.HttpPassword(url, userOfDescribedUrl(url))
     }
 
@@ -57,6 +60,9 @@ fun parseAskpassPrompt(text: String): AskpassPrompt {
 
     return AskpassPrompt.Other(text, secret = !text.startsWith("Username"))
 }
+
+/** The URL in git's quotes or in git-lfs's. */
+private fun MatchResult.quotedUrl() = groupValues[1].ifEmpty { groupValues[2] }
 
 /**
  * The user name in a URL as git describes it in prompts (`credential_describe`): `protocol://user@host/path`. The user

@@ -35,6 +35,7 @@ class ProcessRunner @Inject constructor() {
      * @param environment variables to add to the inherited environment; a null value removes the variable.
      * @param input written to the process's stdin, which is then closed; without it stdin is closed at once.
      * @param onStderr receives stderr as the process writes it, for progress, besides the whole of it in the outcome.
+     * @param onStdout the same for stdout, where some programs (git-lfs) write their progress.
      * @throws java.io.IOException if the process can't be started.
      */
     suspend fun run(
@@ -44,6 +45,7 @@ class ProcessRunner @Inject constructor() {
         timeout: Duration,
         input: ByteArray? = null,
         onStderr: ((String) -> Unit)? = null,
+        onStdout: ((String) -> Unit)? = null,
     ): ProcessOutcome = withContext(Dispatchers.IO) {
         val process = ProcessBuilder(command)
             .directory(workingDirectory)
@@ -72,7 +74,13 @@ class ProcessRunner @Inject constructor() {
             }
 
             // Both streams have to be drained while the process runs, otherwise it blocks once a pipe buffer is full
-            val stdout = async { process.inputStream.readBytes().decodeToString() }
+            val stdout = async {
+                if (onStdout == null) {
+                    process.inputStream.readBytes().decodeToString()
+                } else {
+                    process.inputStream.readAsWritten(onStdout)
+                }
+            }
             val stderr = async {
                 if (onStderr == null) {
                     process.errorStream.readBytes().decodeToString()

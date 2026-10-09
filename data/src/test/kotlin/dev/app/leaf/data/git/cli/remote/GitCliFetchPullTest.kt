@@ -337,6 +337,7 @@ class GitCliFetchPullTest {
         val action = GitCliPullBranchGitAction(
             jgit = jgit,
             remoteCommand = remote.command,
+            gitLfsFetch = remote.gitLfsFetch,
             checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
             deleteStashGitAction = DeleteStashGitAction(jgit),
             commitMapper = JGitCommitMapper(JGitIdentityMapper()),

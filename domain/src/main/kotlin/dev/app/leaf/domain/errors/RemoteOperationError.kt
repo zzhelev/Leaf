@@ -49,6 +49,9 @@ data class RemoteFetchFailure(val remote: String, val error: RemoteOperationErro
  */
 data class CloneSubmodulesError(val directory: String, val error: GitError) : GitError
 
+/** git-lfs couldn't download the LFS files of what was pulled or cloned, as [error] says. Nothing was checked out. */
+data class LfsDownloadError(val error: GitError) : GitError
+
 /** A ref that the remote refused: `!  <source>:<destination>  [rejected] (<reason>)` in `git push --porcelain`. */
 data class RejectedRef(val destination: String, val reason: RejectReason, val detail: String)
 

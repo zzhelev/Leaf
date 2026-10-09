@@ -16,10 +16,12 @@ import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteOperationError
 import dev.app.leaf.domain.models.CloneState
 import kotlinx.coroutines.flow.toList
+import org.eclipse.jgit.attributes.FilterCommandRegistry
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -35,7 +37,9 @@ import java.io.File
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.file.Files
+import java.util.Collections
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
 private const val SSHD = "/usr/sbin/sshd"
 private const val SSH_KEYGEN = "/usr/bin/ssh-keygen"
@@ -56,6 +60,7 @@ class GitCliSshTest {
     lateinit var tempDir: File
 
     private val labDir: File = Files.createTempDirectory("leaf-cli-ssh").toFile()
+    private val lfsServer = FakeLfsServer(File(labDir, "lfs-store"))
     private var sshd: Process? = null
     private var port = 0
     private val originalReader: SystemReader = SystemReader.getInstance()
@@ -92,6 +97,8 @@ class GitCliSshTest {
             case "${'$'}SSH_ORIGINAL_COMMAND" in
               "git-upload-pack "*) command=upload-pack ;;
               "git-receive-pack "*) command=receive-pack ;;
+              # Where git-lfs finds the LFS server of an SSH remote. git-lfs-transfer is refused, so it asks this.
+              "git-lfs-authenticate "*) echo '{"href": "${lfsServer.url}", "header": {}}'; exit 0 ;;
               *) echo "unsupported command" >&2; exit 1 ;;
             esac
             # "git-receive-pack '/name.git'" serves <labDir>/name.git
@@ -140,6 +147,7 @@ class GitCliSshTest {
 
     @AfterAll
     fun stopServer() {
+        lfsServer.close()
         sshd?.let {
             it.destroy()
             it.waitFor(5, TimeUnit.SECONDS)
@@ -266,7 +274,7 @@ class GitCliSshTest {
         val destination = File(tempDir, "clone")
 
         val (states, dialogs) = remote.credentialsStateManager.answeringDialogs({ sshHostKeyTrusted() }) {
-            GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, remoteUrl(), cloneSubmodules = false)
+            GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, remoteUrl(), cloneSubmodules = false)
                 .toList()
         }
 
@@ -274,6 +282,40 @@ class GitCliSshTest {
         assertEquals(listOf(CredentialsRequest.SshHostKeyRequest("[127.0.0.1]:$port", hostKeyFingerprint())), dialogs)
         assertEquals("Test repository\n", File(destination, "README.md").readText())
     }
+
+    @Test
+    fun `git-lfs uploads and downloads LFS files of an SSH remote, asking the server through the system's ssh`(): Unit =
+        runBlocking {
+            assumeTrue(runCatching { runAndRead("git", "lfs", "version") }.isSuccess) { "git-lfs isn't installed" }
+            globalConfig.writeText(GIT_LFS_FILTERS)
+            useKey("alice")
+            git.run(work, "lfs", "track", "*.bin")
+            val file = File(work, "big.bin").apply { writeBytes(Random(7).nextBytes(20_000)) }
+            git.run(work, "add", ".")
+            git.run(work, "commit", "-m", "LFS file")
+
+            // The pre-push hook that `git lfs track` installed uploads it
+            assertEquals(Either.Ok(Unit), push())
+            assertTrue(File(labDir, "lfs-store/${sha256(file)}").isFile)
+
+            git.run(tempDir, "config", "--file", globalConfig.path, "core.sshCommand", sshCommand("alice"))
+            val destination = File(tempDir, "clone")
+            val builtinDownloads = Collections.synchronizedList(mutableListOf<String>())
+            FilterCommandRegistry.register(BUILTIN_LFS_SMUDGE) { repository, input, output ->
+                LocalObjectsSmudge(repository, input, output, builtinDownloads)
+            }
+
+            val states = try {
+                GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, remoteUrl(), false)
+                    .toList()
+            } finally {
+                FilterCommandRegistry.unregister(BUILTIN_LFS_SMUDGE)
+            }
+
+            assertEquals(CloneState.Completed(destination), states.last())
+            assertArrayEquals(file.readBytes(), File(destination, "big.bin").readBytes())
+            assertEquals(emptyList<String>(), builtinDownloads)
+        }
 
     /** Makes the repository's ssh use only [account]'s key, the test's known_hosts, and no config or agent. */
     private fun useKey(account: String) {

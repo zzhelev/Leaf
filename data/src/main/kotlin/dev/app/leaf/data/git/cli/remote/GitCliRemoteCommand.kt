@@ -72,6 +72,10 @@ class GitCliRemoteCommand @Inject constructor(
         val progress = GitProgressParser {
             onProgress(TaskProgress(it.stage, it.percent))
         }
+        // git-lfs writes its progress to stdout: `git lfs fetch`'s, and the pre-push hook's, which git passes on
+        val stdoutProgress = GitProgressParser {
+            onProgress(TaskProgress(it.stage, it.percent))
+        }
 
         val result = try {
             withAskpassServer(answers::answer) { serverEnvironment ->
@@ -79,8 +83,9 @@ class GitCliRemoteCommand @Inject constructor(
                     workingDirectory = workingDirectory,
                     args = cacheHelper + args,
                     timeout = Duration.INFINITE,
-                    environment = askpassEnvironment(helper) + serverEnvironment,
+                    environment = askpassEnvironment(helper) + LFS_PROGRESS + serverEnvironment,
                     onStderr = progress::accept,
+                    onStdout = stdoutProgress::accept,
                 )
             }
         } finally {
@@ -116,6 +121,13 @@ private fun askpassEnvironment(helper: File) = mapOf(
     "SSH_ASKPASS" to helper.absolutePath,
     "SSH_ASKPASS_REQUIRE" to "force",
 )
+
+/**
+ * git-lfs only writes its progress ("Downloading LFS objects", "Uploading LFS objects") to a terminal, unless this is
+ * set. It reaches git-lfs whether git runs it as a filter, as a hook or as `git lfs fetch`. The progress goes to
+ * stdout, where `git push --porcelain` writes its refs too, which `parsePushPorcelain` tells apart.
+ */
+private val LFS_PROGRESS = mapOf("GIT_LFS_FORCE_PROGRESS" to "1")
 
 /**
  * The helper as a credential helper. git runs `!` helpers with the shell, Git Bash's on Windows, so the path is quoted

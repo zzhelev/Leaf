@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Test
 
-/** git's output as git 2.54 wrote it, captured from pushes to local and SSH remotes. */
+/** git's output as git 2.54 (and git-lfs 3.8) wrote it, captured from pushes to local and SSH remotes. */
 class GitOutputParsersTest {
     @Test
     fun `progress is read as git rewrites its lines`() {
@@ -60,6 +60,34 @@ class GitOutputParsersTest {
             readableGitOutput(stderr),
         )
         assertInstanceOf(RemoteOperationError.HostKeyChanged::class.java, remoteOperationError(128, stderr))
+    }
+
+    @Test
+    fun `git-lfs's upload progress on stdout is read as progress, not as refs`() {
+        // git-lfs 3.8's pre-push hook with GIT_LFS_FORCE_PROGRESS=1, before git's porcelain. It ends each update with
+        // a newline when stdout isn't a terminal.
+        val stdout = "Uploading LFS objects:   0% (0/1), 0 B | 0 B/s                                  \n" +
+            "Uploading LFS objects: 100% (1/1), 30 KB | 0 B/s                                \n" +
+            "Uploading LFS objects: 100% (1/1), 30 KB | 0 B/s, done.\n" +
+            "To file:///tmp/origin.git\n" +
+            " \trefs/heads/main:refs/heads/main\taf4ca6f..f069207\n" +
+            "Done\n"
+        val progress = mutableListOf<GitProgress>()
+
+        GitProgressParser { progress.add(it) }.accept(stdout)
+
+        assertEquals(
+            listOf(PushedRef(' ', "refs/heads/main", "refs/heads/main", "af4ca6f..f069207", null)),
+            parsePushPorcelain(stdout),
+        )
+        assertEquals(
+            listOf(
+                GitProgress("Uploading LFS objects", 0),
+                GitProgress("Uploading LFS objects", 100),
+                GitProgress("Uploading LFS objects", 100),
+            ),
+            progress,
+        )
     }
 
     @Test

@@ -20,12 +20,14 @@ import java.util.Collections
 
 /**
  * A [GitCliRemoteCommand] for tests, with the built askpass [helper], and git kept away from the developer's global and
- * system config (an empty [globalConfig]).
+ * system config (an empty [globalConfig]). [shellVariables] stand for what the login shell adds, such as a PATH
+ * without git-lfs.
  */
 class TestRemoteCommand(
     helper: File,
     globalConfig: File,
     cacheCredentials: Boolean = true,
+    shellVariables: Map<String, String> = emptyMap(),
 ) {
     val credentialsStateManager = CredentialsStateManager()
     val credentialsCache = CredentialsCacheRepository()
@@ -34,13 +36,15 @@ class TestRemoteCommand(
     /** Every progress that the command reported, as the processing screen may miss some. */
     val progress: MutableList<TaskProgress?> = Collections.synchronizedList(mutableListOf())
 
+    val gitCli = testGitCli(
+        shellVariables = mapOf(
+            "GIT_CONFIG_GLOBAL" to globalConfig.absolutePath,
+            "GIT_CONFIG_NOSYSTEM" to "1",
+        ) + shellVariables,
+    )
+
     val command = GitCliRemoteCommand(
-        gitCli = testGitCli(
-            shellVariables = mapOf(
-                "GIT_CONFIG_GLOBAL" to globalConfig.absolutePath,
-                "GIT_CONFIG_NOSYSTEM" to "1",
-            ),
-        ),
+        gitCli = gitCli,
         askpassHelper = AskpassHelper { helper },
         credentialsStateManager = credentialsStateManager,
         credentialsRepository = credentialsCache,
@@ -56,4 +60,6 @@ class TestRemoteCommand(
             }
         },
     )
+
+    val gitLfsFetch = GitLfsFetch(gitCli, command)
 }

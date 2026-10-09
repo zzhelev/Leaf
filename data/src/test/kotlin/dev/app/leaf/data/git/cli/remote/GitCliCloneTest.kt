@@ -242,7 +242,7 @@ class GitCliCloneTest {
     }
 
     private suspend fun clone(destination: File, url: String, cloneSubmodules: Boolean = false) =
-        GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, url, cloneSubmodules).toList()
+        GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, url, cloneSubmodules).toList()
 
     private fun failure(states: List<CloneState>) = (states.last() as CloneState.Fail).reason
 

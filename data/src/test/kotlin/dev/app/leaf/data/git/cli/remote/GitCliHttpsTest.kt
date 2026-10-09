@@ -188,6 +188,7 @@ class GitCliHttpsTest {
             GitCliPullBranchGitAction(
                 jgit = jgit,
                 remoteCommand = remote.command,
+                gitLfsFetch = remote.gitLfsFetch,
                 checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
                 deleteStashGitAction = DeleteStashGitAction(jgit),
                 commitMapper = JGitCommitMapper(JGitIdentityMapper()),
@@ -282,7 +283,7 @@ class GitCliHttpsTest {
     private fun servedUrl() = "http://127.0.0.1:${server.address.port}/repo.git"
 
     private fun clone(remote: TestRemoteCommand, destination: File, url: String, cloneSubmodules: Boolean = false) =
-        GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, url, cloneSubmodules)
+        GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, url, cloneSubmodules)
 
     /** Waits until git asks a question, which leaves it waiting for the dialog's answer. */
     private suspend fun TestRemoteCommand.awaitDialog() {

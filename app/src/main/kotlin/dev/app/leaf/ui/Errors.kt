@@ -31,6 +31,7 @@ import dev.app.leaf.app.generated.resources.error_gpg_signing_program_not_found
 import dev.app.leaf.app.generated.resources.error_gpg_signing_start_failed
 import dev.app.leaf.app.generated.resources.error_gpg_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_hook_rejection
+import dev.app.leaf.app.generated.resources.error_lfs_download_failed
 import dev.app.leaf.app.generated.resources.error_open_repository_dir_not_found
 import dev.app.leaf.app.generated.resources.error_open_repository_path_is_not_dir
 import dev.app.leaf.app.generated.resources.error_open_repository_repo_not_found
@@ -194,6 +195,8 @@ fun AppError.getErrorText(): String {
 
         is CloneSubmodulesError -> stringResource(Res.string.error_clone_submodules_failed, directory) + " " +
             error.getErrorText()
+
+        is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
 
         is SshSigningError.InvalidPassword -> throw IllegalStateException("InvalidPassword error should never trigger")
         is SshSigningError.KeyNotFound -> stringResource(Res.string.error_sign_ssh_key_not_found)

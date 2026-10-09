@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import org.eclipse.jgit.lib.ConfigConstants
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.util.FileUtils
@@ -35,8 +36,8 @@ private const val SUBMODULES_STAGE = "Cloning submodules"
 /**
  * Clones with `git clone --no-checkout`, then checks the files out with JGit and Leaf's built-in LFS, as
  * [dev.app.leaf.data.git.remote_operations.CloneRepositoryGitAction] does after JGit's own clone, so git-lfs isn't
- * needed. With `cloneSubmodules`, `git submodule update --init --recursive` then clones the submodules, as
- * `git clone --recurse-submodules` does.
+ * needed. When it's installed, git-lfs downloads the LFS objects before the checkout. With `cloneSubmodules`,
+ * `git submodule update --init --recursive` then clones the submodules, as `git clone --recurse-submodules` does.
  *
  * A clone that fails or is cancelled is removed, as git removes it: the folder, or what's in it when it was an empty
  * folder before. git refuses a folder with files in it, which is then left alone. Only a clone whose submodules failed
@@ -45,6 +46,7 @@ private const val SUBMODULES_STAGE = "Cloning submodules"
 class GitCliCloneRepositoryGitAction @Inject constructor(
     private val jgit: JGit,
     private val remoteCommand: GitCliRemoteCommand,
+    private val gitLfsFetch: GitLfsFetch,
 ) {
     operator fun invoke(directory: File, url: String, cloneSubmodules: Boolean): Flow<CloneState> = channelFlow {
         val destination = directory.absoluteFile
@@ -96,7 +98,6 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
             return remoteOperationError(output.exitCode, output.stderr)
         }
 
-        send(CloneState.Cloning("Checking out files", 0, 0))
         checkOut(destination)?.let { return it }
 
         if (cloneSubmodules && File(destination, Constants.DOT_GIT_MODULES).isFile) {
@@ -125,28 +126,54 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
         return null
     }
 
-    /** Checks out what HEAD points to, as JGit's own clone does, unless the repository has no commits yet. */
+    /**
+     * Checks out what HEAD points to, as JGit's own clone does, unless the repository has no commits yet. When git-lfs
+     * is installed, it downloads the LFS objects first ([GitLfsFetch]), so the built-in LFS only reads them, and its
+     * hooks are installed, as `git clone` would.
+     */
     private suspend fun ProducerScope<CloneState>.checkOut(destination: File): GitError? {
         val checkout = withContext(Dispatchers.IO) {
             jgit.provideOnce(File(destination, Constants.DOT_GIT).path) { git ->
                 val repository = git.repository
+                val head = repository.resolve(Constants.HEAD) ?: return@provideOnce null
+                val remote = repository.config.getString(
+                    ConfigConstants.CONFIG_BRANCH_SECTION,
+                    repository.branch,
+                    ConfigConstants.CONFIG_KEY_REMOTE,
+                ) ?: Constants.DEFAULT_REMOTE_NAME
 
-                if (repository.resolve(Constants.HEAD) != null) {
-                    useBuiltinLfs(repository) {
-                        git.checkout()
-                            .setName(repository.fullBranch)
-                            .setForced(true)
-                            .setProgressMonitor(CheckoutProgress(this@checkOut))
-                            .call()
-                    }
+                val usesGitLfs = when (
+                    val fetch = gitLfsFetch(repository, remote, head, onProgress = { reportProgress(it, prefix = "") })
+                ) {
+                    is Either.Err -> return@provideOnce fetch.error
+                    is Either.Ok -> fetch.value
                 }
+
+                send(CloneState.Cloning("Checking out files", 0, 0))
+
+                useBuiltinLfs(repository) {
+                    git.checkout()
+                        .setName(repository.fullBranch)
+                        .setForced(true)
+                        .setProgressMonitor(CheckoutProgress(this@checkOut))
+                        .call()
+                }
+
+                if (usesGitLfs) {
+                    gitLfsFetch.installHooks(repository)
+                }
+
+                null
             }
         }
 
         // A cancelled checkout stops with an error of its own
         currentCoroutineContext().ensureActive()
 
-        return (checkout as? Either.Err)?.error
+        return when (checkout) {
+            is Either.Err -> checkout.error
+            is Either.Ok -> checkout.value
+        }
     }
 
     private fun ProducerScope<CloneState>.reportProgress(progress: TaskProgress?, prefix: String) {

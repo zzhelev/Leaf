@@ -45,7 +45,8 @@ private const val LOCAL_REMOTE = "."
 /**
  * Pulls like [dev.app.leaf.data.git.remote_operations.PullBranchGitAction], but fetches with `git fetch`: JGit then
  * merges or rebases the fetched commit, as JGit's `PullCommand` does after its own fetch. So Leaf's automatic stash,
- * its conflict handling and its built-in LFS stay, and git never opens an editor for the merge message.
+ * its conflict handling and its built-in LFS stay, and git never opens an editor for the merge message. When git-lfs
+ * is installed, it downloads the commit's LFS objects first ([GitLfsFetch]), so the built-in LFS only reads them.
  *
  * What is pulled is what JGit's `PullCommand` (and git) pulls: [Branch] when one is given, or else the branch's
  * upstream (`branch.<name>.remote` and `branch.<name>.merge`), or else the branch of the same name on `origin`.
@@ -53,6 +54,7 @@ private const val LOCAL_REMOTE = "."
 class GitCliPullBranchGitAction @Inject constructor(
     private val jgit: JGit,
     private val remoteCommand: GitCliRemoteCommand,
+    private val gitLfsFetch: GitLfsFetch,
     private val checkHasUncommittedChangesGitAction: CheckHasUncommittedChangesGitAction,
     private val deleteStashGitAction: DeleteStashGitAction,
     private val commitMapper: JGitCommitMapper,
@@ -74,6 +76,13 @@ class GitCliPullBranchGitAction @Inject constructor(
             FetchHeadEntry(commit.name, forMerge = true, "branch '${Repository.shortenRefName(source.ref)}'")
         } else {
             fetch(source)
+        }
+
+        if (source.remote != LOCAL_REMOTE) {
+            // Before anything changes, so that a failed download leaves the branch as it was
+            jgit.provide(repositoryPath) { git ->
+                gitLfsFetch(git.repository, source.remote, ObjectId.fromString(fetched.objectId)).bind()
+            }.bind()
         }
 
         val hasConflicts = jgit.provide(repositoryPath) { git ->

@@ -76,6 +76,7 @@ class GitCli @Inject constructor(
      *
      * @param environment variables added after Leaf's own, such as the askpass helper's.
      * @param onStderr receives stderr as git writes it, for progress.
+     * @param onStdout receives stdout as git writes it, where git-lfs writes its progress.
      */
     suspend fun execute(
         workingDirectory: File,
@@ -83,6 +84,7 @@ class GitCli @Inject constructor(
         timeout: Duration = DEFAULT_TIMEOUT,
         environment: Map<String, String?> = emptyMap(),
         onStderr: ((String) -> Unit)? = null,
+        onStdout: ((String) -> Unit)? = null,
     ): Either<GitCliOutput, GitCliError> {
         val commandDescription = describe(args)
 
@@ -108,6 +110,7 @@ class GitCli @Inject constructor(
                 environment = processEnvironment,
                 timeout = timeout,
                 onStderr = onStderr,
+                onStdout = onStdout,
             )
         } catch (e: IOException) {
             gitExecutableLocator.invalidate()
