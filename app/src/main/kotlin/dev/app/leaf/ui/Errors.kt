@@ -66,6 +66,9 @@ import dev.app.leaf.app.generated.resources.error_ssh_signing_program_not_found
 import dev.app.leaf.app.generated.resources.error_ssh_signing_start_failed
 import dev.app.leaf.app.generated.resources.error_ssh_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_ssh_signing_unsupported
+import dev.app.leaf.app.generated.resources.error_stale_hunk_discard
+import dev.app.leaf.app.generated.resources.error_stale_hunk_stage
+import dev.app.leaf.app.generated.resources.error_stale_hunk_unstage
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.errors.*
 import dev.app.leaf.domain.models.WorktreeBranchUse
@@ -104,6 +107,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
     is SshNeedsGitError -> if (reason == SshNeedsGitError.Reason.LfsPushWithoutGitLfs) listOf("git lfs install") else emptyList()
+    is StaleHunkError -> listOf(path)
     else -> emptyList()
 }
 
@@ -208,6 +212,16 @@ fun AppError.getErrorText(): String {
             error.getErrorText()
 
         is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
+
+        is StaleHunkError -> {
+            val explanation = when (action) {
+                HunkAction.Stage -> stringResource(Res.string.error_stale_hunk_stage, path)
+                HunkAction.Unstage -> stringResource(Res.string.error_stale_hunk_unstage, path)
+                HunkAction.Discard -> stringResource(Res.string.error_stale_hunk_discard, path)
+            }
+
+            listOf(explanation, output).filter { it.isNotBlank() }.joinToString("\n\n")
+        }
 
         is SshNeedsGitError -> when (reason) {
             SshNeedsGitError.Reason.SettingOff -> stringResource(Res.string.error_ssh_needs_git_setting_off)

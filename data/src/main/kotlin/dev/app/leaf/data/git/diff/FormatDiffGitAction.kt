@@ -90,7 +90,7 @@ class FormatDiffGitAction @Inject constructor(
     }
 
     private suspend fun diffHunksParts(hunks: List<Hunk>): List<Hunk> = withContext(Dispatchers.Default) {
-        val newHunksList = MutableList<Hunk>(hunks.count(), { Hunk("", emptyList()) })
+        val newHunksList = hunks.toMutableList()
 
         hunks.mapIndexed { index, hunk ->
             launch {

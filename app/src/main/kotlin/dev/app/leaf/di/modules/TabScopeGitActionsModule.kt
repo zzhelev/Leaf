@@ -235,14 +235,6 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsGetLinesFromRawTextGitAction(action: GetLinesFromRawTextGitAction): IGetLinesFromRawTextGitAction
-
-    @Binds
-    @TabScope
-    fun bindsGetLinesFromTextGitAction(action: GetLinesFromTextGitAction): IGetLinesFromTextGitAction
-
-    @Binds
-    @TabScope
     fun bindsGetRebaseAmendCommitIdGitAction(action: GetRebaseAmendCommitIdGitAction): IGetRebaseAmendCommitIdGitAction
 
     @Binds

@@ -75,6 +75,7 @@ class GitCli @Inject constructor(
      * from it: `git push --porcelain` lists the refs that the remote refused, and exits with 1.
      *
      * @param environment variables added after Leaf's own, such as the askpass helper's.
+     * @param input written to git's stdin, such as the patch that `git apply` reads.
      * @param onStderr receives stderr as git writes it, for progress.
      * @param onStdout receives stdout as git writes it, where git-lfs writes its progress.
      */
@@ -83,6 +84,7 @@ class GitCli @Inject constructor(
         args: List<String>,
         timeout: Duration = DEFAULT_TIMEOUT,
         environment: Map<String, String?> = emptyMap(),
+        input: ByteArray? = null,
         onStderr: ((String) -> Unit)? = null,
         onStdout: ((String) -> Unit)? = null,
     ): Either<GitCliOutput, GitCliError> {
@@ -109,6 +111,7 @@ class GitCli @Inject constructor(
                 workingDirectory = workingDirectory,
                 environment = processEnvironment,
                 timeout = timeout,
+                input = input,
                 onStderr = onStderr,
                 onStdout = onStdout,
             )

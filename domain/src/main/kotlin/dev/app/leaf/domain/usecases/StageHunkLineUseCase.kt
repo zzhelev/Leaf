@@ -16,6 +16,8 @@ class StageHunkLineUseCase @Inject constructor(
         useCaseExecutor.executeLaunch(
             taskType = TaskType.StageLine,
             dataToRefresh = arrayOf(DataToRefresh.STATUS),
+            // So that the diff shows the file as it is when git refuses lines that changed since
+            refreshEvenIfFailed = true,
         ) { repositoryPath ->
             stageHunkLineGitAction(repositoryPath, diffEntry, hunk, line)
         }

@@ -1,79 +1,14 @@
 package dev.app.leaf.data.git.workspace
 
-import dev.app.leaf.data.git.JGit
-import dev.app.leaf.data.git.RawFileManager
+import dev.app.leaf.domain.errors.HunkAction
 import dev.app.leaf.domain.interfaces.IUnstageHunkGitAction
-import dev.app.leaf.domain.models.EntryContent
 import dev.app.leaf.domain.models.Hunk
-import dev.app.leaf.domain.models.LineType
 import org.eclipse.jgit.diff.DiffEntry
-import java.nio.ByteBuffer
 import javax.inject.Inject
 
 class UnstageHunkGitAction @Inject constructor(
-    private val jgit: JGit,
-    private val rawFileManager: RawFileManager,
-    private val getLinesFromRawTextGitAction: GetLinesFromRawTextGitAction,
+    private val applyHunkGitAction: ApplyHunkGitAction,
 ) : IUnstageHunkGitAction {
-    override suspend operator fun invoke(
-        repositoryPath: String,
-        diffEntry: DiffEntry,
-        hunk: Hunk
-    ) = jgit.provide(repositoryPath) { git ->
-        val repository = git.repository
-        val dirCache = repository.lockDirCache()
-        val dirCacheEditor = dirCache.editor()
-        var completedWithErrors = true
-
-        try {
-            val entryContent = rawFileManager.getRawContent(
-                repository = repository,
-                side = DiffEntry.Side.NEW,
-                entry = diffEntry,
-                oldTreeIterator = null,
-                newTreeIterator = null
-            )
-
-            if (entryContent !is EntryContent.Text)
-                return@provide
-
-            val textLines = getLinesFromRawTextGitAction(entryContent.rawText).toMutableList()
-
-            val hunkLines = hunk.lines.filter { it.lineType != LineType.CONTEXT }
-
-            val addedLines = hunkLines
-                .filter { it.lineType == LineType.ADDED }
-                .sortedBy { it.newLineNumber }
-            val removedLines = hunkLines
-                .filter { it.lineType == LineType.REMOVED }
-                .sortedBy { it.newLineNumber }
-
-            var linesRemoved = 0
-
-            // Start by removing the added lines to the index
-            for (line in addedLines) {
-                textLines.removeAt(line.newLineNumber + linesRemoved)
-                linesRemoved--
-            }
-
-            var linesAdded = 0
-
-            // Restore previously removed lines to the index
-            for (line in removedLines) {
-                // Check how many lines before this one have been deleted
-                val previouslyRemovedLines = addedLines.count { it.newLineNumber < line.newLineNumber }
-                textLines.add(line.newLineNumber + linesAdded - previouslyRemovedLines, line.text)
-                linesAdded++
-            }
-
-            val stagedFileText = textLines.joinToString("")
-            dirCacheEditor.add(HunkEdit(diffEntry.newPath, repository, ByteBuffer.wrap(stagedFileText.toByteArray())))
-            dirCacheEditor.commit()
-
-            completedWithErrors = false
-        } finally {
-            if (completedWithErrors)
-                dirCache.unlock()
-        }
-    }
+    override suspend operator fun invoke(repositoryPath: String, diffEntry: DiffEntry, hunk: Hunk) =
+        applyHunkGitAction(repositoryPath, diffEntry, hunk, HunkAction.Unstage) { true }
 }

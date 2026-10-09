@@ -446,6 +446,10 @@
     <string name="error_git_cli_timed_out">"%1$s" did not finish within %2$d seconds</string>
     <string name="error_git_cli_start_failed">"%1$s" could not be started: %2$s</string>
 
+    <string name="error_stale_hunk_stage">The staged version of %1$s changed after the diff was shown, so nothing was staged. The diff now shows the file as it is.</string>
+    <string name="error_stale_hunk_unstage">The staged version of %1$s changed after the diff was shown, so nothing was unstaged. The diff now shows the file as it is.</string>
+    <string name="error_stale_hunk_discard">%1$s changed after the diff was shown, so nothing was discarded. The diff now shows the file as it is.</string>
+
     <string name="error_fetch_remote_failed">Couldn't fetch %1$s.</string>
     <string name="error_lfs_download_failed">git-lfs couldn't download the LFS files, so nothing was checked out.</string>
     <string name="error_clone_submodules_failed">The repository was cloned into %1$s, but not all of its submodules. Open it to try them again from the Submodules section of the side panel.</string>

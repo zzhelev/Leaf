@@ -96,7 +96,7 @@ class FormatHunksGitAction @Inject constructor() : IFormatHunksGitAction {
                 }
             }
 
-            hunksList.add(Hunk(headerText, lines))
+            hunksList.add(Hunk(headerText, lines, oldRawText, newRawText))
         }
 
         return hunksList
