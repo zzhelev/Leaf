@@ -2,6 +2,50 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Switching to a worktree opens its tab (branch `feat/open-worktree-tabs`)
+
+Phase 2a of `docs/fork/PLAN.md`, and the "Switch to that worktree" action that 1.3 left for Phase 2.
+
+- **Before:** the Worktrees section and the branch badges only showed the other worktrees. Double-clicking a branch
+  that another worktree had checked out showed the checkout refusal, and the worktree had to be opened from the
+  Welcome page or the menu, as a new tab even when one already had it.
+- **Now:**
+  - Double-clicking a worktree's row switches to it: Leaf selects the tab that has it, or opens it in a new tab at
+    the end. The first click still selects its commit in the log. The row's menu has "Switch to worktree" above "Copy
+    path".
+  - Double-clicking a local branch that another worktree uses (checked out, rebased or bisected from there) switches
+    to that worktree, in the side panel and on the log's chips. Their menus have "Switch to worktree" where Checkout
+    was left out.
+  - The checkout refusal ("can't be checked out here, as it's checked out in the worktree at …") has a "Switch to
+    worktree" button. It shows when the worktree list was stale, and after double-clicking `origin/x` while another
+    worktree has `x`, which stays a refusal, as the remote branch may have other commits.
+  - Nothing is offered for the tab's own worktree, a worktree whose folder is missing (prunable), or a bare
+    repository's. A branch whose worktree is missing gets the refusal, without the button.
+  - A tab is found by its git dir, whichever path it was opened from (a working tree or a git dir, a relative or
+    absolute `.git` file, `/var` or `/private/var`), also when it hasn't loaded yet. The Welcome page and the CLI
+    argument still open a second tab for a repository that has one.
+- **Tab name and tooltip:** a linked worktree's tab is named after its folder, and its tooltip is the folder's path.
+  Before, they came from its git dir: the name was git's id for the worktree (the folder's name unless git added a
+  number), and the tooltip `<repo>/.git/worktrees/<id>`. "Open another repository" from such a tab now replaces it,
+  as for other tabs, instead of adding one.
+- **Recent repositories:** linked worktrees no longer go into the Welcome page's list, however they're opened. Their
+  repository does. Agents' worktrees come and go, so every one opened left an entry that later pointed nowhere.
+  Entries already in the list stay.
+- **Tests:** 16 new.
+  - `:domain` (11): `RepositoryPathsTest` finds a repository's git dir from a working tree, a git dir, absolute and
+    relative `.git` files and a symbolic link, picks the first tab that has it, and gives a tab's working tree.
+    `WorktreeBranchUsersTest` picks the worktree to switch to, and none for the tab's own, a missing or a bare one.
+  - `:data` (1): `WorktreesTest` checks the same against worktrees that `git worktree add` made, `--relative-paths`
+    included: the folders that `git worktree list` gives find the git dirs that opening them gives.
+  - `:app` (4): the branch menu's "Switch to worktree", and the worktree row's menu.
+  - **Mutation check:** 17 mutations, all caught.
+  - Manual run on macOS, with a repository that has a sibling worktree, an agent's in `.claude/worktrees/`, one made
+    with `--relative-paths`, one whose folder was deleted, and a remote: every double-click and menu item, the tab
+    that was already open being selected, the refusal's button for `origin/feature` and none for the deleted
+    worktree's branch, the tabs' names after a restart, and the Welcome page's recent list.
+  - `./gradlew build` passes, with 751 tests (42 in `:app`, 540 in `:data`, 162 in `:domain`, 7 in `:common`), after
+    rebasing onto the fix for the side panel rows' names.
+
 ## Remote branch, tag and submodule rows show their names again (branch `fix/side-panel-row-names`)
 
 - **Before:** since `6c0498a2` ("Gave the branch name the room before the worktree's name"), the side panel showed

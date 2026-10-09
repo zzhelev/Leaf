@@ -681,11 +681,13 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 **Opening a tab:**
 - Paths in: `App.start` restores tabs from prefs (`AppViewModel.loadPersistedTabs`) and handles the CLI argument;
   the Welcome page (picker or recent repos) calls `RepositoryTabViewModel.openRepository`; the menu's "open another
-  repository" replaces the current tab.
+  repository" replaces the current tab; switching to a worktree (fork-only, see Identity) selects or adds one.
 - Tabs load lazily. `AppTab` calls `loadTab()` when a tab is first composed.
 - Then `OpenRepositoryUseCase` → `OpenRepositoryGitAction`, which validates the path and returns the git dir. After
   that: `RepositorySelectionState.Open(gitDir)`, the working-tree path goes into recent repos, then
   `RefreshDataUseCase(ALL)` and `ObserveRepositoryToRefreshUseCase()`.
+- Fork-only: a linked worktree doesn't go into recent repos (`isLinkedWorktreeGitDir`, a `commondir` file in the git
+  dir), however it's opened. Its repository does, and agents' worktrees get deleted, which left dead entries.
 
 **State per tab:**
 - `InMemoryRepositoryDataRepository`: status, local branches, current branch, tags, remotes, log, stashes,
@@ -694,7 +696,18 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - UI state is mostly in one large `RepositoryOpenViewModel`: side panel, log, status, diff.
 
 **Identity and persistence:**
-- Tabs are identified by object, not by path, and nothing focuses an existing tab for the same path.
+- Tabs are identified by object, not by path. Opening a repository from the Welcome page or the CLI never looks for
+  a tab that has it.
+- **Switching to a worktree (fork-only):** `AppViewModel.selectOrOpenTab(folder)` selects the first tab with the same
+  git dir, or adds a tab at the end. `indexOfRepository` (`domain/worktrees/RepositoryPaths.kt`) compares real paths
+  of git dirs: `gitDirOf` turns a working tree into its `.git` folder or the git dir its `.git` file points to
+  (absolute or relative), and keeps a git dir as it is. A tab gives `pathToPersist`, so an open tab gives its git dir
+  and one that hasn't loaded the path it was created with. `RepositoryOpenViewModel.switchToWorktree` calls it, and
+  `RepositoryTabViewModel.switchToWorktree` for the error dialog (see Branches).
+- **Tab name and tooltip:** `RepositoryTabViewModel.repositoryPath` (the tooltip) is `workTreeOf` the git dir, and the
+  name is its last part. For a linked worktree's git dir, that's the folder that its `gitdir` file names, not
+  `<common git dir>/worktrees/<name>`; otherwise the git dir without `/.git`, as before. "Open another repository"
+  compares this path with the working tree, so it now replaces a linked worktree's tab too.
 - Persisted keys in the prefs node (`LeafConfig`, see Name): `latestRepositoriesTabsOpened` (JSON),
   `latestRepositoryTabSelected`, and
   `lastOpenedRepositoriesList`.
@@ -723,7 +736,12 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 **Branches:**
 - Model: `domain/models/Branch.kt` (`hash`, full ref `name`, `isLocal`). It has no tracking or ahead/behind fields.
 - Loaded by `GetBranchesGitAction` (`git.branchList()`) via `RefreshDataUseCase.refreshBranches`.
-- Double-clicking a local branch checks it out immediately, unless another worktree uses it (see Checkout guard).
+- Double-clicking a local branch checks it out immediately. When another worktree uses it, it switches to that
+  worktree instead (fork-only, `RepositoryOpenViewModel.checkoutBranch`), from the side panel and from the log's
+  chips: `BranchWorktreeUsers.worktreeToSwitchTo`, which leaves out a worktree whose folder is missing
+  (`Worktree.canSwitchTo`). Then, or when the worktree list is stale, the checkout guard refuses, and its
+  `ErrorDialog` has a "Switch to worktree" button while the worktree's folder exists. That also covers double-clicking
+  `origin/x` while another worktree has `x`.
 - Double-clicking a remote branch (fork-only, `RepositoryOpenViewModel.checkoutRemoteBranch`) checks out the local
   branch with its name, or creates one that tracks it. `GetRemoteBranchCheckoutGitAction` compares the two first: a
   local branch that is behind with no commits of its own gets `FastForwardOnCheckoutDialog` (through
@@ -763,7 +781,8 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
     keeps it out of the upstream composables in between.
   - `branchContextMenuItems` takes the branch's `BranchWorktreeUsers` and leaves out what the guards would refuse:
     Checkout while another worktree uses the branch, Delete while any does, Rename while any rebases it or bisects
-    from it. The guards still decide, as the list may be stale. Double-clicking still shows the checkout refusal.
+    from it. The guards still decide, as the list may be stale. In place of Checkout it has "Switch to worktree"
+    (`onSwitchToWorktree`), which the log's chips get as `LocalOnSwitchToWorktree`.
   - It also takes the base choice (`BranchWorktreesState.baseChoice`): "Compare worktrees to this branch" on any other
     branch, local or remote, and "Compare worktrees automatically" on the chosen one. The log's chips get the callback
     as `LocalOnChooseWorktreesBase`, next to `LocalBranchWorktrees`.
@@ -776,9 +795,11 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   conflict color when there are conflicts); and `↑ahead ↓behind` versus the base branch.
 - The tooltip (`worktreeTooltip`) has the full path, the change counts, the comparison to the base and to the
   upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
-- A click selects the worktree's commit in the log (its branch when it's on one). The menu has "Copy path". The
-  side panel's filter matches the folder name, the path and the branches. When git can't list the worktrees, one
-  line says so, with the error in its tooltip.
+- A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches to the
+  worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
+  above "Copy path". Neither is offered for the tab's own worktree, a prunable one or a bare repository's
+  (`Worktree.canSwitchTo`). The side panel's filter matches the folder name, the path and the branches. When git
+  can't list the worktrees, one line says so, with the error in its tooltip.
 - The header's button (`WorktreesBaseMenuButton`, the sort button's `SortMenuButton` with the `compare_arrows` icon)
   is muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows what Automatic
   picks, the chosen branch (with "Not found" when it's missing), and a note pointing to the branch menus.
