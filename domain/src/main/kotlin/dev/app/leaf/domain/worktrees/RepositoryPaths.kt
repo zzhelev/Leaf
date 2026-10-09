@@ -3,11 +3,18 @@
 
 package dev.app.leaf.domain.worktrees
 
+import dev.app.leaf.domain.extensions.removeGitSuffix
 import java.io.File
 import java.io.IOException
 
 private const val DOT_GIT = ".git"
 private const val GIT_DIR_PREFIX = "gitdir:"
+
+/** The file in a linked worktree's git dir that points to the git dir that the worktrees share. */
+private const val COMMON_DIR_FILE = "commondir"
+
+/** The file in a linked worktree's git dir that points to the worktree's `.git` file. */
+private const val GIT_DIR_FILE = "gitdir"
 
 /**
  * The git dir that the `.git` file in [dir] points to (`gitdir: <path>`), as linked worktrees and submodules have, or
@@ -48,6 +55,25 @@ fun indexOfRepository(path: String, tabPaths: List<String?>): Int {
     val gitDir = gitDirOf(path)
 
     return tabPaths.indexOfFirst { it != null && gitDirOf(it) == gitDir }
+}
+
+/** Whether [gitDir] is a linked worktree's git dir (`<common git dir>/worktrees/<name>`): it has a `commondir` file. */
+fun isLinkedWorktreeGitDir(gitDir: String): Boolean = File(gitDir, COMMON_DIR_FILE).isFile
+
+/**
+ * The working tree of the repository that a tab opened from [path], a git dir or a working tree: for a linked
+ * worktree's git dir, the folder whose `.git` file its `gitdir` file names, and otherwise [path] without a final
+ * `.git`. A linked worktree's git dir is kept as it is when its `gitdir` file can't be read.
+ */
+fun workTreeOf(path: String): String {
+    if (!isLinkedWorktreeGitDir(path)) return path.removeGitSuffix()
+
+    // git writes a path relative to the git dir with worktree.useRelativePaths
+    val dotGit = readPath(File(path, GIT_DIR_FILE), prefix = "")
+        ?.let { if (it.isAbsolute) it else File(path, it.path) }
+        ?: return path
+
+    return dotGit.toPath().normalize().parent?.toString() ?: path
 }
 
 /** The path on the first line of [file], after [prefix], or null when the file can't be read or has no such line. */

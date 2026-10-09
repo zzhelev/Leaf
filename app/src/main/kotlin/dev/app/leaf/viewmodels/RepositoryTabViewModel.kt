@@ -11,7 +11,6 @@ import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.credentials.CredentialsStateManager
-import dev.app.leaf.domain.extensions.removeGitSuffix
 import dev.app.leaf.domain.interfaces.IFileChangesWatcher
 import dev.app.leaf.domain.interfaces.IInitLocalRepositoryGitAction
 import dev.app.leaf.domain.models.RepositorySelectionState
@@ -22,6 +21,7 @@ import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.SetRepositorySelectionStateToNoneUseCase
+import dev.app.leaf.domain.worktrees.workTreeOf
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.system.OpenFilePickerUseCase
@@ -36,6 +36,7 @@ import dev.app.leaf.updates.UpdatesRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -139,20 +140,17 @@ class RepositoryTabViewModel @AssistedInject constructor(
         repositoryDataRepository.repositorySelectionState
 
 
+    /** The tab's working tree, which its tooltip shows: a linked worktree's folder, not its git dir (fork-only). */
     val repositoryPath = repositoryDataRepository
         .repositorySelectionState
         .map { state ->
-            ((state as? RepositorySelectionState.Open)?.path ?: initialPath)?.removeGitSuffix()
+            ((state as? RepositorySelectionState.Open)?.path ?: initialPath)?.let { workTreeOf(it) }
         }
+        .flowOn(Dispatchers.IO)
         .stateIn(null)
 
-    override val tabName: StateFlow<String?> = repositoryDataRepository
-        .repositorySelectionState
-        .map { state ->
-            val path = ((state as? RepositorySelectionState.Open)?.path ?: initialPath)?.removeGitSuffix()
-
-            path?.split(systemSeparator)?.lastOrNull()
-        }
+    override val tabName: StateFlow<String?> = repositoryPath
+        .map { path -> path?.split(systemSeparator)?.lastOrNull() }
         .stateIn(null)
 
     override val extraInfo: StateFlow<String?> = repositoryPath

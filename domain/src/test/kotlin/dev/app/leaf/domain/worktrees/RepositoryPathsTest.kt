@@ -4,7 +4,9 @@
 package dev.app.leaf.domain.worktrees
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
@@ -91,5 +93,39 @@ class RepositoryPathsTest {
         assertEquals(1, indexOfRepository("${other.path}/", tabs))
         assertEquals(-1, indexOfRepository(File(tempDir, "missing").path, tabs))
         assertEquals(-1, indexOfRepository(linked.path, listOf(null, repo.path)))
+    }
+
+    @Test
+    fun `tells a linked worktree's git dir`() {
+        createRepositories()
+        val submoduleGitDir = File(commonDir, "modules/lib").apply { mkdirs() }
+
+        assertTrue(isLinkedWorktreeGitDir(linkedGitDir.path))
+        assertFalse(isLinkedWorktreeGitDir(commonDir.path))
+        assertFalse(isLinkedWorktreeGitDir(submoduleGitDir.path))
+        assertFalse(isLinkedWorktreeGitDir(linked.path))
+    }
+
+    @Test
+    fun `a tab's working tree is its worktree's folder`() {
+        createRepositories()
+
+        assertEquals(repo.path, workTreeOf(commonDir.path))
+        assertEquals(repo.path, workTreeOf("${commonDir.path}/"))
+        assertEquals(repo.path, workTreeOf(repo.path))
+        assertEquals(linked.path, workTreeOf(linkedGitDir.path))
+        assertEquals(linked.path, workTreeOf(linked.path))
+
+        // git writes a path relative to the git dir with worktree.useRelativePaths
+        File(linkedGitDir, "gitdir").writeText("../../../../wt/.git\n")
+        assertEquals(linked.path, workTreeOf(linkedGitDir.path))
+    }
+
+    @Test
+    fun `keeps a linked worktree's git dir when its gitdir file can't be read`() {
+        createRepositories()
+        File(linkedGitDir, "gitdir").delete()
+
+        assertEquals(linkedGitDir.path, workTreeOf(linkedGitDir.path))
     }
 }

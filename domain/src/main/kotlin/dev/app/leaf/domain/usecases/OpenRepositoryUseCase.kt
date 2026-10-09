@@ -10,6 +10,7 @@ import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
+import dev.app.leaf.domain.worktrees.isLinkedWorktreeGitDir
 import javax.inject.Inject
 
 class OpenRepositoryUseCase @Inject constructor(
@@ -34,10 +35,12 @@ class OpenRepositoryUseCase @Inject constructor(
                 )
             }
             is Either.Ok -> {
-                repositoryDataRepository.setRepositorySelectionState(RepositorySelectionState.Open(repositoryPathResult.value))
+                val gitDir = repositoryPathResult.value
+                repositoryDataRepository.setRepositorySelectionState(RepositorySelectionState.Open(gitDir))
 
+                // A linked worktree isn't a recent repository: its repository is, and agents' worktrees come and go
                 val worktree = getWorktreeUseCase().okOrNull()
-                if (worktree != null) {
+                if (worktree != null && !isLinkedWorktreeGitDir(gitDir)) {
                     appStateManager.repositoryTabChanged(worktree)
                 }
 
