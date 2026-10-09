@@ -35,4 +35,5 @@ sealed interface AppConfig {
     data class RemoteOperationsWithGit(val value: Boolean) : AppConfig
     data class RefPanel(val value: RefPanelSettings) : AppConfig
     data class FilesChangedView(val value: FilesViewState) : AppConfig
+    data class LogColumns(val value: LogColumnsSettings) : AppConfig
 }

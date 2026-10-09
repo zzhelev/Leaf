@@ -5,6 +5,7 @@ import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
+import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -30,6 +31,7 @@ interface AppSettingsRepository {
     val diffTextViewType: Flow<DiffTextViewType?>
     val refPanelSettings: Flow<RefPanelSettings?>
     val filesChangedView: Flow<FilesViewState?>
+    val logColumns: Flow<LogColumnsSettings?>
 
     // Git
     val pullWithRebase: Flow<Boolean?>

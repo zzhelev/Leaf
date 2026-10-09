@@ -14,6 +14,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
+import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -45,6 +46,7 @@ private val diffTextViewTypePreference get() = stringPreferencesKey("diff_text_v
 private val showChangesAsTreePreference get() = booleanPreferencesKey("show_changes_as_tree")
 private val refPanelSettingsPreference get() = stringPreferencesKey("side_panel_sort")
 private val filesChangedViewPreference get() = stringPreferencesKey("files_changed_view")
+private val logColumnsPreference get() = stringPreferencesKey("log_columns")
 
 private val dateFormatUseDefaultPreference get() = booleanPreferencesKey("date_format_use_default")
 private val dateFormatCustomFormatPreference get() = stringPreferencesKey("date_format_custom_format")
@@ -121,6 +123,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
         .map { it?.let(SortSettingsCodec::decodeRefPanelSettings) }
     override val filesChangedView get() = preferences.data[filesChangedViewPreference]
         .map { it?.let(SortSettingsCodec::decodeFilesViewState) }
+    override val logColumns get() = preferences.data[logColumnsPreference]
+        .map { it?.let(LogColumnsCodec::decode) }
 
     // Git
     override val pullWithRebase get() = preferences.data[pullWithRebasePreference]
@@ -191,6 +195,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                     filesChangedViewPreference,
                     SortSettingsCodec.encodeFilesViewState(appConfig.value)
                 )
+
+                is AppConfig.LogColumns -> setValue(logColumnsPreference, LogColumnsCodec.encode(appConfig.value))
             }
         }
     }

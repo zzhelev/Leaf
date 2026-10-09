@@ -285,6 +285,12 @@ class RepositoryOpenViewModel @Inject constructor(
 
     private val refPanelSettingsMutex = Mutex()
 
+    /** Shared by every tab, like the side panel's sort settings. */
+    val logColumns: StateFlow<LogColumnsSettings> = appSettings.logColumns
+        .stateIn(LogColumnsSettings())
+
+    private val logColumnsMutex = Mutex()
+
     private val refFolderExpansion = MutableStateFlow(RefFolderExpansion())
     private val refFolderExpansionSaveMutex = Mutex()
 
@@ -539,6 +545,12 @@ class RepositoryOpenViewModel @Inject constructor(
     private fun updateRefPanelSettings(update: (RefPanelSettings) -> RefPanelSettings) = tabScope.launch {
         refPanelSettingsMutex.withLock {
             appSettings.setConfiguration(AppConfig.RefPanel(update(appSettings.refPanelSettings.first())))
+        }
+    }
+
+    private fun updateLogColumns(update: (LogColumnsSettings) -> LogColumnsSettings) = tabScope.launch {
+        logColumnsMutex.withLock {
+            appSettings.setConfiguration(AppConfig.LogColumns(update(appSettings.logColumns.first())))
         }
     }
 
@@ -870,6 +882,11 @@ class RepositoryOpenViewModel @Inject constructor(
             LogAction.UncommittedChangesSelected -> selectUncommittedChanges()
             LogAction.ShowStatusAmending -> selectUncommittedChanges(forceAmend = true)
             is LogAction.SearchValueChange -> onSearchValueChanged(action.filter)
+            is LogAction.ToggleColumn -> updateLogColumns { it.toggled(action.column) }
+            is LogAction.ResizeColumn -> updateLogColumns { it.resized(action.column, action.width) }
+            is LogAction.SetDateShowsTime -> updateLogColumns { it.withDateShowingTime(action.showTime) }
+            is LogAction.SetGraphMaxWidth -> updateLogColumns { it.withGraphMaxWidth(action.width) }
+            LogAction.ResetColumns -> updateLogColumns { LogColumnsSettings() }
         }
     }
 

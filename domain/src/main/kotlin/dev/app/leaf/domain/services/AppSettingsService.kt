@@ -4,6 +4,7 @@ import dev.app.leaf.common.flows.defaultIfNull
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
+import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -41,6 +42,7 @@ class AppSettingsService @Inject constructor(
             appSettingsRepository.showChangesAsTree,
             SortSettingsCodec::filesViewStateOrLegacy,
         )
+    val logColumns: Flow<LogColumnsSettings> get() = appSettingsRepository.logColumns.defaultIfNull { LogColumnsSettings() }
     val pullWithRebase: Flow<Boolean> get() = appSettingsRepository.pullWithRebase.defaultIfNull { DEFAULT_PULL_WITH_REBASE }
     val pushWithLease: Flow<Boolean> get() = appSettingsRepository.pushWithLease.defaultIfNull { DEFAULT_PUSH_WITH_LEASE }
     val fastForwardMerge: Flow<Boolean> get() = appSettingsRepository.fastForwardMerge.defaultIfNull { DEFAULT_FAST_FORWARD_MERGE }
