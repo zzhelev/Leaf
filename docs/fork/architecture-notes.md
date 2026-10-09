@@ -121,6 +121,16 @@ from the code; they were not exercised in the app.
 
 This is the Phase 1.3 checkout bug.
 
+### Fixed (branch `feat/worktree-checkout-guard`)
+
+- `refuseIfUsedByOtherWorktree` (`G/worktrees/BranchWorktrees.kt`) refuses, as git does, a branch that another
+  worktree has checked out, rebases or bisects from. It runs in `CheckoutBranchGitAction`, and for an existing local
+  branch in `CheckoutRemoteBranchGitAction` (before its fast-forward) and `GetRemoteBranchCheckoutGitAction`.
+- It reads the worktrees' git dirs, as git's `die_if_checked_out` does, rather than running `git worktree list`:
+  checkout works without a git executable, and `worktree list` doesn't show the rebase or bisect cases.
+- Not covered: refs in a reftable. A worktree's `HEAD` file is then a stub, and JGit 7.7 reads every linked
+  worktree's HEAD from the shared reftable, which has the main worktree's.
+
 ## 4. Branch deletion guard
 
 **Answer:** no guard against other worktrees. Deletion is also always forced and never confirmed.

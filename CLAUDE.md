@@ -640,13 +640,24 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 **Branches:**
 - Model: `domain/models/Branch.kt` (`hash`, full ref `name`, `isLocal`). It has no tracking or ahead/behind fields.
 - Loaded by `GetBranchesGitAction` (`git.branchList()`) via `RefreshDataUseCase.refreshBranches`.
-- Double-clicking a local branch checks it out immediately, with no guard.
+- Double-clicking a local branch checks it out immediately, unless another worktree uses it (see Checkout guard).
 - Double-clicking a remote branch (fork-only, `RepositoryOpenViewModel.checkoutRemoteBranch`) checks out the local
   branch with its name, or creates one that tracks it. `GetRemoteBranchCheckoutGitAction` compares the two first: a
   local branch that is behind with no commits of its own gets `FastForwardOnCheckoutDialog` (through
   `fastForwardOffers` and `Screen.FastForwardOnCheckout`), any other is checked out as it is.
   `CheckoutRemoteBranchGitAction` moves a branch that isn't checked out with a `RefUpdate` before the checkout, and
   the current branch with `merge --ff-only`.
+- **Checkout guard (fork-only):** JGit checks out a branch that another worktree has, unlike git. So
+  `CheckoutBranchGitAction`, and for an existing local branch `CheckoutRemoteBranchGitAction` (before its fast-forward)
+  and `GetRemoteBranchCheckoutGitAction` (so nothing is offered), call `refuseIfUsedByOtherWorktree`. It raises
+  `CheckoutBranchError.BranchUsedByWorktree` with the branch, the worktree's folder and a `WorktreeBranchUse`.
+  - `findOtherWorktreeUsing` (`data/git/worktrees/BranchWorktrees.kt`) reads the worktrees' git dirs as git's
+    `die_if_checked_out` does: the main one unless the repository is bare, then `<common git dir>/worktrees/*`. A
+    worktree uses a branch when its `HEAD` file points to it, or when HEAD is detached while it rebases the branch
+    (`rebase-merge` or `rebase-apply` `head-name`) or bisects from it (`BISECT_START`). A deleted folder still counts.
+  - The branch that the tab's worktree has checked out is never refused, as in git.
+  - It doesn't see worktrees whose refs are in a reftable: their `HEAD` file is a stub, and JGit 7.7 reads every
+    linked worktree's HEAD from the shared reftable (the main worktree's branch).
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,
@@ -790,7 +801,8 @@ common `refs/` and `packed-refs` are not watched.
     `SystemReader.setInstance` and restore the original in `@AfterEach`.
   - `TestGitCli` runs the git CLI with global and system config ignored. JGit can't create linked worktrees, so use
     the CLI to set them up. `run(dir, env, args)` adds environment variables, for example `GIT_COMMITTER_DATE` to fix
-    commit, tag and reflog dates (`GetRefDatesGitActionTest`).
+    commit, tag and reflog dates (`GetRefDatesGitActionTest`). `runFailing` expects git to fail and returns its
+    output in English, to compare Leaf with git's own refusals (`BranchWorktreesTest`).
   - `testGitCli(shellVariables, configuredPath)` builds a `GitCli`. Credential tests always give it the variables
     that keep git away from the developer's config, even when the helpers run without them.
   - `testJGit(shellVariables)` builds a `JGit` whose login shell environment is the given map. Hook tests use

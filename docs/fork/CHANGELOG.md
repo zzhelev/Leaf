@@ -2,6 +2,51 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A branch that another worktree uses can't be checked out (branch `feat/worktree-checkout-guard`)
+
+The checkout half of Phase 1.3 in `docs/fork/PLAN.md`.
+
+- **Before:** JGit's checkout knows nothing of other worktrees (`architecture-notes.md` §3). Double-clicking a local
+  branch that another worktree had checked out put both worktrees on it, and a commit in either then looked, in the
+  other, like uncommitted changes that undo it. Double-clicking `origin/develop` did the same with a local `develop`
+  in another worktree, and its fast-forward moved `develop` under that worktree's files.
+- **Now:** both are refused, as git refuses them ("'develop' is already used by worktree at '<path>'"), and nothing
+  changes. `CheckoutBranchError.BranchUsedByWorktree` names the branch and the worktree's folder.
+  - A worktree uses a branch when it has it checked out, or when its HEAD is detached while it rebases the branch or
+    bisects from it (`WorktreeBranchUse`). git refuses all three, and each has its own message.
+  - `origin/develop` gets the error straight away, without the fast-forward question: `GetRemoteBranchCheckoutGitAction`
+    refuses too, so the view model checks out without a fast-forward, which reports it.
+  - The branch that the tab's own worktree has checked out still works: checking it out, and fast-forwarding it from
+    its remote branch, even when another worktree has it too, as in git.
+  - Creating a local branch from a remote branch is unchanged.
+- **How:** `findOtherWorktreeUsing` (fork-only `data/git/worktrees/BranchWorktrees.kt`) reads the worktrees' git dirs
+  as git's `die_if_checked_out` does: the main worktree's (not when the repository is bare), then each
+  `<common git dir>/worktrees/<name>`.
+  - HEAD comes from the `HEAD` file, a rebase from `rebase-merge/head-name` or `rebase-apply/head-name` (not for
+    `git am`), and a bisect from `BISECT_START` when `BISECT_LOG` exists.
+  - The folder comes from the `gitdir` file, also when git wrote it relative (`worktree.useRelativePaths`). A worktree
+    whose folder was deleted still counts, as in git.
+- **Why not `git worktree list --porcelain -z`:**
+  - Checkout runs JGit and works without git, so the guard should too. Through the CLI, a missing or misconfigured git
+    would either block every checkout or quietly drop the guard.
+  - `worktree list` doesn't say which branch a worktree is rebasing or bisecting.
+  - No process per double-click: without linked worktrees, the check is one directory listing.
+- **Tests:** `BranchWorktreesTest` (14), the new `CheckoutBranchGitActionTest` (6), 3 more in
+  `CheckoutRemoteBranchGitActionTest` and 2 in `GetRemoteBranchCheckoutGitActionTest`.
+  - Each refusal is compared with git's: the path in "already used by worktree at", and
+    `git fetch . origin/develop:develop` for the fast-forward. `TestGitCli.runFailing` runs git expecting it to fail.
+  - Cases: sibling worktrees and nested ones (`.claude/worktrees/agent-1`), from the main and from a linked worktree,
+    rebases with both backends, a bisect, a deleted folder, relative paths, a bare main repository, and the tab's own
+    branch when two worktrees have it.
+- **Not handled:**
+  - Refs in a reftable (`git init --ref-format=reftable`, opt-in before Git 3.0). A worktree's `HEAD` file is then a
+    stub, and JGit 7.7 reads every linked worktree's HEAD from the shared reftable, so it reports the main worktree's
+    branch for all of them. Leaf doesn't see their branches, in the tab or in this guard. `BranchWorktreesTest` pins
+    this, so a JGit that reads them will fail the test.
+  - PLAN.md wants a "Switch to that worktree" action instead of a plain error. That comes with Phase 2, and the
+    error has the path for it.
+  - Deleting a branch that a worktree uses, the other half of Phase 1.3.
+
 ## Clone and submodules run the git CLI (branch `feat/git-cli-clone`)
 
 Stage 3 of `docs/fork/remote-operations.md`.
@@ -161,7 +206,8 @@ Phase 1.2 of `PLAN.md`. This is data only: nothing shows it yet (that's 1.4), an
   dialog (both variants, a long agent branch name) and of the new error.
 - **Not handled:** a `develop` that is checked out in another worktree. Leaf checks it out here too, as it already does
   when a local branch is double-clicked, and a fast-forward moves it under the other worktree's files. git refuses
-  both. That waits for the Phase 1.3 guard (`docs/fork/architecture-notes.md` §3).
+  both. That waits for the Phase 1.3 guard (`docs/fork/architecture-notes.md` §3), which now refuses both (see the
+  entry above).
 
 ## Fetch and pull run the git CLI (branch `feat/git-cli-fetch-pull`)
 
