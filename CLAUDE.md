@@ -321,7 +321,16 @@ worktrees.
 - The output parsers are in `WorktreeParsers.kt`, with fixtures from git 2.54 in `WorktreeParsersTest`.
 - `Worktree.branch` is a full ref, as in `Branch.name`. `git worktree list` works from any git dir, a linked
   worktree's included.
-- Nothing shows or refreshes this data yet (Phase 1.4 and 1.5).
+- `Worktree.rebasingBranch` and `bisectingBranch` name the branch that a detached worktree rebases or bisects from,
+  which `git worktree list` doesn't tell. `GetWorktreesGitAction` reads them from the worktrees' git dirs
+  (`worktreeHeads` in `BranchWorktrees.kt`, which the guards read too), matched by canonical folder. Such a worktree
+  is compared to the base by that branch, not by the commit it stopped at.
+- Each tab keeps the list in `RepositoryDataRepository.worktrees`. `RefreshDataUseCase` refreshes it last, with ALL,
+  BRANCHES, LOG or STATUS (`refreshesWorktrees`), through the tab's `WorktreesRefreshRunner` (`ConflatedRunner`):
+  one refresh at a time, and calls that come meanwhile share the next one. What other programs change in other
+  worktrees shows up only with such a refresh, until Phase 1.5.
+- The side panel shows the list (Worktrees section) and marks the branches that worktrees use (see Sidebar and branch
+  list).
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
@@ -680,7 +689,8 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 ## Sidebar and branch list
 
 **Side panel** (`app/.../ui/SidePanel.kt`): a filter field plus one `LazyColumn` with a `LazyListScope` extension per
-section: `localBranches`, `remotes`, `tags`, `stashes`, `submodules`.
+section: `localBranches`, `worktrees` (fork-only, `ui/WorktreesSection.kt`), `remotes`, `tags`, `stashes`,
+`submodules`.
 
 **Section state:** lives in `RepositoryOpenViewModel` as one `isExpandedX` flow plus one combined `xState` flow per
 section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `SidePanelChildViewModel` is unused.
@@ -723,6 +733,27 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
     JGit 7.7 would write it to the main worktree's `logs/HEAD` (`architecture-notes.md` §6). A HEAD it can't move is
     reported as `WorktreeHeadNotMoved`, with the branch renamed, as git leaves it.
   - `RenameBranchDialog` shows errors under the field, and disables Rename branch after a `RenameBranchError`.
+- **Worktree badges and menus (fork-only, `ui/BranchWorktreeBadge.kt`):** a local branch that another worktree uses
+  gets a folder icon, plus the worktree's folder name unless it repeats the branch's last part (`nameNextTo`), as
+  agents' folders do. Its tooltip says how the worktree uses the branch and what that rules out.
+  - `RepositoryOpenViewModel.branchWorktrees` (`BranchWorktreesState`) holds `WorktreeList.usersByBranch()`. The side
+    panel passes it to its branch rows, and `Log` provides it to its branch chips as `LocalBranchWorktrees`, which
+    keeps it out of the upstream composables in between.
+  - `branchContextMenuItems` takes the branch's `BranchWorktreeUsers` and leaves out what the guards would refuse:
+    Checkout while another worktree uses the branch, Delete while any does, Rename while any rebases it or bisects
+    from it. The guards still decide, as the list may be stale. Double-clicking still shows the checkout refusal.
+
+**Worktrees section (fork-only, `ui/WorktreesSection.kt`):** one two-line row per worktree, in git's order, built by
+`worktreeRows` (`domain/worktrees/WorktreeRows.kt`) from `WorktreesState`.
+- Line 1: the folder name (bold for the tab's worktree), a lock icon when locked, and the last commit's age, or
+  "missing" for a prunable worktree, whose row is greyed out. The main worktree has the `source` icon.
+- Line 2: the branch, or "rebasing x", "bisecting from x", "detached at abc1234"; a dot for uncommitted changes (the
+  conflict color when there are conflicts); and `↑ahead ↓behind` versus the base branch.
+- The tooltip (`worktreeTooltip`) has the full path, the change counts, the comparison to the base and to the
+  upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
+- A click selects the worktree's commit in the log (its branch when it's on one). The menu has "Copy path". The
+  side panel's filter matches the folder name, the path and the branches. When git can't list the worktrees, one
+  line says so, with the error in its tooltip.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,
@@ -816,6 +847,9 @@ them. By default only Date is on, as before.
 
 **Linked worktree gap:** the git dir is `<common>/.git/worktrees/<name>`, so `<gitdir>/refs` does not exist, and the
 common `refs/` and `packed-refs` are not watched.
+
+**Worktree list:** it refreshes with the tab's ALL, BRANCHES, LOG and STATUS refreshes (see Linked worktrees under Git
+operations). Nothing watches the other worktrees yet (Phase 1.5).
 
 ## Conventions
 

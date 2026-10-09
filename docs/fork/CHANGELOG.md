@@ -2,6 +2,64 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Worktrees in the side panel (branch `feat/worktree-sidebar`)
+
+Phase 1.4 of `docs/fork/PLAN.md`.
+
+- **Before:** Leaf read the worktrees (Phase 1.2) but showed nothing of them. A branch that an agent's worktree had
+  checked out looked like any other, and its menus offered Checkout, Delete and Rename, which the guards (Phase 1.3)
+  then refused.
+- **Now:**
+  - A **Worktrees** section after Local branches lists every worktree, main one first, in two lines each:
+    - the folder name (bold for the tab's own), a lock icon when it's locked, and the last commit's age;
+    - the branch, or "rebasing x", "bisecting from x" or "detached at abc1234", a dot when it has uncommitted changes
+      (in the conflict color when some are conflicts), and `↑ahead ↓behind` versus the base branch.
+  - The main worktree has its own icon. A worktree whose folder was deleted is greyed out, marked "missing".
+  - The tooltip has the full path, the change counts, the comparisons to the base branch and to the upstream, the lock
+    reason, and for a missing folder git's reason and that `git worktree prune` would remove it.
+  - A click selects the worktree's commit in the log, and the menu copies the path. The side panel's filter matches
+    worktrees by folder name, path or branch. When git can't list them, one line says so, with git's error in its
+    tooltip.
+  - In the branch list, a local branch that another worktree uses gets a folder icon, with that worktree's folder name
+    unless it repeats the branch's last part, as agents' folders do (`claude/x` in `.claude/worktrees/x`). The log's
+    branch chips get the icon. The tooltip says how the worktree uses the branch and what that rules out, then
+    describes the worktree.
+  - The branch menus, in the side panel and in the log, leave out what the guards would refuse: Checkout while another
+    worktree uses the branch, Delete while any worktree does, and Rename while one rebases it or bisects from it.
+    Double-clicking such a branch still shows the checkout refusal.
+- **Kept up to date:** each tab holds the worktree list and refreshes it with its branches, log or status, after
+  everything else. A refresh runs git in every worktree, so a tab runs one at a time, and the requests that come
+  meanwhile share the next one. What agents change in other worktrees shows up with the next such refresh (F5, any
+  operation, a change in the tab's own worktree). Watching for it is Phase 1.5.
+- **Fixed on the way:**
+  - `git worktree list` shows a worktree that rebases or bisects as detached. Worktrees now also name that branch, read
+    from their git dirs the way the guards read them, and such a worktree is compared to the base by that branch, not
+    by the commit it stopped at.
+  - A rebase of a detached HEAD, or a bisect started on one, has no branch. The guards compared the commit that
+    `BISECT_START` then holds with branch names, and no longer do.
+  - The 1.3 entry's "menus still offer Delete for a branch that another worktree uses" no longer holds.
+- **Tests:** 28 new.
+  - `:data` (4): `BranchWorktreesTest` reads each worktree's branch as a full name, and finds none for a rebase or a
+    bisect started on a detached HEAD, as git does. `WorktreesTest` gets the rebased and bisected branches attached to
+    the right worktrees, and compares those worktrees by them.
+  - `:domain` (19): which worktree uses a branch and what that rules out (`WorktreeBranchUsersTest`), the refresh that
+    lets one call through at a time (`ConflatedRunnerTest`), which refreshes include the worktrees, and the rows:
+    order, names, labels, ages, the filter, and when the branch list names a worktree (`WorktreeRowsTest`).
+  - `:app` (5): the branch menu, with its labels read in a composition (`BranchContextMenuWorktreesTest`), and the
+    compact ahead/behind text.
+  - **Mutation check:** 26 mutations, 24 caught. The two missed are equivalent: matching worktrees by path without
+    making it canonical (git writes and lists real paths), and a shortcut for a blank filter (the filter already
+    trims it), which is now gone. One mutation made `ConflatedRunnerTest` hang instead of fail; its tests now time out.
+  - Checked once with a throwaway harness, deleted afterwards: the real side panel and log, rendered offscreen for a
+    repository with an agent's worktree, a rebase stopped on a conflict, a locked, a detached and a deleted worktree,
+    at the default width (220 dp) and at 320 dp, with tooltips, a branch's right-click menu and the filter.
+  - `./gradlew build` passes, with 612 tests (21 in `:app`, 483 in `:data`, 101 in `:domain`, 7 in `:common`).
+- **Not yet:**
+  - A per-repository base branch setting. The 1.2 entry expected it with 1.4. The base is still origin's default
+    branch, else `main`, else `master`.
+  - Double-clicking a worktree or a marked branch to open that worktree (Phase 2a).
+  - At the default side panel width, a worktree name next to a long branch name leaves little room for the branch.
+
 ## Author, Date and Commit columns in the log (branch `feat/log-columns`)
 
 - **Before:** the log showed the graph, the message with its branch and tag chips, and an unnamed date. The author was
