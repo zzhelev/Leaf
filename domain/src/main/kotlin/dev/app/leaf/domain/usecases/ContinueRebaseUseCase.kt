@@ -36,7 +36,8 @@ class ContinueRebaseUseCase @Inject constructor(
                 val amendCommitId = rebaseInteractiveState.commitToAmendId
 
                 if (!amendCommitId.isNullOrBlank()) {
-                    doCommitUseCase(message, true, onIdentityRequest())
+                    // Fork-only: amends within this task, and doesn't continue when the amend fails
+                    doCommitUseCase.commit(repositoryPath, message, true, onIdentityRequest()).bind()
                 }
             }
 

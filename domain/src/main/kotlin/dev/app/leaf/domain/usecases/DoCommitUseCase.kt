@@ -5,6 +5,7 @@ import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.bind
+import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.errors.onOk
 import dev.app.leaf.domain.interfaces.IDoCommitGitAction
 import dev.app.leaf.domain.interfaces.ILoadSignOffConfigGitAction
@@ -30,25 +31,37 @@ class DoCommitUseCase @Inject constructor(
             taskType = TaskType.DoCommit,
             dataToRefresh = arrayOf(DataToRefresh.STATUS, DataToRefresh.BRANCHES, DataToRefresh.LOG, DataToRefresh.REPO_STATE),
         ) { repositoryPath ->
-            val signOffConfig = loadSignOffConfigGitAction(repositoryPath).bind()
-
-            val finalMessage = if (signOffConfig.isEnabled) {
-                val authorToSign = author ?: getAuthorUseCase().bind().identityToUse()
-
-                val signature = signOffConfig.format
-                    .replace(SignOffConstants.DEFAULT_SIGN_OFF_FORMAT_USER, authorToSign.name.orEmpty())
-                    .replace(SignOffConstants.DEFAULT_SIGN_OFF_FORMAT_EMAIL, authorToSign.email.orEmpty())
-
-                "$message\n\n$signature"
-            } else
-                message
-
-
-            doCommitGitAction(repositoryPath, finalMessage, amend, author)
-                .onOk {
-                    persistCommitMessageUseCase(null)
-                }
-
+            commit(repositoryPath, message, amend, author)
         }
+    }
+
+    /**
+     * Fork-only: commits within a task that is already running, as continuing a rebase does. [invoke] starts a task of
+     * its own: continuing a rebase didn't wait for it, and its end cleared the processing screen while the rebase ran.
+     */
+    suspend fun commit(
+        repositoryPath: String,
+        message: String,
+        amend: Boolean,
+        author: Identity?,
+    ): Either<Commit, AppError> = either {
+        val signOffConfig = loadSignOffConfigGitAction(repositoryPath).bind()
+
+        val finalMessage = if (signOffConfig.isEnabled) {
+            val authorToSign = author ?: getAuthorUseCase().bind().identityToUse()
+
+            val signature = signOffConfig.format
+                .replace(SignOffConstants.DEFAULT_SIGN_OFF_FORMAT_USER, authorToSign.name.orEmpty())
+                .replace(SignOffConstants.DEFAULT_SIGN_OFF_FORMAT_EMAIL, authorToSign.email.orEmpty())
+
+            "$message\n\n$signature"
+        } else
+            message
+
+
+        doCommitGitAction(repositoryPath, finalMessage, amend, author)
+            .onOk {
+                persistCommitMessageUseCase(null)
+            }
     }
 }
