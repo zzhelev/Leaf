@@ -3,6 +3,7 @@ package dev.app.leaf.ui.context_menu
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
+import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -25,11 +26,13 @@ fun branchContextMenuItems(
     worktreeUsers: BranchWorktreeUsers? = null,
     worktreesBase: WorktreeBaseBranch? = null,
     onChooseWorktreesBase: (branch: String?) -> Unit = {},
+    onSwitchToWorktree: (Worktree) -> Unit = {},
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
     val canRename = worktreeUsers?.canRename != false
     val canDelete = worktreeUsers?.canDelete != false
+    val worktreeToSwitchTo = worktreeUsers?.worktreeToSwitchTo
 
     return mutableListOf<ContextMenuElement>().apply {
         if (!isCurrentBranch) {
@@ -38,6 +41,13 @@ fun branchContextMenuItems(
                     composableLabel = { stringResource(Res.string.branch_context_menu_checkout_branch) },
                     icon = { painterResource(Res.drawable.start) },
                     onClick = onCheckoutBranch
+                )
+            } else if (worktreeToSwitchTo != null) {
+                // In place of checking out the branch, which another worktree has (fork-only)
+                addContextMenu(
+                    composableLabel = { stringResource(Res.string.branch_context_menu_switch_to_worktree) },
+                    icon = { painterResource(Res.drawable.start) },
+                    onClick = { onSwitchToWorktree(worktreeToSwitchTo) },
                 )
             }
             if (currentBranch != null && currentBranch.name != "HEAD") {

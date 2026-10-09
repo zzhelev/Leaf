@@ -27,6 +27,7 @@ import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.system.OpenFilePickerUseCase
 import dev.app.leaf.system.OpenUrlInBrowserUseCase
 import dev.app.leaf.system.PickerType
+import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
 import dev.app.leaf.ui.components.TabInformationProvider
@@ -64,6 +65,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val repositoryStateRepository: RepositoryStateRepository,
     private val setRepositorySelectionStateToNoneUseCase: SetRepositorySelectionStateToNoneUseCase,
     private val tabComponent: TabComponent,
+    private val appViewModel: AppViewModel,
     @Assisted val initialPath: String?,
     updatesRepository: UpdatesRepository,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
@@ -171,6 +173,11 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
     val credentialsState: StateFlow<CredentialsState> = credentialsStateManager.credentialsState
 
+
+    /** Selects the tab of the worktree at [path], or opens it in a new tab (fork-only). */
+    fun switchToWorktree(path: String) {
+        appViewModel.selectOrOpenTab(path)
+    }
 
     fun openRepository(directory: String) {
         viewModelScope.launch {

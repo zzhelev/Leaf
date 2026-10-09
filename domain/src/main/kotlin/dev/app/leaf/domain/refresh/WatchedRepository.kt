@@ -6,6 +6,7 @@ package dev.app.leaf.domain.refresh
 import dev.app.leaf.common.storage.AppStorage
 import dev.app.leaf.domain.GitConstants
 import dev.app.leaf.domain.usecases.DataToRefresh
+import dev.app.leaf.domain.worktrees.gitDirFromDotGitFile
 import java.io.File
 import java.io.IOException
 
@@ -91,21 +92,7 @@ class WatchedRepository(gitDir: File, commonDir: File) {
      * would watch every folder they have. Submodules' `.git` files point into `modules`, so they don't count.
      */
     fun isLinkedWorktreeFolder(dir: File): Boolean {
-        val dotGit = File(dir, DOT_GIT)
-
-        if (!dotGit.isFile) return false
-
-        val firstLine = try {
-            dotGit.useLines { it.firstOrNull() }
-        } catch (e: IOException) {
-            null
-        } ?: return false
-
-        if (!firstLine.startsWith(GIT_DIR_PREFIX)) return false
-
-        // git writes a relative path with worktree.useRelativePaths
-        val target = File(firstLine.removePrefix(GIT_DIR_PREFIX).trim())
-        val gitDir = if (target.isAbsolute) target else File(dir, target.path)
+        val gitDir = gitDirFromDotGitFile(dir) ?: return false
 
         return pathForms(gitDir).any { it.isIn(worktreesDirs) && it !in worktreesDirs }
     }
@@ -117,8 +104,6 @@ class WatchedRepository(gitDir: File, commonDir: File) {
     private companion object {
         const val WORKTREES_DIR = "worktrees"
         const val REFS_DIR = "refs"
-        const val DOT_GIT = ".git"
-        const val GIT_DIR_PREFIX = "gitdir:"
 
         /** JGit creates these to measure the file system's timestamps. */
         const val PROBE_FILE_PREFIX = ".probe-"

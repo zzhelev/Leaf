@@ -7,13 +7,16 @@ import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.models.pathToPersist
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.usecases.CleanRepositoriesResourcesUseCase
+import dev.app.leaf.domain.worktrees.indexOfRepository
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -78,6 +81,27 @@ class AppViewModel @Inject constructor(
 
         if (selectTab) {
             currentTab.value = newTab
+        }
+    }
+
+    /**
+     * Selects the tab that has the repository at [directory] open, or opens it in a new tab (fork-only). Tabs are
+     * compared by git dir ([indexOfRepository]), so a worktree's folder finds the tab of that worktree, whichever path
+     * the tab was opened from, even before it has loaded.
+     */
+    fun selectOrOpenTab(directory: String) = viewModelScope.launch {
+        val tabsList = tabs.value
+        val tabPaths = tabsList.map { tab ->
+            tab.data.repositorySelectionState.value.pathToPersist(initialPath = tab.data.initialPath)
+        }
+
+        val index = withContext(Dispatchers.IO) { indexOfRepository(directory, tabPaths) }
+        val tab = tabsList.getOrNull(index)
+
+        if (tab != null) {
+            selectTab(tab)
+        } else {
+            addNewTabFromPath(directory, selectTab = true)
         }
     }
 

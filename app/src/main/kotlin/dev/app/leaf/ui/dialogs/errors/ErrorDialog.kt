@@ -7,6 +7,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -19,7 +20,10 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.copy
 import dev.app.leaf.app.generated.resources.error
 import dev.app.leaf.app.generated.resources.error_dialog_copy_button_tooltip
+import dev.app.leaf.app.generated.resources.error_dialog_switch_to_worktree
 import dev.app.leaf.app.generated.resources.generic_button_ok
+import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.errors.CheckoutBranchError
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.CompletedTask
@@ -30,11 +34,13 @@ import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import dev.app.leaf.ui.getStyledErrorText
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import java.io.File
 
 @Composable
 fun ErrorDialog(
     error: CompletedTask.Failure,
     onAccept: () -> Unit,
+    onSwitchToWorktree: ((path: String) -> Unit)? = null,
 ) {
     val horizontalScroll = rememberScrollState()
     val verticalScroll = rememberScrollState()
@@ -45,6 +51,7 @@ fun ErrorDialog(
             ?.stackTraceToString()
     }
     var showStackTrace by remember { mutableStateOf(false) }
+    val worktreeToSwitchTo = remember(error) { worktreeToSwitchTo(error.reason) }
 
     MaterialDialog(
         onCloseRequested = onAccept,
@@ -148,6 +155,19 @@ fun ErrorDialog(
                     .align(Alignment.End)
                     .padding(top = 32.dp)
             ) {
+                if (onSwitchToWorktree != null && worktreeToSwitchTo != null) {
+                    PrimaryButton(
+                        text = stringResource(Res.string.error_dialog_switch_to_worktree),
+                        modifier = Modifier.padding(end = 8.dp),
+                        onClick = {
+                            onAccept()
+                            onSwitchToWorktree(worktreeToSwitchTo)
+                        },
+                        backgroundColor = Color.Transparent,
+                        textColor = MaterialTheme.colors.onBackground,
+                    )
+                }
+
                 PrimaryButton(
                     text = stringResource(Res.string.generic_button_ok),
                     onClick = onAccept
@@ -155,6 +175,16 @@ fun ErrorDialog(
             }
         }
     }
+}
+
+/**
+ * The folder of the worktree that has the branch whose checkout [reason] refused, which the dialog offers to switch to
+ * (fork-only). Null for other errors, and when the folder is missing: git still counts a deleted worktree.
+ */
+private fun worktreeToSwitchTo(reason: AppError): String? {
+    val path = (reason as? CheckoutBranchError.BranchUsedByWorktree)?.worktreePath ?: return null
+
+    return path.takeIf { File(it).isDirectory }
 }
 
 fun copyMessageError(clipboard: ClipboardManager, ex: Exception) {

@@ -21,6 +21,8 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -29,12 +31,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.AheadBehind
+import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
 import dev.app.leaf.domain.worktrees.WorktreeRow
 import dev.app.leaf.domain.worktrees.headLabel
+import dev.app.leaf.extensions.onDoubleClick
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.modifyFile
@@ -66,6 +70,7 @@ fun LazyListScope.worktrees(
     worktreesState: WorktreesState,
     onExpand: () -> Unit,
     onWorktreeClicked: (WorktreeInfo) -> Unit,
+    onSwitchToWorktree: (WorktreeInfo) -> Unit,
     onCopyPath: (WorktreeInfo) -> Unit,
     onChooseBase: (branch: String?) -> Unit,
 ) {
@@ -94,10 +99,11 @@ fun LazyListScope.worktrees(
         }
 
         items(worktreesState.rows, key = { "worktree:${it.info.worktree.path}" }) { row ->
-            Worktree(
+            WorktreeItem(
                 row = row,
                 baseBranch = worktreesState.baseBranch,
                 onClick = { onWorktreeClicked(row.info) },
+                onSwitchTo = { onSwitchToWorktree(row.info) },
                 onCopyPath = { onCopyPath(row.info) },
             )
         }
@@ -122,25 +128,20 @@ private fun WorktreesError(errorText: String) {
 }
 
 @Composable
-private fun Worktree(
+private fun WorktreeItem(
     row: WorktreeRow,
     baseBranch: String?,
     onClick: () -> Unit,
+    onSwitchTo: () -> Unit,
     onCopyPath: () -> Unit,
 ) {
     val worktree = row.info.worktree
     val isPrunable = worktree.prunable != null
+    // A double click's first click selects the worktree's commit, which recomposes the row with a new lambda
+    val currentOnSwitchTo by rememberUpdatedState(onSwitchTo)
 
     ContextMenu(
-        items = {
-            mutableListOf<ContextMenuElement>().apply {
-                addContextMenu(
-                    composableLabel = { stringResource(Res.string.side_pane_worktree_copy_path) },
-                    icon = { painterResource(Res.drawable.copy) },
-                    onClick = onCopyPath,
-                )
-            }
-        }
+        items = { worktreeContextMenuItems(worktree, onSwitchTo, onCopyPath) }
     ) {
         DelayedTooltip(worktreeTooltip(row.info, baseBranch)) {
             Row(
@@ -148,6 +149,7 @@ private fun Worktree(
                     .height(WORKTREE_ROW_HEIGHT)
                     .fillMaxWidth()
                     .clickable { onClick() }
+                    .run { if (worktree.canSwitchTo) onDoubleClick { currentOnSwitchTo() } else this }
                     .alpha(if (isPrunable) PRUNABLE_ALPHA else 1f),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -227,6 +229,27 @@ private fun Worktree(
             }
         }
     }
+}
+
+/** The menu of [worktree]'s row: switching to it when the tab can, and copying its path. */
+internal fun worktreeContextMenuItems(
+    worktree: Worktree,
+    onSwitchTo: () -> Unit,
+    onCopyPath: () -> Unit,
+): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
+    if (worktree.canSwitchTo) {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_switch_to) },
+            icon = { painterResource(Res.drawable.start) },
+            onClick = onSwitchTo,
+        )
+    }
+
+    addContextMenu(
+        composableLabel = { stringResource(Res.string.side_pane_worktree_copy_path) },
+        icon = { painterResource(Res.drawable.copy) },
+        onClick = onCopyPath,
+    )
 }
 
 @Composable

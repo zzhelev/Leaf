@@ -47,6 +47,13 @@ data class Worktree(
     /** The local branches this worktree uses (`refs/heads/x`), see [useOf]. */
     val usedBranches: List<String>
         get() = if (branch != null) listOf(branch) else listOfNotNull(rebasingBranch, bisectingBranch).distinct()
+
+    /**
+     * Whether the tab can switch to this worktree, which opens it in a tab of its own: it isn't the tab's, it has a
+     * working tree (a bare repository's has none), and its folder exists as far as git knows (it isn't prunable).
+     */
+    val canSwitchTo: Boolean
+        get() = !isCurrent && !isBare && prunable == null
 }
 
 /**
@@ -141,6 +148,13 @@ data class BranchWorktreeUsers(
     /** The branch can't be checked out while another worktree uses it. */
     val canCheckout: Boolean
         get() = other == null
+
+    /**
+     * The worktree that the tab switches to in place of checking the branch out: [other], when the tab can switch to it
+     * ([Worktree.canSwitchTo]). Null when the branch can be checked out, or [other]'s folder is missing.
+     */
+    val worktreeToSwitchTo: Worktree?
+        get() = other?.info?.worktree?.takeIf { it.canSwitchTo }
 
     /** The branch can't be deleted while a worktree uses it, the tab's included. */
     val canDelete: Boolean

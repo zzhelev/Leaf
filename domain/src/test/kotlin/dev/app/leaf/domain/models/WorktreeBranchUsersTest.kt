@@ -133,6 +133,54 @@ class WorktreeBranchUsersTest {
         assertTrue(users.canCheckout)
         assertTrue(users.canDelete)
         assertTrue(users.canRename)
+        assertNull(users.worktreeToSwitchTo)
+    }
+
+    @Test
+    fun `switches to another worktree that uses the branch, however it uses it`() {
+        for (use in WorktreeBranchUse.entries) {
+            val other = worktree(
+                "/other",
+                branch = if (use == WorktreeBranchUse.CheckedOut) "refs/heads/feature" else null,
+                rebasingBranch = if (use == WorktreeBranchUse.Rebasing) "refs/heads/feature" else null,
+                bisectingBranch = if (use == WorktreeBranchUse.Bisecting) "refs/heads/feature" else null,
+            )
+            val users = BranchWorktreeUsers(listOf(WorktreeBranchUser(info(other), use)))
+
+            assertEquals(other, users.worktreeToSwitchTo, use.name)
+        }
+    }
+
+    @Test
+    fun `switches to the other worktree, not the tab's, when both use the branch`() {
+        val current = worktree("/repo", branch = "refs/heads/main", isMain = true, isCurrent = true)
+        val forced = worktree("/forced", branch = "refs/heads/main")
+        val users = BranchWorktreeUsers(
+            listOf(
+                WorktreeBranchUser(info(current), WorktreeBranchUse.CheckedOut),
+                WorktreeBranchUser(info(forced), WorktreeBranchUse.CheckedOut),
+            )
+        )
+
+        assertEquals(forced, users.worktreeToSwitchTo)
+    }
+
+    @Test
+    fun `doesn't switch to the tab's own worktree, a missing one or a bare repository`() {
+        val current = worktree("/repo", branch = "refs/heads/main", isCurrent = true)
+        val missing = worktree("/missing", branch = "refs/heads/main")
+            .copy(prunable = "gitdir file points to non-existent location")
+        val bare = worktree("/bare.git").copy(isBare = true, headSha = null)
+
+        for (worktree in listOf(current, missing, bare)) {
+            val users = BranchWorktreeUsers(listOf(WorktreeBranchUser(info(worktree), WorktreeBranchUse.CheckedOut)))
+
+            assertFalse(worktree.canSwitchTo, worktree.path)
+            assertNull(users.worktreeToSwitchTo, worktree.path)
+        }
+
+        // A locked worktree has its folder, maybe on a disk that isn't mounted: opening it tells
+        assertTrue(worktree("/locked").copy(locked = "on a USB disk").canSwitchTo)
     }
 
     private fun worktree(

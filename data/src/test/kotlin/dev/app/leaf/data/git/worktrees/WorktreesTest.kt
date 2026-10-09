@@ -6,6 +6,7 @@ package dev.app.leaf.data.git.worktrees
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.branches.DeleteBranchGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeBaseBranchGitAction
+import dev.app.leaf.data.git.repository.OpenRepositoryGitAction
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
@@ -21,6 +22,7 @@ import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.refresh.WatchedRepository
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
+import dev.app.leaf.domain.worktrees.indexOfRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -378,6 +380,25 @@ class WorktreesTest {
         val other = File(tempDir, "other").apply { mkdirs() }
         git.run(other, "init")
         assertEquals(false, WatchedRepository(File(other, ".git"), File(other, ".git")).isLinkedWorktreeFolder(agent))
+    }
+
+    @Test
+    fun `a listed worktree finds the tab that has it open`(): Unit = runBlocking {
+        val relative = File(main, "nested/relative")
+        git.run(main, "worktree", "add", "--relative-paths", relative.path, "-b", "relative")
+        val folders = listOf(main, feature, agent, relative)
+
+        // What tabs hold, and save to be restored from: the git dirs that opening the folders gives
+        val tabPaths = folders.map { (OpenRepositoryGitAction()(it.path) as Either.Ok).value }
+        val listed = (GetWorktreesGitAction(gitCli, jgit)(gitDir(main)) as Either.Ok).value
+
+        for ((index, folder) in folders.withIndex()) {
+            val worktree = listed.single { it.path == folder.canonicalPath }
+            val tabPath = tabPaths[index]
+
+            assertEquals(index, indexOfRepository(worktree.path, tabPaths), folder.name)
+            assertEquals(index, indexOfRepository(tabPath, tabPaths), folder.name)
+        }
     }
 
     private fun gitDir(worktree: File): String {

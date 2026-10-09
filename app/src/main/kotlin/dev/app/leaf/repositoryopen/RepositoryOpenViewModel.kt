@@ -657,6 +657,16 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Selects the tab of [worktree], or opens it in a new tab (fork-only). Nothing happens when the tab can't switch to
+     * it ([Worktree.canSwitchTo]): the tab already shows it, or it has no folder to open.
+     */
+    fun switchToWorktree(worktree: Worktree) {
+        if (worktree.canSwitchTo) {
+            appViewModel.selectOrOpenTab(worktree.path)
+        }
+    }
+
     fun deleteRemote(remoteInfo: RemoteInfo) = deleteRemoteInfoUseCase(remoteInfo)
 
     fun onFetchRemoteBranches(remote: RemoteView) = fetchRemotesUseCase(remote.remoteInfo.remote)
@@ -700,7 +710,19 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    fun checkoutBranch(branch: Branch) = checkoutBranchUseCase(branch)
+    /**
+     * Checks out [branch], or switches to the worktree that has it (fork-only), as a branch can be checked out in one
+     * worktree at a time. When that worktree's folder is missing, the checkout's refusal says where it is.
+     */
+    fun checkoutBranch(branch: Branch) {
+        val worktree = branchWorktrees.value.usersOf(branch)?.worktreeToSwitchTo
+
+        if (worktree != null) {
+            switchToWorktree(worktree)
+        } else {
+            checkoutBranchUseCase(branch)
+        }
+    }
 
     fun rebaseBranch(branch: Branch) = rebaseBranchUseCase(branch)
 

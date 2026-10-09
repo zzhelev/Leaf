@@ -60,6 +60,7 @@ import dev.app.leaf.theme.*
 import dev.app.leaf.ui.BranchWorktreeChipMark
 import dev.app.leaf.ui.LocalBranchWorktrees
 import dev.app.leaf.ui.LocalOnChooseWorktreesBase
+import dev.app.leaf.ui.LocalOnSwitchToWorktree
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.sort.SortMenuItem
@@ -148,6 +149,7 @@ fun Log(
         CompositionLocalProvider(
             LocalBranchWorktrees provides branchWorktrees,
             LocalOnChooseWorktreesBase provides viewModel::chooseWorktreesBase,
+            LocalOnSwitchToWorktree provides viewModel::switchToWorktree,
         ) {
             LogView(
                 logState = logStatus,
@@ -1436,6 +1438,7 @@ fun BranchChip(
     val branchWorktrees = LocalBranchWorktrees.current
     val worktreeUsers = branchWorktrees.usersOf(ref)
     val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
+    val onSwitchToWorktree = LocalOnSwitchToWorktree.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
@@ -1456,6 +1459,7 @@ fun BranchChip(
             worktreeUsers = worktreeUsers,
             worktreesBase = branchWorktrees.baseChoice,
             onChooseWorktreesBase = onChooseWorktreesBase,
+            onSwitchToWorktree = onSwitchToWorktree,
         )
     }
 

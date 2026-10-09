@@ -232,6 +232,7 @@ fun AppTab(
                                     backStack.removeLastOrNull()
                                     repositoryTabViewModel.completedTaskAlreadyShown(it.error)
                                 },
+                                onSwitchToWorktree = { path -> repositoryTabViewModel.switchToWorktree(path) },
                             )
                         }
                         entry<Screen.AddEditRemote>(

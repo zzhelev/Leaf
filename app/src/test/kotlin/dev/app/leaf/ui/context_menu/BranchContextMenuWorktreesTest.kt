@@ -38,9 +38,10 @@ class BranchContextMenuWorktreesTest {
     }
 
     @Test
-    fun `leaves out checking out and deleting a branch that another worktree has checked out`() {
+    fun `offers to switch to the worktree that has the branch, in place of checking it out and deleting it`() {
         assertEquals(
             listOf(
+                "Switch to worktree",
                 "Merge branch",
                 "Rebase branch",
                 "Rename branch",
@@ -55,7 +56,13 @@ class BranchContextMenuWorktreesTest {
     fun `also leaves out renaming a branch that another worktree rebases or bisects from`() {
         for (use in listOf(WorktreeBranchUse.Rebasing, WorktreeBranchUse.Bisecting)) {
             assertEquals(
-                listOf("Merge branch", "Rebase branch", "Change default upstream branch", "Copy branch name"),
+                listOf(
+                    "Switch to worktree",
+                    "Merge branch",
+                    "Rebase branch",
+                    "Change default upstream branch",
+                    "Copy branch name",
+                ),
                 labels(users(isCurrent = false, use)),
                 use.name,
             )
@@ -70,6 +77,35 @@ class BranchContextMenuWorktreesTest {
         assertEquals(
             listOf("Checkout branch", "Change default upstream branch", "Copy branch name"),
             labels(users(isCurrent = true, WorktreeBranchUse.Rebasing), currentBranch = head),
+        )
+    }
+
+    @Test
+    fun `switches to the worktree that has the branch`() {
+        val users = users(isCurrent = false, WorktreeBranchUse.CheckedOut)
+        val switchedTo = mutableListOf<Worktree>()
+
+        // The first item, as the labels show
+        menu(feature, main, users, worktreesBase = null, onSwitchToWorktree = { switchedTo += it })
+            .first()
+            .onClick()
+
+        assertEquals(listOf(users.users.single().info.worktree), switchedTo)
+    }
+
+    @Test
+    fun `offers no switch to a worktree whose folder is missing, nor a checkout`() {
+        val prunable = "gitdir file points to non-existent location"
+
+        assertEquals(
+            listOf(
+                "Merge branch",
+                "Rebase branch",
+                "Rename branch",
+                "Change default upstream branch",
+                "Copy branch name",
+            ),
+            labels(users(isCurrent = false, WorktreeBranchUse.CheckedOut, prunable)),
         )
     }
 
@@ -137,7 +173,7 @@ class BranchContextMenuWorktreesTest {
         assertEquals(listOf(null), chosenBases(remote, chosen))
     }
 
-    private fun users(isCurrent: Boolean, use: WorktreeBranchUse): BranchWorktreeUsers {
+    private fun users(isCurrent: Boolean, use: WorktreeBranchUse, prunable: String? = null): BranchWorktreeUsers {
         val worktree = Worktree(
             path = "/wt",
             headSha = HASH,
@@ -147,7 +183,7 @@ class BranchContextMenuWorktreesTest {
             isDetached = use != WorktreeBranchUse.CheckedOut,
             isBare = false,
             locked = null,
-            prunable = null,
+            prunable = prunable,
         )
         val info = WorktreeInfo(worktree, status = null, aheadBehindBase = null, lastCommitTime = null)
 
@@ -196,6 +232,7 @@ class BranchContextMenuWorktreesTest {
         worktreeUsers: BranchWorktreeUsers?,
         worktreesBase: WorktreeBaseBranch?,
         onChooseWorktreesBase: (String?) -> Unit = {},
+        onSwitchToWorktree: (Worktree) -> Unit = {},
     ): List<ContextMenuElement.ContextTextEntry> = branchContextMenuItems(
         branch = branch,
         isCurrentBranch = false,
@@ -213,5 +250,6 @@ class BranchContextMenuWorktreesTest {
         worktreeUsers = worktreeUsers,
         worktreesBase = worktreesBase,
         onChooseWorktreesBase = onChooseWorktreesBase,
+        onSwitchToWorktree = onSwitchToWorktree,
     ).filterIsInstance<ContextMenuElement.ContextTextEntry>()
 }

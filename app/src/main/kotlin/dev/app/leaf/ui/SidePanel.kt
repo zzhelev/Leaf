@@ -38,6 +38,7 @@ import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.models.Submodule
 import dev.app.leaf.domain.models.Tag
+import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WorktreesVisibility
@@ -153,6 +154,7 @@ fun SidePanel(
                 worktreesState = worktreesState,
                 onExpand = { viewModel.onExpandWorktrees() },
                 onWorktreeClicked = { viewModel.selectWorktree(it.worktree) },
+                onSwitchToWorktree = { viewModel.switchToWorktree(it.worktree) },
                 onCopyPath = { scope.launch { clipboard.setClipboardText(it.worktree.path) } },
                 onChooseBase = { viewModel.chooseWorktreesBase(it) },
             )
@@ -304,6 +306,7 @@ fun LazyListScope.localBranches(
                         onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(branch) },
                         onRenameBranch = { onRenameBranch(branch) },
                         onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
+                        onSwitchToWorktree = { viewModel.switchToWorktree(it) },
                         onCopyBranchNameToClipboard = {
                             scope.launch {
                                 clipboard.setClipboardText(branch.simpleName)
@@ -673,6 +676,7 @@ private fun Branch(
     onChangeDefaultUpstreamBranch: () -> Unit,
     onRenameBranch: () -> Unit,
     onChooseWorktreesBase: (branch: String?) -> Unit,
+    onSwitchToWorktree: (Worktree) -> Unit,
     onCopyBranchNameToClipboard: () -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
@@ -696,6 +700,7 @@ private fun Branch(
                 worktreeUsers = worktreeUsers,
                 worktreesBase = worktreesBase,
                 onChooseWorktreesBase = onChooseWorktreesBase,
+                onSwitchToWorktree = onSwitchToWorktree,
             )
         }
     ) {

@@ -84,6 +84,7 @@
     <string name="side_pane_worktrees_title">Worktrees</string>
     <string name="side_pane_worktrees_error">Couldn't list the worktrees</string>
     <string name="side_pane_worktree_copy_path">Copy path</string>
+    <string name="side_pane_worktree_switch_to">Switch to worktree</string>
     <string name="side_pane_worktree_missing">missing</string>
     <string name="side_pane_worktree_rebasing">rebasing %1$s</string>
     <string name="side_pane_worktree_bisecting">bisecting from %1$s</string>
@@ -193,6 +194,7 @@
 
     <!-- Branch context menu -->
     <string name="branch_context_menu_checkout_branch">Checkout branch</string>
+    <string name="branch_context_menu_switch_to_worktree">Switch to worktree</string>
     <string name="branch_context_menu_merge_branch">Merge branch</string>
     <string name="branch_context_menu_rebase_branch">Rebase branch</string>
     <string name="branch_context_menu_push_current_to_target">Push "%1$s" to "%2$s"</string>
@@ -401,6 +403,7 @@
 
     <!-- Error dialog -->
     <string name="error_dialog_copy_button_tooltip">Copy error</string>
+    <string name="error_dialog_switch_to_worktree">Switch to worktree</string>
 
     <!-- Clone -->
     <string name="clone_error_invalid_directory">Invalid empty directory</string>
