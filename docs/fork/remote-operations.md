@@ -25,7 +25,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
 - **Recommendation:** move remote operations to the git CLI in stages: push first, then fetch and pull, then clone.
   Keep JGit and libssh only as a fallback when no usable git is found. Fix the TLS problem now, whatever the
   decision. Section 4 has the plan. Stages 0, 1 (push), 2 (fetch and pull), 3 (clone and submodules) and 4 (LFS
-  downloads with git-lfs) are done.
+  downloads with git-lfs) are done, and so is stage 5: libssh is gone.
 
 ## 1. How remote operations work today
 
@@ -432,19 +432,143 @@ Found while building it:
 - Not changed: other checkouts still run `git-lfs smudge` per file without Leaf's dialogs; Leaf's built-in client still
   handles everything when git-lfs isn't installed, including the upload of JGit's push.
 
-**Later.** Retire libssh. Recommended on 2026-10-09; not decided. It's still used in three places, which have to move
-first:
-1. JGit's SSH transport, for the fallback when the setting is off, no git is found, or an LFS push can't go through
-   git-lfs. Without libssh, SSH remotes would need git, while HTTPS keeps JGit's fallback. Leaf users have git in
-   practice: worktrees need it, and on Windows hooks need Git for Windows.
-2. The built-in LFS client's SSH authentication (`git-lfs-authenticate` over libssh), used when git-lfs isn't
-   installed. It could run the system's ssh with the askpass helper instead.
-3. SSH commit signing (`gpg.format=ssh`), which uses libssh's key code and only reads key files. `ssh-keygen -Y sign`,
-   as git runs it, would add agent and security keys, like `GpgProgramSigner` does for gpg.
+**Stage 5: retire libssh (M), done on branch `feat/retire-libssh`.** Approved on 2026-10-09 with its build change
+(step 4). The fork changelog and CLAUDE.md describe what was built; the plan as written before follows, then what was
+found.
 
-Then `libssh-rs` and its vendored OpenSSL leave the Rust crate, which keeps the file watcher and the askpass helper:
-faster and simpler builds, a smaller app, and one SSH behavior everywhere (the user's ssh config, agent and
-known_hosts).
+`libssh-rs`, with its vendored libssh 0.11 and OpenSSL, leaves the Rust crate, which keeps the file watcher and the
+askpass helper. Every SSH connection and SSH signature then runs the system's OpenSSH, with the user's config, agent,
+known_hosts and security keys, as in a terminal. libssh has three uses left, which move first (steps 1 to 3).
+
+What users lose:
+- SSH remotes without git, or with "Use git for remote operations" off. Leaf users have git in practice: worktrees
+  need it, and on Windows hooks need Git for Windows. HTTPS, `file://` and local remotes keep JGit's fallback.
+- LFS uploads over SSH without git-lfs.
+
+SSH signing and LFS downloads over SSH keep working without git-lfs. They need ssh-keygen 8.2 or later and ssh, which
+macOS, Git for Windows and desktop Linux distributions have (Leaf's `.deb` doesn't depend on `openssh-client`).
+
+**Step 1: SSH signing with ssh-keygen (M).** It replaces `G/signers/SshSigner.kt` and `Signing` in `R/lib.rs`.
+
+Today `user.signingKey` must be a private key file, which libssh reads. There is no agent, no `key::` literal, no
+security key, no `gpg.ssh.program` (so 1Password's `op-ssh-sign` can't sign) and no `~` expansion. Leaf asks for the
+passphrase at every signature, and any failure, a missing key file included, shows the passphrase dialog again.
+
+A new `SshProgramSigner`, built like `GpgProgramSigner`, runs what git runs (`sign_buffer_ssh` in gpg-interface.c):
+- **Key:** `user.signingKey`, or else the first line that `gpg.ssh.defaultKeyCommand` prints, if it's a literal key.
+  Without either, it fails with `SshSigningError.NoSigningKey`, as git does.
+  - A literal key (`key::ssh-ed25519 AAAA…`, or the deprecated `ssh-ed25519 AAAA…`) goes into a temp file, and
+    ssh-keygen gets `-U`, so the agent signs with it.
+  - Anything else is a path. `~/` is expanded as git's `interpolate_path` does, and a relative path starts from the
+    working tree.
+- **Program:** `gpg.ssh.program`, by default `ssh-keygen`. It's looked up like gpg (`locateGpgProgram`): on the login
+  shell's PATH, and on Windows in Git for Windows' `usr\bin` first. It's read from the config directly, because JGit's
+  `GpgConfig.program` falls back to `gpg.program`, which git uses only for OpenPGP.
+- **Command:** `<program> -Y sign -n git -f <key> [-U] <data file>`. The signature is read from `<data file>.sig`,
+  without carriage returns. The data goes in a file, not on stdin, as with git, so that programs such as `op-ssh-sign`,
+  which expect git's arguments, work.
+- **Passphrase:** ssh-keygen uses the agent when it has the key. Otherwise it asks through `SSH_ASKPASS` (the askpass
+  helper, with `SSH_ASKPASS_REQUIRE=force`).
+  - OpenSSH 10.3's ssh-keygen asks `Enter passphrase for "<path>": ` (checked here); older versions ask
+    `Enter passphrase: `. Both become `SshPassphrase` for the key.
+  - So the passphrase is kept per key file for the session (decision 3), shared with ssh's prompts for the same file.
+  - A security key's PIN gets the generic dialog. Its touch notice isn't shown, as with push.
+- **Errors:** `SshSigningError` gets the same kinds of errors as `GpgSigningError`:
+  - the program isn't found, or can't start;
+  - it timed out (after 2 minutes);
+  - ssh-keygen's own message. If it printed `usage:`, the text says that `ssh-keygen -Y sign` needs OpenSSH 8.2p1
+    or later, as git's does;
+  - the user closed the passphrase dialog.
+
+  They're thrown as a `CanceledException`, which `JGit.provide` turns back into the error, like
+  `GpgSigningException`.
+- **Tests:**
+  - A fake program that records its arguments and input.
+  - With the real ssh-keygen (skipped without it): a plain key, a `.pub` path, an encrypted key through the dialog
+    (kept, then asked again after a wrong one), `key::` with a temporary ssh-agent (short socket path),
+    `defaultKeyCommand`, and `~/` with a temporary HOME.
+  - Signatures are checked with `git verify-commit` and `verify-tag` and an allowed signers file. ED25519 signatures
+    are deterministic, so a commit that Leaf signs should be byte for byte the one `git commit -S` makes from the same
+    tree and dates.
+
+**Step 2: the built-in LFS client over SSH with the system's ssh (S–M).** It replaces
+`G/lfs/AuthenticateLfsServerWithSshGitAction.kt`, which `A/lfs/LfsSmudgeFilter.kt` and `LfsPrePushHook` call when
+git-lfs isn't installed.
+- **Command:** what git-lfs runs, as captured here with git-lfs 3.8 and a `GIT_SSH_COMMAND` that logs its arguments:
+  `ssh [-p <port>] [<user>@]<host> 'git-lfs-authenticate <path> <operation>'`. The remote command is one argument,
+  and `<path>` is the SSH URL's path: `org/repo.git` for `git@host:org/repo.git`, `/org/repo.git` for
+  `ssh://git@host:2222/org/repo.git`.
+- **Bug found:** for a repository with one remote and no tracking branch, `GetLfsUrlGitAction` appends `.git/info/lfs`
+  to SSH URLs too, so Leaf sends `git-lfs-authenticate org/repo.git/info/lfs`. git-lfs sends the remote's own path, and
+  Leaf will too.
+- **Which ssh:** as git-lfs picks it: `GIT_SSH_COMMAND`, then `core.sshCommand`, then `GIT_SSH`, then `ssh`.
+  - A command runs through the shell with the arguments appended, Git Bash's on Windows.
+  - `core.sshCommand` is read with `git config` when git is usable, so that `includeIf` applies (a different account
+    per folder). Otherwise it comes from JGit's config.
+  - On Windows, `ssh` is looked up in Git for Windows first, as gpg is.
+  - Not handled: plink and TortoisePlink take `-P` for the port, not `-p`, so they only work on the default port.
+- **Prompts:** the same askpass environment and `AskpassAnswers` as `GitCliRemoteCommand`. Host keys, passphrases and
+  passwords get Leaf's dialogs, and passphrases are kept per key file.
+- **Result:** success means ssh exited with 0 and printed JSON. Today any output on stderr fails, but the system's ssh
+  writes warnings there on success ("Permanently added … to the list of known hosts"). On failure the server's message
+  goes into the `LfsException`.
+- **Timeout:** 2 minutes, as nothing can cancel a checkout's filter. As today, it runs once per file. git-lfs keeps
+  the answer until it expires, which Leaf doesn't.
+- **Tests:** the sshd harness of `GitCliSshTest`, whose forced command records `SSH_ORIGINAL_COMMAND`. They check:
+  - the command, against what git-lfs itself sends when it's installed;
+  - a key with a passphrase, and an unknown host key, through the dialogs;
+  - `core.sshCommand`;
+  - the server's error message.
+
+**Step 3: the JGit fallback without SSH (S–M).** JGit's SSH transport used libssh: `GSessionManager`,
+`GSshSessionFactory`, `SshRemoteSession`, `SshCredentialsProvider`, `D/credentials/SshProcess.kt` and `D/libssh/`.
+They're removed.
+- **Failing early:** when JGit meets an SSH remote (an `SshTransport`, so `insteadOf` rewrites are seen),
+  `HandleTransportGitAction` gives it a session factory that fails before connecting, with `SshNeedsGitError`.
+- **Text:** the error says why git wasn't used and what to do:
+  - the setting is off: turn on "Use git for remote operations";
+  - no usable git (missing, or older than 2.36): install git, or set its path in Settings;
+  - an LFS push that git wouldn't upload (git-lfs is missing, or the repository's `pre-push` hook doesn't run it):
+    install git-lfs, or run `git lfs install` in the repository.
+
+  The factory asks `RemoteOperationsBackend` for the reason when it fails, which is cheap, as the locator caches.
+  `JGit.provide` finds the error in the cause chain, like `GpgSigningException`.
+- A JGit fetch of several remotes still fetches the HTTPS ones, and reports the SSH ones with that text.
+- The setting's subtitle says that SSH remotes need it.
+- **Tests:** each of the three reasons, against an SSH URL that can't connect, so that a connection attempt would show
+  up as a different error. HTTPS and `file://` remotes still go through JGit.
+
+**Step 4: libssh leaves the Rust crate (S, build change).**
+- `R/lib.rs` loses `Session`, `Channel`, their holders, `HostKeyState`, `HostKeyCheck`, `ReadResult`, `Signing` and the
+  libssh imports. `FileWatcher` and its types stay.
+- `rs/Cargo.toml` loses `libssh-rs` and `libssh-rs-sys`. Also `kotars` and `jni`, which nothing in the crate uses
+  (decision 7).
+- Unchanged: `app/build.gradle.kts` (its Rust tasks build whatever the crate has), the packaging config and
+  `release.yml`. The comment in `build_with_tests.yml` that names LibSSH is updated.
+- `DEVELOPMENT.md` no longer asks for Perl, and the About dialog no longer credits LibSSH (`AppConstants`).
+- Measured before and after: a cold Rust build, `libleaf_rs.dylib` (4.2 MB today) and `Leaf.app`.
+- `SshRemoteSessionTest` (10 tests) goes with the code. The git CLI's sshd tests already cover host keys and the
+  server's messages.
+
+**Order:** one branch, `feat/retire-libssh`, with the steps in order. Each step is one commit with its tests and
+mutation checks. The fork docs (CLAUDE.md, this note, the changelog) follow in a commit of their own, then the full
+build. Steps 1 and 2 stand on their own and change behavior for the better: signing gains agent keys, `key::` and
+`gpg.ssh.program`. Step 3 changes behavior only for SSH remotes on the JGit fallback. Nothing is tested on Windows.
+
+Found while building it:
+- ssh-keygen asks for a passphrase once, and fails on a wrong one, so Leaf runs it again, three times at most, as ssh
+  asks three times. Each run after the first counts as a retry, which drops a kept passphrase.
+- ED25519 signatures are deterministic: a commit signed by Leaf is byte for byte the one `git commit -S` makes from the
+  same tree, dates and message. JGit doesn't end a message with a line break, which git does.
+- JGit's `URIish` drops the slash of `ssh://host/~/repo` (its path is `~/repo`), which git-lfs keeps
+  (`git-lfs-authenticate /~/repo`). Leaf puts it back for URLs with a scheme.
+- JGit's fetch of all remotes never reported a failure: `HandleTransportGitAction` returns JGit's errors instead of
+  throwing them, and the fetch only caught exceptions. Without this, SSH remotes on the JGit fallback would have been
+  skipped without a word. It now names each remote that failed (upstream code).
+- `git config --get` exits with 1 when the key isn't set, and JGit's config can't have a key that git doesn't, so
+  reading `core.sshCommand` needs no case of its own for it.
+- Measured on this machine (Apple Silicon), cold, with Cargo's caches warm: the release build of `rs/` went from 97 s
+  to 72 s, the debug build from 88 s to 18 s, and `libleaf_rs.dylib` from 4,154,464 to 595,072 bytes.
 
 ### Decisions
 
@@ -456,3 +580,11 @@ known_hosts).
    asks for again (decided on 2026-10-08).
 4. Whether 0b and 0c are worth doing if the fallback is meant to be rare: **both done** (2026-10-08).
 5. Whether to report the host-key and TLS findings to upstream privately: **no** (decided on 2026-10-09).
+6. Stage 5, with "Use git for remote operations" off and an SSH remote: **fail with the error of step 3**, which says
+   to turn the setting on (decided on 2026-10-09). Not chosen: running git for SSH remotes whatever the setting, as
+   Leaf would then have to know each remote's transport before it picks the backend, and a fetch of several remotes
+   would mix git and JGit.
+7. Stage 5: **also remove `kotars` and `jni`** from `rs/Cargo.toml`, which nothing uses (decided on 2026-10-09).
+8. Stage 5, an LFS push over SSH without git-lfs: **fail with the error of step 3** (decided on 2026-10-09). Not
+   chosen: uploading with Leaf's built-in client, then `git push --no-verify`, which would skip the user's other
+   `pre-push` hooks.

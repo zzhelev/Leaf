@@ -2,6 +2,60 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## libssh is gone: SSH runs OpenSSH's programs (branch `feat/retire-libssh`)
+
+Stage 5 of `docs/fork/remote-operations.md`.
+
+- **Before:** after stages 1 to 4, the Rust library still carried libssh-rs, with its vendored libssh and OpenSSL, for
+  three things: JGit's SSH transport (the fallback when git isn't used), the built-in LFS client's
+  `git-lfs-authenticate` over SSH (without git-lfs), and SSH commit signing.
+- **Now:** all three run OpenSSH's programs, with the user's ssh config, agent, known_hosts and security keys. Leaf has
+  no SSH code of its own.
+  - **SSH signing** runs ssh-keygen as git does (`SshProgramSigner`). Keys held by ssh-agent, `key::` public keys,
+    `gpg.ssh.program` (such as 1Password's `op-ssh-sign`), `gpg.ssh.defaultKeyCommand` and `~/` paths now work.
+    - Leaf's dialog asks for a passphrase once per key file for the session, shared with push and fetch, and again
+      after a wrong one. libssh's signer asked at every signature, and showed the passphrase dialog again for any
+      failure, a missing key file included.
+    - Failures show ssh-keygen's own message.
+  - **The built-in LFS client over SSH** runs the system's ssh with git-lfs's command and with the ssh that git-lfs
+    picks (`core.sshCommand`, `includeIf` included), and asks with Leaf's dialogs. A warning from ssh no longer fails
+    it.
+  - **JGit and SSH remotes:** when JGit runs (the setting off, no usable git, or an LFS push that git wouldn't upload),
+    it refuses an SSH remote before connecting, and the error says what makes git run. HTTPS, `file://` and local
+    remotes keep JGit's fallback.
+  - **Build:** `rs/Cargo.toml` lost `libssh-rs` and `libssh-rs-sys`, and `kotars` and `jni`, which nothing used. Perl
+    is no longer needed.
+    - Here, a cold release build of `rs/` went from 97 s to 72 s, the debug build from 88 s to 18 s, and
+      `libleaf_rs.dylib` from 4,154,464 to 595,072 bytes.
+    - The About dialog no longer credits LibSSH.
+- **Lost:** SSH remotes without git, or with "Use git for remote operations" off, and LFS uploads over SSH without
+  git-lfs.
+- **Fixed on the way:**
+  - JGit's fetch of all remotes reported nothing when a remote failed, as `HandleTransportGitAction` returns failures
+    instead of throwing them. It now names each remote that failed (upstream code).
+  - For a repository with one remote and no upstream, the built-in LFS client asked an SSH remote about
+    `<path>.git/info/lfs`, not the repository's path, which git-lfs sends.
+- **Tests:** 50 new, 9 removed (`SshRemoteSessionTest`, with the code it tested). None are skipped here.
+  - `SshProgramSignerTest` (18): a fake ssh-keygen checks git's arguments, public keys with `-U`, `~/` and relative
+    paths, `defaultKeyCommand`, the program from `gpg.ssh.program` and not `gpg.program`, the errors, and an older
+    ssh-keygen's prompt without a key path.
+  - `SshProgramSignerRealSshKeygenTest` (8): the real ssh-keygen signs commits and tags that `git verify-commit` and
+    `verify-tag` accept, with a key file, a `.pub` path and a key only an ssh-agent has. It asks for a passphrase once,
+    again after a wrong one, and cancels when the dialog is closed. A signed commit is byte for byte `git commit -S`'s.
+  - `AuthenticateLfsServerWithSshGitActionTest` (8) and `GitCliSshTest` (3 new): the command matches what git-lfs 3.8
+    sends, for scp-like and `ssh://` URLs, and the real sshd gets the same command from Leaf as from git-lfs. Also:
+    which ssh runs, `includeIf`, a refusing host, an unknown host key and a passphrase through the dialogs.
+  - `JGitWithoutSshTest` (7) and `RemoteOperationsBackendTest` (1 new): each reason, scp-like and `insteadOf` URLs,
+    a fetch of several remotes, a clone, a push, and a `file://` remote that still works.
+  - `GetLfsUrlGitActionTest` (2, `:app`), `AskpassPromptTest` (1 new), `AskpassAnswersTest` (2 new).
+  - 38 mutations were each caught. One for the JGit fetch didn't compile and was rewritten. One planned for
+    `core.sshCommand` couldn't change the behavior, so the code lost that branch instead.
+  - Checked once with throwaway tests, deleted afterwards: the rebuilt library loads and its file watcher reports a
+    change. A dev run (`:app:run`) started cleanly.
+  - `./gradlew build` passes, with 625 tests (18 in `:app`, 518 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** Windows (Git for Windows' ssh, ssh-keygen and Git Bash), a security key, `op-ssh-sign`, a real LFS host
+  over SSH.
+
 ## LFS files are downloaded with git-lfs when it's installed (branch `feat/git-lfs-transfers`)
 
 Stage 4 of `docs/fork/remote-operations.md`.

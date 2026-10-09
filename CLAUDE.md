@@ -27,8 +27,7 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
     state, shared by the worktrees). They are the same file in a repository's main worktree.
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
-- **Kept on purpose:** the credit ("based on Gitnuro" in the About text, and the README), and the Rust dependencies
-  `libssh-rs` and `kotars`, which come from JetpackDuba's repositories.
+- **Kept on purpose:** the credit ("based on Gitnuro" in the About text, and the README).
 
 ## Branches and remotes
 
@@ -104,7 +103,6 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   `cargo` must be on `PATH` (`~/.cargo/bin`).
 - `cargo-kotars` is **not** needed, despite upstream's DEVELOPMENT.md. Bindings are generated with uniffi
   (`cargo run --bin uniffi-bindgen`, defined in `rs/`). The build passed without kotars installed.
-- Perl is needed to build the vendored OpenSSL (`/usr/bin/perl` is fine).
 - git 2.54 (Apple Git) is at `/usr/bin/git`. The app runs it through `GitCli` (see Git operations).
 
 ## Commands (verified)
@@ -112,7 +110,7 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
 Run everything from the repo root, with `JAVA_HOME` set as above.
 
 ```bash
-./gradlew build                          # full build + (currently empty) tests; ~5.5 min cold, Rust included
+./gradlew build                          # full build + tests; ~5 min, plus ~1.5 min for a cold Rust build
 ./gradlew test                           # all tests (:app, :common, :data, :domain)
 ./gradlew :data:test                     # ~25 s when the build is warm
 ./gradlew :app:run                       # launch the app
@@ -179,7 +177,8 @@ asking.
   runs `cargo build --release`, then a debug build, then bindgen, inside the task's configuration block. That block
   runs whenever `rustTasks` is in the task graph, which `:app:compileKotlin` puts it in (any app build, run or test).
   `help` or a `:domain`-only build doesn't. So a fresh checkout or worktree has no `leaf_rs.kt` bindings, and
-  `:domain` alone fails with unresolved `Session` and `Channel`, until `./gradlew :app:rustTasks` (a few minutes cold).
+  `:domain` alone fails with unresolved `FileChanged` and `FileType`, until `./gradlew :app:rustTasks` (about 1.5
+  minutes cold).
 - **Rust failures do not fail the build.** `executePrintingData` sets `isIgnoreExitValue = true` and only prints
   `Code is N`. If something Rust-related looks stale, grep the Gradle output for `Code is` and `failed with exit value`.
 - Generated, gitignored outputs:
@@ -222,15 +221,9 @@ asking.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
 - `rs`: Rust cdylib `leaf_rs`, exported via uniffi.
   - `FileWatcher` uses notify 8.
-  - libssh `Session`/`Channel` provide SSH transport.
-  - Never use libssh-rs's `poll_timeout`: it passes `is_stderr` and the timeout to libssh in the wrong order.
-    `SshChannelInputErrStream` polls with `read_available` instead, and `ChannelWrapper.close` keeps stderr and the
-    exit status, which JGit reads after it closes the connection (`SshRemoteSessionTest`).
-  - `SshRemoteSession` checks the server's host key (`Session.check_host_key`) before it authenticates. An unknown key
-    is asked about (`CredentialsRequest.SshHostKeyRequest`, `SshHostKeyDialog`) and then added to the user's
-    known_hosts, and a changed one is refused. Errors from the session must be JGit `TransportException`s: JGit reports
-    anything else as "remote hung up unexpectedly". Tests pass a known_hosts file of their own to `SshRemoteSession`,
-    so the developer's is never written.
+  - No SSH: OpenSSH's programs do all of it, run by git, by the built-in LFS client and by `SshProgramSigner` (see
+    Remote operations, and Commit and tag signing). libssh-rs, with its vendored libssh and OpenSSL, was removed on
+    2026-10-09 (stage 5 of `docs/fork/remote-operations.md`).
   - The binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only) is the askpass program and credential
     helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar like the library, and
     `AskpassHelper` extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
@@ -270,7 +263,8 @@ asking.
   `CommitMsgHook` uses `Repository.stripWorkDir`. `PosixFs` and `WindowsFs` both override `runHookIfPresent` to pass
   the absolute path of `<git dir>/COMMIT_EDITMSG` instead (`hookArguments`), as the git CLI does. Another `FS` that
   runs hooks needs the same.
-- Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper).
+- Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper). `GpgSigningException`,
+  `SshSigningException` and `SshNeedsGitException` are looked for in the cause chain first, as JGit wraps them.
 - Closing a tab closes and drops the cached `Git` of every repository that no remaining tab has open
   (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
   dirs from `RepositorySelectionState.Open.path`, never `<working tree>/.git`: linked worktrees and submodules have no
@@ -330,7 +324,7 @@ worktrees.
 - Nothing shows or refreshes this data yet (Phase 1.4 and 1.5).
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
-adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 4 of
+adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
 `docs/fork/remote-operations.md`).
 - Push and remote branch deletion run `git push --porcelain --progress` (`GitCliPushBranchGitAction`,
   `GitCliDeleteRemoteBranchGitAction`).
@@ -378,6 +372,14 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     out, but `--no-checkout` doesn't run it, and without `pre-push` a push would fall back to JGit's upload.
   - Other checkouts (switching branches, reset, stash) are unchanged: JGit runs the configured `filter.lfs.smudge`
     (`git-lfs smudge`) once per file, without Leaf's dialogs, or writes the pointers when git-lfs isn't set up.
+- **The built-in LFS client over SSH** (without git-lfs): `AuthenticateLfsServerWithSshGitAction` asks the host for
+  the LFS server as git-lfs does, `ssh [-p <port>] [<user>@]<host> 'git-lfs-authenticate <path> <operation>'`, with
+  the URL's path as git-lfs has it (JGit's `URIish` drops the `/` of `ssh://host/~/repo`, which git-lfs keeps).
+  - The ssh is the one git-lfs picks: `GIT_SSH_COMMAND`, `core.sshCommand`, `GIT_SSH`, then `ssh`. A command line
+    runs with `/bin/sh -c '<command> "$@"'` (Git Bash's on Windows, `GitBash.shellCommand`). `core.sshCommand` is read
+    with `git config`, for `includeIf`, and from JGit's config when git can't.
+  - It runs through `AskpassProcessRunner` (see Askpass). Success is ssh's exit code: ssh writes warnings to stderr
+    when it succeeds too.
 - Submodules: "Initialize" and "Update" run `git submodule update --init --recursive --progress -- <path>`
   (`GitCliUpdateSubmoduleGitAction`), so nested submodules are cloned too, which JGit didn't do. Adding one runs
   `git submodule add --progress --name <name> -- <url> <path>` (`GitCliAddSubmoduleGitAction`). git checks submodules
@@ -395,6 +397,12 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   It decides before git starts, never after a failure, which could push twice. The LFS condition applies only to
   push: a fetch doesn't involve git-lfs, and JGit does a pull's merge and a clone's checkout either way. A clone has
   no repository yet, so it asks `useGitCli()` without one.
+- **JGit and SSH:** JGit can't reach SSH remotes. `HandleTransportGitAction` gives an `SshTransport` (so after
+  `insteadOf`) the `NoSshSessionFactory`, which fails before connecting with `SshNeedsGitError`. Its reason is
+  `RemoteOperationsBackend.whyNotGitCli()` (the setting off, no usable git, no helper), or else an LFS push that git
+  wouldn't upload, and its text says what makes git run. HTTPS, `file://` and local remotes keep JGit's fallback.
+  JGit's fetch of all remotes reports each remote that failed, the SSH ones with `SshNeedsGitError.describe()`; it
+  used to drop every failure, as `HandleTransportGitAction` returns them instead of throwing.
 - **Running:** `GitCliRemoteCommand` runs git with no timeout, the askpass variables, Leaf's in-memory cache as git's
   last credential helper (`-c credential.helper=!'<helper>' credential`, only with "Cache HTTP credentials in
   memory"), and git's progress in `RepositoryStateRepository.taskProgress`. Never set `GIT_SSH_COMMAND`: the user's
@@ -413,7 +421,8 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     double quotes and no colon;
   - ssh's host key question: `SshHostKeyDialog`, answered `yes`, and ssh adds the key to known_hosts;
   - `Enter passphrase for key`: `SshPasswordDialog`. The passphrase is kept per key file for the session once the
-    command authenticated, and dropped when ssh asks for it again;
+    command authenticated, and dropped when ssh asks for it again. ssh-keygen asks `Enter passphrase for "<path>": `
+    (OpenSSH 10) or `Enter passphrase: ` (before), which is about the key that `AskpassAnswers` was given;
   - anything else: `AskpassPromptDialog`, and `AskpassConfirmDialog` for `SSH_ASKPASS_PROMPT=confirm`. Notices
     (`SSH_ASKPASS_PROMPT=none`, such as touching a security key) aren't shown.
 
@@ -539,12 +548,13 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
       helpers if the server takes them, and erased if not, and then Leaf asks for both.
     - After the server rejects a helper's credentials, LFS shows the user name from the settings, not the rejected
       one.
-- Also used by `GpgProgramSigner`, which runs gpg (see Commit and tag signing).
+- Also used by `GpgProgramSigner` and `SshProgramSigner`, which run gpg and ssh-keygen (see Commit and tag signing),
+  and by the built-in LFS client's ssh.
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
 
 **Commit and tag signing (fork-only `data/.../signers/GpgProgramSigner.kt`):** `App.start` registers the signers with
-JGit's `Signers`: `GpgProgramSigner` for `openpgp`, the default `gpg.format`, and `SshSigner` for `ssh`. Commits,
+JGit's `Signers`: `GpgProgramSigner` for `openpgp`, the default `gpg.format`, and `SshProgramSigner` for `ssh`. Commits,
 merges, rebases and tags all find them through `gpg.format`, and `CreateTagGitAction` leaves `tag.gpgSign` and
 `tag.forceSignAnnotated` to JGit's `TagCommand`.
 - `GpgProgramSigner` runs gpg as git does (`sign_buffer_gpg` in gpg-interface.c):
@@ -553,9 +563,10 @@ merges, rebases and tags all find them through `gpg.format`, and `CreateTagGitAc
     on stdout;
   - it must exit with 0 and print `[GNUPG:] SIG_CREATED` at the start of a status line;
   - the key is `user.signingKey`, or else the committer's `Name <email>`. JGit's `TagCommand` passes no key, so signers
-    read `config.signingKey` themselves; `SshSigner` does too.
+    read `config.signingKey` themselves; `SshProgramSigner` does too.
 - gpg gets `LoginShellEnvironment`'s variables. A program name is looked up on that PATH, then on macOS in the Homebrew
-  and GPG Suite folders, since Java's `ProcessBuilder` would search the PATH Leaf started with.
+  and GPG Suite folders, since Java's `ProcessBuilder` would search the PATH Leaf started with. `locateProgram`
+  (`cli/ProgramLookup.kt`) does it, for ssh-keygen and ssh too.
 - On Windows, a program name is looked up as Git for Windows' git does: first in the `ucrt64\bin` (`mingw64\bin`
   before 2.56) and `usr\bin` of the Git install that `findGitForWindows` (`GitBash.kt`) picks for hooks, then on PATH,
   as `<name>.exe` and then the name as it is. So the gpg bundled with Git wins over Gpg4win's, as with
@@ -572,9 +583,21 @@ merges, rebases and tags all find them through `gpg.format`, and `CreateTagGitAc
 - BouncyCastle is gone too. `jgit-gpg`, `bcpg` and the JCE provider that `main.kt` registered were only there for that
   signer:
   - Leaf's own JCE calls (AES, SHA-256) and the TLS of JGit, Ktor and OkHttp use the JDK's providers.
-  - SSH and SSH signing run in the Rust library, which has its own OpenSSL.
+  - SSH and SSH signing run OpenSSH's programs.
   - Leaf never verifies signatures. Without `jgit-gpg`, JGit has no OpenPGP verifier for `Git.verifySignature()`;
     verifying would mean running gpg, as signing does.
+- `SshProgramSigner` (fork-only, `data/.../signers/`) runs ssh-keygen as git does (`sign_buffer_ssh`):
+  - the program is `gpg.ssh.program`, by default `ssh-keygen`, read from the config itself: JGit's `GpgConfig.program`
+    falls back to `gpg.program`, which git uses only for OpenPGP;
+  - it runs `-Y sign -n git -f <key> [-U] <file>` on a temp file, and the signature is `<file>.sig`, without carriage
+    returns. Not stdin, so that stand-ins such as 1Password's `op-ssh-sign` get git's arguments;
+  - the key is `user.signingKey`, or else the first line that `gpg.ssh.defaultKeyCommand` prints, if it's a public
+    key (the command is split like git's `split_cmdline` and runs without a shell). A public key (`key::ssh-…`, or the
+    deprecated `ssh-…`) goes into a temp file with `-U`, so the agent signs. Anything else is a path: `~/` is expanded
+    and a relative one is in the working tree;
+  - ssh-keygen asks for a passphrase through `AskpassProcessRunner`, which is given the private key's path. ssh-keygen
+    asks once, so Leaf runs it again (three times at most) when it says `incorrect passphrase supplied`;
+  - failures are `SshSigningError`, thrown as `SshSigningException`, like gpg's. It times out after 2 minutes.
 
 **External processes (upstream code):** upstream never invokes the `git` CLI. `ProcessBuilder` is only used in `domain/.../ShellManager.kt`
 (credential helpers, terminals, opening a file manager) and in `FileExtensions.kt`. Leaf's `WindowsFs` runs Windows
@@ -873,7 +896,11 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - `GitCliSshTest` runs sshd with forced commands, and sets `core.sshCommand` (`-F /dev/null`, its own known_hosts,
     `IdentityAgent=none`, `-i <key>`), so that ssh never reads the developer's `~/.ssh`. A clone has no repository
     yet, so its test sets `core.sshCommand` in the test's global config. The forced command answers
-    `git-lfs-authenticate` with a `FakeLfsServer`'s URL, as an LFS host does over SSH.
+    `git-lfs-authenticate` with a `FakeLfsServer`'s URL, as an LFS host does over SSH, and logs every command to
+    `commands.log`, which compares the built-in LFS client's command with git-lfs's.
+  - `SshProgramSignerRealSshKeygenTest` (skipped without ssh-keygen) makes keys per test, and points `SSH_AUTH_SOCK`
+    at a socket that doesn't exist, or at an ssh-agent it starts in a short temp folder. A commit it signs is byte for
+    byte what `git commit -S` makes from the same tree and dates (ED25519 signatures are deterministic).
   - `GitCliLfsTest` (skipped without git-lfs) clones, pulls and pushes LFS files through `FakeLfsServer`, a Git LFS
     server (batch API, basic transfer, optional Basic authentication) on 127.0.0.1. Leaf's built-in LFS is in the app
     module, so `LocalObjectsSmudge` stands in for its smudge filter and notes the objects it would have downloaded. A
