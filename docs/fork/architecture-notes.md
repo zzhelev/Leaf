@@ -5,7 +5,7 @@
 | Verified against | upstream `main` at `62442f26` (`2.0.0-beta03-4`) |
 | Date | 2026-10-02 |
 | Platform | macOS 26.6.2 arm64, JBR 25.0.4.1, git 2.54.0 (Apple Git-157) |
-| Reproduce | `docs/fork/probes/worktree-probe.sh` |
+| Reproduce | `docs/fork/probes/worktree-probe.sh`, and `worktree-reflog-probe.sh` for §6 |
 
 **How to reproduce.** Every JGit result below comes from `docs/fork/probes/WorktreeProbe.java`, which calls JGit the
 same way Gitnuro does, and is driven by `docs/fork/probes/worktree-probe.sh` against throwaway repos in `$TMPDIR`.
@@ -23,6 +23,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`,
 | Does checkout refuse a branch that is checked out in another worktree? | **No.** Both worktrees end up on the same branch. | High |
 | Does branch deletion refuse a branch that is checked out in another worktree? | **No.** Deletion is always forced, has no confirmation, and leaves the other worktree on an unborn branch. | High |
 | Does Gitnuro run gc or prune? | Not explicitly. JGit's auto-GC can run during merge, rebase, fetch and push. JGit GC **ignores other worktrees' HEADs, indexes, per-worktree refs and reflogs**. Objects only they reference are deleted on a later GC, once they are more than two weeks old. | Medium (rare, but data loss) |
+| Does JGit write a linked worktree's HEAD reflog in the right place? (found 2026-10-09) | **No.** In a tab on a linked worktree, every move of HEAD is logged in the main worktree's `logs/HEAD` (§6). git's gc loses nothing because of it, but `@{-1}`, `HEAD@{n}` and Leaf's checkout dates are wrong in both worktrees. | Medium |
 
 ## 1. JGit version
 
@@ -222,6 +223,145 @@ worktree references.
 - **(b)** Prevent the commands Gitnuro calls from triggering auto-GC. Needs investigation: `autoGC` is called
   unconditionally at the end of `MergeCommand` and `RebaseCommand`.
 - **(c)** Document the risk and leave gc to the git CLI. Never write `gc.auto` into the user's config without asking.
+
+## 6. HEAD reflog of a linked worktree (found 2026-10-09)
+
+**Answer:** JGit writes a linked worktree's HEAD reflog into the main worktree's `<common>/.git/logs/HEAD`, not into
+`<common>/.git/worktrees/<name>/logs/HEAD`. A Leaf tab on a linked worktree opens `<common>/.git/worktrees/<name>`
+(§2), so every move of HEAD made there through Leaf is logged as a move of the main worktree's HEAD. Branch reflogs
+(`logs/refs/heads/*`) are shared by the worktrees and land in the right place.
+
+Reproduce with `docs/fork/probes/worktree-reflog-probe.sh` (`WorktreeReflogProbe.java`). It isolates git and JGit from
+the developer's config. JGit line numbers below are from the 7.7.0 sources jar, Leaf's from `7498d94d`.
+
+### Why
+
+JGit 7.0 added reading linked worktrees (commit `f9beeb3b`,
+[Gerrit 1194900](https://eclipse.gerrithub.io/c/eclipse-jgit/jgit/+/1194900)). That change moved `refs/`, `logs/` and
+`packed-refs` to the common dir, and taught two of the three places about HEAD:
+- `RefDirectory.fileFor` (`RefDirectory.java:1432-1443`): `HEAD` comes from the git dir, everything else from the
+  common dir.
+- `ReflogReaderImpl` (`ReflogReaderImpl.java:41-45`): HEAD's log is read from `db.getDirectory()`, i.e. the git dir.
+- **Not** `RefDirectory.logFor` (`:239-245`): a name under `refs/` goes to `logsRefsDir`, anything else, HEAD
+  included, to `logsDir`. The constructor (`:207-218`) sets `logsDir = fs.resolve(gitCommonDir, LOGS)`.
+
+`ReflogWriter.log` (`ReflogWriter.java:212-216`) writes every entry to `refdb.logFor(refName)`. So JGit reads a linked
+worktree's HEAD log from one file and writes it to another. Every ref update goes through it: `RefUpdate.update`,
+`link`, batch updates, and `RefDirectoryRename`, which logs the rename of the current branch on HEAD.
+
+### Tested
+
+| Leaf operation (git action) | HEAD reflog entry JGit writes | Lands in |
+|---|---|---|
+| Baseline: `git commit` in the linked worktree | `commit: ...` | linked |
+| Commit, amend (`DoCommitGitAction`) | `commit: ...`, `commit (amend): ...` | **main** |
+| Create branch (`CreateBranchGitAction`), check out a branch (`CheckoutBranchGitAction`) | `checkout: moving from agent to topic` | **main** |
+| Check out a commit (`CheckoutCommitGitAction`) | `checkout: moving from agent to <sha>` | **main** |
+| Reset to a commit (`ResetToCommitGitAction`) | `<sha>: updating HEAD` | **main** |
+| Merge (`MergeBranchGitAction`) | `merge <sha>: Merge made by recursive.` | **main** |
+| Cherry-pick, revert (`CherryPickCommitGitAction`, `RevertCommitGitAction`) | `cherry-pick: ...`, `revert: ...` | **main** |
+| Rebase (`RebaseBranchGitAction`) | `checkout: moving from topic to <sha>`, `rebase finished: returning to refs/heads/topic` | **main** |
+| Rename the current branch (`RenameBranchGitAction`) | `Branch: renamed topic to topic2` | **main** |
+| `RefUpdate.link` on HEAD | its message | **main** |
+| Stash (`StashChangesGitAction`), hard reset to HEAD (`ResetRepositoryStateGitAction`) | none: JGit doesn't log these (git logs `reset: moving to HEAD`) | — |
+
+Not probed one by one, but the same `RefUpdate` on HEAD: checking out a remote branch
+(`CheckoutRemoteBranchGitAction`), pull's merge or rebase (`GitCliPullBranchGitAction`), interactive rebase, and
+continue, skip and abort of a rebase. Staging, unstaging and discarding don't move HEAD. Clone and init make a new
+main worktree. A bare repository with linked worktrees, a layout some agent setups use, behaves the same: JGit
+creates `repo.git/logs/HEAD` and its only line is the linked worktree's commit.
+
+### What it breaks
+
+From the probe, after the operations above in the linked worktree `c2-wt`, while the main worktree `c2` stayed on
+`main`:
+- **git in the main worktree** sees the linked worktree's history as its own. `git reflog` lists it, `HEAD@{1}` is a
+  commit that the linked worktree had checked out (before, it was `other commit`, where the main worktree had come
+  from), and `@{-1}` is `topic2`. **`git checkout -` switched the main worktree to `topic2`**, a branch only the linked worktree ever had.
+  `git reset --hard HEAD@{1}`, the usual undo, would move the main worktree's branch to that commit.
+- **git in the linked worktree** sees none of what Leaf did. `git reflog` shows only git's own entries, and `@{-1}`
+  doesn't exist. After a bad reset or rebase made in Leaf in an agent's worktree, `git reflog` finds nothing. The
+  branch's own reflog (`git reflog show <branch>`) still has its commits, but moves of a detached HEAD are only in the
+  main worktree's log.
+- **Leaf:** `GetRefDatesGitAction.readCheckoutTimes` (`G/branches/GetRefDatesGitAction.kt:102-109`) reads the HEAD
+  reflog of the tab's own git dir for the "last checked out" sort. It reads the right file, but a linked worktree's tab
+  never sees the checkouts made in it (the probe: 3 entries, no checkout), and the main worktree's tab sorts by the
+  linked worktrees' checkouts.
+- Several tabs on linked worktrees all append to the same file.
+- Entries already written in the wrong place stay there. A fix can't move them back, since an entry doesn't say which
+  worktree wrote it.
+
+**No objects are lost with git's gc.** A misplaced entry is still a reflog entry, and git's gc keeps everything that any
+worktree's reflog names. `git gc --prune=now` from the main worktree kept both a commit made on a detached HEAD through
+JGit and one made through git, each left behind by checking out a branch again. The misplaced entries even survive
+`git worktree remove`, which deletes only the linked worktree's own logs.
+
+**JGit's gc would lose them.** From the linked worktree's tab, JGit gc (expire now) deleted the commit made through
+JGit and kept the one made through git: JGit's gc reads HEAD's reflog from the tab's own git dir, which the bug leaves
+without the entry. Leaf turns auto-gc off and never runs gc (§5), so this can't happen today; it's one more reason
+never to run JGit gc.
+
+### Upstream status (checked 2026-10-09)
+
+- Not fixed: `logFor`, `fileFor`, the `RefDirectory` constructor, `ReflogWriter` and `ReflogReaderImpl` are the same in
+  7.7.0, 7.7.1, 7.8.0 (the newest release, 2026-09) and on master at `6e68739f` (2026-10-08).
+- Not reported: nothing on GitHub issues (`eclipse-jgit/jgit`), GerritHub or Bugzilla about reflog writes in a linked
+  worktree. The closest are two unresolved review comments on Gerrit 1194900: one asks for tests that the worktree's
+  index and reflogs are used, the other notes that HEAD isn't the only ref that belongs to a worktree (`refs/bisect`,
+  `refs/worktree`, `refs/rewritten`, pseudo-refs). Andre Bossert's older, unmerged
+  [Gerrit 163940](https://eclipse.gerrithub.io/c/eclipse-jgit/jgit/+/163940) (bug 477475) also changed only the reader.
+- The open series that adds `git worktree` commands (Gerrit 1237449-1237454, 2026-05) doesn't touch `RefDirectory`.
+- JGit takes changes through GerritHub only (`refs/for/master`), and contributors need a signed Eclipse Contributor
+  Agreement ([CONTRIBUTING.md](https://github.com/eclipse-jgit/jgit/blob/master/CONTRIBUTING.md)).
+
+### Fix options (proposed 2026-10-09, not approved)
+
+- **(a) Leaf: a per-repository `FS` that sends `<common>/logs` to `<git dir>/logs`.** Recommended.
+  - `JGit.open` (`G/JGit.kt:122-130`) already gives each repository its own `PosixFs` or `WindowsFs`. For a linked
+    worktree (its git dir has a `commondir` file), the FS would also know the git dir and the common dir, and override
+    `resolve(dir, name)`: `logs` under the common dir becomes `<git dir>/logs`. Main worktrees and bare repositories
+    are unchanged.
+  - It works because `logsDir` is the only `fs.resolve` call for `<common>/logs` in JGit, and HEAD's is the only log
+    JGit writes there (a name outside `refs/` other than HEAD gets a log only when one already exists). Branch logs
+    come from a separate call (`logs/refs/`), so they stay shared. This is also git's rule: logs outside `refs/` (HEAD and the pseudo-refs) belong to the worktree.
+  - A throwaway prototype (outside the repo) confirmed it: commit, branch creation, checkout, rebase and rename in a
+    linked worktree added nothing to the main worktree's log, and `git reflog`, `@{-1}` and JGit's reader in the
+    linked worktree all showed the entries.
+  - The catch is that it relies on how JGit builds `logsDir`. A test in `data` (open a linked worktree through `JGit`,
+    commit and check out, check where the entries land) would catch a JGit upgrade that bypasses it. If JGit fixes
+    `logFor`, the override does nothing harmful, and can go.
+  - A small change in the data layer, plus tests. `WindowsFs` comes from a Dagger `Provider`, so the two dirs reach it
+    some other way than its constructor. Both FS classes must keep them in `newInstance`.
+- **(b) Leaf: subclass JGit's `RefDirectory` and `FileRepository`.** Override `logFor`. `RefDirectory`'s constructor
+  is package-private, so the subclass would sit in JGit's internal package (a split package in Leaf's jar).
+  `FileRepository` creates its `RefDirectory` in a private field, so Leaf would also subclass it, override
+  `getRefDatabase()`, and build repositories without `Git.open`. More code on internal API, and two `RefDirectory`
+  instances per repository. Rejected in favor of (a).
+- **(c) Upgrade JGit.** No release has a fix.
+- **(d) Patch JGit upstream.** Recommended alongside (a).
+  - In `RefDirectory`, resolve HEAD's log against the git dir, as `fileFor` and `ReflogReaderImpl` already do.
+  - Add a test to `LinkedWorktreeTest`: commit and check out through a repository opened on a linked worktree's git
+    dir, check that the entries are in `<git dir>/logs/HEAD` and not in `<common>/logs/HEAD`, and that
+    `getReflogReader(HEAD)` returns them.
+  - A second change could apply git's whole per-worktree rule (pseudo-refs, `refs/bisect/`, `refs/worktree/`,
+    `refs/rewritten/`) to `fileFor` and `logFor`. That also fixes the side finding below.
+  - Needs the contributor's ECA and a GerritHub account. JGit has released about once a quarter (7.7.0 in June, 7.8.0
+    in September), so Leaf would keep (a) until it upgrades to a release with the fix.
+- **Rejected:**
+  - Moving entries back after each operation: it races with git in the main worktree appending to the same file.
+  - Turning JGit's HEAD logging off and writing the entries ourselves: there's no switch for that.
+    `core.logAllRefUpdates` covers branches too, and JGit always appends to a log file that exists.
+  - Running the operations that move HEAD through the git CLI: that would rewrite most of Leaf's git actions.
+
+### Side finding: ORIG_HEAD after a squash
+
+`fileFor` resolves pseudo-refs such as `ORIG_HEAD` against the common dir, but `Repository.writeOrigHead` writes to
+the git dir. `RebaseCommand.resetSoftToParent` (`RebaseCommand.java:796-810`), which a squash or fixup in an
+interactive rebase runs, reads `ORIG_HEAD` through `exactRef` and writes it back afterwards. In a linked worktree it
+reads the main worktree's `ORIG_HEAD`. The probe (step 7) left the linked worktree's `ORIG_HEAD` at the main
+worktree's value instead of the tip before the rebase. So `git reset --hard ORIG_HEAD` there, the usual undo of a
+rebase, would jump to an unrelated commit. Leaf's own code doesn't read pseudo-refs through `exactRef`, and (a)
+doesn't cover this; (d)'s second change would.
 
 ## Other findings relevant to later phases
 
