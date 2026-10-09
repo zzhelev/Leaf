@@ -49,8 +49,11 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   first sync (2026-10-07) is described in `docs/fork/CHANGELOG.md`.
 - **Commit identity:** `Zhelyazko Zhelev <zzhelev@gmail.com>`, set in the repo's own `.git/config`. Never commit under
   another identity.
-- **Pushing:** the SSH key on this machine belongs to another GitHub account and can't push to `zzhelev/Leaf`. Push over
-  HTTPS with the `gh` login (zzhelev, which has the `workflow` scope that changes to `.github/workflows/` need):
+- **Pushing:** `git push origin main`, from a terminal or from Leaf. Since 2026-10-10 the repo's `.git/config` sets
+  `core.sshCommand` to `ssh -i /Users/zhelyazko.zhelev/.ssh/id_rsa_zhelyazko -o IdentitiesOnly=yes`, the key on
+  zzhelev's GitHub account. Linked worktrees share it. Without it, ssh offers the agent's keys in order, and the first
+  one GitHub knows belongs to another account (zhelezen), which can't push. Over HTTPS, the `gh` login (zzhelev, with
+  the `workflow` scope that changes to `.github/workflows/` need) works too:
 
   ```bash
   git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push https://github.com/zzhelev/Leaf.git main
