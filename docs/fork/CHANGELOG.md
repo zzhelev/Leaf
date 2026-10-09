@@ -2,6 +2,54 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Failures that the data code dropped (branch `claude/festive-lamport-994739`)
+
+Six fixes from the 2026-10-09 review of the code that comes from Gitnuro, where a failure was ignored or left bad
+state behind.
+
+- **LFS downloads** (the built-in client, which runs when git-lfs isn't installed):
+  - **Before:** a download was appended to the object's place in `lfs/objects`, unchecked. A connection that dropped
+    left the object truncated (Ktor's CIO engine ends the body without an error), the checkout used it, and the smudge
+    filter took it as complete from then on. The next download appended to it. Its result was dropped too, and the
+    whole object was read into memory before it was written.
+  - **Now:** `DownloadLfsObjectGitAction` downloads to `<oid>.<random>.tmp` next to the object, and renames it into
+    place once its size and SHA-256 are the pointer's. Otherwise the checkout fails with `LfsError.CorruptDownload`.
+    The temporary file is removed either way. The download streams to the file on `Dispatchers.IO`.
+  - Like git-lfs, the smudge filter downloads again when the object in place has another size than the pointer,
+    which repairs the objects that the old download truncated.
+- **`filter.lfs.useJGitBuiltin` written to `.git/config`:** `useBuiltinLfs` turns it on in the cached repository's
+  in-memory config while JGit merges, rebases or checks out, and put it back only when that worked. A pull that would
+  have overwritten local changes left it on, and the next action that saves the config (setting a branch's upstream,
+  saving the author) wrote it to the file. It's put back in `finally` now, for both pulls and both clones.
+- **Cherry-pick:** JGit reports a cherry-pick that local changes stop (`FAILED`) and one that stops at conflicts
+  (`CONFLICTING`) in its result, which was ignored, so both said "Commit cherry-picked". They're errors now, as a
+  revert's are: "The cherry-pick didn't happen, as it would overwrite your changes to … Commit or stash them, then
+  cherry-pick again." and "Cherry-pick stopped with conflicts. …". The status refreshes after either.
+- **Rebase:** JGit's `CONFLICTS` means local files stopped the checkout, and `FAILED` that they stopped a commit. In
+  both, JGit puts the branch back. They counted as a rebase with conflicts and one that completed, and `ABORTED` as
+  completed. They're errors now, naming the files; merge conflicts are `STOPPED`. The pull with rebase read
+  `CONFLICTS` the same way (`rebaseHasConflicts`), and now fails with the files too. A check that was there twice is
+  gone.
+- **Deleting a remote branch** (JGit, when git isn't used): the push's result was dropped, so when the remote refused
+  (for example with `receive.denyDeletes`), the remote-tracking branch was deleted anyway and Leaf said "Remote branch
+  deleted", until the next fetch brought it back. The failure is shown now, and the remote-tracking branch stays.
+- **Start a local repository:** `InitLocalRepositoryGitAction` threw, and nothing caught it, so on a folder that
+  can't be written nothing happened and no message appeared. It returns the error now, which opens the error dialog
+  ("Could not create the repository", a new `TaskType.RepositoryInit`). It also closes the repository it opened,
+  which it used to leak.
+- **Tests:** 22 new in `:data`.
+  - `DownloadLfsObjectGitActionTest` (5) downloads from `FakeLfsServer`, which can now drop the connection midway:
+    a download that breaks off, one of another size, one of the right size with other content, and an object that
+    an earlier download truncated. `HttpClientsTest`'s download now uses the content's real SHA-256.
+  - `UseBuiltinLfsTest` (3) and one `GitCliFetchPullTest` case (a pull that would overwrite local changes, then
+    `config.save()`).
+  - `CherryPickCommitGitActionTest` (3), `RebaseBranchGitActionTest` (5), one `PullOutcomeTest` case,
+    `DeleteRemoteBranchGitActionTest` (2, against a bare repository with `receive.denyDeletes`) and
+    `InitLocalRepositoryGitActionTest` (2, a read-only folder; skipped on Windows).
+  - **Mutation check:** 13 mutations, all caught. Not covered by a test: the smudge filter's size check, and the
+    tab showing the init error.
+  - `./gradlew test` passes, with 773 tests (42 in `:app`, 562 in `:data`, 162 in `:domain`, 7 in `:common`).
+
 ## Switching to a worktree opens its tab (branch `feat/open-worktree-tabs`)
 
 Phase 2a of `docs/fork/PLAN.md`, and the "Switch to that worktree" action that 1.3 left for Phase 2.

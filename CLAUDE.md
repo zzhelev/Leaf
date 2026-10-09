@@ -301,6 +301,12 @@ code, "worktree" means the working directory, not linked worktrees.
   between blank lines.
   The text of `ErrorDialog` and of `DialogWarning`, the red box in dialogs, can be selected and copied.
 - HIGH-severity failures open `ErrorDialog`; others become toasts.
+- JGit reports some failures in a command's result rather than by throwing, so check it (fork-only fixes):
+  - A cherry-pick's `FAILED` (local changes in the way) and `CONFLICTING` are errors, as a revert's are.
+    `CherryPickCommitUseCase` refreshes after an error too (`refreshEvenIfFailed`), as conflicts are left to resolve.
+  - A rebase's `CONFLICTS` means local files stopped the checkout and `FAILED` that they stopped a commit. JGit puts
+    the branch back in both, so they throw (`RebaseWouldOverwriteException`, `rebaseHasStopped`), as does `ABORTED`.
+    Merge conflicts are `STOPPED`.
 
 **Concurrency:**
 - There is no mutex around git operations. Foreground tasks only block UI input.
@@ -358,7 +364,8 @@ worktrees.
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
 `docs/fork/remote-operations.md`).
 - Push and remote branch deletion run `git push --porcelain --progress` (`GitCliPushBranchGitAction`,
-  `GitCliDeleteRemoteBranchGitAction`).
+  `GitCliDeleteRemoteBranchGitAction`). JGit's deletion, the fallback, returns the push's failure and keeps the
+  remote-tracking branch; it used to delete that branch and report success.
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
   one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
   dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
@@ -375,7 +382,11 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   - `mergeHasConflicts` and `rebaseHasConflicts` (`remote_operations/PullOutcome.kt`) tell both pulls, JGit's and the
     CLI's, what happened. A merge that would overwrite local changes throws `PullWouldOverwriteException` (JGit
     returns `FAILED`, or throws `CheckoutConflictException` for a fast-forward); it used to count as a pull without
-    conflicts. The CLI pull then drops its backup stash, since nothing changed.
+    conflicts. The CLI pull then drops its backup stash, since nothing changed. A rebase's `CONFLICTS` and `FAILED`
+    throw it too (local files stopped it, and the branch is as it was); `CONFLICTS` used to count as conflicts.
+  - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (both pulls and both clones). It turns on
+    `filter.lfs.useJGitBuiltin` in the cached repository's in-memory config, and puts it back in `finally`: an
+    action's `config.save()`, such as saving the author, writes that config to `.git/config`.
 - Clone (`GitCliCloneRepositoryGitAction`) runs `git clone --progress --no-checkout -- <url> <folder>` from the
   folder's parent, then JGit checks out HEAD with Leaf's built-in LFS, as after JGit's own clone, so git-lfs isn't
   needed. An empty repository gets no checkout. With "Clone submodules", `git submodule update --init --recursive`
@@ -403,6 +414,15 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     out, but `--no-checkout` doesn't run it, and without `pre-push` a push would fall back to JGit's upload.
   - Other checkouts (switching branches, reset, stash) are unchanged: JGit runs the configured `filter.lfs.smudge`
     (`git-lfs smudge`) once per file, without Leaf's dialogs, or writes the pointers when git-lfs isn't set up.
+- **The built-in LFS client's downloads (fork-only checks):** `DownloadLfsObjectGitAction` downloads to
+  `<oid>.<random>.tmp` next to the object in `lfs/objects`, and renames it into place once its size and SHA-256 are
+  the pointer's. Otherwise it returns `LfsError.CorruptDownload`, which fails the checkout. The temporary file is
+  removed either way.
+  - A dropped connection needs the check: Ktor's CIO engine ends the body without an error. The download used to be
+    appended to the object's place, unchecked, and kept there truncated.
+  - `LfsSmudgeFilter` downloads again when the object in place has another size than the pointer, as git-lfs does.
+  - `LfsNetworkDataSource.downloadObject` streams to the file on `Dispatchers.IO` (`prepareGet().execute`): `get()`
+    reads the whole body into memory first.
 - **The built-in LFS client over SSH** (without git-lfs): `AuthenticateLfsServerWithSshGitAction` asks the host for
   the LFS server as git-lfs does, `ssh [-p <port>] [<user>@]<host> 'git-lfs-authenticate <path> <operation>'`, with
   the URL's path as git-lfs has it (JGit's `URIish` drops the `/` of `ssh://host/~/repo`, which git-lfs keeps).
@@ -693,6 +713,9 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
   `RefreshDataUseCase(ALL)` and `ObserveRepositoryToRefreshUseCase()`.
 - Fork-only: a linked worktree doesn't go into recent repos (`isLinkedWorktreeGitDir`, a `commondir` file in the git
   dir), however it's opened. Its repository does, and agents' worktrees get deleted, which left dead entries.
+- Fork-only: "Start a local repository" (`RepositoryTabViewModel.initLocalRepository`) opens the repository once
+  `InitLocalRepositoryGitAction` made it, and shows its failure, such as a folder that can't be written, in
+  `ErrorDialog` (`TaskType.RepositoryInit`). The failure used to be thrown and lost.
 
 **State per tab:**
 - `InMemoryRepositoryDataRepository`: status, local branches, current branch, tags, remotes, log, stashes,
