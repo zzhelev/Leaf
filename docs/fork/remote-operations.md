@@ -24,7 +24,8 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
   - The Cancel button does nothing, and SSH reads have no timeout.
 - **Recommendation:** move remote operations to the git CLI in stages: push first, then fetch and pull, then clone.
   Keep JGit and libssh only as a fallback when no usable git is found. Fix the TLS problem now, whatever the
-  decision. Section 4 has the plan. Stages 0, 1 (push), 2 (fetch and pull) and 3 (clone and submodules) are done.
+  decision. Section 4 has the plan. Stages 0, 1 (push), 2 (fetch and pull), 3 (clone and submodules) and 4 (LFS
+  downloads with git-lfs) are done.
 
 ## 1. How remote operations work today
 
@@ -325,7 +326,7 @@ the CLI reproduces. Effort sizes are rough: S, M, L.
   (`ssh_session_is_known_server`, `ssh_session_update_known_hosts`) and `SshRemoteSession`, with a confirmation
   dialog (`SshHostKeyDialog`), as ssh does with `StrictHostKeyChecking ask`. `StrictHostKeyChecking` itself isn't
   read.
-- 0a and 0c affect upstream Gitnuro too, and should go to it as a private security advisory, not a public issue.
+- 0a and 0c affect upstream Gitnuro too. Reporting them upstream was considered and declined (decision 5).
 
 **Stage 1: push (L), done on branch `feat/git-cli-push`.** Push first: #294 is about push, push doesn't touch the
 working tree, and `--porcelain` describes its result completely. What was built is described in the fork changelog
@@ -400,9 +401,50 @@ Found while building it:
   (CVE-2022-39253). JGit had no such check. Leaf keeps git's default.
 - A clone's URL may hold a password, and `GitCli` logged every command line; it now hides the password.
 
-**Later.** Let git-lfs handle LFS transfers when it's installed. Decide whether to retire libssh, which also needs
-SSH signing to move. Clone and pull still check out with JGit, so LFS objects come through Leaf's own client there;
-submodules are checked out by git, with git-lfs when it's installed.
+**Stage 4: LFS downloads with git-lfs (S–M), done on branch `feat/git-lfs-transfers`.** Planned on 2026-10-09 from
+what Leaf did with git-lfs installed:
+- Uploads already went through git-lfs since stage 1: the CLI push runs its `pre-push` hook.
+- Switching branches, reset and the like ran git-lfs too: JGit runs the configured `filter.lfs.smudge`
+  (`git-lfs smudge -- %f`) once per file, without Leaf's dialogs.
+- Only clone and pull forced Leaf's built-in client (`useBuiltinLfs`), which asks the server about one object at a
+  time and reaches SSH remotes through libssh (`AuthenticateLfsServerWithSshGitAction`).
+
+What was built: before JGit checks out a clone, or merges or rebases what a pull fetched, `git lfs fetch <remote>
+<commit>` downloads the commit's objects, and JGit's checkout reads them from `<git dir>/lfs/objects`. One mechanism
+for both, with JGit's checkout and its tests unchanged. It runs only when git-lfs is installed and the commit's root
+`.gitattributes` uses LFS. Considered and not chosen: letting `git clone` check out when git-lfs is set up (two
+checkout paths for clone, and none for pull), and letting JGit run `git-lfs smudge` per file (a process per file, no
+dialogs).
+
+Found while building it:
+- git-lfs asks for credentials through `git credential`, so with a helper (Leaf's cache, osxkeychain) git's prompts and
+  helpers apply. With none for the URL, it asks `GIT_ASKPASS` itself: `Username for "http://host"`, in double quotes
+  without a colon. Leaf's prompt parser didn't know that, so an LFS push without a helper got the generic prompt
+  dialog. Both forms now get the credentials dialog.
+- git-lfs shows progress only on a terminal unless `GIT_LFS_FORCE_PROGRESS=1`, and writes it to stdout: `git lfs
+  fetch`'s, and the `pre-push` hook's, which reaches `git push`'s stdout among the `--porcelain` refs. Off a terminal it
+  ends each update with `\n`. Leaf now reads progress from both streams.
+- `git clone --no-checkout` installs no git-lfs hooks: git-lfs installs them when it runs as a filter, and with
+  `--no-checkout` it never does. Leaf's stage 3 clones therefore had no `pre-push` hook, and their pushes fell back to
+  JGit's upload. A clone that uses git-lfs now runs `git lfs update`.
+- Over SSH, git-lfs asks the host for the LFS server with `git-lfs-authenticate` through the system's ssh and its
+  config: tested with the sshd harness, whose forced command answers it. No libssh is involved.
+- Not changed: other checkouts still run `git-lfs smudge` per file without Leaf's dialogs; Leaf's built-in client still
+  handles everything when git-lfs isn't installed, including the upload of JGit's push.
+
+**Later.** Retire libssh. Recommended on 2026-10-09; not decided. It's still used in three places, which have to move
+first:
+1. JGit's SSH transport, for the fallback when the setting is off, no git is found, or an LFS push can't go through
+   git-lfs. Without libssh, SSH remotes would need git, while HTTPS keeps JGit's fallback. Leaf users have git in
+   practice: worktrees need it, and on Windows hooks need Git for Windows.
+2. The built-in LFS client's SSH authentication (`git-lfs-authenticate` over libssh), used when git-lfs isn't
+   installed. It could run the system's ssh with the askpass helper instead.
+3. SSH commit signing (`gpg.format=ssh`), which uses libssh's key code and only reads key files. `ssh-keygen -Y sign`,
+   as git runs it, would add agent and security keys, like `GpgProgramSigner` does for gpg.
+
+Then `libssh-rs` and its vendored OpenSSL leave the Rust crate, which keeps the file watcher and the askpass helper:
+faster and simpler builds, a smaller app, and one SSH behavior everywhere (the user's ssh config, agent and
+known_hosts).
 
 ### Decisions
 
@@ -413,4 +455,4 @@ submodules are checked out by git, with git-lfs when it's installed.
 3. SSH passphrases: **Leaf keeps them per key file for the session**, as it did with JGit, and drops one that ssh
    asks for again (decided on 2026-10-08).
 4. Whether 0b and 0c are worth doing if the fallback is meant to be rare: **both done** (2026-10-08).
-5. Whether to report the host-key and TLS findings to upstream privately.
+5. Whether to report the host-key and TLS findings to upstream privately: **no** (decided on 2026-10-09).

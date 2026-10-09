@@ -2,6 +2,52 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS files are downloaded with git-lfs when it's installed (branch `feat/git-lfs-transfers`)
+
+Stage 4 of `docs/fork/remote-operations.md`.
+
+- **Before:** clone and pull always downloaded LFS files with Leaf's built-in client, which asks the server about one
+  file at a time, finds the server only through `.lfsconfig` or the remote's URL, and reaches SSH remotes through
+  libssh. Uploads already went through git-lfs (stage 1), and switching branches ran git-lfs once per file.
+- **Now:** when git-lfs is installed, `git lfs fetch` downloads a clone's or a pull's LFS files before JGit checks them
+  out, and the built-in client only reads them from the repository.
+  - git-lfs asks the server about all of them at once, follows the LFS settings in git's config, asks for credentials
+    through git's helpers and Leaf's dialogs, and reaches SSH remotes with the system's ssh.
+  - The clone dialog and the processing screen show "Downloading LFS objects", and Cancel stops it.
+  - It only runs for a commit whose `.gitattributes` uses LFS, so pulls in repositories without LFS don't pay for it.
+  - When the download fails, the pull or the clone stops before anything is checked out or merged, with git-lfs's
+    message.
+  - Without git-lfs, the built-in client downloads as before.
+- **Fixed on the way:**
+  - A clone made by Leaf had none of git-lfs's hooks, since `git clone --no-checkout` doesn't run git-lfs, so its
+    pushes fell back to JGit's upload. A clone that uses git-lfs now gets them (`git lfs update`).
+  - When no credential helper applies to the URL (the cache setting off, no helper of your own), git-lfs asks for
+    credentials in its own words, `Username for "https://host"`, which Leaf showed in its generic prompt dialog. It's
+    now the usual credentials dialog, one for both questions.
+  - git-lfs's progress, which it only shows on a terminal unless told otherwise, and writes to stdout, now shows on the
+    processing screen too, also while a push uploads ("Uploading LFS objects").
+- **Tests:** 12 new, all in `:data`, none skipped here.
+  - `GitCliLfsTest` (8) runs git-lfs against `FakeLfsServer`, a Git LFS server on 127.0.0.1: a clone that asks through
+    the dialog and gets the hooks, a clone without git-lfs (left to the built-in client), a repository whose
+    attributes don't use LFS (git-lfs never runs), a clone whose files can't be downloaded (no folder left),
+    git-lfs's own prompts, a pull's new files downloaded before the merge, a pull whose files can't be downloaded
+    (nothing changes), and a push's upload progress.
+  - `GitCliSshTest` (8, 1 new): LFS files go up and down over SSH, where git-lfs asks the host for the LFS server
+    through the system's ssh.
+  - `AskpassPromptTest` (1 new), `GitOutputParsersTest` (1 new, the porcelain with git-lfs's progress in it) and
+    `ProcessRunnerTest` (1 new, both streams passed on as written).
+  - Eleven mutations were each caught, among them every commit or none counted as using LFS, git-lfs assumed
+    installed, the pull or the clone going on after a failed download, no hooks, no forced progress, stdout's
+    progress ignored, and git-lfs's prompts not understood. Two were only caught after adding the tests for
+    attributes without LFS and for a clone whose download fails.
+  - Checked once with throwaway tests, deleted afterwards:
+    - through the app's real Dagger graph, `CloneViewModel` and Leaf's own LFS filter, against a local LFS server:
+      the clone dialog showed "Downloading LFS objects", the file was right, `git status` was clean, git-lfs's four
+      hooks were there, and only git-lfs asked the server for the file;
+    - JGit's ordinary checkout writes pointer files without git-lfs's filters set up, and the content with them.
+  - `./gradlew build` passes, with 584 tests (16 in `:app`, 479 in `:data`, 82 in `:domain`, 7 in `:common`).
+- **Not tried:** Windows, and a real LFS host (GitHub, GitLab).
+
 ## A linked worktree's HEAD reflog stays in the linked worktree (branch `fix/worktree-head-reflog`)
 
 - **Before:** in a tab on a linked worktree, JGit 7.7 logged every move of HEAD in the main worktree's `logs/HEAD`

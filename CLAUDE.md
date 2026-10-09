@@ -330,7 +330,8 @@ worktrees.
 - Nothing shows or refreshes this data yet (Phase 1.4 and 1.5).
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
-adding and updating submodules run the git CLI (stages 1 to 3 of `docs/fork/remote-operations.md`).
+adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 4 of
+`docs/fork/remote-operations.md`).
 - Push and remote branch deletion run `git push --porcelain --progress` (`GitCliPushBranchGitAction`,
   `GitCliDeleteRemoteBranchGitAction`).
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
@@ -364,6 +365,19 @@ adding and updating submodules run the git CLI (stages 1 to 3 of `docs/fork/remo
     names its folder. The clone dialog's error box scrolls once it's 200 dp tall, as git's output can be long.
   - `CloneViewModel` no longer creates the folder first, so a failed clone leaves none. JGit's clone, the fallback,
     removes the folder too when it created it.
+- **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, or merges or rebases what a pull fetched, Leaf
+  runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every object in `<git dir>/lfs/objects` (git-lfs
+  and JGit use the same layout), so Leaf's built-in client (`app/.../lfs/`) downloads nothing.
+  - It runs only when the commit's root `.gitattributes` has `filter=lfs` and `git lfs version` works. In a large
+    repository without LFS, git-lfs would read the whole tree to find out. Without git-lfs, the built-in client
+    downloads as before.
+  - It goes through `GitCliRemoteCommand`, so git-lfs asks for credentials through git's helpers and Leaf's dialogs,
+    reaches SSH remotes with the system's ssh (`git-lfs-authenticate`), shows progress ("Downloading LFS objects") and
+    can be cancelled. A failure is `LfsDownloadError`, before anything is checked out or merged.
+  - A clone then gets git-lfs's hooks (`git lfs update`): `git clone` installs them when git-lfs checks the files
+    out, but `--no-checkout` doesn't run it, and without `pre-push` a push would fall back to JGit's upload.
+  - Other checkouts (switching branches, reset, stash) are unchanged: JGit runs the configured `filter.lfs.smudge`
+    (`git-lfs smudge`) once per file, without Leaf's dialogs, or writes the pointers when git-lfs isn't set up.
 - Submodules: "Initialize" and "Update" run `git submodule update --init --recursive --progress -- <path>`
   (`GitCliUpdateSubmoduleGitAction`), so nested submodules are cloned too, which JGit didn't do. Adding one runs
   `git submodule add --progress --name <name> -- <url> <path>` (`GitCliAddSubmoduleGitAction`). git checks submodules
@@ -386,12 +400,17 @@ adding and updating submodules run the git CLI (stages 1 to 3 of `docs/fork/remo
   memory"), and git's progress in `RepositoryStateRepository.taskProgress`. Never set `GIT_SSH_COMMAND`: the user's
   `core.sshCommand` must apply. `GitCli` hides a URL's password (`redactUrlPassword`) in the command it logs and puts in
   errors, as a clone's URL may hold one.
+  - `GIT_LFS_FORCE_PROGRESS=1` is set, as git-lfs only shows progress on a terminal otherwise. git-lfs writes it to
+    stdout, also from the `pre-push` hook, where it lands among `git push --porcelain`'s refs, so both streams go to a
+    `GitProgressParser`. When stdout isn't a terminal, git-lfs ends each update with `\n`, not `\r`.
 - **Askpass:** `GIT_ASKPASS` and `SSH_ASKPASS` are the helper, with `SSH_ASKPASS_REQUIRE=force` (OpenSSH 8.4+), so
   ssh never prompts on a terminal. The helper reaches `withAskpassServer` through a Unix socket in a new 0700 temp
   folder (a loopback port on Windows), named by `LEAF_ASKPASS_SOCKET`, with a random `LEAF_ASKPASS_TOKEN`.
   `AskpassAnswers` (one per command) answers with Leaf's dialogs, from the prompt (`parseAskpassPrompt`):
   - git's `Username for` and `Password for`: one `HttpCredentialsDialog` for both, or for the password alone when the
-    prompt names the user;
+    prompt names the user. git-lfs asks the same way through `git credential`, but when no credential helper applies
+    to the URL (the cache setting off, no helper of the user's) it asks itself: `Username for "https://host"`, with
+    double quotes and no colon;
   - ssh's host key question: `SshHostKeyDialog`, answered `yes`, and ssh adds the key to known_hosts;
   - `Enter passphrase for key`: `SshPasswordDialog`. The passphrase is kept per key file for the session once the
     command authenticated, and dropped when ssh asks for it again;
@@ -853,4 +872,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     tests cancel while git waits for a dialog (`awaitDialog`), which is when git has made the folder.
   - `GitCliSshTest` runs sshd with forced commands, and sets `core.sshCommand` (`-F /dev/null`, its own known_hosts,
     `IdentityAgent=none`, `-i <key>`), so that ssh never reads the developer's `~/.ssh`. A clone has no repository
-    yet, so its test sets `core.sshCommand` in the test's global config.
+    yet, so its test sets `core.sshCommand` in the test's global config. The forced command answers
+    `git-lfs-authenticate` with a `FakeLfsServer`'s URL, as an LFS host does over SSH.
+  - `GitCliLfsTest` (skipped without git-lfs) clones, pulls and pushes LFS files through `FakeLfsServer`, a Git LFS
+    server (batch API, basic transfer, optional Basic authentication) on 127.0.0.1. Leaf's built-in LFS is in the app
+    module, so `LocalObjectsSmudge` stands in for its smudge filter and notes the objects it would have downloaded. A
+    `git-lfs` wrapper on the PATH that Leaf's git gets logs each run; a PATH of `/usr/bin:/bin` leaves git-lfs out.
