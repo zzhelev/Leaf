@@ -4,22 +4,28 @@ import dev.app.leaf.FileType
 import dev.app.leaf.common.printDebug
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.systemSeparator
-import dev.app.leaf.domain.GitConstants
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.interfaces.IFileChangesWatcher
+import dev.app.leaf.domain.interfaces.IGetCommonGitDirGitAction
 import dev.app.leaf.domain.interfaces.IGetStatusGitAction
 import dev.app.leaf.domain.models.WatcherEvent
+import dev.app.leaf.domain.refresh.WatchedRepository
+import dev.app.leaf.domain.refresh.WorktreeChangesRefresher
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "ObserveRepositoryToRefreshUseCase"
 
 private const val REFRESH_TIME_SINCE_LAST_OPERATION = 1_500L
+
+/** The file watcher refreshes the worktree list at most this often while other worktrees keep changing. */
+private val MIN_TIME_BETWEEN_WORKTREES_REFRESHES = 2.seconds
 
 class ObserveRepositoryToRefreshUseCase @Inject constructor(
     private val tabCoroutineScope: TabCoroutineScope,
@@ -29,6 +35,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
     private val refreshDataUseCase: RefreshDataUseCase,
     private val repositoryStateRepository: RepositoryStateRepository,
     private val getStatusGitAction: IGetStatusGitAction,
+    private val getCommonGitDirGitAction: IGetCommonGitDirGitAction,
 ) {
     /**
      * Sometimes external apps can run filesystem multiple operations in a fraction of a second.
@@ -41,44 +48,51 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
         val repositoryPath = repositoryDataRepository.repositoryPath ?: return
         tabCoroutineScope.launch {
             val worktreeDir = getWorktreeUseCase().okOrNull() ?: return@launch
+            // Fork-only: the git dir that the worktrees share, to see what changes in the other worktrees
+            val commonDir = getCommonGitDirGitAction(repositoryPath).okOrNull() ?: repositoryPath
+            val watchedRepository = WatchedRepository(File(repositoryPath), File(commonDir))
+            val worktreeChangesRefresher = WorktreeChangesRefresher(this, MIN_TIME_BETWEEN_WORKTREES_REFRESHES) {
+                refreshDataUseCase(DataToRefresh.WORKTREES).join()
+            }
+
             launch {
                 fileChangesWatcher
                     .observeEvents()
                     .collect { event ->
                         when (event) {
                             is WatcherEvent.ChangesDetected -> {
-                                // TODO Does this filtering work properly on Windows?
-                                // Remove probe files that may temporarily be created by JGit
                                 val changes = event.changes
-                                    .filter {
-                                        !it.path.startsWith("${repositoryPath.removeSuffix("/")}/.probe-")
-                                    }
 
-                                if (changes.isEmpty()) {
+                                // git creates it with the first linked worktree, so it may not have been watched
+                                val worktreesDir = watchedRepository.worktreesDir
+
+                                val worktreesDirCreated = changes.any { watchedRepository.isWorktreesDir(it.path) }
+
+                                if (worktreesDirCreated && worktreesDir.isDirectory) {
+                                    fileChangesWatcher.addPathToWatch(worktreesDir.path, true)
+                                }
+
+                                // Nothing for Leaf's own files, JGit's probe files and commit messages being edited
+                                val dataToRefresh = watchedRepository.dataToRefresh(changes.map { it.path })
+
+                                if (dataToRefresh.isEmpty()) {
                                     return@collect
                                 }
 
-                                printDebug(TAG, "Changes detected: ${changes.toList()}")
+                                printDebug(TAG, "Changes detected: ${changes.toList()}, to refresh: $dataToRefresh")
 
                                 if (canRefreshData()) {
-                                    val containsOnlyEditMessageChanges = changes.all {
-                                        it.path == "$repositoryPath/${GitConstants.COMMIT_MSG}" ||
-                                                it.path == "$repositoryPath/${GitConstants.MERGE_MSG}" ||
-                                                it.path == "$repositoryPath/${GitConstants.SQUASH_MSG}"
-                                    }
+                                    updateWatchedDirectories(
+                                        event,
+                                        repositoryPath,
+                                        worktreeDir + systemSeparator,
+                                        watchedRepository,
+                                    )
 
-                                    if (containsOnlyEditMessageChanges) {
-                                        return@collect
-                                    }
-                                    
-                                    val hasGitDirChanged = changes.any { it.path.startsWith(repositoryPath) }
-
-                                    updateWatchedDirectories(event, repositoryPath, worktreeDir + systemSeparator)
-
-                                    if (hasGitDirChanged) {
-                                        refreshDataUseCase(DataToRefresh.ALL)
+                                    if (dataToRefresh == listOf(DataToRefresh.WORKTREES)) {
+                                        worktreeChangesRefresher.onChanged()
                                     } else {
-                                        refreshDataUseCase(DataToRefresh.STATUS, DataToRefresh.LOG, DataToRefresh.REPO_STATE)
+                                        refreshDataUseCase(*dataToRefresh.toTypedArray())
                                     }
                                 } else {
                                     printDebug(TAG, "Ignoring detected changes because the time diff since last change is too short or currently running other tasks")
@@ -96,6 +110,13 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
             fileChangesWatcher.addPathToWatch(repositoryPath, false)
             fileChangesWatcher.addPathToWatch("$repositoryPath${systemSeparator}refs", true)
             fileChangesWatcher.addPathToWatch("$repositoryPath${systemSeparator}modules", true)
+            // Fork-only: the other worktrees, and for a linked worktree the refs and files it shares with them
+            fileChangesWatcher.addPathToWatch(watchedRepository.worktreesDir.path, true)
+
+            if (watchedRepository.isLinkedWorktree) {
+                fileChangesWatcher.addPathToWatch(commonDir, false)
+                fileChangesWatcher.addPathToWatch("$commonDir${systemSeparator}refs", true)
+            }
 
             val status = getStatusGitAction(repositoryPath).okOrNull()
 
@@ -105,7 +126,8 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                 worktreeDir = worktreeDir + systemSeparator,
                 excludedRelativePaths = HashSet(listOf(".git")),
                 dirFile = worktreeDirFile,
-                ignoreList = status?.ignored.orEmpty()
+                ignoreList = status?.ignored.orEmpty(),
+                watchedRepository = watchedRepository,
             )
 
             if (status != null) {
@@ -141,6 +163,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
         event: WatcherEvent.ChangesDetected,
         repositoryPath: String,
         worktreeDirPath: String,
+        watchedRepository: WatchedRepository,
     ) {
         val directories = event
             .changes
@@ -160,7 +183,11 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                 ).okOrNull()
 
                 for (dir in newDirs) {
-                    if (status != null && !status.ignored.contains(dir.path.removePrefix(worktreeDirPath))) {
+                    if (
+                        status != null &&
+                        !status.ignored.contains(dir.path.removePrefix(worktreeDirPath)) &&
+                        !watchedRepository.isLinkedWorktreeFolder(File(dir.path))
+                    ) {
                         fileChangesWatcher.addPathToWatch(dir.path, false)
                     }
                 }
@@ -176,7 +203,8 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
         worktreeDir: String,
         excludedRelativePaths: HashSet<String>,
         dirFile: File,
-        ignoreList: List<String>
+        ignoreList: List<String>,
+        watchedRepository: WatchedRepository,
     ): List<File> {
         val childrenDirs = try {
             dirFile.listFiles { file -> file.isDirectory }
@@ -187,7 +215,9 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
             .filter {
                 val relativePath = it.absolutePath.removePrefix(worktreeDir)
                 !ignoreList.contains(relativePath) &&
-                        !excludedRelativePaths.contains(relativePath)
+                        !excludedRelativePaths.contains(relativePath) &&
+                        // Fork-only: the worktree list follows the changes in agents' worktrees inside this one
+                        !watchedRepository.isLinkedWorktreeFolder(it)
             }
 
         return childrenDirs + childrenDirs.flatMap {
@@ -195,7 +225,8 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                 worktreeDir,
                 excludedRelativePaths,
                 it,
-                ignoreList
+                ignoreList,
+                watchedRepository,
             )
         }
     }

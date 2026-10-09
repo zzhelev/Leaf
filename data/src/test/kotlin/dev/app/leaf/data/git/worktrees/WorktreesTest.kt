@@ -14,6 +14,7 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.WorktreeList
 import dev.app.leaf.domain.models.WorktreeStatus
+import dev.app.leaf.domain.refresh.WatchedRepository
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import io.mockk.every
@@ -278,6 +279,38 @@ class WorktreesTest {
     }
 
     /** The git dir a tab would hold for [worktree]. */
+    @Test
+    fun `finds the git dir that the worktrees share`(): Unit = runBlocking {
+        val action = GetCommonGitDirGitAction(jgit)
+        val shared = File(main, ".git").canonicalPath
+
+        for (worktree in listOf(main, feature, agent)) {
+            val commonDir = (action(gitDir(worktree)) as Either.Ok).value
+
+            assertEquals(shared, File(commonDir).canonicalPath, worktree.name)
+            // The watcher reports plain paths. JGit 7.7 resolves the ".." of a linked worktree's commondir file
+            assertEquals(File(commonDir).toPath().normalize().toString(), commonDir, worktree.name)
+        }
+    }
+
+    @Test
+    fun `tells the repository's linked worktrees from other folders by their git file`(): Unit = runBlocking {
+        val relative = File(main, "nested/relative")
+        git.run(main, "worktree", "add", "--relative-paths", relative.path, "-b", "relative")
+        val watched = WatchedRepository(File(gitDir(main)), File(main, ".git"))
+
+        for (worktree in listOf(agent, relative, feature, detached)) {
+            assertEquals(true, watched.isLinkedWorktreeFolder(worktree), worktree.path)
+        }
+
+        assertEquals(false, watched.isLinkedWorktreeFolder(main))
+        assertEquals(false, watched.isLinkedWorktreeFolder(File(main, ".claude")))
+        // Its own worktrees, seen from another repository
+        val other = File(tempDir, "other").apply { mkdirs() }
+        git.run(other, "init")
+        assertEquals(false, WatchedRepository(File(other, ".git"), File(other, ".git")).isLinkedWorktreeFolder(agent))
+    }
+
     private fun gitDir(worktree: File): String {
         val gitDir = git.run(worktree, "rev-parse", "--git-dir").trim()
 

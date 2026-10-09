@@ -8,11 +8,17 @@ import org.junit.jupiter.api.Test
 
 class RefreshesWorktreesTest {
     @Test
-    fun `refreshes the worktrees with the branches, the log or the status`() {
+    fun `refreshes the worktrees with the branches, the log or the status, or alone`() {
         val refreshing = DataToRefresh.entries.filter { refreshesWorktrees(listOf(it)) }
 
         assertEquals(
-            listOf(DataToRefresh.ALL, DataToRefresh.BRANCHES, DataToRefresh.LOG, DataToRefresh.STATUS),
+            listOf(
+                DataToRefresh.ALL,
+                DataToRefresh.BRANCHES,
+                DataToRefresh.LOG,
+                DataToRefresh.STATUS,
+                DataToRefresh.WORKTREES,
+            ),
             refreshing,
         )
     }

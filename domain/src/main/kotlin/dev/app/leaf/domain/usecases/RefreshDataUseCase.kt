@@ -260,10 +260,12 @@ class RefreshDataUseCase @Inject constructor(
 
 /**
  * Whether refreshing [dataToRefresh] refreshes the worktrees too: their branches change with BRANCHES, their last
- * commits and how they compare to the base with LOG, and the tab's worktree's changes with STATUS.
+ * commits and how they compare to the base with LOG, and the tab's worktree's changes with STATUS. WORKTREES refreshes
+ * them alone, for changes in the other worktrees.
  */
 internal fun refreshesWorktrees(dataToRefresh: List<DataToRefresh>): Boolean = dataToRefresh.any {
-    it == DataToRefresh.ALL || it == DataToRefresh.BRANCHES || it == DataToRefresh.LOG || it == DataToRefresh.STATUS
+    it == DataToRefresh.ALL || it == DataToRefresh.BRANCHES || it == DataToRefresh.LOG ||
+        it == DataToRefresh.STATUS || it == DataToRefresh.WORKTREES
 }
 
 enum class DataToRefresh {
@@ -277,4 +279,5 @@ enum class DataToRefresh {
     STATUS,
     SUBMODULES,
     TAGS,
+    WORKTREES,
 }
