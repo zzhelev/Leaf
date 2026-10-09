@@ -68,6 +68,26 @@ class TestGitCli(private val emptyGlobalConfig: File) {
 
     /** Runs git with extra environment variables, for example `GIT_COMMITTER_DATE` to fix commit and reflog dates. */
     fun run(workingDir: File, env: Map<String, String>, vararg args: String): String {
+        val (exitCode, output) = execute(workingDir, env, args)
+
+        check(exitCode == 0) { "'git ${args.joinToString(" ")}' failed with exit code $exitCode: $output" }
+
+        return output
+    }
+
+    /**
+     * Runs git expecting it to fail, for example to see how git itself refuses something, and returns what it printed.
+     * Its messages are in English.
+     */
+    fun runFailing(workingDir: File, vararg args: String): String {
+        val (exitCode, output) = execute(workingDir, mapOf("LC_ALL" to "C"), args)
+
+        check(exitCode != 0) { "'git ${args.joinToString(" ")}' succeeded: $output" }
+
+        return output
+    }
+
+    private fun execute(workingDir: File, env: Map<String, String>, args: Array<out String>): Pair<Int, String> {
         emptyGlobalConfig.parentFile.mkdirs()
         emptyGlobalConfig.createNewFile()
 
@@ -92,11 +112,8 @@ class TestGitCli(private val emptyGlobalConfig: File) {
             .start()
 
         val output = process.inputStream.bufferedReader().readText()
-        val exitCode = process.waitFor()
 
-        check(exitCode == 0) { "'${command.joinToString(" ")}' failed with exit code $exitCode: $output" }
-
-        return output
+        return process.waitFor() to output
     }
 
     /** Creates a repository in [directory] with a single commit on main. */

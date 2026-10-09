@@ -4,6 +4,7 @@
 package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.worktrees.refuseIfUsedByOtherWorktree
 import dev.app.leaf.domain.interfaces.IGetRemoteBranchCheckoutGitAction
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.RemoteBranchCheckout
@@ -23,6 +24,10 @@ class GetRemoteBranchCheckoutGitAction @Inject constructor(
             val localRef = repository.exactRef(localName) ?: return@provide RemoteBranchCheckout.CreatesLocalBranch
             val remoteRef = repository.exactRef(remoteBranch.name)
                 ?: throw RefNotFoundException("Branch ${remoteBranch.simpleNameWithRemote} not found")
+
+            // The checkout would be refused, fast-forward or not, so nothing is offered: the view model checks out
+            // straight away, which reports this
+            refuseIfUsedByOtherWorktree(repository, localName)
 
             RevWalk(repository).use { walk ->
                 val local = walk.parseCommit(localRef.objectId)

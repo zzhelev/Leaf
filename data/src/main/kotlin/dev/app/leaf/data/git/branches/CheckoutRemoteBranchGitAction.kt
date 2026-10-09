@@ -4,6 +4,7 @@
 package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.worktrees.refuseIfUsedByOtherWorktree
 import dev.app.leaf.domain.errors.CheckoutBranchError
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.ICheckoutRemoteBranchGitAction
@@ -60,6 +61,9 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
             }
 
             else -> {
+                // Before the fast-forward too, which would move the branch under the other worktree's files
+                refuseIfUsedByOtherWorktree(repository, localName)
+
                 if (fastForward && !git.fastForwardBranch(localRef, remoteRef())) {
                     cannotFastForward()
                 }

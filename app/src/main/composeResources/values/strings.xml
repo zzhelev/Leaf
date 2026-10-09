@@ -351,6 +351,9 @@
     <string name="error_delete_branch_not_merged">Branch "%1$s" isn't merged into the current branch</string>
     <string name="error_delete_tag_has_own_commits">Tag "%1$s" is the only branch or tag on some commits</string>
     <string name="error_checkout_cannot_fast_forward">"%1$s" has commits that "%2$s" doesn't have, so it can't be fast-forwarded. Nothing was changed.</string>
+    <string name="error_checkout_branch_checked_out_in_worktree">"%1$s" is checked out in the worktree at "%2$s", and a branch can be checked out in only one worktree at a time. Nothing was changed.</string>
+    <string name="error_checkout_branch_rebased_in_worktree">"%1$s" is being rebased in the worktree at "%2$s". Finish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_checkout_branch_bisected_in_worktree">The worktree at "%2$s" is bisecting from "%1$s". End the bisect there first, with git bisect reset. Nothing was changed.</string>
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 

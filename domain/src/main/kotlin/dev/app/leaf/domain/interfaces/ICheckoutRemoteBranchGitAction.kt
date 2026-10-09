@@ -11,6 +11,7 @@ interface ICheckoutRemoteBranchGitAction {
     /**
      * Checks out the local branch with [remoteBranch]'s name, creating it to track [remoteBranch] when there is none.
      * With [fastForward], an existing local branch first moves to [remoteBranch], which must not have diverged from it.
+     * An existing local branch that another worktree uses is neither moved nor checked out.
      */
     suspend operator fun invoke(
         repositoryPath: String,

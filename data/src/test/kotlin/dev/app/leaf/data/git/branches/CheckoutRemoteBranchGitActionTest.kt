@@ -10,12 +10,14 @@ import dev.app.leaf.domain.errors.CheckoutBranchError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.WorktreeBranchUse
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.errors.CheckoutConflictException
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -230,6 +232,55 @@ class CheckoutRemoteBranchGitActionTest {
         assertEquals("Changed\n", File(clone, "README.md").readText())
     }
 
+    @Test
+    fun `refuses a local branch checked out in another worktree, as git does`(): Unit = runBlocking {
+        val clone = cloneWithRemoteBranch("develop")
+        val linked = File(tempDir, "wt-develop")
+        git.run(clone, "worktree", "add", "--no-track", "-b", "develop", linked.path, "origin/develop~2")
+
+        val result = action(gitDir(clone), remoteBranch("origin", "develop"), fastForward = false)
+
+        assertEquals(Either.Err(usedByWorktree("develop", linked)), result)
+        assertEquals("main", currentBranch(clone))
+        val gitOutput = git.runFailing(clone, "switch", "develop")
+        assertTrue(gitOutput.contains("'develop' is already used by worktree at '${linked.canonicalPath}'"), gitOutput)
+    }
+
+    @Test
+    fun `refuses to fast-forward a local branch checked out in another worktree`(): Unit = runBlocking {
+        val clone = cloneWithRemoteBranch("develop")
+        val linked = File(tempDir, "wt-develop")
+        git.run(clone, "worktree", "add", "--no-track", "-b", "develop", linked.path, "origin/develop~2")
+        val localCommit = commitOf(clone, "develop")
+
+        val result = action(gitDir(clone), remoteBranch("origin", "develop"), fastForward = true)
+
+        assertEquals(Either.Err(usedByWorktree("develop", linked)), result)
+        assertEquals("main", currentBranch(clone))
+        assertEquals(localCommit, commitOf(clone, "develop"))
+        // Moving the branch would have left the other worktree's files looking like changes that undo the commits
+        assertEquals("", git.run(linked, "status", "--porcelain"))
+        // As git refuses to move it with `git fetch . origin/develop:develop`
+        val gitOutput = git.runFailing(clone, "fetch", ".", "origin/develop:develop")
+        assertTrue(gitOutput.contains("refusing to fetch into branch 'refs/heads/develop' checked out at"), gitOutput)
+    }
+
+    @Test
+    fun `fast-forwards the branch of the linked worktree it is opened from`(): Unit = runBlocking {
+        val clone = cloneWithRemoteBranch("develop")
+        val linked = File(tempDir, "wt-develop")
+        git.run(clone, "worktree", "add", "--no-track", "-b", "develop", linked.path, "origin/develop~2")
+
+        val result = action(gitDir(linked), remoteBranch("origin", "develop"), fastForward = true)
+
+        assertEquals(Either.Ok(Unit), result)
+        assertEquals("develop", currentBranch(linked))
+        assertEquals(commitOf(clone, "origin/develop"), commitOf(clone, "develop"))
+        assertEquals("develop 2", File(linked, "develop.txt").readText())
+        assertEquals("", git.run(linked, "status", "--porcelain"))
+        assertEquals("main", currentBranch(clone))
+    }
+
     /**
      * Clones a repository whose [branchName] has two commits on top of main, which write "<branch> 1" and "<branch> 2"
      * to [changedFile], so the clone has it only as a remote branch.
@@ -257,7 +308,11 @@ class CheckoutRemoteBranchGitActionTest {
 
     private fun commitOf(repository: File, revision: String) = git.run(repository, "rev-parse", revision).trim()
 
-    private fun gitDir(repository: File) = File(repository, ".git").absolutePath
+    /** The git dir that Leaf opens for [worktree]: `.git` in the main one, `.git/worktrees/<name>` for a linked one. */
+    private fun gitDir(worktree: File) = git.run(worktree, "rev-parse", "--absolute-git-dir").trim()
+
+    private fun usedByWorktree(branch: String, worktree: File) =
+        CheckoutBranchError.BranchUsedByWorktree(branch, worktree.canonicalPath, WorktreeBranchUse.CheckedOut)
 
     private fun remoteBranch(remote: String, name: String) =
         Branch(hash = "", name = "refs/remotes/$remote/$name", isLocal = false)

@@ -6,10 +6,12 @@ package dev.app.leaf.data.git.branches
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.domain.errors.CheckoutBranchError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.RemoteBranchCheckout
 import dev.app.leaf.domain.models.RemoteBranchCheckout.ChecksOutLocalBranch
+import dev.app.leaf.domain.models.WorktreeBranchUse
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
@@ -124,6 +126,34 @@ class GetRemoteBranchCheckoutGitActionTest {
     }
 
     @Test
+    fun `refuses a local branch that another worktree has, so that no fast-forward is offered`(): Unit = runBlocking {
+        val clone = cloneWithRemoteBranch("develop", commits = 1)
+        val linked = File(tempDir, "wt-develop")
+        git.run(clone, "worktree", "add", "--no-track", "-b", "develop", linked.path, "origin/develop~1")
+
+        val result = action(gitDir(clone), remoteBranch("origin", "develop"))
+
+        assertEquals(
+            Either.Err(
+                CheckoutBranchError.BranchUsedByWorktree("develop", linked.canonicalPath, WorktreeBranchUse.CheckedOut)
+            ),
+            result,
+        )
+    }
+
+    @Test
+    fun `offers to fast-forward the branch of the linked worktree it is opened from`(): Unit = runBlocking {
+        val clone = cloneWithRemoteBranch("develop", commits = 1)
+        val linked = File(tempDir, "wt-develop")
+        git.run(clone, "worktree", "add", "--no-track", "-b", "develop", linked.path, "origin/develop~1")
+
+        val checkout = localBranchCheckout(linked, "develop")
+
+        assertEquals(developCheckout(isCurrentBranch = true, commitsAhead = 0, commitsBehind = 1), checkout)
+        assertTrue(checkout.canFastForward)
+    }
+
+    @Test
     fun `fails when the remote branch is gone`(): Unit = runBlocking {
         val clone = cloneWithRemoteBranch("develop", commits = 1)
         git.run(clone, "branch", "--no-track", "develop", "origin/develop")
@@ -134,8 +164,8 @@ class GetRemoteBranchCheckoutGitActionTest {
         assertInstanceOf(Either.Err::class.java, result)
     }
 
-    private suspend fun localBranchCheckout(clone: File, name: String): ChecksOutLocalBranch {
-        val result = action(gitDir(clone), remoteBranch("origin", name))
+    private suspend fun localBranchCheckout(worktree: File, name: String): ChecksOutLocalBranch {
+        val result = action(gitDir(worktree), remoteBranch("origin", name))
 
         return assertInstanceOf(ChecksOutLocalBranch::class.java, (result as Either.Ok).value)
     }
@@ -171,7 +201,8 @@ class GetRemoteBranchCheckoutGitActionTest {
         return clone
     }
 
-    private fun gitDir(repository: File) = File(repository, ".git").absolutePath
+    /** The git dir that Leaf opens for [worktree]: `.git` in the main one, `.git/worktrees/<name>` for a linked one. */
+    private fun gitDir(worktree: File) = git.run(worktree, "rev-parse", "--absolute-git-dir").trim()
 
     private fun remoteBranch(remote: String, name: String) =
         Branch(hash = "", name = "refs/remotes/$remote/$name", isLocal = false)

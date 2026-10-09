@@ -2,6 +2,9 @@ package dev.app.leaf.ui
 
 import androidx.compose.runtime.Composable
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.error_checkout_branch_bisected_in_worktree
+import dev.app.leaf.app.generated.resources.error_checkout_branch_checked_out_in_worktree
+import dev.app.leaf.app.generated.resources.error_checkout_branch_rebased_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
 import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
@@ -45,6 +48,7 @@ import dev.app.leaf.app.generated.resources.error_repository_read_error
 import dev.app.leaf.app.generated.resources.error_sign_ssh_key_not_found
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.errors.*
+import dev.app.leaf.domain.models.WorktreeBranchUse
 import org.eclipse.jgit.lib.Constants
 import org.jetbrains.compose.resources.stringResource
 
@@ -59,6 +63,17 @@ fun AppError.getErrorText(): String {
         is CheckoutBranchError -> when (this) {
             is CheckoutBranchError.CannotFastForward ->
                 stringResource(Res.string.error_checkout_cannot_fast_forward, localBranch, remoteBranch)
+
+            is CheckoutBranchError.BranchUsedByWorktree -> when (use) {
+                WorktreeBranchUse.CheckedOut ->
+                    stringResource(Res.string.error_checkout_branch_checked_out_in_worktree, branch, worktreePath)
+
+                WorktreeBranchUse.Rebasing ->
+                    stringResource(Res.string.error_checkout_branch_rebased_in_worktree, branch, worktreePath)
+
+                WorktreeBranchUse.Bisecting ->
+                    stringResource(Res.string.error_checkout_branch_bisected_in_worktree, branch, worktreePath)
+            }
         }
 
         is DeleteRefError -> when (this) {

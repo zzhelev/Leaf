@@ -1,5 +1,7 @@
 package dev.app.leaf.domain.errors
 
+import dev.app.leaf.domain.models.WorktreeBranchUse
+
 sealed interface AppError
 
 sealed interface GitError : AppError
@@ -18,6 +20,17 @@ sealed interface CheckoutBranchError : GitError {
      * since the user chose to: [localBranch] has commits that [remoteBranch] doesn't have. Nothing changed.
      */
     data class CannotFastForward(val localBranch: String, val remoteBranch: String) : CheckoutBranchError
+
+    /**
+     * The local branch [branch] can't be checked out, or fast-forwarded, because the worktree at [worktreePath], which
+     * isn't the one the tab shows, uses it ([use]). git refuses this too ("already used by worktree at"). Nothing
+     * changed.
+     */
+    data class BranchUsedByWorktree(
+        val branch: String,
+        val worktreePath: String,
+        val use: WorktreeBranchUse,
+    ) : CheckoutBranchError
 }
 
 /**
