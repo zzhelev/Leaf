@@ -156,6 +156,23 @@ This is the Phase 1.3 checkout bug.
 **Recovery is manual**, through `git reflog` in that worktree. Worse, the worktree's HEAD reflog is exactly the kind of
 root that JGit GC ignores (section 5), so a later JGit GC can make the loss permanent.
 
+**Renaming has the same gap (found 2026-10-09):** JGit's `RenameBranchCommand` moves only the HEAD of the repository it
+was opened on. Another worktree that had the branch is left on the old name, and `git status` there reports `No commits
+yet on agent`, as after a deletion. git's `branch -m` moves every worktree's HEAD along
+(`replace_each_worktree_head_symref`), and refuses while a worktree rebases the branch or bisects from it.
+
+### Fixed (branch `feat/worktree-delete-guard`)
+
+- `refuseDeletingIfUsedByWorktree` (`G/worktrees/BranchWorktrees.kt`) refuses, as git does, even with force, to delete
+  a branch that any worktree, the tab's own included, has checked out, rebases or bisects from. It runs in
+  `DeleteBranchGitAction` before the merge check.
+- `RenameBranchGitAction` refuses during a rebase or bisect of the branch, and after renaming points the HEAD of each
+  other worktree on it to the new name, with a `RefUpdate.link` on that worktree's git dir.
+- That `link` writes no reflog entry, because JGit 7.7 writes a linked worktree's HEAD reflog to the main worktree's
+  `logs/HEAD`: a JGit commit or checkout in a linked worktree shows up in `git reflog` of the main worktree, and not in
+  its own. That affects every tab opened on a linked worktree; see section 6.
+- Not covered: refs in a reftable, as for checkout.
+
 ## 5. gc and prune
 
 ### Explicit calls: none

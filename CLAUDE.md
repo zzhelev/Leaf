@@ -588,7 +588,8 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
   `MaterialDialogScope`) adds more handles, like the Settings title.
 - **Confirmations (fork-only):** actions that can lose work open a dialog first.
   - Deleting a branch or a tag goes through `DeleteRefDialog`: without force first, then "Delete anyway" once git
-    refuses.
+    refuses. A branch that a worktree uses is refused even with force (`DeleteBranchError`, see Delete and rename
+    guard), and the dialog then disables Delete.
   - The others go through `Screen.ConfirmAction(action, onConfirm)` and `ConfirmActionDialog`. `ConfirmableAction`
     says what the dialog shows, and `onConfirm` is what the button used to run, so the action's own code is
     unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote branch or a
@@ -658,6 +659,17 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   - The branch that the tab's worktree has checked out is never refused, as in git.
   - It doesn't see worktrees whose refs are in a reftable: their `HEAD` file is a stub, and JGit 7.7 reads every
     linked worktree's HEAD from the shared reftable (the main worktree's branch).
+- **Delete and rename guard (fork-only):** JGit deletes and renames a branch that another worktree has checked out,
+  which leaves that worktree on a branch that doesn't exist.
+  - `DeleteBranchGitAction` calls `refuseDeletingIfUsedByWorktree` before its merge check, so force doesn't get past
+    it, as with git's `-D`. It raises `DeleteBranchError.BranchUsedByWorktree` when any worktree uses the branch, the
+    tab's own included (`worktreesUsing`, which `findOtherWorktreeUsing` filters).
+  - `RenameBranchGitAction` refuses while a worktree, the tab's own included, rebases the branch or bisects from it
+    (`RenameBranchError`). After JGit's rename, it points the HEAD of every other worktree that had the branch to the
+    new name (`RefUpdate.link` on that worktree's git dir), as git's `branch -m` does. That writes no reflog entry:
+    JGit 7.7 would write it to the main worktree's `logs/HEAD` (`architecture-notes.md` §6). A HEAD it can't move is
+    reported as `WorktreeHeadNotMoved`, with the branch renamed, as git leaves it.
+  - `RenameBranchDialog` shows errors under the field, and disables Rename branch after a `RenameBranchError`.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,

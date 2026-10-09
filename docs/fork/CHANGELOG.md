@@ -2,6 +2,61 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A branch that a worktree uses can't be deleted, and renaming it moves the worktree along (branch `feat/worktree-delete-guard`)
+
+The deletion half of Phase 1.3 in `docs/fork/PLAN.md`, and the same fix for renaming, which PLAN.md doesn't list.
+
+- **Before:**
+  - JGit deleted a branch that another worktree had checked out (`architecture-notes.md` §4), even without force once
+    it was merged. That worktree was then on a branch that doesn't exist: git showed `No commits yet` there, with every
+    file staged as new. A branch that the tab's own worktree was rebasing could be deleted too: HEAD is detached
+    during a rebase, so the menu offered Delete.
+  - JGit's rename moved only the HEAD of the worktree the tab shows. Another worktree on the branch was left on the old
+    name, which no longer exists, with the same result.
+- **Now:**
+  - Deleting is refused, with or without force, when a worktree uses the branch, the tab's own included, as git refuses
+    `-d` and `-D` ("cannot delete branch 'x' used by worktree at '<path>'"). A worktree uses a branch as for the
+    checkout guard: checked out, rebasing it, or bisecting from it, each with its own message.
+    `DeleteBranchError.BranchUsedByWorktree` isn't a `DeleteRefError`, so the dialog says why and disables Delete,
+    rather than offering "Delete anyway".
+  - Renaming moves the HEAD of every other worktree that has the branch checked out to the new name, as git's
+    `branch -m` does. Uncommitted changes there stay as they were, and a worktree whose folder was deleted is moved
+    too.
+  - Renaming is refused while a worktree, the tab's own included, rebases the branch or bisects from it, as git refuses
+    ("branch refs/heads/x is being rebased at <path>"). Finishing the rebase would bring the old name back.
+  - When a worktree's HEAD can't be moved, because another program holds `HEAD.lock`, the branch stays renamed, as
+    with git ("branch renamed to x, but HEAD is not updated"). `RenameBranchError.WorktreeHeadNotMoved` names the
+    worktree and says to run `git switch <new name>` there, which keeps its changes.
+  - The rename dialog shows errors under the field. Before, a failed rename only enabled the field again. After these
+    refusals, and after a HEAD it couldn't move, Rename branch is disabled, as Delete is: no other name would help.
+- **How:**
+  - `worktreesUsing` (`data/git/worktrees/BranchWorktrees.kt`) lists every worktree that uses a branch, the current
+    one included, with its git dir. The checkout guard's `findOtherWorktreeUsing` now filters that list.
+  - `refuseDeletingIfUsedByWorktree` runs in `DeleteBranchGitAction` before the merge check, as in git, so force
+    doesn't get past it.
+  - `RenameBranchGitAction` checks before JGit renames. Then it opens each other worktree's git dir and points its
+    HEAD to the new branch with a `RefUpdate.link`, as git's `replace_each_worktree_head_symref` does after renaming.
+  - That `link` writes no reflog entry. git writes "Branch: renamed ..." to the worktree's own reflog, but JGit 7.7
+    writes a linked worktree's HEAD reflog to the main worktree's `logs/HEAD`, as if the main worktree had moved.
+- **Tests:** 7 more in `DeleteBranchGitActionTest`, 2 more in `BranchWorktreesTest` (whose other tests now also check
+  each worktree's git dir), and the new `RenameBranchGitActionTest` (10).
+  - Each refusal is compared with git's: the path in "used by worktree at" from `git branch -D`, and in "is being
+    rebased at" and "is being bisected at" from `git branch -m`. Renames are compared with `git branch -m` on an
+    identical repository: the worktree's HEAD and its uncommitted change, and the result when HEAD is locked.
+  - Cases: from the main and from a linked worktree, the tab's own branch, a rebase in the tab's own worktree, a
+    bisect, a deleted folder, two worktrees on one branch, a worktree that left the branch, and the main worktree's
+    reflog.
+  - Mutation check: 10 of 11 mutants caught, among them the guard dropped, the guard only without force, the tab's own
+    worktree left out, a rebase or bisect let through, no HEAD moved, the reflog entry kept, and a lock failure counted
+    as moved. The one left, moving the tab's own HEAD again, is equivalent: JGit has moved it already.
+- **Not handled:**
+  - Refs in a reftable, as for the checkout guard.
+  - PLAN.md wants "Remove worktree and delete branch" in place of the disabled button. That comes with Phase 3.
+  - The menus still offer Delete for a branch that another worktree uses. It's refused once confirmed. The branch list
+    learns which worktree has a branch in Phase 1.4.
+  - JGit's misplaced HEAD reflog in general: every commit or checkout in a tab on a linked worktree is logged in the
+    main worktree's reflog, not its own. Found here; `architecture-notes.md` §6 has the details and fix options.
+
 ## Deletes no longer follow symbolic links (branch `fix/delete-without-following-links`)
 
 - **Before (from upstream):** Kotlin's `File.deleteRecursively` follows symbolic links to folders, even when called on
@@ -75,7 +130,7 @@ The checkout half of Phase 1.3 in `docs/fork/PLAN.md`.
     this, so a JGit that reads them will fail the test.
   - PLAN.md wants a "Switch to that worktree" action instead of a plain error. That comes with Phase 2, and the
     error has the path for it.
-  - Deleting a branch that a worktree uses, the other half of Phase 1.3.
+  - Deleting a branch that a worktree uses, the other half of Phase 1.3. It's refused now (see the entry above).
 
 ## Clone and submodules run the git CLI (branch `feat/git-cli-clone`)
 
