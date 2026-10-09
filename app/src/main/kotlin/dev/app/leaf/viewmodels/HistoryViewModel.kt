@@ -2,7 +2,6 @@ package dev.app.leaf.viewmodels
 
 import androidx.compose.foundation.lazy.LazyListState
 import dev.app.leaf.TabViewModel
-import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.okOrNull
@@ -24,7 +23,6 @@ class HistoryViewModel @Inject constructor(
     private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
     private val generateSplitHunkFromDiffResultGitAction: IGenerateSplitHunkFromDiffResultGitAction,
     private val settings: AppSettingsService,
-    private val tabScope: TabCoroutineScope,
     private val getFileCommitsUseCase: GetFileCommitsUseCase,
     private val getDiffUseCase: GetDiffUseCase,
 ) : TabViewModel() {
@@ -45,7 +43,9 @@ class HistoryViewModel @Inject constructor(
 
 
     init {
-        tabScope.launch {
+        // Fork-only: in the view model's scope, not the tab's, so that each file history opened stops following the
+        // setting once it's closed
+        viewModelScope.launch {
             settings.diffTextViewType.collect { diffType ->
                 if (filePath.isNotBlank()) {
                     updateDiffType(diffType)

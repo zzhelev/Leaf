@@ -225,6 +225,11 @@ class RepositoryTabViewModel @AssistedInject constructor(
     }
 
     override fun dispose() {
+        // Fork-only: the view models' own scopes, which cancelling the tab's scope doesn't stop
+        viewModelsMap.values.forEach { it.onClear() }
+        viewModelsMap.clear()
+        onClear()
+
         fileChangesWatcher.close()
         tabScope.cancel()
         repositoryDataRepository.clearAll()

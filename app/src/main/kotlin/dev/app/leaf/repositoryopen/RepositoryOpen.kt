@@ -13,6 +13,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.LocalTab
 import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.Screen
 import dev.app.leaf.app.generated.resources.Res
@@ -48,6 +49,7 @@ fun RepositoryOpenPage(
     val selectedItem by repositoryOpenViewModel.selectedItem.collectAsState()
     val blameState by repositoryOpenViewModel.blameState.collectAsState()
     val showHistory by repositoryOpenViewModel.showHistory.collectAsState()
+    val tab = LocalTab.current
 
     val focusRequester = remember { FocusRequester() }
     var showOpenPopup by remember { mutableStateOf(false) }
@@ -121,12 +123,12 @@ fun RepositoryOpenPage(
                         .fillMaxWidth(),
                     onCreateBranch = { onNavigate(Screen.BranchCreate(null)) },
                     onStashWithMessage = { onNavigate(Screen.StashWithMessage) },
-                    onOpenAnotherRepository = { repositoryOpenViewModel.openAnotherRepository(it) },
+                    onOpenAnotherRepository = { repositoryOpenViewModel.openAnotherRepository(it, tab) },
                     onOpenAnotherRepositoryFromPicker = {
                         val repoToOpen = repositoryOpenViewModel.openDirectoryPicker()
 
                         if (repoToOpen != null) {
-                            repositoryOpenViewModel.openAnotherRepository(repoToOpen)
+                            repositoryOpenViewModel.openAnotherRepository(repoToOpen, tab)
                         }
                     },
                     onQuickActions = { onNavigate(Screen.QuickActions) },

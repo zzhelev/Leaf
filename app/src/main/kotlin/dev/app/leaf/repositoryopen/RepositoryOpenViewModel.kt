@@ -46,6 +46,7 @@ import dev.app.leaf.ui.toUiDataState
 import dev.app.leaf.updates.Update
 import dev.app.leaf.updates.UpdatesRepository
 import dev.app.leaf.viewmodels.HistoryViewModel
+import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import dev.app.leaf.viewmodels.sidepanel.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -830,6 +831,9 @@ class RepositoryOpenViewModel @Inject constructor(
 
 
     override fun onClear() {
+        // Fork-only: this override was left empty, so the view model's pipelines outlived its tab
+        historyViewModel?.onClear()
+        super.onClear()
     }
 
     /**
@@ -837,14 +841,8 @@ class RepositoryOpenViewModel @Inject constructor(
      * instead of opening the repo in the same ViewModel we simply create a new tab with a new TabViewModel
      * replacing the current tab
      */
-    fun openAnotherRepository(directory: String) {
-        viewModelScope.launch {
-            val worktree = getWorktreeUseCase()
-
-            if (worktree is Either.Ok) {
-                appViewModel.addNewTabFromPath(directory, true, worktree.value)
-            }
-        }
+    fun openAnotherRepository(directory: String, tab: RepositoryTabViewModel) {
+        appViewModel.replaceTab(tab, directory)
     }
 
 
@@ -897,6 +895,7 @@ class RepositoryOpenViewModel @Inject constructor(
     }
 
     fun fileHistory(filePath: String) {
+        historyViewModel?.onClear()
         historyViewModel = historyViewModelProvider.get()
         historyViewModel?.fileHistory(filePath)
         _showHistory.value = true
@@ -904,6 +903,7 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun closeHistory() {
         _showHistory.value = false
+        historyViewModel?.onClear()
         historyViewModel = null
     }
 

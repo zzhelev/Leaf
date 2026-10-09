@@ -13,7 +13,6 @@ import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,33 +54,40 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    suspend fun addNewTabFromPath(path: String, selectTab: Boolean, tabToBeReplacedPath: String? = null) {
-        val tabToBeReplaced = tabs
-            .value
-            .firstOrNull {
-                it.data.repositoryPath.firstOrNull() == tabToBeReplacedPath
-            }
+    suspend fun addNewTabFromPath(path: String, selectTab: Boolean) {
+        val newTab = newAppTab2(
+            path = path,
+        )
+
+        tabs.update { it + newTab }
+
+        if (selectTab) {
+            currentTab.value = newTab
+        }
+    }
+
+    /**
+     * Opens [path] in place of [tab] and selects it, then tears [tab] down as closing it does (fork-only). The tab used
+     * to be found by path, which matched any tab without one, such as a Welcome page or a tab that hadn't shown its
+     * path yet, and the tab it replaced kept running.
+     */
+    fun replaceTab(tab: RepositoryTabViewModel, path: String) = viewModelScope.launch {
+        val tabToReplace = tabs.value.firstOrNull { it.data === tab }
+
+        if (tabToReplace == null) {
+            addNewTabFromPath(path, selectTab = true)
+            return@launch
+        }
 
         val newTab = newAppTab2(
             path = path,
         )
 
-        tabs.update {
-            val newTabsList = it.toMutableList()
+        tabs.update { tabsList -> tabsList.map { if (it == tabToReplace) newTab else it } }
+        currentTab.value = newTab
 
-            if (tabToBeReplaced != null) {
-                val index = newTabsList.indexOf(tabToBeReplaced)
-                newTabsList[index] = newTab
-            } else {
-                newTabsList.add(newTab)
-            }
-
-            newTabsList
-        }
-
-        if (selectTab) {
-            currentTab.value = newTab
-        }
+        disposeTab(tabToReplace)
+        updatePersistedTabs()
     }
 
     /**
@@ -118,7 +124,6 @@ class AppViewModel @Inject constructor(
     fun closeTab(tab: TabInformation<RepositoryTabViewModel>) = viewModelScope.launch {
         val tabsList = tabs.value.toMutableList()
         var newCurrentTab: TabInformation<RepositoryTabViewModel>? = null
-        tab.data.dispose()
 
         if (currentTab.value == tab) {
             val index = tabsList.indexOf(tab)
@@ -145,15 +150,22 @@ class AppViewModel @Inject constructor(
             tabs.value = tabsList
         }
 
+        disposeTab(tab)
+
+        updatePersistedTabs()
+        System.gc()
+    }
+
+    /** Stops [tab], which is no longer in [tabs], and closes the repositories that no remaining tab has open. */
+    private fun disposeTab(tab: TabInformation<RepositoryTabViewModel>) {
+        tab.data.dispose()
+
         // Git dirs, the keys of the JGit cache
-        val remainingRepositories = tabsList.mapNotNull {
+        val remainingRepositories = tabs.value.mapNotNull {
             (it.data.repositorySelectionState.value as? RepositorySelectionState.Open)?.path
         }
 
         cleanRepositoriesResourcesUseCase(remainingRepositories)
-
-        updatePersistedTabs()
-        System.gc()
     }
 
     suspend fun updatePersistedTabs() {
