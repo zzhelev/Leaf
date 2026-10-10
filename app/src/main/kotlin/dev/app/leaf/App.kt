@@ -102,8 +102,16 @@ sealed interface Screen : NavKey {
     data object Author : Screen
     data object StashWithMessage : Screen
     data object CheckForUpdates : Screen
-    /** Asks before [action], which [onConfirm] runs. */
-    data class ConfirmAction(val action: ConfirmableAction, val onConfirm: () -> Unit) : Screen
+    /**
+     * Asks before [action], which [onConfirm] runs. With [onStopAsking], the dialog offers "Don't ask again", and
+     * calls it before [onConfirm] when that's checked. Pass [onConfirm] in the parentheses: a trailing lambda would be
+     * [onStopAsking].
+     */
+    data class ConfirmAction(
+        val action: ConfirmableAction,
+        val onConfirm: () -> Unit,
+        val onStopAsking: (() -> Unit)? = null,
+    ) : Screen
     /** Asks whether to fast-forward [offer]'s local branch, then [onCheckout] checks it out. */
     data class FastForwardOnCheckout(
         val offer: FastForwardOffer,

@@ -558,6 +558,15 @@ private fun Layout(settingsViewState: SettingsViewState, onAction: (SettingsActi
             onAction(SettingsAction.SetConfig(AppConfig.SwapStatusPanes(value)))
         }
     )
+
+    SettingToggle(
+        title = stringResource(Res.string.settings_layout_confirm_hunk_and_line_discards_title),
+        subtitle = stringResource(Res.string.settings_layout_confirm_hunk_and_line_discards_subtitle),
+        value = settingsViewState.confirmHunkAndLineDiscards,
+        onValueChanged = { value ->
+            onAction(SettingsAction.SetConfig(AppConfig.ConfirmHunkAndLineDiscards(value)))
+        }
+    )
 }
 
 @Composable

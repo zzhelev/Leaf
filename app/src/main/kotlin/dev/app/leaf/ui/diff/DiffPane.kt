@@ -50,6 +50,7 @@ import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
+import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter
 import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
 import kotlinx.coroutines.Dispatchers
@@ -80,8 +81,11 @@ private fun <T> loadOrNull(key: Any, action: suspend () -> T?): T? {
 fun DiffPane(
     viewModel: RepositoryOpenViewModel,
     onCloseDiffView: () -> Unit,
+    /** Asks before a discard, which `onConfirm` runs. `onStopAsking` is the dialog's "Don't ask again". */
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit, onStopAsking: () -> Unit) -> Unit,
 ) {
     val diffResultState = viewModel.diffResult.collectAsState()
+    val confirmDiscards by viewModel.confirmHunkAndLineDiscards.collectAsState()
     val textDiffType by viewModel.diffTypeFlow.collectAsState(DiffTextViewType.Unified)
     val isDisplayFullFile by viewModel.isDisplayFullFile.collectAsState(false)
     val viewDiffResult = diffResultState.value ?: return
@@ -92,6 +96,21 @@ fun DiffPane(
         viewModel.clearDiff()
         onCloseDiffView()
     }
+
+    // Asks first unless the user turned that off (fork-only). Discarding whole files always asks.
+    fun discard(action: ConfirmableAction, run: () -> Unit) {
+        if (confirmDiscards) {
+            onConfirmAction(action, run) { viewModel.stopConfirmingHunkAndLineDiscards() }
+        } else {
+            run()
+        }
+    }
+
+    fun discardHunk(entry: DiffEntry, hunk: Hunk) =
+        discard(ConfirmableAction.DiscardHunk(entry.filePath, hunk)) { viewModel.resetHunk(entry, hunk) }
+
+    fun discardLine(entry: DiffEntry, hunk: Hunk, line: Line) =
+        discard(ConfirmableAction.DiscardLine(entry.filePath, line)) { viewModel.discardHunkLine(entry, hunk, line) }
 
     LaunchedEffect(Unit) {
         viewModel.closeViewFlow.collectLatest {
@@ -148,9 +167,7 @@ fun DiffPane(
                         onStageHunk = { entry, hunk ->
                             viewModel.stageHunk(entry, hunk)
                         },
-                        onResetHunk = { entry, hunk ->
-                            viewModel.resetHunk(entry, hunk)
-                        },
+                        onResetHunk = ::discardHunk,
                         onUnStageLine = { entry, hunk, line ->
                             if (diffType is DiffType.UncommittedDiff) {
                                 if (diffType.entryType == EntryType.STAGED)
@@ -160,9 +177,7 @@ fun DiffPane(
                                 }
                             }
                         },
-                        onDiscardLine = { entry, hunk, line ->
-                            viewModel.discardHunkLine(entry, hunk, line)
-                        }
+                        onDiscardLine = ::discardLine,
                     )
 
                     is DiffResult.Text -> HunkUnifiedTextDiff(
@@ -176,9 +191,7 @@ fun DiffPane(
                         onStageHunk = { entry, hunk ->
                             viewModel.stageHunk(entry, hunk)
                         },
-                        onResetHunk = { entry, hunk ->
-                            viewModel.resetHunk(entry, hunk)
-                        },
+                        onResetHunk = ::discardHunk,
                         onUnStageLine = { entry, hunk, line ->
                             if (diffType is DiffType.UncommittedDiff) {
                                 if (diffType.entryType == EntryType.STAGED)
@@ -188,9 +201,7 @@ fun DiffPane(
                                 }
                             }
                         },
-                        onDiscardLine = { entry, hunk, line ->
-                            viewModel.discardHunkLine(entry, hunk, line)
-                        }
+                        onDiscardLine = ::discardLine,
                     )
 
                     is DiffResult.NonText -> {

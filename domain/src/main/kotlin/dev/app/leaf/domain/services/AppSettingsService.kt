@@ -34,6 +34,11 @@ class AppSettingsService @Inject constructor(
     val dateFormatUseRelative: Flow<Boolean> get() = appSettingsRepository.dateFormatUseRelative.defaultIfNull { DEFAULT_DATE_USE_RELATIVE }
     val avatarProvider: Flow<AvatarProviderType> get() = appSettingsRepository.avatarProvider.defaultIfNull { DEFAULT_AVATAR_PROVIDER }
     val swapStatusPanes: Flow<Boolean> get() = appSettingsRepository.swapStatusPanes.defaultIfNull { DEFAULT_SWAP_STATUS_PANES }
+    /** Whether discarding a hunk or a line in the diff asks first. Discarding files always asks. */
+    val confirmHunkAndLineDiscards: Flow<Boolean>
+        get() = appSettingsRepository.confirmHunkAndLineDiscards.defaultIfNull {
+            DEFAULT_CONFIRM_HUNK_AND_LINE_DISCARDS
+        }
     val diffDisplayFullFile: Flow<Boolean> get() = appSettingsRepository.diffDisplayFullFile.defaultIfNull { DEFAULT_DIFF_DISPLAY_FULL_FILE }
     val diffTextViewType: Flow<DiffTextViewType> get() = appSettingsRepository.diffTextViewType.defaultIfNull { DEFAULT_DIFF_TEXT_VIEW_TYPE }
     val refPanelSettings: Flow<RefPanelSettings> get() = appSettingsRepository.refPanelSettings.defaultIfNull { RefPanelSettings() }
@@ -80,6 +85,7 @@ class AppSettingsService @Inject constructor(
         const val DEFAULT_DATE_CUSTOM_FORMAT = "dd MMM yyyy"
         val DEFAULT_AVATAR_PROVIDER = AvatarProviderType.Gravatar
         const val DEFAULT_SWAP_STATUS_PANES = false
+        const val DEFAULT_CONFIRM_HUNK_AND_LINE_DISCARDS = true
         const val DEFAULT_DIFF_DISPLAY_FULL_FILE = false
         val DEFAULT_DIFF_TEXT_VIEW_TYPE = DiffTextViewType.Unified
         const val DEFAULT_PULL_WITH_REBASE = false

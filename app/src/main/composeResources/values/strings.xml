@@ -355,6 +355,33 @@
         <item quantity="one">A hard reset discards the uncommitted changes in %1$d file. They can't be restored.</item>
         <item quantity="other">A hard reset discards the uncommitted changes in %1$d files. They can't be restored.</item>
     </plurals>
+    <string name="confirm_dialog_discard">Discard</string>
+    <string name="confirm_dialog_stop_asking_hunks_and_lines">Don't ask again for hunks and lines</string>
+    <string name="discard_changes_dialog_warning">They can't be restored.</string>
+    <string name="discard_hunk_dialog_title">Discard hunk</string>
+    <string name="discard_hunk_dialog_subtitle">Discard this hunk in "%1$s"?</string>
+    <plurals name="discard_hunk_dialog_warning">
+        <item quantity="one">Its %1$d added line isn't staged, so it can't be restored.</item>
+        <item quantity="other">Its %1$d added lines aren't staged, so they can't be restored.</item>
+    </plurals>
+    <string name="discard_line_dialog_title">Discard line</string>
+    <string name="discard_line_dialog_subtitle_added">Discard this added line in "%1$s"?</string>
+    <string name="discard_line_dialog_subtitle_removed">Put this removed line back into "%1$s"?</string>
+    <string name="discard_line_dialog_warning_added">It isn't staged, so it can't be restored.</string>
+    <string name="discard_file_dialog_title">Discard file changes</string>
+    <string name="discard_file_dialog_subtitle_unstaged">Discard the unstaged changes to "%1$s"?</string>
+    <string name="discard_file_dialog_subtitle_staged">Discard the changes to "%1$s"?</string>
+    <string name="discard_file_dialog_warning_staged">Both its staged and unstaged changes are discarded. They can't be restored.</string>
+    <string name="discard_files_dialog_title">Discard changes</string>
+    <plurals name="discard_files_dialog_subtitle_unstaged">
+        <item quantity="one">Discard the unstaged changes to %1$d file?</item>
+        <item quantity="other">Discard the unstaged changes to %1$d files?</item>
+    </plurals>
+    <plurals name="discard_files_dialog_subtitle_staged">
+        <item quantity="one">Discard the changes to %1$d file?</item>
+        <item quantity="other">Discard the changes to %1$d files?</item>
+    </plurals>
+    <string name="discard_files_dialog_warning_staged">Both their staged and unstaged changes are discarded. They can't be restored.</string>
 
     <!-- Submodules context menu -->
     <string name="submodules_context_menu_initialize_submodule">Initialize submodule</string>
@@ -396,6 +423,8 @@
     <string name="settings_worktrees_refresh_off">Never</string>
     <string name="settings_worktrees_refresh_seconds">Every %1$d s</string>
     <string name="settings_worktrees_refresh_minute">Every minute</string>
+    <string name="settings_layout_confirm_hunk_and_line_discards_title">Ask before discarding a hunk or a line</string>
+    <string name="settings_layout_confirm_hunk_and_line_discards_subtitle">Discarding whole files always asks</string>
     <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation, which reaches HTTPS remotes but not SSH ones.</string>
 
     <!-- Notifications -->

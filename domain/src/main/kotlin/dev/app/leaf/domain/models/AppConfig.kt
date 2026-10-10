@@ -28,6 +28,10 @@ sealed interface AppConfig {
     data class Theme(val value: dev.app.leaf.domain.models.ui.Theme) : AppConfig
     data class CustomTheme(val value: String) : AppConfig
     data class SwapStatusPanes(val value: Boolean) : AppConfig
+
+    /** Whether discarding a hunk or a line in the diff asks first. Discarding files always asks. */
+    data class ConfirmHunkAndLineDiscards(val value: Boolean) : AppConfig
+
     data class DiffDisplayFullFile(val value: Boolean) : AppConfig
     data class DiffTextViewType(val value: dev.app.leaf.domain.models.DiffTextViewType) : AppConfig
     data class TerminalPath(val value: String) : AppConfig

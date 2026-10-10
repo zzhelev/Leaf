@@ -418,6 +418,7 @@ fun AppTab(
                                     entry.onConfirm()
                                 },
                                 onDismiss = { backStack.removeLastOrNull() },
+                                onStopAsking = entry.onStopAsking,
                             )
                         }
                         entry<Screen.FastForwardOnCheckout>(

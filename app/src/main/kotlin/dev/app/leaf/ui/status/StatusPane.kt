@@ -343,6 +343,14 @@ fun StatusChangesList(
         onDeleteFile = { statusEntry ->
             onConfirmAction(ConfirmableAction.DeleteFile(statusEntry)) { onAction(StatusAction.Delete(statusEntry)) }
         },
+        onDiscardFile = { statusEntry ->
+            onConfirmAction(ConfirmableAction.DiscardFile(statusEntry)) { onAction(StatusAction.Reset(statusEntry)) }
+        },
+        onDiscardSelected = {
+            onConfirmAction(ConfirmableAction.DiscardFiles(selectedEntries.count(), entryType)) {
+                onAction(StatusAction.DiscardSelected(entryType))
+            }
+        },
         onAction = onAction,
         onCopy = { relative, entries ->
             scope.launch {
@@ -371,6 +379,9 @@ fun ChangesList(
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
     onDeleteFile: (StatusEntry) -> Unit,
+    onDiscardFile: (StatusEntry) -> Unit,
+    /** Discards the selected files. */
+    onDiscardSelected: () -> Unit,
     onAction: (StatusAction) -> Unit,
     onCopy: (relative: Boolean, entries: List<StatusEntry>) -> Unit,
     modifier: Modifier = Modifier,
@@ -381,7 +392,7 @@ fun ChangesList(
             entryType = entryType,
             onBlame = { onBlameFile(statusEntry.filePath) },
             onHistory = { onHistoryFile(statusEntry.filePath) },
-            onReset = { onAction(StatusAction.Reset(statusEntry)) },
+            onReset = { onDiscardFile(statusEntry) },
             onDelete = { onDeleteFile(statusEntry) },
             onOpenFileInFolder = { onAction(StatusAction.OpenInFolder(statusEntry.parentDirectoryPath)) },
             onCopyFilePath = { relative ->
@@ -397,7 +408,7 @@ fun ChangesList(
         statusEntriesContextMenuItems(
             selectedEntriesCount = selectedEntries.count(),
             entryType = entryType,
-            onDiscard = { onAction(StatusAction.DiscardSelected(entryType)) },
+            onDiscard = onDiscardSelected,
             onStageSelected = { onAction(StatusAction.SelectedEntriesAction(EntryType.UNSTAGED)) },
             onUnstageSelected = { onAction(StatusAction.SelectedEntriesAction(EntryType.STAGED)) },
             onCopyFilesPath = { relative ->

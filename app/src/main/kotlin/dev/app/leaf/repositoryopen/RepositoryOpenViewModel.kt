@@ -1237,6 +1237,14 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun discardHunkLine(entry: DiffEntry, hunk: Hunk, line: Line) = discardHunkLineUseCase(entry, hunk, line)
 
+    /** Whether discarding a hunk or a line asks first. True until the setting is read, so nothing goes unasked. */
+    val confirmHunkAndLineDiscards: StateFlow<Boolean> = settings.confirmHunkAndLineDiscards.stateIn(true)
+
+    /** "Don't ask again" in the confirmation of a hunk or a line. Settings can turn it back on. */
+    fun stopConfirmingHunkAndLineDiscards() = tabScope.launch {
+        settings.setConfiguration(AppConfig.ConfirmHunkAndLineDiscards(false))
+    }
+
     fun openSubmodule(path: String) {
         val repositoryPath = repositoryDataRepository.repositoryPath
 

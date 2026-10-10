@@ -41,6 +41,7 @@ private val themePreference get() = stringPreferencesKey("theme")
 private val customThemePreference get() = stringPreferencesKey("custom_theme")
 private val linesHeightPreference get() = stringPreferencesKey("lines_height")
 private val swapStatusPanesPreference get() = booleanPreferencesKey("swap_status_panes")
+private val confirmHunkAndLineDiscardsPreference get() = booleanPreferencesKey("confirm_hunk_and_line_discards")
 private val diffDisplayFullFilePreference get() = booleanPreferencesKey("diff_display_full_file")
 private val diffTextViewTypePreference get() = stringPreferencesKey("diff_text_view")
 private val showChangesAsTreePreference get() = booleanPreferencesKey("show_changes_as_tree")
@@ -117,6 +118,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
 
     override val avatarProvider get() = preferences.data[avatarProviderPreference].map { avatarProviderMapper.toDomain(it) }
     override val swapStatusPanes get() = preferences.data[swapStatusPanesPreference]
+    override val confirmHunkAndLineDiscards get() = preferences.data[confirmHunkAndLineDiscardsPreference]
     override val showChangesAsTree get() = preferences.data[showChangesAsTreePreference]
     override val diffDisplayFullFile get() = preferences.data[diffDisplayFullFilePreference]
     override val diffTextViewType get() = preferences.data[diffTextViewTypePreference].map { textDiffViewTypeMapper.toDomain(it) }
@@ -187,6 +189,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.Theme -> setValue(themePreference, themeMapper.toData(appConfig.value))
                 is AppConfig.CustomTheme -> setValue(customThemePreference, appConfig.value)
                 is AppConfig.SwapStatusPanes -> setValue(swapStatusPanesPreference, appConfig.value)
+                is AppConfig.ConfirmHunkAndLineDiscards ->
+                    setValue(confirmHunkAndLineDiscardsPreference, appConfig.value)
                 is AppConfig.DiffDisplayFullFile -> setValue(diffDisplayFullFilePreference, appConfig.value)
                 is AppConfig.DiffTextViewType -> setValue(diffTextViewTypePreference, textDiffViewTypeMapper.toData(appConfig.value))
                 is AppConfig.TerminalPath -> setValue(terminalPathPreference, appConfig.value)

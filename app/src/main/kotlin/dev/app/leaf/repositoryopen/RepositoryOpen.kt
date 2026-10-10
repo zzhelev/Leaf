@@ -138,7 +138,10 @@ fun RepositoryOpenPage(
                         val action = ConfirmableAction.ForcePush(branchName)
 
                         onNavigate(
-                            Screen.ConfirmAction(action) { repositoryOpenViewModel.push(force = true, pushTags = false) }
+                            Screen.ConfirmAction(
+                                action = action,
+                                onConfirm = { repositoryOpenViewModel.push(force = true, pushTags = false) },
+                            )
                         )
                     },
                     showOpenPopup = showOpenPopup,
@@ -319,7 +322,10 @@ fun MainContentView(
                                     viewModel = viewModel,
                                     onCloseDiffView = {
                                         tabFocusRequester.requestFocus()
-                                    }
+                                    },
+                                    onConfirmAction = { action, onConfirm, onStopAsking ->
+                                        onNavigate(Screen.ConfirmAction(action, onConfirm, onStopAsking))
+                                    },
                                 )
                             } else {
                                 Log(
