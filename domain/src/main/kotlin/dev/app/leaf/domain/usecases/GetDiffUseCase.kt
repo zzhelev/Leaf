@@ -2,7 +2,11 @@ package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
-import dev.app.leaf.domain.errors.okOrNull
+import dev.app.leaf.common.printLog
+import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.GenericError
+import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.exceptions.MissingDiffEntryException
 import dev.app.leaf.domain.interfaces.IFormatDiffGitAction
 import dev.app.leaf.domain.interfaces.IGenerateSplitHunkFromDiffResultGitAction
 import dev.app.leaf.domain.models.DiffResult
@@ -23,7 +27,13 @@ class GetDiffUseCase @Inject constructor(
         val repositoryPath = repositoryDataRepository.repositoryPath ?: return ViewDiffResult.None
 
         return try {
-            val diffFormat = formatDiffGitAction(repositoryPath, diffType, isDisplayFullFile).okOrNull()!!
+            val diffFormat = when (val result = formatDiffGitAction(repositoryPath, diffType, isDisplayFullFile)) {
+                is Either.Ok -> result.value
+                is Either.Err -> {
+                    logDiffError(diffType, result.error)
+                    return ViewDiffResult.DiffNotFound(diffType)
+                }
+            }
             val diffEntry = diffFormat.diffEntry
             if (
                 diffViewType == DiffTextViewType.Split &&
@@ -42,9 +52,22 @@ class GetDiffUseCase @Inject constructor(
 
         } catch (ex: Exception) {
             printError(TAG, ex.message.orEmpty(), ex)
-
-            ex.printStackTrace()
             ViewDiffResult.DiffNotFound(diffType)
+        }
+    }
+
+    /**
+     * A file with no changes left on the diff's side, as after discarding its last hunk, has no diff entry: that's
+     * expected, so it gets a log line without a stack trace.
+     */
+    private fun logDiffError(diffType: DiffType, error: GitError) {
+        val exception = (error as? GenericError)?.exception
+        val description = (error as? GenericError)?.message.orEmpty().ifEmpty { error.toString() }
+
+        if (exception is MissingDiffEntryException) {
+            printLog(TAG, "No diff to show for ${diffType.filePath}: $description")
+        } else {
+            printError(TAG, "Could not load the diff of ${diffType.filePath}: $description", exception)
         }
     }
 }
