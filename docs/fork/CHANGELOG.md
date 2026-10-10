@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Discards ask first (branch `claude/sad-grothendieck-100370`)
+
+- **Before:** "Discard hunk" and "Discard line" in the diff, and "Discard file changes" and "Discard N files" in the
+  Staged and Unstaged menus, discarded right away. None of it can be restored. Only discarding a folder asked.
+- **Now:** they open `ConfirmActionDialog`, which shows what is lost:
+  - a hunk: its header, and how many added lines can't be restored. A hunk that only removes lines gets no warning,
+    as discarding it puts them back;
+  - a line: the line, and whether it's removed from the file or put back;
+  - a file or a selection: in the Staged list, that the unstaged changes go too, as `DiscardEntriesGitAction` resets
+    the index entry and then checks the file out. Discarding a deleted file brings it back, with no warning.
+- **"Don't ask again":** the hunk and line dialogs have a "Don't ask again for hunks and lines" box. Confirming with
+  it checked turns off the new setting "Ask before discarding a hunk or a line" (Settings → Layout, key
+  `confirm_hunk_and_line_discards`, on by default), where it can be turned back on. Discarding files always asks, as a
+  slip there loses whole files. `Screen.ConfirmAction` got an `onStopAsking` parameter for it.
+- A file that changes while the dialog is open makes git refuse the discard (`StaleHunkError`, from the hunk and line
+  actions entry below), so the dialog can't discard lines that are no longer where it showed them.
+- Chosen over a dialog for every discard, which gets in the way when discarding lines one after another, and over an
+  Undo in place of a dialog: notifications have no buttons yet, and an agent changing the file would block the Undo.
+- **Tests:**
+  - `ConfirmActionDialogTest` (10, `:app`) renders the dialog offscreen and clicks through its semantics: the box,
+    Discard and Cancel, and the texts of each discard.
+  - `ConfirmHunkAndLineDiscardsSettingTest` (2, `:domain`): the setting asks until the user turns it off.
+  - **Mutation check:** 8 mutations of the dialog, all caught. Not covered by a test: `DiffPane` asking or not, and
+    the Staged and Unstaged menus opening the dialog.
+  - `./gradlew build` passes, with 820 tests (55 in `:app`, 589 in `:data`, 169 in `:domain`, 7 in `:common`).
+
 ## Hunk and line actions apply patches with git (branch `claude/funny-bhaskara-df3d47`)
 
 The code review of 2026-10-09 found these the only Gitnuro code whose approach needed replacing rather than fixing.

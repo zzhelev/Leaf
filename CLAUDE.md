@@ -748,12 +748,24 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   - Deleting a branch or a tag goes through `DeleteRefDialog`: without force first, then "Delete anyway" once git
     refuses. A branch that a worktree uses is refused even with force (`DeleteBranchError`, see Delete and rename
     guard), and the dialog then disables Delete.
-  - The others go through `Screen.ConfirmAction(action, onConfirm)` and `ConfirmActionDialog`. `ConfirmableAction`
-    says what the dialog shows, and `onConfirm` is what the button used to run, so the action's own code is
-    unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote branch or a
-    remote, dropping a stash, aborting a merge, rebase, cherry-pick or revert, skipping a rebase commit, and force
-    push. The reset dialog warns when Hard would discard uncommitted changes.
-  - Still unconfirmed: discarding a file, a selection, a hunk or a line.
+  - The others go through `Screen.ConfirmAction(action, onConfirm, onStopAsking)` and `ConfirmActionDialog`.
+    `ConfirmableAction` says what the dialog shows, and `onConfirm` is what the button used to run, so the action's
+    own code is unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote
+    branch or a remote, dropping a stash, aborting a merge, rebase, cherry-pick or revert, skipping a rebase commit,
+    force push, and discarding a file or a selection (the Staged and Unstaged menus), a hunk or a line (the diff).
+    Discarding a folder has its own `DiscardChangesDialog`. The reset dialog warns when Hard would discard
+    uncommitted changes.
+  - Discards show what is lost: a hunk's header, the line. A file or a selection in the Staged list loses its unstaged
+    changes too, as `DiscardEntriesGitAction` resets the index entry and then checks the file out. Putting back
+    removed lines (a line, or a hunk that adds none) or a deleted file loses nothing, so those get no warning.
+  - Only hunks and lines can stop asking. The diff passes `onStopAsking`, which adds "Don't ask again for hunks and
+    lines"; confirming with it checked turns off `AppConfig.ConfirmHunkAndLineDiscards` (`user_prefs.json` key
+    `confirm_hunk_and_line_discards`, on by default, Settings → Layout). `DiffPane` reads it through
+    `RepositoryOpenViewModel.confirmHunkAndLineDiscards`, which is true until the settings file is read. Discarding
+    files always asks. A file that changes while the dialog is open is refused like any stale hunk (`StaleHunkError`,
+    see Hunk and line actions).
+  - `onStopAsking` is `Screen.ConfirmAction`'s last parameter, so pass `onConfirm` in the parentheses: a trailing
+    lambda would be `onStopAsking`, and fail to compile without `onConfirm`.
 
 ## Repository tabs
 
