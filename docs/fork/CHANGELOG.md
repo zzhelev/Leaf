@@ -2,6 +2,53 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Settings that did nothing, and UI bugs from Gitnuro's code (branch `fix/settings-and-ui`)
+
+From the review of the files that come from Gitnuro (2026-10-09), which found them worth fixing rather than rewriting.
+
+- **Removed settings:** Proxy (Settings → Network) and "Do not verify SSL security" (Security). Neither ever applied:
+  the proxy code was commented out, and the SSL switch turned off credential caching instead. git's `http.proxy` and
+  `http.sslVerify` apply to the git commands Leaf runs. `RemovedSettingsMigration` deletes their saved values, the
+  proxy password included, which was stored as plain text in `user_prefs.json`.
+- **"Cache HTTP credentials in memory"** now applies to JGit's HTTPS fallback and to the built-in LFS client without a
+  credential helper. Off, they asked once and cached the credentials anyway.
+- **Settings and dialogs:**
+  - the default clone directory was saved but never read: the clone dialog now starts from it;
+  - Appearance: the custom theme was saved at every keystroke, as its one-second delay never cancelled, and the Scale
+    dropdown kept showing the old value;
+  - the error dialog's Copy button copies the stack trace shown, not one made at the click;
+  - the sign-off dialog can't save before it has read the config, which a failed read used to overwrite;
+  - the primary button of confirm-style dialogs (`IconBasedDialog`) had the Cancel button's focus requester.
+- **Diff and rebase:**
+  - a line of a diff is drawn up to 10,000 characters, then "… N more characters", and syntax highlighting covers its
+    first 1,000: a minified file could freeze the view;
+  - a large image is scaled down to fit the pane, keeping its shape, instead of being cut off;
+  - in an interactive rebase, a squash or fixup that becomes the first step (moved there, or after the steps before it
+    are dropped) turns into a pick, as git refuses it (`withFirstStepPicked`).
+- **Lists and scrolling:**
+  - staging or unstaging a file no longer scrolls Staged and Unstaged to the top;
+  - closing a diff no longer scrolls the log to the top; only a new commit at the top does;
+  - another file's diff starts at its top, while a refresh of the same diff keeps its scroll;
+  - the graph scrolled twice as far as its scroll bar on a 2x screen (pixels taken as dp);
+  - each letter typed in the commit message sorted and grouped every changed file again; the lists are now built
+    apart (`StatusLists`);
+  - a log search no longer lets an earlier, slower search overwrite the results of the last term typed.
+- **Smaller fixes:**
+  - an image that Skia can't decode, such as HEIC, shows as binary instead of ending the app;
+  - an error opened twice when coming back to its tab;
+  - a failed file history showed a blank pane, and now shows the error;
+  - Blame is no longer offered for a file the commit deletes (the condition was always true);
+  - Python comments start with `#`, SQL keywords are found in lower case, and every line of a diff no longer builds
+    its own highlighter with its keyword list;
+  - the context menu wrapper wrote a state at every layout, which recomposed every visible diff row at each frame of a
+    scroll;
+  - the clone dialog and the diff view ran their closing side effects during composition.
+- **Tests:** 15 new. `RemovedSettingsMigrationTest` (2), the cache setting in `HttpCredentialsProviderTest` and
+  `ProvideLfsCredentialsGitActionTest` (1 each), `StatusStateTest` (2), `SyntaxHighlighterTest` (3),
+  `FormatDiffTest` (3), `RebaseStepsTest` (3).
+- **Plan:** `docs/fork/PLAN.md` no longer asks for upstreamable changes: Leaf sends no pull requests to Gitnuro, and
+  keeps its changes to Gitnuro's files small so that merging upstream stays cheap.
+
 ## A diff with no changes left logs one line (branch `claude/dazzling-liskov-e3958a`)
 
 - **Before:** `GetDiffUseCase` took the format action's result with `okOrNull()!!`. When the action failed, the `!!`

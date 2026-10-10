@@ -4,7 +4,8 @@ Fork of [Gitnuro](https://github.com/JetpackDuba/Gitnuro) (Kotlin, Compose Deskt
 worktree support for AI-agent workflows. The fork plan and working rules are in `docs/fork/PLAN.md`. Read them before
 starting any work item. Findings about JGit and worktrees are in `docs/fork/architecture-notes.md`.
 
-This file and everything under `docs/fork/` are fork-only. Keep them out of upstream PRs.
+This file and everything under `docs/fork/` are fork-only. Leaf sends no pull requests upstream; it merges Gitnuro's
+changes in (see `docs/fork/PLAN.md`).
 
 ## Name
 
@@ -157,7 +158,8 @@ Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOM
   which calls `sun.misc.Unsafe`, and JDK 25 warns about it. DataStore 1.2.1 and 1.3.0-alpha11 both do. So
   `DatastoreModule` stores the settings with the fork-only `JsonPreferencesSerializer`.
   `ProtobufPreferencesMigration` moves an old `user_prefs.preferences_pb` over once, then renames it to
-  `.migrated`; the warning shows only on that launch.
+  `.migrated`; the warning shows only on that launch. `RemovedSettingsMigration` runs after it and deletes the keys
+  of removed settings (`REMOVED_SETTINGS`).
 - **Linux `.deb`:** `./gradlew :app:packageDeb` builds it on Linux only, and needs `fakeroot` and `dpkg-deb`. It
   installs Leaf to `/opt/leaf` with an entry in the applications menu.
   - The release workflow builds it natively on Ubuntu 22.04 for each CPU: jpackage can't cross-build, the package
@@ -562,7 +564,8 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     `credential_reject`. Like git, Leaf stores credentials only once a request succeeds with them (see `approve`
     below), so rejected ones were never stored.
   - Without a helper, `get` gives credentials from Leaf's in-memory cache (`CredentialsCacheRepository`, app singleton)
-    or asks. `reset` removes the ones it took from the cache, but only while they are still the URL's cached ones,
+    or asks. With "Cache HTTP credentials in memory" off, it always asks and caches nothing, and so does LFS without a
+    helper, as git's remote operations do without Leaf's cache helper. `reset` removes the ones it took from the cache, but only while they are still the URL's cached ones,
     like `git credential-store erase`. Typed credentials are cached, replacing the URL's entry, once a request
     succeeds with them (`credentialsAccepted`, see `approve` below), and `reset` removes them if a later request
     rejects them.
@@ -923,6 +926,9 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
 - Files changed, Staged and Unstaged render `FileRow`s with `ui/ChangedFilesList.kt` (`CommitChangesState.rows`,
   `StatusState.stagedRows`/`unstagedRows`) and share `AppConfig.FilesChangedView`. The old `show_changes_as_tree` key
   is only read, as that setting's default until it's saved.
+- `combineStatusState` builds the two panes' lists (`StatusLists`: entries, rows, searches, view settings) in a
+  `combine` of their own. The commit message, selection and the rest join them afterwards, so a letter typed in the
+  commit message no longer sorts and groups every changed file again (`StatusStateTest`).
 - **Status pane sections (fork-only):** two 8 dp handles resize Staged, Unstaged and the commit field.
   - `StatusSectionSizes` (`domain/models/`) holds Staged's share of the lists and the commit field's height. `fitTo`
     fits them to the pane: each list keeps 100 dp and the commit field 140 dp. The drag functions start from the
@@ -1103,6 +1109,11 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 - DataStore keeps them in `user_prefs.json` (`getPreferencesPath()`), written by `JsonPreferencesSerializer`. Each
   key stores its type and value. A damaged file is logged and replaced with the defaults.
 - `TerminalPath` is the closest precedent for a "git executable path" setting.
+- **Removed (2026-10-10):** the proxy settings and "Do not verify SSL security". Neither was ever applied: the code that
+  set the JVM's proxy was commented out, and the SSL switch wrote the credential cache setting while nothing read
+  `verify_ssl`. git's own `http.proxy` and `http.sslVerify` apply to the git commands Leaf runs.
+  `RemovedSettingsMigration` deletes their keys from `user_prefs.json`, the plain-text proxy password included. A
+  setting removed later goes into `REMOVED_SETTINGS`.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in

@@ -1,6 +1,6 @@
 # Gitnuro Fork — Plan for Claude Code
 
-Place this file at `docs/fork/PLAN.md` in the fork. Keep everything under `docs/fork/` out of upstream PRs.
+Place this file at `docs/fork/PLAN.md` in the fork.
 
 ## Goal
 
@@ -11,23 +11,26 @@ squash back, discard.
 
 Secondary goal: fix easy open upstream issues in the fork.
 
-Every change should be upstreamable to `JetpackDuba/Gitnuro` where reasonable.
+Leaf sends no pull requests to `JetpackDuba/Gitnuro` (decided on 2026-10-09). It keeps merging `upstream/main` to take
+Gitnuro's fixes, so changes to the files that come from Gitnuro stay small, which keeps those merges cheap.
 
 ## Working rules (apply to every phase)
 
 1. Plan before coding. For each work item, explore the relevant code, write a short plan, and wait for approval before
    implementing.
 2. One branch per work item, created off `main` (see Phase 0). Keep commits small and focused.
-3. Stay upstreamable. Follow the existing code style and module boundaries. No unrelated refactors, no mass
-   reformatting, no renames of existing packages or classes.
+3. Keep upstream merges cheap. Follow the existing code style and module boundaries. In the files that come from
+   Gitnuro, change what the work item needs: no unrelated refactors, no mass reformatting, no cleanup of dead code or
+   hardcoded strings. A rewritten file turns every later upstream change to it into a hand port. Replace one only for
+   a reason that a targeted fix can't meet, such as the hunk and line actions moving to `git apply`.
 4. Ask before adding dependencies, changing architecture across modules, or touching build or packaging config.
 5. Never run destructive git commands on real repositories. All manual and automated testing of git operations uses
    temporary repos created by test fixtures or scripts.
 6. Definition of done: the app builds, existing tests pass, new tests cover new logic, the feature has been run manually
    on macOS against a temp repo, and a short entry is added to `docs/fork/CHANGELOG.md`.
-7. Isolate fork-only code (for example, the git CLI adapter) in its own package so rebasing onto upstream stays easy.
-8. Keep the product name, package names and bundle IDs unchanged for now. Renaming creates permanent merge pain with
-   upstream. If a rename is wanted later, do it as one isolated commit touching only display name and packaging.
+7. Isolate fork-only code (for example, the git CLI adapter) in its own package so merging upstream stays easy.
+8. Superseded: the fork ships as Leaf, with its own name, packages, bundle ID and storage (see `CLAUDE.md`, Name). How
+   upstream merges handle the package rename is in `CLAUDE.md`, Branches and remotes.
 
 ## Phase 0 — Setup and orientation
 
@@ -200,16 +203,13 @@ squash-merge one, rebase one, discard one. Afterwards no stale entries remain in
     * #347 better handling of moved files: unknown.
     * Defer the large ones: #331 system SSH client, #336 sparse checkout, #186 conditional gitconfig includes (a JGit
       limitation).
-4. Fixing: Fix S items one branch each, with tests where feasible. Before preparing an upstream PR, check upstream
-   Discussions, because issue creation upstream is restricted and feature PRs are expected to be discussed first.
+4. Fixing: Fix S items one branch each, with tests where feasible.
 
 ## Keeping in sync with upstream
 
 * Weekly: Fetch `upstream` and merge `upstream/main` into `main`, resolving conflicts in the fork-only code first.
   `main` is published, so merge instead of rebasing it.
 * After each sync: Run the full test suite, then launch the app and smoke-test the worktree sidebar.
-* Upstreaming: For each feature, keep a clean branch rebased on upstream's development line so it can become a PR
-  without fork-only scaffolding.
 
 ## Kick-off prompt
 
