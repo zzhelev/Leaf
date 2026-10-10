@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A diff with no changes left logs one line (branch `claude/dazzling-liskov-e3958a`)
+
+- **Before:** `GetDiffUseCase` took the format action's result with `okOrNull()!!`. When the action failed, the `!!`
+  threw a `NullPointerException`, which was logged with an empty message and its stack trace twice (`printError`,
+  then `ex.printStackTrace()`), and the diff pane closed. The action fails every time a file has no changes left on
+  the diff's side, as after discarding its last hunk or line: `GetDiffEntryFromStatusEntryGitAction` throws
+  `MissingDiffEntryException`, which `JGit.provide` returns as a `GenericError`. The real cause of any other failure
+  was never logged.
+- **Now:** an error result still gives `DiffNotFound`, but without throwing. A missing diff entry gets one `[LOG]`
+  line (`No diff to show for <file>: Diff entry not found`). Any other error is logged with its message, and with its
+  exception's stack trace once. An exception thrown by the action is still caught, and logged once.
+- **Tests:** `GetDiffUseCaseTest` (4, `:domain`) mocks the format action and reads what the use case prints.
+  - **Mutation check:** 3 mutations, all caught: throwing on an error result again, printing the stack trace twice
+    again, and logging a missing diff entry as an error.
+  - `./gradlew build` passes, with 829 tests (57 in `:app`, 592 in `:data`, 173 in `:domain`, 7 in `:common`).
+
 ## Merge, rebase and pull warn when they stop at conflicts (branch `fix/conflict-toasts`)
 
 - **Before:** a merge, rebase or pull that stopped at conflicts showed "Merge completed", "Rebase completed" or "Pull
