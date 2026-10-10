@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Merge, rebase and pull warn when they stop at conflicts (branch `fix/conflict-toasts`)
+
+- **Before:** a merge, rebase or pull that stopped at conflicts showed "Merge completed", "Rebase completed" or "Pull
+  completed". The use cases knew (their git actions return whether there were conflicts), but a task that didn't
+  fail was always recorded as completed. The pull built a warning ("Pull produced conflicts, fix them to continue")
+  and dropped it, left over from an older way of showing toasts.
+- **Now:** they show the warning toast, with its warning icon: "Merge stopped at conflicts, fix them to continue", and
+  the same for Rebase and Pull. `UseCaseExecutor.executeLaunch` takes `stoppedAtConflicts`, which tells it from the
+  task's result, and records `CompletedTask.Success(stoppedAtConflicts = true)`. Everything else about the task is as
+  before: it still refreshes, and isn't an error.
+- **Tests:** 5 new. `StoppedAtConflictsTest` (`:data`, 3) runs the merge, rebase and pull use cases through a real
+  `UseCaseExecutor` with their git actions faked, with and without conflicts. `CompletedTaskNotificationTest`
+  (`:app`, 2) checks the toasts.
+  - **Mutation check:** 6 mutations, all caught.
+  - `./gradlew test` passes, with 825 tests (57 in `:app`, 592 in `:data`, 169 in `:domain`, 7 in `:common`).
+
 ## Discards ask first (branch `claude/sad-grothendieck-100370`)
 
 - **Before:** "Discard hunk" and "Discard line" in the diff, and "Discard file changes" and "Discard N files" in the

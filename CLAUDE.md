@@ -292,6 +292,10 @@ code, "worktree" means the working directory, not linked worktrees.
   starts a task of its own, which the running task doesn't wait for, and whose end clears `currentTask` (the
   processing screen) while the first still runs. Fork-only: `DoCommitUseCase.commit` is the amend that continuing a
   rebase makes; it used to be a `DoCommit` task that raced `git rebase --continue`, and a failed amend was ignored.
+- A completed task's toast says `successTitle()` ("Merge completed"). Fork-only: a task that ran but stopped at
+  conflicts passes `stoppedAtConflicts` to `executeLaunch`, which tells it from the result (merge, rebase and pull
+  give `true`). It's recorded as `CompletedTask.Success(stoppedAtConflicts = true)` (`addCompletedTaskWithConflicts`),
+  and its toast warns with `conflictsTitle()` ("Merge stopped at conflicts, fix them to continue").
 - Queries are `suspend` and use `useCaseExecutor.execute`. So do mutations whose dialog shows the result, such as
   rename branch and delete branch or tag: `execute` records no task, so they get no ProcessingScreen, toast or
   `ErrorDialog`.
