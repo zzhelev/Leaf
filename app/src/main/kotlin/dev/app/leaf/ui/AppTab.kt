@@ -75,7 +75,12 @@ fun AppTab(
 
     LaunchedEffect(lastError) {
         lastError?.let {
-            backStack.add(Screen.Error(it))
+            val screen = Screen.Error(it)
+
+            // Coming back to the tab runs this again, while the error's dialog is still open
+            if (!backStack.contains(screen)) {
+                backStack.add(screen)
+            }
         }
     }
 

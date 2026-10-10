@@ -8,6 +8,7 @@ import dev.app.leaf.common.printError
 import dev.app.leaf.data.UserSettingsDataStore
 import dev.app.leaf.data.repositories.configuration.JsonPreferencesSerializer
 import dev.app.leaf.data.repositories.configuration.ProtobufPreferencesMigration
+import dev.app.leaf.data.repositories.configuration.RemovedSettingsMigration
 import dev.app.leaf.data.repositories.configuration.getPreferencesPath
 import dev.app.leaf.data.repositories.configuration.getProtobufPreferencesPath
 import dagger.Module
@@ -34,7 +35,11 @@ class DatastoreModule {
                 printError(TAG, "The settings file is damaged, so Leaf starts from the default settings", e)
                 emptyPreferences()
             },
-            migrations = listOf(ProtobufPreferencesMigration(getProtobufPreferencesPath().toPath())),
+            migrations = listOf(
+                ProtobufPreferencesMigration(getProtobufPreferencesPath().toPath()),
+                // After it, so that the settings it moves are cleaned up too
+                RemovedSettingsMigration(),
+            ),
         )
 
         return UserSettingsDataStore(preferences)

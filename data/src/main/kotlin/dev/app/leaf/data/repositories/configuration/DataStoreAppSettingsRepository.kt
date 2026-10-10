@@ -12,7 +12,6 @@ import dev.app.leaf.data.repositories.configuration.mappers.LinesHeightMapper
 import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapper
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.models.AppConfig
-import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.StatusSectionSizes
@@ -65,17 +64,8 @@ private val gitExecutablePathPreference get() = stringPreferencesKey("git_execut
 private val remoteOperationsWithGitPreference get() = booleanPreferencesKey("remote_operations_with_git")
 private val worktreesRefreshIntervalPreference get() = intPreferencesKey("worktrees_refresh_interval")
 
-private val useProxyPreference get() = booleanPreferencesKey("use_proxy")
-private val proxyUseAuthPreference get() = booleanPreferencesKey("proxy_use_auth")
-private val proxyProxyTypePreference get() = intPreferencesKey("proxy_type")
-private val proxyHostNamePreference get() = stringPreferencesKey("proxy_host_name")
-private val proxyPortNumberPreference get() = intPreferencesKey("proxy_port_number")
-private val proxyHostUserPreference get() = stringPreferencesKey("proxy_host_user")
-private val proxyHostPasswordPreference get() = stringPreferencesKey("proxy_host_password")
 private val cacheCredentialsPreference get() = booleanPreferencesKey("cache_credentials_in_memory")
 private val terminalPathPreference get() = stringPreferencesKey("terminal_path")
-
-private val verifySslPreference get() = booleanPreferencesKey("verify_ssl")
 
 operator fun <T> Flow<Preferences>.get(key: Preferences.Key<T>): Flow<T?> {
     return this.map { it[key] }
@@ -141,15 +131,6 @@ class DataStoreAppSettingsRepository @Inject constructor(
 
 
     // Network
-    override val useProxy get() = preferences.data[useProxyPreference]
-    override val proxyUseAuth get() = preferences.data[proxyUseAuthPreference]
-    override val proxyType get() = preferences.data[proxyProxyTypePreference].map { ProxyType.fromValue(it) }
-    override val proxyHostName get() = preferences.data[proxyHostNamePreference]
-    override val proxyPortNumber get() = preferences.data[proxyPortNumberPreference]
-    override val proxyHostUser get() = preferences.data[proxyHostUserPreference]
-    override val proxyHostPassword get() = preferences.data[proxyHostPasswordPreference]
-
-    override val verifySsl get() = preferences.data[verifySslPreference]
     override val cacheCredentialsInMemory get() = preferences.data[cacheCredentialsPreference]
 
     // Tools
@@ -170,13 +151,6 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.DateFormatUseRelative -> setValue(dateFormatUseRelativePreference, appConfig.value)
                 is AppConfig.FastForwardMerge -> setValue(fastForwardMergePreference, appConfig.value)
                 is AppConfig.LinesHeight -> setValue(linesHeightPreference, linesHeightMapper.toData(appConfig.value))
-                is AppConfig.UseProxy -> setValue(useProxyPreference, appConfig.value)
-                is AppConfig.ProxyHostName -> setValue(proxyHostNamePreference, appConfig.value)
-                is AppConfig.ProxyHostPassword -> setValue(proxyHostPasswordPreference, appConfig.value)
-                is AppConfig.ProxyHostUser -> setValue(proxyHostUserPreference, appConfig.value)
-                is AppConfig.ProxyPortNumber -> setValue(proxyPortNumberPreference, appConfig.value)
-                is AppConfig.ProxyProxyType -> setValue(proxyProxyTypePreference, appConfig.value.value)
-                is AppConfig.ProxyUseAuth -> setValue(proxyUseAuthPreference, appConfig.value)
                 is AppConfig.PullWithRebase -> setValue(pullWithRebasePreference, appConfig.value)
                 is AppConfig.PushWithLease -> setValue(pushWithLeasePreference, appConfig.value)
                 is AppConfig.ScaleUi -> setValue(scaleUiPreference, appConfig.value)

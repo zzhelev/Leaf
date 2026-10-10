@@ -53,6 +53,17 @@ fun CloneDialog(
     var directory by remember(cloneViewModel) { mutableStateOf(cloneViewModel.directoryPath.value) }
     var folder by remember(cloneViewModel) { mutableStateOf(cloneViewModel.folder.value) }
     var cloneSubmodules by remember { mutableStateOf(true) }
+
+    // Starts from the default clone directory, unless a directory is already there
+    LaunchedEffect(cloneViewModel) {
+        val defaultDirectory = cloneViewModel.defaultDirectory()
+
+        if (defaultDirectory != null && directory.text.isEmpty()) {
+            directory = TextFieldValue(defaultDirectory, selection = TextRange(defaultDirectory.length))
+            cloneViewModel.onDirectoryPathChanged(directory)
+        }
+    }
+
     MaterialDialog(
         onCloseRequested = onClose,
         background = MaterialTheme.colors.surface,
@@ -72,8 +83,11 @@ fun CloneDialog(
                 }
 
                 is CloneState.Completed -> {
-                    onOpenRepository(cloneStatusValue.repoDir)
-                    onClose()
+                    // Once, not at each composition: closing twice would remove another screen too
+                    LaunchedEffect(cloneStatusValue) {
+                        onOpenRepository(cloneStatusValue.repoDir)
+                        onClose()
+                    }
                 }
 
                 is CloneState.Fail, CloneState.None -> CloneDialogView(

@@ -5,14 +5,15 @@ import dev.app.leaf.domain.credentials.CredentialsAccepted
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.models.CredentialsType
 import dev.app.leaf.domain.repositories.CredentialsRepository
+import dev.app.leaf.domain.services.AppSettingsService
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.internal.JGitText
 import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.CredentialItem.*
 import org.eclipse.jgit.transport.CredentialsProvider
@@ -28,7 +29,7 @@ interface HttpCredentialsFactory {
 
 class HttpCredentialsProvider @AssistedInject constructor(
     private val credentialsStateManager: CredentialsStateManager,
-    // private val appSettingsRepository: AppSettingsRepository,
+    private val appSettingsService: AppSettingsService,
     private val credentialsCacheRepository: CredentialsRepository,
     private val credentialHelpers: CredentialHelpers,
     @Assisted val git: Git?,
@@ -73,10 +74,6 @@ class HttpCredentialsProvider @AssistedInject constructor(
 
         printLog(TAG, "Items are $itemsMap")
 
-        val sslTrustNowItem = items
-            .filterIsInstance<YesNoType>()
-            .firstOrNull { it.promptText.contains(JGitText.get().sslTrustNow) }
-
         val userItem = items
             .filterIsInstance<Username>()
             .firstOrNull()
@@ -89,28 +86,24 @@ class HttpCredentialsProvider @AssistedInject constructor(
             return false
         }
 
-        if (sslTrustNowItem != null) {
-            // TODO Reenable this after refactoring
-            //  sslTrustNowItem.value = appSettingsRepository.verifySsl
-        }
-
         val helperSettings = runBlocking { credentialHelpers.find(git?.repository, uri) }
 
         if (helperSettings.helpers.isEmpty()) {
-            val cachedCredentials = credentialsCacheRepository.getCachedHttpCredentials(
-                url = uri.toString(),
-                isLfs = false,
-            )
-            // TODO Reenable this after refactoring
-            if (cachedCredentials == null /*|| !appSettingsRepository.cacheCredentialsInMemory*/) {
+            // "Cache HTTP credentials in memory", which the git CLI's remote operations follow too
+            val cacheInMemory = runBlocking { appSettingsService.cacheCredentialsInMemory.first() }
+            val cachedCredentials = if (cacheInMemory) {
+                credentialsCacheRepository.getCachedHttpCredentials(url = uri.toString(), isLfs = false)
+            } else {
+                null
+            }
+
+            if (cachedCredentials == null) {
                 val credentials = askForCredentials(helperSettings.username, password = null)
 
                 userItem.value = credentials.user
                 passwordItem.value = credentials.password.toCharArray()
 
-                // TODO Reenable this after refactoring
-                if (true) {
-                //if (appSettingsRepository.cacheCredentialsInMemory) {
+                if (cacheInMemory) {
                     credentialsCached = CredentialsType.HttpCredentials(
                         url = uri.toString(),
                         user = credentials.user,

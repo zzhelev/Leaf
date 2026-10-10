@@ -15,6 +15,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -28,8 +29,7 @@ class CloneViewModel @Inject constructor(
     private val _repositoryUrl = MutableStateFlow(TextFieldValue(""))
     val repositoryUrl = _repositoryUrl.asStateFlow()
 
-    // TODO Fix this
-    private val _directoryPath = MutableStateFlow(TextFieldValue(/*appSettings.cloneDefaultDirectory*/))
+    private val _directoryPath = MutableStateFlow(TextFieldValue())
     val directoryPath = _directoryPath.asStateFlow()
 
     private val _saveDirAsDefault = MutableStateFlow(false)
@@ -111,6 +111,9 @@ class CloneViewModel @Inject constructor(
         // Take the last element of the path/URL to generate obtain the repo name
         return urlSplit.lastOrNull()?.removeSuffix(".git").orEmpty()
     }
+
+    /** The default clone directory from the settings, or null when none is set. */
+    suspend fun defaultDirectory(): String? = appSettings.cloneDefaultDirectory.first()?.takeIf { it.isNotBlank() }
 
     fun openDirectoryPicker(): String? {
         return openFilePickerUseCase(PickerType.DIRECTORIES, null)

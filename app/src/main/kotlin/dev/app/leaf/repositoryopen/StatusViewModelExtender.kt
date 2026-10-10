@@ -242,7 +242,8 @@ class StatusViewModelExtender @AssistedInject constructor(
 
 
         diffSelected
-            .combine(statusState) { diffSelected, state ->
+            // Only when the files change, not at each letter of the commit message
+            .combine(statusState.distinctUntilChangedBy { it.staged to it.unstaged }) { diffSelected, state ->
                 diffSelected to state
             }
             .collectLatestInCoroutineScope { (diffSelected, state) ->

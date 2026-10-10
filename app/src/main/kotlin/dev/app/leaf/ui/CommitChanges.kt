@@ -50,10 +50,12 @@ fun CommitChanges(
     onBlame: (String) -> Unit,
     onHistory: (String) -> Unit,
 ) {
-    val diffSelected by viewModel
-        .diffSelected
-        .filterIsInstance<DiffSelected.CommitedChanges>()
-        .collectAsState(null)
+    // Remembered: a new flow at each composition started collecting again
+    val diffSelected by remember(viewModel) {
+        viewModel
+            .diffSelected
+            .filterIsInstance<DiffSelected.CommitedChanges>()
+    }.collectAsState(null)
 
     CommitChangesView(
         diffSelected = diffSelected,

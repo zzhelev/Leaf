@@ -56,7 +56,8 @@ fun <T : TabInformationProvider> TabsRow(
         derivedStateOf {
             val layoutInfo = stateHorizontal.layoutInfo
             val visibleItemsInfo = layoutInfo.visibleItemsInfo
-            if (layoutInfo.totalItemsCount == 0) {
+            // Before the first layout there are items but none visible yet
+            if (layoutInfo.totalItemsCount == 0 || visibleItemsInfo.isEmpty()) {
                 false
             } else {
                 val firstVisibleItem = visibleItemsInfo.first()

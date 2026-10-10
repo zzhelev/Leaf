@@ -10,6 +10,7 @@ import dev.app.leaf.data.git.credentials.CredentialHelpers
 import dev.app.leaf.data.git.lfs.DownloadLfsObjectGitAction
 import dev.app.leaf.data.git.lfs.GetLfsObjectsGitAction
 import dev.app.leaf.data.git.lfs.ProvideLfsCredentialsGitAction
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.repositories.LfsNetworkDataSource
@@ -228,6 +229,7 @@ class HttpClientsTest {
             loginShellEnvironment = LoginShellEnvironment { emptyMap() },
             gitCli = testGitCli(),
         ),
+        appSettingsService = testAppSettings(),
     )
 
     private fun config(text: String) = Config().apply { fromText(text) }

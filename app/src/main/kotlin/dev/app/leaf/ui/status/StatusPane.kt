@@ -75,10 +75,11 @@ fun StatusPane(
     completedTasks: StateFlow<List<CompletedTask>>,
 ) {
     val swapUncommittedChanges = statusState.swapUncommittedChanges
-    val stagedListState = rememberInTab("statusStagedListState", statusState.staged) {
+    // Kept for the tab, not for the lists' contents: staging a file must not scroll the lists back to the top
+    val stagedListState = rememberInTab("statusStagedListState") {
         LazyListState()
     }
-    val unstagedListState = rememberInTab("statusUnstagedListState", statusState.unstaged) {
+    val unstagedListState = rememberInTab("statusUnstagedListState") {
         LazyListState()
     }
 
@@ -108,7 +109,8 @@ fun StatusPane(
     val canAmend = commitMessage.text.isNotEmpty() && statusState.hasPreviousCommits
     val tabFocusRequester = LocalTabFocusRequester.current
 
-    LaunchedEffect(statusState) {
+    // Only when a search opens or closes, not at each change of the state, such as each letter typed in the search
+    LaunchedEffect(statusState.showSearchUnstaged, statusState.showSearchStaged) {
         launch {
             if (statusState.showSearchUnstaged || statusState.showSearchStaged) {
                 tabFocusRequester.requestFocus()

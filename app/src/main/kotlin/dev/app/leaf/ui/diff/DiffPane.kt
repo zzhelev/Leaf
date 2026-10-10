@@ -28,11 +28,14 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.animatedImages
 import dev.app.leaf.domain.DiffMatchPatch
 import dev.app.leaf.domain.extensions.*
@@ -53,6 +56,7 @@ import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter
 import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
@@ -63,16 +67,36 @@ import org.jetbrains.compose.animatedimage.loadAnimatedImage
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.pluralStringResource
 import java.io.FileInputStream
+import java.text.NumberFormat
 import kotlin.math.max
 
 private const val MAX_MOVES_COUNT = 5
+private const val TAG = "DiffPane"
+
+/**
+ * A line of a diff is drawn up to this many characters, as in VS Code (`editor.stopRenderingLineAfter`): a minified file
+ * can have lines of hundreds of thousands, which froze the view.
+ */
+const val MAX_DIFF_LINE_CHARACTERS = 10_000
+
+/** Syntax highlighting covers this many characters of a line, as each word is looked up. */
+const val MAX_HIGHLIGHTED_LINE_CHARACTERS = 1_000
 
 @Composable
 private fun <T> loadOrNull(key: Any, action: suspend () -> T?): T? {
     var result: T? by remember(key) { mutableStateOf(null) }
-    LaunchedEffect(Unit) {
-        result = action()
+    // Keyed like the result, so that another image loads too
+    LaunchedEffect(key) {
+        result = try {
+            action()
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: Exception) {
+            printError(TAG, "Loading failed", ex)
+            null
+        }
     }
     return result
 }
@@ -132,7 +156,10 @@ fun DiffPane(
     ) {
         when (viewDiffResult) {
             is ViewDiffResult.DiffNotFound -> {
-                closeDiffView()
+                // Not during composition, which may run it more than once
+                LaunchedEffect(viewDiffResult) {
+                    closeDiffView()
+                }
             }
 
             is ViewDiffResult.Loaded -> {
@@ -399,13 +426,27 @@ private fun StaticImage(
     onOpenFileWithExternalApp: () -> Unit,
 ) {
     var image by remember(tempImagePath) { mutableStateOf<ImageBitmap?>(null) }
+    var cantDecode by remember(tempImagePath) { mutableStateOf(false) }
 
     LaunchedEffect(tempImagePath) {
-        withContext(Dispatchers.IO) {
-            FileInputStream(tempImagePath).use { inputStream ->
-                image = inputStream.readAllBytes().decodeToImageBitmap()
+        try {
+            image = withContext(Dispatchers.IO) {
+                FileInputStream(tempImagePath).use { inputStream ->
+                    inputStream.readAllBytes().decodeToImageBitmap()
+                }
             }
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: Exception) {
+            // Some files of an image type can't be decoded, such as HEIC, and the exception used to end the app
+            printError(TAG, "Can't decode the image $tempImagePath", ex)
+            cantDecode = true
         }
+    }
+
+    if (cantDecode) {
+        BinaryDiff()
+        return
     }
 
     Image(
@@ -417,9 +458,10 @@ private fun StaticImage(
                 if (safeImage == null)
                     fillMaxSize()
                 else {
-                    width(safeImage.width.dp)
-                        .height(safeImage.height.dp)
-
+                    // At most its own size, as before, and scaled down to fit the pane, keeping its shape: a large
+                    // image used to be cut off
+                    sizeIn(maxWidth = safeImage.width.dp, maxHeight = safeImage.height.dp)
+                        .aspectRatio(safeImage.width.toFloat() / safeImage.height.coerceAtLeast(1))
                 }
             }
             .handMouseClickable {
@@ -1226,8 +1268,20 @@ fun DiffText(text: String, matchLine: MatchLine?, syntaxHighlighter: SyntaxHighl
     val diffKeyword = MaterialTheme.colors.diffKeyword
     val diffAnnotation = MaterialTheme.colors.diffAnnotation
     val diffContentAdded = MaterialTheme.colors.diffContentAdded
+    val mutedColor = MaterialTheme.colors.onBackgroundSecondary
 
-    val annotatedString = remember(line) {
+    val hiddenCharacters = remember(line) { (line.shownText().length - MAX_DIFF_LINE_CHARACTERS).coerceAtLeast(0) }
+    val hiddenCharactersText = if (hiddenCharacters > 0) {
+        pluralStringResource(
+            Res.plurals.diff_line_more_characters,
+            hiddenCharacters,
+            NumberFormat.getIntegerInstance().format(hiddenCharacters),
+        )
+    } else {
+        null
+    }
+
+    val annotatedString = remember(line, hiddenCharactersText) {
         formatDiff(
             line = line,
             commentColor = diffComment,
@@ -1236,6 +1290,8 @@ fun DiffText(text: String, matchLine: MatchLine?, syntaxHighlighter: SyntaxHighl
             contentAddedColor = diffContentAdded,
             contentRemovedColor = diffContentRemoved,
             syntaxHighlighter = syntaxHighlighter,
+            hiddenCharactersText = hiddenCharactersText,
+            mutedColor = mutedColor,
         )
     }
 
@@ -1274,6 +1330,14 @@ fun emptyLineNumber(charactersCount: Int): String {
     return numberBuilder.toString()
 }
 
+/** The text of [this] line as the diff shows it, before it's cut at [MAX_DIFF_LINE_CHARACTERS]. */
+private fun MatchLine.shownText(): String =
+    diffs.joinToString("") { it.text.replaceTabs().removeLineDelimiters() }
+
+/**
+ * The line as the diff draws it. Past [MAX_DIFF_LINE_CHARACTERS] it ends with [hiddenCharactersText] in [mutedColor],
+ * and only its first [MAX_HIGHLIGHTED_LINE_CHARACTERS] are highlighted.
+ */
 fun formatDiff(
     line: MatchLine,
     commentColor: Color,
@@ -1282,6 +1346,8 @@ fun formatDiff(
     contentAddedColor: Color,
     contentRemovedColor: Color,
     syntaxHighlighter: SyntaxHighlighter,
+    hiddenCharactersText: String? = null,
+    mutedColor: Color = Color.Gray,
 ): AnnotatedString {
     val isAllSameType = line.diffs
         .filter { it.text != "\n" }
@@ -1314,11 +1380,32 @@ fun formatDiff(
         }
 
     val annotatedString = diffBuilder.toAnnotatedString()
+    val shown = if (annotatedString.length > MAX_DIFF_LINE_CHARACTERS) {
+        annotatedString.subSequence(0, MAX_DIFF_LINE_CHARACTERS)
+    } else {
+        annotatedString
+    }
+    val highlightedLength = minOf(shown.length, MAX_HIGHLIGHTED_LINE_CHARACTERS)
 
-    return syntaxHighlighter.syntaxHighlight(
-        annotatedString = annotatedString,
+    val highlighted = syntaxHighlighter.syntaxHighlight(
+        annotatedString = shown.subSequence(0, highlightedLength),
         commentColor = commentColor,
         keywordColor = keywordColor,
         annotationColor = annotationColor,
     )
+
+    if (highlightedLength == annotatedString.length) {
+        return highlighted
+    }
+
+    return buildAnnotatedString {
+        append(highlighted)
+        append(shown.subSequence(highlightedLength, shown.length))
+
+        if (shown.length < annotatedString.length && hiddenCharactersText != null) {
+            withStyle(SpanStyle(color = mutedColor)) {
+                append(" … $hiddenCharactersText")
+            }
+        }
+    }
 }

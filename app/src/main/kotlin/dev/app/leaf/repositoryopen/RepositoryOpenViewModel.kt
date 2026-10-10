@@ -49,7 +49,10 @@ import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import dev.app.leaf.viewmodels.sidepanel.*
 import kotlinx.coroutines.CoroutineScope
+import dev.app.leaf.domain.rebase.withFirstStepPicked
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -1023,7 +1026,16 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    fun onSearchValueChanged(searchTerm: String) = viewModelScope.launch {
+    /** The search for the last term typed. Each new term cancels it, so that a slower earlier search can't win. */
+    private var logSearchJob: Job? = null
+
+    fun onSearchValueChanged(searchTerm: String): Job {
+        logSearchJob?.cancel()
+
+        return viewModelScope.launch { searchLog(searchTerm) }.also { logSearchJob = it }
+    }
+
+    private suspend fun searchLog(searchTerm: String) {
         val logStatusValue = logState.value
 
         savedSearchFilter = searchTerm
@@ -1040,6 +1052,8 @@ class RepositoryOpenViewModel @Inject constructor(
             }
 
             var startingUiIndex = NONE_MATCHING_INDEX
+            // A newer term may have come while the commits were filtered
+            currentCoroutineContext().ensureActive()
 
             if (matchingCommits.isNotEmpty()) {
                 _focusCommit.emit(matchingCommits.entries.first().value)
@@ -1177,6 +1191,13 @@ class RepositoryOpenViewModel @Inject constructor(
 
             if (diff is ViewDiffResult.Loaded) {
                 addToCloseables()
+
+                // Another diff starts at its top, while a refresh of the same one, such as after staging a hunk,
+                // keeps its scroll
+                if (diff.diffType != lazyListStateDiffType) {
+                    lazyListStateDiffType = diff.diffType
+                    lazyListState.value = LazyListState(0, 0)
+                }
             }
 
             diff
@@ -1196,6 +1217,9 @@ class RepositoryOpenViewModel @Inject constructor(
             0
         )
     )
+
+    /** The diff that [lazyListState] scrolls. */
+    private var lazyListStateDiffType: DiffType? = null
 
     private suspend fun loadDiff(
         diffType: DiffType,
@@ -1331,7 +1355,8 @@ class RepositoryOpenViewModel @Inject constructor(
                     throw Exception("prepareSteps called when rebaseState is not Loaded") // Should never happen, just in case
                 }
 
-                val newSteps = rebaseState.data.toMutableList()
+                // In case a dropped step left a squash or fixup first
+                val newSteps = rebaseState.data.withFirstStepPicked().toMutableList()
                 rewordSteps = ArrayDeque(newSteps.filter { it.action == RebaseLine.Action.REWORD })
 
                 val newRebaseTodoLines = newSteps
@@ -1435,7 +1460,8 @@ class RepositoryOpenViewModel @Inject constructor(
                 add(to, removeAt(from))
             }
 
-            this.rebaseInteractiveState.value = state.copy(data = newStepsList)
+            // A squash or fixup moved to the top, or left there, becomes a pick
+            this.rebaseInteractiveState.value = state.copy(data = newStepsList.withFirstStepPicked())
         }
     }
 

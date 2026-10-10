@@ -38,6 +38,7 @@ import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.TooltipText
 import dev.app.leaf.ui.diff.HunkSplitTextDiff
 import dev.app.leaf.ui.diff.HunkUnifiedTextDiff
+import dev.app.leaf.ui.getStyledErrorText
 import dev.app.leaf.viewmodels.HistoryState
 import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.domain.models.ViewDiffResult
@@ -133,7 +134,18 @@ private fun HistoryContent(
         )
 
         is HistoryState.Loading -> Box { }
-        is HistoryState.Failed -> Box { } // TODO Show error
+        is HistoryState.Failed -> Box(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            // It was a blank pane
+            Text(
+                text = historyState.error.getStyledErrorText(),
+                color = MaterialTheme.colors.onBackground,
+                style = MaterialTheme.typography.body2,
+                modifier = Modifier.widthIn(max = 600.dp),
+            )
+        }
     }
 }
 

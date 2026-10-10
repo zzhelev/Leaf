@@ -10,8 +10,10 @@ import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IProvideLfsCredentialsGitAction
 import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.repositories.CredentialsRepository
+import dev.app.leaf.domain.services.AppSettingsService
 import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.transport.URIish
@@ -21,6 +23,7 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
     private val credentialsCacheRepository: CredentialsRepository,
     private val credentialsStateManager: CredentialsStateManager,
     private val credentialHelpers: CredentialHelpers,
+    private val appSettingsService: AppSettingsService,
 ) : IProvideLfsCredentialsGitAction {
     override suspend operator fun <T> invoke(
         repository: Repository,
@@ -113,13 +116,18 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
     /**
      * Without a helper: the credentials that Leaf cached for [url], then the user's, asked only for the password when
      * git knows the [user] name. Cached credentials that the server rejects are removed, and the ones the user typed
-     * are cached once the server takes them.
+     * are cached once the server takes them. With "Cache HTTP credentials in memory" off, the user is asked every
+     * time and nothing is cached.
      */
     private suspend fun <T> withCachedCredentials(
         url: String,
         user: String?,
         callback: suspend (username: String?, password: String?) -> Either<T, LfsError>,
     ): Either<T, LfsError> {
+        if (!appSettingsService.cacheCredentialsInMemory.first()) {
+            return askForCredentials(user, callback) { _, _ -> }
+        }
+
         val credentialsCached = credentialsCacheRepository.getCachedHttpCredentials(url, isLfs = true)
 
         if (credentialsCached != null) {

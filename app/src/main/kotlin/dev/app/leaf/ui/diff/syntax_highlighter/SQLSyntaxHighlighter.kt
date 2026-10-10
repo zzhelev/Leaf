@@ -1,7 +1,10 @@
 package dev.app.leaf.ui.diff.syntax_highlighter
 
 class SQLSyntaxHighlighter : SyntaxHighlighter() {
-    override fun loadKeywords(): List<String> = listOf(
+    // SQL ignores case, and lower case keywords are common
+    override fun loadKeywords(): List<String> = sqlKeywords.flatMap { listOf(it, it.lowercase()) }
+
+    private val sqlKeywords = listOf(
         "ABORT",
         "ABORTSESSION",
         "ABS",

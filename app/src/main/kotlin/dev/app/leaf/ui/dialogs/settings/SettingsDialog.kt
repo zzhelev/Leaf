@@ -24,7 +24,6 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.Error
-import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -111,22 +110,10 @@ val settings = listOf(
     },
 
     SettingsEntry.Section(Res.string.settings_section_network),
-    SettingsEntry.Entry(Res.drawable.network, Res.string.settings_entry_proxy) { state, onAction ->
-        Proxy(
-            state,
-            onAction
-        )
-    },
     SettingsEntry.Entry(
         Res.drawable.password,
         Res.string.settings_entry_auth
     ) { state, onAction -> Authentication(state, onAction) },
-    SettingsEntry.Entry(Res.drawable.security, Res.string.settings_entry_security) { state, onAction ->
-        Security(
-            state,
-            onAction
-        )
-    },
 
     SettingsEntry.Section(Res.string.settings_section_tools),
     SettingsEntry.Entry(Res.drawable.terminal, Res.string.settings_entry_terminal) { state, onAction ->
@@ -242,88 +229,6 @@ fun SettingsDialog(
 }
 
 @Composable
-fun Proxy(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
-    val useProxy = settingsViewState.useProxy
-    val proxyUseAuth = settingsViewState.proxyUseAuth
-
-    val proxyTypes = listOf(ProxyType.HTTP, ProxyType.SOCKS)
-    val proxyTypesDropDownOptions = proxyTypes.map { DropDownOption(it, it.name) }
-
-    Column {
-        SettingToggle(
-            title = "Use proxy",
-            subtitle = "Set up your proxy configuration if needed",
-            value = useProxy,
-            onValueChanged = {
-                onAction(SettingsAction.SetConfig(AppConfig.UseProxy(it)))
-            },
-        )
-
-        SettingDropDown(
-            title = "Proxy type",
-            subtitle = "Pick between HTTP or SOCKS",
-            dropDownOptions = proxyTypesDropDownOptions,
-            currentOption = settingsViewState.proxyType,
-            onOptionSelected = {
-                onAction(SettingsAction.SetConfig(AppConfig.ProxyProxyType(it.value)))
-            }
-        )
-
-        SettingTextInput(
-            title = "Host name",
-            subtitle = "",
-            value = settingsViewState.proxyHostName.orEmpty(),
-            enabled = useProxy,
-            onValueChanged = {
-                onAction(SettingsAction.SetConfig(AppConfig.ProxyHostName(it)))
-            },
-        )
-
-        SettingIntInput(
-            title = "Port number",
-            subtitle = "",
-            value = settingsViewState.proxyPortNumber ?: 0,
-            onValueChanged = {
-                onAction(SettingsAction.SetConfig(AppConfig.ProxyPortNumber(it)))
-            },
-            enabled = useProxy,
-        )
-
-        SettingToggle(
-            title = "Proxy authentication",
-            subtitle = "Use your credentials to provide your identity the proxy server",
-            value = proxyUseAuth,
-            onValueChanged = {
-                onAction(SettingsAction.SetConfig(AppConfig.ProxyUseAuth(it)))
-            }
-        )
-
-        SettingTextInput(
-            title = "Login",
-            subtitle = "",
-            value = settingsViewState.proxyHostUser.orEmpty(),
-            enabled = useProxy && proxyUseAuth,
-            onValueChanged = {
-                onAction(SettingsAction.SetConfig(AppConfig.ProxyHostPassword(it)))
-            },
-        )
-
-
-        SettingTextInput(
-            title = "Password",
-            subtitle = "",
-            value = settingsViewState.proxyHostPassword.orEmpty(),
-            enabled = useProxy && proxyUseAuth,
-            isPassword = true,
-            onValueChanged = {
-                onAction(SettingsAction.SetConfig(AppConfig.ProxyHostPassword(it)))
-            },
-        )
-
-    }
-}
-
-@Composable
 private fun Entry(icon: DrawableResource, name: String, isSelected: Boolean, onClick: () -> Unit) {
     val backgroundColor = if (isSelected)
         MaterialTheme.colors.backgroundSelected
@@ -433,20 +338,6 @@ private fun Authentication(settingsViewState: SettingsViewState, onAction: (Sett
         value = cacheCredentialsInMemory,
         onValueChanged = { value ->
             onAction(SettingsAction.SetConfig(AppConfig.CacheCredentialsInMemory(value)))
-        }
-    )
-}
-
-@Composable
-private fun Security(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
-    val verifySsl = settingsViewState.verifySsl
-
-    SettingToggle(
-        title = "Do not verify SSL security",
-        subtitle = "If active, you may connect to the remote server via insecure HTTPS connection",
-        value = !verifySsl,
-        onValueChanged = { value ->
-            onAction(SettingsAction.SetConfig(AppConfig.CacheCredentialsInMemory(!value)))
         }
     )
 }
@@ -666,7 +557,8 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
     if (currentTheme == Theme.Custom) {
         val scope = rememberCoroutineScope()
         var themeJson by remember { mutableStateOf(customTheme.orEmpty()) }
-        var themeJob: Job? = null
+        // Remembered, so that each keystroke cancels the save that the one before scheduled
+        var themeJob by remember { mutableStateOf<Job?>(null) }
 
         SettingTextInput(
             title = "Custom theme",
@@ -699,45 +591,34 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
     )
 
     val density = LocalDensity.current.density
-    var options by remember {
-        mutableStateOf(
-            listOf(
-                DropDownOption(0.75f, "75%"),
-                DropDownOption(1f, "100%"),
-                DropDownOption(1.25f, "125%"),
-                DropDownOption(1.5f, "150%"),
-                DropDownOption(1.75f, "175%"),
-                DropDownOption(2f, "200%"),
-                DropDownOption(2.25f, "225%"),
-                DropDownOption(2.5f, "250%"),
-                DropDownOption(2.75f, "275%"),
-                DropDownOption(3f, "300%"),
-            )
+    // Follows the setting, so that the dropdown shows the scale just picked
+    val scaleUi = settingsViewState.scaleUi ?: density
+    val options = remember(scaleUi) {
+        val standardOptions = listOf(
+            DropDownOption(0.75f, "75%"),
+            DropDownOption(1f, "100%"),
+            DropDownOption(1.25f, "125%"),
+            DropDownOption(1.5f, "150%"),
+            DropDownOption(1.75f, "175%"),
+            DropDownOption(2f, "200%"),
+            DropDownOption(2.25f, "225%"),
+            DropDownOption(2.5f, "250%"),
+            DropDownOption(2.75f, "275%"),
+            DropDownOption(3f, "300%"),
         )
-    }
 
-    var scaleValue by remember {
-        val scaleUi = settingsViewState.scaleUi ?: density
-
-        var matchingOption = options.firstOrNull { it.value == scaleUi }
-
-        if (matchingOption == null) { // Scale that we haven't taken in consideration
-            // Create a new scale and add it to the options list
-            matchingOption = DropDownOption(scaleUi, "${(scaleUi * 100).toInt()}%")
-            val newOptions = options.toMutableList()
-            newOptions.add(matchingOption)
-            newOptions.sortBy { it.value }
-            options = newOptions
+        if (standardOptions.any { it.value == scaleUi }) {
+            standardOptions
+        } else { // A scale that the list doesn't have, such as the screen's own
+            (standardOptions + DropDownOption(scaleUi, "${(scaleUi * 100).toInt()}%")).sortedBy { it.value }
         }
-
-        mutableStateOf(matchingOption)
     }
 
     SettingDropDown(
         title = "Scale",
         subtitle = "Adapt the size the UI to your preferred scale",
         dropDownOptions = options,
-        currentOption = scaleValue.value,
+        currentOption = scaleUi,
         onOptionSelected = { newValue ->
             onAction(SettingsAction.SetConfig(AppConfig.ScaleUi(newValue.value)))
         }

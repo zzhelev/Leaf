@@ -146,7 +146,7 @@ fun IconBasedDialog(
                                 actionsFocusRequester != null &&
                                 beforeActionsFocusRequester != null
                             ) {
-                                this.focusRequester(cancelButtonFocusRequester)
+                                this.focusRequester(actionsFocusRequester)
                                     .focusProperties {
                                         this.previous = beforeActionsFocusRequester
                                         this.next = cancelButtonFocusRequester

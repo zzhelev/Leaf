@@ -6,6 +6,7 @@ package dev.app.leaf.data.git.lfs
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.cli.remote.FakeLfsServer
 import dev.app.leaf.data.git.credentials.CredentialHelpers
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.network.createHttpClient
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
@@ -149,6 +150,7 @@ class DownloadLfsObjectGitActionTest {
                     loginShellEnvironment = LoginShellEnvironment { emptyMap() },
                     gitCli = testGitCli(),
                 ),
+                appSettingsService = testAppSettings(),
             ),
         )
         val lfsObject = LfsObject(

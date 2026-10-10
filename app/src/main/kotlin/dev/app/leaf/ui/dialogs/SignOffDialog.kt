@@ -61,6 +61,8 @@ fun SignOffDialog(
         title = "Edit sign-off",
         subtitle = "Enable or disable the sign-off or adjust its format",
         primaryActionText = "Save",
+        // Saving before the config is read would overwrite it with an empty format
+        isPrimaryActionEnabled = state is SignOffState.Loaded,
         showCancelAction = false,
         onDismiss = onDismiss,
         onPrimaryActionClicked = {

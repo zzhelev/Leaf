@@ -43,9 +43,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.printLog
+import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.BranchesConstants.LOCAL_PREFIX_LENGTH
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
@@ -553,8 +555,20 @@ fun CommitsList(
     val clipboard = LocalClipboard.current
     var hasToScrollIfUncommittedChangesAppear by remember { mutableStateOf(false) }
 
-    LaunchedEffect(commitList.commits.keys.firstOrNull().orEmpty()) {
-        if (commitList.commits.isNotEmpty() || hasToScrollIfUncommittedChangesAppear) {
+    val firstCommitKey = commitList.commits.keys.firstOrNull().orEmpty()
+    // The first commit when the log was last shown, kept for the tab. Showing the log again, such as after closing a
+    // diff, must leave it where it was; only a new commit at the top scrolls it there.
+    val lastFirstCommitKey = rememberInTab("logLastFirstCommitKey") { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(firstCommitKey) {
+        val previousFirstCommitKey = lastFirstCommitKey.value
+        lastFirstCommitKey.value = firstCommitKey
+
+        if (
+            previousFirstCommitKey != null &&
+            previousFirstCommitKey != firstCommitKey &&
+            (commitList.commits.isNotEmpty() || hasToScrollIfUncommittedChangesAppear)
+        ) {
             scrollState.scrollToItem(0)
         }
     }
@@ -608,7 +622,7 @@ fun CommitsList(
                     UncommittedChangesGraphNode(
                         hasPreviousCommits = commitList.commits.isNotEmpty(),
                         isSelected = selectedItem is SelectedItem.UncommittedChanges,
-                        modifier = Modifier.offset(-horizontalScrollState.value.dp)
+                        modifier = Modifier.offset { IntOffset(-horizontalScrollState.value, 0) }
                     )
 
                     UncommittedChangesLine(
@@ -954,7 +968,9 @@ private fun CommitLine(
                         .clipToBounds()
                         .fillMaxHeight()
                         .fillMaxWidth()
-                        .offset(-horizontalScrollState.value.dp)
+                        // In pixels, as the scroll state's value is: as dp, the graph moved twice as far as the
+                        // scroll bar on a 2x screen
+                        .offset { IntOffset(-horizontalScrollState.value, 0) }
                 ) {
                     CommitsGraph(
                         modifier = Modifier

@@ -8,7 +8,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -133,7 +132,8 @@ fun ErrorDialog(
                     ) {
                         IconButton(
                             onClick = {
-                                copyMessageError(clipboard, Exception(error.reason.toString()))
+                                // The stack trace shown, not one made here
+                                clipboard.setText(AnnotatedString(errorStackTrace))
                             },
                             modifier = Modifier
                                 .size(24.dp)
@@ -185,10 +185,6 @@ private fun worktreeToSwitchTo(reason: AppError): String? {
     val path = (reason as? CheckoutBranchError.BranchUsedByWorktree)?.worktreePath ?: return null
 
     return path.takeIf { File(it).isDirectory }
-}
-
-fun copyMessageError(clipboard: ClipboardManager, ex: Exception) {
-    clipboard.setText(AnnotatedString(ex.stackTraceToString()))
 }
 
 fun TaskType.errorTitle(): String {

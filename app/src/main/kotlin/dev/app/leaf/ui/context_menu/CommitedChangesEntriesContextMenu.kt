@@ -12,25 +12,26 @@ fun committedChangesEntriesContextMenuItems(
     onOpenFileInFolder: () -> Unit,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
-        if (diffEntry.changeType != DiffEntry.ChangeType.ADD ||
-            diffEntry.changeType != DiffEntry.ChangeType.DELETE
-        ) {
+        // Blame reads the file as it is now, which a deleted file doesn't have. The condition before, "not added or
+        // not deleted", was always true.
+        if (diffEntry.changeType != DiffEntry.ChangeType.DELETE) {
             addContextMenu(
                 composableLabel = { stringResource(Res.string.committed_changes_context_menu_blame_file) },
                 icon = { painterResource(Res.drawable.blame) },
                 onClick = onBlame,
             )
-            addContextMenu(
-                composableLabel = { stringResource(Res.string.committed_changes_context_menu_file_history) },
-                icon = { painterResource(Res.drawable.history) },
-                onClick = onHistory,
-            )
-
-            addContextMenu(
-                composableLabel = { stringResource(Res.string.committed_changes_context_menu_open_file_in_folder) },
-                icon = { painterResource(Res.drawable.folder_open) },
-                onClick = onOpenFileInFolder,
-            )
         }
+
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.committed_changes_context_menu_file_history) },
+            icon = { painterResource(Res.drawable.history) },
+            onClick = onHistory,
+        )
+
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.committed_changes_context_menu_open_file_in_folder) },
+            icon = { painterResource(Res.drawable.folder_open) },
+            onClick = onOpenFileInFolder,
+        )
     }
 }

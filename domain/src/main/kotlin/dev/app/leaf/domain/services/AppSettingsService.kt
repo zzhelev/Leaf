@@ -5,7 +5,6 @@ import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.LogColumnsSettings
-import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -65,14 +64,6 @@ class AppSettingsService @Inject constructor(
         get() = appSettingsRepository.worktreesRefreshInterval.defaultIfNull {
             WorktreesRefreshIntervals.DEFAULT_SECONDS
         }
-    val useProxy: Flow<Boolean> get() = appSettingsRepository.useProxy.defaultIfNull { DEFAULT_USE_PROXY }
-    val proxyUseAuth: Flow<Boolean> get() = appSettingsRepository.proxyUseAuth.defaultIfNull { DEFAULT_PROXY_USE_AUTH }
-    val proxyType: Flow<ProxyType> get() = appSettingsRepository.proxyType.defaultIfNull { DEFAULT_PROXY_TYPE }
-    val proxyHostName: Flow<String?> get() = appSettingsRepository.proxyHostName
-    val proxyPortNumber: Flow<Int?> get() = appSettingsRepository.proxyPortNumber
-    val proxyHostUser: Flow<String?> get() = appSettingsRepository.proxyHostUser
-    val proxyHostPassword: Flow<String?> get() = appSettingsRepository.proxyHostPassword
-    val verifySsl: Flow<Boolean> get() = appSettingsRepository.verifySsl.defaultIfNull { DEFAULT_VERIFY_SSL }
     val cacheCredentialsInMemory: Flow<Boolean> get() = appSettingsRepository.cacheCredentialsInMemory.defaultIfNull { DEFAULT_CACHE_CREDENTIALS_IN_MEMORY }
     val terminalPath: Flow<String?> get() = appSettingsRepository.terminalPath
 
@@ -93,10 +84,6 @@ class AppSettingsService @Inject constructor(
         const val DEFAULT_REMOTE_OPERATIONS_WITH_GIT = true
         const val DEFAULT_FAST_FORWARD_MERGE = true
         const val DEFAULT_AUTO_STASH_ON_MERGE = true
-        const val DEFAULT_USE_PROXY = false
-        const val DEFAULT_PROXY_USE_AUTH = false
-        val DEFAULT_PROXY_TYPE = ProxyType.HTTP
-        const val DEFAULT_VERIFY_SSL = true
         const val DEFAULT_CACHE_CREDENTIALS_IN_MEMORY = true
     }
 }

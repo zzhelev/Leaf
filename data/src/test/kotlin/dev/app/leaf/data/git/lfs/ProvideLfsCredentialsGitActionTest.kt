@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.lfs
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.credentials.CredentialHelpers
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
@@ -382,6 +383,22 @@ class ProvideLfsCredentialsGitActionTest {
     }
 
     @Test
+    fun `without a helper and with the in-memory cache off, the user is asked and nothing is cached`() {
+        cacheInMemory(Answer("cached-user", "cached-password"))
+        val server = FakeServer(accepts = Answer("user", "password"))
+
+        val result = provideCredentials(
+            server,
+            prompts = listOf(Answer("user", "password")),
+            cacheCredentialsInMemory = false,
+        )
+
+        assertEquals(Either.Ok("objects"), result)
+        assertEquals(listOf(null, Answer("user", "password")), server.attempts)
+        assertEquals(Answer("cached-user", "cached-password"), cachedInMemory())
+    }
+
+    @Test
     fun `without a helper, cached credentials that the server takes are used without asking`() {
         cacheInMemory(Answer("user", "password"))
         val server = FakeServer(accepts = Answer("user", "password"))
@@ -486,6 +503,7 @@ class ProvideLfsCredentialsGitActionTest {
         server: FakeServer,
         prompts: List<Answer?> = emptyList(),
         lfsServer: LfsServer = LfsServer(LFS_URL, REMOTE_URL),
+        cacheCredentialsInMemory: Boolean = true,
     ): Either<String, LfsError> = runBlocking {
         val action = ProvideLfsCredentialsGitAction(
             credentialsCacheRepository = credentialsCache,
@@ -496,6 +514,7 @@ class ProvideLfsCredentialsGitActionTest {
                 loginShellEnvironment = LoginShellEnvironment { shellVariables },
                 gitCli = testGitCli(shellVariables),
             ),
+            appSettingsService = testAppSettings(cacheCredentialsInMemory),
         )
 
         val responder = launch(Dispatchers.Default) {

@@ -88,6 +88,23 @@ data class StatusState(
     val changedFilesCount = (staged + unstaged).map { it.filePath }.distinct().count()
 }
 
+/**
+ * What the Staged and Unstaged panes list. Built apart from the rest of [StatusState], so that what changes often, such
+ * as each letter typed in the commit message, doesn't sort and group every changed file again.
+ */
+private class StatusLists(
+    val statusDataState: UiDataState<Status>,
+    val staged: List<StatusEntry>,
+    val unstaged: List<StatusEntry>,
+    val stagedRows: List<FileRow<StatusEntry>>,
+    val unstagedRows: List<FileRow<StatusEntry>>,
+    val showSearchStaged: Boolean,
+    val searchFilterStaged: TextFieldValue,
+    val showSearchUnstaged: Boolean,
+    val searchFilterUnstaged: TextFieldValue,
+    val viewState: FilesViewState,
+)
+
 fun combineStatusState(
     status: Flow<UiDataState<Status>>,
     showSearchStaged: MutableStateFlow<Boolean>,
@@ -110,7 +127,7 @@ fun combineStatusState(
     repositoryPath: Flow<String?>,
     sectionSizes: Flow<StatusSectionSizes>,
 ): Flow<StatusState> {
-    return combine(
+    val lists = combine(
         status,
         showSearchStaged,
         searchFilterStaged,
@@ -119,18 +136,6 @@ fun combineStatusState(
         viewState,
         stagedCollapsedFolders,
         unstagedCollapsedFolders,
-        swapUncommittedChanges,
-        isAmend,
-        isAmendRebaseInteractive,
-        committerDataRequestState,
-        rebaseInteractiveState,
-        selectedUnstagedDiffEntries,
-        selectedStagedDiffEntries,
-        commitMessage,
-        previousCommitMessage,
-        repositoryState,
-        repositoryPath,
-        sectionSizes,
     ) {
             statusDataState,
             showSearchStaged,
@@ -140,28 +145,13 @@ fun combineStatusState(
             viewState,
             stagedCollapsedFolders,
             unstagedCollapsedFolders,
-            swapUncommittedChanges,
-            isAmend,
-            isAmendRebaseInteractive,
-            committerDataRequestState,
-            rebaseInteractiveState,
-            selectedUnstagedDiffEntries,
-            selectedStagedDiffEntries,
-            commitMessage,
-            previousCommitMessage,
-            repositoryStateDateState,
-            repositoryPath,
-            sectionSizes,
         ->
         val status = statusDataState.data ?: Status()
-        val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val staged = status.staged.prioritizeConflicts()
         val unstaged = status.unstaged.prioritizeConflicts()
 
-        val isLoading = statusDataState.isLoading || repositoryStateDateState.isLoading
-
-        StatusState(
-            isLoading = isLoading,
+        StatusLists(
+            statusDataState = statusDataState,
             staged = staged,
             unstaged = unstaged,
             stagedRows = statusPaneRows(
@@ -176,6 +166,52 @@ fun combineStatusState(
                 searchFilter = activeSearch(showSearchUnstaged, searchFilterUnstaged),
                 unstagedCollapsedFolders,
             ),
+            showSearchStaged = showSearchStaged,
+            searchFilterStaged = searchFilterStaged,
+            showSearchUnstaged = showSearchUnstaged,
+            searchFilterUnstaged = searchFilterUnstaged,
+            viewState = viewState,
+        )
+    }
+
+    return combine(
+        lists,
+        swapUncommittedChanges,
+        isAmend,
+        isAmendRebaseInteractive,
+        committerDataRequestState,
+        rebaseInteractiveState,
+        selectedUnstagedDiffEntries,
+        selectedStagedDiffEntries,
+        commitMessage,
+        previousCommitMessage,
+        repositoryState,
+        repositoryPath,
+        sectionSizes,
+    ) {
+            lists,
+            swapUncommittedChanges,
+            isAmend,
+            isAmendRebaseInteractive,
+            committerDataRequestState,
+            rebaseInteractiveState,
+            selectedUnstagedDiffEntries,
+            selectedStagedDiffEntries,
+            commitMessage,
+            previousCommitMessage,
+            repositoryStateDateState,
+            repositoryPath,
+            sectionSizes,
+        ->
+        val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
+        val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
+
+        StatusState(
+            isLoading = isLoading,
+            staged = lists.staged,
+            unstaged = lists.unstaged,
+            stagedRows = lists.stagedRows,
+            unstagedRows = lists.unstagedRows,
             swapUncommittedChanges = swapUncommittedChanges,
             isAmend = isAmend,
             isAmendRebaseInteractive = isAmendRebaseInteractive,
@@ -183,11 +219,11 @@ fun combineStatusState(
             rebaseInteractiveState = rebaseInteractiveState,
             selectedUnstagedDiffEntries = selectedUnstagedDiffEntries,
             selectedStagedDiffEntries = selectedStagedDiffEntries,
-            showSearchStaged = showSearchStaged,
-            searchFilterStaged = searchFilterStaged,
-            showSearchUnstaged = showSearchUnstaged,
-            searchFilterUnstaged = searchFilterUnstaged,
-            viewState = viewState,
+            showSearchStaged = lists.showSearchStaged,
+            searchFilterStaged = lists.searchFilterStaged,
+            showSearchUnstaged = lists.showSearchUnstaged,
+            searchFilterUnstaged = lists.searchFilterUnstaged,
+            viewState = lists.viewState,
             commitMessage = commitMessage,
             previousCommitMessage = previousCommitMessage,
             repositoryState = repositoryState,

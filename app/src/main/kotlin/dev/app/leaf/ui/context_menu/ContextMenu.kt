@@ -115,16 +115,18 @@ fun DropDownMenuText(
 }
 
 
+/** Where an element is, which isn't a state: elements move at every frame of a scroll, and a state would recompose them. */
+private class ElementPosition(var offsetToRoot: Offset? = null)
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun Modifier.contextMenu(enabled: Boolean, items: () -> List<ContextMenuElement>): Modifier {
-    val (mouseOffset, setMouseOffset) = remember { mutableStateOf<Offset?>(null) }
-    val (elementPosition, setElementPosition) = remember { mutableStateOf<Offset?>(null) }
+    val (popupPosition, setPopupPosition) = remember { mutableStateOf<Offset?>(null) }
+    val elementPosition = remember { ElementPosition() }
 
     val modifier = this
         .onGloballyPositioned { layoutCoordinates ->
-            val offsetToRoot = layoutCoordinates.localToRoot(Offset.Zero)
-            setElementPosition(offsetToRoot)
+            elementPosition.offsetToRoot = layoutCoordinates.localToRoot(Offset.Zero)
         }
         .pointerInput(items, enabled) {
             awaitEachGesture {
@@ -138,22 +140,22 @@ private fun Modifier.contextMenu(enabled: Boolean, items: () -> List<ContextMenu
                     } else {
                         lastCheck = currentCheck
                         event.changes.forEach { it.consume() }
-                        setMouseOffset(event.changes[0].position)
+                        elementPosition.offsetToRoot?.let { setPopupPosition(it + event.changes[0].position) }
                     }
                 }
             }
         }
 
-    if (mouseOffset != null && elementPosition != null) {
+    if (popupPosition != null) {
         val contextMenuElements = items()
         if (contextMenuElements.isNotEmpty()) {
             DisableSelection {
                 showPopup(
                     showIcons = true,
-                    x = (elementPosition.x + mouseOffset.x).toInt(),
-                    y = (elementPosition.y + mouseOffset.y).toInt(),
+                    x = popupPosition.x.toInt(),
+                    y = popupPosition.y.toInt(),
                     contextMenuElements = contextMenuElements,
-                    onDismissRequest = { setMouseOffset(null) },
+                    onDismissRequest = { setPopupPosition(null) },
                 )
             }
         }

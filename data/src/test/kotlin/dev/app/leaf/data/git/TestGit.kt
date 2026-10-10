@@ -41,6 +41,13 @@ fun testGitCli(shellVariables: Map<String, String> = emptyMap(), configuredPath:
     )
 }
 
+/** Leaf's settings for tests, with "Cache HTTP credentials in memory" set to [cacheCredentialsInMemory]. */
+fun testAppSettings(cacheCredentialsInMemory: Boolean = true) = AppSettingsService(
+    mockk<AppSettingsRepository> {
+        every { this@mockk.cacheCredentialsInMemory } returns flowOf(cacheCredentialsInMemory)
+    }
+)
+
 /**
  * Points JGit's user, system and JGit config files to [configDir], keeping the developer's own config out of tests.
  * Install it with [SystemReader.setInstance] and restore the previous instance after the test.

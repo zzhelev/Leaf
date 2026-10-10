@@ -11,13 +11,6 @@ sealed interface AppConfig {
     data class PushWithLease(val value: Boolean) : AppConfig
     data class FastForwardMerge(val value: Boolean) : AppConfig
     data class AutoStashOnMerge(val value: Boolean) : AppConfig
-    data class UseProxy(val value: Boolean) : AppConfig
-    data class ProxyUseAuth(val value: Boolean) : AppConfig
-    data class ProxyProxyType(val value: ProxyType) : AppConfig
-    data class ProxyHostName(val value: String) : AppConfig
-    data class ProxyPortNumber(val value: Int) : AppConfig
-    data class ProxyHostUser(val value: String) : AppConfig
-    data class ProxyHostPassword(val value: String) : AppConfig
     data class DateFormatUseDefault(val value: Boolean) : AppConfig
     data class DateFormatCustomFormat(val value: String) : AppConfig
     data class DateFormatIs24h(val value: Boolean) : AppConfig

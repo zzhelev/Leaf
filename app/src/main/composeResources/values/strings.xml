@@ -275,6 +275,10 @@
         <item quantity="other">%1$d new files are kept.</item>
     </plurals>
     <string name="discard_folder_dialog_discard">Discard</string>
+    <plurals name="diff_line_more_characters">
+        <item quantity="one">%1$s more character</item>
+        <item quantity="other">%1$s more characters</item>
+    </plurals>
 
     <!-- Delete branch and tag dialogs -->
     <string name="delete_branch_dialog_title">Delete branch</string>
@@ -411,9 +415,7 @@
     <string name="settings_entry_remote_actions">Remote actions</string>
     <string name="settings_entry_worktrees">Worktrees</string>
     <string name="settings_section_network">Network</string>
-    <string name="settings_entry_proxy">Proxy</string>
     <string name="settings_entry_auth">Authentication</string>
-    <string name="settings_entry_security">Security</string>
     <string name="settings_section_tools">Tools</string>
     <string name="settings_entry_terminal">Terminal</string>
     <string name="settings_entry_logs">Logs</string>

@@ -3,7 +3,6 @@ package dev.app.leaf.domain.repositories
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
-import dev.app.leaf.domain.models.ProxyType
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.StatusSectionSizes
@@ -45,14 +44,6 @@ interface AppSettingsRepository {
     val worktreesRefreshInterval: Flow<Int?>
 
     // Network
-    val useProxy: Flow<Boolean?>
-    val proxyUseAuth: Flow<Boolean?>
-    val proxyType: Flow<ProxyType?>
-    val proxyHostName: Flow<String?>
-    val proxyPortNumber: Flow<Int?>
-    val proxyHostUser: Flow<String?>
-    val proxyHostPassword: Flow<String?>
-    val verifySsl: Flow<Boolean?>
     val cacheCredentialsInMemory: Flow<Boolean?>
 
     // Tools

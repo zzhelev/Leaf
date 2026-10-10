@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpServer
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.remote_operations.HandleTransportGitAction
 import dev.app.leaf.data.git.remote_operations.NoSshSessionFactory
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
@@ -688,6 +689,17 @@ class HttpCredentialsProviderTest {
     }
 
     @Test
+    fun `without a helper and with the in-memory cache off, the cache is neither read nor filled`() {
+        cacheInMemory(Answer("cached-user", "cached-password"))
+        val provider = createProvider(helper = null, cacheCredentialsInMemory = false)
+
+        assertEquals(Answer("prompted-user", "prompted-password"), provider.requestCredentials(serverAccepts = true))
+        runBlocking { provider.cacheCredentialsIfNeeded() }
+
+        assertEquals(Answer("cached-user", "cached-password"), cachedInMemory())
+    }
+
+    @Test
     fun `with a helper, the in-memory cache is neither read nor changed`() {
         cacheInMemory(Answer("cached-user", "cached-password"))
         createRecordingHelper(answer = Answer("helper-user", "helper-password"))
@@ -790,6 +802,7 @@ class HttpCredentialsProviderTest {
         shellManager: IShellManager = ShellManager(),
         useHttpPath: Boolean = false,
         inRepository: Boolean = true,
+        cacheCredentialsInMemory: Boolean = true,
         configure: Config.() -> Unit = {},
     ): HttpCredentialsProvider {
         val git = if (inRepository) Git.init().setDirectory(File(tempDir, "repository")).call() else null
@@ -804,6 +817,7 @@ class HttpCredentialsProviderTest {
 
         return HttpCredentialsProvider(
             credentialsStateManager = credentialsStateManager,
+            appSettingsService = testAppSettings(cacheCredentialsInMemory),
             credentialsCacheRepository = credentialsCache,
             credentialHelpers = CredentialHelpers(
                 shellManager = shellManager,

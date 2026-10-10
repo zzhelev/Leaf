@@ -40,5 +40,5 @@ class PythonSyntaxHighlighter : SyntaxHighlighter() {
     )
 
     override fun isAnnotation(word: String): Boolean = word.startsWith("@")
-    override fun isComment(line: String): Boolean = line.startsWith("//")
+    override fun isComment(line: String): Boolean = line.startsWith("#")
 }

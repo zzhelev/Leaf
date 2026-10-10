@@ -145,7 +145,6 @@ class App @Inject constructor(
         logsRepository.initLogging()
         // In the background, so that the shell has usually finished before the first hook needs its PATH
         loginShellEnvironment.prewarm()
-        initProxySettings()
 
         Signers.set(GpgConfig.GpgFormat.OPENPGP, gpgSigner)
         Signers.set(GpgConfig.GpgFormat.SSH, sshSigner)
@@ -307,22 +306,6 @@ class App @Inject constructor(
 
             System.load(leafRsFile.absolutePath)
         } ?: throw Exception("LeafRs native dependency not found")
-    }
-
-    private fun initProxySettings() {
-        // TODO Reenable this in domain layer
-        /*appStateManager.appScope.launch {
-            appSettingsRepository.proxyFlow.collect { proxySettings ->
-                if (proxySettings.useProxy) {
-                    when (proxySettings.proxyType) {
-                        ProxyType.HTTP -> setHttpProxy(proxySettings)
-                        ProxyType.SOCKS -> setSocksProxy(proxySettings)
-                    }
-                } else {
-                    clearProxySettings()
-                }
-            }
-        }*/
     }
 
     private suspend fun addDirTab(dirToOpen: File) {

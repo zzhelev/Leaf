@@ -9,10 +9,12 @@ import dev.app.leaf.domain.extensions.removeLineDelimiters
 import dev.app.leaf.theme.diffAnnotation
 import dev.app.leaf.theme.diffComment
 import dev.app.leaf.theme.diffKeyword
+import java.util.concurrent.ConcurrentHashMap
 
 abstract class SyntaxHighlighter {
-    private val keywords: List<String> by lazy {
-        loadKeywords()
+    // A set: each word of each line shown is looked up, and SQL has about 900 keywords
+    private val keywords: Set<String> by lazy {
+        loadKeywords().toSet()
     }
 
     fun syntaxHighlight(
@@ -124,12 +126,16 @@ abstract class SyntaxHighlighter {
     abstract fun loadKeywords(): List<String>
 }
 
+/** One highlighter per language, shared by every line shown, as each one builds its set of keywords. */
+private val highlighters = ConcurrentHashMap<HighlightLanguagesSupported, SyntaxHighlighter>()
+private val defaultHighlighter = DefaultSyntaxHighlighter()
+
 fun getSyntaxHighlighterFromExtension(extension: String?): SyntaxHighlighter {
     val matchingHighlightLanguage = HighlightLanguagesSupported.entries.firstOrNull { language ->
         language.extensions.contains(extension)
-    }
+    } ?: return defaultHighlighter
 
-    return matchingHighlightLanguage?.highlighter?.invoke() ?: DefaultSyntaxHighlighter()
+    return highlighters.getOrPut(matchingHighlightLanguage) { matchingHighlightLanguage.highlighter() }
 }
 
 private enum class HighlightLanguagesSupported(val extensions: List<String>, val highlighter: () -> SyntaxHighlighter) {
