@@ -61,6 +61,12 @@ class InMemoryRepositoryStateRepository @Inject constructor() : RepositoryStateR
         )
     }
 
+    override suspend fun addCompletedTaskWithConflicts(completedTask: TaskType) {
+        addCompletedTask(
+            CompletedTask.Success(System.currentTimeMillis(), completedTask, stoppedAtConflicts = true)
+        )
+    }
+
     override suspend fun addCompletedTaskFailed(
         completedTask: TaskType,
         reason: AppError,

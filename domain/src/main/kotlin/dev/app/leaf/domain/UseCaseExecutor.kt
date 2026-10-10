@@ -59,11 +59,16 @@ class UseCaseExecutor @Inject constructor(
         }
     }
 
+    /**
+     * [stoppedAtConflicts] tells from the task's result that it left conflicts to resolve (fork-only), such as a merge
+     * that stopped at them. Its toast then warns, instead of saying that the task completed.
+     */
     fun <T> executeLaunch(
         taskType: TaskType,
         dataToRefresh: Array<DataToRefresh>,
         refreshEvenIfFailed: Boolean = false,
         isForegroundTask: Boolean = true,
+        stoppedAtConflicts: (T) -> Boolean = { false },
         block: suspend EitherContext<AppError>.(String) -> Either<T, AppError>,
     ): Job {
         return repositoryStateRepository.runOperationInTabScope(taskType, scope, isForegroundTask) {
@@ -72,6 +77,7 @@ class UseCaseExecutor @Inject constructor(
                 dataToRefresh,
                 refreshEvenIfFailed,
                 block,
+                stoppedAtConflicts,
             )
         }
     }
@@ -98,6 +104,7 @@ class UseCaseExecutor @Inject constructor(
         dataToRefresh: Array<DataToRefresh>,
         refreshEvenIfFailed: Boolean = false,
         block: suspend EitherContext<AppError>.(String) -> Either<T, AppError>,
+        stoppedAtConflicts: (T) -> Boolean = { false },
     ): Either<T, AppError> {
         return executeTask(
             dataToRefresh = dataToRefresh,
@@ -111,7 +118,11 @@ class UseCaseExecutor @Inject constructor(
                     FailureSeverity.HIGH,
                 )
 
-                is Either.Ok -> repositoryStateRepository.addCompletedTaskSuccessfully(taskType)
+                is Either.Ok -> if (stoppedAtConflicts(this.value)) {
+                    repositoryStateRepository.addCompletedTaskWithConflicts(taskType)
+                } else {
+                    repositoryStateRepository.addCompletedTaskSuccessfully(taskType)
+                }
             }
         }
     }

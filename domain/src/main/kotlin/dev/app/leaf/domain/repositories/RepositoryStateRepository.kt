@@ -25,6 +25,9 @@ interface RepositoryStateRepository {
     /** Cancels the foreground task, if it can be cancelled (see [taskProgress]). */
     fun cancelCurrentTask()
     suspend fun addCompletedTaskSuccessfully(completedTask: TaskType)
+
+    /** A task that ran and left conflicts to resolve, such as a merge that stopped at them (fork-only). */
+    suspend fun addCompletedTaskWithConflicts(completedTask: TaskType)
     suspend fun addCompletedTaskFailed(completedTask: TaskType, reason: AppError, severity: FailureSeverity)
     suspend fun refreshTriggered(dataToRefresh: List<DataToRefresh>)
 }
@@ -33,9 +36,14 @@ sealed interface CompletedTask {
     val date: Long
     val taskType: TaskType
 
+    /**
+     * [stoppedAtConflicts]: the task ran, and left conflicts to resolve (fork-only). Its toast warns instead of saying
+     * that it completed.
+     */
     data class Success(
         override val date: Long,
-        override val taskType: TaskType
+        override val taskType: TaskType,
+        val stoppedAtConflicts: Boolean = false,
     ) : CompletedTask
 
     data class Failure(

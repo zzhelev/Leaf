@@ -6,8 +6,6 @@ import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.interfaces.IRebaseBranchGitAction
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.TaskType
-import dev.app.leaf.domain.models.positiveNotification
-import dev.app.leaf.domain.models.warningNotification
 import javax.inject.Inject
 
 class RebaseBranchUseCase @Inject constructor(
@@ -18,6 +16,7 @@ class RebaseBranchUseCase @Inject constructor(
         useCaseExecutor.executeLaunch(
             taskType = TaskType.RebaseBranch,
             dataToRefresh = arrayOf(DataToRefresh.ALL),
+            stoppedAtConflicts = { hasStopped -> hasStopped },
         ) { repositoryPath ->
             rebaseBranchGitAction(repositoryPath, branch)
         }

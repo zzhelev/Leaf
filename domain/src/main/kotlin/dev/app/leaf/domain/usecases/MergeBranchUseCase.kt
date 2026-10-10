@@ -28,6 +28,7 @@ class MergeBranchUseCase @Inject constructor(
             TaskType.MergeBranch,
             refreshEvenIfFailed = true,
             dataToRefresh = arrayOf(DataToRefresh.ALL),
+            stoppedAtConflicts = { hasConflicts -> hasConflicts },
         ) { repositoryPath ->
             val mergeAutoStash = appSettingsService.autoStashOnMerge.first()
             val fastForwardMerge = appSettingsService.fastForwardMerge.first()

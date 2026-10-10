@@ -15,6 +15,16 @@ fun errorNotification(text: String) = NotificationData(NotificationType.Error, t
 fun warningNotification(text: String) = NotificationData(NotificationType.Warning, text)
 
 
+/** What the toast says when the task stopped at conflicts, in place of [successTitle] (fork-only). */
+fun TaskType.conflictsTitle(): String {
+    return when (this) {
+        TaskType.MergeBranch -> "Merge stopped at conflicts, fix them to continue"
+        TaskType.RebaseBranch -> "Rebase stopped at conflicts, fix them to continue"
+        TaskType.Pull -> "Pull stopped at conflicts, fix them to continue"
+        else -> "Stopped at conflicts, fix them to continue"
+    }
+}
+
 fun TaskType.successTitle(): String? {
     return when (this) {
         TaskType.StageLine -> "File line staged"

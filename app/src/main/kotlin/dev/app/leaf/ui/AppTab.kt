@@ -23,6 +23,7 @@ import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.models.NotificationData
 import dev.app.leaf.domain.models.NotificationType
 import dev.app.leaf.domain.models.RepositorySelectionState
+import dev.app.leaf.domain.models.conflictsTitle
 import dev.app.leaf.domain.models.successTitle
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.repositoryopen.RepositoryOpenPage
@@ -509,6 +510,11 @@ fun AppTab(
 }
 
 fun CompletedTask.toNotificationData(): NotificationData? {
+    // Not "completed": the task left conflicts to resolve (fork-only)
+    if (this is CompletedTask.Success && this.stoppedAtConflicts) {
+        return NotificationData(NotificationType.Warning, this.taskType.conflictsTitle())
+    }
+
     val message = this.taskType.successTitle() ?: return null
 
 

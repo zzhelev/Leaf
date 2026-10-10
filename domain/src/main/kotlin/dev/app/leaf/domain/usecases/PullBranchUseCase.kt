@@ -1,7 +1,6 @@
 package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.domain.UseCaseExecutor
-import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.IPullBranchGitAction
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.services.AppSettingsService
@@ -20,6 +19,7 @@ class PullBranchUseCase @Inject constructor(
     ) = useCaseExecutor.executeLaunch(
         taskType = TaskType.Pull,
         dataToRefresh = arrayOf(DataToRefresh.ALL),
+        stoppedAtConflicts = { hasConflicts -> hasConflicts },
     ) { repositoryPath ->
         val autoStashOnMerge = appSettingsService.autoStashOnMerge.first()
 
@@ -35,16 +35,6 @@ class PullBranchUseCase @Inject constructor(
             pullType
         }
 
-        val result = pullBranchGitAction(repositoryPath, pullTypeWithSettings, autoStashOnMerge, remoteBranch, automaticStashDescription)
-
-        if (result is Either.Ok) {
-            if (result.value) {
-                warningNotification("Pull produced conflicts, fix them to continue")
-            } else {
-                positiveNotification("Pull completed")
-            }
-        }
-
-        result
+        pullBranchGitAction(repositoryPath, pullTypeWithSettings, autoStashOnMerge, remoteBranch, automaticStashDescription)
     }
 }
