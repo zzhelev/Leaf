@@ -2,6 +2,57 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A tab switches between its repository's worktrees (branch `feat/worktree-switching`)
+
+Phase 2b of `docs/fork/PLAN.md`. The design, with the options weighed, is in `docs/fork/worktree-switching.md`.
+
+- **Before:** a tab showed one worktree. Switching to another (Phase 2a) selected the tab that had it, or opened a new
+  one, which loaded the repository again and started with a fresh log, selection and side panel.
+- **Now:** a tab stands for its repository, and switches between its worktrees in place, as a checkout switches
+  branches.
+  - Double-clicking a worktree's row, or a local branch that another worktree uses, switches the current tab, as do
+    "Switch to worktree" in their menus and the checkout refusal's button. GitKraken and Tower do the same.
+  - The worktree's menu has "Open in new tab", which does what switching did in Phase 2a.
+  - A picker in the toolbar, right of Open, shows the tab's worktree and what it has checked out. Its list has every
+    worktree, with the side panel's lines and tooltips, and switches to the one picked. It only shows for a repository
+    with linked worktrees.
+  - A linked worktree's tab is named after its repository, then the worktree in a lighter color (`demo · fix-auth`),
+    as is the window. Other tabs keep their names.
+  - What a switch keeps: the log, its scroll position and search, the selected commit, the side panel's sections,
+    filter and folders. What it changes: the status, the commit message (each worktree has its own), the current
+    branch, merge and rebase states, and the file watcher. It closes the diff of an uncommitted file, blame and file
+    history, and turns amend off. Input stays blocked until the new worktree's status has loaded.
+  - A tab restored on a worktree that was removed while Leaf was closed opens its repository, instead of an error.
+- **Fixed on the way:**
+  - A refresh still running when the tab switched used to be able to show the old worktree's data. Each refresh now
+    says which git dir it read, and its result is dropped once the tab shows another one.
+  - A commit message is saved a second after typing; it's now saved to the worktree it was typed in.
+  - The file watcher can watch again: closing it destroyed its Rust object, so each watch now gets its own.
+- **Tests:** 27 new.
+  - `:data` (14): `SwitchingWorktreesTest` and `WatchingWorktreesTest` run a tab's real repositories and use cases
+    (`TestTab`) against worktrees made with `git worktree add`: the status, branch, message and worktree list after a
+    switch and back, a switch that fails, one to the tab's own worktree, the watcher of each worktree, and tabs
+    restored on removed worktrees. `TestTab` can make the status slow, as in a large worktree, which shows that a
+    switch waits for it. `InMemoryRepositoryDataRepositoryTest` checks that a refresh's result is dropped when the tab
+    switched while it ran, or before it started, and what a switch resets.
+  - `:domain` (9): `RepositoryPathsTest` (a removed worktree's repository, the tab's names, marking the new worktree),
+    `RepositorySelectionStateTest` (switches) and `WorktreeRowsTest` (the picker's rows).
+  - `:app` (4): `WorktreePickerTest` renders the picker offscreen and clicks it: the tab's worktree, the list, a
+    switch, and none to a missing worktree. `WorktreesSectionTest` checks the new menu item.
+  - **Mutation check:** 23 mutations, all caught. The first pass missed three: the status reset and the wait for the
+    status were covered only by timing (a tiny repository's status loads before a test looks), and one mutation
+    didn't compile. The slow status and the reset test came from them.
+  - Each commit's tests ran on their own, in a separate checkout.
+  - Manual run on macOS, with a repository that has a sibling worktree, an agent's in `.claude/worktrees/`, and one
+    whose folder was deleted: the picker and its list, every double-click and menu item, the tab names, each
+    worktree's draft message, and the file watcher following the switch. A tab restored on a removed worktree wasn't
+    reached by hand: on the branch's first base, the folder given on the command line replaced that tab at startup,
+    which `main` has fixed since (`3ae60969`, `replaceTab`); the tests cover it.
+  - `./gradlew build` passes, with 886 tests (75 in `:app`, 619 in `:data`, 185 in `:domain`, 7 in `:common`), after
+    rebasing onto the other sessions' work on `main`: a tab's refreshes run one at a time (`DataRefreshRunner`, which a
+    switch's refresh waits behind), the file watcher has a thread of its own (now one per watch), and closed and
+    replaced tabs are torn down. `TestTab` gets the refresh runner, and two of their tests the new signatures.
+
 ## The banner's Abort button follows its text (branch `fix/banner-button`)
 
 - **Before:** the banner's text was on the left and its Abort button at the far right, so on a wide window the two

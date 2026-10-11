@@ -104,7 +104,9 @@ from the code; they were not exercised in the app.
   `feat/worktree-refresh`).
 - The tab's name and tooltip now come from the worktree's folder, and "Open another repository" replaces a linked
   worktree's tab (Phase 2a, branch `feat/open-worktree-tabs`). The persisted path is still the admin dir, which
-  reopens correctly.
+  reopens correctly, and opens the repository once the worktree is removed (Phase 2b).
+- Since Phase 2b (`docs/fork/worktree-switching.md`), a tab switches between its repository's worktrees in place, and
+  is named after the repository and the worktree.
 
 ## 3. Checkout guard
 
@@ -422,8 +424,9 @@ doesn't cover this; (d)'s second change would.
   - `persistTabSelected` (`:88-90`) writes an index into the unfiltered tab list, while `:134` writes an index into
     the filtered one.
 - **No duplicate-tab focusing.** Opening the same path twice creates two tabs, each with its own watcher, sharing one
-  cached `Git`. Since Phase 2a, switching to a worktree selects the tab that has it (`AppViewModel.selectOrOpenTab`),
-  but the Welcome page and the CLI argument still open a second tab.
+  cached `Git`. Since Phase 2a, "Open in new tab" on a worktree selects the tab that has it
+  (`AppViewModel.selectOrOpenTab`), but the Welcome page and the CLI argument still open a second tab. Since Phase 2b,
+  switching to a worktree switches the current tab instead.
 - **No polling and no refresh on window focus.** File watching was the only automatic refresh. Since Phase 1.5 the
   worktree list also refreshes on an interval while it's shown, and when the window gets the focus.
 - **#335 (UI freezes), a hypothesis I have not tested.**

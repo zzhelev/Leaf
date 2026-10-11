@@ -728,19 +728,21 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - `AppComponent` (`@Singleton`) has a subcomponent `TabComponent` (`@TabScope`), created per tab by
   `AppViewModel.newAppTab2` and held by `RepositoryTabViewModel`.
 - Tab-scoped: `TabCoroutineScope`, `InMemoryRepositoryDataRepository`, `InMemoryRepositoryStateRepository`, all git
-  actions, `FileChangesWatcher`.
+  actions, and the fork-only `@TabScope` on `ObserveRepositoryToRefreshUseCase` (see Refresh). `FileChangesWatcher`
+  isn't: each watch gets its own.
 - App-scoped: the `JGit` cache, `AppStateManager` (recent repos), settings.
 
 **Scopes:** `TabCoroutineScope` and `TabViewModel.viewModelScope` are both `SupervisorJob() + Dispatchers.Default`.
 - Never block their threads: `Dispatchers.Default` has one per core, shared by every tab. Blocking calls go to
-  `Dispatchers.IO`, and a loop that blocks for as long as the tab is open, like the file watcher's (see Refresh), to a
-  view of its own, `Dispatchers.IO.limitedParallelism(1)`, which doesn't count against IO's 64 threads.
+  `Dispatchers.IO`, and a loop that blocks for as long as it runs, like the file watcher's (see Refresh), to a view of
+  its own, `Dispatchers.IO.limitedParallelism(1)`, which doesn't count against IO's 64 threads.
 - Wait for a state with `first { ... }` on its flow, never a loop that reads `.value`: the commit identity dialog's
   loop (`StatusViewModelExtender.getIdentity`, now `awaitAnswer`) kept a core busy while the dialog was open
   (fork-only fix).
 - **Tear-down (fork-only):** closing a tab (`AppViewModel.closeTab`) or replacing it (`replaceTab`) calls
   `RepositoryTabViewModel.dispose()`. That clears every view model in `viewModelsMap` and its own (`onClear`, which
-  cancels the children of `viewModelScope`), closes the watcher, cancels `TabCoroutineScope` and clears the data.
+  cancels the children of `viewModelScope`), cancels `TabCoroutineScope`, which ends the file watcher's watch and
+  closes its watcher, and clears the data.
   Before, only `TabCoroutineScope` was cancelled, and a replaced tab wasn't disposed at all.
   - A view model collects in its own `viewModelScope`, not `TabCoroutineScope`, so that clearing it stops what it
     started. `HistoryViewModel` collected the diff setting in the tab's scope, once more per file history opened.
@@ -760,6 +762,10 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 **Data state:** each piece of repository data is a `Flow<DataState<T>>` (Loading/Loaded/Error) in
 `InMemoryRepositoryDataRepository`. `RefreshDataUseCase` refreshes it per `DataToRefresh` value. A step that throws
 ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without a log line.
+- Fork-only: each `update…(repositoryPath) { … }` gets the git dir its block reads, and the result is dropped when
+  the tab switched to another worktree before the block ran or while it ran (`writeIfStillShown`, under the same
+  lock as `switchWorktree`). Without it, a status refresh that ended after a switch showed the old worktree's files.
+- `toUiDataState` keeps the previous data while Loading, so a view shows the old worktree until the new one loads.
 
 **Dialogs** are Navigation3 destinations:
 - `sealed interface Screen` in `App.kt`, `entry<Screen.X>` in `ui/AppTab.kt`.
@@ -800,7 +806,8 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 **Opening a tab:**
 - Paths in: `App.start` restores tabs from prefs (`AppViewModel.loadPersistedTabs`) and handles the CLI argument;
   the Welcome page (picker or recent repos) calls `RepositoryTabViewModel.openRepository`; the menu's "open another
-  repository" replaces the current tab; switching to a worktree (fork-only, see Identity) selects or adds one.
+  repository" replaces the current tab; "Open in new tab" on a worktree (fork-only, see Identity) selects or adds
+  one.
 - `AppViewModel.addNewTabFromPath` only adds a tab. Replacing goes through `replaceTab(tab, path)` (fork-only), with the
   tab from `LocalTab`, and disposes the old one (see DI, coroutines, state). The tab used to be found by path, which
   matched any tab without one: the Welcome page, or a tab whose path nothing had collected yet (a lazy `stateIn`),
@@ -815,6 +822,10 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 - Fork-only: "Start a local repository" (`RepositoryTabViewModel.initLocalRepository`) opens the repository once
   `InitLocalRepositoryGitAction` made it, and shows its failure, such as a folder that can't be written, in
   `ErrorDialog` (`TaskType.RepositoryInit`). The failure used to be thrown and lost.
+- Fork-only: a path that is a removed linked worktree's git dir opens its repository instead
+  (`repositoryOfRemovedWorktree`): git pruned the git dir, or the worktree's folder is gone. It's found from the path
+  alone, as git keeps those git dirs in `<common git dir>/worktrees/<id>`. That's how a tab restored on a worktree
+  that an agent removed while Leaf was closed opens.
 
 **State per tab:**
 - `InMemoryRepositoryDataRepository`: status, local branches, current branch, tags, remotes, log, stashes,
@@ -825,16 +836,50 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 **Identity and persistence:**
 - Tabs are identified by object, not by path. Opening a repository from the Welcome page or the CLI never looks for
   a tab that has it.
-- **Switching to a worktree (fork-only):** `AppViewModel.selectOrOpenTab(folder)` selects the first tab with the same
-  git dir, or adds a tab at the end. `indexOfRepository` (`domain/worktrees/RepositoryPaths.kt`) compares real paths
-  of git dirs: `gitDirOf` turns a working tree into its `.git` folder or the git dir its `.git` file points to
-  (absolute or relative), and keeps a git dir as it is. A tab gives `pathToPersist`, so an open tab gives its git dir
-  and one that hasn't loaded the path it was created with. `RepositoryOpenViewModel.switchToWorktree` calls it, and
-  `RepositoryTabViewModel.switchToWorktree` for the error dialog (see Branches).
-- **Tab name and tooltip:** `RepositoryTabViewModel.repositoryPath` (the tooltip) is `workTreeOf` the git dir, and the
-  name is its last part. For a linked worktree's git dir, that's the folder that its `gitdir` file names, not
-  `<common git dir>/worktrees/<name>`; otherwise the git dir without `/.git`, as before. "Open another repository"
-  compares this path with the working tree, so it now replaces a linked worktree's tab too.
+- **Switching worktrees (fork-only, Phase 2b, `docs/fork/worktree-switching.md`):** a tab stands for a repository
+  and switches between its worktrees in place, as a checkout switches branches. `SwitchWorktreeUseCase(folder)` runs
+  as a foreground task (`TaskType.SwitchWorktree`, no toast):
+  1. opens the folder (`IOpenRepositoryGitAction`); a failure leaves the tab where it was, with `ErrorDialog`. The
+     tab's own worktree changes nothing;
+  2. stops the file watcher's watch (`ObserveRepositoryToRefreshUseCase.stop`);
+  3. `RepositoryDataRepository.switchWorktree(gitDir)` sets what belongs to a worktree to Loading (status, current
+     branch, repository state, interactive rebase, draft messages, submodules), then `Open(gitDir)`. The shared data
+     (branches, tags, remotes, stashes, log) stays on screen until the refresh replaces it;
+  4. marks the new worktree as the tab's in the worktree list (`withCurrentWorktree`), so the picker, the Worktrees
+     section and the branch badges follow right away rather than after git listed every worktree again;
+  5. watches the new worktree, refreshes ALL, and waits until the status and the repository state are loaded (10 s
+     at most): until then the status pane shows the old worktree's files and merge or rebase buttons, and an action
+     on them would run in the new worktree.
+
+  The tab keeps its `TabComponent` and view models. Every git action reads the git dir from the selection state when
+  it runs (`UseCaseExecutor.executeTask`), so they follow. What did keep the worktree:
+  - the file watcher (see Refresh) and refreshes already running (see Data state);
+  - the draft commit message: it's saved a second after typing, so `persistMessage` notes the git dir when typed and
+    `PersistCommitMessageUseCase` takes it. A switch leaves the waiting save to finish for the old worktree;
+  - view state, reset on `worktreeSwitches()` (`RepositorySelectionState.kt`, each `Open` that follows an `Open` of
+    another git dir): `StatusViewModelExtender` loads the new worktree's messages into the fields, even when they
+    weren't empty, turns amend off and clears Staged's and Unstaged's collapsed folders; `RepositoryOpenViewModel`
+    closes the diff of an uncommitted file, blame and file history. The selected commit, the log's scroll position
+    and search, and the side panel stay;
+  - the tab: `RepositoryTabViewModel` calls `AppViewModel.worktreeSwitched`, which saves the tabs (the name may not
+    change, and `App.kt` saves on a name change) and closes the old git dir's `Git` unless another tab has it open.
+
+  Entry points: a double-click on a Worktrees row, on a local branch that another worktree uses (side panel and log),
+  "Switch to worktree" in those menus, the checkout refusal's button (`RepositoryTabViewModel.switchToWorktree`), and
+  the toolbar's picker. A switch happens even when another tab shows that worktree.
+- **Opening a worktree in a new tab (fork-only):** "Open in new tab" in a worktree's menu calls
+  `AppViewModel.selectOrOpenTab(folder)`, which selects the first tab with the same git dir, or adds a tab at the end.
+  `indexOfRepository` (`domain/worktrees/RepositoryPaths.kt`) compares real paths of git dirs: `gitDirOf` turns a
+  working tree into its `.git` folder or the git dir its `.git` file points to (absolute or relative), and keeps a git
+  dir as it is. A tab gives `pathToPersist`, so an open tab gives its git dir and one that hasn't loaded the path it
+  was created with.
+- **Tab name and tooltip:** `RepositoryTabViewModel.repositoryPath` (the tooltip) is `workTreeOf` the git dir: for a
+  linked worktree's git dir, the folder that its `gitdir` file names, not `<common git dir>/worktrees/<name>`;
+  otherwise the git dir without `/.git`, as before. "Open another repository" compares this path with the working
+  tree, so it replaces a linked worktree's tab too. The name comes from `tabNamesOf` (fork-only): a linked worktree's
+  tab is named after its repository, the main worktree's folder (a bare repository's without `.git`), and
+  `TabInformationProvider.worktreeName` is the worktree's folder, which the tab shows lighter after a `·`, as does the
+  window title. Other tabs are named after their working tree's folder, as before.
 - Persisted keys in the prefs node (`LeafConfig`, see Name): `latestRepositoriesTabsOpened` (JSON),
   `latestRepositoryTabSelected`, and
   `lastOpenedRepositoriesList`.
@@ -863,7 +908,7 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 **Branches:**
 - Model: `domain/models/Branch.kt` (`hash`, full ref `name`, `isLocal`). It has no tracking or ahead/behind fields.
 - Loaded by `GetBranchesGitAction` (`git.branchList()`) via `RefreshDataUseCase.refreshBranches`.
-- Double-clicking a local branch checks it out immediately. When another worktree uses it, it switches to that
+- Double-clicking a local branch checks it out immediately. When another worktree uses it, it switches the tab to that
   worktree instead (fork-only, `RepositoryOpenViewModel.checkoutBranch`), from the side panel and from the log's
   chips: `BranchWorktreeUsers.worktreeToSwitchTo`, which leaves out a worktree whose folder is missing
   (`Worktree.canSwitchTo`). Then, or when the worktree list is stale, the checkout guard refuses, and its
@@ -922,14 +967,23 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   conflict color when there are conflicts); and `↑ahead ↓behind` versus the base branch.
 - The tooltip (`worktreeTooltip`) has the full path, the change counts, the comparison to the base and to the
   upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
-- A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches to the
-  worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
-  above "Copy path". Neither is offered for the tab's own worktree, a prunable one or a bare repository's
-  (`Worktree.canSwitchTo`). The side panel's filter matches the folder name, the path and the branches. When git
-  can't list the worktrees, one line says so, with the error in its tooltip.
+- A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches the tab to
+  the worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
+  followed by "Open in new tab" and "Copy path". The first two aren't offered for the tab's own worktree, a prunable
+  one or a bare repository's (`Worktree.canSwitchTo`). The side panel's filter matches the folder name, the path
+  and the branches. When git can't list the worktrees, one line says so, with the error in its tooltip.
+- The row's two lines are `WorktreeRowLines`, which the toolbar's picker shows too.
 - The header's button (`WorktreesBaseMenuButton`, the sort button's `SortMenuButton` with the `compare_arrows` icon)
   is muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows what Automatic
   picks, the chosen branch (with "Not found" when it's missing), and a note pointing to the branch menus.
+
+**Worktree picker (fork-only, `ui/WorktreePicker.kt`):** in the toolbar, right of Open, only while the repository
+has more than one worktree (`worktreePickerRows`, `RepositoryOpenViewModel.worktreePickerState`).
+- The button shows the tab's worktree (the row that `isCurrent`) and what it has checked out, with a chevron. Nothing
+  shows until the list has the tab's worktree.
+- Its list has every worktree with the side panel's two lines and tooltip, the tab's one checked. A click, or Enter
+  after the arrow keys, switches the tab and closes the list; Esc closes it. A worktree the tab can't switch to is
+  greyed out. It's below the button, or above when there's no room (`BelowLeftAlignedPositionProvider`).
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,
@@ -1030,9 +1084,12 @@ resets them. By default only Date is on, as before.
 - `FileWatcher` on notify 8. `watch()` is a **blocking** loop that batches Create/Modify/Remove events and flushes
   them with a ~500 ms throttle.
 - It is called from a `callbackFlow` in `data/.../git/FileChangesWatcher.kt`, which runs on a single-thread view of
-  `Dispatchers.IO` per tab (`flowOn`, fork-only). It used to run on the tab's `Dispatchers.Default`, one thread per
+  `Dispatchers.IO` per watch (`flowOn`, fork-only). It used to run on the tab's `Dispatchers.Default`, one thread per
   loaded tab, so with as many tabs as cores nothing else on Default ran. `FileChangesWatcherTest` (`:data`) loads the
   library from `app/src/main/resources` through `uniffi.component.leaf_rs.libraryOverride`.
+- Fork-only: closing a `FileChangesWatcher` destroys its Rust `FileWatcher` (uniffi's `close()` is `destroy()`), so it
+  can't watch again. It isn't tab-scoped: `ObserveRepositoryToRefreshUseCase` takes a `Provider` and gets one per
+  watch, which the watch closes when it ends.
 - `add_watch` error codes are ignored.
 
 **`domain/.../usecases/ObserveRepositoryToRefreshUseCase.kt`:**
@@ -1062,6 +1119,10 @@ resets them. By default only Date is on, as before.
   coming. An agent that runs git rewrites its worktree's index all the time, and each refresh runs git in every
   worktree.
 - Events are dropped (not deferred) while a task runs and for 1.5 s after one.
+- Fork-only: the use case is `@TabScope` and keeps its watch's job. `invoke()` stops the previous watch first, and
+  `stop()` cancels it before a switch to another worktree. The cancelled watch's Rust loop notices within 500 ms
+  (`WATCH_TIMEOUT`) and closes its own watcher, so the new watch doesn't wait for it. Closing the tab cancels the
+  tab's scope, which ends the watch too.
 
 **Taking turns (fork-only, `domain/DataRefreshRunner.kt`):** a tab's refreshes run one at a time.
 - `RefreshDataUseCase` runs them through the tab's `DataRefreshRunner`. A call made while a refresh runs waits; calls
@@ -1175,6 +1236,11 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 - `CredentialUrlTest` uses the git CLI as the reference: `git credential fill` and `approve` with a helper that saves
   its input, and `credential.<key>.helper` with one that leaves a file. Git runs in the temp folder with
   `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.
+- `TestTab` (`data/src/test/kotlin/dev/app/leaf/data/tab/`) builds a tab's repositories and use cases as Dagger does,
+  with the real git actions, around a temp repository, and a `RecordingFileChangesWatcher` for each watch, which
+  notes the folders it was given. `SwitchingWorktreesTest` and `WatchingWorktreesTest` use it. Its
+  `close()` cancels the tab and waits: JGit writes `.probe-` files into the git dir, and JUnit failed to delete the
+  temp folder while a refresh still ran.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.
