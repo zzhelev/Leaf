@@ -56,7 +56,6 @@ import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntryContextMenuItems
 import dev.app.leaf.ui.dialogs.ConfirmableAction
-import dev.app.leaf.ui.dialogs.ConfirmableAction.AbortOperation.Operation as AbortedOperation
 import dev.app.leaf.ui.dialogs.CommitAuthorDialog
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -240,26 +239,9 @@ fun StatusPane(
                     setCommitMessage = {
                         onAction(StatusAction.UpdateCommitMessage(it))
                     },
-                    onResetRepoState = {
-                        val operation = when {
-                            statusState.repositoryState.isCherryPicking -> AbortedOperation.CHERRY_PICK
-                            statusState.repositoryState.isReverting -> AbortedOperation.REVERT
-                            else -> AbortedOperation.MERGE
-                        }
-
-                        onConfirmAction(ConfirmableAction.AbortOperation(operation, statusState.changedFilesCount)) {
-                            onAction(StatusAction.ResetRepositoryState)
-                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
-                        }
-                    },
-                    onAbortRebase = {
-                        val action = ConfirmableAction.AbortOperation(AbortedOperation.REBASE, statusState.changedFilesCount)
-
-                        onConfirmAction(action) {
-                            onAction(StatusAction.AbortRebase)
-                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
-                        }
-                    },
+                    // The same as the banner's Abort (fork-only)
+                    onResetRepoState = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
+                    onAbortRebase = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
                     onAmendChecked = { amend ->
                         if (amend && commitMessage.text.isEmpty()) {
                             onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))

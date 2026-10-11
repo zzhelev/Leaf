@@ -34,7 +34,10 @@ import dev.app.leaf.ui.components.TripleVerticalSplitPanel
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.log.Log
+import dev.app.leaf.ui.status.OperationInProgressBanner
 import dev.app.leaf.ui.status.StatusPane
+import dev.app.leaf.ui.status.abortOperationInProgress
+import dev.app.leaf.ui.status.operationInProgress
 import dev.app.leaf.updates.Update
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -147,6 +150,25 @@ fun RepositoryOpenPage(
                     showOpenPopup = showOpenPopup,
                     onShowOpenPopupChange = { showOpenPopup = it }
                 )
+
+                // Fork-only: stays while a merge, rebase, cherry-pick or revert is unfinished, whoever started it
+                val statusState by repositoryOpenViewModel.statusState.collectAsState()
+                val inProgress = operationInProgress(statusState)
+
+                if (inProgress != null) {
+                    OperationInProgressBanner(
+                        inProgress = inProgress,
+                        onAbort = {
+                            abortOperationInProgress(
+                                statusState,
+                                onAction = { repositoryOpenViewModel.onAction(it) },
+                                onConfirmAction = { action, onConfirm ->
+                                    onNavigate(Screen.ConfirmAction(action, onConfirm))
+                                },
+                            )
+                        },
+                    )
+                }
 
                 RepoContent(
                     repositoryOpenViewModel = repositoryOpenViewModel,

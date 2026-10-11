@@ -339,6 +339,26 @@
         <item quantity="other">The uncommitted changes in %1$d files are discarded, including resolved conflicts. They can't be restored.</item>
     </plurals>
     <string name="abort_dialog_abort">Abort</string>
+    <plurals name="operation_banner_merge_conflicts">
+        <item quantity="one">Merge stopped at conflicts in %1$d file. Resolve them, then commit.</item>
+        <item quantity="other">Merge stopped at conflicts in %1$d files. Resolve them, then commit.</item>
+    </plurals>
+    <plurals name="operation_banner_rebase_conflicts">
+        <item quantity="one">Rebase stopped at conflicts in %1$d file. Resolve them, then continue the rebase.</item>
+        <item quantity="other">Rebase stopped at conflicts in %1$d files. Resolve them, then continue the rebase.</item>
+    </plurals>
+    <plurals name="operation_banner_cherry_pick_conflicts">
+        <item quantity="one">Cherry-pick stopped at conflicts in %1$d file. Resolve them, then commit.</item>
+        <item quantity="other">Cherry-pick stopped at conflicts in %1$d files. Resolve them, then commit.</item>
+    </plurals>
+    <plurals name="operation_banner_revert_conflicts">
+        <item quantity="one">Revert stopped at conflicts in %1$d file. Resolve them, then commit.</item>
+        <item quantity="other">Revert stopped at conflicts in %1$d files. Resolve them, then commit.</item>
+    </plurals>
+    <string name="operation_banner_merge">Merge in progress. Commit to finish it.</string>
+    <string name="operation_banner_rebase">Rebase in progress. Continue it to finish.</string>
+    <string name="operation_banner_cherry_pick">Cherry-pick in progress. Commit to finish it.</string>
+    <string name="operation_banner_revert">Revert in progress. Commit to finish it.</string>
     <string name="skip_rebase_dialog_title">Skip commit</string>
     <string name="skip_rebase_dialog_subtitle">Leave the commit being applied out of the rebased branch?</string>
     <string name="skip_rebase_dialog_skip">Skip</string>
