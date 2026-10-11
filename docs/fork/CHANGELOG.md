@@ -2,6 +2,28 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A banner while a merge, rebase, cherry-pick or revert is unfinished (branch `fix/conflict-banner`)
+
+- **Before:** a merge or rebase that stopped at conflicts showed a warning toast for 2 seconds, small and near the
+  bottom, and it was easy to miss. Afterwards only the log's top row ("Pending changes to merge"), the status pane's
+  buttons and the files' conflict marks said that the repository was in the middle of something. Conflicts from git in
+  a terminal or from an agent showed no toast at all.
+- **Now:** an amber strip under the toolbar says what's unfinished and what to do: "Merge stopped at conflicts in 1
+  file. Resolve them, then commit.", or "Rebase in progress. Continue it to finish." once the conflicts are resolved.
+  Its button aborts the operation, after the same confirmation as the status pane's Abort.
+  - It follows the repository's state, so it shows however the operation started, after switching tabs and after a
+    restart, and goes once the operation is committed, continued to the end or aborted. The toast stays as the first
+    cue.
+  - Not while the interactive rebase's list is open, which has its own buttons. Bisect and `git am` get no banner.
+  - Chosen over a toast that stays until closed, and over a dialog after the operation, which only Leaf's own
+    operations would show.
+- **Tests:** `OperationInProgressBannerTest` (`:app`, 5) checks when the banner shows and what it counts, that Abort
+  asks first and then aborts the right operation, and renders the banner offscreen to read its texts and click Abort.
+  - **Mutation check:** 10 mutations, all caught. Not covered by a test: the banner's place in the repository view,
+    and the status pane's Abort calling the shared function.
+  - `./gradlew test` passes, with 849 tests (70 in `:app`, 596 in `:data`, 176 in `:domain`, 7 in `:common`), on
+    `608d19d4`. The conflicted file's diff fix that came after changed only the data layer's diff code.
+
 ## A conflicted file's diff compares it to ours (branch `claude/exciting-euclid-f40264`)
 
 - **Before:** the diff of a file with conflicts (in Unstaged, while a merge, rebase or cherry-pick is stopped at
