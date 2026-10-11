@@ -300,7 +300,8 @@ code, "worktree" means the working directory, not linked worktrees.
   and its toast warns with `conflictsTitle()` ("Merge stopped at conflicts, fix them to continue").
   - The toast is gone after 2 s, so `OperationInProgressBanner` (fork-only, `ui/status/`) shows an amber strip under
     the toolbar while the repository is in the middle of a merge, rebase, cherry-pick or revert, with the files that
-    still have conflicts and an Abort button. It follows `StatusState` (`operationInProgress`), not the task, so it
+    still have conflicts and an Abort button right after the text (the text is only as wide as it needs, so the
+    button doesn't drift to the far right of a wide window). It follows `StatusState` (`operationInProgress`), not the task, so it
     shows for conflicts from a terminal or an agent too, and stays until the operation is finished or aborted. None
     while the interactive rebase's list is open. Its Abort and the status pane's go through
     `abortOperationInProgress`, which asks first (`ConfirmableAction.AbortOperation`).

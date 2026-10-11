@@ -2,6 +2,15 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The banner's Abort button follows its text (branch `fix/banner-button`)
+
+- **Before:** the banner's text was on the left and its Abort button at the far right, so on a wide window the two
+  were most of the screen apart.
+- **Now:** the button comes right after the text, as in JetBrains' notification strips and the browsers' info bars.
+  When the window is narrow, the text wraps and the button stays in view.
+- **Tests:** 1 new in `OperationInProgressBannerTest`, which renders the banner 2400 and 500 px wide and checks where
+  the button is. It fails with the old layout. `:app:test` passes, with 71 tests.
+
 ## A banner while a merge, rebase, cherry-pick or revert is unfinished (branch `fix/conflict-banner`)
 
 - **Before:** a merge or rebase that stopped at conflicts showed a warning toast for 2 seconds, small and near the
