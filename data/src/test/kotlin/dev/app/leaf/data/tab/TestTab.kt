@@ -61,6 +61,7 @@ import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import dev.app.leaf.domain.usecases.ObserveRepositoryToRefreshUseCase
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
+import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
 import io.mockk.mockk
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
@@ -168,6 +169,14 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
         observeRepositoryToRefreshUseCase = observeRepositoryToRefresh,
         getWorktreeUseCase = getWorktree,
         appStateManager = AppStateManager(mockk<AppSettingsRepository>(relaxed = true)),
+    )
+
+    val switchWorktree = SwitchWorktreeUseCase(
+        useCaseExecutor = useCaseExecutor,
+        openRepositoryGitAction = OpenRepositoryGitAction(),
+        repositoryDataRepository = repositoryData,
+        observeRepositoryToRefreshUseCase = observeRepositoryToRefresh,
+        refreshDataUseCase = refreshData,
     )
 
     /** Waits until [flow] has loaded data that passes [predicate]. */

@@ -78,6 +78,16 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         repositorySelectionState.value = state
     }
 
+    override fun switchWorktree(gitDir: String) = synchronized(worktreeLock) {
+        status.value = DataState.Loading
+        currentBranch.value = DataState.Loading
+        repositoryState.value = DataState.Loading
+        rebaseInteractiveState.value = DataState.Loading
+        persistedCommitMessage.value = DataState.Loading
+        submodules.value = DataState.Loading
+        repositorySelectionState.value = RepositorySelectionState.Open(gitDir)
+    }
+
     override fun clearAll() {
         localBranches.value = DataState.Loading
         tags.value = DataState.Loading

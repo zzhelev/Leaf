@@ -242,6 +242,7 @@ fun TaskType.errorTitle(): String {
         TaskType.ResetRepoState -> "Could not reset repository state"
         TaskType.ChangesDetection -> "Repository changes detection has stopped working"
         TaskType.RepositoryOpen -> "Could not open the repository"
+        TaskType.SwitchWorktree -> "Could not switch to the worktree"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"
         TaskType.AddRemote -> "Adding remote failed"

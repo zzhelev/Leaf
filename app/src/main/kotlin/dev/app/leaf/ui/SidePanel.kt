@@ -155,6 +155,7 @@ fun SidePanel(
                 onExpand = { viewModel.onExpandWorktrees() },
                 onWorktreeClicked = { viewModel.selectWorktree(it.worktree) },
                 onSwitchToWorktree = { viewModel.switchToWorktree(it.worktree) },
+                onOpenInNewTab = { viewModel.openWorktreeInNewTab(it.worktree) },
                 onCopyPath = { scope.launch { clipboard.setClipboardText(it.worktree.path) } },
                 onChooseBase = { viewModel.chooseWorktreesBase(it) },
             )

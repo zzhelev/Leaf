@@ -114,6 +114,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val deleteSubmoduleUseCase: DeleteSubmoduleUseCase,
     private val mergeBranchUseCase: MergeBranchUseCase,
     private val checkoutBranchUseCase: CheckoutBranchUseCase,
+    private val switchWorktreeUseCase: SwitchWorktreeUseCase,
     private val getRemoteBranchCheckoutUseCase: GetRemoteBranchCheckoutUseCase,
     private val checkoutRemoteBranchUseCase: CheckoutRemoteBranchUseCase,
     private val updateSubmoduleUseCase: UpdateSubmoduleUseCase,
@@ -526,6 +527,16 @@ class RepositoryOpenViewModel @Inject constructor(
                 loadRefFolderExpansionUseCase().okOrNull()?.let { refFolderExpansion.value = it }
             }
         }
+
+        // Fork-only: closes what showed the files of the worktree that the tab switched away from
+        repositoryDataRepository.repositorySelectionState.worktreeSwitches().collectLatestInViewModel {
+            if (diffSelected.value is DiffSelected.UncommittedChanges) {
+                diffSelected.value = null
+            }
+
+            resetBlameState()
+            closeHistory()
+        }
     }
 
     fun newFilter(newValue: String) {
@@ -662,10 +673,17 @@ class RepositoryOpenViewModel @Inject constructor(
     }
 
     /**
-     * Selects the tab of [worktree], or opens it in a new tab (fork-only). Nothing happens when the tab can't switch to
-     * it ([Worktree.canSwitchTo]): the tab already shows it, or it has no folder to open.
+     * Switches the tab to [worktree] (fork-only). Nothing happens when the tab can't switch to it
+     * ([Worktree.canSwitchTo]): the tab already shows it, or it has no folder to open.
      */
     fun switchToWorktree(worktree: Worktree) {
+        if (worktree.canSwitchTo) {
+            switchWorktreeUseCase(worktree.path)
+        }
+    }
+
+    /** Selects the tab that shows [worktree], or opens it in a new tab (fork-only), when the tab can switch to it. */
+    fun openWorktreeInNewTab(worktree: Worktree) {
         if (worktree.canSwitchTo) {
             appViewModel.selectOrOpenTab(worktree.path)
         }

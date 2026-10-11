@@ -61,7 +61,7 @@ class DoCommitUseCase @Inject constructor(
 
         doCommitGitAction(repositoryPath, finalMessage, amend, author)
             .onOk {
-                persistCommitMessageUseCase(null)
+                persistCommitMessageUseCase(repositoryPath, null)
             }
     }
 }

@@ -16,12 +16,14 @@ import dev.app.leaf.domain.interfaces.IInitLocalRepositoryGitAction
 import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
+import dev.app.leaf.domain.models.worktreeSwitches
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.SetRepositorySelectionStateToNoneUseCase
+import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
 import dev.app.leaf.domain.worktrees.workTreeOf
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.domain.AppStateManager
@@ -65,6 +67,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
     private val repositoryStateRepository: RepositoryStateRepository,
     private val setRepositorySelectionStateToNoneUseCase: SetRepositorySelectionStateToNoneUseCase,
+    private val switchWorktreeUseCase: SwitchWorktreeUseCase,
     private val tabComponent: TabComponent,
     private val appViewModel: AppViewModel,
     @Assisted val initialPath: String?,
@@ -172,9 +175,16 @@ class RepositoryTabViewModel @AssistedInject constructor(
     val credentialsState: StateFlow<CredentialsState> = credentialsStateManager.credentialsState
 
 
-    /** Selects the tab of the worktree at [path], or opens it in a new tab (fork-only). */
+    init {
+        // Fork-only: the tab now has another git dir to save, and the one it left may be open in no other tab
+        viewModelScope.launch {
+            repositorySelectionState.worktreeSwitches().collect { appViewModel.worktreeSwitched() }
+        }
+    }
+
+    /** Switches the tab to the worktree whose folder is [path] (fork-only). */
     fun switchToWorktree(path: String) {
-        appViewModel.selectOrOpenTab(path)
+        switchWorktreeUseCase(path)
     }
 
     fun openRepository(directory: String) {

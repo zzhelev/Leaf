@@ -28,6 +28,12 @@ interface RepositoryDataRepository {
     fun setRepositorySelectionState(state: RepositorySelectionState)
     fun clearAll()
 
+    /**
+     * Points the tab at another worktree of its repository, whose git dir is [gitDir] (fork-only). What belongs to a
+     * worktree goes back to Loading first, and what the worktrees share stays until the next refresh replaces it.
+     */
+    fun switchWorktree(gitDir: String)
+
     // Each update gets the git dir its block reads. A result for a git dir that the tab left while it loaded (it
     // switched to another worktree) is dropped (fork-only).
     suspend fun updateStatus(repositoryPath: String, block: suspend () -> Either<Status, AppError>)

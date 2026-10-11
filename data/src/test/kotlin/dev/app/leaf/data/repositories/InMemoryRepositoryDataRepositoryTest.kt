@@ -5,7 +5,11 @@ package dev.app.leaf.data.repositories
 
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.PersistedCommitMessage
+import dev.app.leaf.domain.models.RebaseInteractiveState
+import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.RepositorySelectionState
+import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.repositories.DataState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +28,10 @@ private const val FEATURE_GIT_DIR = "/repo/.git/worktrees/feature"
 private val mainBranch = Branch("1111111", "refs/heads/main", isLocal = true)
 private val featureBranch = Branch("2222222", "refs/heads/feature", isLocal = true)
 
-/** What a refresh writes once the tab switched to another worktree while it ran, or before it started. */
+/**
+ * What a refresh writes once the tab switched to another worktree while it ran, or before it started, and what a
+ * switch resets.
+ */
 class InMemoryRepositoryDataRepositoryTest {
     private val repository = InMemoryRepositoryDataRepository()
 
@@ -77,5 +84,30 @@ class InMemoryRepositoryDataRepositoryTest {
 
         assertFalse(gitRan)
         assertEquals(DataState.Loaded(featureBranch), repository.currentBranch.first())
+    }
+
+    @Test
+    fun `a switch reloads what belongs to a worktree, and keeps what the worktrees share`(): Unit = runBlocking {
+        repository.setRepositorySelectionState(RepositorySelectionState.Open(MAIN_GIT_DIR))
+        repository.updateStatus(MAIN_GIT_DIR) { Either.Ok(Status()) }
+        repository.updateCurrentBranch(MAIN_GIT_DIR) { Either.Ok(mainBranch) }
+        repository.updateRepositoryState(MAIN_GIT_DIR) { Either.Ok(RepositoryState.SAFE) }
+        repository.updateRebaseInteractiveState(MAIN_GIT_DIR) { Either.Ok(RebaseInteractiveState.None) }
+        repository.updatePersistedCommitMessages(MAIN_GIT_DIR) {
+            Either.Ok(PersistedCommitMessage("Draft", mergeMessage = null, squashMessage = null))
+        }
+        repository.updateSubmodules(MAIN_GIT_DIR) { Either.Ok(emptyMap()) }
+        repository.updateLocalBranches(MAIN_GIT_DIR) { Either.Ok(listOf(mainBranch, featureBranch)) }
+
+        repository.switchWorktree(FEATURE_GIT_DIR)
+
+        assertEquals(RepositorySelectionState.Open(FEATURE_GIT_DIR), repository.repositorySelectionState.value)
+        assertEquals(DataState.Loading, repository.status.first())
+        assertEquals(DataState.Loading, repository.currentBranch.first())
+        assertEquals(DataState.Loading, repository.repositoryState.first())
+        assertEquals(DataState.Loading, repository.rebaseInteractiveState.first())
+        assertEquals(DataState.Loading, repository.persistedCommitMessage.first())
+        assertEquals(DataState.Loading, repository.submodules.first())
+        assertEquals(DataState.Loaded(listOf(mainBranch, featureBranch)), repository.localBranches.first())
     }
 }

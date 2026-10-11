@@ -1,5 +1,6 @@
 package dev.app.leaf.domain.usecases
 
+import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
@@ -11,7 +12,10 @@ import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.worktrees.isLinkedWorktreeGitDir
+import dev.app.leaf.domain.worktrees.repositoryOfRemovedWorktree
 import javax.inject.Inject
+
+private const val TAG = "OpenRepositoryUseCase"
 
 class OpenRepositoryUseCase @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
@@ -23,7 +27,14 @@ class OpenRepositoryUseCase @Inject constructor(
     private val appStateManager: AppStateManager,
 ) {
     suspend operator fun invoke(directory: String) {
-        val repositoryPathResult = openRepositoryGitAction(directory)
+        // Fork-only: a tab restored on a worktree that was removed meanwhile, by an agent, opens its repository
+        val repositoryOfRemovedWorktree = repositoryOfRemovedWorktree(directory)
+
+        if (repositoryOfRemovedWorktree != null) {
+            printLog(TAG, "The worktree $directory was removed, opening its repository $repositoryOfRemovedWorktree")
+        }
+
+        val repositoryPathResult = openRepositoryGitAction(repositoryOfRemovedWorktree ?: directory)
 
         when (repositoryPathResult) {
             is Either.Err ->  {

@@ -76,4 +76,5 @@ sealed interface TaskType {
     data object RefreshTags : TaskType
     data object RefreshStashes : TaskType
     data object GetWorktree : TaskType
+    data object SwitchWorktree : TaskType
 }

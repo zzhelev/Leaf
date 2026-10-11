@@ -101,7 +101,7 @@ class ContinueRebaseAmendTest {
             executor,
             signOffDisabled,
             GetAuthorUseCase(mockk<ILoadAuthorGitAction>(), executor),
-            PersistCommitMessageUseCase(persistMessage, executor),
+            PersistCommitMessageUseCase(persistMessage),
         )
 
         return ContinueRebaseUseCase(executor, continueRebase, doCommitUseCase)

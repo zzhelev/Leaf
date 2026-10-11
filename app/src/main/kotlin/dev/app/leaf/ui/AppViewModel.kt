@@ -160,13 +160,21 @@ class AppViewModel @Inject constructor(
     private fun disposeTab(tab: TabInformation<RepositoryTabViewModel>) {
         tab.data.dispose()
 
-        // Git dirs, the keys of the JGit cache
-        val remainingRepositories = tabs.value.mapNotNull {
-            (it.data.repositorySelectionState.value as? RepositorySelectionState.Open)?.path
-        }
-
-        cleanRepositoriesResourcesUseCase(remainingRepositories)
+        cleanRepositoriesResourcesUseCase(openGitDirs())
     }
+
+    /**
+     * After a tab switched to another worktree (fork-only): saves the tabs with the tab's new git dir, and closes the
+     * repository of the worktree it left unless another tab has it open.
+     */
+    fun worktreeSwitched() = viewModelScope.launch {
+        cleanRepositoriesResourcesUseCase(openGitDirs())
+        updatePersistedTabs()
+    }
+
+    /** The git dirs that the tabs have open, the keys of the JGit cache. */
+    private fun openGitDirs(): List<String> =
+        tabs.value.mapNotNull { (it.data.repositorySelectionState.value as? RepositorySelectionState.Open)?.path }
 
     suspend fun updatePersistedTabs() {
         val tabsToPersist = tabs

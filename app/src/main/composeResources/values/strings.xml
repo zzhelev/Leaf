@@ -85,6 +85,7 @@
     <string name="side_pane_worktrees_error">Couldn't list the worktrees</string>
     <string name="side_pane_worktree_copy_path">Copy path</string>
     <string name="side_pane_worktree_switch_to">Switch to worktree</string>
+    <string name="side_pane_worktree_open_in_new_tab">Open in new tab</string>
     <string name="side_pane_worktree_missing">missing</string>
     <string name="side_pane_worktree_rebasing">rebasing %1$s</string>
     <string name="side_pane_worktree_bisecting">bisecting from %1$s</string>

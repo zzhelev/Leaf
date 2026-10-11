@@ -4,6 +4,7 @@
 package dev.app.leaf.domain.worktrees
 
 import dev.app.leaf.domain.extensions.removeGitSuffix
+import dev.app.leaf.domain.models.WorktreeList
 import java.io.File
 import java.io.IOException
 
@@ -15,6 +16,9 @@ private const val COMMON_DIR_FILE = "commondir"
 
 /** The file in a linked worktree's git dir that points to the worktree's `.git` file. */
 private const val GIT_DIR_FILE = "gitdir"
+
+/** The folder of the git dir that the worktrees share, which holds the linked worktrees' git dirs. */
+private const val WORKTREES_DIR = "worktrees"
 
 /**
  * The git dir that the `.git` file in [dir] points to (`gitdir: <path>`), as linked worktrees and submodules have, or
@@ -40,11 +44,28 @@ fun gitDirOf(path: String): String {
         else -> gitDirFromDotGitFile(dir) ?: dir
     }
 
-    return try {
-        gitDir.canonicalPath
-    } catch (e: IOException) {
-        gitDir.absoluteFile.toPath().normalize().toString()
-    }
+    return realPath(gitDir)
+}
+
+/**
+ * This list with the worktree in [folder] marked as the tab's (fork-only), as git lists it once the tab shows it. A
+ * switch marks it right away, rather than when the next refresh has run git in every worktree.
+ */
+fun WorktreeList.withCurrentWorktree(folder: String): WorktreeList {
+    val current = realPath(File(folder))
+
+    return copy(
+        worktrees = worktrees.map { info ->
+            info.copy(worktree = info.worktree.copy(isCurrent = realPath(File(info.worktree.path)) == current))
+        },
+    )
+}
+
+/** The real path of [file], or its absolute normalized path when it can't be found. */
+private fun realPath(file: File): String = try {
+    file.canonicalPath
+} catch (e: IOException) {
+    file.absoluteFile.toPath().normalize().toString()
 }
 
 /**
@@ -75,6 +96,24 @@ fun workTreeOf(path: String): String {
 
     return dotGit.toPath().normalize().parent?.toString() ?: path
 }
+
+/**
+ * The git dir that the worktrees share, when [path] is the git dir of a linked worktree that was removed, or else
+ * null. Removed means that git pruned its git dir, or that its folder is gone (git lists it as prunable). git keeps a
+ * linked worktree's git dir in `<common git dir>/worktrees/<id>`, so it's found from [path] alone.
+ */
+fun repositoryOfRemovedWorktree(path: String): String? {
+    val gitDir = File(path)
+    val worktreesDir = gitDir.parentFile?.takeIf { it.name == WORKTREES_DIR } ?: return null
+    val commonGitDir = worktreesDir.parentFile?.takeIf { it.isGitDir() } ?: return null
+
+    val isRemoved = !gitDir.isDirectory || !File(workTreeOf(path)).isDirectory
+
+    return commonGitDir.path.takeIf { isRemoved }
+}
+
+/** Whether this folder looks like a git dir: it has a `HEAD` file and an `objects` folder, as git checks. */
+private fun File.isGitDir(): Boolean = File(this, "HEAD").isFile && File(this, "objects").isDirectory
 
 /** The path on the first line of [file], after [prefix], or null when the file can't be read or has no such line. */
 private fun readPath(file: File, prefix: String): File? {

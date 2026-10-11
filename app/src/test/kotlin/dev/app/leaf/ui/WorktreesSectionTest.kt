@@ -28,18 +28,29 @@ class WorktreesSectionTest {
     }
 
     @Test
-    fun `offers to switch to another worktree, and switches to it`() {
+    fun `offers to switch to another worktree or open it in a new tab, and does`() {
         var switched = 0
-        val items = worktreeContextMenuItems(worktree("/wt"), onSwitchTo = { switched++ }, onCopyPath = {})
+        var openedInNewTab = 0
+        val items = worktreeContextMenuItems(
+            worktree("/wt"),
+            onSwitchTo = { switched++ },
+            onOpenInNewTab = { openedInNewTab++ },
+            onCopyPath = {},
+        )
 
-        assertEquals(listOf("Switch to worktree", "Copy path"), labels(items))
+        assertEquals(listOf("Switch to worktree", "Open in new tab", "Copy path"), labels(items))
 
-        items.first().onClick()
+        items[0].onClick()
         assertEquals(1, switched)
+        assertEquals(0, openedInNewTab)
+
+        items[1].onClick()
+        assertEquals(1, switched)
+        assertEquals(1, openedInNewTab)
     }
 
     @Test
-    fun `doesn't offer to switch to the tab's worktree, a missing one or a bare repository`() {
+    fun `doesn't offer to switch to or open the tab's worktree, a missing one or a bare repository`() {
         val worktrees = listOf(
             worktree("/repo").copy(isCurrent = true),
             worktree("/gone").copy(prunable = "gitdir file points to non-existent location"),
@@ -47,7 +58,7 @@ class WorktreesSectionTest {
         )
 
         for (worktree in worktrees) {
-            val items = worktreeContextMenuItems(worktree, onSwitchTo = {}, onCopyPath = {})
+            val items = worktreeContextMenuItems(worktree, onSwitchTo = {}, onOpenInNewTab = {}, onCopyPath = {})
 
             assertEquals(listOf("Copy path"), labels(items), worktree.path)
         }

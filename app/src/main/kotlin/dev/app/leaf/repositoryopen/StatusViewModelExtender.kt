@@ -120,20 +120,30 @@ class StatusViewModelExtender @AssistedInject constructor(
         val textFlow = MutableStateFlow(TextFieldValue(""))
 
         viewModelScope.launch {
-            repositoryDataRepository
-                .persistedCommitMessage
-                .map {
-                    it
-                        .dataOrNull()
-                        ?.let { persistedCommitMessage -> filter(persistedCommitMessage) }
+            // Fork-only: starts over with the message of each worktree that the tab switches to
+            flow {
+                emit(null)
+                emitAll(repositoryDataRepository.repositorySelectionState.worktreeSwitches())
+            }.collectLatest { switchedTo ->
+                if (switchedTo != null) {
+                    textFlow.value = TextFieldValue("")
                 }
-                .distinctUntilChanged()
-                .collect {
-                    if (textFlow.value.text.isBlank()) {
-                        val newText = it.orEmpty()
-                        textFlow.value = TextFieldValue(newText, selection = TextRange(newText.count()))
+
+                repositoryDataRepository
+                    .persistedCommitMessage
+                    .map {
+                        it
+                            .dataOrNull()
+                            ?.let { persistedCommitMessage -> filter(persistedCommitMessage) }
                     }
-                }
+                    .distinctUntilChanged()
+                    .collect {
+                        if (textFlow.value.text.isBlank()) {
+                            val newText = it.orEmpty()
+                            textFlow.value = TextFieldValue(newText, selection = TextRange(newText.count()))
+                        }
+                    }
+            }
         }
 
         return textFlow
@@ -216,6 +226,15 @@ class StatusViewModelExtender @AssistedInject constructor(
         .stateIn(StatusState())
 
     init {
+        // Fork-only: what belonged to the worktree that the tab switched away from. A message still waiting to be saved
+        // is saved there, and a commit or the next message doesn't cancel it.
+        repositoryDataRepository.repositorySelectionState.worktreeSwitches().collectLatestInCoroutineScope {
+            persistMessageJob = null
+            isAmend.value = false
+            stagedCollapsedFolders.value = CollapsedFolders()
+            unstagedCollapsedFolders.value = CollapsedFolders()
+        }
+
         showSearchStaged.collectLatestInCoroutineScope {
             if (it) {
                 addStagedSearchToCloseableView()
@@ -359,11 +378,14 @@ class StatusViewModelExtender @AssistedInject constructor(
     }
 
     private fun persistMessage(newMessage: String?) {
+        // Fork-only: the message belongs to the worktree it's written in, even if the tab switches meanwhile
+        val repositoryPath = repositoryDataRepository.repositoryPath ?: return
+
         persistMessageJob?.cancel()
 
         persistMessageJob = viewModelScope.launch {
             delay(PERSIST_MESSAGE_DELAY_IN_MS.milliseconds)
-            persistCommitMessageUseCase(newMessage)
+            persistCommitMessageUseCase(repositoryPath, newMessage)
         }
     }
 

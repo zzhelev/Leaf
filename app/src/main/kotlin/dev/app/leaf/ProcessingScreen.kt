@@ -148,6 +148,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.RepositoryClone -> "Cloning repository"
         TaskType.RepositoryInit -> "Creating repository"
         TaskType.RepositoryOpen -> "Opening repository"
+        TaskType.SwitchWorktree -> "Switching worktree"
         TaskType.ResetRepoState -> "Resetting repository state"
         TaskType.ResetToCommit -> "Resetting to commit"
         TaskType.RevertCommit -> "Reverting commit"

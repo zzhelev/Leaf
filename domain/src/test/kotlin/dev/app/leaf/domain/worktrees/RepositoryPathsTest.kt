@@ -3,6 +3,10 @@
 
 package dev.app.leaf.domain.worktrees
 
+import dev.app.leaf.domain.models.Worktree
+import dev.app.leaf.domain.models.WorktreeBaseBranch
+import dev.app.leaf.domain.models.WorktreeInfo
+import dev.app.leaf.domain.models.WorktreeList
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -127,5 +131,82 @@ class RepositoryPathsTest {
         File(linkedGitDir, "gitdir").delete()
 
         assertEquals(linkedGitDir.path, workTreeOf(linkedGitDir.path))
+    }
+
+    @Test
+    fun `a removed worktree's git dir leads to its repository`() {
+        createRepositories()
+        makeGitDir(commonDir)
+
+        assertNull(repositoryOfRemovedWorktree(linkedGitDir.path), "the worktree is still there")
+
+        // Deleted by hand: git lists it as prunable
+        linked.deleteRecursively()
+        assertEquals(commonDir.path, repositoryOfRemovedWorktree(linkedGitDir.path))
+
+        // Pruned, or removed with `git worktree remove`
+        linkedGitDir.deleteRecursively()
+        assertEquals(commonDir.path, repositoryOfRemovedWorktree(linkedGitDir.path))
+    }
+
+    @Test
+    fun `finds a worktree whose gitdir file is relative`() {
+        createRepositories()
+        makeGitDir(commonDir)
+        // git writes this with worktree.useRelativePaths
+        File(linkedGitDir, "gitdir").writeText("../../../../wt/.git\n")
+
+        assertNull(repositoryOfRemovedWorktree(linkedGitDir.path))
+    }
+
+    @Test
+    fun `only a linked worktree's git dir in a repository leads anywhere`() {
+        createRepositories()
+        makeGitDir(commonDir)
+        // An agent's worktree folder, whose parent is named worktrees too
+        val agentFolder = File(repo, ".claude/worktrees/agent")
+
+        assertNull(repositoryOfRemovedWorktree(agentFolder.path), "a deleted worktree folder")
+        assertNull(repositoryOfRemovedWorktree(commonDir.path), "the main worktree's git dir")
+        assertNull(repositoryOfRemovedWorktree(repo.path), "a working tree")
+        assertNull(repositoryOfRemovedWorktree(File(tempDir, "worktrees/x").path), "a folder that isn't in a git dir")
+    }
+
+    @Test
+    fun `marks the worktree that the tab switched to as the tab's`() {
+        createRepositories()
+        val list = WorktreeList(
+            WorktreeBaseBranch("refs/heads/main"),
+            listOf(info(repo.path, isCurrent = true), info(linked.path, isCurrent = false)),
+        )
+
+        // From another path to the same folder, as macOS has /private/var for /var
+        val switched = list.withCurrentWorktree(File(linked, "../wt").path)
+
+        assertEquals(listOf(false, true), switched.worktrees.map { it.worktree.isCurrent })
+        assertEquals(list.worktrees.map { it.worktree.path }, switched.worktrees.map { it.worktree.path })
+    }
+
+    private fun info(path: String, isCurrent: Boolean) = WorktreeInfo(
+        Worktree(
+            path = path,
+            headSha = "0123456789abcdef0123456789abcdef01234567",
+            branch = "refs/heads/main",
+            isMain = isCurrent,
+            isCurrent = isCurrent,
+            isDetached = false,
+            isBare = false,
+            locked = null,
+            prunable = null,
+        ),
+        status = null,
+        aheadBehindBase = null,
+        lastCommitTime = null,
+    )
+
+    /** Makes [dir] look like a git dir to git, with a `HEAD` file and an `objects` folder. */
+    private fun makeGitDir(dir: File) {
+        File(dir, "objects").mkdirs()
+        File(dir, "HEAD").writeText("ref: refs/heads/main\n")
     }
 }

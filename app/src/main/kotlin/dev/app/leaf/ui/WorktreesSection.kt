@@ -71,6 +71,7 @@ fun LazyListScope.worktrees(
     onExpand: () -> Unit,
     onWorktreeClicked: (WorktreeInfo) -> Unit,
     onSwitchToWorktree: (WorktreeInfo) -> Unit,
+    onOpenInNewTab: (WorktreeInfo) -> Unit,
     onCopyPath: (WorktreeInfo) -> Unit,
     onChooseBase: (branch: String?) -> Unit,
 ) {
@@ -104,6 +105,7 @@ fun LazyListScope.worktrees(
                 baseBranch = worktreesState.baseBranch,
                 onClick = { onWorktreeClicked(row.info) },
                 onSwitchTo = { onSwitchToWorktree(row.info) },
+                onOpenInNewTab = { onOpenInNewTab(row.info) },
                 onCopyPath = { onCopyPath(row.info) },
             )
         }
@@ -133,6 +135,7 @@ private fun WorktreeItem(
     baseBranch: String?,
     onClick: () -> Unit,
     onSwitchTo: () -> Unit,
+    onOpenInNewTab: () -> Unit,
     onCopyPath: () -> Unit,
 ) {
     val worktree = row.info.worktree
@@ -141,7 +144,7 @@ private fun WorktreeItem(
     val currentOnSwitchTo by rememberUpdatedState(onSwitchTo)
 
     ContextMenu(
-        items = { worktreeContextMenuItems(worktree, onSwitchTo, onCopyPath) }
+        items = { worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath) }
     ) {
         DelayedTooltip(worktreeTooltip(row.info, baseBranch)) {
             Row(
@@ -231,10 +234,14 @@ private fun WorktreeItem(
     }
 }
 
-/** The menu of [worktree]'s row: switching to it when the tab can, and copying its path. */
+/**
+ * The menu of [worktree]'s row: switching the tab to it, or opening it in a new tab, when the tab can switch to it, and
+ * copying its path.
+ */
 internal fun worktreeContextMenuItems(
     worktree: Worktree,
     onSwitchTo: () -> Unit,
+    onOpenInNewTab: () -> Unit,
     onCopyPath: () -> Unit,
 ): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
     if (worktree.canSwitchTo) {
@@ -242,6 +249,12 @@ internal fun worktreeContextMenuItems(
             composableLabel = { stringResource(Res.string.side_pane_worktree_switch_to) },
             icon = { painterResource(Res.drawable.start) },
             onClick = onSwitchTo,
+        )
+
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_open_in_new_tab) },
+            icon = { painterResource(Res.drawable.open) },
+            onClick = onOpenInNewTab,
         )
     }
 
