@@ -22,6 +22,10 @@ class GetDiffEntryFromStatusEntryGitAction @Inject constructor(
         isCached: Boolean,
         statusEntry: StatusEntry,
     ) = withContext(Dispatchers.IO) {
+        if (!isCached) {
+            unmergedDiffEntry(git, statusEntry.filePath)?.let { return@withContext it }
+        }
+
         val firstDiffEntry = git.diff()
             .setPathFilter(PathFilter.create(statusEntry.filePath))
             .setCached(isCached).apply {
