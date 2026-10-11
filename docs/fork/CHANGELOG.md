@@ -2,6 +2,34 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A conflicted file's diff compares it to ours (branch `claude/exciting-euclid-f40264`)
+
+- **Before:** the diff of a file with conflicts (in Unstaged, while a merge, rebase or cherry-pick is stopped at
+  conflicts) compared the working file with the common ancestor. So it showed the ancestor's lines as removed, lines
+  that neither side has. Such a file has stages 1 to 3 in the index and no stage 0, and JGit's diff of the index
+  against the working tree gives one entry per stage. Leaf took the first one, stage 1. A working file set back to
+  ours showed as the ancestor replaced by ours, and one set back to the ancestor as ours deleted.
+- **Now:** it compares the working file, conflict markers included, with ours (stage 2), the version of the commit
+  that the operation stopped on (fork-only `UnmergedDiffEntry.kt`). For a file that both sides changed, that's what
+  `git diff --ours` shows.
+  - When ours has no file (deleted by us), the whole working file is added. git shows nothing for it.
+  - When the working file is deleted, ours is removed.
+  - When the working file is ours as it is, as git leaves it when they deleted the file, the pane shows the file with
+    no lines instead of closing.
+- **The `NullPointerException`s in the log:** the two logged on 2026-10-10 came from aborts, not from selecting the
+  file. At 04:23:27, the demo repository's reflog has `rebase: aborting` in the same second. At 12:46:52, the error
+  comes right before a refresh that no poll explains. Aborting while a conflicted file's diff is open reloads that
+  diff, and the file has no changes left. Since "A diff with no changes left logs one line" below, that's one log
+  line, and the diff pane closes. The conflicted file's diff itself didn't fail in any of the cases tested: merge,
+  rebase and cherry-pick with git and with JGit, add/add, and deleted by us or by them.
+- **Tests:** `ConflictDiffTest` (`:data`, 9) makes real conflicts, with the git CLI and with Leaf's JGit merge, and
+  formats the diff as the pane gets it. It covers merge, rebase and cherry-pick, deleted by us, deleted by them, the
+  working file deleted or set back to the ancestor, and the abort.
+  - **Mutation check:** 6 mutations, all caught: no conflict handling (8 of the 9 tests fail, as on `main`), comparing
+    with stage 1 or with stage 3, no entry for an unchanged file, an unchanged entry with the same id on both sides,
+    and handling files without conflicts as conflicted.
+  - `./gradlew test` passes, with 853 tests (65 in `:app`, 605 in `:data`, 176 in `:domain`, 7 in `:common`).
+
 ## Settings that did nothing, and UI bugs from Gitnuro's code (branch `fix/settings-and-ui`)
 
 From the review of the files that come from Gitnuro (2026-10-09), which found them worth fixing rather than rewriting.

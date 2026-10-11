@@ -368,6 +368,20 @@ upstream actions (`StageHunkGitAction`, `DiscardUnstagedHunkLineGitAction`, …)
 - Without a usable git, the actions fail with `GitCliError` and change nothing. There is no JGit fallback: the old
   JGit code decoded and re-encoded the text as UTF-8, and discarded lines by number without checking them.
 
+**Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
+conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
+`git diff --ours` shows.
+- JGit's diff of the index against the working tree gives such a file one entry per stage, and the first compares
+  stage 1, the common ancestor. So `GetDiffEntryFromStatusEntryGitAction` asks `unmergedDiffEntry` first. That runs
+  `git.diff()` against an in-core index holding only ours, at stage 0. It looks at the index, not at the status
+  entry, so a stale selection is handled too.
+- Without ours (deleted by us), the whole file is added, where git shows nothing. A working file that is ours as it
+  is gets an `UnchangedDiffEntry`, so the pane shows the file instead of closing. Its working tree id is zero: JGit's
+  `DiffFormatter` throws while parsing the header of an entry whose two ids are the same.
+- The rest of the diff code is unchanged. It reads the old side by object id and the new side from the working tree
+  by path, whatever index it scanned.
+- Conflicted files get no hunk or line actions (see above).
+
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,
   its `WorktreeStatus`, how it compares to the base, and the time of its last commit. It runs at most 4 worktrees'
