@@ -4,6 +4,7 @@
 package dev.app.leaf.ui.status
 
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -23,6 +24,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.swing.Swing
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 private val conflicted = StatusEntry("notes.txt", StatusType.CONFLICTING)
@@ -117,6 +119,50 @@ class OperationInProgressBannerTest {
             render(OperationInProgress(Operation.CHERRY_PICK, 0)).texts,
         )
         assertEquals(1, render(OperationInProgress(Operation.MERGE, 1), click = "Abort merge").aborts)
+    }
+
+    @Test
+    fun `the button follows the text on a wide window, and stays in view on a narrow one`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            // The text is about 500 px wide: the button comes right after it, not at the far right
+            val wide = layout(width = 2400)
+            assertTrue(wide.button.right < 1200f, "button ends at ${wide.button.right} px")
+            assertTrue(wide.button.left - wide.text.right <= 16f, "gap of ${wide.button.left - wide.text.right} px")
+
+            val narrow = layout(width = 500)
+            assertTrue(narrow.button.right <= 500f, "button ends at ${narrow.button.right} px")
+            assertTrue(narrow.text.right <= narrow.button.left, "text ends at ${narrow.text.right} px")
+        }
+
+    private data class Layout(val text: Rect, val button: Rect)
+
+    /** Where the merge's text and its button are, in a window [width] pixels wide. */
+    private fun layout(width: Int): Layout {
+        val message = "Merge stopped at conflicts in 1 file. Resolve them, then commit."
+        val scene = ImageComposeScene(width = width, height = 200, density = Density(1f)) {
+            AppTheme {
+                OperationInProgressBanner(OperationInProgress(Operation.MERGE, 1), onAbort = {})
+            }
+        }
+
+        try {
+            scene.render()
+
+            val nodes = mutableListOf<SemanticsNode>()
+            fun visit(node: SemanticsNode) {
+                nodes += node
+                node.children.forEach(::visit)
+            }
+            scene.semanticsOwners.forEach { visit(it.rootSemanticsNode) }
+
+            fun boundsOf(text: String) = nodes.first { node ->
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text }
+            }.boundsInRoot
+
+            return Layout(text = boundsOf(message), button = boundsOf("Abort merge"))
+        } finally {
+            scene.close()
+        }
     }
 
     private data class Aborted(val asked: ConfirmableAction, val actions: List<StatusAction>)

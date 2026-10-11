@@ -116,8 +116,10 @@ fun OperationInProgressBanner(
             style = MaterialTheme.typography.body1,
             fontWeight = FontWeight.Medium,
             color = OnConflictColor,
+            // Only as wide as the text, so that the button follows it: on a wide window, a button at the far right is
+            // too far from what it's about. When the window is narrow, the text wraps and the button stays.
             modifier = Modifier
-                .weight(1f)
+                .weight(1f, fill = false)
                 .padding(horizontal = 8.dp),
         )
 
