@@ -23,7 +23,7 @@ class IncreaseLogCountUseCase @Inject constructor(
 
             if (newLimit > repositoryDataRepository.maxCommitsToLoadLimit) {
                 repositoryDataRepository.maxCommitsToLoadLimit = newLimit
-                repositoryDataRepository.updateLog {
+                repositoryDataRepository.updateLog(repositoryPath) {
                     getLogUseCase(
                         repositoryPath,
                         pagination = Pagination.Paginated(log)

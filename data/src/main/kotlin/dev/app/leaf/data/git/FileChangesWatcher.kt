@@ -3,7 +3,6 @@ package dev.app.leaf.data.git
 import dev.app.leaf.FileChanged
 import dev.app.leaf.FileWatcher
 import dev.app.leaf.WatchDirectoryNotifier
-import dev.app.leaf.common.TabScope
 import dev.app.leaf.domain.interfaces.IFileChangesWatcher
 import dev.app.leaf.domain.models.WatcherEvent
 import kotlinx.coroutines.Dispatchers
@@ -17,13 +16,16 @@ import javax.inject.Inject
 
 private const val TAG = "FileChangesWatcher"
 
-@TabScope
+/**
+ * Watches folders for one watch of a tab's worktree. Not tab-scoped (fork-only): closing it destroys its Rust
+ * [FileWatcher], so a tab that switches to another worktree watches it with a new one.
+ */
 class FileChangesWatcher @Inject constructor() : AutoCloseable, IFileChangesWatcher {
     private val fileWatcher = FileWatcher()
     private var shouldKeepLooping = true
 
     /**
-     * Fork-only: [FileWatcher.watch] blocks its thread for as long as the tab is open, so it runs on a thread of its
+     * Fork-only: [FileWatcher.watch] blocks its thread for as long as the watch runs, so it runs on a thread of its
      * own. On the tab's dispatcher (`Dispatchers.Default`, one thread per core) each loaded tab held one, and as many
      * tabs as cores stalled everything else there. A view of `Dispatchers.IO` doesn't count against IO's 64 threads,
      * so the watchers don't take those either.

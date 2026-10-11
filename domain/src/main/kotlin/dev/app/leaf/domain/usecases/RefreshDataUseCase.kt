@@ -109,7 +109,7 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshCommitMessages() {
         useCaseExecutor.executeWithoutResult { repositoryPath ->
-            repositoryDataRepository.updatePersistedCommitMessages {
+            repositoryDataRepository.updatePersistedCommitMessages(repositoryPath) {
                 getPersistedCommitMessagesGitAction(repositoryPath)
             }
         }
@@ -117,11 +117,11 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshBranches() {
         useCaseExecutor.executeWithoutResult { repositoryPath ->
-            repositoryDataRepository.updateLocalBranches {
+            repositoryDataRepository.updateLocalBranches(repositoryPath) {
                 getBranchesGitAction(repositoryPath)
             }
 
-            repositoryDataRepository.updateCurrentBranch {
+            repositoryDataRepository.updateCurrentBranch(repositoryPath) {
                 getCurrentBranchGitAction(repositoryPath)
             }
         }
@@ -129,13 +129,13 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshStashes() {
         useCaseExecutor.executeWithoutResult { repositoryPath ->
-            repositoryDataRepository.updateStashes { getStashListGitAction(repositoryPath) }
+            repositoryDataRepository.updateStashes(repositoryPath) { getStashListGitAction(repositoryPath) }
         }
     }
 
     private suspend fun refreshLog() {
         useCaseExecutor.executeWithoutResult { repositoryPath ->
-            repositoryDataRepository.updateLog {
+            repositoryDataRepository.updateLog(repositoryPath) {
                 getLogUseCase(repositoryPath, pagination = Pagination.None)
             }
         }
@@ -143,7 +143,7 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshStatus() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
-            repositoryDataRepository.updateStatus {
+            repositoryDataRepository.updateStatus(repositoryPath) {
                 getStatusGitAction(repositoryPath)
             }
         }
@@ -151,7 +151,7 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshGitConfig() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
-            repositoryDataRepository.updateAuthor {
+            repositoryDataRepository.updateAuthor(repositoryPath) {
                 loadAuthorGitAction(repositoryPath)
             }
         }
@@ -159,13 +159,13 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshRemotes() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
-            repositoryDataRepository.updateRemotes { getRemotesUseCase() }
+            repositoryDataRepository.updateRemotes(repositoryPath) { getRemotesUseCase() }
         }
     }
 
     private suspend fun refreshSubmodules() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
-            repositoryDataRepository.updateSubmodules {
+            repositoryDataRepository.updateSubmodules(repositoryPath) {
                 getSubmodulesGitAction(repositoryPath)
             }
         }
@@ -173,7 +173,7 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshTags() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
-            repositoryDataRepository.updateTags {
+            repositoryDataRepository.updateTags(repositoryPath) {
                 getTagsGitAction(repositoryPath)
             }
         }
@@ -181,15 +181,15 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshWorktrees() {
         worktreesRefreshRunner.run {
-            useCaseExecutor.executeWithoutResult {
-                repositoryDataRepository.updateWorktrees { getWorktreesInfoUseCase() }
+            useCaseExecutor.executeWithoutResult { repositoryPath ->
+                repositoryDataRepository.updateWorktrees(repositoryPath) { getWorktreesInfoUseCase() }
             }
         }
     }
 
     private suspend fun refreshRefDates() {
         useCaseExecutor.executeWithoutResult { repositoryPath ->
-            repositoryDataRepository.updateRefDates {
+            repositoryDataRepository.updateRefDates(repositoryPath) {
                 getRefDatesGitAction(repositoryPath)
             }
         }
@@ -197,7 +197,7 @@ class RefreshDataUseCase @Inject constructor(
 
     private suspend fun refreshRepositoryState() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
-            repositoryDataRepository.updateRepositoryState {
+            repositoryDataRepository.updateRepositoryState(repositoryPath) {
                 getRepositoryState(repositoryPath)
             }
 
@@ -219,7 +219,7 @@ class RefreshDataUseCase @Inject constructor(
 //                }
 //            }
 
-                repositoryDataRepository.updateRebaseInteractiveState {
+                repositoryDataRepository.updateRebaseInteractiveState(repositoryPath) {
                     val rebaseMergeDir = File(repositoryPath, RebaseConstants.REBASE_MERGE)
                     val doneFile = File(rebaseMergeDir, RebaseConstants.DONE)
                     val stoppedShaFile = File(rebaseMergeDir, RebaseConstants.STOPPED_SHA)
@@ -249,7 +249,7 @@ class RefreshDataUseCase @Inject constructor(
                     Either.Ok(newState)
                 }
             } else {
-                repositoryDataRepository.updateRebaseInteractiveState {
+                repositoryDataRepository.updateRebaseInteractiveState(repositoryPath) {
                     Either.Ok(RebaseInteractiveState.None)
                 }
             }

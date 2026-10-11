@@ -1,6 +1,7 @@
 package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.FileType
+import dev.app.leaf.common.TabScope
 import dev.app.leaf.common.printDebug
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.systemSeparator
@@ -14,10 +15,12 @@ import dev.app.leaf.domain.refresh.WatchedRepository
 import dev.app.leaf.domain.refresh.WorktreeChangesRefresher
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "ObserveRepositoryToRefreshUseCase"
@@ -27,9 +30,13 @@ private const val REFRESH_TIME_SINCE_LAST_OPERATION = 1_500L
 /** The file watcher refreshes the worktree list at most this often while other worktrees keep changing. */
 private val MIN_TIME_BETWEEN_WORKTREES_REFRESHES = 2.seconds
 
+/**
+ * Tab-scoped (fork-only), so that a switch to another worktree stops the watch that this tab's [invoke] started.
+ */
+@TabScope
 class ObserveRepositoryToRefreshUseCase @Inject constructor(
     private val tabCoroutineScope: TabCoroutineScope,
-    private val fileChangesWatcher: IFileChangesWatcher,
+    private val fileChangesWatcherProvider: Provider<IFileChangesWatcher>,
     private val repositoryDataRepository: RepositoryDataRepository,
     private val getWorktreeUseCase: GetWorktreeUseCase,
     private val refreshDataUseCase: RefreshDataUseCase,
@@ -37,6 +44,9 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
     private val getStatusGitAction: IGetStatusGitAction,
     private val getCommonGitDirGitAction: IGetCommonGitDirGitAction,
 ) {
+    @Volatile
+    private var watch: Job? = null
+
     /**
      * Sometimes external apps can run filesystem multiple operations in a fraction of a second.
      * To prevent excessive updates, we add a slight delay between updates emission to prevent slowing down
@@ -46,7 +56,12 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
     operator fun invoke() {
         // TODO add some logging?
         val repositoryPath = repositoryDataRepository.repositoryPath ?: return
-        tabCoroutineScope.launch {
+        // Fork-only: each watch has its own watcher, which it closes when it ends
+        val fileChangesWatcher = fileChangesWatcherProvider.get()
+
+        stop()
+
+        watch = tabCoroutineScope.launch {
             val worktreeDir = getWorktreeUseCase().okOrNull() ?: return@launch
             // Fork-only: the git dir that the worktrees share, to see what changes in the other worktrees
             val commonDir = getCommonGitDirGitAction(repositoryPath).okOrNull() ?: repositoryPath
@@ -83,6 +98,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
 
                                 if (canRefreshData()) {
                                     updateWatchedDirectories(
+                                        fileChangesWatcher,
                                         event,
                                         repositoryPath,
                                         worktreeDir + systemSeparator,
@@ -137,9 +153,20 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                     }
                 }
             }
-        }.invokeOnCompletion {
-            fileChangesWatcher.close()
+        }.apply {
+            invokeOnCompletion {
+                fileChangesWatcher.close()
+            }
         }
+    }
+
+    /**
+     * Stops watching the tab's worktree (fork-only), before the tab switches to another one. The watch's Rust loop
+     * notices within half a second, then its watcher closes.
+     */
+    fun stop() {
+        watch?.cancel()
+        watch = null
     }
 
     private suspend fun canRefreshData(): Boolean {
@@ -160,6 +187,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
     }
 
     private suspend fun updateWatchedDirectories(
+        fileChangesWatcher: IFileChangesWatcher,
         event: WatcherEvent.ChangesDetected,
         repositoryPath: String,
         worktreeDirPath: String,

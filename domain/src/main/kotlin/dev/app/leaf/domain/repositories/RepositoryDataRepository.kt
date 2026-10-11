@@ -27,20 +27,29 @@ interface RepositoryDataRepository {
 
     fun setRepositorySelectionState(state: RepositorySelectionState)
     fun clearAll()
-    suspend fun updateStatus(block: suspend () -> Either<Status, AppError>)
-    suspend fun updateLocalBranches(block: suspend () -> Either<List<Branch>, AppError>)
-    suspend fun updateCurrentBranch(block: suspend () -> Either<Branch?, AppError>)
-    suspend fun updateTags(block: suspend () -> Either<List<Tag>, AppError>)
-    suspend fun updateLog(block: suspend () -> Either<GraphCommits, AppError>)
-    suspend fun updateRemotes(block: suspend () -> Either<List<RemoteInfo>, AppError>)
-    suspend fun updateRefDates(block: suspend () -> Either<RefDates, AppError>)
-    suspend fun updateStashes(block: suspend () -> Either<List<Commit>, AppError>)
-    suspend fun updateSubmodules(block: suspend () -> Either<Map<String, Submodule>, AppError>)
-    suspend fun updateAuthor(block: suspend () -> Either<AuthorInfo, AppError>)
-    suspend fun updateRepositoryState(block: suspend () -> Either<RepositoryState, AppError>)
-    suspend fun updateRebaseInteractiveState(block: suspend () -> Either<RebaseInteractiveState, AppError>)
-    suspend fun updatePersistedCommitMessages(block: suspend () -> Either<PersistedCommitMessage, AppError>)
-    suspend fun updateWorktrees(block: suspend () -> Either<WorktreeList, AppError>)
+
+    // Each update gets the git dir its block reads. A result for a git dir that the tab left while it loaded (it
+    // switched to another worktree) is dropped (fork-only).
+    suspend fun updateStatus(repositoryPath: String, block: suspend () -> Either<Status, AppError>)
+    suspend fun updateLocalBranches(repositoryPath: String, block: suspend () -> Either<List<Branch>, AppError>)
+    suspend fun updateCurrentBranch(repositoryPath: String, block: suspend () -> Either<Branch?, AppError>)
+    suspend fun updateTags(repositoryPath: String, block: suspend () -> Either<List<Tag>, AppError>)
+    suspend fun updateLog(repositoryPath: String, block: suspend () -> Either<GraphCommits, AppError>)
+    suspend fun updateRemotes(repositoryPath: String, block: suspend () -> Either<List<RemoteInfo>, AppError>)
+    suspend fun updateRefDates(repositoryPath: String, block: suspend () -> Either<RefDates, AppError>)
+    suspend fun updateStashes(repositoryPath: String, block: suspend () -> Either<List<Commit>, AppError>)
+    suspend fun updateSubmodules(repositoryPath: String, block: suspend () -> Either<Map<String, Submodule>, AppError>)
+    suspend fun updateAuthor(repositoryPath: String, block: suspend () -> Either<AuthorInfo, AppError>)
+    suspend fun updateRepositoryState(repositoryPath: String, block: suspend () -> Either<RepositoryState, AppError>)
+    suspend fun updateRebaseInteractiveState(
+        repositoryPath: String,
+        block: suspend () -> Either<RebaseInteractiveState, AppError>,
+    )
+    suspend fun updatePersistedCommitMessages(
+        repositoryPath: String,
+        block: suspend () -> Either<PersistedCommitMessage, AppError>,
+    )
+    suspend fun updateWorktrees(repositoryPath: String, block: suspend () -> Either<WorktreeList, AppError>)
 }
 
 sealed interface DataState<out T> {

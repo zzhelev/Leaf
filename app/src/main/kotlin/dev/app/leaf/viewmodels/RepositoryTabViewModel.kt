@@ -12,7 +12,6 @@ import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
-import dev.app.leaf.domain.interfaces.IFileChangesWatcher
 import dev.app.leaf.domain.interfaces.IInitLocalRepositoryGitAction
 import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.models.TaskProgress
@@ -57,7 +56,6 @@ private const val TAG = "RepositoryTabViewModel"
 class RepositoryTabViewModel @AssistedInject constructor(
     private val initLocalRepositoryGitAction: IInitLocalRepositoryGitAction,
     val appStateManager: AppStateManager,
-    private val fileChangesWatcher: IFileChangesWatcher,
     private val credentialsStateManager: CredentialsStateManager,
     private val openFilePickerUseCase: OpenFilePickerUseCase,
     private val openUrlInBrowserUseCase: OpenUrlInBrowserUseCase,
@@ -230,7 +228,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
         viewModelsMap.clear()
         onClear()
 
-        fileChangesWatcher.close()
+        // Ends the file watcher's watch too, which closes it
         tabScope.cancel()
         repositoryDataRepository.clearAll()
     }

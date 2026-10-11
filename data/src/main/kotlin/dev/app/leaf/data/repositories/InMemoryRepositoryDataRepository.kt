@@ -71,7 +71,10 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
             }
         }
 
-    override fun setRepositorySelectionState(state: RepositorySelectionState) {
+    /** Makes a switch to another worktree and a refresh's check of the git dir and write happen one at a time. */
+    private val worktreeLock = Any()
+
+    override fun setRepositorySelectionState(state: RepositorySelectionState) = synchronized(worktreeLock) {
         repositorySelectionState.value = state
     }
 
@@ -87,67 +90,89 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         worktrees.value = DataState.Loading
     }
 
-    override suspend fun updateStatus(block: suspend () -> Either<Status, AppError>) {
-        handleDataState(status, block)
+    override suspend fun updateStatus(repositoryPath: String, block: suspend () -> Either<Status, AppError>) {
+        handleDataState(status, repositoryPath, block)
     }
 
-    override suspend fun updateLocalBranches(block: suspend () -> Either<List<Branch>, AppError>) {
-        handleDataState(localBranches, block)
+    override suspend fun updateLocalBranches(
+        repositoryPath: String,
+        block: suspend () -> Either<List<Branch>, AppError>,
+    ) {
+        handleDataState(localBranches, repositoryPath, block)
     }
 
-    override suspend fun updateCurrentBranch(block: suspend () -> Either<Branch?, AppError>) {
-        handleDataState(currentBranch, block)
+    override suspend fun updateCurrentBranch(repositoryPath: String, block: suspend () -> Either<Branch?, AppError>) {
+        handleDataState(currentBranch, repositoryPath, block)
     }
 
-    override suspend fun updateTags(block: suspend () -> Either<List<Tag>, AppError>) {
-        handleDataState(tags, block)
+    override suspend fun updateTags(repositoryPath: String, block: suspend () -> Either<List<Tag>, AppError>) {
+        handleDataState(tags, repositoryPath, block)
     }
 
-    override suspend fun updateLog(block: suspend () -> Either<GraphCommits, AppError>) {
-        handleDataState(log, block)
+    override suspend fun updateLog(repositoryPath: String, block: suspend () -> Either<GraphCommits, AppError>) {
+        handleDataState(log, repositoryPath, block)
     }
 
-    override suspend fun updateRemotes(block: suspend () -> Either<List<RemoteInfo>, AppError>) {
-        handleDataState(remotes, block)
+    override suspend fun updateRemotes(
+        repositoryPath: String,
+        block: suspend () -> Either<List<RemoteInfo>, AppError>,
+    ) {
+        handleDataState(remotes, repositoryPath, block)
     }
 
-    override suspend fun updateRefDates(block: suspend () -> Either<RefDates, AppError>) {
-        handleDataState(refDates, block)
+    override suspend fun updateRefDates(repositoryPath: String, block: suspend () -> Either<RefDates, AppError>) {
+        handleDataState(refDates, repositoryPath, block)
     }
 
-    override suspend fun updateStashes(block: suspend () -> Either<List<Commit>, AppError>) {
-        handleDataState(stashes, block)
+    override suspend fun updateStashes(repositoryPath: String, block: suspend () -> Either<List<Commit>, AppError>) {
+        handleDataState(stashes, repositoryPath, block)
     }
 
-    override suspend fun updateSubmodules(block: suspend () -> Either<Map<String, Submodule>, AppError>) {
-        handleDataState(submodules, block)
+    override suspend fun updateSubmodules(
+        repositoryPath: String,
+        block: suspend () -> Either<Map<String, Submodule>, AppError>,
+    ) {
+        handleDataState(submodules, repositoryPath, block)
     }
 
-    override suspend fun updateAuthor(block: suspend () -> Either<AuthorInfo, AppError>) {
-        handleDataState(author, block)
+    override suspend fun updateAuthor(repositoryPath: String, block: suspend () -> Either<AuthorInfo, AppError>) {
+        handleDataState(author, repositoryPath, block)
     }
 
-    override suspend fun updateRepositoryState(block: suspend () -> Either<RepositoryState, AppError>) {
-        handleDataState(repositoryState, block)
+    override suspend fun updateRepositoryState(
+        repositoryPath: String,
+        block: suspend () -> Either<RepositoryState, AppError>,
+    ) {
+        handleDataState(repositoryState, repositoryPath, block)
     }
 
-    override suspend fun updateRebaseInteractiveState(block: suspend () -> Either<RebaseInteractiveState, AppError>) {
-        handleDataState(rebaseInteractiveState, block)
+    override suspend fun updateRebaseInteractiveState(
+        repositoryPath: String,
+        block: suspend () -> Either<RebaseInteractiveState, AppError>,
+    ) {
+        handleDataState(rebaseInteractiveState, repositoryPath, block)
     }
 
-    override suspend fun updatePersistedCommitMessages(block: suspend () -> Either<PersistedCommitMessage, AppError>) {
-        handleDataState(persistedCommitMessage, block)
+    override suspend fun updatePersistedCommitMessages(
+        repositoryPath: String,
+        block: suspend () -> Either<PersistedCommitMessage, AppError>,
+    ) {
+        handleDataState(persistedCommitMessage, repositoryPath, block)
     }
 
-    override suspend fun updateWorktrees(block: suspend () -> Either<WorktreeList, AppError>) {
-        handleDataState(worktrees, block)
+    override suspend fun updateWorktrees(repositoryPath: String, block: suspend () -> Either<WorktreeList, AppError>) {
+        handleDataState(worktrees, repositoryPath, block)
     }
 
     private suspend inline fun <T> handleDataState(
         flow: MutableStateFlow<DataState<T>>,
+        repositoryPath: String,
         block: suspend () -> Either<T, AppError>
     ) {
-        flow.value = DataState.Loading
+        // Fork-only: nothing for a worktree that the tab left before this refresh started, or while it ran
+        if (!writeIfStillShown(repositoryPath) { flow.value = DataState.Loading }) {
+            return
+        }
 
         // Fork-only: a step that throws, such as the log's walk when an object goes missing, left the data Loading
         val result = try {
@@ -157,12 +182,29 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
             Either.Err(GenericError(e.message.orEmpty(), e))
         }
 
-        flow.value = when (result) {
-            is Either.Err -> {
-                printError(TAG, "Failed to load data: $result", (result.error as? GenericError)?.exception)
-                DataState.Error(result.error)
+        writeIfStillShown(repositoryPath) {
+            flow.value = when (result) {
+                is Either.Err -> {
+                    printError(TAG, "Failed to load data: $result", (result.error as? GenericError)?.exception)
+                    DataState.Error(result.error)
+                }
+                is Either.Ok -> DataState.Loaded(result.value)
             }
-            is Either.Ok -> DataState.Loaded(result.value)
         }
     }
+
+    /**
+     * Runs [write] if the tab still shows the worktree whose git dir is [repositoryPath], and tells whether it did. A
+     * switch to another worktree can't happen in between (fork-only).
+     */
+    private inline fun writeIfStillShown(repositoryPath: String, write: () -> Unit): Boolean =
+        synchronized(worktreeLock) {
+            val isShown = repositoryPath == this.repositoryPath
+
+            if (isShown) {
+                write()
+            }
+
+            isShown
+        }
 }
