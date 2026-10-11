@@ -98,6 +98,40 @@ fun workTreeOf(path: String): String {
 }
 
 /**
+ * What a tab names itself after (fork-only): its [repository], and the [worktree] it shows when that's a linked one.
+ */
+data class TabNames(val repository: String, val worktree: String?)
+
+/**
+ * The names of a tab opened from [path], a git dir or a working tree. A linked worktree's tab is named after its
+ * repository, the folder of the main worktree (a bare repository's folder, without `.git`), and after its own folder.
+ * Any other tab is named after its working tree's folder, as before worktrees.
+ */
+fun tabNamesOf(path: String): TabNames {
+    val gitDir = gitDirOf(path)
+    val commonGitDir = if (isLinkedWorktreeGitDir(gitDir)) commonGitDirOf(gitDir) else null
+
+    if (commonGitDir == null) {
+        return TabNames(File(workTreeOf(path)).name, worktree = null)
+    }
+
+    val repository = if (commonGitDir.name == DOT_GIT) {
+        commonGitDir.parentFile?.name ?: commonGitDir.name
+    } else {
+        commonGitDir.name.removeSuffix(DOT_GIT)
+    }
+
+    return TabNames(repository, File(workTreeOf(gitDir)).name)
+}
+
+/** The git dir that a linked worktree's git dir names in its `commondir` file, usually `../..`. */
+private fun commonGitDirOf(gitDir: String): File? = readPath(File(gitDir, COMMON_DIR_FILE), prefix = "")
+    ?.let { if (it.isAbsolute) it else File(gitDir, it.path) }
+    ?.toPath()
+    ?.normalize()
+    ?.toFile()
+
+/**
  * The git dir that the worktrees share, when [path] is the git dir of a linked worktree that was removed, or else
  * null. Removed means that git pruned its git dir, or that its folder is gone (git lists it as prunable). git keeps a
  * linked worktree's git dir in `<common git dir>/worktrees/<id>`, so it's found from [path] alone.

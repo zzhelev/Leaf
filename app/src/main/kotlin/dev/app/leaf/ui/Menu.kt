@@ -61,6 +61,7 @@ fun Menu(
     val hasUncommittedChanges by viewModel.hasUncommittedChanges.collectAsState()
     val stashesState by viewModel.stashesState.collectAsState()
     val remotes by viewModel.remoteState.collectAsState()
+    val worktreePickerState by viewModel.worktreePickerState.collectAsState()
     val hasRemotes = remotes.remotes.isNotEmpty()
     val (position, setPosition) = remember { mutableStateOf<LayoutCoordinates?>(null) }
 
@@ -80,6 +81,15 @@ fun Menu(
             tooltipEnabled = !showOpenPopup,
             onClick = { onShowOpenPopupChange(true) },
         )
+
+        // Fork-only: only for a repository with linked worktrees
+        worktreePickerState?.let { state ->
+            WorktreePicker(
+                state = state,
+                onSwitchTo = { viewModel.switchToWorktree(it) },
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 

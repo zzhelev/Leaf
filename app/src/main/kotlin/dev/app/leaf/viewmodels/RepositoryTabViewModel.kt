@@ -5,7 +5,6 @@ import androidx.navigation3.runtime.NavKey
 import dev.app.leaf.Screen
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.common.printLog
-import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.di.TabComponent
 import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.TabCoroutineScope
@@ -24,6 +23,7 @@ import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.SetRepositorySelectionStateToNoneUseCase
 import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
+import dev.app.leaf.domain.worktrees.tabNamesOf
 import dev.app.leaf.domain.worktrees.workTreeOf
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.domain.AppStateManager
@@ -152,8 +152,21 @@ class RepositoryTabViewModel @AssistedInject constructor(
         .flowOn(Dispatchers.IO)
         .stateIn(null)
 
-    override val tabName: StateFlow<String?> = repositoryPath
-        .map { path -> path?.split(systemSeparator)?.lastOrNull() }
+    /** The repository's name, and the linked worktree's that the tab shows (fork-only). */
+    private val tabNames = repositoryDataRepository
+        .repositorySelectionState
+        .map { state ->
+            ((state as? RepositorySelectionState.Open)?.path ?: initialPath)?.let { tabNamesOf(it) }
+        }
+        .flowOn(Dispatchers.IO)
+        .stateIn(null)
+
+    override val tabName: StateFlow<String?> = tabNames
+        .map { it?.repository }
+        .stateIn(null)
+
+    override val worktreeName: StateFlow<String?> = tabNames
+        .map { it?.worktree }
         .stateIn(null)
 
     override val extraInfo: StateFlow<String?> = repositoryPath

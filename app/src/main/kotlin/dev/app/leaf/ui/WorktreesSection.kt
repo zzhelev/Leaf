@@ -59,7 +59,7 @@ import org.jetbrains.compose.resources.stringResource
 private val WORKTREE_ROW_HEIGHT = 46.dp
 
 /** Opacity of a worktree whose folder is missing. */
-private const val PRUNABLE_ALPHA = 0.5f
+internal const val PRUNABLE_ALPHA = 0.5f
 
 /**
  * The Worktrees section of the side panel (fork-only): every worktree of the repository, main one first, with what it
@@ -156,79 +156,94 @@ private fun WorktreeItem(
                     .alpha(if (isPrunable) PRUNABLE_ALPHA else 1f),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                WorktreeIcon(worktree, modifier = Modifier.padding(start = 32.dp, end = 8.dp))
+
+                WorktreeRowLines(row, modifier = Modifier.weight(1f).padding(end = 16.dp))
+            }
+        }
+    }
+}
+
+/** The icon of [worktree]'s row: the main worktree's differs. */
+@Composable
+internal fun WorktreeIcon(worktree: Worktree, modifier: Modifier = Modifier) {
+    Icon(
+        painter = painterResource(if (worktree.isMain) Res.drawable.source else Res.drawable.folder),
+        contentDescription = null,
+        modifier = modifier.size(16.dp),
+        tint = MaterialTheme.colors.primaryVariant,
+    )
+}
+
+/**
+ * The two lines of a worktree's row, in the side panel and the toolbar's picker: its folder name (bold for the tab's
+ * worktree), whether it's locked and how old its commit is, then what it has checked out, whether it has changes and
+ * how it compares to the base branch.
+ */
+@Composable
+internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
+    val worktree = row.info.worktree
+    val isPrunable = worktree.prunable != null
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = row.name,
+                fontWeight = if (worktree.isCurrent) FontWeight.Bold else FontWeight.Normal,
+                style = MaterialTheme.typography.body2,
+                color = MaterialTheme.colors.onBackground,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+
+            if (worktree.locked != null) {
                 Icon(
-                    painter = painterResource(if (worktree.isMain) Res.drawable.source else Res.drawable.folder),
+                    painter = painterResource(Res.drawable.lock),
                     contentDescription = null,
                     modifier = Modifier
-                        .padding(start = 32.dp, end = 8.dp)
-                        .size(16.dp),
-                    tint = MaterialTheme.colors.primaryVariant,
+                        .padding(start = 4.dp)
+                        .size(12.dp),
+                    tint = MaterialTheme.colors.onBackgroundSecondary,
                 )
+            }
 
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = row.name,
-                            fontWeight = if (worktree.isCurrent) FontWeight.Bold else FontWeight.Normal,
-                            style = MaterialTheme.typography.body2,
-                            color = MaterialTheme.colors.onBackground,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
+            val trailingLabel = if (isPrunable) {
+                stringResource(Res.string.side_pane_worktree_missing)
+            } else {
+                row.ageLabel
+            }
 
-                        if (worktree.locked != null) {
-                            Icon(
-                                painter = painterResource(Res.drawable.lock),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .padding(start = 4.dp)
-                                    .size(12.dp),
-                                tint = MaterialTheme.colors.onBackgroundSecondary,
-                            )
-                        }
+            if (trailingLabel != null) {
+                SecondaryLabel(trailingLabel, modifier = Modifier.padding(start = 8.dp))
+            }
+        }
 
-                        val trailingLabel = if (isPrunable) {
-                            stringResource(Res.string.side_pane_worktree_missing)
-                        } else {
-                            row.ageLabel
-                        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = row.head.text(),
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
 
-                        if (trailingLabel != null) {
-                            SecondaryLabel(trailingLabel, modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
+            val status = row.info.status
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = row.head.text(),
-                            style = MaterialTheme.typography.caption,
-                            color = MaterialTheme.colors.onBackgroundSecondary,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
+            if (status != null && status.isDirty) {
+                ChangesDot(status, modifier = Modifier.padding(start = 8.dp))
+            }
 
-                        val status = row.info.status
+            val aheadBehind = row.info.aheadBehindBase
 
-                        if (status != null && status.isDirty) {
-                            ChangesDot(status, modifier = Modifier.padding(start = 8.dp))
-                        }
-
-                        val aheadBehind = row.info.aheadBehindBase
-
-                        if (aheadBehind != null && (aheadBehind.ahead > 0 || aheadBehind.behind > 0)) {
-                            SecondaryLabel(aheadBehind.compactText(), modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
+            if (aheadBehind != null && (aheadBehind.ahead > 0 || aheadBehind.behind > 0)) {
+                SecondaryLabel(aheadBehind.compactText(), modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
@@ -297,7 +312,7 @@ internal fun AheadBehind.compactText(): String = listOfNotNull(
 ).joinToString(" ")
 
 @Composable
-private fun WorktreeHeadLabel.text(): String = when (this) {
+internal fun WorktreeHeadLabel.text(): String = when (this) {
     is WorktreeHeadLabel.OnBranch -> branch
     is WorktreeHeadLabel.Rebasing -> stringResource(Res.string.side_pane_worktree_rebasing, branch)
     is WorktreeHeadLabel.Bisecting -> stringResource(Res.string.side_pane_worktree_bisecting, branch)

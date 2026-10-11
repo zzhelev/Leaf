@@ -173,6 +173,30 @@ class RepositoryPathsTest {
     }
 
     @Test
+    fun `a worktree's tab is named after its repository and its folder`() {
+        createRepositories()
+
+        assertEquals(TabNames("repo", worktree = null), tabNamesOf(repo.path))
+        assertEquals(TabNames("repo", worktree = null), tabNamesOf(commonDir.path))
+        assertEquals(TabNames("repo", worktree = "wt"), tabNamesOf(linked.path))
+        assertEquals(TabNames("repo", worktree = "wt"), tabNamesOf(linkedGitDir.path))
+    }
+
+    @Test
+    fun `a bare repository's worktree is named after the repository's folder without git`() {
+        val bare = File(tempDir, "project.git")
+        val agentGitDir = File(bare, "worktrees/agent")
+        val agent = File(tempDir, "agent")
+        agentGitDir.mkdirs()
+        agent.mkdirs()
+        File(agentGitDir, "commondir").writeText("../..\n")
+        File(agentGitDir, "gitdir").writeText("${File(agent, ".git").path}\n")
+        File(agent, ".git").writeText("gitdir: ${agentGitDir.path}\n")
+
+        assertEquals(TabNames("project", worktree = "agent"), tabNamesOf(agent.path))
+    }
+
+    @Test
     fun `marks the worktree that the tab switched to as the tab's`() {
         createRepositories()
         val list = WorktreeList(

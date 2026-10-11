@@ -40,6 +40,14 @@ class WorktreeRowsTest {
     }
 
     @Test
+    fun `the picker lists every worktree, and isn't shown for a repository with one`() {
+        val list = WorktreeList(WorktreeBaseBranch("refs/heads/main"), listOf(info(main), info(agent), info(feature)))
+
+        assertEquals(worktreeRows(list, filter = "", nowMillis = NOW), worktreePickerRows(list, nowMillis = NOW))
+        assertNull(worktreePickerRows(list.copy(worktrees = listOf(info(main))), nowMillis = NOW))
+    }
+
+    @Test
     fun `filters by folder name, path or branch, ignoring case`() {
         val list = WorktreeList(WorktreeBaseBranch("refs/heads/main"), listOf(info(main), info(agent), info(feature)))
 

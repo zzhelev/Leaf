@@ -18,7 +18,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
@@ -26,6 +29,7 @@ import dev.app.leaf.app.generated.resources.close
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.onMiddleMouseButtonClick
+import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.drag_sorting.HorizontalDraggableItem
@@ -115,12 +119,14 @@ fun <T : TabInformationProvider> TabsRow(
                     HorizontalDraggableItem(dragDropState, index) { _ ->
                         val tooltip by tab.extraInfo.collectAsState()
                         val tabName by tab.name.collectAsState()
+                        val worktreeName by tab.worktreeName.collectAsState()
 
 
                         InstantTooltip(tooltip) {
                             Tab(
                                 modifier = Modifier,
                                 title = tabName ?: defaultTabName,
+                                worktreeName = worktreeName,
                                 isSelected = currentTab == tab,
                                 onClick = {
                                     onTabSelected(tab)
@@ -170,6 +176,7 @@ fun <T : TabInformationProvider> TabsRow(
 fun Tab(
     modifier: Modifier,
     title: String,
+    worktreeName: String?,
     isSelected: Boolean,
     onClick: () -> Unit,
     onCloseTab: () -> Unit,
@@ -200,8 +207,22 @@ fun Tab(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // Fork-only: a linked worktree's tab is named after its repository, then the worktree, lighter
+            val worktreeColor = MaterialTheme.colors.onBackgroundSecondary
+            val text = remember(title, worktreeName, worktreeColor) {
+                buildAnnotatedString {
+                    append(title)
+
+                    if (worktreeName != null) {
+                        withStyle(SpanStyle(color = worktreeColor, fontWeight = FontWeight.Normal)) {
+                            append(" · $worktreeName")
+                        }
+                    }
+                }
+            }
+
             Text(
-                text = title,
+                text = text,
                 modifier = Modifier
                     .padding(start = 16.dp)
                     .weight(1f)

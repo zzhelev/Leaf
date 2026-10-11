@@ -52,6 +52,13 @@ fun worktreeRows(list: WorktreeList, filter: String, nowMillis: Long): List<Work
         }
 }
 
+/**
+ * The rows of the toolbar's worktree picker: every worktree, in git's order. Null when the repository has only one
+ * worktree, so that repositories without linked worktrees don't get a picker.
+ */
+fun worktreePickerRows(list: WorktreeList, nowMillis: Long): List<WorktreeRow>? =
+    worktreeRows(list, filter = "", nowMillis).takeIf { list.worktrees.size > 1 }
+
 /** The worktree's folder name, which git names it after (`.claude/worktrees/x` is `x`). */
 val Worktree.name: String
     get() = File(path).name

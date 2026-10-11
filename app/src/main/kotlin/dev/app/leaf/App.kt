@@ -218,7 +218,10 @@ class App @Inject constructor(
 
             val currentTab = appViewModel.currentTab.collectAsState().value
             val tabName = currentTab?.name?.collectAsState()?.value
-            val currentTabName = (tabName ?: NEW_TAB_DEFAULT_NAME).take(MAX_CHARS_CURRENT_TAB_NAME)
+            val worktreeName = currentTab?.worktreeName?.collectAsState()?.value
+            val currentTabName = listOfNotNull(tabName ?: NEW_TAB_DEFAULT_NAME, worktreeName)
+                .joinToString(" · ")
+                .take(MAX_CHARS_CURRENT_TAB_NAME)
 
             LaunchedEffect(currentTab, tabName) {
                 appViewModel.updatePersistedTabs()

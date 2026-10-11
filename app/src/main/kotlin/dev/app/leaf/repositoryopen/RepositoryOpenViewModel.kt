@@ -31,6 +31,7 @@ import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.usecases.*
+import dev.app.leaf.domain.worktrees.worktreePickerRows
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenFilePickerUseCase
 import dev.app.leaf.system.OpenUrlInBrowserUseCase
@@ -40,6 +41,7 @@ import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.BranchWorktreesState
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
+import dev.app.leaf.ui.WorktreePickerState
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.status.StatusAction
 import dev.app.leaf.ui.toUiDataState
@@ -397,6 +399,15 @@ class RepositoryOpenViewModel @Inject constructor(
         }
         .distinctUntilChanged()
         .stateIn(BranchWorktreesState())
+
+    /** The worktrees for the toolbar's picker, or null when the repository has only one (fork-only). */
+    val worktreePickerState: StateFlow<WorktreePickerState?> = worktrees
+        .map { worktrees ->
+            val list = worktrees.data ?: return@map null
+
+            worktreePickerRows(list, System.currentTimeMillis())?.let { WorktreePickerState(it, list.baseBranch) }
+        }
+        .stateIn(null)
 
     val hasUncommittedChanges = repositoryDataRepository
         .status
