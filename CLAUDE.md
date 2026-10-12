@@ -463,6 +463,49 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
   `ConflictRepository.kt` makes each kind of conflict. git compares the file's time with its backup's to the second,
   so a fake tool with an untrusted exit code has to `touch -t` the file. git removes its copies once the tool exits.
 
+**Built-in conflict resolver (fork-only, `data/git/conflicts/`, models in `domain/models/TextMerge.kt` and
+`ConflictedFile.kt`):** step 1 of `docs/fork/conflict-resolver.md`, the model and its git actions. No UI yet.
+- `GetConflictedFileGitAction` loads a conflicted path as `ConflictedFile`: its stages (through `stagesOf`), its
+  `FileConflict`, its `ConflictSides`, and a `ConflictContent` picked in `git mergetool`'s order:
+  - `OtherPaths`: a stage alone (DD, AU, UA), as rename/rename leaves;
+  - then `Submodule`, `Deleted` and `SymbolicLink`;
+  - `Lfs`: a pointer of 1,024 bytes or less on ours or theirs. JGit's `LfsPointer` throws on an id that isn't hex,
+    which counts as not a pointer;
+  - `Binary`: the `merge` attribute unset or `binary`, or `RawText.isBinary` on each whole version, as JGit's merge
+    reads them;
+  - `TooLarge`: text over `MAX_RESOLVER_TEXT_SIZE` (10 MB, provisional);
+  - then `Text`: the merge, and the working file's check.
+- `textMerge` (`TextMergeChunks.kt`) merges with JGit's `MergeAlgorithm` and the `diff.algorithm` that JGit's merges
+  use (`mergeDiffAlgorithm`), so the conflicts are the ones that Leaf's merges write.
+  - JGit's chunks give their lines in one version only. So `mergeParts` walks the two diffs with `MergeAlgorithm`'s
+    own comparisons (`<` for an edit alone, `>=` to join edits), and each part takes JGit's chunks, which must fit
+    (`IllegalStateException` otherwise). Every `TextMerge.Chunk` has its lines in the base, ours and theirs.
+  - JGit cuts a conflict's base by the lines alike at its start and end, which gives `[1,-1)` with an empty base: it's
+    clamped. Myers can give two edits of one side that touch; such changes are joined.
+  - `TextMergeChunksTest` checks 5,000 random merges per algorithm against JGit's formatter and its OURS and THEIRS
+    strategies, and that keeping one side's changes gives that version back byte for byte.
+- `resultBytes` (`ConflictResult.kt`) writes each line's own bytes and line ending, from `RawText`, and open conflicts
+  with markers as git writes them (`ConflictResultTest` compares with `git merge-file`):
+  - CRLF as git's `is_cr_needed` decides (JGit always writes LF), and a line ending added before a marker;
+  - `diff3` style for `diff3` and `zdiff3`, and the `conflict-marker-size` attribute (`ConflictAttributes.kt`);
+  - JGit's formatter can drop the file's last line ending; this doesn't.
+- `scanConflictMarkers` (`ConflictMarkerScan.kt`) counts the working file's conflicts as `git rerere` does
+  (`WorkingFileCheck`: `MATCHES`, `NO_MARKERS`, `DIFFERENT`, `MISSING`). git joins and splits conflicts where JGit
+  doesn't, so a file nobody edited can count differently from the merge.
+- `WriteConflictResultGitAction` writes in place, through a checkout's line ending conversion, with git's labels
+  (`conflictLabels`: `HEAD`; the branch merged, or `<id> (<subject>)` and `parent of …`; git stash's `Updated
+  upstream`). It writes nothing when the stages changed (`ConflictError.NotConflicted`, `StagesChanged`), when the
+  working file changed since loading unless `overwriteChanges` (`WorkingFileChanged`), or when a folder or a symbolic
+  link is in the file's place (`NotAFile`).
+- Use cases: `GetConflictedFileUseCase`, `SaveConflictResolutionUseCase` (no refresh: the file watcher sees the file)
+  and `MarkConflictResolvedUseCase` (refused with `ConflictsLeft` while a conflict is open, then stages with
+  `StageEntryGitAction` and refreshes the status). They use `execute`, so the resolver shows their errors itself.
+- Tests: `GetConflictedFileGitActionTest` and `WriteConflictResultGitActionTest` use conflicts that git's own merge,
+  rebase, cherry-pick, revert and stash leave (`ConflictMerges.kt` writes each side's files), and Save with nothing
+  resolved must give back git's file. `ResolvingConflictsTest` runs the use cases in a `TestTab`.
+- JGit's merge throws on `merge.conflictStyle=zdiff3` and on `diff.algorithm=patience`, `minimal` or `default`
+  (`Config.getEnum`), so Leaf's own merges fail in such repositories. Not fixed yet.
+
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,
   its `WorktreeStatus`, how it compares to the base, and the time of its last commit. It runs at most 4 worktrees'

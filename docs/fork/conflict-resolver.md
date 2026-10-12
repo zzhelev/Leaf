@@ -5,7 +5,7 @@
 | Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. No code yet. |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions) built the same day, on `main` at `28cceb84`. |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
 
@@ -18,10 +18,11 @@ and how the two sit together (section 4).
   columns. A switch in the resolver's toolbar changes to Option B (both sides on top, the result below), for portrait
   monitors. Both take the whole tab, as file history does. The result starts auto-merged, and each conflict waits for
   an arrow or for typing. Option C (the result only, with a card per conflict) wasn't picked. See section 5.
-- **Data:** the three versions come from the index (stages 1, 2 and 3, which `DA/git/diff/UnmergedDiffEntry.kt`
-  already reads). The chunks come from JGit's `MergeAlgorithm`, the content merge that Leaf's own merges already use. The
-  result starts as base plus every change that doesn't conflict. Before opening, Leaf checks the file on disk for
-  conflict markers, so it never silently throws away an edit, an agent's work or a `git rerere` resolution.
+- **Data:** the three versions come from the index (stages 1, 2 and 3, which `stagesOf` in
+  `DA/git/conflicts/IndexConflicts.kt` reads). The chunks come from JGit's `MergeAlgorithm`, the content merge that
+  Leaf's own merges already use. The result starts as base plus every change that doesn't conflict. Before opening,
+  Leaf checks the file on disk for conflict markers, so it never silently throws away an edit, an agent's work or a
+  `git rerere` resolution.
 - **Saving:** Save writes the file, with conflict markers for the conflicts still open. Mark resolved saves and
   stages, and is only offered once no conflict is left. Deleted files, binaries, LFS files, submodules and symbolic
   links get a choice instead of three panes: the same choices `git mergetool` offers.
@@ -51,17 +52,37 @@ and how the two sit together (section 4).
     only one side made (or that both made the same way);
   - a conflict is three chunks in a row: `FIRST_CONFLICTING_RANGE` (ours), `BASE_CONFLICTING_RANGE` and
     `NEXT_CONFLICTING_RANGE` (theirs).
-- The resolver keeps that list, with a state per chunk: applied or not for a one-sided change; unresolved, ours,
-  theirs, ours then theirs, theirs then ours, or edited for a conflict. The result is the chunks' text in order. This is
-  the JetBrains model. It knows where every line came from, so a one-sided change can be undone, the base is always
-  there, and the columns line up chunk by chunk without diffing the result.
+- The resolver keeps that list, with a state per chunk: applied or not for a change that doesn't conflict;
+  unresolved, ours, theirs, ours then theirs, theirs then ours, base (neither side's change) or edited for a conflict.
+  The result is the chunks' text in order. This is the JetBrains model. It knows where every line came from, so a
+  one-sided change can be undone, the base is always there, and the columns line up chunk by chunk without diffing the
+  result.
 - JGit's `ResolveMerger` merges file contents with this same `MergeAlgorithm`. So for a merge, rebase, cherry-pick,
   revert or pull that Leaf ran, the resolver shows the same conflicts as the markers in the file.
 - For conflicts that git left (a terminal, an agent), the boundaries can differ. A probe, run against git 2.54:
   - both sides changed lines 3 to 5, the same way at lines 3 and 5. JGit, `git merge` and `git merge-file` all left a
     conflict on line 4 only, with `X3` and `Z5` merged;
   - with `merge.conflictStyle=diff3`, git kept lines 3 to 5 in the conflict, as diff3 doesn't trim. `zdiff3` trims;
-  - with an empty base (added by both), JGit gives the base range as `[1,-1)`. The code has to clamp it.
+  - git joins two conflicts that are three lines apart or less into one, and splits a conflict whose sides have four
+    lines or more alike in its middle. JGit does neither: two conflicts two lines apart were one for `git merge-file`
+    and two for JGit, and a conflict with four lines alike in its middle was two for git and one for JGit.
+- **Built (step 1), in `DA/git/conflicts/TextMergeChunks.kt`.** JGit's chunks give their lines in one version only: a
+  change by one side carries that side's lines, not the base's lines it replaced or the other side's. So the merge's
+  parts are found again from the two diffs that `MergeAlgorithm` walks (base to ours, base to theirs), with the same
+  comparisons in the same order: lines that neither side changed, one side's edit, and edits of both sides that overlap
+  or touch. Each part takes JGit's chunks for it, which must fit, and gets its lines in all three versions.
+  - Lines that ours and theirs have alike at a conflict's start and end, which JGit merges as ours, become changes by
+    both, or unchanged lines when the base has them too.
+  - JGit cuts a conflict's base lines by as many lines as that start and end have. With an empty base (added by both)
+    that gives `[1,-1)`, and with a short one a range that starts after it ends. The model clamps it to the part.
+  - Myers can return two edits of one side that touch (a deletion, then an insertion), so a change by one side can
+    sit right after a conflict. Changes by the same side that touch are joined into one.
+  - Checked on 10,000 random merges with each algorithm: with every conflict open, the result is what JGit's
+    `MergeFormatter` writes, in both styles; taking ours (or theirs) everywhere is JGit's merge that favours that side;
+    and keeping only ours' changes gives ours back byte for byte, and the same for theirs and the base.
+- **Diff algorithm:** `diff.algorithm`, as `ResolveMerger` reads it. JGit only knows `myers` and `histogram`, and its
+  merges fail on git's other names (`patience`, `minimal`, `default`), so for those the resolver uses histogram, JGit's
+  default.
 
 ### 2.2 The file on disk
 
@@ -76,7 +97,15 @@ start of a line, with the `conflict-marker-size` attribute's length (7 by defaul
 | Has markers, but fewer or more conflicts | Opens from the stages, with a strip: the file was edited after the conflict, and Save replaces it. **Open in external merge tool** stays one click away. |
 
 Comparing the file with the model line by line isn't worth it: the conflict style and git's trimming make them differ
-for files nobody touched.
+for files nobody touched. Even the number of conflicts can differ for a file that git wrote, as git joins and splits
+conflicts where JGit doesn't (2.1). So the strip should say that the file's markers don't match the merge, not that
+someone edited it.
+
+Built (step 1): `DA/git/conflicts/ConflictMarkerScan.kt` follows rerere.c (`handle_path`, `handle_conflict`,
+`is_cmarker`). `<<<<<<<` and `>>>>>>>` need a space after them (git always writes a label), `|||||||` and `=======`
+a space or the line's end, so a marker on a last line without a line ending isn't one. Conflicts can nest. A
+`=======` or `>>>>>>>` outside a conflict is text, and markers out of order or a conflict left open mean the markers
+don't pair up, where rerere gives up on the file: that's "fewer or more conflicts" too.
 
 ### 2.3 Saving and staging
 
@@ -89,6 +118,28 @@ for files nobody touched.
 - **Bytes:** lines nobody touched are written as they were read, from `RawText`, never from decoded text (the same
   rule as `HunkPatch`). A file that isn't valid UTF-8 is edited as ISO-8859-1, which keeps every byte; a typed character
   that doesn't fit is refused. Line endings follow the file: `\r\n` stays, and so does a missing newline at the end.
+- **Built (step 1), checked against `git merge-file` and git's own merges:**
+  - Each line is written with its own line ending. One that has none (the last of its version) gets one when
+    something follows it, as when a conflict takes both sides or keeps its markers. JGit's formatter, by contrast,
+    ends the file without a line ending whenever the last chunk it writes comes from a version whose last line has
+    none, even if that chunk stops before it.
+  - Markers end with CRLF when ours' and theirs' lines just before the conflict and the base's first line do, as git
+    decides (`is_cr_needed` in xdiff). So a file that both added with CRLF gets LF markers, as from git. JGit's merges
+    write markers with LF in any file.
+  - Labels are git's: ours is `HEAD`; theirs is the branch merged, or `a1b2c3d (Fix parser)` for a rebase or a
+    cherry-pick; the base is the merge base's short id, or `parent of a1b2c3d (Fix parser)` (for a revert, the two
+    swap). After a stash, git stash's `Updated upstream` and `Stashed changes`. Their length comes from the
+    `conflict-marker-size` attribute, and `zdiff3` is written as `diff3`, as JGit's chunks already leave out the lines
+    that both sides have alike.
+  - The versions come from the index, which can have LF where the working tree has CRLF, so the result goes through a
+    checkout's line ending conversion (`core.autocrlf`, `core.eol`, the `text` and `eol` attributes), as git's merge
+    writes its result.
+  - Save writes nothing when the index's versions changed since the file was loaded (`ConflictError.NotConflicted`
+    when resolved elsewhere, `StagesChanged` when another operation stopped there), when the working file changed
+    (`WorkingFileChanged`, unless the user chose Keep), or when a folder or a symbolic link is in the file's place
+    (`NotAFile`). A file that was deleted is written again, executable when its side is.
+  - Mark resolved (`MarkConflictResolvedUseCase`) is refused while a conflict is open (`ConflictsLeft`), then saves
+    and stages the file with `StageEntryGitAction`, and refreshes the status.
 - After Mark resolved, the resolver moves to the next conflicted file. After the last one, it says so and offers to go
   back to the status pane, where Commit and Continue are.
 - **Changes from outside while it's open:**
@@ -104,13 +155,19 @@ for files nobody touched.
 |---|---|---|
 | Both modified | stages 1, 2, 3 | Three panes. |
 | Both added | stages 2, 3 | Three panes with an empty base: identical lines merge, the rest conflicts. |
-| Deleted by us or by them | 1 and 3, or 1 and 2 | A choice: keep the modified version (its diff against the base is shown) or delete the file. Keep stages the working file, delete runs `git rm`. Like `git mergetool`'s "(m)odified or (d)eleted". |
+| Deleted by us or by them | 1 and 3, or 1 and 2. A file that one side renamed and the other deleted looks the same, at its new path | A choice: keep the modified version (its diff against the base is shown) or delete the file. Keep stages the working file, delete runs `git rm`. Like `git mergetool`'s "(m)odified or (d)eleted". |
 | Binary, images included | any stage binary (`RawText.isBinary`) | A choice: use ours or use theirs (`git checkout --ours`/`--theirs`, then stage). Images side by side with the existing `ImageDiff`. |
 | LFS | stages are pointer files | Like binary. Merging pointers line by line means nothing. The card shows each side's size and object id. A preview needs the objects, which the built-in LFS client can download later. |
 | Submodule | mode `160000` | A choice of commit, written with `git update-index --cacheinfo`, as `git mergetool` does. The submodule's own checkout isn't touched. |
 | Symbolic link | mode `120000` | A choice of target, as in `git mergetool`. |
-| Rename conflicts (rename/rename, rename/delete, file/directory) | stages under different paths | Not handled. The resolver says what git reported and points to the terminal. |
+| Rename conflicts (rename/rename, file/directory) | each version alone at its own path: the original at stage 1 (DD), each side's name at 2 or 3 (AU, UA). git also records a file against a symbolic link or a submodule at two paths | Not handled. The resolver says what git reported and points to the terminal. |
 | Too large | over a limit, to be measured | Use ours, use theirs, or open in the external merge tool. |
+
+Built (step 1): `GetConflictedFileGitAction` loads a conflicted file as `ConflictedFile` (`domain/models/`), and picks
+its row in `git mergetool`'s order: rename conflicts, then a submodule, a deletion, a symbolic link, Git LFS pointers
+(a file of 1,024 bytes or less on ours or theirs that JGit's `LfsPointer` parses), binary (the `merge` attribute unset
+or `binary`, as the `binary` macro sets it, or `RawText.isBinary` on each whole version, as JGit's merge reads them),
+too large (over 10 MB on a side, a provisional limit), and text. Only text is merged and gets the working file's check.
 
 ## 3. UI feasibility in Compose Desktop
 
@@ -125,17 +182,39 @@ for files nobody touched.
 
 ## 4. Where it opens, and the external merge tool
 
-- **Unstaged:** **Resolve…** comes first in a conflicted file's menu, next to **Open in external merge tool**.
+- **Unstaged:** **Resolve…** comes first in a conflicted file's menu, next to **Open in external merge tool**,
+  **Use ours** and **Use theirs**, which the external merge tool's work added.
   Double-clicking a conflicted file opens the resolver, instead of staging the file with its markers.
-- **Diff pane:** a Resolve button in the header of a conflicted file's diff.
+- **Diff pane:** a **Resolve…** button in the bar under a conflicted file's diff header (`ConflictBar`), next to
+  **Open in external merge tool**.
 - **Operation banner:** a **Resolve conflicts** button before Abort, which opens the first conflicted file.
 - **The resolver:** its file list switches between conflicted files, and **Open in external merge tool** hands the
   current file to `git mergetool` (after Save or Discard). The resolver waits while the tool runs, then reloads.
-- If both ship, a setting can pick which one double-click and the banner open. The other stays in the menu.
-- **Labels:** each column is named after what it is, not just ours and theirs. During a rebase, ours is the branch
-  being rebased onto and theirs is the commit being replayed. The bare names confuse people: a Sublime Merge forum
-  thread asks for clearer labels for exactly this. So: **Ours: main (HEAD)** and **Theirs: feature/x (MERGE_HEAD)** for a merge, and **Ours: main (onto)** and
-  **Theirs: a1b2c3d "Fix parser"** for a rebase.
+- **Settings → Conflicts** (decided 2026-10-12). A new entry in the GIT section, after Worktrees, which the resolver
+  adds with its UI. The external merge tool's work adds no setting.
+  - **Resolve conflicts with:** Built-in resolver (the default) or External merge tool. It decides what double-clicking
+    a conflicted file and the banner's **Resolve conflicts** open; the other stays in the file's menu and the diff's
+    bar. `AppConfig.ConflictOpener`, stored in `user_prefs.json` as `conflict_opener`.
+  - Files that `git mergetool` can't take from Leaf (`mergeToolRefusal`: a deletion, a symbolic link, a submodule, a
+    name with `*`, `?` or `[`), and repositories where neither `merge.guitool` nor `merge.tool` names a tool, open in
+    the built-in resolver whatever the setting. The entry can show which tool git would run, read-only.
+  - **Resolver layout:** Columns (the default) or Stacked, the same choice as the resolver's toolbar toggle
+    (`AppConfig.ConflictResolverLayout`, `conflict_resolver_layout`, section 5).
+- **Ours and theirs always say which branch or commit they are.** The user can't remember which is which, and the
+  bare names confuse people: a Sublime Merge forum thread asks for clearer labels for exactly this. This holds for
+  every step of the UI: the column headers, the arrows' tooltips, the conflict menu, the choice cards, the toolbar and
+  the messages.
+  - A header names the side: **Ours: main**. Its tooltip says what ours and theirs mean in the operation in progress:
+    in a merge, ours is the branch checked out and theirs the branch merged; in a rebase, ours is the branch being
+    rebased onto (with the commits replayed so far) and theirs the commit being replayed; in a cherry-pick or a
+    revert, ours is the branch checked out and theirs the commit picked, or the one being reverted.
+  - So: **Ours: main** and **Theirs: feature/x** for a merge, **Ours: main (onto)** and **Theirs: a1b2c3d "Fix
+    parser"** for a rebase.
+  - The model carries the `ConflictSides` that the external merge tool's work reads (`GetConflictSidesGitAction`), and
+    `ui/status/ConflictSideLabels.kt` already words them for the diff's bar and the banner (`main`, `main (onto)`,
+    `a1b2c3d "Fix parser" from feature`, `the revert of …`). The resolver uses the same words.
+  - A stash that didn't apply cleanly records no theirs (`ConflictOperation.OTHER`), so the labels need a fallback
+    there.
 
 ## 5. Layout options
 
@@ -186,7 +265,7 @@ the repository; the sketches below show the layouts.
 ### Switching between A and B
 
 - Two toggle buttons in the resolver's toolbar, Columns and Stacked, like the diff pane's Unified and Split
-  (`DiffTypeButtons`). Settings → Layout has the same choice.
+  (`DiffTypeButtons`). Settings → Conflicts has the same choice (section 4).
 - One setting for the whole app, `AppConfig.ConflictResolverLayout`, stored in `user_prefs.json`
   (`conflict_resolver_layout`), with Columns as the default.
 - Switching keeps everything: each chunk's state, edits (an open editor keeps its text), the current conflict and the
@@ -227,7 +306,8 @@ the repository; the sketches below show the layouts.
 
 1. **Model** (data and domain): load the stages, classify the conflict (section 2.4), merge into chunks, build the
    result, check the markers, write and stage. Tests compare the clean merges with `git merge-file -p` on temp
-   repositories, and cover CRLF, Latin-1, a missing final newline and an empty base.
+   repositories, and cover CRLF, Latin-1, a missing final newline and an empty base. Built 2026-10-12 (sections 2.1 to
+   2.4 say how).
 2. **Read-only Option A:** columns, arrows, navigation, Base, Save and Mark resolved, and the entry points from section
    4.
 3. **Option B and the switch:** the stacked layout from the same rows, the toolbar toggle and the setting.
