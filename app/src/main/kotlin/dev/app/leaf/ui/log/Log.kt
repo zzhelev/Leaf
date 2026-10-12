@@ -66,6 +66,7 @@ import dev.app.leaf.ui.LocalOnSwitchToWorktree
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.sort.SortMenuItem
+import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltipPosition
 import dev.app.leaf.ui.context_menu.*
@@ -1071,87 +1072,51 @@ fun CommitMessage(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // The Message column (fork-only): the chips take at most part of it, and the columns after it keep their widths
         Row(
-            modifier = Modifier.padding(start = 16.dp)
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!isStash) {
-                // TODO Enable this once commits list is migrated to new structure
-                for (tag in tags) {
-                    TagChip(
-                        tag = tag,
-                        color = nodeColor,
-                        onCheckoutTag = { onCheckoutTag(tag) },
-                        onDeleteTag = { onDeleteTag(tag) },
-                    )
-                }
-                for (branch in branches) {
-                    BranchChip(
-                        ref = branch,
-                        color = nodeColor,
-                        currentBranch = currentBranch,
-                        isCurrentBranch = branch.isSameBranch(currentBranch),
-                        onCheckoutBranch = { onCheckoutBranch(branch) },
-                        onMergeBranch = { onMergeBranch(branch) },
-                        onDeleteBranch = { onDeleteBranch(branch) },
-                        onDeleteRemoteBranch = { onDeleteRemoteBranch(branch) },
-                        onRebaseBranch = { onRebaseBranch(branch) },
-                        onPullRemoteBranch = { onPullRemoteBranch(branch) },
-                        onPushRemoteBranch = { onPushRemoteBranch(branch) },
-                        onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(branch) },
-                        onRenameBranch = { onRenameBranch(branch) },
-                        onCopyBranchNameToClipboard = { onCopyBranchNameToClipboard(branch) },
-                    )
-                }
-                /*commit.refs.sortedWith { ref1, ref2 ->
-                    if (ref1.isSameBranch(currentBranch)) {
-                        -1
-                    } else {
-                        ref1.name.compareTo(ref2.name)
-                    }
-                }.forEach { ref ->
-                    if (ref.isTag) {
-                        TagChip(
-                            ref = ref,
-                            color = nodeColor,
-                            onCheckoutTag = { onCheckoutRef(ref) },
-                            onDeleteTag = { onDeleteTag(ref) },
-                        )
-                    } else if (ref.isBranch) {
-                        BranchChip(
-                            ref = ref,
-                            color = nodeColor,
-                            currentBranch = currentBranch,
-                            isCurrentBranch = ref.isSameBranch(currentBranch),
-                            onCheckoutBranch = { onCheckoutRef(ref) },
-                            onMergeBranch = { onMergeBranch(ref) },
-                            onDeleteBranch = { onDeleteBranch(ref) },
-                            onDeleteRemoteBranch = { onDeleteRemoteBranch(ref) },
-                            onRebaseBranch = { onRebaseBranch(ref) },
-                            onPullRemoteBranch = { onPullRemoteBranch(ref) },
-                            onPushRemoteBranch = { onPushRemoteBranch(ref) },
-                            onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(ref) },
-                            onRenameBranch = { onRenameBranch(ref) },
-                            onCopyBranchNameToClipboard = { onCopyBranchNameToClipboard(ref) },
-                        )
-                    }
-                }*/
+            if (isStash) {
+                Spacer(modifier = Modifier.width(REF_CHIPS_START_PADDING))
+            } else {
+                LogRefChips(
+                    branches = branches,
+                    tags = tags,
+                    currentBranch = currentBranch,
+                    color = nodeColor,
+                    actions = LogRefActions(
+                        onCheckoutBranch = onCheckoutBranch,
+                        onMergeBranch = onMergeBranch,
+                        onDeleteBranch = onDeleteBranch,
+                        onDeleteRemoteBranch = onDeleteRemoteBranch,
+                        onRebaseBranch = onRebaseBranch,
+                        onCheckoutTag = onCheckoutTag,
+                        onDeleteTag = onDeleteTag,
+                        onPushRemoteBranch = onPushRemoteBranch,
+                        onPullRemoteBranch = onPullRemoteBranch,
+                        onChangeDefaultUpstreamBranch = onChangeDefaultUpstreamBranch,
+                        onRenameBranch = onRenameBranch,
+                        onCopyBranchNameToClipboard = onCopyBranchNameToClipboard,
+                    ),
+                )
             }
-        }
 
-        val message = remember(graphCommit.hash) {
-            graphCommit.commit.shortMessage
-        }
+            val message = remember(graphCommit.hash) {
+                graphCommit.commit.shortMessage
+            }
 
-        Text(
-            text = message,
-            modifier = Modifier
-                .padding(start = 8.dp)
-                .weight(1f),
-            style = MaterialTheme.typography.body2,
-            color = if (matchesSearchFilter == false) MaterialTheme.colors.onBackgroundSecondary else MaterialTheme.colors.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+            Text(
+                text = message,
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .weight(1f),
+                style = MaterialTheme.typography.body2,
+                color = if (matchesSearchFilter == false) MaterialTheme.colors.onBackgroundSecondary else MaterialTheme.colors.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
 
         LogColumnCells(
             graphCommit = graphCommit,
@@ -1450,6 +1415,9 @@ fun BranchChip(
     onCopyBranchNameToClipboard: () -> Unit,
     onRenameBranch: () -> Unit,
     color: Color,
+    // Fork-only: the remote branches of the same name that share this local branch's chip, and their menu items
+    sharedRemotes: List<Branch> = emptyList(),
+    sharedRemotesMenuItems: () -> List<ContextMenuElement> = { emptyList() },
 ) {
     val branchWorktrees = LocalBranchWorktrees.current
     val worktreeUsers = branchWorktrees.usersOf(ref)
@@ -1476,10 +1444,16 @@ fun BranchChip(
             worktreesBase = branchWorktrees.baseChoice,
             onChooseWorktreesBase = onChooseWorktreesBase,
             onSwitchToWorktree = onSwitchToWorktree,
-        )
+        ) + sharedRemotesMenuItems().let { items ->
+            if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
+        }
     }
 
     val endingContent: @Composable () -> Unit = {
+        if (sharedRemotes.isNotEmpty()) {
+            SharedRemotesChipMark(remotes = sharedRemotes, modifier = Modifier.padding(end = 6.dp))
+        }
+
         if (worktreeUsers != null) {
             BranchWorktreeChipMark(
                 users = worktreeUsers,
@@ -1597,13 +1571,25 @@ fun Chip(
                         tint = MaterialTheme.colors.background,
                     )
                 }
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.body2,
-                    color = MaterialTheme.colors.onBackground,
-                    maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 6.dp)
-                )
+                // Fork-only: a chip narrower than its name (the log caps them) ends the name in "…", which its
+                // tooltip has whole. The marks after it keep their room.
+                var isCut by remember { mutableStateOf(false) }
+
+                DelayedTooltip(
+                    text = if (isCut) text else null,
+                    modifier = Modifier.weight(1f, fill = false),
+                ) {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onBackground,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { isCut = it.hasVisualOverflow },
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    )
+                }
 
                 endingContent()
             }

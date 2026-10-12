@@ -317,7 +317,7 @@ private fun WorktreePickerRow(row: WorktreeRow, onClick: () -> Unit) {
 }
 
 /** Places a popup below its anchor, left-aligned with it, or above it when there's no room below. */
-private class BelowLeftAlignedPositionProvider(private val gap: Int) : PopupPositionProvider {
+internal class BelowLeftAlignedPositionProvider(private val gap: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,

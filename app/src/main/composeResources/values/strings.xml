@@ -213,6 +213,9 @@
     <string name="branch_context_menu_copy_branch_name">Copy branch name</string>
     <string name="branch_context_menu_compare_worktrees_to_branch">Compare worktrees to this branch</string>
     <string name="branch_context_menu_compare_worktrees_automatically">Compare worktrees automatically</string>
+    <string name="branch_context_menu_delete_named_remote_branch">Delete remote branch "%1$s"</string>
+    <string name="branch_context_menu_compare_worktrees_to_named_branch">Compare worktrees to "%1$s"</string>
+    <string name="branch_context_menu_copy_named_branch_name">Copy branch name "%1$s"</string>
 
     <!-- Committed changes context menu -->
     <string name="committed_changes_context_menu_blame_file">Blame file</string>
@@ -244,6 +247,11 @@
     <string name="log_columns_menu_needs_room">Needs more room</string>
     <string name="log_columns_menu_show_time">Show time</string>
     <string name="log_columns_menu_reset">Reset columns</string>
+    <string name="log_ref_chip_shared_remotes">Also on this commit: %1$s</string>
+    <string name="log_ref_chips_branches">Branches</string>
+    <string name="log_ref_chips_remote_branches">Remote branches</string>
+    <string name="log_ref_chips_tags">Tags</string>
+    <string name="log_ref_chips_hint">Double-click a chip to check it out. Right-click for its menu.</string>
 
     <!-- Pull context menu -->
     <string name="pull_context_menu_pull_with_merge">Pull with merge</string>
