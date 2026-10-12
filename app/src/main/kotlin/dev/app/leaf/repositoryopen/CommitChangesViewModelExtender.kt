@@ -221,7 +221,7 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
 
 }
 
-private fun List<DiffEntry>.toFileItems(): List<FileItem<DiffEntry>> {
+internal fun List<DiffEntry>.toFileItems(): List<FileItem<DiffEntry>> {
     val keyCounts = HashMap<String, Int>()
 
     return map { entry ->

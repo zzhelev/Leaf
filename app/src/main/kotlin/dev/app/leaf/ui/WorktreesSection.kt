@@ -39,6 +39,7 @@ import dev.app.leaf.domain.models.WorktreeInfo
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
 import dev.app.leaf.domain.worktrees.WorktreeRow
+import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.headLabel
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.onDoubleClick
@@ -129,6 +130,7 @@ data class WorktreeActions(
     val onDiscard: (Worktree) -> Unit = {},
     val onPrune: () -> Unit = {},
     val onNew: () -> Unit = {},
+    val onReview: (Worktree) -> Unit = {},
 )
 
 /** The header's button that creates a worktree from the base branch, shown while the header is hovered. */
@@ -183,7 +185,7 @@ private fun WorktreeItem(
     val currentOnSwitchTo by rememberUpdatedState(onSwitchTo)
 
     ContextMenu(
-        items = { worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath, actions) }
+        items = { worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath, actions, baseBranch) }
     ) {
         DelayedTooltip(worktreeTooltip(row.info, baseBranch)) {
             Row(
@@ -289,7 +291,8 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
 }
 
 /**
- * The menu of [worktree]'s row: switching the tab to it, or opening it in a new tab, when the tab can switch to it; for
+ * The menu of [worktree]'s row: reviewing its changes when its branch isn't [baseBranch]; switching the tab to it, or
+ * opening it in a new tab, when the tab can switch to it; for
  * a linked worktree, locking or unlocking it, removing or discarding it, and pruning when its folder is missing; and
  * copying its path.
  */
@@ -299,7 +302,16 @@ internal fun worktreeContextMenuItems(
     onOpenInNewTab: () -> Unit,
     onCopyPath: () -> Unit,
     actions: WorktreeActions = WorktreeActions(),
+    baseBranch: String? = null,
 ): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
+    if (worktree.branchToReview(baseBranch) != null) {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_review) },
+            icon = { painterResource(Res.drawable.visibility) },
+            onClick = { actions.onReview(worktree) },
+        )
+    }
+
     if (worktree.canSwitchTo) {
         addContextMenu(
             composableLabel = { stringResource(Res.string.side_pane_worktree_switch_to) },

@@ -167,6 +167,7 @@ fun SidePanel(
                     onDiscard = { onNavigate(Screen.WorktreeRemove(it, discard = true)) },
                     onPrune = { onNavigate(Screen.WorktreesPrune) },
                     onNew = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
+                    onReview = { viewModel.reviewWorktree(it) },
                 ),
             )
 

@@ -86,6 +86,7 @@
     <string name="side_pane_worktrees_error">Couldn't list the worktrees</string>
     <string name="side_pane_worktree_copy_path">Copy path</string>
     <string name="side_pane_worktree_switch_to">Switch to worktree</string>
+    <string name="side_pane_worktree_review">Review changes</string>
     <string name="side_pane_worktree_open_in_new_tab">Open in new tab</string>
     <string name="side_pane_worktree_lock">Lock…</string>
     <string name="side_pane_worktree_unlock">Unlock</string>
@@ -385,6 +386,29 @@
     <string name="prune_worktrees_dialog_prune">Prune</string>
 
     <!-- New worktree dialog -->
+    <string name="worktree_review_title">%1$s compared with %2$s</string>
+    <string name="worktree_review_subtitle">Changes on %1$s since it branched off %2$s</string>
+    <string name="worktree_review_ahead_behind_tooltip">%1$s has %2$d commits that %3$s doesn't, and %3$s has %4$d that %1$s doesn't</string>
+    <string name="worktree_review_close">Close the review</string>
+    <string name="worktree_review_commits">Commits</string>
+    <string name="worktree_review_files">Files changed</string>
+    <string name="worktree_review_no_commits">%1$s has no commits that %2$s doesn't have.</string>
+    <plurals name="worktree_review_older_commits">
+        <item quantity="one">%1$d older commit isn't listed.</item>
+        <item quantity="other">%1$d older commits aren't listed.</item>
+    </plurals>
+    <string name="worktree_review_no_changes">No changes: a merge would change no file.</string>
+    <string name="worktree_review_no_merge_base">%1$s and %2$s have no commit in common, so git has no changes to compare.</string>
+    <plurals name="worktree_review_uncommitted">
+        <item quantity="one">Plus %1$d uncommitted change in %2$s, which a merge leaves out.</item>
+        <item quantity="other">Plus %1$d uncommitted changes in %2$s, which a merge leaves out.</item>
+    </plurals>
+    <plurals name="worktree_review_uncommitted_here">
+        <item quantity="one">Plus %1$d uncommitted change in this worktree, which a merge leaves out.</item>
+        <item quantity="other">Plus %1$d uncommitted changes in this worktree, which a merge leaves out.</item>
+    </plurals>
+    <string name="worktree_review_switch_to_worktree">Switch to it</string>
+    <string name="worktree_review_show_uncommitted">Show them</string>
     <string name="new_worktree_dialog_title">New worktree</string>
     <string name="new_worktree_dialog_subtitle">From %1$s</string>
     <string name="new_worktree_dialog_subtitle_commit">From the commit %1$s</string>

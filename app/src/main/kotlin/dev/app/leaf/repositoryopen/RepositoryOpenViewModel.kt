@@ -162,6 +162,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val setWorktreeBaseBranchUseCase: SetWorktreeBaseBranchUseCase,
     private val runWorktreeStepsUseCase: RunWorktreeStepsUseCase,
     private val followRemovedWorktreeUseCase: FollowRemovedWorktreeUseCase,
+    private val worktreeReviewViewModelExtenderFactory: WorktreeReviewViewModelExtender.Factory,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -488,6 +489,20 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val commitChangesState = commitChangesViewModelExtender.commitChangesState
 
+    // Fork-only: the review of a worktree's changes, in place of Files changed
+    private val worktreeReviewViewModelExtender = worktreeReviewViewModelExtenderFactory.create(
+        viewModelScope,
+        filesViewState,
+        selectedItem,
+        onSelectItem = { selectedItem.value = it },
+        onDiffSelected = { diffSelected.value = it },
+        onViewStateChanged = ::setFilesChangedView,
+        addCloseableView = ::addCloseableView,
+        removeCloseableView = ::removeCloseableView,
+    )
+
+    val worktreeReviewState = worktreeReviewViewModelExtender.reviewState
+
     val statusState = statusViewModelExtender.statusState
 
     /** What ours and theirs are, while files have conflicts (fork-only). */
@@ -517,6 +532,8 @@ class RepositoryOpenViewModel @Inject constructor(
                 }
 
                 CloseableView.COMMIT_CHANGES_SEARCH -> commitChangesViewModelExtender.searchFilterToggled(false)
+
+                CloseableView.WORKTREE_REVIEW -> worktreeReviewViewModelExtender.close()
 
             }
         }
@@ -688,6 +705,24 @@ class RepositoryOpenViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /** Shows what [worktree]'s branch would bring into the base, in place of Files changed (fork-only). */
+    fun reviewWorktree(worktree: Worktree) {
+        worktreeReviewViewModelExtender.open(worktree, worktreesState.value.baseBranch)
+    }
+
+    fun onAction(action: WorktreeReviewAction) {
+        val review = worktreeReviewState.value
+
+        // Another worktree's uncommitted changes show once the tab has switched to it
+        if (action == WorktreeReviewAction.ShowUncommittedChanges && review != null && !review.isTabWorktree) {
+            if (!review.canSwitchTo) return
+
+            switchWorktreeUseCase(review.target.worktreePath)
+        }
+
+        worktreeReviewViewModelExtender.onAction(action)
     }
 
     /**

@@ -120,6 +120,28 @@ class WorktreesSectionTest {
         assertEquals("lock /wt", actions.last())
     }
 
+    @Test
+    fun `offers to review the changes of a worktree on another branch than the base, first`() {
+        val reviewed = mutableListOf<String>()
+        val actions = WorktreeActions(onReview = { reviewed += it.path })
+
+        val items = worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, actions, baseBranch = "refs/heads/main")
+
+        assertEquals("Review changes", labels(items).first())
+        items.first().onClick()
+        assertEquals(listOf("/wt"), reviewed)
+
+        val onBase = worktree("/repo").copy(branch = "refs/heads/main", isMain = true)
+        val detached = worktree("/wt").copy(branch = null, isDetached = true)
+
+        for (worktree in listOf(onBase, detached)) {
+            val labels = labels(worktreeContextMenuItems(worktree, {}, {}, {}, actions, baseBranch = "refs/heads/main"))
+            assertFalse("Review changes" in labels, worktree.path)
+        }
+
+        assertFalse("Review changes" in labels(worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, actions)))
+    }
+
     private fun worktree(path: String) = Worktree(
         path = path,
         headSha = "0123456789abcdef0123456789abcdef01234567",
