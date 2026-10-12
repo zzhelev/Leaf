@@ -51,6 +51,7 @@ import dev.app.leaf.theme.textFieldColors
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
+import dev.app.leaf.ui.context_menu.ConflictMenuActions
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntriesContextMenuItems
@@ -335,6 +336,11 @@ fun StatusChangesList(
                 onAction(StatusAction.DiscardSelected(entryType))
             }
         },
+        onUseConflictSide = { entries, side ->
+            onConfirmAction(ConfirmableAction.UseConflictSide(entries, side, statusState.conflictSides)) {
+                onAction(StatusAction.UseConflictSide(entries.map { it.filePath }, side))
+            }
+        },
         onAction = onAction,
         onCopy = { relative, entries ->
             scope.launch {
@@ -366,6 +372,8 @@ fun ChangesList(
     onDiscardFile: (StatusEntry) -> Unit,
     /** Discards the selected files. */
     onDiscardSelected: () -> Unit,
+    /** Asks to resolve conflicted files with one side (fork-only). */
+    onUseConflictSide: (List<StatusEntry>, ConflictSide) -> Unit,
     onAction: (StatusAction) -> Unit,
     onCopy: (relative: Boolean, entries: List<StatusEntry>) -> Unit,
     modifier: Modifier = Modifier,
@@ -385,6 +393,10 @@ fun ChangesList(
                     listOf(statusEntry),
                 )
             },
+            conflictActions = ConflictMenuActions(
+                onOpenInExternalMergeTool = { onAction(StatusAction.OpenInExternalMergeTool(statusEntry)) },
+                onUseSide = { side -> onUseConflictSide(listOf(statusEntry), side) },
+            ),
         )
     }
 
@@ -401,6 +413,9 @@ fun ChangesList(
                     selectedEntries.map { it.statusEntry },
                 )
             },
+            onUseConflictSide = selectedEntries.map { it.statusEntry }
+                .takeIf { entries -> entries.all { it.conflict != null } }
+                ?.let { entries -> { side -> onUseConflictSide(entries, side) } },
         )
     }
 

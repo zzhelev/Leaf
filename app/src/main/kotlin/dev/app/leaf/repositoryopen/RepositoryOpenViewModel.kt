@@ -490,6 +490,9 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val statusState = statusViewModelExtender.statusState
 
+    /** What ours and theirs are, while files have conflicts (fork-only). */
+    val conflictSides = statusViewModelExtender.conflictSides
+
     init {
         closeViewFlow.collectLatestInViewModel {
             when (it) {

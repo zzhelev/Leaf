@@ -15,10 +15,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.theme.abortButton
@@ -33,8 +37,11 @@ import org.jetbrains.compose.resources.stringResource
 /** Dark text on the conflict color, which is the same amber in the light and the dark theme. */
 private val OnConflictColor = Color(0xFF1E1E1E)
 
-/** The operation that the repository is in the middle of, and the files that still have conflicts. */
-data class OperationInProgress(val operation: Operation, val conflicts: Int)
+/**
+ * The operation that the repository is in the middle of, the files that still have conflicts, and what ours and theirs
+ * are while there are some.
+ */
+data class OperationInProgress(val operation: Operation, val conflicts: Int, val sides: ConflictSides? = null)
 
 /**
  * What the banner shows, or null when the repository isn't in the middle of a merge, rebase, cherry-pick or revert.
@@ -61,7 +68,7 @@ fun operationInProgress(statusState: StatusState): OperationInProgress? {
         .distinct()
         .count()
 
-    return OperationInProgress(operation, conflicts)
+    return OperationInProgress(operation, conflicts, statusState.conflictSides.takeIf { conflicts > 0 })
 }
 
 /**
@@ -111,10 +118,20 @@ fun OperationInProgressBanner(
             modifier = Modifier.size(20.dp),
         )
 
+        val message = inProgress.message()
+        // Which branch is ours and which is theirs, as few people remember it
+        val sides = inProgress.sides?.summary()
+
         Text(
-            text = inProgress.message(),
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.Medium)) { append(message) }
+
+                if (sides != null) {
+                    append("   ")
+                    append(sides)
+                }
+            },
             style = MaterialTheme.typography.body1,
-            fontWeight = FontWeight.Medium,
             color = OnConflictColor,
             // Only as wide as the text, so that the button follows it: on a wide window, a button at the far right is
             // too far from what it's about. When the window is narrow, the text wraps and the button stays.

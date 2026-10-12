@@ -11,6 +11,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density
+import dev.app.leaf.domain.models.ConflictCommit
+import dev.app.leaf.domain.models.ConflictOperation
+import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
@@ -120,6 +123,35 @@ class OperationInProgressBannerTest {
         )
         assertEquals(1, render(OperationInProgress(Operation.MERGE, 1), click = "Abort merge").aborts)
     }
+
+    @Test
+    fun `while files have conflicts, the banner says which branch is ours and which is theirs`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val sides = ConflictSides(
+                ConflictOperation.MERGE,
+                ConflictCommit("main", "1111111", "Main"),
+                ConflictCommit("feature", "2222222", "Feature"),
+            )
+
+            assertEquals(
+                OperationInProgress(Operation.MERGE, 1, sides),
+                operationInProgress(
+                    StatusState(repositoryState = RepositoryState.MERGING, unstaged = listOf(conflicted), conflictSides = sides)
+                ),
+            )
+            // Once they're resolved, what each side is no longer matters
+            assertEquals(
+                OperationInProgress(Operation.MERGE, 0),
+                operationInProgress(StatusState(repositoryState = RepositoryState.MERGING, conflictSides = sides)),
+            )
+            assertEquals(
+                listOf(
+                    "Merge stopped at conflicts in 1 file. Resolve them, then commit.   Ours: main · Theirs: feature",
+                    "Abort merge",
+                ),
+                render(OperationInProgress(Operation.MERGE, 1, sides)).texts,
+            )
+        }
 
     @Test
     fun `the button follows the text on a wide window, and stays in view on a narrow one`(): Unit =

@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.ConflictSide
+import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
@@ -43,6 +45,8 @@ import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.ui.components.CheckboxText
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
+import dev.app.leaf.ui.status.named
+import dev.app.leaf.ui.status.other
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -81,6 +85,16 @@ sealed interface ConfirmableAction {
 
     /** Discards the changes of [count] selected files of the [entryType] list. */
     data class DiscardFiles(val count: Int, val entryType: EntryType) : ConfirmableAction
+
+    /**
+     * Resolves the conflicts of [entries] with [side]'s version, which loses the other side's changes and any edits
+     * made to the files. [sides] names the two sides, as few people remember which is ours.
+     */
+    data class UseConflictSide(
+        val entries: List<StatusEntry>,
+        val side: ConflictSide,
+        val sides: ConflictSides?,
+    ) : ConfirmableAction
 }
 
 /** Code that the dialog shows as it is, such as the line that's discarded. */
@@ -216,6 +230,31 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
     val undo = painterResource(Res.drawable.undo)
 
     return when (this) {
+        is ConfirmableAction.UseConflictSide -> {
+            val count = entries.size
+            val isOurs = side == ConflictSide.OURS
+            val chosen = side.named(sides)
+            val lost = pluralStringResource(Res.plurals.use_side_dialog_warning, count, count, side.other.named(sides))
+            // Where the chosen side deleted the file, it's deleted
+            val deleted = entries.count { it.conflict?.version(side) == null }
+
+            ConfirmationTexts(
+                icon = painterResource(if (isOurs) Res.drawable.arrow_back else Res.drawable.arrow_forward),
+                title = stringResource(if (isOurs) Res.string.use_ours_dialog_title else Res.string.use_theirs_dialog_title),
+                subtitle = if (count == 1) {
+                    stringResource(Res.string.use_side_dialog_subtitle_file, entries.single().filePath, chosen)
+                } else {
+                    pluralStringResource(Res.plurals.use_side_dialog_subtitle_files, count, count, chosen)
+                },
+                warning = when {
+                    deleted == 0 -> lost
+                    count == 1 -> lost + " " + stringResource(Res.string.use_side_dialog_deleted_file, chosen)
+                    else -> lost + " " + pluralStringResource(Res.plurals.use_side_dialog_deleted, deleted, deleted, chosen)
+                },
+                primaryAction = stringResource(Res.string.use_side_dialog_resolve),
+            )
+        }
+
         is ConfirmableAction.DeleteSubmodule -> ConfirmationTexts(
             icon = delete,
             title = stringResource(Res.string.delete_submodule_dialog_title),

@@ -2,6 +2,7 @@ package dev.app.leaf.ui.status
 
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.domain.models.AuthorInfo
+import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
@@ -51,4 +52,10 @@ sealed interface StatusAction {
 
     /** The user finished resizing the pane's sections. */
     data class SectionSizesChanged(val sizes: StatusSectionSizes) : StatusAction
+
+    /** Resolves a conflicted file in the user's merge tool, with `git mergetool` (fork-only). */
+    data class OpenInExternalMergeTool(val statusEntry: StatusEntry) : StatusAction
+
+    /** Resolves conflicted files by taking [side]'s version of each, once the user confirmed it (fork-only). */
+    data class UseConflictSide(val filePaths: List<String>, val side: ConflictSide) : StatusAction
 }

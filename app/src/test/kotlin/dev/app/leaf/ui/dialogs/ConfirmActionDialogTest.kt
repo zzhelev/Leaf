@@ -9,7 +9,13 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
+import dev.app.leaf.domain.models.ConflictCommit
+import dev.app.leaf.domain.models.ConflictOperation
+import dev.app.leaf.domain.models.ConflictSide
+import dev.app.leaf.domain.models.ConflictSides
+import dev.app.leaf.domain.models.ConflictVersion.FILE as FILE_VERSION
 import dev.app.leaf.domain.models.EntryType
+import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
@@ -170,6 +176,57 @@ class ConfirmActionDialogTest {
         DialogScene(ConfirmableAction.DiscardFile(deleted)).use { dialog ->
             assertTrue("Discard the unstaged changes to \"$FILE\"?" in dialog.texts())
             assertFalse(dialog.texts().any { it.contains("can't be restored") }, dialog.texts().toString())
+        }
+    }
+
+    @Test
+    fun `using one side names both, and what is lost`(): Unit = runBlocking(Dispatchers.Swing) {
+        val sides = ConflictSides(
+            ConflictOperation.MERGE,
+            ConflictCommit("main", "1111111", "Main"),
+            ConflictCommit("feature", "2222222", "Feature"),
+        )
+        val bothChanged = StatusEntry(FILE, StatusType.CONFLICTING, conflict = FileConflict(FILE_VERSION, FILE_VERSION))
+        val deletedByThem = StatusEntry("kept.txt", StatusType.CONFLICTING, conflict = FileConflict(FILE_VERSION, null))
+
+        DialogScene(ConfirmableAction.UseConflictSide(listOf(bothChanged), ConflictSide.OURS, sides)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("Use ours" in texts, texts.toString())
+            assertTrue("Resolve \"$FILE\" with ours (main)?" in texts, texts.toString())
+            assertTrue(
+                "The changes from theirs (feature), and any edits you made to the file, are lost." in texts,
+                texts.toString(),
+            )
+
+            dialog.click("Resolve")
+            assertEquals(listOf("confirm"), dialog.calls)
+        }
+
+        val both = listOf(bothChanged, deletedByThem)
+
+        DialogScene(ConfirmableAction.UseConflictSide(both, ConflictSide.THEIRS, sides)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("Use theirs" in texts, texts.toString())
+            assertTrue("Resolve 2 files with theirs (feature)?" in texts, texts.toString())
+            assertTrue(
+                "The changes from ours (main), and any edits you made to the files, are lost. " +
+                    "1 file is deleted, as theirs (feature) deleted it." in texts,
+                texts.toString(),
+            )
+        }
+
+        DialogScene(ConfirmableAction.UseConflictSide(listOf(deletedByThem), ConflictSide.THEIRS, sides)).use { dialog ->
+            assertTrue(
+                "The changes from ours (main), and any edits you made to the file, are lost. " +
+                    "The file is deleted, as theirs (feature) deleted it." in dialog.texts(),
+                dialog.texts().toString(),
+            )
+        }
+
+        DialogScene(ConfirmableAction.UseConflictSide(listOf(bothChanged), ConflictSide.THEIRS, null)).use { dialog ->
+            assertTrue("Resolve \"$FILE\" with theirs?" in dialog.texts(), dialog.texts().toString())
         }
     }
 

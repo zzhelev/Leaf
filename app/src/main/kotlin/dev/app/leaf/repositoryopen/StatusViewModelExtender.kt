@@ -9,6 +9,7 @@ import dev.app.leaf.common.extensions.nullIf
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CloseableView
+import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.services.AppSettingsService
@@ -51,6 +52,9 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val persistCommitMessageUseCase: PersistCommitMessageUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
     private val statusSectionsConfig: StatusSectionsConfig,
+    private val getConflictSidesUseCase: GetConflictSidesUseCase,
+    private val openMergeToolUseCase: OpenMergeToolUseCase,
+    private val resolveConflictUseCase: ResolveConflictUseCase,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -201,6 +205,20 @@ class StatusViewModelExtender @AssistedInject constructor(
             }
         }
 
+    /**
+     * Fork-only: what ours and theirs are, read again with each status that has conflicts, as the next commit of a
+     * rebase can stop at the same files. While the status reloads, the last sides stay.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val conflictSides: StateFlow<ConflictSides?> = repositoryDataRepository.status
+        .filter { it !is DataState.Loading }
+        .mapLatest { status ->
+            val hasConflicts = status.dataOrNull()?.unstaged.orEmpty().any { it.statusType == StatusType.CONFLICTING }
+
+            if (hasConflicts) getConflictSidesUseCase() else null
+        }
+        .stateIn(null)
+
     val statusState = combineStatusState(
         repositoryDataRepository.status.toUiDataState(),
         showSearchStaged,
@@ -222,6 +240,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         repositoryDataRepository.repositoryState.toUiDataState(),
         repositoryPath,
         statusSectionsConfig.sizes,
+        conflictSides,
     )
         .stateIn(StatusState())
 
@@ -355,6 +374,8 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.ToggleAmendRebaseInteractive -> amendRebaseInteractive(action.toggle)
         is StatusAction.UpdateCommitMessage -> updateCommitMessage(action.message)
         is StatusAction.SectionSizesChanged -> statusSectionsConfig.save(action.sizes)
+        is StatusAction.OpenInExternalMergeTool -> openMergeToolUseCase(action.statusEntry.filePath)
+        is StatusAction.UseConflictSide -> resolveConflictUseCase(action.filePaths, action.side)
     }
 
     fun rejectCommitterData() {

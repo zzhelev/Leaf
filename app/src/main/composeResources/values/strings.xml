@@ -200,6 +200,29 @@
     <string name="status_entries_context_menu_unstage_multiple_files">Unstage %1$s files</string>
     <string name="status_entries_context_menu_copy_files_absolute_paths">Copy paths</string>
     <string name="status_entries_context_menu_copy_files_relative_paths">Copy relative paths</string>
+    <string name="status_entries_context_menu_open_in_external_merge_tool">Open in external merge tool</string>
+    <string name="status_entries_context_menu_use_ours">Use ours</string>
+    <string name="status_entries_context_menu_use_theirs">Use theirs</string>
+    <string name="status_entries_context_menu_use_ours_multiple_files">Use ours for %1$s files</string>
+    <string name="status_entries_context_menu_use_theirs_multiple_files">Use theirs for %1$s files</string>
+
+    <!-- Conflicts: what ours and theirs are -->
+    <string name="conflict_sides">Ours: %1$s · Theirs: %2$s</string>
+    <string name="conflict_side_commit">%1$s "%2$s"</string>
+    <string name="conflict_side_commit_from_branch">%1$s "%2$s" from %3$s</string>
+    <string name="conflict_side_onto">%1$s (onto)</string>
+    <string name="conflict_side_revert">the revert of %1$s</string>
+    <string name="conflict_side_applied_changes">the changes being applied</string>
+    <string name="conflict_side_ours">ours</string>
+    <string name="conflict_side_theirs">theirs</string>
+    <string name="conflict_side_ours_named">ours (%1$s)</string>
+    <string name="conflict_side_theirs_named">theirs (%1$s)</string>
+    <string name="diff_header_open_in_external_merge_tool">External merge tool</string>
+    <string name="diff_header_open_in_external_merge_tool_tooltip">Resolve this file in the merge tool that git mergetool uses</string>
+    <string name="diff_header_use_ours">Use ours</string>
+    <string name="diff_header_use_theirs">Use theirs</string>
+    <string name="diff_header_use_ours_tooltip">Take ours: %1$s</string>
+    <string name="diff_header_use_theirs_tooltip">Take theirs: %1$s</string>
 
     <!-- Branch context menu -->
     <string name="branch_context_menu_checkout_branch">Checkout branch</string>
@@ -507,6 +530,23 @@
         <item quantity="other">Discard the changes to %1$d files?</item>
     </plurals>
     <string name="discard_files_dialog_warning_staged">Both their staged and unstaged changes are discarded. They can't be restored.</string>
+    <string name="use_ours_dialog_title">Use ours</string>
+    <string name="use_theirs_dialog_title">Use theirs</string>
+    <string name="use_side_dialog_subtitle_file">Resolve "%1$s" with %2$s?</string>
+    <plurals name="use_side_dialog_subtitle_files">
+        <item quantity="one">Resolve %1$d file with %2$s?</item>
+        <item quantity="other">Resolve %1$d files with %2$s?</item>
+    </plurals>
+    <plurals name="use_side_dialog_warning">
+        <item quantity="one">The changes from %2$s, and any edits you made to the file, are lost.</item>
+        <item quantity="other">The changes from %2$s, and any edits you made to the files, are lost.</item>
+    </plurals>
+    <plurals name="use_side_dialog_deleted">
+        <item quantity="one">%1$d file is deleted, as %2$s deleted it.</item>
+        <item quantity="other">%1$d files are deleted, as %2$s deleted them.</item>
+    </plurals>
+    <string name="use_side_dialog_deleted_file">The file is deleted, as %1$s deleted it.</string>
+    <string name="use_side_dialog_resolve">Resolve</string>
 
     <!-- Submodules context menu -->
     <string name="submodules_context_menu_initialize_submodule">Initialize submodule</string>

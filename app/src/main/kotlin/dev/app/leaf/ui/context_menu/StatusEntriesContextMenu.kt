@@ -1,9 +1,11 @@
 package dev.app.leaf.ui.context_menu
 
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.models.canOpenInMergeTool
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -16,8 +18,30 @@ fun statusEntryContextMenuItems(
     onHistory: () -> Unit,
     onCopyFilePath: (relative: Boolean) -> Unit,
     onOpenFileInFolder: () -> Unit,
+    /** Fork-only: for a conflicted file, its merge tool and "Use ours" and "Use theirs". */
+    conflictActions: ConflictMenuActions? = null,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
+        if (conflictActions != null && statusEntry.conflict != null) {
+            if (statusEntry.canOpenInMergeTool) {
+                addContextMenu(
+                    composableLabel = {
+                        stringResource(Res.string.status_entries_context_menu_open_in_external_merge_tool)
+                    },
+                    icon = { painterResource(Res.drawable.merge) },
+                    onClick = conflictActions.onOpenInExternalMergeTool,
+                )
+            }
+
+            addConflictSideItems(
+                ours = { stringResource(Res.string.status_entries_context_menu_use_ours) },
+                theirs = { stringResource(Res.string.status_entries_context_menu_use_theirs) },
+                onUseSide = conflictActions.onUseSide,
+            )
+
+            add(ContextMenuElement.ContextSeparator)
+        }
+
         if (statusEntry.statusType != StatusType.ADDED) {
             addContextMenu(
                 composableLabel = { stringResource(Res.string.status_entries_context_menu_discard_file_changes) },
@@ -85,8 +109,23 @@ fun statusEntriesContextMenuItems(
     onStageSelected: () -> Unit,
     onUnstageSelected: () -> Unit,
     onCopyFilesPath: (relative: Boolean) -> Unit,
+    /** Fork-only: "Use ours" and "Use theirs" for all of them, when they all have conflicts. */
+    onUseConflictSide: ((ConflictSide) -> Unit)? = null,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
+        if (onUseConflictSide != null) {
+            addConflictSideItems(
+                ours = {
+                    stringResource(Res.string.status_entries_context_menu_use_ours_multiple_files, selectedEntriesCount)
+                },
+                theirs = {
+                    stringResource(Res.string.status_entries_context_menu_use_theirs_multiple_files, selectedEntriesCount)
+                },
+                onUseSide = onUseConflictSide,
+            )
+
+            add(ContextMenuElement.ContextSeparator)
+        }
 
         when (entryType) {
             EntryType.STAGED -> addContextMenu(

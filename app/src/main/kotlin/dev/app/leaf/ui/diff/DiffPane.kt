@@ -56,6 +56,7 @@ import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter
 import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
+import dev.app.leaf.ui.status.StatusAction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -114,6 +115,7 @@ fun DiffPane(
     val isDisplayFullFile by viewModel.isDisplayFullFile.collectAsState(false)
     val viewDiffResult = diffResultState.value ?: return
     val isRepositoryInSafeState by viewModel.isRepositoryInSafeState.collectAsState(false)
+    val conflictSides by viewModel.conflictSides.collectAsState()
     val focusRequester = remember { FocusRequester() }
 
     fun closeDiffView() {
@@ -179,6 +181,23 @@ fun DiffPane(
                     onChangeDiffType = { viewModel.changeTextDiffType(it) },
                     onDisplayFullFile = { viewModel.changeDisplayFullFile(it) },
                 )
+
+                // Fork-only: a file with conflicts gets a strip with the merge tool, ours and theirs, and what each is
+                if (diffType is DiffType.UncommittedDiff && diffType.statusEntry.conflict != null) {
+                    val entry = diffType.statusEntry
+
+                    ConflictBar(
+                        statusEntry = entry,
+                        sides = conflictSides,
+                        onOpenInExternalMergeTool = { viewModel.onAction(StatusAction.OpenInExternalMergeTool(entry)) },
+                        onUseSide = { side ->
+                            val action = ConfirmableAction.UseConflictSide(listOf(entry), side, conflictSides)
+                            val resolve = { viewModel.onAction(StatusAction.UseConflictSide(listOf(entry.filePath), side)) }
+
+                            onConfirmAction(action, resolve) {}
+                        },
+                    )
+                }
 
                 val scrollState by viewModel.lazyListState.collectAsState()
 

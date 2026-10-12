@@ -57,3 +57,31 @@ fun mergeToolRefusal(path: String, conflict: FileConflict): MergeToolRefusal? = 
 val StatusEntry.canOpenInMergeTool: Boolean
     get() = conflict != null && mergeToolRefusal(filePath, conflict) == null
 
+/** The operation that stopped at conflicts, which tells what ours and theirs are. */
+enum class ConflictOperation {
+    MERGE,
+    REBASE,
+    CHERRY_PICK,
+    REVERT,
+
+    /** Something that records no side of its own, such as a stash that didn't apply cleanly. */
+    OTHER,
+}
+
+/**
+ * A commit on one side of a conflict: [branch] when it has one (short, such as `main` or `origin/main`), its
+ * abbreviated [hash] and its [subject].
+ */
+data class ConflictCommit(val branch: String?, val hash: String, val subject: String)
+
+/**
+ * What ours and theirs are in the operation that stopped at conflicts, as the UI names them:
+ * - a merge: ours is the branch checked out, theirs the branch merged (`MERGE_HEAD`);
+ * - a rebase: ours is the branch rebased onto, with the commits replayed so far, and theirs the commit being replayed,
+ *   with the branch being rebased;
+ * - a cherry-pick: ours is the branch checked out, theirs the commit picked;
+ * - a revert: ours is the branch checked out, theirs the commit reverted (its parent's version, in fact).
+ *
+ * Either is null when git doesn't record it, such as theirs after a stash that didn't apply cleanly.
+ */
+data class ConflictSides(val operation: ConflictOperation, val ours: ConflictCommit?, val theirs: ConflictCommit?)

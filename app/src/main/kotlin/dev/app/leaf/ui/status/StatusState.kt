@@ -16,6 +16,7 @@ import dev.app.leaf.ui.UiDataState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 
 private const val TAG = "StatusState"
 
@@ -54,6 +55,8 @@ data class StatusState(
     val repositoryState: RepositoryState = RepositoryState.SAFE,
     val repositoryPath: String? = null,
     val sectionSizes: StatusSectionSizes = StatusSectionSizes(),
+    /** What ours and theirs are, while files have conflicts (fork-only). */
+    val conflictSides: ConflictSides? = null,
 ) {
     val hasPreviousCommits: Boolean = previousCommitMessage != null
 
@@ -126,6 +129,7 @@ fun combineStatusState(
     repositoryState: Flow<UiDataState<RepositoryState>>,
     repositoryPath: Flow<String?>,
     sectionSizes: Flow<StatusSectionSizes>,
+    conflictSides: Flow<ConflictSides?> = flowOf(null),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -188,6 +192,7 @@ fun combineStatusState(
         repositoryState,
         repositoryPath,
         sectionSizes,
+        conflictSides,
     ) {
             lists,
             swapUncommittedChanges,
@@ -202,6 +207,7 @@ fun combineStatusState(
             repositoryStateDateState,
             repositoryPath,
             sectionSizes,
+            conflictSides,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -229,6 +235,7 @@ fun combineStatusState(
             repositoryState = repositoryState,
             repositoryPath = repositoryPath,
             sectionSizes = sectionSizes,
+            conflictSides = conflictSides,
         )
     }
 }
