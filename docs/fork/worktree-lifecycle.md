@@ -5,7 +5,7 @@
 | Question | How should Leaf create, review, merge, rebase, remove and discard worktrees, and run a merge tool in them? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54.0 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1 and 3.2 done |
+| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1, 3.2 and 3.3 done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -186,20 +186,28 @@ tab, or a terminal or an agent did. This closes Phase 2b's open item.
 
 ### 3.3 Review (plan item 2)
 
-**"Review changes"** in a worktree row's menu (a branch other than the base) shows, in the right-hand pane where Files
-changed is:
-- the header "agent1 compared with main" and the counts ahead and behind;
-- the commits, by subject;
-- the changed files, as `<base>...<branch>`, with Files changed's list view and sort settings.
+**"Review changes"**, first in a worktree row's menu when the worktree is on a branch other than the base, shows in the
+right-hand pane, where Files changed is:
+- the header "agent1 compared with main", "Changes on agent1 since it branched off main", the counts ahead and behind,
+  and a close button;
+- the commits that the base doesn't have, by subject and short hash, oldest first (the newest 1000);
+- the changed files, as `git diff <base>...<branch>`, with Files changed's list view and sort settings.
 
 **A file** opens in the centre diff pane, like a commit's file. The entry diffs the merge base's tree with the
 branch's tree, and the diff pane reads blobs by id, so `FormatDiffGitAction` needs no change.
 
 **Uncommitted changes** in that worktree aren't part of a merge, so they aren't in the list. A line says how many there
-are, with a link that switches to the worktree.
+are, with a link that switches to the worktree, or "Show them" for the tab's own worktree.
 
 **State:** a comparison held next to the selection, not a new `SelectedItem` variant. `SelectedItem` is Gitnuro's, and
-its `when`s are spread through Gitnuro's code. Selecting anything else clears the comparison.
+its `when`s are spread through Gitnuro's code. While the review shows, the selection is `None`. Selecting anything else
+closes it; its close button and Esc select again what was selected before.
+
+**Kept up to date:** the comparison is read again when the branch's or the base's commit moves, as an agent keeps
+committing. The last one stays on screen meanwhile.
+
+**The subtitle:** the mockup said "as a merge would bring them", which isn't true of a squash-merged branch. The base
+already has its changes, but the three-dot diff still lists them, as git's does.
 
 **Gitnuro#206** (comparing two commits) isn't part of this item, but the panel takes any two refs, so it can build on
 it later.

@@ -553,6 +553,24 @@ locking and unlocking worktrees run the git CLI, and their dialogs show the comm
     one (`CreateWorktreeIncludeGitAction`, `WORKTREE_INCLUDE_TEMPLATE`), and it reads the file again when Leaf's
     window gets the focus back.
 
+**Reviewing a worktree (fork-only, Phase 3.3, `WorktreeReview`, `WorktreeReviewViewModelExtender`):** "Review changes"
+in a worktree row's menu shows, in place of Files changed, what the worktree's branch would bring into the base: the
+commits and the changed files, as `git log base..branch` and `git diff base...branch` show them. It's offered for a
+worktree on a branch other than the base (`branchToReview`, `domain/worktrees/WorktreeReview.kt`).
+- `GetBranchComparisonGitAction` reads it with JGit, as it only reads: the merge base (`RevFilter.MERGE_BASE`, the
+  first one with several), the commits oldest first (the newest `MAX_COMPARED_COMMITS`, 1000, and the count of all),
+  the commits that the base has and the branch doesn't, and the diff from the merge base's tree to the branch's
+  (`git.diff()`, as `GetCommitDiffEntriesGitAction` does for a commit). Branches without a commit in common have no
+  diff. A file opens in the diff pane as a commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
+- **State:** the review sets the selection to `SelectedItem.None` while it's shown, rather than being a `SelectedItem`
+  of its own, which Gitnuro's code handles in many places. Selecting anything else closes it; the close button and
+  Esc (`CloseableView.WORKTREE_REVIEW`) close it and select again what was selected before.
+- It reads the comparison again when the commit of the branch or the base changes in the tab's branch data, which the
+  file watcher refreshes when an agent commits. A refresh that finds the same commits doesn't, and the last
+  comparison stays on screen while the next loads.
+- The worktree's uncommitted changes aren't in it, as a merge leaves them out. A line under the files counts them,
+  from the worktree list's status, with a link that switches the tab to the worktree, or shows the tab's own.
+
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
 `docs/fork/remote-operations.md`).
@@ -1124,7 +1142,8 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
 - A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches the tab to
   the worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
-  followed by "Open in new tab". Those two aren't offered for the tab's own worktree, a prunable one or a bare
+  followed by "Open in new tab". The menu starts with "Review changes" for a worktree on a branch other than the
+  base (see Reviewing a worktree). Those two aren't offered for the tab's own worktree, a prunable one or a bare
   repository's (`Worktree.canSwitchTo`).
 - A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, and "Prune missing
   worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from

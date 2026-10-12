@@ -2,6 +2,49 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Review a worktree's changes against the base (branch `feat/worktree-review`)
+
+Phase 3.3 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.
+
+- **Before:** seeing what an agent's branch changed took a terminal (`git diff main...agent1`), or clicking through
+  its commits one by one in the log.
+- **Now:** "Review changes", first in a worktree's menu when it's on a branch other than the base, shows in place of
+  Files changed:
+  - "agent1 compared with main", with the commits that each has and the other doesn't (`↑2 ↓1`);
+  - the commits that the base doesn't have, oldest first, by subject and short hash;
+  - the changed files since the branch left the base (`git diff main...agent1`), with Files changed's views and
+    sorting. A file opens in the diff pane, like a commit's file;
+  - the worktree's uncommitted changes, which a merge leaves out, as a count with a link that switches the tab to the
+    worktree.
+
+  It follows the branch: when the agent commits, the review reads it again. Selecting anything else closes it, and
+  its close button or Esc go back to what was selected before. Branches without a commit in common, a branch that
+  doesn't exist and a branch with nothing new say so.
+- **Tests:** 17 new.
+  - `:data` (7): `GetBranchComparisonGitActionTest` against a repository whose base moved on after the branch left
+    it: the commits oldest first, the counts, the files changed since the merge base and not the base's own, a file's
+    diff from the merge base (through the diff pane's `FormatDiffGitAction`), a remote base, a merged branch,
+    branches without a commit in common, a branch that doesn't exist, and more than 1,000 commits.
+  - `:domain` (2): which worktrees get the item.
+  - `:app` (8): `WorktreeReviewTest` runs the review on the tab's data repository: opening it in place of the
+    selection, closing it by selecting something else, or with Close, which selects again what was selected,
+    reading it again when the branch moves (and not when a refresh finds the same commits), with the last comparison
+    shown meanwhile, and the uncommitted changes. `WorktreesSectionTest` checks the menu item.
+  - **Mutation check:** 15 mutations, all caught in the end. Two weren't at first: reading the comparison again on
+    every refresh, and counting a refresh's Loading state as data. The test's refreshes ended at once, so the data
+    never showed Loading; they now take a moment, as git's do.
+  - The pane was rendered offscreen in four states (loaded, no commit in common, nothing new while loading, an
+    error). That wrapped the title on narrow panes, and put a gap between the review's header and Commits.
+  - Manual run on macOS by the user, against a demo repository with an agent's worktree whose base moved on after
+    it, a merged branch and a branch without a commit in common. A commit made in the agent's worktree while the
+    review was open showed in it within seconds, with the counts and the uncommitted line updated (seen on the
+    window). The tab ended on the agent's worktree, through the uncommitted line's link. The user then asked for
+    the commits.
+  - `./gradlew test` passes, with 1,012 tests (120 in `:app`, 664 in `:data`, 221 in `:domain`, 7 in `:common`).
+    After the rebase onto the conflict resolution, file history and Esc changes, which conflicted only in this
+    changelog, `:app`, `:domain` and `:common` pass again (392 tests), and so do the worktree and comparison tests
+    in `:data` (115).
+
 ## File history shows which commit its diff is (branch `feat/file-history-selection`)
 
 - **Before:** a click on a commit in file history showed its diff, and nothing said which commit that was: the list
