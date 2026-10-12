@@ -5,7 +5,7 @@
 | Question | How should Leaf create, review, merge, rebase, remove and discard worktrees, and run a merge tool in them? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54.0 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12 with every recommendation in section 5; work item 3.1 in progress |
+| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1 and 3.2 done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -152,26 +152,37 @@ tab, or a terminal or an agent did. This closes Phase 2b's open item.
 - a "New worktree…" row at the end of the toolbar picker.
 
 **Dialog:**
-- **Start point:** read-only, from where it was opened. From "+", it's the base branch.
+- **Start point:** read-only, from where it was opened. From "+" and the picker, it's the base branch, or the tab's
+  branch (or commit) when there's none.
 - **Branch:** a new branch's name, checked with `git check-ref-format --branch` and against existing branches. From an
-  unused local branch: "Check out agent1" or "New branch".
-- **Folder:** filled from the repository's location (below), editable, with Browse….
-- **Location (per repository, saved in `<common git dir>/leaf`):**
-  - "Next to the repository", `../<repo>-<branch>`, the default;
-  - "In a folder", `<folder>/<repo>-<branch>`.
-
-  `/` in a branch name becomes `-`.
-- **Copy ignored files:** "Copy the ignored files listed in `.worktreeinclude`", with the files it would copy. Without
-  the file there's no checkbox. Instead a note explains: "A new worktree has no ignored files, so builds that need
-  `local.properties` or `.env` fail. List them in `.worktreeinclude` (gitignore syntax), which Claude Code, Codex and
-  Conductor read too." It has a button that creates the file, commented, and opens it.
-- **"Switch to the new worktree":** checked, and remembered.
-- **Commands:** `git worktree add -b <branch> <folder> <start point>`, then a line naming the files to copy.
+  unused local branch: "Check out agent1" or "New branch from agent1". From a remote branch, its name to start with.
+- **Folder:** follows the branch's name and the repository's location (below) until the user types one. Paths in the
+  home folder show as `~/…`, so the field shows the worktree's own folder, and `~/…` can be typed. A folder that
+  exists and isn't empty, or a path that isn't absolute, is refused before git sees it.
+- **Location (per repository, saved in `<common git dir>/leaf`, `worktrees.newWorktreeFolder`):** next to the
+  repository, `../<repo>-<branch>`, the default; or a folder chosen with the field's button or "Choose a folder",
+  `<folder>/<repo>-<branch>`. "Next to the repository" goes back. It's saved when a worktree is created. `/` in a
+  branch name becomes `-`.
+- **Copy ignored files:** "Copy the N ignored files that `.worktreeinclude` lists", with the files, checked when the
+  file exists (decision 4). Without the file there's no checkbox. Instead a note explains what the file is for, and
+  "Create `.worktreeinclude`" writes one with comments and examples, then opens it. "Edit `.worktreeinclude`" opens
+  an existing one. The dialog reads the file again when Leaf's window gets the focus back.
+- **"Switch to the new worktree":** checked by default, and remembered per repository with the location
+  (`worktrees.switchToNewWorktree`).
+- **Commands:**
+  - `git worktree add -b <branch> <folder> <start point>`, `git worktree add <folder> <branch>` to check one out;
+  - `--track` for a remote branch picked in a menu, `--no-track` for a remote base branch (an agent's branch
+    doesn't push to `main`);
+  - then comments for copying the files and switching the tab.
 
 **Copying, matching Claude Code and Codex:**
-- Only files that `.worktreeinclude` matches and git ignores are copied, from the main worktree.
-- Never from another worktree's folder (`.claude/worktrees/` is often inside the repository and ignored).
-- Never a symbolic link, and never over an existing file.
+- Only files that `.worktreeinclude` matches and git ignores are copied, from the main worktree. git decides both:
+  `git ls-files --others --ignored --exclude-from=.worktreeinclude` lists the untracked files that the patterns
+  match, and `git check-ignore --stdin` keeps those that git ignores. A tracked file is never listed.
+- Never from another worktree's folder: git lists a nested worktree (`.claude/worktrees/x`) as its folder, without
+  entering it, and such entries are skipped.
+- Never a symbolic link, never over an existing file, and never out of either worktree, through `..` or a linked
+  folder.
 
 ### 3.3 Review (plan item 2)
 

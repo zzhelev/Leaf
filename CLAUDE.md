@@ -25,8 +25,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   - `~/Library/Application Support/leaf/` (the settings file `user_prefs.json`, and `tmp/`);
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
   - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
-    state and the worktrees' base branch, shared by the worktrees). They are the same file in a repository's main
-    worktree.
+    state, the worktrees' base branch, and where new worktrees go, shared by the worktrees). They are the same file in
+    a repository's main worktree.
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
 - **Gitnuro is named only where GPL-3.0 needs it:** the README's License section says, in one dated sentence, that
@@ -425,16 +425,16 @@ conflicts compares the working file with ours (stage 2). For a file that both si
 - The side panel shows the list (Worktrees section) and marks the branches that worktrees use (see Sidebar and branch
   list).
 
-**Worktree actions (fork-only, Phase 3, `docs/fork/worktree-lifecycle.md`):** removing, discarding, pruning, locking
-and unlocking worktrees run the git CLI, and their dialogs show the commands.
+**Worktree actions (fork-only, Phase 3, `docs/fork/worktree-lifecycle.md`):** creating, removing, discarding, pruning,
+locking and unlocking worktrees run the git CLI, and their dialogs show the commands.
 - An action is a list of `WorktreeStep`s (`domain/worktrees/WorktreeSteps.kt`): a git command and the folder it runs in
-  (`Git`), or switching the tab (`SwitchTab`).
+  (`Git`), switching the tab (`SwitchTab`), or copying gitignored files into a new worktree (`CopyFiles`).
   - The dialog shows the list (`WorktreeCommands`, from `shellLines`): a `cd` each time the folder changes, the commands
     quoted as a shell reads them, the home folder as `~`, and other steps as comments, so the lines can be pasted
     into a terminal.
   - `RunWorktreeStepsUseCase` runs the same list on confirm, as a foreground task. It stops at the first failure,
     whose `GitCliError.CommandFailed` names the command, and refreshes even then. `RunGitCommandGitAction` gives git
-    no time limit.
+    no time limit. `runSteps` runs them inside another task (`CreateWorktreeUseCase`).
   - The commands run in the main worktree, and name a worktree relative to it when it's inside or next to it
     (`pathArgument`: `../leaf-agent1`, `.claude/worktrees/a1`), and absolute otherwise.
 - **Remove and Discard** share `RemoveWorktreeDialog`. When it opens, `GetWorktreeRemovalUseCase` reads again what
@@ -458,6 +458,26 @@ and unlocking worktrees run the git CLI, and their dialogs show the commands.
   runs inside another task; `invoke` and `followRemovedWorktree` launch it as a task of its own.
 - **Prune** shows `git worktree prune --dry-run -v`'s lines (git writes them to stderr), then runs
   `git worktree prune`. **Lock** asks for an optional reason. **Unlock** runs at once, as it loses nothing.
+- **Create** (`NewWorktreeDialog`, `NewWorktreeViewModel`) opens from the Worktrees header's "+", the picker's last
+  row, a branch's menu (side panel and log) and a commit's menu, with a `NewWorktreeStart`. The log gets it through
+  `LocalOnNewWorktree`, so that Gitnuro's composables in between don't change.
+  - `NewWorktreeStart.startPoint` (`domain/worktrees/NewWorktreeSteps.kt`) turns it into git's start point: the base
+    branch, or the tab's branch or commit without one; `--no-track` for a remote base, `--track` for a remote branch
+    picked in a menu. A local branch that no worktree uses can be checked out instead of branched from.
+  - `GetNewWorktreeContextUseCase` reads the main worktree, the base, the branches and which worktree uses them, and
+    the repository's settings (`WorktreeCreationConfig`: `worktrees.newWorktreeFolder` and
+    `worktrees.switchToNewWorktree` in `<common git dir>/leaf`). `CreateWorktreeUseCase` saves them and runs the steps.
+  - The folder is `<repo>-<branch>` (`/` as `-`) next to the main worktree or in the chosen folder
+    (`newWorktreeFolder`), shown with the home folder as `~` (`abbreviateHome`, `expandHome`). git checks the branch
+    name as it's typed (`CheckBranchNameGitAction`, `git check-ref-format --branch`, which must print the name back:
+    it expands `@{-1}`).
+  - **`.worktreeinclude`** (`GetWorktreeIncludeGitAction`), the file that Claude Code, Codex and Conductor read: in the
+    main worktree, gitignore syntax. git picks the files: `git ls-files --others --ignored --exclude-from=<file>`
+    lists the untracked files that its patterns match, and `git check-ignore --stdin` keeps those that git ignores.
+    A nested worktree comes as its folder, with a final `/`, and is skipped. `CopyWorktreeFilesGitAction` never copies
+    a link, over an existing file, or out of either worktree. Without the file, the dialog explains it and creates
+    one (`CreateWorktreeIncludeGitAction`, `WORKTREE_INCLUDE_TEMPLATE`), and it reads the file again when Leaf's
+    window gets the focus back.
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
@@ -1013,7 +1033,8 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   repository's (`Worktree.canSwitchTo`).
 - A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, and "Prune missing
   worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from
-  `SidePanel`. Every menu ends with "Copy path".
+  `SidePanel`, and the header's "+" (shown on hover, as in Remotes), which creates a worktree. Every menu ends with
+  "Copy path".
 - The side panel's filter matches the folder name, the path and the branches. When git can't list the worktrees, one
   line says so, with the error in its tooltip.
 - The row's two lines are `WorktreeRowLines`, which the toolbar's picker shows too.
@@ -1027,7 +1048,8 @@ has more than one worktree (`worktreePickerRows`, `RepositoryOpenViewModel.workt
   shows until the list has the tab's worktree.
 - Its list has every worktree with the side panel's two lines and tooltip, the tab's one checked. A click, or Enter
   after the arrow keys, switches the tab and closes the list; Esc closes it. A worktree the tab can't switch to is
-  greyed out. It's below the button, or above when there's no room (`BelowLeftAlignedPositionProvider`).
+  greyed out. It's below the button, or above when there's no room (`BelowLeftAlignedPositionProvider`). Its last
+  row, "New worktree…", opens the new worktree dialog.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,
@@ -1307,8 +1329,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.
 - `TestTab` (`data/src/test/kotlin/dev/app/leaf/data/tab/`) builds a tab's repositories and use cases as Dagger does,
   with the real git actions, around a temp repository, and a `RecordingFileChangesWatcher` for each watch, which
-  notes the folders it was given. `SwitchingWorktreesTest`, `WatchingWorktreesTest` and `RemovingWorktreesTest` use
-  it; the last runs the steps that the worktree dialogs show (`runWorktreeSteps`). Its
+  notes the folders it was given. `SwitchingWorktreesTest`, `WatchingWorktreesTest`, `RemovingWorktreesTest` and
+  `CreatingWorktreesTest` use it; the last two run the steps that the worktree dialogs show (`runWorktreeSteps`,
+  `createWorktree`). Its
   `close()` cancels the tab and waits: JGit writes `.probe-` files into the git dir, and JUnit failed to delete the
   temp folder while a refresh still ran.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:

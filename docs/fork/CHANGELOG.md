@@ -2,6 +2,53 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Create worktrees, with the ignored files they need (branch `feat/worktree-create`)
+
+Phase 3.2 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.
+
+- **Before:** worktrees came from a terminal or an agent. A fresh one has none of the gitignored files that the main
+  worktree has, so a build that needs `local.properties` or `.env` failed there.
+- **Now:** "New worktree…" opens a dialog from the Worktrees header's "+", the toolbar picker's last row, a branch's
+  menu (side panel and log) and a commit's menu ("New worktree from commit…"). It shows the commands it runs.
+  - **Branch:** a new one from the base branch (or the branch or commit it was opened on), named by the user. git
+    checks the name as it's typed, and a name that a branch has is refused. A local branch that no worktree uses can
+    be checked out instead. A remote branch suggests its name, and the new branch tracks it; a branch made from a
+    remote base doesn't.
+  - **Folder:** `<repository>-<branch>` next to the repository, or in a folder chosen for the repository, and
+    editable. The repository remembers the folder and whether the tab switches to new worktrees. Paths in the home
+    folder show as `~/…`.
+  - **Ignored files:** Leaf reads the repository's `.worktreeinclude`, the file that Claude Code, Codex and Conductor
+    already read, and copies the files that it lists and git ignores, never over a file or through a link. Without
+    the file, the dialog says what it's for and creates one with examples.
+  - **Switch:** the tab switches to the new worktree, unless unchecked.
+- **Tests:** 36 new.
+  - `:data` (12): `CreatingWorktreesTest` creates worktrees in a tab (`TestTab`) as the dialog does: a branch from
+    the base, with the ignored files copied and the tab switched; an unused branch checked out in a chosen folder,
+    which the repository remembers; and a folder git refuses. `NewWorktreeGitActionsTest` checks what
+    `.worktreeinclude` lists against git (ignored and matched only, no tracked file, no nested worktree, a folder
+    pattern), the copy (folders made, nothing overwritten, no link followed, nothing outside either worktree), branch
+    names, the settings and the file Leaf creates.
+  - `:domain` (11): `NewWorktreeStepsTest`: the commands for each start point and branch, tracking, the copy and
+    switch steps, and the folder's name.
+  - `:app` (13): `NewWorktreeStateTest` (what the dialog lets the user create: names git rejects or a branch has,
+    folders that are taken or relative, `~`), `NewWorktreeMenusTest` (the branch and commit menus) and
+    `WorktreePickerTest` (the picker's new row).
+  - **Mutation check:** 22 mutations, 21 caught and one equivalent: removing the copy's first check that a path
+    stays in its worktree, which the check of its real path makes anyway. A first try at the branch menu's mutation
+    didn't compile, and three others replaced it.
+  - The dialog was rendered offscreen against a demo repository with a `.worktreeinclude`, a remote branch and an
+    unused branch, and one without the file. That made the folder field show the home folder as `~`: a long path
+    hid the worktree's own folder at its end.
+  - Manual run on macOS by the user, against a demo repository with a `.worktreeinclude`, a remote branch and an
+    unused branch, and one without the file. It left five worktrees, all next to their repository: `agent1` checked
+    out, `feature/login` tracking `origin/feature/login`, `review` without the ignored files and
+    `zz/worktree-branch` with them, and `review` in the repository without the file. The user approved it for
+    commit.
+  - `./gradlew test` passes, with 970 tests (100 in `:app`, 654 in `:data`, 209 in `:domain`, 7 in `:common`).
+    After the rebase onto the log's ref chips and the ProcessRunner fix, which conflicted only in the log's branch
+    chip menu, `:app`, `:domain` and `:common` pass again (338 tests), and so do the worktree, `ProcessRunner` and
+    `GitCli` tests in `:data` (133).
+
 ## Log rows with many branches and tags (branch `feat/log-ref-chips`)
 
 - **Before:** a commit's chips took all the width they asked for, tags first, then local branches by name, then remote
