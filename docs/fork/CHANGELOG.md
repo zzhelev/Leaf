@@ -2,6 +2,60 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Merges and diffs with zdiff3 or patience set (branch `claude/fix-jgit-conflictstyle-diffalgorithm-e355f0`)
+
+- **Before:** JGit 7.7's enums lack values that git accepts: `merge.conflictStyle=zdiff3`, and `diff.algorithm` set
+  to `patience`, `minimal` or `default`. Its `Config.getEnum` threw "Invalid value" for them, whether they came from
+  `~/.gitconfig` or the repository's config.
+  - JGit reads both keys in every merge: `ResolveMerger`'s constructors, and the `MergeConfig` that `MergeCommand`
+    builds even when it's given a conflict style. So merges, rebases (interactive, continuing and skipping too),
+    cherry-picks, reverts, stash applies and both pulls failed before they started. A command's `setConflictStyle`
+    comes too late.
+  - `DiffFormatter` reads `diff.algorithm` too, so with it set the diff pane, a commit's file list and staging
+    untracked files failed as well.
+- **Now:** every `Config.getEnum` goes through the one `TypedConfigGetter` that JGit keeps. `main.kt` installs the
+  fork-only `GitCompatibleConfigGetter` there (`readGitOnlyConfigValues`), which reads these values as the closest
+  ones JGit has:
+  - `zdiff3` as `diff3`. JGit's diff3 already leaves the lines that both sides have alike at the start and end of a
+    conflict outside of it, as zdiff3 does.
+  - `default` and `minimal` as `myers`, and `patience` as `histogram`. git 2.54's merges use `diff.algorithm` (a merge
+    stops at `bogus`). On contents where myers and histogram merge differently, git's `default` and `minimal` gave
+    myers' merge, and `patience` gave histogram's. JGit's Myers finds a shortest diff, which is what `minimal` asks of
+    git's. The brief had suggested histogram for every value JGit lacks.
+  - Other values go to JGit's reader, so values that git refuses, such as `bogus`, still fail. `zdiff3` is read in
+    any case, as JGit reads `diff3`, where git takes it in lowercase only.
+  - Nothing is written to any config. An in-memory override, as `useBuiltinLfs` does, would have needed a dozen call
+    sites, could reach `.git/config` through an action's `config.save()`, and would be lost when JGit reloads a config
+    file that changed on disk, as an agent's `git config` does.
+  - Not fixed: JGit's diff3 leaves out as many lines of the conflict's base as it leaves out of the sides, where git's
+    zdiff3 shows them all. It did the same with `diff3` before.
+  - The built-in conflict resolver's model (branch `claude/resolver-model-f2582e`) reads `diff.algorithm` with its own
+    `mergeDiffAlgorithm`, which takes every value JGit lacks as histogram. It can read it as `ResolveMerger` does once
+    this is on `main`, so that it merges with the merge's algorithm.
+- **Tests:** 71 new, in `:data`, on temporary repositories.
+  - `GitCompatibleConfigGetterTest` (16): each value, in any case; values that git refuses; other keys, subsections and
+    enum types left to JGit's reader. It also checks that JGit's own reader still refuses the values, which fails once
+    JGit reads them itself.
+  - `GitOnlyConfigValuesTest` (39) and `GitOnlyConfigValuesPullTest` (16) run Leaf's git actions with the setting in
+    `.git/config`: merge, rebase, continuing a rebase, interactive rebase, cherry-pick, revert, stash apply, and
+    JGit's pull and the CLI pull, merging and rebasing.
+    - With zdiff3, each stops at conflicts with diff3's markers in zdiff3's layout. That's the conflict that git's
+      zdiff3 merge writes, but for the base's lines.
+    - With patience, default and minimal, each merges. A file's diff and a commit's files show.
+    - Both settings in the user's config instead stop a merge at zdiff3's conflict.
+    - On contents that myers merges and histogram doesn't, in JGit and in git (found by trying random ones), `default`
+      and `minimal` merge as `git merge` does, and `patience` stops at git's conflict.
+    - The config file is unchanged after each.
+  - **Mutation check:** 17 mutations of the getter, all caught. Without it, 62 of the 71 tests fail (the other 9
+    check what JGit's own reader does). Each value left out, read as another value or matched in one case only; the
+    enum type, the subsection or the key not checked, or keys matched in one case only; and values that git refuses
+    read as the default. Reading `default` and `minimal` as histogram fails 5, among them both comparisons with
+    `git merge`.
+  - `:data:test` passes (716 tests), and `:app` compiles.
+  - Manual run on macOS by the user, with a demo repository that sets both in its config: a commit's diff showed, a
+    branch merged cleanly, and another stopped at conflicts, with the banner, and the conflicted file's diff showed
+    zdiff3's layout.
+
 ## Toasts stay long enough to read (branch `claude/zen-volhard-54d7bb`)
 
 - **Before:** every toast went after 2 s, usually before a longer message such as "Merge stopped at conflicts, fix

@@ -280,6 +280,18 @@ asking.
 - `provide` does not switch dispatchers. Many actions call `withContext(Dispatchers.IO)` themselves.
 - JGit auto-gc is turned off by `NoAutoGcSystemReader` (`data/git/`), which `main.kt` installs before Dagger is
   created. JGit's gc is not worktree-aware. Never run JGit gc; leave it to the git CLI.
+- **Config values that JGit lacks (fork-only `GitCompatibleConfigGetter`, `data/git/`):** JGit's enums have no
+  `merge.conflictStyle=zdiff3`, and no `diff.algorithm` of `patience`, `minimal` or `default`, and its `getEnum` throws
+  "Invalid value" for them. It reads both keys in every merge (`ResolveMerger`, `MergeConfig`) and `diff.algorithm` in
+  every diff (`DiffFormatter`), before any setter on a command applies.
+  - `main.kt` installs the getter with `Config.setTypedConfigGetter` (`readGitOnlyConfigValues`), which every
+    `Config.getEnum` goes through. It reads `zdiff3` as `diff3`, `default` and `minimal` as `myers`, and `patience` as
+    `histogram`, as git means them (git's merges use `diff.algorithm` too). Other values go to JGit's reader, so
+    values that git refuses still fail. It writes no config.
+  - Tests that run JGit's merges or diffs with these values call `readGitOnlyConfigValues()` and put JGit's reader
+    back with `Config.setTypedConfigGetter(null)`.
+  - JGit's diff3 leaves out as many lines of a conflict's base as it leaves out of the sides, where git's zdiff3 shows
+    them all.
 
 **`repositoryPath` is the git dir** (for example `/repo/.git`), not the working tree. It comes from
 `OpenRepositoryGitAction`. Get the working tree with `GetWorktreeUseCase` / `IGetWorktreePathGitAction`. In existing
