@@ -5,7 +5,7 @@
 | Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions) built the same day, on `main` at `28cceb84`. |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions) and step 2 (the read-only Columns view) built the same day, on `main` at `28cceb84`. |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
 
@@ -148,6 +148,16 @@ don't pair up, where rerere gives up on the file: that's "fewer or more conflict
   - when the working file changes on disk (an agent, an editor), a strip offers Reload (losing the resolver's changes)
     or Keep (Save overwrites the file);
   - when the stages go away (resolved or aborted elsewhere), the resolver closes and says why.
+- **Built (step 2):**
+  - leaving a file with picks that aren't saved, or closing the resolver, asks in a strip under the toolbar: Save,
+    Discard or Cancel. A worktree switch or closing the tab drops them, as they are only picks until typing comes
+    (step 4);
+  - a changed working file is noticed when Save or Mark resolved writes (`WorkingFileChanged`): the strip offers Reload
+    or Keep mine, which writes over it. Save returns the id of the bytes it wrote, so the resolver's own Saves don't
+    count as changes;
+  - when the shown file stops being conflicted (marked resolved here, or resolved or aborted elsewhere), the next
+    conflicted file opens. When none is left, the view says "All conflicts resolved" if a file was resolved here, and
+    closes otherwise (`afterStatus` in `ConflictResolverViewModel.kt`).
 
 ### 2.4 Conflicts that three panes can't show
 
@@ -309,7 +319,12 @@ the repository; the sketches below show the layouts.
    repositories, and cover CRLF, Latin-1, a missing final newline and an empty base. Built 2026-10-12 (sections 2.1 to
    2.4 say how).
 2. **Read-only Option A:** columns, arrows, navigation, Base, Save and Mark resolved, and the entry points from section
-   4.
+   4. Built 2026-10-12:
+   `ui/conflicts/`, `ConflictResolverViewModel`, the rows in `domain/conflicts/ResolverColumns.kt`. Keys while it's
+   open: Cmd+S saves (Stash elsewhere, which git refuses while files have conflicts), Cmd+Enter marks resolved, Esc
+   closes, F7 and Shift+F7 go to the next and the previous conflict. The conflicts that three panes can't show get a
+   plain panel with each side, and the external merge tool where it can take the file, until the cards of step 5.
+   Settings → Conflicts has "Resolve conflicts with"; the layout's setting comes with step 3.
 3. **Option B and the switch:** the stacked layout from the same rows, the toolbar toggle and the setting.
 4. **Region editing** and the shared undo history, in both layouts.
 5. **Choice cards** for the rows of section 2.4 other than "both modified".

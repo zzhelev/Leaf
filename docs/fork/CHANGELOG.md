@@ -2,6 +2,50 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The built-in conflict resolver: ours, the result and theirs side by side (branch `claude/resolver-model-f2582e`)
+
+Step 2 of the build order in `docs/fork/conflict-resolver.md`: the read-only Columns view, from the approved mockup.
+
+- **Before:** a conflicted file could go to the external merge tool, or take one side whole. Double-clicking it staged
+  it with its conflict markers.
+- **Now:** the resolver takes the whole tab, as file history does, with the conflicted files on the left and three
+  columns: "Ours: main", the result, and "Theirs: feature". The headers' tooltip says what ours and theirs mean in the
+  merge, rebase, cherry-pick or revert in progress.
+  - The rows line up, with hatched fillers. Changes that one side made are in the result already, and can be undone
+    (×) or applied again (✓). A conflict waits as a hatched placeholder, or shows the base's lines with Base; ▶ takes
+    ours, ◀ takes theirs, and once one is taken the other side's arrow adds its lines after it. Its right-click menu
+    has every resolution, the base's lines and opening it again included.
+  - The toolbar has the conflict counter with previous and next (F7, Shift+F7), Base, External merge tool…, Save
+    (Cmd+S, which is Stash elsewhere) and Mark resolved (Cmd+Enter), which stages the file and opens the next one.
+    Esc closes the view.
+  - Leaving a file with picks that aren't saved asks in a strip: Save, Discard or Cancel. A file that changed on disk
+    since it was opened is noticed when Save writes: Reload, or Keep mine.
+  - A file without conflict markers (resolved by hand, an agent or rerere) offers "Mark resolved as it is" or
+    "Resolve again". One whose markers don't match the merge says so above the columns.
+  - Deletions, binary files, Git LFS pointers, submodules, symbolic links and text over 10 MB get a panel with each
+    side, named ("Use ours (main)", "Delete the file, as theirs (feature) did"), and the external tool where it can
+    take the file. The cards with previews are step 5.
+- **Where it opens:** "Resolve…" first in a conflicted file's menu, a "Resolve…" button in the diff's conflict bar,
+  "Resolve conflicts" before Abort on the banner, and double-click on a conflicted file.
+- **Settings → Conflicts** (new, under GIT): "Resolve conflicts with" the built-in resolver (the default) or the
+  external merge tool, for double-click and the banner. A file that the tool can't take, or a repository without one,
+  opens in the built-in resolver.
+- **Tests:** 25 new.
+  - `:domain` (8): `ResolverColumnsTest`, the rows of the three columns and what the arrows do.
+  - `:app` (17): `ConflictResolverTest` (11) renders the view offscreen from a state and clicks it: the headers, the
+    counter, the arrows and undo buttons and where they are, Mark resolved while a conflict is open, the panels, the
+    unsaved-picks strip, and each operation's explanation. `ConflictResolverStatusTest` (4) checks which file the view
+    shows after a status. `ConflictContextMenuTest` and `OperationInProgressBannerTest` (1 each) check the new entry
+    points.
+  - **Mutation check:** 17 mutations, all caught. The first pass missed two, the deletion panel's wording and an undo
+    button in the wrong gutter, which gave the last two tests.
+  - **Manual run:** a temporary harness opened a repository with four kinds of conflicts in a tab built from the real
+    Dagger graph, double-clicked the Kotlin file, took theirs then ours, saved, marked it resolved (stage 0, then the
+    next file opened), left a file with unsaved picks, and opened the binary, deleted and Base views. Its screenshots
+    showed the panel's title unreadable on the dark theme, which was fixed. Hover, the keys and the banner in a real
+    window are left to a run of the app.
+  - `./gradlew build` passes, with 1,235 tests (146 in `:app`, 850 in `:data`, 232 in `:domain`, 7 in `:common`).
+
 ## The built-in conflict resolver's model (branch `claude/resolver-model-f2582e`)
 
 Step 1 of the build order in `docs/fork/conflict-resolver.md`: what the resolver loads, merges and writes, with its git

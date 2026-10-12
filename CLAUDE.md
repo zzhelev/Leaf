@@ -464,7 +464,8 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
   so a fake tool with an untrusted exit code has to `touch -t` the file. git removes its copies once the tool exits.
 
 **Built-in conflict resolver (fork-only, `data/git/conflicts/`, models in `domain/models/TextMerge.kt` and
-`ConflictedFile.kt`):** step 1 of `docs/fork/conflict-resolver.md`, the model and its git actions. No UI yet.
+`ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 and 2 of `docs/fork/conflict-resolver.md`: the model, its git
+actions, and the read-only Columns view (ours | result | theirs).
 - `GetConflictedFileGitAction` loads a conflicted path as `ConflictedFile`: its stages (through `stagesOf`), its
   `FileConflict`, its `ConflictSides`, and a `ConflictContent` picked in `git mergetool`'s order:
   - `OtherPaths`: a stage alone (DD, AU, UA), as rename/rename leaves;
@@ -504,6 +505,32 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
 - Tests: `GetConflictedFileGitActionTest` and `WriteConflictResultGitActionTest` use conflicts that git's own merge,
   rebase, cherry-pick, revert and stash leave (`ConflictMerges.kt` writes each side's files), and Save with nothing
   resolved must give back git's file. `ResolvingConflictsTest` runs the use cases in a `TestTab`.
+
+- **The view (step 2):** `ConflictResolver` takes the whole tab, as file history does: `RepositoryOpenViewModel`
+  holds `showConflictResolver` and a `ConflictResolverViewModel` (`openConflictResolver`, made through a `Provider`),
+  and `RepoContent` shows it in place of the main view. A worktree switch closes it without asking (`closeNow`).
+  - Entry points: "Resolve…" first in a conflicted file's menu (`ConflictMenuActions.onResolve`), a "Resolve…" button
+    in the diff's `ConflictBar`, "Resolve conflicts" before Abort on the banner (`resolveConflicts`, the first
+    conflicted file), and double-click on a conflicted file. They go through `StatusAction.OpenInResolver` and
+    `RepositoryOpenViewModel.onAction`, which also turns `EntryAction` on a conflicted file into `openConflict` instead
+    of staging it with its markers.
+  - `openConflict` follows Settings → Conflicts (`AppConfig.ConflictOpener`, `conflict_opener`, built-in by default):
+    with the external tool picked, a file it can take (`canOpenInMergeTool`) in a repository with a tool
+    (`GetMergeToolUseCase`, `readMergeToolConfig`) goes to `git mergetool`, anything else to the resolver.
+  - The rows come from `columnRows` (`domain/conflicts/ResolverColumns.kt`): one `ColumnRow` per line of a chunk's
+    tallest column, fillers in the others, the gutters' buttons on its first row. `arrowFor` and `taking` are the
+    arrows: ▶ and ◀ take a side; once one is taken, the other side's adds after it.
+  - The view model follows the status (`afterStatus`): the next file opens when the shown one stops being conflicted,
+    and the view says "All conflicts resolved", or closes when nothing was resolved here. Leaving a file with unsaved
+    picks asks in a strip (`ResolverPrompt`). Save's `WorkingFileChanged` gives Reload or Keep mine.
+  - Keys: the tab's handler sends Cmd+S (Stash elsewhere) and Esc to the resolver while it shows; the view handles
+    Cmd+Enter (Mark resolved) and F7 / Shift+F7 itself, so `Keybinding.kt` is unchanged.
+  - Colours come from the theme (`primary` for ours, `conflictFile`, `addFile`), and a fixed purple for theirs.
+  - The conflicts that three panes can't show get a panel with "Use ours (main)" and "Use theirs (…)", or "Delete the
+    file, as … did", through `ResolveConflictUseCase` and the same confirmation as elsewhere.
+  - Tests: `ConflictResolverTest` renders `ConflictResolverContent` from a state and clicks it, `ResolverColumnsTest`
+    (domain) the rows and arrows, `ConflictResolverStatusTest` `afterStatus`. The view model itself was run against a
+    real repository through the Dagger graph in a temporary harness (see Offscreen UI checks), not by a kept test.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,
