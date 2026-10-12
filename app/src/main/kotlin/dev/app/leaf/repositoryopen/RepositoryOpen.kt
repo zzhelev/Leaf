@@ -90,7 +90,18 @@ fun RepositoryOpenPage(
                     }
 
                     it.matchesBinding(KeybindingOption.EXIT) -> {
-                        repositoryOpenViewModel.closeLastView()
+                        // Fork-only: this handler sees Esc before file history and blame, whose own handlers so never
+                        // ran. The tab takes the focus back, as when the diff closes, so that the next key reaches it.
+                        val blame = blameState
+                        if (showHistory) {
+                            repositoryOpenViewModel.closeHistory()
+                            focusRequester.requestFocus()
+                        } else if (blame is BlameState.Loaded && !blame.isMinimized) {
+                            repositoryOpenViewModel.resetBlameState()
+                            focusRequester.requestFocus()
+                        } else {
+                            repositoryOpenViewModel.closeLastView()
+                        }
                         true
                     }
 
