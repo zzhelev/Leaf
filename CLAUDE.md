@@ -974,8 +974,11 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 before the views inside it and consumes the ones it matches. So a view's own Esc handler there never runs (upstream's
 `FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
 - Fork-only: that branch closes file history, then an expanded blame, then the last closeable view (`CloseableView`:
-  the diff and the searches, in the order they opened). Closing history or blame gives the focus back to the tab, as
-  closing the diff does, since keys reach the tab's handler only while something in it has the focus.
+  the diff and the searches, in the order they opened).
+- Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
+  while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
+  back to the tab (fork-only), as closing the diff does. Selecting a file's diff, which minimizes blame, needs
+  nothing: the click focuses the file's row.
 - A view that covers others is checked there by what is shown, not added to `CloseableView`: the log search adds
   itself again whenever its results change, and would then come before it.
 

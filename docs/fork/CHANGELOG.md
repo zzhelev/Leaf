@@ -2,6 +2,18 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Closing file history or blame with X keeps the shortcuts working (branch `claude/x-button-focus`)
+
+- **Before:** file history and an expanded blame take the focus while shown. Their X buttons closed them and left
+  nothing in the tab with the focus, so Esc, F5 and the tab's other shortcuts did nothing until a click. Esc already
+  gave the focus back (the entry below).
+- **Now:** both X buttons give the focus back to the tab, as closing the diff does. Nothing else needed it: selecting
+  a file's diff, which minimizes blame, focuses the file's row, and the minimized blame's X is clicked while the
+  focus is elsewhere.
+- **Tests:** none kept, for the reason given below. The temporary harness clicked each X: before the fix the next
+  Esc wasn't consumed, and after the fix it was. It also clicked a changed file while blame was expanded, which kept the
+  focus. `:app:test` passes.
+
 ## Esc closes file history and blame (branch `claude/cranky-lamport-ef720e`)
 
 - **Before:** Esc closed neither file history nor an expanded blame. Both have their own Esc handler, but the tab's
