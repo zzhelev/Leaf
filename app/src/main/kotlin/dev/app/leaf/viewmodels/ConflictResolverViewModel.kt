@@ -4,15 +4,20 @@
 package dev.app.leaf.viewmodels
 
 import dev.app.leaf.TabViewModel
+import dev.app.leaf.domain.conflicts.ColumnShares
+import dev.app.leaf.domain.conflicts.DEFAULT_FILE_LIST_WIDTH
 import dev.app.leaf.domain.conflicts.applying
 import dev.app.leaf.domain.conflicts.conflictChunks
+import dev.app.leaf.domain.conflicts.dropping
 import dev.app.leaf.domain.conflicts.resolving
 import dev.app.leaf.domain.conflicts.taking
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictResolution
+import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.ConflictedFile
 import dev.app.leaf.domain.models.StatusEntry
@@ -21,6 +26,7 @@ import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.WorkingFileState
 import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
+import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetConflictedFileUseCase
 import dev.app.leaf.domain.usecases.MarkConflictResolvedUseCase
 import dev.app.leaf.domain.usecases.OpenMergeToolUseCase
@@ -35,10 +41,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * The built-in conflict resolver's whole-tab view (`docs/fork/conflict-resolver.md`, step 2): the conflicted files, and
- * the one shown, with the picks made in it. Opened and closed by `RepositoryOpenViewModel`, as file history is.
+ * The built-in conflict resolver's whole-tab view (`docs/fork/conflict-resolver.md`, steps 2 and 3): the conflicted
+ * files, and the one shown, with the picks made in it and the layout. Opened and closed by `RepositoryOpenViewModel`,
+ * as file history is.
  *
  * The list follows the status: a file that stops being conflicted, because it was marked resolved here or resolved
  * elsewhere, gets a ✓ (if it was resolved here) and the next one opens. When none is left, the view says so, or closes
@@ -52,9 +60,18 @@ class ConflictResolverViewModel @Inject constructor(
     private val statusStageUseCase: StatusStageUseCase,
     private val resolveConflictUseCase: ResolveConflictUseCase,
     private val openMergeToolUseCase: OpenMergeToolUseCase,
+    private val appSettingsService: AppSettingsService,
+    private val session: ConflictResolverSession,
 ) : TabViewModel() {
     val state: StateFlow<ConflictResolverState>
-        field = MutableStateFlow(ConflictResolverState())
+        field = MutableStateFlow(
+            ConflictResolverState(
+                stackedSplit = session.stackedSplit,
+                columnShares = session.columnShares,
+                fileListWidth = session.fileListWidth,
+                wrapLines = session.wrapLines,
+            )
+        )
 
     /** A conflict (its chunk's index) to scroll to, after a move to the next or the previous one. */
     val scrollToChunk: SharedFlow<Int>
@@ -72,18 +89,21 @@ class ConflictResolverViewModel @Inject constructor(
     fun open(path: String?, onClose: () -> Unit) {
         this.onClose = onClose
 
+        // Before the status comes: with no file shown, it would open the first conflicted one
+        if (path != null) {
+            load(path)
+        }
+
+        viewModelScope.launch {
+            appSettingsService.conflictResolverLayout.collect { layout -> state.update { it.copy(layout = layout) } }
+        }
+
         viewModelScope.launch {
             repositoryDataRepository.status.collect { status ->
                 if (status is DataState.Loaded) {
                     onStatus(status.data.unstaged.filter { it.statusType == StatusType.CONFLICTING })
                 }
             }
-        }
-
-        val first = path ?: conflicted.firstOrNull()?.filePath
-
-        if (first != null) {
-            load(first)
         }
     }
 
@@ -145,6 +165,13 @@ class ConflictResolverViewModel @Inject constructor(
         merge.resolving(chunk, conflict.resolution.taking(side))
     }
 
+    /** A side's Taken chip in the stacked layout: takes that side's lines out of [chunk]'s result. */
+    fun drop(chunk: Int, side: ConflictSide) = updateMerge { merge ->
+        val conflict = merge.chunks[chunk] as? TextMerge.Chunk.Conflict ?: return@updateMerge merge
+
+        merge.resolving(chunk, conflict.resolution.dropping(side))
+    }
+
     fun resolve(chunk: Int, resolution: ConflictResolution) = updateMerge { it.resolving(chunk, resolution) }
 
     fun setApplied(chunk: Int, applied: Boolean) = updateMerge { it.applying(chunk, applied) }
@@ -160,6 +187,41 @@ class ConflictResolverViewModel @Inject constructor(
 
     fun toggleBase() {
         state.update { it.copy(showBase = !it.showBase) }
+    }
+
+    /** Switches the layout, for every resolver in the app (Settings → Conflicts has the same choice). */
+    fun setLayout(layout: ConflictResolverLayout) {
+        state.update { it.copy(layout = layout) }
+
+        viewModelScope.launch {
+            appSettingsService.setConfiguration(AppConfig.ConflictResolverLayout(layout))
+        }
+    }
+
+    /** The stacked layout's handle was dragged: the top pair's share of the height, kept until Leaf quits. */
+    fun setStackedSplit(split: Float) {
+        session.stackedSplit = split
+        state.update { it.copy(stackedSplit = split) }
+    }
+
+    /** A gutter of the Columns layout was dragged, kept until Leaf quits. */
+    fun setColumnShares(shares: ColumnShares) {
+        session.columnShares = shares
+        state.update { it.copy(columnShares = shares) }
+    }
+
+    /** The file list's edge was dragged, kept until Leaf quits. */
+    fun setFileListWidth(width: Float) {
+        session.fileListWidth = width
+        state.update { it.copy(fileListWidth = width) }
+    }
+
+    /** Long lines wrap, or stay on one row and scroll sideways together. Kept until Leaf quits. */
+    fun toggleWrapLines() {
+        val wrap = !state.value.wrapLines
+
+        session.wrapLines = wrap
+        state.update { it.copy(wrapLines = wrap) }
     }
 
     // Conflicts
@@ -351,6 +413,22 @@ class ConflictResolverViewModel @Inject constructor(
     }
 }
 
+/** The top pair's share of the stacked layout's height, until its handle is dragged. */
+const val DEFAULT_STACKED_SPLIT = 0.45f
+
+/**
+ * What the resolver keeps between its views, until Leaf quits: the stacked layout's handle, the columns' and the file
+ * list's widths, and whether lines wrap. The user chose not to save them (2026-10-12); saving them as the status pane's
+ * sections are would take prefs keys.
+ */
+@Singleton
+class ConflictResolverSession @Inject constructor() {
+    var stackedSplit = DEFAULT_STACKED_SPLIT
+    var columnShares = ColumnShares()
+    var fileListWidth = DEFAULT_FILE_LIST_WIDTH
+    var wrapLines = true
+}
+
 /** What a new status makes of the view. */
 internal sealed interface AfterStatus {
     data object Stay : AfterStatus
@@ -390,6 +468,15 @@ data class ConflictResolverState(
     /** The conflicted files, in the status pane's order, then the ones resolved here. */
     val files: List<ResolverFileEntry> = emptyList(),
     val file: ResolverFile = ResolverFile.None,
+    val layout: ConflictResolverLayout = ConflictResolverLayout.DEFAULT,
+    /** The stacked layout's top pair's share of the height. */
+    val stackedSplit: Float = DEFAULT_STACKED_SPLIT,
+    /** The Columns layout's widths. */
+    val columnShares: ColumnShares = ColumnShares(),
+    /** The conflicted files' list, in dp. */
+    val fileListWidth: Float = DEFAULT_FILE_LIST_WIDTH,
+    /** Whether long lines wrap, or stay on one row and scroll sideways. */
+    val wrapLines: Boolean = true,
     /** Whether open conflicts show the base's lines in the result. */
     val showBase: Boolean = false,
     /** The current conflict, among the file's conflicts. */

@@ -39,4 +39,7 @@ sealed interface AppConfig {
 
     /** What double-clicking a conflicted file and the banner's Resolve conflicts open (fork-only). */
     data class ConflictOpener(val value: dev.app.leaf.domain.models.ConflictOpener) : AppConfig
+
+    /** How the built-in resolver lays out the sides and the result (fork-only). */
+    data class ConflictResolverLayout(val value: dev.app.leaf.domain.models.ConflictResolverLayout) : AppConfig
 }

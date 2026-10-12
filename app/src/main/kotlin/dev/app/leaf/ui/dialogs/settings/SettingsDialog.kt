@@ -24,6 +24,7 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.ConflictOpener
+import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.Error
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
@@ -344,6 +345,19 @@ private fun Conflicts(settingsViewState: SettingsViewState, onAction: (SettingsA
         ),
         onOptionSelected = { option -> onAction(SettingsAction.SetConfig(AppConfig.ConflictOpener(option.value))) },
         currentOption = settingsViewState.conflictOpener,
+    )
+
+    SettingDropDown(
+        title = stringResource(Res.string.settings_conflicts_layout_title),
+        subtitle = stringResource(Res.string.settings_conflicts_layout_subtitle),
+        dropDownOptions = listOf(
+            DropDownOption(ConflictResolverLayout.COLUMNS, stringResource(Res.string.settings_conflicts_layout_columns)),
+            DropDownOption(ConflictResolverLayout.STACKED, stringResource(Res.string.settings_conflicts_layout_stacked)),
+        ),
+        onOptionSelected = { option ->
+            onAction(SettingsAction.SetConfig(AppConfig.ConflictResolverLayout(option.value)))
+        },
+        currentOption = settingsViewState.conflictResolverLayout,
     )
 }
 

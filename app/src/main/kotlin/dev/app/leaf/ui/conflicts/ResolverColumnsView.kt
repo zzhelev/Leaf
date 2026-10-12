@@ -4,8 +4,13 @@
 package dev.app.leaf.ui.conflicts
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -25,20 +30,30 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.conflicts.CellKind
+import dev.app.leaf.domain.conflicts.ColumnShares
+import dev.app.leaf.domain.conflicts.MIN_COLUMN_WIDTH
 import dev.app.leaf.domain.conflicts.ColumnCell
 import dev.app.leaf.domain.conflicts.ColumnRow
 import dev.app.leaf.domain.conflicts.ConflictArrow
@@ -61,33 +76,39 @@ import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.addContextMenu
-import dev.app.leaf.ui.diff.DiffText
 import dev.app.leaf.ui.diff.LineNumber
 import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
+import dev.app.leaf.ui.resizePointerIconEast
+import dev.app.leaf.ui.resizePointerIconNorth
 import dev.app.leaf.ui.status.label
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.log10
 
 /** Changes from theirs. The theme has no colour of its own for them; it reads on both the light and the dark theme. */
-private val TheirsColor = Color(0xFF9C6ADE)
+internal val TheirsColor = Color(0xFF9C6ADE)
 
 private val GutterWidth = 40.dp
 
 /** Dark, on the amber of the conflict colour, which is the same in the light and the dark theme. */
-private val OnArrowColor = Color(0xFF1E1E1E)
+internal val OnArrowColor = Color(0xFF1E1E1E)
 
-/** What the columns' gutters and conflict menus do. */
-class ColumnActions(
+/** What the picks do: the columns' gutters, the stacked layout's chips, and the conflict menus of both. */
+class PickActions(
     val onTake: (chunk: Int, side: ConflictSide) -> Unit,
     val onResolve: (chunk: Int, resolution: ConflictResolution) -> Unit,
     val onSetApplied: (chunk: Int, applied: Boolean) -> Unit,
+    /** A side's Taken chip, in the stacked layout: that side's lines leave the result. */
+    val onDrop: (chunk: Int, side: ConflictSide) -> Unit = { _, _ -> },
 )
 
 /**
  * Ours, the result and theirs side by side (`conflict-resolver.md`, Option A), as rows of one list so that they scroll
  * together. A chunk's gutters have its buttons on its first row: an applied change can be undone (×) or applied again
  * (✓), and a conflict's arrows point into the result, ▶ taking ours and ◀ taking theirs.
+ *
+ * Dragging a gutter, in the headers or in any row, moves the edge between its two columns, and a double-click shares
+ * the width out evenly again. [onSharesChanged] gets the widths when a drag ends.
  */
 @Composable
 fun ResolverColumnsView(
@@ -98,7 +119,9 @@ fun ResolverColumnsView(
     currentConflictChunk: Int?,
     showBase: Boolean,
     listState: LazyListState,
-    actions: ColumnActions,
+    actions: PickActions,
+    shares: ColumnShares,
+    onSharesChanged: (ColumnShares) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val syntaxHighlighter = remember(filePath) { getSyntaxHighlighterFromExtension(filePath.substringAfterLast('.')) }
@@ -108,32 +131,104 @@ fun ResolverColumnsView(
     val conflictNumbers = remember(merge) {
         merge.chunks.indices.filter { merge.chunks[it] is Chunk.Conflict }.withIndex().associate { it.value to it.index + 1 }
     }
+    val sideways = LocalSidewaysScroll.current
+    val currentOnSharesChanged by rememberUpdatedState(onSharesChanged)
 
-    Column(modifier) {
-        ColumnHeaders(sides)
+    BoxWithConstraints(modifier) {
+        val columnsWidth = (maxWidth - GutterWidth * 2).value.coerceAtLeast(1f)
+        val minShare = MIN_COLUMN_WIDTH / columnsWidth
+        // A copy while a gutter is dragged; the view model gets the widths when the drag ends
+        var dragged by remember(shares) { mutableStateOf(shares) }
+        val edges = remember(columnsWidth) {
+            ColumnEdges(
+                onMoveOurs = { delta -> dragged = dragged.movingOursGutter(delta / columnsWidth, minShare) },
+                onMoveTheirs = { delta -> dragged = dragged.movingTheirsGutter(delta / columnsWidth, minShare) },
+                onStopped = { currentOnSharesChanged(dragged) },
+                onReset = {
+                    dragged = ColumnShares()
+                    currentOnSharesChanged(dragged)
+                },
+            )
+        }
 
-        ScrollableLazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
-            itemsIndexed(rows, key = { index, _ -> index }) { _, row ->
-                ResolverRow(
-                    row = row,
-                    chunk = merge.chunks[row.chunk],
-                    sides = sides,
-                    numberWidth = numberWidth,
-                    conflictNumber = conflictNumbers[row.chunk],
-                    isCurrentConflict = row.chunk == currentConflictChunk,
-                    showBase = showBase,
-                    syntaxHighlighter = syntaxHighlighter,
-                    actions = actions,
-                )
+        FitSideways(
+            sideways = sideways,
+            merge = merge,
+            narrowestColumn = (columnsWidth * minOf(dragged.ours, dragged.result, dragged.theirs)).dp,
+            numberDigits = numberWidth,
+        )
+
+        Column(Modifier.fillMaxSize().scrollsSideways(sideways)) {
+            ColumnHeaders(sides, dragged, edges)
+
+            ScrollableLazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), state = listState) {
+                itemsIndexed(rows, key = { index, _ -> index }) { _, row ->
+                    ResolverRow(
+                        row = row,
+                        chunk = merge.chunks[row.chunk],
+                        sides = sides,
+                        numberWidth = numberWidth,
+                        conflictNumber = conflictNumbers[row.chunk],
+                        isCurrentConflict = row.chunk == currentConflictChunk,
+                        showBase = showBase,
+                        syntaxHighlighter = syntaxHighlighter,
+                        actions = actions,
+                        shares = dragged,
+                        edges = edges,
+                    )
+                }
             }
+
+            SidewaysScrollbar(sideways)
         }
     }
 }
 
-private fun digits(count: Int) = if (count <= 0) 1 else log10(count.toDouble()).toInt() + 1
+/** What dragging the gutters does: the edge between ours and the result, or the result and theirs, moves by dp. */
+private class ColumnEdges(
+    val onMoveOurs: (Float) -> Unit,
+    val onMoveTheirs: (Float) -> Unit,
+    val onStopped: () -> Unit,
+    val onReset: () -> Unit,
+)
+
+/** Makes a gutter a handle for its edge: [side]'s gutter moves the edge between that side and the result. */
+@Composable
+private fun Modifier.columnEdge(side: ConflictSide, edges: ColumnEdges): Modifier = dragHandle(
+    orientation = Orientation.Horizontal,
+    onDrag = if (side == ConflictSide.OURS) edges.onMoveOurs else edges.onMoveTheirs,
+    onDragStopped = edges.onStopped,
+    onDoubleClick = edges.onReset,
+)
+
+/**
+ * A handle to drag, with the resize pointer: [onDrag] gets how far it moved, in dp, and a double-click resets it. Taps on
+ * buttons inside it stay theirs, as a drag only starts past the touch slop.
+ */
+@Composable
+internal fun Modifier.dragHandle(
+    orientation: Orientation,
+    onDrag: (Float) -> Unit,
+    onDragStopped: () -> Unit,
+    onDoubleClick: () -> Unit,
+): Modifier {
+    val density = LocalDensity.current.density
+    val currentOnDragStopped by rememberUpdatedState(onDragStopped)
+    val currentOnDoubleClick by rememberUpdatedState(onDoubleClick)
+
+    return pointerHoverIcon(if (orientation == Orientation.Horizontal) resizePointerIconEast else resizePointerIconNorth)
+        .draggable(
+            state = rememberDraggableState { onDrag(it / density) },
+            orientation = orientation,
+            onDragStopped = { currentOnDragStopped() },
+        )
+        .pointerInput(Unit) { detectTapGestures(onDoubleTap = { currentOnDoubleClick() }) }
+}
+
+internal fun digits(count: Int) = if (count <= 0) 1 else log10(count.toDouble()).toInt() + 1
 
 @Composable
-private fun ColumnHeaders(sides: ConflictSides?) {
+private fun ColumnHeaders(sides: ConflictSides?, shares: ColumnShares, edges: ColumnEdges) {
     val explanation = sides?.explanation()
 
     Row(
@@ -148,27 +243,44 @@ private fun ColumnHeaders(sides: ConflictSides?) {
             name = sides?.label(ConflictSide.OURS),
             tooltip = explanation,
             color = MaterialTheme.colors.primary,
+            weight = shares.ours.asWeight(),
         )
-        Spacer(Modifier.width(GutterWidth))
+        HeaderGutter(ConflictSide.OURS, edges)
         Header(
             title = stringResource(Res.string.conflict_resolver_result),
             name = null,
             tooltip = stringResource(Res.string.conflict_resolver_result_tooltip),
             color = MaterialTheme.colors.onBackground,
+            weight = shares.result.asWeight(),
         )
-        Spacer(Modifier.width(GutterWidth))
+        HeaderGutter(ConflictSide.THEIRS, edges)
         Header(
             title = stringResource(Res.string.conflict_resolver_theirs),
             name = sides?.label(ConflictSide.THEIRS),
             tooltip = explanation,
             color = TheirsColor,
+            weight = shares.theirs.asWeight(),
         )
     }
 }
 
+/** A gutter of the headers: a line in its middle shows that it can be dragged, as the rows' gutters can. */
 @Composable
-private fun RowScope.Header(title: String, name: String?, tooltip: String?, color: Color) {
-    DelayedTooltip(tooltip, modifier = Modifier.weight(1f)) {
+private fun HeaderGutter(side: ConflictSide, edges: ColumnEdges) {
+    Box(
+        modifier = Modifier.width(GutterWidth).fillMaxHeight().columnEdge(side, edges),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.width(1.dp).fillMaxHeight(0.6f).background(MaterialTheme.colors.onBackground.copy(alpha = 0.2f)))
+    }
+}
+
+/** A share as a Row weight, which must be above 0. */
+private fun Float.asWeight() = coerceAtLeast(0.01f)
+
+@Composable
+internal fun RowScope.Header(title: String, name: String?, tooltip: String?, color: Color, weight: Float = 1f) {
+    DelayedTooltip(tooltip, modifier = Modifier.weight(weight)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -211,17 +323,19 @@ private fun ResolverRow(
     isCurrentConflict: Boolean,
     showBase: Boolean,
     syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
-    actions: ColumnActions,
+    actions: PickActions,
+    shares: ColumnShares,
+    edges: ColumnEdges,
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        Cell(row.ours, numberWidth, isCurrentConflict, syntaxHighlighter, Modifier.weight(1f))
-        Gutter(row, chunk, ConflictSide.OURS, sides, actions)
+        Cell(row.ours, numberWidth, isCurrentConflict, syntaxHighlighter, Modifier.weight(shares.ours.asWeight()))
+        Gutter(row, chunk, ConflictSide.OURS, sides, actions, edges)
 
         val result = @Composable {
             ResultCell(row, numberWidth, conflictNumber, isCurrentConflict, showBase, syntaxHighlighter)
         }
 
-        Box(Modifier.weight(1f).fillMaxHeight()) {
+        Box(Modifier.weight(shares.result.asWeight()).fillMaxHeight()) {
             if (chunk is Chunk.Conflict) {
                 ContextMenu(items = { conflictMenu(row.chunk, sides, actions) }) { result() }
             } else {
@@ -229,18 +343,20 @@ private fun ResolverRow(
             }
         }
 
-        Gutter(row, chunk, ConflictSide.THEIRS, sides, actions)
-        Cell(row.theirs, numberWidth, isCurrentConflict, syntaxHighlighter, Modifier.weight(1f))
+        Gutter(row, chunk, ConflictSide.THEIRS, sides, actions, edges)
+        Cell(row.theirs, numberWidth, isCurrentConflict, syntaxHighlighter, Modifier.weight(shares.theirs.asWeight()))
     }
 }
 
+/** A cell of a side or of the result: its line, or a hatched filler, and the stacked layout's [chip] at its end. */
 @Composable
-private fun Cell(
+internal fun Cell(
     cell: ColumnCell,
     numberWidth: Int,
     isCurrentConflict: Boolean,
     syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
     modifier: Modifier = Modifier,
+    chip: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -255,10 +371,16 @@ private fun Cell(
 
         val text = cell.text
 
-        if (text == null) {
-            Box(Modifier.fillMaxSize().hatched(MaterialTheme.colors.onBackground.copy(alpha = 0.08f)))
-        } else {
-            DiffText(text.getString(cell.line), matchLine = null, syntaxHighlighter = syntaxHighlighter)
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+            if (text == null) {
+                Box(Modifier.fillMaxSize().hatched(MaterialTheme.colors.onBackground.copy(alpha = 0.08f)))
+            } else {
+                LineText(text.getString(cell.line), syntaxHighlighter)
+            }
+        }
+
+        if (chip != null) {
+            Box(Modifier.fillMaxHeight().padding(horizontal = 6.dp), contentAlignment = Alignment.Center) { chip() }
         }
     }
 }
@@ -303,18 +425,28 @@ private fun ResultCell(
             if (text != null && showBase) {
                 Row(Modifier.alpha(0.6f)) {
                     LineNumber(text = " ".repeat(numberWidth), remarked = false)
-                    DiffText(text.getString(cell.line), matchLine = null, syntaxHighlighter = syntaxHighlighter)
+                    LineText(text.getString(cell.line), syntaxHighlighter)
                 }
             }
         }
     }
 }
 
-/** A gutter next to the result: the buttons of [chunk] for [side]'s column, on its first row. */
+/**
+ * A gutter next to the result: the buttons of [chunk] for [side]'s column, on its first row. Dragging it moves the edge
+ * between [side]'s column and the result.
+ */
 @Composable
-private fun Gutter(row: ColumnRow, chunk: Chunk, side: ConflictSide, sides: ConflictSides?, actions: ColumnActions) {
+private fun Gutter(
+    row: ColumnRow,
+    chunk: Chunk,
+    side: ConflictSide,
+    sides: ConflictSides?,
+    actions: PickActions,
+    edges: ColumnEdges,
+) {
     Column(
-        modifier = Modifier.width(GutterWidth).fillMaxHeight(),
+        modifier = Modifier.width(GutterWidth).fillMaxHeight().columnEdge(side, edges),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -411,7 +543,7 @@ private fun GutterButton(painter: Painter, tooltip: String, color: Color, filled
 }
 
 /** Every resolution of a conflict, the ones without an arrow included. */
-private fun conflictMenu(chunk: Int, sides: ConflictSides?, actions: ColumnActions): List<ContextMenuElement> =
+internal fun conflictMenu(chunk: Int, sides: ConflictSides?, actions: PickActions): List<ContextMenuElement> =
     mutableListOf<ContextMenuElement>().apply {
         fun item(label: @Composable () -> String, resolution: ConflictResolution) {
             addContextMenu(composableLabel = label, onClick = { actions.onResolve(chunk, resolution) })
@@ -432,9 +564,9 @@ private fun conflictMenu(chunk: Int, sides: ConflictSides?, actions: ColumnActio
         item({ stringResource(Res.string.conflict_resolver_menu_reset) }, ConflictResolution.Unresolved)
     }
 
-/** The bottom line: what the colours and the buttons mean. */
+/** The bottom line: what the colours and the buttons mean, in the [stacked] layout or the columns. */
 @Composable
-fun ResolverLegend() {
+fun ResolverLegend(stacked: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -452,7 +584,9 @@ fun ResolverLegend() {
         Spacer(Modifier.weight(1f))
 
         Text(
-            text = stringResource(Res.string.conflict_resolver_legend_keys),
+            text = stringResource(
+                if (stacked) Res.string.conflict_resolver_legend_keys_stacked else Res.string.conflict_resolver_legend_keys
+            ),
             style = MaterialTheme.typography.caption,
             color = MaterialTheme.colors.onBackgroundSecondary,
             maxLines = 1,
@@ -476,7 +610,7 @@ private fun LegendItem(color: Color, text: String) {
 }
 
 @Composable
-private fun CellKind.background(): Color = when (this) {
+internal fun CellKind.background(): Color = when (this) {
     CellKind.UNCHANGED -> Color.Transparent
     CellKind.CHANGED_BY_OURS -> MaterialTheme.colors.primary.copy(alpha = 0.16f)
     CellKind.CHANGED_BY_THEIRS -> TheirsColor.copy(alpha = 0.18f)
@@ -487,7 +621,7 @@ private fun CellKind.background(): Color = when (this) {
 
 /** The current conflict's cells get a bar on their left edge. */
 @Composable
-private fun Modifier.currentConflictMark(isCurrent: Boolean): Modifier {
+internal fun Modifier.currentConflictMark(isCurrent: Boolean): Modifier {
     if (!isCurrent) {
         return this
     }
@@ -497,8 +631,8 @@ private fun Modifier.currentConflictMark(isCurrent: Boolean): Modifier {
     return drawBehind { drawRect(color, size = size.copy(width = 3.dp.toPx())) }
 }
 
-/** Diagonal lines, as the fillers and placeholders of Meld and Beyond Compare. */
-private fun Modifier.hatched(color: Color): Modifier = drawBehind {
+/** Diagonal lines, as the fillers and placeholders of Meld and Beyond Compare, kept inside the element. */
+internal fun Modifier.hatched(color: Color): Modifier = clipToBounds().drawBehind {
     val step = 8.dp.toPx()
     var x = -size.height
 

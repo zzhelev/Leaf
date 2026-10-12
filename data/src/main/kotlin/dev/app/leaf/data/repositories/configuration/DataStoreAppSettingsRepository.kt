@@ -14,6 +14,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
+import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
@@ -65,6 +66,7 @@ private val gitExecutablePathPreference get() = stringPreferencesKey("git_execut
 private val remoteOperationsWithGitPreference get() = booleanPreferencesKey("remote_operations_with_git")
 private val worktreesRefreshIntervalPreference get() = intPreferencesKey("worktrees_refresh_interval")
 private val conflictOpenerPreference get() = stringPreferencesKey("conflict_opener")
+private val conflictResolverLayoutPreference get() = stringPreferencesKey("conflict_resolver_layout")
 
 private val cacheCredentialsPreference get() = booleanPreferencesKey("cache_credentials_in_memory")
 private val terminalPathPreference get() = stringPreferencesKey("terminal_path")
@@ -137,6 +139,12 @@ class DataStoreAppSettingsRepository @Inject constructor(
             ConflictOpener.entries.firstOrNull { it.name.lowercase() == stored }
         }
 
+    /** Stored as the value's name in lower case, as [conflictOpener] is. */
+    override val conflictResolverLayout
+        get() = preferences.data[conflictResolverLayoutPreference].map { stored ->
+            ConflictResolverLayout.entries.firstOrNull { it.name.lowercase() == stored }
+        }
+
 
     // Network
     override val cacheCredentialsInMemory get() = preferences.data[cacheCredentialsPreference]
@@ -154,6 +162,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.WorktreesRefreshInterval ->
                     setValue(worktreesRefreshIntervalPreference, appConfig.seconds)
                 is AppConfig.ConflictOpener -> setValue(conflictOpenerPreference, appConfig.value.name.lowercase())
+                is AppConfig.ConflictResolverLayout ->
+                    setValue(conflictResolverLayoutPreference, appConfig.value.name.lowercase())
                 is AppConfig.DateFormatCustomFormat -> setValue(dateFormatCustomFormatPreference, appConfig.value)
                 is AppConfig.DateFormatIs24h -> setValue(dateFormatIs24hPreference, appConfig.value)
                 is AppConfig.DateFormatUseDefault -> setValue(dateFormatUseDefaultPreference, appConfig.value)

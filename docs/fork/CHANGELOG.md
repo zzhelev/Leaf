@@ -2,6 +2,63 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The built-in conflict resolver's Stacked layout (branch `claude/resolver-model-f2582e`)
+
+Step 3 of the build order in `docs/fork/conflict-resolver.md`: Option B, and the switch between the two layouts.
+
+- **Before:** the resolver showed ours, the result and theirs in three columns, a third of the width each, so long
+  lines wrapped.
+- **Now:** a toolbar switch, Columns or Stacked, and "Resolver layout" in Settings → Conflicts (Columns by default),
+  one setting for the whole app. Stacked puts ours and theirs side by side on top and the result below at the full
+  width, which suits a narrow or portrait screen.
+  - The top pair lines up as the columns do. Each chunk's first row ends with chips in place of the arrows: "Take ↓",
+    then "Add ↓" once the other side is taken, and "Taken" once a side's lines are in the result, which takes them
+    out again. A change one side made is "Applied", which undoes it, or "Apply".
+  - The result's lines have a bar on their left in the colour of where they come from: blue for ours, purple for
+    theirs, green for a resolved conflict. An open conflict is the hatched placeholder, or the base's lines with Base,
+    and keeps its right-click menu. Deleted lines leave a thin line across.
+  - The top pair follows the result, chunk by chunk, and shows the conflict that F7 moves to.
+  - A handle between the two parts resizes them (45% for the top at first, double-click to reset). It keeps its place
+    until Leaf quits.
+  - Switching keeps the picks, the current conflict, Base and the place in the file.
+- **Widths and long lines,** in both layouts:
+  - The Columns layout's gutters, in the headers and in every row, drag the edge between their column and the result.
+    The file list's edge drags too. A double-click puts either back.
+  - "Wrap lines" in the toolbar, on by default. Turned off, each line stays on one row and every column scrolls sideways
+    together, as in Meld: swipe sideways, use Shift and the wheel, or drag the scrollbar under the lines. The line
+    numbers and the gap before the text stay put.
+  - The widths and Wrap lines are kept until Leaf quits, as the handle is.
+- **Fixed:**
+  - double-clicking a file, while the resolver was still waiting for the status, could open the first conflicted file
+    instead. The file now loads before the status arrives;
+  - the hatching of an open conflict and of the fillers drew past their cells, into the gutter or the file list.
+- **Tests:** 24 new.
+  - `:domain` (14): `ResolverStackedTest` (10), the top pair's and the result's rows, what the Taken chip does, and
+    places mapped between the layouts' rows; `ResolverSizesTest` (4), the columns' widths as the gutters move them.
+  - `:app` (10, in `ConflictResolverTest`): the stacked view's headers, chips and legend, where the result is, what the
+    chips call, the toolbar's switch, and two scrolling checks over several frames: switching keeps the place, the top
+    pair follows the result's line with its offset, and moving to a conflict shows it on top past lines that only the
+    top pair has. Then lines without wrapping (one row high, every column moved by a sideways swipe and by Shift and
+    the wheel, the list staying put), the Wrap lines toggle, and drags with real pointer events on the gutters in
+    the headers and the rows, the file list's edge and the stacked layout's handle, and a double-click.
+  - **Mutation check:** 41 mutations, all caught: 17 in the rows, places and widths (`:domain`) and 24 in the view
+    (`:app`). The first scrolling test found that the top pair stopped following after its first scroll: it scrolled
+    with `scrollToItem`, which throws when it runs during a layout, and the exception ended it without a trace. It now
+    uses `requestScrollToItem`. Two mutations of the widths and the sideways scrolling survived at first, a
+    double-click that didn't reset and a swipe that let the list drift, which made two tests stricter.
+    The first scrolling test found that the top pair stopped following after its first scroll: it scrolled with
+    `scrollToItem`, which throws when it runs during a layout, and the exception ended it without a trace. It now uses
+    `requestScrollToItem`.
+  - **Manual run:** a temporary harness opened a merge with conflicts in a tab built from the real Dagger graph,
+    switched to Stacked from the toolbar (the setting was saved), took ours, added theirs, took ours out, undid and
+    applied a change, saved, closed and opened the resolver again (Stacked, with the handle where it was left), marked
+    the file resolved (stage 0), showed Base on the next file, and switched back to Columns. It found the double-click
+    race above. A second run opened a 760-line Kotlin file and a Markdown guide with a 1,544-character line, with and
+    without wrapping, scrolled sideways in both layouts, and with a wide result column. Its screenshots showed the text
+    scrolling up to the line numbers, which now keep their gap. Hover and the keys in a real window are left to a run
+    of the app.
+  - `./gradlew build` passes, with 1,259 tests (156 in `:app`, 850 in `:data`, 246 in `:domain`, 7 in `:common`).
+
 ## The built-in conflict resolver: ours, the result and theirs side by side (branch `claude/resolver-model-f2582e`)
 
 Step 2 of the build order in `docs/fork/conflict-resolver.md`: the read-only Columns view, from the approved mockup.

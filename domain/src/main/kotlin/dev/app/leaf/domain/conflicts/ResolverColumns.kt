@@ -64,26 +64,19 @@ fun TextMerge.columnRows(showBase: Boolean): List<ColumnRow> {
         val oursCells = cells(ours, chunk.ours, oursKind)
         val theirsCells = cells(theirs, chunk.theirs, theirsKind)
 
-        val result = resultLines(chunk, showBase)
-        // An open conflict's lines aren't in the result yet, so they get no number
-        val resultCells = result.lines.mapIndexed { i, (text, line) ->
-            ColumnCell(text, line, if (result.kind == CellKind.OPEN_CONFLICT) 0 else resultLines + i + 1, result.kind)
-        }
-
-        if (result.kind != CellKind.OPEN_CONFLICT) {
-            resultLines += result.lines.size
-        }
+        val result = resultCells(chunk, showBase, resultLines)
+        resultLines += result.numbered
 
         // A chunk with no line in any column still gets a row, for its gutter: lines that both sides deleted, or an
         // open conflict between two deletions
-        val height = maxOf(oursCells.size, theirsCells.size, resultCells.size, if (chunk is Chunk.Unchanged) 0 else 1)
+        val height = maxOf(oursCells.size, theirsCells.size, result.cells.size, minimumHeight(chunk))
 
         for (row in 0 until height) {
             rows += ColumnRow(
                 chunk = index,
                 first = row == 0,
                 ours = oursCells.getOrNull(row) ?: filler(oursKind),
-                result = resultCells.getOrNull(row) ?: filler(result.kind),
+                result = result.cells.getOrNull(row) ?: filler(result.kind),
                 theirs = theirsCells.getOrNull(row) ?: filler(theirsKind),
             )
         }
@@ -91,6 +84,65 @@ fun TextMerge.columnRows(showBase: Boolean): List<ColumnRow> {
 
     return rows
 }
+
+/**
+ * A row of the stacked layout's top pair (`conflict-resolver.md`, Option B): ours and theirs side by side, lined up as
+ * in the columns. A chunk takes as many rows as its taller side, and its chips go on its [first] row.
+ */
+data class SidesRow(val chunk: Int, val first: Boolean, val ours: ColumnCell, val theirs: ColumnCell)
+
+/** The rows of the stacked layout's top pair. */
+fun TextMerge.sidesRows(): List<SidesRow> {
+    val rows = mutableListOf<SidesRow>()
+
+    chunks.forEachIndexed { index, chunk ->
+        val oursKind = sideKind(chunk, ChangedBy.OURS)
+        val theirsKind = sideKind(chunk, ChangedBy.THEIRS)
+        val oursCells = cells(ours, chunk.ours, oursKind)
+        val theirsCells = cells(theirs, chunk.theirs, theirsKind)
+        // A chunk that neither side has a line of still gets a row, for its chips
+        val height = maxOf(oursCells.size, theirsCells.size, minimumHeight(chunk))
+
+        for (row in 0 until height) {
+            rows += SidesRow(
+                chunk = index,
+                first = row == 0,
+                ours = oursCells.getOrNull(row) ?: filler(oursKind),
+                theirs = theirsCells.getOrNull(row) ?: filler(theirsKind),
+            )
+        }
+    }
+
+    return rows
+}
+
+/**
+ * A row of the stacked layout's result, which has the full width: a line of the result, as in [columnRows], or a
+ * filler. A chunk with no line in the result gets one filler row, which marks where it is: lines that were deleted, or
+ * an open conflict's placeholder.
+ */
+data class ResultRow(val chunk: Int, val first: Boolean, val cell: ColumnCell)
+
+/** The rows of the stacked layout's result. */
+fun TextMerge.resultRows(showBase: Boolean): List<ResultRow> {
+    val rows = mutableListOf<ResultRow>()
+    var resultLines = 0
+
+    chunks.forEachIndexed { index, chunk ->
+        val result = resultCells(chunk, showBase, resultLines)
+        resultLines += result.numbered
+
+        val cells = result.cells.ifEmpty {
+            if (minimumHeight(chunk) > 0) listOf(filler(result.kind)) else emptyList()
+        }
+
+        cells.forEachIndexed { row, cell -> rows += ResultRow(chunk = index, first = row == 0, cell = cell) }
+    }
+
+    return rows
+}
+
+private fun minimumHeight(chunk: Chunk) = if (chunk is Chunk.Unchanged) 0 else 1
 
 private fun cells(text: RawText, range: LineRange, kind: CellKind) =
     (range.start until range.end).map { ColumnCell(text, it, it + 1, kind) }
@@ -109,6 +161,20 @@ private fun sideKind(chunk: Chunk, side: ChangedBy): CellKind = when (chunk) {
 }
 
 private class ResultLines(val lines: List<Pair<RawText, Int>>, val kind: CellKind)
+
+/** A chunk's cells in the result, and how many lines of the file that Save writes they are ([numbered]). */
+private class ResultCells(val cells: List<ColumnCell>, val kind: CellKind, val numbered: Int)
+
+/** [chunk]'s cells in the result, numbered after [linesBefore]. An open conflict's lines aren't in it yet. */
+private fun TextMerge.resultCells(chunk: Chunk, showBase: Boolean, linesBefore: Int): ResultCells {
+    val result = resultLines(chunk, showBase)
+    val open = result.kind == CellKind.OPEN_CONFLICT
+    val cells = result.lines.mapIndexed { i, (text, line) ->
+        ColumnCell(text, line, if (open) 0 else linesBefore + i + 1, result.kind)
+    }
+
+    return ResultCells(cells, result.kind, if (open) 0 else cells.size)
+}
 
 private fun TextMerge.resultLines(chunk: Chunk, showBase: Boolean): ResultLines {
     fun lines(text: RawText, range: LineRange) = (range.start until range.end).map { text to it }
@@ -171,6 +237,60 @@ fun ConflictResolution.taking(side: ConflictSide): ConflictResolution = when (th
     ConflictResolution.OursThenTheirs, ConflictResolution.TheirsThenOurs -> this
     ConflictResolution.Unresolved, ConflictResolution.Base, is ConflictResolution.Edited ->
         if (side == ConflictSide.OURS) ConflictResolution.Ours else ConflictResolution.Theirs
+}
+
+/**
+ * The resolution without [side]'s lines, after a click on that side's Taken chip in the stacked layout: the other
+ * side's alone, or the conflict open again.
+ */
+fun ConflictResolution.dropping(side: ConflictSide): ConflictResolution = when (this) {
+    ConflictResolution.Ours -> if (side == ConflictSide.OURS) ConflictResolution.Unresolved else this
+    ConflictResolution.Theirs -> if (side == ConflictSide.THEIRS) ConflictResolution.Unresolved else this
+    ConflictResolution.OursThenTheirs, ConflictResolution.TheirsThenOurs ->
+        if (side == ConflictSide.OURS) ConflictResolution.Theirs else ConflictResolution.Ours
+    ConflictResolution.Unresolved, ConflictResolution.Base, is ConflictResolution.Edited -> this
+}
+
+/**
+ * A place in the file, as rows of either layout show it: a chunk, and a row of it, counted from 0. Switching layouts
+ * keeps it, and the stacked layout's top pair follows the result by it.
+ */
+data class ChunkPlace(val chunk: Int, val row: Int)
+
+/** The place of row [index] in rows whose chunks are [rowChunks], in the order of the chunks. */
+fun placeOf(rowChunks: List<Int>, index: Int): ChunkPlace? {
+    val chunk = rowChunks.getOrNull(index) ?: return null
+
+    return ChunkPlace(chunk, index - firstRowFrom(rowChunks, chunk))
+}
+
+/**
+ * The row of [place] in rows whose chunks are [rowChunks]: the chunk's last one when it has fewer rows here, and the
+ * first row of the next chunk that has rows when it has none.
+ */
+fun rowOf(rowChunks: List<Int>, place: ChunkPlace): Int {
+    val first = firstRowFrom(rowChunks, place.chunk)
+    val end = firstRowFrom(rowChunks, place.chunk + 1)
+
+    if (first == end) {
+        return first.coerceAtMost(rowChunks.lastIndex).coerceAtLeast(0)
+    }
+
+    return (first + place.row).coerceIn(first, end - 1)
+}
+
+/** The first row of [chunk], or of the first chunk after it, in rows sorted by chunk (a binary search). */
+private fun firstRowFrom(rowChunks: List<Int>, chunk: Int): Int {
+    var low = 0
+    var high = rowChunks.size
+
+    while (low < high) {
+        val middle = (low + high) ushr 1
+
+        if (rowChunks[middle] < chunk) low = middle + 1 else high = middle
+    }
+
+    return low
 }
 
 /** The chunks' indices of the conflicts, in the file's order. */

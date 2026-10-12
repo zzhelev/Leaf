@@ -5,7 +5,7 @@
 | Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions) and step 2 (the read-only Columns view) built the same day, on `main` at `28cceb84`. |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
 
@@ -284,6 +284,45 @@ the repository; the sketches below show the layouts.
   with the gutters between them. B draws ours and theirs in the top list, with **Take ↓** and **Add ↓** in place of the
   gutter arrows, and the result alone in the bottom list. The top list follows the bottom one by chunk: the first chunk
   that's visible, and the current conflict.
+- **Built (step 3):** `A/ui/conflicts/ResolverStackedView.kt`, with the rows from `sidesRows` and `resultRows` next to
+  `columnRows` in `domain/conflicts/ResolverColumns.kt`.
+  - The switch is two icons in the toolbar, Columns and Stacked, and "Resolver layout" in Settings → Conflicts. Both
+    write `conflict_resolver_layout` (`AppConfig.ConflictResolverLayout`), so every tab's resolver follows.
+  - The top pair lines up as the columns do, and a chunk that neither side has a line of still gets a row, for its
+    chips. Each chunk's first row ends with a chip per side:
+    - a conflict side has **Take ↓**, then **Add ↓** once the other side is taken (the columns' arrows, `arrowFor`),
+      and **Taken** once its lines are in the result. Taken takes them out again (`dropping`): the other side's lines
+      stay alone, or the conflict is open again;
+    - a change has **Applied** on the side that made it (ours' and both sides' on the left, as the gutters have
+      them), which undoes it, or **Apply**.
+  - The result has one row per line, with a bar on its left: blue for ours' changes, purple for theirs', green for a
+    resolved conflict, amber for an open one, whose row is the hatched placeholder (or the base's lines, with Base).
+    A chunk without a line in the result, such as lines that a side deleted, gets one thin row with a line across, so
+    that every chunk has a place there. Conflicts keep their right-click menu. The legend lists the chips.
+  - **Following:** a place is a chunk and a row of it (`ChunkPlace`, `placeOf`, `rowOf`). The top pair shows the place
+    at the result's top, as its own row of that chunk or the chunk's last, with the same offset on a line that both
+    show. Moving to a conflict (F7, or opening a file) pins the top pair to the conflict until the result has been
+    there and moved on (`ResolverLists.pinned`): the place above a conflict can be in a chunk that is much taller on
+    top, such as lines that one side deleted. The top pair scrolls by itself too, and the result doesn't follow it.
+  - **Switching** keeps the picks, the current conflict and Base, which the view model holds, and the place at the
+    top of the list (the columns, or the result), mapped by chunk, with its offset on the same line (`keepPlace` in
+    `ConflictResolver.kt`). A new file still opens at its first conflict.
+  - **The handle** between the two parts starts at 45% for the top pair, and a double-click puts it back. Each part
+    keeps 90 and 120 dp. Its place is kept until Leaf quits (`ConflictResolverSession`, an app singleton), not saved
+    (decided 2026-10-12): saving it, as the status pane's sections are, would take a prefs key.
+- **Widths and long lines** (asked for after trying both layouts on long files, 2026-10-12):
+  - **Columns' widths:** each gutter, in the headers and in every row, is a handle for the edge between its column and
+    the result (`ColumnShares` in `domain/conflicts/ResolverSizes.kt`). A column keeps 120 dp, one already narrower
+    after the window shrank doesn't shrink further, and a double-click shares the width out evenly. A drag that
+    starts on a gutter's button stays the button's click. The file list's right edge is a handle too (140 to 480 dp,
+    220 by default).
+  - **Wrap lines,** a toolbar toggle, on by default as before. Turned off, every line stays on one row, and every
+    column of both layouts scrolls sideways together, by one offset (`SidewaysScroll`, `ResolverSideways.kt`), as
+    Meld keeps its panes in step. A sideways swipe or Shift and the wheel scroll it, before the lists see the event,
+    and a scrollbar under the lines shows where it is. Line numbers stay, and so does the 16 dp gap before the text.
+    The longest line of the three versions can reach its end in the narrowest column; a column with shorter lines
+    scrolls into blank space.
+  - The widths and Wrap lines are kept with the handle until Leaf quits.
 
 ### Option C: the result only, with a card per conflict
 
@@ -325,7 +364,9 @@ the repository; the sketches below show the layouts.
    closes, F7 and Shift+F7 go to the next and the previous conflict. The conflicts that three panes can't show get a
    plain panel with each side, and the external merge tool where it can take the file, until the cards of step 5.
    Settings → Conflicts has "Resolve conflicts with"; the layout's setting comes with step 3.
-3. **Option B and the switch:** the stacked layout from the same rows, the toolbar toggle and the setting.
+3. **Option B and the switch:** the stacked layout from the same rows, the toolbar toggle and the setting. Built
+   2026-10-12 (section 5, "Switching between A and B", says how). Opening a file now loads it before the status
+   arrives: the status could come first and open the first conflicted file in its place.
 4. **Region editing** and the shared undo history, in both layouts.
 5. **Choice cards** for the rows of section 2.4 other than "both modified".
 6. **Later:** word-level highlights, highlighting while editing, and the size limit from measurements.

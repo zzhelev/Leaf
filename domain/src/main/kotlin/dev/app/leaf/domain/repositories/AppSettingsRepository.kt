@@ -7,6 +7,7 @@ import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
+import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -44,6 +45,7 @@ interface AppSettingsRepository {
     val remoteOperationsWithGit: Flow<Boolean?>
     val worktreesRefreshInterval: Flow<Int?>
     val conflictOpener: Flow<ConflictOpener?>
+    val conflictResolverLayout: Flow<ConflictResolverLayout?>
 
     // Network
     val cacheCredentialsInMemory: Flow<Boolean?>

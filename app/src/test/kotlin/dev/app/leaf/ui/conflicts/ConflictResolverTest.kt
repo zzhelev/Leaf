@@ -3,20 +3,30 @@
 
 package dev.app.leaf.ui.conflicts
 
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerButtons
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
+import dev.app.leaf.domain.conflicts.ColumnShares
 import dev.app.leaf.domain.models.ChangedBy
 import dev.app.leaf.domain.models.ConflictCommit
 import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictOperation
 import dev.app.leaf.domain.models.ConflictResolution
+import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.ConflictStage
@@ -37,6 +47,7 @@ import dev.app.leaf.viewmodels.ResolverFileEntry
 import dev.app.leaf.viewmodels.ResolverLeave
 import dev.app.leaf.viewmodels.ResolverPrompt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.swing.Swing
 import org.eclipse.jgit.diff.RawText
@@ -96,7 +107,7 @@ class ConflictResolverTest {
     fun `the arrows take a side, and a change can be undone`(): Unit = runBlocking(Dispatchers.Swing) {
         val taken = mutableListOf<Pair<Int, ConflictSide>>()
         val applied = mutableListOf<Pair<Int, Boolean>>()
-        val columns = ColumnActions(
+        val columns = PickActions(
             onTake = { chunk, side -> taken += chunk to side },
             onResolve = { _, _ -> },
             onSetApplied = { chunk, value -> applied += chunk to value },
@@ -237,6 +248,319 @@ class ConflictResolverTest {
             )
         }
 
+    @Test
+    fun `the stacked layout has the sides on top, named, and the result below`(): Unit = runBlocking(Dispatchers.Swing) {
+        val rendered = render(state().copy(layout = ConflictResolverLayout.STACKED))
+        val texts = rendered.texts
+
+        assertTrue("Ours: main" in texts, "$texts")
+        assertTrue("Theirs: feature/retry" in texts, "$texts")
+        assertTrue("Conflict 1 · open: take ours or theirs above, or right-click for more" in texts, "$texts")
+        assertEquals(2, texts.count { it == "Take ↓" }, "$texts")
+        // Ours' import and theirs' function
+        assertEquals(2, texts.count { it == "Applied" }, "$texts")
+        assertTrue("Conflict 1 of 1" in texts, "$texts")
+        assertTrue(texts.any { it.startsWith("Take ↓ · Add ↓ after the other side") }, "$texts")
+
+        val ours = rendered.textBounds.getValue("Ours: main").single()
+        val theirs = rendered.textBounds.getValue("Theirs: feature/retry").single()
+        val result = rendered.textBounds.getValue("Result").single()
+
+        assertTrue(ours.top == theirs.top && ours.left < theirs.left, "ours at $ours, theirs at $theirs")
+        // The result below the top pair, across the full width
+        assertTrue(result.top > ours.bottom + 100 && result.left <= ours.left + 1, "result at $result, ours at $ours")
+    }
+
+    @Test
+    fun `the stacked chips take a side, add the other after it, and take it out again`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val calls = mutableListOf<String>()
+            val picks = PickActions(
+                onTake = { chunk, side -> calls += "take $chunk $side" },
+                onResolve = { _, _ -> },
+                onSetApplied = { chunk, applied -> calls += "applied $chunk $applied" },
+                onDrop = { chunk, side -> calls += "drop $chunk $side" },
+            )
+            val open = state().copy(layout = ConflictResolverLayout.STACKED)
+            val oursTaken = state(merge.copy(chunks = merge.chunks.mapIndexed { index, chunk ->
+                if (index == 3) (chunk as Chunk.Conflict).copy(resolution = ConflictResolution.Ours) else chunk
+            })).copy(layout = ConflictResolverLayout.STACKED)
+
+            // Ours' chips come first
+            render(open, actions(picks), clickText = "Take ↓")
+            render(oursTaken, actions(picks), clickText = "Taken")
+            render(oursTaken, actions(picks), clickText = "Add ↓")
+            render(open, actions(picks), clickText = "Applied")
+
+            assertEquals(listOf("take 3 OURS", "drop 3 OURS", "take 3 THEIRS", "applied 1 false"), calls)
+            assertTrue("Take ↓" !in render(oursTaken).texts)
+        }
+
+    @Test
+    fun `the toolbar switches the layout`(): Unit = runBlocking(Dispatchers.Swing) {
+        val layouts = mutableListOf<ConflictResolverLayout>()
+        val actions = actions(onSetLayout = { layouts += it })
+
+        render(state(), actions, clickDescription = "Stacked: ours and theirs on top, the result below")
+        render(state().copy(layout = ConflictResolverLayout.STACKED), actions, clickDescription = "Columns: ours, the result and theirs side by side")
+        // The layout shown isn't picked again
+        render(state(), actions, clickDescription = "Columns: ours, the result and theirs side by side")
+
+        assertEquals(listOf(ConflictResolverLayout.STACKED, ConflictResolverLayout.COLUMNS), layouts)
+    }
+
+    @Test
+    fun `switching the layout keeps the place in the file, and the top pair follows the result`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            // Ours replaced line 60 with five lines, theirs with one
+            val base = (0 until 100).map { "line $it" }
+            val ours = base.take(60) + (1..5).map { "ours $it" } + base.drop(61)
+            val theirs = base.take(60) + "theirs" + base.drop(61)
+            val long = TextMerge(
+                text(*base.toTypedArray()),
+                text(*ours.toTypedArray()),
+                text(*theirs.toTypedArray()),
+                listOf(
+                    Chunk.Unchanged(lines(0, 60), lines(0, 60), lines(0, 60)),
+                    Chunk.Conflict(lines(60, 61), lines(60, 65), lines(60, 61)),
+                    Chunk.Unchanged(lines(61, 100), lines(65, 104), lines(61, 100)),
+                ),
+            )
+            val lists = ResolverLists()
+            var layout by mutableStateOf(ConflictResolverLayout.COLUMNS)
+
+            scene(lists) { state(long).copy(layout = layout) }.closing { scene ->
+                // Opens at the conflict, with three rows above it
+                scene.frames()
+                assertEquals(57, lists.columns.firstVisibleItemIndex)
+
+                layout = ConflictResolverLayout.STACKED
+                scene.frames()
+                assertEquals(57, lists.result.firstVisibleItemIndex)
+                assertEquals(57, lists.sides.firstVisibleItemIndex)
+
+                // The result's row 70 is the ninth line after the conflict, which is five rows tall on top. The offset
+                // within the line goes with it
+                lists.result.requestScrollToItem(70, 5)
+                scene.frames()
+                assertEquals(74 to 5, lists.sides.firstVisibleItemIndex to lists.sides.firstVisibleItemScrollOffset)
+
+                layout = ConflictResolverLayout.COLUMNS
+                scene.frames()
+                assertEquals(74 to 5, lists.columns.firstVisibleItemIndex to lists.columns.firstVisibleItemScrollOffset)
+            }
+        }
+
+    @Test
+    fun `moving to a conflict shows it on top too, past lines that only the top pair has`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            // Ours deleted lines 40 to 59; then both changed line 61
+            val base = (0 until 100).map { "line $it" }
+            val ours = base.take(40) + base[60] + "ours" + base.drop(62)
+            val theirs = base.take(61) + "theirs" + base.drop(62)
+            val long = TextMerge(
+                text(*base.toTypedArray()),
+                text(*ours.toTypedArray()),
+                text(*theirs.toTypedArray()),
+                listOf(
+                    Chunk.Unchanged(lines(0, 40), lines(0, 40), lines(0, 40)),
+                    Chunk.Change(lines(40, 60), lines(40, 40), lines(40, 60), ChangedBy.OURS),
+                    Chunk.Unchanged(lines(60, 61), lines(40, 41), lines(60, 61)),
+                    Chunk.Conflict(lines(61, 62), lines(41, 42), lines(61, 62)),
+                    Chunk.Unchanged(lines(62, 100), lines(42, 80), lines(62, 100)),
+                ),
+            )
+            val lists = ResolverLists()
+            val scrollToChunk = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+
+            scene(lists, scrollToChunk) { state(long).copy(layout = ConflictResolverLayout.STACKED) }.closing { scene ->
+                scene.frames()
+                lists.result.requestScrollToItem(0)
+                scene.frames()
+                assertEquals(0, lists.sides.firstVisibleItemIndex)
+
+                scrollToChunk.tryEmit(3)
+                scene.frames(count = 60)
+
+                // The result's conflict is its row 42, and the top pair's 61: both with three rows above
+                assertEquals(39, lists.result.firstVisibleItemIndex)
+                assertEquals(58, lists.sides.firstVisibleItemIndex)
+            }
+        }
+
+    @Test
+    fun `with Wrap lines off, a long line stays on one row and every column scrolls sideways together`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val long = "    val message = " + "\"word\" + ".repeat(60) + "\"end\""
+            // Enough lines after the conflict for the list to scroll up and down
+            val after = (1..80).map { "line $it" }.toTypedArray()
+            val merge = TextMerge(
+                text("short", long, "base", *after),
+                text("short", long, "ours", *after),
+                text("short", long, "theirs", *after),
+                listOf(
+                    Chunk.Unchanged(lines(0, 2), lines(0, 2), lines(0, 2)),
+                    Chunk.Conflict(lines(2, 3), lines(2, 3), lines(2, 3)),
+                    Chunk.Unchanged(lines(3, 83), lines(3, 83), lines(3, 83)),
+                ),
+            )
+            val lists = ResolverLists()
+            var wrap by mutableStateOf(false)
+
+            scene(lists) { state(merge).copy(wrapLines = wrap) }.closing { scene ->
+                scene.frames()
+
+                val short = scene.placesOf("short")
+                val unwrapped = scene.placesOf(long)
+
+                // In ours, the result and theirs, one line high, and wider than a column
+                assertEquals(3, unwrapped.size, "$unwrapped")
+                assertTrue(unwrapped.all { it.height == short.first().height && it.width > 600f }, "$unwrapped, $short")
+                assertTrue(lists.sideways.max > 0f)
+                // Its row is one line high too: the next row starts a line further down
+                val lineHeight = unwrapped.first().top - short.first().top
+                assertEquals(unwrapped.first().top + lineHeight, scene.placesOf("ours").first().top)
+
+                // A sideways swipe of two steps over the result moves every column's lines by 2 × 48 dp
+                scene.sendPointerEvent(PointerEventType.Scroll, Offset(700f, 150f), scrollDelta = Offset(2f, 0f))
+                scene.frames()
+
+                assertEquals(96f, lists.sideways.offset)
+                assertEquals(unwrapped.map { it.left - 96f }, scene.placesOf(long).map { it.left })
+                assertEquals(short.map { it.left - 96f }, scene.placesOf("short").map { it.left })
+
+                // Up and down stays the list's
+                fun listPlace() = lists.columns.firstVisibleItemIndex to lists.columns.firstVisibleItemScrollOffset
+                val listTop = listPlace()
+                scene.sendPointerEvent(PointerEventType.Scroll, Offset(700f, 150f), scrollDelta = Offset(0f, 1f))
+                scene.frames()
+
+                assertEquals(96f, lists.sideways.offset)
+                assertTrue(listPlace() != listTop, "${listPlace()}")
+
+                lists.columns.requestScrollToItem(0)
+                scene.frames()
+
+                // A swipe that is mostly sideways goes sideways only: the list doesn't drift up or down
+                scene.sendPointerEvent(PointerEventType.Scroll, Offset(700f, 150f), scrollDelta = Offset(-1f, 0.5f))
+                scene.frames()
+
+                assertEquals(48f, lists.sideways.offset)
+                assertEquals(listTop, listPlace())
+
+                // Shift and the wheel go sideways, and the list stays where it is
+                val shift = PointerKeyboardModifiers(isShiftPressed = true)
+                scene.sendPointerEvent(
+                    PointerEventType.Scroll, Offset(700f, 150f), scrollDelta = Offset(0f, 1f), keyboardModifiers = shift,
+                )
+                scene.frames()
+
+                assertEquals(96f, lists.sideways.offset)
+                assertEquals(listTop, listPlace())
+
+                // Back past the start stops at it
+                scene.sendPointerEvent(PointerEventType.Scroll, Offset(700f, 150f), scrollDelta = Offset(-10f, 0f))
+                scene.frames()
+
+                assertEquals(0f, lists.sideways.offset)
+
+                wrap = true
+                scene.frames()
+
+                val wrapped = scene.placesOf(long)
+                assertTrue(wrapped.size == 3 && wrapped.all { it.height > 2 * short.first().height }, "$wrapped")
+            }
+        }
+
+    @Test
+    fun `the toolbar's Wrap lines calls its action`(): Unit = runBlocking(Dispatchers.Swing) {
+        var toggled = 0
+
+        render(state(), actions(onToggleWrapLines = { toggled++ }), clickText = "Wrap lines")
+
+        assertEquals(1, toggled)
+    }
+
+    @Test
+    fun `dragging a gutter moves the edge between its columns, and a double-click shares the width out again`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val changed = mutableListOf<ColumnShares>()
+            val lists = ResolverLists()
+
+            scene(lists, actions = actions(onColumnSharesChanged = { changed += it })) { state() }.closing { scene ->
+                scene.frames()
+
+                // The undo button of ours' import is in the left gutter; the headers are 30 dp under the toolbar's 40
+                val undo = "Undo this change: the result gets the base's lines"
+                val gutter = scene.nodes().first { node ->
+                    node.config.getOrNull(SemanticsProperties.ContentDescription)?.contains(undo) == true
+                }
+                val header = Offset(gutter.boundsInRoot.center.x, 55f)
+
+                scene.drag(from = header, to = header + Offset(100f, 0f))
+
+                val dragged = changed.single()
+
+                // A third, and 100 of the 1,095 dp that the gutters and the file list leave
+                assertEquals(1f / 3 + 100f / 1095, dragged.ours, 0.002f)
+                assertEquals(1f / 3, dragged.theirs, 0.001f)
+
+                // A double-click where the drag left the gutter shares the width out evenly again
+                scene.doubleClick(header + Offset(100f, 0f))
+                assertEquals(ColumnShares(), changed.last())
+
+                // From a row's gutter too, the other way, beside the 26 dp buttons in the 40 dp gutter, which keep
+                // their clicks
+                val beside = Offset(header.x - 17f, 80f)
+
+                scene.drag(from = beside, to = beside - Offset(100f, 0f))
+                assertEquals(1f / 3 - 100f / 1095, changed.last().ours, 0.002f)
+
+                // Theirs' gutter, with theirs' undo button, moves the edge between the result and theirs
+                val theirsGutter = scene.nodes()
+                    .filter { node -> node.config.getOrNull(SemanticsProperties.ContentDescription)?.contains(undo) == true }
+                    .maxBy { it.boundsInRoot.left }
+                val theirsHeader = Offset(theirsGutter.boundsInRoot.center.x, 55f)
+
+                scene.drag(from = theirsHeader, to = theirsHeader - Offset(100f, 0f))
+
+                assertEquals(1f / 3 - 100f / 1095, changed.last().ours, 0.002f)
+                assertEquals(1f / 3 + 100f / 1095, changed.last().theirs, 0.002f)
+            }
+        }
+
+    @Test
+    fun `dragging the file list's edge resizes it`(): Unit = runBlocking(Dispatchers.Swing) {
+        val widths = mutableListOf<Float>()
+
+        scene(ResolverLists(), actions = actions(onFileListWidthChanged = { widths += it })) { state() }.closing { scene ->
+            scene.frames()
+            // The list is 220 dp wide, and its edge 5
+            scene.drag(from = Offset(222f, 300f), to = Offset(282f, 300f))
+
+            assertTrue(widths.single() in 255f..281f, "$widths")
+        }
+    }
+
+    @Test
+    fun `dragging the stacked layout's handle gives the top pair more of the height`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val splits = mutableListOf<Float>()
+
+            scene(ResolverLists(), actions = actions(onStackedSplitChanged = { splits += it })) {
+                state().copy(layout = ConflictResolverLayout.STACKED)
+            }.closing { scene ->
+                scene.frames()
+                // Under the 40 dp toolbar, 45% of the 526 dp that the toolbar, the legend and the handle leave, then
+                // the middle of the 8 dp handle
+                val handle = Offset(800f, 40f + 0.45f * 526f + 4f)
+
+                scene.drag(from = handle, to = handle + Offset(0f, 60f))
+
+                assertTrue(splits.single() in 0.5f..0.57f, "$splits")
+            }
+        }
+
     private fun state(
         merge: TextMerge = this.merge,
         workingFile: WorkingFileState = WorkingFileState.MATCHES,
@@ -259,18 +583,28 @@ class ConflictResolverTest {
     )
 
     private fun actions(
-        columns: ColumnActions = ColumnActions({ _, _ -> }, { _, _ -> }, { _, _ -> }),
+        picks: PickActions = PickActions({ _, _ -> }, { _, _ -> }, { _, _ -> }),
         onMarkResolved: () -> Unit = {},
         onMarkResolvedAsItIs: () -> Unit = {},
         onResolveAgain: () -> Unit = {},
         onUseSide: (StatusEntry, ConflictSide, ConflictSides?) -> Unit = { _, _, _ -> },
         onAnswerUnsaved: (Boolean?) -> Unit = {},
+        onSetLayout: (ConflictResolverLayout) -> Unit = {},
+        onStackedSplitChanged: (Float) -> Unit = {},
+        onColumnSharesChanged: (ColumnShares) -> Unit = {},
+        onFileListWidthChanged: (Float) -> Unit = {},
+        onToggleWrapLines: () -> Unit = {},
     ) = ResolverActions(
         onClose = {},
         onSelectFile = {},
         onPreviousConflict = {},
         onNextConflict = {},
         onToggleBase = {},
+        onSetLayout = onSetLayout,
+        onStackedSplitChanged = onStackedSplitChanged,
+        onColumnSharesChanged = onColumnSharesChanged,
+        onFileListWidthChanged = onFileListWidthChanged,
+        onToggleWrapLines = onToggleWrapLines,
         onSave = {},
         onMarkResolved = onMarkResolved,
         onOpenInExternalTool = {},
@@ -280,7 +614,7 @@ class ConflictResolverTest {
         onAnswerUnsaved = onAnswerUnsaved,
         onReload = {},
         onDismissPrompt = {},
-        columns = columns,
+        picks = picks,
     )
 
     /**
@@ -292,7 +626,92 @@ class ConflictResolverTest {
         val descriptions: List<String>,
         val clickable: List<String>,
         val bounds: Map<String, List<Rect>>,
+        val textBounds: Map<String, List<Rect>>,
     )
+
+    /** The view of [state] in a 1,400 by 600 window, with [lists] that the test reads, for [frames]. */
+    private fun scene(
+        lists: ResolverLists,
+        scrollToChunk: MutableSharedFlow<Int> = MutableSharedFlow(),
+        actions: ResolverActions = actions(),
+        state: () -> ConflictResolverState,
+    ) = ImageComposeScene(width = 1400, height = 600, density = Density(1f)) {
+        AppTheme {
+            ConflictResolverContent(state(), lists, actions, scrollToChunk = scrollToChunk)
+        }
+    }
+
+    /** The scene's semantics nodes, every one. */
+    private fun ImageComposeScene.nodes(): List<SemanticsNode> {
+        val nodes = mutableListOf<SemanticsNode>()
+        fun visit(node: SemanticsNode) {
+            nodes += node
+            node.children.forEach(::visit)
+        }
+        semanticsOwners.forEach { visit(it.rootSemanticsNode) }
+        return nodes
+    }
+
+    /** Where the nodes with [text] are laid out, unclipped: their position and size. */
+    private fun ImageComposeScene.placesOf(text: String): List<Rect> = nodes()
+        .filter { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text } }
+        .map { Rect(it.positionInRoot, it.size.toSize()) }
+
+    private var eventTime = 0L
+
+    /** Presses the primary button at [from], moves to [to] in steps, and lets go. */
+    private fun ImageComposeScene.drag(from: Offset, to: Offset, steps: Int = 10) {
+        press(from)
+        for (step in 1..steps) {
+            eventTime += 16
+            val at = from + (to - from) * (step / steps.toFloat())
+            sendPointerEvent(PointerEventType.Move, at, timeMillis = eventTime, buttons = PointerButtons(isPrimaryPressed = true))
+            frames(count = 1)
+        }
+        release(to)
+        frames()
+    }
+
+    /** Two clicks at [at], 100 ms apart. */
+    private fun ImageComposeScene.doubleClick(at: Offset) {
+        repeat(2) {
+            eventTime += 100
+            press(at)
+            release(at)
+            frames(count = 2)
+        }
+        frames(count = 30)
+    }
+
+    private fun ImageComposeScene.press(at: Offset) {
+        eventTime += 10
+        val pressed = PointerButtons(isPrimaryPressed = true)
+        sendPointerEvent(PointerEventType.Press, at, timeMillis = eventTime, buttons = pressed, button = PointerButton.Primary)
+    }
+
+    private fun ImageComposeScene.release(at: Offset) {
+        eventTime += 10
+        val none = PointerButtons()
+        sendPointerEvent(PointerEventType.Release, at, timeMillis = eventTime, buttons = none, button = PointerButton.Primary)
+    }
+
+    private inline fun ImageComposeScene.closing(block: (ImageComposeScene) -> Unit) {
+        try {
+            block(this)
+        } finally {
+            close()
+        }
+    }
+
+    private var frameTime = 0L
+
+    /** Renders [count] frames, 16 ms apart, so that the effects scroll and the animations end. */
+    private fun ImageComposeScene.frames(count: Int = 10) {
+        repeat(count) {
+            frameTime += 16_000_000L
+            render(frameTime)
+        }
+    }
 
     /**
      * Renders the view in a 1,400 by 600 window, and clicks what has the text [clickText] or the description
@@ -308,7 +727,7 @@ class ConflictResolverTest {
     ): Rendered {
         val scene = ImageComposeScene(width = 1400, height = 600, density = Density(1f)) {
             AppTheme {
-                ConflictResolverContent(state, LazyListState(), actions)
+                ConflictResolverContent(state, ResolverLists(), actions)
             }
         }
 
@@ -361,6 +780,9 @@ class ConflictResolverTest {
                     .flatMap { node ->
                         node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().map { it to node.boundsInRoot }
                     }
+                    .groupBy({ it.first }, { it.second }),
+                textBounds = nodes
+                    .flatMap { node -> node.texts().map { it to node.boundsInRoot } }
                     .groupBy({ it.first }, { it.second }),
             )
         } finally {

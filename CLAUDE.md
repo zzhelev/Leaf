@@ -464,8 +464,8 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
   so a fake tool with an untrusted exit code has to `touch -t` the file. git removes its copies once the tool exits.
 
 **Built-in conflict resolver (fork-only, `data/git/conflicts/`, models in `domain/models/TextMerge.kt` and
-`ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 and 2 of `docs/fork/conflict-resolver.md`: the model, its git
-actions, and the read-only Columns view (ours | result | theirs).
+`ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 to 3 of `docs/fork/conflict-resolver.md`: the model, its git
+actions, and the read-only views, Columns (ours | result | theirs) and Stacked (the sides on top of the result).
 - `GetConflictedFileGitAction` loads a conflicted path as `ConflictedFile`: its stages (through `stagesOf`), its
   `FileConflict`, its `ConflictSides`, and a `ConflictContent` picked in `git mergetool`'s order:
   - `OtherPaths`: a stage alone (DD, AU, UA), as rename/rename leaves;
@@ -531,6 +531,31 @@ actions, and the read-only Columns view (ours | result | theirs).
   - Tests: `ConflictResolverTest` renders `ConflictResolverContent` from a state and clicks it, `ResolverColumnsTest`
     (domain) the rows and arrows, `ConflictResolverStatusTest` `afterStatus`. The view model itself was run against a
     real repository through the Dagger graph in a temporary harness (see Offscreen UI checks), not by a kept test.
+- **The Stacked layout (step 3, `ResolverStackedView.kt`):** ours and theirs on top, the result below at the full
+  width, with a handle between them (45% for the top by default, kept in the app singleton `ConflictResolverSession`
+  until Leaf quits, not saved).
+  - The switch: the toolbar's Columns and Stacked icons, and Settings → Conflicts → "Resolver layout". Both write
+    `AppConfig.ConflictResolverLayout` (`conflict_resolver_layout`, Columns by default), which the view model reads.
+  - Rows: `sidesRows` and `resultRows`, next to `columnRows`. The result gets one filler row for a chunk with no line
+    in it (deleted lines, an open conflict's placeholder), so that every chunk has a place in both lists. Chips stand
+    in for the arrows: Take ↓, Add ↓, Taken (`dropping` takes that side's lines out) and Applied or Apply.
+  - The lists of both layouts are hoisted (`ResolverLists`), so a switch keeps the place: the chunk and the row of it
+    at the top (`ChunkPlace`, `placeOf`, `rowOf`). The top pair follows the result's place through a `snapshotFlow`,
+    except while `ResolverLists.pinned` says the view moved to a conflict.
+  - The follower scrolls with `requestScrollToItem`, applied at the next layout. `scrollToItem` lays out at once, and
+    throws "performMeasureAndLayout called during measure layout" when the collector runs during a layout, as it does
+    in an offscreen scene, whose effects run inline. That exception killed the follower without failing anything.
+- **Widths and long lines:** the Columns layout's gutters and the file list's edge are drag handles (`dragHandle`,
+  `ColumnShares` in `domain/conflicts/ResolverSizes.kt`), and "Wrap lines" in the toolbar turns wrapping off. All three
+  are kept in `ConflictResolverSession` until Leaf quits.
+  - Without wrapping, `LineText` (`ResolverSideways.kt`) lays each line out on one row through `UnwrappedNode`, which
+    measures it with an unbounded width and places it `SidewaysScroll.offset` to the left, so scrolling only places
+    the lines again. It answers intrinsic heights for an unbounded width: the rows' `IntrinsicSize.Min` asks with the
+    column's width, and DiffText would report its wrapped height, making each row as tall as wrapped text.
+  - `scrollsSideways` takes sideways swipes and Shift with the wheel in `PointerEventPass.Initial`, before the lists,
+    and consumes them. `FitSideways` sets how far it goes from the longest line, measured once per merge.
+  - Tests drive the handles and the wheel with `ImageComposeScene.sendPointerEvent` (`drag`, `doubleClick` in
+    `ConflictResolverTest`). A drag's deltas start past the touch slop, but `draggable` hands over the whole movement.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,

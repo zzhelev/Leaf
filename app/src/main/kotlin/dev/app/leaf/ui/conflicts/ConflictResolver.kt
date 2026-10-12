@@ -5,6 +5,7 @@ package dev.app.leaf.ui.conflicts
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,17 +19,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,9 +49,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.conflicts.ChunkPlace
+import dev.app.leaf.domain.conflicts.ColumnShares
+import dev.app.leaf.domain.conflicts.DEFAULT_FILE_LIST_WIDTH
+import dev.app.leaf.domain.conflicts.fileListWidthAfterDrag
 import dev.app.leaf.domain.conflicts.columnRows
 import dev.app.leaf.domain.conflicts.conflictChunks
+import dev.app.leaf.domain.conflicts.placeOf
+import dev.app.leaf.domain.conflicts.resultRows
+import dev.app.leaf.domain.conflicts.rowOf
+import dev.app.leaf.domain.conflicts.sidesRows
 import dev.app.leaf.domain.models.ConflictContent
+import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.ConflictStages
@@ -76,13 +88,15 @@ import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import dev.app.leaf.viewmodels.ResolverFile
 import dev.app.leaf.viewmodels.ResolverFileEntry
 import dev.app.leaf.viewmodels.ResolverPrompt
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The built-in conflict resolver, over the whole tab (`docs/fork/conflict-resolver.md`, step 2): the conflicted files
- * on the left, and the one picked in three columns. [onConfirmUseSide] asks before a side is taken for a whole file,
- * as "Use ours" and "Use theirs" do elsewhere.
+ * The built-in conflict resolver, over the whole tab (`docs/fork/conflict-resolver.md`, steps 2 and 3): the conflicted
+ * files on the left, and the one picked in three columns, or with the sides on top of the result. [onConfirmUseSide]
+ * asks before a side is taken for a whole file, as "Use ours" and "Use theirs" do elsewhere.
  */
 @Composable
 fun ConflictResolver(
@@ -90,7 +104,7 @@ fun ConflictResolver(
     onConfirmUseSide: (StatusEntry, ConflictSide, ConflictSides?, onConfirm: () -> Unit) -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
-    val listState = rememberLazyListState()
+    val lists = remember { ResolverLists() }
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -99,13 +113,19 @@ fun ConflictResolver(
 
     ConflictResolverContent(
         state = state,
-        listState = listState,
+        lists = lists,
+        scrollToChunk = viewModel.scrollToChunk,
         actions = ResolverActions(
             onClose = viewModel::close,
             onSelectFile = viewModel::selectFile,
             onPreviousConflict = viewModel::previousConflict,
             onNextConflict = viewModel::nextConflict,
             onToggleBase = viewModel::toggleBase,
+            onSetLayout = viewModel::setLayout,
+            onStackedSplitChanged = viewModel::setStackedSplit,
+            onColumnSharesChanged = viewModel::setColumnShares,
+            onFileListWidthChanged = viewModel::setFileListWidth,
+            onToggleWrapLines = viewModel::toggleWrapLines,
             onSave = { viewModel.save() },
             onMarkResolved = { viewModel.markResolved() },
             onOpenInExternalTool = viewModel::openInExternalTool,
@@ -115,7 +135,7 @@ fun ConflictResolver(
             onAnswerUnsaved = viewModel::answerUnsavedChanges,
             onReload = viewModel::reload,
             onDismissPrompt = viewModel::dismissPrompt,
-            columns = ColumnActions(
+            picks = PickActions(
                 onTake = { chunk, side ->
                     viewModel.take(chunk, side)
                     viewModel.selectConflict(chunk)
@@ -125,6 +145,10 @@ fun ConflictResolver(
                     viewModel.selectConflict(chunk)
                 },
                 onSetApplied = viewModel::setApplied,
+                onDrop = { chunk, side ->
+                    viewModel.drop(chunk, side)
+                    viewModel.selectConflict(chunk)
+                },
             ),
         ),
         modifier = Modifier
@@ -146,18 +170,6 @@ fun ConflictResolver(
                 }
             },
     )
-
-    LaunchedEffect(viewModel) {
-        viewModel.scrollToChunk.collect { chunk ->
-            val merge = (viewModel.state.value.file as? ResolverFile.Loaded)?.merge ?: return@collect
-            val row = merge.columnRows(viewModel.state.value.showBase).indexOfFirst { it.chunk == chunk }
-
-            if (row >= 0) {
-                // A few rows of context above the conflict
-                listState.animateScrollToItem((row - 3).coerceAtLeast(0))
-            }
-        }
-    }
 }
 
 /** What the resolver's buttons do, apart from the columns'. */
@@ -167,6 +179,14 @@ class ResolverActions(
     val onPreviousConflict: () -> Unit,
     val onNextConflict: () -> Unit,
     val onToggleBase: () -> Unit,
+    val onSetLayout: (ConflictResolverLayout) -> Unit,
+    /** The stacked layout's handle was dragged: the top pair's share of the height. */
+    val onStackedSplitChanged: (Float) -> Unit,
+    /** A gutter of the Columns layout was dragged. */
+    val onColumnSharesChanged: (ColumnShares) -> Unit,
+    /** The file list's edge was dragged: its width in dp. */
+    val onFileListWidthChanged: (Float) -> Unit,
+    val onToggleWrapLines: () -> Unit,
     val onSave: () -> Unit,
     val onMarkResolved: () -> Unit,
     val onOpenInExternalTool: () -> Unit,
@@ -176,20 +196,25 @@ class ResolverActions(
     val onAnswerUnsaved: (save: Boolean?) -> Unit,
     val onReload: () -> Unit,
     val onDismissPrompt: () -> Unit,
-    val columns: ColumnActions,
+    val picks: PickActions,
 )
 
 /** The resolver as [state] shows it, without its view model, so that tests can render it. */
 @Composable
 fun ConflictResolverContent(
     state: ConflictResolverState,
-    listState: LazyListState,
+    lists: ResolverLists,
     actions: ResolverActions,
     modifier: Modifier = Modifier,
+    /** Conflicts (their chunks) to scroll to, as F7 moves to them. */
+    scrollToChunk: Flow<Int> = emptyFlow(),
 ) {
     val file = state.file as? ResolverFile.Loaded
     val merge = file?.merge?.takeUnless { file.workingFileState == WorkingFileState.NO_MARKERS && !file.resolveAgain }
     val entry = state.files.firstOrNull { it.entry.filePath == state.file.path }?.entry
+    val shown = remember { ShownPlace() }
+    // A copy while the file list's edge is dragged; the view model gets the width when the drag ends
+    var fileListWidth by remember(state.fileListWidth) { mutableFloatStateOf(state.fileListWidth) }
 
     Column(modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
         Toolbar(state, file, merge, entry, actions)
@@ -197,7 +222,15 @@ fun ConflictResolverContent(
         state.prompt?.let { Prompt(it, state.file.path.orEmpty(), actions) }
 
         Row(Modifier.weight(1f)) {
-            FileList(state.files, state.file.path, actions.onSelectFile)
+            FileList(state.files, state.file.path, fileListWidth, actions.onSelectFile)
+            FileListEdge(
+                onDrag = { delta -> fileListWidth = fileListWidthAfterDrag(fileListWidth, delta) },
+                onDragStopped = { actions.onFileListWidthChanged(fileListWidth) },
+                onReset = {
+                    fileListWidth = DEFAULT_FILE_LIST_WIDTH
+                    actions.onFileListWidthChanged(DEFAULT_FILE_LIST_WIDTH)
+                },
+            )
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when {
@@ -213,30 +246,97 @@ fun ConflictResolverContent(
                         }
 
                         val conflicts = remember(merge) { merge.conflictChunks() }
-                        val rows = remember(merge, state.showBase) { merge.columnRows(state.showBase) }
+                        val layout = state.layout
+                        val currentMerge by rememberUpdatedState(merge)
+                        val showBase by rememberUpdatedState(state.showBase)
 
-                        // Opens at the first conflict
-                        LaunchedEffect(file.file.path) {
-                            val first = rows.indexOfFirst { it.chunk == conflicts.firstOrNull() }
-                            listState.scrollToItem((first - 3).coerceAtLeast(0))
+                        // Opens a file at its first conflict, and keeps the place when the layout changes
+                        LaunchedEffect(file.file.path, layout) {
+                            val previous = shown.layout.takeIf { shown.path == file.file.path }
+
+                            shown.path = file.file.path
+                            shown.layout = layout
+
+                            when (previous) {
+                                null -> {
+                                    lists.sideways.scrollTo(0f)
+                                    lists.show(currentMerge, layout, showBase, conflicts.firstOrNull(), false)
+                                }
+
+                                layout -> Unit
+                                else -> lists.keepPlace(currentMerge, showBase, from = previous, to = layout)
+                            }
                         }
 
-                        ResolverColumnsView(
-                            merge = merge,
-                            rows = rows,
-                            sides = file.file.sides,
-                            filePath = file.file.path,
-                            currentConflictChunk = conflicts.getOrNull(state.currentConflict),
-                            showBase = state.showBase,
-                            listState = listState,
-                            actions = actions.columns,
-                            modifier = Modifier.weight(1f),
-                        )
+                        LaunchedEffect(scrollToChunk, layout) {
+                            scrollToChunk.collect { chunk ->
+                                lists.show(currentMerge, layout, showBase, chunk, animate = true)
+                            }
+                        }
 
-                        ResolverLegend()
+                        // Lines that don't wrap scroll sideways together, in both layouts
+                        val sideways = if (state.wrapLines) null else lists.sideways
+
+                        CompositionLocalProvider(LocalSidewaysScroll provides sideways) {
+                            LayoutView(merge, file, conflicts, state, lists, actions, Modifier.weight(1f))
+                        }
+
+                        ResolverLegend(stacked = layout == ConflictResolverLayout.STACKED)
                     }
                 }
             }
+        }
+    }
+}
+
+/** The file in [state]'s layout. */
+@Composable
+private fun LayoutView(
+    merge: TextMerge,
+    file: ResolverFile.Loaded,
+    conflicts: List<Int>,
+    state: ConflictResolverState,
+    lists: ResolverLists,
+    actions: ResolverActions,
+    modifier: Modifier,
+) {
+    when (state.layout) {
+        ConflictResolverLayout.COLUMNS -> {
+            val rows = remember(merge, state.showBase) { merge.columnRows(state.showBase) }
+
+            ResolverColumnsView(
+                merge = merge,
+                rows = rows,
+                sides = file.file.sides,
+                filePath = file.file.path,
+                currentConflictChunk = conflicts.getOrNull(state.currentConflict),
+                showBase = state.showBase,
+                listState = lists.columns,
+                actions = actions.picks,
+                shares = state.columnShares,
+                onSharesChanged = actions.onColumnSharesChanged,
+                modifier = modifier,
+            )
+        }
+
+        ConflictResolverLayout.STACKED -> {
+            val sidesRows = remember(merge) { merge.sidesRows() }
+            val resultRows = remember(merge, state.showBase) { merge.resultRows(state.showBase) }
+
+            ResolverStackedView(
+                merge = merge,
+                sidesRows = sidesRows,
+                resultRows = resultRows,
+                sides = file.file.sides,
+                filePath = file.file.path,
+                currentConflictChunk = conflicts.getOrNull(state.currentConflict),
+                showBase = state.showBase,
+                split = state.stackedSplit,
+                lists = lists,
+                actions = actions.picks,
+                onSplitChanged = actions.onStackedSplitChanged,
+                modifier = modifier,
+            )
         }
     }
 }
@@ -291,6 +391,15 @@ private fun Toolbar(
         Spacer(Modifier.weight(1f))
 
         if (merge != null) {
+            LayoutButtons(state.layout, actions.onSetLayout)
+
+            ToggleButton(
+                text = stringResource(Res.string.conflict_resolver_wrap),
+                tooltip = stringResource(Res.string.conflict_resolver_wrap_tooltip),
+                toggled = state.wrapLines,
+                onClick = actions.onToggleWrapLines,
+            )
+
             ToggleButton(
                 text = stringResource(Res.string.conflict_resolver_base),
                 tooltip = stringResource(Res.string.conflict_resolver_base_tooltip),
@@ -331,6 +440,38 @@ private fun Toolbar(
                     text = stringResource(Res.string.conflict_resolver_mark_resolved),
                     enabled = open == 0,
                     onClick = actions.onMarkResolved,
+                )
+            }
+        }
+    }
+}
+
+/** Columns or Stacked, as the diff pane's Unified and Split (`StateIcon`), with the tooltip as the description. */
+@Composable
+private fun LayoutButtons(layout: ConflictResolverLayout, onSetLayout: (ConflictResolverLayout) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        for (option in ConflictResolverLayout.entries) {
+            val (icon, tooltip) = when (option) {
+                ConflictResolverLayout.COLUMNS ->
+                    Res.drawable.view_column to Res.string.conflict_resolver_layout_columns_tooltip
+
+                ConflictResolverLayout.STACKED ->
+                    Res.drawable.view_stacked to Res.string.conflict_resolver_layout_stacked_tooltip
+            }
+            val description = stringResource(tooltip)
+            val toggled = option == layout
+
+            DelayedTooltip(description) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = description,
+                    tint = MaterialTheme.colors.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (toggled) MaterialTheme.colors.onSurface.copy(alpha = 0.2f) else Color.Transparent)
+                        .handMouseClickable { if (!toggled) onSetLayout(option) }
+                        .padding(4.dp)
+                        .size(20.dp),
                 )
             }
         }
@@ -408,10 +549,10 @@ private fun ToggleButton(text: String, tooltip: String, toggled: Boolean, onClic
 }
 
 @Composable
-private fun FileList(files: List<ResolverFileEntry>, current: String?, onSelect: (String) -> Unit) {
+private fun FileList(files: List<ResolverFileEntry>, current: String?, width: Float, onSelect: (String) -> Unit) {
     Column(
         modifier = Modifier
-            .width(220.dp)
+            .width(width.dp)
             .fillMaxHeight()
             .background(MaterialTheme.colors.tertiarySurface)
             .padding(vertical = 8.dp),
@@ -464,6 +605,21 @@ private fun FileList(files: List<ResolverFileEntry>, current: String?, onSelect:
             color = MaterialTheme.colors.onBackgroundSecondary,
             modifier = Modifier.padding(12.dp),
         )
+    }
+}
+
+/** The edge between the file list and the file: dragging it resizes the list, and a double-click puts it back. */
+@Composable
+private fun FileListEdge(onDrag: (Float) -> Unit, onDragStopped: () -> Unit, onReset: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .width(5.dp)
+            .fillMaxHeight()
+            .background(MaterialTheme.colors.tertiarySurface)
+            .dragHandle(Orientation.Horizontal, onDrag, onDragStopped, onReset),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colors.onBackground.copy(alpha = 0.12f)))
     }
 }
 
@@ -650,4 +806,65 @@ private fun ChoicePanel(file: ConflictedFile, entry: StatusEntry?, actions: Reso
             }
         }
     }
+}
+
+/**
+ * The file and the layout that the lists last showed: another file opens at its first conflict, and another layout
+ * keeps the place.
+ */
+private class ShownPlace {
+    var path: String? = null
+    var layout: ConflictResolverLayout? = null
+}
+
+/** Rows above a conflict that the view scrolls to, for context. */
+private const val CONTEXT_ROWS = 3
+
+/** The chunk of each row of [layout]'s main list: the columns, or the stacked layout's result. */
+private fun TextMerge.rowChunks(layout: ConflictResolverLayout, showBase: Boolean): List<Int> = when (layout) {
+    ConflictResolverLayout.COLUMNS -> columnRows(showBase).map { it.chunk }
+    ConflictResolverLayout.STACKED -> resultRows(showBase).map { it.chunk }
+}
+
+private fun ResolverLists.main(layout: ConflictResolverLayout) = when (layout) {
+    ConflictResolverLayout.COLUMNS -> columns
+    ConflictResolverLayout.STACKED -> result
+}
+
+/** Scrolls [layout]'s lists to [chunk], or to the top without one. The stacked layout's top pair shows it too. */
+private suspend fun ResolverLists.show(
+    merge: TextMerge,
+    layout: ConflictResolverLayout,
+    showBase: Boolean,
+    chunk: Int?,
+    animate: Boolean,
+) {
+    fun rowAbove(rowChunks: List<Int>) =
+        if (chunk == null) 0 else (rowOf(rowChunks, ChunkPlace(chunk, 0)) - CONTEXT_ROWS).coerceAtLeast(0)
+
+    val row = rowAbove(merge.rowChunks(layout, showBase))
+
+    if (layout == ConflictResolverLayout.STACKED) {
+        pinned = row to rowAbove(merge.sidesRows().map { it.chunk })
+    }
+
+    if (animate) main(layout).animateScrollToItem(row) else main(layout).scrollToItem(row)
+}
+
+/** Scrolls [to]'s lists to the place that [from]'s show at their top, mapped by chunk. */
+private suspend fun ResolverLists.keepPlace(
+    merge: TextMerge,
+    showBase: Boolean,
+    from: ConflictResolverLayout,
+    to: ConflictResolverLayout,
+) {
+    val fromList = main(from)
+    val place = placeOf(merge.rowChunks(from, showBase), fromList.firstVisibleItemIndex) ?: return
+    val toChunks = merge.rowChunks(to, showBase)
+    val row = rowOf(toChunks, place)
+    // The same line in both: the same offset within it
+    val offset = if (placeOf(toChunks, row) == place) fromList.firstVisibleItemScrollOffset else 0
+
+    pinned = null
+    main(to).scrollToItem(row, offset)
 }

@@ -12,6 +12,7 @@ import dev.app.leaf.domain.gitcli.IGitExecutableLocator
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.ConflictOpener
+import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -82,6 +83,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.remoteOperationsWithGit,
             appSettingsService.worktreesRefreshInterval,
             appSettingsService.conflictOpener,
+            appSettingsService.conflictResolverLayout,
             appSettingsService.fastForwardMerge,
             appSettingsService.autoStashOnMerge,
             appSettingsService.cloneDefaultDirectory,
@@ -105,6 +107,7 @@ class SettingsViewModel @Inject constructor(
             remoteOperationsWithGit,
             worktreesRefreshInterval,
             conflictOpener,
+            conflictResolverLayout,
             fastForwardMerge,
             autoStashOnMerge,
             cloneDefaultDirectory,
@@ -130,6 +133,7 @@ class SettingsViewModel @Inject constructor(
                 remoteOperationsWithGit,
                 worktreesRefreshInterval,
                 conflictOpener,
+                conflictResolverLayout,
                 fastForwardMerge,
                 autoStashOnMerge,
                 cloneDefaultDirectory,
@@ -159,6 +163,7 @@ class SettingsViewModel @Inject constructor(
             remoteOperationsWithGit = false,
             worktreesRefreshInterval = WorktreesRefreshIntervals.DEFAULT_SECONDS,
             conflictOpener = ConflictOpener.DEFAULT,
+            conflictResolverLayout = ConflictResolverLayout.DEFAULT,
             fastForwardMerge = false,
             autoStashOnMerge = false,
             cloneDefaultDirectory = "",
@@ -191,6 +196,8 @@ data class SettingsViewState(
     val worktreesRefreshInterval: Int,
     /** What double-clicking a conflicted file and the banner's Resolve conflicts open. */
     val conflictOpener: ConflictOpener,
+    /** How the built-in resolver lays out the sides and the result. */
+    val conflictResolverLayout: ConflictResolverLayout,
     val fastForwardMerge: Boolean,
     val autoStashOnMerge: Boolean,
     val cloneDefaultDirectory: String?,
