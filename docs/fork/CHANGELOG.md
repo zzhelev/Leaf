@@ -2,6 +2,44 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Log rows with many branches and tags (branch `feat/log-ref-chips`)
+
+- **Before:** a commit's chips took all the width they asked for, tags first, then local branches by name, then remote
+  branches.
+  - Past the row's end they were cut off without a sign, and the message, then Author and Date, got what was left,
+    down to nothing.
+  - An agent run leaves just that: every worktree's branch starts on `main`, which is often tagged and pushed too.
+- **Now:** option 1c of the mockups (Claude Design project "Leaf log ref chips overflow"), picked after comparing
+  IntelliJ, GitKraken, GitLens, Fork, Git Graph, gitk and Magit.
+  - The current branch comes first, then branches that other worktrees use, other local branches, remote branches,
+    then tags.
+  - The chips take at most 80% of the Message column, and the message keeps 64 dp. A chip takes at most 200 dp (a
+    longer name ends in "…", with a tooltip). The rest go into a +N chip, which opens a list of every ref as a chip of
+    its own, grouped, with its double-click and menu.
+  - The first chip shows even when it alone doesn't fit that way, as long as the message keeps 64 dp.
+  - A remote branch with the name of a local branch on the same commit shares its chip, with a cloud mark. The chip's
+    menu adds the remote branch's push, pull, delete, compare and copy, each naming it.
+  - Author, Date and the other columns keep their widths on every row.
+  - The share started at 60%, which left room for one worktree branch next to `main` in a 1300 px window; the user
+    chose 80%. At 80%, the message's 64 dp decide below a Message column of 320 dp.
+- **Tests:** 22 new.
+  - `:domain` (10): `LogRefsTest`, the order, a shared chip, natural order, a detached HEAD, and `fitChips`.
+  - `:app` (12): `LogRefChipsTest` renders the chips offscreen in a row with a Date column: all of them, +N with
+    Date's width kept, a sweep of Message widths from 200 to 900 (the message keeps 64, the chips after the first stay
+    within 80%), the first chip cut next to +N, a long name's ellipsis that leaves the marks their room, the list and
+    Esc, and an action that closes the list first. `SharedChipRemoteContextMenuTest` checks the remote branch's items.
+  - **Mutation check:** 23 mutations in three rounds, all caught in the end.
+    - The chip's name not giving way to the marks after it survived the first round; the ellipsis test now compares
+      the current branch's name with another's.
+    - At 80%, the message's 64 dp decide the narrow test's layout, so a share of 100% passed it; the sweep catches
+      that, and a missing or wrong message minimum.
+  - The real `Log` was rendered offscreen against a demo repository at 1300, 1100, 900 and 720 px, at 60% and at
+    80%. A click on +N selected the commit and opened the list, and Esc and a click outside closed it. At 60%, at
+    720 px with all four columns on, the Message column was at its 200 dp minimum and the top row showed +6 alone.
+  - `:app:test`, `:domain:test` and `:common:test` pass (99, 208 and 7 tests). `:data` wasn't run, as nothing in it
+    changed.
+  - Manual run on macOS by the user, with the demo repository: 80% looks good, and the tooltips look right.
+
 ## A git command that times out is reported as timed out (branch `fix/process-runner-timeout-race`)
 
 - **Before:** on a timeout, `ProcessRunner` destroys the process, and the JDK's `Process.destroy` closes its streams.

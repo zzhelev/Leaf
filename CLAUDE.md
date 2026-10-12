@@ -1122,6 +1122,31 @@ resets them. By default only Date is on, as before.
 - The UI is in `ui/log/LogColumns.kt`. The menu reuses the sort menu's `SortMenuPopup`, which takes a position.
 - The commit row's menu has "Copy commit hash".
 
+**Ref chips (fork-only, `ui/log/LogRefChips.kt`, `domain/log/LogRefs.kt`):** a commit's branches and tags, at the start
+of its Message cell.
+- Order (`logRefs`): the current branch (or a detached HEAD), local branches that another worktree uses, other local
+  branches, remote branches, then tags, by name within each (`naturalCompare`). IntelliJ and Git Graph also put the
+  current branch first and tags last. Before, tags came first and the current branch had no place of its own.
+- A remote branch with the name of a local branch on the same commit shares that branch's chip
+  (`LogRef.LocalBranch.remotes`), as in IntelliJ, Git Graph and Fork: a cloud mark whose tooltip names it.
+  - The chip's menu is the local branch's, a separator, then the remote branch's items (`sharedChipRemoteItems`):
+    push, pull, delete, compare worktrees, copy, each naming the remote branch.
+  - Checkout, merge and rebase are left out there: at the same commit they do what the local branch's items do.
+- The chips take at most 80% of the Message column (`REF_CHIPS_SHARE`, 60% at first), and the message keeps 64 dp
+  whatever the share (`MIN_MESSAGE_WIDTH`). A chip takes at most 200 dp: a longer name ends in "…", with the whole name
+  in its tooltip (`Chip`), and the marks after it keep their room.
+  - What doesn't fit goes into a +N chip (`fitChips`).
+  - When not even the first chip fits next to +N, it still shows whole, or cut down to 120 dp at least, as long as the
+    message keeps 64 dp. Otherwise +N stands for every ref.
+- +N doesn't take its click, so the click also selects the commit. It opens a popup (`AllRefsPopup`) with every ref as
+  a chip of its own, grouped as branches, remote branches and tags, which double-click and right-click as in the row.
+  - An action in it closes it first (`LogRefActions.dismissingFirst`), so a dialog it opens isn't behind it.
+  - Esc and a click outside close it too.
+- `LogRefChips` is a `SubcomposeLayout`: every chip is composed and measured, and only the ones that fit are placed.
+  The others are still in the semantics tree, so `LogRefChipsTest` checks `layoutInfo.isPlaced` up the parents.
+- The Message cell is a `Row` with `weight(1f)`, so the columns after it keep their widths. Before, the chips were
+  measured first, and a row with many of them squeezed the message, then Author and Date, to nothing.
+
 ## Refresh
 
 **Rust** (`rs/src/lib.rs`):
