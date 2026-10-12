@@ -275,10 +275,14 @@ fun RepoContent(
         val historyViewModel = repositoryOpenViewModel.historyViewModel
 
         if (historyViewModel != null) {
+            val tabFocusRequester = LocalTabFocusRequester.current
+
             FileHistory(
                 historyViewModel = historyViewModel,
                 onClose = {
                     repositoryOpenViewModel.closeHistory()
+                    // Fork-only: file history had the focus, so the tab takes it back, as when the diff closes
+                    tabFocusRequester.requestFocus()
                 }
             )
         }
@@ -341,10 +345,16 @@ fun MainContentView(
                 ) {
                     RebaseInteractive(viewModel, rebaseInteractiveState)
                 } else if (blameState is BlameState.Loaded && !blameState.isMinimized) {
+                    val tabFocusRequester = LocalTabFocusRequester.current
+
                     Blame(
                         filePath = blameState.filePath,
                         blameResult = blameState.blameResult,
-                        onClose = { viewModel.resetBlameState() },
+                        onClose = {
+                            viewModel.resetBlameState()
+                            // Fork-only: blame had the focus, so the tab takes it back, as when the diff closes
+                            tabFocusRequester.requestFocus()
+                        },
                         onSelectCommit = { viewModel.selectCommit(it) }
                     )
                 } else {
