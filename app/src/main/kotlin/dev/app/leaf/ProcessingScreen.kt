@@ -150,6 +150,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.RepositoryOpen -> "Opening repository"
         TaskType.SwitchWorktree -> "Switching worktree"
         TaskType.FollowRemovedWorktree -> "Switching to the main worktree"
+        TaskType.CreateWorktree -> "Creating worktree"
         TaskType.RemoveWorktree -> "Removing worktree"
         TaskType.DiscardWorktree -> "Discarding worktree"
         TaskType.PruneWorktrees -> "Pruning worktrees"

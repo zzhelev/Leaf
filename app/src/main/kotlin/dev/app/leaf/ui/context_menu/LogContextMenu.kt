@@ -18,6 +18,7 @@ fun logContextMenu(
     onCopyCommitHash: () -> Unit,
     isLastCommit: Boolean,
     showInAmend: Boolean,
+    onNewWorktree: (() -> Unit)? = null,
 ) = mutableListOf<ContextMenuElement>().apply {
     if (showInAmend) {
         addContextMenu(
@@ -39,6 +40,14 @@ fun logContextMenu(
         icon = { painterResource(Res.drawable.branch) },
         onClick = onCreateNewBranch
     )
+    if (onNewWorktree != null) {
+        // Fork-only
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.log_context_menu_new_worktree) },
+            icon = { painterResource(Res.drawable.folder) },
+            onClick = onNewWorktree,
+        )
+    }
     addContextMenu(
         composableLabel = { stringResource(Res.string.log_context_menu_create_tag) },
         icon = { painterResource(Res.drawable.tag) },

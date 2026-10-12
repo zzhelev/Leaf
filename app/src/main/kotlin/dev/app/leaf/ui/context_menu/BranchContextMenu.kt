@@ -27,6 +27,7 @@ fun branchContextMenuItems(
     worktreesBase: WorktreeBaseBranch? = null,
     onChooseWorktreesBase: (branch: String?) -> Unit = {},
     onSwitchToWorktree: (Worktree) -> Unit = {},
+    onNewWorktree: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -137,6 +138,15 @@ fun branchContextMenuItems(
             else -> null
         }
 
+        // A worktree that checks the branch out, or starts a branch from it (fork-only)
+        if (onNewWorktree != null) {
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.branch_context_menu_new_worktree) },
+                icon = { painterResource(Res.drawable.folder) },
+                onClick = onNewWorktree,
+            )
+        }
+
         if (compareWorktrees != null) {
             val (label, base) = compareWorktrees
 
@@ -145,7 +155,9 @@ fun branchContextMenuItems(
                 icon = { painterResource(Res.drawable.compare_arrows) },
                 onClick = { onChooseWorktreesBase(base) },
             )
+        }
 
+        if (onNewWorktree != null || compareWorktrees != null) {
             add(ContextMenuElement.ContextSeparator)
         }
 

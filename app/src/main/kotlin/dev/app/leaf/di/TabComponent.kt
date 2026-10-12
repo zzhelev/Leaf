@@ -51,4 +51,5 @@ interface TabComponent {
     fun removeWorktreeViewModelFactory(): RemoveWorktreeViewModel.Factory
     fun lockWorktreeViewModelFactory(): LockWorktreeViewModel.Factory
     fun pruneWorktreesViewModel(): PruneWorktreesViewModel
+    fun newWorktreeViewModelFactory(): NewWorktreeViewModel.Factory
 }

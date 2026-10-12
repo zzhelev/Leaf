@@ -72,6 +72,7 @@ fun TaskType.successTitle(): String? {
         TaskType.SaveAuthor -> "Author updated"
         TaskType.UpdateRemote -> "Remote updated"
         TaskType.FollowRemovedWorktree -> "This tab's worktree was removed, so it shows the main worktree"
+        TaskType.CreateWorktree -> "Worktree created"
         TaskType.RemoveWorktree -> "Worktree removed"
         TaskType.DiscardWorktree -> "Worktree discarded"
         TaskType.PruneWorktrees -> "Worktrees pruned"

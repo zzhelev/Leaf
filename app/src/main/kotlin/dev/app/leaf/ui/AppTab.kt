@@ -436,6 +436,16 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.WorktreeCreate>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            NewWorktreeDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider.newWorktreeViewModelFactory().create(entry.start)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.WorktreesPrune>(
                             metadata = dialogsMetadata
                         ) { entry ->

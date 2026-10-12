@@ -78,6 +78,7 @@ sealed interface TaskType {
     data object GetWorktree : TaskType
     data object SwitchWorktree : TaskType
     data object FollowRemovedWorktree : TaskType
+    data object CreateWorktree : TaskType
     data object RemoveWorktree : TaskType
     data object DiscardWorktree : TaskType
     data object PruneWorktrees : TaskType

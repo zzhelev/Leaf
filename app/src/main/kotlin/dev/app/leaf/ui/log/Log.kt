@@ -62,6 +62,7 @@ import dev.app.leaf.theme.*
 import dev.app.leaf.ui.BranchWorktreeChipMark
 import dev.app.leaf.ui.LocalBranchWorktrees
 import dev.app.leaf.ui.LocalOnChooseWorktreesBase
+import dev.app.leaf.ui.LocalOnNewWorktree
 import dev.app.leaf.ui.LocalOnSwitchToWorktree
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
@@ -123,6 +124,7 @@ fun Log(
     onDeleteBranch: (Branch) -> Unit,
     onDeleteTag: (Tag) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
+    onNewWorktree: ((NewWorktreeStart) -> Unit)? = null,
 ) {
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
@@ -153,6 +155,7 @@ fun Log(
             LocalBranchWorktrees provides branchWorktrees,
             LocalOnChooseWorktreesBase provides viewModel::chooseWorktreesBase,
             LocalOnSwitchToWorktree provides viewModel::switchToWorktree,
+            LocalOnNewWorktree provides onNewWorktree,
         ) {
             LogView(
                 logState = logStatus,
@@ -930,6 +933,7 @@ private fun CommitLine(
     tags: List<Tag>,
 ) {
     val isLastCommitOfCurrentBranch = currentBranch?.hash == graphNode.hash
+    val onNewWorktree = LocalOnNewWorktree.current
 
     ContextMenu(
         items = {
@@ -952,6 +956,7 @@ private fun CommitLine(
                     onResetBranch = { resetBranch() },
                     isLastCommit = isLastCommitOfCurrentBranch,
                     showInAmend = showInAmend,
+                    onNewWorktree = onNewWorktree?.let { { it(NewWorktreeStart.Commit(graphNode.commit)) } },
                 )
             }
         },
@@ -1423,6 +1428,7 @@ fun BranchChip(
     val worktreeUsers = branchWorktrees.usersOf(ref)
     val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
     val onSwitchToWorktree = LocalOnSwitchToWorktree.current
+    val onNewWorktree = LocalOnNewWorktree.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
@@ -1444,6 +1450,11 @@ fun BranchChip(
             worktreesBase = branchWorktrees.baseChoice,
             onChooseWorktreesBase = onChooseWorktreesBase,
             onSwitchToWorktree = onSwitchToWorktree,
+            onNewWorktree = onNewWorktree?.let { onNew ->
+                {
+                    onNew(if (ref.isLocal) NewWorktreeStart.LocalBranch(ref) else NewWorktreeStart.RemoteBranch(ref))
+                }
+            },
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }

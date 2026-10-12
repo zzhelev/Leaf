@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
+import dev.app.leaf.domain.models.NewWorktreeStart
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeBranchUse
@@ -72,6 +73,9 @@ val LocalOnChooseWorktreesBase = staticCompositionLocalOf<(String?) -> Unit> { {
 
 /** Switches to a worktree, which opens it in a tab of its own. The log provides it to its branch chips. */
 val LocalOnSwitchToWorktree = staticCompositionLocalOf<(Worktree) -> Unit> { {} }
+
+/** Opens the new worktree dialog from a branch or a commit. The log provides it to its chips and commit rows. */
+val LocalOnNewWorktree = staticCompositionLocalOf<((NewWorktreeStart) -> Unit)?> { null }
 
 /**
  * A local branch's name in the branch list, followed by a folder icon when another worktree uses the branch, and that

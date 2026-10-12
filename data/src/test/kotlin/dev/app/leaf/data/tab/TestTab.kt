@@ -11,6 +11,8 @@ import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.GetRefDatesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
+import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.log.JGitGraphRevWalker
 import dev.app.leaf.data.git.rebase.GetCommitFromRebaseLineGitAction
 import dev.app.leaf.data.git.rebase.GetRebaseInteractiveTodoLinesGitAction
@@ -22,6 +24,7 @@ import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
 import dev.app.leaf.data.git.workspace.GetStatusGitAction
+import dev.app.leaf.data.git.worktrees.CopyWorktreeFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
@@ -55,8 +58,10 @@ import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.WatcherEvent
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.repositories.DataState
+import dev.app.leaf.domain.usecases.CreateWorktreeUseCase
 import dev.app.leaf.domain.usecases.FollowRemovedWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetLogUseCase
+import dev.app.leaf.domain.usecases.GetNewWorktreeContextUseCase
 import dev.app.leaf.domain.usecases.GetRebaseInteractiveTodoLinesUseCase
 import dev.app.leaf.domain.usecases.GetRebaseLinesFullMessageUseCase
 import dev.app.leaf.domain.usecases.GetRemotesUseCase
@@ -188,6 +193,7 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
     val runWorktreeSteps = RunWorktreeStepsUseCase(
         useCaseExecutor = useCaseExecutor,
         runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+        copyWorktreeFilesGitAction = CopyWorktreeFilesGitAction(),
         switchWorktreeUseCase = switchWorktree,
         repositoryDataRepository = repositoryData,
     )
@@ -201,6 +207,18 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
     )
 
     val followRemovedWorktree = FollowRemovedWorktreeUseCase(repositoryData, switchWorktree)
+
+    val createWorktree = CreateWorktreeUseCase(
+        useCaseExecutor = useCaseExecutor,
+        saveWorktreeCreationSettingsGitAction = SaveWorktreeCreationSettingsGitAction(jgit),
+        runWorktreeStepsUseCase = runWorktreeSteps,
+    )
+
+    val getNewWorktreeContext = GetNewWorktreeContextUseCase(
+        useCaseExecutor = useCaseExecutor,
+        repositoryDataRepository = repositoryData,
+        getWorktreeCreationSettingsGitAction = GetWorktreeCreationSettingsGitAction(jgit),
+    )
 
     /** Waits until [flow] has loaded data that passes [predicate]. */
     suspend fun <T> awaitLoaded(flow: Flow<DataState<T>>, predicate: (T) -> Boolean = { true }): T {

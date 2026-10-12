@@ -24,6 +24,7 @@ import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
 
@@ -37,8 +38,19 @@ private val OnNoticeColor = Color(0xFF1E1E1E)
 @Composable
 fun WorktreeCommands(steps: List<WorktreeStep>, modifier: Modifier = Modifier) {
     val home = System.getProperty("user.home")
-    val comments = steps.filterIsInstance<WorktreeStep.SwitchTab>().associateWith { step ->
-        stringResource(Res.string.worktree_dialog_switch_tab, File(step.folder).name)
+    val comments = steps.filter { it !is WorktreeStep.Git }.associateWith { step ->
+        when (step) {
+            is WorktreeStep.SwitchTab -> stringResource(Res.string.worktree_dialog_switch_tab, File(step.folder).name)
+            is WorktreeStep.CopyFiles -> pluralStringResource(
+                Res.plurals.worktree_dialog_copy_files,
+                step.files.size,
+                step.files.size,
+                File(step.from).name,
+                fileList(step.files),
+            )
+
+            is WorktreeStep.Git -> ""
+        }
     }
     val lines = shellLines(steps, home) { comments.getValue(it) }
 
@@ -67,6 +79,15 @@ fun WorktreeCommands(steps: List<WorktreeStep>, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** At most [MAX_FILES_SHOWN] of [files], then "…" when there are more. */
+internal fun fileList(files: List<String>): String {
+    val shown = files.take(MAX_FILES_SHOWN).joinToString(", ")
+
+    return if (files.size > MAX_FILES_SHOWN) "$shown, …" else shown
+}
+
+private const val MAX_FILES_SHOWN = 5
 
 /**
  * Something the user should know before confirming that doesn't lose work by itself, such as an agent that may still

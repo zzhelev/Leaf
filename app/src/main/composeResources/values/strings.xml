@@ -92,6 +92,8 @@
     <string name="side_pane_worktree_remove">Remove…</string>
     <string name="side_pane_worktree_discard">Discard…</string>
     <string name="side_pane_worktree_prune">Prune missing worktrees…</string>
+    <string name="side_pane_worktrees_new">New worktree</string>
+    <string name="worktree_picker_new">New worktree…</string>
     <string name="side_pane_worktree_missing">missing</string>
     <string name="side_pane_worktree_rebasing">rebasing %1$s</string>
     <string name="side_pane_worktree_bisecting">bisecting from %1$s</string>
@@ -298,6 +300,10 @@
     <!-- Worktree actions: remove, discard, lock and prune -->
     <string name="worktree_dialog_commands">Leaf runs:</string>
     <string name="worktree_dialog_switch_tab">Switch this tab to %1$s</string>
+    <plurals name="worktree_dialog_copy_files">
+        <item quantity="one">Copy %1$d ignored file from %2$s: %3$s</item>
+        <item quantity="other">Copy %1$d ignored files from %2$s: %3$s</item>
+    </plurals>
     <string name="worktree_dialog_checking">Checking the worktree…</string>
     <string name="worktree_dialog_folder_missing">The folder is missing, so git only removes the worktree's entry.</string>
     <string name="worktree_dialog_ignored_files">git deletes the folder's ignored files too, such as build output and .env files.</string>
@@ -344,6 +350,36 @@
     <string name="prune_worktrees_dialog_subtitle">Remove the entries of the worktrees whose folders are missing? Their branches are kept.</string>
     <string name="prune_worktrees_dialog_nothing">There's nothing to prune.</string>
     <string name="prune_worktrees_dialog_prune">Prune</string>
+
+    <!-- New worktree dialog -->
+    <string name="new_worktree_dialog_title">New worktree</string>
+    <string name="new_worktree_dialog_subtitle">From %1$s</string>
+    <string name="new_worktree_dialog_subtitle_commit">From the commit %1$s</string>
+    <string name="new_worktree_dialog_check_out">Check out "%1$s"</string>
+    <string name="new_worktree_dialog_new_branch">New branch from "%1$s"</string>
+    <string name="new_worktree_dialog_branch">Branch</string>
+    <string name="new_worktree_dialog_branch_taken">A branch named "%1$s" already exists.</string>
+    <string name="new_worktree_dialog_branch_rejected">git doesn't accept "%1$s" as a branch's name.</string>
+    <string name="new_worktree_dialog_folder">Folder</string>
+    <string name="new_worktree_dialog_folder_taken">This folder already exists and isn't empty.</string>
+    <string name="new_worktree_dialog_folder_not_absolute">Type the folder's full path.</string>
+    <string name="new_worktree_dialog_location_next_to">This repository's new worktrees go next to it.</string>
+    <string name="new_worktree_dialog_location_in">This repository's new worktrees go in %1$s.</string>
+    <string name="new_worktree_dialog_location_choose">Choose a folder</string>
+    <string name="new_worktree_dialog_location_reset">Next to the repository</string>
+    <string name="new_worktree_dialog_include_loading">Looking for the files that .worktreeinclude lists…</string>
+    <plurals name="new_worktree_dialog_copy">
+        <item quantity="one">Copy the ignored file that .worktreeinclude lists: %2$s</item>
+        <item quantity="other">Copy the %1$d ignored files that .worktreeinclude lists: %2$s</item>
+    </plurals>
+    <string name="new_worktree_dialog_include_none">.worktreeinclude lists no ignored file that's here to copy.</string>
+    <string name="new_worktree_dialog_include_missing">A new worktree has no ignored files, so a build that needs local.properties or .env fails there. List them in .worktreeinclude, in .gitignore syntax, and Leaf copies them; Claude Code, Codex and Conductor read it too.</string>
+    <string name="new_worktree_dialog_include_create">Create .worktreeinclude</string>
+    <string name="new_worktree_dialog_include_edit">Edit .worktreeinclude</string>
+    <string name="new_worktree_dialog_switch">Switch to the new worktree</string>
+    <string name="new_worktree_dialog_create">Create worktree</string>
+    <string name="branch_context_menu_new_worktree">New worktree…</string>
+    <string name="log_context_menu_new_worktree">New worktree from commit…</string>
 
     <!-- Delete branch and tag dialogs -->
     <string name="delete_branch_dialog_title">Delete branch</string>

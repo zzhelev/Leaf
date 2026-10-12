@@ -35,6 +35,7 @@ import dev.app.leaf.domain.extensions.isValid
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
 import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.NewWorktreeStart
 import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.models.Submodule
 import dev.app.leaf.domain.models.Tag
@@ -148,6 +149,7 @@ fun SidePanel(
                 onChangeDefaultUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
                 onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
                 onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
+                onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
             )
 
             worktrees(
@@ -164,6 +166,7 @@ fun SidePanel(
                     onRemove = { onNavigate(Screen.WorktreeRemove(it, discard = false)) },
                     onDiscard = { onNavigate(Screen.WorktreeRemove(it, discard = true)) },
                     onPrune = { onNavigate(Screen.WorktreesPrune) },
+                    onNew = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
                 ),
             )
 
@@ -174,6 +177,7 @@ fun SidePanel(
                 viewModel = viewModel,
                 onShowAddEditRemoteDialog = { onNavigate(Screen.AddEditRemote(it)) },
                 onConfirmAction = onConfirmAction,
+                onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
             )
 
             tags(
@@ -254,6 +258,7 @@ fun LazyListScope.localBranches(
     onChangeDefaultUpstreamBranch: (Branch) -> Unit,
     onRenameBranch: (Branch) -> Unit,
     onDeleteBranch: (Branch) -> Unit,
+    onNewWorktree: (NewWorktreeStart) -> Unit = {},
 ) {
     val isExpanded = branchesState.isExpanded
     val branches = branchesState.branches
@@ -315,6 +320,7 @@ fun LazyListScope.localBranches(
                         onRenameBranch = { onRenameBranch(branch) },
                         onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                         onSwitchToWorktree = { viewModel.switchToWorktree(it) },
+                        onNewWorktree = { onNewWorktree(NewWorktreeStart.LocalBranch(branch)) },
                         onCopyBranchNameToClipboard = {
                             scope.launch {
                                 clipboard.setClipboardText(branch.simpleName)
@@ -335,6 +341,7 @@ fun LazyListScope.remotes(
     viewModel: RepositoryOpenViewModel,
     onShowAddEditRemoteDialog: (Remote?) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
+    onNewWorktree: (NewWorktreeStart) -> Unit = {},
 ) {
     val isExpanded = remotesState.isExpanded
     val remotes = remotesState.remotes
@@ -428,6 +435,7 @@ fun LazyListScope.remotes(
                                 onRebaseRemoteBranch = { viewModel.rebaseBranch(remoteBranch) },
                                 onMergeRemoteBranch = { viewModel.mergeBranch(remoteBranch) },
                                 onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
+                                onNewWorktree = { onNewWorktree(NewWorktreeStart.RemoteBranch(remoteBranch)) },
                                 onCopyBranchNameToClipboard = {
                                     scope.launch {
                                         clipboard.setClipboardText(remoteBranch.simpleName)
@@ -685,6 +693,7 @@ private fun Branch(
     onRenameBranch: () -> Unit,
     onChooseWorktreesBase: (branch: String?) -> Unit,
     onSwitchToWorktree: (Worktree) -> Unit,
+    onNewWorktree: () -> Unit,
     onCopyBranchNameToClipboard: () -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
@@ -709,6 +718,7 @@ private fun Branch(
                 worktreesBase = worktreesBase,
                 onChooseWorktreesBase = onChooseWorktreesBase,
                 onSwitchToWorktree = onSwitchToWorktree,
+                onNewWorktree = onNewWorktree,
             )
         }
     ) {
@@ -784,6 +794,7 @@ private fun RemoteBranches(
     onRebaseRemoteBranch: () -> Unit,
     onMergeRemoteBranch: () -> Unit,
     onChooseWorktreesBase: (branch: String?) -> Unit,
+    onNewWorktree: () -> Unit,
     onCopyBranchNameToClipboard: () -> Unit,
 ) {
     ContextMenu(
@@ -805,6 +816,7 @@ private fun RemoteBranches(
                 onCopyBranchNameToClipboard = onCopyBranchNameToClipboard,
                 worktreesBase = worktreesBase,
                 onChooseWorktreesBase = onChooseWorktreesBase,
+                onNewWorktree = onNewWorktree,
             )
         }
     ) {

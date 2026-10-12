@@ -18,6 +18,12 @@ sealed interface WorktreeStep {
 
     /** Switches the tab to the worktree in [folder], before the steps that follow. */
     data class SwitchTab(val folder: String) : WorktreeStep
+
+    /**
+     * Copies [files], relative paths, from the worktree in [from] to the one in [to]: the gitignored files that a new
+     * worktree needs, such as `.env`. A file that's already there, or a symbolic link, isn't copied.
+     */
+    data class CopyFiles(val from: String, val to: String, val files: List<String>) : WorktreeStep
 }
 
 /**
@@ -134,20 +140,19 @@ fun cdLine(folder: String, home: String?): String {
 
 /**
  * The lines that the dialog of an action shows for its [steps], which can be pasted into a terminal: a `cd` line each
- * time the folder changes, then the git commands. A step that isn't a command becomes a comment, from
- * [switchTabComment].
+ * time the folder changes, then the git commands. A step that isn't a command becomes a comment, from [comment].
  */
 fun shellLines(
     steps: List<WorktreeStep>,
     home: String?,
-    switchTabComment: (WorktreeStep.SwitchTab) -> String,
+    comment: (WorktreeStep) -> String,
 ): List<String> {
     var currentFolder: String? = null
 
     return buildList {
         for (step in steps) {
             when (step) {
-                is WorktreeStep.SwitchTab -> add("# " + switchTabComment(step))
+                is WorktreeStep.SwitchTab, is WorktreeStep.CopyFiles -> add("# " + comment(step))
                 is WorktreeStep.Git -> {
                     if (step.folder != currentFolder) {
                         add(cdLine(step.folder, home))

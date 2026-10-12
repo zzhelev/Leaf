@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
 import dev.app.leaf.domain.worktrees.WorktreeRow
 import dev.app.leaf.domain.worktrees.headLabel
+import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.onDoubleClick
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.linesHeight
@@ -86,6 +89,7 @@ fun LazyListScope.worktrees(
                 itemsCount = worktreesState.rows.count(),
                 isExpanded = worktreesState.isExpanded,
                 onExpand = onExpand,
+                hoverIcon = { NewWorktreeButton(actions.onNew) },
                 sortAction = baseChoice?.let { base ->
                     { WorktreesBaseMenuButton(base, onChooseBase) }
                 },
@@ -124,7 +128,27 @@ data class WorktreeActions(
     val onRemove: (Worktree) -> Unit = {},
     val onDiscard: (Worktree) -> Unit = {},
     val onPrune: () -> Unit = {},
+    val onNew: () -> Unit = {},
 )
+
+/** The header's button that creates a worktree from the base branch, shown while the header is hovered. */
+@Composable
+private fun NewWorktreeButton(onNew: () -> Unit) {
+    IconButton(
+        onClick = onNew,
+        modifier = Modifier
+            .padding(end = 16.dp)
+            .size(16.dp)
+            .handOnHover(),
+    ) {
+        Icon(
+            painter = painterResource(Res.drawable.add),
+            contentDescription = stringResource(Res.string.side_pane_worktrees_new),
+            modifier = Modifier.fillMaxSize(),
+            tint = MaterialTheme.colors.onBackground,
+        )
+    }
+}
 
 @Composable
 private fun WorktreesError(errorText: String) {

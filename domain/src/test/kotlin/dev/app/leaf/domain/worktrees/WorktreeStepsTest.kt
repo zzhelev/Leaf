@@ -124,7 +124,7 @@ class WorktreeStepsTest {
             WorktreeStep.Git("/srv/other", listOf("status")),
         )
 
-        val lines = shellLines(steps, "/home/me") { "Switch this tab to ${it.folder.substringAfterLast('/')}" }
+        val lines = shellLines(steps, "/home/me") { "Switch this tab to ${(it as WorktreeStep.SwitchTab).folder.substringAfterLast('/')}" }
 
         assertEquals(
             listOf(

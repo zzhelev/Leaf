@@ -21,6 +21,7 @@ import dev.app.leaf.app.generated.resources.bottom_info_bar_email_not_set
 import dev.app.leaf.app.generated.resources.bottom_info_bar_name_and_email
 import dev.app.leaf.app.generated.resources.bottom_info_bar_name_not_set
 import dev.app.leaf.domain.models.Identity
+import dev.app.leaf.domain.models.NewWorktreeStart
 import dev.app.leaf.domain.models.PullType
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
@@ -125,6 +126,7 @@ fun RepositoryOpenPage(
                         )
                         .fillMaxWidth(),
                     onCreateBranch = { onNavigate(Screen.BranchCreate(null)) },
+                    onNewWorktree = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
                     onStashWithMessage = { onNavigate(Screen.StashWithMessage) },
                     onOpenAnotherRepository = { repositoryOpenViewModel.openAnotherRepository(it, tab) },
                     onOpenAnotherRepositoryFromPicker = {
@@ -365,6 +367,7 @@ fun MainContentView(
                                     onConfirmAction = { action, onConfirm ->
                                         onNavigate(Screen.ConfirmAction(action, onConfirm))
                                     },
+                                    onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
                                 )
                             }
                         }

@@ -44,6 +44,7 @@ class WorktreePickerTest {
     )
 
     private val switchedTo = mutableListOf<Worktree>()
+    private var newWorktrees = 0
     private var scene: ImageComposeScene? = null
 
     @AfterEach
@@ -88,12 +89,27 @@ class WorktreePickerTest {
         assertEquals(emptyList<Worktree>(), switchedTo)
     }
 
+    @Test
+    fun `ends with a row that opens the new worktree dialog, and closes the list`() {
+        render(main, current, agent)
+
+        click("fix-auth")
+        assertEquals("New worktree…", texts().last())
+
+        click("New worktree…")
+
+        assertEquals(1, newWorktrees)
+        assertEquals(emptyList<Worktree>(), switchedTo)
+        assertEquals(listOf("fix-auth", "feature/auth"), texts(), "the list closed")
+    }
+
     private fun render(vararg rows: WorktreeRow) {
         scene = ImageComposeScene(width = 800, height = 600) {
             AppTheme {
                 WorktreePicker(
                     state = WorktreePickerState(rows.toList(), baseBranch = "refs/heads/main"),
                     onSwitchTo = { switchedTo += it },
+                    onNewWorktree = { newWorktrees++ },
                 )
             }
         }.also { it.render() }

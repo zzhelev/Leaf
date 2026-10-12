@@ -55,6 +55,7 @@ fun Menu(
     onForcePush: () -> Unit,
     showOpenPopup: Boolean,
     onShowOpenPopupChange: (Boolean) -> Unit,
+    onNewWorktree: () -> Unit = {},
 ) {
     val isPullWithRebaseDefault by viewModel.isPullWithRebaseDefault.collectAsState(false)
     val lastLoadedTabs by viewModel.lastLoadedTabs.collectAsState()
@@ -88,6 +89,7 @@ fun Menu(
                 state = state,
                 onSwitchTo = { viewModel.switchToWorktree(it) },
                 modifier = Modifier.padding(start = 8.dp),
+                onNewWorktree = onNewWorktree,
             )
         }
 

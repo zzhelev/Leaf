@@ -244,6 +244,7 @@ fun TaskType.errorTitle(): String {
         TaskType.RepositoryOpen -> "Could not open the repository"
         TaskType.SwitchWorktree -> "Could not switch to the worktree"
         TaskType.FollowRemovedWorktree -> "Could not switch to the main worktree"
+        TaskType.CreateWorktree -> "Could not create the worktree"
         TaskType.RemoveWorktree -> "Could not remove the worktree"
         TaskType.DiscardWorktree -> "Could not discard the worktree"
         TaskType.PruneWorktrees -> "Could not prune the worktrees"

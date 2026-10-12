@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -61,10 +62,12 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.add
 import dev.app.leaf.app.generated.resources.check
 import dev.app.leaf.app.generated.resources.expand_more
 import dev.app.leaf.app.generated.resources.menu_worktree_tooltip
 import dev.app.leaf.app.generated.resources.side_pane_worktrees_title
+import dev.app.leaf.app.generated.resources.worktree_picker_new
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.worktrees.WorktreeRow
 import dev.app.leaf.extensions.handMouseClickable
@@ -86,6 +89,9 @@ private val PICKER_LIST_WIDTH = 340.dp
 /** Height of a worktree in the list, which has two lines, as in the side panel. */
 private val PICKER_ROW_HEIGHT = 46.dp
 
+/** Height of the list's "New worktree…" row, which has one line. */
+private val NEW_WORKTREE_ROW_HEIGHT = 32.dp
+
 /** A click on the picker right after a click outside closed its list doesn't open it again. */
 private const val REOPEN_GUARD_MS = 300
 
@@ -104,6 +110,7 @@ fun WorktreePicker(
     state: WorktreePickerState,
     onSwitchTo: (Worktree) -> Unit,
     modifier: Modifier = Modifier,
+    onNewWorktree: () -> Unit = {},
 ) {
     val current = state.rows.firstOrNull { it.info.worktree.isCurrent } ?: return
     var showList by remember { mutableStateOf(false) }
@@ -167,6 +174,7 @@ fun WorktreePicker(
             WorktreePickerList(
                 state = state,
                 onSwitchTo = onSwitchTo,
+                onNewWorktree = onNewWorktree,
                 onDismissRequest = {
                     showList = false
                     dismissedAt = System.currentTimeMillis()
@@ -181,6 +189,7 @@ fun WorktreePicker(
 private fun WorktreePickerList(
     state: WorktreePickerState,
     onSwitchTo: (Worktree) -> Unit,
+    onNewWorktree: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
@@ -253,6 +262,15 @@ private fun WorktreePickerList(
                     )
                 }
             }
+
+            Divider(modifier = Modifier.padding(vertical = 4.dp))
+
+            NewWorktreeRow(
+                onClick = {
+                    onDismissRequest()
+                    onNewWorktree()
+                },
+            )
         }
     }
 }
@@ -313,6 +331,54 @@ private fun WorktreePickerRow(row: WorktreeRow, onClick: () -> Unit) {
         WorktreeIcon(worktree, modifier = Modifier.padding(end = 8.dp))
 
         WorktreeRowLines(row, modifier = Modifier.weight(1f))
+    }
+}
+
+/** The list's last row, which opens the new worktree dialog from the base branch. */
+@Composable
+private fun NewWorktreeRow(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(NEW_WORKTREE_ROW_HEIGHT)
+            .background(if (isFocused) MaterialTheme.colors.onBackground.copy(alpha = 0.08f) else Color.Transparent)
+            .onPreviewKeyEvent { keyEvent ->
+                val isActivationKey = keyEvent.key == Key.Enter ||
+                        keyEvent.key == Key.NumPadEnter ||
+                        keyEvent.key == Key.Spacebar
+
+                if (isActivationKey) {
+                    if (keyEvent.type == KeyEventType.KeyDown) onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+            ) { onClick() }
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Lines up with the worktrees' icons, after the check mark's room
+        Icon(
+            painter = painterResource(Res.drawable.add),
+            contentDescription = null,
+            tint = MaterialTheme.colors.onBackground,
+            modifier = Modifier
+                .padding(start = 22.dp, end = 8.dp)
+                .size(16.dp),
+        )
+
+        Text(
+            text = stringResource(Res.string.worktree_picker_new),
+            style = MaterialTheme.typography.body2,
+            color = MaterialTheme.colors.onBackground,
+        )
     }
 }
 
