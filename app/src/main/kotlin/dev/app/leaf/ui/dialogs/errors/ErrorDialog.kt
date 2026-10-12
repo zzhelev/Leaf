@@ -250,6 +250,8 @@ fun TaskType.errorTitle(): String {
         TaskType.PruneWorktrees -> "Could not prune the worktrees"
         TaskType.LockWorktree -> "Could not lock the worktree"
         TaskType.UnlockWorktree -> "Could not unlock the worktree"
+        TaskType.OpenMergeTool -> "Conflict not resolved"
+        TaskType.ResolveConflict -> "Could not resolve the conflicts"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"
         TaskType.AddRemote -> "Adding remote failed"

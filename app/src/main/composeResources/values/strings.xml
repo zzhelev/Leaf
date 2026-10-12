@@ -602,6 +602,13 @@
     <string name="error_stale_hunk_unstage">The staged version of %1$s changed after the diff was shown, so nothing was unstaged. The diff now shows the file as it is.</string>
     <string name="error_stale_hunk_discard">%1$s changed after the diff was shown, so nothing was discarded. The diff now shows the file as it is.</string>
 
+    <string name="error_conflict_not_conflicted">These files have no conflicts any more, so nothing was changed:\n\n%1$s</string>
+    <string name="error_conflict_no_merge_tool">No merge tool is set. Leaf opens the tool that git mergetool uses, which you can set with\n\ngit config --global merge.tool meld\n\nmerge.guitool, when set, comes first. git mergetool --tool-help lists the tools that git knows.</string>
+    <string name="error_conflict_merge_tool_not_two_files">%1$s can't be opened in the merge tool, as one side deleted it or has a symbolic link or a submodule in its place: git would ask on a terminal which side to keep. Take ours or theirs instead.</string>
+    <string name="error_conflict_merge_tool_file_name">%1$s can't be opened in the merge tool: git mergetool takes a name with *, ? or [ as a pattern, and could merge another file. Edit the file and stage it, or take ours or theirs.</string>
+    <string name="error_conflict_markers_left">%1$s still has conflicts: %2$s exited as if it had resolved it, but the file still has conflict markers, which git would have staged. Leaf put the conflict back with git update-index --unresolve, and the file is as %2$s left it.</string>
+    <string name="error_conflict_not_resolved">%1$s still has conflicts: %2$s closed without resolving it, or couldn't be started. git put the file back as it was.</string>
+
     <string name="error_fetch_remote_failed">Couldn't fetch %1$s.</string>
     <string name="error_lfs_download_failed">git-lfs couldn't download the LFS files, so nothing was checked out.</string>
     <string name="error_clone_submodules_failed">The repository was cloned into %1$s, but not all of its submodules. Open it to try them again from the Submodules section of the side panel.</string>

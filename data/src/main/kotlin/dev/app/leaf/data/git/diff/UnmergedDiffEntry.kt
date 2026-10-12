@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.diff
 
+import dev.app.leaf.data.git.conflicts.stagesOf
 import dev.app.leaf.domain.exceptions.MissingDiffEntryException
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.DiffEntry
@@ -58,12 +59,6 @@ internal fun unmergedDiffEntry(git: Git, path: String): DiffEntry? {
     return entry
         ?: ours?.let { UnchangedDiffEntry(path, it) }
         ?: throw MissingDiffEntryException("Neither ours nor the working tree has $path")
-}
-
-private fun DirCache.stagesOf(path: String): List<DirCacheEntry> {
-    val first = findEntry(path)
-
-    return if (first < 0) emptyList() else (first until nextEntry(first)).map { getEntry(it) }
 }
 
 /**

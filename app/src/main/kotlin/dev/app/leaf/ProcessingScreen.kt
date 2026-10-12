@@ -156,6 +156,8 @@ fun getTitle(taskType: TaskType): String {
         TaskType.PruneWorktrees -> "Pruning worktrees"
         TaskType.LockWorktree -> "Locking worktree"
         TaskType.UnlockWorktree -> "Unlocking worktree"
+        TaskType.OpenMergeTool -> "Waiting for the merge tool"
+        TaskType.ResolveConflict -> "Resolving conflicts"
         TaskType.ResetRepoState -> "Resetting repository state"
         TaskType.ResetToCommit -> "Resetting to commit"
         TaskType.RevertCommit -> "Reverting commit"

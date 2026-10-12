@@ -10,6 +10,12 @@ import dev.app.leaf.app.generated.resources.error_checkout_branch_checked_out_in
 import dev.app.leaf.app.generated.resources.error_checkout_branch_rebased_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
 import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
+import dev.app.leaf.app.generated.resources.error_conflict_markers_left
+import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_file_name
+import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_not_two_files
+import dev.app.leaf.app.generated.resources.error_conflict_no_merge_tool
+import dev.app.leaf.app.generated.resources.error_conflict_not_conflicted
+import dev.app.leaf.app.generated.resources.error_conflict_not_resolved
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_worktree
@@ -71,6 +77,7 @@ import dev.app.leaf.app.generated.resources.error_stale_hunk_stage
 import dev.app.leaf.app.generated.resources.error_stale_hunk_unstage
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.errors.*
+import dev.app.leaf.domain.models.MergeToolRefusal
 import dev.app.leaf.domain.models.WorktreeBranchUse
 import dev.app.leaf.theme.monoTypography
 import org.eclipse.jgit.lib.Constants
@@ -108,6 +115,11 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
     is SshNeedsGitError -> if (reason == SshNeedsGitError.Reason.LfsPushWithoutGitLfs) listOf("git lfs install") else emptyList()
     is StaleHunkError -> listOf(path)
+    is ConflictError.NotConflicted -> paths
+    ConflictError.NoMergeTool -> listOf("git config --global merge.tool meld", "merge.guitool", "git mergetool --tool-help")
+    is ConflictError.MergeToolRefused -> listOf(path)
+    is ConflictError.NotResolved -> listOf(path, tool)
+    is ConflictError.MarkersLeft -> listOf(path, tool, "git update-index --unresolve")
     else -> emptyList()
 }
 
@@ -221,6 +233,24 @@ fun AppError.getErrorText(): String {
             }
 
             listOf(explanation, output).filter { it.isNotBlank() }.joinToString("\n\n")
+        }
+
+        is ConflictError -> when (this) {
+            is ConflictError.NotConflicted ->
+                stringResource(Res.string.error_conflict_not_conflicted, paths.joinToString("\n"))
+
+            ConflictError.NoMergeTool -> stringResource(Res.string.error_conflict_no_merge_tool)
+            is ConflictError.MergeToolRefused -> when (reason) {
+                MergeToolRefusal.NOT_TWO_FILES -> stringResource(Res.string.error_conflict_merge_tool_not_two_files, path)
+                MergeToolRefusal.FILE_NAME -> stringResource(Res.string.error_conflict_merge_tool_file_name, path)
+            }
+
+            is ConflictError.NotResolved ->
+                listOf(stringResource(Res.string.error_conflict_not_resolved, path, tool), output)
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n\n")
+
+            is ConflictError.MarkersLeft -> stringResource(Res.string.error_conflict_markers_left, path, tool)
         }
 
         is SshNeedsGitError -> when (reason) {

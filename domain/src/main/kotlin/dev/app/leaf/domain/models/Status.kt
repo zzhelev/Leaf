@@ -9,7 +9,13 @@ data class Status(
 )
 
 
-data class StatusEntry(val filePath: String, val statusType: StatusType, val entryType: EntryType = EntryType.UNSTAGED)
+/** [conflict] is set for a [StatusType.CONFLICTING] entry (fork-only). */
+data class StatusEntry(
+    val filePath: String,
+    val statusType: StatusType,
+    val entryType: EntryType = EntryType.UNSTAGED,
+    val conflict: FileConflict? = null,
+)
 
 enum class StatusType {
     ADDED,

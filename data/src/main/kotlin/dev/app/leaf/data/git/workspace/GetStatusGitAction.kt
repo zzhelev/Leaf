@@ -1,12 +1,14 @@
 package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.conflicts.fileConflicts
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.extensions.flatListOf
 import dev.app.leaf.domain.interfaces.IGetStatusGitAction
 import dev.app.leaf.domain.models.EntryType
+import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
@@ -19,9 +21,9 @@ class GetStatusGitAction @Inject constructor(
     private val jgit: JGit,
 ) : IGetStatusGitAction {
     override suspend operator fun invoke(repository: String, paths: List<String>) = either {
-        val status = withContext(Dispatchers.IO) {
+        val (status, conflicts) = withContext(Dispatchers.IO) {
             jgit.provide(repository) { git ->
-                git
+                val status = git
                     .status()
                     .apply {
                         for (path in paths) {
@@ -29,16 +31,18 @@ class GetStatusGitAction @Inject constructor(
                         }
                     }
                     .call()
+
+                status to fileConflicts(git, status.conflicting)
             }
         }.bind()
 
         val staged = getStaged(status)
-        val unstaged = getUnstaged(status)
+        val unstaged = getUnstaged(status, conflicts)
 
         Either.Ok(Status(staged, unstaged, status.ignoredNotInIndex.toList()))
     }
 
-    private fun getUnstaged(status: JGitStatus): List<StatusEntry> {
+    private fun getUnstaged(status: JGitStatus, conflicts: Map<String, FileConflict?>): List<StatusEntry> {
         val untracked = status.untracked.map {
             StatusEntry(it, StatusType.ADDED, entryType = EntryType.UNSTAGED)
         }
@@ -49,7 +53,7 @@ class GetStatusGitAction @Inject constructor(
             StatusEntry(it, StatusType.REMOVED, entryType = EntryType.UNSTAGED)
         }
         val conflicting = status.conflicting.map {
-            StatusEntry(it, StatusType.CONFLICTING, entryType = EntryType.UNSTAGED)
+            StatusEntry(it, StatusType.CONFLICTING, entryType = EntryType.UNSTAGED, conflict = conflicts[it])
         }
 
         return flatListOf(

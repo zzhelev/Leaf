@@ -78,6 +78,7 @@ fun TaskType.successTitle(): String? {
         TaskType.PruneWorktrees -> "Worktrees pruned"
         TaskType.LockWorktree -> "Worktree locked"
         TaskType.UnlockWorktree -> "Worktree unlocked"
+        TaskType.OpenMergeTool, TaskType.ResolveConflict -> "Conflict resolved"
         else -> null
     }
 }
