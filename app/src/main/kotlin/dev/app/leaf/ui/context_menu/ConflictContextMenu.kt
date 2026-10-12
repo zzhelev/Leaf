@@ -10,10 +10,11 @@ import dev.app.leaf.app.generated.resources.arrow_forward
 import dev.app.leaf.domain.models.ConflictSide
 import org.jetbrains.compose.resources.painterResource
 
-/** What a conflicted file's menu does (fork-only). */
+/** What a conflicted file's menu does (fork-only). [onResolve] opens the built-in resolver, when given. */
 class ConflictMenuActions(
     val onOpenInExternalMergeTool: () -> Unit,
     val onUseSide: (ConflictSide) -> Unit,
+    val onResolve: (() -> Unit)? = null,
 )
 
 internal fun MutableList<ContextMenuElement>.addConflictSideItems(

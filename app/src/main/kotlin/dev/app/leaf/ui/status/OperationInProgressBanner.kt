@@ -103,6 +103,8 @@ fun OperationInProgressBanner(
     inProgress: OperationInProgress,
     onAbort: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the conflicts, while files have them: the built-in resolver or the external merge tool. */
+    onResolveConflicts: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -139,6 +141,16 @@ fun OperationInProgressBanner(
                 .weight(1f, fill = false)
                 .padding(horizontal = 8.dp),
         )
+
+        if (onResolveConflicts != null && inProgress.conflicts > 0) {
+            SecondaryButton(
+                text = stringResource(Res.string.operation_banner_resolve_conflicts),
+                textColor = Color.White,
+                backgroundButton = OnConflictColor,
+                onClick = onResolveConflicts,
+                modifier = Modifier.padding(end = 8.dp),
+            )
+        }
 
         SecondaryButton(
             text = stringResource(inProgress.operation.abortTitle()),

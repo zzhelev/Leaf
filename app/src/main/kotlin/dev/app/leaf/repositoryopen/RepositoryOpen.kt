@@ -32,6 +32,7 @@ import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.ui.*
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
+import dev.app.leaf.ui.conflicts.ConflictResolver
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.log.Log
@@ -53,6 +54,7 @@ fun RepositoryOpenPage(
     val selectedItem by repositoryOpenViewModel.selectedItem.collectAsState()
     val blameState by repositoryOpenViewModel.blameState.collectAsState()
     val showHistory by repositoryOpenViewModel.showHistory.collectAsState()
+    val showConflictResolver by repositoryOpenViewModel.showConflictResolver.collectAsState()
     val tab = LocalTab.current
 
     val focusRequester = remember { FocusRequester() }
@@ -80,7 +82,12 @@ fun RepositoryOpenPage(
                     }
 
                     it.matchesBinding(KeybindingOption.STASH) -> {
-                        repositoryOpenViewModel.stash()
+                        // Fork-only: Save in the conflict resolver, as git can't stash while files have conflicts
+                        if (showConflictResolver) {
+                            repositoryOpenViewModel.saveInConflictResolver()
+                        } else {
+                            repositoryOpenViewModel.stash()
+                        }
                         true
                     }
 
@@ -92,8 +99,11 @@ fun RepositoryOpenPage(
                     it.matchesBinding(KeybindingOption.EXIT) -> {
                         // Fork-only: this handler sees Esc before file history and blame, whose own handlers so never
                         // ran. The tab takes the focus back, as when the diff closes, so that the next key reaches it.
+                        // The resolver shows in place of file history, so it closes first.
                         val blame = blameState
-                        if (showHistory) {
+                        if (showConflictResolver) {
+                            repositoryOpenViewModel.closeConflictResolver()
+                        } else if (showHistory) {
                             repositoryOpenViewModel.closeHistory()
                             focusRequester.requestFocus()
                         } else if (blame is BlameState.Loaded && !blame.isMinimized) {
@@ -171,6 +181,7 @@ fun RepositoryOpenPage(
                 if (inProgress != null) {
                     OperationInProgressBanner(
                         inProgress = inProgress,
+                        onResolveConflicts = { repositoryOpenViewModel.resolveConflicts() },
                         onAbort = {
                             abortOperationInProgress(
                                 statusState,
@@ -189,6 +200,7 @@ fun RepositoryOpenPage(
                     repositoryState = repositoryState,
                     blameState = blameState,
                     showHistory = showHistory,
+                    showConflictResolver = showConflictResolver,
                     onNavigate = onNavigate,
                 )
             }
@@ -269,9 +281,20 @@ fun RepoContent(
     repositoryState: RepositoryState,
     blameState: BlameState,
     showHistory: Boolean,
+    showConflictResolver: Boolean,
     onNavigate: (Screen) -> Unit,
 ) {
-    if (showHistory) {
+    val conflictResolverViewModel = repositoryOpenViewModel.conflictResolverViewModel
+
+    if (showConflictResolver && conflictResolverViewModel != null) {
+        // Fork-only: the built-in conflict resolver takes the whole tab, as file history does
+        ConflictResolver(
+            viewModel = conflictResolverViewModel,
+            onConfirmUseSide = { entry, side, sides, onConfirm ->
+                onNavigate(Screen.ConfirmAction(ConfirmableAction.UseConflictSide(listOf(entry), side, sides), onConfirm))
+            },
+        )
+    } else if (showHistory) {
         val historyViewModel = repositoryOpenViewModel.historyViewModel
 
         if (historyViewModel != null) {

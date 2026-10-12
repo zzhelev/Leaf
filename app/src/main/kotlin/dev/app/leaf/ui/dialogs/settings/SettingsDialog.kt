@@ -23,6 +23,7 @@ import dev.app.leaf.common.printError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
+import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.Error
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
@@ -107,6 +108,9 @@ val settings = listOf(
     ) { state, onAction -> RemoteActions(state, onAction) },
     SettingsEntry.Entry(Res.drawable.folder_open, Res.string.settings_entry_worktrees) { state, onAction ->
         Worktrees(state, onAction)
+    },
+    SettingsEntry.Entry(Res.drawable.merge, Res.string.settings_entry_conflicts) { state, onAction ->
+        Conflicts(state, onAction)
     },
 
     SettingsEntry.Section(Res.string.settings_section_network),
@@ -326,6 +330,21 @@ private fun worktreesRefreshIntervalName(seconds: Int): String = when {
     seconds <= 0 -> stringResource(Res.string.settings_worktrees_refresh_off)
     seconds == 60 -> stringResource(Res.string.settings_worktrees_refresh_minute)
     else -> stringResource(Res.string.settings_worktrees_refresh_seconds, seconds)
+}
+
+/** Fork-only: shared by the built-in resolver and the external merge tool (`docs/fork/conflict-resolver.md`, 4). */
+@Composable
+private fun Conflicts(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+    SettingDropDown(
+        title = stringResource(Res.string.settings_conflicts_opener_title),
+        subtitle = stringResource(Res.string.settings_conflicts_opener_subtitle),
+        dropDownOptions = listOf(
+            DropDownOption(ConflictOpener.BUILT_IN, stringResource(Res.string.settings_conflicts_opener_built_in)),
+            DropDownOption(ConflictOpener.EXTERNAL_TOOL, stringResource(Res.string.settings_conflicts_opener_external)),
+        ),
+        onOptionSelected = { option -> onAction(SettingsAction.SetConfig(AppConfig.ConflictOpener(option.value))) },
+        currentOption = settingsViewState.conflictOpener,
+    )
 }
 
 @Composable

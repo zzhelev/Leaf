@@ -75,7 +75,7 @@ class ResolvingConflictsTest {
     fun `Save writes the result and leaves the conflict to resolve`(): Unit = runBlocking {
         val file = open()
 
-        assertEquals(Either.Ok(Unit), save(file, file.merge().resolvingAll(ConflictResolution.Ours)))
+        assertInstanceOf(Either.Ok::class.java, save(file, file.merge().resolvingAll(ConflictResolution.Ours)))
 
         assertEquals("main\n", notes.readText())
         assertEquals(listOf(1, 2, 3), git.stages(repository, "notes.txt"))

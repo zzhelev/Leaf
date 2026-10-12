@@ -41,6 +41,8 @@ fun ConflictBar(
     sides: ConflictSides?,
     onOpenInExternalMergeTool: () -> Unit,
     onUseSide: (ConflictSide) -> Unit,
+    /** Opens the built-in resolver, when given. */
+    onResolve: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -60,6 +62,12 @@ fun ConflictBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+
+        if (onResolve != null) {
+            DelayedTooltip(stringResource(Res.string.diff_header_resolve_tooltip)) {
+                SecondaryButton(text = stringResource(Res.string.diff_header_resolve), onClick = onResolve)
+            }
+        }
 
         if (statusEntry.canOpenInMergeTool) {
             DelayedTooltip(stringResource(Res.string.diff_header_open_in_external_merge_tool_tooltip)) {

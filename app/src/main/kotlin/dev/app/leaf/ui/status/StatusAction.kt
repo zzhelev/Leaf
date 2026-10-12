@@ -58,4 +58,7 @@ sealed interface StatusAction {
 
     /** Resolves conflicted files by taking [side]'s version of each, once the user confirmed it (fork-only). */
     data class UseConflictSide(val filePaths: List<String>, val side: ConflictSide) : StatusAction
+
+    /** Opens a conflicted file in the built-in resolver, which `RepositoryOpenViewModel` shows (fork-only). */
+    data class OpenInResolver(val statusEntry: StatusEntry) : StatusAction
 }

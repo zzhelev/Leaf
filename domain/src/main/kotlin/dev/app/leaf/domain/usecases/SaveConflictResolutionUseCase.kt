@@ -12,8 +12,9 @@ import dev.app.leaf.domain.models.TextMerge
 import javax.inject.Inject
 
 /**
- * The resolver's Save: writes the result into the working file, with markers for the conflicts still open. The file
- * watcher refreshes the status. Returns the result, so that the resolver shows a failure itself.
+ * The resolver's Save: writes the result into the working file, with markers for the conflicts still open, and
+ * returns the id of the bytes written, for the next Save's check. The file watcher refreshes the status. Returns the
+ * result, so that the resolver shows a failure itself.
  */
 class SaveConflictResolutionUseCase @Inject constructor(
     private val writeConflictResultGitAction: IWriteConflictResultGitAction,
@@ -24,7 +25,7 @@ class SaveConflictResolutionUseCase @Inject constructor(
         file: ConflictedFile,
         merge: TextMerge,
         overwriteChanges: Boolean = false,
-    ): Either<Unit, AppError> = useCaseExecutor.execute { repositoryPath ->
+    ): Either<String, AppError> = useCaseExecutor.execute { repositoryPath ->
         writeConflictResultGitAction(repositoryPath, file, merge, overwriteChanges)
     }
 }

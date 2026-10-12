@@ -13,6 +13,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapp
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
+import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
@@ -63,6 +64,7 @@ private val cloneDefaultDirectoryPreference get() = stringPreferencesKey("clone_
 private val gitExecutablePathPreference get() = stringPreferencesKey("git_executable_path")
 private val remoteOperationsWithGitPreference get() = booleanPreferencesKey("remote_operations_with_git")
 private val worktreesRefreshIntervalPreference get() = intPreferencesKey("worktrees_refresh_interval")
+private val conflictOpenerPreference get() = stringPreferencesKey("conflict_opener")
 
 private val cacheCredentialsPreference get() = booleanPreferencesKey("cache_credentials_in_memory")
 private val terminalPathPreference get() = stringPreferencesKey("terminal_path")
@@ -129,6 +131,12 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val remoteOperationsWithGit get() = preferences.data[remoteOperationsWithGitPreference]
     override val worktreesRefreshInterval get() = preferences.data[worktreesRefreshIntervalPreference]
 
+    /** Stored as the value's name in lower case. A name that this version doesn't know reads as unset. */
+    override val conflictOpener
+        get() = preferences.data[conflictOpenerPreference].map { stored ->
+            ConflictOpener.entries.firstOrNull { it.name.lowercase() == stored }
+        }
+
 
     // Network
     override val cacheCredentialsInMemory get() = preferences.data[cacheCredentialsPreference]
@@ -145,6 +153,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.RemoteOperationsWithGit -> setValue(remoteOperationsWithGitPreference, appConfig.value)
                 is AppConfig.WorktreesRefreshInterval ->
                     setValue(worktreesRefreshIntervalPreference, appConfig.seconds)
+                is AppConfig.ConflictOpener -> setValue(conflictOpenerPreference, appConfig.value.name.lowercase())
                 is AppConfig.DateFormatCustomFormat -> setValue(dateFormatCustomFormatPreference, appConfig.value)
                 is AppConfig.DateFormatIs24h -> setValue(dateFormatIs24hPreference, appConfig.value)
                 is AppConfig.DateFormatUseDefault -> setValue(dateFormatUseDefaultPreference, appConfig.value)

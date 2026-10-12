@@ -11,6 +11,7 @@ import dev.app.leaf.domain.gitcli.GitExecutable
 import dev.app.leaf.domain.gitcli.IGitExecutableLocator
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
+import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -80,6 +81,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.pushWithLease,
             appSettingsService.remoteOperationsWithGit,
             appSettingsService.worktreesRefreshInterval,
+            appSettingsService.conflictOpener,
             appSettingsService.fastForwardMerge,
             appSettingsService.autoStashOnMerge,
             appSettingsService.cloneDefaultDirectory,
@@ -102,6 +104,7 @@ class SettingsViewModel @Inject constructor(
             pushWithLease,
             remoteOperationsWithGit,
             worktreesRefreshInterval,
+            conflictOpener,
             fastForwardMerge,
             autoStashOnMerge,
             cloneDefaultDirectory,
@@ -126,6 +129,7 @@ class SettingsViewModel @Inject constructor(
                 pushWithLease,
                 remoteOperationsWithGit,
                 worktreesRefreshInterval,
+                conflictOpener,
                 fastForwardMerge,
                 autoStashOnMerge,
                 cloneDefaultDirectory,
@@ -154,6 +158,7 @@ class SettingsViewModel @Inject constructor(
             pushWithLease = false,
             remoteOperationsWithGit = false,
             worktreesRefreshInterval = WorktreesRefreshIntervals.DEFAULT_SECONDS,
+            conflictOpener = ConflictOpener.DEFAULT,
             fastForwardMerge = false,
             autoStashOnMerge = false,
             cloneDefaultDirectory = "",
@@ -184,6 +189,8 @@ data class SettingsViewState(
     val remoteOperationsWithGit: Boolean,
     /** Seconds between two refreshes of the worktree list, 0 for none. */
     val worktreesRefreshInterval: Int,
+    /** What double-clicking a conflicted file and the banner's Resolve conflicts open. */
+    val conflictOpener: ConflictOpener,
     val fastForwardMerge: Boolean,
     val autoStashOnMerge: Boolean,
     val cloneDefaultDirectory: String?,

@@ -36,4 +36,7 @@ sealed interface AppConfig {
 
     /** Seconds between two refreshes of the worktree list while it's shown, 0 for none. See [WorktreesRefreshIntervals]. */
     data class WorktreesRefreshInterval(val seconds: Int) : AppConfig
+
+    /** What double-clicking a conflicted file and the banner's Resolve conflicts open (fork-only). */
+    data class ConflictOpener(val value: dev.app.leaf.domain.models.ConflictOpener) : AppConfig
 }

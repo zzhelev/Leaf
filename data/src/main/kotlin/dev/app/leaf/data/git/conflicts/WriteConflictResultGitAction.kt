@@ -26,6 +26,7 @@ import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.revwalk.filter.RevFilter
 import org.eclipse.jgit.util.io.EolStreamTypeUtil
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
@@ -56,7 +57,7 @@ class WriteConflictResultGitAction @Inject constructor(
         file: ConflictedFile,
         merge: TextMerge,
         overwriteChanges: Boolean,
-    ): Either<Unit, GitError> = withContext(Dispatchers.IO) {
+    ): Either<String, GitError> = withContext(Dispatchers.IO) {
         jgit.provide(repositoryPath) { git ->
             val repository = git.repository
             val loaded = requireNotNull(file.content as? ConflictContent.Text) {
@@ -99,18 +100,22 @@ class WriteConflictResultGitAction @Inject constructor(
                 labels = conflictLabels(repository, file.sides),
                 size = attributes.markerSize,
             )
-            val bytes = merge.resultBytes(style)
+            val converted = ByteArrayOutputStream().also { out ->
+                EolStreamTypeUtil.wrapOutputStream(out, attributes.checkoutLineEndings).use {
+                    it.write(merge.resultBytes(style))
+                }
+            }.toByteArray()
 
             target.parentFile.mkdirs()
 
             // Truncated and written in place, which keeps the file's mode
-            FileOutputStream(target).use { out ->
-                EolStreamTypeUtil.wrapOutputStream(out, attributes.checkoutLineEndings).use { it.write(bytes) }
-            }
+            FileOutputStream(target).use { it.write(converted) }
 
             if (!exists && listOfNotNull(file.ours, file.theirs).any { it.mode == FileMode.EXECUTABLE_FILE.bits }) {
                 repository.fs.setExecute(target, true)
             }
+
+            blobId(converted)
         }
     }
 }

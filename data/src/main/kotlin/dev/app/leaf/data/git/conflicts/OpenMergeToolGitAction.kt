@@ -57,7 +57,7 @@ class OpenMergeToolGitAction @Inject constructor(
             raiseError(ConflictError.MergeToolRefused(filePath, reason))
         }
 
-        val config = mergeToolConfig(workTree).bind()
+        val config = readMergeToolConfig(gitCli, workTree).bind()
         val tool = config.tool ?: raiseError(ConflictError.NoMergeTool)
 
         val args = config.overrides() + listOf(
@@ -96,20 +96,6 @@ class OpenMergeToolGitAction @Inject constructor(
         }
 
         Either.Ok(Unit)
-    }
-
-    private suspend fun mergeToolConfig(workTree: File): Either<MergeToolConfig, GitError> = either {
-        val output = gitCli.execute(
-            workTree,
-            listOf("config", "-z", "--get-regexp", """^merge\.(gui)?tool$|^mergetool\.(keepbackup|writetotemp)$"""),
-        ).bind()
-
-        // 1 means that none of the keys is set
-        if (output.exitCode != 0 && output.exitCode != 1) {
-            raiseError(GitCliError.CommandFailed("git config", output.exitCode, output.stderr.trim()))
-        }
-
-        Either.Ok(parseMergeToolConfig(output.stdout))
     }
 
     /**
@@ -162,6 +148,21 @@ internal data class MergeToolConfig(
             addAll(listOf("-c", "mergetool.writeToTemp=true"))
         }
     }
+}
+
+/** The merge tool settings that [OpenMergeToolGitAction] reads, from the git config of [workTree]. */
+internal suspend fun readMergeToolConfig(gitCli: GitCli, workTree: File): Either<MergeToolConfig, GitError> = either {
+    val output = gitCli.execute(
+        workTree,
+        listOf("config", "-z", "--get-regexp", """^merge\.(gui)?tool$|^mergetool\.(keepbackup|writetotemp)$"""),
+    ).bind()
+
+    // 1 means that none of the keys is set
+    if (output.exitCode != 0 && output.exitCode != 1) {
+        raiseError(GitCliError.CommandFailed("git config", output.exitCode, output.stderr.trim()))
+    }
+
+    Either.Ok(parseMergeToolConfig(output.stdout))
 }
 
 /**

@@ -10,8 +10,8 @@ import dev.app.leaf.domain.models.TextMerge
 
 interface IWriteConflictResultGitAction {
     /**
-     * Writes [merge]'s result into [file]'s working file, with markers for the conflicts still open. Nothing is
-     * staged.
+     * Writes [merge]'s result into [file]'s working file, with markers for the conflicts still open, and returns the
+     * id that git gives the bytes written, for the next write's check. Nothing is staged.
      *
      * Refuses when the index's versions of the file changed since [file] was loaded, and when the working file did,
      * unless [overwriteChanges]. [file]'s content must be text.
@@ -21,5 +21,5 @@ interface IWriteConflictResultGitAction {
         file: ConflictedFile,
         merge: TextMerge,
         overwriteChanges: Boolean,
-    ): Either<Unit, GitError>
+    ): Either<String, GitError>
 }

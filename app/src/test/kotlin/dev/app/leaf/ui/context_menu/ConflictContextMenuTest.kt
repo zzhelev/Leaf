@@ -124,7 +124,23 @@ class ConflictContextMenuTest {
         assertTrue("Discard 3 files" in labels, labels.toString())
     }
 
-    private fun singleMenu(entry: StatusEntry, calls: MutableList<String> = mutableListOf()) =
+    @Test
+    fun `with the built-in resolver, a conflicted file's menu starts with Resolve`() {
+        val calls = mutableListOf<String>()
+        val items = singleMenu(bothChanged, calls, withResolver = true)
+
+        assertEquals(listOf("Resolve…", "Open in external merge tool", "Use ours", "Use theirs"), labelsOf(items).take(4))
+
+        items.first().onClick()
+        assertEquals(listOf("resolve"), calls)
+        assertFalse(labelsOf(singleMenu(modified, withResolver = true)).contains("Resolve…"))
+    }
+
+    private fun singleMenu(
+        entry: StatusEntry,
+        calls: MutableList<String> = mutableListOf(),
+        withResolver: Boolean = false,
+    ) =
         statusEntryContextMenuItems(
             statusEntry = entry,
             entryType = EntryType.UNSTAGED,
@@ -136,6 +152,7 @@ class ConflictContextMenuTest {
             conflictActions = ConflictMenuActions(
                 onOpenInExternalMergeTool = { calls += "merge tool" },
                 onUseSide = { calls += it.name },
+                onResolve = if (withResolver) ({ calls += "resolve" }) else null,
             ),
         ).filterIsInstance<ContextMenuElement.ContextTextEntry>()
 

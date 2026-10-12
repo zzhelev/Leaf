@@ -377,6 +377,8 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.SectionSizesChanged -> statusSectionsConfig.save(action.sizes)
         is StatusAction.OpenInExternalMergeTool -> openMergeToolUseCase(action.statusEntry.filePath)
         is StatusAction.UseConflictSide -> resolveConflictUseCase(action.filePaths, action.side)
+        // RepositoryOpenViewModel shows the resolver
+        is StatusAction.OpenInResolver -> Unit
     }
 
     fun rejectCommitterData() {

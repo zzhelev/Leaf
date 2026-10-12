@@ -190,6 +190,7 @@ fun DiffPane(
                         statusEntry = entry,
                         sides = conflictSides,
                         onOpenInExternalMergeTool = { viewModel.onAction(StatusAction.OpenInExternalMergeTool(entry)) },
+                        onResolve = { viewModel.onAction(StatusAction.OpenInResolver(entry)) },
                         onUseSide = { side ->
                             val action = ConfirmableAction.UseConflictSide(listOf(entry), side, conflictSides)
                             val resolve = { viewModel.onAction(StatusAction.UseConflictSide(listOf(entry.filePath), side)) }

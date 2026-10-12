@@ -9,6 +9,7 @@ import dev.app.leaf.data.git.symlinkTo
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictResolution
 import dev.app.leaf.domain.models.ConflictedFile
@@ -73,7 +74,7 @@ class WriteConflictResultGitActionTest {
             val file = load()
             // So that the file's bytes are the resolver's
             notes.writeText("replaced\n")
-            assertEquals(Either.Ok(Unit), write(file, file.merge, overwriteChanges = true))
+            assertWritten(write(file, file.merge, overwriteChanges = true))
 
             assertEquals(written.decodeToString(), notes.readText())
         }
@@ -87,7 +88,7 @@ class WriteConflictResultGitActionTest {
 
         val file = load()
 
-        assertEquals(Either.Ok(Unit), write(file, file.merge.resolvingAll(ConflictResolution.Ours)))
+        assertWritten(write(file, file.merge.resolvingAll(ConflictResolution.Ours)))
         assertEquals("main\n", notes.readText())
         assertTrue(notes.canExecute())
     }
@@ -102,7 +103,7 @@ class WriteConflictResultGitActionTest {
 
         val file = load()
 
-        assertEquals(Either.Ok(Unit), write(file, file.merge.resolvingAll(ConflictResolution.Theirs)))
+        assertWritten(write(file, file.merge.resolvingAll(ConflictResolution.Theirs)))
         assertEquals("feature\n", notes.readText())
         assertTrue(notes.canExecute())
     }
@@ -116,7 +117,7 @@ class WriteConflictResultGitActionTest {
         val file = load()
         notes.writeText("replaced\n")
 
-        assertEquals(Either.Ok(Unit), write(file, file.merge, overwriteChanges = true))
+        assertWritten(write(file, file.merge, overwriteChanges = true))
         assertEquals(written, notes.readText())
         assertTrue(written.startsWith("<<<<<<<<<< HEAD\n"))
     }
@@ -133,11 +134,11 @@ class WriteConflictResultGitActionTest {
         assertEquals("main\n", file.merge.ours.rawContent.decodeToString())
         assertEquals(WorkingFileState.MATCHES, file.text.workingFile.state)
 
-        assertEquals(Either.Ok(Unit), write(file, file.merge))
+        assertWritten(write(file, file.merge))
         assertArrayEquals(written, notes.readBytes())
 
         val again = load()
-        assertEquals(Either.Ok(Unit), write(again, again.merge.resolvingAll(ConflictResolution.Theirs)))
+        assertWritten(write(again, again.merge.resolvingAll(ConflictResolution.Theirs)))
         assertEquals("feature\r\n", notes.readText())
     }
 
@@ -187,7 +188,7 @@ class WriteConflictResultGitActionTest {
             assertEquals(Either.Err(ConflictError.WorkingFileChanged("notes.txt")), write(file, resolved))
             assertEquals("an agent's resolution\n", notes.readText())
 
-            assertEquals(Either.Ok(Unit), write(file, resolved, overwriteChanges = true))
+            assertWritten(write(file, resolved, overwriteChanges = true))
             assertEquals("feature\n", notes.readText())
         }
 
@@ -198,7 +199,7 @@ class WriteConflictResultGitActionTest {
         val file = load()
 
         assertEquals(WorkingFileState.MISSING, file.text.workingFile.state)
-        assertEquals(Either.Ok(Unit), write(file, file.merge.resolvingAll(ConflictResolution.OursThenTheirs)))
+        assertWritten(write(file, file.merge.resolvingAll(ConflictResolution.OursThenTheirs)))
         assertEquals("main\nfeature\n", notes.readText())
     }
 
@@ -259,6 +260,11 @@ class WriteConflictResultGitActionTest {
         val result = getConflictedFile(File(repository, ".git").path, "notes.txt")
 
         return assertInstanceOf(Either.Ok::class.java, result).value as ConflictedFile
+    }
+
+    /** Checks that the write succeeded and returned the id of the bytes now in the file. */
+    private fun assertWritten(result: Either<String, GitError>) {
+        assertEquals(Either.Ok(blobId(notes.readBytes())), result)
     }
 
     private suspend fun write(file: ConflictedFile, merge: TextMerge, overwriteChanges: Boolean = false) =

@@ -48,6 +48,7 @@ import dev.app.leaf.ui.status.StatusAction
 import dev.app.leaf.ui.toUiDataState
 import dev.app.leaf.updates.Update
 import dev.app.leaf.updates.UpdatesRepository
+import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import dev.app.leaf.viewmodels.sidepanel.*
@@ -99,6 +100,8 @@ private const val TAG = "TabViewModel"
 class RepositoryOpenViewModel @Inject constructor(
     private val getWorktreeUseCase: GetWorktreeUseCase,
     private val historyViewModelProvider: Provider<HistoryViewModel>,
+    private val conflictResolverViewModelProvider: Provider<ConflictResolverViewModel>,
+    private val getMergeToolUseCase: GetMergeToolUseCase,
     val appStateManager: AppStateManager,
     private val openFilePickerUseCase: OpenFilePickerUseCase,
     private val openUrlInBrowserUseCase: OpenUrlInBrowserUseCase,
@@ -571,6 +574,8 @@ class RepositoryOpenViewModel @Inject constructor(
 
             resetBlameState()
             closeHistory()
+            // Its picks aren't saved: they were made in the other worktree's file
+            conflictResolverViewModel?.closeNow()
         }
     }
 
@@ -922,6 +927,7 @@ class RepositoryOpenViewModel @Inject constructor(
     override fun onClear() {
         // Fork-only: this override was left empty, so the view model's pipelines outlived its tab
         historyViewModel?.onClear()
+        conflictResolverViewModel?.onClear()
         super.onClear()
     }
 
@@ -996,6 +1002,75 @@ class RepositoryOpenViewModel @Inject constructor(
         historyViewModel = null
     }
 
+    /** Fork-only: the built-in conflict resolver, which takes the whole tab, as file history does. */
+    val showConflictResolver: StateFlow<Boolean>
+        field = MutableStateFlow(false)
+
+    var conflictResolverViewModel: ConflictResolverViewModel? = null
+        private set
+
+    /** Opens [path], or the first conflicted file, in the resolver, or switches the open resolver to it. */
+    fun openConflictResolver(path: String?) {
+        val open = conflictResolverViewModel
+
+        if (open != null) {
+            path?.let { open.selectFile(it) }
+            return
+        }
+
+        closeHistory()
+
+        conflictResolverViewModel = conflictResolverViewModelProvider.get().also { viewModel ->
+            viewModel.open(path, onClose = ::removeConflictResolver)
+        }
+        showConflictResolver.value = true
+    }
+
+    /** Closes the resolver, which asks first when the file has picks that aren't saved (Esc, "← Changes"). */
+    fun closeConflictResolver() {
+        conflictResolverViewModel?.close()
+    }
+
+    /** The resolver's Save, for Cmd+S, which is Stash elsewhere: git can't stash while files have conflicts. */
+    fun saveInConflictResolver() {
+        conflictResolverViewModel?.save()
+    }
+
+    private fun removeConflictResolver() {
+        showConflictResolver.value = false
+        conflictResolverViewModel?.onClear()
+        conflictResolverViewModel = null
+    }
+
+    /**
+     * Double-click on a conflicted file and the banner's Resolve conflicts: the built-in resolver, or the external merge
+     * tool when the settings pick it, it can take the file and git has one set (Settings → Conflicts).
+     */
+    private fun openConflict(entry: StatusEntry) {
+        viewModelScope.launch {
+            val external = appSettings.conflictOpener.first() == ConflictOpener.EXTERNAL_TOOL &&
+                entry.canOpenInMergeTool &&
+                getMergeToolUseCase() != null
+
+            if (external) {
+                statusViewModelExtender.onAction(StatusAction.OpenInExternalMergeTool(entry))
+            } else {
+                openConflictResolver(entry.filePath)
+            }
+        }
+    }
+
+    /** The banner's Resolve conflicts: the first conflicted file, as [openConflict] opens it. */
+    fun resolveConflicts() {
+        val first = statusState.value.unstaged.firstOrNull { it.statusType == StatusType.CONFLICTING }
+
+        if (first != null) {
+            openConflict(first)
+        } else {
+            openConflictResolver(null)
+        }
+    }
+
     fun refreshAll() = tabScope.launch {
         val currentTask = repositoryStateRepository.currentTask
         printLog(TAG, "Manual refresh triggered. Current task: $currentTask")
@@ -1031,7 +1106,14 @@ class RepositoryOpenViewModel @Inject constructor(
 
 
     fun onAction(action: StatusAction) {
-        statusViewModelExtender.onAction(action)
+        when {
+            // Fork-only: a conflicted file opens to be resolved, instead of being staged with its markers
+            action is StatusAction.EntryAction && action.statusEntry.statusType == StatusType.CONFLICTING &&
+                action.statusEntry.entryType == EntryType.UNSTAGED -> openConflict(action.statusEntry)
+
+            action is StatusAction.OpenInResolver -> openConflictResolver(action.statusEntry.filePath)
+            else -> statusViewModelExtender.onAction(action)
+        }
     }
 
     fun onAction(action: CommitChangesAction) {

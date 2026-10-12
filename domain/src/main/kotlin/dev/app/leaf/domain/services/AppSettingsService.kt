@@ -5,6 +5,7 @@ import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.LogColumnsSettings
+import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -64,6 +65,10 @@ class AppSettingsService @Inject constructor(
         get() = appSettingsRepository.worktreesRefreshInterval.defaultIfNull {
             WorktreesRefreshIntervals.DEFAULT_SECONDS
         }
+
+    /** What double-clicking a conflicted file and the banner's Resolve conflicts open. */
+    val conflictOpener: Flow<ConflictOpener>
+        get() = appSettingsRepository.conflictOpener.defaultIfNull { ConflictOpener.DEFAULT }
     val cacheCredentialsInMemory: Flow<Boolean> get() = appSettingsRepository.cacheCredentialsInMemory.defaultIfNull { DEFAULT_CACHE_CREDENTIALS_IN_MEMORY }
     val terminalPath: Flow<String?> get() = appSettingsRepository.terminalPath
 

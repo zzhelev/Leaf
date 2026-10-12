@@ -24,6 +24,14 @@ fun statusEntryContextMenuItems(
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
         if (conflictActions != null && statusEntry.conflict != null) {
+            conflictActions.onResolve?.let { onResolve ->
+                addContextMenu(
+                    composableLabel = { stringResource(Res.string.status_entries_context_menu_resolve) },
+                    icon = { painterResource(Res.drawable.compare_arrows) },
+                    onClick = onResolve,
+                )
+            }
+
             if (statusEntry.canOpenInMergeTool) {
                 addContextMenu(
                     composableLabel = {

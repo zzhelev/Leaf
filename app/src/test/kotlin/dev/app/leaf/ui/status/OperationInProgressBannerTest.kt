@@ -125,6 +125,21 @@ class OperationInProgressBannerTest {
     }
 
     @Test
+    fun `while files have conflicts, Resolve conflicts comes before Abort`(): Unit = runBlocking(Dispatchers.Swing) {
+        val merge = render(OperationInProgress(Operation.MERGE, 1), withResolve = true, click = "Resolve conflicts")
+
+        assertEquals(
+            listOf("Merge stopped at conflicts in 1 file. Resolve them, then commit.", "Resolve conflicts", "Abort merge"),
+            merge.texts,
+        )
+        assertEquals(1, merge.resolves)
+        assertEquals(
+            listOf("Cherry-pick in progress. Commit to finish it.", "Abort cherry-pick"),
+            render(OperationInProgress(Operation.CHERRY_PICK, 0), withResolve = true).texts,
+        )
+    }
+
+    @Test
     fun `while files have conflicts, the banner says which branch is ours and which is theirs`(): Unit =
         runBlocking(Dispatchers.Swing) {
             val sides = ConflictSides(
@@ -213,14 +228,19 @@ class OperationInProgressBannerTest {
         return Aborted(checkNotNull(asked), actions)
     }
 
-    private data class Rendered(val texts: List<String>, val aborts: Int)
+    private data class Rendered(val texts: List<String>, val aborts: Int, val resolves: Int = 0)
 
-    /** Renders the banner offscreen, and clicks the element whose text is [click]. */
-    private fun render(inProgress: OperationInProgress, click: String? = null): Rendered {
+    /** Renders the banner offscreen, with Resolve conflicts when [withResolve], and clicks the element whose text is [click]. */
+    private fun render(inProgress: OperationInProgress, click: String? = null, withResolve: Boolean = false): Rendered {
         var aborts = 0
+        var resolves = 0
         val scene = ImageComposeScene(width = 1000, height = 100, density = Density(1f)) {
             AppTheme {
-                OperationInProgressBanner(inProgress, onAbort = { aborts++ })
+                OperationInProgressBanner(
+                    inProgress,
+                    onAbort = { aborts++ },
+                    onResolveConflicts = if (withResolve) ({ resolves++ }) else null,
+                )
             }
         }
 
@@ -244,7 +264,7 @@ class OperationInProgressBannerTest {
 
             val texts = nodes.flatMap { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } }
 
-            return Rendered(texts.distinct(), aborts)
+            return Rendered(texts.distinct(), aborts, resolves)
         } finally {
             scene.close()
         }

@@ -401,6 +401,7 @@ fun ChangesList(
             conflictActions = ConflictMenuActions(
                 onOpenInExternalMergeTool = { onAction(StatusAction.OpenInExternalMergeTool(statusEntry)) },
                 onUseSide = { side -> onUseConflictSide(listOf(statusEntry), side) },
+                onResolve = { onAction(StatusAction.OpenInResolver(statusEntry)) },
             ),
         )
     }
