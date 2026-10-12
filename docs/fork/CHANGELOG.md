@@ -2,6 +2,71 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Toasts stay long enough to read (branch `claude/zen-volhard-54d7bb`)
+
+- **Before:** every toast went after 2 s, usually before a longer message such as "Merge stopped at conflicts, fix
+  them to continue" could be read.
+- **Now:** a toast stays 2 s to be noticed plus 60 ms a character, between 4 and 12 s, and a warning or an error at
+  least 6 s. While the pointer is over it, it stays (`notificationDuration`, `AppTab`).
+- **Tests:** `NotificationDurationTest` (3). Mutation check: 4 mutations, all caught. Hovering isn't covered by a test.
+
+## Conflicts: the external merge tool, ours and theirs (branch `claude/zen-volhard-54d7bb`)
+
+Phase 3, item 6 of `docs/fork/PLAN.md`. Findings about `git mergetool` are in `CLAUDE.md` (Resolving conflicts).
+
+- **Before:** Leaf listed conflicted files and showed them against ours, but couldn't resolve them. The file had to be
+  edited elsewhere, then staged. "Discard file changes" on a conflicted file quietly took ours.
+- **Now:**
+  - A conflicted file's Unstaged menu starts with **Open in external merge tool**, **Use ours** and **Use theirs**. A
+    selection of conflicted files gets "Use ours for N files" and "Use theirs for N files".
+  - Its diff has a strip under the header, with the same buttons and which branch is which: "Ours: main · Theirs:
+    feature/retry". The banner adds the same while files have conflicts, and the buttons' tooltips and the dialog
+    name the sides too. In a rebase, ours is `main (onto)` and theirs the commit replayed, with its branch.
+  - **Open in external merge tool** runs `git mergetool` with the tool that git picks for `--gui` (`merge.guitool`,
+    then `merge.tool`), so the user's Meld or other tool opens with their own settings. The tab waits behind the
+    processing screen, "Waiting for the merge tool", with Cancel. It also works in a linked worktree.
+  - Leaf adds `-c mergetool.keepBackup=false` and `-c mergetool.writeToTemp=true`, unless the user set them. Without
+    them, `<file>.orig` showed up in Unstaged, and git left its `_BASE_`, `_LOCAL_` and `_REMOTE_` copies in the
+    working tree whenever it stopped early.
+  - Without a merge tool set, Leaf says so and how to set one, and doesn't run git, which would guess one, ask before
+    starting it, and leave its copies behind.
+  - A conflict that the tool can't take is left to ours and theirs: a deletion, a symlink or a submodule on a side, and
+    a name with `*`, `?` or `[`. git asks on a terminal about the first three, even with `--no-prompt`. For the last,
+    git-mergetool lets the shell expand the name, and merged `a.txt` in place of `[ab].txt`.
+  - When the tool closes without saving (its exit code untrusted and the file unchanged), git asks "Was the merge
+    successful?", which reads the end of input: the file stays conflicted, and the error shows what git and the tool
+    printed. When the exit code is trusted and the file still has conflict markers, git stages it anyway. Leaf
+    then puts the conflict back with `git update-index --unresolve`, keeping the file as the tool left it, and says so
+    in a dialog. A tool started with `open -a` on macOS, as the user's Meld was, runs from `/`, can't write git's
+    relative path, and exits with 0 all the same.
+  - **Use ours** and **Use theirs** ask first. They run `git checkout --ours|--theirs` and `git add`, `git rm` where
+    the chosen side deleted the file, and `git update-index --cacheinfo` for a submodule, as `git add` would stage
+    the commit the submodule has checked out.
+  - Not in this change: double-click and the banner keep what they did. The built-in resolver that another session is
+    designing adds them, with a setting to pick it or the external tool.
+- **Tests:** 69 new.
+  - `:data` (50): `OpenMergeToolGitActionTest` runs `git mergetool` with a fake tool set up through
+    `mergetool.<name>.cmd`: a tool that saves, one that closes without saving (exit code trusted or not), one that
+    fails, no tool, an unknown tool, a missing one, `merge.guitool` first, the user's own `keepBackup`, `writeToTemp`
+    and `prompt`, each refusal, a name with spaces, a linked worktree, markers left (the conflict comes back, and a
+    partial resolution stays), and Cancel, which kills the tool.
+    `ResolveConflictGitActionTest` compares ours and theirs with git's own commands, deletions and a submodule
+    included. `ConflictStatusTest`, `GetConflictSidesGitActionTest` (merges, rebases by git and by JGit,
+    cherry-picks, reverts, a stash, a linked worktree) and `MergeToolConfigTest`.
+  - `:domain` (5): `FileConflictTest`, which conflicts the merge tool takes.
+  - `:app` (14): the menus (`ConflictContextMenuTest`), the side names (`ConflictSideLabelsTest`), the banner and the
+    dialog.
+  - **Mutation check:** 39 mutations. The first pass missed two: no test set `mergetool.prompt`, which `--no-prompt`
+    overrides, and the test of a name such as `[ab].txt` didn't check that `a.txt`'s file was left alone, which
+    `checkout` without `--literal-pathspecs` overwrote. Both are caught now.
+  - Offscreen, through the real Dagger graph, on a repository with a merge stopped at conflicts: the banner, the
+    strip and the dialog rendered, the fake tool resolved one file and "Use ours" the other. The diff header had no
+    room for the buttons in a narrow pane, hence the strip.
+  - By hand, with the user's Meld: it opened, and once closed, git staged the file with its markers (see the `open -a`
+    note above), which is why Leaf now puts the conflict back. The user's git config now uses git's own Meld support.
+  - `./gradlew build` passes, with 1067 tests (129 in `:app`, 707 in `:data`, 224 in `:domain`, 7 in `:common`), on
+    `main` at `3a7666d9` (creating worktrees), the toast change above included.
+
 ## Create worktrees, with the ignored files they need (branch `feat/worktree-create`)
 
 Phase 3.2 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.

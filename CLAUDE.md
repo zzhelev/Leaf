@@ -298,7 +298,10 @@ code, "worktree" means the working directory, not linked worktrees.
   conflicts passes `stoppedAtConflicts` to `executeLaunch`, which tells it from the result (merge, rebase and pull
   give `true`). It's recorded as `CompletedTask.Success(stoppedAtConflicts = true)` (`addCompletedTaskWithConflicts`),
   and its toast warns with `conflictsTitle()` ("Merge stopped at conflicts, fix them to continue").
-  - The toast is gone after 2 s, so `OperationInProgressBanner` (fork-only, `ui/status/`) shows an amber strip under
+  - Fork-only: a toast stays as long as its text takes to read (`notificationDuration`: 2 s plus 60 ms a character,
+    4 to 12 s, and at least 6 s for a warning or an error), and while the pointer is over it. Upstream's went after
+    2 s, before a longer message could be read.
+  - The toast is gone after a few seconds, so `OperationInProgressBanner` (fork-only, `ui/status/`) shows an amber strip under
     the toolbar while the repository is in the middle of a merge, rebase, cherry-pick or revert, with the files that
     still have conflicts and an Abort button right after the text (the text is only as wide as it needs, so the
     button doesn't drift to the far right of a wide window). It follows `StatusState` (`operationInProgress`), not the task, so it
@@ -388,6 +391,64 @@ conflicts compares the working file with ours (stage 2). For a file that both si
 - The rest of the diff code is unchanged. It reads the old side by object id and the new side from the working tree
   by path, whatever index it scanned.
 - Conflicted files get no hunk or line actions (see above).
+
+**Resolving conflicts (fork-only, `data/git/conflicts/`, models in `domain/models/FileConflict.kt`):** "Open in merge
+tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Findings from git 2.54 are in the tests.
+- `StatusEntry.conflict` (a `FileConflict`) says what ours (stage 2) and theirs (stage 3) have at a conflicted path: a
+  file, a symlink, a submodule, or nothing where that side deleted it. `GetStatusGitAction` reads it from the index
+  (`fileConflicts` in `IndexConflicts.kt`). git records a file against a symlink or a submodule at two paths
+  (`both`, `both~feature`), each with one side.
+- **Merge tool (`OpenMergeToolGitAction`):** `git --literal-pathspecs mergetool --tool=<tool> --no-prompt -- <path>` in
+  the tab's working tree, with no timeout and stdin closed. The tool is `merge.guitool`, else `merge.tool`, as
+  `--gui` picks it, so the user's `mergetool.<tool>.cmd`, `.path` and `.trustExitCode` apply.
+  - Leaf names the tool itself: without one, git guesses and asks "Hit return to start" even with `--no-prompt`, and an
+    unknown `merge.tool` sends it there too. None set is `ConflictError.NoMergeTool`, and git isn't run.
+  - Only a conflict between two files goes to git (`mergeToolRefusal`). For a deletion, a symlink or a submodule, git
+    asks which side to keep, also with `--no-prompt`. Names with `*`, `?` or `[` are refused too: git-mergetool's
+    `set -- $files` lets the shell expand them, and `[ab].txt` merged `a.txt`, whatever `--literal-pathspecs` says.
+  - When git stops at a question, or the tool isn't installed, it exits without removing its `_BASE_`, `_LOCAL_`,
+    `_REMOTE_` and `_BACKUP_` copies. So Leaf adds `-c mergetool.writeToTemp=true`, which puts them in a temporary
+    folder, and `-c mergetool.keepBackup=false`, so that no `<file>.orig` shows in Unstaged. Each only when the user
+    hasn't set it (`MergeToolConfig`).
+  - "Was the merge successful?" (an untrusted exit code and a file that isn't newer than its backup, to the second)
+    reads the end of input: git puts the file back, exits 1, and Leaf reports `ConflictError.NotResolved` with what git
+    and the tool printed. So does a trusted exit code other than 0.
+  - A trusted exit code of 0 stages the file whatever it holds. `git diff --cached --check` then looks for
+    `leftover conflict marker`, and when it finds one, `git update-index --unresolve` puts the conflict back from the
+    index's resolve-undo record, leaving the file as the tool left it, partial work included (`git checkout -m` would
+    rewrite it). That's `ConflictError.MarkersLeft`, in `ErrorDialog`.
+  - A `mergetool.<tool>.cmd` that starts the tool with `open -a` (macOS) runs it from `/`, so git's relative paths
+    (`$MERGED`, and `$LOCAL` without `writeToTemp`) point nowhere, and `open -W` exits with 0 whether the file was
+    saved or not. With `trustExitCode`, that staged the file with its markers before the check above. git's own
+    support for a tool runs its program from the working tree: Homebrew's `meld` wrapper execs Meld's binary.
+  - The processing screen shows `<tool>: <path>` with Cancel, which kills git and what it started. A tool that detaches
+    from its starter, as `open -W -a Meld` does, stays open.
+- **Ours and theirs (`ResolveConflictGitAction`):** for a side that has a file, `git checkout --ours|--theirs` then
+  `git add`; for one that deleted it, `git rm`; for a submodule, `git update-index --cacheinfo` with that side's commit
+  (`git add` would stage whatever the submodule has checked out). All with `--literal-pathspecs`. A path that has no
+  conflicts any more stops it before anything runs (`ConflictError.NotConflicted`).
+- **Which side is which (`GetConflictSidesGitAction`, `ConflictSides`):** read from what git and JGit leave in the
+  worktree's git dir. Merge: HEAD's branch, and `MERGE_HEAD`'s (a local branch at it, then a remote one, then the name
+  in git's merge message). Rebase: the branch at `onto`, and the commit replayed (`REBASE_HEAD`, or JGit's
+  `rebase-merge/stopped-sha`) with `head-name`'s branch. Cherry-pick and revert: HEAD's branch, and the commit. Anything
+  else (a stash that didn't apply cleanly) has no theirs. `StatusViewModelExtender.conflictSides` reads them again with
+  each status that has conflicts, as a rebase's next commit can stop at the same files.
+  `ui/status/ConflictSideLabels.kt` words them: `main`, `main (onto)`, `a1b2c3d "Fix parser" from feature`,
+  `the revert of …`.
+- **UI:** a conflicted file's Unstaged menu starts with "Open in external merge tool" (only when `canOpenInMergeTool`),
+  "Use ours" and "Use theirs"; a selection of conflicted files only gets the last two. The diff pane of a conflicted
+  file has `ConflictBar` under its header: "Ours: main · Theirs: feature", then the same buttons, with the sides in
+  their tooltips. The header itself had no room in a narrow pane. `OperationInProgressBanner` adds the same sides after
+  its message while files have conflicts.
+  - Ours and theirs ask first (`ConfirmableAction.UseConflictSide`): the other side's changes and the user's edits are
+    lost, and a file that the chosen side deleted is deleted.
+  - Their toast is "Conflict resolved". Markers left by the merge tool give `ErrorDialog` instead, which stays.
+  - Double-click on a conflicted file and the banner have no conflict action of their own: the built-in resolver
+    (`docs/fork/conflict-resolver.md`, another session's work) adds them, with a setting to pick it or the external
+    tool.
+- Tests: `OpenMergeToolGitActionTest` sets up a fake tool through `mergetool.<name>.cmd`, as users set up Meld, and
+  `ConflictRepository.kt` makes each kind of conflict. git compares the file's time with its backup's to the second,
+  so a fake tool with an untrusted exit code has to `touch -t` the file. git removes its copies once the tool exits.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,
@@ -840,7 +901,8 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     `ConfirmableAction` says what the dialog shows, and `onConfirm` is what the button used to run, so the action's
     own code is unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote
     branch or a remote, dropping a stash, aborting a merge, rebase, cherry-pick or revert, skipping a rebase commit,
-    force push, and discarding a file or a selection (the Staged and Unstaged menus), a hunk or a line (the diff).
+    force push, discarding a file or a selection (the Staged and Unstaged menus), a hunk or a line (the diff), and
+    resolving conflicts with ours or theirs.
     Discarding a folder has its own `DiscardChangesDialog`. The reset dialog warns when Hard would discard
     uncommitted changes.
   - Discards show what is lost: a hunk's header, the line. A file or a selection in the Staged list loses its unstaged
