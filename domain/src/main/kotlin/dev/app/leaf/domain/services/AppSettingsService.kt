@@ -74,6 +74,10 @@ class AppSettingsService @Inject constructor(
     /** How the built-in resolver lays out the sides and the result. */
     val conflictResolverLayout: Flow<ConflictResolverLayout>
         get() = appSettingsRepository.conflictResolverLayout.defaultIfNull { ConflictResolverLayout.DEFAULT }
+
+    /** Whether the built-in resolver wraps long lines. */
+    val conflictResolverWrapLines: Flow<Boolean>
+        get() = appSettingsRepository.conflictResolverWrapLines.defaultIfNull { true }
     val cacheCredentialsInMemory: Flow<Boolean> get() = appSettingsRepository.cacheCredentialsInMemory.defaultIfNull { DEFAULT_CACHE_CREDENTIALS_IN_MEMORY }
     val terminalPath: Flow<String?> get() = appSettingsRepository.terminalPath
 

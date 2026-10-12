@@ -546,8 +546,9 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
     throws "performMeasureAndLayout called during measure layout" when the collector runs during a layout, as it does
     in an offscreen scene, whose effects run inline. That exception killed the follower without failing anything.
 - **Widths and long lines:** the Columns layout's gutters and the file list's edge are drag handles (`dragHandle`,
-  `ColumnShares` in `domain/conflicts/ResolverSizes.kt`), and "Wrap lines" in the toolbar turns wrapping off. All three
-  are kept in `ConflictResolverSession` until Leaf quits.
+  `ColumnShares` in `domain/conflicts/ResolverSizes.kt`), kept in `ConflictResolverSession` until Leaf quits. "Wrap
+  lines" in the toolbar turns wrapping off, and writes the setting "Wrap long lines" in Settings → Conflicts
+  (`AppConfig.ConflictResolverWrapLines`, `conflict_resolver_wrap_lines`, on by default), which the view model reads.
   - Without wrapping, `LineText` (`ResolverSideways.kt`) lays each line out on one row through `UnwrappedNode`, which
     measures it with an unbounded width and places it `SidewaysScroll.offset` to the left, so scrolling only places
     the lines again. It answers intrinsic heights for an unbounded width: the rows' `IntrinsicSize.Min` asks with the

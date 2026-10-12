@@ -633,6 +633,8 @@
     <string name="settings_conflicts_layout_subtitle">How the built-in resolver shows a file. Columns puts ours, the result and theirs side by side. Stacked puts ours and theirs on top and the result below at the full width, which suits a narrow or portrait screen. The resolver's toolbar switches it too.</string>
     <string name="settings_conflicts_layout_columns">Columns</string>
     <string name="settings_conflicts_layout_stacked">Stacked</string>
+    <string name="settings_conflicts_wrap_title">Wrap long lines</string>
+    <string name="settings_conflicts_wrap_subtitle">Wrap lines that don't fit their column in the built-in resolver. Turned off, each line stays on one row, and every column scrolls sideways together, as in Meld. The resolver's toolbar has the same switch, Wrap lines.</string>
     <string name="settings_layout_confirm_hunk_and_line_discards_title">Ask before discarding a hunk or a line</string>
     <string name="settings_layout_confirm_hunk_and_line_discards_subtitle">Discarding whole files always asks</string>
     <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation, which reaches HTTPS remotes but not SSH ones.</string>

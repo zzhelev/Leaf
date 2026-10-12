@@ -46,6 +46,7 @@ interface AppSettingsRepository {
     val worktreesRefreshInterval: Flow<Int?>
     val conflictOpener: Flow<ConflictOpener?>
     val conflictResolverLayout: Flow<ConflictResolverLayout?>
+    val conflictResolverWrapLines: Flow<Boolean?>
 
     // Network
     val cacheCredentialsInMemory: Flow<Boolean?>

@@ -42,4 +42,7 @@ sealed interface AppConfig {
 
     /** How the built-in resolver lays out the sides and the result (fork-only). */
     data class ConflictResolverLayout(val value: dev.app.leaf.domain.models.ConflictResolverLayout) : AppConfig
+
+    /** Whether the built-in resolver wraps long lines, or keeps each on one row and scrolls sideways (fork-only). */
+    data class ConflictResolverWrapLines(val value: Boolean) : AppConfig
 }

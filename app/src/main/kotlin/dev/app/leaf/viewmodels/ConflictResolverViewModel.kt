@@ -69,7 +69,6 @@ class ConflictResolverViewModel @Inject constructor(
                 stackedSplit = session.stackedSplit,
                 columnShares = session.columnShares,
                 fileListWidth = session.fileListWidth,
-                wrapLines = session.wrapLines,
             )
         )
 
@@ -96,6 +95,10 @@ class ConflictResolverViewModel @Inject constructor(
 
         viewModelScope.launch {
             appSettingsService.conflictResolverLayout.collect { layout -> state.update { it.copy(layout = layout) } }
+        }
+
+        viewModelScope.launch {
+            appSettingsService.conflictResolverWrapLines.collect { wrap -> state.update { it.copy(wrapLines = wrap) } }
         }
 
         viewModelScope.launch {
@@ -216,12 +219,15 @@ class ConflictResolverViewModel @Inject constructor(
         state.update { it.copy(fileListWidth = width) }
     }
 
-    /** Long lines wrap, or stay on one row and scroll sideways together. Kept until Leaf quits. */
+    /** Long lines wrap, or stay on one row and scroll sideways together, for the whole app (Settings → Conflicts). */
     fun toggleWrapLines() {
         val wrap = !state.value.wrapLines
 
-        session.wrapLines = wrap
         state.update { it.copy(wrapLines = wrap) }
+
+        viewModelScope.launch {
+            appSettingsService.setConfiguration(AppConfig.ConflictResolverWrapLines(wrap))
+        }
     }
 
     // Conflicts
@@ -417,16 +423,15 @@ class ConflictResolverViewModel @Inject constructor(
 const val DEFAULT_STACKED_SPLIT = 0.45f
 
 /**
- * What the resolver keeps between its views, until Leaf quits: the stacked layout's handle, the columns' and the file
- * list's widths, and whether lines wrap. The user chose not to save them (2026-10-12); saving them as the status pane's
- * sections are would take prefs keys.
+ * What the resolver keeps between its views, until Leaf quits: the stacked layout's handle, and the columns' and the
+ * file list's widths. The user chose not to save them (2026-10-12); saving them as the status pane's sections are would
+ * take prefs keys. Wrap lines is a setting (Settings → Conflicts).
  */
 @Singleton
 class ConflictResolverSession @Inject constructor() {
     var stackedSplit = DEFAULT_STACKED_SPLIT
     var columnShares = ColumnShares()
     var fileListWidth = DEFAULT_FILE_LIST_WIDTH
-    var wrapLines = true
 }
 
 /** What a new status makes of the view. */

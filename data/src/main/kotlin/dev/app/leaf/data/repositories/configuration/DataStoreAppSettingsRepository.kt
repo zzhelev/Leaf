@@ -67,6 +67,7 @@ private val remoteOperationsWithGitPreference get() = booleanPreferencesKey("rem
 private val worktreesRefreshIntervalPreference get() = intPreferencesKey("worktrees_refresh_interval")
 private val conflictOpenerPreference get() = stringPreferencesKey("conflict_opener")
 private val conflictResolverLayoutPreference get() = stringPreferencesKey("conflict_resolver_layout")
+private val conflictResolverWrapLinesPreference get() = booleanPreferencesKey("conflict_resolver_wrap_lines")
 
 private val cacheCredentialsPreference get() = booleanPreferencesKey("cache_credentials_in_memory")
 private val terminalPathPreference get() = stringPreferencesKey("terminal_path")
@@ -144,6 +145,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
         get() = preferences.data[conflictResolverLayoutPreference].map { stored ->
             ConflictResolverLayout.entries.firstOrNull { it.name.lowercase() == stored }
         }
+    override val conflictResolverWrapLines get() = preferences.data[conflictResolverWrapLinesPreference]
 
 
     // Network
@@ -164,6 +166,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.ConflictOpener -> setValue(conflictOpenerPreference, appConfig.value.name.lowercase())
                 is AppConfig.ConflictResolverLayout ->
                     setValue(conflictResolverLayoutPreference, appConfig.value.name.lowercase())
+                is AppConfig.ConflictResolverWrapLines -> setValue(conflictResolverWrapLinesPreference, appConfig.value)
                 is AppConfig.DateFormatCustomFormat -> setValue(dateFormatCustomFormatPreference, appConfig.value)
                 is AppConfig.DateFormatIs24h -> setValue(dateFormatIs24hPreference, appConfig.value)
                 is AppConfig.DateFormatUseDefault -> setValue(dateFormatUseDefaultPreference, appConfig.value)

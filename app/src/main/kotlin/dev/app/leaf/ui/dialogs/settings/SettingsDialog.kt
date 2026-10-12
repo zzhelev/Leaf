@@ -359,6 +359,13 @@ private fun Conflicts(settingsViewState: SettingsViewState, onAction: (SettingsA
         },
         currentOption = settingsViewState.conflictResolverLayout,
     )
+
+    SettingToggle(
+        title = stringResource(Res.string.settings_conflicts_wrap_title),
+        subtitle = stringResource(Res.string.settings_conflicts_wrap_subtitle),
+        value = settingsViewState.conflictResolverWrapLines,
+        onValueChanged = { value -> onAction(SettingsAction.SetConfig(AppConfig.ConflictResolverWrapLines(value))) },
+    )
 }
 
 @Composable

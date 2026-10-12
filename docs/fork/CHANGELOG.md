@@ -27,7 +27,8 @@ Step 3 of the build order in `docs/fork/conflict-resolver.md`: Option B, and the
   - "Wrap lines" in the toolbar, on by default. Turned off, each line stays on one row and every column scrolls sideways
     together, as in Meld: swipe sideways, use Shift and the wheel, or drag the scrollbar under the lines. The line
     numbers and the gap before the text stay put.
-  - The widths and Wrap lines are kept until Leaf quits, as the handle is.
+  - The widths are kept until Leaf quits, as the handle is. Wrap lines is saved for the whole app: Settings →
+    Conflicts has it as "Wrap long lines", and the toolbar's toggle changes that setting.
 - **Fixed:**
   - double-clicking a file, while the resolver was still waiting for the status, could open the first conflicted file
     instead. The file now loads before the status arrives;

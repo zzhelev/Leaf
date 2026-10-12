@@ -210,6 +210,8 @@ too large (over 10 MB on a side, a provisional limit), and text. Only text is me
     the built-in resolver whatever the setting. The entry can show which tool git would run, read-only.
   - **Resolver layout:** Columns (the default) or Stacked, the same choice as the resolver's toolbar toggle
     (`AppConfig.ConflictResolverLayout`, `conflict_resolver_layout`, section 5).
+  - **Wrap long lines:** on by default, the same switch as the toolbar's Wrap lines
+    (`AppConfig.ConflictResolverWrapLines`, `conflict_resolver_wrap_lines`, section 5).
 - **Ours and theirs always say which branch or commit they are.** The user can't remember which is which, and the
   bare names confuse people: a Sublime Merge forum thread asks for clearer labels for exactly this. This holds for
   every step of the UI: the column headers, the arrows' tooltips, the conflict menu, the choice cards, the toolbar and
@@ -322,7 +324,9 @@ the repository; the sketches below show the layouts.
     and a scrollbar under the lines shows where it is. Line numbers stay, and so does the 16 dp gap before the text.
     The longest line of the three versions can reach its end in the narrowest column; a column with shorter lines
     scrolls into blank space.
-  - The widths and Wrap lines are kept with the handle until Leaf quits.
+  - The widths are kept with the handle until Leaf quits. Wrap lines is a setting too, "Wrap long lines" in Settings
+    → Conflicts (`AppConfig.ConflictResolverWrapLines`, `conflict_resolver_wrap_lines`, on by default), which the
+    toolbar's toggle writes, for the whole app (asked for on 2026-10-12).
 
 ### Option C: the result only, with a card per conflict
 
