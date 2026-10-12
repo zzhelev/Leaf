@@ -454,6 +454,7 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
   its message while files have conflicts.
   - Ours and theirs ask first (`ConfirmableAction.UseConflictSide`): the other side's changes and the user's edits are
     lost, and a file that the chosen side deleted is deleted.
+  - Discard leaves conflicted files alone (see Confirmations).
   - Their toast is "Conflict resolved". Markers left by the merge tool give `ErrorDialog` instead, which stays.
   - Double-click on a conflicted file and the banner have no conflict action of their own: the built-in resolver
     (`docs/fork/conflict-resolver.md`, another session's work) adds them, with a setting to pick it or the external
@@ -920,6 +921,13 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   - Discards show what is lost: a hunk's header, the line. A file or a selection in the Staged list loses its unstaged
     changes too, as `DiscardEntriesGitAction` resets the index entry and then checks the file out. Putting back
     removed lines (a line, or a hunk that adds none) or a deleted file loses nothing, so those get no warning.
+  - Discarding never touches a file with conflicts (`StatusEntry.hasConflicts`), as `git restore` refuses one ("path
+    is unmerged"): resetting it took HEAD's version, ours, without saying so, and left a file that ours deleted as an
+    untracked file. Its menu has no "Discard file changes", as "Use ours" and "Use theirs" name the side they take.
+    A selection's and a folder's discard leave such files as they are, and their dialogs say how many
+    (`DiscardedFiles`, from `selectionDiscard` and `folderDiscard`). A selection of conflicted files only gets no
+    Discard. `DiscardEntriesGitAction` reads the index first and refuses an unmerged path with
+    `ConflictError.CantDiscard`, changing nothing, for a status that was stale.
   - Only hunks and lines can stop asking. The diff passes `onStopAsking`, which adds "Don't ask again for hunks and
     lines"; confirming with it checked turns off `AppConfig.ConfirmHunkAndLineDiscards` (`user_prefs.json` key
     `confirm_hunk_and_line_discards`, on by default, Settings → Layout). `DiffPane` reads it through
