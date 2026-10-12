@@ -2,6 +2,15 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Closing the conflict resolver keeps the shortcuts working (branch `claude/resolver-model-f2582e`)
+
+- **Before:** the resolver takes the focus when it opens, for its own keys (F7, Cmd+Enter, ⇧⌘F). Once it closed, by
+  Close, Esc, a worktree switch or with nothing left to resolve, nothing in the tab had the focus, so Esc, F5 and the
+  tab's other shortcuts did nothing until a click. Closing file history or blame had the same gap (the entries below).
+- **Now:** the tab takes the focus back whenever the resolver closes, however it closed.
+- **Tests:** none kept, for the reason given in the Esc entry below. A temporary harness rendered `RepositoryOpenPage`
+  from the real Dagger graph on a demo repository, and listed the focused nodes: after Close and after Esc, none before
+  the fix, and the tab's after it. `:app:test` passes.
 ## Squash-merge or merge a worktree into the base (branch `feat/worktree-merge`)
 
 Phase 3.4 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.

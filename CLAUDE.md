@@ -524,7 +524,9 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
     and the view says "All conflicts resolved", or closes when nothing was resolved here. Leaving a file with unsaved
     picks asks in a strip (`ResolverPrompt`). Save's `WorkingFileChanged` gives Reload or Keep mine.
   - Keys: the tab's handler sends Cmd+S (Stash elsewhere) and Esc to the resolver while it shows; the view handles
-    Cmd+Enter (Mark resolved) and F7 / Shift+F7 itself, so `Keybinding.kt` is unchanged.
+    Cmd+Enter (Mark resolved) and F7 / Shift+F7 itself, so `Keybinding.kt` is unchanged. The view takes the focus when
+    it opens, so `RepositoryOpenPage` gives it back to the tab whenever `showConflictResolver` turns false, however the
+    resolver closed. Without that, the tab's shortcuts did nothing until a click.
   - Colours come from the theme (`primary` for ours, `conflictFile`, `addFile`), and a fixed purple for theirs.
   - The conflicts that three panes can't show get a panel with "Use ours (main)" and "Use theirs (…)", or "Delete the
     file, as … did", through `ResolveConflictUseCase` and the same confirmation as elsewhere.

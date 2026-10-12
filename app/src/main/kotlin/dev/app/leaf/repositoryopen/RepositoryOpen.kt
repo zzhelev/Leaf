@@ -44,6 +44,8 @@ import dev.app.leaf.ui.status.operationInProgress
 import dev.app.leaf.updates.Update
 import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -242,6 +244,14 @@ fun RepositoryOpenPage(
 
     LaunchedEffect(repositoryOpenViewModel) {
         focusRequester.requestFocus()
+    }
+
+    // Fork-only: the conflict resolver has the focus while it shows, so the tab takes it back when it closes, however it
+    // closed (Close, Esc, nothing left to resolve, a switch to another worktree)
+    LaunchedEffect(repositoryOpenViewModel) {
+        repositoryOpenViewModel.showConflictResolver.drop(1).filter { !it }.collect {
+            focusRequester.requestFocus()
+        }
     }
 
     LaunchedEffect(repositoryOpenViewModel) {
