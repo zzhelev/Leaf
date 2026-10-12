@@ -37,10 +37,12 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.log.Log
 import dev.app.leaf.ui.status.OperationInProgressBanner
+import dev.app.leaf.ui.LocalAppChrome
 import dev.app.leaf.ui.status.StatusPane
 import dev.app.leaf.ui.status.abortOperationInProgress
 import dev.app.leaf.ui.status.operationInProgress
 import dev.app.leaf.updates.Update
+import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -56,6 +58,15 @@ fun RepositoryOpenPage(
     val showHistory by repositoryOpenViewModel.showHistory.collectAsState()
     val showConflictResolver by repositoryOpenViewModel.showConflictResolver.collectAsState()
     val tab = LocalTab.current
+
+    // Fork-only: the conflict resolver's Focus hides what is around it, the tab bar included
+    val resolverFocused = showConflictResolver && repositoryOpenViewModel.conflictResolverViewModel.isFocused()
+    val chrome = LocalAppChrome.current
+
+    DisposableEffect(chrome, resolverFocused) {
+        chrome.tabBarHidden = resolverFocused
+        onDispose { chrome.tabBarHidden = false }
+    }
 
     val focusRequester = remember { FocusRequester() }
     var showOpenPopup by remember { mutableStateOf(false) }
@@ -99,10 +110,10 @@ fun RepositoryOpenPage(
                     it.matchesBinding(KeybindingOption.EXIT) -> {
                         // Fork-only: this handler sees Esc before file history and blame, whose own handlers so never
                         // ran. The tab takes the focus back, as when the diff closes, so that the next key reaches it.
-                        // The resolver shows in place of file history, so it closes first.
+                        // The resolver shows in place of file history, so it goes first, and leaves its Focus first.
                         val blame = blameState
                         if (showConflictResolver) {
-                            repositoryOpenViewModel.closeConflictResolver()
+                            repositoryOpenViewModel.escapeConflictResolver()
                         } else if (showHistory) {
                             repositoryOpenViewModel.closeHistory()
                             focusRequester.requestFocus()
@@ -139,46 +150,48 @@ fun RepositoryOpenPage(
             LocalTabFocusRequester provides focusRequester
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Menu(
-                    viewModel = repositoryOpenViewModel,
-                    modifier = Modifier
-                        .padding(
-                            vertical = 4.dp
-                        )
-                        .fillMaxWidth(),
-                    onCreateBranch = { onNavigate(Screen.BranchCreate(null)) },
-                    onNewWorktree = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
-                    onStashWithMessage = { onNavigate(Screen.StashWithMessage) },
-                    onOpenAnotherRepository = { repositoryOpenViewModel.openAnotherRepository(it, tab) },
-                    onOpenAnotherRepositoryFromPicker = {
-                        val repoToOpen = repositoryOpenViewModel.openDirectoryPicker()
-
-                        if (repoToOpen != null) {
-                            repositoryOpenViewModel.openAnotherRepository(repoToOpen, tab)
-                        }
-                    },
-                    onQuickActions = { onNavigate(Screen.QuickActions) },
-                    onShowSettingsDialog = { onNavigate(Screen.Settings) },
-                    onForcePush = {
-                        val branchName = repositoryOpenViewModel.branchesState.value.currentBranch?.simpleName.orEmpty()
-                        val action = ConfirmableAction.ForcePush(branchName)
-
-                        onNavigate(
-                            Screen.ConfirmAction(
-                                action = action,
-                                onConfirm = { repositoryOpenViewModel.push(force = true, pushTags = false) },
+                if (!resolverFocused) {
+                    Menu(
+                        viewModel = repositoryOpenViewModel,
+                        modifier = Modifier
+                            .padding(
+                                vertical = 4.dp
                             )
-                        )
-                    },
-                    showOpenPopup = showOpenPopup,
-                    onShowOpenPopupChange = { showOpenPopup = it }
-                )
+                            .fillMaxWidth(),
+                        onCreateBranch = { onNavigate(Screen.BranchCreate(null)) },
+                        onNewWorktree = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
+                        onStashWithMessage = { onNavigate(Screen.StashWithMessage) },
+                        onOpenAnotherRepository = { repositoryOpenViewModel.openAnotherRepository(it, tab) },
+                        onOpenAnotherRepositoryFromPicker = {
+                            val repoToOpen = repositoryOpenViewModel.openDirectoryPicker()
+
+                            if (repoToOpen != null) {
+                                repositoryOpenViewModel.openAnotherRepository(repoToOpen, tab)
+                            }
+                        },
+                        onQuickActions = { onNavigate(Screen.QuickActions) },
+                        onShowSettingsDialog = { onNavigate(Screen.Settings) },
+                        onForcePush = {
+                            val branchName = repositoryOpenViewModel.branchesState.value.currentBranch?.simpleName.orEmpty()
+                            val action = ConfirmableAction.ForcePush(branchName)
+
+                            onNavigate(
+                                Screen.ConfirmAction(
+                                    action = action,
+                                    onConfirm = { repositoryOpenViewModel.push(force = true, pushTags = false) },
+                                )
+                            )
+                        },
+                        showOpenPopup = showOpenPopup,
+                        onShowOpenPopupChange = { showOpenPopup = it }
+                    )
+                }
 
                 // Fork-only: stays while a merge, rebase, cherry-pick or revert is unfinished, whoever started it
                 val statusState by repositoryOpenViewModel.statusState.collectAsState()
                 val inProgress = operationInProgress(statusState)
 
-                if (inProgress != null) {
+                if (inProgress != null && !resolverFocused) {
                     OperationInProgressBanner(
                         inProgress = inProgress,
                         onResolveConflicts = { repositoryOpenViewModel.resolveConflicts() },
@@ -206,23 +219,25 @@ fun RepositoryOpenPage(
             }
         }
 
-        Spacer(
-            modifier = Modifier
-                .height(1.dp)
-                .fillMaxWidth()
-                .background(MaterialTheme.colors.primaryVariant.copy(alpha = 0.2f))
-        )
+        if (!resolverFocused) {
+            Spacer(
+                modifier = Modifier
+                    .height(1.dp)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colors.primaryVariant.copy(alpha = 0.2f))
+            )
 
 
-        val userInfo by repositoryOpenViewModel.authorInfoSimple.collectAsState()
-        val newUpdate = repositoryOpenViewModel.update.collectAsState().value
+            val userInfo by repositoryOpenViewModel.authorInfoSimple.collectAsState()
+            val newUpdate = repositoryOpenViewModel.update.collectAsState().value
 
-        RepositoryOpenBottomInfoBar(
-            userInfo,
-            newUpdate,
-            onOpenUrlInBrowser = { repositoryOpenViewModel.openUrlInBrowser(it) },
-            onShowAuthorInfoDialog = { onNavigate(Screen.Author) },
-        )
+            RepositoryOpenBottomInfoBar(
+                userInfo,
+                newUpdate,
+                onOpenUrlInBrowser = { repositoryOpenViewModel.openUrlInBrowser(it) },
+                onShowAuthorInfoDialog = { onNavigate(Screen.Author) },
+            )
+        }
     }
 
     LaunchedEffect(repositoryOpenViewModel) {
@@ -239,6 +254,10 @@ fun RepositoryOpenPage(
         }
     }
 }
+
+/** Whether the conflict resolver is in Focus (fork-only). */
+@Composable
+private fun ConflictResolverViewModel?.isFocused(): Boolean = this?.state?.collectAsState()?.value?.focused == true
 
 @Composable
 private fun RepositoryOpenBottomInfoBar(

@@ -1031,6 +1031,11 @@ class RepositoryOpenViewModel @Inject constructor(
         conflictResolverViewModel?.close()
     }
 
+    /** Esc in the resolver: leaves Focus first, then closes it. */
+    fun escapeConflictResolver() {
+        conflictResolverViewModel?.escape()
+    }
+
     /** The resolver's Save, for Cmd+S, which is Stash elsewhere: git can't stash while files have conflicts. */
     fun saveInConflictResolver() {
         conflictResolverViewModel?.save()

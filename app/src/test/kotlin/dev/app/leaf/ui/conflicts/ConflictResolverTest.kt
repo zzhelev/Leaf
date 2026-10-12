@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -20,6 +21,8 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
+import dev.app.leaf.common.OS
+import dev.app.leaf.common.currentOs
 import dev.app.leaf.domain.conflicts.ColumnShares
 import dev.app.leaf.domain.models.ChangedBy
 import dev.app.leaf.domain.models.ConflictCommit
@@ -561,6 +564,75 @@ class ConflictResolverTest {
             }
         }
 
+    @Test
+    fun `in Focus, the file list hides, and the file name in the toolbar switches files`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val selected = mutableListOf<String>()
+            val other = StatusEntry("docs/guide.md", StatusType.CONFLICTING)
+            val done = StatusEntry("README.md", StatusType.CONFLICTING)
+            val focused = state().let { state ->
+                state.copy(
+                    focused = true,
+                    files = state.files + ResolverFileEntry(other, resolvedHere = false) +
+                        ResolverFileEntry(done, resolvedHere = true),
+                )
+            }
+
+            assertTrue("CONFLICTED FILES" in render(state()).texts)
+
+            scene(ResolverLists(), actions = actions(onSelectFile = { selected += it })) { focused }.closing { scene ->
+                scene.frames()
+
+                assertTrue(scene.placesOf("CONFLICTED FILES").isEmpty())
+
+                scene.clickText(entry.filePath)
+                scene.frames()
+                // The menu lists every file; one resolved here can't be opened again
+                assertTrue(scene.placesOf("docs/guide.md").isNotEmpty())
+                val resolved = scene.nodes().first { node ->
+                    node.config.getOrNull(SemanticsActions.OnClick) != null &&
+                        node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == "README.md" }
+                }
+                assertTrue(resolved.config.contains(SemanticsProperties.Disabled))
+                scene.clickText("docs/guide.md")
+                scene.frames()
+
+                assertEquals(listOf("docs/guide.md"), selected)
+            }
+        }
+
+    @Test
+    fun `the toolbar's Focus button turns Focus on and off`(): Unit = runBlocking(Dispatchers.Swing) {
+        var toggled = 0
+        val actions = actions(onToggleFocus = { toggled++ })
+
+        scene(ResolverLists(), actions = actions) { state() }.closing { scene ->
+            scene.frames()
+            scene.clickDescription { it.startsWith("Focus: hide the tabs") }
+        }
+        scene(ResolverLists(), actions = actions) { state().copy(focused = true) }.closing { scene ->
+            scene.frames()
+            scene.clickDescription { it.startsWith("Leave Focus") && it.endsWith("or Esc)") }
+        }
+
+        assertEquals(2, toggled)
+    }
+
+    @Test
+    fun `Focus's shortcut is Shift and F with Cmd on macOS, and with Ctrl elsewhere`() {
+        val mac = currentOs == OS.MAC
+
+        fun press(cmd: Boolean = false, ctrl: Boolean = false, shift: Boolean = true, alt: Boolean = false, key: Key = Key.F) =
+            isFocusShortcut(key, cmd = cmd, ctrl = ctrl, shift = shift, alt = alt)
+
+        assertEquals(mac, press(cmd = true))
+        assertEquals(!mac, press(ctrl = true))
+        assertEquals(false, press(cmd = mac, ctrl = !mac, shift = false))
+        assertEquals(false, press(cmd = mac, ctrl = !mac, alt = true))
+        assertEquals(false, press(cmd = mac, ctrl = !mac, key = Key.G))
+        assertEquals(false, press(cmd = true, ctrl = true))
+    }
+
     private fun state(
         merge: TextMerge = this.merge,
         workingFile: WorkingFileState = WorkingFileState.MATCHES,
@@ -594,9 +666,11 @@ class ConflictResolverTest {
         onColumnSharesChanged: (ColumnShares) -> Unit = {},
         onFileListWidthChanged: (Float) -> Unit = {},
         onToggleWrapLines: () -> Unit = {},
+        onToggleFocus: () -> Unit = {},
+        onSelectFile: (String) -> Unit = {},
     ) = ResolverActions(
         onClose = {},
-        onSelectFile = {},
+        onSelectFile = onSelectFile,
         onPreviousConflict = {},
         onNextConflict = {},
         onToggleBase = {},
@@ -605,6 +679,7 @@ class ConflictResolverTest {
         onColumnSharesChanged = onColumnSharesChanged,
         onFileListWidthChanged = onFileListWidthChanged,
         onToggleWrapLines = onToggleWrapLines,
+        onToggleFocus = onToggleFocus,
         onSave = {},
         onMarkResolved = onMarkResolved,
         onOpenInExternalTool = {},
@@ -650,6 +725,26 @@ class ConflictResolverTest {
         }
         semanticsOwners.forEach { visit(it.rootSemanticsNode) }
         return nodes
+    }
+
+    /** Clicks the first clickable node that has [text], or a child with it. */
+    private fun ImageComposeScene.clickText(text: String) = click { node ->
+        (listOf(node) + node.children).any { child ->
+            child.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text }
+        }
+    }
+
+    /** Clicks the first clickable node whose description, or a child's, matches. */
+    private fun ImageComposeScene.clickDescription(matches: (String) -> Boolean) = click { node ->
+        (listOf(node) + node.children).any { child ->
+            child.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any(matches)
+        }
+    }
+
+    private fun ImageComposeScene.click(matches: (SemanticsNode) -> Boolean) {
+        val node = nodes().first { it.config.getOrNull(SemanticsActions.OnClick) != null && matches(it) }
+
+        checkNotNull(node.config[SemanticsActions.OnClick].action).invoke()
     }
 
     /** Where the nodes with [text] are laid out, unclipped: their position and size. */

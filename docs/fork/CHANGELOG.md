@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver's Focus (branch `claude/resolver-model-f2582e`)
+
+- **Before:** the resolver took the tab, but Leaf's tab bar, the repository's toolbar, the operation banner, the
+  bottom bar and the file list stayed around it.
+- **Now:** Focus hides them, for reviewing with the whole window. The button at the right end of the resolver's
+  toolbar, or ⇧⌘F (Ctrl+Shift+F on Windows and Linux), turns it on and off.
+  - The resolver's toolbar and legend stay. The file name in the toolbar becomes a menu of the conflicted files, as
+    the file list is hidden.
+  - Esc leaves Focus first; a second Esc closes the resolver. Closing it shows everything again.
+  - Focus is kept until Leaf quits, so the resolver opens in it again.
+  - The window itself doesn't go full screen; macOS's own full screen works with Focus.
+- **Tests:** 3 new in `ConflictResolverTest`: the file list hidden and the file menu switching files (a file resolved
+  here is disabled), the Focus button both ways, and the shortcut on each platform. 7 mutations, all caught. A
+  temporary harness ran the repository page from the real Dagger graph: Focus hid the toolbar, the banner and the
+  bottom bar and asked `App` to hide the tab bar, Esc left Focus and then closed the resolver, and closing it while in
+  Focus brought everything back.
+  - `./gradlew build` passes, with 1,262 tests (159 in `:app`, 850 in `:data`, 246 in `:domain`, 7 in `:common`).
+
 ## The built-in conflict resolver's Stacked layout (branch `claude/resolver-model-f2582e`)
 
 Step 3 of the build order in `docs/fork/conflict-resolver.md`: Option B, and the switch between the two layouts.

@@ -69,6 +69,7 @@ class ConflictResolverViewModel @Inject constructor(
                 stackedSplit = session.stackedSplit,
                 columnShares = session.columnShares,
                 fileListWidth = session.fileListWidth,
+                focused = session.focused,
             )
         )
 
@@ -122,6 +123,15 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** Closes the view, asking first when the file has picks that aren't saved. */
     fun close() = leave(ResolverLeave.Close)
+
+    /** Esc: leaves Focus first, then closes the view (asking first when the file has picks that aren't saved). */
+    fun escape() {
+        if (state.value.focused) {
+            toggleFocus()
+        } else {
+            close()
+        }
+    }
 
     /** Closes the view without asking, as when the tab switches to another worktree. */
     fun closeNow() {
@@ -217,6 +227,14 @@ class ConflictResolverViewModel @Inject constructor(
     fun setFileListWidth(width: Float) {
         session.fileListWidth = width
         state.update { it.copy(fileListWidth = width) }
+    }
+
+    /** Focus: the rest of Leaf hides, and the file list too, until it's turned off. Kept until Leaf quits. */
+    fun toggleFocus() {
+        val focused = !state.value.focused
+
+        session.focused = focused
+        state.update { it.copy(focused = focused) }
     }
 
     /** Long lines wrap, or stay on one row and scroll sideways together, for the whole app (Settings → Conflicts). */
@@ -423,15 +441,16 @@ class ConflictResolverViewModel @Inject constructor(
 const val DEFAULT_STACKED_SPLIT = 0.45f
 
 /**
- * What the resolver keeps between its views, until Leaf quits: the stacked layout's handle, and the columns' and the
- * file list's widths. The user chose not to save them (2026-10-12); saving them as the status pane's sections are would
- * take prefs keys. Wrap lines is a setting (Settings → Conflicts).
+ * What the resolver keeps between its views, until Leaf quits: the stacked layout's handle, the columns' and the file
+ * list's widths, and Focus. The user chose not to save them (2026-10-12); saving them as the status pane's sections
+ * are would take prefs keys. Wrap lines is a setting (Settings → Conflicts).
  */
 @Singleton
 class ConflictResolverSession @Inject constructor() {
     var stackedSplit = DEFAULT_STACKED_SPLIT
     var columnShares = ColumnShares()
     var fileListWidth = DEFAULT_FILE_LIST_WIDTH
+    var focused = false
 }
 
 /** What a new status makes of the view. */
@@ -482,6 +501,8 @@ data class ConflictResolverState(
     val fileListWidth: Float = DEFAULT_FILE_LIST_WIDTH,
     /** Whether long lines wrap, or stay on one row and scroll sideways. */
     val wrapLines: Boolean = true,
+    /** Focus: the tab bar, the repository's toolbar, the banner, the bottom bar and the file list are hidden. */
+    val focused: Boolean = false,
     /** Whether open conflicts show the base's lines in the result. */
     val showBase: Boolean = false,
     /** The current conflict, among the file's conflicts. */

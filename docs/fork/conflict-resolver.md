@@ -327,6 +327,22 @@ the repository; the sketches below show the layouts.
   - The widths are kept with the handle until Leaf quits. Wrap lines is a setting too, "Wrap long lines" in Settings
     → Conflicts (`AppConfig.ConflictResolverWrapLines`, `conflict_resolver_wrap_lines`, on by default), which the
     toolbar's toggle writes, for the whole app (asked for on 2026-10-12).
+- **Focus** (asked for on 2026-10-12, both layouts): the resolver already takes the tab, and Focus hides what is left
+  around it, for reviewing with the whole window.
+  - It hides Leaf's tab bar, the repository's toolbar, the operation banner, the bottom bar and the file list. The
+    resolver's toolbar and legend stay, so Save, Mark resolved, the conflict counter and the way back are still there,
+    and the file name in the toolbar becomes a menu of the conflicted files (`FileMenu`), with a check on the ones
+    resolved here, which can't be opened again.
+  - The button at the right end of the toolbar, or ⇧⌘F (Ctrl+Shift+F on Windows and Linux; macOS's own full screen
+    is ⌃⌘F), turns it on and off. Esc leaves Focus first, and a second Esc closes the resolver, as video players do
+    with full screen.
+  - It's kept until Leaf quits, as the widths are: the resolver opens in Focus again. Closing the resolver shows
+    everything again.
+  - The window stays as it is: Leaf doesn't switch macOS to full screen, which moves the window to a Space of its own
+    with an animation. The window's own full screen works with Focus.
+  - The tab bar is drawn by `App`, above the tab. The tab hides it through `LocalAppChrome` (`ui/AppChrome.kt`):
+    `RepositoryOpenPage` sets `tabBarHidden` while the resolver is in Focus, and back when it leaves the composition,
+    as when another tab is selected.
 
 ### Option C: the result only, with a card per conflict
 

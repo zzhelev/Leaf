@@ -49,8 +49,10 @@ import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.ui.AppChrome
 import dev.app.leaf.ui.AppTab
 import dev.app.leaf.ui.AppViewModel
+import dev.app.leaf.ui.LocalAppChrome
 import dev.app.leaf.ui.LocalWindowMinimized
 import dev.app.leaf.ui.components.TabsRow
 import dev.app.leaf.ui.components.TabInformation
@@ -327,6 +329,8 @@ class App @Inject constructor(
     fun AppTabs() {
         val tabs by appViewModel.tabs.collectAsState()
         val currentTab = appViewModel.currentTab.collectAsState().value
+        // Fork-only: the conflict resolver's Focus hides the tab bar
+        val chrome = remember { AppChrome() }
 
         if (currentTab != null) {
             Column(
@@ -364,18 +368,20 @@ class App @Inject constructor(
                         }
                     }
             ) {
-                Tabs(
-                    tabsInformationList = tabs,
-                    currentTab = currentTab,
-                    onAddedTab = {
-                        appViewModel.addNewEmptyTab()
-                    },
-                    onCloseTab = { tab ->
-                        appViewModel.closeTab(tab)
-                    }
-                )
+                if (!chrome.tabBarHidden) {
+                    Tabs(
+                        tabsInformationList = tabs,
+                        currentTab = currentTab,
+                        onAddedTab = {
+                            appViewModel.addNewEmptyTab()
+                        },
+                        onCloseTab = { tab ->
+                            appViewModel.closeTab(tab)
+                        }
+                    )
+                }
 
-                CompositionLocalProvider(LocalTab provides currentTab.data) {
+                CompositionLocalProvider(LocalTab provides currentTab.data, LocalAppChrome provides chrome) {
                     TabContent(currentTab.data)
                 }
             }

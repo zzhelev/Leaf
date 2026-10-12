@@ -557,6 +557,14 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
     and consumes them. `FitSideways` sets how far it goes from the longest line, measured once per merge.
   - Tests drive the handles and the wheel with `ImageComposeScene.sendPointerEvent` (`drag`, `doubleClick` in
     `ConflictResolverTest`). A drag's deltas start past the touch slop, but `draggable` hands over the whole movement.
+- **Focus:** the toolbar's last button and ⇧⌘F (Ctrl+Shift+F elsewhere, `isFocusShortcut`) hide everything around the
+  resolver: `RepositoryOpenPage` leaves out its toolbar (`Menu`), the operation banner and the bottom bar, and hides
+  `App`'s tab bar through the fork-only `LocalAppChrome` (`ui/AppChrome.kt`, a flag that `App.AppTabs` reads). The
+  resolver hides its file list, and the toolbar's file name becomes a menu of the files (`FileMenu`). Esc goes to
+  `ConflictResolverViewModel.escape`, which leaves Focus before closing. Kept in `ConflictResolverSession`.
+  - Semantics actions run even on a disabled item, so tests check `SemanticsProperties.Disabled` rather than clicking
+    it. A clickable node merges its children's text into its own config in the merged tree that `semanticsOwners`
+    gives.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,

@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -29,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -40,7 +43,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -49,6 +56,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.common.OS
+import dev.app.leaf.common.currentOs
 import dev.app.leaf.domain.conflicts.ChunkPlace
 import dev.app.leaf.domain.conflicts.ColumnShares
 import dev.app.leaf.domain.conflicts.DEFAULT_FILE_LIST_WIDTH
@@ -90,6 +99,7 @@ import dev.app.leaf.viewmodels.ResolverFileEntry
 import dev.app.leaf.viewmodels.ResolverPrompt
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -126,6 +136,7 @@ fun ConflictResolver(
             onColumnSharesChanged = viewModel::setColumnShares,
             onFileListWidthChanged = viewModel::setFileListWidth,
             onToggleWrapLines = viewModel::toggleWrapLines,
+            onToggleFocus = viewModel::toggleFocus,
             onSave = { viewModel.save() },
             onMarkResolved = { viewModel.markResolved() },
             onOpenInExternalTool = viewModel::openInExternalTool,
@@ -166,6 +177,11 @@ fun ConflictResolver(
                         true
                     }
 
+                    isFocusShortcut(event) -> {
+                        viewModel.toggleFocus()
+                        true
+                    }
+
                     else -> false
                 }
             },
@@ -187,6 +203,8 @@ class ResolverActions(
     /** The file list's edge was dragged: its width in dp. */
     val onFileListWidthChanged: (Float) -> Unit,
     val onToggleWrapLines: () -> Unit,
+    /** Focus: hides the rest of Leaf around the resolver, and the file list. */
+    val onToggleFocus: () -> Unit,
     val onSave: () -> Unit,
     val onMarkResolved: () -> Unit,
     val onOpenInExternalTool: () -> Unit,
@@ -222,15 +240,18 @@ fun ConflictResolverContent(
         state.prompt?.let { Prompt(it, state.file.path.orEmpty(), actions) }
 
         Row(Modifier.weight(1f)) {
-            FileList(state.files, state.file.path, fileListWidth, actions.onSelectFile)
-            FileListEdge(
-                onDrag = { delta -> fileListWidth = fileListWidthAfterDrag(fileListWidth, delta) },
-                onDragStopped = { actions.onFileListWidthChanged(fileListWidth) },
-                onReset = {
-                    fileListWidth = DEFAULT_FILE_LIST_WIDTH
-                    actions.onFileListWidthChanged(DEFAULT_FILE_LIST_WIDTH)
-                },
-            )
+            // In Focus, the toolbar's file name lists the files instead
+            if (!state.focused) {
+                FileList(state.files, state.file.path, fileListWidth, actions.onSelectFile)
+                FileListEdge(
+                    onDrag = { delta -> fileListWidth = fileListWidthAfterDrag(fileListWidth, delta) },
+                    onDragStopped = { actions.onFileListWidthChanged(fileListWidth) },
+                    onReset = {
+                        fileListWidth = DEFAULT_FILE_LIST_WIDTH
+                        actions.onFileListWidthChanged(DEFAULT_FILE_LIST_WIDTH)
+                    },
+                )
+            }
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when {
@@ -375,14 +396,18 @@ private fun Toolbar(
             }
         }
 
-        Text(
-            text = state.file.path.orEmpty(),
-            style = MaterialTheme.typography.body2,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 420.dp),
-        )
+        if (state.focused) {
+            FileMenu(state.files, state.file.path, actions.onSelectFile)
+        } else {
+            Text(
+                text = state.file.path.orEmpty(),
+                style = MaterialTheme.typography.body2,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 420.dp),
+            )
+        }
 
         if (merge != null) {
             ConflictNavigation(merge, state.currentConflict, actions)
@@ -443,6 +468,19 @@ private fun Toolbar(
                 )
             }
         }
+
+        val shortcut = focusShortcut()
+
+        ToolbarIcon(
+            icon = if (state.focused) Res.drawable.fullscreen_exit else Res.drawable.fullscreen,
+            description = if (state.focused) {
+                stringResource(Res.string.conflict_resolver_leave_focus, shortcut)
+            } else {
+                stringResource(Res.string.conflict_resolver_focus, shortcut)
+            },
+            toggled = state.focused,
+            onClick = actions.onToggleFocus,
+        )
     }
 }
 
@@ -458,21 +496,101 @@ private fun LayoutButtons(layout: ConflictResolverLayout, onSetLayout: (Conflict
                 ConflictResolverLayout.STACKED ->
                     Res.drawable.view_stacked to Res.string.conflict_resolver_layout_stacked_tooltip
             }
-            val description = stringResource(tooltip)
             val toggled = option == layout
 
-            DelayedTooltip(description) {
-                Icon(
-                    painter = painterResource(icon),
-                    contentDescription = description,
-                    tint = MaterialTheme.colors.onSurface,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(if (toggled) MaterialTheme.colors.onSurface.copy(alpha = 0.2f) else Color.Transparent)
-                        .handMouseClickable { if (!toggled) onSetLayout(option) }
-                        .padding(4.dp)
-                        .size(20.dp),
+            ToolbarIcon(icon, stringResource(tooltip), toggled, onClick = { if (!toggled) onSetLayout(option) })
+        }
+    }
+}
+
+/** An icon button of the toolbar, as the diff pane's `StateIcon`, with the tooltip as the description. */
+@Composable
+private fun ToolbarIcon(icon: DrawableResource, description: String, toggled: Boolean, onClick: () -> Unit) {
+    DelayedTooltip(description) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = description,
+            tint = MaterialTheme.colors.onSurface,
+            modifier = Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (toggled) MaterialTheme.colors.onSurface.copy(alpha = 0.2f) else Color.Transparent)
+                .handMouseClickable { onClick() }
+                .padding(4.dp)
+                .size(20.dp),
+        )
+    }
+}
+
+/** Focus's shortcut, as the platform writes it: ⇧⌘F on macOS, Ctrl+Shift+F elsewhere. */
+private fun focusShortcut() = if (currentOs == OS.MAC) "⇧⌘F" else "Ctrl+Shift+F"
+
+/** Whether [event] is Focus's shortcut: see the other [isFocusShortcut]. */
+private fun isFocusShortcut(event: KeyEvent): Boolean = event.type == KeyEventType.KeyDown && isFocusShortcut(
+    key = event.key,
+    cmd = event.isMetaPressed,
+    ctrl = event.isCtrlPressed,
+    shift = event.isShiftPressed,
+    alt = event.isAltPressed,
+)
+
+/** Whether pressing [key] with these modifiers is Focus's shortcut: Shift and F with Cmd on macOS, with Ctrl elsewhere. */
+internal fun isFocusShortcut(key: Key, cmd: Boolean, ctrl: Boolean, shift: Boolean, alt: Boolean): Boolean =
+    key == Key.F && shift && !alt && if (currentOs == OS.MAC) cmd && !ctrl else ctrl && !cmd
+
+/**
+ * The file name in the toolbar while the file list is hidden (Focus): it opens a menu of the conflicted files, which
+ * switches to one as the list does. Files resolved here are listed with a check, and can't be opened again.
+ */
+@Composable
+private fun FileMenu(files: List<ResolverFileEntry>, current: String?, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        DelayedTooltip(stringResource(Res.string.conflict_resolver_files_menu)) {
+            Row(
+                modifier = Modifier
+                    .widthIn(max = 420.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .handMouseClickable { expanded = true }
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = current.orEmpty(),
+                    style = MaterialTheme.typography.body2,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                Icon(painterResource(Res.drawable.expand_more), contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+        }
+
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            for (file in files) {
+                val path = file.entry.filePath
+
+                DropdownMenuItem(
+                    enabled = !file.resolvedHere,
+                    onClick = {
+                        expanded = false
+                        if (path != current) onSelect(path)
+                    },
+                ) {
+                    Icon(
+                        painter = painterResource(if (file.resolvedHere) Res.drawable.check else Res.drawable.warning),
+                        contentDescription = null,
+                        tint = if (file.resolvedHere) MaterialTheme.colors.addFile else MaterialTheme.colors.conflictFile,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        text = path,
+                        style = MaterialTheme.typography.body2,
+                        fontWeight = if (path == current) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
         }
     }

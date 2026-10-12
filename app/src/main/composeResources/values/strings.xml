@@ -745,6 +745,9 @@
     <string name="conflict_resolver_base">Base</string>
     <string name="conflict_resolver_base_tooltip">Show the base's lines in the conflicts that are still open</string>
     <string name="conflict_resolver_wrap">Wrap lines</string>
+    <string name="conflict_resolver_focus">Focus: hide the tabs, the toolbar above, the banner, the bottom bar and the file list (%1$s)</string>
+    <string name="conflict_resolver_leave_focus">Leave Focus: show the rest of Leaf again (%1$s or Esc)</string>
+    <string name="conflict_resolver_files_menu">The conflicted files</string>
     <string name="conflict_resolver_wrap_tooltip">Wrap long lines. Turned off, each line stays on one row, and every column scrolls sideways together: swipe sideways, use Shift and the wheel, or drag the scrollbar under the lines.</string>
     <string name="conflict_resolver_external_tool">External merge tool…</string>
     <string name="conflict_resolver_external_tool_tooltip">Open the file in the merge tool that git mergetool runs</string>
