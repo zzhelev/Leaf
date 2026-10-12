@@ -35,11 +35,11 @@ fun NotificationSuccessPreview() {
 }
 
 @Composable
-fun Notification(data: NotificationData) {
+fun Notification(data: NotificationData, modifier: Modifier = Modifier) {
     val notificationShape = RoundedCornerShape(8.dp)
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .padding(8.dp)
             .border(2.dp, MaterialTheme.colors.onBackground.copy(0.2f), notificationShape)
             .clip(notificationShape)

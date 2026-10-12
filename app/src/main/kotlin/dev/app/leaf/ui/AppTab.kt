@@ -1,6 +1,9 @@
 package dev.app.leaf.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
@@ -30,6 +33,7 @@ import dev.app.leaf.repositoryopen.RepositoryOpenPage
 import dev.app.leaf.tabViewModel
 import dev.app.leaf.theme.dialogOverlay
 import dev.app.leaf.ui.components.Notification
+import dev.app.leaf.ui.components.notificationDuration
 import dev.app.leaf.ui.dialogs.*
 import dev.app.leaf.ui.dialogs.base.UserPasswordDialog
 import dev.app.leaf.ui.dialogs.errors.ErrorDialog
@@ -37,7 +41,6 @@ import dev.app.leaf.ui.dialogs.settings.SettingsDialog
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
-import kotlin.time.Duration.Companion.milliseconds
 
 
 fun <T : NavKey> NavBackStack<T>.addAndRemovePrevious(item: T) {
@@ -537,17 +540,22 @@ fun AppTab(
                 .padding(bottom = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            for (task in tasks) {
+            for (task in tasks) key(task) {
 
                 val notificationData = task.toNotificationData()
+                // Fork-only: stays long enough to read, and while the pointer is over it
+                val hover = remember { MutableInteractionSource() }
+                val isHovered by hover.collectIsHoveredAsState()
 
                 if (notificationData != null) {
-                    Notification(notificationData)
+                    Notification(notificationData, modifier = Modifier.hoverable(hover))
                 }
 
-                LaunchedEffect(task) {
-                    delay(2000L.milliseconds)
-                    repositoryTabViewModel.completedTaskAlreadyShown(task)
+                LaunchedEffect(task, isHovered) {
+                    if (!isHovered) {
+                        delay(notificationDuration(notificationData))
+                        repositoryTabViewModel.completedTaskAlreadyShown(task)
+                    }
                 }
             }
         }
