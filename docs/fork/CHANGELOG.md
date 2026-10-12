@@ -2,6 +2,20 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Esc closes file history and blame (branch `claude/cranky-lamport-ef720e`)
+
+- **Before:** Esc closed neither file history nor an expanded blame. Both have their own Esc handler, but the tab's
+  shortcuts (`onPreviewKeyEvent` in `RepositoryOpen.kt`) see every key first, and their EXIT branch consumed Esc
+  with `closeLastView()`, which only knows the diff and the searches. So Esc in blame closed whatever was last in
+  that list instead, such as the side panel's search next to it. Upstream Gitnuro has the same code.
+- **Now:** the tab's EXIT branch closes file history, then an expanded blame, then the last closeable view, as before.
+  File history opened over blame takes two presses of Esc. Closing either gives the focus back to the tab, as closing
+  the diff does, so the next Esc, F5 or other shortcut works without a click first.
+- **Tests:** none kept. The bug was in which handler gets the key, which only shows with the whole tab rendered from
+  the real Dagger graph, and that writes the dev prefs node. A temporary offscreen harness, `RepositoryOpenPage` on
+  a temp repository, confirmed it before the fix (Esc consumed, both views still open) and after (both close, history
+  over blame in two presses, and the next Esc reaches the tab). `:app:test` passes.
+
 ## Discard leaves conflicted files alone (branch `claude/amazing-chandrasekhar-6b63e0`)
 
 - **Before:** "Discard file changes" on a conflicted file, "Discard N files" on a selection with one, and a folder's

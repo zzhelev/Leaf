@@ -970,6 +970,15 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 - `InMemoryRepositoryStateRepository`: current task, completed tasks, last-operation timestamp, refresh trigger.
 - UI state is mostly in one large `RepositoryOpenViewModel`: side panel, log, status, diff.
 
+**Keys:** the tab's shortcuts are an `onPreviewKeyEvent` on `RepositoryOpenPage`'s column, which sees every key
+before the views inside it and consumes the ones it matches. So a view's own Esc handler there never runs (upstream's
+`FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
+- Fork-only: that branch closes file history, then an expanded blame, then the last closeable view (`CloseableView`:
+  the diff and the searches, in the order they opened). Closing history or blame gives the focus back to the tab, as
+  closing the diff does, since keys reach the tab's handler only while something in it has the focus.
+- A view that covers others is checked there by what is shown, not added to `CloseableView`: the log search adds
+  itself again whenever its results change, and would then come before it.
+
 **Identity and persistence:**
 - Tabs are identified by object, not by path. Opening a repository from the Welcome page or the CLI never looks for
   a tab that has it.
