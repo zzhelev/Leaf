@@ -7,7 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -22,6 +23,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.toSmartSystemString
@@ -31,6 +33,7 @@ import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
+import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.AvatarImage
@@ -42,6 +45,8 @@ import dev.app.leaf.ui.getStyledErrorText
 import dev.app.leaf.viewmodels.HistoryState
 import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.domain.models.ViewDiffResult
+import dev.app.leaf.viewmodels.positionOf
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
@@ -66,6 +71,13 @@ fun FileHistory(
                 if (keyEvent.matchesBinding(KeybindingOption.EXIT) && keyEvent.type == KeyEventType.KeyDown) {
                     onClose()
                     true
+                } else if (keyEvent.matchesBinding(KeybindingOption.UP) && keyEvent.type == KeyEventType.KeyDown) {
+                    // Fork-only: steps through the commits
+                    historyViewModel.selectAdjacentCommit(-1)
+                    true
+                } else if (keyEvent.matchesBinding(KeybindingOption.DOWN) && keyEvent.type == KeyEventType.KeyDown) {
+                    historyViewModel.selectAdjacentCommit(1)
+                    true
                 } else
                     false
             },
@@ -75,7 +87,8 @@ fun FileHistory(
         HistoryContent(
             historyViewModel,
             historyState,
-            onCommitSelected = { historyViewModel.selectCommit(it) }
+            onCommitSelected = { historyViewModel.selectCommit(it) },
+            onSelectAdjacentCommit = { historyViewModel.selectAdjacentCommit(it) },
         )
     }
 }
@@ -121,16 +134,20 @@ private fun HistoryContent(
     historyViewModel: HistoryViewModel,
     historyState: HistoryState,
     onCommitSelected: (Commit) -> Unit,
+    onSelectAdjacentCommit: (offset: Int) -> Unit,
 ) {
     val textScrollState by historyViewModel.lazyListState.collectAsState()
     val viewDiffResult by historyViewModel.viewDiffResult.collectAsState()
+    val selectedCommit by historyViewModel.selectedCommit.collectAsState()
 
     when (historyState) {
         is HistoryState.Loaded -> HistoryContentLoaded(
             historyState = historyState,
             viewDiffResult = viewDiffResult,
             scrollState = textScrollState,
+            selectedCommit = selectedCommit,
             onCommitSelected = onCommitSelected,
+            onSelectAdjacentCommit = onSelectAdjacentCommit,
         )
 
         is HistoryState.Loading -> Box { }
@@ -154,8 +171,19 @@ fun HistoryContentLoaded(
     historyState: HistoryState.Loaded,
     viewDiffResult: ViewDiffResult?,
     scrollState: LazyListState,
+    selectedCommit: Commit?,
     onCommitSelected: (Commit) -> Unit,
+    onSelectAdjacentCommit: (offset: Int) -> Unit,
 ) {
+    // Fork-only: the selected commit's row, kept in view when ↑ and ↓ select another
+    val commitsListState = rememberLazyListState()
+    val selectedPosition = positionOf(historyState.commits, selectedCommit)
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(selectedPosition) {
+        commitsListState.keepInView(selectedPosition)
+    }
+
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -164,11 +192,13 @@ fun HistoryContentLoaded(
             modifier = Modifier
                 .fillMaxHeight()
                 .width(300.dp)
-                .background(MaterialTheme.colors.surface)
+                .background(MaterialTheme.colors.surface),
+            state = commitsListState,
         ) {
-            items(historyState.commits) { commit ->
+            itemsIndexed(historyState.commits) { index, commit ->
                 HistoryCommit(
                     commit = commit,
+                    isSelected = index == selectedPosition,
                     onCommitSelected = { onCommitSelected(commit) }
                 )
             }
@@ -178,6 +208,16 @@ fun HistoryContentLoaded(
             modifier = Modifier
                 .fillMaxSize()
         ) {
+            if (selectedCommit != null && selectedPosition >= 0) {
+                FileHistoryCommitStrip(
+                    commit = selectedCommit,
+                    position = selectedPosition,
+                    count = historyState.commits.count(),
+                    onSelectAdjacentCommit = onSelectAdjacentCommit,
+                    onShowInList = { scope.launch { commitsListState.showInMiddle(selectedPosition) } },
+                )
+            }
+
             if (
                 viewDiffResult != null &&
                 viewDiffResult is ViewDiffResult.Loaded
@@ -233,11 +273,13 @@ fun HistoryContentLoaded(
 @Composable
 fun HistoryCommit(
     commit: Commit,
+    isSelected: Boolean,
     onCommitSelected: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .backgroundIf(isSelected, MaterialTheme.colors.backgroundSelected)
             .handMouseClickable { onCommitSelected() }
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
