@@ -122,6 +122,10 @@ sealed interface Screen : NavKey {
         val entries: List<StatusEntry>,
         val keptNewFiles: Int,
     ) : Screen
+    /** Removes [worktree] (fork-only), or with [discard] discards it: its changes and its branch go too. */
+    data class WorktreeRemove(val worktree: Worktree, val discard: Boolean) : Screen
+    data class WorktreeLock(val worktree: Worktree) : Screen
+    data object WorktreesPrune : Screen
 }
 
 

@@ -87,6 +87,11 @@
     <string name="side_pane_worktree_copy_path">Copy path</string>
     <string name="side_pane_worktree_switch_to">Switch to worktree</string>
     <string name="side_pane_worktree_open_in_new_tab">Open in new tab</string>
+    <string name="side_pane_worktree_lock">Lock…</string>
+    <string name="side_pane_worktree_unlock">Unlock</string>
+    <string name="side_pane_worktree_remove">Remove…</string>
+    <string name="side_pane_worktree_discard">Discard…</string>
+    <string name="side_pane_worktree_prune">Prune missing worktrees…</string>
     <string name="side_pane_worktree_missing">missing</string>
     <string name="side_pane_worktree_rebasing">rebasing %1$s</string>
     <string name="side_pane_worktree_bisecting">bisecting from %1$s</string>
@@ -281,6 +286,56 @@
         <item quantity="one">%1$s more character</item>
         <item quantity="other">%1$s more characters</item>
     </plurals>
+
+    <!-- Worktree actions: remove, discard, lock and prune -->
+    <string name="worktree_dialog_commands">Leaf runs:</string>
+    <string name="worktree_dialog_switch_tab">Switch this tab to %1$s</string>
+    <string name="worktree_dialog_checking">Checking the worktree…</string>
+    <string name="worktree_dialog_folder_missing">The folder is missing, so git only removes the worktree's entry.</string>
+    <string name="worktree_dialog_ignored_files">git deletes the folder's ignored files too, such as build output and .env files.</string>
+    <string name="worktree_dialog_recent_change_now">%1$s changed less than a minute ago. An agent may still be working in it.</string>
+    <plurals name="worktree_dialog_recent_change">
+        <item quantity="one">%1$s changed %2$d minute ago. An agent may still be working in it.</item>
+        <item quantity="other">%1$s changed %2$d minutes ago. An agent may still be working in it.</item>
+    </plurals>
+    <string name="worktree_dialog_locked">%1$s is locked.</string>
+    <string name="worktree_dialog_locked_reason">%1$s is locked: %2$s</string>
+    <string name="worktree_dialog_branch_merged">"%1$s" is merged into "%2$s".</string>
+    <string name="worktree_dialog_branch_changes_in_base">The changes of "%1$s" are already in "%2$s".</string>
+    <plurals name="worktree_dialog_branch_not_merged">
+        <item quantity="one">"%1$s" has %2$d commit that "%3$s" doesn't have.</item>
+        <item quantity="other">"%1$s" has %2$d commits that "%3$s" doesn't have.</item>
+    </plurals>
+    <string name="worktree_dialog_branch_merge_unknown">Leaf couldn't tell whether "%1$s" is merged into "%2$s".</string>
+    <string name="worktree_dialog_branch_no_base">There's no base branch to compare "%1$s" with.</string>
+    <string name="remove_worktree_dialog_title">Remove worktree</string>
+    <string name="remove_worktree_dialog_subtitle">Remove the worktree %1$s and delete its folder?</string>
+    <plurals name="remove_worktree_dialog_force">
+        <item quantity="one">Delete its uncommitted change too (%1$d file)</item>
+        <item quantity="other">Delete its uncommitted changes too (%1$d files)</item>
+    </plurals>
+    <string name="remove_worktree_dialog_force_unknown">Delete its uncommitted changes too, if it has any</string>
+    <string name="remove_worktree_dialog_override_lock">Remove it although it's locked</string>
+    <string name="remove_worktree_dialog_delete_branch">Also delete the branch "%1$s"</string>
+    <string name="remove_worktree_dialog_remove">Remove</string>
+    <string name="discard_worktree_dialog_title">Discard worktree</string>
+    <string name="discard_worktree_dialog_subtitle">Discard %1$s? Its folder and its branch "%2$s" are deleted, uncommitted changes included.</string>
+    <string name="discard_worktree_dialog_subtitle_no_branch">Discard %1$s? Its folder is deleted, uncommitted changes included.</string>
+    <plurals name="discard_worktree_dialog_uncommitted">
+        <item quantity="one">%1$d uncommitted change is lost.</item>
+        <item quantity="other">%1$d uncommitted changes are lost.</item>
+    </plurals>
+    <string name="discard_worktree_dialog_uncommitted_unknown">Its uncommitted changes, if it has any, are lost.</string>
+    <string name="discard_worktree_dialog_override_lock">Discard it although it's locked</string>
+    <string name="discard_worktree_dialog_discard">Discard</string>
+    <string name="discard_worktree_dialog_discard_anyway">Discard anyway</string>
+    <string name="lock_worktree_dialog_title">Lock worktree</string>
+    <string name="lock_worktree_dialog_subtitle">Lock %1$s? git then refuses to remove or prune it until it's unlocked. A reason is optional.</string>
+    <string name="lock_worktree_dialog_lock">Lock</string>
+    <string name="prune_worktrees_dialog_title">Prune worktrees</string>
+    <string name="prune_worktrees_dialog_subtitle">Remove the entries of the worktrees whose folders are missing? Their branches are kept.</string>
+    <string name="prune_worktrees_dialog_nothing">There's nothing to prune.</string>
+    <string name="prune_worktrees_dialog_prune">Prune</string>
 
     <!-- Delete branch and tag dialogs -->
     <string name="delete_branch_dialog_title">Delete branch</string>

@@ -31,6 +31,7 @@ import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.usecases.*
+import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
 import dev.app.leaf.domain.worktrees.worktreePickerRows
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenFilePickerUseCase
@@ -159,6 +160,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val saveRefFolderExpansionUseCase: SaveRefFolderExpansionUseCase,
     private val pollWorktreesUseCase: PollWorktreesUseCase,
     private val setWorktreeBaseBranchUseCase: SetWorktreeBaseBranchUseCase,
+    private val runWorktreeStepsUseCase: RunWorktreeStepsUseCase,
+    private val followRemovedWorktreeUseCase: FollowRemovedWorktreeUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -389,6 +392,7 @@ class RepositoryOpenViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { pollWorktreesUseCase(worktreesVisibility) }
+        viewModelScope.launch { followRemovedWorktreeUseCase() }
     }
 
     /** The worktrees that use each local branch, for the branch list and the log. */
@@ -698,6 +702,21 @@ class RepositoryOpenViewModel @Inject constructor(
         if (worktree.canSwitchTo) {
             appViewModel.selectOrOpenTab(worktree.path)
         }
+    }
+
+    /** Unlocks [worktree] (fork-only). It loses nothing, so it doesn't ask first. */
+    fun unlockWorktree(worktree: Worktree) = viewModelScope.launch {
+        val mainWorktree = repositoryDataRepository.worktrees
+            .first { it !is DataState.Loading }
+            .dataOrNull()
+            ?.mainWorktree
+            ?: return@launch
+
+        runWorktreeStepsUseCase(
+            TaskType.UnlockWorktree,
+            unlockWorktreeSteps(worktree, mainWorktree),
+            arrayOf(DataToRefresh.WORKTREES),
+        )
     }
 
     fun deleteRemote(remoteInfo: RemoteInfo) = deleteRemoteInfoUseCase(remoteInfo)

@@ -126,6 +126,10 @@ data class WorktreeList(
     /** The full name of the branch the worktrees are compared to (`refs/heads/main`), null when there's none. */
     val baseBranch: String?
         get() = base.effective
+
+    /** The main worktree, which git lists first. */
+    val mainWorktree: Worktree?
+        get() = worktrees.firstOrNull { it.worktree.isMain }?.worktree
 }
 
 /** A worktree that uses a local branch, and how. */

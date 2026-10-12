@@ -48,4 +48,7 @@ interface TabComponent {
     fun addEditRemoteViewModelFactory(): AddEditRemoteViewModel.Factory
     fun submoduleDialogViewModel(): SubmoduleDialogViewModel
     fun signOffDialogViewModel(): SignOffDialogViewModel
+    fun removeWorktreeViewModelFactory(): RemoveWorktreeViewModel.Factory
+    fun lockWorktreeViewModelFactory(): LockWorktreeViewModel.Factory
+    fun pruneWorktreesViewModel(): PruneWorktreesViewModel
 }

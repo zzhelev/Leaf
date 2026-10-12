@@ -158,6 +158,13 @@ fun SidePanel(
                 onOpenInNewTab = { viewModel.openWorktreeInNewTab(it.worktree) },
                 onCopyPath = { scope.launch { clipboard.setClipboardText(it.worktree.path) } },
                 onChooseBase = { viewModel.chooseWorktreesBase(it) },
+                actions = WorktreeActions(
+                    onLock = { onNavigate(Screen.WorktreeLock(it)) },
+                    onUnlock = { viewModel.unlockWorktree(it) },
+                    onRemove = { onNavigate(Screen.WorktreeRemove(it, discard = false)) },
+                    onDiscard = { onNavigate(Screen.WorktreeRemove(it, discard = true)) },
+                    onPrune = { onNavigate(Screen.WorktreesPrune) },
+                ),
             )
 
             remotes(

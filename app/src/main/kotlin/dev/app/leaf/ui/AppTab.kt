@@ -414,6 +414,36 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.WorktreeRemove>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            RemoveWorktreeDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider
+                                        .removeWorktreeViewModelFactory()
+                                        .create(entry.worktree, entry.discard)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
+                        entry<Screen.WorktreeLock>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            LockWorktreeDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider.lockWorktreeViewModelFactory().create(entry.worktree)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
+                        entry<Screen.WorktreesPrune>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            PruneWorktreesDialog(
+                                viewModel = tabViewModel(entry) { it.pruneWorktreesViewModel() },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.ConfirmAction>(
                             metadata = dialogsMetadata
                         ) { entry ->

@@ -6,17 +6,25 @@ package dev.app.leaf.di.modules
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.config.SaveWorktreeBaseBranchGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
+import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommonGitDirGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
+import dev.app.leaf.data.git.worktrees.GetPrunableWorktreesGitAction
+import dev.app.leaf.data.git.worktrees.GetWorktreeActivityGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeBaseBranchGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeStatusGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreesGitAction
+import dev.app.leaf.data.git.worktrees.RunGitCommandGitAction
 import dev.app.leaf.domain.interfaces.IGetAheadBehindGitAction
+import dev.app.leaf.domain.interfaces.IGetBranchMergedGitAction
 import dev.app.leaf.domain.interfaces.IGetCommonGitDirGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
+import dev.app.leaf.domain.interfaces.IGetPrunableWorktreesGitAction
+import dev.app.leaf.domain.interfaces.IGetWorktreeActivityGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeBaseBranchGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeStatusGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreesGitAction
+import dev.app.leaf.domain.interfaces.IRunGitCommandGitAction
 import dev.app.leaf.domain.interfaces.ISaveWorktreeBaseBranchGitAction
 import dagger.Binds
 import dagger.Module
@@ -51,4 +59,20 @@ interface WorktreeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetCommonGitDirGitAction(action: GetCommonGitDirGitAction): IGetCommonGitDirGitAction
+
+    @Binds
+    @TabScope
+    fun bindsRunGitCommandGitAction(action: RunGitCommandGitAction): IRunGitCommandGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetBranchMergedGitAction(action: GetBranchMergedGitAction): IGetBranchMergedGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetWorktreeActivityGitAction(action: GetWorktreeActivityGitAction): IGetWorktreeActivityGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetPrunableWorktreesGitAction(action: GetPrunableWorktreesGitAction): IGetPrunableWorktreesGitAction
 }

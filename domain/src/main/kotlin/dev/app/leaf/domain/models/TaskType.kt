@@ -77,4 +77,10 @@ sealed interface TaskType {
     data object RefreshStashes : TaskType
     data object GetWorktree : TaskType
     data object SwitchWorktree : TaskType
+    data object FollowRemovedWorktree : TaskType
+    data object RemoveWorktree : TaskType
+    data object DiscardWorktree : TaskType
+    data object PruneWorktrees : TaskType
+    data object LockWorktree : TaskType
+    data object UnlockWorktree : TaskType
 }

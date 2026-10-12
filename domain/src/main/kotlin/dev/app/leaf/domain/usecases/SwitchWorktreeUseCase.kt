@@ -4,8 +4,10 @@
 package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.domain.UseCaseExecutor
+import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.bind
+import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.interfaces.IOpenRepositoryGitAction
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.DataState
@@ -35,14 +37,30 @@ class SwitchWorktreeUseCase @Inject constructor(
     private val refreshDataUseCase: RefreshDataUseCase,
 ) {
     /** Switches to the worktree whose folder is [worktreePath]. Nothing changes when it's already the tab's. */
-    operator fun invoke(worktreePath: String): Job = useCaseExecutor.executeLaunch(
-        taskType = TaskType.SwitchWorktree,
+    operator fun invoke(worktreePath: String): Job = launchSwitch(TaskType.SwitchWorktree, worktreePath)
+
+    /**
+     * Switches to the worktree whose folder is [worktreePath], the main one, because the tab's worktree was removed.
+     * Its toast says why the tab changed.
+     */
+    fun followRemovedWorktree(worktreePath: String): Job = launchSwitch(TaskType.FollowRemovedWorktree, worktreePath)
+
+    private fun launchSwitch(taskType: TaskType, worktreePath: String): Job = useCaseExecutor.executeLaunch(
+        taskType = taskType,
         dataToRefresh = emptyArray(),
     ) { currentGitDir ->
+        switch(currentGitDir, worktreePath)
+    }
+
+    /**
+     * Switches the tab from [currentGitDir] to the worktree whose folder is [worktreePath], inside a task that already
+     * runs, such as removing the tab's own worktree. Nothing changes when it's already the tab's.
+     */
+    suspend fun switch(currentGitDir: String, worktreePath: String): Either<Unit, AppError> = either {
         val gitDir = openRepositoryGitAction(worktreePath).bind()
 
         if (gitDirOf(gitDir) == gitDirOf(currentGitDir)) {
-            return@executeLaunch Either.Ok(Unit)
+            return@either Either.Ok(Unit)
         }
 
         val worktrees = repositoryDataRepository.worktrees.first().dataOrNull()

@@ -74,6 +74,7 @@ fun LazyListScope.worktrees(
     onOpenInNewTab: (WorktreeInfo) -> Unit,
     onCopyPath: (WorktreeInfo) -> Unit,
     onChooseBase: (branch: String?) -> Unit,
+    actions: WorktreeActions = WorktreeActions(),
 ) {
     stickyHeader(key = "header:worktrees") {
         val baseChoice = worktreesState.baseChoice
@@ -107,10 +108,23 @@ fun LazyListScope.worktrees(
                 onSwitchTo = { onSwitchToWorktree(row.info) },
                 onOpenInNewTab = { onOpenInNewTab(row.info) },
                 onCopyPath = { onCopyPath(row.info) },
+                actions = actions,
             )
         }
     }
 }
+
+/**
+ * What a worktree's menu does to the worktree itself (fork-only): each opens its dialog, except unlocking, which loses
+ * nothing.
+ */
+data class WorktreeActions(
+    val onLock: (Worktree) -> Unit = {},
+    val onUnlock: (Worktree) -> Unit = {},
+    val onRemove: (Worktree) -> Unit = {},
+    val onDiscard: (Worktree) -> Unit = {},
+    val onPrune: () -> Unit = {},
+)
 
 @Composable
 private fun WorktreesError(errorText: String) {
@@ -137,6 +151,7 @@ private fun WorktreeItem(
     onSwitchTo: () -> Unit,
     onOpenInNewTab: () -> Unit,
     onCopyPath: () -> Unit,
+    actions: WorktreeActions,
 ) {
     val worktree = row.info.worktree
     val isPrunable = worktree.prunable != null
@@ -144,7 +159,7 @@ private fun WorktreeItem(
     val currentOnSwitchTo by rememberUpdatedState(onSwitchTo)
 
     ContextMenu(
-        items = { worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath) }
+        items = { worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath, actions) }
     ) {
         DelayedTooltip(worktreeTooltip(row.info, baseBranch)) {
             Row(
@@ -250,7 +265,8 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
 }
 
 /**
- * The menu of [worktree]'s row: switching the tab to it, or opening it in a new tab, when the tab can switch to it, and
+ * The menu of [worktree]'s row: switching the tab to it, or opening it in a new tab, when the tab can switch to it; for
+ * a linked worktree, locking or unlocking it, removing or discarding it, and pruning when its folder is missing; and
  * copying its path.
  */
 internal fun worktreeContextMenuItems(
@@ -258,6 +274,7 @@ internal fun worktreeContextMenuItems(
     onSwitchTo: () -> Unit,
     onOpenInNewTab: () -> Unit,
     onCopyPath: () -> Unit,
+    actions: WorktreeActions = WorktreeActions(),
 ): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
     if (worktree.canSwitchTo) {
         addContextMenu(
@@ -271,6 +288,49 @@ internal fun worktreeContextMenuItems(
             icon = { painterResource(Res.drawable.open) },
             onClick = onOpenInNewTab,
         )
+    }
+
+    // The main worktree can't be removed, and git doesn't lock or prune it
+    if (!worktree.isMain) {
+        if (isNotEmpty()) {
+            add(ContextMenuElement.ContextSeparator)
+        }
+
+        if (worktree.locked == null) {
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.side_pane_worktree_lock) },
+                icon = { painterResource(Res.drawable.lock) },
+                onClick = { actions.onLock(worktree) },
+            )
+        } else {
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.side_pane_worktree_unlock) },
+                icon = { painterResource(Res.drawable.lock_open) },
+                onClick = { actions.onUnlock(worktree) },
+            )
+        }
+
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_remove) },
+            icon = { painterResource(Res.drawable.remove) },
+            onClick = { actions.onRemove(worktree) },
+        )
+
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_discard) },
+            icon = { painterResource(Res.drawable.delete) },
+            onClick = { actions.onDiscard(worktree) },
+        )
+
+        if (worktree.prunable != null) {
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.side_pane_worktree_prune) },
+                icon = { painterResource(Res.drawable.close) },
+                onClick = actions.onPrune,
+            )
+        }
+
+        add(ContextMenuElement.ContextSeparator)
     }
 
     addContextMenu(

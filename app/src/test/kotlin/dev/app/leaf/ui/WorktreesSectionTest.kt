@@ -8,6 +8,7 @@ import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 class WorktreesSectionTest {
@@ -38,7 +39,10 @@ class WorktreesSectionTest {
             onCopyPath = {},
         )
 
-        assertEquals(listOf("Switch to worktree", "Open in new tab", "Copy path"), labels(items))
+        assertEquals(
+            listOf("Switch to worktree", "Open in new tab", "Lock…", "Remove…", "Discard…", "Copy path"),
+            labels(items),
+        )
 
         items[0].onClick()
         assertEquals(1, switched)
@@ -52,16 +56,68 @@ class WorktreesSectionTest {
     @Test
     fun `doesn't offer to switch to or open the tab's worktree, a missing one or a bare repository`() {
         val worktrees = listOf(
-            worktree("/repo").copy(isCurrent = true),
+            worktree("/repo").copy(isCurrent = true, isMain = true),
+            worktree("/agent").copy(isCurrent = true),
             worktree("/gone").copy(prunable = "gitdir file points to non-existent location"),
-            worktree("/bare.git").copy(isBare = true, headSha = null),
+            worktree("/bare.git").copy(isMain = true, isBare = true, headSha = null),
         )
 
         for (worktree in worktrees) {
-            val items = worktreeContextMenuItems(worktree, onSwitchTo = {}, onOpenInNewTab = {}, onCopyPath = {})
+            val labels = labels(worktreeContextMenuItems(worktree, onSwitchTo = {}, onOpenInNewTab = {}, onCopyPath = {}))
 
-            assertEquals(listOf("Copy path"), labels(items), worktree.path)
+            assertFalse("Switch to worktree" in labels, worktree.path)
+            assertFalse("Open in new tab" in labels, worktree.path)
         }
+    }
+
+    @Test
+    fun `offers nothing that removes, locks or prunes the main worktree`() {
+        val main = worktree("/repo").copy(isMain = true)
+
+        val items = worktreeContextMenuItems(main, onSwitchTo = {}, onOpenInNewTab = {}, onCopyPath = {})
+
+        assertEquals(listOf("Switch to worktree", "Open in new tab", "Copy path"), labels(items))
+        assertFalse(items.any { it is ContextMenuElement.ContextSeparator })
+    }
+
+    @Test
+    fun `offers the tab's own worktree to remove, between separators`() {
+        val items = worktreeContextMenuItems(
+            worktree("/agent").copy(isCurrent = true),
+            onSwitchTo = {},
+            onOpenInNewTab = {},
+            onCopyPath = {},
+        )
+
+        assertEquals(listOf("Lock…", "Remove…", "Discard…", "Copy path"), labels(items))
+        assertEquals(ContextMenuElement.ContextSeparator, items[3])
+        assertFalse(items.first() is ContextMenuElement.ContextSeparator)
+    }
+
+    @Test
+    fun `offers to unlock a locked worktree, and to prune a missing one, and runs each on the worktree`() {
+        val actions = mutableListOf<String>()
+        val recording = WorktreeActions(
+            onLock = { actions += "lock ${it.path}" },
+            onUnlock = { actions += "unlock ${it.path}" },
+            onRemove = { actions += "remove ${it.path}" },
+            onDiscard = { actions += "discard ${it.path}" },
+            onPrune = { actions += "prune" },
+        )
+        val worktree = worktree("/gone").copy(locked = "on a USB drive", prunable = "gitdir file points to non-existent location")
+
+        val items = worktreeContextMenuItems(worktree, onSwitchTo = {}, onOpenInNewTab = {}, onCopyPath = {}, recording)
+
+        assertEquals(listOf("Unlock", "Remove…", "Discard…", "Prune missing worktrees…", "Copy path"), labels(items))
+        items.filterIsInstance<ContextMenuElement.ContextTextEntry>().dropLast(1).forEach { it.onClick() }
+        assertEquals(listOf("unlock /gone", "remove /gone", "discard /gone", "prune"), actions)
+
+        // Switch to worktree, Open in new tab, then Lock…
+        val lockItem = worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, recording)
+            .filterIsInstance<ContextMenuElement.ContextTextEntry>()[2]
+        assertEquals(listOf("Lock…"), labels(listOf(lockItem)))
+        lockItem.onClick()
+        assertEquals("lock /wt", actions.last())
     }
 
     private fun worktree(path: String) = Worktree(
