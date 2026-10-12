@@ -425,6 +425,40 @@ conflicts compares the working file with ours (stage 2). For a file that both si
 - The side panel shows the list (Worktrees section) and marks the branches that worktrees use (see Sidebar and branch
   list).
 
+**Worktree actions (fork-only, Phase 3, `docs/fork/worktree-lifecycle.md`):** removing, discarding, pruning, locking
+and unlocking worktrees run the git CLI, and their dialogs show the commands.
+- An action is a list of `WorktreeStep`s (`domain/worktrees/WorktreeSteps.kt`): a git command and the folder it runs in
+  (`Git`), or switching the tab (`SwitchTab`).
+  - The dialog shows the list (`WorktreeCommands`, from `shellLines`): a `cd` each time the folder changes, the commands
+    quoted as a shell reads them, the home folder as `~`, and other steps as comments, so the lines can be pasted
+    into a terminal.
+  - `RunWorktreeStepsUseCase` runs the same list on confirm, as a foreground task. It stops at the first failure,
+    whose `GitCliError.CommandFailed` names the command, and refreshes even then. `RunGitCommandGitAction` gives git
+    no time limit.
+  - The commands run in the main worktree, and name a worktree relative to it when it's inside or next to it
+    (`pathArgument`: `../leaf-agent1`, `.claude/worktrees/a1`), and absolute otherwise.
+- **Remove and Discard** share `RemoveWorktreeDialog`. When it opens, `GetWorktreeRemovalUseCase` reads again what
+  removing would lose (`WorktreeRemoval`), as the list may be stale:
+  - the worktree's status;
+  - its last change (`GetWorktreeActivityGitAction`): the newest of its git dir's `index`, `HEAD` and `logs/HEAD`,
+    and of the files `git status` lists. A change in the last 5 minutes warns that an agent may still be working in
+    it;
+  - whether its branch is merged into the base (`GetBranchMergedGitAction`): its tip is in the base, or
+    `git merge-tree --write-tree <base> <branch>` gives the base's tree, so a squash-merged branch counts as merged.
+    git before 2.38 only gets the first test. The merge's tree is written to the object database, unreferenced.
+- **Remove** asks for what loses work:
+  - "Delete its uncommitted changes too" (`--force`) for a worktree with changes, or whose status couldn't be read;
+  - "Remove it although it's locked" for a locked one, which runs `git worktree unlock` first. git's own override,
+    `--force --force`, would also delete changes made after the dialog checked;
+  - "Also delete the branch" adds `git branch -D`. Not `-d`, which checks HEAD or the upstream rather than the base,
+    and fails for a squash-merged branch. The base branch, or the local branch of a remote base, is never offered.
+- **Discard** always forces and deletes the branch, and asks a second time ("Discard anyway") when that loses work:
+  changes, or a branch not merged into the base (`RemoveWorktreeState.onConfirm`).
+- **The tab's own worktree:** removing it switches the tab to the main worktree first. `SwitchWorktreeUseCase.switch`
+  runs inside another task; `invoke` and `followRemovedWorktree` launch it as a task of its own.
+- **Prune** shows `git worktree prune --dry-run -v`'s lines (git writes them to stderr), then runs
+  `git worktree prune`. **Lock** asks for an optional reason. **Unlock** runs at once, as it loses nothing.
+
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
 `docs/fork/remote-operations.md`).
@@ -867,6 +901,12 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   Entry points: a double-click on a Worktrees row, on a local branch that another worktree uses (side panel and log),
   "Switch to worktree" in those menus, the checkout refusal's button (`RepositoryTabViewModel.switchToWorktree`), and
   the toolbar's picker. A switch happens even when another tab shows that worktree.
+- **A tab whose worktree was removed (fork-only):** `FollowRemovedWorktreeUseCase`, started by
+  `RepositoryOpenViewModel`, checks each time the worktree list is read. When `repositoryOfRemovedWorktree` says that
+  the tab's git dir or its folder is gone, the tab switches to the main worktree (`TaskType.FollowRemovedWorktree`,
+  whose toast says why). The removal itself triggers the read: the file watcher watches the tab's git dir and
+  `<common git dir>/worktrees`, and the list fails once the git dir is gone, or lists the worktree as prunable once
+  its folder is. Another tab, a terminal or an agent may have removed it.
 - **Opening a worktree in a new tab (fork-only):** "Open in new tab" in a worktree's menu calls
   `AppViewModel.selectOrOpenTab(folder)`, which selects the first tab with the same git dir, or adds a tab at the end.
   `indexOfRepository` (`domain/worktrees/RepositoryPaths.kt`) compares real paths of git dirs: `gitDirOf` turns a
@@ -969,9 +1009,13 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
 - A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches the tab to
   the worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
-  followed by "Open in new tab" and "Copy path". The first two aren't offered for the tab's own worktree, a prunable
-  one or a bare repository's (`Worktree.canSwitchTo`). The side panel's filter matches the folder name, the path
-  and the branches. When git can't list the worktrees, one line says so, with the error in its tooltip.
+  followed by "Open in new tab". Those two aren't offered for the tab's own worktree, a prunable one or a bare
+  repository's (`Worktree.canSwitchTo`).
+- A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, and "Prune missing
+  worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from
+  `SidePanel`. Every menu ends with "Copy path".
+- The side panel's filter matches the folder name, the path and the branches. When git can't list the worktrees, one
+  line says so, with the error in its tooltip.
 - The row's two lines are `WorktreeRowLines`, which the toolbar's picker shows too.
 - The header's button (`WorktreesBaseMenuButton`, the sort button's `SortMenuButton` with the `compare_arrows` icon)
   is muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows what Automatic
@@ -1238,7 +1282,8 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.
 - `TestTab` (`data/src/test/kotlin/dev/app/leaf/data/tab/`) builds a tab's repositories and use cases as Dagger does,
   with the real git actions, around a temp repository, and a `RecordingFileChangesWatcher` for each watch, which
-  notes the folders it was given. `SwitchingWorktreesTest` and `WatchingWorktreesTest` use it. Its
+  notes the folders it was given. `SwitchingWorktreesTest`, `WatchingWorktreesTest` and `RemovingWorktreesTest` use
+  it; the last runs the steps that the worktree dialogs show (`runWorktreeSteps`). Its
   `close()` cancels the tab and waits: JGit writes `.probe-` files into the git dir, and JUnit failed to delete the
   temp folder while a refresh still ran.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:

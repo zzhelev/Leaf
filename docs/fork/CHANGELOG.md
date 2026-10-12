@@ -2,6 +2,51 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Remove, discard, prune, lock and unlock worktrees (branch `feat/worktree-remove`)
+
+Phase 3.1 of `docs/fork/PLAN.md`. The design of Phase 3, with the options weighed and the probes, is in
+`docs/fork/worktree-lifecycle.md`.
+
+- **Before:** Leaf only listed worktrees. Removing an agent's worktree took a terminal, and a tab whose worktree was
+  removed kept its git dir, so every refresh failed.
+- **Now:** a linked worktree's menu has Lock… or Unlock, Remove…, Discard…, and "Prune missing worktrees…" when its
+  folder is missing. They run the git CLI, and each dialog shows the commands it runs, as lines that can be pasted into
+  a terminal: what the dialog shows is the list that runs.
+  - **Remove…** checks the worktree again when it opens: its changes, when it last changed, and whether its branch is
+    merged into the base. A change in the last 5 minutes warns that an agent may still be working in it. A worktree
+    with changes needs "Delete its uncommitted changes too" (`--force`), and a locked one "Remove it although it's
+    locked", which unlocks it first. "Also delete the branch" adds `git branch -D`, saying whether the branch is merged
+    into the base or how many commits the base doesn't have. A squash-merged branch counts as merged.
+  - **Discard…** removes the worktree with its changes and deletes its branch. When that loses work, it asks a second
+    time ("Discard anyway").
+  - **Prune** lists what `git worktree prune` would remove, in git's words, first. **Lock** takes an optional reason.
+    **Unlock** runs at once.
+  - Removing the tab's own worktree switches the tab to the main worktree first.
+  - A tab whose worktree is removed by another tab, a terminal or an agent switches to the main worktree by itself,
+    and says why. This closes the item that Phase 2b left open.
+- **Tests:** 49 new.
+  - `:data` (23): `RemovingWorktreesTest` runs the dialogs' steps in a tab (`TestTab`) against worktrees made with
+    `git worktree add`: removing, git refusing changes and then forcing, the tab's own worktree, a locked one, lock and
+    unlock, prune, and a tab following its worktree's removal or its folder's deletion. Each checks `git worktree list`
+    for stale entries. `WorktreeLifecycleGitActionsTest` checks merged branches (fast-forward, squash, conflicting,
+    moved on since), a worktree's last change, prune's dry run and the lines it keeps, and a refused command.
+  - `:domain` (13): `WorktreeStepsTest`: the commands of each action, relative paths, shell quoting, the `cd` lines.
+  - `:app` (13): `RemoveWorktreeStateTest` (what each dialog lets the user confirm, and when discarding asks twice) and
+    `WorktreesSectionTest` (the menu of the main, the tab's own, a locked and a missing worktree).
+  - **Mutation check:** 16 mutations, all caught. The first pass missed three. Two were the script's: it named
+    `:data:test` twice, and Gradle kept only the last `--tests` filter. The third, prune's filter for git's lines,
+    wasn't tested, as git only printed those lines; the test with a warning line came from it.
+  - The dialogs were rendered offscreen against a demo repository (the dirty, locked, missing and agent worktrees),
+    which quoted the branch names and gave Remove the trash icon: the minus sign showed as a bare bar.
+  - Manual run on macOS by the user, against a demo repository with a squash-merged, a dirty, a locked, a missing and
+    an agent's worktree, with steps for each action and for a removal made in a terminal. The user reported that it
+    looks good.
+  - `./gradlew test` passes, with 934 tests (87 in `:app`, 641 in `:data`, 198 in `:domain`, 7 in `:common`). The test
+    of prune's lines came after that run, and passes with its class; `:app:test` passed again after the strings
+    changed.
+  - `GitCliTest`'s timeout test failed once under the full suite's load and passed alone three times: a timeout can
+    close the process's streams while they're read (`ProcessRunner`), unrelated to this branch.
+
 ## A tab switches between its repository's worktrees (branch `feat/worktree-switching`)
 
 Phase 2b of `docs/fork/PLAN.md`. The design, with the options weighed, is in `docs/fork/worktree-switching.md`.
