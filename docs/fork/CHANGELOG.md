@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A git command that times out is reported as timed out (branch `fix/process-runner-timeout-race`)
+
+- **Before:** on a timeout, `ProcessRunner` destroys the process, and the JDK's `Process.destroy` closes its streams.
+  A reader still reading stdout or stderr then failed with `IOException: Stream closed`, and that failure ended the
+  run. `GitCli` took it for git failing to start: it returned `StartFailed("Stream closed")` instead of `TimedOut`, and
+  dropped the git it had located, so the next command looked for it again. A cancelled command ended the same way,
+  rather than as cancelled. It depended on timing: `GitCliTest`'s timeout test failed once in a full `./gradlew test`
+  run (2026-10-12), and passed on its own.
+- **Now:** `ProcessRunner` notes that it's destroying the process before it does, and a read that fails after that
+  only ends that stream's text, which nothing uses. A read that fails while the process runs, or after it exited on
+  its own, still fails the run.
+- **Tests:** 3 new in `ProcessRunnerTest`. A shell loop writes to both streams faster than slow callbacks pass the
+  output on, so the readers still have output to read when the streams close. A timeout and a cancellation there
+  failed with `Stream closed` on every run of the old code. The third checks that a read error while the process runs
+  still fails the run.
+  - **Mutation check:** swallowing every read error fails the third test. Setting the flag after destroying the
+    process, rather than before, failed in 1 of 2 runs: the readers fail during or after the destroy, by timing.
+  - `:data:test` passed, with 622 tests, before the rebase onto the worktree removal. After it, `ProcessRunnerTest`
+    and `GitCliTest` pass again.
+
 ## Remove, discard, prune, lock and unlock worktrees (branch `feat/worktree-remove`)
 
 Phase 3.1 of `docs/fork/PLAN.md`. The design of Phase 3, with the options weighed and the probes, is in

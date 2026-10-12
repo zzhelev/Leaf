@@ -15,6 +15,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlin.time.Duration
 
@@ -68,32 +69,28 @@ class ProcessRunner @Inject constructor() {
         }
 
         coroutineScope {
+            // Set before the process is destroyed, which closes its streams while they're still being read
+            val destroyed = AtomicBoolean(false)
+
+            fun destroy() {
+                destroyed.set(true)
+                process.destroyTree()
+            }
+
             if (input != null) {
                 // Written while the output is drained, as the process may write before it has read all of its input
                 launch { process.writeInput(input) }
             }
 
             // Both streams have to be drained while the process runs, otherwise it blocks once a pipe buffer is full
-            val stdout = async {
-                if (onStdout == null) {
-                    process.inputStream.readBytes().decodeToString()
-                } else {
-                    process.inputStream.readAsWritten(onStdout)
-                }
-            }
-            val stderr = async {
-                if (onStderr == null) {
-                    process.errorStream.readBytes().decodeToString()
-                } else {
-                    process.errorStream.readAsWritten(onStderr)
-                }
-            }
+            val stdout = async { process.inputStream.drain(onStdout, destroyed) }
+            val stderr = async { process.errorStream.drain(onStderr, destroyed) }
 
             try {
                 val exitCode = withTimeoutOrNull(timeout) { process.onExit().await().exitValue() }
 
                 if (exitCode == null) {
-                    process.destroyTree()
+                    destroy()
                     ProcessOutcome.TimedOut
                 } else {
                     ProcessOutcome.Completed(exitCode, stdout.await(), stderr.await())
@@ -101,10 +98,29 @@ class ProcessRunner @Inject constructor() {
             } finally {
                 // On cancellation the blocking stream reads only finish once the process is gone
                 if (process.isAlive) {
-                    process.destroyTree()
+                    destroy()
                 }
             }
         }
+    }
+
+    /**
+     * Reads the stream to its end, as text. Destroying the process closes its streams, and a read then fails with
+     * "Stream closed": once [destroyed] is set, that only ends the text, which nothing uses, as the run timed out or was
+     * cancelled.
+     */
+    private fun InputStream.drain(onText: ((String) -> Unit)?, destroyed: AtomicBoolean): String = try {
+        if (onText == null) {
+            readBytes().decodeToString()
+        } else {
+            readAsWritten(onText)
+        }
+    } catch (e: IOException) {
+        if (!destroyed.get()) {
+            throw e
+        }
+
+        ""
     }
 
     /** Reads the stream to its end, passing each piece of text to [onText] as soon as it's read, and returns all of it. */

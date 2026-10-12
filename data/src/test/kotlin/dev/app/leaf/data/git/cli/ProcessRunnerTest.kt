@@ -3,13 +3,18 @@
 
 package dev.app.leaf.data.git.cli
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -22,6 +27,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+
+private const val WRITES_TO_BOTH_STREAMS = "while :; do echo out; echo err >&2; done"
 
 @DisabledOnOs(OS.WINDOWS)
 class ProcessRunnerTest {
@@ -122,6 +129,66 @@ class ProcessRunnerTest {
         assertTrue(System.nanoTime() - startNanos < TimeUnit.SECONDS.toNanos(10), "Timeout took too long")
         assertProcessExits(childPidFile.readText().trim().toLong())
     }
+
+    @Test
+    fun `times out while the streams are still being read`(): Unit = runBlocking {
+        val outcome = processRunner.run(
+            listOf("/bin/sh", "-c", WRITES_TO_BOTH_STREAMS),
+            tempDir,
+            emptyMap(),
+            500.milliseconds,
+            onStderr = passOnSlowly,
+            onStdout = passOnSlowly,
+        )
+
+        assertEquals(ProcessOutcome.TimedOut, outcome)
+    }
+
+    @Test
+    fun `is cancelled, not failed, when cancelled while the streams are still being read`(): Unit = runBlocking {
+        val writing = CompletableDeferred<Unit>()
+
+        val run = CoroutineScope(Dispatchers.Default).async {
+            processRunner.run(
+                listOf("/bin/sh", "-c", WRITES_TO_BOTH_STREAMS),
+                tempDir,
+                emptyMap(),
+                60.seconds,
+                onStderr = passOnSlowly,
+                onStdout = { writing.complete(Unit); passOnSlowly(it) },
+            )
+        }
+
+        withTimeout(5.seconds) { writing.await() }
+        withTimeout(10.seconds) { run.cancelAndJoin() }
+
+        val failure = runCatching { run.await() }.exceptionOrNull()
+        assertInstanceOf(CancellationException::class.java, failure, "$failure")
+    }
+
+    @Test
+    fun `fails when reading a stream fails while the process runs`() {
+        // A callback that throws stands in for a read error
+        val failure = assertThrows(IOException::class.java) {
+            runBlocking {
+                processRunner.run(
+                    listOf("/bin/sh", "-c", "echo out; sleep 30"),
+                    tempDir,
+                    emptyMap(),
+                    10.seconds,
+                    onStdout = { throw IOException("Read error") },
+                )
+            }
+        }
+
+        assertEquals("Read error", failure.message)
+    }
+
+    /**
+     * Passes the output on slower than [WRITES_TO_BOTH_STREAMS] writes it, so that its pipes stay full: when destroying
+     * the process closes its streams, the readers still have output to read.
+     */
+    private val passOnSlowly: (String) -> Unit = { Thread.sleep(20) }
 
     @Test
     fun `kills the process when the coroutine is cancelled`(): Unit = runBlocking {
