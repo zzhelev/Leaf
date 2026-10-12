@@ -2,6 +2,60 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Squash-merge or merge a worktree into the base (branch `feat/worktree-merge`)
+
+Phase 3.4 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.
+
+- **Before:** bringing an agent's branch into main took a terminal: `git merge --squash agent1` in main's worktree,
+  then a commit message to write. Leaf's own merge merged the clicked branch into the tab's branch, so it worked
+  only from the tab that had main.
+- **Now:** "Squash-merge into main…" and "Merge into main…" follow "Review changes" in a worktree's menu. The dialog
+  says how many commits the branch brings, what may stop the merge, and shows the commands. On confirm:
+  - the tab switches to the worktree that has main checked out (or checks main out in its own worktree when none
+    has it, and that worktree has no changes to tracked files);
+  - `git merge --squash agent1`, or `git merge --no-ff --no-commit agent1`, runs there;
+  - for a squash, Leaf writes its own message to `SQUASH_MSG`: a single commit's message, or the branch's name and
+    one `- subject` line per commit. The commit field shows it, and a commit from a terminal gets it too;
+  - the tab shows the uncommitted changes, where the result waits. The banner says that a squash merge is staged, or
+    stopped at conflicts, with Abort (`git reset --merge`, which keeps unstaged changes). A plain merge goes on in
+    the existing merge UI, with git's "Merge branch 'agent1'".
+
+  It's refused, with the reason, when there's nothing to merge, when main's worktree has staged changes or conflicts
+  (`git merge --squash` takes staged changes into the squash without a word), when a worktree rebases main, and for a
+  squash, when the branch's changes are already in main. An agent that changed its worktree in the last few minutes,
+  and changes that the merge leaves out, get a warning.
+- **Fixes found on the way:**
+  - After Leaf's commit, Leaf removes `SQUASH_MSG`, `MERGE_MSG`, `MERGE_MODE` and `AUTO_MERGE`, as git's commit does
+    and JGit's doesn't. A `MERGE_MSG` left by a squash that had conflicts was the next terminal commit's message.
+  - A commit clears the commit field it committed from. It used to clear the field shown after the commit's
+    refresh, the plain draft after a merge, so the next merge showed the old merge message. A merge's or a squash's
+    field is also cleared once its file is gone.
+  - Commit is disabled while files have conflicts, as git refuses then. JGit's commit failed with an error.
+  - git exits with 1 both when a merge stops at conflicts and when it refuses a squash merge, so a merge counts as
+    stopped at conflicts only when the index has them. With a tag named like the branch, `git merge agent1` merges
+    the tag, so Leaf names the branch in full then.
+- **Tests:** 44 new.
+  - `:domain` (21): `WorktreeMergeStepsTest`: the target (a local or remote base, a remote name with a `/`), which
+    worktrees get the items, every refusal, the steps in each case, the squash message, and when a squash merge is
+    in progress.
+  - `:data` (15): `MergingWorktreesTest` runs the dialog's steps in a tab on a repository made with git: a squash from
+    the branch's tab, Leaf's commit ending it, a squash that stops at conflicts and its abort, a commit after
+    resolving them, a plain merge and its commit, a merge that git refuses, checking main out first, and a tag named
+    like the branch. `CleanUpAfterCommitGitActionTest` and `UnmergedPathsTest`.
+  - `:app` (8): the commit field's source, the banner and its abort for a squash, the menu items, and when the tab
+    shows the uncommitted changes.
+  - **Mutation check:** 18 mutations, all caught.
+  - A harness drove a real tab, through Dagger, through the dialog, a squash, editing the message (saved to
+    `SQUASH_MSG`), the commit, a second squash, abort, a squash with conflicts and a plain merge, and rendered the
+    dialogs and the status pane. It found the stale merge message above.
+  - Manual run on macOS by the user, against a demo repository with three agents' worktrees: a squash merge that
+    stopped at a conflict, resolved with "Use theirs", its message edited and committed (one commit, Leaf's message,
+    and no `SQUASH_MSG` or `MERGE_MSG` left); a squash merge that stopped at conflicts and was aborted (main clean);
+    a plain merge, committed as "Merge branch 'agent3'" with two parents; and the dialogs of a branch already
+    squash-merged. Two dev Leafs from different checkouts couldn't run at once: macOS killed the second at start, as
+    both load the Rust library from one file in `leaf-dev/tmp`. That's for its own fix.
+  - `./gradlew test` passes, with 1,223 tests (165 in `:app`, 802 in `:data`, 249 in `:domain`, 7 in `:common`).
+
 ## The conflict resolver's Focus (branch `claude/resolver-model-f2582e`)
 
 - **Before:** the resolver took the tab, but Leaf's tab bar, the repository's toolbar, the operation banner, the

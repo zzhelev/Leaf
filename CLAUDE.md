@@ -605,13 +605,17 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
 **Worktree actions (fork-only, Phase 3, `docs/fork/worktree-lifecycle.md`):** creating, removing, discarding, pruning,
 locking and unlocking worktrees run the git CLI, and their dialogs show the commands.
 - An action is a list of `WorktreeStep`s (`domain/worktrees/WorktreeSteps.kt`): a git command and the folder it runs in
-  (`Git`), switching the tab (`SwitchTab`), or copying gitignored files into a new worktree (`CopyFiles`).
+  (`Git`), switching the tab (`SwitchTab`), copying gitignored files into a new worktree (`CopyFiles`), or writing a
+  squash merge's message (`WriteSquashMessage`).
   - The dialog shows the list (`WorktreeCommands`, from `shellLines`): a `cd` each time the folder changes, the commands
     quoted as a shell reads them, the home folder as `~`, and other steps as comments, so the lines can be pasted
     into a terminal.
   - `RunWorktreeStepsUseCase` runs the same list on confirm, as a foreground task. It stops at the first failure,
     whose `GitCliError.CommandFailed` names the command, and refreshes even then. `RunGitCommandGitAction` gives git
     no time limit. `runSteps` runs them inside another task (`CreateWorktreeUseCase`).
+  - A merge (`Git.mayStopAtConflicts`) that stops at conflicts doesn't stop the steps: the task ends as one that
+    stopped at conflicts (`stoppedAtConflicts`). git exits with 1 for conflicts, but also when it refuses a squash
+    merge (a plain merge refuses with 2), so only exit code 1 with unmerged paths (`git ls-files --unmerged`) counts.
   - The commands run in the main worktree, and name a worktree relative to it when it's inside or next to it
     (`pathArgument`: `../leaf-agent1`, `.claude/worktrees/a1`), and absolute otherwise.
 - **Remove and Discard** share `RemoveWorktreeDialog`. When it opens, `GetWorktreeRemovalUseCase` reads again what
@@ -673,6 +677,51 @@ worktree on a branch other than the base (`branchToReview`, `domain/worktrees/Wo
   comparison stays on screen while the next loads.
 - The worktree's uncommitted changes aren't in it, as a merge leaves them out. A line under the files counts them,
   from the worktree list's status, with a link that switches the tab to the worktree, or shows the tab's own.
+
+**Merging a worktree into the base (fork-only, Phase 3.4, `MergeWorktreeDialog`, `WorktreeMergeSteps.kt`):**
+"Squash-merge into main…" and "Merge into main…" follow "Review changes" in a worktree row's menu, for a worktree on a
+branch that is neither the base nor the branch merged into (`branchToMerge`). That's the base's local branch
+(`mergeTarget`): the base itself, or `main` for `origin/main`. Without a local branch, the items aren't offered.
+- `GetWorktreeMergeUseCase` reads, when the dialog opens (`WorktreeMerge`): the worktree that has the target checked out
+  and its status, the branch's worktree's status and last change, the commits that the branch brings (3.3's
+  comparison, from the target), and whether its changes are already in the target (`GetBranchMergedGitAction`).
+- git gets the branch's short name, unless `git rev-parse --symbolic-full-name` resolves it to something else, such as
+  a tag of the same name, which `git merge agent1` would merge. Then it gets the full name, and its message says
+  "Merge branch 'refs/heads/agent1'".
+- **Refused** (`refusal`), with the button disabled:
+  - nothing to merge;
+  - a squash merge whose changes are already in the target, which would stage nothing (a merge is allowed);
+  - staged changes or conflicts in the target's worktree, as `git merge --squash` takes staged changes in without a
+    word; also when its status can't be read, or its folder is missing;
+  - a worktree that rebases the target or bisects from it;
+  - no worktree with the target checked out, when the tab's worktree is the branch's own, or has changes to tracked
+    files that `git switch` would carry over (untracked files don't count: git refuses to overwrite them).
+- **Steps** (`mergeSteps`): the tab switches to the target's worktree (or `git switch main` runs in the tab's worktree
+  when no worktree has it), then `git merge --squash <branch>` or `git merge --no-ff --no-commit <branch>`, then for a
+  squash `WriteSquashMessage`, over git's "Squashed commit of the following:".
+- **The squash message** (`squashMessage`): a single commit's own message; otherwise the branch's name, then
+  `- <subject>` per commit, oldest first, and a line counting the commits past `MAX_COMPARED_COMMITS`.
+- **A squash merge in progress:** git records no state for it (no `MERGE_HEAD`; JGit says SAFE), so
+  `isSquashMergeInProgress` is `SQUASH_MSG` there while something is staged or has conflicts. A leftover `SQUASH_MSG`
+  doesn't count.
+  - The commit field shows `SQUASH_MSG` then (`CommitMessageSource`: a merge's message first, then a squash merge's,
+    then the plain draft), and saves edits to it (`PersistSquashMessageUseCase`, which never empties it).
+  - `OperationInProgressBanner` says "Squash merge staged…" (`Operation.SQUASH`). Its Abort runs `git reset --merge`
+    (`AbortSquashMergeUseCase`), which undoes the staged changes and keeps unstaged ones, and refuses, changing nothing,
+    while a file that the squash merge changed has unstaged changes.
+  - A squash merge that stops at conflicts writes `MERGE_MSG` too. Ours is the target; theirs is "the changes being
+    applied", as git doesn't record the branch.
+- **After Leaf's commit,** `CleanUpAfterCommitGitAction` removes what git's commit removes and JGit's leaves:
+  `SQUASH_MSG`, `MERGE_MSG`, `MERGE_MODE` and `AUTO_MERGE`, unless a rebase goes on. A `MERGE_MSG` left there would be
+  the message of the next commit made in a terminal.
+- **The commit field** (fork-only fixes): a commit clears the field it committed from. Upstream cleared the field shown
+  after the commit's refresh, which was the plain draft after a merge, and the next merge then showed the old merge
+  message, as a field fills from its file only while it's blank. For the same reason, a merge's or a squash merge's
+  field is cleared once its file is gone, unless a merge goes on. Commit is disabled while files have conflicts, as git
+  refuses then.
+- A plain merge then goes on in Leaf's merge UI: `MERGE_MSG` in the field, the Merge button, the banner.
+- When a merge ends, conflicts or not, the tab selects the uncommitted changes (`worktreeMergesEnded`), where its result
+  waits. A selected commit, or the review, would hide it.
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
@@ -1246,7 +1295,8 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 - A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches the tab to
   the worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
   followed by "Open in new tab". The menu starts with "Review changes" for a worktree on a branch other than the
-  base (see Reviewing a worktree). Those two aren't offered for the tab's own worktree, a prunable one or a bare
+  base (see Reviewing a worktree), then "Squash-merge into main…" and "Merge into main…" (see Merging a worktree into
+  the base). Switching and opening in a new tab aren't offered for the tab's own worktree, a prunable one or a bare
   repository's (`Worktree.canSwitchTo`).
 - A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, and "Prune missing
   worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from

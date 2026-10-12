@@ -5,7 +5,7 @@
 | Question | How should Leaf create, review, merge, rebase, remove and discard worktrees, and run a merge tool in them? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54.0 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1, 3.2 and 3.3 done |
+| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1 to 3.4 done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -214,7 +214,11 @@ it later.
 
 ### 3.4 Merge and squash-merge into the base (plan items 3, 4)
 
-**Menu:** "Squash-merge into main…" and "Merge into main…" on a worktree row whose branch isn't the base.
+Done on 2026-10-12 (branch `feat/worktree-merge`), as below. Where it differs from the first design, the reason is
+given.
+
+**Menu:** "Squash-merge into main…" and "Merge into main…", after "Review changes", on a worktree row whose branch is
+neither the base nor the target.
 
 **Target:** the base's local branch. A base of `origin/main` merges into `main`, and without a local branch the items
 aren't shown.
@@ -222,32 +226,55 @@ aren't shown.
 **Where it runs:** in the worktree that has the target checked out. If that isn't the tab's, the tab switches to it
 first. Then the staged result, the message and any conflicts show in the tab.
 
-**If no worktree has the target checked out,** the dialog offers "Check out main in <tab's worktree> first"
-(`git switch main`). Only when that worktree has no uncommitted changes, and isn't the branch's own worktree.
+**If no worktree has the target checked out,** the tab's worktree checks it out first (`git switch main`), a step that
+the dialog's commands show, with a note. Only when that worktree has no changes to tracked files, and isn't the
+branch's own. Untracked files don't stop it: git refuses to overwrite them. (Decided at implementation: a step and a
+note rather than a checkbox, as the dialog's commands are what the user confirms.)
 
-**Checks:**
-- **The target worktree:**
-  - staged changes or conflicts: refused, "commit or stash them first";
-  - unstaged changes: a warning (git stops by itself if they overlap).
-- **The branch's worktree:**
-  - uncommitted changes: a warning that they aren't merged;
-  - recent activity: a warning (2.3).
+**Checks** (git 2.54 probes, in the tests):
+- **Refused:**
+  - the branch has no commits that the target doesn't have;
+  - for a squash, the branch's changes are already in the target (squash-merged before), as the squash would stage
+    nothing. A merge is allowed, and records the history;
+  - the target worktree has staged changes or conflicts: `git merge --squash` takes staged changes into the squash
+    without a word, and a plain merge refuses them. Also when its status can't be read, or its folder is missing;
+  - a worktree rebases the target, or bisects from it.
+- **Warnings:** the target worktree's unstaged and untracked changes (git stops if they overlap); the branch's
+  worktree's uncommitted changes, which aren't merged; recent activity (2.3).
+
+**How git names the branch:** its short name, unless `git rev-parse --symbolic-full-name` resolves it to something
+else: with a tag named `agent1`, `git merge agent1` merges the tag. Then the full name, and git's message says
+`Merge branch 'refs/heads/agent1'`.
+
+**Conflicts:** git exits with 1 when a merge stops at conflicts, but also when it refuses a squash merge (a plain
+merge refuses with 2). So a merge has stopped at conflicts only with exit code 1 and unmerged paths. Then the task's
+toast warns, and the banner stays.
 
 **Squash:**
 - Runs `git merge --squash <branch>`. Then Leaf writes its own message to `SQUASH_MSG`, so a commit from a terminal
   gets it too.
-- **The message** (decision 7): one commit's subject, or else the branch's name. Below it, one `- subject` line per
-  commit, oldest first.
-- **The commit field** shows `SQUASH_MSG` while it exists, as it shows `MERGE_MSG` while merging. The user commits with
-  the usual button.
-- **After Leaf's commit,** Leaf deletes `SQUASH_MSG`, as git does and JGit doesn't.
-- **The banner** shows "Squash-merging agent1" while `SQUASH_MSG` exists and something is staged or conflicted. A
-  squash has no other state for it to follow. Its Abort runs `git reset --merge`.
+- **The message** (decision 7): a branch with one commit gets that commit's whole message. Otherwise the branch's
+  name, then one `- subject` line per commit, oldest first.
+- **In progress** while `SQUASH_MSG` exists and something is staged or conflicted. git records nothing else: no
+  `MERGE_HEAD`, and JGit's state is SAFE. A squash that stops at conflicts writes `MERGE_MSG` too.
+- **The commit field** shows `SQUASH_MSG` meanwhile, as it shows `MERGE_MSG` while merging, and saves edits to it. The
+  user commits with the usual button, which is disabled while files have conflicts, as git refuses then.
+- **After Leaf's commit,** Leaf removes what git's commit removes and JGit's leaves: `SQUASH_MSG`, `MERGE_MSG`,
+  `MERGE_MODE` and `AUTO_MERGE`. That's every commit's, not only a squash's, except while a rebase goes on. A
+  `MERGE_MSG` left there would be the message of the next commit made in a terminal.
+- **The banner** says "Squash merge staged. Review the changes, then commit." Its Abort runs `git reset --merge`, which
+  keeps unstaged changes, and refuses while a file that the squash changed has some. The banner doesn't name the
+  branch, as the first design did: git doesn't record it.
 
 **Merge:**
 - Runs `git merge --no-ff --no-commit <branch>`. Leaf's existing merge UI takes over: `MERGE_MSG` in the field, the
   Merge button, the banner.
 - The message is git's ("Merge branch 'agent1'").
+
+**Found while building it:** the commit field filled each of its messages from its file only while blank, and a
+commit cleared the field shown after the commit's refresh. So the old merge message showed at the next merge, and a
+squash that stopped at conflicts left its `MERGE_MSG` in the merge field. A commit now clears the field it committed
+from, and a merge's or a squash's field is cleared once its file is gone.
 
 ### 3.5 Rebase onto the base (plan item 5)
 
