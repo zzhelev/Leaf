@@ -1,0 +1,236 @@
+# Built-in conflict resolver
+
+| | |
+|---|---|
+| Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
+| Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
+| Date | 2026-10-12 |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. No code yet. |
+
+Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
+
+Launching an external tool through `git mergetool` is a separate proposal. This note covers only the built-in resolver,
+and how the two sit together (section 4).
+
+## Summary
+
+- **Layout:** Option A ("Meld columns") by default: Ours | Result | Theirs, with a gutter of arrows between the
+  columns. A switch in the resolver's toolbar changes to Option B (both sides on top, the result below), for portrait
+  monitors. Both take the whole tab, as file history does. The result starts auto-merged, and each conflict waits for
+  an arrow or for typing. Option C (the result only, with a card per conflict) wasn't picked. See section 5.
+- **Data:** the three versions come from the index (stages 1, 2 and 3, which `DA/git/diff/UnmergedDiffEntry.kt`
+  already reads). The chunks come from JGit's `MergeAlgorithm`, the content merge that Leaf's own merges already use. The
+  result starts as base plus every change that doesn't conflict. Before opening, Leaf checks the file on disk for
+  conflict markers, so it never silently throws away an edit, an agent's work or a `git rerere` resolution.
+- **Saving:** Save writes the file, with conflict markers for the conflicts still open. Mark resolved saves and
+  stages, and is only offered once no conflict is left. Deleted files, binaries, LFS files, submodules and symbolic
+  links get a choice instead of three panes: the same choices `git mergetool` offers.
+- **The hard part is the editable centre.** Compose Desktop has no code editor component. Meld, JetBrains, Sublime
+  Merge, SmartGit and VS Code all build on one. The design draws the three columns as rows aligned with filler lines,
+  as Leaf's split diff already does, and edits one region of the result at a time (section 3).
+
+## 1. What Leaf has today
+
+- Conflicted files show in Unstaged (`StatusType.CONFLICTING`), and `OperationInProgressBanner` counts them and offers
+  Abort.
+- Selecting one shows the working file, markers included, against ours (`unmergedDiffEntry`). It's read-only, and
+  conflicted files get no hunk or line actions.
+- Resolving means editing the file elsewhere, then staging it. Double-clicking a conflicted entry stages it right away
+  (`StatusAction.EntryAction`), markers and all.
+- Nothing in Leaf reads stage 1 or 3, picks a side, or writes a merge result.
+
+## 2. Data
+
+### 2.1 The three versions and the chunks
+
+- Read the stages from the index as `unmergedDiffEntry` does: stage 1 is the base, 2 is ours and 3 is theirs. Each is a
+  blob and a mode. Load them as `RawText`, which keeps the bytes.
+- Merge them in memory with `MergeAlgorithm(DiffAlgorithm.getAlgorithm(<diff.algorithm>))`. The result is a list of
+  `MergeChunk`s, each a line range of one version:
+  - `NO_CONFLICT` names the version its lines come from: base for unchanged lines, ours or theirs for a change that
+    only one side made (or that both made the same way);
+  - a conflict is three chunks in a row: `FIRST_CONFLICTING_RANGE` (ours), `BASE_CONFLICTING_RANGE` and
+    `NEXT_CONFLICTING_RANGE` (theirs).
+- The resolver keeps that list, with a state per chunk: applied or not for a one-sided change; unresolved, ours,
+  theirs, ours then theirs, theirs then ours, or edited for a conflict. The result is the chunks' text in order. This is
+  the JetBrains model. It knows where every line came from, so a one-sided change can be undone, the base is always
+  there, and the columns line up chunk by chunk without diffing the result.
+- JGit's `ResolveMerger` merges file contents with this same `MergeAlgorithm`. So for a merge, rebase, cherry-pick,
+  revert or pull that Leaf ran, the resolver shows the same conflicts as the markers in the file.
+- For conflicts that git left (a terminal, an agent), the boundaries can differ. A probe, run against git 2.54:
+  - both sides changed lines 3 to 5, the same way at lines 3 and 5. JGit, `git merge` and `git merge-file` all left a
+    conflict on line 4 only, with `X3` and `Z5` merged;
+  - with `merge.conflictStyle=diff3`, git kept lines 3 to 5 in the conflict, as diff3 doesn't trim. `zdiff3` trims;
+  - with an empty base (added by both), JGit gives the base range as `[1,-1)`. The code has to clamp it.
+
+### 2.2 The file on disk
+
+The model starts from the stages, so it ignores what happened to the file since the conflict. Before opening, Leaf
+looks for conflict markers in the working file, as rerere does: `<<<<<<<`, `=======` and `>>>>>>>` in order, at the
+start of a line, with the `conflict-marker-size` attribute's length (7 by default).
+
+| The working file | The resolver |
+|---|---|
+| Has as many conflicts as the model | Opens from the stages. The usual case. |
+| Has no markers left (resolved by hand, by an agent, or by `git rerere`) | Doesn't open the panes. It offers **Mark as resolved** (stage the file as it is) or **Resolve again from the merge**, which opens the panes and replaces the file on Save. `git mergetool` skips files that rerere resolved. |
+| Has markers, but fewer or more conflicts | Opens from the stages, with a strip: the file was edited after the conflict, and Save replaces it. **Open in external merge tool** stays one click away. |
+
+Comparing the file with the model line by line isn't worth it: the conflict style and git's trimming make them differ
+for files nobody touched.
+
+### 2.3 Saving and staging
+
+- **Save** (Cmd+S) writes the result into the working file, in place, so its mode stays. The conflicts still open are
+  written as markers in the style that `merge.conflictStyle` asks for, so the file stays a valid conflicted file for
+  git, for other tools and for opening it again. Nothing is staged.
+- **Mark resolved** (Cmd+Enter) saves, then stages the file with `StageEntryGitAction`, as staging it from Unstaged does.
+  It's only enabled when no conflict is open. It warns when an edited region still has a line that looks like a marker,
+  as `git diff --check` would.
+- **Bytes:** lines nobody touched are written as they were read, from `RawText`, never from decoded text (the same
+  rule as `HunkPatch`). A file that isn't valid UTF-8 is edited as ISO-8859-1, which keeps every byte; a typed character
+  that doesn't fit is refused. Line endings follow the file: `\r\n` stays, and so does a missing newline at the end.
+- After Mark resolved, the resolver moves to the next conflicted file. After the last one, it says so and offers to go
+  back to the status pane, where Commit and Continue are.
+- **Changes from outside while it's open:**
+  - closing it, switching files, switching the tab's worktree or closing the tab with unsaved changes asks: Save,
+    Discard or Cancel;
+  - when the working file changes on disk (an agent, an editor), a strip offers Reload (losing the resolver's changes)
+    or Keep (Save overwrites the file);
+  - when the stages go away (resolved or aborted elsewhere), the resolver closes and says why.
+
+### 2.4 Conflicts that three panes can't show
+
+| Conflict | Index | What the resolver does |
+|---|---|---|
+| Both modified | stages 1, 2, 3 | Three panes. |
+| Both added | stages 2, 3 | Three panes with an empty base: identical lines merge, the rest conflicts. |
+| Deleted by us or by them | 1 and 3, or 1 and 2 | A choice: keep the modified version (its diff against the base is shown) or delete the file. Keep stages the working file, delete runs `git rm`. Like `git mergetool`'s "(m)odified or (d)eleted". |
+| Binary, images included | any stage binary (`RawText.isBinary`) | A choice: use ours or use theirs (`git checkout --ours`/`--theirs`, then stage). Images side by side with the existing `ImageDiff`. |
+| LFS | stages are pointer files | Like binary. Merging pointers line by line means nothing. The card shows each side's size and object id. A preview needs the objects, which the built-in LFS client can download later. |
+| Submodule | mode `160000` | A choice of commit, written with `git update-index --cacheinfo`, as `git mergetool` does. The submodule's own checkout isn't touched. |
+| Symbolic link | mode `120000` | A choice of target, as in `git mergetool`. |
+| Rename conflicts (rename/rename, rename/delete, file/directory) | stages under different paths | Not handled. The resolver says what git reported and points to the terminal. |
+| Too large | over a limit, to be measured | Use ours, use theirs, or open in the external merge tool. |
+
+## 3. UI feasibility in Compose Desktop
+
+| Hard part | Other tools | Proposal for Leaf |
+|---|---|---|
+| **Editable centre.** No code editor component exists for Compose. `BasicTextField` holds the whole text as one paragraph and lays it all out again on each change, with no virtualization. | Each tool builds on a real editor: Meld on GtkSourceView (all three panes editable), JetBrains on its own editor, Sublime Merge on Sublime Text's, VS Code on Monaco. SmartGit edits the working tree file, markers included, in its centre pane. | Edit **one region at a time**. Clicking a region of the result (a conflict, or a run of lines between changes, split at 200 lines) turns it into a `BasicTextField`. Its rows grow and shrink as you type, and the side columns' fillers follow. The rest stays read-only rows. Selecting across regions isn't possible; Copy result covers the common case. One undo history covers arrows and edits. |
+| **Synchronized scrolling.** | Meld and JetBrains keep each pane's own lines and map the scroll position from pane to pane. Beyond Compare, WinMerge and KDiff3 pad with filler lines so that rows line up. | **Aligned rows**, as Leaf's split diff does today: one `LazyColumn`, each row holding every column, so the panes can't drift and virtualization comes free. A chunk's row is as tall as its tallest side. The others get hatched fillers. |
+| **Connector gutter and arrows.** | Meld and JetBrains draw curves between ranges of different heights, with arrow and cross icons at the start of each change. Meld's Ctrl-click inserts instead of replacing. | With aligned rows, the gutter is a straight band per chunk, drawn in the row, with its buttons on the first line. No curves, no reading of line positions from three panes. |
+| **Long lines.** | Each pane scrolls sideways on its own. | Soft wrap, as the diff pane does (`DiffText`, `softWrap = true`). Sideways scroll would need one scroll state per column shared by every row, which Compose's `ScrollState` doesn't support. |
+| **Highlighting.** | Word-level and syntax highlighting everywhere. | The read-only rows reuse the diff pane's `SyntaxHighlighter` and line colours. The region being edited goes plain at first. Word-level highlights come later. |
+| **Swing editor instead** (RSyntaxTextArea in a `SwingPanel`) | | Rejected. It's a heavyweight component that draws over Compose content, and Leaf's dialogs, popups and tooltips draw on the window's canvas (see CLAUDE.md, Dialogs). It's also a new dependency. |
+
+## 4. Where it opens, and the external merge tool
+
+- **Unstaged:** **Resolve…** comes first in a conflicted file's menu, next to **Open in external merge tool**.
+  Double-clicking a conflicted file opens the resolver, instead of staging the file with its markers.
+- **Diff pane:** a Resolve button in the header of a conflicted file's diff.
+- **Operation banner:** a **Resolve conflicts** button before Abort, which opens the first conflicted file.
+- **The resolver:** its file list switches between conflicted files, and **Open in external merge tool** hands the
+  current file to `git mergetool` (after Save or Discard). The resolver waits while the tool runs, then reloads.
+- If both ship, a setting can pick which one double-click and the banner open. The other stays in the menu.
+- **Labels:** each column is named after what it is, not just ours and theirs. During a rebase, ours is the branch
+  being rebased onto and theirs is the commit being replayed. The bare names confuse people: a Sublime Merge forum
+  thread asks for clearer labels for exactly this. So: **Ours: main (HEAD)** and **Theirs: feature/x (MERGE_HEAD)** for a merge, and **Ours: main (onto)** and
+  **Theirs: a1b2c3d "Fix parser"** for a rebase.
+
+## 5. Layout options
+
+All three share the data model, the toolbar (previous and next conflict with a counter, Save, Mark resolved, Base,
+Open in external merge tool) and the choice cards from section 2.4. The mockups reviewed on 2026-10-12 are kept outside
+the repository; the sketches below show the layouts.
+
+### Option A: Meld columns (the default)
+
+```
+┌ files ┐┌ Ours: main (HEAD) ──┐  ┌ Result ──────────────┐  ┌ Theirs: feature/x ──┐
+│ ⚠ a.kt││ fun load() {        │  │ fun load() {         │  │ fun load() {        │
+│ ⚠ b.kt││   val x = parse()  ━┿━▶│ ░ unresolved (2/4) ░ │◀━┿━  val x = read()    │
+│ ✓ c.kt││   log(x)            │  │ ░ base: val x = … ░  │  │   check(x)          │
+│       ││ ░░░░░░░░░░░░░░░░░░░ │ ✓│   retry(3)           │✓ │   retry(3)          │
+└───────┘└─────────────────────┘  └──────────────────────┘  └─────────────────────┘
+```
+
+- The whole tab, like file history: the side panel, log and status pane go away while it's open. A narrow list of the
+  conflicted files sits on the left.
+- Arrows point into the result: **▶** takes ours, **◀** takes theirs. Once one side is taken, the other side's arrow
+  adds its lines after it, so "both" in either order is two clicks. The conflict's menu also has Ours then theirs and
+  Theirs then ours. A cross rejects a change, and a one-sided change that was applied goes back to the base.
+- An open conflict shows a hatched placeholder in the result. **Base** shows the base text in every placeholder.
+- Good: the arrows map straight onto the columns, the user knows it from Meld, and JetBrains, SmartGit and Sublime
+  Merge work this way too. Bad: each column gets a third of the width, so long lines wrap. It wants a window around
+  1,200 px wide or more.
+
+### Option B: both sides on top, the result below (switchable)
+
+```
+┌ Ours: main (HEAD) ───────────────┐┌ Theirs: feature/x ───────────────┐
+│   val x = parse()       [Take ↓] ││   val x = read()        [Take ↓] │
+└──────────────────────────────────┘└──────────────────────────────────┘
+┌ Result ──────────────────────────────────────────────────────────────┐
+│ fun load() {                                                         │
+│ ░ conflict 2/4: take ours or theirs above, or type here ░            │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- VS Code's merge editor and GitKraken; KDiff3 adds the base as a third pane on top. The top pair scrolls with the
+  bottom, conflict by conflict.
+- Good: the result gets the full width, and it suits a portrait monitor. Bad: no arrows from side to result, the eye
+  moves up and down, and two scroll areas have to follow each other.
+- On its own, B's one-column result could be a single `BasicTextField` for files of normal size. As a layout of the
+  same resolver, it uses A's rows and region editing instead, so that the switch changes the layout, not the editor.
+
+### Switching between A and B
+
+- Two toggle buttons in the resolver's toolbar, Columns and Stacked, like the diff pane's Unified and Split
+  (`DiffTypeButtons`). Settings → Layout has the same choice.
+- One setting for the whole app, `AppConfig.ConflictResolverLayout`, stored in `user_prefs.json`
+  (`conflict_resolver_layout`), with Columns as the default.
+- Switching keeps everything: each chunk's state, edits (an open editor keeps its text), the current conflict and the
+  scroll position, mapped by chunk.
+- Both are built from the same pieces. A chunk renders as rows of cells. A draws ours, the result and theirs in one row
+  with the gutters between them. B draws ours and theirs in the top list, with **Take ↓** and **Add ↓** in place of the
+  gutter arrows, and the result alone in the bottom list. The top list follows the bottom one by chunk: the first chunk
+  that's visible, and the current conflict.
+
+### Option C: the result only, with a card per conflict
+
+```
+┌ Result: a.kt ─────────────────────────────────── 2 of 4 ▲ ▼ ┐
+│ ▌fun load() {                         ▌ = changed by theirs │
+│ ┌ conflict 2 ────────────────────────────────────────────┐  │
+│ │ ours: val x = parse()   │ theirs: val x = read()       │  │
+│ │ [Ours] [Theirs] [Ours, theirs] [Theirs, ours] [Edit]   │  │
+│ └────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- VS Code's inline conflict actions, inside Leaf's diff pane: the status pane, with Commit and Continue, stays in view.
+- Good: the smallest build, and no new full-tab view. Bad: neither side is shown whole, changes that merged cleanly are
+  just a stripe in the margin, and it isn't the Meld model the user asked for.
+
+## 6. Decisions (2026-10-12)
+
+1. **Layout:** Option A by default, with the rendering choices from section 3 (aligned rows, region editing), and a
+   switch to Option B for users who prefer it, such as on portrait monitors. Most users are expected to keep A.
+2. **Where it lives:** the whole tab, like file history. A dialog can't be larger than the window, because Leaf's
+   dialogs draw on the window's canvas. A separate OS window would need its own focus, shortcuts and theme handling
+   for little gain.
+3. **Double-click on a conflicted file** opens the resolver instead of staging it with its markers.
+4. **Editing comes after picks.** Picks alone resolve most conflicts, so the first version has the model, the arrows,
+   Save and Mark resolved, and region editing follows (section 7).
+
+## 7. Build order
+
+1. **Model** (data and domain): load the stages, classify the conflict (section 2.4), merge into chunks, build the
+   result, check the markers, write and stage. Tests compare the clean merges with `git merge-file -p` on temp
+   repositories, and cover CRLF, Latin-1, a missing final newline and an empty base.
+2. **Read-only Option A:** columns, arrows, navigation, Base, Save and Mark resolved, and the entry points from section
+   4.
+3. **Option B and the switch:** the stacked layout from the same rows, the toolbar toggle and the setting.
+4. **Region editing** and the shared undo history, in both layouts.
+5. **Choice cards** for the rows of section 2.4 other than "both modified".
+6. **Later:** word-level highlights, highlighting while editing, and the size limit from measurements.
