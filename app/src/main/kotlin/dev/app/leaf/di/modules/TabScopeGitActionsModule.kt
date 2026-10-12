@@ -17,8 +17,10 @@ import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveRefFolderExpansionGitAction
 import dev.app.leaf.data.git.config.SaveLocalRepositoryConfigGitAction
 import dev.app.leaf.data.git.conflicts.GetConflictSidesGitAction
+import dev.app.leaf.data.git.conflicts.GetConflictedFileGitAction
 import dev.app.leaf.data.git.conflicts.OpenMergeToolGitAction
 import dev.app.leaf.data.git.conflicts.ResolveConflictGitAction
+import dev.app.leaf.data.git.conflicts.WriteConflictResultGitAction
 import dev.app.leaf.data.git.diff.*
 import dev.app.leaf.data.git.lfs.*
 import dev.app.leaf.data.git.log.*
@@ -490,4 +492,12 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetConflictSidesGitAction(action: GetConflictSidesGitAction): IGetConflictSidesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetConflictedFileGitAction(action: GetConflictedFileGitAction): IGetConflictedFileGitAction
+
+    @Binds
+    @TabScope
+    fun bindsWriteConflictResultGitAction(action: WriteConflictResultGitAction): IWriteConflictResultGitAction
 }

@@ -34,4 +34,19 @@ sealed interface ConflictError : GitError {
      * so Leaf put the conflict back (`git update-index --unresolve`). The file is as the tool left it.
      */
     data class MarkersLeft(val tool: String, val path: String) : ConflictError
+
+    /**
+     * The index's versions of [path] changed since the resolver loaded it: another merge, rebase or cherry-pick stopped
+     * there. Nothing was written.
+     */
+    data class StagesChanged(val path: String) : ConflictError
+
+    /** Something changed the working file at [path] since the resolver loaded it. Nothing was written. */
+    data class WorkingFileChanged(val path: String) : ConflictError
+
+    /** A folder or a symbolic link is at [path], where the resolver writes the file. Nothing was written. */
+    data class NotAFile(val path: String) : ConflictError
+
+    /** [path] still has [count] conflicts that no resolution was picked for, so it can't be marked resolved. */
+    data class ConflictsLeft(val path: String, val count: Int) : ConflictError
 }

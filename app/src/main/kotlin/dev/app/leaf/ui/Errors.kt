@@ -11,12 +11,16 @@ import dev.app.leaf.app.generated.resources.error_checkout_branch_rebased_in_wor
 import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
 import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
 import dev.app.leaf.app.generated.resources.error_conflict_cant_discard
+import dev.app.leaf.app.generated.resources.error_conflict_conflicts_left
 import dev.app.leaf.app.generated.resources.error_conflict_markers_left
 import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_file_name
 import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_not_two_files
 import dev.app.leaf.app.generated.resources.error_conflict_no_merge_tool
+import dev.app.leaf.app.generated.resources.error_conflict_not_a_file
 import dev.app.leaf.app.generated.resources.error_conflict_not_conflicted
 import dev.app.leaf.app.generated.resources.error_conflict_not_resolved
+import dev.app.leaf.app.generated.resources.error_conflict_stages_changed
+import dev.app.leaf.app.generated.resources.error_conflict_working_file_changed
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_worktree
@@ -122,6 +126,10 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is ConflictError.MergeToolRefused -> listOf(path)
     is ConflictError.NotResolved -> listOf(path, tool)
     is ConflictError.MarkersLeft -> listOf(path, tool, "git update-index --unresolve")
+    is ConflictError.StagesChanged -> listOf(path)
+    is ConflictError.WorkingFileChanged -> listOf(path)
+    is ConflictError.NotAFile -> listOf(path)
+    is ConflictError.ConflictsLeft -> listOf(path)
     else -> emptyList()
 }
 
@@ -256,6 +264,10 @@ fun AppError.getErrorText(): String {
                     .joinToString("\n\n")
 
             is ConflictError.MarkersLeft -> stringResource(Res.string.error_conflict_markers_left, path, tool)
+            is ConflictError.StagesChanged -> stringResource(Res.string.error_conflict_stages_changed, path)
+            is ConflictError.WorkingFileChanged -> stringResource(Res.string.error_conflict_working_file_changed, path)
+            is ConflictError.NotAFile -> stringResource(Res.string.error_conflict_not_a_file, path)
+            is ConflictError.ConflictsLeft -> stringResource(Res.string.error_conflict_conflicts_left, path, count)
         }
 
         is SshNeedsGitError -> when (reason) {

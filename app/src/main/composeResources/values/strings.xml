@@ -683,6 +683,10 @@
     <string name="error_conflict_merge_tool_file_name">%1$s can't be opened in the merge tool: git mergetool takes a name with *, ? or [ as a pattern, and could merge another file. Edit the file and stage it, or take ours or theirs.</string>
     <string name="error_conflict_markers_left">%1$s still has conflicts: %2$s exited as if it had resolved it, but the file still has conflict markers, which git would have staged. Leaf put the conflict back with git update-index --unresolve, and the file is as %2$s left it.</string>
     <string name="error_conflict_not_resolved">%1$s still has conflicts: %2$s closed without resolving it, or couldn't be started. git put the file back as it was.</string>
+    <string name="error_conflict_stages_changed">%1$s has other versions in the index than when the resolver opened it: another merge, rebase or cherry-pick stopped there. Nothing was written. Open it again to resolve the new conflict.</string>
+    <string name="error_conflict_working_file_changed">%1$s changed since the resolver opened it, as an editor or an agent saved it. Nothing was written.</string>
+    <string name="error_conflict_not_a_file">A folder or a symbolic link is at %1$s, so the resolver didn't write the file. Nothing was written.</string>
+    <string name="error_conflict_conflicts_left">%1$s can't be marked resolved while conflicts are open (%2$d left). Pick a side for each, or Save to keep their markers.</string>
 
     <string name="error_fetch_remote_failed">Couldn't fetch %1$s.</string>
     <string name="error_lfs_download_failed">git-lfs couldn't download the LFS files, so nothing was checked out.</string>
