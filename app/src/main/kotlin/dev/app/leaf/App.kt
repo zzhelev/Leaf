@@ -41,6 +41,7 @@ import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.sorting.DiscardedFiles
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.lfs.AppLfsFactory
@@ -117,11 +118,7 @@ sealed interface Screen : NavKey {
         val offer: FastForwardOffer,
         val onCheckout: (fastForward: Boolean) -> Unit,
     ) : Screen
-    data class DiscardFolderChanges(
-        val folderPath: String,
-        val entries: List<StatusEntry>,
-        val keptNewFiles: Int,
-    ) : Screen
+    data class DiscardFolderChanges(val folderPath: String, val discard: DiscardedFiles) : Screen
     /** Removes [worktree] (fork-only), or with [discard] discards it: its changes and its branch go too. */
     data class WorktreeRemove(val worktree: Worktree, val discard: Boolean) : Screen
     data class WorktreeLock(val worktree: Worktree) : Screen

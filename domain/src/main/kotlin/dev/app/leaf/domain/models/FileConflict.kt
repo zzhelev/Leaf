@@ -53,6 +53,13 @@ fun mergeToolRefusal(path: String, conflict: FileConflict): MergeToolRefusal? = 
     else -> null
 }
 
+/**
+ * Whether the file has conflicts. Discarding leaves such a file alone, as git's `restore` does ("path is unmerged"):
+ * resetting it would take ours without saying so, while "Use ours" and "Use theirs" name the side they take.
+ */
+val StatusEntry.hasConflicts: Boolean
+    get() = statusType == StatusType.CONFLICTING
+
 /** Whether Leaf can open this conflicted file in the merge tool. */
 val StatusEntry.canOpenInMergeTool: Boolean
     get() = conflict != null && mergeToolRefusal(filePath, conflict) == null

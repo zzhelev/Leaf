@@ -83,8 +83,11 @@ sealed interface ConfirmableAction {
     /** Discards the changes of [entry]. In the Staged list, that's its staged and unstaged changes. */
     data class DiscardFile(val entry: StatusEntry) : ConfirmableAction
 
-    /** Discards the changes of [count] selected files of the [entryType] list. */
-    data class DiscardFiles(val count: Int, val entryType: EntryType) : ConfirmableAction
+    /**
+     * Discards the changes of [count] selected files of the [entryType] list. [keptConflicted] more selected files have
+     * conflicts, and are left as they are.
+     */
+    data class DiscardFiles(val count: Int, val entryType: EntryType, val keptConflicted: Int = 0) : ConfirmableAction
 
     /**
      * Resolves the conflicts of [entries] with [side]'s version, which loses the other side's changes and any edits
@@ -107,6 +110,8 @@ private class ConfirmationTexts(
     val warning: String?,
     val primaryAction: String,
     val code: CodeSnippet? = null,
+    /** What the action leaves alone, such as selected files with conflicts. */
+    val note: String? = null,
     /** The label of the "Don't ask again" box, for actions whose confirmation can be turned off. */
     val stopAsking: String? = null,
 )
@@ -156,6 +161,10 @@ fun ConfirmActionDialog(
 
             if (texts.warning != null) {
                 DialogWarning(texts.warning)
+            }
+
+            if (texts.note != null) {
+                KeptFilesNote(texts.note, Modifier.fillMaxWidth())
             }
 
             if (stopAskingLabel != null) {
@@ -419,6 +428,11 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 EntryType.UNSTAGED -> stringResource(Res.string.discard_changes_dialog_warning)
             },
             primaryAction = stringResource(Res.string.confirm_dialog_discard),
+            note = if (keptConflicted > 0) {
+                pluralStringResource(Res.plurals.discard_dialog_conflicted_files_kept, keptConflicted, keptConflicted)
+            } else {
+                null
+            },
         )
     }
 }

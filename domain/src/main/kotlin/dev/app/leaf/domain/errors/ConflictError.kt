@@ -10,6 +10,13 @@ sealed interface ConflictError : GitError {
     /** [paths] have no conflicts (any more): something resolved them after the status was loaded. */
     data class NotConflicted(val paths: List<String>) : ConflictError
 
+    /**
+     * Discarding was asked for [paths], which have conflicts: something stopped at conflicts after the status was
+     * loaded, as the menus leave such files out. Resetting them would take HEAD's version without saying which side
+     * that is, so nothing was discarded, as `git restore` refuses ("path is unmerged").
+     */
+    data class CantDiscard(val paths: List<String>) : ConflictError
+
     /** Neither `merge.guitool` nor `merge.tool` names a merge tool. */
     data object NoMergeTool : ConflictError
 

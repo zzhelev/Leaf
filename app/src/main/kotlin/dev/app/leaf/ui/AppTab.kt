@@ -409,11 +409,10 @@ fun AppTab(
                         ) { entry ->
                             DiscardChangesDialog(
                                 viewModel = tabViewModel(entry) { viewModelsProvider ->
-                                    viewModelsProvider.discardChangesViewModelFactory().create(entry.entries)
+                                    viewModelsProvider.discardChangesViewModelFactory().create(entry.discard.entries)
                                 },
                                 folderPath = entry.folderPath,
-                                fileCount = entry.entries.size,
-                                keptNewFiles = entry.keptNewFiles,
+                                discard = entry.discard,
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }

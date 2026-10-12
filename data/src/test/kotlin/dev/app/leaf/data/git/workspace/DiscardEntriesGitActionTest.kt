@@ -5,24 +5,31 @@ package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.conflicts.mergeWithConflicts
+import dev.app.leaf.data.git.conflicts.mergeWithConflictsIn
+import dev.app.leaf.data.git.conflicts.stages
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.sorting.discardable
+import dev.app.leaf.domain.sorting.folderDiscard
 import dev.app.leaf.domain.sorting.inFolder
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-/** Discarding a folder from the Unstaged pane, as `StatusPane` does: its discardable entries go to the git action. */
+/**
+ * Discarding a folder from the Unstaged pane, as `StatusPane` does: its discardable entries go to the git action. Files
+ * with conflicts are never discarded.
+ */
 class DiscardEntriesGitActionTest {
     @TempDir
     lateinit var tempDir: File
@@ -77,28 +84,67 @@ class DiscardEntriesGitActionTest {
     }
 
     @Test
-    fun `a conflicted file goes back to the current branch's version`(): Unit = runBlocking {
+    fun `leaves a folder's files with conflicts as they are`(): Unit = runBlocking {
         val repository = git.initRepository(File(tempDir, "repo"))
-        write(repository, "src/shared.kt", "base")
-        git.run(repository, "add", ".")
-        git.run(repository, "commit", "-m", "Base")
-        git.run(repository, "checkout", "-b", "other")
-        write(repository, "src/shared.kt", "theirs")
-        git.run(repository, "commit", "-am", "Theirs")
-        git.run(repository, "checkout", "main")
-        write(repository, "src/shared.kt", "ours")
-        git.run(repository, "commit", "-am", "Ours")
-        runCatching { git.run(repository, "merge", "other") } // Stops with a conflict
+        write(repository, "src/other.kt", "other")
+        git.mergeWithConflictsIn(repository, "src/shared.kt")
+        write(repository, "src/other.kt", "other changed")
+        val withMarkers = read(repository, "src/shared.kt")
 
-        val entries = unstaged(repository).inFolder("src").discardable()
+        val folder = unstaged(repository).inFolder("src").folderDiscard()
 
-        assertTrue(entries.any { it.statusType == StatusType.CONFLICTING }, "Expected a conflict: $entries")
+        assertEquals(listOf("src/other.kt"), folder.entries.map { it.filePath })
+        assertEquals(1, folder.keptConflicted)
 
-        assertInstanceOf(Either.Ok::class.java, discard(gitDir(repository), entries, staged = false))
+        assertInstanceOf(Either.Ok::class.java, discard(gitDir(repository), folder.entries, staged = false))
 
-        assertEquals("ours", read(repository, "src/shared.kt"))
-        assertTrue(unstaged(repository).none { it.filePath == "src/shared.kt" })
+        assertEquals("other", read(repository, "src/other.kt"))
+        assertEquals(listOf(1, 2, 3), git.stages(repository, "src/shared.kt"), "The conflict stays")
+        assertEquals(withMarkers, read(repository, "src/shared.kt"))
     }
+
+    @Test
+    fun `refuses files with conflicts and changes nothing, whatever the status said`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        git.mergeWithConflicts(repository)
+        write(repository, "README.md", "readme changed")
+        val before = snapshot(repository)
+
+        // As a stale status lists them: the conflicts came after it, so the menus offered Discard
+        val conflicted = listOf("notes.txt", "kept.txt", "dropped.txt", "added.txt")
+        val entries = (listOf("README.md") + conflicted).map { StatusEntry(it, StatusType.MODIFIED) }
+
+        for (staged in listOf(false, true)) {
+            assertEquals(
+                Either.Err(ConflictError.CantDiscard(conflicted)),
+                discard(gitDir(repository), entries, staged),
+                "staged = $staged",
+            )
+            assertEquals(before, snapshot(repository), "staged = $staged")
+        }
+    }
+
+    @Test
+    fun `discarding no files changes nothing`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        write(repository, "README.md", "staged")
+        git.run(repository, "add", "README.md")
+        write(repository, "README.md", "unstaged")
+        val before = snapshot(repository)
+
+        for (staged in listOf(false, true)) {
+            assertInstanceOf(Either.Ok::class.java, discard(gitDir(repository), emptyList(), staged))
+            assertEquals(before, snapshot(repository), "staged = $staged")
+        }
+    }
+
+    /** What discarding could change: the index with its stages, the status, and the files. */
+    private fun snapshot(repository: File) = listOf(
+        git.run(repository, "ls-files", "--stage"),
+        git.run(repository, "status", "--porcelain", "--untracked-files=all"),
+    ) + repository.walk().filter { it.isFile && ".git" !in it.relativeTo(repository).path.split('/') }
+        .sorted()
+        .map { "${it.relativeTo(repository)}: ${it.readText()}" }
 
     private suspend fun unstaged(repository: File): List<StatusEntry> {
         val status = getStatus(gitDir(repository))

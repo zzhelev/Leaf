@@ -314,6 +314,10 @@
         <item quantity="one">%1$d new file is kept.</item>
         <item quantity="other">%1$d new files are kept.</item>
     </plurals>
+    <plurals name="discard_dialog_conflicted_files_kept">
+        <item quantity="one">%1$d file with conflicts is left as it is.</item>
+        <item quantity="other">%1$d files with conflicts are left as they are.</item>
+    </plurals>
     <string name="discard_folder_dialog_discard">Discard</string>
     <plurals name="diff_line_more_characters">
         <item quantity="one">%1$s more character</item>
@@ -643,6 +647,7 @@
     <string name="error_stale_hunk_discard">%1$s changed after the diff was shown, so nothing was discarded. The diff now shows the file as it is.</string>
 
     <string name="error_conflict_not_conflicted">These files have no conflicts any more, so nothing was changed:\n\n%1$s</string>
+    <string name="error_conflict_cant_discard">These files have conflicts, so nothing was discarded:\n\n%1$s\n\nUse ours or Use theirs resolves a file with one side's version, and the merge tool lets you combine them.</string>
     <string name="error_conflict_no_merge_tool">No merge tool is set. Leaf opens the tool that git mergetool uses, which you can set with\n\ngit config --global merge.tool meld\n\nmerge.guitool, when set, comes first. git mergetool --tool-help lists the tools that git knows.</string>
     <string name="error_conflict_merge_tool_not_two_files">%1$s can't be opened in the merge tool, as one side deleted it or has a symbolic link or a submodule in its place: git would ask on a terminal which side to keep. Take ours or theirs instead.</string>
     <string name="error_conflict_merge_tool_file_name">%1$s can't be opened in the merge tool: git mergetool takes a name with *, ? or [ as a pattern, and could merge another file. Edit the file and stage it, or take ours or theirs.</string>

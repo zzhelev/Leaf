@@ -14,6 +14,8 @@ class DiscardEntriesUseCase @Inject constructor(
         useCaseExecutor.executeLaunch(
             taskType = TaskType.DiscardFile,
             dataToRefresh = arrayOf(DataToRefresh.STATUS, DataToRefresh.LOG),
+            // Fork-only: a refusal of files with conflicts means the status was stale
+            refreshEvenIfFailed = true,
         ) { repositoryPath ->
             discardEntriesGitAction(repositoryPath, statusEntries, isStaged)
         }

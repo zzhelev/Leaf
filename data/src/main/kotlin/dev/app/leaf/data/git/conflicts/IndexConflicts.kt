@@ -53,6 +53,13 @@ internal fun fileConflicts(git: Git, paths: Set<String>): Map<String, FileConfli
     return paths.associateWith { index.fileConflict(it) }
 }
 
+/** Those of [paths] that have conflicts in the index. */
+internal fun conflictedPaths(git: Git, paths: List<String>): List<String> {
+    val index = git.repository.readDirCache()
+
+    return paths.filter { index.fileConflict(it) != null }
+}
+
 private fun FileMode.toConflictVersion() = when (this) {
     FileMode.SYMLINK -> ConflictVersion.SYMLINK
     FileMode.GITLINK -> ConflictVersion.SUBMODULE

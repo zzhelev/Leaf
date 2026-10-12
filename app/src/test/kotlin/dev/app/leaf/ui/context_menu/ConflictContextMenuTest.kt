@@ -13,6 +13,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 private val bothChanged = StatusEntry("notes.txt", StatusType.CONFLICTING, conflict = FileConflict(FILE, FILE))
@@ -20,12 +21,15 @@ private val deletedByThem = StatusEntry("kept.txt", StatusType.CONFLICTING, conf
 private val linkAgainstFile = StatusEntry("link", StatusType.CONFLICTING, conflict = FileConflict(FILE, SYMLINK))
 private val modified = StatusEntry("README.md", StatusType.MODIFIED)
 
-/** The Unstaged menus of conflicted files: the external merge tool, "Use ours" and "Use theirs" (fork-only). */
+/**
+ * The Unstaged menus of conflicted files: the external merge tool, "Use ours" and "Use theirs", and no "Discard"
+ * (fork-only).
+ */
 class ConflictContextMenuTest {
     @Test
     fun `a file that both sides changed gets the merge tool, ours and theirs, first`() {
         assertEquals(
-            listOf("Open in external merge tool", "Use ours", "Use theirs", "Discard file changes"),
+            listOf("Open in external merge tool", "Use ours", "Use theirs", "Blame file"),
             labels(bothChanged).take(4),
         )
     }
@@ -33,8 +37,17 @@ class ConflictContextMenuTest {
     @Test
     fun `a file that git mergetool can't merge gets ours and theirs only`() {
         for (entry in listOf(deletedByThem, linkAgainstFile, bothChanged.copy(filePath = "[ab].txt"))) {
-            assertEquals(listOf("Use ours", "Use theirs", "Discard file changes"), labels(entry).take(3), entry.filePath)
+            assertEquals(listOf("Use ours", "Use theirs", "Blame file"), labels(entry).take(3), entry.filePath)
         }
+    }
+
+    @Test
+    fun `a file with conflicts can't be discarded, which would take ours without saying so`() {
+        for (entry in listOf(bothChanged, deletedByThem, linkAgainstFile)) {
+            assertFalse("Discard file changes" in labels(entry), entry.filePath)
+        }
+
+        assertTrue("Discard file changes" in labels(modified))
     }
 
     @Test
@@ -55,19 +68,23 @@ class ConflictContextMenuTest {
     }
 
     @Test
-    fun `several conflicted files get ours and theirs for all of them`() {
+    fun `several conflicted files get ours and theirs for all of them, and no discard`() {
         val calls = mutableListOf<String>()
+        // StatusPane passes no onDiscard when every selected file has conflicts
         val items = statusEntriesContextMenuItems(
             selectedEntriesCount = 3,
             entryType = EntryType.UNSTAGED,
-            onDiscard = {},
+            onDiscard = null,
             onStageSelected = {},
             onUnstageSelected = {},
             onCopyFilesPath = {},
             onUseConflictSide = { calls += it.name },
         ).filterIsInstance<ContextMenuElement.ContextTextEntry>()
 
-        assertEquals(listOf("Use ours for 3 files", "Use theirs for 3 files", "Stage 3 files"), labelsOf(items).take(3))
+        assertEquals(
+            listOf("Use ours for 3 files", "Use theirs for 3 files", "Stage 3 files", "Copy paths"),
+            labelsOf(items).take(4),
+        )
 
         items[1].onClick()
         assertEquals(listOf(ConflictSide.THEIRS.name), calls)
@@ -85,6 +102,7 @@ class ConflictContextMenuTest {
         ).filterIsInstance<ContextMenuElement.ContextTextEntry>()
 
         assertFalse(labelsOf(items).any { it.startsWith("Use ") })
+        assertTrue("Discard 2 files" in labelsOf(items))
     }
 
     private fun singleMenu(entry: StatusEntry, calls: MutableList<String> = mutableListOf()) =

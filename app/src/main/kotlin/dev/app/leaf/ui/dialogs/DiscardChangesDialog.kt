@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.sorting.DiscardedFiles
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
 import org.jetbrains.compose.resources.painterResource
@@ -21,15 +22,16 @@ import org.jetbrains.compose.resources.stringResource
 
 private val CONTENT_WIDTH = 360.dp
 
-/** Confirms discarding the unstaged changes of [fileCount] files in [folderPath]. */
+/** Confirms discarding the unstaged changes of the files in [folderPath], as [discard] says. */
 @Composable
 fun DiscardChangesDialog(
     viewModel: DiscardChangesViewModel,
     folderPath: String,
-    fileCount: Int,
-    keptNewFiles: Int,
+    discard: DiscardedFiles,
     onDismiss: () -> Unit,
 ) {
+    val fileCount = discard.entries.size
+
     IconBasedDialog(
         icon = painterResource(Res.drawable.undo),
         title = stringResource(Res.string.discard_folder_dialog_title),
@@ -49,18 +51,37 @@ fun DiscardChangesDialog(
             modifier = Modifier.width(CONTENT_WIDTH),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (keptNewFiles > 0) {
-                Text(
-                    text = pluralStringResource(
+            if (discard.keptNewFiles > 0) {
+                KeptFilesNote(
+                    pluralStringResource(
                         Res.plurals.discard_folder_dialog_new_files_kept,
-                        keptNewFiles,
-                        keptNewFiles,
-                    ),
-                    color = MaterialTheme.colors.onBackgroundSecondary,
-                    style = MaterialTheme.typography.body2,
-                    textAlign = TextAlign.Center,
+                        discard.keptNewFiles,
+                        discard.keptNewFiles,
+                    )
+                )
+            }
+
+            if (discard.keptConflicted > 0) {
+                KeptFilesNote(
+                    pluralStringResource(
+                        Res.plurals.discard_dialog_conflicted_files_kept,
+                        discard.keptConflicted,
+                        discard.keptConflicted,
+                    )
                 )
             }
         }
     }
+}
+
+/** Files that discarding leaves as they are. */
+@Composable
+fun KeptFilesNote(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier,
+        color = MaterialTheme.colors.onBackgroundSecondary,
+        style = MaterialTheme.typography.body2,
+        textAlign = TextAlign.Center,
+    )
 }

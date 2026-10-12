@@ -10,6 +10,7 @@ import dev.app.leaf.app.generated.resources.error_checkout_branch_checked_out_in
 import dev.app.leaf.app.generated.resources.error_checkout_branch_rebased_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
 import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
+import dev.app.leaf.app.generated.resources.error_conflict_cant_discard
 import dev.app.leaf.app.generated.resources.error_conflict_markers_left
 import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_file_name
 import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_not_two_files
@@ -116,6 +117,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is SshNeedsGitError -> if (reason == SshNeedsGitError.Reason.LfsPushWithoutGitLfs) listOf("git lfs install") else emptyList()
     is StaleHunkError -> listOf(path)
     is ConflictError.NotConflicted -> paths
+    is ConflictError.CantDiscard -> paths
     ConflictError.NoMergeTool -> listOf("git config --global merge.tool meld", "merge.guitool", "git mergetool --tool-help")
     is ConflictError.MergeToolRefused -> listOf(path)
     is ConflictError.NotResolved -> listOf(path, tool)
@@ -238,6 +240,9 @@ fun AppError.getErrorText(): String {
         is ConflictError -> when (this) {
             is ConflictError.NotConflicted ->
                 stringResource(Res.string.error_conflict_not_conflicted, paths.joinToString("\n"))
+
+            is ConflictError.CantDiscard ->
+                stringResource(Res.string.error_conflict_cant_discard, paths.joinToString("\n"))
 
             ConflictError.NoMergeTool -> stringResource(Res.string.error_conflict_no_merge_tool)
             is ConflictError.MergeToolRefused -> when (reason) {

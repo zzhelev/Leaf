@@ -5,6 +5,7 @@ package dev.app.leaf.domain.sorting
 
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.models.hasConflicts
 
 /** How a Staged or Unstaged entry sorts by change type. */
 val StatusType.fileChangeKind: FileChangeKind
@@ -37,6 +38,30 @@ fun List<StatusEntry>.inFolder(folderPath: String): List<StatusEntry> =
 
 /**
  * The unstaged entries that discarding changes restores. A new (untracked) file has no earlier version to go back to,
- * so it is left alone, as a single new file offers "Delete file" instead of discarding.
+ * so it is left alone, as a single new file offers "Delete file" instead of discarding. So is a file with conflicts
+ * ([hasConflicts]), which "Use ours" and "Use theirs" resolve.
  */
-fun List<StatusEntry>.discardable(): List<StatusEntry> = filter { it.statusType != StatusType.ADDED }
+fun List<StatusEntry>.discardable(): List<StatusEntry> = filter { it.statusType != StatusType.ADDED && !it.hasConflicts }
+
+/**
+ * What discarding unstaged changes does: it restores [entries], and leaves alone [keptNewFiles] new files and
+ * [keptConflicted] files with conflicts, which its dialog says.
+ */
+data class DiscardedFiles(val entries: List<StatusEntry>, val keptNewFiles: Int, val keptConflicted: Int)
+
+/** What discarding these entries, the unstaged files that a folder row stands for, does: [discardable]. */
+fun List<StatusEntry>.folderDiscard() = DiscardedFiles(
+    entries = discardable(),
+    keptNewFiles = count { it.statusType == StatusType.ADDED },
+    keptConflicted = count { it.hasConflicts },
+)
+
+/**
+ * What discarding these entries, the selected unstaged files, does: the files with conflicts are left as they are. New
+ * files go along, as before, and checking them out changes nothing.
+ */
+fun List<StatusEntry>.selectionDiscard() = DiscardedFiles(
+    entries = filterNot { it.hasConflicts },
+    keptNewFiles = 0,
+    keptConflicted = count { it.hasConflicts },
+)

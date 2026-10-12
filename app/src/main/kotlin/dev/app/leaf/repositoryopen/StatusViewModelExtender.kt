@@ -15,6 +15,7 @@ import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.CollapsedFolders
 import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.selectionDiscard
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.ui.status.*
@@ -445,7 +446,12 @@ class StatusViewModelExtender @AssistedInject constructor(
     }
 
     private fun discardSelectedUnstaged() {
-        discardUnstaged(selectedUnstagedDiffEntries.value.map { it.statusEntry })
+        // Files with conflicts are left as they are (fork-only)
+        val entries = selectedUnstagedDiffEntries.value.map { it.statusEntry }.selectionDiscard().entries
+
+        if (entries.isNotEmpty()) {
+            discardUnstaged(entries)
+        }
     }
 
     private fun stageByDirectory(dir: String) = stageByDirectoryUseCase(dir)

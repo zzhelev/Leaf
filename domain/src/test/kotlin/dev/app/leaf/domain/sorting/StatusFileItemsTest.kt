@@ -88,7 +88,7 @@ class StatusFileItemsTest {
     }
 
     @Test
-    fun `discarding leaves new files alone`() {
+    fun `discarding leaves new files and files with conflicts alone`() {
         val entries = listOf(
             unstaged("src/added.kt", StatusType.ADDED),
             unstaged("src/modified.kt", StatusType.MODIFIED),
@@ -96,9 +96,43 @@ class StatusFileItemsTest {
             unstaged("src/conflict.kt", StatusType.CONFLICTING),
         )
 
-        assertEquals(
-            listOf("src/modified.kt", "src/removed.kt", "src/conflict.kt"),
-            entries.discardable().map { it.filePath },
+        assertEquals(listOf("src/modified.kt", "src/removed.kt"), entries.discardable().map { it.filePath })
+    }
+
+    @Test
+    fun `a folder's discard counts the new files and the files with conflicts it keeps`() {
+        val entries = listOf(
+            unstaged("src/added.kt", StatusType.ADDED),
+            unstaged("src/new.kt", StatusType.ADDED),
+            unstaged("src/modified.kt", StatusType.MODIFIED),
+            unstaged("src/conflict.kt", StatusType.CONFLICTING),
         )
+
+        val discard = entries.folderDiscard()
+
+        assertEquals(listOf("src/modified.kt"), discard.entries.map { it.filePath })
+        assertEquals(2, discard.keptNewFiles)
+        assertEquals(1, discard.keptConflicted)
+    }
+
+    @Test
+    fun `a selection's discard keeps only the files with conflicts`() {
+        val entries = listOf(
+            unstaged("a.kt", StatusType.CONFLICTING),
+            unstaged("b.kt", StatusType.ADDED),
+            unstaged("c.kt", StatusType.MODIFIED),
+            unstaged("d.kt", StatusType.CONFLICTING),
+        )
+
+        val discard = entries.selectionDiscard()
+
+        assertEquals(listOf("b.kt", "c.kt"), discard.entries.map { it.filePath })
+        assertEquals(0, discard.keptNewFiles)
+        assertEquals(2, discard.keptConflicted)
+
+        val onlyConflicts = entries.filter { it.statusType == StatusType.CONFLICTING }.selectionDiscard()
+
+        assertTrue(onlyConflicts.entries.isEmpty(), "Nothing to discard, so the menu leaves Discard out")
+        assertEquals(2, onlyConflicts.keptConflicted)
     }
 }

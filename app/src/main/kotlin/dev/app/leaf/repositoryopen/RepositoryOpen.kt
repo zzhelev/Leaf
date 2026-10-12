@@ -404,8 +404,8 @@ fun MainContentView(
                         onAction = { viewModel.onAction(it) },
                         onBlameFile = { viewModel.blameFile(it) },
                         onHistoryFile = { viewModel.fileHistory(it) },
-                        onDiscardFolderChanges = { folderPath, entries, keptNewFiles ->
-                            onNavigate(Screen.DiscardFolderChanges(folderPath, entries, keptNewFiles))
+                        onDiscardFolderChanges = { folderPath, discard ->
+                            onNavigate(Screen.DiscardFolderChanges(folderPath, discard))
                         },
                         onConfirmAction = { action, onConfirm -> onNavigate(Screen.ConfirmAction(action, onConfirm)) },
                     )

@@ -170,6 +170,27 @@ class ConfirmActionDialogTest {
     }
 
     @Test
+    fun `discarding a selection says how many files with conflicts it leaves`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(ConfirmableAction.DiscardFiles(3, EntryType.UNSTAGED, keptConflicted = 1)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("Discard the unstaged changes to 3 files?" in texts, texts.toString())
+            assertTrue("1 file with conflicts is left as it is." in texts, texts.toString())
+        }
+
+        DialogScene(ConfirmableAction.DiscardFiles(1, EntryType.UNSTAGED, keptConflicted = 2)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("Discard the unstaged changes to 1 file?" in texts, texts.toString())
+            assertTrue("2 files with conflicts are left as they are." in texts, texts.toString())
+        }
+
+        DialogScene(ConfirmableAction.DiscardFiles(3, EntryType.UNSTAGED)).use { dialog ->
+            assertFalse(dialog.texts().any { "conflicts" in it }, dialog.texts().toString())
+        }
+    }
+
+    @Test
     fun `discarding the deletion of a file loses nothing`(): Unit = runBlocking(Dispatchers.Swing) {
         val deleted = StatusEntry(FILE, StatusType.REMOVED, EntryType.UNSTAGED)
 

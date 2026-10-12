@@ -6,6 +6,7 @@ import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.canOpenInMergeTool
+import dev.app.leaf.domain.models.hasConflicts
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -43,11 +44,14 @@ fun statusEntryContextMenuItems(
         }
 
         if (statusEntry.statusType != StatusType.ADDED) {
-            addContextMenu(
-                composableLabel = { stringResource(Res.string.status_entries_context_menu_discard_file_changes) },
-                icon = { painterResource(Res.drawable.undo) },
-                onClick = onReset,
-            )
+            // Fork-only: not for a file with conflicts, which "Use ours" and "Use theirs" resolve
+            if (!statusEntry.hasConflicts) {
+                addContextMenu(
+                    composableLabel = { stringResource(Res.string.status_entries_context_menu_discard_file_changes) },
+                    icon = { painterResource(Res.drawable.undo) },
+                    onClick = onReset,
+                )
+            }
 
             if (statusEntry.statusType != StatusType.REMOVED) {
                 addContextMenu(
@@ -105,7 +109,8 @@ fun statusEntryContextMenuItems(
 fun statusEntriesContextMenuItems(
     selectedEntriesCount: Int,
     entryType: EntryType,
-    onDiscard: () -> Unit,
+    /** Fork-only: null leaves it out, when every selected file has conflicts. */
+    onDiscard: (() -> Unit)?,
     onStageSelected: () -> Unit,
     onUnstageSelected: () -> Unit,
     onCopyFilesPath: (relative: Boolean) -> Unit,
@@ -151,16 +156,18 @@ fun statusEntriesContextMenuItems(
             )
         }
 
-        addContextMenu(
-            composableLabel = {
-                stringResource(
-                    Res.string.status_entries_context_menu_discard_multiple_files,
-                    selectedEntriesCount
-                )
-            },
-            icon = { painterResource(Res.drawable.undo) },
-            onClick = onDiscard,
-        )
+        if (onDiscard != null) {
+            addContextMenu(
+                composableLabel = {
+                    stringResource(
+                        Res.string.status_entries_context_menu_discard_multiple_files,
+                        selectedEntriesCount
+                    )
+                },
+                icon = { painterResource(Res.drawable.undo) },
+                onClick = onDiscard,
+            )
+        }
 
         add(ContextMenuElement.ContextSeparator)
 

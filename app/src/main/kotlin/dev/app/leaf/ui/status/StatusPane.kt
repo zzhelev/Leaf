@@ -37,9 +37,11 @@ import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
+import dev.app.leaf.domain.sorting.DiscardedFiles
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
-import dev.app.leaf.domain.sorting.discardable
+import dev.app.leaf.domain.sorting.folderDiscard
+import dev.app.leaf.domain.sorting.selectionDiscard
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.icon
 import dev.app.leaf.extensions.iconColor
@@ -69,8 +71,8 @@ fun StatusPane(
     onAction: (StatusAction) -> Unit,
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
-    /** Asks to discard [entries], the unstaged changes of a folder, keeping its [keptNewFiles] new files. */
-    onDiscardFolderChanges: (folderPath: String, entries: List<StatusEntry>, keptNewFiles: Int) -> Unit,
+    /** Asks to discard the unstaged changes of a folder, as [discard] says. */
+    onDiscardFolderChanges: (folderPath: String, discard: DiscardedFiles) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     completedTasks: StateFlow<List<CompletedTask>>,
 ) {
@@ -279,7 +281,7 @@ fun StatusChangesList(
     onSearchFocused: () -> Unit,
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
-    onDiscardFolderChanges: (folderPath: String, entries: List<StatusEntry>, keptNewFiles: Int) -> Unit,
+    onDiscardFolderChanges: (folderPath: String, discard: DiscardedFiles) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onAction: (StatusAction) -> Unit,
     modifier: Modifier = Modifier,
@@ -300,11 +302,10 @@ fun StatusChangesList(
 
     // Unstaged only, and only for a folder with something to restore
     val folderDiscardAction: (folderPath: String) -> (() -> Unit)? = { folderPath ->
-        val shownEntries = statusState.entriesShownUnder(folderPath, entryType)
-        val entries = shownEntries.discardable()
+        val discard = statusState.entriesShownUnder(folderPath, entryType).folderDiscard()
 
-        if (entryType == EntryType.UNSTAGED && entries.isNotEmpty()) {
-            { onDiscardFolderChanges(folderPath, entries, shownEntries.size - entries.size) }
+        if (entryType == EntryType.UNSTAGED && discard.entries.isNotEmpty()) {
+            { onDiscardFolderChanges(folderPath, discard) }
         } else {
             null
         }
@@ -332,7 +333,11 @@ fun StatusChangesList(
             onConfirmAction(ConfirmableAction.DiscardFile(statusEntry)) { onAction(StatusAction.Reset(statusEntry)) }
         },
         onDiscardSelected = {
-            onConfirmAction(ConfirmableAction.DiscardFiles(selectedEntries.count(), entryType)) {
+            // Files with conflicts are left as they are (fork-only)
+            val discard = selectedEntries.map { it.statusEntry }.selectionDiscard()
+            val action = ConfirmableAction.DiscardFiles(discard.entries.size, entryType, discard.keptConflicted)
+
+            onConfirmAction(action) {
                 onAction(StatusAction.DiscardSelected(entryType))
             }
         },
@@ -404,7 +409,9 @@ fun ChangesList(
         statusEntriesContextMenuItems(
             selectedEntriesCount = selectedEntries.count(),
             entryType = entryType,
-            onDiscard = onDiscardSelected,
+            onDiscard = onDiscardSelected.takeIf {
+                selectedEntries.map { it.statusEntry }.selectionDiscard().entries.isNotEmpty()
+            },
             onStageSelected = { onAction(StatusAction.SelectedEntriesAction(EntryType.UNSTAGED)) },
             onUnstageSelected = { onAction(StatusAction.SelectedEntriesAction(EntryType.STAGED)) },
             onCopyFilesPath = { relative ->
