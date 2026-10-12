@@ -475,8 +475,9 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
     reads them;
   - `TooLarge`: text over `MAX_RESOLVER_TEXT_SIZE` (10 MB, provisional);
   - then `Text`: the merge, and the working file's check.
-- `textMerge` (`TextMergeChunks.kt`) merges with JGit's `MergeAlgorithm` and the `diff.algorithm` that JGit's merges
-  use (`mergeDiffAlgorithm`), so the conflicts are the ones that Leaf's merges write.
+- `textMerge` (`TextMergeChunks.kt`) merges with JGit's `MergeAlgorithm` and `diff.algorithm`, read as `ResolveMerger`
+  reads it, through `GitCompatibleConfigGetter` (`mergeDiffAlgorithm`, histogram for a value that git refuses too), so
+  the conflicts are the ones that Leaf's merges write.
   - JGit's chunks give their lines in one version only. So `mergeParts` walks the two diffs with `MergeAlgorithm`'s
     own comparisons (`<` for an edit alone, `>=` to join edits), and each part takes JGit's chunks, which must fit
     (`IllegalStateException` otherwise). Every `TextMerge.Chunk` has its lines in the base, ours and theirs.
@@ -503,8 +504,6 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
 - Tests: `GetConflictedFileGitActionTest` and `WriteConflictResultGitActionTest` use conflicts that git's own merge,
   rebase, cherry-pick, revert and stash leave (`ConflictMerges.kt` writes each side's files), and Save with nothing
   resolved must give back git's file. `ResolvingConflictsTest` runs the use cases in a `TestTab`.
-- JGit's merge throws on `merge.conflictStyle=zdiff3` and on `diff.algorithm=patience`, `minimal` or `default`
-  (`Config.getEnum`), so Leaf's own merges fail in such repositories. Not fixed yet.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,

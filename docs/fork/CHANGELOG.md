@@ -2,6 +2,57 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The built-in conflict resolver's model (branch `claude/resolver-model-f2582e`)
+
+Step 1 of the build order in `docs/fork/conflict-resolver.md`: what the resolver loads, merges and writes, with its git
+actions and use cases. No UI yet.
+
+- **Loading a conflicted file** (`GetConflictedFileGitAction`, `ConflictedFile`): its versions from the index (through
+  the shared `stagesOf`), which branch or commit ours and theirs are (`ConflictSides`), and what the resolver can show:
+  three panes for text, or a choice for rename conflicts, submodules, deletions, symbolic links, Git LFS pointers,
+  binary files and text over 10 MB (provisional), checked in `git mergetool`'s order.
+- **The merge** (`TextMerge`): JGit's `MergeAlgorithm` with the repository's `diff.algorithm`, the content merge of
+  Leaf's own merges, in chunks that each know their lines in the base, ours and theirs. A change that doesn't conflict
+  can be applied or not; a conflict can be left open or resolved with ours, theirs, both in either order, the base, or
+  typed lines. JGit's chunks only give their lines in one version, and cut a conflict's base oddly (`[1,-1)` for a file
+  that both added), so the merge's parts are found again from the two diffs that it walks.
+- **The working file** is compared with the merge before the resolver opens it, by counting its conflict markers as
+  `git rerere` does: no markers left means someone resolved it already (by hand, an agent or rerere).
+- **Save and Mark resolved** (`WriteConflictResultGitAction`, `SaveConflictResolutionUseCase`,
+  `MarkConflictResolvedUseCase`) write the result as git writes a merge: each line with its own bytes and line ending,
+  open conflicts as markers in `merge.conflictStyle`'s style with git's labels and CRLF where git uses it, the
+  `conflict-marker-size` attribute, and a checkout's line ending conversion. They write nothing when the index or the
+  working file changed since loading (unless the user keeps the result), or when a folder or a symbolic link is in the
+  file's place. Mark resolved is refused while a conflict is open, then stages the file. Four new `ConflictError`
+  cases, with their texts.
+- **Found on the way:**
+  - JGit's formatter can drop a file's last line ending, and writes LF markers into CRLF files. The resolver follows
+    git.
+  - git joins conflicts three lines apart or less and splits ones with four alike lines in their middle; JGit does
+    neither. So a file nobody touched can have another number of conflicts than the merge.
+  - JGit's merge threw `IllegalArgumentException` on `merge.conflictStyle=zdiff3` and on `diff.algorithm=patience`
+    (also `minimal`, `default`). That was fixed in its own change (`GitCompatibleConfigGetter`, below), and the
+    resolver reads `diff.algorithm` as `ResolveMerger` does, so it merges with the merge's algorithm.
+- **Docs:** the design note's sections 2 and 4: what was built and found, the requirement that every ours and theirs
+  in the UI names its branch or commit, and the Settings → Conflicts entry (built-in resolver or external merge tool,
+  Columns or Stacked).
+- **Tests:** 72 new, in `:data`.
+  - `TextMergeChunksTest` (11): the chunks of hand-made merges, and 5,000 random merges per diff algorithm against
+    JGit's own merge (its formatter in both styles, and its OURS and THEIRS strategies), with each version given back
+    byte for byte by keeping only its changes. A one-off run of 60,000 per algorithm passed too.
+  - `ConflictResultTest` (12) against `git merge-file`, `ConflictMarkerScanTest` (9), `ConflictAttributesTest` (5).
+  - `GetConflictedFileGitActionTest` (14) and `WriteConflictResultGitActionTest` (19) on conflicts that git's merge,
+    rebase, cherry-pick, revert and stash leave: each kind of conflict, a resolution by `git rerere`, Save giving back
+    git's file with nothing resolved (both conflict styles), CRLF with `core.autocrlf`, and each refusal.
+    `ResolvingConflictsTest` (2) runs Save and Mark resolved in a `TestTab`.
+  - **Mutation check:** 54 mutations, 53 caught. The other can't change a result: a marker on a last line without a
+    line ending can only be `=======` or `|||||||`, which can't close a conflict. The first pass missed a base marker
+    inside theirs, and two searches for small examples gave the tests for lines alike next to a conflict and for
+    Myers' touching edits, which the random merges couldn't tell apart.
+  - `./gradlew build` passed with 1,136 tests (129 in `:app`, 776 in `:data`, 224 in `:domain`, 7 in `:common`), and
+    `:data:test` and `:domain:test` again after the last three tests (779 in `:data`). No manual run: there's no UI
+    yet.
+
 ## Review a worktree's changes against the base (branch `feat/worktree-review`)
 
 Phase 3.3 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.
@@ -143,9 +194,8 @@ Phase 3.3 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.m
     file that changed on disk, as an agent's `git config` does.
   - Not fixed: JGit's diff3 leaves out as many lines of the conflict's base as it leaves out of the sides, where git's
     zdiff3 shows them all. It did the same with `diff3` before.
-  - The built-in conflict resolver's model (branch `claude/resolver-model-f2582e`) reads `diff.algorithm` with its own
-    `mergeDiffAlgorithm`, which takes every value JGit lacks as histogram. It can read it as `ResolveMerger` does once
-    this is on `main`, so that it merges with the merge's algorithm.
+  - The built-in conflict resolver's model (branch `claude/resolver-model-f2582e`) reads `diff.algorithm` as
+    `ResolveMerger` does (`mergeDiffAlgorithm`), so that it merges with the merge's algorithm.
 - **Tests:** 71 new, in `:data`, on temporary repositories.
   - `GitCompatibleConfigGetterTest` (16): each value, in any case; values that git refuses; other keys, subsections and
     enum types left to JGit's reader. It also checks that JGit's own reader still refuses the values, which fails once
@@ -169,57 +219,6 @@ Phase 3.3 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.m
   - Manual run on macOS by the user, with a demo repository that sets both in its config: a commit's diff showed, a
     branch merged cleanly, and another stopped at conflicts, with the banner, and the conflicted file's diff showed
     zdiff3's layout.
-
-## The built-in conflict resolver's model (branch `claude/resolver-model-f2582e`)
-
-Step 1 of the build order in `docs/fork/conflict-resolver.md`: what the resolver loads, merges and writes, with its git
-actions and use cases. No UI yet.
-
-- **Loading a conflicted file** (`GetConflictedFileGitAction`, `ConflictedFile`): its versions from the index (through
-  the shared `stagesOf`), which branch or commit ours and theirs are (`ConflictSides`), and what the resolver can show:
-  three panes for text, or a choice for rename conflicts, submodules, deletions, symbolic links, Git LFS pointers,
-  binary files and text over 10 MB (provisional), checked in `git mergetool`'s order.
-- **The merge** (`TextMerge`): JGit's `MergeAlgorithm` with the repository's `diff.algorithm`, the content merge of
-  Leaf's own merges, in chunks that each know their lines in the base, ours and theirs. A change that doesn't conflict
-  can be applied or not; a conflict can be left open or resolved with ours, theirs, both in either order, the base, or
-  typed lines. JGit's chunks only give their lines in one version, and cut a conflict's base oddly (`[1,-1)` for a file
-  that both added), so the merge's parts are found again from the two diffs that it walks.
-- **The working file** is compared with the merge before the resolver opens it, by counting its conflict markers as
-  `git rerere` does: no markers left means someone resolved it already (by hand, an agent or rerere).
-- **Save and Mark resolved** (`WriteConflictResultGitAction`, `SaveConflictResolutionUseCase`,
-  `MarkConflictResolvedUseCase`) write the result as git writes a merge: each line with its own bytes and line ending,
-  open conflicts as markers in `merge.conflictStyle`'s style with git's labels and CRLF where git uses it, the
-  `conflict-marker-size` attribute, and a checkout's line ending conversion. They write nothing when the index or the
-  working file changed since loading (unless the user keeps the result), or when a folder or a symbolic link is in the
-  file's place. Mark resolved is refused while a conflict is open, then stages the file. Four new `ConflictError`
-  cases, with their texts.
-- **Found on the way:**
-  - JGit's formatter can drop a file's last line ending, and writes LF markers into CRLF files. The resolver follows
-    git.
-  - git joins conflicts three lines apart or less and splits ones with four alike lines in their middle; JGit does
-    neither. So a file nobody touched can have another number of conflicts than the merge.
-  - JGit's merge throws `IllegalArgumentException` on `merge.conflictStyle=zdiff3` and on `diff.algorithm=patience`
-    (also `minimal`, `default`), so Leaf's own merges fail in such repositories. Checked with JGit 7.7; not fixed
-    here.
-- **Docs:** the design note's sections 2 and 4: what was built and found, the requirement that every ours and theirs
-  in the UI names its branch or commit, and the Settings → Conflicts entry (built-in resolver or external merge tool,
-  Columns or Stacked).
-- **Tests:** 72 new, in `:data`.
-  - `TextMergeChunksTest` (11): the chunks of hand-made merges, and 5,000 random merges per diff algorithm against
-    JGit's own merge (its formatter in both styles, and its OURS and THEIRS strategies), with each version given back
-    byte for byte by keeping only its changes. A one-off run of 60,000 per algorithm passed too.
-  - `ConflictResultTest` (12) against `git merge-file`, `ConflictMarkerScanTest` (9), `ConflictAttributesTest` (5).
-  - `GetConflictedFileGitActionTest` (14) and `WriteConflictResultGitActionTest` (19) on conflicts that git's merge,
-    rebase, cherry-pick, revert and stash leave: each kind of conflict, a resolution by `git rerere`, Save giving back
-    git's file with nothing resolved (both conflict styles), CRLF with `core.autocrlf`, and each refusal.
-    `ResolvingConflictsTest` (2) runs Save and Mark resolved in a `TestTab`.
-  - **Mutation check:** 54 mutations, 53 caught. The other can't change a result: a marker on a last line without a
-    line ending can only be `=======` or `|||||||`, which can't close a conflict. The first pass missed a base marker
-    inside theirs, and two searches for small examples gave the tests for lines alike next to a conflict and for
-    Myers' touching edits, which the random merges couldn't tell apart.
-  - `./gradlew build` passed with 1,136 tests (129 in `:app`, 776 in `:data`, 224 in `:domain`, 7 in `:common`), and
-    `:data:test` and `:domain:test` again after the last three tests (779 in `:data`). No manual run: there's no UI
-    yet.
 
 ## Toasts stay long enough to read (branch `claude/zen-volhard-54d7bb`)
 

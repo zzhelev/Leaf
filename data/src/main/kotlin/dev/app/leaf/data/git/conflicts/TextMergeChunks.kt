@@ -13,6 +13,7 @@ import org.eclipse.jgit.diff.EditList
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.RawTextComparator
 import org.eclipse.jgit.lib.Config
+import org.eclipse.jgit.lib.ConfigConstants
 import org.eclipse.jgit.merge.MergeAlgorithm
 import org.eclipse.jgit.merge.MergeChunk
 import org.eclipse.jgit.merge.MergeChunk.ConflictState
@@ -25,16 +26,24 @@ private const val THEIRS = 2
 private val COMPARATOR = RawTextComparator.DEFAULT
 
 /**
- * The diff algorithm that JGit's merges use (`ResolveMerger.getMergeAlgorithm`): `diff.algorithm` when JGit knows it
- * (`myers` or `histogram`), else histogram. JGit's merge fails on git's other names (`patience`, `minimal`, `default`),
- * so conflicts in such a repository come from git.
+ * The diff algorithm that JGit's merges use, read as `ResolveMerger.getMergeAlgorithm` reads it: `diff.algorithm`,
+ * through the reader that `main.kt` installs (`GitCompatibleConfigGetter`, which takes git's `default` and `minimal` as
+ * myers and `patience` as histogram), and histogram when it's not set. A value that git refuses too fails Leaf's
+ * merges, but not the resolver: it gets histogram.
  */
 internal fun mergeDiffAlgorithm(config: Config): DiffAlgorithm {
-    // Read as JGit's Config.getEnum reads it: any case, with '-' or ' ' for '_'
-    val name = config.getString("diff", null, "algorithm")?.replace('-', '_')?.replace(' ', '_')
-    val algorithm = DiffAlgorithm.SupportedAlgorithm.entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
+    val algorithm = try {
+        config.getEnum(
+            ConfigConstants.CONFIG_DIFF_SECTION,
+            null,
+            ConfigConstants.CONFIG_KEY_ALGORITHM,
+            DiffAlgorithm.SupportedAlgorithm.HISTOGRAM,
+        )
+    } catch (_: IllegalArgumentException) {
+        DiffAlgorithm.SupportedAlgorithm.HISTOGRAM
+    }
 
-    return DiffAlgorithm.getAlgorithm(algorithm ?: DiffAlgorithm.SupportedAlgorithm.HISTOGRAM)
+    return DiffAlgorithm.getAlgorithm(algorithm)
 }
 
 /**

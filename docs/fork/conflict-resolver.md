@@ -80,9 +80,9 @@ and how the two sit together (section 4).
   - Checked on 10,000 random merges with each algorithm: with every conflict open, the result is what JGit's
     `MergeFormatter` writes, in both styles; taking ours (or theirs) everywhere is JGit's merge that favours that side;
     and keeping only ours' changes gives ours back byte for byte, and the same for theirs and the base.
-- **Diff algorithm:** `diff.algorithm`, as `ResolveMerger` reads it. JGit only knows `myers` and `histogram`, and its
-  merges fail on git's other names (`patience`, `minimal`, `default`), so for those the resolver uses histogram, JGit's
-  default.
+- **Diff algorithm:** `diff.algorithm`, as `ResolveMerger` reads it. JGit only knows `myers` and `histogram`; Leaf's
+  `GitCompatibleConfigGetter` reads git's `default` and `minimal` as myers and `patience` as histogram, for its merges
+  and for the resolver. A value that git refuses too gives the resolver histogram, JGit's default.
 
 ### 2.2 The file on disk
 

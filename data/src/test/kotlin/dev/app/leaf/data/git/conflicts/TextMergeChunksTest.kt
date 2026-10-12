@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.conflicts
 
+import dev.app.leaf.data.git.readGitOnlyConfigValues
 import dev.app.leaf.domain.models.ChangedBy
 import dev.app.leaf.domain.models.ConflictResolution
 import dev.app.leaf.domain.models.LineRange
@@ -152,20 +153,28 @@ class TextMergeChunksTest {
     }
 
     @Test
-    fun `the diff algorithm is diff dot algorithm when JGit knows it, and histogram otherwise`() {
+    fun `the diff algorithm is the one that Leaf's merges read, and histogram when git refuses it too`() {
         fun algorithmFor(value: String?) = mergeDiffAlgorithm(
             Config().apply { if (value != null) setString("diff", null, "algorithm", value) }
         )::class
 
         val myers = DiffAlgorithm.getAlgorithm(SupportedAlgorithm.MYERS)::class
 
-        assertEquals(histogram::class, algorithmFor(null))
-        assertEquals(myers, algorithmFor("myers"))
-        assertEquals(myers, algorithmFor("Myers"))
-        assertEquals(histogram::class, algorithmFor("histogram"))
-        assertEquals(histogram::class, algorithmFor("patience"))
-        assertEquals(histogram::class, algorithmFor("minimal"))
-        assertEquals(histogram::class, algorithmFor("default"))
+        // As main.kt reads every config
+        readGitOnlyConfigValues()
+
+        try {
+            assertEquals(histogram::class, algorithmFor(null))
+            assertEquals(myers, algorithmFor("myers"))
+            assertEquals(myers, algorithmFor("Myers"))
+            assertEquals(histogram::class, algorithmFor("histogram"))
+            assertEquals(histogram::class, algorithmFor("patience"))
+            assertEquals(myers, algorithmFor("minimal"))
+            assertEquals(myers, algorithmFor("default"))
+            assertEquals(histogram::class, algorithmFor("fast"))
+        } finally {
+            Config.setTypedConfigGetter(null)
+        }
     }
 
     /**
