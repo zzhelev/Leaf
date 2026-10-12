@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## File history shows which commit its diff is (branch `feat/file-history-selection`)
+
+- **Before:** a click on a commit in file history showed its diff, and nothing said which commit that was: the list
+  had no selected row and the diff no header. In a long list, it was easy to lose track. File history also opened on
+  an empty diff, and had no keys to step through the commits.
+- **Now:**
+  - The list highlights the selected commit's row, in the log's selected color.
+  - A strip above the diff names the commit: avatar, subject, short hash, author, date and time, and where it is in
+    the list ("3 of 12"). A click on "3 of 12" scrolls the list back to the row.
+  - ↑ and ↓, and the strip's two chevrons, select the next newer or older commit, and the list keeps its row in view.
+    File history opens on the newest commit.
+  - Another commit's diff starts at its top, as in the diff pane. It used to keep the previous diff's scroll position.
+  - Each commit's load cancels the previous one and waits for it, so the diff shown is always the last commit
+    selected, however fast the keys come. A cancelled load doesn't blank the diff for a moment either.
+- **Tests:** `FileHistoryCommitsTest` (positions and either end), `HistoryViewModelTest` (opens on the newest, steps,
+  the last commit selected wins, no blank diff, the diff's scroll) and `FileHistoryTest` (rendered offscreen: the
+  highlight by pixel color, the strip's text and buttons, the row kept in view over 30 steps down and back up,
+  "3 of 12" scrolling back, and ↑ and ↓ on the real `FileHistory`, also after clicking a row or a button). 12 mutations
+  of the code were each caught. `:app:test` passes.
+
 ## Closing file history or blame with X keeps the shortcuts working (branch `claude/x-button-focus`)
 
 - **Before:** file history and an expanded blame take the focus while shown. Their X buttons closed them and left

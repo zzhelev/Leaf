@@ -1264,6 +1264,19 @@ of its Message cell.
 - The Message cell is a `Row` with `weight(1f)`, so the columns after it keep their widths. Before, the chips were
   measured first, and a row with many of them squeezed the message, then Author and Date, to nothing.
 
+**File history's selected commit (fork-only, `ui/FileHistorySelection.kt`, `viewmodels/FileHistoryCommits.kt`):**
+`HistoryViewModel.selectedCommit` is the commit whose diff is shown. The list highlights its row
+(`backgroundSelected`, as the log does), and `FileHistoryCommitStrip` above the diff names it: subject, short hash,
+author, date and time, and "3 of 12".
+- File history opens on the newest commit. ↑ and ↓ (`FileHistory`'s own `onKeyEvent`, which the tab's shortcuts let
+  through) and the strip's chevrons call `selectAdjacentCommit`. The list keeps the row in view (`keepInView`, as the
+  status pane's lists do), and a click on "3 of 12" scrolls it back to the middle (`showInMiddle`). Not a click on the
+  hash: elsewhere (`CommitChanges`) that copies it.
+- `selectCommit` cancels the previous commit's load and waits for it to end, so the last commit selected is the diff
+  shown however fast the keys come. `GetDiffUseCase` turns a cancellation into `DiffNotFound`, so the load checks
+  `ensureActive()` before it writes, or the diff would go blank until the next one loads. Another commit's diff starts
+  at its top, as in the diff pane.
+
 ## Refresh
 
 **Rust** (`rs/src/lib.rs`):
