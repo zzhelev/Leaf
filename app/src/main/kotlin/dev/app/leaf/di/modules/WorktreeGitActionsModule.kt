@@ -8,6 +8,7 @@ import dev.app.leaf.data.git.branches.CheckBranchNameGitAction
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeBaseBranchGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
+import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
 import dev.app.leaf.data.git.worktrees.CopyWorktreeFilesGitAction
 import dev.app.leaf.data.git.worktrees.CreateWorktreeIncludeGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
@@ -16,13 +17,16 @@ import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
 import dev.app.leaf.data.git.worktrees.GetCommonGitDirGitAction
 import dev.app.leaf.data.git.worktrees.GetPrunableWorktreesGitAction
+import dev.app.leaf.data.git.worktrees.GetUnmergedFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeActivityGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeBaseBranchGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeIncludeGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeStatusGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreesGitAction
+import dev.app.leaf.data.git.worktrees.PersistSquashMessageGitAction
 import dev.app.leaf.data.git.worktrees.RunGitCommandGitAction
 import dev.app.leaf.domain.interfaces.ICheckBranchNameGitAction
+import dev.app.leaf.domain.interfaces.ICleanUpAfterCommitGitAction
 import dev.app.leaf.domain.interfaces.ICopyWorktreeFilesGitAction
 import dev.app.leaf.domain.interfaces.ICreateWorktreeIncludeGitAction
 import dev.app.leaf.domain.interfaces.IGetAheadBehindGitAction
@@ -31,12 +35,14 @@ import dev.app.leaf.domain.interfaces.IGetBranchMergedGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommonGitDirGitAction
 import dev.app.leaf.domain.interfaces.IGetPrunableWorktreesGitAction
+import dev.app.leaf.domain.interfaces.IGetUnmergedFilesGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeActivityGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeBaseBranchGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeCreationSettingsGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeIncludeGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeStatusGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreesGitAction
+import dev.app.leaf.domain.interfaces.IPersistSquashMessageGitAction
 import dev.app.leaf.domain.interfaces.IRunGitCommandGitAction
 import dev.app.leaf.domain.interfaces.ISaveWorktreeBaseBranchGitAction
 import dev.app.leaf.domain.interfaces.ISaveWorktreeCreationSettingsGitAction
@@ -121,4 +127,16 @@ interface WorktreeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetBranchComparisonGitAction(action: GetBranchComparisonGitAction): IGetBranchComparisonGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetUnmergedFilesGitAction(action: GetUnmergedFilesGitAction): IGetUnmergedFilesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsPersistSquashMessageGitAction(action: PersistSquashMessageGitAction): IPersistSquashMessageGitAction
+
+    @Binds
+    @TabScope
+    fun bindsCleanUpAfterCommitGitAction(action: CleanUpAfterCommitGitAction): ICleanUpAfterCommitGitAction
 }

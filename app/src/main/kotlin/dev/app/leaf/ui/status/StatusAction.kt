@@ -38,6 +38,9 @@ sealed interface StatusAction {
     data object SkipRebase : StatusAction
     data object AbortRebase : StatusAction
     data object ResetRepositoryState : StatusAction
+
+    /** Undoes the squash merge in progress, conflicts included (fork-only). */
+    data object AbortSquashMerge : StatusAction
     data class UpdateCommitMessage(val message: TextFieldValue) : StatusAction
 
     data object RejectCommitterData : StatusAction

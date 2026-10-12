@@ -17,6 +17,7 @@ import dev.app.leaf.domain.sorting.CollapsedFolders
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.selectionDiscard
 import dev.app.leaf.domain.usecases.*
+import dev.app.leaf.domain.worktrees.isSquashMergeInProgress
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.ui.status.*
 import dev.app.leaf.ui.toUiDataState
@@ -56,6 +57,8 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val getConflictSidesUseCase: GetConflictSidesUseCase,
     private val openMergeToolUseCase: OpenMergeToolUseCase,
     private val resolveConflictUseCase: ResolveConflictUseCase,
+    private val persistSquashMessageUseCase: PersistSquashMessageUseCase,
+    private val abortSquashMergeUseCase: AbortSquashMergeUseCase,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -106,19 +109,51 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     private val mergeCommitMessage = persistedCommitMessageFlow { it.mergeMessage }
 
+    private val squashCommitMessage = persistedCommitMessageFlow { it.squashMessage }
+
+    /**
+     * Fork-only: whether a squash merge waits to be committed, which git tells only by its SQUASH_MSG and the index.
+     * While any of them reloads, the last answer stays, so that the commit field and the banner don't flicker. It's
+     * followed even while the status pane isn't shown, as typing and committing read it.
+     */
+    private val squashMergeInProgress = combine(
+        repositoryDataRepository.repositoryState.filter { it !is DataState.Loading },
+        repositoryDataRepository.persistedCommitMessage.filter { it !is DataState.Loading },
+        repositoryDataRepository.status.filter { it !is DataState.Loading },
+    ) { repositoryState, persistedCommitMessage, status ->
+        isSquashMergeInProgress(
+            repositoryState.dataOrNull(),
+            persistedCommitMessage.dataOrNull()?.squashMessage,
+            status.dataOrNull(),
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Fork-only: which message the commit field shows, and where its edits are saved. */
+    private val commitMessageSource = combine(
+        repositoryDataRepository.repositoryState,
+        squashMergeInProgress,
+    ) { repositoryState, squashMergeInProgress ->
+        commitMessageSource(repositoryState.dataOrNull(), squashMergeInProgress)
+    }.stateIn(CommitMessageSource.NORMAL)
+
     private val commitMessage = combine(
         normalCommitMessage,
         mergeCommitMessage,
-        repositoryDataRepository.repositoryState,
-    ) { normalCommitMessage, mergeCommitMessage, repositoryState ->
-        val state = repositoryState.dataOrNull()
-
-        if (state?.isMerging == true) {
-            mergeCommitMessage
-        } else {
-            normalCommitMessage
+        squashCommitMessage,
+        commitMessageSource,
+    ) { normalCommitMessage, mergeCommitMessage, squashCommitMessage, source ->
+        when (source) {
+            CommitMessageSource.NORMAL -> normalCommitMessage
+            CommitMessageSource.MERGE -> mergeCommitMessage
+            CommitMessageSource.SQUASH -> squashCommitMessage
         }
     }.stateIn(TextFieldValue(""))
+
+    private fun messageFlowOf(source: CommitMessageSource): MutableStateFlow<TextFieldValue> = when (source) {
+        CommitMessageSource.NORMAL -> normalCommitMessage
+        CommitMessageSource.MERGE -> mergeCommitMessage
+        CommitMessageSource.SQUASH -> squashCommitMessage
+    }
 
 
     private fun persistedCommitMessageFlow(filter: (PersistedCommitMessage) -> String?): MutableStateFlow<TextFieldValue> {
@@ -242,10 +277,30 @@ class StatusViewModelExtender @AssistedInject constructor(
         repositoryPath,
         statusSectionsConfig.sizes,
         conflictSides,
+        squashMergeInProgress,
     )
         .stateIn(StatusState())
 
     init {
+        // Fork-only: a field fills from its file only while it's blank, so a merge's or a squash merge's message would
+        // stay after its file is gone, and show at the next merge in place of git's. A squash merge that stops at
+        // conflicts writes MERGE_MSG too. So the field is cleared once its file is gone, unless a merge goes on, whose
+        // field the user may have just emptied.
+        combine(
+            repositoryDataRepository.persistedCommitMessage.mapNotNull { (it as? DataState.Loaded)?.data },
+            repositoryDataRepository.repositoryState.filter { it !is DataState.Loading },
+        ) { messages, repositoryState ->
+            messages to repositoryState.dataOrNull()
+        }.collectLatestInCoroutineScope { (messages, repositoryState) ->
+            if (messages.mergeMessage == null && repositoryState?.isMerging != true) {
+                mergeCommitMessage.value = TextFieldValue("")
+            }
+
+            if (messages.squashMessage == null) {
+                squashCommitMessage.value = TextFieldValue("")
+            }
+        }
+
         // Fork-only: what belonged to the worktree that the tab switched away from. A message still waiting to be saved
         // is saved there, and a commit or the next message doesn't cancel it.
         repositoryDataRepository.repositorySelectionState.worktreeSwitches().collectLatestInCoroutineScope {
@@ -368,6 +423,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.Commit -> commit(action.message)
         is StatusAction.ContinueRebase -> continueRebase(action.message)
         StatusAction.ResetRepositoryState -> resetRepoState()
+        StatusAction.AbortSquashMerge -> abortSquashMergeUseCase()
         is StatusAction.SearchFilterToggledStaged -> searchFilterToggledStaged()
         is StatusAction.SearchFilterToggledUnstaged -> searchFilterToggledUnstaged()
         StatusAction.SkipRebase -> skipRebase()
@@ -390,18 +446,21 @@ class StatusViewModelExtender @AssistedInject constructor(
     }
 
     fun updateCommitMessage(message: TextFieldValue) {
-        val repositoryState = repositoryDataRepository.repositoryState.value.dataOrNull()
+        val source = currentCommitMessageSource()
 
-        if (repositoryState?.isMerging == true) {
-            mergeCommitMessage.value = message
-        } else {
-            normalCommitMessage.value = message
-        }
+        messageFlowOf(source).value = message
 
-        persistMessage(message.text)
+        persistMessage(message.text, source)
     }
 
-    private fun persistMessage(newMessage: String?) {
+    /** Fork-only: read now rather than from [commitMessageSource], which only follows while the pane is shown. */
+    private fun currentCommitMessageSource(): CommitMessageSource {
+        val repositoryState = repositoryDataRepository.repositoryState.value.dataOrNull()
+
+        return commitMessageSource(repositoryState, squashMergeInProgress.value)
+    }
+
+    private fun persistMessage(newMessage: String?, source: CommitMessageSource) {
         // Fork-only: the message belongs to the worktree it's written in, even if the tab switches meanwhile
         val repositoryPath = repositoryDataRepository.repositoryPath ?: return
 
@@ -409,7 +468,13 @@ class StatusViewModelExtender @AssistedInject constructor(
 
         persistMessageJob = viewModelScope.launch {
             delay(PERSIST_MESSAGE_DELAY_IN_MS.milliseconds)
-            persistCommitMessageUseCase(repositoryPath, newMessage)
+
+            // Fork-only: a squash merge's message is in SQUASH_MSG, which neither JGit nor upstream wrote
+            if (source == CommitMessageSource.SQUASH) {
+                persistSquashMessageUseCase(repositoryPath, newMessage.orEmpty())
+            } else {
+                persistCommitMessageUseCase(repositoryPath, newMessage)
+            }
         }
     }
 
@@ -713,6 +778,8 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     fun commit(message: String) = viewModelScope.launch {
         val amend = isAmend.value
+        // Fork-only: the commit ends a merge or a squash merge, so the field's source changes before it returns
+        val source = currentCommitMessageSource()
 
         val personIdent = getIdentity()
 
@@ -723,13 +790,15 @@ class StatusViewModelExtender @AssistedInject constructor(
         val doCommitResult = doCommitUseCase(message, amend, personIdent).await()
 
         if (doCommitResult is Either.Ok) {
-            updateCommitMessage(TextFieldValue(""))
+            // Fork-only: clears the message that was committed. The commit removed its file, and clearing the field
+            // the source has now would drop the draft that a merge had kept out of view.
+            messageFlowOf(source).value = TextFieldValue("")
             isAmend.value = false
         } else {
             // If committing failed and the message was going to be persisted before the commit, restart the
             // persistence task
             if (hadOngoingPersistJob) {
-                persistMessage(message)
+                persistMessage(message, source)
             }
         }
     }

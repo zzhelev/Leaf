@@ -12,6 +12,7 @@ import dev.app.leaf.data.git.branches.GetRefDatesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
+import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.log.JGitGraphRevWalker
 import dev.app.leaf.data.git.rebase.GetCommitFromRebaseLineGitAction
@@ -19,20 +20,26 @@ import dev.app.leaf.data.git.rebase.GetRebaseInteractiveTodoLinesGitAction
 import dev.app.leaf.data.git.remotes.GetRemotesGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.repository.OpenRepositoryGitAction
+import dev.app.leaf.data.git.repository.PersistCommitMessageGitAction
 import dev.app.leaf.data.git.stash.GetStashListGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
+import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
+import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
 import dev.app.leaf.data.git.workspace.GetStatusGitAction
 import dev.app.leaf.data.git.worktrees.CopyWorktreeFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
+import dev.app.leaf.data.git.worktrees.GetBranchComparisonGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
 import dev.app.leaf.data.git.worktrees.GetCommonGitDirGitAction
+import dev.app.leaf.data.git.worktrees.GetUnmergedFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeActivityGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeBaseBranchGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeStatusGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreesGitAction
+import dev.app.leaf.data.git.worktrees.PersistSquashMessageGitAction
 import dev.app.leaf.data.git.worktrees.RunGitCommandGitAction
 import dev.app.leaf.data.mappers.JGitBranchMapper
 import dev.app.leaf.data.mappers.JGitCommitMapper
@@ -58,18 +65,23 @@ import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.WatcherEvent
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.repositories.DataState
+import dev.app.leaf.domain.usecases.AbortSquashMergeUseCase
 import dev.app.leaf.domain.usecases.CreateWorktreeUseCase
+import dev.app.leaf.domain.usecases.DoCommitUseCase
 import dev.app.leaf.domain.usecases.FollowRemovedWorktreeUseCase
+import dev.app.leaf.domain.usecases.GetAuthorUseCase
 import dev.app.leaf.domain.usecases.GetLogUseCase
 import dev.app.leaf.domain.usecases.GetNewWorktreeContextUseCase
 import dev.app.leaf.domain.usecases.GetRebaseInteractiveTodoLinesUseCase
 import dev.app.leaf.domain.usecases.GetRebaseLinesFullMessageUseCase
 import dev.app.leaf.domain.usecases.GetRemotesUseCase
+import dev.app.leaf.domain.usecases.GetWorktreeMergeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRemovalUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import dev.app.leaf.domain.usecases.ObserveRepositoryToRefreshUseCase
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
+import dev.app.leaf.domain.usecases.PersistCommitMessageUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import dev.app.leaf.domain.usecases.RunWorktreeStepsUseCase
 import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
@@ -194,8 +206,41 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
         useCaseExecutor = useCaseExecutor,
         runGitCommandGitAction = RunGitCommandGitAction(gitCli),
         copyWorktreeFilesGitAction = CopyWorktreeFilesGitAction(),
+        getUnmergedFilesGitAction = GetUnmergedFilesGitAction(gitCli),
+        openRepositoryGitAction = OpenRepositoryGitAction(),
+        persistSquashMessageGitAction = PersistSquashMessageGitAction(jgit),
         switchWorktreeUseCase = switchWorktree,
         repositoryDataRepository = repositoryData,
+    )
+
+    val getWorktreeMerge = GetWorktreeMergeUseCase(
+        useCaseExecutor = useCaseExecutor,
+        repositoryDataRepository = repositoryData,
+        getWorktreeStatusGitAction = GetWorktreeStatusGitAction(gitCli),
+        getWorktreeActivityGitAction = GetWorktreeActivityGitAction(gitCli),
+        getBranchComparisonGitAction = GetBranchComparisonGitAction(jgit, commitMapper),
+        getBranchMergedGitAction = GetBranchMergedGitAction(gitCli),
+        runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+    )
+
+    val abortSquashMerge = AbortSquashMergeUseCase(
+        useCaseExecutor = useCaseExecutor,
+        getWorktreePathGitAction = GetWorktreePathGitAction(jgit),
+        runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+    )
+
+    val doCommit = DoCommitUseCase(
+        doCommitGitAction = DoCommitGitAction(
+            GetRepositoryStateGitAction(jgit, RepositoryStateMapper()),
+            commitMapper,
+            JGitIdentityMapper(),
+            jgit,
+        ),
+        useCaseExecutor = useCaseExecutor,
+        loadSignOffConfigGitAction = LoadSignOffConfigGitAction(jgit),
+        getAuthorUseCase = GetAuthorUseCase(LoadAuthorGitAction(jgit), useCaseExecutor),
+        persistCommitMessageUseCase = PersistCommitMessageUseCase(PersistCommitMessageGitAction(jgit)),
+        cleanUpAfterCommitGitAction = CleanUpAfterCommitGitAction(jgit),
     )
 
     val getWorktreeRemoval = GetWorktreeRemovalUseCase(

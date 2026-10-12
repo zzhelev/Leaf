@@ -168,6 +168,11 @@ fun SidePanel(
                     onPrune = { onNavigate(Screen.WorktreesPrune) },
                     onNew = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
                     onReview = { viewModel.reviewWorktree(it) },
+                    onMerge = { worktree, kind ->
+                        worktreesState.mergeTarget?.let { target ->
+                            onNavigate(Screen.WorktreeMergeIntoBase(worktree, kind, target))
+                        }
+                    },
                 ),
             )
 

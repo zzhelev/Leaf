@@ -61,7 +61,7 @@ sealed interface ConfirmableAction {
 
     /** Aborts [operation]. [changedFiles] files have uncommitted changes, which the abort resets. */
     data class AbortOperation(val operation: Operation, val changedFiles: Int) : ConfirmableAction {
-        enum class Operation { MERGE, REBASE, CHERRY_PICK, REVERT }
+        enum class Operation { MERGE, REBASE, CHERRY_PICK, REVERT, SQUASH }
     }
 
     data object SkipRebaseCommit : ConfirmableAction
@@ -298,13 +298,19 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
 
                 ConfirmableAction.AbortOperation.Operation.REVERT ->
                     Res.string.abort_dialog_title_revert to Res.string.abort_dialog_subtitle_revert
+
+                ConfirmableAction.AbortOperation.Operation.SQUASH ->
+                    Res.string.abort_dialog_title_squash to Res.string.abort_dialog_subtitle_squash
             }
 
             ConfirmationTexts(
                 icon = warning,
                 title = stringResource(title),
                 subtitle = stringResource(subtitle),
-                warning = if (changedFiles > 0) {
+                // Fork-only: `git reset --merge` keeps unstaged changes, unlike the others' hard reset
+                warning = if (operation == ConfirmableAction.AbortOperation.Operation.SQUASH) {
+                    stringResource(Res.string.abort_dialog_squash_warning)
+                } else if (changedFiles > 0) {
                     pluralStringResource(Res.plurals.abort_dialog_changes_discarded, changedFiles, changedFiles)
                 } else {
                     null

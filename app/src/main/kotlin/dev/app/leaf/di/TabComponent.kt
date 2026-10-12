@@ -50,6 +50,7 @@ interface TabComponent {
     fun signOffDialogViewModel(): SignOffDialogViewModel
     fun removeWorktreeViewModelFactory(): RemoveWorktreeViewModel.Factory
     fun lockWorktreeViewModelFactory(): LockWorktreeViewModel.Factory
+    fun mergeWorktreeViewModelFactory(): MergeWorktreeViewModel.Factory
     fun pruneWorktreesViewModel(): PruneWorktreesViewModel
     fun newWorktreeViewModelFactory(): NewWorktreeViewModel.Factory
 }

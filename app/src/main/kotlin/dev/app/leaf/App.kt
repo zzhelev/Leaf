@@ -124,6 +124,8 @@ sealed interface Screen : NavKey {
     /** Removes [worktree] (fork-only), or with [discard] discards it: its changes and its branch go too. */
     data class WorktreeRemove(val worktree: Worktree, val discard: Boolean) : Screen
     data class WorktreeLock(val worktree: Worktree) : Screen
+    /** Squash-merges or merges [worktree]'s branch into [target], the base's local branch (fork-only). */
+    data class WorktreeMergeIntoBase(val worktree: Worktree, val kind: WorktreeMergeKind, val target: String) : Screen
     /** Creates a worktree (fork-only) from [start]: the base branch, a branch or a commit. */
     data class WorktreeCreate(val start: NewWorktreeStart) : Screen
     data object WorktreesPrune : Screen

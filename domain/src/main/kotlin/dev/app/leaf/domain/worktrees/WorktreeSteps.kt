@@ -13,8 +13,17 @@ import java.nio.file.Path
  * confirms, so what the dialog shows is what runs.
  */
 sealed interface WorktreeStep {
-    /** `git <args>`, run in [folder]. */
-    data class Git(val folder: String, val args: List<String>) : WorktreeStep
+    /**
+     * `git <args>`, run in [folder].
+     *
+     * @param mayStopAtConflicts the command is a merge, which can stop at conflicts for the user to resolve. Then the
+     * steps go on, and the action ends as one that stopped at conflicts, not as a failure.
+     */
+    data class Git(
+        val folder: String,
+        val args: List<String>,
+        val mayStopAtConflicts: Boolean = false,
+    ) : WorktreeStep
 
     /** Switches the tab to the worktree in [folder], before the steps that follow. */
     data class SwitchTab(val folder: String) : WorktreeStep
@@ -24,6 +33,12 @@ sealed interface WorktreeStep {
      * worktree needs, such as `.env`. A file that's already there, or a symbolic link, isn't copied.
      */
     data class CopyFiles(val from: String, val to: String, val files: List<String>) : WorktreeStep
+
+    /**
+     * Writes [message] to `SQUASH_MSG` in the git dir of the worktree in [folder], over the one that
+     * `git merge --squash` wrote, so that the commit field and a commit from a terminal both start from it.
+     */
+    data class WriteSquashMessage(val folder: String, val message: String) : WorktreeStep
 }
 
 /**
@@ -152,7 +167,8 @@ fun shellLines(
     return buildList {
         for (step in steps) {
             when (step) {
-                is WorktreeStep.SwitchTab, is WorktreeStep.CopyFiles -> add("# " + comment(step))
+                is WorktreeStep.SwitchTab, is WorktreeStep.CopyFiles, is WorktreeStep.WriteSquashMessage ->
+                    add("# " + comment(step))
                 is WorktreeStep.Git -> {
                     if (step.folder != currentFolder) {
                         add(cdLine(step.folder, home))

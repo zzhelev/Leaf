@@ -21,6 +21,8 @@ fun TaskType.conflictsTitle(): String {
         TaskType.MergeBranch -> "Merge stopped at conflicts, fix them to continue"
         TaskType.RebaseBranch -> "Rebase stopped at conflicts, fix them to continue"
         TaskType.Pull -> "Pull stopped at conflicts, fix them to continue"
+        TaskType.SquashMergeWorktree -> "Squash merge stopped at conflicts, fix them, then commit"
+        TaskType.MergeWorktree -> "Merge stopped at conflicts, fix them, then commit"
         else -> "Stopped at conflicts, fix them to continue"
     }
 }
@@ -78,6 +80,9 @@ fun TaskType.successTitle(): String? {
         TaskType.PruneWorktrees -> "Worktrees pruned"
         TaskType.LockWorktree -> "Worktree locked"
         TaskType.UnlockWorktree -> "Worktree unlocked"
+        TaskType.SquashMergeWorktree -> "Squash merge staged, review it, then commit"
+        TaskType.MergeWorktree -> "Merge ready, review it, then commit"
+        TaskType.AbortSquashMerge -> "Squash merge aborted"
         TaskType.OpenMergeTool, TaskType.ResolveConflict -> "Conflict resolved"
         else -> null
     }

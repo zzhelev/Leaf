@@ -27,6 +27,8 @@ import dev.app.leaf.theme.secondarySurface
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 
 /** Dark text on the conflict color, which is the same amber in the light and the dark theme. */
 private val OnNoticeColor = Color(0xFF1E1E1E)
@@ -49,6 +51,7 @@ fun WorktreeCommands(steps: List<WorktreeStep>, modifier: Modifier = Modifier) {
                 fileList(step.files),
             )
 
+            is WorktreeStep.WriteSquashMessage -> stringResource(Res.string.worktree_dialog_write_squash_message)
             is WorktreeStep.Git -> ""
         }
     }
@@ -105,6 +108,34 @@ fun DialogNotice(text: String) {
                 .padding(vertical = 4.dp, horizontal = 8.dp),
             color = OnNoticeColor,
             style = MaterialTheme.typography.body2,
+        )
+    }
+}
+
+/** A worktree that changed this recently may have an agent working in it. */
+private val RECENT_CHANGE = 5.minutes
+
+/**
+ * Says that the worktree [worktreeName] changed in the last few minutes, at [lastChange] (milliseconds since the
+ * epoch), so an agent may still be working in it. Nothing when it didn't, or [lastChange] is null.
+ */
+@Composable
+fun RecentChangeNotice(worktreeName: String, lastChange: Long?) {
+    if (lastChange == null) {
+        return
+    }
+
+    val sinceChange = (System.currentTimeMillis() - lastChange).coerceAtLeast(0).milliseconds
+
+    if (sinceChange < RECENT_CHANGE) {
+        val minutes = sinceChange.inWholeMinutes.toInt()
+
+        DialogNotice(
+            if (minutes == 0) {
+                stringResource(Res.string.worktree_dialog_recent_change_now, worktreeName)
+            } else {
+                pluralStringResource(Res.plurals.worktree_dialog_recent_change, minutes, worktreeName, minutes)
+            }
         )
     }
 }

@@ -57,6 +57,8 @@ data class StatusState(
     val sectionSizes: StatusSectionSizes = StatusSectionSizes(),
     /** What ours and theirs are, while files have conflicts (fork-only). */
     val conflictSides: ConflictSides? = null,
+    /** A squash merge waits to be committed (fork-only), which the repository state doesn't tell. */
+    val isSquashMergeInProgress: Boolean = false,
 ) {
     val hasPreviousCommits: Boolean = previousCommitMessage != null
 
@@ -130,6 +132,7 @@ fun combineStatusState(
     repositoryPath: Flow<String?>,
     sectionSizes: Flow<StatusSectionSizes>,
     conflictSides: Flow<ConflictSides?> = flowOf(null),
+    squashMergeInProgress: Flow<Boolean> = flowOf(false),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -193,6 +196,7 @@ fun combineStatusState(
         repositoryPath,
         sectionSizes,
         conflictSides,
+        squashMergeInProgress,
     ) {
             lists,
             swapUncommittedChanges,
@@ -208,6 +212,7 @@ fun combineStatusState(
             repositoryPath,
             sectionSizes,
             conflictSides,
+            squashMergeInProgress,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -236,6 +241,7 @@ fun combineStatusState(
             repositoryPath = repositoryPath,
             sectionSizes = sectionSizes,
             conflictSides = conflictSides,
+            isSquashMergeInProgress = squashMergeInProgress,
         )
     }
 }

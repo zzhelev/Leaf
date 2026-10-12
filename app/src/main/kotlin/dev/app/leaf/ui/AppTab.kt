@@ -428,6 +428,18 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.WorktreeMergeIntoBase>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            MergeWorktreeDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider
+                                        .mergeWorktreeViewModelFactory()
+                                        .create(entry.worktree, entry.kind, entry.target)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.WorktreeLock>(
                             metadata = dialogsMetadata
                         ) { entry ->

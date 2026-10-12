@@ -21,13 +21,8 @@ import dev.app.leaf.ui.getStyledErrorText
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.minutes
 
 private val CONTENT_WIDTH = 440.dp
-
-/** A worktree that changed this recently may have an agent working in it. */
-private val RECENT_CHANGE = 5.minutes
 
 /**
  * Confirms removing a worktree (fork-only), or discarding it: removing it with its uncommitted changes and deleting its
@@ -111,23 +106,8 @@ private fun RemovalDetails(
 ) {
     val options = state.options
     val worktreeName = removal.worktree.name
-    val lastChange = removal.lastChange
 
-    if (lastChange != null) {
-        val sinceChange = (System.currentTimeMillis() - lastChange).coerceAtLeast(0).milliseconds
-
-        if (sinceChange < RECENT_CHANGE) {
-            val minutes = sinceChange.inWholeMinutes.toInt()
-
-            DialogNotice(
-                if (minutes == 0) {
-                    stringResource(Res.string.worktree_dialog_recent_change_now, worktreeName)
-                } else {
-                    pluralStringResource(Res.plurals.worktree_dialog_recent_change, minutes, worktreeName, minutes)
-                }
-            )
-        }
-    }
+    RecentChangeNotice(worktreeName, removal.lastChange)
 
     val locked = removal.worktree.locked
 

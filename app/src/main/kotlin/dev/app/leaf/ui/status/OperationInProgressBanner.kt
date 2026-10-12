@@ -59,6 +59,7 @@ fun operationInProgress(statusState: StatusState): OperationInProgress? {
         repositoryState.isRebasing -> Operation.REBASE
         repositoryState.isCherryPicking -> Operation.CHERRY_PICK
         repositoryState.isReverting -> Operation.REVERT
+        statusState.isSquashMergeInProgress -> Operation.SQUASH
         else -> return null
     }
 
@@ -73,7 +74,7 @@ fun operationInProgress(statusState: StatusState): OperationInProgress? {
 
 /**
  * Aborts the operation in progress once the user confirms it, as the status pane's Abort button does: a rebase with
- * `AbortRebase`, the others by resetting the repository state.
+ * `AbortRebase`, a squash merge with `git reset --merge`, the others by resetting the repository state.
  */
 fun abortOperationInProgress(
     statusState: StatusState,
@@ -85,11 +86,18 @@ fun abortOperationInProgress(
         repositoryState.isRebasing -> Operation.REBASE
         repositoryState.isCherryPicking -> Operation.CHERRY_PICK
         repositoryState.isReverting -> Operation.REVERT
+        !repositoryState.isMerging && statusState.isSquashMergeInProgress -> Operation.SQUASH
         else -> Operation.MERGE
     }
 
     onConfirmAction(ConfirmableAction.AbortOperation(operation, statusState.changedFilesCount)) {
-        onAction(if (operation == Operation.REBASE) StatusAction.AbortRebase else StatusAction.ResetRepositoryState)
+        onAction(
+            when (operation) {
+                Operation.REBASE -> StatusAction.AbortRebase
+                Operation.SQUASH -> StatusAction.AbortSquashMerge
+                else -> StatusAction.ResetRepositoryState
+            }
+        )
         onAction(StatusAction.UpdateCommitMessage(TextFieldValue("")))
     }
 }
@@ -168,6 +176,7 @@ private fun OperationInProgress.message(): String = if (conflicts > 0) {
         Operation.REBASE -> Res.plurals.operation_banner_rebase_conflicts
         Operation.CHERRY_PICK -> Res.plurals.operation_banner_cherry_pick_conflicts
         Operation.REVERT -> Res.plurals.operation_banner_revert_conflicts
+        Operation.SQUASH -> Res.plurals.operation_banner_squash_conflicts
     }
 
     pluralStringResource(text, conflicts, conflicts)
@@ -177,6 +186,7 @@ private fun OperationInProgress.message(): String = if (conflicts > 0) {
         Operation.REBASE -> Res.string.operation_banner_rebase
         Operation.CHERRY_PICK -> Res.string.operation_banner_cherry_pick
         Operation.REVERT -> Res.string.operation_banner_revert
+        Operation.SQUASH -> Res.string.operation_banner_squash
     }
 
     stringResource(text)
@@ -187,4 +197,5 @@ private fun Operation.abortTitle() = when (this) {
     Operation.REBASE -> Res.string.abort_dialog_title_rebase
     Operation.CHERRY_PICK -> Res.string.abort_dialog_title_cherry_pick
     Operation.REVERT -> Res.string.abort_dialog_title_revert
+    Operation.SQUASH -> Res.string.abort_dialog_title_squash
 }

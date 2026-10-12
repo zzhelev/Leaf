@@ -87,6 +87,8 @@
     <string name="side_pane_worktree_copy_path">Copy path</string>
     <string name="side_pane_worktree_switch_to">Switch to worktree</string>
     <string name="side_pane_worktree_review">Review changes</string>
+    <string name="side_pane_worktree_squash_merge">Squash-merge into %1$s…</string>
+    <string name="side_pane_worktree_merge">Merge into %1$s…</string>
     <string name="side_pane_worktree_open_in_new_tab">Open in new tab</string>
     <string name="side_pane_worktree_lock">Lock…</string>
     <string name="side_pane_worktree_unlock">Unlock</string>
@@ -341,6 +343,7 @@
         <item quantity="one">Copy %1$d ignored file from %2$s: %3$s</item>
         <item quantity="other">Copy %1$d ignored files from %2$s: %3$s</item>
     </plurals>
+    <string name="worktree_dialog_write_squash_message">Put the commit message above in SQUASH_MSG</string>
     <string name="worktree_dialog_checking">Checking the worktree…</string>
     <string name="worktree_dialog_folder_missing">The folder is missing, so git only removes the worktree's entry.</string>
     <string name="worktree_dialog_ignored_files">git deletes the folder's ignored files too, such as build output and .env files.</string>
@@ -380,6 +383,38 @@
     <string name="discard_worktree_dialog_override_lock">Discard it although it's locked</string>
     <string name="discard_worktree_dialog_discard">Discard</string>
     <string name="discard_worktree_dialog_discard_anyway">Discard anyway</string>
+    <string name="merge_worktree_dialog_squash_title">Squash-merge into %1$s</string>
+    <string name="merge_worktree_dialog_merge_title">Merge into %1$s</string>
+    <string name="merge_worktree_dialog_subtitle_loading">"%1$s" into "%2$s"</string>
+    <plurals name="merge_worktree_dialog_squash_subtitle">
+        <item quantity="one">Stages the %2$d commit of "%1$s" in "%3$s" as one change, for you to commit.</item>
+        <item quantity="other">Stages the %2$d commits of "%1$s" in "%3$s" as one change, for you to commit.</item>
+    </plurals>
+    <plurals name="merge_worktree_dialog_merge_subtitle">
+        <item quantity="one">Merges the %2$d commit of "%1$s" into "%3$s", for you to commit as a merge commit.</item>
+        <item quantity="other">Merges the %2$d commits of "%1$s" into "%3$s", for you to commit as a merge commit.</item>
+    </plurals>
+    <string name="merge_worktree_dialog_squash">Squash-merge</string>
+    <string name="merge_worktree_dialog_merge">Merge</string>
+    <plurals name="merge_worktree_dialog_branch_changes">
+        <item quantity="one">%1$s has %2$d uncommitted change. It isn't part of the merge.</item>
+        <item quantity="other">%1$s has %2$d uncommitted changes. They aren't part of the merge.</item>
+    </plurals>
+    <string name="merge_worktree_dialog_check_out_first">No worktree has "%1$s" checked out, so %2$s checks it out first.</string>
+    <plurals name="merge_worktree_dialog_target_changes">
+        <item quantity="one">%1$s, where "%2$s" is checked out, has %3$d uncommitted change. git stops if the merge changes the same file.</item>
+        <item quantity="other">%1$s, where "%2$s" is checked out, has %3$d uncommitted changes. git stops if the merge changes the same files.</item>
+    </plurals>
+    <string name="merge_worktree_dialog_message">Commit message, which you can edit in the commit field afterwards</string>
+    <string name="merge_worktree_refusal_nothing">"%1$s" has no commits that "%2$s" doesn't have.</string>
+    <string name="merge_worktree_refusal_already_in_target">The changes of "%1$s" are already in "%2$s", so a squash merge would stage nothing.</string>
+    <string name="merge_worktree_refusal_target_changes">%1$s, where "%2$s" is checked out, has staged changes or conflicts. Commit or stash them first.</string>
+    <string name="merge_worktree_refusal_target_status_unknown">Leaf couldn't read the changes in %1$s, where "%2$s" is checked out.</string>
+    <string name="merge_worktree_refusal_target_missing">The folder of %1$s, where "%2$s" is checked out, is missing.</string>
+    <string name="merge_worktree_refusal_target_rebasing">%1$s is rebasing "%2$s". Finish or abort the rebase first.</string>
+    <string name="merge_worktree_refusal_target_bisecting">%1$s is bisecting from "%2$s". End the bisect first.</string>
+    <string name="merge_worktree_refusal_tab_is_branch_worktree">No worktree has "%1$s" checked out, and this tab's worktree has "%2$s". Check out "%1$s" in another worktree first.</string>
+    <string name="merge_worktree_refusal_tab_changes">No worktree has "%1$s" checked out, and this tab's worktree, %2$s, has uncommitted changes, so it can't check it out. Commit or stash them first.</string>
     <string name="lock_worktree_dialog_title">Lock worktree</string>
     <string name="lock_worktree_dialog_subtitle">Lock %1$s? git then refuses to remove or prune it until it's unlocked. A reason is optional.</string>
     <string name="lock_worktree_dialog_lock">Lock</string>
@@ -495,6 +530,9 @@
     <string name="abort_dialog_subtitle_cherry_pick">Abort the cherry-pick in progress?</string>
     <string name="abort_dialog_title_revert">Abort revert</string>
     <string name="abort_dialog_subtitle_revert">Abort the revert in progress?</string>
+    <string name="abort_dialog_title_squash">Abort squash merge</string>
+    <string name="abort_dialog_subtitle_squash">Undo the squash merge in progress?</string>
+    <string name="abort_dialog_squash_warning">The staged changes are undone, resolved conflicts included. Unstaged changes are kept, but git refuses, changing nothing, while a file that the squash merge changed has some.</string>
     <plurals name="abort_dialog_changes_discarded">
         <item quantity="one">The uncommitted changes in %1$d file are discarded, including resolved conflicts. They can't be restored.</item>
         <item quantity="other">The uncommitted changes in %1$d files are discarded, including resolved conflicts. They can't be restored.</item>
@@ -517,7 +555,12 @@
         <item quantity="one">Revert stopped at conflicts in %1$d file. Resolve them, then commit.</item>
         <item quantity="other">Revert stopped at conflicts in %1$d files. Resolve them, then commit.</item>
     </plurals>
+    <plurals name="operation_banner_squash_conflicts">
+        <item quantity="one">Squash merge stopped at conflicts in %1$d file. Resolve them, then commit.</item>
+        <item quantity="other">Squash merge stopped at conflicts in %1$d files. Resolve them, then commit.</item>
+    </plurals>
     <string name="operation_banner_merge">Merge in progress. Commit to finish it.</string>
+    <string name="operation_banner_squash">Squash merge staged. Review the changes, then commit.</string>
     <string name="operation_banner_rebase">Rebase in progress. Continue it to finish.</string>
     <string name="operation_banner_cherry_pick">Cherry-pick in progress. Commit to finish it.</string>
     <string name="operation_banner_revert">Revert in progress. Commit to finish it.</string>

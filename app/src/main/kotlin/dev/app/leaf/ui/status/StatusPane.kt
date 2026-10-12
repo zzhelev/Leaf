@@ -107,7 +107,8 @@ fun StatusPane(
         Unit
     }
 
-    val canCommit = commitMessage.text.isNotEmpty() && statusState.hasStagedFiles
+    // Fork-only: git refuses to commit while files have conflicts, as after a squash merge that stopped at some
+    val canCommit = commitMessage.text.isNotEmpty() && statusState.hasStagedFiles && statusState.haveConflictsBeenSolved
     val canAmend = commitMessage.text.isNotEmpty() && statusState.hasPreviousCommits
     val tabFocusRequester = LocalTabFocusRequester.current
 

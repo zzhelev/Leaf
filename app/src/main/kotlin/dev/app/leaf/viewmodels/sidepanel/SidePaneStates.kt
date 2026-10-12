@@ -8,6 +8,7 @@ import dev.app.leaf.domain.sorting.RefRow
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.worktrees.WorktreeRow
+import dev.app.leaf.domain.worktrees.mergeTarget
 import dev.app.leaf.domain.worktrees.worktreeRows
 import dev.app.leaf.ui.UiDataState
 import kotlinx.coroutines.flow.Flow
@@ -138,6 +139,8 @@ data class WorktreesState(
     val isExpanded: Boolean = true,
     val baseBranch: String? = null,
     val baseChoice: WorktreeBaseBranch? = null,
+    /** The local branch that "Squash-merge into" and "Merge into" merge into (fork-only), null when there's none. */
+    val mergeTarget: String? = null,
     val error: AppError? = null,
 )
 
@@ -145,13 +148,17 @@ fun combineWorktreesState(
     worktrees: Flow<UiDataState<WorktreeList>>,
     isExpandedWorktrees: Flow<Boolean>,
     filter: Flow<String>,
+    localBranches: Flow<UiDataState<List<Branch>>>,
 ): Flow<WorktreesState> {
-    return combine(worktrees, isExpandedWorktrees, filter) { worktrees, isExpanded, filter ->
+    return combine(worktrees, isExpandedWorktrees, filter, localBranches) { worktrees, isExpanded, filter, branches ->
+        val baseBranch = worktrees.data?.baseBranch
+
         WorktreesState(
             rows = worktrees.data?.let { worktreeRows(it, filter, System.currentTimeMillis()) }.orEmpty(),
             isExpanded = isExpanded,
-            baseBranch = worktrees.data?.baseBranch,
+            baseBranch = baseBranch,
             baseChoice = worktrees.data?.baseChoice(),
+            mergeTarget = mergeTarget(baseBranch, branches.data.orEmpty().map { it.name }),
             error = worktrees.error,
         )
     }

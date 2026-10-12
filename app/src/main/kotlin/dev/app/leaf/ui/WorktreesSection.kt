@@ -36,9 +36,11 @@ import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
+import dev.app.leaf.domain.models.WorktreeMergeKind
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
 import dev.app.leaf.domain.worktrees.WorktreeRow
+import dev.app.leaf.domain.worktrees.branchToMerge
 import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.headLabel
 import dev.app.leaf.extensions.handOnHover
@@ -109,6 +111,7 @@ fun LazyListScope.worktrees(
             WorktreeItem(
                 row = row,
                 baseBranch = worktreesState.baseBranch,
+                mergeTarget = worktreesState.mergeTarget,
                 onClick = { onWorktreeClicked(row.info) },
                 onSwitchTo = { onSwitchToWorktree(row.info) },
                 onOpenInNewTab = { onOpenInNewTab(row.info) },
@@ -131,6 +134,7 @@ data class WorktreeActions(
     val onPrune: () -> Unit = {},
     val onNew: () -> Unit = {},
     val onReview: (Worktree) -> Unit = {},
+    val onMerge: (Worktree, WorktreeMergeKind) -> Unit = { _, _ -> },
 )
 
 /** The header's button that creates a worktree from the base branch, shown while the header is hovered. */
@@ -173,6 +177,7 @@ private fun WorktreesError(errorText: String) {
 private fun WorktreeItem(
     row: WorktreeRow,
     baseBranch: String?,
+    mergeTarget: String?,
     onClick: () -> Unit,
     onSwitchTo: () -> Unit,
     onOpenInNewTab: () -> Unit,
@@ -185,7 +190,9 @@ private fun WorktreeItem(
     val currentOnSwitchTo by rememberUpdatedState(onSwitchTo)
 
     ContextMenu(
-        items = { worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath, actions, baseBranch) }
+        items = {
+            worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath, actions, baseBranch, mergeTarget)
+        }
     ) {
         DelayedTooltip(worktreeTooltip(row.info, baseBranch)) {
             Row(
@@ -291,8 +298,9 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
 }
 
 /**
- * The menu of [worktree]'s row: reviewing its changes when its branch isn't [baseBranch]; switching the tab to it, or
- * opening it in a new tab, when the tab can switch to it; for
+ * The menu of [worktree]'s row: reviewing its changes when its branch isn't [baseBranch], and squash-merging or
+ * merging it into [mergeTarget] when it isn't that either; switching the tab to it, or opening it in a new tab, when
+ * the tab can switch to it; for
  * a linked worktree, locking or unlocking it, removing or discarding it, and pruning when its folder is missing; and
  * copying its path.
  */
@@ -303,12 +311,29 @@ internal fun worktreeContextMenuItems(
     onCopyPath: () -> Unit,
     actions: WorktreeActions = WorktreeActions(),
     baseBranch: String? = null,
+    mergeTarget: String? = null,
 ): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
     if (worktree.branchToReview(baseBranch) != null) {
         addContextMenu(
             composableLabel = { stringResource(Res.string.side_pane_worktree_review) },
             icon = { painterResource(Res.drawable.visibility) },
             onClick = { actions.onReview(worktree) },
+        )
+    }
+
+    if (mergeTarget != null && worktree.branchToMerge(baseBranch, mergeTarget) != null) {
+        val targetName = baseBranchName(mergeTarget)
+
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_squash_merge, targetName) },
+            icon = { painterResource(Res.drawable.merge) },
+            onClick = { actions.onMerge(worktree, WorktreeMergeKind.SQUASH) },
+        )
+
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_merge, targetName) },
+            icon = { painterResource(Res.drawable.merge) },
+            onClick = { actions.onMerge(worktree, WorktreeMergeKind.MERGE) },
         )
     }
 

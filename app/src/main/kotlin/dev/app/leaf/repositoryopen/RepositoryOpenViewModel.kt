@@ -389,7 +389,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val worktrees = repositoryDataRepository.worktrees.toUiDataState()
 
     val worktreesState: StateFlow<WorktreesState> =
-        combineWorktreesState(worktrees, isExpandedWorktrees, filter).stateIn(WorktreesState())
+        combineWorktreesState(worktrees, isExpandedWorktrees, filter, branches).stateIn(WorktreesState())
 
     /** Whether the side panel shows the worktree list, which refreshes on an interval meanwhile. */
     private val worktreesVisibility = MutableStateFlow(WorktreesVisibility.Hidden)
@@ -397,6 +397,12 @@ class RepositoryOpenViewModel @Inject constructor(
     init {
         viewModelScope.launch { pollWorktreesUseCase(worktreesVisibility) }
         viewModelScope.launch { followRemovedWorktreeUseCase() }
+
+        // Fork-only: the staged result of a merge into the base, its message and any conflicts wait in the uncommitted
+        // changes, which a selected commit would hide
+        viewModelScope.launch {
+            worktreeMergesEnded(repositoryStateRepository.completedTasks).collect { selectUncommittedChanges() }
+        }
     }
 
     /** The worktrees that use each local branch, for the branch list and the log. */

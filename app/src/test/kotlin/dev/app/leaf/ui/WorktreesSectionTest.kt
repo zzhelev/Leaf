@@ -6,6 +6,7 @@ package dev.app.leaf.ui
 import androidx.compose.ui.ImageComposeScene
 import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.Worktree
+import dev.app.leaf.domain.models.WorktreeMergeKind
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -140,6 +141,52 @@ class WorktreesSectionTest {
         }
 
         assertFalse("Review changes" in labels(worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, actions)))
+    }
+
+    @Test
+    fun `offers to squash-merge or merge a worktree's branch into the base's local branch, after reviewing it`() {
+        val merged = mutableListOf<Pair<String, WorktreeMergeKind>>()
+        val actions = WorktreeActions(onMerge = { worktree, kind -> merged += worktree.path to kind })
+
+        val items = worktreeContextMenuItems(
+            worktree("/wt"),
+            {},
+            {},
+            {},
+            actions,
+            baseBranch = "refs/remotes/origin/main",
+            mergeTarget = "refs/heads/main",
+        )
+
+        assertEquals(listOf("Review changes", "Squash-merge into main…", "Merge into main…"), labels(items).take(3))
+        items[1].onClick()
+        items[2].onClick()
+        assertEquals(listOf("/wt" to WorktreeMergeKind.SQUASH, "/wt" to WorktreeMergeKind.MERGE), merged)
+    }
+
+    @Test
+    fun `offers no merge without a local branch to merge into, or for a worktree on it`() {
+        val onTarget = worktree("/repo").copy(branch = "refs/heads/main", isMain = true)
+        val withoutTarget = worktreeContextMenuItems(
+            worktree("/wt"),
+            {},
+            {},
+            {},
+            baseBranch = "refs/remotes/origin/main",
+            mergeTarget = null,
+        )
+        val forTarget = worktreeContextMenuItems(
+            onTarget,
+            {},
+            {},
+            {},
+            baseBranch = "refs/remotes/origin/main",
+            mergeTarget = "refs/heads/main",
+        )
+
+        for (items in listOf(withoutTarget, forTarget)) {
+            assertFalse(labels(items).any { it.contains("merge", ignoreCase = true) }, labels(items).toString())
+        }
     }
 
     private fun worktree(path: String) = Worktree(

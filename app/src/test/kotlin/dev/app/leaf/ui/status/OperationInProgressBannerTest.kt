@@ -78,6 +78,43 @@ class OperationInProgressBannerTest {
     }
 
     @Test
+    fun `a squash merge that waits to be committed has one, though git records no state for it`() {
+        assertEquals(
+            OperationInProgress(Operation.SQUASH, 0),
+            operationInProgress(StatusState(repositoryState = RepositoryState.SAFE, isSquashMergeInProgress = true)),
+        )
+        assertEquals(
+            OperationInProgress(Operation.SQUASH, 1),
+            operationInProgress(
+                StatusState(isSquashMergeInProgress = true, unstaged = listOf(conflicted, modified))
+            ),
+        )
+        // A merge's own state wins, as the commit field shows the merge's message then
+        assertEquals(
+            OperationInProgress(Operation.MERGE, 0),
+            operationInProgress(StatusState(repositoryState = RepositoryState.MERGING, isSquashMergeInProgress = true)),
+        )
+    }
+
+    @Test
+    fun `aborting a squash merge asks first, then runs git reset --merge rather than a hard reset`() {
+        val state = StatusState(isSquashMergeInProgress = true, unstaged = listOf(conflicted, modified))
+        val actions = mutableListOf<StatusAction>()
+        var asked: ConfirmableAction? = null
+
+        abortOperationInProgress(state, onAction = { actions += it }) { action, onConfirm ->
+            asked = action
+            onConfirm()
+        }
+
+        assertEquals(ConfirmableAction.AbortOperation(Operation.SQUASH, 2), asked)
+        assertEquals(
+            listOf(StatusAction.AbortSquashMerge, StatusAction.UpdateCommitMessage(TextFieldValue(""))),
+            actions,
+        )
+    }
+
+    @Test
     fun `the interactive rebase's list, which has its own buttons, gets no banner`() {
         val state = StatusState(
             repositoryState = RepositoryState.REBASING_INTERACTIVE,
@@ -122,6 +159,14 @@ class OperationInProgressBannerTest {
             render(OperationInProgress(Operation.CHERRY_PICK, 0)).texts,
         )
         assertEquals(1, render(OperationInProgress(Operation.MERGE, 1), click = "Abort merge").aborts)
+        assertEquals(
+            listOf("Squash merge staged. Review the changes, then commit.", "Abort squash merge"),
+            render(OperationInProgress(Operation.SQUASH, 0)).texts,
+        )
+        assertEquals(
+            listOf("Squash merge stopped at conflicts in 2 files. Resolve them, then commit.", "Abort squash merge"),
+            render(OperationInProgress(Operation.SQUASH, 2)).texts,
+        )
     }
 
     @Test

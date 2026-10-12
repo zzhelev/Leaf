@@ -1,12 +1,16 @@
 package dev.app.leaf.domain.usecases
 
+import dev.app.leaf.common.extensions.TAG
+import dev.app.leaf.common.printError
 import dev.app.leaf.domain.SignOffConstants
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.either
+import dev.app.leaf.domain.errors.onErr
 import dev.app.leaf.domain.errors.onOk
+import dev.app.leaf.domain.interfaces.ICleanUpAfterCommitGitAction
 import dev.app.leaf.domain.interfaces.IDoCommitGitAction
 import dev.app.leaf.domain.interfaces.ILoadSignOffConfigGitAction
 import dev.app.leaf.domain.models.Commit
@@ -21,6 +25,7 @@ class DoCommitUseCase @Inject constructor(
     private val loadSignOffConfigGitAction: ILoadSignOffConfigGitAction,
     private val getAuthorUseCase: GetAuthorUseCase,
     private val persistCommitMessageUseCase: PersistCommitMessageUseCase,
+    private val cleanUpAfterCommitGitAction: ICleanUpAfterCommitGitAction,
 ) {
     operator fun invoke(
         message: String,
@@ -62,6 +67,11 @@ class DoCommitUseCase @Inject constructor(
         doCommitGitAction(repositoryPath, finalMessage, amend, author)
             .onOk {
                 persistCommitMessageUseCase(repositoryPath, null)
+
+                // Fork-only: removes SQUASH_MSG and the merge's files that git's commit removes and JGit's doesn't
+                cleanUpAfterCommitGitAction(repositoryPath).onErr {
+                    printError(TAG, "Failed to clean up after the commit: $it")
+                }
             }
     }
 }

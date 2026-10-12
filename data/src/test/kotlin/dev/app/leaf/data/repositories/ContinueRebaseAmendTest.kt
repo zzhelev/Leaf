@@ -12,6 +12,7 @@ import dev.app.leaf.domain.interfaces.IContinueRebaseGitAction
 import dev.app.leaf.domain.interfaces.IDoCommitGitAction
 import dev.app.leaf.domain.interfaces.ILoadAuthorGitAction
 import dev.app.leaf.domain.interfaces.ILoadSignOffConfigGitAction
+import dev.app.leaf.domain.interfaces.ICleanUpAfterCommitGitAction
 import dev.app.leaf.domain.interfaces.IPersistCommitMessageGitAction
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Identity
@@ -102,6 +103,9 @@ class ContinueRebaseAmendTest {
             signOffDisabled,
             GetAuthorUseCase(mockk<ILoadAuthorGitAction>(), executor),
             PersistCommitMessageUseCase(persistMessage),
+            object : ICleanUpAfterCommitGitAction {
+                override suspend fun invoke(repositoryPath: String) = Either.Ok(Unit)
+            },
         )
 
         return ContinueRebaseUseCase(executor, continueRebase, doCommitUseCase)
