@@ -925,8 +925,9 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     is unmerged"): resetting it took HEAD's version, ours, without saying so, and left a file that ours deleted as an
     untracked file. Its menu has no "Discard file changes", as "Use ours" and "Use theirs" name the side they take.
     A selection's and a folder's discard leave such files as they are, and their dialogs say how many
-    (`DiscardedFiles`, from `selectionDiscard` and `folderDiscard`). A selection of conflicted files only gets no
-    Discard. `DiscardEntriesGitAction` reads the index first and refuses an unmerged path with
+    (`DiscardedFiles`, from `selectionDiscard` and `folderDiscard`). "Discard N files" counts the files it discards
+    (`discardCount`), as every count in these menus counts the files the item acts on. A selection of conflicted files
+    only gets no Discard. `DiscardEntriesGitAction` reads the index first and refuses an unmerged path with
     `ConflictError.CantDiscard`, changing nothing, for a status that was stale.
   - Only hunks and lines can stop asking. The diff passes `onStopAsking`, which adds "Don't ask again for hunks and
     lines"; confirming with it checked turns off `AppConfig.ConfirmHunkAndLineDiscards` (`user_prefs.json` key

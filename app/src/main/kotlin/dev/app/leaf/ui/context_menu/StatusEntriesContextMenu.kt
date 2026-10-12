@@ -111,6 +111,8 @@ fun statusEntriesContextMenuItems(
     entryType: EntryType,
     /** Fork-only: null leaves it out, when every selected file has conflicts. */
     onDiscard: (() -> Unit)?,
+    /** Fork-only: how many files Discard acts on, without the selected files with conflicts, which it skips. */
+    discardCount: Int = selectedEntriesCount,
     onStageSelected: () -> Unit,
     onUnstageSelected: () -> Unit,
     onCopyFilesPath: (relative: Boolean) -> Unit,
@@ -161,7 +163,7 @@ fun statusEntriesContextMenuItems(
                 composableLabel = {
                     stringResource(
                         Res.string.status_entries_context_menu_discard_multiple_files,
-                        selectedEntriesCount
+                        discardCount
                     )
                 },
                 icon = { painterResource(Res.drawable.undo) },

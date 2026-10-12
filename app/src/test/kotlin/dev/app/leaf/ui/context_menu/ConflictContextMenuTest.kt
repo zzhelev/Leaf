@@ -105,6 +105,25 @@ class ConflictContextMenuTest {
         assertTrue("Discard 2 files" in labelsOf(items))
     }
 
+    @Test
+    fun `discarding a selection counts the files it acts on, without those with conflicts`() {
+        // 4 selected, 1 of them with conflicts: StatusPane passes what selectionDiscard keeps
+        val labels = labelsOf(
+            statusEntriesContextMenuItems(
+                selectedEntriesCount = 4,
+                entryType = EntryType.UNSTAGED,
+                onDiscard = {},
+                discardCount = 3,
+                onStageSelected = {},
+                onUnstageSelected = {},
+                onCopyFilesPath = {},
+            ).filterIsInstance<ContextMenuElement.ContextTextEntry>()
+        )
+
+        assertTrue("Stage 4 files" in labels, labels.toString())
+        assertTrue("Discard 3 files" in labels, labels.toString())
+    }
+
     private fun singleMenu(entry: StatusEntry, calls: MutableList<String> = mutableListOf()) =
         statusEntryContextMenuItems(
             statusEntry = entry,

@@ -406,12 +406,13 @@ fun ChangesList(
     }
 
     fun selectedEntriesContextMenu(): (StatusEntry) -> List<ContextMenuElement> = {
+        val discard = selectedEntries.map { it.statusEntry }.selectionDiscard()
+
         statusEntriesContextMenuItems(
             selectedEntriesCount = selectedEntries.count(),
             entryType = entryType,
-            onDiscard = onDiscardSelected.takeIf {
-                selectedEntries.map { it.statusEntry }.selectionDiscard().entries.isNotEmpty()
-            },
+            onDiscard = onDiscardSelected.takeIf { discard.entries.isNotEmpty() },
+            discardCount = discard.entries.size,
             onStageSelected = { onAction(StatusAction.SelectedEntriesAction(EntryType.UNSTAGED)) },
             onUnstageSelected = { onAction(StatusAction.SelectedEntriesAction(EntryType.STAGED)) },
             onCopyFilesPath = { relative ->

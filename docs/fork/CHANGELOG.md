@@ -11,19 +11,20 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Now:**
   - A conflicted file's menu has no "Discard file changes": "Use ours" and "Use theirs" are right above it.
   - "Discard N files" and a folder's "Discard changes" leave conflicted files as they are, and their dialogs say so:
-    "1 file with conflicts is left as it is." A selection of conflicted files only gets no Discard, but "Use ours for
-    N files" and "Use theirs for N files".
+    "1 file with conflicts is left as it is." N counts the files it discards, as every count in these menus counts
+    the files that the item acts on: 4 selected with 1 conflicted gives "Stage 4 files" and "Discard 3 files". A
+    selection of conflicted files only gets no Discard, but "Use ours for N files" and "Use theirs for N files".
   - If the list is stale (an agent or a terminal stopped at conflicts after it was read), the discard reads the index,
     refuses with a dialog naming the files, changes nothing, and the list refreshes.
-- **Tests:** 9 new, and the one that checked the old behavior replaced.
+- **Tests:** 10 new, and the one that checked the old behavior replaced.
   - `:data` (3): `DiscardEntriesGitActionTest` discards a folder during a merge and leaves its conflicted file with its
     stages and markers. Given each kind of conflict as a stale status lists it (both changed, deleted by us, deleted
     by them, both added), staged or not, the git action refuses, and the index, the status and every file stay as
     they were. Discarding no files changes nothing: JGit's reset without paths resets the whole index.
   - `:domain` (2): `StatusFileItemsTest`, what a folder's and a selection's discard keep and count.
-  - `:app` (4): the menus (`ConflictContextMenuTest`), the selection's dialog (`ConfirmActionDialogTest`) and the
-    folder's (`DiscardChangesDialogTest`).
-  - **Mutation check:** 10 mutations, all caught. Not covered by a test: the view model dropping conflicted files from
+  - `:app` (5): the menus and their counts (`ConflictContextMenuTest`), the selection's dialog
+    (`ConfirmActionDialogTest`) and the folder's (`DiscardChangesDialogTest`).
+  - **Mutation check:** 11 mutations, all caught. Not covered by a test: the view model dropping conflicted files from
     the selection. Without it, the git action would refuse the whole discard and say why.
 
 ## Merges and diffs with zdiff3 or patience set (branch `claude/fix-jgit-conflictstyle-diffalgorithm-e355f0`)
