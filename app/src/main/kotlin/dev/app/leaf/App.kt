@@ -69,7 +69,6 @@ import org.eclipse.jgit.util.LfsFactory
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
-import java.io.FileOutputStream
 import java.nio.file.Paths
 import javax.inject.Inject
 
@@ -306,13 +305,8 @@ class App @Inject constructor(
         val leafRsInputStream = javaClass.getResourceAsStream("/$leafRsName")
 
         leafRsInputStream?.use { inputStream ->
-            val tempDir = tempFilesManager.tempDir()
-            val leafRsFile = File(tempDir, leafRsName)
-            val outputStream = FileOutputStream(leafRsFile)
-
-            inputStream.copyTo(outputStream)
-            outputStream.flush()
-            outputStream.close()
+            // Fork-only: never written in place, as another Leaf may have loaded it (see extractNativeLibrary)
+            val leafRsFile = extractNativeLibrary(inputStream.readBytes(), tempFilesManager.tempDir(), leafRsName)
 
             System.load(leafRsFile.absolutePath)
         } ?: throw Exception("LeafRs native dependency not found")

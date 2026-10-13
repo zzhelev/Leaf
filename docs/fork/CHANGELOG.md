@@ -2,6 +2,36 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Two Leafs built from different sources run side by side (branch `claude/inspiring-bouman-f4c4e9`)
+
+- **Before:** `App.initNativeDependencies` (Gitnuro's) copied the Rust library to `<app data>/tmp/libleaf_rs.dylib`,
+  writing into the file that was there. When another Leaf had it loaded, macOS killed the Leaf that was starting, in
+  `dlopen` (exit 137, `SIGKILL (Code Signature Invalid)`, no log line). So two dev Leafs from different worktrees
+  couldn't run at once (each cargo build embeds its path), and a new version of the packaged app started while an old
+  one runs could hit the same.
+- **Now:** `extractNativeLibrary` (fork-only, `NativeLibraryExtraction.kt`) copies it to
+  `<app data>/tmp/leaf_rs-<first 16 hex digits of its SHA-256>/libleaf_rs.dylib`, as `AskpassHelper` does for
+  `leaf-askpass`.
+  - A file already there is used when its size and hash match.
+  - Otherwise the library goes to a temporary file next to it, which is renamed into place: a new file, never new bytes
+    in a file that a process may have loaded. When the rename fails because another Leaf put the file there meanwhile
+    (Windows can't replace a loaded DLL), that file is used.
+  - The file keeps its name, as Windows matches an already loaded DLL by its file name when JNA loads `leaf_rs`.
+  - The old `tmp/libleaf_rs.dylib` is left alone, for older Leafs.
+- **Tests:** 10 in `NativeLibraryExtractionTest`: the folder's name, the same bytes giving the same file without
+  writing it again, other bytes giving another folder, a file in the way (same size or truncated) replaced while a hard
+  link to it keeps its old bytes, the old file left alone, no temporary file left behind, a failed rename with and
+  without another Leaf's file in place, and 8 threads extracting at once.
+  - **Mutation check:** 5 mutations (writing in place, checking the size only, no fallback after a failed rename,
+    keeping the temporary file, always writing), all caught.
+  - `:app:test` passes, with 208 tests.
+- **Manual check (macOS 26):** a dev Leaf built from `main` at another path (other bytes, old code) and one from this
+  branch, started in both orders, then two builds with the fix: they all stayed up, each mapped its own file, and the
+  file watchers of both kept refreshing. Rewriting the old Leaf's file in place and loading it, as the old code did, got
+  `SIGKILL (Code Signature Invalid)`.
+- Unchanged: on macOS, JNA extracts its own copy of the library to `~/Library/Caches/JNA/temp`, and uniffi calls that
+  one, so the library is loaded twice.
+
 ## The conflict resolver waits after Mark resolved (branch `claude/resolver-model-f2582e`)
 
 - **Before:** Mark resolved opened the next conflicted file at once. The view showed "Loading…" for a moment, then the

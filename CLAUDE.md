@@ -207,6 +207,14 @@ asking.
     `FileSystemPreferencesFactory` is unavailable on macOS, and `-Duser.home` does not affect them.
   - Passing `-Duser.home` to `:app:run` through an init script did not take effect; the Compose plugin sets the run
     task's JVM args.
+- **Each build loads its own copy of the Rust library (fork-only `extractNativeLibrary`).** At startup it goes to
+  `<app data>/tmp/leaf_rs-<first 16 hex digits of its SHA-256>/libleaf_rs.dylib`, written to a temporary file and
+  renamed into place, never into a file that's already there. So dev runs from different worktrees (each cargo build
+  embeds its path) and two versions of the packaged app can run at once. Before 2026-10-13 every build rewrote
+  `tmp/libleaf_rs.dylib` in place, and macOS killed a Leaf that loaded it while another had it mapped (exit 137,
+  `SIGKILL (Code Signature Invalid)` in `~/Library/Logs/DiagnosticReports/java-*.ips`, no log line). Builds from
+  before then still clash with each other. On macOS, JNA also extracts its own copy to `~/Library/Caches/JNA/temp`,
+  and that's the one uniffi calls.
 
 ## Module map
 
