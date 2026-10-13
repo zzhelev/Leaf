@@ -316,8 +316,9 @@ code, "worktree" means the working directory, not linked worktrees.
   rebase makes; it used to be a `DoCommit` task that raced `git rebase --continue`, and a failed amend was ignored.
 - A completed task's toast says `successTitle()` ("Merge completed"). Fork-only: a task that ran but stopped at
   conflicts passes `stoppedAtConflicts` to `executeLaunch`, which tells it from the result (merge, rebase and pull
-  give `true`). It's recorded as `CompletedTask.Success(stoppedAtConflicts = true)` (`addCompletedTaskWithConflicts`),
-  and its toast warns with `conflictsTitle()` ("Merge stopped at conflicts, fix them to continue").
+  give `true`, and continuing or skipping a rebase that stopped again at a later commit's conflicts). It's recorded
+  as `CompletedTask.Success(stoppedAtConflicts = true)` (`addCompletedTaskWithConflicts`), and its toast warns with
+  `conflictsTitle()` ("Merge stopped at conflicts, fix them to continue").
   - Fork-only: a toast stays as long as its text takes to read (`notificationDuration`: 2 s plus 60 ms a character,
     4 to 12 s, and at least 6 s for a warning or an error), and while the pointer is over it. Upstream's went after
     2 s, before a longer message could be read.
@@ -675,19 +676,22 @@ result one part at a time, with one undo history.
   list).
 
 **Worktree actions (fork-only, Phase 3, `docs/fork/worktree-lifecycle.md`):** creating, removing, discarding, pruning,
-locking and unlocking worktrees run the git CLI, and their dialogs show the commands.
+locking and unlocking worktrees, and merging and rebasing their branches, run the git CLI, and their dialogs show the
+commands.
 - An action is a list of `WorktreeStep`s (`domain/worktrees/WorktreeSteps.kt`): a git command and the folder it runs in
-  (`Git`), switching the tab (`SwitchTab`), copying gitignored files into a new worktree (`CopyFiles`), or writing a
-  squash merge's message (`WriteSquashMessage`).
+  (`Git`), switching the tab (`SwitchTab`, or only when a command before it stopped at conflicts with
+  `onlyIfStoppedAtConflicts`), copying gitignored files into a new worktree (`CopyFiles`), or writing a squash merge's
+  message (`WriteSquashMessage`).
   - The dialog shows the list (`WorktreeCommands`, from `shellLines`): a `cd` each time the folder changes, the commands
     quoted as a shell reads them, the home folder as `~`, and other steps as comments, so the lines can be pasted
     into a terminal.
   - `RunWorktreeStepsUseCase` runs the same list on confirm, as a foreground task. It stops at the first failure,
     whose `GitCliError.CommandFailed` names the command, and refreshes even then. `RunGitCommandGitAction` gives git
     no time limit. `runSteps` runs them inside another task (`CreateWorktreeUseCase`).
-  - A merge (`Git.mayStopAtConflicts`) that stops at conflicts doesn't stop the steps: the task ends as one that
-    stopped at conflicts (`stoppedAtConflicts`). git exits with 1 for conflicts, but also when it refuses a squash
-    merge (a plain merge refuses with 2), so only exit code 1 with unmerged paths (`git ls-files --unmerged`) counts.
+  - A merge or a rebase (`Git.mayStopAtConflicts`) that stops at conflicts doesn't stop the steps: the task ends as one
+    that stopped at conflicts (`stoppedAtConflicts`). git exits with 1 for conflicts, but also when it refuses a squash
+    merge or a rebase (a plain merge refuses with 2), so only exit code 1 with unmerged paths
+    (`git ls-files --unmerged`) counts.
   - The commands run in the main worktree, and name a worktree relative to it when it's inside or next to it
     (`pathArgument`: `../leaf-agent1`, `.claude/worktrees/a1`), and absolute otherwise.
 - **Remove and Discard** share `RemoveWorktreeDialog`. When it opens, `GetWorktreeRemovalUseCase` reads again what
@@ -792,8 +796,46 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
   field is cleared once its file is gone, unless a merge goes on. Commit is disabled while files have conflicts, as git
   refuses then.
 - A plain merge then goes on in Leaf's merge UI: `MERGE_MSG` in the field, the Merge button, the banner.
-- When a merge ends, conflicts or not, the tab selects the uncommitted changes (`worktreeMergesEnded`), where its result
-  waits. A selected commit, or the review, would hide it.
+- When a merge ends, conflicts or not, the tab selects the uncommitted changes (`worktreeResultsToShow`), where its
+  result waits. A selected commit, or the review, would hide it.
+
+**Rebasing a worktree onto the base (fork-only, Phase 3.5, `RebaseWorktreeDialog`, `WorktreeRebaseSteps.kt`):**
+"Rebase onto main…" follows the merge items in a worktree row's menu, for a worktree on a branch that is neither the
+base nor its local branch (`branchToRebase`): rebasing `main` onto `origin/main` would be a pull. It rebases onto the
+base as chosen, `origin/main` too, which is what the row's ↑↓ count against, so it's offered without a local branch.
+- `GetWorktreeRebaseUseCase` reads, when the dialog opens (`WorktreeRebase`): the worktree's status and last change,
+  and how many commits the rebase replays and brings in (`GetAheadBehindGitAction`). git gets the base's short name
+  unless it means something else, as with the merged branch (`refArgument`, shared with the merge): with a tag named
+  `main`, `git rebase main` would rebase onto the tag.
+- **Refused** (`refusal`), with the button disabled: changes to tracked files in the worktree (git refuses too, and
+  Leaf doesn't stash an agent's work in progress), a status that can't be read, a missing folder, and a branch that
+  already has every commit of the base. Untracked files don't stop it: git refuses to overwrite one, and changes
+  nothing. An agent's recent change is a notice (`RecentChangeNotice`), as in Remove and Merge.
+- **Steps** (`rebaseSteps`): `git rebase --no-autostash <base>` in the worktree, then a `SwitchTab` to it that runs only
+  when the rebase stopped at conflicts. `--no-autostash` keeps a user's `rebase.autoStash` from stashing changes made
+  after the dialog checked; git refuses them instead. The tab stays where it was when the rebase ends, and when it
+  stops, the tab shows the worktree's conflicts, with the uncommitted changes selected (`worktreeResultsToShow`).
+- The dialog's content is `RebaseWorktreeDialogContent`, which takes the state, so `RebaseWorktreeDialogTest` renders
+  it offscreen.
+
+**A rebase that git started (fork-only, `data/git/rebase/GitCliRebase.kt`):** Continue, Skip and Abort, in the status
+pane and the banner, run `git rebase --continue`, `--skip` or `--abort` for a rebase that git started: from "Rebase
+onto", a terminal or an agent. A rebase that JGit started (Leaf's own, interactive ones included) stays with JGit.
+- `isRebaseStartedByGit`: a `rebase-apply` folder (git's apply backend), or a `rebase-merge` folder without JGit's
+  `onto_name` file, which git 2.54 doesn't write. The `Selecting…RebaseGitAction`s are bound to the domain
+  interfaces, and use JGit when no usable git is found.
+- Neither can go on with the other's (probed on git 2.54 and JGit 7.7): JGit's continue committed git's `message` file
+  as it was, with its `# Conflicts:` lines, and its continue, skip and abort left `MERGE_MSG` (the stopped commit's
+  message, which a commit from a terminal would take) and `REBASE_HEAD`. JGit doesn't know git's other todo commands
+  either (`exec`, `update-ref`, `label`). git refuses to continue JGit's ("could not commit staged changes").
+- git runs with `GIT_EDITOR=:`, so it keeps the stopped commit's message, without its comment lines, and with no time
+  limit, as it runs hooks. A user's own `GIT_EDITOR` would otherwise open, or fail without a terminal.
+- Continue and Skip return whether the rebase stopped again at a later commit's conflicts (exit code 1 with unmerged
+  paths for git, `STOPPED` for JGit), which the toast then says.
+- A rebase that git started writes `rebase-merge/interactive` even when it isn't interactive, so JGit reads it as
+  `REBASING_INTERACTIVE`. Leaf shows it as processing commits (`done` exists), as it did before.
+- git signs the commits that it makes during a rebase as `commit.gpgSign` says, with its own gpg or ssh-keygen rather
+  than Leaf's signers, and without Leaf's askpass (not checked with a key that needs a passphrase).
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
@@ -1368,8 +1410,8 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   the worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
   followed by "Open in new tab". The menu starts with "Review changes" for a worktree on a branch other than the
   base (see Reviewing a worktree), then "Squash-merge into main…" and "Merge into main…" (see Merging a worktree into
-  the base). Switching and opening in a new tab aren't offered for the tab's own worktree, a prunable one or a bare
-  repository's (`Worktree.canSwitchTo`).
+  the base), and "Rebase onto main…" (see Rebasing a worktree onto the base). Switching and opening in a new tab
+  aren't offered for the tab's own worktree, a prunable one or a bare repository's (`Worktree.canSwitchTo`).
 - A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, and "Prune missing
   worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from
   `SidePanel`, and the header's "+" (shown on hover, as in Remotes), which creates a worktree. Every menu ends with

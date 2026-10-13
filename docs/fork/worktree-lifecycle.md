@@ -5,7 +5,7 @@
 | Question | How should Leaf create, review, merge, rebase, remove and discard worktrees, and run a merge tool in them? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54.0 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1 to 3.4 done |
+| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1 to 3.5 done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -25,7 +25,9 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
 - **Copying ignored files uses `.worktreeinclude`,** the file that Claude Code, Codex, Conductor, worktrunk, Roo Code
   and PostHog Code already read. Leaf keeps no list of its own, as Phase 4.2 asks (section 3.2).
 - **What the probes showed** (`docs/fork/probes/lifecycle-probe.sh`, against throwaway repositories):
-  - Leaf's Continue, Skip and Abort (JGit) finish a rebase that the git CLI started in a linked worktree.
+  - Leaf's Continue, Skip and Abort (JGit) finish a rebase that the git CLI started in a linked worktree. But 3.5's
+    probe found that JGit's continue keeps git's `# Conflicts:` lines in the commit's message, and leaves `MERGE_MSG`
+    and `REBASE_HEAD` behind, so git now goes on with such a rebase (section 3.5).
   - After `git merge --squash`, JGit's commit leaves `SQUASH_MSG` behind; git's own commit deletes it.
   - A squash merge has no repository state: JGit says SAFE and `git merge --abort` refuses. `git reset --merge`
     undoes it, conflicts included, and keeps untracked files.
@@ -278,16 +280,44 @@ from, and a merge's or a squash's field is cleared once its file is gone.
 
 ### 3.5 Rebase onto the base (plan item 5)
 
-**"Rebase onto main…"** on a worktree row whose branch isn't the base, and isn't detached. It runs `git rebase <base>`
-in that worktree, with the base as chosen (`origin/main` too).
+Done on 2026-10-13 (branch `feat/worktree-rebase`), as below, with the four recommendations of the plan approved that
+day. Where it differs from the first design, the reason is given.
 
-**Uncommitted changes** in that worktree: refused. git refuses too, and Leaf doesn't autostash an agent's work in
-progress.
+**"Rebase onto main…"** follows the merge items, on a worktree row whose branch is neither the base nor the base's
+local branch, and isn't detached. Rebasing `main` onto `origin/main` would be a pull. It rebases onto the base as
+chosen (`origin/main` too), which is what the row's ↑↓ count against.
 
-**Recent activity:** a warning, with "Rebase anyway".
+**Command:** `git rebase --no-autostash <base>`, in that worktree. `--no-autostash` keeps a user's `rebase.autoStash`
+from stashing changes that an agent made after the dialog checked: git refuses them instead. The base is named as
+3.4 names the branch: its short name, unless a tag of the same name would win.
 
-**The tab** stays where it is when the rebase succeeds. When it stops at conflicts, the tab switches to that worktree,
-where the banner and Continue, Skip and Abort work on it (probe).
+**Refused:**
+- changes to tracked files in that worktree, staged, unstaged or with conflicts. git refuses too, and Leaf doesn't
+  autostash an agent's work in progress. Untracked files are allowed: git refuses to overwrite one, and changes
+  nothing then;
+- a branch that already has every commit of the base (git would say "is up to date");
+- a status that can't be read, or a missing folder.
+
+**Recent activity:** a notice, as in Remove and Merge, not "Rebase anyway". Changes to tracked files already block the
+rebase, so it can't lose work.
+
+**The tab** stays where it is when the rebase ends. When it stops at conflicts, the tab switches to that worktree (a
+step that runs only then), and shows its uncommitted changes, with the banner.
+
+**Continue, Skip and Abort** (found by the probe the first design asked for): Leaf's ran JGit's `RebaseCommand`, which
+can't go on with a rebase that git started, nor git with JGit's (git 2.54, JGit 7.7):
+- JGit committed git's `message` file as it was, with git's `# Conflicts:` lines. Its continue, skip and abort left
+  `MERGE_MSG` (the stopped commit's message, which a commit from a terminal would take) and `REBASE_HEAD` behind. It
+  doesn't know git's other todo commands either (`exec`, `update-ref`, `label`);
+- git refused to continue JGit's: "could not commit staged changes".
+
+So a rebase that git started (no `onto_name` in `rebase-merge`, which only JGit writes, or a `rebase-apply` folder) goes
+on with `git rebase --continue`, `--skip` or `--abort`, with `GIT_EDITOR=:`. That covers rebases that a terminal or an
+agent started too. Leaf's own rebases, interactive ones included, stay with JGit. Continue and Skip now say when the
+rebase stopped again at a later commit's conflicts.
+
+git writes `rebase-merge/interactive` for every rebase, so JGit reads a plain `git rebase` as interactive. Leaf shows it
+as processing commits, as before.
 
 ### 3.6 External merge tool (plan item 6)
 

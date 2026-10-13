@@ -2,6 +2,44 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Rebase a worktree onto the base (branch `feat/worktree-rebase`)
+
+Phase 3.5 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.
+
+- **Before:** bringing an agent's branch up to date with main took a terminal in its worktree: `git rebase main`. Leaf's
+  own Rebase rebased the tab's branch, so it worked only from the agent's tab, with JGit.
+- **Now:** "Rebase onto main…" follows the merge items in a worktree's menu (for a worktree on a branch other than the
+  base and its local branch). The dialog says how many commits it replays on how many new ones, warns about an agent's
+  recent change, and shows the commands. On confirm, `git rebase --no-autostash main` runs in that worktree:
+  - when it ends, the tab stays where it was;
+  - when it stops at conflicts, the tab switches to that worktree and shows them, with the banner.
+
+  It's refused, with the reason, when the worktree has changes to tracked files (Leaf doesn't stash an agent's work in
+  progress, and `--no-autostash` keeps a user's `rebase.autoStash` from doing it either), and when the branch already
+  has every commit of the base. The base is rebased onto as chosen, `origin/main` too, and named in full when a tag
+  has its short name.
+- **Fix found on the way:** Continue, Skip and Abort ran JGit, which can't go on with a rebase that git started from a
+  terminal, an agent, or now this dialog: it committed git's message file with its `# Conflicts:` lines, and its
+  continue, skip and abort left `MERGE_MSG` behind, which a commit from a terminal would take as its message. git
+  can't go on with JGit's either. So a rebase that git started now goes on with `git rebase --continue`, `--skip` or
+  `--abort`, and Leaf's own rebases stay with JGit. Continue and Skip also say when the rebase stopped again at a
+  later commit's conflicts, rather than "Rebase continued".
+- **Tests:** 37 new.
+  - `:domain` (9): `WorktreeRebaseStepsTest`: which worktrees get the item, the steps with and without the tab's
+    switch, the commands' comment, and every refusal.
+  - `:data` (18): `RebasingWorktreesTest` runs the dialog's steps in a tab on a repository made with git: a rebase
+    that ends with the tab where it was, one that stops at conflicts and switches the tab (or stays, from the branch's
+    own tab), Continue that ends or stops again, Skip and Abort through git, a rebase that JGit started going on with
+    JGit, a worktree with changes, changes made after the dialog checked with `rebase.autoStash` on, a branch that is
+    up to date, a tag named like the base, and a remote base. `RebaseStartedByGitTest` tells git's rebases (both
+    backends) from JGit's (plain and interactive). `GitOnlyConfigValuesTest` now checks what JGit's continue returns.
+  - `:app` (10): the dialog, rendered from its state (`RebaseWorktreeDialogTest`), the menu item, and when the tab
+    shows the uncommitted changes.
+  - **Mutation check:** 22 mutations, all caught. Two survived at first, and their tests got stricter: the test tab
+    now has a user's `GIT_EDITOR` (git fell back to vi, which quit at once without a terminal), and Skip and Abort must
+    leave no `MERGE_MSG`. A third didn't compile, and was rewritten.
+  - `./gradlew test` passes, with 1,433 tests (234 in `:app`, 899 in `:data`, 293 in `:domain`, 7 in `:common`).
+
 ## The conflict resolver edits the result in place (branch `claude/resolver-model-f2582e`)
 
 - **Before:** the resolver only picked: a side, both, the base, or a change applied or not. A conflict that needed
