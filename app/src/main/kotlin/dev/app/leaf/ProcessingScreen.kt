@@ -159,6 +159,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.SquashMergeWorktree -> "Squash-merging"
         TaskType.MergeWorktree -> "Merging"
         TaskType.AbortSquashMerge -> "Aborting squash merge"
+        TaskType.RebaseWorktree -> "Rebasing branch"
         TaskType.OpenMergeTool -> "Waiting for the merge tool"
         TaskType.ResolveConflict -> "Resolving conflicts"
         TaskType.ResetRepoState -> "Resetting repository state"

@@ -14,6 +14,7 @@ class SkipRebaseUseCase @Inject constructor(
         useCaseExecutor.executeLaunch(
             taskType = TaskType.SkipRebase,
             dataToRefresh = arrayOf(DataToRefresh.ALL),
+            stoppedAtConflicts = { stoppedAgain -> stoppedAgain },
         ) { repositoryPath ->
             skipRebaseGitAction(repositoryPath)
         }

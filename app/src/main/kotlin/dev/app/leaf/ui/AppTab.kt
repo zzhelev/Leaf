@@ -440,6 +440,18 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.WorktreeRebaseOntoBase>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            RebaseWorktreeDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider
+                                        .rebaseWorktreeViewModelFactory()
+                                        .create(entry.worktree, entry.base)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.WorktreeLock>(
                             metadata = dialogsMetadata
                         ) { entry ->

@@ -11,12 +11,21 @@ import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.GetRefDatesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.GitExecutableLocator
+import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.log.JGitGraphRevWalker
+import dev.app.leaf.data.git.rebase.AbortRebaseGitAction
+import dev.app.leaf.data.git.rebase.ContinueRebaseGitAction
 import dev.app.leaf.data.git.rebase.GetCommitFromRebaseLineGitAction
 import dev.app.leaf.data.git.rebase.GetRebaseInteractiveTodoLinesGitAction
+import dev.app.leaf.data.git.rebase.GitCliRebase
+import dev.app.leaf.data.git.rebase.SelectingAbortRebaseGitAction
+import dev.app.leaf.data.git.rebase.SelectingContinueRebaseGitAction
+import dev.app.leaf.data.git.rebase.SelectingSkipRebaseGitAction
+import dev.app.leaf.data.git.rebase.SkipRebaseGitAction
 import dev.app.leaf.data.git.remotes.GetRemotesGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.repository.OpenRepositoryGitAction
@@ -24,6 +33,7 @@ import dev.app.leaf.data.git.repository.PersistCommitMessageGitAction
 import dev.app.leaf.data.git.stash.GetStashListGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
+import dev.app.leaf.data.git.testGitSettings
 import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
@@ -65,7 +75,9 @@ import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.WatcherEvent
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.repositories.DataState
+import dev.app.leaf.domain.usecases.AbortRebaseUseCase
 import dev.app.leaf.domain.usecases.AbortSquashMergeUseCase
+import dev.app.leaf.domain.usecases.ContinueRebaseUseCase
 import dev.app.leaf.domain.usecases.CreateWorktreeUseCase
 import dev.app.leaf.domain.usecases.DoCommitUseCase
 import dev.app.leaf.domain.usecases.FollowRemovedWorktreeUseCase
@@ -76,6 +88,7 @@ import dev.app.leaf.domain.usecases.GetRebaseInteractiveTodoLinesUseCase
 import dev.app.leaf.domain.usecases.GetRebaseLinesFullMessageUseCase
 import dev.app.leaf.domain.usecases.GetRemotesUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeMergeUseCase
+import dev.app.leaf.domain.usecases.GetWorktreeRebaseUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRemovalUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
@@ -84,6 +97,7 @@ import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.PersistCommitMessageUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import dev.app.leaf.domain.usecases.RunWorktreeStepsUseCase
+import dev.app.leaf.domain.usecases.SkipRebaseUseCase
 import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
 import io.mockk.mockk
 import kotlinx.coroutines.awaitCancellation
@@ -241,6 +255,33 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
         getAuthorUseCase = GetAuthorUseCase(LoadAuthorGitAction(jgit), useCaseExecutor),
         persistCommitMessageUseCase = PersistCommitMessageUseCase(PersistCommitMessageGitAction(jgit)),
         cleanUpAfterCommitGitAction = CleanUpAfterCommitGitAction(jgit),
+    )
+
+    val getWorktreeRebase = GetWorktreeRebaseUseCase(
+        useCaseExecutor = useCaseExecutor,
+        repositoryDataRepository = repositoryData,
+        getWorktreeStatusGitAction = GetWorktreeStatusGitAction(gitCli),
+        getWorktreeActivityGitAction = GetWorktreeActivityGitAction(gitCli),
+        getAheadBehindGitAction = GetAheadBehindGitAction(gitCli),
+        runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+    )
+
+    private val gitCliRebase = GitCliRebase(gitCli, GitExecutableLocator(ProcessRunner()), testGitSettings(), jgit)
+
+    val continueRebase = ContinueRebaseUseCase(
+        useCaseExecutor = useCaseExecutor,
+        continueRebaseGitAction = SelectingContinueRebaseGitAction(gitCliRebase, ContinueRebaseGitAction(jgit)),
+        doCommitUseCase = doCommit,
+    )
+
+    val skipRebase = SkipRebaseUseCase(
+        useCaseExecutor = useCaseExecutor,
+        skipRebaseGitAction = SelectingSkipRebaseGitAction(gitCliRebase, SkipRebaseGitAction(jgit)),
+    )
+
+    val abortRebase = AbortRebaseUseCase(
+        useCaseExecutor = useCaseExecutor,
+        abortRebaseGitAction = SelectingAbortRebaseGitAction(gitCliRebase, AbortRebaseGitAction(jgit)),
     )
 
     val getWorktreeRemoval = GetWorktreeRemovalUseCase(

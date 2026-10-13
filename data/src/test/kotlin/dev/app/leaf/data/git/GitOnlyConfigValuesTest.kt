@@ -194,7 +194,8 @@ class GitOnlyConfigValuesTest {
     fun `a rebase continues to the next conflict, with zdiff3's layout`(): Unit = runBlocking {
         rebaseStoppedBeforeLastCommit(Conflict, ZDIFF3)
 
-        assertEquals(Either.Ok(Unit), keepingConfig(ZDIFF3) { ContinueRebaseGitAction(jgit)(gitDir) })
+        // true: it stopped at the next commit's conflicts
+        assertEquals(Either.Ok(true), keepingConfig(ZDIFF3) { ContinueRebaseGitAction(jgit)(gitDir) })
 
         assertEquals(RepositoryState.REBASING_MERGE, repositoryState())
         assertEquals(Conflict.result, conflictIn(work))
@@ -207,7 +208,7 @@ class GitOnlyConfigValuesTest {
 
         val result = keepingConfig("diff.algorithm=$algorithm") { ContinueRebaseGitAction(jgit)(gitDir) }
 
-        assertEquals(Either.Ok(Unit), result)
+        assertEquals(Either.Ok(false), result)
 
         assertEquals(RepositoryState.SAFE, repositoryState())
         assertEquals(Clean.result, File(work, FILE).readText())

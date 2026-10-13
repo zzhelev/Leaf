@@ -42,7 +42,12 @@ fun WorktreeCommands(steps: List<WorktreeStep>, modifier: Modifier = Modifier) {
     val home = System.getProperty("user.home")
     val comments = steps.filter { it !is WorktreeStep.Git }.associateWith { step ->
         when (step) {
-            is WorktreeStep.SwitchTab -> stringResource(Res.string.worktree_dialog_switch_tab, File(step.folder).name)
+            is WorktreeStep.SwitchTab -> if (step.onlyIfStoppedAtConflicts) {
+                stringResource(Res.string.worktree_dialog_switch_tab_if_conflicts, File(step.folder).name)
+            } else {
+                stringResource(Res.string.worktree_dialog_switch_tab, File(step.folder).name)
+            }
+
             is WorktreeStep.CopyFiles -> pluralStringResource(
                 Res.plurals.worktree_dialog_copy_files,
                 step.files.size,

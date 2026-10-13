@@ -83,9 +83,9 @@ class ContinueRebaseAmendTest {
         }
 
         val continueRebase = object : IContinueRebaseGitAction {
-            override suspend fun invoke(repositoryPath: String): Either<Unit, GitError> {
+            override suspend fun invoke(repositoryPath: String): Either<Boolean, GitError> {
                 steps.add("continue during ${stateRepository.currentTask.value}")
-                return Either.Ok(Unit)
+                return Either.Ok(false)
             }
         }
 

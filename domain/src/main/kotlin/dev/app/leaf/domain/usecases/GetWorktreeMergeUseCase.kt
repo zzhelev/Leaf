@@ -25,8 +25,6 @@ import dev.app.leaf.domain.worktrees.mergeTarget
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
-private const val LOCAL_BRANCH_PREFIX = "refs/heads/"
-
 /**
  * Reads what merging a worktree's branch into the base's local branch needs (fork-only), for its dialog: where the
  * merge runs and what's there, the commits it brings, and what the branch's worktree keeps out of it. The worktree list
@@ -69,7 +67,7 @@ class GetWorktreeMergeUseCase @Inject constructor(
                 WorktreeMerge(
                     worktree = current,
                     branch = branch,
-                    branchArgument = branchArgument(tabWorktree.path, branch),
+                    branchArgument = runGitCommandGitAction.refArgument(tabWorktree.path, branch),
                     target = target,
                     targetWorktree = targetWorktree,
                     targetStatus = targetWorktree?.takeIf { it.prunable == null }?.let { statusOf(it) },
@@ -90,17 +88,4 @@ class GetWorktreeMergeUseCase @Inject constructor(
         }
 
     private suspend fun statusOf(worktree: Worktree) = getWorktreeStatusGitAction(worktree.path).okOrNull()
-
-    /**
-     * How `git merge` names [branch]: its short name, which reads better and gives git's usual message ("Merge branch
-     * 'agent1'"), unless git takes it for something else, such as a tag of the same name. Then its full name.
-     */
-    private suspend fun branchArgument(folder: String, branch: String): String {
-        val shortName = branch.removePrefix(LOCAL_BRANCH_PREFIX)
-        val resolved = runGitCommandGitAction(folder, listOf("rev-parse", "--symbolic-full-name", shortName))
-            .okOrNull()
-            ?.trim()
-
-        return if (resolved == branch) shortName else branch
-    }
 }

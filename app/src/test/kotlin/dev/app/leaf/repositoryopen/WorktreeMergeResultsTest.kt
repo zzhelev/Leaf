@@ -16,7 +16,10 @@ import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** When the tab shows the uncommitted changes, after a worktree's branch was merged into the base. */
+/**
+ * When the tab shows the uncommitted changes, after a worktree's branch was merged into the base, or rebased onto it
+ * and stopped at conflicts.
+ */
 class WorktreeMergeResultsTest {
     @Test
     fun `follows each merge into the base that ends from now on, with or without conflicts`(): Unit = runBlocking {
@@ -24,7 +27,7 @@ class WorktreeMergeResultsTest {
         val tasks = MutableStateFlow(listOf<CompletedTask>(earlier))
         val ended = mutableListOf<CompletedTask>()
 
-        val job = launch { worktreeMergesEnded(tasks).take(2).toList(ended) }
+        val job = launch { worktreeResultsToShow(tasks).take(2).toList(ended) }
         yield()
 
         val squash = CompletedTask.Success(2, TaskType.SquashMergeWorktree)
@@ -39,5 +42,26 @@ class WorktreeMergeResultsTest {
 
         job.join()
         assertEquals(listOf<CompletedTask>(squash, merge), ended)
+    }
+
+    @Test
+    fun `follows a rebase onto the base only when it stopped at conflicts`(): Unit = runBlocking {
+        val tasks = MutableStateFlow(listOf<CompletedTask>())
+        val ended = mutableListOf<CompletedTask>()
+
+        val job = launch { worktreeResultsToShow(tasks).take(1).toList(ended) }
+        yield()
+
+        val rebased = CompletedTask.Success(1, TaskType.RebaseWorktree)
+        val otherRebase = CompletedTask.Success(2, TaskType.RebaseBranch, stoppedAtConflicts = true)
+        val stopped = CompletedTask.Success(3, TaskType.RebaseWorktree, stoppedAtConflicts = true)
+
+        for (task in listOf(rebased, otherRebase, stopped)) {
+            tasks.value = tasks.value + task
+            yield()
+        }
+
+        job.join()
+        assertEquals(listOf<CompletedTask>(stopped), ended)
     }
 }

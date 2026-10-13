@@ -173,6 +173,11 @@ fun SidePanel(
                             onNavigate(Screen.WorktreeMergeIntoBase(worktree, kind, target))
                         }
                     },
+                    onRebase = { worktree ->
+                        worktreesState.baseBranch?.let { base ->
+                            onNavigate(Screen.WorktreeRebaseOntoBase(worktree, base))
+                        }
+                    },
                 ),
             )
 

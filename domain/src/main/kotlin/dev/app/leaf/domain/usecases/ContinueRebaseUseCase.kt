@@ -26,6 +26,7 @@ class ContinueRebaseUseCase @Inject constructor(
         useCaseExecutor.executeLaunch(
             taskType = TaskType.ContinueRebase,
             dataToRefresh = arrayOf(DataToRefresh.ALL),
+            stoppedAtConflicts = { stoppedAgain -> stoppedAgain },
         ) { repositoryPath ->
             if (
                 repositoryState == RepositoryState.REBASING_INTERACTIVE &&

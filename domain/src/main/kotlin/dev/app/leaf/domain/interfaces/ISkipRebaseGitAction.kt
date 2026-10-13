@@ -4,5 +4,6 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 
 interface ISkipRebaseGitAction {
-    suspend operator fun invoke(repositoryPath: String): Either<Unit, GitError>
+    /** Skips the rebase's commit, and returns whether it stopped at conflicts again, at a later commit (fork-only). */
+    suspend operator fun invoke(repositoryPath: String): Either<Boolean, GitError>
 }

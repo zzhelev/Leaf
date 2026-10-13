@@ -22,15 +22,15 @@ import dev.app.leaf.domain.worktrees.WorktreeStep
 import kotlinx.coroutines.Job
 import javax.inject.Inject
 
-/** git's exit code when a merge stops at conflicts, and also when it refuses a squash merge. */
+/** git's exit code when a merge or a rebase stops at conflicts, and also when it refuses one. */
 private const val MERGE_STOPPED_EXIT_CODE = 1
 
 /**
  * Runs the steps of a worktree action (fork-only), the ones its dialog showed, in order, as a task: creating,
- * removing, discarding, pruning, locking or unlocking worktrees, or merging one's branch into the base. It stops at the
- * first step that fails, whose error names the command, except a merge that stopped at conflicts: the steps go on, and
- * the task's toast says that it stopped at them. Then it refreshes [dataToRefresh], even after a failure, as the steps
- * before it ran.
+ * removing, discarding, pruning, locking or unlocking worktrees, or merging one's branch into the base or rebasing it
+ * onto the base. It stops at the first step that fails, whose error names the command, except a merge or a rebase that
+ * stopped at conflicts: the steps go on, and the task's toast says that it stopped at them. Then it refreshes
+ * [dataToRefresh], even after a failure, as the steps before it ran.
  */
 class RunWorktreeStepsUseCase @Inject constructor(
     private val useCaseExecutor: UseCaseExecutor,
@@ -57,7 +57,7 @@ class RunWorktreeStepsUseCase @Inject constructor(
 
     /**
      * Runs [steps] inside a task that already runs, whose git dir was [gitDirAtStart], such as creating a worktree.
-     * Returns whether a merge among them stopped at conflicts.
+     * Returns whether a merge or a rebase among them stopped at conflicts.
      */
     suspend fun runSteps(steps: List<WorktreeStep>, gitDirAtStart: String): Either<Boolean, AppError> = either {
         var stoppedAtConflicts = false
@@ -77,6 +77,10 @@ class RunWorktreeStepsUseCase @Inject constructor(
                 }
 
                 is WorktreeStep.SwitchTab -> {
+                    if (step.onlyIfStoppedAtConflicts && !stoppedAtConflicts) {
+                        continue
+                    }
+
                     val currentGitDir = repositoryDataRepository.repositoryPath ?: gitDirAtStart
                     switchWorktreeUseCase.switch(currentGitDir, step.folder).bind()
                 }
@@ -94,9 +98,9 @@ class RunWorktreeStepsUseCase @Inject constructor(
     }
 
     /**
-     * Whether a merge in [folder] that failed with [error] stopped at conflicts: git exits with 1, and the index has
-     * them. git exits with 1 too when it refuses a squash merge, as local changes are in the way, but leaves none, and
-     * with 128 when the index already had conflicts.
+     * Whether a merge or a rebase in [folder] that failed with [error] stopped at conflicts: git exits with 1, and the
+     * index has them. git exits with 1 too when it refuses a squash merge or a rebase, as local changes are in the way,
+     * but leaves none, and with 128 when the index already had conflicts.
      */
     private suspend fun hasStoppedAtConflicts(folder: String, error: GitError): Boolean {
         if (error !is GitCliError.CommandFailed || error.exitCode != MERGE_STOPPED_EXIT_CODE) {

@@ -19,7 +19,9 @@ fun warningNotification(text: String) = NotificationData(NotificationType.Warnin
 fun TaskType.conflictsTitle(): String {
     return when (this) {
         TaskType.MergeBranch -> "Merge stopped at conflicts, fix them to continue"
-        TaskType.RebaseBranch -> "Rebase stopped at conflicts, fix them to continue"
+        TaskType.RebaseBranch, TaskType.RebaseWorktree, TaskType.ContinueRebase, TaskType.SkipRebase ->
+            "Rebase stopped at conflicts, fix them to continue"
+
         TaskType.Pull -> "Pull stopped at conflicts, fix them to continue"
         TaskType.SquashMergeWorktree -> "Squash merge stopped at conflicts, fix them, then commit"
         TaskType.MergeWorktree -> "Merge stopped at conflicts, fix them, then commit"
@@ -83,6 +85,7 @@ fun TaskType.successTitle(): String? {
         TaskType.SquashMergeWorktree -> "Squash merge staged, review it, then commit"
         TaskType.MergeWorktree -> "Merge ready, review it, then commit"
         TaskType.AbortSquashMerge -> "Squash merge aborted"
+        TaskType.RebaseWorktree -> "Rebase completed"
         TaskType.OpenMergeTool, TaskType.ResolveConflict -> "Conflict resolved"
         else -> null
     }

@@ -398,10 +398,10 @@ class RepositoryOpenViewModel @Inject constructor(
         viewModelScope.launch { pollWorktreesUseCase(worktreesVisibility) }
         viewModelScope.launch { followRemovedWorktreeUseCase() }
 
-        // Fork-only: the staged result of a merge into the base, its message and any conflicts wait in the uncommitted
-        // changes, which a selected commit would hide
+        // Fork-only: the staged result of a merge into the base, its message and any conflicts, and the conflicts of a
+        // rebase onto the base wait in the uncommitted changes, which a selected commit would hide
         viewModelScope.launch {
-            worktreeMergesEnded(repositoryStateRepository.completedTasks).collect { selectUncommittedChanges() }
+            worktreeResultsToShow(repositoryStateRepository.completedTasks).collect { selectUncommittedChanges() }
         }
     }
 

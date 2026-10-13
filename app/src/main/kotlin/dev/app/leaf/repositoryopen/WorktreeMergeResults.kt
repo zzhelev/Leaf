@@ -14,12 +14,18 @@ import kotlinx.coroutines.flow.mapNotNull
 private val WORKTREE_MERGES = setOf(TaskType.SquashMergeWorktree, TaskType.MergeWorktree)
 
 /**
- * Each merge of a worktree's branch into the base that ends among [completedTasks] from now on (fork-only), whether it
- * stopped at conflicts or not. Its result waits in the uncommitted changes, which the tab then shows. A merge that
- * failed changed nothing to show.
+ * Each task among [completedTasks] from now on whose result waits in the uncommitted changes, which the tab then shows
+ * (fork-only): a merge of a worktree's branch into the base, whether it stopped at conflicts or not, and a rebase of
+ * one onto the base that stopped at conflicts, after which the tab switched to its worktree. A rebase that ended has
+ * nothing to commit, and a task that failed changed nothing to show.
  */
-fun worktreeMergesEnded(completedTasks: Flow<List<CompletedTask>>): Flow<CompletedTask> = completedTasks
+fun worktreeResultsToShow(completedTasks: Flow<List<CompletedTask>>): Flow<CompletedTask> = completedTasks
     .drop(1)
     .mapNotNull { it.lastOrNull() }
     .distinctUntilChanged()
-    .filter { it is CompletedTask.Success && it.taskType in WORKTREE_MERGES }
+    .filter { task ->
+        task is CompletedTask.Success && (
+            task.taskType in WORKTREE_MERGES ||
+                task.taskType == TaskType.RebaseWorktree && task.stoppedAtConflicts
+            )
+    }

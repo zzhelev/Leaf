@@ -41,6 +41,7 @@ import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
 import dev.app.leaf.domain.worktrees.WorktreeRow
 import dev.app.leaf.domain.worktrees.branchToMerge
+import dev.app.leaf.domain.worktrees.branchToRebase
 import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.headLabel
 import dev.app.leaf.extensions.handOnHover
@@ -135,6 +136,7 @@ data class WorktreeActions(
     val onNew: () -> Unit = {},
     val onReview: (Worktree) -> Unit = {},
     val onMerge: (Worktree, WorktreeMergeKind) -> Unit = { _, _ -> },
+    val onRebase: (Worktree) -> Unit = {},
 )
 
 /** The header's button that creates a worktree from the base branch, shown while the header is hovered. */
@@ -298,11 +300,10 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
 }
 
 /**
- * The menu of [worktree]'s row: reviewing its changes when its branch isn't [baseBranch], and squash-merging or
- * merging it into [mergeTarget] when it isn't that either; switching the tab to it, or opening it in a new tab, when
- * the tab can switch to it; for
- * a linked worktree, locking or unlocking it, removing or discarding it, and pruning when its folder is missing; and
- * copying its path.
+ * The menu of [worktree]'s row: reviewing its changes when its branch isn't [baseBranch], squash-merging or merging it
+ * into [mergeTarget] when it isn't that either, and rebasing it onto [baseBranch]; switching the tab to it, or opening
+ * it in a new tab, when the tab can switch to it; for a linked worktree, locking or unlocking it, removing or
+ * discarding it, and pruning when its folder is missing; and copying its path.
  */
 internal fun worktreeContextMenuItems(
     worktree: Worktree,
@@ -334,6 +335,14 @@ internal fun worktreeContextMenuItems(
             composableLabel = { stringResource(Res.string.side_pane_worktree_merge, targetName) },
             icon = { painterResource(Res.drawable.merge) },
             onClick = { actions.onMerge(worktree, WorktreeMergeKind.MERGE) },
+        )
+    }
+
+    if (baseBranch != null && worktree.branchToRebase(baseBranch, mergeTarget) != null) {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.side_pane_worktree_rebase, baseBranchName(baseBranch)) },
+            icon = { painterResource(Res.drawable.branch) },
+            onClick = { actions.onRebase(worktree) },
         )
     }
 

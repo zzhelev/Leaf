@@ -87,6 +87,7 @@ sealed interface TaskType {
     data object SquashMergeWorktree : TaskType
     data object MergeWorktree : TaskType
     data object AbortSquashMerge : TaskType
+    data object RebaseWorktree : TaskType
     data object OpenMergeTool : TaskType
     data object ResolveConflict : TaskType
 }

@@ -125,6 +125,8 @@ sealed interface Screen : NavKey {
     data class WorktreeLock(val worktree: Worktree) : Screen
     /** Squash-merges or merges [worktree]'s branch into [target], the base's local branch (fork-only). */
     data class WorktreeMergeIntoBase(val worktree: Worktree, val kind: WorktreeMergeKind, val target: String) : Screen
+    /** Rebases [worktree]'s branch onto [base], the base branch (fork-only). */
+    data class WorktreeRebaseOntoBase(val worktree: Worktree, val base: String) : Screen
     /** Creates a worktree (fork-only) from [start]: the base branch, a branch or a commit. */
     data class WorktreeCreate(val start: NewWorktreeStart) : Screen
     data object WorktreesPrune : Screen

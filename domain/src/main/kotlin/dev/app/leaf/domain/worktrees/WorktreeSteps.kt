@@ -16,8 +16,8 @@ sealed interface WorktreeStep {
     /**
      * `git <args>`, run in [folder].
      *
-     * @param mayStopAtConflicts the command is a merge, which can stop at conflicts for the user to resolve. Then the
-     * steps go on, and the action ends as one that stopped at conflicts, not as a failure.
+     * @param mayStopAtConflicts the command is a merge or a rebase, which can stop at conflicts for the user to
+     * resolve. Then the steps go on, and the action ends as one that stopped at conflicts, not as a failure.
      */
     data class Git(
         val folder: String,
@@ -25,8 +25,12 @@ sealed interface WorktreeStep {
         val mayStopAtConflicts: Boolean = false,
     ) : WorktreeStep
 
-    /** Switches the tab to the worktree in [folder], before the steps that follow. */
-    data class SwitchTab(val folder: String) : WorktreeStep
+    /**
+     * Switches the tab to the worktree in [folder], before the steps that follow.
+     *
+     * @param onlyIfStoppedAtConflicts only when a command before it stopped at conflicts, which then show in the tab.
+     */
+    data class SwitchTab(val folder: String, val onlyIfStoppedAtConflicts: Boolean = false) : WorktreeStep
 
     /**
      * Copies [files], relative paths, from the worktree in [from] to the one in [to]: the gitignored files that a new

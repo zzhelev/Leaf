@@ -29,17 +29,20 @@ fun testJGit(shellVariables: Map<String, String> = emptyMap()) =
  * executable set in Leaf's settings.
  */
 fun testGitCli(shellVariables: Map<String, String> = emptyMap(), configuredPath: String? = null): GitCli {
-    val appSettingsRepository = mockk<AppSettingsRepository> {
-        every { gitExecutablePath } returns flowOf(configuredPath)
-    }
-
     return GitCli(
         GitExecutableLocator(ProcessRunner()),
         ProcessRunner(),
-        AppSettingsService(appSettingsRepository),
+        testGitSettings(configuredPath),
         LoginShellEnvironment { shellVariables },
     )
 }
+
+/** Leaf's settings for tests, with the git executable set to [configuredPath], or found by Leaf when it's null. */
+fun testGitSettings(configuredPath: String? = null) = AppSettingsService(
+    mockk<AppSettingsRepository> {
+        every { gitExecutablePath } returns flowOf(configuredPath)
+    }
+)
 
 /** Leaf's settings for tests, with "Cache HTTP credentials in memory" set to [cacheCredentialsInMemory]. */
 fun testAppSettings(cacheCredentialsInMemory: Boolean = true) = AppSettingsService(

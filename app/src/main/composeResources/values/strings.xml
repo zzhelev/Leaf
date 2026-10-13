@@ -89,6 +89,7 @@
     <string name="side_pane_worktree_review">Review changes</string>
     <string name="side_pane_worktree_squash_merge">Squash-merge into %1$s…</string>
     <string name="side_pane_worktree_merge">Merge into %1$s…</string>
+    <string name="side_pane_worktree_rebase">Rebase onto %1$s…</string>
     <string name="side_pane_worktree_open_in_new_tab">Open in new tab</string>
     <string name="side_pane_worktree_lock">Lock…</string>
     <string name="side_pane_worktree_unlock">Unlock</string>
@@ -339,6 +340,7 @@
     <!-- Worktree actions: remove, discard, lock and prune -->
     <string name="worktree_dialog_commands">Leaf runs:</string>
     <string name="worktree_dialog_switch_tab">Switch this tab to %1$s</string>
+    <string name="worktree_dialog_switch_tab_if_conflicts">If it stops at conflicts, switch this tab to %1$s</string>
     <plurals name="worktree_dialog_copy_files">
         <item quantity="one">Copy %1$d ignored file from %2$s: %3$s</item>
         <item quantity="other">Copy %1$d ignored files from %2$s: %3$s</item>
@@ -414,6 +416,25 @@
     <string name="merge_worktree_refusal_target_rebasing">%1$s is rebasing "%2$s". Finish or abort the rebase first.</string>
     <string name="merge_worktree_refusal_target_bisecting">%1$s is bisecting from "%2$s". End the bisect first.</string>
     <string name="merge_worktree_refusal_tab_is_branch_worktree">No worktree has "%1$s" checked out, and this tab's worktree has "%2$s". Check out "%1$s" in another worktree first.</string>
+    <string name="rebase_worktree_dialog_title">Rebase %1$s onto %2$s</string>
+    <string name="rebase_worktree_dialog_subtitle_loading">"%1$s" onto "%2$s"</string>
+    <plurals name="rebase_worktree_dialog_subtitle">
+        <item quantity="one">Replays the %2$d commit of "%1$s" on top of %3$s.</item>
+        <item quantity="other">Replays the %2$d commits of "%1$s" on top of %3$s.</item>
+    </plurals>
+    <plurals name="rebase_worktree_dialog_base_commits">
+        <item quantity="one">the %2$d new commit of "%1$s"</item>
+        <item quantity="other">the %2$d new commits of "%1$s"</item>
+    </plurals>
+    <string name="rebase_worktree_dialog_fast_forward_subtitle">"%1$s" has no commits of its own, so it moves up to "%2$s".</string>
+    <string name="rebase_worktree_dialog_rebase">Rebase</string>
+    <string name="rebase_worktree_refusal_up_to_date">"%1$s" already has every commit of "%2$s".</string>
+    <string name="rebase_worktree_refusal_missing">The folder of %1$s is missing.</string>
+    <string name="rebase_worktree_refusal_status_unknown">Leaf couldn't read the changes in %1$s.</string>
+    <plurals name="rebase_worktree_refusal_changes">
+        <item quantity="one">%1$s has %2$d uncommitted change. Commit or stash it in that worktree first.</item>
+        <item quantity="other">%1$s has %2$d uncommitted changes. Commit or stash them in that worktree first.</item>
+    </plurals>
     <string name="merge_worktree_refusal_tab_changes">No worktree has "%1$s" checked out, and this tab's worktree, %2$s, has uncommitted changes, so it can't check it out. Commit or stash them first.</string>
     <string name="lock_worktree_dialog_title">Lock worktree</string>
     <string name="lock_worktree_dialog_subtitle">Lock %1$s? git then refuses to remove or prune it until it's unlocked. A reason is optional.</string>

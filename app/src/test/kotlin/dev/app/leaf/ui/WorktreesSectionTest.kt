@@ -189,6 +189,53 @@ class WorktreesSectionTest {
         }
     }
 
+    @Test
+    fun `offers to rebase a worktree's branch onto the base, after merging it`() {
+        val rebased = mutableListOf<String>()
+        val actions = WorktreeActions(onRebase = { worktree -> rebased += worktree.path })
+
+        val items = worktreeContextMenuItems(
+            worktree("/wt"),
+            {},
+            {},
+            {},
+            actions,
+            baseBranch = "refs/remotes/origin/main",
+            mergeTarget = "refs/heads/main",
+        )
+
+        assertEquals(
+            listOf("Review changes", "Squash-merge into main…", "Merge into main…", "Rebase onto origin/main…"),
+            labels(items).take(4),
+        )
+        items[3].onClick()
+        assertEquals(listOf("/wt"), rebased)
+    }
+
+    @Test
+    fun `offers no rebase for the base's local branch, but one without a local branch to merge into`() {
+        val onTarget = worktree("/repo").copy(branch = "refs/heads/main", isMain = true)
+        val forTarget = worktreeContextMenuItems(
+            onTarget,
+            {},
+            {},
+            {},
+            baseBranch = "refs/remotes/origin/main",
+            mergeTarget = "refs/heads/main",
+        )
+        val withoutTarget = worktreeContextMenuItems(
+            worktree("/wt"),
+            {},
+            {},
+            {},
+            baseBranch = "refs/remotes/origin/main",
+            mergeTarget = null,
+        )
+
+        assertFalse(labels(forTarget).any { it.startsWith("Rebase") }, labels(forTarget).toString())
+        assertEquals(listOf("Review changes", "Rebase onto origin/main…"), labels(withoutTarget).take(2))
+    }
+
     private fun worktree(path: String) = Worktree(
         path = path,
         headSha = "0123456789abcdef0123456789abcdef01234567",

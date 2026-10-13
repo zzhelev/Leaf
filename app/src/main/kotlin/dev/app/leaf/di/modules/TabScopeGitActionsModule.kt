@@ -49,7 +49,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsAbortRebaseGitAction(action: AbortRebaseGitAction): IAbortRebaseGitAction
+    fun bindsAbortRebaseGitAction(action: SelectingAbortRebaseGitAction): IAbortRebaseGitAction
 
     @Binds
     @TabScope
@@ -109,7 +109,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsContinueRebaseGitAction(action: ContinueRebaseGitAction): IContinueRebaseGitAction
+    fun bindsContinueRebaseGitAction(action: SelectingContinueRebaseGitAction): IContinueRebaseGitAction
 
     @Binds
     @TabScope
@@ -381,7 +381,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsSkipRebaseGitAction(action: SkipRebaseGitAction): ISkipRebaseGitAction
+    fun bindsSkipRebaseGitAction(action: SelectingSkipRebaseGitAction): ISkipRebaseGitAction
 
     @Binds
     @TabScope
