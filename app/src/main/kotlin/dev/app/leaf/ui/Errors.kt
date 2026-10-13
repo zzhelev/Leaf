@@ -19,6 +19,7 @@ import dev.app.leaf.app.generated.resources.error_conflict_no_merge_tool
 import dev.app.leaf.app.generated.resources.error_conflict_not_a_file
 import dev.app.leaf.app.generated.resources.error_conflict_not_conflicted
 import dev.app.leaf.app.generated.resources.error_conflict_not_resolved
+import dev.app.leaf.app.generated.resources.error_conflict_resolved_before
 import dev.app.leaf.app.generated.resources.error_conflict_stages_changed
 import dev.app.leaf.app.generated.resources.error_conflict_working_file_changed
 import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
@@ -86,6 +87,7 @@ import dev.app.leaf.domain.models.MergeToolRefusal
 import dev.app.leaf.domain.models.WorktreeBranchUse
 import dev.app.leaf.theme.monoTypography
 import org.eclipse.jgit.lib.Constants
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -258,12 +260,17 @@ fun AppError.getErrorText(): String {
                 MergeToolRefusal.FILE_NAME -> stringResource(Res.string.error_conflict_merge_tool_file_name, path)
             }
 
-            is ConflictError.NotResolved ->
-                listOf(stringResource(Res.string.error_conflict_not_resolved, path, tool), output)
-                    .filter { it.isNotBlank() }
-                    .joinToString("\n\n")
+            is ConflictError.NotResolved -> listOf(
+                stringResource(Res.string.error_conflict_not_resolved, path, tool),
+                resolvedBeforeText(resolvedBefore),
+                output,
+            ).filter { it.isNotBlank() }.joinToString("\n\n")
 
-            is ConflictError.MarkersLeft -> stringResource(Res.string.error_conflict_markers_left, path, tool)
+            is ConflictError.MarkersLeft -> listOf(
+                stringResource(Res.string.error_conflict_markers_left, path, tool),
+                resolvedBeforeText(resolvedBefore),
+            ).filter { it.isNotBlank() }.joinToString("\n\n")
+
             is ConflictError.StagesChanged -> stringResource(Res.string.error_conflict_stages_changed, path)
             is ConflictError.WorkingFileChanged -> stringResource(Res.string.error_conflict_working_file_changed, path)
             is ConflictError.NotAFile -> stringResource(Res.string.error_conflict_not_a_file, path)
@@ -309,6 +316,17 @@ private fun RemoteOperationError.getRemoteOperationErrorText(): String {
     }
 
     return listOf(explanation, output).filter { it.isNotBlank() }.joinToString("\n\n")
+}
+
+/**
+ * What the merge tool resolved before the file that it didn't, when it went through several in turn (fork-only), or
+ * nothing.
+ */
+@Composable
+private fun resolvedBeforeText(resolvedBefore: Int): String = if (resolvedBefore > 0) {
+    pluralStringResource(Res.plurals.error_conflict_resolved_before, resolvedBefore, resolvedBefore)
+} else {
+    ""
 }
 
 @Composable

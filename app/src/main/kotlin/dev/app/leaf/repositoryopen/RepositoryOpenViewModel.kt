@@ -13,6 +13,8 @@ import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.domain.TabCoroutineScope
+import dev.app.leaf.domain.conflicts.ConflictsToOpen
+import dev.app.leaf.domain.conflicts.conflictsToOpen
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.exceptions.InvalidMessageException
@@ -1087,14 +1089,23 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    /** The banner's Resolve conflicts: the first conflicted file, as [openConflict] opens it. */
+    /**
+     * The banner's Resolve conflicts: the built-in resolver on the first conflicted file, or with the external merge tool
+     * picked, every file it can take, one after another (`conflictsToOpen`).
+     */
     fun resolveConflicts() {
-        val first = statusState.value.unstaged.firstOrNull { it.statusType == StatusType.CONFLICTING }
+        val entries = statusState.value.unstaged
 
-        if (first != null) {
-            openConflict(first)
-        } else {
-            openConflictResolver(null)
+        viewModelScope.launch {
+            val inMergeTool = appSettings.conflictOpener.first() == ConflictOpener.EXTERNAL_TOOL &&
+                getMergeToolUseCase() != null
+
+            when (val toOpen = conflictsToOpen(entries, inMergeTool)) {
+                is ConflictsToOpen.InMergeTool ->
+                    statusViewModelExtender.onAction(StatusAction.OpenInExternalMergeToolInTurn(toOpen.filePaths))
+
+                is ConflictsToOpen.InResolver -> openConflictResolver(toOpen.filePath)
+            }
         }
     }
 

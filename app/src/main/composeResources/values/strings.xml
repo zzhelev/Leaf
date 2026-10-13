@@ -690,7 +690,7 @@
     <string name="settings_worktrees_refresh_seconds">Every %1$d s</string>
     <string name="settings_worktrees_refresh_minute">Every minute</string>
     <string name="settings_conflicts_opener_title">Resolve conflicts with</string>
-    <string name="settings_conflicts_opener_subtitle">What double-clicking a conflicted file and the banner's Resolve conflicts open. The other one stays in the file's menu. The external tool is the one that git mergetool runs (merge.guitool, then merge.tool); files it can't take, and repositories without one, open in the built-in resolver.</string>
+    <string name="settings_conflicts_opener_subtitle">What double-clicking a conflicted file and the banner's Resolve conflicts open. The other one stays in the file's menu. The external tool is the one that git mergetool runs (merge.guitool, then merge.tool), and the banner opens it on each conflicted file in turn, as git mergetool does; files it can't take, and repositories without one, open in the built-in resolver.</string>
     <string name="settings_conflicts_opener_built_in">Built-in resolver</string>
     <string name="settings_conflicts_opener_external">External merge tool</string>
     <string name="settings_conflicts_layout_title">Resolver layout</string>
@@ -762,6 +762,10 @@
     <string name="error_conflict_merge_tool_file_name">%1$s can't be opened in the merge tool: git mergetool takes a name with *, ? or [ as a pattern, and could merge another file. Edit the file and stage it, or take ours or theirs.</string>
     <string name="error_conflict_markers_left">%1$s still has conflicts: %2$s exited as if it had resolved it, but the file still has conflict markers, which git would have staged. Leaf put the conflict back with git update-index --unresolve, and the file is as %2$s left it.</string>
     <string name="error_conflict_not_resolved">%1$s still has conflicts: %2$s closed without resolving it, or couldn't be started. git put the file back as it was.</string>
+    <plurals name="error_conflict_resolved_before">
+        <item quantity="one">The file before it was resolved and staged. The banner's Resolve conflicts goes on from this one.</item>
+        <item quantity="other">The %1$d files before it were resolved and staged. The banner's Resolve conflicts goes on from this one.</item>
+    </plurals>
     <!-- The built-in conflict resolver (fork-only) -->
     <string name="conflict_resolver_ours">Ours</string>
     <string name="conflict_resolver_result">Result</string>

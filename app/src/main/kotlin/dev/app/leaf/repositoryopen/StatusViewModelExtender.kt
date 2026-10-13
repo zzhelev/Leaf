@@ -432,6 +432,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.UpdateCommitMessage -> updateCommitMessage(action.message)
         is StatusAction.SectionSizesChanged -> statusSectionsConfig.save(action.sizes)
         is StatusAction.OpenInExternalMergeTool -> openMergeToolUseCase(action.statusEntry.filePath)
+        is StatusAction.OpenInExternalMergeToolInTurn -> openMergeToolUseCase.inTurn(action.filePaths)
         is StatusAction.UseConflictSide -> resolveConflictUseCase(action.filePaths, action.side)
         // RepositoryOpenViewModel shows the resolver
         is StatusAction.OpenInResolver -> Unit

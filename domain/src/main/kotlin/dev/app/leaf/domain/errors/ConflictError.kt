@@ -25,15 +25,22 @@ sealed interface ConflictError : GitError {
 
     /**
      * [tool] didn't resolve [path]: it closed without saving it, exited with an error, or couldn't be started. git put
-     * the file back as it was, with its conflicts. [output] is what git and the tool printed.
+     * the file back as it was, with its conflicts. [output] is what git and the tool printed. [resolvedBefore] files
+     * were resolved before it, when the tool went through several in turn.
      */
-    data class NotResolved(val tool: String, val path: String, val output: String) : ConflictError
+    data class NotResolved(
+        val tool: String,
+        val path: String,
+        val output: String,
+        val resolvedBefore: Int = 0,
+    ) : ConflictError
 
     /**
      * [tool], whose exit code git trusts, exited as if it had resolved [path], but the file still has conflict markers,
-     * so Leaf put the conflict back (`git update-index --unresolve`). The file is as the tool left it.
+     * so Leaf put the conflict back (`git update-index --unresolve`). The file is as the tool left it. [resolvedBefore]
+     * files were resolved before it, when the tool went through several in turn.
      */
-    data class MarkersLeft(val tool: String, val path: String) : ConflictError
+    data class MarkersLeft(val tool: String, val path: String, val resolvedBefore: Int = 0) : ConflictError
 
     /**
      * The index's versions of [path] changed since the resolver loaded it: another merge, rebase or cherry-pick stopped

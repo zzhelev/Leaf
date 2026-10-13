@@ -14,6 +14,7 @@ import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.IOpenMergeToolGitAction
+import dev.app.leaf.domain.models.MergeToolTurn
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.mergeToolRefusal
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
@@ -44,7 +45,11 @@ class OpenMergeToolGitAction @Inject constructor(
     private val gitCli: GitCli,
     private val repositoryStateRepository: RepositoryStateRepository,
 ) : IOpenMergeToolGitAction {
-    override suspend fun invoke(repositoryPath: String, filePath: String): Either<Unit, GitError> = either {
+    override suspend fun invoke(
+        repositoryPath: String,
+        filePath: String,
+        turn: MergeToolTurn?,
+    ): Either<Unit, GitError> = either {
         val (workTree, conflict) = jgit.provide(repositoryPath) { git ->
             git.repository.workTree to git.repository.readDirCache().fileConflict(filePath)
         }.bind()
@@ -73,7 +78,8 @@ class OpenMergeToolGitAction @Inject constructor(
 
         // The processing screen's Cancel stops waiting: it kills git and what it started. A tool that detaches from
         // its starter, as `open -W -a Meld` does on macOS, stays open
-        repositoryStateRepository.updateTaskProgress(TaskProgress(stage = "$tool: $filePath", percent = null))
+        val count = turn?.let { " (${it.number} of ${it.count})" }.orEmpty()
+        repositoryStateRepository.updateTaskProgress(TaskProgress(stage = "$tool: $filePath$count", percent = null))
 
         val output = try {
             // No timeout: the tool stays open as long as the user needs it

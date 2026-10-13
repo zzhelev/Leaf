@@ -59,6 +59,9 @@ sealed interface StatusAction {
     /** Resolves a conflicted file in the user's merge tool, with `git mergetool` (fork-only). */
     data class OpenInExternalMergeTool(val statusEntry: StatusEntry) : StatusAction
 
+    /** Resolves [filePaths] in the user's merge tool one after another, as `git mergetool` does (fork-only). */
+    data class OpenInExternalMergeToolInTurn(val filePaths: List<String>) : StatusAction
+
     /** Resolves conflicted files by taking [side]'s version of each, once the user confirmed it (fork-only). */
     data class UseConflictSide(val filePaths: List<String>, val side: ConflictSide) : StatusAction
 

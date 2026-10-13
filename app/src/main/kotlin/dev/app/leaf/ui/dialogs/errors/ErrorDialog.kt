@@ -254,7 +254,7 @@ fun TaskType.errorTitle(): String {
         TaskType.MergeWorktree -> "Merge failed"
         TaskType.AbortSquashMerge -> "Could not abort the squash merge"
         TaskType.RebaseWorktree -> "Rebase failed"
-        TaskType.OpenMergeTool -> "Conflict not resolved"
+        TaskType.OpenMergeTool, TaskType.ResolveConflictsInMergeTool -> "Conflict not resolved"
         TaskType.ResolveConflict -> "Could not resolve the conflicts"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"

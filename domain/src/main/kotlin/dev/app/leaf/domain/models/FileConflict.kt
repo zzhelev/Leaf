@@ -64,6 +64,9 @@ val StatusEntry.hasConflicts: Boolean
 val StatusEntry.canOpenInMergeTool: Boolean
     get() = conflict != null && mergeToolRefusal(filePath, conflict) == null
 
+/** A file's place when the merge tool resolves [count] files one after another: it's the [number]th. */
+data class MergeToolTurn(val number: Int, val count: Int)
+
 /** The operation that stopped at conflicts, which tells what ours and theirs are. */
 enum class ConflictOperation {
     MERGE,
