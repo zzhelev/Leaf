@@ -18,7 +18,14 @@ import dev.app.leaf.domain.models.ConflictedFile
 import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.LineRange
+import dev.app.leaf.domain.conflicts.conflictChunks
+import dev.app.leaf.domain.conflicts.resolving
+import dev.app.leaf.domain.conflicts.typing
+import dev.app.leaf.domain.models.ConflictResolution
+import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
+import dev.app.leaf.domain.models.TypedLines
+import org.eclipse.jgit.diff.RawText
 import dev.app.leaf.domain.models.WorkingFileCheck
 import dev.app.leaf.domain.models.WorkingFileState
 import kotlinx.coroutines.runBlocking
@@ -263,6 +270,71 @@ class GetConflictedFileGitActionTest {
         assertEquals(
             Either.Err(ConflictError.NotConflicted(listOf("README.md"))),
             getConflictedFile(File(repository, ".git").path, "README.md"),
+        )
+    }
+
+    @Test
+    fun `a file that the resolver saved opens as it was saved, with its picks and the lines typed`(): Unit =
+        runBlocking {
+            git.mergeContents(repository, "app.txt" to { side -> sevenLines(side) })
+
+            val loaded = load("app.txt")
+            val merge = assertInstanceOf(ConflictContent.Text::class.java, loaded.content).merge
+            val conflicts = merge.conflictChunks()
+            val middle = merge.chunks.indexOfFirst { it is Chunk.Unchanged && it.base == lines(2, 5) }
+            // Theirs for the first conflict, the second left open, and a line typed in the middle
+            val saved = merge
+                .resolving(conflicts.first(), ConflictResolution.Theirs)
+                .typing(middle, TypedLines(RawText("c\nd\ntyped\ne\n".toByteArray())))
+
+            save(loaded, saved)
+
+            val reloaded = assertInstanceOf(ConflictContent.Text::class.java, load("app.txt").content)
+
+            assertEquals(saved.chunks, reloaded.merge.chunks)
+            assertEquals(WorkingFileState.MATCHES, reloaded.workingFile.state)
+            assertEquals(1, reloaded.merge.openConflicts)
+        }
+
+    @Test
+    fun `a file saved through core autocrlf, with CRLF on disk, opens as it was saved`(): Unit = runBlocking {
+        git.run(repository, "config", "core.autocrlf", "true")
+        git.mergeContents(repository, "app.txt" to { side -> sevenLines(side) })
+
+        val loaded = load("app.txt")
+        val merge = assertInstanceOf(ConflictContent.Text::class.java, loaded.content).merge
+        val saved = merge.resolving(merge.conflictChunks().last(), ConflictResolution.OursThenTheirs)
+
+        assertTrue("\r\n" in workingFile("app.txt").decodeToString())
+
+        save(loaded, saved)
+
+        assertTrue("F-main\r\nF-feature\r\n" in workingFile("app.txt").decodeToString())
+        assertEquals(saved.chunks, assertInstanceOf(ConflictContent.Text::class.java, load("app.txt").content).merge.chunks)
+    }
+
+    @Test
+    fun `markers edited by hand open as the merge, as no state of it writes them`(): Unit = runBlocking {
+        git.mergeContents(repository, "app.txt" to { side -> sevenLines(side) })
+        File(repository, "app.txt").writeText(workingFile("app.txt").decodeToString().replace("B-main", "B-edited"))
+
+        val text = assertInstanceOf(ConflictContent.Text::class.java, load("app.txt").content)
+
+        assertEquals(2, text.merge.openConflicts)
+        assertTrue(text.merge.chunks.none { it is Chunk.Unchanged && it.edited != null })
+    }
+
+    /** Seven lines, of which the second and the sixth are [side]'s own: two conflicts. */
+    private fun sevenLines(side: String) = when (side) {
+        "base" -> "a\nb\nc\nd\ne\nf\ng\n"
+        else -> "a\nB-$side\nc\nd\ne\nF-$side\ng\n"
+    }
+
+    /** Writes [merge] for [file] as the resolver's Save does. */
+    private suspend fun save(file: ConflictedFile, merge: TextMerge) {
+        assertInstanceOf(
+            Either.Ok::class.java,
+            WriteConflictResultGitAction(jgit)(File(repository, ".git").path, file, merge, overwriteChanges = false),
         )
     }
 

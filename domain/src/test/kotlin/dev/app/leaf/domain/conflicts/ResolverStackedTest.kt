@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.LineRange
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
+import dev.app.leaf.domain.models.TypedLines
 import org.eclipse.jgit.diff.RawText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -196,7 +197,7 @@ class ResolverStackedTest {
         }
 
         // Nothing of either side is in these
-        val edited = ConflictResolution.Edited(text("x"))
+        val edited = ConflictResolution.Edited(TypedLines(text("x")))
 
         for (other in listOf(ConflictResolution.Unresolved, ConflictResolution.Base, edited)) {
             assertSame(other, other.dropping(ours))
@@ -261,7 +262,7 @@ private val resolutions = listOf(
     ConflictResolution.OursThenTheirs,
     ConflictResolution.TheirsThenOurs,
     ConflictResolution.Base,
-    ConflictResolution.Edited(text("E", "F")),
+    ConflictResolution.Edited(TypedLines(text("E", "F"))),
 )
 
 private fun text(vararg lines: String) = RawText(lines.joinToString("") { "$it\n" }.toByteArray())

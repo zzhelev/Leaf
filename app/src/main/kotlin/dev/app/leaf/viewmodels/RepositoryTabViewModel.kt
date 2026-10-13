@@ -26,6 +26,7 @@ import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
 import dev.app.leaf.domain.worktrees.tabNamesOf
 import dev.app.leaf.domain.worktrees.workTreeOf
 import dev.app.leaf.extensions.stateIn
+import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.system.OpenFilePickerUseCase
 import dev.app.leaf.system.OpenUrlInBrowserUseCase
@@ -244,6 +245,19 @@ class RepositoryTabViewModel @AssistedInject constructor(
     fun confirmed() {
         credentialsStateManager.confirmed()
     }
+
+    /** Fork-only: whether the tab's conflict resolver has changes that aren't saved, which closing the tab would lose. */
+    val conflictResolverHasUnsavedChanges: Boolean
+        get() = repositoryOpenViewModel()?.conflictResolverHasUnsavedChanges == true
+
+    /** Fork-only: runs [then], which closes the tab, once its conflict resolver has no changes that aren't saved. */
+    fun whenConflictResolverLeft(then: () -> Unit) {
+        val repositoryOpen = repositoryOpenViewModel()
+
+        if (repositoryOpen == null) then() else repositoryOpen.whenConflictResolverLeft(then)
+    }
+
+    private fun repositoryOpenViewModel() = viewModelsMap.values.filterIsInstance<RepositoryOpenViewModel>().firstOrNull()
 
     override fun dispose() {
         // Fork-only: the view models' own scopes, which cancelling the tab's scope doesn't stop

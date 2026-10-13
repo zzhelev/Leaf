@@ -24,7 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -46,9 +46,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.conflicts.CellKind
@@ -84,6 +86,7 @@ import dev.app.leaf.ui.status.label
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.log10
+import kotlin.math.roundToInt
 
 /** Changes from theirs. The theme has no colour of its own for them; it reads on both the light and the dark theme. */
 internal val TheirsColor = Color(0xFF9C6ADE)
@@ -100,6 +103,10 @@ class PickActions(
     val onSetApplied: (chunk: Int, applied: Boolean) -> Unit,
     /** A side's Taken chip, in the stacked layout: that side's lines leave the result. */
     val onDrop: (chunk: Int, side: ConflictSide) -> Unit = { _, _ -> },
+    /** Edits a part of the result, with the caret at the end of its [line], or of its last line. */
+    val onEdit: (chunk: Int, line: Int?) -> Unit = { _, _ -> },
+    /** Puts lines typed in place of unchanged lines or a change back as the merge made them. */
+    val onPutBack: (chunk: Int) -> Unit = {},
 )
 
 /**
@@ -109,6 +116,9 @@ class PickActions(
  *
  * Dragging a gutter, in the headers or in any row, moves the edge between its two columns, and a double-click shares
  * the width out evenly again. [onSharesChanged] gets the widths when a drag ends.
+ *
+ * A part of the result being edited ([editing]) shows as a text field in place of its rows, with its sides' lines next
+ * to it. While [canEdit], a double-click on the result, or its Edit button, edits a part.
  */
 @Composable
 fun ResolverColumnsView(
@@ -123,6 +133,9 @@ fun ResolverColumnsView(
     shares: ColumnShares,
     onSharesChanged: (ColumnShares) -> Unit,
     modifier: Modifier = Modifier,
+    editing: PartEditing? = null,
+    editorPlace: EditorPlace = remember(listState) { EditorPlace(listState) },
+    canEdit: Boolean = true,
 ) {
     val syntaxHighlighter = remember(filePath) { getSyntaxHighlighterFromExtension(filePath.substringAfterLast('.')) }
     val numberWidth = remember(merge) {
@@ -161,21 +174,48 @@ fun ResolverColumnsView(
         Column(Modifier.fillMaxSize().scrollsSideways(sideways)) {
             ColumnHeaders(sides, dragged, edges)
 
+            val editChunk = editing?.edit?.chunk
+
+            if (editChunk != null) editorPlace.start(editChunk) else editorPlace.end()
+
+            val anchorRow = editorPlace.anchorRow
+            val items = remember(rows, editChunk, anchorRow) { listItems(rows, { it.chunk }, editChunk, anchorRow) }
+
+            editorPlace.Restore(items)
+
             ScrollableLazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), state = listState) {
-                itemsIndexed(rows, key = { index, _ -> index }) { _, row ->
-                    ResolverRow(
-                        row = row,
-                        chunk = merge.chunks[row.chunk],
-                        sides = sides,
-                        numberWidth = numberWidth,
-                        conflictNumber = conflictNumbers[row.chunk],
-                        isCurrentConflict = row.chunk == currentConflictChunk,
-                        showBase = showBase,
-                        syntaxHighlighter = syntaxHighlighter,
-                        actions = actions,
-                        shares = dragged,
-                        edges = edges,
-                    )
+                items(items, key = { it.key }) { item ->
+                    when (item) {
+                        is ListItem.Line -> ResolverRow(
+                            row = item.row,
+                            rowInChunk = item.rowInChunk,
+                            chunk = merge.chunks[item.chunk],
+                            sides = sides,
+                            numberWidth = numberWidth,
+                            conflictNumber = conflictNumbers[item.chunk],
+                            isCurrentConflict = item.chunk == currentConflictChunk,
+                            showBase = showBase,
+                            syntaxHighlighter = syntaxHighlighter,
+                            actions = actions,
+                            shares = dragged,
+                            edges = edges,
+                            canEdit = canEdit,
+                        )
+
+                        is ListItem.Editor -> if (editing != null) EditorRow(
+                            rows = item.rows,
+                            chunk = merge.chunks[item.chunk],
+                            editing = editing,
+                            sides = sides,
+                            numberWidth = numberWidth,
+                            isCurrentConflict = item.chunk == currentConflictChunk,
+                            syntaxHighlighter = syntaxHighlighter,
+                            actions = actions,
+                            shares = dragged,
+                            edges = edges,
+                            place = editorPlace,
+                        )
+                    }
                 }
             }
 
@@ -316,6 +356,7 @@ fun ConflictSides.explanation(): String {
 @Composable
 private fun ResolverRow(
     row: ColumnRow,
+    rowInChunk: Int,
     chunk: Chunk,
     sides: ConflictSides?,
     numberWidth: Int,
@@ -326,25 +367,124 @@ private fun ResolverRow(
     actions: PickActions,
     shares: ColumnShares,
     edges: ColumnEdges,
+    canEdit: Boolean,
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         Cell(row.ours, numberWidth, isCurrentConflict, syntaxHighlighter, Modifier.weight(shares.ours.asWeight()))
         Gutter(row, chunk, ConflictSide.OURS, sides, actions, edges)
 
-        val result = @Composable {
-            ResultCell(row, numberWidth, conflictNumber, isCurrentConflict, showBase, syntaxHighlighter)
-        }
-
         Box(Modifier.weight(shares.result.asWeight()).fillMaxHeight()) {
-            if (chunk is Chunk.Conflict) {
-                ContextMenu(items = { conflictMenu(row.chunk, sides, actions) }) { result() }
-            } else {
-                result()
+            ContextMenu(items = { resultMenu(row.chunk, chunk, sides, actions, canEdit) }) {
+                EditableRow(
+                    chunk = row.chunk,
+                    line = rowInChunk,
+                    first = row.first,
+                    edited = row.result.edited,
+                    canEdit = canEdit,
+                    onEdit = actions.onEdit,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    ResultCell(row, numberWidth, conflictNumber, isCurrentConflict, showBase, syntaxHighlighter)
+                }
             }
         }
 
         Gutter(row, chunk, ConflictSide.THEIRS, sides, actions, edges)
         Cell(row.theirs, numberWidth, isCurrentConflict, syntaxHighlighter, Modifier.weight(shares.theirs.asWeight()))
+    }
+}
+
+/**
+ * A part being edited: its sides' lines, each as tall as it needs, with a filler under them, and the text field in
+ * place of its lines in the result, all as tall as the tallest. The gutters keep their buttons, which put a side, or
+ * the merge's lines, in place of what was typed.
+ */
+@Composable
+private fun EditorRow(
+    rows: List<ColumnRow>,
+    chunk: Chunk,
+    editing: PartEditing,
+    sides: ConflictSides?,
+    numberWidth: Int,
+    isCurrentConflict: Boolean,
+    syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
+    actions: PickActions,
+    shares: ColumnShares,
+    edges: ColumnEdges,
+    place: EditorPlace,
+) {
+    val first = rows.first()
+
+    EditorRowLayout(shares) {
+        SideLines(rows.map { it.ours }, numberWidth, isCurrentConflict, syntaxHighlighter)
+        Gutter(first, chunk, ConflictSide.OURS, sides, actions, edges)
+        PartEditor(editing, numberWidth, place)
+        Gutter(first, chunk, ConflictSide.THEIRS, sides, actions, edges)
+        SideLines(rows.map { it.theirs }, numberWidth, isCurrentConflict, syntaxHighlighter)
+    }
+}
+
+/**
+ * Ours, its gutter, the field, theirs' gutter and theirs, as wide as the rows have them. The item is as tall as the
+ * field or a side's lines, whichever is taller, and the others fill that height.
+ */
+@Composable
+private fun EditorRowLayout(shares: ColumnShares, content: @Composable () -> Unit) {
+    Layout(content, Modifier.fillMaxWidth()) { measurables, constraints ->
+        val gutter = GutterWidth.roundToPx()
+        val total = constraints.maxWidth
+        val weights = listOf(shares.ours.asWeight(), shares.result.asWeight(), shares.theirs.asWeight())
+        val columns = (total - gutter * 2).coerceAtLeast(0)
+        val oursWidth = (columns * weights[0] / weights.sum()).roundToInt()
+        val resultWidth = (columns * weights[1] / weights.sum()).roundToInt()
+        val theirsWidth = (columns - oursWidth - resultWidth).coerceAtLeast(0)
+        val widths = listOf(oursWidth, gutter, resultWidth, gutter, theirsWidth)
+
+        val field = measurables[2].measure(Constraints.fixedWidth(resultWidth))
+        val height = maxOf(
+            field.height,
+            measurables[0].maxIntrinsicHeight(oursWidth),
+            measurables[4].maxIntrinsicHeight(theirsWidth),
+        )
+        val placeables = measurables.mapIndexed { index, measurable ->
+            if (index == 2) field else measurable.measure(Constraints.fixed(widths[index], height))
+        }
+
+        layout(total, height) {
+            var x = 0
+
+            placeables.forEachIndexed { index, placeable ->
+                placeable.place(x, 0)
+                x += widths[index]
+            }
+        }
+    }
+}
+
+/** A side's lines next to a part being edited, without the fillers that lined them up, and one filler under them. */
+@Composable
+private fun SideLines(
+    cells: List<ColumnCell>,
+    numberWidth: Int,
+    isCurrentConflict: Boolean,
+    syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
+) {
+    val kind = cells.first().kind
+
+    Column(Modifier.fillMaxSize()) {
+        for (cell in cells.filterNot { it.isFiller }) {
+            Cell(cell, numberWidth, isCurrentConflict, syntaxHighlighter, Modifier.height(IntrinsicSize.Min))
+        }
+
+        // A plain box, so that it adds nothing to the column's intrinsic height
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .background(kind.background())
+                .currentConflictMark(isCurrentConflict && kind == CellKind.CONFLICT)
+                .hatched(MaterialTheme.colors.onBackground.copy(alpha = 0.08f))
+        )
     }
 }
 
@@ -457,14 +597,36 @@ private fun Gutter(
         val sideName = sides?.label(side)
 
         when (chunk) {
-            is Chunk.Unchanged -> Unit
+            // Lines typed in place of unchanged lines: the left gutter puts them back
+            is Chunk.Unchanged -> if (chunk.edited != null && side == ConflictSide.OURS) {
+                GutterButton(
+                    painter = painterResource(Res.drawable.undo),
+                    tooltip = stringResource(Res.string.conflict_resolver_put_back),
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    onClick = { actions.onPutBack(row.chunk) },
+                )
+            }
 
             is Chunk.Change -> {
                 // Ours' and both sides' changes on the left, theirs' on the right
                 val onThisSide = if (side == ConflictSide.OURS) chunk.by != ChangedBy.THEIRS else chunk.by == ChangedBy.THEIRS
 
                 if (onThisSide) {
-                    if (chunk.applied) {
+                    if (chunk.edited != null) {
+                        // In place of the lines typed: the change's, or the base's
+                        GutterButton(
+                            painter = painterResource(Res.drawable.check),
+                            tooltip = stringResource(Res.string.conflict_resolver_change_instead),
+                            color = MaterialTheme.colors.addFile,
+                            onClick = { actions.onSetApplied(row.chunk, true) },
+                        )
+                        GutterButton(
+                            painter = painterResource(Res.drawable.close),
+                            tooltip = stringResource(Res.string.conflict_resolver_base_instead),
+                            color = MaterialTheme.colors.onBackgroundSecondary,
+                            onClick = { actions.onSetApplied(row.chunk, false) },
+                        )
+                    } else if (chunk.applied) {
                         GutterButton(
                             painter = painterResource(Res.drawable.close),
                             tooltip = stringResource(Res.string.conflict_resolver_undo_change),
@@ -542,6 +704,44 @@ private fun GutterButton(painter: Painter, tooltip: String, color: Color, filled
     }
 }
 
+/**
+ * The menu of a part of the result: a conflict's resolutions, and editing its lines ([canEdit]), or putting back the
+ * lines that typing replaced.
+ */
+internal fun resultMenu(
+    index: Int,
+    chunk: Chunk,
+    sides: ConflictSides?,
+    actions: PickActions,
+    canEdit: Boolean,
+): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
+    if (chunk is Chunk.Conflict) {
+        addAll(conflictMenu(index, sides, actions))
+    }
+
+    if (!canEdit) {
+        return@apply
+    }
+
+    if (isNotEmpty()) {
+        add(ContextMenuElement.ContextSeparator)
+    }
+
+    addContextMenu(
+        composableLabel = { stringResource(Res.string.conflict_resolver_menu_edit) },
+        onClick = { actions.onEdit(index, null) },
+    )
+
+    val edited = chunk is Chunk.Unchanged && chunk.edited != null || chunk is Chunk.Change && chunk.edited != null
+
+    if (edited) {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.conflict_resolver_menu_put_back) },
+            onClick = { actions.onPutBack(index) },
+        )
+    }
+}
+
 /** Every resolution of a conflict, the ones without an arrow included. */
 internal fun conflictMenu(chunk: Int, sides: ConflictSides?, actions: PickActions): List<ContextMenuElement> =
     mutableListOf<ContextMenuElement>().apply {
@@ -564,9 +764,12 @@ internal fun conflictMenu(chunk: Int, sides: ConflictSides?, actions: PickAction
         item({ stringResource(Res.string.conflict_resolver_menu_reset) }, ConflictResolution.Unresolved)
     }
 
-/** The bottom line: what the colours and the buttons mean, in the [stacked] layout or the columns. */
+/**
+ * The bottom line: what the colours and the buttons mean, in the [stacked] layout or the columns, or while a part is
+ * [editing], how editing ends.
+ */
 @Composable
-fun ResolverLegend(stacked: Boolean = false) {
+fun ResolverLegend(stacked: Boolean = false, editing: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -580,15 +783,24 @@ fun ResolverLegend(stacked: Boolean = false) {
         LegendItem(TheirsColor, stringResource(Res.string.conflict_resolver_legend_theirs))
         LegendItem(MaterialTheme.colors.conflictFile, stringResource(Res.string.conflict_resolver_legend_conflict))
         LegendItem(MaterialTheme.colors.addFile, stringResource(Res.string.conflict_resolver_legend_resolved))
+        LegendItem(CellKind.EDITED.background(), stringResource(Res.string.conflict_resolver_legend_edited))
 
         Spacer(Modifier.weight(1f))
 
+        val keys = when {
+            editing -> stringResource(
+                if (stacked) Res.string.conflict_resolver_legend_editing_stacked else Res.string.conflict_resolver_legend_editing,
+                undoShortcut(),
+            )
+
+            stacked -> stringResource(Res.string.conflict_resolver_legend_keys_stacked, undoShortcut(), redoShortcut())
+            else -> stringResource(Res.string.conflict_resolver_legend_keys, undoShortcut(), redoShortcut())
+        }
+
         Text(
-            text = stringResource(
-                if (stacked) Res.string.conflict_resolver_legend_keys_stacked else Res.string.conflict_resolver_legend_keys
-            ),
+            text = keys,
             style = MaterialTheme.typography.caption,
-            color = MaterialTheme.colors.onBackgroundSecondary,
+            color = if (editing) MaterialTheme.colors.primaryVariant else MaterialTheme.colors.onBackgroundSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -617,6 +829,7 @@ internal fun CellKind.background(): Color = when (this) {
     CellKind.CHANGED_BY_BOTH -> MaterialTheme.colors.onBackground.copy(alpha = 0.07f)
     CellKind.CONFLICT, CellKind.OPEN_CONFLICT -> MaterialTheme.colors.conflictFile.copy(alpha = 0.16f)
     CellKind.RESOLVED -> MaterialTheme.colors.addFile.copy(alpha = 0.16f)
+    CellKind.EDITED -> MaterialTheme.colors.onBackground.copy(alpha = 0.10f)
 }
 
 /** The current conflict's cells get a bar on their left edge. */

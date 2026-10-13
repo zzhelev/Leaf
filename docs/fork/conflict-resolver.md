@@ -5,7 +5,7 @@
 | Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. Step 4 (region editing and one undo history) built 2026-10-13 (section 8). |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
 
@@ -160,8 +160,8 @@ don't pair up, where rerere gives up on the file: that's "fewer or more conflict
   - when the stages go away (resolved or aborted elsewhere), the resolver closes and says why.
 - **Built (step 2):**
   - leaving a file with picks that aren't saved, or closing the resolver, asks in a strip under the toolbar: Save,
-    Discard or Cancel. A worktree switch or closing the tab drops them, as they are only picks until typing comes
-    (step 4);
+    Discard or Cancel. Since step 4, closing the tab, the worktree picker's switch and opening another repository in
+    the tab ask the same, as typing can be lost (quitting Leaf doesn't: nothing in Leaf asks then);
   - a changed working file is noticed when Save or Mark resolved writes (`WorkingFileChanged`): the strip offers Reload
     or Keep mine, which writes over it. Save returns the id of the bytes it wrote, so the resolver's own Saves don't
     count as changes;
@@ -397,6 +397,47 @@ the repository; the sketches below show the layouts.
 3. **Option B and the switch:** the stacked layout from the same rows, the toolbar toggle and the setting. Built
    2026-10-12 (section 5, "Switching between A and B", says how). Opening a file now loads it before the status
    arrives: the status could come first and open the first conflicted file in its place.
-4. **Region editing** and the shared undo history, in both layouts.
+4. **Region editing** and the shared undo history, in both layouts. Built 2026-10-13 (section 8 says how).
 5. **Choice cards** for the rows of section 2.4 other than "both modified".
 6. **Later:** word-level highlights, highlighting while editing, and the size limit from measurements.
+
+## 8. Region editing (step 4, decided 2026-10-13)
+
+Meld, IntelliJ and VS Code let you type anywhere in the result, as each is built on a code editor. One text field for
+the whole result would lose the aligned rows, and the arrows with them (section 3), so a part of the result at a time
+is edited. Two ways were mocked up:
+
+- **In place (picked):** the part turns into a text field where it is. Ours and theirs get fillers as it grows, so the
+  rows after it stay lined up. In the stacked layout, the same field at the full width.
+- **An editor below the part,** across the three columns, with Apply and Cancel: more room in Columns, but the text
+  isn't where the result is, it shows twice while editing, and no other tool works that way.
+
+The defaults that came with it:
+
+- **A part:** a conflict, a change that merged cleanly, or a run of unchanged lines, cut at 200 lines.
+- **Starting:** a double-click on a line of the result, the Edit button that the pointer over it shows, "Edit these
+  lines" in its menu, or Enter for the current conflict. A single click doesn't edit. The caret goes to the end of the
+  line.
+- **What it starts from:** the lines that the result shows, and the base's for an open conflict, as Meld, IntelliJ and
+  VS Code start. To start from both sides, take both first.
+- **Finishing:** Esc or a click outside keeps the text; ⌘Z takes it back. A second Esc leaves Focus, then closes, as
+  before. A text that didn't change leaves the part as it was.
+- **Undo:** ⌘Z and ⇧⌘Z (Ctrl+Z and Ctrl+Shift+Z elsewhere), and two toolbar buttons. Each pick is a step, and each
+  finished edit; Base isn't. In the field, ⌘Z undoes the typing first. The history is the open file's.
+- **An edited part:** a conflict counts as resolved (green), and a ✎ marks the part. The arrows, chips and a change's ✓
+  and × put other lines in place of the typing; unchanged lines get ↺, which puts them back.
+- **Unsaved typing:** closing the tab and switching worktrees ask (Save, Discard or Cancel), as section 2.3 planned.
+  Quitting Leaf doesn't ask, as nothing in Leaf does; that would be a change of its own.
+- **For now:** the field shows plain text (colours while editing are step 6), and with Wrap lines off it doesn't wrap
+  and scrolls sideways with the columns.
+- **Opening a saved file again** (found in the manual run, 2026-10-13): the resolver used to build the merge from the
+  stages alone, so a line typed and saved with a conflict still open didn't show when the file was opened again, and
+  Save would have written over it. It now picks out of the working file the state that Save wrote: picks where the
+  lines are a pick's, lines typed elsewhere, the conflicts still open where their markers are. Only a state that writes
+  the file again byte for byte is kept; otherwise the merge opens as before. A file without markers still gets its
+  panel.
+
+Built: the parts and the typed lines in `domain/conflicts/ResolverEditing.kt` (`inParts`, `editStart`, `LineFormat`,
+`typing`), written by `resultBytes` and found again by `resumedFrom` (`DA/git/conflicts/ResumedMerge.kt`); the edit,
+Undo and Redo in `ConflictResolverViewModel`; the field and keeping the list still in
+`A/ui/conflicts/ResolverEditor.kt`. CLAUDE.md has the details.

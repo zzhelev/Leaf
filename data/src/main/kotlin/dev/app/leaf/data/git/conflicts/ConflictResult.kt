@@ -8,6 +8,7 @@ import dev.app.leaf.domain.models.ConflictResolution
 import dev.app.leaf.domain.models.LineRange
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
+import dev.app.leaf.domain.models.TypedLines
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.lib.Config
 import java.io.ByteArrayOutputStream
@@ -39,7 +40,8 @@ internal fun conflictStyleWithBase(config: Config): Boolean =
     config.getString("merge", null, "conflictStyle")?.lowercase() in setOf("diff3", "zdiff3")
 
 /**
- * The file that the merge's chunks make, as git would write it:
+ * The file that the merge's chunks make, as git would write it, with the lines that the user typed in place of the
+ * parts they typed them in:
  * - each line is written with the bytes it has in its version, line ending included, so an encoding other than UTF-8
  *   and CRLF line endings stay as they were;
  * - a line without a line ending (the last line of its version) gets one when something follows it, as when a
@@ -53,11 +55,20 @@ internal fun TextMerge.resultBytes(style: ConflictMarkerStyle): ByteArray {
 
     for (chunk in chunks) {
         when (chunk) {
-            is Chunk.Unchanged -> writer.lines(base, chunk.base)
-            is Chunk.Change -> when {
-                !chunk.applied -> writer.lines(base, chunk.base)
-                chunk.by == ChangedBy.THEIRS -> writer.lines(theirs, chunk.theirs)
-                else -> writer.lines(ours, chunk.ours)
+            is Chunk.Unchanged -> when (val edited = chunk.edited) {
+                null -> writer.lines(base, chunk.base)
+                else -> writer.lines(edited)
+            }
+
+            is Chunk.Change -> {
+                val edited = chunk.edited
+
+                when {
+                    edited != null -> writer.lines(edited)
+                    !chunk.applied -> writer.lines(base, chunk.base)
+                    chunk.by == ChangedBy.THEIRS -> writer.lines(theirs, chunk.theirs)
+                    else -> writer.lines(ours, chunk.ours)
+                }
             }
 
             is Chunk.Conflict -> writeConflict(writer, chunk, style)
@@ -101,8 +112,7 @@ private fun TextMerge.writeConflict(writer: ResultWriter, conflict: Chunk.Confli
         }
 
         ConflictResolution.Base -> writer.lines(base, conflict.base, lineEnding)
-        is ConflictResolution.Edited ->
-            writer.lines(resolution.text, LineRange(0, resolution.text.size()), lineEnding)
+        is ConflictResolution.Edited -> writer.lines(resolution.lines)
     }
 }
 
@@ -177,6 +187,9 @@ private class ResultWriter {
             }
         }
     }
+
+    /** Writes lines that the user typed, which have the file's line endings already. */
+    fun lines(typed: TypedLines) = lines(typed.text, LineRange(0, typed.size), typed.lineEnding)
 
     fun marker(marker: String, lineEnding: String) {
         payOwedLineEnding()

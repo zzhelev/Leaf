@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.LineRange
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
+import dev.app.leaf.domain.models.TypedLines
 import org.eclipse.jgit.diff.RawText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -140,7 +141,7 @@ class ResolverColumnsTest {
 
         // The base, or typed lines, are replaced by the side taken
         assertEquals(ConflictResolution.Theirs, ConflictResolution.Base.taking(ConflictSide.THEIRS))
-        assertEquals(ConflictArrow.TAKE, ConflictResolution.Edited(text("x")).arrowFor(ConflictSide.OURS))
+        assertEquals(ConflictArrow.TAKE, ConflictResolution.Edited(TypedLines(text("x"))).arrowFor(ConflictSide.OURS))
     }
 
     @Test

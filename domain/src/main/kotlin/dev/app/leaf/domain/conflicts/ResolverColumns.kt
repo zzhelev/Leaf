@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.LineRange
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
+import dev.app.leaf.domain.models.TypedLines
 import org.eclipse.jgit.diff.RawText
 
 /** How a cell of the resolver's columns is coloured: what its chunk is, on that column. */
@@ -27,13 +28,22 @@ enum class CellKind {
 
     /** The result of a conflict that has a resolution. */
     RESOLVED,
+
+    /** Lines typed in place of lines that weren't a conflict: unchanged lines, or a change. */
+    EDITED,
 }
 
 /**
  * A cell of a column: line [line] of [text] (counted from 0), shown as line [number] (0 for none), or a filler where
- * that column has no line in the row ([text] null).
+ * that column has no line in the row ([text] null). [edited]: a cell of the result, in a part that the user typed.
  */
-data class ColumnCell(val text: RawText?, val line: Int, val number: Int, val kind: CellKind) {
+data class ColumnCell(
+    val text: RawText?,
+    val line: Int,
+    val number: Int,
+    val kind: CellKind,
+    val edited: Boolean = false,
+) {
     val isFiller get() = text == null
 }
 
@@ -76,7 +86,7 @@ fun TextMerge.columnRows(showBase: Boolean): List<ColumnRow> {
                 chunk = index,
                 first = row == 0,
                 ours = oursCells.getOrNull(row) ?: filler(oursKind),
-                result = result.cells.getOrNull(row) ?: filler(result.kind),
+                result = result.cells.getOrNull(row) ?: filler(result.kind, result.edited),
                 theirs = theirsCells.getOrNull(row) ?: filler(theirsKind),
             )
         }
@@ -133,7 +143,8 @@ fun TextMerge.resultRows(showBase: Boolean): List<ResultRow> {
         resultLines += result.numbered
 
         val cells = result.cells.ifEmpty {
-            if (minimumHeight(chunk) > 0) listOf(filler(result.kind)) else emptyList()
+            // Lines deleted by typing get one too
+            if (minimumHeight(chunk) > 0 || result.edited) listOf(filler(result.kind, result.edited)) else emptyList()
         }
 
         cells.forEachIndexed { row, cell -> rows += ResultRow(chunk = index, first = row == 0, cell = cell) }
@@ -147,7 +158,8 @@ private fun minimumHeight(chunk: Chunk) = if (chunk is Chunk.Unchanged) 0 else 1
 private fun cells(text: RawText, range: LineRange, kind: CellKind) =
     (range.start until range.end).map { ColumnCell(text, it, it + 1, kind) }
 
-private fun filler(kind: CellKind) = ColumnCell(text = null, line = 0, number = 0, kind = kind)
+private fun filler(kind: CellKind, edited: Boolean = false) =
+    ColumnCell(text = null, line = 0, number = 0, kind = kind, edited = edited)
 
 private fun sideKind(chunk: Chunk, side: ChangedBy): CellKind = when (chunk) {
     is Chunk.Unchanged -> CellKind.UNCHANGED
@@ -160,28 +172,37 @@ private fun sideKind(chunk: Chunk, side: ChangedBy): CellKind = when (chunk) {
     }
 }
 
-private class ResultLines(val lines: List<Pair<RawText, Int>>, val kind: CellKind)
+/** A chunk's lines in the result, as lines of a version or of what the user typed ([edited]). */
+internal class ResultLines(val lines: List<Pair<RawText, Int>>, val kind: CellKind, val edited: Boolean = false)
 
 /** A chunk's cells in the result, and how many lines of the file that Save writes they are ([numbered]). */
-private class ResultCells(val cells: List<ColumnCell>, val kind: CellKind, val numbered: Int)
+private class ResultCells(val cells: List<ColumnCell>, val kind: CellKind, val numbered: Int, val edited: Boolean)
 
 /** [chunk]'s cells in the result, numbered after [linesBefore]. An open conflict's lines aren't in it yet. */
 private fun TextMerge.resultCells(chunk: Chunk, showBase: Boolean, linesBefore: Int): ResultCells {
     val result = resultLines(chunk, showBase)
     val open = result.kind == CellKind.OPEN_CONFLICT
     val cells = result.lines.mapIndexed { i, (text, line) ->
-        ColumnCell(text, line, if (open) 0 else linesBefore + i + 1, result.kind)
+        ColumnCell(text, line, if (open) 0 else linesBefore + i + 1, result.kind, result.edited)
     }
 
-    return ResultCells(cells, result.kind, if (open) 0 else cells.size)
+    return ResultCells(cells, result.kind, if (open) 0 else cells.size, result.edited)
 }
 
-private fun TextMerge.resultLines(chunk: Chunk, showBase: Boolean): ResultLines {
-    fun lines(text: RawText, range: LineRange) = (range.start until range.end).map { text to it }
+internal fun lines(text: RawText, range: LineRange) = (range.start until range.end).map { text to it }
 
+internal fun lines(typed: TypedLines) = lines(typed.text, LineRange(0, typed.size))
+
+/** [chunk]'s lines in the result. An open conflict has none, or the base's lines with [showBase]. */
+internal fun TextMerge.resultLines(chunk: Chunk, showBase: Boolean): ResultLines {
     return when (chunk) {
-        is Chunk.Unchanged -> ResultLines(lines(base, chunk.base), CellKind.UNCHANGED)
+        is Chunk.Unchanged -> when (val edited = chunk.edited) {
+            null -> ResultLines(lines(base, chunk.base), CellKind.UNCHANGED)
+            else -> ResultLines(lines(edited), CellKind.EDITED, edited = true)
+        }
+
         is Chunk.Change -> when {
+            chunk.edited != null -> ResultLines(lines(chunk.edited), CellKind.EDITED, edited = true)
             !chunk.applied -> ResultLines(lines(base, chunk.base), CellKind.UNCHANGED)
             chunk.by == ChangedBy.OURS -> ResultLines(lines(ours, chunk.ours), CellKind.CHANGED_BY_OURS)
             chunk.by == ChangedBy.THEIRS -> ResultLines(lines(theirs, chunk.theirs), CellKind.CHANGED_BY_THEIRS)
@@ -198,11 +219,11 @@ private fun TextMerge.resultLines(chunk: Chunk, showBase: Boolean): ResultLines 
                 ConflictResolution.OursThenTheirs -> oursLines + theirsLines
                 ConflictResolution.TheirsThenOurs -> theirsLines + oursLines
                 ConflictResolution.Base -> lines(base, chunk.base)
-                is ConflictResolution.Edited -> lines(resolution.text, LineRange(0, resolution.text.size()))
+                is ConflictResolution.Edited -> lines(resolution.lines)
             }
 
             when {
-                resolved != null -> ResultLines(resolved, CellKind.RESOLVED)
+                resolved != null -> ResultLines(resolved, CellKind.RESOLVED, chunk.resolution is ConflictResolution.Edited)
                 showBase -> ResultLines(lines(base, chunk.base), CellKind.OPEN_CONFLICT)
                 else -> ResultLines(emptyList(), CellKind.OPEN_CONFLICT)
             }
@@ -303,9 +324,9 @@ fun TextMerge.resolving(chunk: Int, resolution: ConflictResolution): TextMerge {
     return copy(chunks = chunks.toMutableList().apply { set(chunk, conflict.copy(resolution = resolution)) })
 }
 
-/** The merge with [chunk]'s change applied or not. */
+/** The merge with [chunk]'s change applied or not, in place of lines typed there. */
 fun TextMerge.applying(chunk: Int, applied: Boolean): TextMerge {
     val change = chunks[chunk] as? Chunk.Change ?: return this
 
-    return copy(chunks = chunks.toMutableList().apply { set(chunk, change.copy(applied = applied)) })
+    return copy(chunks = chunks.toMutableList().apply { set(chunk, change.copy(applied = applied, edited = null)) })
 }

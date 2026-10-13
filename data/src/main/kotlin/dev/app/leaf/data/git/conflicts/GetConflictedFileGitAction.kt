@@ -10,7 +10,9 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.IGetConflictedFileGitAction
+import dev.app.leaf.domain.conflicts.inParts
 import dev.app.leaf.domain.models.ConflictContent
+import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.ConflictStage
 import dev.app.leaf.domain.models.ConflictStages
 import dev.app.leaf.domain.models.ConflictedFile
@@ -28,6 +30,10 @@ import org.eclipse.jgit.lib.FileMode
 import org.eclipse.jgit.lib.ObjectInserter
 import org.eclipse.jgit.lib.ObjectReader
 import org.eclipse.jgit.lib.Repository
+import org.eclipse.jgit.util.io.EolStreamTypeUtil
+import org.eclipse.jgit.lib.CoreConfig.EolStreamType
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -75,6 +81,13 @@ internal fun loadConflictedFile(
     val ours = stage(DirCacheEntry.STAGE_2)
     val theirs = stage(DirCacheEntry.STAGE_3)
     val stages = ConflictStages.of(base != null, ours != null, theirs != null)
+    val sides = try {
+        conflictSides(repository)
+    } catch (e: Exception) {
+        // The resolver can still name the sides as ours and theirs
+        printError(TAG, "Couldn't read which side is which", e)
+        null
+    }
 
     val content = repository.newObjectReader().use { reader ->
         val present = listOfNotNull(base, ours, theirs)
@@ -90,7 +103,7 @@ internal fun loadConflictedFile(
                 theirsTarget = reader.symbolicLinkTarget(theirs),
             )
 
-            else -> fileContent(repository, reader, path, base, ours, theirs, maxTextSize)
+            else -> fileContent(repository, reader, path, base, ours, theirs, sides, maxTextSize)
         }
     }
 
@@ -100,13 +113,7 @@ internal fun loadConflictedFile(
         ours = ours?.toConflictStage(),
         theirs = theirs?.toConflictStage(),
         conflict = conflict,
-        sides = try {
-            conflictSides(repository)
-        } catch (e: Exception) {
-            // The resolver can still name the sides as ours and theirs
-            printError(TAG, "Couldn't read which side is which", e)
-            null
-        },
+        sides = sides,
         content = content,
     )
 }
@@ -119,6 +126,7 @@ private fun fileContent(
     base: DirCacheEntry?,
     ours: DirCacheEntry,
     theirs: DirCacheEntry,
+    sides: ConflictSides?,
     maxTextSize: Long,
 ): ConflictContent {
     val oursPointer = reader.lfsPointer(ours)
@@ -129,8 +137,8 @@ private fun fileContent(
     }
 
     val attributes = conflictFileAttributes(repository, path)
-    val sides = listOfNotNull(base, ours, theirs)
-    val size = sides.maxOf { reader.getObjectSize(it.objectId, Constants.OBJ_BLOB) }
+    val versions = listOfNotNull(base, ours, theirs)
+    val size = versions.maxOf { reader.getObjectSize(it.objectId, Constants.OBJ_BLOB) }
 
     if (attributes.mergesAsBinary) {
         return ConflictContent.Binary
@@ -138,52 +146,84 @@ private fun fileContent(
 
     if (size > maxTextSize) {
         // Only the start of each is read, as for a diff of large files
-        val binary = sides.any { side -> reader.open(side.objectId).openStream().use { RawText.isBinary(it) } }
+        val binary = versions.any { side -> reader.open(side.objectId).openStream().use { RawText.isBinary(it) } }
 
         return if (binary) ConflictContent.Binary else ConflictContent.TooLarge(size, maxTextSize)
     }
 
     // The whole of each, as JGit's merge loads them: a file that ends with a lone '\r' is binary too
-    val texts = sides.associateWith { reader.open(it.objectId, Constants.OBJ_BLOB).bytes }
+    val texts = versions.associateWith { reader.open(it.objectId, Constants.OBJ_BLOB).bytes }
 
     if (texts.values.any { RawText.isBinary(it, it.size, true) }) {
         return ConflictContent.Binary
     }
 
+    // Long runs of unchanged lines are edited in parts, and lines saved in one resume in it
     val merge = textMerge(
         base = base?.let { RawText(texts.getValue(it)) } ?: RawText.EMPTY_TEXT,
         ours = RawText(texts.getValue(ours)),
         theirs = RawText(texts.getValue(theirs)),
         algorithm = mergeDiffAlgorithm(repository.config),
+    ).inParts()
+    val style = ConflictMarkerStyle(
+        withBase = conflictStyleWithBase(repository.config),
+        labels = conflictLabels(repository, sides),
+        size = attributes.markerSize,
     )
 
-    return ConflictContent.Text(merge, workingFileCheck(repository, path, merge, attributes.markerSize))
+    return workingFile(repository, path, merge, style, attributes)
 }
 
-/** Looks at the working file's conflict markers, and notes its bytes' id for Save (`conflict-resolver.md`, 2.2). */
-private fun workingFileCheck(
+/**
+ * Looks at the working file's conflict markers, and notes its bytes' id for Save (`conflict-resolver.md`, 2.2). A file
+ * with markers that the resolver saved, picks or lines typed included, opens as it was saved ([resumedFrom]).
+ */
+private fun workingFile(
     repository: Repository,
     path: String,
     merge: TextMerge,
-    markerSize: Int,
-): WorkingFileCheck {
+    style: ConflictMarkerStyle,
+    attributes: ConflictFileAttributes,
+): ConflictContent.Text {
     val file = File(repository.workTree, path)
 
     if (!Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-        return WorkingFileCheck(WorkingFileState.MISSING, conflicts = 0, contentId = null)
+        return ConflictContent.Text(merge, WorkingFileCheck(WorkingFileState.MISSING, conflicts = 0, contentId = null))
     }
 
     val bytes = file.readBytes()
-    val scan = scanConflictMarkers(RawText(bytes), markerSize)
-    val state = when {
-        !scan.pairsUp -> WorkingFileState.DIFFERENT
-        scan.conflicts == 0 -> WorkingFileState.NO_MARKERS
-        scan.conflicts == merge.conflicts -> WorkingFileState.MATCHES
-        else -> WorkingFileState.DIFFERENT
+    val scan = scanConflictMarkers(RawText(bytes), style.size)
+
+    fun check(state: WorkingFileState) = WorkingFileCheck(state, scan.conflicts, blobId(bytes))
+
+    if (scan.pairsUp && scan.conflicts == 0) {
+        return ConflictContent.Text(merge, check(WorkingFileState.NO_MARKERS))
     }
 
-    return WorkingFileCheck(state, scan.conflicts, blobId(bytes))
+    // Only when converting the file as git adds it, and back as Save writes it, gives the same bytes
+    val canonical = checkedIn(bytes, attributes.checkinLineEndings)
+    val resumed = if (checkedOut(canonical, attributes.checkoutLineEndings).contentEquals(bytes)) {
+        merge.resumedFrom(canonical, style)
+    } else {
+        null
+    }
+
+    return when {
+        resumed != null -> ConflictContent.Text(resumed, check(WorkingFileState.MATCHES))
+        scan.pairsUp && scan.conflicts == merge.conflicts -> ConflictContent.Text(merge, check(WorkingFileState.MATCHES))
+        else -> ConflictContent.Text(merge, check(WorkingFileState.DIFFERENT))
+    }
 }
+
+/** [bytes] as `git add` converts their line endings. JGit's output streams only convert for a checkout. */
+private fun checkedIn(bytes: ByteArray, lineEndings: EolStreamType): ByteArray =
+    EolStreamTypeUtil.wrapInputStream(ByteArrayInputStream(bytes), lineEndings).use { it.readBytes() }
+
+/** [bytes] as a checkout, and Save, convert their line endings. */
+private fun checkedOut(bytes: ByteArray, lineEndings: EolStreamType): ByteArray =
+    ByteArrayOutputStream().also { out ->
+        EolStreamTypeUtil.wrapOutputStream(out, lineEndings).use { it.write(bytes) }
+    }.toByteArray()
 
 /** The id that git gives [bytes] as a blob, to tell whether a file changed. */
 internal fun blobId(bytes: ByteArray): String = ObjectInserter.Formatter().idFor(Constants.OBJ_BLOB, bytes).name

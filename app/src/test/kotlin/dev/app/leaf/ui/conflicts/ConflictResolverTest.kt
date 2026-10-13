@@ -21,9 +21,14 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.domain.conflicts.ColumnShares
+import dev.app.leaf.domain.conflicts.editStart
+import dev.app.leaf.domain.conflicts.typing
 import dev.app.leaf.domain.models.ChangedBy
 import dev.app.leaf.domain.models.ConflictCommit
 import dev.app.leaf.domain.models.ConflictContent
@@ -41,6 +46,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
+import dev.app.leaf.domain.models.TypedLines
 import dev.app.leaf.domain.models.WorkingFileCheck
 import dev.app.leaf.domain.models.WorkingFileState
 import dev.app.leaf.theme.AppTheme
@@ -50,6 +56,7 @@ import dev.app.leaf.viewmodels.ResolverFileEntry
 import dev.app.leaf.viewmodels.ResolverHandOff
 import dev.app.leaf.viewmodels.ResolverLeave
 import dev.app.leaf.viewmodels.ResolverPrompt
+import dev.app.leaf.viewmodels.ResolverEdit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -790,6 +797,355 @@ class ConflictResolverTest {
         assertEquals(false, press(cmd = true, ctrl = true))
     }
 
+    @Test
+    fun `a double-click on the result edits its part, at the line clicked`(): Unit = runBlocking(Dispatchers.Swing) {
+        val edits = mutableListOf<Pair<Int, Int?>>()
+        val picks = PickActions({ _, _ -> }, { _, _ -> }, { _, _ -> }, onEdit = { chunk, line -> edits += chunk to line })
+
+        scene(ResolverLists(), actions = actions(picks)) { state() }.closing { scene ->
+            scene.frames()
+            // Ours, the result and theirs have the line: the result's is in the middle
+            val closing = scene.placesOf("}").sortedBy { it.left }[1]
+
+            scene.doubleClick(closing.center)
+
+            // The second line of the part after the conflict
+            assertEquals(listOf(4 to 1), edits)
+        }
+    }
+
+    @Test
+    fun `the pointer over the result shows Edit, which edits its part`(): Unit = runBlocking(Dispatchers.Swing) {
+        val edits = mutableListOf<Pair<Int, Int?>>()
+        val picks = PickActions({ _, _ -> }, { _, _ -> }, { _, _ -> }, onEdit = { chunk, line -> edits += chunk to line })
+
+        scene(ResolverLists(), actions = actions(picks)) { state() }.closing { scene ->
+            scene.frames()
+            assertTrue(scene.placesOf("Edit").isEmpty())
+
+            val line = scene.placesOf("    return parse(text)").sortedBy { it.left }[1]
+
+            hover(scene, line.center)
+            assertEquals(1, scene.placesOf("Edit").size)
+
+            scene.clickText("Edit")
+            assertEquals(listOf(4 to 0), edits)
+        }
+    }
+
+    @Test
+    fun `while a part is edited, a text field takes its rows, from the base's line for an open conflict`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            scene(ResolverLists()) { state().copy(edit = editing(chunk = 3)) }.closing { scene ->
+                scene.frames()
+
+                val field = scene.field()
+
+                assertEquals("    val text = read(path)", field.config[SemanticsProperties.EditableText].text)
+                assertEquals(true, field.config.getOrNull(SemanticsProperties.Focused))
+                // The placeholder gives way to the field; the sides' lines stay next to it
+                assertTrue(scene.placesOf("Conflict 1 · open: ▶ takes ours, ◀ takes theirs").isEmpty())
+                assertEquals(1, scene.placesOf("    val text = Path.of(path).readText()").size)
+                assertEquals(1, scene.placesOf("    val text = retry(3) { read(path) }").size)
+                // Numbered as the result: an open conflict's placeholder has no number, and the field's line is 6
+                assertEquals(render(state()).texts.count { it == " 6" } + 1, scene.placesOf(" 6").size)
+            }
+        }
+
+    @Test
+    fun `the field grows with its lines, and the sides' fillers keep the rows after it lined up`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            var edit by mutableStateOf(editing(chunk = 3))
+
+            scene(ResolverLists()) { state().copy(edit = edit) }.closing { scene ->
+                scene.frames()
+                val oneLine = scene.placesOf("    return parse(text)").map { it.top }
+
+                edit = editing(chunk = 3, text = "a\nb\nc\nd")
+                scene.frames()
+                val fourLines = scene.placesOf("    return parse(text)").map { it.top }
+                val lineHeight = scene.placesOf("}").first().height
+
+                // Ours, the result and theirs, still on one row, three lines lower
+                assertEquals(3, fourLines.size)
+                assertEquals(1, fourLines.distinct().size, "$fourLines")
+                assertEquals(oneLine.first() + 3 * lineHeight, fourLines.first(), 2f)
+
+                // The field's line numbers, in the result's column, are next to its lines
+                val resultColumn = scene.placesOf("    return parse(text)").sortedBy { it.left }[1].left
+                val numbers = (6..9).map { number ->
+                    scene.placesOf(" $number").first { abs(it.right - resultColumn) < 60f }.top
+                }
+
+                assertEquals((0..3).map { numbers.first() + it * lineHeight }, numbers)
+
+                // A side taller than the field: the field's column gets the filler
+                edit = editing(chunk = 1, text = "import java.nio.file.Paths")
+                scene.frames()
+                val after = scene.placesOf("fun load(): Config {").map { it.top }
+
+                assertEquals(3, after.size)
+                assertEquals(1, after.distinct().size, "$after")
+            }
+        }
+
+    @Test
+    fun `a side with more lines than the field makes the part as tall as its lines`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val tall = TextMerge(
+                text("a", "x", "z"),
+                text("a", "o1", "o2", "o3", "z"),
+                text("a", "t", "z"),
+                listOf(
+                    Chunk.Unchanged(lines(0, 1), lines(0, 1), lines(0, 1)),
+                    Chunk.Conflict(lines(1, 2), lines(1, 4), lines(1, 2)),
+                    Chunk.Unchanged(lines(2, 3), lines(4, 5), lines(2, 3)),
+                ),
+            )
+
+            scene(ResolverLists()) { state(tall).copy(edit = editing(chunk = 1, merge = tall, text = "e")) }.closing { scene ->
+                scene.frames()
+                val ours = listOf("o1", "o2", "o3").map { scene.placesOf(it).single() }
+                val lineHeight = ours.first().height
+                val after = scene.placesOf("z")
+
+                // Ours' lines, one under the other, then the rows after the part
+                assertTrue(lineHeight > 0f)
+                assertEquals(ours.map { it.top }, (0..2).map { ours.first().top + it * lineHeight })
+                assertEquals(ours.map { lineHeight }, ours.map { it.height })
+                assertEquals(3, after.size)
+                assertTrue(after.all { it.top >= ours.last().bottom - 1f }, "$ours, $after")
+            }
+        }
+
+    @Test
+    fun `Mark resolved can be clicked while the lines typed resolve the last open conflict`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            var resolved = 0
+            val marking = actions(onMarkResolved = { resolved++ })
+
+            // The text as editing started: the conflict stays open
+            assertTrue("Mark resolved" !in render(state().copy(edit = editing(chunk = 3)), marking).clickable)
+
+            render(state().copy(edit = editing(chunk = 3, text = "    val text = both")), marking, clickText = "Mark resolved")
+            assertEquals(1, resolved)
+        }
+
+    @Test
+    fun `typing goes to the view model, and a press outside the field finishes editing`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val typed = mutableListOf<String>()
+            var finished = 0
+            val edits = EditActions(onType = { typed += it.text }, onFinish = { finished++ })
+
+            scene(ResolverLists(), actions = actions(edits = edits)) { state().copy(edit = editing(chunk = 3)) }.closing { scene ->
+                scene.frames()
+                val field = scene.field()
+
+                checkNotNull(field.config[SemanticsActions.SetText].action).invoke(AnnotatedString("    val text = both"))
+                assertEquals(listOf("    val text = both"), typed)
+
+                // In the field: still editing
+                scene.press(field.boundsInRoot.center)
+                scene.release(field.boundsInRoot.center)
+                scene.frames()
+                assertEquals(0, finished)
+
+                // Anywhere else, the toolbar included
+                scene.press(Offset(700f, 20f))
+                scene.release(Offset(700f, 20f))
+                scene.frames()
+                assertEquals(1, finished)
+            }
+        }
+
+    @Test
+    fun `a field that the list scrolls out of sight stays, still editing, as LazyColumn keeps a focused item`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val after = (1..120).map { "line $it" }.toTypedArray()
+            val long = TextMerge(
+                text("base", *after),
+                text("ours", *after),
+                text("theirs", *after),
+                listOf(
+                    Chunk.Conflict(lines(0, 1), lines(0, 1), lines(0, 1)),
+                    Chunk.Unchanged(lines(1, 121), lines(1, 121), lines(1, 121)),
+                ),
+            )
+            var finished = 0
+            val lists = ResolverLists()
+            val edits = EditActions(onType = {}, onFinish = { finished++ })
+
+            scene(lists, actions = actions(edits = edits)) {
+                state(long).copy(edit = editing(chunk = 0, merge = long, text = "typed"))
+            }.closing { scene ->
+                scene.frames()
+                assertEquals(0, finished)
+
+                lists.columns.requestScrollToItem(100)
+                scene.frames()
+
+                // Typing brings it back into view
+                assertEquals(0, finished)
+                assertEquals(true, scene.field().config.getOrNull(SemanticsProperties.Focused))
+            }
+        }
+
+    @Test
+    fun `while editing, the legend says how editing ends`(): Unit = runBlocking(Dispatchers.Swing) {
+        val undo = if (currentOs == OS.MAC) "⌘Z" else "Ctrl+Z"
+
+        assertTrue(
+            "Editing · Esc or a click outside finishes · $undo undoes typing · ▶ ◀ put a side in place of the text" in
+                render(state().copy(edit = editing(chunk = 3))).texts,
+        )
+        assertTrue(render(state()).texts.any { it.startsWith("▶ ◀ take · + add after") })
+    }
+
+    @Test
+    fun `an edited part is marked, and the gutter puts the original lines, the change or the base back`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val putBack = mutableListOf<Int>()
+            val applied = mutableListOf<Pair<Int, Boolean>>()
+            val picks = PickActions(
+                { _, _ -> },
+                { _, _ -> },
+                onSetApplied = { chunk, value -> applied += chunk to value },
+                onPutBack = { putBack += it },
+            )
+            val typed = merge
+                .typing(1, TypedLines(text("import java.nio.file.Paths", "")))
+                .typing(3, TypedLines(text("    val text = typed")))
+                .typing(4, TypedLines(text("    return parse(text)!!", "}")))
+
+            val rendered = render(state(typed), actions(picks), clickDescription = "Put the original lines back in place of yours")
+            render(state(typed), actions(picks), clickDescription = "Put this change's lines in place of yours")
+            render(state(typed), actions(picks), clickDescription = "Put the base's lines in place of yours")
+
+            val mark = "You edited these lines. Undo, or the buttons next to them, put other lines in their place."
+
+            assertEquals(3, rendered.descriptions.count { it == mark }, "${rendered.descriptions}")
+            assertTrue("1 resolved · 2 merged cleanly" in rendered.texts, "${rendered.texts}")
+            assertEquals(listOf(4), putBack)
+            assertEquals(listOf(1 to true, 1 to false), applied)
+        }
+
+    @Test
+    fun `the toolbar's Undo and Redo work while there is something to undo or redo`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            var undone = 0
+            val undo = "Undo the last pick or edit (${if (currentOs == OS.MAC) "⌘Z" else "Ctrl+Z"})"
+            val redo = "Redo (${if (currentOs == OS.MAC) "⇧⌘Z" else "Ctrl+Shift+Z"})"
+
+            render(state().copy(canUndo = true), actions(onUndo = { undone++ }), clickDescription = undo)
+            assertEquals(1, undone)
+
+            scene(ResolverLists()) { state().copy(canUndo = true) }.closing { scene ->
+                scene.frames()
+                val described = scene.nodes().filter { node ->
+                    node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it == undo || it == redo }
+                }
+
+                assertEquals(
+                    listOf(false, true),
+                    described.map { SemanticsProperties.Disabled in it.config },
+                )
+            }
+        }
+
+    @Test
+    fun `in the stacked layout, the field takes the result's full width`(): Unit = runBlocking(Dispatchers.Swing) {
+        scene(ResolverLists()) {
+            state().copy(layout = ConflictResolverLayout.STACKED, edit = editing(chunk = 3))
+        }.closing { scene ->
+            scene.frames()
+            val field = scene.field()
+
+            assertEquals("    val text = read(path)", field.config[SemanticsProperties.EditableText].text)
+            assertTrue(field.boundsInRoot.width > 1000f, "${field.boundsInRoot}")
+            // The chips on top still take a side, in place of the text
+            assertTrue(scene.placesOf("Take ↓").size == 2)
+        }
+    }
+
+    @Test
+    fun `editing a part that starts above the list's top keeps the line at the top, and so does finishing`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val numbered = (0 until 150).map { "line $it" }.toTypedArray()
+            val long = TextMerge(
+                text(*numbered, "base"),
+                text(*numbered, "ours"),
+                text(*numbered, "theirs"),
+                listOf(
+                    Chunk.Unchanged(lines(0, 150), lines(0, 150), lines(0, 150)),
+                    Chunk.Conflict(lines(150, 151), lines(150, 151), lines(150, 151)),
+                ),
+            )
+            val lists = ResolverLists()
+            var edit by mutableStateOf<ResolverEdit?>(null)
+
+            scene(lists) { state(long).copy(edit = edit) }.closing { scene ->
+                scene.frames()
+                lists.columns.requestScrollToItem(80, 5)
+                scene.frames()
+                val top = scene.placesOf("line 80").first().top
+
+                edit = editing(chunk = 0, merge = long, line = 85)
+                scene.frames(count = 30)
+
+                // The field is one item now, scrolled to where line 80 was
+                assertEquals(1, lists.columns.layoutInfo.visibleItemsInfo.count { (it.key as Long) shr 32 == 0L })
+                val lineHeight = scene.placesOf("line 80").first().height
+                assertEquals(80 * lineHeight + 5, lists.columns.firstVisibleItemScrollOffset.toFloat(), lineHeight / 2)
+
+                edit = null
+                scene.frames(count = 30)
+
+                assertEquals(80, lists.columns.firstVisibleItemIndex)
+                assertEquals(top, scene.placesOf("line 80").first().top, 2f)
+            }
+        }
+
+    @Test
+    fun `a resolved file shows no Edit, and a double-click edits nothing`(): Unit = runBlocking(Dispatchers.Swing) {
+        val edits = mutableListOf<Pair<Int, Int?>>()
+        val picks = PickActions({ _, _ -> }, { _, _ -> }, { _, _ -> }, onEdit = { chunk, line -> edits += chunk to line })
+        val resolved = state().copy(handOff = ResolverHandOff(from = entry.filePath, resolvedHere = true, next = "x"))
+
+        scene(ResolverLists(), actions = actions(picks)) { resolved }.closing { scene ->
+            scene.frames(count = 30)
+            val line = scene.placesOf("    return parse(text)").sortedBy { it.left }[1]
+
+            hover(scene, line.center)
+            assertTrue(scene.placesOf("Edit").isEmpty())
+
+            scene.doubleClick(line.center)
+            assertEquals(emptyList<Pair<Int, Int?>>(), edits)
+        }
+    }
+
+    @Test
+    fun `tabs show as four spaces in the field, and the caret maps back to the text`() {
+        val transformed = TabsAsSpaces.filter(AnnotatedString("\tx\t"))
+
+        assertEquals("    x    ", transformed.text.text)
+        assertEquals(4, transformed.offsetMapping.originalToTransformed(1))
+        assertEquals(9, transformed.offsetMapping.originalToTransformed(3))
+        assertEquals(0, transformed.offsetMapping.transformedToOriginal(2))
+        assertEquals(1, transformed.offsetMapping.transformedToOriginal(4))
+        assertEquals(3, transformed.offsetMapping.transformedToOriginal(9))
+        assertEquals(5, TabsAsSpaces.offset("\tx\t", 2))
+    }
+
+    @Test
+    fun `the rows of a part being edited make one item, keyed as its anchor row`() {
+        val items = listItems(listOf(0, 1, 1, 1, 2), { it }, editChunk = 1, anchorRow = 2)
+
+        assertEquals(3, items.size)
+        assertEquals(listOf(rowKey(0, 0), rowKey(1, 2), rowKey(2, 0)), items.map { it.key })
+        assertEquals(listOf(1, 1, 1), (items[1] as ListItem.Editor).rows)
+    }
+
     private fun state(
         merge: TextMerge = this.merge,
         workingFile: WorkingFileState = WorkingFileState.MATCHES,
@@ -826,6 +1182,8 @@ class ConflictResolverTest {
         onToggleFocus: () -> Unit = {},
         onSelectFile: (String) -> Unit = {},
         onNextFile: () -> Unit = {},
+        onUndo: () -> Unit = {},
+        edits: EditActions = EditActions(onType = {}, onFinish = {}),
     ) = ResolverActions(
         onClose = {},
         onSelectFile = onSelectFile,
@@ -849,7 +1207,27 @@ class ConflictResolverTest {
         onDismissPrompt = {},
         onNextFile = onNextFile,
         picks = picks,
+        onUndo = onUndo,
+        edits = edits,
     )
+
+    /** Editing [chunk] of [merge], with [text] in the field, or what editing starts from. */
+    private fun editing(chunk: Int, merge: TextMerge = this.merge, text: String? = null, line: Int? = null): ResolverEdit {
+        val start = merge.editStart(chunk)
+        val value = text ?: start.text
+
+        return ResolverEdit(chunk, TextFieldValue(value, TextRange(value.length)), start, line)
+    }
+
+    /** The text field of the part being edited. */
+    private fun ImageComposeScene.field() = nodes().first { it.config.getOrNull(SemanticsProperties.EditableText) != null }
+
+    /** Moves the pointer to [at], as the mouse does over the view. */
+    private fun hover(scene: ImageComposeScene, at: Offset) {
+        eventTime += 16
+        scene.sendPointerEvent(PointerEventType.Move, at, timeMillis = eventTime)
+        scene.frames()
+    }
 
     /**
      * What the view shows: its [texts], its icons' [descriptions], the texts that can be clicked, and where each

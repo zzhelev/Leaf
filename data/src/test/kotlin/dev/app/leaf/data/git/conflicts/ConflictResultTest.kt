@@ -6,6 +6,7 @@ package dev.app.leaf.data.git.conflicts
 import dev.app.leaf.domain.models.ConflictResolution
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
+import dev.app.leaf.domain.models.TypedLines
 import org.eclipse.jgit.diff.DiffAlgorithm
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.RawTextComparator
@@ -130,7 +131,7 @@ class ConflictResultTest {
         assertEquals("1\n2\n3\n", result(ConflictResolution.Base))
         assertEquals(
             "1\ntyped\r\nlines\n3\n",
-            result(ConflictResolution.Edited(RawText("typed\r\nlines".toByteArray()))),
+            result(ConflictResolution.Edited(TypedLines(RawText("typed\r\nlines".toByteArray())))),
         )
     }
 

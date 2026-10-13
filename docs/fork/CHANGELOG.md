@@ -2,6 +2,49 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver edits the result in place (branch `claude/resolver-model-f2582e`)
+
+- **Before:** the resolver only picked: a side, both, the base, or a change applied or not. A conflict that needed
+  parts of both sides, or a fix next to it, went to an editor or the external merge tool.
+- **Now** (step 4 of `docs/fork/conflict-resolver.md`, section 8):
+  - A double-click on a line of the result, its Edit button, "Edit these lines" in its menu, or Enter for the current
+    conflict turns that part of the result into a text field, in place, in both layouts. Ours and theirs get fillers
+    as it grows, so the rows stay lined up. An open conflict starts from the base's lines.
+  - Esc, or a click anywhere else in the resolver, finishes. The part's lines are then the typed ones, marked ✎; a
+    conflict counts as resolved. A text that didn't change leaves the part as it was.
+  - Saved with the file's charset and line endings: CRLF stays CRLF, tabs stay tabs (the field shows them as four
+    spaces, as the rows do), and an ISO-8859-1 file stays ISO-8859-1.
+  - Undo and Redo, in the toolbar and with ⌘Z and ⇧⌘Z, go back and forth through the picks and the edits of the file.
+  - Runs of unchanged lines are edited in parts of 200 lines at most. The list stays still while a part turns into its
+    field and back, also when the part starts above the top of the list.
+  - Closing the tab, switching it to another worktree from the picker, or opening another repository in it now asks
+    first when the file has changes that aren't saved. They used to drop the picks.
+  - Mark resolved can be clicked while typing in the last open conflict: the click finishes editing, then marks.
+  - A file saved from the resolver opens again as it was saved: its picks, the lines typed, and the conflicts still
+    open. It used to open as git's merge left it, without what was saved, and Save would have written over it (found
+    in the manual run: a line typed with the conflict still open was gone when the file was opened again). Only a
+    state that writes the file byte for byte is kept.
+- **Tests:** 13 in `ResolverEditingTest` (domain): the parts, what editing starts from, typed lines in the rows and
+  their numbers, line endings, charsets, and giving a part's bytes back unchanged. 4 in `ResolverEditingBytesTest`
+  (data): what Save writes; 2,000 random merges (CRLF, ISO-8859-1, missing last line endings) where editing a part
+  without changing it writes the same file; 2,000 random saved states, picks and lines typed, found again in their
+  bytes; and lines saved where a change meets unchanged lines. 3 in `GetConflictedFileGitActionTest`: a saved file
+  with a pick, a conflict open and a line typed; the same through `core.autocrlf`; and markers edited by hand. 16 new in `ConflictResolverTest`: starting with a double-click and Edit,
+  the field, its line numbers and the rows lined up around it, typing and a press outside, the legend, the gutter of
+  an edited part, Undo and Redo, the stacked layout, the list kept still, a resolved file, and Mark resolved while
+  typing.
+  - The random test found that a typed part ending without a line ending, followed by more lines, got LF in a CRLF
+    file. `TypedLines` now keeps its line ending.
+  - **Mutation check:** 33 mutations of the model, the bytes written and the view: 29 caught. Two survived in code that
+    turned out redundant, which went. Two survive because a resolved file is kept from editing twice over: its hover
+    is off, and its presses stop before the rows. 8 more of opening a saved file: 7 caught, and one survived in a
+    check that the byte comparison already makes, which went.
+  - `:app:test` passes with 225 tests, `:domain:test` with 284, and `:data`'s conflict tests with 122.
+- **Harness:** the view model and the tab's keys against a real repository in the middle of a merge: Enter, typing,
+  Esc, Cmd+Z and Shift+Cmd+Z, a press outside, Cmd+S and Cmd+Enter, the bytes written for a Kotlin file, a Makefile
+  with tabs and a CRLF file, the prompt when leaving with typing, one click on Mark resolved while typing, and a line
+  typed, saved with the conflict open, and found again after closing and opening the file.
+
 ## Two Leafs built from different sources run side by side (branch `claude/inspiring-bouman-f4c4e9`)
 
 - **Before:** `App.initNativeDependencies` (Gitnuro's) copied the Rust library to `<app data>/tmp/libleaf_rs.dylib`,

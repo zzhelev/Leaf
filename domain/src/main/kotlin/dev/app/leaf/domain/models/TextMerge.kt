@@ -42,16 +42,18 @@ data class TextMerge(
         val ours: LineRange
         val theirs: LineRange
 
-        /** Lines that are the same in the three versions. */
+        /** Lines that are the same in the three versions. The result has them, or the lines [edited] typed in place. */
         data class Unchanged(
             override val base: LineRange,
             override val ours: LineRange,
             override val theirs: LineRange,
+            val edited: TypedLines? = null,
         ) : Chunk
 
         /**
          * A change that doesn't conflict: [by] one side, or by both the same way. The result has the change while it's
-         * [applied], and the base's lines otherwise. The side that didn't make it has the base's lines.
+         * [applied], and the base's lines otherwise, unless lines were [edited] in place. The side that didn't make it
+         * has the base's lines.
          */
         data class Change(
             override val base: LineRange,
@@ -59,6 +61,7 @@ data class TextMerge(
             override val theirs: LineRange,
             val by: ChangedBy,
             val applied: Boolean = true,
+            val edited: TypedLines? = null,
         ) : Chunk
 
         /**
@@ -99,6 +102,22 @@ sealed interface ConflictResolution {
     /** Neither side's change: the base's lines, as when both changes are rejected. */
     data object Base : ConflictResolution
 
-    /** Lines that the user typed, as bytes in the file's encoding and line endings. */
-    data class Edited(val text: RawText) : ConflictResolution
+    /** Lines that the user typed. */
+    data class Edited(val lines: TypedLines) : ConflictResolution
+}
+
+/**
+ * Lines that the user typed in place of a part of the result, as bytes in the file's encoding, each with [lineEnding],
+ * except a last line that has none where the file ends without one; it gets [lineEnding] if lines follow it in the
+ * result. Two are equal when their bytes are, so that a merge with the same lines typed again counts as unchanged.
+ */
+class TypedLines(val text: RawText, val lineEnding: String = "\n") {
+    val size: Int get() = text.size()
+
+    override fun equals(other: Any?) =
+        other is TypedLines && lineEnding == other.lineEnding && text.rawContent.contentEquals(other.text.rawContent)
+
+    override fun hashCode() = 31 * text.rawContent.contentHashCode() + lineEnding.hashCode()
+
+    override fun toString() = "TypedLines(${String(text.rawContent, Charsets.ISO_8859_1)})"
 }

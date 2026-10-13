@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
@@ -84,6 +85,10 @@ class ResolverLists {
     val sides = LazyListState()
     val result = LazyListState()
 
+    /** What keeps the columns, and the stacked layout's result, still while a part is edited. */
+    val columnsEditor = EditorPlace(columns)
+    val resultEditor = EditorPlace(result)
+
     /** Where the lines are scrolled to sideways while they don't wrap, in both layouts. */
     val sideways = SidewaysScroll()
 
@@ -108,6 +113,9 @@ class ResolverLists {
  * chunk's first row on top ends with chips in place of the columns' arrows: Take ↓, then Add ↓ once the other side is
  * taken, and Taken once that side's lines are in the result, which takes them out again; a change one side made is
  * Applied, which undoes it, or can be applied again.
+ *
+ * A part of the result being edited ([editing]) shows as a text field in place of its rows, at the full width. While
+ * [canEdit], a double-click on the result, or its Edit button, edits a part.
  */
 @Composable
 fun ResolverStackedView(
@@ -124,6 +132,8 @@ fun ResolverStackedView(
     actions: PickActions,
     onSplitChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    editing: PartEditing? = null,
+    canEdit: Boolean = true,
 ) {
     val syntaxHighlighter = remember(filePath) { getSyntaxHighlighterFromExtension(filePath.substringAfterLast('.')) }
     val numberWidth = remember(merge) {
@@ -133,10 +143,20 @@ fun ResolverStackedView(
         merge.chunks.indices.filter { merge.chunks[it] is Chunk.Conflict }.withIndex().associate { it.value to it.index + 1 }
     }
 
+    val editChunk = editing?.edit?.chunk
+    val editorPlace = lists.resultEditor
+
+    if (editChunk != null) editorPlace.start(editChunk) else editorPlace.end()
+
+    val anchorRow = editorPlace.anchorRow
+    val resultItems = remember(resultRows, editChunk, anchorRow) {
+        listItems(resultRows, { it.chunk }, editChunk, anchorRow)
+    }
+
     // The top pair follows the place at the result's top. On a line that both show, it keeps the result's offset in
     // it. A request, applied at the next layout: scrollToItem lays out at once, which throws during a layout
-    LaunchedEffect(sidesRows, resultRows) {
-        val resultChunks = resultRows.map { it.chunk }
+    LaunchedEffect(sidesRows, resultItems) {
+        val resultChunks = resultItems.map { it.chunk }
         val sideChunks = sidesRows.map { it.chunk }
 
         snapshotFlow { lists.result.firstVisibleItemIndex to lists.result.firstVisibleItemScrollOffset }
@@ -156,7 +176,8 @@ fun ResolverStackedView(
 
                 val place = placeOf(resultChunks, index) ?: return@collect
                 val row = rowOf(sideChunks, place)
-                val sameLine = placeOf(sideChunks, row) == place && resultRows[index].cell.text != null
+                val line = resultItems.getOrNull(index) as? ListItem.Line
+                val sameLine = placeOf(sideChunks, row) == place && line?.row?.cell?.text != null
 
                 lists.sides.requestScrollToItem(row, if (sameLine) offset else 0)
             }
@@ -216,19 +237,39 @@ fun ResolverStackedView(
                     )
                 }
 
+                editorPlace.Restore(resultItems)
+
                 ScrollableLazyColumn(modifier = Modifier.fillMaxWidth().weight(1f), state = lists.result) {
-                    itemsIndexed(resultRows, key = { index, _ -> index }) { _, row ->
-                        ResultRowView(
-                            row = row,
-                            chunk = merge.chunks[row.chunk],
-                            sides = sides,
-                            numberWidth = numberWidth,
-                            conflictNumber = conflictNumbers[row.chunk],
-                            isCurrentConflict = row.chunk == currentConflictChunk,
-                            showBase = showBase,
-                            syntaxHighlighter = syntaxHighlighter,
-                            actions = actions,
-                        )
+                    items(resultItems, key = { it.key }) { item ->
+                        when (item) {
+                            is ListItem.Line -> ResultRowView(
+                                row = item.row,
+                                rowInChunk = item.rowInChunk,
+                                chunk = merge.chunks[item.chunk],
+                                sides = sides,
+                                numberWidth = numberWidth,
+                                conflictNumber = conflictNumbers[item.chunk],
+                                isCurrentConflict = item.chunk == currentConflictChunk,
+                                showBase = showBase,
+                                syntaxHighlighter = syntaxHighlighter,
+                                actions = actions,
+                                canEdit = canEdit,
+                            )
+
+                            is ListItem.Editor -> if (editing != null) {
+                                val isCurrent = item.chunk == currentConflictChunk
+
+                                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                                    Box(
+                                        Modifier
+                                            .width(if (isCurrent) 6.dp else 4.dp)
+                                            .fillMaxHeight()
+                                            .background(MaterialTheme.colors.primaryVariant)
+                                    )
+                                    PartEditor(editing, numberWidth, editorPlace, Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -311,7 +352,15 @@ private fun SideChip(chunkIndex: Int, chunk: Chunk, side: ConflictSide, sides: C
                 return
             }
 
-            if (chunk.applied) {
+            if (chunk.edited != null) {
+                // In place of the lines typed
+                Chip(
+                    text = stringResource(Res.string.conflict_resolver_chip_apply),
+                    tooltip = stringResource(Res.string.conflict_resolver_change_instead),
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    onClick = { actions.onSetApplied(chunkIndex, true) },
+                )
+            } else if (chunk.applied) {
                 Chip(
                     text = stringResource(Res.string.conflict_resolver_chip_applied),
                     tooltip = stringResource(Res.string.conflict_resolver_undo_change),
@@ -422,6 +471,7 @@ private fun Chip(
 @Composable
 private fun ResultRowView(
     row: ResultRow,
+    rowInChunk: Int,
     chunk: Chunk,
     sides: ConflictSides?,
     numberWidth: Int,
@@ -430,6 +480,7 @@ private fun ResultRowView(
     showBase: Boolean,
     syntaxHighlighter: SyntaxHighlighter,
     actions: PickActions,
+    canEdit: Boolean,
 ) {
     val cell = row.cell
     val text = cell.text
@@ -487,10 +538,17 @@ private fun ResultRowView(
         }
     }
 
-    if (chunk is Chunk.Conflict) {
-        ContextMenu(items = { conflictMenu(row.chunk, sides, actions) }) { content() }
-    } else {
-        content()
+    ContextMenu(items = { resultMenu(row.chunk, chunk, sides, actions, canEdit) }) {
+        EditableRow(
+            chunk = row.chunk,
+            line = rowInChunk,
+            first = row.first,
+            edited = cell.edited,
+            canEdit = canEdit,
+            onEdit = actions.onEdit,
+        ) {
+            content()
+        }
     }
 }
 
@@ -503,4 +561,5 @@ private fun CellKind.barColor(): Color = when (this) {
     CellKind.CHANGED_BY_BOTH -> MaterialTheme.colors.onBackground.copy(alpha = 0.3f)
     CellKind.CONFLICT, CellKind.OPEN_CONFLICT -> MaterialTheme.colors.conflictFile
     CellKind.RESOLVED -> MaterialTheme.colors.addFile
+    CellKind.EDITED -> MaterialTheme.colors.onBackground.copy(alpha = 0.45f)
 }

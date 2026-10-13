@@ -24,6 +24,9 @@ internal data class ConflictFileAttributes(
 
     /** How a checkout converts its line endings (`core.autocrlf`, `core.eol`, the `text` and `eol` attributes). */
     val checkoutLineEndings: EolStreamType,
+
+    /** How `git add` converts them back. */
+    val checkinLineEndings: EolStreamType = EolStreamType.DIRECT,
 )
 
 /**
@@ -39,6 +42,11 @@ internal fun conflictFileAttributes(repository: Repository, path: String): Confl
         mergesAsBinary = attributes.isUnset("merge") || attributes.getValue("merge") == "binary",
         checkoutLineEndings = EolStreamTypeUtil.detectStreamType(
             OperationType.CHECKOUT_OP,
+            repository.config.get(WorkingTreeOptions.KEY),
+            attributes,
+        ),
+        checkinLineEndings = EolStreamTypeUtil.detectStreamType(
+            OperationType.CHECKIN_OP,
             repository.config.get(WorkingTreeOptions.KEY),
             attributes,
         ),

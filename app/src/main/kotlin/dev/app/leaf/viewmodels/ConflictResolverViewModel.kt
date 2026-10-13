@@ -3,14 +3,22 @@
 
 package dev.app.leaf.viewmodels
 
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.domain.conflicts.ColumnShares
 import dev.app.leaf.domain.conflicts.DEFAULT_FILE_LIST_WIDTH
+import dev.app.leaf.domain.conflicts.EditStart
 import dev.app.leaf.domain.conflicts.applying
 import dev.app.leaf.domain.conflicts.conflictChunks
 import dev.app.leaf.domain.conflicts.dropping
+import dev.app.leaf.domain.conflicts.editStart
+import dev.app.leaf.domain.conflicts.firstChangedChunk
+import dev.app.leaf.domain.conflicts.inParts
 import dev.app.leaf.domain.conflicts.resolving
 import dev.app.leaf.domain.conflicts.taking
+import dev.app.leaf.domain.conflicts.typing
+import dev.app.leaf.domain.conflicts.withoutTyping
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
@@ -51,6 +59,9 @@ import javax.inject.Singleton
  * The list follows the status: a file that stops being conflicted, because it was marked resolved here or resolved
  * elsewhere, gets a ✓ (if it was resolved here), and the view stays on it, read-only, until the user opens the next one
  * ([nextFile]). When none is left, the view says so, or closes when nothing was resolved here.
+ *
+ * One part of the result at a time can be edited (step 4, [startEdit]), and Undo and Redo go back and forth through the
+ * picks and the finished edits of the file shown.
  */
 class ConflictResolverViewModel @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
@@ -77,10 +88,15 @@ class ConflictResolverViewModel @Inject constructor(
     val scrollToChunk: SharedFlow<Int>
         field = MutableSharedFlow<Int>(extraBufferCapacity = 1)
 
+    /** A part (its chunk's index) that Undo or Redo changed, to scroll to when it's out of sight. */
+    val revealChunk: SharedFlow<Int>
+        field = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+
     private var onClose: () -> Unit = {}
     private var loadJob: Job? = null
     private var conflicted: List<StatusEntry> = emptyList()
     private val resolvedHere = mutableListOf<StatusEntry>()
+    private val history = ResolverHistory()
 
     /** The file that the external merge tool has: it's loaded again once the status comes back with it conflicted. */
     private var inExternalTool: String? = null
@@ -121,12 +137,17 @@ class ConflictResolverViewModel @Inject constructor(
         leave(ResolverLeave.OpenFile(path))
     }
 
-    /** Closes the view, asking first when the file has picks that aren't saved. */
+    /** Closes the view, asking first when the file has changes that aren't saved. */
     fun close() = leave(ResolverLeave.Close)
 
-    /** Esc: leaves Focus first, then closes the view (asking first when the file has picks that aren't saved). */
+    /**
+     * Esc: finishes editing first, then leaves Focus, then closes the view (asking first when the file has changes that
+     * aren't saved).
+     */
     fun escape() {
-        if (state.value.focused) {
+        if (state.value.edit != null) {
+            finishEdit()
+        } else if (state.value.focused) {
             toggleFocus()
         } else {
             close()
@@ -139,9 +160,25 @@ class ConflictResolverViewModel @Inject constructor(
         onClose()
     }
 
+    /**
+     * Runs [then], which leaves the file, such as closing the tab or switching it to another worktree, once the file
+     * has no changes that aren't saved, asking first.
+     */
+    fun leaveThen(then: () -> Unit) = leave(ResolverLeave.Then(then))
+
+    /** Whether leaving the file would lose changes: picks, or lines typed, that aren't saved. */
+    val hasUnsavedChanges: Boolean
+        get() {
+            val edit = state.value.edit
+
+            return !paused && (state.value.file.hasUnsavedChanges || edit != null && edit.value.text != edit.start.text)
+        }
+
     private fun leave(leave: ResolverLeave) {
+        finishEdit()
+
         // A resolved file was written and staged: its picks have nowhere left to go
-        if (state.value.file.hasUnsavedChanges && !paused) {
+        if (hasUnsavedChanges) {
             state.update { it.copy(prompt = ResolverPrompt.UnsavedChanges(leave)) }
         } else {
             go(leave)
@@ -151,6 +188,7 @@ class ConflictResolverViewModel @Inject constructor(
     private fun go(leave: ResolverLeave) = when (leave) {
         ResolverLeave.Close -> closeNow()
         is ResolverLeave.OpenFile -> load(leave.path)
+        is ResolverLeave.Then -> leave.then()
     }
 
     /** The answer to [ResolverPrompt.UnsavedChanges]: save first, or not, or stay ([save] null). */
@@ -180,6 +218,101 @@ class ConflictResolverViewModel @Inject constructor(
     /** The shown file has no conflicts any more, and the view waits for [nextFile]: it's read-only. */
     private val paused: Boolean get() = state.value.handOff != null
 
+    // Editing
+
+    /**
+     * Turns [chunk]'s lines in the result into a text field, with the caret at the end of its line [line], or of its
+     * last line. It starts from the lines that the result shows there, or the base's for an open conflict. A part
+     * that was being edited is finished first.
+     */
+    fun startEdit(chunk: Int, line: Int? = null) {
+        if (paused || state.value.edit?.chunk == chunk) {
+            return
+        }
+
+        finishEdit()
+
+        val merge = loadedMerge() ?: return
+
+        if (chunk !in merge.chunks.indices) {
+            return
+        }
+
+        val start = merge.editStart(chunk)
+
+        state.update {
+            it.copy(edit = ResolverEdit(chunk, TextFieldValue(start.text, TextRange(caretAt(start.text, line))), start, line))
+        }
+        selectConflict(chunk)
+    }
+
+    /** Enter: edits the current conflict. */
+    fun editCurrentConflict() {
+        val merge = loadedMerge() ?: return
+        val chunk = merge.conflictChunks().getOrNull(state.value.currentConflict) ?: return
+
+        startEdit(chunk)
+    }
+
+    /** The text field changed. Characters that the file's encoding can't hold aren't taken. */
+    fun typeInEdit(value: TextFieldValue) {
+        val edit = state.value.edit ?: return
+
+        if (!edit.start.format.canWrite(value.text)) {
+            return
+        }
+
+        state.update { it.copy(edit = it.edit?.copy(value = value)) }
+    }
+
+    /**
+     * Puts the lines typed in place of the part's lines, as one step for Undo. A text that didn't change leaves the
+     * part as it was: an open conflict stays open.
+     */
+    fun finishEdit() {
+        val edit = state.value.edit ?: return
+
+        state.update { it.copy(edit = null) }
+
+        if (edit.value.text != edit.start.text) {
+            updateMerge { it.typing(edit.chunk, edit.start.format.typed(edit.value.text)) }
+        }
+    }
+
+    /** Puts [chunk]'s lines, unchanged lines or a change, back as the merge made them, in place of lines typed there. */
+    fun putBack(chunk: Int) = updateMerge { it.withoutTyping(chunk) }
+
+    /** Takes the last pick or edit back. While a part is edited, its text field undoes the typing instead. */
+    fun undo() = step { merge -> history.undo(merge) }
+
+    fun redo() = step { merge -> history.redo(merge) }
+
+    private fun step(next: (TextMerge) -> TextMerge?) {
+        if (paused || state.value.edit != null) {
+            return
+        }
+
+        val file = state.value.file as? ResolverFile.Loaded ?: return
+        val merge = file.merge ?: return
+        val stepped = next(merge) ?: return
+
+        state.update { state ->
+            if (state.file === file) state.copy(file = file.copy(merge = stepped)) else state
+        }
+        publishHistory()
+
+        stepped.firstChangedChunk(merge)?.let { chunk ->
+            selectConflict(chunk)
+            revealChunk.tryEmit(chunk)
+        }
+    }
+
+    private fun publishHistory() {
+        state.update { it.copy(canUndo = history.canUndo, canRedo = history.canRedo) }
+    }
+
+    private fun loadedMerge(): TextMerge? = (state.value.file as? ResolverFile.Loaded)?.merge
+
     // Picks
 
     /** A side's arrow on [chunk]'s conflict: takes that side, or adds it after the other side's lines. */
@@ -200,16 +333,34 @@ class ConflictResolverViewModel @Inject constructor(
 
     fun setApplied(chunk: Int, applied: Boolean) = updateMerge { it.applying(chunk, applied) }
 
+    /**
+     * Changes the merge of the file shown, as one step for Undo. A part being edited is finished first, as one step
+     * of its own. Nothing changes while the file is resolved and the view waits to open the next one.
+     */
     private fun updateMerge(change: (TextMerge) -> TextMerge) {
+        if (state.value.edit != null) {
+            finishEdit()
+        }
+
+        val file = state.value.file as? ResolverFile.Loaded ?: return
+        val merge = file.merge ?: return
+        val changed = change(merge)
+
+        if (paused || changed == merge) {
+            return
+        }
+
+        var applied = false
+
+        // The status can load another file meanwhile, on another thread
         state.update { state ->
-            val file = state.file as? ResolverFile.Loaded ?: return@update state
-            val merge = file.merge ?: return@update state
+            applied = state.file === file && state.handOff == null
+            if (applied) state.copy(file = file.copy(merge = changed)) else state
+        }
 
-            if (state.handOff != null) {
-                return@update state
-            }
-
-            state.copy(file = file.copy(merge = change(merge)))
+        if (applied) {
+            history.record(merge)
+            publishHistory()
         }
     }
 
@@ -219,6 +370,7 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** Switches the layout, for every resolver in the app (Settings → Conflicts has the same choice). */
     fun setLayout(layout: ConflictResolverLayout) {
+        finishEdit()
         state.update { it.copy(layout = layout) }
 
         viewModelScope.launch {
@@ -270,6 +422,8 @@ class ConflictResolverViewModel @Inject constructor(
     fun previousConflict() = moveConflict(-1)
 
     private fun moveConflict(step: Int) {
+        finishEdit()
+
         val file = state.value.file as? ResolverFile.Loaded ?: return
         val conflicts = file.merge?.conflictChunks() ?: return
         val index = (state.value.currentConflict + step).coerceIn(0, conflicts.lastIndex)
@@ -295,6 +449,8 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** Writes the result, markers for open conflicts included. [overwriteChanges]: over changes made since. */
     fun save(overwriteChanges: Boolean = false, then: () -> Unit = {}) {
+        finishEdit()
+
         val file = state.value.file as? ResolverFile.Loaded ?: return
         val merge = file.merge ?: return
 
@@ -328,6 +484,8 @@ class ConflictResolverViewModel @Inject constructor(
         if (paused) {
             return nextFile()
         }
+
+        finishEdit()
 
         val file = state.value.file as? ResolverFile.Loaded ?: return
         val merge = file.merge ?: return
@@ -414,7 +572,18 @@ class ConflictResolverViewModel @Inject constructor(
 
     private fun load(path: String) {
         loadJob?.cancel()
-        state.update { it.copy(file = ResolverFile.Loading(path), currentConflict = 0, prompt = null, handOff = null) }
+        history.clear()
+        state.update {
+            it.copy(
+                file = ResolverFile.Loading(path),
+                currentConflict = 0,
+                prompt = null,
+                handOff = null,
+                edit = null,
+                canUndo = false,
+                canRedo = false,
+            )
+        }
 
         loadJob = viewModelScope.launch {
             val file = when (val result = getConflictedFileUseCase(path)) {
@@ -529,10 +698,77 @@ internal fun afterStatus(
  */
 data class ResolverHandOff(val from: String, val resolvedHere: Boolean, val next: String)
 
-/** Where the user goes from a file: the view closes, or another file opens. */
+/** Where the user goes from a file: the view closes, another file opens, or something outside the view [then] runs. */
 sealed interface ResolverLeave {
     data object Close : ResolverLeave
     data class OpenFile(val path: String) : ResolverLeave
+
+    /** Closing the tab, or switching it to another worktree, which closes the view. */
+    class Then(val then: () -> Unit) : ResolverLeave
+}
+
+/**
+ * A part of the result being edited: [chunk]'s lines, as the text field has them ([value]), which started as [start].
+ * [line]: the part's line where editing started, which the view keeps in its place, or null for its end.
+ */
+data class ResolverEdit(val chunk: Int, val value: TextFieldValue, val start: EditStart, val line: Int?)
+
+/** Where the caret goes in [text] when editing starts: at the end of line [line], or of the last line. */
+internal fun caretAt(text: String, line: Int?): Int {
+    if (line == null) {
+        return text.length
+    }
+
+    var end = text.indexOf('\n')
+
+    repeat(line) {
+        if (end < 0) {
+            return text.length
+        }
+
+        end = text.indexOf('\n', end + 1)
+    }
+
+    return if (end < 0) text.length else end
+}
+
+/** The most steps that Undo goes back. */
+private const val MAX_UNDO_STEPS = 500
+
+/**
+ * The merges before each pick and finished edit of the file shown, for Undo, and the ones undone, for Redo. A new step
+ * drops what Redo had. Loading a file starts over.
+ */
+private class ResolverHistory {
+    private val undone = ArrayDeque<TextMerge>()
+    private val redone = ArrayDeque<TextMerge>()
+
+    val canUndo: Boolean @Synchronized get() = undone.isNotEmpty()
+    val canRedo: Boolean @Synchronized get() = redone.isNotEmpty()
+
+    @Synchronized
+    fun record(before: TextMerge) {
+        undone.addLast(before)
+
+        if (undone.size > MAX_UNDO_STEPS) {
+            undone.removeFirst()
+        }
+
+        redone.clear()
+    }
+
+    /** The merge before [current], which Redo then gets back. */
+    @Synchronized
+    fun undo(current: TextMerge): TextMerge? = undone.removeLastOrNull()?.also { redone.addLast(current) }
+
+    @Synchronized
+    fun redo(current: TextMerge): TextMerge? = redone.removeLastOrNull()?.also { undone.addLast(current) }
+
+    @Synchronized
+    fun clear() {
+        undone.clear()
+        redone.clear()
+    }
 }
 
 data class ConflictResolverState(
@@ -559,6 +795,10 @@ data class ConflictResolverState(
     val handOff: ResolverHandOff? = null,
     /** Every conflicted file was resolved. */
     val done: Boolean = false,
+    /** The part of the result being edited. */
+    val edit: ResolverEdit? = null,
+    val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
 )
 
 data class ResolverFileEntry(val entry: StatusEntry, val resolvedHere: Boolean)
@@ -596,7 +836,7 @@ sealed interface ResolverFile {
 
 /** What waits for the user's answer, in a strip above the columns. */
 sealed interface ResolverPrompt {
-    /** The file has picks that aren't saved, and the user is leaving it. */
+    /** The file has changes that aren't saved, picks or lines typed, and the user is leaving it. */
     data class UnsavedChanges(val leave: ResolverLeave) : ResolverPrompt
 
     /** The working file changed since it was loaded: reload it, or [keep] the resolver's result over it. */
@@ -606,7 +846,8 @@ sealed interface ResolverPrompt {
 }
 
 private fun ConflictedFile.toResolverFile(): ResolverFile.Loaded {
-    val merge = (content as? ConflictContent.Text)?.merge
+    // Long runs of unchanged lines are edited in parts
+    val merge = (content as? ConflictContent.Text)?.merge?.inParts()
 
     return ResolverFile.Loaded(this, merge, merge)
 }

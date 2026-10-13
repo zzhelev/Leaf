@@ -742,7 +742,7 @@ class RepositoryOpenViewModel @Inject constructor(
      */
     fun switchToWorktree(worktree: Worktree) {
         if (worktree.canSwitchTo) {
-            switchWorktreeUseCase(worktree.path)
+            whenConflictResolverLeft { switchWorktreeUseCase(worktree.path) }
         }
     }
 
@@ -943,7 +943,8 @@ class RepositoryOpenViewModel @Inject constructor(
      * replacing the current tab
      */
     fun openAnotherRepository(directory: String, tab: RepositoryTabViewModel) {
-        appViewModel.replaceTab(tab, directory)
+        // Fork-only: the conflict resolver asks first when it has changes that aren't saved
+        whenConflictResolverLeft { appViewModel.replaceTab(tab, directory) }
     }
 
 
@@ -1032,12 +1033,27 @@ class RepositoryOpenViewModel @Inject constructor(
         showConflictResolver.value = true
     }
 
-    /** Closes the resolver, which asks first when the file has picks that aren't saved (Esc, "← Changes"). */
+    /** Closes the resolver, which asks first when the file has changes that aren't saved (Esc, "← Changes"). */
     fun closeConflictResolver() {
         conflictResolverViewModel?.close()
     }
 
-    /** Esc in the resolver: leaves Focus first, then closes it. */
+    /**
+     * Runs [then], which leaves the resolver's file: switching the tab to another worktree, opening another repository
+     * in it, or closing it. When the resolver has changes that aren't saved, it asks first, in its own strip: Save,
+     * Discard or Cancel.
+     */
+    fun whenConflictResolverLeft(then: () -> Unit) {
+        val resolver = conflictResolverViewModel
+
+        if (resolver == null) then() else resolver.leaveThen(then)
+    }
+
+    /** Whether the resolver has changes that aren't saved, which closing the tab would lose. */
+    val conflictResolverHasUnsavedChanges: Boolean
+        get() = conflictResolverViewModel?.hasUnsavedChanges == true
+
+    /** Esc in the resolver: finishes editing first, then leaves Focus, then closes it. */
     fun escapeConflictResolver() {
         conflictResolverViewModel?.escape()
     }

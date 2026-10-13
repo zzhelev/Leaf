@@ -58,6 +58,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,11 +72,13 @@ import dev.app.leaf.domain.conflicts.DEFAULT_FILE_LIST_WIDTH
 import dev.app.leaf.domain.conflicts.fileListWidthAfterDrag
 import dev.app.leaf.domain.conflicts.columnRows
 import dev.app.leaf.domain.conflicts.conflictChunks
+import dev.app.leaf.domain.conflicts.firstResultLine
 import dev.app.leaf.domain.conflicts.placeOf
 import dev.app.leaf.domain.conflicts.resultRows
 import dev.app.leaf.domain.conflicts.rowOf
 import dev.app.leaf.domain.conflicts.sidesRows
 import dev.app.leaf.domain.models.ConflictContent
+import dev.app.leaf.domain.models.ConflictResolution
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.ConflictSides
@@ -107,6 +111,8 @@ import dev.app.leaf.viewmodels.ResolverPrompt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge as mergeFlows
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -124,15 +130,21 @@ fun ConflictResolver(
     val state by viewModel.state.collectAsState()
     val lists = remember { ResolverLists() }
     val focusRequester = remember { FocusRequester() }
+    val editing = state.edit != null
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+    // The text field of a part being edited has the focus while it shows, and the view takes it back after, so that
+    // the tab's shortcuts and the view's keys still work
+    LaunchedEffect(editing) {
+        if (!editing) {
+            focusRequester.requestFocus()
+        }
     }
 
     ConflictResolverContent(
         state = state,
         lists = lists,
         scrollToChunk = viewModel.scrollToChunk,
+        revealChunk = viewModel.revealChunk,
         actions = ResolverActions(
             onClose = viewModel::close,
             onSelectFile = viewModel::selectFile,
@@ -155,6 +167,9 @@ fun ConflictResolver(
             onReload = viewModel::reload,
             onDismissPrompt = viewModel::dismissPrompt,
             onNextFile = viewModel::nextFile,
+            onUndo = viewModel::undo,
+            onRedo = viewModel::redo,
+            edits = EditActions(onType = viewModel::typeInEdit, onFinish = viewModel::finishEdit),
             picks = PickActions(
                 onTake = { chunk, side ->
                     viewModel.take(chunk, side)
@@ -169,13 +184,33 @@ fun ConflictResolver(
                     viewModel.drop(chunk, side)
                     viewModel.selectConflict(chunk)
                 },
+                onEdit = viewModel::startEdit,
+                onPutBack = viewModel::putBack,
             ),
         ),
         modifier = Modifier
             .focusRequester(focusRequester)
             .focusable()
             .onPreviewKeyEvent { event ->
+                // While a part is edited, its text field has Enter and the undo keys
+                val notEditing = viewModel.state.value.edit == null
+
                 when {
+                    notEditing && isUndoShortcut(event) -> {
+                        viewModel.undo()
+                        true
+                    }
+
+                    notEditing && isRedoShortcut(event) -> {
+                        viewModel.redo()
+                        true
+                    }
+
+                    notEditing && event.matchesBinding(KeybindingOption.SIMPLE_ACCEPT) -> {
+                        viewModel.editCurrentConflict()
+                        true
+                    }
+
                     event.type == KeyEventType.KeyDown && event.key == Key.F7 -> {
                         if (event.isShiftPressed) viewModel.previousConflict() else viewModel.nextConflict()
                         true
@@ -226,6 +261,10 @@ class ResolverActions(
     /** Opens the next conflicted file, once the file shown was resolved. */
     val onNextFile: () -> Unit,
     val picks: PickActions,
+    val onUndo: () -> Unit = {},
+    val onRedo: () -> Unit = {},
+    /** What the text field of the part being edited does. */
+    val edits: EditActions = EditActions(onType = {}, onFinish = {}),
 )
 
 /** The resolver as [state] shows it, without its view model, so that tests can render it. */
@@ -237,6 +276,8 @@ fun ConflictResolverContent(
     modifier: Modifier = Modifier,
     /** Conflicts (their chunks) to scroll to, as F7 moves to them. */
     scrollToChunk: Flow<Int> = emptyFlow(),
+    /** Parts (their chunks) that Undo or Redo changed, to scroll to when they're out of sight. */
+    revealChunk: Flow<Int> = emptyFlow(),
 ) {
     val file = state.file as? ResolverFile.Loaded
     // The last file loaded stays while the next one loads, fading out, so that moving on doesn't flash "Loading…"
@@ -264,8 +305,14 @@ fun ConflictResolverContent(
 
     // A copy while the file list's edge is dragged; the view model gets the width when the drag ends
     var fileListWidth by remember(state.fileListWidth) { mutableFloatStateOf(state.fileListWidth) }
+    val presses = remember { EditorPresses() }
 
-    Column(modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colors.background)
+            .finishingEditOnPressOutside(state.edit != null, presses, actions.edits.onFinish)
+    ) {
         Toolbar(state, file, merge.takeIf { file != null }, entry, paused, actions)
 
         if (handOff != null) {
@@ -290,7 +337,9 @@ fun ConflictResolverContent(
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }.takingNoClicks(paused)) {
-                    FileView(state, shownFile, merge, shownEntry, lists, shown, scrollToChunk, actions)
+                    CompositionLocalProvider(LocalEditorPresses provides presses) {
+                        FileView(state, shownFile, merge, shownEntry, lists, shown, scrollToChunk, revealChunk, paused, actions)
+                    }
                 }
 
                 if (loadingNext) {
@@ -311,6 +360,8 @@ private fun FileView(
     lists: ResolverLists,
     shown: ShownPlace,
     scrollToChunk: Flow<Int>,
+    revealChunk: Flow<Int>,
+    paused: Boolean,
     actions: ResolverActions,
 ) {
     when {
@@ -350,20 +401,40 @@ private fun FileView(
                 }
             }
 
-            LaunchedEffect(scrollToChunk, layout) {
-                scrollToChunk.collect { chunk ->
-                    lists.show(currentMerge, layout, showBase, chunk, animate = true)
+            // A move to a conflict, or a part that Undo changed. The view model changes the merge first, as when F7
+            // finishes editing, so the scroll waits for the rows of that merge
+            var scrollRequest by remember { mutableStateOf<ScrollRequest?>(null) }
+
+            LaunchedEffect(scrollToChunk, revealChunk) {
+                mergeFlows(
+                    scrollToChunk.map { ScrollRequest(it, onlyIfHidden = false) },
+                    revealChunk.map { ScrollRequest(it, onlyIfHidden = true) },
+                ).collect { scrollRequest = it }
+            }
+
+            LaunchedEffect(scrollRequest, layout) {
+                // Once: a new layout keeps the place instead. Setting the request back to null would cancel the scroll
+                val request = scrollRequest?.takeUnless { it.done } ?: return@LaunchedEffect
+
+                request.done = true
+
+                if (!request.onlyIfHidden || !lists.shows(request.chunk, layout)) {
+                    lists.show(currentMerge, layout, showBase, request.chunk, animate = true)
                 }
             }
 
             // Lines that don't wrap scroll sideways together, in both layouts
             val sideways = if (state.wrapLines) null else lists.sideways
-
-            CompositionLocalProvider(LocalSidewaysScroll provides sideways) {
-                LayoutView(merge, file, conflicts, state, lists, actions, Modifier.weight(1f))
+            val edit = state.edit
+            val editing = edit?.let {
+                remember(it, merge) { PartEditing(it, merge.firstResultLine(it.chunk), actions.edits) }
             }
 
-            ResolverLegend(stacked = layout == ConflictResolverLayout.STACKED)
+            CompositionLocalProvider(LocalSidewaysScroll provides sideways) {
+                LayoutView(merge, file, conflicts, state, lists, actions, editing, !paused, Modifier.weight(1f))
+            }
+
+            ResolverLegend(stacked = layout == ConflictResolverLayout.STACKED, editing = edit != null)
         }
     }
 }
@@ -377,6 +448,8 @@ private fun LayoutView(
     state: ConflictResolverState,
     lists: ResolverLists,
     actions: ResolverActions,
+    editing: PartEditing?,
+    canEdit: Boolean,
     modifier: Modifier,
 ) {
     when (state.layout) {
@@ -395,6 +468,9 @@ private fun LayoutView(
                 shares = state.columnShares,
                 onSharesChanged = actions.onColumnSharesChanged,
                 modifier = modifier,
+                editing = editing,
+                editorPlace = lists.columnsEditor,
+                canEdit = canEdit,
             )
         }
 
@@ -415,6 +491,8 @@ private fun LayoutView(
                 actions = actions.picks,
                 onSplitChanged = actions.onStackedSplitChanged,
                 modifier = modifier,
+                editing = editing,
+                canEdit = canEdit,
             )
         }
     }
@@ -483,6 +561,10 @@ private fun Toolbar(
 
         Spacer(Modifier.weight(1f))
 
+        if (merge != null && !paused) {
+            UndoButtons(state, actions)
+        }
+
         if (merge != null) {
             LayoutButtons(state.layout, actions.onSetLayout)
 
@@ -520,7 +602,11 @@ private fun Toolbar(
                 )
             }
 
-            val open = merge.openConflicts
+            // Lines typed in an open conflict resolve it once editing ends, which a click on the button does first
+            val edit = state.edit
+            val typedConflict = (merge.chunks.getOrNull(edit?.chunk ?: -1) as? TextMerge.Chunk.Conflict)
+                ?.takeIf { it.resolution == ConflictResolution.Unresolved && edit?.value?.text != edit?.start?.text }
+            val open = merge.openConflicts - if (typedConflict != null) 1 else 0
 
             DelayedTooltip(
                 if (open > 0) {
@@ -571,18 +657,46 @@ private fun LayoutButtons(layout: ConflictResolverLayout, onSetLayout: (Conflict
     }
 }
 
+/** Undo and Redo, for the picks and the edits of the file shown. */
+@Composable
+private fun UndoButtons(state: ConflictResolverState, actions: ResolverActions) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ToolbarIcon(
+            icon = Res.drawable.undo,
+            description = stringResource(Res.string.conflict_resolver_undo_tooltip, undoShortcut()),
+            toggled = false,
+            enabled = state.canUndo,
+            onClick = actions.onUndo,
+        )
+        ToolbarIcon(
+            icon = Res.drawable.redo,
+            description = stringResource(Res.string.conflict_resolver_redo_tooltip, redoShortcut()),
+            toggled = false,
+            enabled = state.canRedo,
+            onClick = actions.onRedo,
+        )
+    }
+}
+
 /** An icon button of the toolbar, as the diff pane's `StateIcon`, with the tooltip as the description. */
 @Composable
-private fun ToolbarIcon(icon: DrawableResource, description: String, toggled: Boolean, onClick: () -> Unit) {
+private fun ToolbarIcon(
+    icon: DrawableResource,
+    description: String,
+    toggled: Boolean,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
     DelayedTooltip(description) {
         Icon(
             painter = painterResource(icon),
             contentDescription = description,
-            tint = MaterialTheme.colors.onSurface,
+            tint = MaterialTheme.colors.onSurface.copy(alpha = if (enabled) 1f else 0.3f),
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
                 .background(if (toggled) MaterialTheme.colors.onSurface.copy(alpha = 0.2f) else Color.Transparent)
-                .handMouseClickable { onClick() }
+                .handMouseClickable(enabled = enabled) { onClick() }
+                .semantics { if (!enabled) disabled() }
                 .padding(4.dp)
                 .size(20.dp),
         )
@@ -594,6 +708,23 @@ private fun acceptShortcut() = if (currentOs == OS.MAC) "⌘⏎" else "Ctrl+Ente
 
 /** Focus's shortcut, as the platform writes it: ⇧⌘F on macOS, Ctrl+Shift+F elsewhere. */
 private fun focusShortcut() = if (currentOs == OS.MAC) "⇧⌘F" else "Ctrl+Shift+F"
+
+/** Undo's and Redo's shortcuts, as the platform writes them. */
+internal fun undoShortcut() = if (currentOs == OS.MAC) "⌘Z" else "Ctrl+Z"
+
+internal fun redoShortcut() = if (currentOs == OS.MAC) "⇧⌘Z" else "Ctrl+Shift+Z"
+
+/** Undo: Cmd+Z on macOS, Ctrl+Z elsewhere. */
+private fun isUndoShortcut(event: KeyEvent) = event.type == KeyEventType.KeyDown && event.key == Key.Z &&
+    !event.isShiftPressed && !event.isAltPressed && platformCommand(event)
+
+/** Redo: Shift+Cmd+Z on macOS, Ctrl+Shift+Z or Ctrl+Y elsewhere. */
+private fun isRedoShortcut(event: KeyEvent) = event.type == KeyEventType.KeyDown && !event.isAltPressed &&
+    platformCommand(event) && (event.key == Key.Z && event.isShiftPressed || currentOs != OS.MAC && event.key == Key.Y)
+
+/** Cmd without Ctrl on macOS, Ctrl without Cmd elsewhere. */
+private fun platformCommand(event: KeyEvent) =
+    if (currentOs == OS.MAC) event.isMetaPressed && !event.isCtrlPressed else event.isCtrlPressed && !event.isMetaPressed
 
 /** Whether [event] is Focus's shortcut: see the other [isFocusShortcut]. */
 private fun isFocusShortcut(event: KeyEvent): Boolean = event.type == KeyEventType.KeyDown && isFocusShortcut(
@@ -1149,6 +1280,15 @@ private class ShownPlace {
 
 /** Rows above a conflict that the view scrolls to, for context. */
 private const val CONTEXT_ROWS = 3
+
+/** A part (its chunk) to scroll to, always or [onlyIfHidden], once. */
+private class ScrollRequest(val chunk: Int, val onlyIfHidden: Boolean) {
+    var done = false
+}
+
+/** Whether [layout]'s main list shows a row of [chunk]. */
+private fun ResolverLists.shows(chunk: Int, layout: ConflictResolverLayout): Boolean =
+    main(layout).layoutInfo.visibleItemsInfo.any { (it.key as? Long)?.shr(32)?.toInt() == chunk }
 
 /** The chunk of each row of [layout]'s main list: the columns, or the stacked layout's result. */
 private fun TextMerge.rowChunks(layout: ConflictResolverLayout, showBase: Boolean): List<Int> = when (layout) {

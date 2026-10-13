@@ -472,8 +472,9 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
   so a fake tool with an untrusted exit code has to `touch -t` the file. git removes its copies once the tool exits.
 
 **Built-in conflict resolver (fork-only, `data/git/conflicts/`, models in `domain/models/TextMerge.kt` and
-`ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 to 3 of `docs/fork/conflict-resolver.md`: the model, its git
-actions, and the read-only views, Columns (ours | result | theirs) and Stacked (the sides on top of the result).
+`ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 to 4 of `docs/fork/conflict-resolver.md`: the model, its git
+actions, the views, Columns (ours | result | theirs) and Stacked (the sides on top of the result), and editing the
+result one part at a time, with one undo history.
 - `GetConflictedFileGitAction` loads a conflicted path as `ConflictedFile`: its stages (through `stagesOf`), its
   `FileConflict`, its `ConflictSides`, and a `ConflictContent` picked in `git mergetool`'s order:
   - `OtherPaths`: a stage alone (DD, AU, UA), as rename/rename leaves;
@@ -516,7 +517,8 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
 
 - **The view (step 2):** `ConflictResolver` takes the whole tab, as file history does: `RepositoryOpenViewModel`
   holds `showConflictResolver` and a `ConflictResolverViewModel` (`openConflictResolver`, made through a `Provider`),
-  and `RepoContent` shows it in place of the main view. A worktree switch closes it without asking (`closeNow`).
+  and `RepoContent` shows it in place of the main view. A worktree switch closes it (`closeNow`), after the worktree
+  picker asks about changes that aren't saved (`whenConflictResolverLeft`, see Region editing).
   - Entry points: "Resolve…" first in a conflicted file's menu (`ConflictMenuActions.onResolve`), a "Resolve…" button
     in the diff's `ConflictBar`, "Resolve conflicts" before Abort on the banner (`resolveConflicts`, the first
     conflicted file), and double-click on a conflicted file. They go through `StatusAction.OpenInResolver` and
@@ -530,18 +532,19 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
     arrows: ▶ and ◀ take a side; once one is taken, the other side's adds after it.
   - The view model follows the status (`afterStatus`): it stays on the shown file once that stops being conflicted,
     until the user opens the next one (below), and says "All conflicts resolved" when none is left, or closes when
-    nothing was resolved here. Leaving a file with unsaved
-    picks asks in a strip (`ResolverPrompt`). Save's `WorkingFileChanged` gives Reload or Keep mine.
+    nothing was resolved here. Leaving a file with changes that aren't saved, picks or lines typed, asks in a strip
+    (`ResolverPrompt`). Save's `WorkingFileChanged` gives Reload or Keep mine.
   - A shown file that stops being conflicted gives `AfterStatus.Resolved(next)`, and the view model sets
     `ConflictResolverState.handOff`. The view dims the file (`PAUSED_ALPHA`), which scrolls but takes no clicks
     (`takingNoClicks` consumes presses in `PointerEventPass.Initial`), shows "✓ Resolved" in place of Save and Mark
     resolved, and `HandOffStrip` has "Next file". `nextFile`, or `markResolved` again (Cmd+Enter), loads it. While
-    paused, picks, Save and the panels' actions do nothing, and leaving doesn't ask about unsaved picks: the file was
-    written and staged.
+    paused, picks, editing, Undo, Save and the panels' actions do nothing, and leaving doesn't ask about unsaved
+    picks: the file was written and staged.
   - While the next file loads, the view keeps the last one (`LastLoaded`), fading it out under `LoadingCover`, which
     takes the pointer and says "Loading…" after 400 ms; the next one fades in.
   - Keys: the tab's handler sends Cmd+S (Stash elsewhere) and Esc to the resolver while it shows; the view handles
-    Cmd+Enter (Mark resolved) and F7 / Shift+F7 itself, so `Keybinding.kt` is unchanged. The view takes the focus when
+    Cmd+Enter (Mark resolved), F7 / Shift+F7, and while no part is edited Enter (edit the current conflict), Cmd+Z and
+    Shift+Cmd+Z (Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y elsewhere) itself, so `Keybinding.kt` is unchanged. The view takes the focus when
     it opens, so `RepositoryOpenPage` gives it back to the tab whenever `showConflictResolver` turns false, however the
     resolver closed. Without that, the tab's shortcuts did nothing until a click.
   - Colours come from the theme (`primary` for ours, `conflictFile`, `addFile`), and a fixed purple for theirs.
@@ -585,6 +588,55 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
   - Semantics actions run even on a disabled item, so tests check `SemanticsProperties.Disabled` rather than clicking
     it. A clickable node merges its children's text into its own config in the merged tree that `semanticsOwners`
     gives.
+- **Region editing (step 4, `ResolverEditor.kt`, `domain/conflicts/ResolverEditing.kt`):** one part of the result at a
+  time turns into a `BasicTextField` in place of its rows, in both layouts. A part is a chunk: the view model cuts runs
+  of unchanged lines into chunks of `MAX_PART_LINES` (200) when it loads a file (`inParts`).
+  - Starting: a double-click on the result's line, the Edit button that the pointer over a line shows
+    (`EditableRow`), "Edit these lines" in the result's menu, or Enter for the current conflict
+    (`ConflictResolverViewModel.startEdit`, `editCurrentConflict`). The caret goes to the end of that line.
+  - The field starts from the lines that the result shows, or the base's for an open conflict, as Meld, IntelliJ and
+    VS Code do (`editStart`). `LineFormat` writes the text back: in the part's charset (UTF-8 when its lines are, else
+    ISO-8859-1, which keeps every byte), with its line ending, and without the last one where the file ends without
+    one. Characters that the charset can't hold aren't taken (`typeInEdit`). An empty text is no line.
+  - `TypedLines` hold the bytes, equal by content. `Chunk.Unchanged.edited` and `Chunk.Change.edited` replace their
+    lines in the result (`CellKind.EDITED`); a conflict's are `ConflictResolution.Edited`, which counts as resolved.
+    `resultBytes` writes them, with `TypedLines.lineEnding` for a last line that lines follow. A change's ✓ and ×, a
+    conflict's arrows and menu, and `putBack` (unchanged lines' ↺, and the menu) replace them.
+  - Finishing (`finishEdit`): Esc (the tab's EXIT branch reaches `escape`, which finishes first), a press anywhere in
+    the resolver but the field (`finishingEditOnPressOutside`, after the field notes its own presses in
+    `PointerEventPass.Initial`, `EditorPresses`), or anything that changes the merge, saves, moves or leaves. The field
+    finishes too when it leaves the composition, as when the layout changes. Scrolled out of sight, it stays: LazyColumn
+    keeps the focused item composed, and typing brings it back into view. A text that didn't change leaves the part as
+    it was, so an open conflict stays open. The view takes the focus back when editing ends.
+  - Undo and Redo (`ResolverHistory`, the toolbar's two icons and the keys) go through the merges before each pick and
+    finished edit of the file shown, 500 at most, and start over when a file loads. While a part is edited, its field
+    has the keys and undoes the typing. A step out of sight scrolls into view (`revealChunk`).
+  - The list stays still (`EditorPlace`, one per list in `ResolverLists`): rows are keyed by chunk and row
+    (`rowKey`), so LazyColumn keeps its first item by key while a part's rows turn into one item and back
+    (`listItems`). When the list's top is inside the part, the field is keyed as that row and moved once laid out for
+    the row's line to stay where it was, and finishing puts the line at the top back as a row.
+  - Columns: `EditorRowLayout` makes the item as tall as the field or a side's lines, and the others get one filler.
+    Line numbers are placed at the field's lines (`EditorLineNumbers`). Tabs show as four spaces (`TabsAsSpaces`), as
+    `DiffText` shows them. Without wrapping, the field doesn't wrap, scrolls with `SidewaysScroll` (its
+    `editorWidth` lets the longest typed line be reached), and keeps the caret in sight.
+  - **Opening a file that was saved** (`ResumedMerge.kt`, `resumedFrom`): `GetConflictedFileGitAction` cuts the merge
+    into parts, converts the working file as `git add` would (`checkinLineEndings`, through JGit's input stream: its
+    output streams only convert for a checkout), and picks out the state that Save wrote. First a state of picks
+    alone, matched part by part against the file's lines (`pickedFrom`, every way through, 64 at most, as picks with
+    the same lines can write other line endings). Otherwise each conflict still open anchors at its block of markers,
+    the stretches between them are diffed with what the merge writes untouched, and each part takes the lines that
+    the diff maps to it: a pick that gives them (`pickOf`), or lines typed. Lines inserted where a pick meets unchanged
+    lines go to the unchanged lines. The state is kept only when it writes the file again byte for byte, and the
+    conversion back gives the file; otherwise the merge opens as before (`MATCHES` while the markers count the same,
+    else `DIFFERENT`). A file without markers still gets the No conflict markers panel.
+  - Unsaved changes: `ConflictResolverViewModel.hasUnsavedChanges` counts typing that isn't finished. Closing the tab
+    (`AppViewModel.closeTab`, through `RepositoryTabViewModel.whenConflictResolverLeft`), the worktree picker's switch
+    and opening another repository in the tab ask in the resolver's strip first (`ResolverLeave.Then`). Quitting Leaf
+    doesn't ask: nothing in Leaf does.
+  - Tests: `ResolverEditingTest` (domain), `ResolverEditingBytesTest` (data: 2,000 random merges, CRLF and ISO-8859-1
+    included, where editing a part without changing it writes the same file, and 2,000 random saved states, which
+    come back from their bytes), the saved files in `GetConflictedFileGitActionTest` (`core.autocrlf` included), and
+    the editing tests in `ConflictResolverTest`. The view model, with the keys, was run against a real repository in a temporary harness.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,

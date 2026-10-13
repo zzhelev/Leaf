@@ -121,7 +121,17 @@ class AppViewModel @Inject constructor(
         appSettingsRepository.latestRepositoryTabSelected = tabs.value.indexOf(tab)
     }
 
-    fun closeTab(tab: TabInformation<RepositoryTabViewModel>) = viewModelScope.launch {
+    fun closeTab(tab: TabInformation<RepositoryTabViewModel>) {
+        // Fork-only: a conflict resolver with changes that aren't saved asks first, in its tab
+        if (tab.data.conflictResolverHasUnsavedChanges) {
+            selectTab(tab)
+            tab.data.whenConflictResolverLeft { closeTabNow(tab) }
+        } else {
+            closeTabNow(tab)
+        }
+    }
+
+    private fun closeTabNow(tab: TabInformation<RepositoryTabViewModel>) = viewModelScope.launch {
         val tabsList = tabs.value.toMutableList()
         var newCurrentTab: TabInformation<RepositoryTabViewModel>? = null
 

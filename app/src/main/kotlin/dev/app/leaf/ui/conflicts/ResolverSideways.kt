@@ -61,16 +61,21 @@ private val LineEndMargin = 24.dp
 /**
  * Where the resolver's lines are scrolled to sideways while they don't wrap: one offset for every column of both
  * layouts, as Meld keeps its panes in step. A column with shorter lines scrolls into blank space. [max] lets the longest
- * line of the file reach its end in the narrowest column ([viewport]), both in pixels.
+ * line of the file, or of the lines being typed ([editorWidth]), reach its end in the narrowest column ([viewport]),
+ * all in pixels.
  */
 @Stable
 class SidewaysScroll {
     var offset by mutableFloatStateOf(0f)
         private set
-    var max by mutableFloatStateOf(0f)
-        private set
     var viewport by mutableFloatStateOf(0f)
         private set
+    private var contentWidth by mutableFloatStateOf(0f)
+
+    /** The longest line in the text field of the part being edited, with the margin after it, or 0. */
+    var editorWidth by mutableFloatStateOf(0f)
+
+    val max: Float get() = (maxOf(contentWidth, editorWidth) - viewport).coerceAtLeast(0f)
 
     fun scrollBy(delta: Float) = scrollTo(offset + delta)
 
@@ -81,7 +86,7 @@ class SidewaysScroll {
     /** The longest line is [contentWidth] wide, and the narrowest column shows [viewport] of it. */
     fun fit(contentWidth: Float, viewport: Float) {
         this.viewport = viewport.coerceAtLeast(0f)
-        max = (contentWidth - viewport).coerceAtLeast(0f)
+        this.contentWidth = contentWidth
         offset = offset.coerceIn(0f, max)
     }
 }
