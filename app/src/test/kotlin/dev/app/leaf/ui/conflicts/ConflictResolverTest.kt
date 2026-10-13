@@ -47,18 +47,22 @@ import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.viewmodels.ConflictResolverState
 import dev.app.leaf.viewmodels.ResolverFile
 import dev.app.leaf.viewmodels.ResolverFileEntry
+import dev.app.leaf.viewmodels.ResolverHandOff
 import dev.app.leaf.viewmodels.ResolverLeave
 import dev.app.leaf.viewmodels.ResolverPrompt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.swing.Swing
 import org.eclipse.jgit.diff.RawText
+import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
+import kotlin.math.abs
 
 /** The resolver's view, rendered offscreen from a state, without its view model. */
 class ConflictResolverTest {
@@ -619,6 +623,159 @@ class ConflictResolverTest {
     }
 
     @Test
+    fun `a resolved file stays, read-only but scrolling, with a strip that opens the next file`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            // Enough lines after the conflict for the list to scroll
+            val after = (1..80).map { "line $it" }.toTypedArray()
+            val long = TextMerge(
+                text("a", "base", *after),
+                text("a", "ours", *after),
+                text("a", "theirs", *after),
+                listOf(
+                    Chunk.Unchanged(lines(0, 1), lines(0, 1), lines(0, 1)),
+                    Chunk.Conflict(lines(1, 2), lines(1, 2), lines(1, 2)),
+                    Chunk.Unchanged(lines(2, 82), lines(2, 82), lines(2, 82)),
+                ),
+            )
+            val guide = StatusEntry("docs/guide.md", StatusType.CONFLICTING)
+            val handOff = ResolverHandOff(from = entry.filePath, resolvedHere = true, next = "docs/guide.md")
+            val resolved = state(long).copy(
+                files = listOf(ResolverFileEntry(guide, resolvedHere = false), ResolverFileEntry(entry, resolvedHere = true)),
+                handOff = handOff,
+            )
+            var next = 0
+            val taken = mutableListOf<Int>()
+            val picks = PickActions(onTake = { chunk, _ -> taken += chunk }, { _, _ -> }, { _, _ -> })
+            val lists = ResolverLists()
+            val shortcut = if (currentOs == OS.MAC) "⌘⏎" else "Ctrl+Enter"
+
+            scene(lists, actions = actions(picks = picks, onNextFile = { next++ })) { resolved }.closing { scene ->
+                // Dimmed: the first frame comes before the animation, and the file then stands out much less from the
+                // background
+                scene.frames(count = 1)
+                val full = scene.contrastInFile()
+                scene.frames(count = 30)
+                val dimmed = scene.contrastInFile()
+                assertTrue(dimmed < 0.6 * full, "$dimmed of $full")
+
+                assertTrue(scene.placesOf("src/ConfigLoader.kt is resolved and staged.").isNotEmpty())
+                assertTrue(scene.placesOf("Resolved").isNotEmpty())
+                // Nothing left to save or resolve
+                assertTrue(scene.placesOf("Save").isEmpty())
+                assertTrue(scene.placesOf("Mark resolved").isEmpty())
+                assertTrue(scene.placesOf("External merge tool…").isEmpty())
+
+                // The arrows take no clicks, and the list still scrolls
+                val arrow = scene.nodes().first { node ->
+                    node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().any { it.startsWith("Take ours") }
+                }
+                scene.press(arrow.boundsInRoot.center)
+                scene.release(arrow.boundsInRoot.center)
+                scene.frames()
+                assertEquals(emptyList<Int>(), taken)
+
+                val top = lists.columns.firstVisibleItemIndex
+                scene.sendPointerEvent(PointerEventType.Scroll, Offset(700f, 300f), scrollDelta = Offset(0f, 3f))
+                scene.frames()
+                assertTrue(lists.columns.firstVisibleItemIndex > top, "${lists.columns.firstVisibleItemIndex}")
+
+                scene.clickText("Next file: docs/guide.md ($shortcut)")
+                assertEquals(1, next)
+
+            }
+
+            // Resolved outside the resolver
+            assertTrue(
+                "src/ConfigLoader.kt has no conflicts any more." in
+                    render(resolved.copy(handOff = handOff.copy(resolvedHere = false))).texts
+            )
+
+            // Once another file is shown, it's about nothing on screen
+            val other = render(resolved.copy(handOff = handOff.copy(from = "README.md"))).texts
+            assertTrue(other.none { it.endsWith("is resolved and staged.") }, "$other")
+            assertTrue("Mark resolved" in other, "$other")
+        }
+
+    @Test
+    fun `in Focus, the toolbar counts the files, those resolved here first`(): Unit = runBlocking(Dispatchers.Swing) {
+        val files = listOf(
+            ResolverFileEntry(entry, resolvedHere = false),
+            ResolverFileEntry(StatusEntry("docs/guide.md", StatusType.CONFLICTING), resolvedHere = false),
+            ResolverFileEntry(StatusEntry("README.md", StatusType.CONFLICTING), resolvedHere = true),
+        )
+
+        assertTrue("2 of 3 files" in render(state().copy(files = files, focused = true)).texts)
+        // Once the file shown is resolved, it's the last of those resolved here
+        val resolved = state().copy(
+            files = listOf(files[1], files[2], ResolverFileEntry(entry, resolvedHere = true)),
+            focused = true,
+            handOff = ResolverHandOff(from = entry.filePath, resolvedHere = true, next = "docs/guide.md"),
+        )
+        assertTrue("2 of 3 files" in render(resolved).texts)
+        assertTrue("1 of 2 files" in render(resolved.copy(files = listOf(files[1], ResolverFileEntry(entry, true)))).texts)
+        // The file list shows them outside Focus, and one file needs no count
+        assertTrue(render(state().copy(files = files)).texts.none { it.endsWith(" files") })
+        assertTrue(render(state().copy(focused = true)).texts.none { it.endsWith(" files") })
+    }
+
+    @Test
+    fun `while the next file loads, the last one stays, takes no clicks, and fades into the next`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val taken = mutableListOf<Pair<Int, ConflictSide>>()
+            val picks = PickActions(onTake = { chunk, side -> taken += chunk to side }, { _, _ -> }, { _, _ -> })
+            var current by mutableStateOf(state())
+
+            scene(ResolverLists(), actions = actions(picks = picks)) { current }.closing { scene ->
+                scene.frames()
+
+                fun clickTakeOurs() {
+                    val arrow = scene.nodes().first { node ->
+                        node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+                            .any { it.startsWith("Take ours") }
+                    }
+                    val at = arrow.boundsInRoot.center
+                    scene.press(at)
+                    scene.release(at)
+                    scene.frames(count = 2)
+                }
+
+                clickTakeOurs()
+                assertEquals(1, taken.size)
+
+                assertTrue(scene.coloursInFile() > 1)
+
+                current = current.copy(file = ResolverFile.Loading("docs/guide.md"))
+                scene.frames(count = 2)
+
+                // No "Loading…" flash: the last file stays, under a cover that takes the pointer
+                assertTrue(scene.placesOf("Loading…").isEmpty())
+                assertTrue(scene.placesOf("Ours: main").isNotEmpty())
+                clickTakeOurs()
+                assertEquals(1, taken.size)
+
+                // It fades out
+                scene.frames()
+                assertEquals(1, scene.coloursInFile())
+
+                // A load that takes long enough to notice says so
+                delay(600)
+                scene.frames()
+                assertTrue(scene.placesOf("Loading…").isNotEmpty())
+
+                val guide = (state().file as ResolverFile.Loaded).let { loaded ->
+                    loaded.copy(file = loaded.file.copy(path = "docs/guide.md"))
+                }
+                current = current.copy(file = guide)
+                scene.frames(count = 30)
+
+                assertTrue(scene.placesOf("Loading…").isEmpty())
+                assertTrue(scene.coloursInFile() > 1)
+                clickTakeOurs()
+                assertEquals(2, taken.size)
+            }
+        }
+
+    @Test
     fun `Focus's shortcut is Shift and F with Cmd on macOS, and with Ctrl elsewhere`() {
         val mac = currentOs == OS.MAC
 
@@ -668,6 +825,7 @@ class ConflictResolverTest {
         onToggleWrapLines: () -> Unit = {},
         onToggleFocus: () -> Unit = {},
         onSelectFile: (String) -> Unit = {},
+        onNextFile: () -> Unit = {},
     ) = ResolverActions(
         onClose = {},
         onSelectFile = onSelectFile,
@@ -689,6 +847,7 @@ class ConflictResolverTest {
         onAnswerUnsaved = onAnswerUnsaved,
         onReload = {},
         onDismissPrompt = {},
+        onNextFile = onNextFile,
         picks = picks,
     )
 
@@ -751,6 +910,39 @@ class ConflictResolverTest {
     private fun ImageComposeScene.placesOf(text: String): List<Rect> = nodes()
         .filter { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text } }
         .map { Rect(it.positionInRoot, it.size.toSize()) }
+
+    /**
+     * How many colours the file's part of the view has, right of the file list and under the toolbar, every 4 px: one
+     * while it's faded out.
+     */
+    private fun ImageComposeScene.coloursInFile(): Int {
+        val bitmap = Bitmap.makeFromImage(render(frameTime))
+        val colours = mutableSetOf<Int>()
+
+        for (x in 400 until 1380 step 4) {
+            for (y in 100 until 560 step 4) {
+                colours += bitmap.getColor(x, y)
+            }
+        }
+
+        return colours.size
+    }
+
+    /**
+     * How far the file's part of the view stands out from its background: the pixels' average distance from the most
+     * common colour, every 4 px, over the same part as [coloursInFile].
+     */
+    private fun ImageComposeScene.contrastInFile(): Double {
+        val bitmap = Bitmap.makeFromImage(render(frameTime))
+        val pixels = (400 until 1380 step 4).flatMap { x -> (100 until 560 step 4).map { y -> bitmap.getColor(x, y) } }
+        val background = pixels.groupingBy { it }.eachCount().maxBy { it.value }.key
+
+        fun distance(colour: Int) = (0..2).sumOf { channel ->
+            abs((colour shr (8 * channel) and 0xFF) - (background shr (8 * channel) and 0xFF))
+        }
+
+        return pixels.sumOf { distance(it) }.toDouble() / pixels.size
+    }
 
     private var eventTime = 0L
 

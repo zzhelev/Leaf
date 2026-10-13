@@ -49,8 +49,8 @@ import javax.inject.Singleton
  * as file history is.
  *
  * The list follows the status: a file that stops being conflicted, because it was marked resolved here or resolved
- * elsewhere, gets a ✓ (if it was resolved here) and the next one opens. When none is left, the view says so, or closes
- * when nothing was resolved here.
+ * elsewhere, gets a ✓ (if it was resolved here), and the view stays on it, read-only, until the user opens the next one
+ * ([nextFile]). When none is left, the view says so, or closes when nothing was resolved here.
  */
 class ConflictResolverViewModel @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
@@ -140,7 +140,8 @@ class ConflictResolverViewModel @Inject constructor(
     }
 
     private fun leave(leave: ResolverLeave) {
-        if (state.value.file.hasUnsavedChanges) {
+        // A resolved file was written and staged: its picks have nowhere left to go
+        if (state.value.file.hasUnsavedChanges && !paused) {
             state.update { it.copy(prompt = ResolverPrompt.UnsavedChanges(leave)) }
         } else {
             go(leave)
@@ -169,6 +170,16 @@ class ConflictResolverViewModel @Inject constructor(
         state.update { it.copy(prompt = null) }
     }
 
+    /** After a file was resolved: opens the next conflicted file (the strip's button, or Cmd+Enter again). */
+    fun nextFile() {
+        val handOff = state.value.handOff ?: return
+
+        load(handOff.next)
+    }
+
+    /** The shown file has no conflicts any more, and the view waits for [nextFile]: it's read-only. */
+    private val paused: Boolean get() = state.value.handOff != null
+
     // Picks
 
     /** A side's arrow on [chunk]'s conflict: takes that side, or adds it after the other side's lines. */
@@ -193,6 +204,10 @@ class ConflictResolverViewModel @Inject constructor(
         state.update { state ->
             val file = state.file as? ResolverFile.Loaded ?: return@update state
             val merge = file.merge ?: return@update state
+
+            if (state.handOff != null) {
+                return@update state
+            }
 
             state.copy(file = file.copy(merge = change(merge)))
         }
@@ -283,6 +298,10 @@ class ConflictResolverViewModel @Inject constructor(
         val file = state.value.file as? ResolverFile.Loaded ?: return
         val merge = file.merge ?: return
 
+        if (paused) {
+            return
+        }
+
         viewModelScope.launch {
             when (val result = saveConflictResolutionUseCase(file.file, merge, overwriteChanges)) {
                 is Either.Ok -> {
@@ -304,8 +323,12 @@ class ConflictResolverViewModel @Inject constructor(
         }
     }
 
-    /** Saves and stages the file, once no conflict is open, then opens the next one. */
+    /** Saves and stages the file, once no conflict is open. Once it's resolved, opens the next one. */
     fun markResolved(overwriteChanges: Boolean = false) {
+        if (paused) {
+            return nextFile()
+        }
+
         val file = state.value.file as? ResolverFile.Loaded ?: return
         val merge = file.merge ?: return
 
@@ -328,14 +351,14 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** A file without conflict markers: stages it as it is. */
     fun markResolvedAsItIs() {
-        val path = state.value.file.path ?: return
+        val path = state.value.file.path?.takeUnless { paused } ?: return
 
         markResolvedHere(path)
         statusStageUseCase(StatusEntry(path, StatusType.CONFLICTING))
     }
 
     /** A file without conflict markers: shows the merge, which Save writes over the file. */
-    fun resolveAgain() = updateLoaded { it.copy(resolveAgain = true) }
+    fun resolveAgain() = updateLoaded { if (paused) it else it.copy(resolveAgain = true) }
 
     /** Loads the file again, dropping the picks. */
     fun reload() {
@@ -347,7 +370,7 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** A conflict that three panes can't show: takes [side]'s version (asked for first by the view). */
     fun useSide(side: ConflictSide) {
-        val path = state.value.file.path ?: return
+        val path = state.value.file.path?.takeUnless { paused } ?: return
 
         markResolvedHere(path)
         resolveConflictUseCase(listOf(path), side)
@@ -355,7 +378,7 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** Hands the file to the external merge tool. It's loaded again when the tool is done. */
     fun openInExternalTool() {
-        val path = state.value.file.path ?: return
+        val path = state.value.file.path?.takeUnless { paused } ?: return
 
         inExternalTool = path
         openMergeToolUseCase(path)
@@ -391,7 +414,7 @@ class ConflictResolverViewModel @Inject constructor(
 
     private fun load(path: String) {
         loadJob?.cancel()
-        state.update { it.copy(file = ResolverFile.Loading(path), currentConflict = 0, prompt = null) }
+        state.update { it.copy(file = ResolverFile.Loading(path), currentConflict = 0, prompt = null, handOff = null) }
 
         loadJob = viewModelScope.launch {
             val file = when (val result = getConflictedFileUseCase(path)) {
@@ -425,8 +448,21 @@ class ConflictResolverViewModel @Inject constructor(
 
         when (val next = afterStatus(shown, conflicted.map { it.filePath }, resolvedHere.isNotEmpty(), returnedFromTool)) {
             AfterStatus.Stay -> Unit
+
             is AfterStatus.Load -> load(next.path)
-            AfterStatus.Done -> state.update { it.copy(file = ResolverFile.None, done = true) }
+
+            // The view stays on the file, resolved, until the user opens the next one
+            is AfterStatus.Resolved -> {
+                val handOff = ResolverHandOff(
+                    from = shown ?: return,
+                    resolvedHere = resolvedHere.any { it.filePath == shown },
+                    next = next.next,
+                )
+
+                state.update { it.copy(handOff = handOff) }
+            }
+
+            AfterStatus.Done -> state.update { it.copy(file = ResolverFile.None, done = true, handOff = null) }
             AfterStatus.Close -> closeNow()
         }
     }
@@ -458,16 +494,20 @@ internal sealed interface AfterStatus {
     data object Stay : AfterStatus
     data class Load(val path: String) : AfterStatus
 
+    /** The file shown has no conflicts any more: it stays until the user opens [next], the first conflicted file. */
+    data class Resolved(val next: String) : AfterStatus
+
     /** Every conflicted file was resolved, some of them here: the view says so. */
     data object Done : AfterStatus
     data object Close : AfterStatus
 }
 
 /**
- * What the view does when the status lists the [conflicted] files: it opens the first one when it shows none, and moves
- * on from [shown] once that has no conflicts (resolved here or elsewhere, or the operation was aborted). When none is
- * left, it says so if something was [resolvedHere], and closes otherwise. A file back from the external merge tool is
- * loaded again ([returnedFromTool]), as the tool may have changed it.
+ * What the view does when the status lists the [conflicted] files: it opens the first one when it shows none, and stays
+ * on [shown], resolved, once that has no conflicts (resolved here or elsewhere), with the first conflicted file next.
+ * When none is left (all resolved, or the operation was aborted), it says so if something was [resolvedHere], and closes
+ * otherwise. A file back from the external merge tool is loaded again ([returnedFromTool]), as the tool may have
+ * changed it.
  */
 internal fun afterStatus(
     shown: String?,
@@ -477,10 +517,17 @@ internal fun afterStatus(
 ): AfterStatus = when {
     shown == null -> conflicted.firstOrNull()?.let { AfterStatus.Load(it) } ?: AfterStatus.Stay
     shown in conflicted -> if (returnedFromTool) AfterStatus.Load(shown) else AfterStatus.Stay
-    conflicted.isNotEmpty() -> AfterStatus.Load(conflicted.first())
+    conflicted.isNotEmpty() -> AfterStatus.Resolved(next = conflicted.first())
     resolvedHere -> AfterStatus.Done
     else -> AfterStatus.Close
 }
+
+/**
+ * The file shown, [from], has no conflicts any more: [resolvedHere] if it was marked resolved here (or a side was taken
+ * for it), else something outside the resolver resolved it. The view stays on it, read-only, with a strip that says so,
+ * until the user opens [next].
+ */
+data class ResolverHandOff(val from: String, val resolvedHere: Boolean, val next: String)
 
 /** Where the user goes from a file: the view closes, or another file opens. */
 sealed interface ResolverLeave {
@@ -508,6 +555,8 @@ data class ConflictResolverState(
     /** The current conflict, among the file's conflicts. */
     val currentConflict: Int = 0,
     val prompt: ResolverPrompt? = null,
+    /** The file shown was resolved, and the view waits to open the next one. */
+    val handOff: ResolverHandOff? = null,
     /** Every conflicted file was resolved. */
     val done: Boolean = false,
 )

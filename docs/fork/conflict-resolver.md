@@ -140,8 +140,18 @@ don't pair up, where rerere gives up on the file: that's "fewer or more conflict
     (`NotAFile`). A file that was deleted is written again, executable when its side is.
   - Mark resolved (`MarkConflictResolvedUseCase`) is refused while a conflict is open (`ConflictsLeft`), then saves
     and stages the file with `StageEntryGitAction`, and refreshes the status.
-- After Mark resolved, the resolver moves to the next conflicted file. After the last one, it says so and offers to go
-  back to the status pane, where Commit and Continue are.
+- After Mark resolved, the file stays on screen, resolved: dimmed and read-only (it still scrolls), with "✓ Resolved"
+  in the toolbar in place of Save and Mark resolved, and a strip, "a.kt is resolved and staged.", with "Next file: b.kt
+  (⌘⏎)". The button, or Mark resolved's keys again, opens the next conflicted file. After the last one, the resolver
+  says so and offers to go back to the status pane, where Commit and Continue are.
+  - A file that something else resolved (a terminal, an agent, the external merge tool) waits the same way: "a.kt has
+    no conflicts any more."
+  - The file list, and the file menu in Focus, still open any file at once.
+  - Opening the next file keeps the last one on screen while it loads, fading out, with clicks going nowhere, and fades
+    the next one in. "Loading…" only shows over it when the load takes over 400 ms.
+  - Asked for on 2026-10-12 and 13: the resolver used to move on by itself, and in Focus, without the file list, the
+    move was a blink of "Loading…". A strip naming the next file didn't help: the files still changed too fast to
+    follow. IntelliJ's and VS Code's merge tools wait for the user too.
 - **Changes from outside while it's open:**
   - closing it, switching files, switching the tab's worktree or closing the tab with unsaved changes asks: Save,
     Discard or Cancel;
@@ -332,7 +342,7 @@ the repository; the sketches below show the layouts.
   - It hides Leaf's tab bar, the repository's toolbar, the operation banner, the bottom bar and the file list. The
     resolver's toolbar and legend stay, so Save, Mark resolved, the conflict counter and the way back are still there,
     and the file name in the toolbar becomes a menu of the conflicted files (`FileMenu`), with a check on the ones
-    resolved here, which can't be opened again.
+    resolved here, which can't be opened again. Next to it, "2 of 3 files" counts them, those resolved here first.
   - The button at the right end of the toolbar, or ⇧⌘F (Ctrl+Shift+F on Windows and Linux; macOS's own full screen
     is ⌃⌘F), turns it on and off. Esc leaves Focus first, and a second Esc closes the resolver, as video players do
     with full screen.

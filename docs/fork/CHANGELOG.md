@@ -2,6 +2,42 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver waits after Mark resolved (branch `claude/resolver-model-f2582e`)
+
+- **Before:** Mark resolved opened the next conflicted file at once. The view showed "Loading…" for a moment, then the
+  next file, and nothing said that it had moved on, or to which file. In Focus, without the file list, that was a
+  blink.
+- **Now:**
+  - The resolved file stays, dimmed and read-only (it still scrolls), with "✓ Resolved" in the toolbar in place of
+    Save and Mark resolved. A strip says "src/OrderService.kt is resolved and staged." and has "Next file:
+    docs/guide.md (⌘⏎)". The button, or ⌘⏎ again, opens it. After the last file, "All conflicts resolved" shows as
+    before.
+  - A file that something else resolved (a terminal, an agent, the external merge tool) waits the same way: it "has no
+    conflicts any more".
+  - Opening the next file keeps the last one on screen while it loads, fading out, with clicks going nowhere, and fades
+    the next one in (90 and 210 ms). A load that takes over 400 ms says "Loading…" over it.
+  - In Focus, "1 of 3 files" next to the file menu counts the files, those resolved here first.
+  - A first try moved on by itself, with a strip naming the file it moved to. In the user's manual run the files still
+    changed too fast to follow, so the resolver now waits, as IntelliJ's and VS Code's merge tools do.
+- **Tests:** 3 new in `ConflictResolverTest`, and one changed in `ConflictResolverStatusTest`.
+  - A resolved file: the strip and its two wordings, "Resolved", no Save, Mark resolved or External merge tool, no
+    clicks on the arrows while the list still scrolls, the Next file button, and the dimming, from the pixels'
+    contrast before and after it. None of it once another file shows.
+  - The counter in Focus only, and not for one file, before and after the file shown is resolved.
+  - The next file's load, which keeps the last file on screen with its clicks going nowhere, fades it out and the next
+    one in (checked by the pixels' colours), and says "Loading…" only after a while.
+  - `afterStatus` gives `Resolved` with the first conflicted file next, in place of opening it.
+  - **Mutation check:** 14 mutations of the pause, the strip, the counter and the fades, all caught. An earlier round
+    on the loading cover (5 more) caught all but the cover's `consume()`, which changes nothing: the file under the
+    cover gets none of its events anyway. The fades were only caught once the tests read pixels, as the semantics tree
+    has no opacity.
+  - A temporary harness ran the view model from the real Dagger graph on a demo repository with two conflicted files:
+    in Focus, picking every conflict and Mark resolved left the file on screen with the strip, "Resolved" and "1 of 2
+    files", a pick then changed nothing, and Mark resolved again opened the next file. The view model's guards
+    (picks, Save and leaving while paused) were only checked there, as its use cases are final classes that MockK
+    can't mock.
+  - `:app:test` passes, with 190 tests.
+
 ## Closing the conflict resolver keeps the shortcuts working (branch `claude/resolver-model-f2582e`)
 
 - **Before:** the resolver takes the focus when it opens, for its own keys (F7, Cmd+Enter, ⇧⌘F). Once it closed, by

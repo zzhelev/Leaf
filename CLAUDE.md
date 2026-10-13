@@ -520,9 +520,18 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
   - The rows come from `columnRows` (`domain/conflicts/ResolverColumns.kt`): one `ColumnRow` per line of a chunk's
     tallest column, fillers in the others, the gutters' buttons on its first row. `arrowFor` and `taking` are the
     arrows: ▶ and ◀ take a side; once one is taken, the other side's adds after it.
-  - The view model follows the status (`afterStatus`): the next file opens when the shown one stops being conflicted,
-    and the view says "All conflicts resolved", or closes when nothing was resolved here. Leaving a file with unsaved
+  - The view model follows the status (`afterStatus`): it stays on the shown file once that stops being conflicted,
+    until the user opens the next one (below), and says "All conflicts resolved" when none is left, or closes when
+    nothing was resolved here. Leaving a file with unsaved
     picks asks in a strip (`ResolverPrompt`). Save's `WorkingFileChanged` gives Reload or Keep mine.
+  - A shown file that stops being conflicted gives `AfterStatus.Resolved(next)`, and the view model sets
+    `ConflictResolverState.handOff`. The view dims the file (`PAUSED_ALPHA`), which scrolls but takes no clicks
+    (`takingNoClicks` consumes presses in `PointerEventPass.Initial`), shows "✓ Resolved" in place of Save and Mark
+    resolved, and `HandOffStrip` has "Next file". `nextFile`, or `markResolved` again (Cmd+Enter), loads it. While
+    paused, picks, Save and the panels' actions do nothing, and leaving doesn't ask about unsaved picks: the file was
+    written and staged.
+  - While the next file loads, the view keeps the last one (`LastLoaded`), fading it out under `LoadingCover`, which
+    takes the pointer and says "Loading…" after 400 ms; the next one fades in.
   - Keys: the tab's handler sends Cmd+S (Stash elsewhere) and Esc to the resolver while it shows; the view handles
     Cmd+Enter (Mark resolved) and F7 / Shift+F7 itself, so `Keybinding.kt` is unchanged. The view takes the focus when
     it opens, so `RepositoryOpenPage` gives it back to the tab whenever `showConflictResolver` turns false, however the
@@ -562,7 +571,8 @@ actions, and the read-only views, Columns (ours | result | theirs) and Stacked (
 - **Focus:** the toolbar's last button and ⇧⌘F (Ctrl+Shift+F elsewhere, `isFocusShortcut`) hide everything around the
   resolver: `RepositoryOpenPage` leaves out its toolbar (`Menu`), the operation banner and the bottom bar, and hides
   `App`'s tab bar through the fork-only `LocalAppChrome` (`ui/AppChrome.kt`, a flag that `App.AppTabs` reads). The
-  resolver hides its file list, and the toolbar's file name becomes a menu of the files (`FileMenu`). Esc goes to
+  resolver hides its file list, and the toolbar's file name becomes a menu of the files (`FileMenu`), followed by
+  "2 of 3 files" (`FileCounter`, the files resolved here first). Esc goes to
   `ConflictResolverViewModel.escape`, which leaves Focus before closing. Kept in `ConflictResolverSession`.
   - Semantics actions run even on a disabled item, so tests check `SemanticsProperties.Disabled` rather than clicking
     it. A clickable node merges its children's text into its own config in the merged tree that `semanticsOwners`

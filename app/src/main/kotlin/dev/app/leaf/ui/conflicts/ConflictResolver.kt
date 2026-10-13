@@ -3,6 +3,8 @@
 
 package dev.app.leaf.ui.conflicts
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
@@ -39,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -52,6 +55,9 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,7 +102,9 @@ import dev.app.leaf.viewmodels.ConflictResolverState
 import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import dev.app.leaf.viewmodels.ResolverFile
 import dev.app.leaf.viewmodels.ResolverFileEntry
+import dev.app.leaf.viewmodels.ResolverHandOff
 import dev.app.leaf.viewmodels.ResolverPrompt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import org.jetbrains.compose.resources.DrawableResource
@@ -146,6 +154,7 @@ fun ConflictResolver(
             onAnswerUnsaved = viewModel::answerUnsavedChanges,
             onReload = viewModel::reload,
             onDismissPrompt = viewModel::dismissPrompt,
+            onNextFile = viewModel::nextFile,
             picks = PickActions(
                 onTake = { chunk, side ->
                     viewModel.take(chunk, side)
@@ -214,6 +223,8 @@ class ResolverActions(
     val onAnswerUnsaved: (save: Boolean?) -> Unit,
     val onReload: () -> Unit,
     val onDismissPrompt: () -> Unit,
+    /** Opens the next conflicted file, once the file shown was resolved. */
+    val onNextFile: () -> Unit,
     val picks: PickActions,
 )
 
@@ -228,14 +239,38 @@ fun ConflictResolverContent(
     scrollToChunk: Flow<Int> = emptyFlow(),
 ) {
     val file = state.file as? ResolverFile.Loaded
-    val merge = file?.merge?.takeUnless { file.workingFileState == WorkingFileState.NO_MARKERS && !file.resolveAgain }
+    // The last file loaded stays while the next one loads, fading out, so that moving on doesn't flash "Loading…"
+    val lastLoaded = remember { LastLoaded() }.apply { follow(state.file) }
+    val loadingNext = state.file is ResolverFile.Loading && lastLoaded.file != null
+    val shownFile = file ?: lastLoaded.file.takeIf { loadingNext }
+    val merge = shownFile?.merge?.takeUnless {
+        shownFile.workingFileState == WorkingFileState.NO_MARKERS && !shownFile.resolveAgain
+    }
     val entry = state.files.firstOrNull { it.entry.filePath == state.file.path }?.entry
+    val shownEntry = state.files.firstOrNull { it.entry.filePath == shownFile?.path }?.entry
     val shown = remember { ShownPlace() }
+    // The file shown was resolved: it stays, dimmed and read-only, until the next one is opened
+    val handOff = state.handOff?.takeIf { it.from == state.file.path }
+    val paused = handOff != null
+    val fade = remember { Animatable(1f) }
+
+    LaunchedEffect(loadingNext, paused) {
+        when {
+            loadingNext -> fade.animateTo(0f, tween(FADE_OUT_MILLIS))
+            paused -> fade.animateTo(PAUSED_ALPHA, tween(FADE_IN_MILLIS))
+            else -> fade.animateTo(1f, tween(FADE_IN_MILLIS))
+        }
+    }
+
     // A copy while the file list's edge is dragged; the view model gets the width when the drag ends
     var fileListWidth by remember(state.fileListWidth) { mutableFloatStateOf(state.fileListWidth) }
 
     Column(modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
-        Toolbar(state, file, merge, entry, actions)
+        Toolbar(state, file, merge.takeIf { file != null }, entry, paused, actions)
+
+        if (handOff != null) {
+            HandOffStrip(handOff, actions.onNextFile)
+        }
 
         state.prompt?.let { Prompt(it, state.file.path.orEmpty(), actions) }
 
@@ -254,58 +289,81 @@ fun ConflictResolverContent(
             }
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                when {
-                    state.done -> AllResolved(actions.onClose)
-                    state.file is ResolverFile.Loading -> Message(stringResource(Res.string.conflict_resolver_loading))
-                    state.file is ResolverFile.Failed -> Message(state.file.error.getErrorText())
-                    file == null -> Message(stringResource(Res.string.conflict_resolver_nothing))
-                    file.file.content !is ConflictContent.Text -> ChoicePanel(file.file, entry, actions)
-                    merge == null -> NoMarkersPanel(file.file.path, actions)
-                    else -> Column {
-                        if (file.workingFileState == WorkingFileState.DIFFERENT) {
-                            DifferentMarkersStrip(file.file)
-                        }
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }.takingNoClicks(paused)) {
+                    FileView(state, shownFile, merge, shownEntry, lists, shown, scrollToChunk, actions)
+                }
 
-                        val conflicts = remember(merge) { merge.conflictChunks() }
-                        val layout = state.layout
-                        val currentMerge by rememberUpdatedState(merge)
-                        val showBase by rememberUpdatedState(state.showBase)
-
-                        // Opens a file at its first conflict, and keeps the place when the layout changes
-                        LaunchedEffect(file.file.path, layout) {
-                            val previous = shown.layout.takeIf { shown.path == file.file.path }
-
-                            shown.path = file.file.path
-                            shown.layout = layout
-
-                            when (previous) {
-                                null -> {
-                                    lists.sideways.scrollTo(0f)
-                                    lists.show(currentMerge, layout, showBase, conflicts.firstOrNull(), false)
-                                }
-
-                                layout -> Unit
-                                else -> lists.keepPlace(currentMerge, showBase, from = previous, to = layout)
-                            }
-                        }
-
-                        LaunchedEffect(scrollToChunk, layout) {
-                            scrollToChunk.collect { chunk ->
-                                lists.show(currentMerge, layout, showBase, chunk, animate = true)
-                            }
-                        }
-
-                        // Lines that don't wrap scroll sideways together, in both layouts
-                        val sideways = if (state.wrapLines) null else lists.sideways
-
-                        CompositionLocalProvider(LocalSidewaysScroll provides sideways) {
-                            LayoutView(merge, file, conflicts, state, lists, actions, Modifier.weight(1f))
-                        }
-
-                        ResolverLegend(stacked = layout == ConflictResolverLayout.STACKED)
-                    }
+                if (loadingNext) {
+                    LoadingCover()
                 }
             }
+        }
+    }
+}
+
+/** The file that the view shows, or what it shows in its place, under the toolbar and right of the file list. */
+@Composable
+private fun FileView(
+    state: ConflictResolverState,
+    file: ResolverFile.Loaded?,
+    merge: TextMerge?,
+    entry: StatusEntry?,
+    lists: ResolverLists,
+    shown: ShownPlace,
+    scrollToChunk: Flow<Int>,
+    actions: ResolverActions,
+) {
+    when {
+        state.done -> AllResolved(actions.onClose)
+        file == null && state.file is ResolverFile.Loading ->
+            Message(stringResource(Res.string.conflict_resolver_loading))
+
+        state.file is ResolverFile.Failed -> Message(state.file.error.getErrorText())
+        file == null -> Message(stringResource(Res.string.conflict_resolver_nothing))
+        file.file.content !is ConflictContent.Text -> ChoicePanel(file.file, entry, actions)
+        merge == null -> NoMarkersPanel(file.file.path, actions)
+        else -> Column {
+            if (file.workingFileState == WorkingFileState.DIFFERENT) {
+                DifferentMarkersStrip(file.file)
+            }
+
+            val conflicts = remember(merge) { merge.conflictChunks() }
+            val layout = state.layout
+            val currentMerge by rememberUpdatedState(merge)
+            val showBase by rememberUpdatedState(state.showBase)
+
+            // Opens a file at its first conflict, and keeps the place when the layout changes
+            LaunchedEffect(file.file.path, layout) {
+                val previous = shown.layout.takeIf { shown.path == file.file.path }
+
+                shown.path = file.file.path
+                shown.layout = layout
+
+                when (previous) {
+                    null -> {
+                        lists.sideways.scrollTo(0f)
+                        lists.show(currentMerge, layout, showBase, conflicts.firstOrNull(), false)
+                    }
+
+                    layout -> Unit
+                    else -> lists.keepPlace(currentMerge, showBase, from = previous, to = layout)
+                }
+            }
+
+            LaunchedEffect(scrollToChunk, layout) {
+                scrollToChunk.collect { chunk ->
+                    lists.show(currentMerge, layout, showBase, chunk, animate = true)
+                }
+            }
+
+            // Lines that don't wrap scroll sideways together, in both layouts
+            val sideways = if (state.wrapLines) null else lists.sideways
+
+            CompositionLocalProvider(LocalSidewaysScroll provides sideways) {
+                LayoutView(merge, file, conflicts, state, lists, actions, Modifier.weight(1f))
+            }
+
+            ResolverLegend(stacked = layout == ConflictResolverLayout.STACKED)
         }
     }
 }
@@ -368,6 +426,8 @@ private fun Toolbar(
     file: ResolverFile.Loaded?,
     merge: TextMerge?,
     entry: StatusEntry?,
+    /** The file was resolved: it can't be saved or resolved again, and the strip under the toolbar moves on. */
+    paused: Boolean,
     actions: ResolverActions,
 ) {
     Row(
@@ -409,6 +469,14 @@ private fun Toolbar(
             )
         }
 
+        if (paused) {
+            ResolvedLabel()
+        }
+
+        if (state.focused) {
+            FileCounter(state.files, state.file.path)
+        }
+
         if (merge != null) {
             ConflictNavigation(merge, state.currentConflict, actions)
         }
@@ -433,7 +501,7 @@ private fun Toolbar(
             )
         }
 
-        if (entry?.canOpenInMergeTool == true && file != null) {
+        if (entry?.canOpenInMergeTool == true && file != null && !paused) {
             DelayedTooltip(stringResource(Res.string.conflict_resolver_external_tool_tooltip)) {
                 SecondaryButton(
                     text = stringResource(Res.string.conflict_resolver_external_tool),
@@ -444,7 +512,7 @@ private fun Toolbar(
             }
         }
 
-        if (merge != null) {
+        if (merge != null && !paused) {
             DelayedTooltip(stringResource(Res.string.conflict_resolver_save_tooltip)) {
                 SecondaryButton(
                     text = stringResource(Res.string.conflict_resolver_save),
@@ -520,6 +588,9 @@ private fun ToolbarIcon(icon: DrawableResource, description: String, toggled: Bo
         )
     }
 }
+
+/** Mark resolved's shortcut (`TEXT_ACCEPT`), as the platform writes it: ⌘⏎ on macOS, Ctrl+Enter elsewhere. */
+private fun acceptShortcut() = if (currentOs == OS.MAC) "⌘⏎" else "Ctrl+Enter"
 
 /** Focus's shortcut, as the platform writes it: ⇧⌘F on macOS, Ctrl+Shift+F elsewhere. */
 private fun focusShortcut() = if (currentOs == OS.MAC) "⇧⌘F" else "Ctrl+Shift+F"
@@ -785,8 +856,47 @@ private fun DifferentMarkersStrip(file: ConflictedFile) {
     ) {}
 }
 
+/**
+ * The file shown was resolved ([handOff]): the strip says so, and opens the next one, as Cmd+Enter (Mark resolved's
+ * shortcut) does again.
+ */
 @Composable
-private fun Strip(text: String, color: Color, buttons: @Composable () -> Unit) {
+private fun HandOffStrip(handOff: ResolverHandOff, onNextFile: () -> Unit) {
+    val text = if (handOff.resolvedHere) {
+        stringResource(Res.string.conflict_resolver_hand_off_resolved, handOff.from)
+    } else {
+        stringResource(Res.string.conflict_resolver_hand_off_elsewhere, handOff.from)
+    }
+
+    Strip(text = text, color = MaterialTheme.colors.addFile, icon = Res.drawable.check) {
+        PrimaryButton(
+            text = stringResource(Res.string.conflict_resolver_next_file, handOff.next, acceptShortcut()),
+            onClick = onNextFile,
+        )
+    }
+}
+
+/** After the file name, while the file shown is resolved and the view waits to open the next one. */
+@Composable
+private fun ResolvedLabel() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(
+            painter = painterResource(Res.drawable.check),
+            contentDescription = null,
+            tint = MaterialTheme.colors.addFile,
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            text = stringResource(Res.string.conflict_resolver_resolved),
+            style = MaterialTheme.typography.body2,
+            color = MaterialTheme.colors.addFile,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun Strip(text: String, color: Color, icon: DrawableResource? = null, buttons: @Composable () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -795,6 +905,10 @@ private fun Strip(text: String, color: Color, buttons: @Composable () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (icon != null) {
+            Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        }
+
         Text(
             text = text,
             style = MaterialTheme.typography.body2,
@@ -925,6 +1039,104 @@ private fun ChoicePanel(file: ConflictedFile, entry: StatusEntry?, actions: Reso
         }
     }
 }
+
+/**
+ * In Focus, next to the file menu: how far through the conflicted files the view is, as "2 of 3 files". The files
+ * resolved here come first, so [current] is the last of them once it's resolved, and the one after them before.
+ */
+@Composable
+private fun FileCounter(files: List<ResolverFileEntry>, current: String?) {
+    if (files.size < 2) {
+        return
+    }
+
+    val resolved = files.count { it.resolvedHere }
+    val currentResolved = files.any { it.resolvedHere && it.entry.filePath == current }
+    val number = (if (currentResolved) resolved else resolved + 1).coerceAtMost(files.size)
+
+    Text(
+        text = stringResource(Res.string.conflict_resolver_file_counter, number, files.size),
+        style = MaterialTheme.typography.body2,
+        color = MaterialTheme.colors.onBackgroundSecondary,
+        maxLines = 1,
+    )
+}
+
+/**
+ * Over the last file while the next one loads: it takes the pointer, as the picks would go nowhere, and says
+ * "Loading…" once the load takes long enough to notice.
+ */
+@Composable
+private fun LoadingCover() {
+    var slow by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(SLOW_LOAD_MILLIS)
+        slow = true
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                    }
+                }
+            },
+    ) {
+        if (slow) {
+            Message(stringResource(Res.string.conflict_resolver_loading))
+        }
+    }
+}
+
+/**
+ * While [paused], the file takes no clicks, as it was written and staged, but still scrolls: presses stop here, before
+ * the arrows and chips under it see them, and the wheel goes through.
+ */
+private fun Modifier.takingNoClicks(paused: Boolean): Modifier {
+    if (!paused) {
+        return this
+    }
+
+    return pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+
+                if (event.type == PointerEventType.Press) {
+                    event.changes.forEach { it.consume() }
+                }
+            }
+        }
+    }
+}
+
+/** The last file loaded: kept while the next one loads ([ResolverFile.Loading]), and dropped by anything else. */
+private class LastLoaded {
+    var file: ResolverFile.Loaded? = null
+        private set
+
+    fun follow(current: ResolverFile) {
+        when (current) {
+            is ResolverFile.Loaded -> file = current
+            is ResolverFile.Loading -> Unit
+            else -> file = null
+        }
+    }
+}
+
+/** How long the last file takes to fade out when the next one starts loading, and the next one to fade in. */
+private const val FADE_OUT_MILLIS = 90
+private const val FADE_IN_MILLIS = 210
+
+/** How much a resolved file shows while the view waits to open the next one. */
+private const val PAUSED_ALPHA = 0.35f
+
+/** A load that takes longer than this says "Loading…" over the faded file. */
+private const val SLOW_LOAD_MILLIS = 400L
 
 /**
  * The file and the layout that the lists last showed: another file opens at its first conflict, and another layout

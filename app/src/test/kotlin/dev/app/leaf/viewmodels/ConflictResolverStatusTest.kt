@@ -21,10 +21,10 @@ class ConflictResolverStatusTest {
     }
 
     @Test
-    fun `once the file has no conflicts, the first conflicted file opens`() {
-        assertEquals(AfterStatus.Load("a.kt"), afterStatus("b.kt", listOf("a.kt", "c.kt"), true, false))
+    fun `once the file has no conflicts, it stays, resolved, with the first conflicted file next`() {
+        assertEquals(AfterStatus.Resolved(next = "a.kt"), afterStatus("b.kt", listOf("a.kt", "c.kt"), true, false))
         // Resolved by the merge tool
-        assertEquals(AfterStatus.Load("a.kt"), afterStatus("b.kt", listOf("a.kt"), false, true))
+        assertEquals(AfterStatus.Resolved(next = "a.kt"), afterStatus("b.kt", listOf("a.kt"), false, true))
     }
 
     @Test
