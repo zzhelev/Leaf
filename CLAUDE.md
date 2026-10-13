@@ -528,6 +528,18 @@ result one part at a time, with one undo history.
   - `openConflict` follows Settings → Conflicts (`AppConfig.ConflictOpener`, `conflict_opener`, built-in by default):
     with the external tool picked, a file it can take (`canOpenInMergeTool`) in a repository with a tool
     (`GetMergeToolUseCase`, `readMergeToolConfig`) goes to `git mergetool`, anything else to the resolver.
+  - The banner's button follows the same setting (`conflictsToOpen`, `domain/conflicts/ConflictsToOpen.kt`, Phase 3.6):
+    with the external tool picked, every conflicted file that it can take goes to `git mergetool`, one after another
+    in path order, in one task (`OpenMergeToolUseCase.inTurn`, `TaskType.ResolveConflictsInMergeTool`), as
+    `git mergetool` goes through them in a terminal. The processing screen shows `<tool>: <path> (2 of 3)`.
+    - `resolveInTurn` skips a file that has no conflicts any more, or that the tool can't take, as the status was
+      older. Any other failure stops it, as `git mergetool` stops when it can't ask "Continue merging other unresolved
+      paths?": closing the tool without saving is how the user stops. `NotResolved` and `MarkersLeft` then carry how
+      many files it resolved before (`resolvedBefore`), which `ErrorDialog` says.
+    - The files that the tool can't take wait for the next click, which opens them in the resolver once none of the
+      files left can go to the tool.
+    - Tests: `ResolveInTurnTest`, `ConflictsToOpenTest` (domain), and `ResolvingConflictsInMergeToolTest`, which runs
+      the files that `conflictsToOpen` picks from a tab's status through a fake tool.
   - The rows come from `columnRows` (`domain/conflicts/ResolverColumns.kt`): one `ColumnRow` per line of a chunk's
     tallest column, fillers in the others, the gutters' buttons on its first row. `arrowFor` and `taking` are the
     arrows: ▶ and ◀ take a side; once one is taken, the other side's adds after it.

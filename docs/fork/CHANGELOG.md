@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The banner opens the merge tool on every conflicted file (branch `feat/worktree-mergetool`)
+
+Phase 3.6 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`. Most of it came with the conflict
+work of 2026-10-12: "Open in external merge tool" on one file, in its menu and the diff's conflict bar.
+
+- **Before:** with Settings → Conflicts on External merge tool, the banner's "Resolve conflicts" opened the tool on the
+  first conflicted file only. The next file took another click, after the status refreshed.
+- **Now:** it opens the tool on every conflicted file that the tool can take, one after another, in path order, as
+  `git mergetool` does in a terminal, in one task with Cancel. The processing screen says `meld: src/app.txt (2 of 3)`.
+  - Closing the tool without saving a file stops there, as `git mergetool` does when it can't ask whether to go on.
+    `ErrorDialog` names the file and how many files were resolved before it, and the next click starts again from it.
+  - Files that the tool can't take (a deletion, a symbolic link, a submodule, a name with `*`, `?` or `[`) wait for
+    the next click, which opens them in the built-in resolver. A file that something else resolved meanwhile is
+    skipped.
+  - With the built-in resolver picked, or no merge tool set, the button opens the resolver, as before.
+- **Kept as it was:** with no `merge.tool`, "Open in external merge tool" stays enabled, and a click explains in
+  `ErrorDialog` how to set one, with the command to copy. The design said disabled items with a tooltip.
+- **Tests:** 15 new.
+  - `:domain` (10): `ResolveInTurnTest`: the turns, the files skipped, and where it stops, with the count before;
+    `ConflictsToOpenTest`: what the banner opens with either setting, and once the tool can take none of the files.
+  - `:data` (5): `ResolvingConflictsInMergeToolTest` runs the files that `conflictsToOpen` picks from a tab's status
+    through a fake tool: every file it can take, a file closed without saving, markers left by a trusted tool, a file
+    resolved meanwhile, and the processing screen's count while the tool is open.
+  - **Mutation check:** 14 mutations, all caught.
+  - `./gradlew test` passes, with 1,448 tests (234 in `:app`, 904 in `:data`, 303 in `:domain`, 7 in `:common`).
+
 ## Rebase a worktree onto the base (branch `feat/worktree-rebase`)
 
 Phase 3.5 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`.

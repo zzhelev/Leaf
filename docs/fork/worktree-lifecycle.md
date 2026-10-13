@@ -5,7 +5,7 @@
 | Question | How should Leaf create, review, merge, rebase, remove and discard worktrees, and run a merge tool in them? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54.0 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1 to 3.5 done |
+| Status | Approved 2026-10-12 with every recommendation in section 5; 3.1 to 3.6 done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -321,18 +321,41 @@ as processing commits, as before.
 
 ### 3.6 External merge tool (plan item 6)
 
-**Where:**
-- "Open in merge tool" on a conflicted file (the Unstaged menu);
-- "Merge tool" in the banner, for every conflicted file.
+Built in two parts. The first came with the conflict work of 2026-10-12 (`360485bd`, and the built-in resolver's
+entry points); the second, the banner, on 2026-10-14.
 
-**What it runs:** `git mergetool --no-prompt [-- <file>]`, in the tab's worktree, which is where conflicts show.
-- It has no timeout, and runs as a task with Cancel while the tool is open. Then it refreshes.
+**Where:**
+- "Open in external merge tool" in a conflicted file's Unstaged menu, and "External merge tool" in the diff's conflict
+  bar, for one file;
+- the banner's "Resolve conflicts", when Settings → Conflicts picks the external merge tool (decided 2026-10-14, rather
+  than a second button: with the setting on, both buttons would have opened the tool). It opens the tool on every
+  conflicted file that it can take, one after another, in path order, as `git mergetool` does in a terminal. With the
+  built-in resolver picked, the button opens the resolver, as before.
+
+**What it runs:** `git mergetool --tool=<tool> --no-prompt -- <file>`, once per file, in the tab's worktree, which is
+where conflicts show.
+- It has no timeout, and runs as a task with Cancel while the tool is open, which shows `meld: src/app.txt (2 of 3)`.
+  Then it refreshes, after a failure too.
+- Leaf names the tool (`merge.guitool`, then `merge.tool`), so git never guesses one and asks before starting it.
 - The login shell's PATH finds Homebrew's tools, such as Meld.
 
-**Without `merge.tool`,** the items are disabled, with a tooltip saying to set it. Otherwise git would pick from its own
-list, such as `opendiff`.
+**Files the tool can't take** (one side deleted it, a symbolic link or a submodule, a name with `*`, `?` or `[`) are
+left out: git would ask on a terminal which side to keep. The banner keeps counting them, and its next click opens them
+in the built-in resolver, once none of the files left can go to the tool.
 
-**The user's config applies:** `mergetool.keepBackup` and `mergetool.<tool>.trustExitCode` are read as git reads them.
+**A file that the tool doesn't resolve** stops the rest, as `git mergetool` stops when it can't ask "Continue merging
+other unresolved paths?": closing the tool without saving is how the user stops. `ErrorDialog` names the file and says
+how many files were resolved before it, and the next click starts again from it. A file that something else resolved
+meanwhile is skipped.
+
+**Without `merge.tool`:** the items stay enabled, and a click explains in `ErrorDialog` how to set one, with
+`git config --global merge.tool meld` to copy (decided 2026-10-14, rather than disabled items with a tooltip: a
+disabled menu item can't carry a useful tooltip, and the command can't be copied from one). The banner, with no tool,
+opens the built-in resolver.
+
+**The user's config applies:** `mergetool.<tool>.cmd`, `.path` and `.trustExitCode` as git reads them, and
+`mergetool.keepBackup` and `mergetool.writeToTemp` when set (otherwise Leaf keeps no `.orig` backup and puts git's
+copies in a temporary folder).
 
 ## 4. Out of scope
 
