@@ -1444,8 +1444,9 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
     reported as `WorktreeHeadNotMoved`, with the branch renamed, as git leaves it.
   - `RenameBranchDialog` shows errors under the field, and disables Rename branch after a `RenameBranchError`.
 - **Worktree badges and menus (fork-only, `ui/BranchWorktreeBadge.kt`):** a local branch that another worktree uses
-  gets a folder icon, plus the worktree's folder name unless it repeats the branch's last part (`nameNextTo`), as
-  agents' folders do. Its tooltip says how the worktree uses the branch and what that rules out.
+  gets a folder icon, plus the worktree's folder name unless it repeats the branch's last part, or the branch is
+  `worktree-<name>` (`nameNextTo`), as agents' folders do. Its tooltip says how the worktree uses the branch and what
+  that rules out.
   - Local branch rows lay out their text with `BranchNameWithWorktree`, through `SideMenuSubentry`'s `textContent`.
     The branch name comes first, and ends in "…" when it doesn't fit next to the icon. The worktree's name gets what's
     left, and is left out below about five characters (`MIN_WORKTREE_NAME_WIDTH`, `worktreeNameWidth`).
@@ -1478,8 +1479,8 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from
   `SidePanel`, and the header's "+" (shown on hover, as in Remotes), which creates a worktree. Every menu ends with
   "Copy path".
-- The side panel's filter matches the folder name, the path and the branches. When git can't list the worktrees, one
-  line says so, with the error in its tooltip.
+- The side panel's filter matches the folder name, the path, the branches and the origin's tag. When git can't list
+  the worktrees, one line says so, with the error in its tooltip.
 - The row's two lines are `WorktreeRowLines`, which the toolbar's picker shows too.
 - The header's button (`WorktreesBaseMenuButton`, the sort button's `SortMenuButton` with the `compare_arrows` icon)
   is muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows what Automatic
@@ -1493,6 +1494,24 @@ has more than one worktree (`worktreePickerRows`, `RepositoryOpenViewModel.workt
   after the arrow keys, switches the tab and closes the list; Esc closes it. A worktree the tab can't switch to is
   greyed out. It's below the button, or above when there's no room (`BelowLeftAlignedPositionProvider`). Its last
   row, "New worktree…", opens the new worktree dialog.
+
+**Origin labels (fork-only, Phase 4.1, `docs/fork/agent-awareness.md`):** a linked worktree that an agent's tool made
+gets a small tag after its folder name (`AgentTag`: `Claude`, `Codex`, `Cursor`, …), in the side panel and the picker,
+and on its branch's badge in place of a worktree name that repeats the branch.
+- `WorktreeList.withOrigins` (`domain/worktrees/WorktreeOrigins.kt`) sets `WorktreeInfo.origin`: the user's rules
+  first (Settings → Worktrees → "Worktree labels", `AppConfig.WorktreeLabels`, `worktree_labels` in `user_prefs.json`,
+  `WorktreeLabelsSetting`), then the marker in the worktree's git dir (`Worktree.agentMarker`:
+  `claude-desktop-worktree`, `CLAUDE_BASE`, `codex-thread.json`, which `GetWorktreesGitAction` reads), then
+  `BUILT_IN_WORKTREE_RULES`. The main worktree gets none. `RepositoryOpenViewModel` applies it to the tab's list on
+  `Dispatchers.IO`, so a rule applies as soon as it's typed.
+- `folderPatternRegex`: `*`, `?`, `**`, `~/`, `<repo>`, `<repo-name>`. A pattern that starts with `**` matches
+  anywhere, one without a start is in the repository, case is ignored, and paths match as git gives them or as real
+  paths.
+- Claude Code locks the worktree of a running session with `claude session <name> (pid <n> start <time>)`, and keeps
+  the lock of a `-p` run after it ends. `agentSessionLock` (`data/.../worktrees/AgentWorktrees.kt`) checks the pid and
+  its start time, as Claude Code does, into `Worktree.agentLock`. The tooltip and the Remove dialog then say whether
+  the session still runs, in place of the raw reason.
+- The filter matches the tag. The tooltip says who made the worktree and how Leaf knows.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,

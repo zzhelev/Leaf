@@ -2,6 +2,39 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Worktrees show which agent's tool made them (branch `feat/agent-awareness`)
+
+- **Before:** an agent's worktree was a folder name like any other. A worktree that Claude Code had locked said
+  `Locked: claude session fix-login (pid 48472 start …)`, whether the session still ran or had ended long ago.
+- **Now** (Phase 4.1 and 4.2, `docs/fork/agent-awareness.md`):
+  - A linked worktree that an agent's tool made gets a small tag after its folder name: `Claude`, `Codex`, `Cursor`,
+    `OpenCode`, `Conductor`, `Copilot`, `Gemini`, `Cline` or `Junie`, in the side panel and the toolbar's picker. A
+    branch's badge shows it where the worktree's name would repeat the branch, as agents' names do (a
+    `worktree-<name>` branch, as Claude Code's CLI names it, counts as repeating its folder's name). The tooltip says
+    who made it and how Leaf knows. The side panel's filter finds worktrees by their tag.
+  - Leaf knows from the file the tool leaves in the worktree's git dir (Claude Code's `CLAUDE_BASE`, the Claude desktop
+    app's `claude-desktop-worktree`, Codex's `codex-thread.json`), wherever the worktree is, or else from the folder
+    the tool puts its worktrees in. Two of the markers aren't documented: a probe run of Claude Code 2.1.287 and this
+    repository's own worktrees showed them.
+  - Settings → Worktrees → "Worktree labels": the user's own rules, a label and a folder pattern each (`*`, `**`, `?`,
+    `~/`, `<repo>`, `<repo-name>`), tried before the markers and the built-in folders, which the list shows after them.
+    A pattern that starts with `**` matches anywhere. The manual run found that `**/aider-*` was read as inside the
+    repository, as a pattern without a start is, and missed a worktree next to it.
+  - A lock that a Claude Code session holds says whether the session still runs: the pid and its start time are
+    checked as Claude Code checks them (`LC_ALL=C TZ=UTC ps -o lstart=`, found in its binary). The tooltip and the
+    Remove and Discard dialogs say so in place of the raw reason, and the box reads "Remove it although its Claude
+    Code session is still running" while it runs.
+  - 4.2 needed no code: Leaf already copies the files `.worktreeinclude` lists, as Claude Code does (3.2). The note
+    says which tools set up worktrees their own way.
+- **Tests:** 8 in `WorktreeOriginsTest` (domain): the patterns, the order of rules, markers and folders, the main
+  worktree, real paths, the filter, the lock's reason and the stored rules. 4 in `AgentWorktreesTest` (data): the
+  session's process, a pid that another process got later, and the JVM's start time against `ps`'s. 1 new in
+  `WorktreesTest` reads the markers and a lock from real worktrees. 7 in `AgentTagsTest` (app): the tag's place,
+  the tooltips, the badge, and adding and removing rules in Settings.
+  - **Mutation check:** 17 mutations, all caught, the last for `**`. Two survived at first: the filter's test used a folder that already
+    said "codex", and the tag's place was measured from the name's node, which widened with it. Both tests were fixed.
+  - `./gradlew test` passes, with 1,521 tests (255 in `:app`, 947 in `:data`, 312 in `:domain`, 7 in `:common`).
+
 ## The conflict resolver shows a card per side for what three panes can't show (branch `claude/resolver-model-f2582e`)
 
 - **Before:** a deleted file, a binary, a Git LFS file, a submodule, a symbolic link or text over the size limit got a
