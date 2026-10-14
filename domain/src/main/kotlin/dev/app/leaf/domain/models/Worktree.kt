@@ -18,6 +18,8 @@ package dev.app.leaf.domain.models
  * `git worktree list` doesn't tell. Null otherwise.
  * @param bisectingBranch the branch that the worktree's bisect started from while its HEAD is detached
  * (`refs/heads/x`). Null otherwise.
+ * @param agentMarker the file that the tool which made the worktree left in its git dir, null without one.
+ * @param agentLock the agent's session that holds [locked], when its reason says so. Null otherwise.
  */
 data class Worktree(
     val path: String,
@@ -31,6 +33,8 @@ data class Worktree(
     val prunable: String?,
     val rebasingBranch: String? = null,
     val bisectingBranch: String? = null,
+    val agentMarker: AgentMarker? = null,
+    val agentLock: AgentSessionLock? = null,
 ) {
     /**
      * How this worktree uses the local branch [branchName] (`refs/heads/x`), as git tells when it refuses to check the
@@ -87,12 +91,15 @@ data class AheadBehind(
  * @param aheadBehindBase how the worktree's branch compares to [WorktreeList.baseBranch]: the branch it has checked
  * out, or rebases or bisects from, otherwise its commit.
  * @param lastCommitTime the committer time of the checked out commit, in milliseconds since the epoch.
+ * @param origin who made the worktree, from the user's label rules, its marker or its folder. Null for the main
+ * worktree and for one that nothing tells about.
  */
 data class WorktreeInfo(
     val worktree: Worktree,
     val status: WorktreeStatus?,
     val aheadBehindBase: AheadBehind?,
     val lastCommitTime: Long?,
+    val origin: WorktreeOrigin? = null,
 )
 
 /**

@@ -41,7 +41,7 @@ data class WorktreeRow(
 /** The rows of [list]'s worktrees in git's order, main one first, leaving out those that don't match [filter]. */
 fun worktreeRows(list: WorktreeList, filter: String, nowMillis: Long): List<WorktreeRow> {
     return list.worktrees
-        .filter { info -> info.worktree.matches(filter) }
+        .filter { info -> info.matches(filter) }
         .map { info ->
             WorktreeRow(
                 info = info,
@@ -73,18 +73,21 @@ fun Worktree.headLabel(): WorktreeHeadLabel = when {
 
 /**
  * The worktree's name as the branch list shows it next to [branchName] (`refs/heads/x`), or null when it would repeat
- * the branch: agents name a worktree's folder after the last part of its branch (`claude/x` in `.../worktrees/x`).
+ * the branch: agents name a worktree's folder after the last part of its branch (`claude/x` in `.../worktrees/x`), or
+ * name the branch `worktree-x`, as Claude Code's CLI and Gemini CLI do.
  */
 fun Worktree.nameNextTo(branchName: String): String? {
     val lastPart = branchName.shortBranchName().substringAfterLast('/')
 
-    return name.takeUnless { it == lastPart }
+    return name.takeUnless { it == lastPart || "worktree-$it" == lastPart }
 }
 
-private fun Worktree.matches(filter: String): Boolean {
-    return name.lowercaseContains(filter) ||
-        path.lowercaseContains(filter) ||
-        usedBranches.any { it.shortBranchName().lowercaseContains(filter) }
+/** Whether the worktree's name, path, branches or origin's tag (`codex`) has [filter]. */
+private fun WorktreeInfo.matches(filter: String): Boolean {
+    return worktree.name.lowercaseContains(filter) ||
+        worktree.path.lowercaseContains(filter) ||
+        worktree.usedBranches.any { it.shortBranchName().lowercaseContains(filter) } ||
+        origin?.label?.lowercaseContains(filter) == true
 }
 
 private fun String.shortBranchName() = removePrefix(Constants.R_HEADS)

@@ -5,6 +5,7 @@ package dev.app.leaf.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -32,11 +34,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.models.AgentSessionLock
 import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
 import dev.app.leaf.domain.models.WorktreeMergeKind
+import dev.app.leaf.domain.models.WorktreeOrigin
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
 import dev.app.leaf.domain.worktrees.WorktreeRow
@@ -240,16 +244,25 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = row.name,
-                fontWeight = if (worktree.isCurrent) FontWeight.Bold else FontWeight.Normal,
-                style = MaterialTheme.typography.body2,
-                color = MaterialTheme.colors.onBackground,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            // The tag follows the name, which ellipsizes first
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = row.name,
+                    fontWeight = if (worktree.isCurrent) FontWeight.Bold else FontWeight.Normal,
+                    style = MaterialTheme.typography.body2,
+                    color = MaterialTheme.colors.onBackground,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+
+                val origin = row.info.origin
+
+                if (origin != null) {
+                    AgentTag(origin.label, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
 
             if (worktree.locked != null) {
                 Icon(
@@ -423,6 +436,25 @@ private fun SecondaryLabel(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * The tag of the tool that made a worktree, such as `Claude` (fork-only, see [WorktreeInfo.origin]): on its row, in the
+ * toolbar's picker and on its branch's badge.
+ */
+@Composable
+internal fun AgentTag(label: String, modifier: Modifier = Modifier) {
+    Text(
+        text = label,
+        color = MaterialTheme.colors.primaryVariant,
+        style = MaterialTheme.typography.caption,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .border(1.dp, MaterialTheme.colors.onBackgroundSecondary.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 4.dp),
+    )
+}
+
 /** Marks a worktree with uncommitted changes, in the color of conflicts when it has some. */
 @Composable
 private fun ChangesDot(status: WorktreeStatus, modifier: Modifier = Modifier) {
@@ -474,6 +506,8 @@ internal fun worktreeTooltip(info: WorktreeInfo, baseBranch: String?): String {
         worktree.isCurrent -> lines += stringResource(Res.string.side_pane_worktree_tooltip_current)
     }
 
+    info.origin?.let { origin -> lines += origin.tooltipText() }
+
     lines += ""
     lines += when (val head = worktree.headLabel()) {
         is WorktreeHeadLabel.OnBranch -> stringResource(Res.string.side_pane_worktree_tooltip_branch, head.branch)
@@ -492,7 +526,11 @@ internal fun worktreeTooltip(info: WorktreeInfo, baseBranch: String?): String {
         lines += upstreamAheadBehind.comparedText(upstream)
     }
 
-    if (locked != null) {
+    val agentLock = worktree.agentLock
+
+    if (agentLock != null) {
+        lines += agentLock.text()
+    } else if (locked != null) {
         lines += if (locked.isBlank()) {
             stringResource(Res.string.side_pane_worktree_tooltip_locked)
         } else {
@@ -506,6 +544,26 @@ internal fun worktreeTooltip(info: WorktreeInfo, baseBranch: String?): String {
     }
 
     return lines.joinToString("\n")
+}
+
+/** How Leaf knows who made a worktree: "Made by Codex: its git dir has codex-thread.json". */
+@Composable
+private fun WorktreeOrigin.tooltipText(): String = when (this) {
+    is WorktreeOrigin.Marked ->
+        stringResource(Res.string.side_pane_worktree_tooltip_made_by_marker, marker.tool.fullName, marker.fileName)
+
+    is WorktreeOrigin.InToolFolder ->
+        stringResource(Res.string.side_pane_worktree_tooltip_made_by_folder, tool.fullName, pattern)
+
+    is WorktreeOrigin.Labelled -> stringResource(Res.string.side_pane_worktree_tooltip_labelled, label, rule.pattern)
+}
+
+/** Whether the agent's session that locked a worktree still runs, in place of the lock's raw reason. */
+@Composable
+internal fun AgentSessionLock.text(): String = if (isRunning) {
+    stringResource(Res.string.side_pane_worktree_tooltip_locked_session_running, tool.fullName)
+} else {
+    stringResource(Res.string.side_pane_worktree_tooltip_locked_session_ended, tool.fullName)
 }
 
 @Composable

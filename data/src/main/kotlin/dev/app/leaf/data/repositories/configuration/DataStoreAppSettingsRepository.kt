@@ -16,6 +16,7 @@ import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.LogColumnsCodec
+import dev.app.leaf.domain.models.WorktreeLabelRulesCodec
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -65,6 +66,7 @@ private val cloneDefaultDirectoryPreference get() = stringPreferencesKey("clone_
 private val gitExecutablePathPreference get() = stringPreferencesKey("git_executable_path")
 private val remoteOperationsWithGitPreference get() = booleanPreferencesKey("remote_operations_with_git")
 private val worktreesRefreshIntervalPreference get() = intPreferencesKey("worktrees_refresh_interval")
+private val worktreeLabelsPreference get() = stringPreferencesKey("worktree_labels")
 private val conflictOpenerPreference get() = stringPreferencesKey("conflict_opener")
 private val conflictResolverLayoutPreference get() = stringPreferencesKey("conflict_resolver_layout")
 private val conflictResolverWrapLinesPreference get() = booleanPreferencesKey("conflict_resolver_wrap_lines")
@@ -133,6 +135,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val gitExecutablePath get() = preferences.data[gitExecutablePathPreference]
     override val remoteOperationsWithGit get() = preferences.data[remoteOperationsWithGitPreference]
     override val worktreesRefreshInterval get() = preferences.data[worktreesRefreshIntervalPreference]
+    override val worktreeLabels
+        get() = preferences.data[worktreeLabelsPreference].map { it?.let(WorktreeLabelRulesCodec::decode) }
 
     /** Stored as the value's name in lower case. A name that this version doesn't know reads as unset. */
     override val conflictOpener
@@ -163,6 +167,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.RemoteOperationsWithGit -> setValue(remoteOperationsWithGitPreference, appConfig.value)
                 is AppConfig.WorktreesRefreshInterval ->
                     setValue(worktreesRefreshIntervalPreference, appConfig.seconds)
+                is AppConfig.WorktreeLabels ->
+                    setValue(worktreeLabelsPreference, WorktreeLabelRulesCodec.encode(appConfig.rules))
                 is AppConfig.ConflictOpener -> setValue(conflictOpenerPreference, appConfig.value.name.lowercase())
                 is AppConfig.ConflictResolverLayout ->
                     setValue(conflictResolverLayoutPreference, appConfig.value.name.lowercase())

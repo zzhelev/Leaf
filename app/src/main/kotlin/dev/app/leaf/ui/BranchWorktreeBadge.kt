@@ -115,7 +115,7 @@ fun BranchNameWithWorktree(
             {
                 if (other != null) {
                     DelayedTooltip(branchWorktreeTooltip(other, baseBranch)) {
-                        WorktreeMark(other.info.worktree.nameNextTo(branchName))
+                        WorktreeMark(other.info.worktree.nameNextTo(branchName), other.info.origin?.label)
                     }
                 }
             },
@@ -142,14 +142,19 @@ fun BranchNameWithWorktree(
     }
 }
 
-/** The folder icon, followed by the worktree's [name] when it fits (see [worktreeNameWidth]). */
+/**
+ * The folder icon, followed by the worktree's [name] when it fits (see [worktreeNameWidth]). A name that repeats the
+ * branch is left out, and the tag of the tool that made the worktree ([originLabel]) shows in its place (fork-only).
+ */
 @Composable
-private fun WorktreeMark(name: String?) {
+private fun WorktreeMark(name: String?, originLabel: String?) {
     Layout(
         contents = listOf(
             { BranchWorktreeIcon() },
             {
-                if (name != null) {
+                if (name == null && originLabel != null) {
+                    AgentTag(originLabel)
+                } else if (name != null) {
                     Text(
                         text = name,
                         color = MaterialTheme.colors.onBackgroundSecondary,

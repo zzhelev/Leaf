@@ -117,6 +117,11 @@
     <string name="side_pane_worktree_tooltip_up_to_date">Up to date with %1$s</string>
     <string name="side_pane_worktree_tooltip_locked">Locked</string>
     <string name="side_pane_worktree_tooltip_locked_reason">Locked: %1$s</string>
+    <string name="side_pane_worktree_tooltip_locked_session_running">Locked by a %1$s session that is still running</string>
+    <string name="side_pane_worktree_tooltip_locked_session_ended">Locked by a %1$s session that has ended</string>
+    <string name="side_pane_worktree_tooltip_made_by_marker">Made by %1$s: its git dir has %2$s</string>
+    <string name="side_pane_worktree_tooltip_made_by_folder">Made by %1$s: its folder matches %2$s</string>
+    <string name="side_pane_worktree_tooltip_labelled">Labelled %1$s: its folder matches %2$s</string>
     <string name="side_pane_worktree_tooltip_prunable">The folder is missing: %1$s.\ngit worktree prune would remove this worktree.</string>
     <string name="side_pane_worktrees_base_tooltip">Compare worktrees to…</string>
     <string name="side_pane_worktrees_base_title">Compare worktrees to</string>
@@ -356,6 +361,8 @@
     </plurals>
     <string name="worktree_dialog_locked">%1$s is locked.</string>
     <string name="worktree_dialog_locked_reason">%1$s is locked: %2$s</string>
+    <string name="worktree_dialog_locked_session_running">%1$s is locked by a %2$s session that is still running. An agent may be working in it.</string>
+    <string name="worktree_dialog_locked_session_ended">%1$s is locked by a %2$s session that has ended.</string>
     <string name="worktree_dialog_branch_merged">"%1$s" is merged into "%2$s".</string>
     <string name="worktree_dialog_branch_changes_in_base">The changes of "%1$s" are already in "%2$s".</string>
     <plurals name="worktree_dialog_branch_not_merged">
@@ -372,6 +379,7 @@
     </plurals>
     <string name="remove_worktree_dialog_force_unknown">Delete its uncommitted changes too, if it has any</string>
     <string name="remove_worktree_dialog_override_lock">Remove it although it's locked</string>
+    <string name="remove_worktree_dialog_override_session_lock">Remove it although its %1$s session is still running</string>
     <string name="remove_worktree_dialog_delete_branch">Also delete the branch "%1$s"</string>
     <string name="remove_worktree_dialog_remove">Remove</string>
     <string name="discard_worktree_dialog_title">Discard worktree</string>
@@ -383,6 +391,7 @@
     </plurals>
     <string name="discard_worktree_dialog_uncommitted_unknown">Its uncommitted changes, if it has any, are lost.</string>
     <string name="discard_worktree_dialog_override_lock">Discard it although it's locked</string>
+    <string name="discard_worktree_dialog_override_session_lock">Discard it although its %1$s session is still running</string>
     <string name="discard_worktree_dialog_discard">Discard</string>
     <string name="discard_worktree_dialog_discard_anyway">Discard anyway</string>
     <string name="merge_worktree_dialog_squash_title">Squash-merge into %1$s</string>
@@ -689,6 +698,13 @@
     <string name="settings_worktrees_refresh_off">Never</string>
     <string name="settings_worktrees_refresh_seconds">Every %1$d s</string>
     <string name="settings_worktrees_refresh_minute">Every minute</string>
+    <string name="settings_worktree_labels_title">Worktree labels</string>
+    <string name="settings_worktree_labels_subtitle">Leaf tags each worktree with the agent tool that made it, from the file the tool leaves in the worktree's git dir or from the folder it's in. Your rules come first. In a folder pattern, * stands for one folder name or part of one, ** for any number of folders, ~/ for your home folder and &lt;repo&gt; for the repository's folder. A pattern that starts with ** matches anywhere, and one that doesn't start with /, ~/, ** or &lt;repo&gt; is in the repository's folder.</string>
+    <string name="settings_worktree_labels_label">Label</string>
+    <string name="settings_worktree_labels_pattern">Folder pattern</string>
+    <string name="settings_worktree_labels_add">Add label</string>
+    <string name="settings_worktree_labels_remove">Remove this rule</string>
+    <string name="settings_worktree_labels_built_in">Built in, tried after yours</string>
     <string name="settings_conflicts_opener_title">Resolve conflicts with</string>
     <string name="settings_conflicts_opener_subtitle">What double-clicking a conflicted file and the banner's Resolve conflicts open. The other one stays in the file's menu. The external tool is the one that git mergetool runs (merge.guitool, then merge.tool), and the banner opens it on each conflicted file in turn, as git mergetool does; files it can't take, and repositories without one, open in the built-in resolver.</string>
     <string name="settings_conflicts_opener_built_in">Built-in resolver</string>

@@ -14,6 +14,9 @@ import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.models.AgentMarker
+import dev.app.leaf.domain.models.AgentSessionLock
+import dev.app.leaf.domain.models.AgentTool
 import dev.app.leaf.domain.models.AheadBehind
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.WorktreeBaseBranch
@@ -323,6 +326,34 @@ class WorktreesTest {
             assertEquals(AheadBehind(ahead = 1, behind = 1), list.info(main).aheadBehindBase)
         }
     }
+
+    @Test
+    fun `reads the marker that an agent's tool left, and whether a Claude Code session holds the lock`(): Unit =
+        runBlocking {
+            File(main, ".git/worktrees/agent/CLAUDE_BASE").writeText("0123456789abcdef0123456789abcdef01234567\n")
+            File(main, ".git/worktrees/feature/claude-desktop-worktree").writeText("")
+            File(main, ".git/worktrees/feature/CLAUDE_BASE").writeText("")
+            File(main, ".git/worktrees/detached/codex-thread.json").writeText("""{"version":1}""")
+            // A pid that no process has: the session ended
+            git.run(main, "worktree", "lock", "--reason", "claude session agent (pid 99999999 start Wed Oct 14 07:17:40 2026)", agent.path)
+
+            val worktrees = (GetWorktreesGitAction(gitCli, jgit)(gitDir(main)) as Either.Ok).value
+            val byPath = worktrees.associateBy { it.path }
+
+            assertEquals(AgentMarker.CLAUDE_CODE, byPath.getValue(agent.canonicalPath).agentMarker)
+            // The desktop app's marker wins over the CLI's
+            assertEquals(AgentMarker.CLAUDE_DESKTOP, byPath.getValue(feature.canonicalPath).agentMarker)
+            assertEquals(AgentMarker.CODEX, byPath.getValue(detached.canonicalPath).agentMarker)
+            assertNull(byPath.getValue(main.canonicalPath).agentMarker)
+            assertNull(byPath.getValue(locked.canonicalPath).agentMarker)
+
+            assertEquals(
+                AgentSessionLock(AgentTool.CLAUDE_CODE, "agent", isRunning = false),
+                byPath.getValue(agent.canonicalPath).agentLock,
+            )
+            // Someone else's reason
+            assertNull(byPath.getValue(locked.canonicalPath).agentLock)
+        }
 
     private fun WorktreeList.info(worktree: File) = worktrees.single { it.worktree.path == worktree.canonicalPath }
 

@@ -34,6 +34,8 @@ import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
+import dev.app.leaf.domain.models.WorktreeList
+import dev.app.leaf.domain.worktrees.withOrigins
 import dev.app.leaf.domain.worktrees.worktreePickerRows
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenFilePickerUseCase
@@ -47,6 +49,7 @@ import dev.app.leaf.ui.VerticalSplitPaneConfig
 import dev.app.leaf.ui.WorktreePickerState
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.status.StatusAction
+import dev.app.leaf.ui.UiDataState
 import dev.app.leaf.ui.toUiDataState
 import dev.app.leaf.updates.Update
 import dev.app.leaf.updates.UpdatesRepository
@@ -56,6 +59,7 @@ import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import dev.app.leaf.viewmodels.sidepanel.*
 import kotlinx.coroutines.CoroutineScope
 import dev.app.leaf.domain.rebase.withFirstStepPicked
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -388,7 +392,16 @@ class RepositoryOpenViewModel @Inject constructor(
             )
         }.stateIn(SubmodulesState(isLoading = true, emptyList(), isExpandedSubmodules.value))
 
-    private val worktrees = repositoryDataRepository.worktrees.toUiDataState()
+    /** The worktrees, each with who made it (fork-only): the user's label rules apply as soon as they change. */
+    private val worktrees: StateFlow<UiDataState<WorktreeList>> = combine(
+        repositoryDataRepository.worktrees.toUiDataState(),
+        settings.worktreeLabels,
+    ) { worktrees, rules ->
+        UiDataState(worktrees.isLoading, worktrees.data?.withOrigins(rules), worktrees.error)
+    }
+        // Real paths read the file system
+        .flowOn(Dispatchers.IO)
+        .stateIn(UiDataState(isLoading = true, data = null, error = null))
 
     val worktreesState: StateFlow<WorktreesState> =
         combineWorktreesState(worktrees, isExpandedWorktrees, filter, branches).stateIn(WorktreesState())

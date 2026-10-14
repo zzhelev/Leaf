@@ -7,6 +7,7 @@ import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
+import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -66,6 +67,10 @@ class AppSettingsService @Inject constructor(
         get() = appSettingsRepository.worktreesRefreshInterval.defaultIfNull {
             WorktreesRefreshIntervals.DEFAULT_SECONDS
         }
+
+    /** The user's rules for labelling worktrees, see [AppConfig.WorktreeLabels]. */
+    val worktreeLabels: Flow<List<WorktreeLabelRule>>
+        get() = appSettingsRepository.worktreeLabels.defaultIfNull { emptyList() }
 
     /** What double-clicking a conflicted file and the banner's Resolve conflicts open. */
     val conflictOpener: Flow<ConflictOpener>

@@ -110,23 +110,38 @@ private fun RemovalDetails(
     RecentChangeNotice(worktreeName, removal.lastChange)
 
     val locked = removal.worktree.locked
+    // Fork-only: an agent's session says whether it still runs, in place of the lock's raw reason
+    val agentLock = removal.worktree.agentLock
 
     if (locked != null) {
         DialogNotice(
-            if (locked.isBlank()) {
-                stringResource(Res.string.worktree_dialog_locked, worktreeName)
-            } else {
-                stringResource(Res.string.worktree_dialog_locked_reason, worktreeName, locked)
+            when {
+                agentLock != null && agentLock.isRunning -> stringResource(
+                    Res.string.worktree_dialog_locked_session_running,
+                    worktreeName,
+                    agentLock.tool.fullName,
+                )
+
+                agentLock != null ->
+                    stringResource(Res.string.worktree_dialog_locked_session_ended, worktreeName, agentLock.tool.fullName)
+
+                locked.isBlank() -> stringResource(Res.string.worktree_dialog_locked, worktreeName)
+                else -> stringResource(Res.string.worktree_dialog_locked_reason, worktreeName, locked)
             }
         )
 
         CheckboxText(
             value = options.overrideLock,
             onCheckedChange = { onOverrideLockChanged(!options.overrideLock) },
-            text = if (discard) {
-                stringResource(Res.string.discard_worktree_dialog_override_lock)
-            } else {
-                stringResource(Res.string.remove_worktree_dialog_override_lock)
+            text = when {
+                agentLock?.isRunning == true && discard ->
+                    stringResource(Res.string.discard_worktree_dialog_override_session_lock, agentLock.tool.fullName)
+
+                agentLock?.isRunning == true ->
+                    stringResource(Res.string.remove_worktree_dialog_override_session_lock, agentLock.tool.fullName)
+
+                discard -> stringResource(Res.string.discard_worktree_dialog_override_lock)
+                else -> stringResource(Res.string.remove_worktree_dialog_override_lock)
             },
         )
     }

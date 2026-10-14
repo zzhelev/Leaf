@@ -38,6 +38,8 @@ class GetWorktreesGitAction @Inject constructor(
                     isCurrent = folder == currentWorkTree,
                     rebasingBranch = head?.rebasingBranch,
                     bisectingBranch = head?.bisectingBranch,
+                    agentMarker = head?.gitDir?.let(::agentMarkerIn),
+                    agentLock = worktree.locked?.let(::agentSessionLock),
                 )
             }
         )

@@ -13,6 +13,7 @@ import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
+import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
@@ -82,6 +83,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.pushWithLease,
             appSettingsService.remoteOperationsWithGit,
             appSettingsService.worktreesRefreshInterval,
+            appSettingsService.worktreeLabels,
             appSettingsService.conflictOpener,
             appSettingsService.conflictResolverLayout,
             appSettingsService.conflictResolverWrapLines,
@@ -107,6 +109,7 @@ class SettingsViewModel @Inject constructor(
             pushWithLease,
             remoteOperationsWithGit,
             worktreesRefreshInterval,
+            worktreeLabels,
             conflictOpener,
             conflictResolverLayout,
             conflictResolverWrapLines,
@@ -134,6 +137,7 @@ class SettingsViewModel @Inject constructor(
                 pushWithLease,
                 remoteOperationsWithGit,
                 worktreesRefreshInterval,
+                worktreeLabels,
                 conflictOpener,
                 conflictResolverLayout,
                 conflictResolverWrapLines,
@@ -165,6 +169,7 @@ class SettingsViewModel @Inject constructor(
             pushWithLease = false,
             remoteOperationsWithGit = false,
             worktreesRefreshInterval = WorktreesRefreshIntervals.DEFAULT_SECONDS,
+            worktreeLabels = emptyList(),
             conflictOpener = ConflictOpener.DEFAULT,
             conflictResolverLayout = ConflictResolverLayout.DEFAULT,
             conflictResolverWrapLines = true,
@@ -198,6 +203,8 @@ data class SettingsViewState(
     val remoteOperationsWithGit: Boolean,
     /** Seconds between two refreshes of the worktree list, 0 for none. */
     val worktreesRefreshInterval: Int,
+    /** The user's rules for labelling worktrees, see [AppConfig.WorktreeLabels]. */
+    val worktreeLabels: List<WorktreeLabelRule>,
     /** What double-clicking a conflicted file and the banner's Resolve conflicts open. */
     val conflictOpener: ConflictOpener,
     /** How the built-in resolver lays out the sides and the result. */

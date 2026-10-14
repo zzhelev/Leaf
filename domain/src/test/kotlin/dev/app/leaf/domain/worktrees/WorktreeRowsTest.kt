@@ -77,6 +77,8 @@ class WorktreeRowsTest {
     fun `names a worktree next to a branch unless its folder repeats the branch`() {
         assertNull(agent.nameNextTo("refs/heads/claude/busy-jang"))
         assertNull(worktree("/work/feature").nameNextTo("refs/heads/feature"))
+        assertNull(worktree("/repo/.claude/worktrees/fix-login").nameNextTo("refs/heads/worktree-fix-login"))
+        assertEquals("login", worktree("/work/login").nameNextTo("refs/heads/fix-login"))
         assertEquals("repo-login", feature.nameNextTo("refs/heads/feature/login"))
         assertEquals("repo", main.nameNextTo("refs/heads/main"))
     }

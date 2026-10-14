@@ -324,6 +324,11 @@ private fun Worktrees(settingsViewState: SettingsViewState, onAction: (SettingsA
         },
         currentOption = current,
     )
+
+    WorktreeLabelsSetting(
+        rules = settingsViewState.worktreeLabels,
+        onRulesChanged = { rules -> onAction(SettingsAction.SetConfig(AppConfig.WorktreeLabels(rules))) },
+    )
 }
 
 @Composable
@@ -863,7 +868,7 @@ fun SettingTextInput(
 
 /** A setting's title and subtitle. Rows give it what their control leaves, so a long subtitle wraps instead. */
 @Composable
-private fun FieldTitles(
+internal fun FieldTitles(
     title: String,
     subtitle: String,
     enabled: Boolean = true,
