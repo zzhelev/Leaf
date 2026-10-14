@@ -18,6 +18,7 @@ import dev.app.leaf.domain.models.ConflictedFile
 import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.LineRange
+import dev.app.leaf.domain.models.RenamedFile
 import dev.app.leaf.domain.conflicts.conflictChunks
 import dev.app.leaf.domain.conflicts.resolving
 import dev.app.leaf.domain.conflicts.typing
@@ -186,7 +187,7 @@ class GetConflictedFileGitActionTest {
         }
 
     @Test
-    fun `a file renamed differently on each side has its versions at other paths`(): Unit = runBlocking {
+    fun `a file renamed differently on each side has its versions at other paths, and opens as one`(): Unit = runBlocking {
         File(repository, "a.txt").writeText("a\nb\nc\n")
         git.run(repository, "add", ".")
         git.run(repository, "commit", "-m", "Base")
@@ -199,13 +200,15 @@ class GetConflictedFileGitActionTest {
         git.run(repository, "switch", "main")
         git.runFailing(repository, "merge", "feature")
 
-        assertEquals(ConflictStages.BOTH_DELETED, load("a.txt").stages)
-        assertEquals(ConflictStages.ADDED_BY_US, load("b.txt").stages)
-        assertEquals(ConflictStages.ADDED_BY_THEM, load("c.txt").stages)
-        assertEquals(
-            setOf(ConflictContent.OtherPaths),
-            listOf("a.txt", "b.txt", "c.txt").map { load(it).content }.toSet(),
-        )
+        // Each path opens the file as one, under its old name
+        val renamed = RenamedFile("a.txt", "b.txt", "c.txt")
+
+        for (path in renamed.paths) {
+            val file = load(path)
+
+            assertEquals("a.txt", file.path)
+            assertEquals(renamed, (file.content as ConflictContent.Renamed).file)
+        }
     }
 
     @Test

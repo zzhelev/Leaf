@@ -27,7 +27,9 @@ import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictResolution
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
+import dev.app.leaf.domain.models.ConflictStage
 import dev.app.leaf.domain.models.ConflictedFile
+import dev.app.leaf.domain.models.RenamedFile
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.TextMerge
@@ -36,9 +38,12 @@ import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetConflictedFileUseCase
+import dev.app.leaf.domain.usecases.GetRenamedFilesUseCase
 import dev.app.leaf.domain.usecases.MarkConflictResolvedUseCase
+import dev.app.leaf.domain.usecases.OpenConflictVersionUseCase
 import dev.app.leaf.domain.usecases.OpenMergeToolUseCase
 import dev.app.leaf.domain.usecases.ResolveConflictUseCase
+import dev.app.leaf.domain.usecases.ResolveRenamedFileUseCase
 import dev.app.leaf.domain.usecases.SaveConflictResolutionUseCase
 import dev.app.leaf.domain.usecases.StatusStageUseCase
 import kotlinx.coroutines.Job
@@ -62,6 +67,9 @@ import javax.inject.Singleton
  *
  * One part of the result at a time can be edited (step 4, [startEdit]), and Undo and Redo go back and forth through the
  * picks and the finished edits of the file shown.
+ *
+ * A conflict that three panes can't show gets a card per side (step 5): [pick] picks one, and [markResolved] stages it.
+ * A file that each side renamed differently is one entry of the list, and opens as one, whichever of its paths.
  */
 class ConflictResolverViewModel @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
@@ -70,7 +78,10 @@ class ConflictResolverViewModel @Inject constructor(
     private val markConflictResolvedUseCase: MarkConflictResolvedUseCase,
     private val statusStageUseCase: StatusStageUseCase,
     private val resolveConflictUseCase: ResolveConflictUseCase,
+    private val resolveRenamedFileUseCase: ResolveRenamedFileUseCase,
+    private val getRenamedFilesUseCase: GetRenamedFilesUseCase,
     private val openMergeToolUseCase: OpenMergeToolUseCase,
+    private val openConflictVersionUseCase: OpenConflictVersionUseCase,
     private val appSettingsService: AppSettingsService,
     private val session: ConflictResolverSession,
 ) : TabViewModel() {
@@ -100,6 +111,18 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** The file that the external merge tool has: it's loaded again once the status comes back with it conflicted. */
     private var inExternalTool: String? = null
+
+    /** The files that each side renamed differently, as the index had them at the last status. */
+    private var renamed: List<RenamedFile> = emptyList()
+
+    /** The new names of the renamed files seen, by old name, for the list's entries once they're resolved. */
+    private val newNames = mutableMapOf<String, List<String>>()
+
+    /**
+     * The name picked for a renamed file whose content has conflicts: it's a conflict of its content once the rename is
+     * resolved, and opens next.
+     */
+    private var follow: String? = null
 
     /** Opens [path], or the first conflicted file. [onClose] closes the view. */
     fun open(path: String?, onClose: () -> Unit) {
@@ -488,7 +511,7 @@ class ConflictResolverViewModel @Inject constructor(
         finishEdit()
 
         val file = state.value.file as? ResolverFile.Loaded ?: return
-        val merge = file.merge ?: return
+        val merge = file.merge ?: return stagePick(file)
 
         if (merge.openConflicts > 0) {
             return
@@ -526,12 +549,54 @@ class ConflictResolverViewModel @Inject constructor(
         load(path)
     }
 
-    /** A conflict that three panes can't show: takes [side]'s version (asked for first by the view). */
-    fun useSide(side: ConflictSide) {
-        val path = state.value.file.path?.takeUnless { paused } ?: return
+    /** A conflict that three panes can't show: picks [side]'s card, which [markResolved] stages. */
+    fun pick(side: ConflictSide) = pick(ChoicePick.of(side))
 
-        markResolvedHere(path)
-        resolveConflictUseCase(listOf(path), side)
+    /** A file that each side renamed differently: picks keeping both new names. */
+    fun pickBothNames() = pick(ChoicePick.BOTH)
+
+    private fun pick(pick: ChoicePick) = updateLoaded { file ->
+        val allowed = file.file.hasChoiceCards && (pick != ChoicePick.BOTH || file.file.content is ConflictContent.Renamed)
+
+        if (paused || !allowed) file else file.copy(pick = pick)
+    }
+
+    /**
+     * Stages the side picked, as "Use ours" and "Use theirs" do. Where one side has no file at the path (it deleted it,
+     * or git put it at another path), keeping the other stages the working file as it is, as `git mergetool` does, so
+     * that edits made to it stay. A renamed file keeps the names picked.
+     */
+    private fun stagePick(file: ResolverFile.Loaded) {
+        val pick = file.pick ?: return
+        val content = file.file.content
+
+        markResolvedHere(file.file.path)
+
+        if (content is ConflictContent.Renamed) {
+            val keep = pick.sides
+
+            follow = content.file.path(keep.first()).takeIf { content.contentConflicts }
+            resolveRenamedFileUseCase(content.file, keep)
+        } else {
+            resolveConflictUseCase(
+                filePaths = listOf(file.file.path),
+                side = pick.sides.single(),
+                keepWorkingFile = content == ConflictContent.Deleted || content == ConflictContent.OtherPaths,
+            )
+        }
+    }
+
+    /** Opens one version of the file shown, a stage of the index, in the system's app for its type. */
+    fun openVersion(stage: ConflictStage) {
+        val path = state.value.file.path ?: return
+
+        viewModelScope.launch {
+            val result = openConflictVersionUseCase(stage.objectId, path)
+
+            if (result is Either.Err) {
+                state.update { it.copy(prompt = ResolverPrompt.Failed(result.error)) }
+            }
+        }
     }
 
     /** Hands the file to the external merge tool. It's loaded again when the tool is done. */
@@ -601,11 +666,31 @@ class ConflictResolverViewModel @Inject constructor(
         val shown = state.value.file.path
         val conflictedPaths = conflicted.map { it.filePath }.toSet()
 
-        state.update { state ->
-            state.copy(
-                files = conflicted.map { ResolverFileEntry(it, resolvedHere = false) } +
-                    resolvedHere.filter { it.filePath !in conflictedPaths }.map { ResolverFileEntry(it, resolvedHere = true) },
-            )
+        listFiles()
+
+        // Renamed files show as paths with one side alone, and are read from the index
+        if (conflicted.any { it.conflict?.ours == null || it.conflict?.theirs == null }) {
+            viewModelScope.launch {
+                val found = (getRenamedFilesUseCase() as? Either.Ok)?.value.orEmpty()
+
+                renamed = found
+                found.forEach { newNames[it.original] = listOf(it.ours, it.theirs) }
+                listFiles()
+            }
+        } else {
+            renamed = emptyList()
+        }
+
+        // A renamed file whose name was picked, once the rename is resolved: that name, if it's a conflict of its content
+        val followed = follow
+
+        if (followed != null && shown !in conflictedPaths) {
+            follow = null
+
+            if (followed in conflictedPaths) {
+                load(followed)
+                return
+            }
         }
 
         // The first status after the merge tool: the file is still conflicted (load it again) or resolved (move on)
@@ -633,6 +718,25 @@ class ConflictResolverViewModel @Inject constructor(
 
             AfterStatus.Done -> state.update { it.copy(file = ResolverFile.None, done = true, handOff = null) }
             AfterStatus.Close -> closeNow()
+        }
+    }
+
+    /**
+     * The list: the conflicted files in the status pane's order, a renamed file once under its old name, then the files
+     * resolved here.
+     */
+    private fun listFiles() {
+        val conflictedPaths = conflicted.map { it.filePath }.toSet()
+        val hidden = renamed.flatMap { listOf(it.ours, it.theirs) }.toSet()
+
+        fun entry(status: StatusEntry, resolved: Boolean) =
+            ResolverFileEntry(status, resolved, newNames[status.filePath].orEmpty())
+
+        state.update { state ->
+            state.copy(
+                files = conflicted.filter { it.filePath !in hidden }.map { entry(it, resolved = false) } +
+                    resolvedHere.filter { it.filePath !in conflictedPaths }.map { entry(it, resolved = true) },
+            )
         }
     }
 
@@ -801,7 +905,30 @@ data class ConflictResolverState(
     val canRedo: Boolean = false,
 )
 
-data class ResolverFileEntry(val entry: StatusEntry, val resolvedHere: Boolean)
+/** A file of the list. [renamedTo]: a file renamed differently on each side, listed under its old name. */
+data class ResolverFileEntry(
+    val entry: StatusEntry,
+    val resolvedHere: Boolean,
+    val renamedTo: List<String> = emptyList(),
+)
+
+/** What a choice card picks: one side's version, or both new names of a file that each side renamed differently. */
+enum class ChoicePick {
+    OURS,
+    THEIRS,
+    BOTH;
+
+    val sides: Set<ConflictSide>
+        get() = when (this) {
+            OURS -> setOf(ConflictSide.OURS)
+            THEIRS -> setOf(ConflictSide.THEIRS)
+            BOTH -> setOf(ConflictSide.OURS, ConflictSide.THEIRS)
+        }
+
+    companion object {
+        fun of(side: ConflictSide) = if (side == ConflictSide.OURS) OURS else THEIRS
+    }
+}
 
 sealed interface ResolverFile {
     val path: String?
@@ -817,14 +944,15 @@ sealed interface ResolverFile {
 
     /**
      * A conflicted file. [merge] has the picks, [saved] is what the working file has as the resolver last wrote or
-     * loaded it; both are null for a conflict that three panes can't show. [resolveAgain]: the working file had no
-     * markers, and the user chose to resolve it again.
+     * loaded it; both are null for a conflict that three panes can't show, whose card picked is [pick].
+     * [resolveAgain]: the working file had no markers, and the user chose to resolve it again.
      */
     data class Loaded(
         val file: ConflictedFile,
         val merge: TextMerge?,
         val saved: TextMerge?,
         val resolveAgain: Boolean = false,
+        val pick: ChoicePick? = null,
     ) : ResolverFile {
         override val path: String get() = file.path
         override val hasUnsavedChanges: Boolean get() = merge != saved
@@ -851,6 +979,10 @@ private fun ConflictedFile.toResolverFile(): ResolverFile.Loaded {
 
     return ResolverFile.Loaded(this, merge, merge)
 }
+
+/** A conflict that three panes can't show: a card per side to pick from. */
+val ConflictedFile.hasChoiceCards: Boolean
+    get() = content !is ConflictContent.Text
 
 /** The file, as the working file is once Save wrote bytes with [contentId]. */
 private fun ConflictedFile.withContentId(contentId: String): ConflictedFile {

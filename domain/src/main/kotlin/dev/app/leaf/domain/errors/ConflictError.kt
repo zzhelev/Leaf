@@ -48,6 +48,12 @@ sealed interface ConflictError : GitError {
      */
     data class StagesChanged(val path: String) : ConflictError
 
+    /**
+     * A file renamed on both sides whose content has conflicts, in an operation that doesn't tell which commit theirs
+     * is: its versions can't be put back as a conflict of its content. Nothing was changed.
+     */
+    data class RenamedContentUnknown(val path: String) : ConflictError
+
     /** Something changed the working file at [path] since the resolver loaded it. Nothing was written. */
     data class WorkingFileChanged(val path: String) : ConflictError
 

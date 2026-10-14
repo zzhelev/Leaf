@@ -94,30 +94,40 @@ class WriteConflictResultGitAction @Inject constructor(
                 raiseError(ConflictError.WorkingFileChanged(file.path))
             }
 
-            val attributes = conflictFileAttributes(repository, file.path)
-            val style = ConflictMarkerStyle(
-                withBase = conflictStyleWithBase(repository.config),
-                labels = conflictLabels(repository, file.sides),
-                size = attributes.markerSize,
-            )
-            val converted = ByteArrayOutputStream().also { out ->
-                EolStreamTypeUtil.wrapOutputStream(out, attributes.checkoutLineEndings).use {
-                    it.write(merge.resultBytes(style))
-                }
-            }.toByteArray()
-
-            target.parentFile.mkdirs()
-
-            // Truncated and written in place, which keeps the file's mode
-            FileOutputStream(target).use { it.write(converted) }
-
-            if (!exists && listOfNotNull(file.ours, file.theirs).any { it.mode == FileMode.EXECUTABLE_FILE.bits }) {
-                repository.fs.setExecute(target, true)
-            }
-
-            blobId(converted)
+            writeMergeResult(repository, file, merge)
         }
     }
+}
+
+/**
+ * Writes [merge]'s result over [file]'s working file, through a checkout's line ending conversion, with git's labels and
+ * markers. Returns the id of the bytes written.
+ */
+internal fun writeMergeResult(repository: Repository, file: ConflictedFile, merge: TextMerge): String {
+    val target = File(repository.workTree, file.path)
+    val exists = Files.exists(target.toPath(), LinkOption.NOFOLLOW_LINKS)
+    val attributes = conflictFileAttributes(repository, file.path)
+    val style = ConflictMarkerStyle(
+        withBase = conflictStyleWithBase(repository.config),
+        labels = conflictLabels(repository, file.sides),
+        size = attributes.markerSize,
+    )
+    val converted = ByteArrayOutputStream().also { out ->
+        EolStreamTypeUtil.wrapOutputStream(out, attributes.checkoutLineEndings).use {
+            it.write(merge.resultBytes(style))
+        }
+    }.toByteArray()
+
+    target.parentFile.mkdirs()
+
+    // Truncated and written in place, which keeps the file's mode
+    FileOutputStream(target).use { it.write(converted) }
+
+    if (!exists && listOfNotNull(file.ours, file.theirs).any { it.mode == FileMode.EXECUTABLE_FILE.bits }) {
+        repository.fs.setExecute(target, true)
+    }
+
+    return blobId(converted)
 }
 
 /**

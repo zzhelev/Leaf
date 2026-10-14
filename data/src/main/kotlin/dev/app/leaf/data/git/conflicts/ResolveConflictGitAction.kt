@@ -15,11 +15,15 @@ import dev.app.leaf.domain.interfaces.IResolveConflictGitAction
 import dev.app.leaf.domain.models.ConflictSide
 import org.eclipse.jgit.dircache.DirCacheEntry
 import org.eclipse.jgit.lib.FileMode
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import javax.inject.Inject
 
 /**
  * Resolves conflicts by taking one side's version, as git's own advice does:
- * - a file that the side has: `git checkout --ours|--theirs`, then `git add`;
+ * - a file that the side has: `git checkout --ours|--theirs`, then `git add`. To keep the working file, as it is, only
+ *   `git add`, where it's there;
  * - a file that the side deleted: `git rm`;
  * - a submodule: `git update-index --cacheinfo` with the side's commit. `git add` would stage the commit that the
  *   submodule has checked out, whichever side that is. Its working tree is left alone, as after `git add`.
@@ -34,6 +38,7 @@ class ResolveConflictGitAction @Inject constructor(
         repositoryPath: String,
         filePaths: List<String>,
         side: ConflictSide,
+        keepWorkingFile: Boolean,
     ): Either<Unit, GitError> = either {
         val (workTree, index) = jgit.provide(repositoryPath) { git ->
             git.repository.workTree to git.repository.readDirCache()
@@ -50,9 +55,22 @@ class ResolveConflictGitAction @Inject constructor(
         val deleted = filePaths.filter { sideEntries[it] == null }
         val submodules = filePaths.mapNotNull { path -> sideEntries[path]?.takeIf { it.fileMode == FileMode.GITLINK } }
         val files = filePaths - deleted.toSet() - submodules.map { it.pathString }.toSet()
+        // A folder in the file's place isn't the file: git add would stage what's in it
+        val checkedOut = if (keepWorkingFile) {
+            files.filterNot { path ->
+                val file = File(workTree, path).toPath()
+
+                Files.exists(file, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)
+            }
+        } else {
+            files
+        }
+
+        if (checkedOut.isNotEmpty()) {
+            gitCli.run(workTree, listOf("--literal-pathspecs", "checkout", side.checkoutOption, "--") + checkedOut).bind()
+        }
 
         if (files.isNotEmpty()) {
-            gitCli.run(workTree, listOf("--literal-pathspecs", "checkout", side.checkoutOption, "--") + files).bind()
             gitCli.run(workTree, listOf("--literal-pathspecs", "add", "--") + files).bind()
         }
 
@@ -68,7 +86,7 @@ class ResolveConflictGitAction @Inject constructor(
     }
 }
 
-private val ConflictSide.checkoutOption
+internal val ConflictSide.checkoutOption
     get() = when (this) {
         ConflictSide.OURS -> "--ours"
         ConflictSide.THEIRS -> "--theirs"

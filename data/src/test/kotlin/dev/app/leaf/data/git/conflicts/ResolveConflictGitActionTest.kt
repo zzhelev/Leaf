@@ -115,6 +115,46 @@ class ResolveConflictGitActionTest {
     }
 
     @Test
+    fun `keeping the working file stages it as it is, edits included, as git mergetool keeps a modified file`(): Unit =
+        runBlocking {
+            git.mergeWithConflicts(repository)
+            File(repository, "dropped.txt").appendText("edited\n")
+
+            resolve(ConflictSide.THEIRS, "dropped.txt", keepWorkingFile = true)
+
+            assertEquals("feature's dropped\nedited\n", git.staged(repository, "dropped.txt"))
+            assertEquals("feature's dropped\nedited\n", File(repository, "dropped.txt").readText())
+        }
+
+    @Test
+    fun `keeping a working file that isn't there takes the side's version, and the deleting side still deletes`(): Unit =
+        runBlocking {
+            git.mergeWithConflicts(repository)
+            File(repository, "dropped.txt").delete()
+
+            resolve(ConflictSide.THEIRS, "dropped.txt", keepWorkingFile = true)
+            resolve(ConflictSide.THEIRS, "kept.txt", keepWorkingFile = true)
+
+            assertEquals("feature's dropped\n", git.staged(repository, "dropped.txt"))
+            assertEquals("feature's dropped\n", File(repository, "dropped.txt").readText())
+            assertEquals(emptyList<Int>(), git.stages(repository, "kept.txt"))
+            assertFalse(File(repository, "kept.txt").exists())
+        }
+
+    @Test
+    fun `a folder in the kept file's place isn't kept, and the side's version is checked out, as Use theirs does`(): Unit =
+        runBlocking {
+            git.mergeWithConflicts(repository)
+            File(repository, "dropped.txt").delete()
+            File(repository, "dropped.txt/inner.txt").apply { parentFile.mkdirs() }.writeText("inner\n")
+
+            resolve(ConflictSide.THEIRS, "dropped.txt", keepWorkingFile = true)
+
+            assertEquals("feature's dropped\n", git.staged(repository, "dropped.txt"))
+            assertEquals("", git.run(repository, "ls-files", "dropped.txt/inner.txt"))
+        }
+
+    @Test
     fun `the index is the one that git's own commands leave`(): Unit = runBlocking {
         git.mergeWithConflicts(repository)
         val copy = File(tempDir, "copy")
@@ -190,8 +230,11 @@ class ResolveConflictGitActionTest {
         assertEquals("", git.run(repository, "status", "--porcelain"))
     }
 
-    private suspend fun resolve(side: ConflictSide, vararg paths: String): Either<Unit, GitError> =
-        resolveConflict(File(repository, ".git").path, paths.toList(), side)
+    private suspend fun resolve(
+        side: ConflictSide,
+        vararg paths: String,
+        keepWorkingFile: Boolean = false,
+    ): Either<Unit, GitError> = resolveConflict(File(repository, ".git").path, paths.toList(), side, keepWorkingFile)
 
     /**
      * A conflict in the submodule `sub`, whose commits main and feature changed in different ways. The submodule isn't

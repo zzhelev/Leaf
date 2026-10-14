@@ -8,7 +8,10 @@ package dev.app.leaf.domain.models
  * which branch or commit ours and theirs are, and what the resolver can do with it.
  */
 data class ConflictedFile(
-    /** Relative to the working tree, with `/`. */
+    /**
+     * Relative to the working tree, with `/`. For a file renamed differently on each side ([ConflictContent.Renamed]),
+     * its old name, whichever of its paths was opened.
+     */
     val path: String,
     val base: ConflictStage?,
     val ours: ConflictStage?,
@@ -20,6 +23,9 @@ data class ConflictedFile(
     /** Which branch or commit ours and theirs are, or null when the repository's state doesn't tell. */
     val sides: ConflictSides?,
     val content: ConflictContent,
+
+    /** What the choice cards show, for a conflict that three panes can't show; null for text. */
+    val preview: ConflictPreview? = null,
 ) {
     val stages: ConflictStages = ConflictStages.of(base != null, ours != null, theirs != null)
 }
@@ -86,9 +92,22 @@ sealed interface ConflictContent {
 
     /**
      * Each version is at its own path ([ConflictStages.BOTH_DELETED], [ConflictStages.ADDED_BY_US],
-     * [ConflictStages.ADDED_BY_THEM]): a file renamed differently on each side. The resolver doesn't handle it.
+     * [ConflictStages.ADDED_BY_THEM]), and no [RenamedFile] takes this one in: a file against a folder that git moved
+     * to `name~branch`, say. A card per side: the side with a file keeps it here, the other leaves it out.
      */
     data object OtherPaths : ConflictContent
+
+    /**
+     * A file that each side renamed differently. git merged both sides' changes to its content into both new names, so
+     * the name is left to pick. [contentConflicts]: that merge stopped at conflicts, so the new names hold conflict
+     * markers; picking a name then makes it a conflict of its content, between [theirsCommit]'s version and HEAD's, which
+     * the three panes show. Null when the operation doesn't tell which commit theirs is (a revert, a stash).
+     */
+    data class Renamed(
+        val file: RenamedFile,
+        val contentConflicts: Boolean,
+        val theirsCommit: String?,
+    ) : ConflictContent
 
     /** A submodule on either side: a choice of commit, the stages' ids. */
     data object Submodule : ConflictContent
@@ -131,4 +150,15 @@ enum class WorkingFileState {
 
     /** No file at the path, or a folder or a symbolic link in its place. */
     MISSING,
+}
+
+/**
+ * A file that each side renamed differently, as git leaves it: [original] at stage 1 alone (both deleted), [ours] at
+ * stage 2 alone (added by us), [theirs] at stage 3 alone (added by them). git doesn't record that the three belong
+ * together; [ours] and [theirs] hold the same merged content, which pairs them.
+ */
+data class RenamedFile(val original: String, val ours: String, val theirs: String) {
+    val paths: List<String> get() = listOf(original, ours, theirs)
+
+    fun path(side: ConflictSide) = if (side == ConflictSide.OURS) ours else theirs
 }

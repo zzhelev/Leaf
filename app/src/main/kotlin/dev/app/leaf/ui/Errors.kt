@@ -13,6 +13,7 @@ import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
 import dev.app.leaf.app.generated.resources.error_conflict_cant_discard
 import dev.app.leaf.app.generated.resources.error_conflict_conflicts_left
 import dev.app.leaf.app.generated.resources.error_conflict_markers_left
+import dev.app.leaf.app.generated.resources.error_conflict_renamed_content_unknown
 import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_file_name
 import dev.app.leaf.app.generated.resources.error_conflict_merge_tool_not_two_files
 import dev.app.leaf.app.generated.resources.error_conflict_no_merge_tool
@@ -129,6 +130,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is ConflictError.NotResolved -> listOf(path, tool)
     is ConflictError.MarkersLeft -> listOf(path, tool, "git update-index --unresolve")
     is ConflictError.StagesChanged -> listOf(path)
+    is ConflictError.RenamedContentUnknown -> listOf(path)
     is ConflictError.WorkingFileChanged -> listOf(path)
     is ConflictError.NotAFile -> listOf(path)
     is ConflictError.ConflictsLeft -> listOf(path)
@@ -272,6 +274,8 @@ fun AppError.getErrorText(): String {
             ).filter { it.isNotBlank() }.joinToString("\n\n")
 
             is ConflictError.StagesChanged -> stringResource(Res.string.error_conflict_stages_changed, path)
+            is ConflictError.RenamedContentUnknown ->
+                stringResource(Res.string.error_conflict_renamed_content_unknown, path)
             is ConflictError.WorkingFileChanged -> stringResource(Res.string.error_conflict_working_file_changed, path)
             is ConflictError.NotAFile -> stringResource(Res.string.error_conflict_not_a_file, path)
             is ConflictError.ConflictsLeft -> stringResource(Res.string.error_conflict_conflicts_left, path, count)

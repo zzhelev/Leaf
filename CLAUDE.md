@@ -445,7 +445,8 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
   - The processing screen shows `<tool>: <path>` with Cancel, which kills git and what it started. A tool that detaches
     from its starter, as `open -W -a Meld` does, stays open.
 - **Ours and theirs (`ResolveConflictGitAction`):** for a side that has a file, `git checkout --ours|--theirs` then
-  `git add`; for one that deleted it, `git rm`; for a submodule, `git update-index --cacheinfo` with that side's commit
+  `git add` (with `keepWorkingFile`, the resolver's Keep, only `git add` where the working file is there and isn't a
+  folder); for one that deleted it, `git rm`; for a submodule, `git update-index --cacheinfo` with that side's commit
   (`git add` would stage whatever the submodule has checked out). All with `--literal-pathspecs`. A path that has no
   conflicts any more stops it before anything runs (`ConflictError.NotConflicted`).
 - **Which side is which (`GetConflictSidesGitAction`, `ConflictSides`):** read from what git and JGit leave in the
@@ -473,9 +474,9 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
   so a fake tool with an untrusted exit code has to `touch -t` the file. git removes its copies once the tool exits.
 
 **Built-in conflict resolver (fork-only, `data/git/conflicts/`, models in `domain/models/TextMerge.kt` and
-`ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 to 4 of `docs/fork/conflict-resolver.md`: the model, its git
-actions, the views, Columns (ours | result | theirs) and Stacked (the sides on top of the result), and editing the
-result one part at a time, with one undo history.
+`ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 to 5 of `docs/fork/conflict-resolver.md`: the model, its git
+actions, the views, Columns (ours | result | theirs) and Stacked (the sides on top of the result), editing the result
+one part at a time, with one undo history, and a card per side for the conflicts that three panes can't show.
 - `GetConflictedFileGitAction` loads a conflicted path as `ConflictedFile`: its stages (through `stagesOf`), its
   `FileConflict`, its `ConflictSides`, and a `ConflictContent` picked in `git mergetool`'s order:
   - `OtherPaths`: a stage alone (DD, AU, UA), as rename/rename leaves;
@@ -549,20 +550,22 @@ result one part at a time, with one undo history.
     (`ResolverPrompt`). Save's `WorkingFileChanged` gives Reload or Keep mine.
   - A shown file that stops being conflicted gives `AfterStatus.Resolved(next)`, and the view model sets
     `ConflictResolverState.handOff`. The view dims the file (`PAUSED_ALPHA`), which scrolls but takes no clicks
-    (`takingNoClicks` consumes presses in `PointerEventPass.Initial`), shows "✓ Resolved" in place of Save and Mark
-    resolved, and `HandOffStrip` has "Next file". `nextFile`, or `markResolved` again (Cmd+Enter), loads it. While
+    (`takingNoClicks` consumes presses in `PointerEventPass.Initial`), shows "✓ Resolved" after the file's name and
+    one "Next file" where Mark resolved was, so the pointer stays put: in the toolbar, or on the choice card picked.
+    `HandOffStrip` only says what Cmd+Enter opens. `nextFile`, or `markResolved` again (Cmd+Enter), loads it. Choice
+    cards dim themselves, all but the card's Next file. While
     paused, picks, editing, Undo, Save and the panels' actions do nothing, and leaving doesn't ask about unsaved
     picks: the file was written and staged.
   - While the next file loads, the view keeps the last one (`LastLoaded`), fading it out under `LoadingCover`, which
     takes the pointer and says "Loading…" after 400 ms; the next one fades in.
   - Keys: the tab's handler sends Cmd+S (Stash elsewhere) and Esc to the resolver while it shows; the view handles
-    Cmd+Enter (Mark resolved), F7 / Shift+F7, and while no part is edited Enter (edit the current conflict), Cmd+Z and
-    Shift+Cmd+Z (Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y elsewhere) itself, so `Keybinding.kt` is unchanged. The view takes the focus when
-    it opens, so `RepositoryOpenPage` gives it back to the tab whenever `showConflictResolver` turns false, however the
-    resolver closed. Without that, the tab's shortcuts did nothing until a click.
+    Cmd+Enter (Mark resolved), F7 / Shift+F7, ← and → on choice cards, and while no part is edited Enter (edit the
+    current conflict), Cmd+Z and Shift+Cmd+Z (Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y elsewhere) itself, so `Keybinding.kt` is
+    unchanged. The view takes the focus when it opens, so `RepositoryOpenPage` gives it back to the tab whenever
+    `showConflictResolver` turns false, however the resolver closed. Without that, the tab's shortcuts did nothing
+    until a click.
   - Colours come from the theme (`primary` for ours, `conflictFile`, `addFile`), and a fixed purple for theirs.
-  - The conflicts that three panes can't show get a panel with "Use ours (main)" and "Use theirs (…)", or "Delete the
-    file, as … did", through `ResolveConflictUseCase` and the same confirmation as elsewhere.
+  - The conflicts that three panes can't show get a card per side (see Choice cards).
   - Tests: `ConflictResolverTest` renders `ConflictResolverContent` from a state and clicks it, `ResolverColumnsTest`
     (domain) the rows and arrows, `ConflictResolverStatusTest` `afterStatus`. The view model itself was run against a
     real repository through the Dagger graph in a temporary harness (see Offscreen UI checks), not by a kept test.
@@ -650,6 +653,53 @@ result one part at a time, with one undo history.
     included, where editing a part without changing it writes the same file, and 2,000 random saved states, which
     come back from their bytes), the saved files in `GetConflictedFileGitActionTest` (`core.autocrlf` included), and
     the editing tests in `ConflictResolverTest`. The view model, with the keys, was run against a real repository in a temporary harness.
+- **Choice cards (step 5, `ResolverChoiceCards.kt`, `ConflictPreviews.kt`):** a conflict that three panes can't show
+  (`ConflictedFile.hasChoiceCards`) shows what happened, then a card per side, ours left and theirs right. A click on a
+  card, or ← and →, picks it (`ConflictResolverViewModel.pick`, a `ChoicePick` in `ResolverFile.Loaded.pick`); Mark
+  resolved (Cmd+Enter, or the button on the card picked; the toolbar has none for cards) stages it through
+  `ResolveConflictUseCase`, with no dialog, as picking stages nothing. Once resolved, the card's button is Next file,
+  in the same place. The toolbar's Base adds the base's card (`showsBaseCard`), except where one side deleted the file.
+  A resolved file takes no picks.
+  - `GetConflictedFileGitAction` reads `ConflictedFile.preview` (`conflictPreview`, models in
+    `domain/models/ConflictPreview.kt`); a failure there is logged and leaves it null, as the choice doesn't need it.
+    Each version is a `VersionPreview`: a file's size, its lines for text too large to merge (`TooLarge`), and its
+    bytes for an image (`PREVIEW_IMAGE_TYPES`, by extension, up to `MAX_PREVIEW_IMAGE_SIZE`, 16 MB), which the card
+    decodes off the UI thread; a link's target and whether it resolves from the link's folder; a submodule's commit,
+    named from the submodule's repository (`SubmoduleWalk.getSubmoduleRepository`), with which contains the other and
+    its checkout (`SubmodulePreview`); a Git LFS pointer's object, downloaded when JGit's `Lfs.getMediaFile` has it
+    with the pointer's size.
+  - One side deleted the file: Keep stages the working file as it is (`keepWorkingFile`), as `git mergetool`'s
+    "modified" does, so edits since the merge stay. The card's diff (`keptChanges`, git's hunks with 3 lines of
+    context, at most `MAX_PREVIEW_LINES`, 300) is the working file's, converted as `git add` would (`checkedIn`), and
+    `workingFileEdited` says when it isn't the side's version any more. With a `filter` attribute
+    (`ConflictFileAttributes.filtered`), the working file isn't the blob's bytes, so the diff is the blob's.
+  - "Open in the default app" (binary files and downloaded LFS objects): `OpenConflictVersionUseCase` has
+    `WriteConflictVersionGitAction` write the stage's blob, or its LFS object, to `<app data>/tmp/<id>_<name>`, moved
+    into place, then opens it as the diff pane opens an image.
+  - **Renamed on both sides (`RenamedFiles.kt`, `ConflictContent.Renamed`, `RenamedFile`):** git records the old name
+    at stage 1 alone, ours' new name at stage 2 alone and theirs' at stage 3 alone, and writes the same merged blob at
+    both new names. `renamedFiles` pairs the new names by that blob (a blob that two pairs share stays out), and the old
+    name by content (JGit's `RenameDetector`, at git's 50%, through `IndexEntryChange`, as JGit keeps
+    `DiffEntry.add` and `delete` to itself), or as the only one left. `GetConflictedFileGitAction` opens any of the
+    three paths as one `ConflictedFile` under the old name; the view model reads the groups with each status
+    (`GetRenamedFilesUseCase`) and lists each once (`ResolverFileEntry.renamedTo`, `a.txt → b.txt, c.txt`).
+  - The cards are the new names and "Keep both names" (`ChoicePick.BOTH`, `pickBothNames`).
+    `ResolveRenamedFileGitAction` runs `git rm` on the old name and a new name not kept, and `git add` on a name kept
+    (checked out from its side first when its working file is gone). A name kept whose working file has conflict
+    markers (`hasConflictMarkers`, any length: git's are eight characters there) gets the stages of a content conflict
+    instead, through `git update-index --index-info`: the base from the old name, ours from HEAD, theirs from the
+    commit applied (`theirsCommit`: `MERGE_HEAD`, `CHERRY_PICK_HEAD`, or the commit a rebase replays). Its working file
+    is written again with the resolver's markers (`writeMergeResult`, Save's writer) unless it was edited since, and
+    the view model opens it next (`follow`). Without theirs' commit (a revert, a stash), Mark resolved waits
+    (`renamedContentUnknown`, `ConflictError.RenamedContentUnknown`), and markers fixed by hand are staged as they are.
+  - Other conflicts at several paths (`ConflictContent.OtherPaths`, such as `d~HEAD` for a file against a folder) get a
+    card per side, as a deleted file does: the side with a file keeps it there (`keepWorkingFile`), the other leaves it
+    out.
+  - Tests: `ConflictPreviewsTest` (data: each kind from real merges, a submodule's repository, the LFS store, CRLF and
+    filters, and the hunks against git's), `RenamedFilesTest` (pairing, conflicting content, the stages written, a
+    stale group), `WriteConflictVersionGitActionTest`, Keep in `ResolveConflictGitActionTest`, `FileSizesTest`, and the
+    cards in `ConflictResolverTest`. The view model, with the keys and the cards' buttons, was run against a real
+    repository with one conflict of each kind, two renamed files and a file against a folder, in a temporary harness.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,

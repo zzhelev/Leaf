@@ -27,6 +27,9 @@ internal data class ConflictFileAttributes(
 
     /** How `git add` converts them back. */
     val checkinLineEndings: EolStreamType = EolStreamType.DIRECT,
+
+    /** A `filter` attribute, such as Git LFS's: the working file isn't the blob's bytes, even after line endings. */
+    val filtered: Boolean = false,
 )
 
 /**
@@ -50,6 +53,7 @@ internal fun conflictFileAttributes(repository: Repository, path: String): Confl
             repository.config.get(WorkingTreeOptions.KEY),
             attributes,
         ),
+        filtered = attributes.getValue("filter") != null,
     )
 }
 

@@ -18,6 +18,9 @@ import dev.app.leaf.data.git.config.SaveRefFolderExpansionGitAction
 import dev.app.leaf.data.git.config.SaveLocalRepositoryConfigGitAction
 import dev.app.leaf.data.git.conflicts.GetConflictSidesGitAction
 import dev.app.leaf.data.git.conflicts.GetConflictedFileGitAction
+import dev.app.leaf.data.git.conflicts.WriteConflictVersionGitAction
+import dev.app.leaf.data.git.conflicts.GetRenamedFilesGitAction
+import dev.app.leaf.data.git.conflicts.ResolveRenamedFileGitAction
 import dev.app.leaf.data.git.conflicts.GetMergeToolGitAction
 import dev.app.leaf.data.git.conflicts.OpenMergeToolGitAction
 import dev.app.leaf.data.git.conflicts.ResolveConflictGitAction
@@ -497,6 +500,18 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetConflictedFileGitAction(action: GetConflictedFileGitAction): IGetConflictedFileGitAction
+
+    @Binds
+    @TabScope
+    fun bindsWriteConflictVersionGitAction(action: WriteConflictVersionGitAction): IWriteConflictVersionGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetRenamedFilesGitAction(action: GetRenamedFilesGitAction): IGetRenamedFilesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsResolveRenamedFileGitAction(action: ResolveRenamedFileGitAction): IResolveRenamedFileGitAction
 
     @Binds
     @TabScope

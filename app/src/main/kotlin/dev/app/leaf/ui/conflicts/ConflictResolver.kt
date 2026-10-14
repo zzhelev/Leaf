@@ -81,8 +81,7 @@ import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictResolution
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
-import dev.app.leaf.domain.models.ConflictSides
-import dev.app.leaf.domain.models.ConflictStages
+import dev.app.leaf.domain.models.ConflictStage
 import dev.app.leaf.domain.models.ConflictedFile
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.TextMerge
@@ -108,6 +107,7 @@ import dev.app.leaf.viewmodels.ResolverFile
 import dev.app.leaf.viewmodels.ResolverFileEntry
 import dev.app.leaf.viewmodels.ResolverHandOff
 import dev.app.leaf.viewmodels.ResolverPrompt
+import dev.app.leaf.viewmodels.hasChoiceCards
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -118,15 +118,12 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The built-in conflict resolver, over the whole tab (`docs/fork/conflict-resolver.md`, steps 2 and 3): the conflicted
- * files on the left, and the one picked in three columns, or with the sides on top of the result. [onConfirmUseSide]
- * asks before a side is taken for a whole file, as "Use ours" and "Use theirs" do elsewhere.
+ * The built-in conflict resolver, over the whole tab (`docs/fork/conflict-resolver.md`, steps 2 to 5): the conflicted
+ * files on the left, and the one picked in three columns, or with the sides on top of the result, or as a card per
+ * side for a conflict that three panes can't show.
  */
 @Composable
-fun ConflictResolver(
-    viewModel: ConflictResolverViewModel,
-    onConfirmUseSide: (StatusEntry, ConflictSide, ConflictSides?, onConfirm: () -> Unit) -> Unit,
-) {
+fun ConflictResolver(viewModel: ConflictResolverViewModel) {
     val state by viewModel.state.collectAsState()
     val lists = remember { ResolverLists() }
     val focusRequester = remember { FocusRequester() }
@@ -162,7 +159,9 @@ fun ConflictResolver(
             onOpenInExternalTool = viewModel::openInExternalTool,
             onMarkResolvedAsItIs = viewModel::markResolvedAsItIs,
             onResolveAgain = viewModel::resolveAgain,
-            onUseSide = { entry, side, sides -> onConfirmUseSide(entry, side, sides) { viewModel.useSide(side) } },
+            onPick = viewModel::pick,
+            onPickBothNames = viewModel::pickBothNames,
+            onOpenVersion = viewModel::openVersion,
             onAnswerUnsaved = viewModel::answerUnsavedChanges,
             onReload = viewModel::reload,
             onDismissPrompt = viewModel::dismissPrompt,
@@ -194,8 +193,21 @@ fun ConflictResolver(
             .onPreviewKeyEvent { event ->
                 // While a part is edited, its text field has Enter and the undo keys
                 val notEditing = viewModel.state.value.edit == null
+                val cards = (viewModel.state.value.file as? ResolverFile.Loaded)?.file?.hasChoiceCards == true
+                val arrow = event.type == KeyEventType.KeyDown && !event.isShiftPressed && !event.isCtrlPressed &&
+                    !event.isMetaPressed && !event.isAltPressed
 
                 when {
+                    cards && arrow && event.key == Key.DirectionLeft -> {
+                        viewModel.pick(ConflictSide.OURS)
+                        true
+                    }
+
+                    cards && arrow && event.key == Key.DirectionRight -> {
+                        viewModel.pick(ConflictSide.THEIRS)
+                        true
+                    }
+
                     notEditing && isUndoShortcut(event) -> {
                         viewModel.undo()
                         true
@@ -254,7 +266,6 @@ class ResolverActions(
     val onOpenInExternalTool: () -> Unit,
     val onMarkResolvedAsItIs: () -> Unit,
     val onResolveAgain: () -> Unit,
-    val onUseSide: (StatusEntry, ConflictSide, ConflictSides?) -> Unit,
     val onAnswerUnsaved: (save: Boolean?) -> Unit,
     val onReload: () -> Unit,
     val onDismissPrompt: () -> Unit,
@@ -265,6 +276,12 @@ class ResolverActions(
     val onRedo: () -> Unit = {},
     /** What the text field of the part being edited does. */
     val edits: EditActions = EditActions(onType = {}, onFinish = {}),
+    /** A choice card was picked, for a conflict that three panes can't show. */
+    val onPick: (ConflictSide) -> Unit = {},
+    /** "Keep both names", for a file that each side renamed differently. */
+    val onPickBothNames: () -> Unit = {},
+    /** "Open in the default app" on a card: that version, a stage of the index. */
+    val onOpenVersion: (ConflictStage) -> Unit = {},
 )
 
 /** The resolver as [state] shows it, without its view model, so that tests can render it. */
@@ -288,17 +305,18 @@ fun ConflictResolverContent(
         shownFile.workingFileState == WorkingFileState.NO_MARKERS && !shownFile.resolveAgain
     }
     val entry = state.files.firstOrNull { it.entry.filePath == state.file.path }?.entry
-    val shownEntry = state.files.firstOrNull { it.entry.filePath == shownFile?.path }?.entry
     val shown = remember { ShownPlace() }
     // The file shown was resolved: it stays, dimmed and read-only, until the next one is opened
     val handOff = state.handOff?.takeIf { it.from == state.file.path }
     val paused = handOff != null
+    // Choice cards dim themselves, all but the button that opens the next file
+    val cards = shownFile?.file?.hasChoiceCards == true
     val fade = remember { Animatable(1f) }
 
-    LaunchedEffect(loadingNext, paused) {
+    LaunchedEffect(loadingNext, paused, cards) {
         when {
             loadingNext -> fade.animateTo(0f, tween(FADE_OUT_MILLIS))
-            paused -> fade.animateTo(PAUSED_ALPHA, tween(FADE_IN_MILLIS))
+            paused && !cards -> fade.animateTo(PAUSED_ALPHA, tween(FADE_IN_MILLIS))
             else -> fade.animateTo(1f, tween(FADE_IN_MILLIS))
         }
     }
@@ -316,7 +334,7 @@ fun ConflictResolverContent(
         Toolbar(state, file, merge.takeIf { file != null }, entry, paused, actions)
 
         if (handOff != null) {
-            HandOffStrip(handOff, actions.onNextFile)
+            HandOffStrip(handOff)
         }
 
         state.prompt?.let { Prompt(it, state.file.path.orEmpty(), actions) }
@@ -336,9 +354,9 @@ fun ConflictResolverContent(
             }
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }.takingNoClicks(paused)) {
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }.takingNoClicks(paused && !cards)) {
                     CompositionLocalProvider(LocalEditorPresses provides presses) {
-                        FileView(state, shownFile, merge, shownEntry, lists, shown, scrollToChunk, revealChunk, paused, actions)
+                        FileView(state, shownFile, merge, lists, shown, scrollToChunk, revealChunk, paused, actions)
                     }
                 }
 
@@ -356,7 +374,6 @@ private fun FileView(
     state: ConflictResolverState,
     file: ResolverFile.Loaded?,
     merge: TextMerge?,
-    entry: StatusEntry?,
     lists: ResolverLists,
     shown: ShownPlace,
     scrollToChunk: Flow<Int>,
@@ -371,7 +388,7 @@ private fun FileView(
 
         state.file is ResolverFile.Failed -> Message(state.file.error.getErrorText())
         file == null -> Message(stringResource(Res.string.conflict_resolver_nothing))
-        file.file.content !is ConflictContent.Text -> ChoicePanel(file.file, entry, actions)
+        file.file.hasChoiceCards -> ChoiceCards(file.file, file.pick, state.showBase, paused, actions)
         merge == null -> NoMarkersPanel(file.file.path, actions)
         else -> Column {
             if (file.workingFileState == WorkingFileState.DIFFERENT) {
@@ -574,10 +591,17 @@ private fun Toolbar(
                 toggled = state.wrapLines,
                 onClick = actions.onToggleWrapLines,
             )
+        }
 
+        // The cards' base is a card of its own, where it says more than the sides
+        val cards = file?.file?.takeIf { merge == null && it.hasChoiceCards }
+
+        if (merge != null || cards != null && showsBaseCard(cards)) {
             ToggleButton(
                 text = stringResource(Res.string.conflict_resolver_base),
-                tooltip = stringResource(Res.string.conflict_resolver_base_tooltip),
+                tooltip = stringResource(
+                    if (cards != null) Res.string.conflict_resolver_base_card_tooltip else Res.string.conflict_resolver_base_tooltip
+                ),
                 toggled = state.showBase,
                 onClick = actions.onToggleBase,
             )
@@ -591,6 +615,16 @@ private fun Toolbar(
                     backgroundButton = MaterialTheme.colors.secondarySurface,
                     onClick = actions.onOpenInExternalTool,
                 )
+            }
+        }
+
+        // One Next file, where Mark resolved was, so that the pointer stays put: here for text, and on the card picked
+        // for choice cards, which have their Mark resolved there too
+        val next = state.handOff?.takeIf { paused && cards == null }?.next
+
+        if (next != null) {
+            DelayedTooltip(stringResource(Res.string.conflict_resolver_next_file_tooltip, next, acceptShortcut())) {
+                PrimaryButton(text = stringResource(Res.string.conflict_resolver_next_file_short), onClick = actions.onNextFile)
             }
         }
 
@@ -704,7 +738,7 @@ private fun ToolbarIcon(
 }
 
 /** Mark resolved's shortcut (`TEXT_ACCEPT`), as the platform writes it: ⌘⏎ on macOS, Ctrl+Enter elsewhere. */
-private fun acceptShortcut() = if (currentOs == OS.MAC) "⌘⏎" else "Ctrl+Enter"
+internal fun acceptShortcut() = if (currentOs == OS.MAC) "⌘⏎" else "Ctrl+Enter"
 
 /** Focus's shortcut, as the platform writes it: ⇧⌘F on macOS, Ctrl+Shift+F elsewhere. */
 private fun focusShortcut() = if (currentOs == OS.MAC) "⇧⌘F" else "Ctrl+Shift+F"
@@ -787,7 +821,7 @@ private fun FileMenu(files: List<ResolverFileEntry>, current: String?, onSelect:
                         modifier = Modifier.size(14.dp),
                     )
                     Text(
-                        text = path,
+                        text = file.name(path),
                         style = MaterialTheme.typography.body2,
                         fontWeight = if (path == current) FontWeight.SemiBold else FontWeight.Normal,
                         modifier = Modifier.padding(start = 8.dp),
@@ -904,9 +938,9 @@ private fun FileList(files: List<ResolverFileEntry>, current: String?, width: Fl
                     modifier = Modifier.size(14.dp),
                 )
 
-                DelayedTooltip(path, modifier = Modifier.weight(1f)) {
+                DelayedTooltip(file.tooltip(), modifier = Modifier.weight(1f)) {
                     Text(
-                        text = path.substringAfterLast('/'),
+                        text = file.name(),
                         style = MaterialTheme.typography.body2,
                         color = if (file.resolvedHere) MaterialTheme.colors.onBackgroundSecondary else MaterialTheme.colors.onBackground,
                         maxLines = 1,
@@ -927,6 +961,13 @@ private fun FileList(files: List<ResolverFileEntry>, current: String?, width: Fl
         )
     }
 }
+
+/** The file's name in the list, and a renamed file's new names after it: `a.txt → b.txt, c.txt`. */
+private fun ResolverFileEntry.name(old: String = entry.filePath.substringAfterLast('/')): String =
+    if (renamedTo.isEmpty()) old else "$old → ${renamedTo.joinToString(", ") { it.substringAfterLast('/') }}"
+
+/** The file's path, and a renamed file's new paths, one a line. */
+private fun ResolverFileEntry.tooltip(): String = (listOf(entry.filePath) + renamedTo).joinToString("\n")
 
 /** The edge between the file list and the file: dragging it resizes the list, and a double-click puts it back. */
 @Composable
@@ -992,19 +1033,16 @@ private fun DifferentMarkersStrip(file: ConflictedFile) {
  * shortcut) does again.
  */
 @Composable
-private fun HandOffStrip(handOff: ResolverHandOff, onNextFile: () -> Unit) {
-    val text = if (handOff.resolvedHere) {
+private fun HandOffStrip(handOff: ResolverHandOff) {
+    val resolved = if (handOff.resolvedHere) {
         stringResource(Res.string.conflict_resolver_hand_off_resolved, handOff.from)
     } else {
         stringResource(Res.string.conflict_resolver_hand_off_elsewhere, handOff.from)
     }
+    // The button is where Mark resolved was, in the toolbar or the card picked: the strip only says what it opens
+    val next = stringResource(Res.string.conflict_resolver_hand_off_next, acceptShortcut(), handOff.next)
 
-    Strip(text = text, color = MaterialTheme.colors.addFile, icon = Res.drawable.check) {
-        PrimaryButton(
-            text = stringResource(Res.string.conflict_resolver_next_file, handOff.next, acceptShortcut()),
-            onClick = onNextFile,
-        )
-    }
+    Strip(text = "$resolved $next", color = MaterialTheme.colors.addFile, icon = Res.drawable.check) {}
 }
 
 /** After the file name, while the file shown is resolved and the view waits to open the next one. */
@@ -1101,73 +1139,6 @@ private fun AllResolved(onClose: () -> Unit) {
         text = stringResource(Res.string.conflict_resolver_done),
     ) {
         PrimaryButton(text = stringResource(Res.string.conflict_resolver_done_back), onClick = onClose)
-    }
-}
-
-/**
- * A conflict that three panes can't show (`conflict-resolver.md`, 2.4): what it is, and a choice of side. The cards with
- * previews come with step 5.
- */
-@Composable
-private fun ChoicePanel(file: ConflictedFile, entry: StatusEntry?, actions: ResolverActions) {
-    val sides = file.sides
-    val ours = ConflictSide.OURS.named(sides)
-    val theirs = ConflictSide.THEIRS.named(sides)
-    val content = file.content
-
-    val text = when (content) {
-        ConflictContent.Deleted -> if (file.stages == ConflictStages.DELETED_BY_US) {
-            stringResource(Res.string.conflict_resolver_choice_deleted, ours, theirs)
-        } else {
-            stringResource(Res.string.conflict_resolver_choice_deleted, theirs, ours)
-        }
-
-        ConflictContent.Binary -> stringResource(Res.string.conflict_resolver_choice_binary)
-        is ConflictContent.Lfs -> stringResource(
-            Res.string.conflict_resolver_choice_lfs,
-            content.ours?.let { "${it.oid.take(12)}…, ${it.size} B" } ?: "—",
-            content.theirs?.let { "${it.oid.take(12)}…, ${it.size} B" } ?: "—",
-        )
-
-        ConflictContent.Submodule -> stringResource(
-            Res.string.conflict_resolver_choice_submodule,
-            file.ours?.objectId?.take(7) ?: "—",
-            file.theirs?.objectId?.take(7) ?: "—",
-        )
-
-        is ConflictContent.SymbolicLink -> stringResource(
-            Res.string.conflict_resolver_choice_link,
-            content.oursTarget ?: "—",
-            content.theirsTarget ?: "—",
-        )
-
-        is ConflictContent.TooLarge -> stringResource(
-            Res.string.conflict_resolver_choice_too_large,
-            content.limit / (1024 * 1024),
-        )
-
-        ConflictContent.OtherPaths -> stringResource(Res.string.conflict_resolver_choice_other_paths)
-        is ConflictContent.Text -> ""
-    }
-
-    Panel(title = file.path, text = text) {
-        if (content != ConflictContent.OtherPaths && entry != null) {
-            for (side in ConflictSide.entries) {
-                val name = side.named(sides)
-                // Where that side deleted the file, taking it deletes it
-                val label = if (file.conflict.version(side) == null) {
-                    stringResource(Res.string.conflict_resolver_choice_delete, name)
-                } else {
-                    stringResource(Res.string.conflict_resolver_choice_use, name)
-                }
-
-                StripButton(label) { actions.onUseSide(entry, side, sides) }
-            }
-
-            if (entry.canOpenInMergeTool) {
-                StripButton(stringResource(Res.string.conflict_resolver_external_tool)) { actions.onOpenInExternalTool() }
-            }
-        }
     }
 }
 

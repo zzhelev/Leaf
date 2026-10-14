@@ -16,6 +16,8 @@ import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.ConflictStage
 import dev.app.leaf.domain.models.ConflictStages
 import dev.app.leaf.domain.models.ConflictedFile
+import dev.app.leaf.domain.models.FileConflict
+import dev.app.leaf.domain.models.RenamedFile
 import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.WorkingFileCheck
@@ -23,10 +25,12 @@ import dev.app.leaf.domain.models.WorkingFileState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.diff.RawText
+import org.eclipse.jgit.dircache.DirCache
 import org.eclipse.jgit.dircache.DirCacheEntry
 import org.eclipse.jgit.lfs.LfsPointer
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.FileMode
+import org.eclipse.jgit.lib.ObjectId
 import org.eclipse.jgit.lib.ObjectInserter
 import org.eclipse.jgit.lib.ObjectReader
 import org.eclipse.jgit.lib.Repository
@@ -89,12 +93,18 @@ internal fun loadConflictedFile(
         null
     }
 
-    val content = repository.newObjectReader().use { reader ->
+    // A file that each side renamed differently opens as one, under its old name, whichever of its paths was opened
+    if (stages in OTHER_PATHS) {
+        renamedFiles(repository, index).firstOrNull { path in it.paths }?.let { renamed ->
+            return renamedFile(repository, index, renamed, sides)
+        }
+    }
+
+    val (content, preview) = repository.newObjectReader().use { reader ->
         val present = listOfNotNull(base, ours, theirs)
 
-        when {
-            stages in setOf(ConflictStages.BOTH_DELETED, ConflictStages.ADDED_BY_US, ConflictStages.ADDED_BY_THEM) ->
-                ConflictContent.OtherPaths
+        val content = when {
+            stages in OTHER_PATHS -> ConflictContent.OtherPaths
 
             present.any { it.fileMode == FileMode.GITLINK } -> ConflictContent.Submodule
             ours == null || theirs == null -> ConflictContent.Deleted
@@ -105,6 +115,16 @@ internal fun loadConflictedFile(
 
             else -> fileContent(repository, reader, path, base, ours, theirs, sides, maxTextSize)
         }
+
+        // The cards can do without it: a side's choice doesn't depend on it
+        val preview = try {
+            conflictPreview(repository, reader, path, content, base, ours, theirs)
+        } catch (e: Exception) {
+            printError(TAG, "Couldn't read what the choice cards show of $path", e)
+            null
+        }
+
+        content to preview
     }
 
     return ConflictedFile(
@@ -115,6 +135,53 @@ internal fun loadConflictedFile(
         conflict = conflict,
         sides = sides,
         content = content,
+        preview = preview,
+    )
+}
+
+/** What git leaves at each path of a file renamed differently on each side, and of other conflicts at several paths. */
+private val OTHER_PATHS = setOf(ConflictStages.BOTH_DELETED, ConflictStages.ADDED_BY_US, ConflictStages.ADDED_BY_THEM)
+
+/**
+ * [renamed] as one conflicted file, under its old name: the base from it, ours and theirs from their new names. Its
+ * content has conflicts when git left markers in either new name's working file (the user may have fixed them since).
+ */
+private fun renamedFile(
+    repository: Repository,
+    index: DirCache,
+    renamed: RenamedFile,
+    sides: ConflictSides?,
+): ConflictedFile {
+    val base = index.stagesOf(renamed.original).single()
+    val ours = index.stagesOf(renamed.ours).single()
+    val theirs = index.stagesOf(renamed.theirs).single()
+    val content = ConflictContent.Renamed(
+        file = renamed,
+        contentConflicts = listOf(renamed.ours, renamed.theirs)
+            .any { hasConflictMarkers(File(repository.workTree, it)) },
+        theirsCommit = theirsCommit(repository)?.name,
+    )
+    val preview = try {
+        repository.newObjectReader().use { reader ->
+            conflictPreview(repository, reader, renamed.original, content, base, ours, theirs)
+        }
+    } catch (e: Exception) {
+        printError(TAG, "Couldn't read what the choice cards show of ${renamed.original}", e)
+        null
+    }
+
+    return ConflictedFile(
+        path = renamed.original,
+        base = base.toConflictStage(),
+        ours = ours.toConflictStage(),
+        theirs = theirs.toConflictStage(),
+        conflict = FileConflict(
+            ours = index.fileConflict(renamed.ours)?.ours,
+            theirs = index.fileConflict(renamed.theirs)?.theirs,
+        ),
+        sides = sides,
+        content = content,
+        preview = preview,
     )
 }
 
@@ -216,7 +283,7 @@ private fun workingFile(
 }
 
 /** [bytes] as `git add` converts their line endings. JGit's output streams only convert for a checkout. */
-private fun checkedIn(bytes: ByteArray, lineEndings: EolStreamType): ByteArray =
+internal fun checkedIn(bytes: ByteArray, lineEndings: EolStreamType): ByteArray =
     EolStreamTypeUtil.wrapInputStream(ByteArrayInputStream(bytes), lineEndings).use { it.readBytes() }
 
 /** [bytes] as a checkout, and Save, convert their line endings. */
@@ -232,14 +299,17 @@ private fun ObjectReader.symbolicLinkTarget(entry: DirCacheEntry): String? =
     if (entry.fileMode == FileMode.SYMLINK) open(entry.objectId).bytes.decodeToString() else null
 
 /** The object that [entry]'s file points to, when it's a Git LFS pointer. */
-private fun ObjectReader.lfsPointer(entry: DirCacheEntry): LfsObject? {
-    if (getObjectSize(entry.objectId, Constants.OBJ_BLOB) > MAX_LFS_POINTER_SIZE) {
+internal fun ObjectReader.lfsPointer(entry: DirCacheEntry): LfsObject? = lfsPointer(entry.objectId)
+
+/** The object that the blob [id] points to, when it's a Git LFS pointer. */
+internal fun ObjectReader.lfsPointer(id: ObjectId): LfsObject? {
+    if (getObjectSize(id, Constants.OBJ_BLOB) > MAX_LFS_POINTER_SIZE) {
         return null
     }
 
     // JGit throws on a pointer whose id isn't hex: a file that only looks like a pointer
     val pointer = try {
-        open(entry.objectId).openStream().use { LfsPointer.parseLfsPointer(it) }
+        open(id).openStream().use { LfsPointer.parseLfsPointer(it) }
     } catch (e: IllegalArgumentException) {
         null
     } ?: return null

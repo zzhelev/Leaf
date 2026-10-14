@@ -317,12 +317,7 @@ fun RepoContent(
 
     if (showConflictResolver && conflictResolverViewModel != null) {
         // Fork-only: the built-in conflict resolver takes the whole tab, as file history does
-        ConflictResolver(
-            viewModel = conflictResolverViewModel,
-            onConfirmUseSide = { entry, side, sides, onConfirm ->
-                onNavigate(Screen.ConfirmAction(ConfirmableAction.UseConflictSide(listOf(entry), side, sides), onConfirm))
-            },
-        )
+        ConflictResolver(viewModel = conflictResolverViewModel)
     } else if (showHistory) {
         val historyViewModel = repositoryOpenViewModel.historyViewModel
 

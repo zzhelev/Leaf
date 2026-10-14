@@ -30,7 +30,18 @@ import dev.app.leaf.domain.conflicts.ColumnShares
 import dev.app.leaf.domain.conflicts.editStart
 import dev.app.leaf.domain.conflicts.typing
 import dev.app.leaf.domain.models.ChangedBy
+import dev.app.leaf.domain.models.CommitRelation
+import dev.app.leaf.domain.models.CommitSummary
 import dev.app.leaf.domain.models.ConflictCommit
+import dev.app.leaf.domain.models.ConflictPreview
+import dev.app.leaf.domain.models.KeptChanges
+import dev.app.leaf.domain.models.LfsObject
+import dev.app.leaf.domain.models.PreviewImage
+import dev.app.leaf.domain.models.PreviewLine
+import dev.app.leaf.domain.models.PreviewLineType
+import dev.app.leaf.domain.models.RenamedFile
+import dev.app.leaf.domain.models.SubmodulePreview
+import dev.app.leaf.domain.models.VersionPreview
 import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictOperation
 import dev.app.leaf.domain.models.ConflictResolution
@@ -50,6 +61,7 @@ import dev.app.leaf.domain.models.TypedLines
 import dev.app.leaf.domain.models.WorkingFileCheck
 import dev.app.leaf.domain.models.WorkingFileState
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.viewmodels.ChoicePick
 import dev.app.leaf.viewmodels.ConflictResolverState
 import dev.app.leaf.viewmodels.ResolverFile
 import dev.app.leaf.viewmodels.ResolverFileEntry
@@ -68,7 +80,10 @@ import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.io.File
+import javax.imageio.ImageIO
 import kotlin.math.abs
 
 /** The resolver's view, rendered offscreen from a state, without its view model. */
@@ -187,35 +202,383 @@ class ConflictResolverTest {
         }
 
     @Test
-    fun `a binary conflict offers each side, named`(): Unit = runBlocking(Dispatchers.Swing) {
-        val used = mutableListOf<ConflictSide>()
-        val state = state().let { state ->
-            val file = (state.file as ResolverFile.Loaded).file.copy(content = ConflictContent.Binary)
-            state.copy(file = ResolverFile.Loaded(file, merge = null, saved = null))
-        }
+    fun `a binary conflict has a card per side, and a click on a card picks it`(): Unit = runBlocking(Dispatchers.Swing) {
+        val picked = mutableListOf<ConflictSide>()
+        val state = choice(
+            ConflictContent.Binary,
+            ConflictPreview(VersionPreview.File(9), VersionPreview.File(48 * 1024), VersionPreview.File(51 * 1024)),
+        )
 
-        render(state, actions(onUseSide = { _, side, _ -> used += side }), clickText = "Use ours (main)")
-        render(state, actions(onUseSide = { _, side, _ -> used += side }), clickText = "Use theirs (feature/retry)")
+        val texts = render(state, actions(onPick = { picked += it }), clickText = "Ours: main").texts
+        render(state, actions(onPick = { picked += it }), clickText = "Theirs: feature/retry")
 
-        assertEquals(listOf(ConflictSide.OURS, ConflictSide.THEIRS), used)
+        assertEquals(listOf(ConflictSide.OURS, ConflictSide.THEIRS), picked)
+        assertTrue("A binary file, changed on both sides. git can't merge it line by line." in texts, "$texts")
+        assertTrue("Binary · 48 KB" in texts && "Binary · 51 KB" in texts, "$texts")
+        assertTrue("Open in the default app" in texts, "$texts")
+        assertTrue(texts.any { it.startsWith("Click a card, or press ← or →, to pick a side.") }, "$texts")
+        // Nothing picked yet
+        assertTrue(texts.none { it.startsWith("✓") }, "$texts")
     }
 
     @Test
-    fun `a file that theirs deleted offers ours' version, or deleting it`(): Unit = runBlocking(Dispatchers.Swing) {
-        val state = state().let { state ->
-            val file = (state.file as ResolverFile.Loaded).file.copy(
-                theirs = null,
-                conflict = FileConflict(ConflictVersion.FILE, null),
-                content = ConflictContent.Deleted,
-            )
-            state.copy(file = ResolverFile.Loaded(file, merge = null, saved = null))
+    fun `without a preview, the cards still name the sides and can be picked, and say nothing they don't know`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val picked = mutableListOf<ConflictSide>()
+
+            val texts = render(choice(ConflictContent.Binary, preview = null), actions(onPick = { picked += it }), clickText = "Ours: main").texts
+
+            assertEquals(listOf(ConflictSide.OURS), picked)
+            assertTrue("A binary file, changed on both sides. git can't merge it line by line." in texts, "$texts")
+            assertTrue(texts.none { it.startsWith("The file is gone") || it == "Deleted" }, "$texts")
+
+            // The index still says which side deleted it
+            val deleted = render(
+                choice(ConflictContent.Deleted, preview = null) {
+                    it.copy(theirs = null, conflict = FileConflict(ConflictVersion.FILE, null))
+                }
+            ).texts
+
+            assertTrue("The file is gone in feature/retry." in deleted && "Deleted" in deleted, "$deleted")
         }
+
+    @Test
+    fun `a submodule that one side deleted says so`(): Unit = runBlocking(Dispatchers.Swing) {
+        val state = choice(
+            ConflictContent.Submodule,
+            ConflictPreview("1".repeat(40).let { VersionPreview.Commit(it, null) }, VersionPreview.Commit("2".repeat(40), null), null),
+        ) { it.copy(theirs = null, conflict = FileConflict(ConflictVersion.SUBMODULE, null)) }
+
         val texts = render(state).texts
 
-        assertTrue("Use ours (main)" in texts, "$texts")
-        assertTrue("Delete the file, as theirs (feature/retry) did" in texts, "$texts")
-        assertTrue(texts.any { it.startsWith("theirs (feature/retry) deleted this file, and ours (main) changed it") }, "$texts")
+        assertTrue("theirs (feature/retry) deleted this file, and ours (main) changed it." in texts, "$texts")
+        assertTrue("The file is gone in feature/retry." in texts && "Commit 2222222" in texts, "$texts")
     }
+
+    @Test
+    fun `Mark resolved waits for a pick, then stages it`(): Unit = runBlocking(Dispatchers.Swing) {
+        val preview = ConflictPreview(null, VersionPreview.File(9), VersionPreview.File(9))
+        var marked = 0
+
+        // Nothing to mark before a pick: no Mark resolved, on the cards or in the toolbar
+        val unpicked = render(choice(ConflictContent.Binary, preview)).texts
+
+        assertTrue("Mark resolved" !in unpicked && unpicked.none { it.startsWith("Mark resolved (") }, "$unpicked")
+
+        // The card picked has it, next to the pick, and the toolbar doesn't
+        val picked = choice(ConflictContent.Binary, preview, pick = ConflictSide.THEIRS)
+        val texts = render(picked, actions(onMarkResolved = { marked++ }), clickText = "Mark resolved (${acceptShortcut()})").texts
+
+        assertEquals(1, marked)
+        assertTrue("✓ Use theirs (feature/retry)" in texts, "$texts")
+        assertTrue("Mark resolved" !in texts, "$texts")
+        // The text's Save and the columns' switches have nothing to do here
+        assertTrue("Save" !in texts && "Wrap lines" !in texts, "$texts")
+    }
+
+    @Test
+    fun `once the file is resolved, the card picked says what was done, and the hint goes`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val preview = ConflictPreview(null, VersionPreview.File(9), VersionPreview.File(9))
+            val resolved = choice(ConflictContent.Binary, preview, pick = ConflictSide.THEIRS)
+                .copy(handOff = ResolverHandOff(from = entry.filePath, resolvedHere = true, next = "docs/guide.md"))
+
+            var opened = 0
+            val texts = render(resolved, actions(onNextFile = { opened++ }), clickText = "Next file (${acceptShortcut()})").texts
+
+            // One Next file, on the card, where Mark resolved was: the toolbar and the strip have none
+            assertEquals(1, opened)
+            assertEquals(1, texts.count { it.startsWith("Next file") }, "$texts")
+            assertTrue(
+                "${entry.filePath} is resolved and staged. ${acceptShortcut()} opens docs/guide.md." in texts,
+                "$texts",
+            )
+            assertTrue("✓ Use theirs (feature/retry)" in texts, "$texts")
+            assertTrue(texts.none { it.startsWith("Mark resolved (") || it.startsWith("Click a card") }, "$texts")
+            assertTrue("Mark resolved" !in render(resolved).clickable)
+            // The cards are dimmed and take no picks
+            assertTrue(render(resolved).clickable.none { it.startsWith("Ours: main") || it.startsWith("Theirs: feature/retry") })
+        }
+
+    @Test
+    fun `a resolved text file has Next file where Mark resolved was`(): Unit = runBlocking(Dispatchers.Swing) {
+        var opened = 0
+        val resolved = state().copy(handOff = ResolverHandOff(from = entry.filePath, resolvedHere = true, next = "docs/guide.md"))
+
+        val rendered = render(resolved, actions(onNextFile = { opened++ }), clickText = "Next file")
+
+        assertEquals(1, opened)
+        assertEquals(1, rendered.texts.count { it.startsWith("Next file") }, "${rendered.texts}")
+        assertTrue("Mark resolved" !in rendered.clickable && "Save" !in rendered.clickable, "${rendered.clickable}")
+        // At the right end, as Mark resolved was, before the Focus icon
+        assertTrue(rendered.textBounds.getValue("Next file").single().left > 1200, "${rendered.textBounds["Next file"]}")
+    }
+
+    @Test
+    fun `a file that theirs deleted shows ours' changes, and what deleting does`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val kept = KeptChanges(
+                added = 1,
+                removed = 1,
+                lines = listOf(
+                    PreviewLine(PreviewLineType.HUNK, "@@ -1 +1 @@"),
+                    PreviewLine(PreviewLineType.REMOVED, "base"),
+                    PreviewLine(PreviewLineType.ADDED, "main's kept"),
+                ),
+                more = 2,
+            )
+            val state = choice(
+                ConflictContent.Deleted,
+                ConflictPreview(VersionPreview.File(5), VersionPreview.File(12), null, kept, workingFileEdited = true),
+                pick = ConflictSide.THEIRS,
+                showBase = true,
+            ) { it.copy(theirs = null, conflict = FileConflict(ConflictVersion.FILE, null)) }
+
+            val texts = render(state).texts
+
+            assertTrue("theirs (feature/retry) deleted this file, and ours (main) changed it." in texts, "$texts")
+            assertTrue("Changed · +1 −1" in texts && "Deleted" in texts, "$texts")
+            assertTrue("- base" in texts && "+ main's kept" in texts && "2 more lines" in texts, "$texts")
+            assertTrue("The file is gone in feature/retry." in texts, "$texts")
+            assertTrue(texts.any { it.startsWith("The working file was edited after the merge stopped.") }, "$texts")
+            assertTrue("✓ Delete the file, as theirs (feature/retry) did" in texts, "$texts")
+            // The diff shows the base: no card for it, and no Base in the toolbar
+            assertTrue("Base" !in texts, "$texts")
+
+            val keeping = render(state.copy(file = (state.file as ResolverFile.Loaded).copy(pick = ChoicePick.OURS)))
+
+            assertTrue("✓ Keep ours (main)" in keeping.texts, "${keeping.texts}")
+
+            val unchanged = state.file.file.preview!!.copy(kept = kept.copy(0, 0, emptyList(), 0))
+            val same = render(
+                choice(ConflictContent.Deleted, unchanged) {
+                    it.copy(theirs = null, conflict = FileConflict(ConflictVersion.FILE, null))
+                }
+            ).texts
+
+            assertTrue("The same as the base" in same && "Changed · +0 −0" in same, "$same")
+        }
+
+    @Test
+    fun `Base adds the base's card between the sides`(): Unit = runBlocking(Dispatchers.Swing) {
+        val preview = ConflictPreview(VersionPreview.File(7 * 1024), VersionPreview.File(9), VersionPreview.File(9))
+
+        val hidden = render(choice(ConflictContent.Binary, preview)).texts
+        val shown = render(choice(ConflictContent.Binary, preview, showBase = true))
+
+        // The toolbar's toggle, then the card's title
+        assertEquals(1, hidden.count { it == "Base" }, "$hidden")
+        assertEquals(2, shown.texts.count { it == "Base" }, "${shown.texts}")
+        assertTrue("Binary · 7 KB" in shown.texts, "${shown.texts}")
+
+        val (ours, base, theirs) = listOf("Ours: main", "Binary · 7 KB", "Theirs: feature/retry")
+            .map { shown.textBounds.getValue(it).first().left }
+
+        assertTrue(ours < base && base < theirs, "$ours $base $theirs")
+    }
+
+    @Test
+    fun `a submodule's cards name its commits, and say how they relate`(): Unit = runBlocking(Dispatchers.Swing) {
+        val state = choice(
+            ConflictContent.Submodule,
+            ConflictPreview(
+                base = null,
+                ours = VersionPreview.Commit("2".repeat(40), CommitSummary("Bump the tokenizer", "Ana Petrova", 0)),
+                theirs = VersionPreview.Commit("3".repeat(40), summary = null),
+                submodule = SubmodulePreview(true, CommitRelation.OURS_CONTAINS_THEIRS, checkedOut = "c".repeat(40)),
+            ),
+        )
+
+        val texts = render(state).texts
+
+        assertTrue("Commit 2222222" in texts && "Commit 3333333" in texts, "$texts")
+        assertTrue("Bump the tokenizer" in texts && texts.any { it.startsWith("Ana Petrova · ") }, "$texts")
+        assertTrue("Not in the submodule's repository" in texts, "$texts")
+        assertTrue("2222222 already contains 3333333." in texts, "$texts")
+        assertTrue(
+            "The submodule has ccccccc checked out. Its checkout doesn't change either way." in texts,
+            "$texts",
+        )
+
+        fun notes(submodule: SubmodulePreview) =
+            render(choice(ConflictContent.Submodule, (state.file as ResolverFile.Loaded).file.preview!!.copy(submodule = submodule))).texts
+
+        assertTrue("3333333 already contains 2222222." in notes(SubmodulePreview(true, CommitRelation.THEIRS_CONTAINS_OURS, null)))
+        assertTrue("Neither commit contains the other." in notes(SubmodulePreview(true, CommitRelation.DIVERGED, null)))
+
+        val uninitialized = notes(SubmodulePreview(initialized = false, relation = null, checkedOut = null))
+
+        assertTrue("The submodule isn't initialized, so its commits can't be named." in uninitialized, "$uninitialized")
+        assertTrue(uninitialized.none { "contains" in it || "checked out" in it }, "$uninitialized")
+    }
+
+    @Test
+    fun `text too large to merge shows each side's size and lines`(): Unit = runBlocking(Dispatchers.Swing) {
+        val state = choice(
+            ConflictContent.TooLarge(size = 14_260_000, limit = 10L * 1024 * 1024),
+            ConflictPreview(null, VersionPreview.File(14_260_000, lines = 260_001), VersionPreview.File(900, lines = 12)),
+        )
+
+        val texts = render(state).texts
+
+        assertTrue("Text larger than 10 MB on a side, too large for the resolver." in texts, "$texts")
+        assertTrue("Text · 13.6 MB" in texts && "260,001 lines" in texts && "12 lines" in texts, "$texts")
+        assertTrue("Open in the default app" !in texts, "$texts")
+    }
+
+    @Test
+    fun `Git LFS cards show each object, and offer to open the one downloaded`(): Unit = runBlocking(Dispatchers.Swing) {
+        val ours = LfsObject("a".repeat(64), 4 * 1024)
+        val theirs = LfsObject("b".repeat(64), 5 * 1024)
+        val state = choice(
+            ConflictContent.Lfs(ours, theirs),
+            ConflictPreview(
+                base = null,
+                ours = VersionPreview.Lfs(ours, downloaded = true),
+                theirs = VersionPreview.Lfs(theirs, downloaded = false),
+            ),
+        )
+
+        val texts = render(state).texts
+
+        assertTrue("LFS · 4 KB" in texts && "LFS · 5 KB" in texts, "$texts")
+        assertTrue("Object aaaaaaaaaaaa…" in texts && "Object bbbbbbbbbbbb…" in texts, "$texts")
+        assertEquals(1, texts.count { it == "Open in the default app" }, "$texts")
+        assertTrue("Not downloaded, so it can't be shown" in texts, "$texts")
+    }
+
+    @Test
+    fun `a link's cards say where each side points`(): Unit = runBlocking(Dispatchers.Swing) {
+        val state = choice(
+            ConflictContent.SymbolicLink("main-target", "feature-target"),
+            ConflictPreview(
+                base = null,
+                ours = VersionPreview.Link("main-target", resolves = true),
+                theirs = VersionPreview.Link("feature-target", resolves = false),
+            ),
+        )
+
+        val texts = render(state).texts
+
+        assertTrue("→ main-target" in texts && "Points to something that exists" in texts, "$texts")
+        assertTrue("→ feature-target" in texts && "Points to nothing" in texts, "$texts")
+    }
+
+    @Test
+    fun `an image shows, with its size in pixels, and opens in the default app`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val png = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(2, 3, BufferedImage.TYPE_INT_RGB), "png", it) }
+                .toByteArray()
+            val opened = mutableListOf<ConflictStage>()
+            val state = choice(
+                ConflictContent.Binary,
+                ConflictPreview(
+                    base = null,
+                    ours = VersionPreview.File(png.size.toLong(), image = PreviewImage(png)),
+                    theirs = VersionPreview.File(5, image = PreviewImage("not a png".toByteArray())),
+                ),
+            ) { it.copy(path = "assets/logo.png") }
+
+            scene(ResolverLists(), actions = actions(onOpenVersion = { opened += it })) { state }.closing { scene ->
+                // Decoded off the UI thread
+                repeat(100) {
+                    if (scene.texts().none { it == "PNG · 2 × 3 · ${png.size} B" }) {
+                        scene.frames(1)
+                        delay(10)
+                    }
+                }
+
+                assertTrue("PNG · 2 × 3 · ${png.size} B" in scene.texts(), "${scene.texts()}")
+                assertTrue("Can't show this image" in scene.texts(), "${scene.texts()}")
+
+                scene.clickOwnText("Open in the default app")
+            }
+
+            assertEquals(listOf(state.ours()), opened)
+        }
+
+    @Test
+    fun `a conflict at other paths keeps the file there, or leaves it out`(): Unit = runBlocking(Dispatchers.Swing) {
+        val picked = mutableListOf<ConflictSide>()
+        val state = choice(
+            ConflictContent.OtherPaths,
+            ConflictPreview(null, null, VersionPreview.File(5)),
+        ) { it.copy(path = "d~feature", base = null, ours = null, conflict = FileConflict(null, ConflictVersion.FILE)) }
+
+        val texts = render(state, actions(onPick = { picked += it }), clickText = "Theirs: feature/retry").texts
+
+        assertEquals(listOf(ConflictSide.THEIRS), picked)
+        assertTrue(texts.any { it.startsWith("git recorded this conflict at more than one path") }, "$texts")
+        assertTrue("Only theirs (feature/retry) has a file at this path." in texts, "$texts")
+        assertTrue("main has no file at this path." in texts && "File · 5 B" in texts, "$texts")
+
+        fun label(side: ConflictSide) =
+            render(state.copy(file = (state.file as ResolverFile.Loaded).copy(pick = ChoicePick.of(side)))).texts
+
+        assertTrue("✓ Leave it out of this path, as ours (main) did" in label(ConflictSide.OURS))
+        assertTrue("✓ Keep it here, as theirs (feature/retry) has it" in label(ConflictSide.THEIRS))
+    }
+
+    @Test
+    fun `a file renamed on both sides has a card per new name, and one for both`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val renamed = RenamedFile("notes/a.txt", "notes/b.txt", "notes/c.txt")
+            val both = mutableListOf<Unit>()
+            val picked = mutableListOf<ConflictSide>()
+
+            fun state(conflicts: Boolean = false, theirsCommit: String? = "3".repeat(40), pick: ChoicePick? = null) =
+                choice(
+                    ConflictContent.Renamed(renamed, conflicts, theirsCommit),
+                    ConflictPreview(VersionPreview.File(6), VersionPreview.File(9), VersionPreview.File(9)),
+                ) { it.copy(path = renamed.original) }.let { state ->
+                    state.copy(file = (state.file as ResolverFile.Loaded).copy(pick = pick))
+                }
+
+            val texts = render(state(), actions(onPickBothNames = { both += Unit }), clickText = "Keep both names").texts
+            render(state(), actions(onPick = { picked += it }), clickText = "Theirs: feature/retry")
+
+            assertEquals(1, both.size)
+            assertEquals(listOf(ConflictSide.THEIRS), picked)
+            assertTrue(
+                "ours (main) renamed notes/a.txt to notes/b.txt, and theirs (feature/retry) renamed it to notes/c.txt." in texts,
+                "$texts",
+            )
+            assertTrue(texts.any { it.startsWith("git merged both sides' changes") }, "$texts")
+            assertTrue("notes/b.txt" in texts && "notes/c.txt" in texts && texts.count { it == "Renamed" } == 2, "$texts")
+            assertTrue("notes/b.txt and notes/c.txt, with the same content" in texts, "$texts")
+
+            assertTrue("✓ Name it notes/c.txt" in render(state(pick = ChoicePick.THEIRS)).texts)
+            assertTrue("✓ Keep both names" in render(state(pick = ChoicePick.BOTH)).texts)
+
+            var marked = 0
+            val markResolved = "Mark resolved (${acceptShortcut()})"
+            val conflicts = render(state(conflicts = true, pick = ChoicePick.OURS), actions(onMarkResolved = { marked++ }), clickText = markResolved)
+
+            assertTrue(conflicts.texts.any { it.startsWith("Both sides' changes to the content conflict too. After Mark resolved") })
+            assertEquals(1, marked)
+
+            // Without theirs' commit, the conflicts can't go to the three panes: Mark resolved waits, and a click on its
+            // text is the card's
+            val unknownState = state(conflicts = true, theirsCommit = null, pick = ChoicePick.OURS)
+            val unknown = render(unknownState, actions(onMarkResolved = { marked++ }), clickText = markResolved)
+
+            assertTrue(unknown.texts.any { it.startsWith("Both sides' changes to the content conflict too, and this operation") })
+            assertEquals(1, marked)
+            assertTrue("Mark resolved" !in unknown.clickable)
+        }
+
+    @Test
+    fun `the list shows a renamed file once, under its old name with its new names`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val files = listOf(
+                ResolverFileEntry(StatusEntry("notes/a.txt", StatusType.CONFLICTING), false, listOf("notes/b.txt", "notes/c.txt")),
+                ResolverFileEntry(entry, resolvedHere = false),
+            )
+
+            val texts = render(state().copy(files = files)).texts
+
+            assertTrue("a.txt → b.txt, c.txt" in texts, "$texts")
+        }
 
     @Test
     fun `a change's undo is in the gutter next to the side that made it`(): Unit = runBlocking(Dispatchers.Swing) {
@@ -665,7 +1028,7 @@ class ConflictResolverTest {
                 val dimmed = scene.contrastInFile()
                 assertTrue(dimmed < 0.6 * full, "$dimmed of $full")
 
-                assertTrue(scene.placesOf("src/ConfigLoader.kt is resolved and staged.").isNotEmpty())
+                assertTrue(scene.placesOf("src/ConfigLoader.kt is resolved and staged. $shortcut opens docs/guide.md.").isNotEmpty())
                 assertTrue(scene.placesOf("Resolved").isNotEmpty())
                 // Nothing left to save or resolve
                 assertTrue(scene.placesOf("Save").isEmpty())
@@ -686,20 +1049,20 @@ class ConflictResolverTest {
                 scene.frames()
                 assertTrue(lists.columns.firstVisibleItemIndex > top, "${lists.columns.firstVisibleItemIndex}")
 
-                scene.clickText("Next file: docs/guide.md ($shortcut)")
+                scene.clickText("Next file")
                 assertEquals(1, next)
 
             }
 
             // Resolved outside the resolver
             assertTrue(
-                "src/ConfigLoader.kt has no conflicts any more." in
-                    render(resolved.copy(handOff = handOff.copy(resolvedHere = false))).texts
+                render(resolved.copy(handOff = handOff.copy(resolvedHere = false))).texts
+                    .any { it.startsWith("src/ConfigLoader.kt has no conflicts any more.") }
             )
 
             // Once another file is shown, it's about nothing on screen
             val other = render(resolved.copy(handOff = handOff.copy(from = "README.md"))).texts
-            assertTrue(other.none { it.endsWith("is resolved and staged.") }, "$other")
+            assertTrue(other.none { "is resolved and staged." in it }, "$other")
             assertTrue("Mark resolved" in other, "$other")
         }
 
@@ -1172,7 +1535,9 @@ class ConflictResolverTest {
         onMarkResolved: () -> Unit = {},
         onMarkResolvedAsItIs: () -> Unit = {},
         onResolveAgain: () -> Unit = {},
-        onUseSide: (StatusEntry, ConflictSide, ConflictSides?) -> Unit = { _, _, _ -> },
+        onPick: (ConflictSide) -> Unit = {},
+        onPickBothNames: () -> Unit = {},
+        onOpenVersion: (ConflictStage) -> Unit = {},
         onAnswerUnsaved: (Boolean?) -> Unit = {},
         onSetLayout: (ConflictResolverLayout) -> Unit = {},
         onStackedSplitChanged: (Float) -> Unit = {},
@@ -1201,7 +1566,6 @@ class ConflictResolverTest {
         onOpenInExternalTool = {},
         onMarkResolvedAsItIs = onMarkResolvedAsItIs,
         onResolveAgain = onResolveAgain,
-        onUseSide = onUseSide,
         onAnswerUnsaved = onAnswerUnsaved,
         onReload = {},
         onDismissPrompt = {},
@@ -1209,7 +1573,37 @@ class ConflictResolverTest {
         picks = picks,
         onUndo = onUndo,
         edits = edits,
+        onPick = onPick,
+        onPickBothNames = onPickBothNames,
+        onOpenVersion = onOpenVersion,
     )
+
+    /** [state]'s file as a conflict that three panes can't show, with [preview], [pick] and the base [showBase]. */
+    private fun choice(
+        content: ConflictContent,
+        preview: ConflictPreview?,
+        pick: ConflictSide? = null,
+        showBase: Boolean = false,
+        change: (ConflictedFile) -> ConflictedFile = { it },
+    ): ConflictResolverState = state().let { state ->
+        val file = change((state.file as ResolverFile.Loaded).file.copy(content = content, preview = preview))
+
+        state.copy(
+            file = ResolverFile.Loaded(file, merge = null, saved = null, pick = pick?.let { ChoicePick.of(it) }),
+            showBase = showBase,
+        )
+    }
+
+    private fun ConflictResolverState.ours() = checkNotNull((file as ResolverFile.Loaded).file.ours)
+
+    /** Every text in the scene. */
+    private fun ImageComposeScene.texts(): List<String> =
+        nodes().flatMap { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } }
+
+    /** Clicks the clickable node that has [text] itself, not in a child: a link inside a clickable card. */
+    private fun ImageComposeScene.clickOwnText(text: String) = click { node ->
+        node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text }
+    }
 
     /** Editing [chunk] of [merge], with [text] in the field, or what editing starts from. */
     private fun editing(chunk: Int, merge: TextMerge = this.merge, text: String? = null, line: Int? = null): ResolverEdit {
@@ -1415,13 +1809,16 @@ class ConflictResolverTest {
                 node.config.getOrNull(SemanticsActions.OnClick) != null && matches(node)
             }
 
+            fun SemanticsNode.hasText(text: String) =
+                config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text }
+
             val target = when {
-                clickText != null -> clickable { node ->
-                    node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == clickText } ||
-                        node.children.any { child ->
-                            child.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == clickText }
-                        }
-                }.let { if (inPrompt) it.last() else it.first() }
+                // A node with the text itself first: a button inside a clickable card is the card's child
+                clickText != null -> (
+                    clickable { node -> node.hasText(clickText) }.ifEmpty {
+                        clickable { node -> node.children.any { it.hasText(clickText) } }
+                    }
+                ).let { if (inPrompt) it.last() else it.first() }
 
                 clickDescription != null -> clickable { node ->
                     node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().contains(clickDescription) ||

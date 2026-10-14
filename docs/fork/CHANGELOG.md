@@ -2,6 +2,60 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver shows a card per side for what three panes can't show (branch `claude/resolver-model-f2582e`)
+
+- **Before:** a deleted file, a binary, a Git LFS file, a submodule, a symbolic link or text over the size limit got a
+  sentence and "Use ours" / "Use theirs", which asked first and staged at once. Nothing showed what each side had. A
+  file renamed differently on each side was three conflicts, which the resolver sent to the terminal.
+- **Now** (step 5 of `docs/fork/conflict-resolver.md`, section 9):
+  - A card per side, ours left and theirs right, says what that side has. A click on a card, or ← and →, picks it, and
+    Mark resolved (⌘↩) stages the pick, as for text: no dialog, and the same pause and Next file follow.
+  - A file that one side deleted: the other side's card shows its diff against the base, with +/− counts. Keep stages
+    the working file as it is, as `git mergetool` does, so edits made since the merge stay; a note says when there
+    are some. "Use theirs" used to check theirs out over them.
+  - Binary: each side's size; images also as an image with their size in pixels; "Open in the default app" for any.
+  - Git LFS: each object's id and size, and the image or "Open in the default app" once it's downloaded.
+  - Submodule: each commit's subject, author and date, which contains the other, and what the submodule has checked
+    out. Symbolic link: each target, and whether it points to something. Too large: each side's size and line count.
+  - Base adds the base's card between the sides.
+  - Mark resolved is on the card picked, next to the pick, and once the file is resolved that button is Next file, in
+    the same place. A text file's Mark resolved, in the toolbar, turns into Next file in place too. There's one Next
+    file, where Mark resolved was; the strip says what ⌘⏎ opens. Picking, resolving and moving on used to cross the
+    window three times, and a first try at this showed three Next file buttons (both found in the manual runs).
+  - A file renamed differently on each side is one entry of the list, and opens as one from any of its paths: a card
+    per new name, and "Keep both names". git merged the content into both names, so only the name is left; Leaf runs
+    the `git rm` and `git add` that git suggests. When the content conflicts too, the name picked becomes a conflict
+    of its content and opens next in the three panes.
+  - Other conflicts at several paths, such as a file against a folder (`d~HEAD`), get a card per side: keep the file
+    there, or leave it out.
+- **Tests:** 18 in `ConflictPreviewsTest` (data), each kind from real merges: a submodule with its own repository, the
+  LFS store, CRLF, a `filter` attribute, and the hunks checked against `git diff`. 15 in `RenamedFilesTest`: pairing
+  one or two renamed files, content that conflicts or that git rewrote too much to match, a blob that two paths share,
+  a file against a folder, a rebase, each name kept, the content conflict's stages and markers, markers fixed or
+  edited by hand, a missing name, no theirs' commit, and a stale group. 2 in `WriteConflictVersionGitActionTest`, 3 new
+  in `ResolveConflictGitActionTest` (Keep, a missing working file, a folder in its place), 1 in `FileSizesTest`, and 16
+  new in `ConflictResolverTest` for the cards, the renamed file, the list and the buttons in place, in place of the
+  panel's 2.
+  - Reading the cards over found that a card said "The file is gone" whenever the preview was missing, which reading
+    it may leave; the index now says which side deleted the file. A submodule that one side deleted is described as
+    deleted too.
+  - **Mutation check:** 61 mutations, all caught: 28 of the previews, Keep and the copy for opening (`:data`), 2 of the
+    sizes (`:domain`), 28 of the cards and the toolbar (`:app`), and 3 of the view model through the harness. Three
+    checks went before the run, as nothing could tell them from what follows them: a link or LFS pointer kept skipped
+    the diff its card doesn't show, a deletion was checked for a base it always has, and Mark resolved checked the
+    pick's kind, which only cards can make.
+  - Renamed files and the buttons in place: 31 mutations. 29 caught, four of them once a test was added (a blob that
+    two paths share, a rebase, a lone opening marker, a resolved card's click). One filter went, as the lookup after it
+    already kept renames alone. One survives because the next check raises the same error: a commit that isn't
+    theirs has no file at theirs' name either.
+  - `:app:test` passes with 238 tests, `:domain:test` with 285, and `:data`'s conflict tests with 165.
+- **Harness:** the view model and the keys against a real repository with one conflict of each kind: the image,
+  binary, deleted, link, submodule, LFS, too-large and text files, two renamed files (one with conflicting content) and
+  a file against a folder. ← and → picking, Cmd+Enter doing nothing without a pick, then staging the right blob, link,
+  commit or deletion; the card's Mark resolved, then its Next file; an edited working file staged as it is; the
+  submodule's checkout left alone; a renamed file listed once and opened from a new name, theirs' name staged, and a
+  name with conflicting content opening in the three panes; and a resolved file taking no picks.
+
 ## The banner opens the merge tool on every conflicted file (branch `feat/worktree-mergetool`)
 
 Phase 3.6 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.md`. Most of it came with the conflict

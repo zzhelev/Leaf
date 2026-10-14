@@ -5,7 +5,7 @@
 | Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. Step 4 (region editing and one undo history) built 2026-10-13 (section 8). |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. Step 4 (region editing and one undo history) built 2026-10-13 (section 8). Step 5 (the choice cards) built 2026-10-13 (section 9). |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
 
@@ -180,7 +180,7 @@ don't pair up, where rerere gives up on the file: that's "fewer or more conflict
 | LFS | stages are pointer files | Like binary. Merging pointers line by line means nothing. The card shows each side's size and object id. A preview needs the objects, which the built-in LFS client can download later. |
 | Submodule | mode `160000` | A choice of commit, written with `git update-index --cacheinfo`, as `git mergetool` does. The submodule's own checkout isn't touched. |
 | Symbolic link | mode `120000` | A choice of target, as in `git mergetool`. |
-| Rename conflicts (rename/rename, file/directory) | each version alone at its own path: the original at stage 1 (DD), each side's name at 2 or 3 (AU, UA). git also records a file against a symbolic link or a submodule at two paths | Not handled. The resolver says what git reported and points to the terminal. |
+| Rename conflicts (rename/rename, file/directory) | each version alone at its own path: the original at stage 1 (DD), each side's name at 2 or 3 (AU, UA). git also records a file against a symbolic link or a submodule at two paths | Not handled at first (the resolver said what git reported and pointed to the terminal). Since step 5: a file renamed on both sides opens as one, to pick its name (section 9), and the rest get a card per side for each path. |
 | Too large | over a limit, to be measured | Use ours, use theirs, or open in the external merge tool. |
 
 Built (step 1): `GetConflictedFileGitAction` loads a conflicted file as `ConflictedFile` (`domain/models/`), and picks
@@ -188,6 +188,10 @@ its row in `git mergetool`'s order: rename conflicts, then a submodule, a deleti
 (a file of 1,024 bytes or less on ours or theirs that JGit's `LfsPointer` parses), binary (the `merge` attribute unset
 or `binary`, as the `binary` macro sets it, or `RawText.isBinary` on each whole version, as JGit's merge reads them),
 too large (over 10 MB on a side, a provisional limit), and text. Only text is merged and gets the working file's check.
+
+Built (step 5): every row but "Both modified" and "Both added" gets a card per side, which section 9 describes. A file
+renamed differently on each side (rename/rename) opens as one, with a card per new name; the other conflicts at
+several paths get a card per side for each path.
 
 ## 3. UI feasibility in Compose Desktop
 
@@ -398,7 +402,7 @@ the repository; the sketches below show the layouts.
    2026-10-12 (section 5, "Switching between A and B", says how). Opening a file now loads it before the status
    arrives: the status could come first and open the first conflicted file in its place.
 4. **Region editing** and the shared undo history, in both layouts. Built 2026-10-13 (section 8 says how).
-5. **Choice cards** for the rows of section 2.4 other than "both modified".
+5. **Choice cards** for the rows of section 2.4 other than "both modified". Built 2026-10-13 (section 9 says how).
 6. **Later:** word-level highlights, highlighting while editing, and the size limit from measurements.
 
 ## 8. Region editing (step 4, decided 2026-10-13)
@@ -441,3 +445,62 @@ Built: the parts and the typed lines in `domain/conflicts/ResolverEditing.kt` (`
 `typing`), written by `resultBytes` and found again by `resumedFrom` (`DA/git/conflicts/ResumedMerge.kt`); the edit,
 Undo and Redo in `ConflictResolverViewModel`; the field and keeping the list still in
 `A/ui/conflicts/ResolverEditor.kt`. CLAUDE.md has the details.
+
+## 9. Choice cards (step 5, decided 2026-10-13)
+
+The conflicts that three panes can't show (section 2.4) had a plain panel: a sentence, then "Use ours" and "Use
+theirs", which asked first and staged at once. Two ways to show a card per side were mocked up:
+
+- **A button on each card:** "Use main" on ours' card, which asks, then stages, as the panel did. It's how `git
+  mergetool` asks in text ("(m)odified or (d)eleted", "(l)ocal or (r)emote") and IntelliJ's Accept Yours and Accept
+  Theirs.
+- **Pick, then Mark resolved (picked):** a click on a card, or ← and →, picks it, outlined in its side's colour; Mark
+  resolved (⌘↩) stages it, as for text. Picking costs nothing, Mark resolved is the one step that stages, so there's no
+  dialog; the same pause and Next file follow.
+
+What the cards show:
+
+- **One side deleted the file:** that side's card says the file is gone. The other shows its diff against the base,
+  with +/− counts, as the diff pane colours it, at most 300 lines. Keep stages the working file as it is, as `git
+  mergetool`'s "modified" answer does, so that edits made since the merge stay; the diff is the working file's (as
+  `git add` reads it), and a note says when it was edited. A `filter` attribute, such as Git LFS's, makes the working
+  file something else than the blob, so the diff is then the blob's. Without a working file, Keep checks the side's
+  version out, as "Use theirs" does.
+- **Binary:** each side's size; PNG, JPEG, GIF, WebP, BMP and ICO up to 16 MB also as an image, with its size in pixels.
+  "Open in the default app" opens a copy from Leaf's temporary folder, as the diff pane's image click does.
+- **Git LFS:** each side's object id and size; the object as an image, or opened in the default app, once it's in the
+  repository's LFS store with its pointer's size. Nothing is downloaded.
+- **Submodule:** each commit's subject, author and date, read from the submodule's own repository, which commit has
+  the other in its history, and which commit the submodule has checked out. Its checkout doesn't change.
+- **Symbolic link:** each target, and whether it points to something that exists.
+- **Too large:** each side's size and line count, and the External merge tool button stays.
+- **Base:** the toolbar's Base adds a card for the base between the sides, except where one side deleted the file,
+  whose diff already shows it.
+- **Mark resolved and Next file where the pointer is** (decided after the manual run, 2026-10-13): picking a card, then
+  Mark resolved at the toolbar's right end, then Next file at the strip's left end, crossed the window three times.
+  The card picked has Mark resolved next to its pick, and once the file is resolved, the same button is Next file. A
+  text file's Mark resolved, in the toolbar, turns into Next file in place, as ⌘↩ twice does. So there's one Next file,
+  where Mark resolved was: the strip only says what ⌘↩ opens, and cards have no Mark resolved in the toolbar (a first
+  try had all three, which was too many). Double-clicking a card to resolve it at once, and skipping the pause for
+  cards, were left out: the first can't be seen, the second hides what was staged.
+- **Renamed differently on each side** (rename/rename, decided 2026-10-13): section 2.4 left it to the terminal, as git
+  records three conflicts that don't say they belong together (the old name at stage 1 alone, ours' new name at stage
+  2, theirs' at stage 3). But git merges both sides' changes to the content and writes the same blob at both new names,
+  so they pair by their blob, and the old name joins them by content (JGit's rename detection, at git's 50%), or as the
+  only one left. The file is one entry of the list, and any of its paths opens it under its old name: a card per new
+  name ("Name it notes/b.txt") and "Keep both names". Mark resolved runs what git suggests: `git rm` for the old name
+  and a new name not kept, `git add` for a name kept.
+  - When both sides' changes to the content conflict, git writes its markers into both new names. The name kept then
+    becomes a conflict of its content, with the base from the old name, ours from HEAD and theirs from the commit
+    applied (`git update-index --index-info`), and opens next in the three panes. git's markers there are a character
+    longer than the attribute says, so the file is written again with the resolver's, unless it was edited since.
+  - A revert or a stash doesn't record which commit theirs is, so Mark resolved waits there until the markers are fixed
+    in an editor. Markers fixed by hand are staged as they are.
+- **Other conflicts at several paths** (a file against a folder, which git moves to `name~HEAD`): a card per side, as
+  for a deleted file: "Keep it here" stages the working file, "Leave it out of this path" removes it.
+
+Built: the previews in `DA/git/conflicts/ConflictPreviews.kt` (`ConflictedFile.preview`, models in
+`domain/models/ConflictPreview.kt`), Keep in `ResolveConflictGitAction` (`keepWorkingFile`), the copy for opening in
+`WriteConflictVersionGitAction`, renamed files in `DA/git/conflicts/RenamedFiles.kt` and
+`ResolveRenamedFileGitAction`, the pick in `ConflictResolverViewModel`, and the cards in
+`A/ui/conflicts/ResolverChoiceCards.kt`. CLAUDE.md has the details.
