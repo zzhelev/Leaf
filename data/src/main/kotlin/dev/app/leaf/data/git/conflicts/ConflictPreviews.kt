@@ -17,7 +17,6 @@ import dev.app.leaf.domain.models.VersionPreview
 import dev.app.leaf.domain.models.isPreviewImage
 import org.eclipse.jgit.diff.HistogramDiff
 import org.eclipse.jgit.diff.RawText
-import org.eclipse.jgit.diff.RawTextComparator
 import org.eclipse.jgit.dircache.DirCacheEntry
 import org.eclipse.jgit.errors.IncorrectObjectTypeException
 import org.eclipse.jgit.errors.MissingObjectException
@@ -36,6 +35,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
+import kotlin.time.Duration
 
 private const val TAG = "ConflictPreviews"
 
@@ -60,6 +60,7 @@ internal fun conflictPreview(
     base: DirCacheEntry?,
     ours: DirCacheEntry?,
     theirs: DirCacheEntry?,
+    maxCompareTime: Duration = MAX_RESOLVER_COMPARE_TIME,
 ): ConflictPreview? {
     val versions = VersionReader(
         repository = repository,
@@ -73,7 +74,7 @@ internal fun conflictPreview(
     return when (content) {
         is ConflictContent.Text -> null
         ConflictContent.Submodule -> submodulePreview(repository, reader, path, base, ours, theirs)
-        ConflictContent.Deleted -> keptPreview(repository, reader, path, base, ours, theirs, versions)
+        ConflictContent.Deleted -> keptPreview(repository, reader, path, base, ours, theirs, versions, maxCompareTime)
         else -> ConflictPreview(versions.of(base), versions.of(ours), versions.of(theirs))
     }
 }
@@ -179,6 +180,7 @@ private fun keptPreview(
     ours: DirCacheEntry?,
     theirs: DirCacheEntry?,
     versions: VersionReader,
+    maxCompareTime: Duration,
 ): ConflictPreview {
     val preview = ConflictPreview(versions.of(base), versions.of(ours), versions.of(theirs))
     val kept = ours ?: theirs ?: return preview
@@ -197,7 +199,12 @@ private fun keptPreview(
     val text = working ?: keptBytes
 
     val changes = if (text != null && baseBytes != null && listOf(text, baseBytes).none { RawText.isBinary(it) }) {
-        keptChanges(RawText(baseBytes), RawText(text))
+        // Dense changes, as in a lock file, can take long to compare: the card does without them
+        try {
+            keptChanges(RawText(baseBytes), RawText(text), timeLimit = maxCompareTime)
+        } catch (_: ComparisonTookTooLong) {
+            null
+        }
     } else {
         null
     }
@@ -213,10 +220,15 @@ private fun ObjectReader.bytesUpTo(entry: DirCacheEntry, limit: Long): ByteArray
 
 /**
  * [kept]'s diff against [base], as `git diff` shows it: hunks with [PREVIEW_CONTEXT] lines around each change. Only the
- * first [maxLines] are kept.
+ * first [maxLines] are kept. Throws [ComparisonTookTooLong] once the diff took longer than [timeLimit].
  */
-internal fun keptChanges(base: RawText, kept: RawText, maxLines: Int = MAX_PREVIEW_LINES): KeptChanges {
-    val edits = HistogramDiff().diff(RawTextComparator.DEFAULT, base, kept)
+internal fun keptChanges(
+    base: RawText,
+    kept: RawText,
+    maxLines: Int = MAX_PREVIEW_LINES,
+    timeLimit: Duration = Duration.INFINITE,
+): KeptChanges {
+    val edits = HistogramDiff().diff(comparatorWithin(timeLimit), base, kept)
     val lines = mutableListOf<PreviewLine>()
     var more = 0
 

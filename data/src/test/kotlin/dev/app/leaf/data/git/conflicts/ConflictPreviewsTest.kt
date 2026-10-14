@@ -33,6 +33,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import kotlin.time.Duration
 
 /** What the choice cards show of conflicts that three panes can't show (`conflict-resolver.md`, 2.4, step 5). */
 class ConflictPreviewsTest {
@@ -78,6 +79,31 @@ class ConflictPreviewsTest {
         )
         assertEquals(false, preview.workingFileEdited)
     }
+
+    @Test
+    fun `a diff that takes longer than the limit to compare is left out, and the versions still show`(): Unit =
+        runBlocking {
+            // Theirs deleted a lock file in which ours bumped every other package
+            git.mergeSides(repository) { side ->
+                val lock = File(repository, "lock.txt")
+
+                if (side == "feature") {
+                    lock.delete()
+                } else {
+                    lock.writeText((0 until 3_000).joinToString("") { if (it % 2 == 0) "pkg-$it $side\n" else "pkg-$it\n" })
+                }
+            }
+
+            fun previewWithin(maxCompareTime: Duration) = Git.open(repository).use {
+                loadConflictedFile(it.repository, "lock.txt", maxCompareTime = maxCompareTime)
+            }?.preview
+
+            val cut = previewWithin(Duration.ZERO)
+
+            assertNull(cut?.kept)
+            assertInstanceOf(VersionPreview.File::class.java, cut?.ours)
+            assertEquals(1_500, previewWithin(MAX_RESOLVER_COMPARE_TIME)?.kept?.added)
+        }
 
     @Test
     fun `the kept version's diff is the working file's, which Keep stages, and says that it was edited`(): Unit =

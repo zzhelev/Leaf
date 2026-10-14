@@ -55,6 +55,7 @@ import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.LineRange
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.models.TextLimit
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
 import dev.app.leaf.domain.models.TypedLines
@@ -85,6 +86,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.seconds
 
 /** The resolver's view, rendered offscreen from a state, without its view model. */
 class ConflictResolverTest {
@@ -415,7 +417,7 @@ class ConflictResolverTest {
     @Test
     fun `text too large to merge shows each side's size and lines`(): Unit = runBlocking(Dispatchers.Swing) {
         val state = choice(
-            ConflictContent.TooLarge(size = 14_260_000, limit = 10L * 1024 * 1024),
+            ConflictContent.TooLarge(size = 14_260_000, limit = TextLimit.Size(10L * 1024 * 1024)),
             ConflictPreview(null, VersionPreview.File(14_260_000, lines = 260_001), VersionPreview.File(900, lines = 12)),
         )
 
@@ -425,6 +427,21 @@ class ConflictResolverTest {
         assertTrue("Text · 13.6 MB" in texts && "260,001 lines" in texts && "12 lines" in texts, "$texts")
         assertTrue("Open in the default app" !in texts, "$texts")
     }
+
+    @Test
+    fun `text that took too long to compare says so, with each side's size and lines`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val state = choice(
+                ConflictContent.TooLarge(size = 5_400_000, limit = TextLimit.Time(2.seconds)),
+                ConflictPreview(null, VersionPreview.File(5_400_000, lines = 116_946), VersionPreview.File(5_300_000, lines = 116_946)),
+            )
+
+            val texts = render(state).texts
+
+            assertTrue("Too many changes to compare here: comparing the versions took over 2 seconds." in texts, "$texts")
+            assertTrue(texts.none { it.startsWith("Text larger than") }, "$texts")
+            assertTrue(texts.count { it == "Text · 5.1 MB" } == 2 && texts.count { it == "116,946 lines" } == 2, "$texts")
+        }
 
     @Test
     fun `Git LFS cards show each object, and offer to open the one downloaded`(): Unit = runBlocking(Dispatchers.Swing) {

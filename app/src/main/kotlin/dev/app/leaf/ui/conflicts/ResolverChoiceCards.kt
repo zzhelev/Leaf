@@ -54,6 +54,7 @@ import dev.app.leaf.domain.models.ConflictedFile
 import dev.app.leaf.domain.models.KeptChanges
 import dev.app.leaf.domain.models.PreviewImage
 import dev.app.leaf.domain.models.PreviewLineType
+import dev.app.leaf.domain.models.TextLimit
 import dev.app.leaf.domain.models.VersionPreview
 import dev.app.leaf.domain.models.imageType
 import dev.app.leaf.extensions.handMouseClickable
@@ -212,8 +213,11 @@ private fun kindDescription(content: ConflictContent): String = when (content) {
     is ConflictContent.Lfs -> stringResource(Res.string.conflict_resolver_choice_lfs)
     ConflictContent.Submodule -> stringResource(Res.string.conflict_resolver_choice_submodule)
     is ConflictContent.SymbolicLink -> stringResource(Res.string.conflict_resolver_choice_link)
-    is ConflictContent.TooLarge ->
-        stringResource(Res.string.conflict_resolver_choice_too_large, formatFileSize(content.limit))
+    is ConflictContent.TooLarge -> when (val limit = content.limit) {
+        is TextLimit.Size -> stringResource(Res.string.conflict_resolver_choice_too_large, formatFileSize(limit.bytes))
+        is TextLimit.Time ->
+            stringResource(Res.string.conflict_resolver_choice_too_slow, limit.time.inWholeSeconds.toString())
+    }
 
     is ConflictContent.Text, ConflictContent.OtherPaths, ConflictContent.Deleted, is ConflictContent.Renamed -> ""
 }

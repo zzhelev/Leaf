@@ -2,6 +2,35 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver's size limit, measured (branch `claude/resolver-model-f2582e`)
+
+- **Before:** text over 10 MB on a side got the choice cards, a guess from step 1. Below it, any text was merged
+  however long that took: a 10 MB lock file showed "Loading…" for about 30 s, with a core busy.
+- **Now** (step 6 of `docs/fork/conflict-resolver.md`, section 10, which has the measurements):
+  - 10 MB stays: below it, a pick, Undo and switching layouts took under 100 ms, and the resolver held under 200 MB.
+  - Comparing the versions gets 2 seconds. Past it, the file gets the cards, which say "Too many changes to compare
+    here: comparing the versions took over 2 seconds." The merge's comparator reads the clock and stops JGit's diffs,
+    so nothing keeps running. Most files take a fraction of it (a 10 MB source file 0.15 s); dense changes, as in a
+    lock file, take time that grows with the square of the size. A deleted file's diff on its card stops the same way,
+    and the card shows the sizes alone.
+  - Opening is twice as fast: the merge diffed each side twice, once in JGit's merge and once for the parts, and now
+    keeps JGit's diffs.
+  - Opening a saved file with thousands of parts (a 2.5 MB lock file has 3,899) overflowed the stack, which left the
+    resolver on "Loading…": finding the picks recursed once per part. It's a loop now.
+- **Measured:** three kinds of conflicted text from 1 to 40 MB (generated code, a minified bundle, a lock file), with a
+  temporary test that timed each step of the load and a temporary harness that ran the view model offscreen through
+  Leaf's Dagger graph: opening, scrolling, picks, Undo, editing, both layouts and Save. Neither is kept.
+- **Tests:** in `TextMergeChunksTest`, a merge within its time limit is the merge without one (1,000 random merges per
+  algorithm), a 5 MB lock file stops within 500 ms of a 100 ms limit (both algorithms), and a merge diffs each side
+  once. In `GetConflictedFileGitActionTest`, a file that takes too long gets the cards, and the same file within the
+  limit opens. In `ConflictPreviewsTest`, a deleted file's slow diff is left out and the versions still show. In
+  `ResolverEditingBytesTest`, picks saved in a file with 8,000 parts come back; that test overflowed the stack before
+  the fix. In `ConflictResolverTest`, the cards' line for the time limit.
+  - **Mutation check:** 17 mutations, 16 caught. The one that survived, the clock not read while hashing lines, showed
+    that reading it there did nothing: a diff hashes each line once, first, and spends its time comparing them. The
+    check went.
+  - The full suite passes on `976c96c5` with these changes: `:app` 249 tests, `:domain` 304, `:data` 950, `:common` 7.
+
 ## Worktrees show when they're merged, and when they're idle (branch `feat/stale-markers`)
 
 - **Before:** a worktree whose work had reached the base still showed its `↑ ↓` against the base: a squash-merged

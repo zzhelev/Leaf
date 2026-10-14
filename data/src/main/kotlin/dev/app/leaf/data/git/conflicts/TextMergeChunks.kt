@@ -12,11 +12,14 @@ import org.eclipse.jgit.diff.Edit
 import org.eclipse.jgit.diff.EditList
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.RawTextComparator
+import org.eclipse.jgit.diff.Sequence
+import org.eclipse.jgit.diff.SequenceComparator
 import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.lib.ConfigConstants
 import org.eclipse.jgit.merge.MergeAlgorithm
 import org.eclipse.jgit.merge.MergeChunk
 import org.eclipse.jgit.merge.MergeChunk.ConflictState
+import kotlin.time.Duration
 
 private const val BASE = 0
 private const val OURS = 1
@@ -24,6 +27,38 @@ private const val THEIRS = 2
 
 /** The comparator of JGit's content merges (`ResolveMerger`): lines are equal when their bytes are, line ending too. */
 private val COMPARATOR = RawTextComparator.DEFAULT
+
+/** Thrown by a diff or a merge that took longer than its time limit ([comparatorWithin]). */
+internal class ComparisonTookTooLong : RuntimeException("Comparing the versions took too long", null, false, false)
+
+/**
+ * [COMPARATOR], for a diff or a merge that has [timeLimit] to compare the versions: past it, the comparator throws
+ * [ComparisonTookTooLong]. JGit's diffs have no other way to stop, and compare lines all along.
+ */
+internal fun comparatorWithin(timeLimit: Duration): SequenceComparator<RawText> =
+    if (timeLimit.isInfinite()) COMPARATOR else ComparatorWithDeadline(System.nanoTime() + timeLimit.inWholeNanoseconds)
+
+private class ComparatorWithDeadline(private val deadline: Long) : SequenceComparator<RawText>() {
+    private var calls = 0
+
+    // Only here: a diff hashes each line once, first, then spends its time comparing lines whose hashes are alike
+    override fun equals(a: RawText, ai: Int, b: RawText, bi: Int): Boolean {
+        checkDeadline()
+        return COMPARATOR.equals(a, ai, b, bi)
+    }
+
+    override fun hash(seq: RawText, ptr: Int): Int = COMPARATOR.hash(seq, ptr)
+
+    // RawTextComparator's own, which compares the bytes at the start and the end rather than line by line
+    override fun reduceCommonStartEnd(a: RawText, b: RawText, e: Edit): Edit = COMPARATOR.reduceCommonStartEnd(a, b, e)
+
+    // Reading the clock every time would slow the diff down
+    private fun checkDeadline() {
+        if ((++calls and 0x3FF) == 0 && System.nanoTime() - deadline > 0) {
+            throw ComparisonTookTooLong()
+        }
+    }
+}
 
 /**
  * The diff algorithm that JGit's merges use, read as `ResolveMerger.getMergeAlgorithm` reads it: `diff.algorithm`,
@@ -61,18 +96,28 @@ internal fun mergeDiffAlgorithm(config: Config): DiffAlgorithm {
  *   unchanged lines when the base has them too. Without a conflict, both made the same change.
  *
  * Each part takes JGit's chunks for it, which must fit, and becomes chunks with their lines in the three versions.
- * Throws [IllegalStateException] when JGit's chunks don't fit, which would be a bug: the columns wouldn't line up.
+ * Throws [IllegalStateException] when JGit's chunks don't fit, which would be a bug: the columns wouldn't line up. Throws
+ * [ComparisonTookTooLong] once comparing the versions took longer than [timeLimit].
  */
-internal fun textMerge(base: RawText, ours: RawText, theirs: RawText, algorithm: DiffAlgorithm): TextMerge {
-    val mergeChunks = MergeAlgorithm(algorithm).merge(COMPARATOR, base, ours, theirs).toList()
+internal fun textMerge(
+    base: RawText,
+    ours: RawText,
+    theirs: RawText,
+    algorithm: DiffAlgorithm,
+    timeLimit: Duration = Duration.INFINITE,
+): TextMerge {
+    // The diffs are most of the time that a merge takes: JGit's merge keeps them for the parts
+    val diffs = KeptDiffs(algorithm)
+    val comparator = comparatorWithin(timeLimit)
+    val mergeChunks = MergeAlgorithm(diffs).merge(comparator, base, ours, theirs).toList()
 
     val chunks = if (ours.size() == 0 || theirs.size() == 0) {
         // JGit merges an empty side without diffs: the other side's change, or a conflict over the whole file
         wholeFileChunks(base, ours, theirs, mergeChunks)
     } else {
         val parts = mergeParts(
-            oursEdits = algorithm.diff(COMPARATOR, base, ours),
-            theirsEdits = algorithm.diff(COMPARATOR, base, theirs),
+            oursEdits = diffs.diff(comparator, base, ours),
+            theirsEdits = diffs.diff(comparator, base, theirs),
             baseSize = base.size(),
         )
 
@@ -80,6 +125,21 @@ internal fun textMerge(base: RawText, ours: RawText, theirs: RawText, algorithm:
     }
 
     return TextMerge(base, ours, theirs, chunks.withAdjacentChangesJoined()).also { it.checkCoversEveryLine() }
+}
+
+/**
+ * [algorithm], keeping the diffs that it computed: the parts walk the same two diffs as JGit's merge, and computing
+ * them again doubled the time that a large file took to open (`conflict-resolver.md`, section 10).
+ */
+private class KeptDiffs(private val algorithm: DiffAlgorithm) : DiffAlgorithm() {
+    private val kept = mutableListOf<Triple<Sequence, Sequence, EditList>>()
+
+    override fun <S : Sequence> diff(cmp: SequenceComparator<in S>, a: S, b: S): EditList =
+        kept.firstOrNull { (keptA, keptB) -> keptA === a && keptB === b }?.third
+            ?: algorithm.diff(cmp, a, b).also { kept += Triple(a, b, it) }
+
+    override fun <S : Sequence> diffNonCommon(cmp: SequenceComparator<in S>, a: S, b: S): EditList =
+        algorithm.diffNonCommon(cmp, a, b)
 }
 
 private enum class PartKind {

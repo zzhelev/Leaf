@@ -11,8 +11,11 @@ import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
 import org.eclipse.jgit.diff.DiffAlgorithm
 import org.eclipse.jgit.diff.DiffAlgorithm.SupportedAlgorithm
+import org.eclipse.jgit.diff.EditList
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.RawTextComparator
+import org.eclipse.jgit.diff.Sequence
+import org.eclipse.jgit.diff.SequenceComparator
 import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.merge.ContentMergeStrategy
 import org.eclipse.jgit.merge.MergeAlgorithm
@@ -20,10 +23,15 @@ import org.eclipse.jgit.merge.MergeFormatter
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.io.ByteArrayOutputStream
 import kotlin.random.Random
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
 
 /** The merge into chunks: JGit's merge, with each chunk's lines in the three versions. */
 class TextMergeChunksTest {
@@ -238,6 +246,93 @@ class TextMergeChunksTest {
         }
 
         assertTrue(conflicts > 1_000, "Only $conflicts conflicts: the cases don't test conflicts much")
+    }
+
+    /**
+     * A merge with time to spare goes through the comparator that reads the clock, and must merge as it does without
+     * a time limit. One past its limit stops: the clock is read every 1,024 lines compared, and dense changes compare
+     * thousands.
+     */
+    @ParameterizedTest
+    @EnumSource(SupportedAlgorithm::class)
+    fun `a merge within its time limit is the merge without one, and one past it stops`(supportedAlgorithm: SupportedAlgorithm) {
+        val algorithm = DiffAlgorithm.getAlgorithm(supportedAlgorithm)
+        val random = Random(seed = 20261014)
+
+        repeat(1_000) {
+            val base = randomText(random, lines = random.nextInt(0, 40))
+            val texts = listOf(base, mutate(random, base), mutate(random, base)).map { RawText(it.toByteArray()) }
+
+            assertEquals(
+                textMerge(texts[0], texts[1], texts[2], algorithm).chunks,
+                textMerge(texts[0], texts[1], texts[2], algorithm, timeLimit = 1.hours).chunks,
+            )
+        }
+
+        val dense = listOf("base", "ours", "theirs").map { side ->
+            RawText((0 until 3_000).joinToString("") { if (it % 2 == 0) "$it $side\n" else "$it\n" }.toByteArray())
+        }
+
+        assertThrows<ComparisonTookTooLong> { textMerge(dense[0], dense[1], dense[2], algorithm, timeLimit = Duration.ZERO) }
+    }
+
+    /**
+     * A lock file where both sides bumped every 15th package takes 1 s (Myers) to 4 s (histogram) to merge, at 5 MB,
+     * nearly all of it comparing lines that are alike after their hashes were computed: the merge stops at its limit,
+     * not after it.
+     */
+    @ParameterizedTest
+    @EnumSource(SupportedAlgorithm::class)
+    fun `a merge of dense changes stops soon after its time limit`(supportedAlgorithm: SupportedAlgorithm) {
+        val algorithm = DiffAlgorithm.getAlgorithm(supportedAlgorithm)
+        val versions = mapOf("base" to "1.2.3", "ours" to "1.3.0", "theirs" to "1.2.9").map { (side, bumped) ->
+            val packages = (0 until 16_800).joinToString("") { index ->
+                val version = if (index % 15 == 0) bumped else "1.2.3"
+                val integrity = (index * 31 + version.hashCode()).toString(16).padStart(8, '0').repeat(10)
+
+                """
+                |    "node_modules/pkg-$index": {
+                |      "version": "$version",
+                |      "resolved": "https://registry.npmjs.org/pkg-$index/-/pkg-$index-$version.tgz",
+                |      "integrity": "sha512-$integrity==",
+                |      "dev": true
+                |    },
+                |""".trimMargin()
+            }
+
+            RawText("{\n  \"name\": \"$side\",\n$packages}\n".toByteArray())
+        }
+        val start = System.nanoTime()
+
+        assertThrows<ComparisonTookTooLong> { textMerge(versions[0], versions[1], versions[2], algorithm, timeLimit = 100.milliseconds) }
+
+        val stoppedAfter = (System.nanoTime() - start).nanoseconds
+
+        assertTrue(stoppedAfter < 500.milliseconds, "Stopped after $stoppedAfter")
+    }
+
+    @Test
+    fun `a merge diffs each side once`() {
+        var diffs = 0
+        val counting = object : DiffAlgorithm() {
+            override fun <S : Sequence> diff(cmp: SequenceComparator<in S>, a: S, b: S): EditList {
+                diffs++
+                return histogram.diff(cmp, a, b)
+            }
+
+            override fun <S : Sequence> diffNonCommon(cmp: SequenceComparator<in S>, a: S, b: S): EditList =
+                histogram.diffNonCommon(cmp, a, b)
+        }
+
+        val merge = textMerge(
+            RawText("a\nb\nc\n".toByteArray()),
+            RawText("A\nb\nc\n".toByteArray()),
+            RawText("a\nb\nC\n".toByteArray()),
+            counting,
+        )
+
+        assertEquals(listOf(ChangedBy.OURS, ChangedBy.THEIRS), merge.chunks.filterIsInstance<Chunk.Change>().map { it.by })
+        assertEquals(2, diffs)
     }
 
     /**

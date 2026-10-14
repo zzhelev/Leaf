@@ -268,21 +268,37 @@ private fun TextMerge.pickedFrom(file: RawText, style: ConflictMarkerStyle): Seq
         places = step.keys
     }
 
-    /** The picks of the parts up to [part], which end at [place], last part first. */
-    fun paths(part: Int, place: Int): Sequence<List<Chunk>> = sequence {
-        if (part < 0) {
-            if (place == 0) yield(emptyList())
-            return@sequence
-        }
+    // Back from the end of the file, part by part, trying each pick that ends where the next one starts. A loop, not
+    // recursion: a lock file's conflicts can make tens of thousands of parts, and a level each overflowed the stack
+    val paths = sequence {
+        val picked = arrayOfNulls<Chunk>(chunks.size)
+        val choices = arrayOfNulls<Iterator<Pair<Int, Chunk>>>(chunks.size)
+        var part = chunks.lastIndex
 
-        for ((start, pick) in steps[part][place].orEmpty()) {
-            for (path in paths(part - 1, start)) {
-                yield(path + pick)
+        choices[part] = steps[part][file.size()].orEmpty().iterator()
+
+        while (part < chunks.size) {
+            val choice = checkNotNull(choices[part])
+
+            if (!choice.hasNext()) {
+                part++
+                continue
+            }
+
+            val (start, pick) = choice.next()
+            picked[part] = pick
+
+            if (part > 0) {
+                part--
+                choices[part] = steps[part][start].orEmpty().iterator()
+            } else {
+                // The first part starts where the file does: the places were found from there
+                yield(picked.map { checkNotNull(it) })
             }
         }
     }
 
-    return paths(chunks.lastIndex, file.size()).take(MAX_PICKED_STATES).map { copy(chunks = it) }
+    return paths.take(MAX_PICKED_STATES).map { copy(chunks = it) }
 }
 
 /** What a part can be without typing: its lines, a change applied or not, a conflict open or resolved. */

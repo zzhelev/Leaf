@@ -902,6 +902,7 @@
     <string name="conflict_resolver_choice_submodule">A submodule at a different commit on each side.</string>
     <string name="conflict_resolver_choice_link">A symbolic link with a different target on each side.</string>
     <string name="conflict_resolver_choice_too_large">Text larger than %1$s on a side, too large for the resolver.</string>
+    <string name="conflict_resolver_choice_too_slow">Too many changes to compare here: comparing the versions took over %1$s seconds.</string>
     <string name="conflict_resolver_choice_other_paths">git recorded this conflict at more than one path, as when a file and a folder have the same name.</string>
     <string name="conflict_resolver_choice_other_paths_base">Neither side has the file at this path any more: git keeps the base's version here.</string>
     <string name="conflict_resolver_choice_other_paths_side">Only %1$s has a file at this path.</string>

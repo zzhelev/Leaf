@@ -181,13 +181,14 @@ don't pair up, where rerere gives up on the file: that's "fewer or more conflict
 | Submodule | mode `160000` | A choice of commit, written with `git update-index --cacheinfo`, as `git mergetool` does. The submodule's own checkout isn't touched. |
 | Symbolic link | mode `120000` | A choice of target, as in `git mergetool`. |
 | Rename conflicts (rename/rename, file/directory) | each version alone at its own path: the original at stage 1 (DD), each side's name at 2 or 3 (AU, UA). git also records a file against a symbolic link or a submodule at two paths | Not handled at first (the resolver said what git reported and pointed to the terminal). Since step 5: a file renamed on both sides opens as one, to pick its name (section 9), and the rest get a card per side for each path. |
-| Too large | over a limit, to be measured | Use ours, use theirs, or open in the external merge tool. |
+| Too large | over 10 MB on a side, or comparing the versions took over 2 s (section 10) | Use ours, use theirs, or open in the external merge tool. |
 
 Built (step 1): `GetConflictedFileGitAction` loads a conflicted file as `ConflictedFile` (`domain/models/`), and picks
 its row in `git mergetool`'s order: rename conflicts, then a submodule, a deletion, a symbolic link, Git LFS pointers
 (a file of 1,024 bytes or less on ours or theirs that JGit's `LfsPointer` parses), binary (the `merge` attribute unset
 or `binary`, as the `binary` macro sets it, or `RawText.isBinary` on each whole version, as JGit's merge reads them),
-too large (over 10 MB on a side, a provisional limit), and text. Only text is merged and gets the working file's check.
+too large (over 10 MB on a side, measured in step 6, section 10), and text. Only text is merged and gets the working
+file's check.
 
 Built (step 5): every row but "Both modified" and "Both added" gets a card per side, which section 9 describes. A file
 renamed differently on each side (rename/rename) opens as one, with a card per new name; the other conflicts at
@@ -403,7 +404,8 @@ the repository; the sketches below show the layouts.
    arrives: the status could come first and open the first conflicted file in its place.
 4. **Region editing** and the shared undo history, in both layouts. Built 2026-10-13 (section 8 says how).
 5. **Choice cards** for the rows of section 2.4 other than "both modified". Built 2026-10-13 (section 9 says how).
-6. **Later:** word-level highlights, highlighting while editing, and the size limit from measurements.
+6. **Later:** word-level highlights, highlighting while editing, and the size limit from measurements. The size limit
+   was measured and set on 2026-10-14 (section 10 says how).
 
 ## 8. Region editing (step 4, decided 2026-10-13)
 
@@ -504,3 +506,44 @@ Built: the previews in `DA/git/conflicts/ConflictPreviews.kt` (`ConflictedFile.p
 `WriteConflictVersionGitAction`, renamed files in `DA/git/conflicts/RenamedFiles.kt` and
 `ResolveRenamedFileGitAction`, the pick in `ConflictResolverViewModel`, and the cards in
 `A/ui/conflicts/ResolverChoiceCards.kt`. CLAUDE.md has the details.
+
+## 10. Size limits (step 6, measured 2026-10-14)
+
+Step 1's limit, 10 MB on a side, was a guess. It was measured on three kinds of conflicted text, from 1 to 40 MB, in
+repositories that git merged: generated TypeScript with 6 conflicts, a minified bundle of 2,000-character lines with 4,
+and a `package-lock.json` where both sides bumped every 15th package (2,599 conflicts at 10 MB). A temporary test timed
+each step of the load, and a temporary harness ran the resolver's view model through Leaf's Dagger graph in an
+offscreen scene: opening, scrolling, picks, Undo, editing, the layouts and Save. On an M4 Pro:
+
+| | 1 MB | 5 MB | 10 MB | 20 MB | 40 MB |
+|---|---|---|---|---|---|
+| Open generated code | 0.03 s | 0.08 s | 0.15 s | 0.3 s | 1 s |
+| Open the lock file | 0.2 s | 3.8 s | 16 s | about 1 min | about 4 min |
+| Pick / Undo / switch to Stacked, generated code | 16 / 22 / 147 ms | 22 / 39 / 50 ms | 49 / 79 / 89 ms | 80 / 120 / 184 ms | 136 / 342 / 368 ms |
+| Heap held, generated code | 20 MB | 101 MB | 182 MB | 348 MB | 678 MB |
+
+(The 1 MB file opened first, while the JVM warmed up. The scene draws in software, so a window may be a little faster.)
+
+- **The merge's diffs are nearly all of the load,** and their time follows the number of changes, not the size: the
+  lock file's grows with the square of its size, with either of JGit's algorithms. git has the same shape (its own
+  merge of the lock files, which uses histogram, took 38 s, and 0.9 s with `-X diff-algorithm=myers`), and JGit is 10
+  to 20 times slower than git. Reading the blobs, cutting the parts, the marker scan, the rows, Save and reopening a
+  saved file take milliseconds at any size.
+- **Scrolling stays at 5 to 10 ms a frame at any size**, as the lists draw only what's on screen. What rebuilds every
+  row grows with the file: a pick, Undo, switching layouts.
+- **Memory is about 16 times the file** for code-like text (fewer, longer lines hold less). Leaf's heap is a quarter
+  of the RAM by default: 2 GB on an 8 GB Mac.
+- **Found on the way:** the merge diffed each side twice (JGit's merge, then the parts), and now keeps JGit's diffs
+  (`KeptDiffs`), which halved the load. And opening a saved file with thousands of parts (a 2.5 MB lock file has
+  3,899) overflowed the stack: `pickedFrom` recursed once per part. Only exceptions are caught, so the error left the
+  resolver on "Loading…". It's a loop now.
+
+Decided (2026-10-14):
+- **10 MB stays.** Below it, every action took under 100 ms and the resolver held under 200 MB.
+- **Comparing the versions gets 2 seconds** (`MAX_RESOLVER_COMPARE_TIME`). Past it, the file gets the cards, as text
+  that's too large does, and they say "Too many changes to compare here: comparing the versions took over 2 seconds."
+  A size limit low enough for lock files (about 2 MB) would have kept the three panes from a 10 MB source file that
+  opens in 0.15 s. JGit's diffs can't be stopped from outside, but they compare lines all along, so the merge's
+  comparator reads the clock every 1,024 lines and throws past the time (`comparatorWithin`); nothing is left running.
+  A deleted file's diff on its card stops the same way, and the card then shows the sizes alone.
+- **Raising the limit later** would need the rows built once rather than on every pick, and fewer objects per line.

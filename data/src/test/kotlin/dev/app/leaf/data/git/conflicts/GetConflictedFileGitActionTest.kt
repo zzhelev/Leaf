@@ -19,6 +19,7 @@ import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.LineRange
 import dev.app.leaf.domain.models.RenamedFile
+import dev.app.leaf.domain.models.TextLimit
 import dev.app.leaf.domain.conflicts.conflictChunks
 import dev.app.leaf.domain.conflicts.resolving
 import dev.app.leaf.domain.conflicts.typing
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import kotlin.time.Duration
 
 /** Loading a conflicted file for the resolver, from conflicts that git's merges leave (conflict-resolver.md 2.4). */
 class GetConflictedFileGitActionTest {
@@ -218,7 +220,25 @@ class GetConflictedFileGitActionTest {
         val file = Git.open(repository).use { loadConflictedFile(it.repository, "notes.txt", maxTextSize = 7) }
 
         // "feature\n" is 8 bytes
-        assertEquals(ConflictContent.TooLarge(size = 8, limit = 7), file?.content)
+        assertEquals(ConflictContent.TooLarge(size = 8, limit = TextLimit.Size(7)), file?.content)
+    }
+
+    @Test
+    fun `text whose versions take longer than the limit to compare is a choice of side`(): Unit = runBlocking {
+        // Every other line changed on each side, as both sides bumping packages in a lock file
+        git.mergeContents(
+            repository,
+            "lock.txt" to { side -> (0 until 3_000).joinToString("") { if (it % 2 == 0) "pkg-$it $side\n" else "pkg-$it\n" } },
+        )
+
+        fun load(maxCompareTime: Duration) =
+            Git.open(repository).use { loadConflictedFile(it.repository, "lock.txt", maxCompareTime = maxCompareTime) }
+
+        // Theirs is the largest side: "feature" is the longest name
+        val size = Git.open(repository).use { it.repository.open(it.repository.resolve("feature:lock.txt")).size }
+
+        assertEquals(ConflictContent.TooLarge(size, TextLimit.Time(Duration.ZERO)), load(Duration.ZERO)?.content)
+        assertEquals(1_500, (load(MAX_RESOLVER_COMPARE_TIME)?.content as ConflictContent.Text).merge.conflicts)
     }
 
     @Test

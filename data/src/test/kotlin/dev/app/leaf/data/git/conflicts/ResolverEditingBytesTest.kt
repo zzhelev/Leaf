@@ -107,6 +107,34 @@ class ResolverEditingBytesTest {
         assertEquals(saved.chunks, resumed.chunks)
     }
 
+    /** A lock file where both sides bumped every other package has thousands of parts. Each was a level of recursion. */
+    @Test
+    fun `picks saved in a file with thousands of parts come back`() {
+        val base = (0 until 8_000).joinToString("") { "pkg-$it 1.0\n" }
+        fun bumped(version: String) = (0 until 8_000).joinToString("") { if (it % 2 == 0) "pkg-$it $version\n" else "pkg-$it 1.0\n" }
+        val merge = textMerge(
+            RawText(base.toByteArray()),
+            RawText(bumped("1.1").toByteArray()),
+            RawText(bumped("1.2").toByteArray()),
+            histogram,
+        )
+        val saved = merge.copy(
+            chunks = merge.chunks.mapIndexed { index, chunk ->
+                if (chunk is Chunk.Conflict) {
+                    chunk.copy(resolution = if (index % 4 == 0) ConflictResolution.Ours else ConflictResolution.Theirs)
+                } else {
+                    chunk
+                }
+            },
+        )
+
+        assertEquals(4_000, merge.conflicts)
+
+        val resumed = checkNotNull(merge.resumedFrom(saved.resultBytes(style), style))
+
+        assertEquals(saved.chunks, resumed.chunks)
+    }
+
     /**
      * A file that the resolver saved opens as it was saved: random merges, with random picks and lines typed in random
      * parts, are written, then picked out of the bytes again. The state found writes the same bytes and has the same

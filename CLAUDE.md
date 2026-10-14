@@ -476,7 +476,8 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
 **Built-in conflict resolver (fork-only, `data/git/conflicts/`, models in `domain/models/TextMerge.kt` and
 `ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 to 5 of `docs/fork/conflict-resolver.md`: the model, its git
 actions, the views, Columns (ours | result | theirs) and Stacked (the sides on top of the result), editing the result
-one part at a time, with one undo history, and a card per side for the conflicts that three panes can't show.
+one part at a time, with one undo history, and a card per side for the conflicts that three panes can't show. Also
+step 6's size limit, from measurements (the doc's section 10).
 - `GetConflictedFileGitAction` loads a conflicted path as `ConflictedFile`: its stages (through `stagesOf`), its
   `FileConflict`, its `ConflictSides`, and a `ConflictContent` picked in `git mergetool`'s order:
   - `OtherPaths`: a stage alone (DD, AU, UA), as rename/rename leaves;
@@ -485,7 +486,10 @@ one part at a time, with one undo history, and a card per side for the conflicts
     which counts as not a pointer;
   - `Binary`: the `merge` attribute unset or `binary`, or `RawText.isBinary` on each whole version, as JGit's merge
     reads them;
-  - `TooLarge`: text over `MAX_RESOLVER_TEXT_SIZE` (10 MB, provisional);
+  - `TooLarge`: text over `MAX_RESOLVER_TEXT_SIZE` (10 MB), or whose merge took longer than
+    `MAX_RESOLVER_COMPARE_TIME` (2 s), with a `TextLimit` that says which. Below 10 MB, a pick, Undo and switching
+    layouts took under 100 ms. Dense changes, as in a lock file, make the diffs take time that grows with the square
+    of the size: 16 s for a 10 MB lock file, and minutes past it;
   - then `Text`: the merge, and the working file's check.
 - `textMerge` (`TextMergeChunks.kt`) merges with JGit's `MergeAlgorithm` and `diff.algorithm`, read as `ResolveMerger`
   reads it, through `GitCompatibleConfigGetter` (`mergeDiffAlgorithm`, histogram for a value that git refuses too), so
@@ -495,6 +499,11 @@ one part at a time, with one undo history, and a card per side for the conflicts
     (`IllegalStateException` otherwise). Every `TextMerge.Chunk` has its lines in the base, ours and theirs.
   - JGit cuts a conflict's base by the lines alike at its start and end, which gives `[1,-1)` with an empty base: it's
     clamped. Myers can give two edits of one side that touch; such changes are joined.
+  - The diffs are nearly all of the time a merge takes, so `KeptDiffs` keeps the two that JGit's merge computed for
+    `mergeParts`, which used to compute them again.
+  - With a `timeLimit`, the merge compares lines through `comparatorWithin`, which reads the clock every 1,024 lines
+    compared and throws `ComparisonTookTooLong` past it. JGit's diffs can't be stopped otherwise, and compare lines
+    all along, so nothing is left running.
   - `TextMergeChunksTest` checks 5,000 random merges per algorithm against JGit's formatter and its OURS and THEIRS
     strategies, and that keeping one side's changes gives that version back byte for byte.
 - `resultBytes` (`ConflictResult.kt`) writes each line's own bytes and line ending, from `RawText`, and open conflicts
@@ -639,7 +648,8 @@ one part at a time, with one undo history, and a card per side for the conflicts
     into parts, converts the working file as `git add` would (`checkinLineEndings`, through JGit's input stream: its
     output streams only convert for a checkout), and picks out the state that Save wrote. First a state of picks
     alone, matched part by part against the file's lines (`pickedFrom`, every way through, 64 at most, as picks with
-    the same lines can write other line endings). Otherwise each conflict still open anchors at its block of markers,
+    the same lines can write other line endings; a loop, as a recursion per part overflowed the stack with a lock
+    file's thousands of parts). Otherwise each conflict still open anchors at its block of markers,
     the stretches between them are diffed with what the merge writes untouched, and each part takes the lines that
     the diff maps to it: a pick that gives them (`pickOf`), or lines typed. Lines inserted where a pick meets unchanged
     lines go to the unchanged lines. The state is kept only when it writes the file again byte for byte, and the
@@ -671,7 +681,8 @@ one part at a time, with one undo history, and a card per side for the conflicts
   - One side deleted the file: Keep stages the working file as it is (`keepWorkingFile`), as `git mergetool`'s
     "modified" does, so edits since the merge stay. The card's diff (`keptChanges`, git's hunks with 3 lines of
     context, at most `MAX_PREVIEW_LINES`, 300) is the working file's, converted as `git add` would (`checkedIn`), and
-    `workingFileEdited` says when it isn't the side's version any more. With a `filter` attribute
+    `workingFileEdited` says when it isn't the side's version any more. A diff that takes longer than
+    `MAX_RESOLVER_COMPARE_TIME` is left out. With a `filter` attribute
     (`ConflictFileAttributes.filtered`), the working file isn't the blob's bytes, so the diff is the blob's.
   - "Open in the default app" (binary files and downloaded LFS objects): `OpenConflictVersionUseCase` has
     `WriteConflictVersionGitAction` write the stage's blob, or its LFS object, to `<app data>/tmp/<id>_<name>`, moved

@@ -19,6 +19,7 @@ import dev.app.leaf.domain.models.ConflictedFile
 import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.RenamedFile
 import dev.app.leaf.domain.models.LfsObject
+import dev.app.leaf.domain.models.TextLimit
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.WorkingFileCheck
 import dev.app.leaf.domain.models.WorkingFileState
@@ -42,14 +43,23 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import javax.inject.Inject
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "GetConflictedFileGitAction"
 
 /**
- * Text larger than this, on any side, gets a choice of side instead of the three panes. Provisional, until the
- * resolver's speed is measured on large files (`conflict-resolver.md`, section 7, step 6).
+ * Text larger than this, on any side, gets a choice of side instead of the three panes. Below it, a pick, Undo and
+ * switching layouts took under 100 ms, and the resolver held under 200 MB (`conflict-resolver.md`, section 10).
  */
 internal const val MAX_RESOLVER_TEXT_SIZE = 10L * 1024 * 1024
+
+/**
+ * How long comparing the versions may take before the text gets a choice of side too. Most files take a fraction of
+ * it, but dense changes, as in a lock file, take time that grows with the square of the size (`conflict-resolver.md`,
+ * section 10).
+ */
+internal val MAX_RESOLVER_COMPARE_TIME = 2.seconds
 
 /** git-lfs's largest pointer file. */
 private const val MAX_LFS_POINTER_SIZE = 1024L
@@ -74,6 +84,7 @@ internal fun loadConflictedFile(
     repository: Repository,
     path: String,
     maxTextSize: Long = MAX_RESOLVER_TEXT_SIZE,
+    maxCompareTime: Duration = MAX_RESOLVER_COMPARE_TIME,
 ): ConflictedFile? {
     val index = repository.readDirCache()
     val conflict = index.fileConflict(path) ?: return null
@@ -113,12 +124,12 @@ internal fun loadConflictedFile(
                 theirsTarget = reader.symbolicLinkTarget(theirs),
             )
 
-            else -> fileContent(repository, reader, path, base, ours, theirs, sides, maxTextSize)
+            else -> fileContent(repository, reader, path, base, ours, theirs, sides, maxTextSize, maxCompareTime)
         }
 
         // The cards can do without it: a side's choice doesn't depend on it
         val preview = try {
-            conflictPreview(repository, reader, path, content, base, ours, theirs)
+            conflictPreview(repository, reader, path, content, base, ours, theirs, maxCompareTime)
         } catch (e: Exception) {
             printError(TAG, "Couldn't read what the choice cards show of $path", e)
             null
@@ -195,6 +206,7 @@ private fun fileContent(
     theirs: DirCacheEntry,
     sides: ConflictSides?,
     maxTextSize: Long,
+    maxCompareTime: Duration,
 ): ConflictContent {
     val oursPointer = reader.lfsPointer(ours)
     val theirsPointer = reader.lfsPointer(theirs)
@@ -215,7 +227,7 @@ private fun fileContent(
         // Only the start of each is read, as for a diff of large files
         val binary = versions.any { side -> reader.open(side.objectId).openStream().use { RawText.isBinary(it) } }
 
-        return if (binary) ConflictContent.Binary else ConflictContent.TooLarge(size, maxTextSize)
+        return if (binary) ConflictContent.Binary else ConflictContent.TooLarge(size, TextLimit.Size(maxTextSize))
     }
 
     // The whole of each, as JGit's merge loads them: a file that ends with a lone '\r' is binary too
@@ -226,12 +238,17 @@ private fun fileContent(
     }
 
     // Long runs of unchanged lines are edited in parts, and lines saved in one resume in it
-    val merge = textMerge(
-        base = base?.let { RawText(texts.getValue(it)) } ?: RawText.EMPTY_TEXT,
-        ours = RawText(texts.getValue(ours)),
-        theirs = RawText(texts.getValue(theirs)),
-        algorithm = mergeDiffAlgorithm(repository.config),
-    ).inParts()
+    val merge = try {
+        textMerge(
+            base = base?.let { RawText(texts.getValue(it)) } ?: RawText.EMPTY_TEXT,
+            ours = RawText(texts.getValue(ours)),
+            theirs = RawText(texts.getValue(theirs)),
+            algorithm = mergeDiffAlgorithm(repository.config),
+            timeLimit = maxCompareTime,
+        ).inParts()
+    } catch (_: ComparisonTookTooLong) {
+        return ConflictContent.TooLarge(size, TextLimit.Time(maxCompareTime))
+    }
     val style = ConflictMarkerStyle(
         withBase = conflictStyleWithBase(repository.config),
         labels = conflictLabels(repository, sides),

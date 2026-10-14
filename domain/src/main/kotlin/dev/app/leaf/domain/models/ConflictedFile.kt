@@ -3,6 +3,8 @@
 
 package dev.app.leaf.domain.models
 
+import kotlin.time.Duration
+
 /**
  * A file with conflicts as the resolver loads it (`docs/fork/conflict-resolver.md`, 2.4): its versions in the index,
  * which branch or commit ours and theirs are, and what the resolver can do with it.
@@ -124,8 +126,23 @@ sealed interface ConflictContent {
     /** A binary file, or one that the `merge` attribute merges as binary: a choice of side. */
     data object Binary : ConflictContent
 
-    /** Text larger than [limit] bytes on a side ([size], the largest): a choice of side, or the external tool. */
-    data class TooLarge(val size: Long, val limit: Long) : ConflictContent
+    /**
+     * Text that the resolver would be slow with, over its [limit] ([size], the largest side's): a choice of side, or
+     * the external tool.
+     */
+    data class TooLarge(val size: Long, val limit: TextLimit) : ConflictContent
+}
+
+/** The limits of the text that the resolver merges (`conflict-resolver.md`, section 10, measured in step 6). */
+sealed interface TextLimit {
+    /** More than [bytes] on a side. */
+    data class Size(val bytes: Long) : TextLimit
+
+    /**
+     * Comparing the versions took longer than [time]. Dense changes, as in a lock file, make the diffs take time
+     * that grows with the square of the size.
+     */
+    data class Time(val time: Duration) : TextLimit
 }
 
 /** The object that a Git LFS pointer names: its SHA-256 and its size in bytes. */
