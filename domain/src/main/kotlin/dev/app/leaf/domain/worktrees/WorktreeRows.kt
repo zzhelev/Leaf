@@ -30,12 +30,14 @@ sealed interface WorktreeHeadLabel {
  *
  * @param name the worktree's folder name, which git names it after.
  * @param ageLabel how old its checked out commit is, such as `3d`. Null when that's unknown.
+ * @param idleLabel how long nothing changed in it, such as `3w`, when it shows as idle ([WorktreeInfo.idleSince]).
  */
 data class WorktreeRow(
     val info: WorktreeInfo,
     val name: String,
     val head: WorktreeHeadLabel,
     val ageLabel: String?,
+    val idleLabel: String? = null,
 )
 
 /** The rows of [list]'s worktrees in git's order, main one first, leaving out those that don't match [filter]. */
@@ -48,6 +50,7 @@ fun worktreeRows(list: WorktreeList, filter: String, nowMillis: Long): List<Work
                 name = info.worktree.name,
                 head = info.worktree.headLabel(),
                 ageLabel = info.lastCommitTime?.let { formatAge(it, nowMillis) },
+                idleLabel = info.idleSince?.let { formatAge(it, nowMillis) },
             )
         }
 }

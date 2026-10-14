@@ -16,6 +16,7 @@ import dev.app.leaf.data.git.worktrees.GetBranchComparisonGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
 import dev.app.leaf.data.git.worktrees.GetCommonGitDirGitAction
+import dev.app.leaf.data.git.worktrees.GetMergedIntoBaseGitAction
 import dev.app.leaf.data.git.worktrees.GetPrunableWorktreesGitAction
 import dev.app.leaf.data.git.worktrees.GetUnmergedFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeActivityGitAction
@@ -34,6 +35,7 @@ import dev.app.leaf.domain.interfaces.IGetBranchComparisonGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchMergedGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommonGitDirGitAction
+import dev.app.leaf.domain.interfaces.IGetMergedIntoBaseGitAction
 import dev.app.leaf.domain.interfaces.IGetPrunableWorktreesGitAction
 import dev.app.leaf.domain.interfaces.IGetUnmergedFilesGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeActivityGitAction
@@ -87,6 +89,10 @@ interface WorktreeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetBranchMergedGitAction(action: GetBranchMergedGitAction): IGetBranchMergedGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetMergedIntoBaseGitAction(action: GetMergedIntoBaseGitAction): IGetMergedIntoBaseGitAction
 
     @Binds
     @TabScope

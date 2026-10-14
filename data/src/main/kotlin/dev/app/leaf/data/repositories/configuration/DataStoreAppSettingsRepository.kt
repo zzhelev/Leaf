@@ -67,6 +67,7 @@ private val gitExecutablePathPreference get() = stringPreferencesKey("git_execut
 private val remoteOperationsWithGitPreference get() = booleanPreferencesKey("remote_operations_with_git")
 private val worktreesRefreshIntervalPreference get() = intPreferencesKey("worktrees_refresh_interval")
 private val worktreeLabelsPreference get() = stringPreferencesKey("worktree_labels")
+private val worktreesUntouchedDaysPreference get() = intPreferencesKey("worktrees_untouched_days")
 private val conflictOpenerPreference get() = stringPreferencesKey("conflict_opener")
 private val conflictResolverLayoutPreference get() = stringPreferencesKey("conflict_resolver_layout")
 private val conflictResolverWrapLinesPreference get() = booleanPreferencesKey("conflict_resolver_wrap_lines")
@@ -135,6 +136,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val gitExecutablePath get() = preferences.data[gitExecutablePathPreference]
     override val remoteOperationsWithGit get() = preferences.data[remoteOperationsWithGitPreference]
     override val worktreesRefreshInterval get() = preferences.data[worktreesRefreshIntervalPreference]
+    override val worktreesUntouchedDays get() = preferences.data[worktreesUntouchedDaysPreference]
     override val worktreeLabels
         get() = preferences.data[worktreeLabelsPreference].map { it?.let(WorktreeLabelRulesCodec::decode) }
 
@@ -167,6 +169,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.RemoteOperationsWithGit -> setValue(remoteOperationsWithGitPreference, appConfig.value)
                 is AppConfig.WorktreesRefreshInterval ->
                     setValue(worktreesRefreshIntervalPreference, appConfig.seconds)
+                is AppConfig.WorktreesUntouchedDays ->
+                    setValue(worktreesUntouchedDaysPreference, appConfig.days)
                 is AppConfig.WorktreeLabels ->
                     setValue(worktreeLabelsPreference, WorktreeLabelRulesCodec.encode(appConfig.rules))
                 is AppConfig.ConflictOpener -> setValue(conflictOpenerPreference, appConfig.value.name.lowercase())

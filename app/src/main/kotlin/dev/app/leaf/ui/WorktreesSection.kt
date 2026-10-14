@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Colors
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -30,12 +31,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.AgentSessionLock
 import dev.app.leaf.domain.models.AheadBehind
+import dev.app.leaf.domain.models.MergedIntoBase
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
@@ -50,6 +53,7 @@ import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.headLabel
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.onDoubleClick
+import dev.app.leaf.theme.addFile
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.modifyFile
@@ -63,11 +67,16 @@ import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.addContextMenu
 import dev.app.leaf.viewmodels.sidepanel.WorktreesState
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.eclipse.jgit.lib.Repository
 import org.jetbrains.compose.resources.stringResource
+import java.util.concurrent.TimeUnit
 
 /** Height of a worktree's row, which has two lines. */
 private val WORKTREE_ROW_HEIGHT = 46.dp
+
+/** A dark amber, readable as text on a light background. */
+private val IDLE_TEXT_ON_LIGHT = Color(0xFF9A6700)
 
 /** Opacity of a worktree whose folder is missing. */
 internal const val PRUNABLE_ALPHA = 0.5f
@@ -275,14 +284,23 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
                 )
             }
 
-            val trailingLabel = if (isPrunable) {
-                stringResource(Res.string.side_pane_worktree_missing)
-            } else {
-                row.ageLabel
-            }
+            val idleLabel = row.idleLabel
+            val ageLabel = row.ageLabel
 
-            if (trailingLabel != null) {
-                SecondaryLabel(trailingLabel, modifier = Modifier.padding(start = 8.dp))
+            when {
+                isPrunable -> SecondaryLabel(
+                    stringResource(Res.string.side_pane_worktree_missing),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+
+                // Fork-only (Phase 4.3a): in place of the commit's age
+                idleLabel != null -> SecondaryLabel(
+                    stringResource(Res.string.side_pane_worktree_idle, idleLabel),
+                    modifier = Modifier.padding(start = 8.dp),
+                    color = MaterialTheme.colors.idleText,
+                )
+
+                ageLabel != null -> SecondaryLabel(ageLabel, modifier = Modifier.padding(start = 8.dp))
             }
         }
 
@@ -305,7 +323,14 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
 
             val aheadBehind = row.info.aheadBehindBase
 
-            if (aheadBehind != null && (aheadBehind.ahead > 0 || aheadBehind.behind > 0)) {
+            if (row.info.merged != null) {
+                // Fork-only (Phase 4.3a): in place of the commits ahead and behind, which no longer matter
+                SecondaryLabel(
+                    stringResource(Res.string.side_pane_worktree_merged),
+                    modifier = Modifier.padding(start = 8.dp),
+                    color = MaterialTheme.colors.addFile,
+                )
+            } else if (aheadBehind != null && (aheadBehind.ahead > 0 || aheadBehind.behind > 0)) {
                 SecondaryLabel(aheadBehind.compactText(), modifier = Modifier.padding(start = 8.dp))
             }
         }
@@ -424,10 +449,14 @@ internal fun worktreeContextMenuItems(
 }
 
 @Composable
-private fun SecondaryLabel(text: String, modifier: Modifier = Modifier) {
+private fun SecondaryLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colors.onBackgroundSecondary,
+) {
     Text(
         text = text,
-        color = MaterialTheme.colors.onBackgroundSecondary,
+        color = color,
         style = MaterialTheme.typography.caption,
         fontWeight = FontWeight.SemiBold,
         maxLines = 1,
@@ -454,6 +483,14 @@ internal fun AgentTag(label: String, modifier: Modifier = Modifier) {
             .padding(horizontal = 4.dp),
     )
 }
+
+/**
+ * The amber of "idle": the conflict color, and a darker one on a light background, where the bright one is hard to read
+ * as text.
+ */
+private val Colors.idleText: Color
+    @Composable
+    get() = if (isLight) IDLE_TEXT_ON_LIGHT else conflictFile
 
 /** Marks a worktree with uncommitted changes, in the color of conflicts when it has some. */
 @Composable
@@ -484,7 +521,8 @@ internal fun WorktreeHeadLabel.text(): String = when (this) {
 
 /**
  * What a worktree's tooltip says: its folder, then what it has checked out, its changes, how it compares to the base
- * branch and to its upstream, and whether it's locked or its folder is missing.
+ * branch and to its upstream, whether its work is in the base and how long nothing changed in it, and whether it's
+ * locked or its folder is missing.
  */
 @Composable
 internal fun worktreeTooltip(info: WorktreeInfo, baseBranch: String?): String {
@@ -522,6 +560,19 @@ internal fun worktreeTooltip(info: WorktreeInfo, baseBranch: String?): String {
         lines += aheadBehindBase.comparedText(baseBranchName(baseBranch))
     }
 
+    val merged = info.merged
+
+    if (baseBranch != null && merged != null) {
+        lines += merged.tooltipText(baseBranchName(baseBranch))
+    }
+
+    val idleSince = info.idleSince
+
+    if (idleSince != null) {
+        val days = TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis() - idleSince).toInt()
+        lines += pluralStringResource(Res.plurals.side_pane_worktree_tooltip_idle, days, days)
+    }
+
     if (upstream != null && upstreamAheadBehind != null) {
         lines += upstreamAheadBehind.comparedText(upstream)
     }
@@ -544,6 +595,12 @@ internal fun worktreeTooltip(info: WorktreeInfo, baseBranch: String?): String {
     }
 
     return lines.joinToString("\n")
+}
+
+@Composable
+private fun MergedIntoBase.tooltipText(baseBranch: String): String = when (this) {
+    MergedIntoBase.COMMITS -> stringResource(Res.string.side_pane_worktree_tooltip_merged_commits, baseBranch)
+    MergedIntoBase.CHANGES -> stringResource(Res.string.side_pane_worktree_tooltip_merged_changes, baseBranch)
 }
 
 /** How Leaf knows who made a worktree: "Made by Codex: its git dir has codex-thread.json". */

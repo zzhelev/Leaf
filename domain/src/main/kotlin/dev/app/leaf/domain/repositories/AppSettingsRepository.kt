@@ -45,6 +45,7 @@ interface AppSettingsRepository {
     val gitExecutablePath: Flow<String?>
     val remoteOperationsWithGit: Flow<Boolean?>
     val worktreesRefreshInterval: Flow<Int?>
+    val worktreesUntouchedDays: Flow<Int?>
     val worktreeLabels: Flow<List<WorktreeLabelRule>?>
     val conflictOpener: Flow<ConflictOpener?>
     val conflictResolverLayout: Flow<ConflictResolverLayout?>

@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
+import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -67,6 +68,10 @@ class AppSettingsService @Inject constructor(
         get() = appSettingsRepository.worktreesRefreshInterval.defaultIfNull {
             WorktreesRefreshIntervals.DEFAULT_SECONDS
         }
+
+    /** Days without a change after which a worktree shows as idle, 0 for never. */
+    val worktreesUntouchedDays: Flow<Int>
+        get() = appSettingsRepository.worktreesUntouchedDays.defaultIfNull { WorktreesUntouchedDays.DEFAULT_DAYS }
 
     /** The user's rules for labelling worktrees, see [AppConfig.WorktreeLabels]. */
     val worktreeLabels: Flow<List<WorktreeLabelRule>>

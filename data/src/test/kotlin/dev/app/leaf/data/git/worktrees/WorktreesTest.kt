@@ -347,6 +347,11 @@ class WorktreesTest {
             assertNull(byPath.getValue(main.canonicalPath).agentMarker)
             assertNull(byPath.getValue(locked.canonicalPath).agentMarker)
 
+            // Only a commit's id counts as where the worktree started
+            assertEquals("0123456789abcdef0123456789abcdef01234567", byPath.getValue(agent.canonicalPath).startCommit)
+            assertNull(byPath.getValue(feature.canonicalPath).startCommit)
+            assertNull(byPath.getValue(main.canonicalPath).startCommit)
+
             assertEquals(
                 AgentSessionLock(AgentTool.CLAUDE_CODE, "agent", isRunning = false),
                 byPath.getValue(agent.canonicalPath).agentLock,
@@ -365,6 +370,8 @@ class WorktreesTest {
             GetAheadBehindGitAction(gitCli),
             GetWorktreeBaseBranchGitAction(jgit),
             GetCommitTimesGitAction(jgit),
+            GetMergedIntoBaseGitAction(gitCli, jgit),
+            GetWorktreeActivityGitAction(gitCli),
             UseCaseExecutor(
                 mockk<RepositoryDataRepository> { every { this@mockk.repositoryPath } returns repositoryPath },
                 InMemoryRepositoryStateRepository(),

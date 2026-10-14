@@ -99,6 +99,8 @@
     <string name="side_pane_worktrees_new">New worktree</string>
     <string name="worktree_picker_new">New worktree…</string>
     <string name="side_pane_worktree_missing">missing</string>
+    <string name="side_pane_worktree_merged">merged</string>
+    <string name="side_pane_worktree_idle">idle %1$s</string>
     <string name="side_pane_worktree_rebasing">rebasing %1$s</string>
     <string name="side_pane_worktree_bisecting">bisecting from %1$s</string>
     <string name="side_pane_worktree_detached">detached at %1$s</string>
@@ -115,6 +117,12 @@
     <string name="side_pane_worktree_tooltip_conflicted">%1$d conflicted</string>
     <string name="side_pane_worktree_tooltip_compared">Compared to %1$s: %2$d ahead, %3$d behind</string>
     <string name="side_pane_worktree_tooltip_up_to_date">Up to date with %1$s</string>
+    <string name="side_pane_worktree_tooltip_merged_commits">Its commits are in %1$s</string>
+    <string name="side_pane_worktree_tooltip_merged_changes">Its changes are in %1$s (squash-merged)</string>
+    <plurals name="side_pane_worktree_tooltip_idle">
+        <item quantity="one">Nothing changed in it for %1$d day</item>
+        <item quantity="other">Nothing changed in it for %1$d days</item>
+    </plurals>
     <string name="side_pane_worktree_tooltip_locked">Locked</string>
     <string name="side_pane_worktree_tooltip_locked_reason">Locked: %1$s</string>
     <string name="side_pane_worktree_tooltip_locked_session_running">Locked by a %1$s session that is still running</string>
@@ -698,6 +706,13 @@
     <string name="settings_worktrees_refresh_off">Never</string>
     <string name="settings_worktrees_refresh_seconds">Every %1$d s</string>
     <string name="settings_worktrees_refresh_minute">Every minute</string>
+    <string name="settings_worktrees_untouched_title">Mark worktrees untouched for</string>
+    <string name="settings_worktrees_untouched_subtitle">A linked worktree shows as idle when nothing changed in it for this long: no commit, checkout or staging, and no edited file.</string>
+    <string name="settings_worktrees_untouched_never">Never</string>
+    <plurals name="settings_worktrees_untouched_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
     <string name="settings_worktree_labels_title">Worktree labels</string>
     <string name="settings_worktree_labels_subtitle">Leaf tags each worktree with the agent tool that made it, from the file the tool leaves in the worktree's git dir or from the folder it's in. Your rules come first. In a folder pattern, * stands for one folder name or part of one, ** for any number of folders, ~/ for your home folder and &lt;repo&gt; for the repository's folder. A pattern that starts with ** matches anywhere, and one that doesn't start with /, ~/, ** or &lt;repo&gt; is in the repository's folder.</string>
     <string name="settings_worktree_labels_label">Label</string>

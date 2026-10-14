@@ -20,6 +20,8 @@ package dev.app.leaf.domain.models
  * (`refs/heads/x`). Null otherwise.
  * @param agentMarker the file that the tool which made the worktree left in its git dir, null without one.
  * @param agentLock the agent's session that holds [locked], when its reason says so. Null otherwise.
+ * @param startCommit the commit that the worktree started from, as the tool that made it recorded it (Claude Code's
+ * `CLAUDE_BASE`). Null without one.
  */
 data class Worktree(
     val path: String,
@@ -35,6 +37,7 @@ data class Worktree(
     val bisectingBranch: String? = null,
     val agentMarker: AgentMarker? = null,
     val agentLock: AgentSessionLock? = null,
+    val startCommit: String? = null,
 ) {
     /**
      * How this worktree uses the local branch [branchName] (`refs/heads/x`), as git tells when it refuses to check the
@@ -93,6 +96,11 @@ data class AheadBehind(
  * @param lastCommitTime the committer time of the checked out commit, in milliseconds since the epoch.
  * @param origin who made the worktree, from the user's label rules, its marker or its folder. Null for the main
  * worktree and for one that nothing tells about.
+ * @param merged how the work of the worktree's branch reached the base branch, null when it hasn't, or for a worktree
+ * that isn't marked (see `branchToMarkMerged`).
+ * @param idleSince when something last changed in a linked worktree, while nothing has for some days: at least
+ * [WorktreesUntouchedDays.MIN_DAYS] as read, and the days in the settings once the tab applies them (`withIdle`).
+ * Null otherwise.
  */
 data class WorktreeInfo(
     val worktree: Worktree,
@@ -100,7 +108,18 @@ data class WorktreeInfo(
     val aheadBehindBase: AheadBehind?,
     val lastCommitTime: Long?,
     val origin: WorktreeOrigin? = null,
+    val merged: MergedIntoBase? = null,
+    val idleSince: Long? = null,
 )
+
+/** How a worktree's work reached the base branch. */
+enum class MergedIntoBase {
+    /** Its commits are in the base: a merge, or a fast-forward. */
+    COMMITS,
+
+    /** Its commits aren't, but merging them would change nothing: a squash merge. */
+    CHANGES,
+}
 
 /**
  * The branch that the worktrees of a repository are compared to.

@@ -190,7 +190,7 @@ private fun stateBranch(gitDir: File, fileName: String): String? {
 private fun isSameBranch(stateBranch: String, branchName: String) =
     stateBranch.removePrefix(Constants.R_HEADS) == branchName.removePrefix(Constants.R_HEADS)
 
-private fun File.readTextOrNull(): String? = try {
+internal fun File.readTextOrNull(): String? = try {
     readText()
 } catch (ex: IOException) {
     null

@@ -35,6 +35,7 @@ import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
 import dev.app.leaf.domain.models.WorktreeList
+import dev.app.leaf.domain.worktrees.withIdle
 import dev.app.leaf.domain.worktrees.withOrigins
 import dev.app.leaf.domain.worktrees.worktreePickerRows
 import dev.app.leaf.extensions.stateIn
@@ -392,12 +393,18 @@ class RepositoryOpenViewModel @Inject constructor(
             )
         }.stateIn(SubmodulesState(isLoading = true, emptyList(), isExpandedSubmodules.value))
 
-    /** The worktrees, each with who made it (fork-only): the user's label rules apply as soon as they change. */
+    /**
+     * The worktrees, each with who made it and whether it's idle (fork-only): the user's label rules and idle days apply
+     * as soon as they change.
+     */
     private val worktrees: StateFlow<UiDataState<WorktreeList>> = combine(
         repositoryDataRepository.worktrees.toUiDataState(),
         settings.worktreeLabels,
-    ) { worktrees, rules ->
-        UiDataState(worktrees.isLoading, worktrees.data?.withOrigins(rules), worktrees.error)
+        settings.worktreesUntouchedDays,
+    ) { worktrees, rules, untouchedDays ->
+        val list = worktrees.data?.withOrigins(rules)?.withIdle(untouchedDays, System.currentTimeMillis())
+
+        UiDataState(worktrees.isLoading, list, worktrees.error)
     }
         // Real paths read the file system
         .flowOn(Dispatchers.IO)

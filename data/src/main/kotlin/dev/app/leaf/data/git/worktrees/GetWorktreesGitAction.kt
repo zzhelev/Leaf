@@ -39,6 +39,7 @@ class GetWorktreesGitAction @Inject constructor(
                     rebasingBranch = head?.rebasingBranch,
                     bisectingBranch = head?.bisectingBranch,
                     agentMarker = head?.gitDir?.let(::agentMarkerIn),
+                    startCommit = head?.gitDir?.let(::startCommitIn),
                     agentLock = worktree.locked?.let(::agentSessionLock),
                 )
             }

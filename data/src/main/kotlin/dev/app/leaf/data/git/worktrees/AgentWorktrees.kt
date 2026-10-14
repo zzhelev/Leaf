@@ -7,6 +7,7 @@ import dev.app.leaf.domain.models.AgentMarker
 import dev.app.leaf.domain.models.AgentSessionLock
 import dev.app.leaf.domain.models.AgentTool
 import dev.app.leaf.domain.worktrees.parseClaudeSessionLock
+import org.eclipse.jgit.lib.ObjectId
 import java.io.File
 import java.time.Instant
 import kotlin.math.abs
@@ -15,6 +16,15 @@ import kotlin.math.abs
 internal fun agentMarkerIn(gitDir: File): AgentMarker? = AgentMarker.entries.firstOrNull { marker ->
     File(gitDir, marker.fileName).isFile
 }
+
+/**
+ * The commit that the worktree whose git dir is [gitDir] started from, as Claude Code records it in `CLAUDE_BASE`.
+ * Null without the file, or when it doesn't hold a commit's id.
+ */
+internal fun startCommitIn(gitDir: File): String? = File(gitDir, AgentMarker.CLAUDE_CODE.fileName)
+    .readTextOrNull()
+    ?.trim()
+    ?.takeIf { ObjectId.isId(it) }
 
 /** A process that runs, and when it started, null when the system doesn't tell. */
 internal data class RunningProcess(val start: Instant?)

@@ -27,6 +27,7 @@ import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.Error
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
+import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
@@ -53,6 +54,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import java.time.Instant
 import java.time.ZoneId
@@ -325,6 +327,21 @@ private fun Worktrees(settingsViewState: SettingsViewState, onAction: (SettingsA
         currentOption = current,
     )
 
+    val untouchedDays = settingsViewState.worktreesUntouchedDays
+
+    SettingDropDown(
+        title = stringResource(Res.string.settings_worktrees_untouched_title),
+        subtitle = stringResource(Res.string.settings_worktrees_untouched_subtitle),
+        // Also a value that only the settings file has
+        dropDownOptions = (WorktreesUntouchedDays.CHOICES + untouchedDays).distinct().sorted().map { days ->
+            DropDownOption(days, worktreesUntouchedDaysName(days))
+        },
+        onOptionSelected = { option ->
+            onAction(SettingsAction.SetConfig(AppConfig.WorktreesUntouchedDays(option.value)))
+        },
+        currentOption = untouchedDays,
+    )
+
     WorktreeLabelsSetting(
         rules = settingsViewState.worktreeLabels,
         onRulesChanged = { rules -> onAction(SettingsAction.SetConfig(AppConfig.WorktreeLabels(rules))) },
@@ -336,6 +353,12 @@ private fun worktreesRefreshIntervalName(seconds: Int): String = when {
     seconds <= 0 -> stringResource(Res.string.settings_worktrees_refresh_off)
     seconds == 60 -> stringResource(Res.string.settings_worktrees_refresh_minute)
     else -> stringResource(Res.string.settings_worktrees_refresh_seconds, seconds)
+}
+
+@Composable
+private fun worktreesUntouchedDaysName(days: Int): String = when {
+    days <= 0 -> stringResource(Res.string.settings_worktrees_untouched_never)
+    else -> pluralStringResource(Res.plurals.settings_worktrees_untouched_days, days, days)
 }
 
 /** Fork-only: shared by the built-in resolver and the external merge tool (`docs/fork/conflict-resolver.md`, 4). */

@@ -15,6 +15,7 @@ import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
+import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
@@ -83,6 +84,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.pushWithLease,
             appSettingsService.remoteOperationsWithGit,
             appSettingsService.worktreesRefreshInterval,
+            appSettingsService.worktreesUntouchedDays,
             appSettingsService.worktreeLabels,
             appSettingsService.conflictOpener,
             appSettingsService.conflictResolverLayout,
@@ -109,6 +111,7 @@ class SettingsViewModel @Inject constructor(
             pushWithLease,
             remoteOperationsWithGit,
             worktreesRefreshInterval,
+            worktreesUntouchedDays,
             worktreeLabels,
             conflictOpener,
             conflictResolverLayout,
@@ -137,6 +140,7 @@ class SettingsViewModel @Inject constructor(
                 pushWithLease,
                 remoteOperationsWithGit,
                 worktreesRefreshInterval,
+                worktreesUntouchedDays,
                 worktreeLabels,
                 conflictOpener,
                 conflictResolverLayout,
@@ -169,6 +173,7 @@ class SettingsViewModel @Inject constructor(
             pushWithLease = false,
             remoteOperationsWithGit = false,
             worktreesRefreshInterval = WorktreesRefreshIntervals.DEFAULT_SECONDS,
+            worktreesUntouchedDays = WorktreesUntouchedDays.DEFAULT_DAYS,
             worktreeLabels = emptyList(),
             conflictOpener = ConflictOpener.DEFAULT,
             conflictResolverLayout = ConflictResolverLayout.DEFAULT,
@@ -203,6 +208,8 @@ data class SettingsViewState(
     val remoteOperationsWithGit: Boolean,
     /** Seconds between two refreshes of the worktree list, 0 for none. */
     val worktreesRefreshInterval: Int,
+    /** Days without a change after which a worktree shows as idle, 0 for never. */
+    val worktreesUntouchedDays: Int,
     /** The user's rules for labelling worktrees, see [AppConfig.WorktreeLabels]. */
     val worktreeLabels: List<WorktreeLabelRule>,
     /** What double-clicking a conflicted file and the banner's Resolve conflicts open. */

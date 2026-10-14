@@ -37,6 +37,9 @@ sealed interface AppConfig {
     /** Seconds between two refreshes of the worktree list while it's shown, 0 for none. See [WorktreesRefreshIntervals]. */
     data class WorktreesRefreshInterval(val seconds: Int) : AppConfig
 
+    /** Days without a change after which a worktree shows as idle, 0 for never. See [WorktreesUntouchedDays]. */
+    data class WorktreesUntouchedDays(val days: Int) : AppConfig
+
     /** The user's rules for labelling worktrees, tried in this order before the built-in ones. */
     data class WorktreeLabels(val rules: List<WorktreeLabelRule>) : AppConfig
 

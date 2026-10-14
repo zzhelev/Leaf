@@ -43,6 +43,7 @@ import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchComparisonGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
+import dev.app.leaf.data.git.worktrees.GetMergedIntoBaseGitAction
 import dev.app.leaf.data.git.worktrees.GetCommonGitDirGitAction
 import dev.app.leaf.data.git.worktrees.GetUnmergedFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeActivityGitAction
@@ -180,6 +181,8 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
             GetAheadBehindGitAction(gitCli),
             GetWorktreeBaseBranchGitAction(jgit),
             GetCommitTimesGitAction(jgit),
+            GetMergedIntoBaseGitAction(gitCli, jgit),
+            GetWorktreeActivityGitAction(gitCli),
             useCaseExecutor,
         ),
         worktreesRefreshRunner = WorktreesRefreshRunner(),
