@@ -1464,9 +1464,10 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 **Worktrees section (fork-only, `ui/WorktreesSection.kt`):** one two-line row per worktree, in git's order, built by
 `worktreeRows` (`domain/worktrees/WorktreeRows.kt`) from `WorktreesState`.
 - Line 1: the folder name (bold for the tab's worktree), a lock icon when locked, and the last commit's age, or
-  "missing" for a prunable worktree, whose row is greyed out. The main worktree has the `source` icon.
+  "missing" for a prunable worktree, whose row is greyed out, or "idle 3w" (see Stale markers). The main worktree has
+  the `source` icon.
 - Line 2: the branch, or "rebasing x", "bisecting from x", "detached at abc1234"; a dot for uncommitted changes (the
-  conflict color when there are conflicts); and `↑ahead ↓behind` versus the base branch.
+  conflict color when there are conflicts); and `↑ahead ↓behind` versus the base branch, or "merged".
 - The tooltip (`worktreeTooltip`) has the full path, the change counts, the comparison to the base and to the
   upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
 - A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches the tab to
@@ -1512,6 +1513,34 @@ and on its branch's badge in place of a worktree name that repeats the branch.
   its start time, as Claude Code does, into `Worktree.agentLock`. The tooltip and the Remove dialog then say whether
   the session still runs, in place of the raw reason.
 - The filter matches the tag. The tooltip says who made the worktree and how Leaf knows.
+
+**Stale markers (fork-only, Phase 4.3a, `docs/fork/agent-awareness.md`):** a linked worktree whose work is in the base
+shows "merged", in the added-file green, in place of `↑ ↓`. One in which nothing changed for some days shows "idle 3w",
+in amber, in place of its commit's age (darker on a light background, where the conflict color is hard to read as
+text). The tooltip says how the work got there ("Its changes are in main (squash-merged)") and for how many days
+nothing changed.
+- **Which worktrees:** "merged" only for a linked worktree on a branch other than the base and the base's local branch
+  (`branchToMarkMerged`, `domain/worktrees/StaleWorktrees.kt`). Detached, rebasing and bisecting worktrees get none.
+  "idle" for linked worktrees whose folder exists.
+- **Merged** (`GetMergedIntoBaseGitAction`, `WorktreeInfo.merged`):
+  - With commits that the base doesn't have: when `git merge-tree --write-tree` gives the base's tree
+    (`mergeChangesNothing`, shared with `GetBranchMergedGitAction`), as after a squash merge (`MergedIntoBase.CHANGES`).
+    The answer is kept per (base commit, branch commit) for the tab, so merge-tree runs once per pair, not on every
+    refresh.
+  - Without (`COMMITS`): only when the branch had work of its own that it still has. A fresh worktree is in the base by
+    ancestry too. "Rebase onto main" and an agent's `git merge main` move a fresh branch to the base's commits, so
+    having moved isn't enough either.
+  - Work of its own comes from the branch's reflog (`commitsOfItsOwn`): a commit made on it (`commit…`, `cherry-pick`,
+    `revert`, `am`), or a rebase that kept commits on top of the commit it rebased onto. One such commit must be in the
+    branch, as a reset or a rebase leaves the older ones behind. Each check walks back to where the commit and the
+    branch meet, kept per (commit, branch commit), 50 commits at most.
+  - Without a reflog: Claude Code's `CLAUDE_BASE` (`Worktree.startCommit`), when the branch moved from it.
+- **Idle** (`WorktreeInfo.idleSince`): 3.1's last change (`GetWorktreeActivityGitAction`), read against a week ago
+  (`WorktreesUntouchedDays.MIN_DAYS`). With `notBefore`, a git dir whose `index`, `HEAD` or `logs/HEAD` changed since
+  is enough, and `git status` runs only for the others.
+  - `RepositoryOpenViewModel` applies the setting (`withIdle`), so a change in Settings shows at once. The setting is
+    Settings → Worktrees → "Mark worktrees untouched for": never, 7, 14 (the default), 30 or 90 days
+    (`AppConfig.WorktreesUntouchedDays`, `worktrees_untouched_days`). Fewer days in the settings file count as 7.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,

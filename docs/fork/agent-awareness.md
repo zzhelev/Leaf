@@ -5,7 +5,7 @@
 | Question | How should Leaf tell which agent made a worktree, mark the worktrees that are done or forgotten, and clean up the merged ones? |
 | Verified against | `main` at `976c96c5`; git 2.54.0; Claude Code 2.1.287 (a probe run); the other tools' docs and source, 2026-10-14 |
 | Date | 2026-10-14 |
-| Status | Approved 2026-10-14 with every recommendation in section 6; 4.1 and 4.2 done |
+| Status | Approved 2026-10-14 with every recommendation in section 6; 4.1, 4.2 and 4.3a done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -140,19 +140,29 @@ paths), the marker reading in `GetWorktreesGitActionTest`, and the lock reason's
 **Merged:** a linked worktree on a branch other than the base, whose work is in the base:
 - its branch has commits that the base doesn't, and merging it would change nothing (`merge-tree`, as 3.1): a squash
   merge; or
-- its branch has no commits that the base doesn't, and it moved since the worktree started: a merge or a
+- its branch has no commits that the base doesn't, and it had work of its own that it still has: a merge or a
   fast-forward.
 
-Where it started: `CLAUDE_BASE`, or else the branch's first reflog entry when it reads `branch: Created from …`, which
-`git worktree add -b` writes. A probe on git 2.54 showed the difference: a fresh branch has that one entry; one that
-was committed to and fast-forwarded has two. Without either, an unmoved branch isn't marked: Leaf can't tell a fresh
-worktree from a merged one.
+Work of its own (as built, refining "it moved since the worktree started"): the branch's reflog has an entry that a
+commit made on it writes (`commit`, `commit (amend)`, `cherry-pick`, `revert`, `am`, git's and JGit's), or a rebase
+that kept commits on top of the commit it rebased onto (`rebase (finish): … onto <id>`, with another id than `<id>`),
+and that entry's commit is in the branch. A probe on git 2.54 showed why "moved" isn't enough: "Rebase onto main"
+(3.5) on a fresh worktree writes `rebase (finish): refs/heads/x onto <main>` and leaves the branch at main's commit,
+and an agent's `git merge main` writes `merge main: Fast-forward`. Both moved a branch that had no work. The commit
+has to be in the branch, as a reset can leave it behind, and a rebase leaves its commit entries behind (the rebase's
+own entry counts then). The start isn't needed, which helps: the reflog of a Claude desktop app branch in this
+repository starts with `merge main: Fast-forward`, not `branch: Created from …`.
+
+Without a reflog, `CLAUDE_BASE` is where the worktree started, and a branch that moved from it counts. Without either,
+an unmoved branch isn't marked: Leaf can't tell a fresh worktree from a merged one.
 
 A detached worktree isn't marked: the plan asks about branches, and Codex, Cursor and Cline, which make detached ones,
 clean up their own.
 
 **Untouched:** no change for N days, by 3.1's last change. The cheap part runs first: when the git dir's `index`,
 `HEAD` and `logs/HEAD` are newer than N days, the worktree isn't untouched, and the changed files aren't looked at.
+As built, the list reads it against 7 days, the fewest offered, and the tab applies N, so a change in the settings
+shows at once. Linked worktrees only: the main one isn't something to clean up.
 
 **Setting:** Settings → Worktrees, "Mark worktrees untouched for": never, 7, 14, 30 or 90 days, 14 by default
 (`AppConfig.WorktreesUntouchedDays`).
@@ -161,6 +171,9 @@ clean up their own.
 - **Merged:** "merged" in the added-file green in place of `↑ ↓` on the row's second line. The tooltip says how: "Its
   changes are in main (squash-merged)" or "Its commits are in main".
 - **Untouched:** the age on the first line turns amber and reads "idle 21d". The tooltip says "No changes for 21 days".
+  As built: "idle 3w", in the side panel's own age format, and "Nothing changed in it for 21 days", next to "No
+  uncommitted changes". On a light background the amber is darker (`#9A6700`): the conflict color is hard to read as
+  text on white.
 - Dimming stays for missing worktrees only.
 
 **Cost:** the list refreshes every 10 seconds while it's shown. `merge-tree` runs only for branches with commits of

@@ -2,6 +2,35 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Worktrees show when they're merged, and when they're idle (branch `feat/stale-markers`)
+
+- **Before:** a worktree whose work had reached the base still showed its `↑ ↓` against the base: a squash-merged
+  branch looked unmerged (`↑3 ↓1`). Nothing told an agent's forgotten worktree from one in use.
+- **Now** (Phase 4.3a, `docs/fork/agent-awareness.md`):
+  - A linked worktree whose work is in the base shows "merged", in green, in place of `↑ ↓`. The tooltip says how: "Its
+    commits are in main" after a merge or a fast-forward, "Its changes are in main (squash-merged)" after a squash
+    merge. Only a worktree on a branch other than the base and its local branch is marked.
+  - A worktree that just started is in the base too, by ancestry, and isn't marked: the branch must have had work of
+    its own, a commit made on it that it still has, as its reflog tells. The design note said "moved since the
+    worktree started"; a probe on git 2.54 showed that "Rebase onto main" on a fresh worktree, or an agent's
+    `git merge main`, moves a branch that had no work. Without a reflog, Claude Code's `CLAUDE_BASE` says where it
+    started.
+  - A linked worktree in which nothing changed for 14 days (no commit, checkout, staging or edited file) shows
+    "idle 3w", in amber, in place of its commit's age, and its tooltip "Nothing changed in it for 21 days". Settings
+    → Worktrees → "Mark worktrees untouched for": never, 7, 14, 30 or 90 days. A change there shows at once.
+  - Cost: `git merge-tree` runs once per base commit and branch commit, not on every refresh. `git status` runs again
+    only for a worktree whose git dir hasn't changed for a week.
+- **Tests:** 6 in `StaleWorktreesTest` (domain): the reflog messages of git and JGit that count as work of its own and
+  those that don't, which worktrees are marked, the settings' days and their floor of 7, and the rows. 5 in
+  `StaleWorktreesTest` (data), from real worktrees: fast-forwarded, merged, squash-merged, rebased then merged
+  (merged); fresh, unmerged, reset away, rebased while fresh, caught up with main, detached and main (not merged);
+  `CLAUDE_BASE` without a reflog; merge-tree run once per pair; idle by the git dir's and a changed file's times, and
+  `git status` left out while the git dir is recent. `WorktreesTest` reads `CLAUDE_BASE`. 4 in
+  `StaleWorktreeMarkersTest` (app): "merged" and "idle" in place of `↑ ↓` and the age, "missing" over "idle", and the
+  tooltips.
+  - **Mutation check:** 20 mutations, all caught.
+  - `./gradlew test` passes, with 1,536 tests (259 in `:app`, 952 in `:data`, 318 in `:domain`, 7 in `:common`).
+
 ## Worktrees show which agent's tool made them (branch `feat/agent-awareness`)
 
 - **Before:** an agent's worktree was a folder name like any other. A worktree that Claude Code had locked said
