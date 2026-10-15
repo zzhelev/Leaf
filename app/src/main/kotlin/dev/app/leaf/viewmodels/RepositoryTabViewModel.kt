@@ -250,6 +250,17 @@ class RepositoryTabViewModel @AssistedInject constructor(
     val conflictResolverHasUnsavedChanges: Boolean
         get() = repositoryOpenViewModel()?.conflictResolverHasUnsavedChanges == true
 
+    /** Fork-only: the tab's conflict resolver file, when it has changes that aren't saved, which quitting would lose. */
+    val conflictResolverUnsavedFile: String?
+        get() = repositoryOpenViewModel()?.conflictResolverUnsavedFile
+
+    /** Fork-only: saves the tab's conflict resolver file before Leaf quits, then calls [onSaved], or [onFailed]. */
+    fun saveConflictResolverBeforeQuit(onSaved: () -> Unit, onFailed: () -> Unit) {
+        val repositoryOpen = repositoryOpenViewModel()
+
+        if (repositoryOpen == null) onSaved() else repositoryOpen.saveConflictResolverBeforeQuit(onSaved, onFailed)
+    }
+
     /** Fork-only: runs [then], which closes the tab, once its conflict resolver has no changes that aren't saved. */
     fun whenConflictResolverLeft(then: () -> Unit) {
         val repositoryOpen = repositoryOpenViewModel()

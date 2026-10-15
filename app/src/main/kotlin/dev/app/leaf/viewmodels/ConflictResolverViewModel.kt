@@ -197,6 +197,10 @@ class ConflictResolverViewModel @Inject constructor(
             return !paused && (state.value.file.hasUnsavedChanges || edit != null && edit.value.text != edit.start.text)
         }
 
+    /** The file shown, when it has changes that aren't saved. */
+    val unsavedFile: String?
+        get() = state.value.file.path?.takeIf { hasUnsavedChanges }
+
     private fun leave(leave: ResolverLeave) {
         finishEdit()
 
@@ -470,18 +474,22 @@ class ConflictResolverViewModel @Inject constructor(
 
     // Saving
 
-    /** Writes the result, markers for open conflicts included. [overwriteChanges]: over changes made since. */
-    fun save(overwriteChanges: Boolean = false, then: () -> Unit = {}) {
+    /**
+     * Writes the result, markers for open conflicts included. [overwriteChanges]: over changes made since. [then] runs
+     * once it's written, and [orElse] when it couldn't be, which the strip says. Returns the save's job, or null when
+     * there's nothing to save.
+     */
+    fun save(overwriteChanges: Boolean = false, then: () -> Unit = {}, orElse: () -> Unit = {}): Job? {
         finishEdit()
 
-        val file = state.value.file as? ResolverFile.Loaded ?: return
-        val merge = file.merge ?: return
+        val file = state.value.file as? ResolverFile.Loaded ?: return null
+        val merge = file.merge ?: return null
 
         if (paused) {
-            return
+            return null
         }
 
-        viewModelScope.launch {
+        return viewModelScope.launch {
             when (val result = saveConflictResolutionUseCase(file.file, merge, overwriteChanges)) {
                 is Either.Ok -> {
                     state.update { state ->
@@ -497,9 +505,31 @@ class ConflictResolverViewModel @Inject constructor(
                     then()
                 }
 
-                is Either.Err -> showError(result.error, onKeep = { save(overwriteChanges = true, then) })
+                is Either.Err -> {
+                    showError(result.error, onKeep = { save(overwriteChanges = true, then, orElse) })
+                    orElse()
+                }
             }
         }
+    }
+
+    /**
+     * Saves the file before Leaf quits (fork-only): [onSaved] once it's written, or at once when nothing needs saving;
+     * [onFailed] when it couldn't be written, which the strip then says.
+     */
+    fun saveBeforeQuit(onSaved: () -> Unit, onFailed: () -> Unit) {
+        finishEdit()
+
+        if (!hasUnsavedChanges) {
+            onSaved()
+            return
+        }
+
+        val job = save(then = onSaved, orElse = onFailed)
+
+        // A save that ends without its callbacks, as when its tab closes meanwhile, stops the quit rather than leave it
+        // waiting
+        if (job == null) onFailed() else job.invokeOnCompletion { cause -> if (cause != null) onFailed() }
     }
 
     /** Saves and stages the file, once no conflict is open. Once it's resolved, opens the next one. */

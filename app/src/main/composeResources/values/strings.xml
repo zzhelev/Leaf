@@ -922,6 +922,13 @@
     <string name="conflict_resolver_reload">Reload</string>
     <string name="conflict_resolver_keep">Keep mine</string>
     <string name="conflict_resolver_dismiss">Dismiss</string>
+    <string name="quit_dialog_title">Quit Leaf?</string>
+    <plurals name="quit_dialog_subtitle">
+        <item quantity="one">The conflict resolver has changes that aren't saved. Saving writes the file, with conflict markers for the conflicts still open.</item>
+        <item quantity="other">The conflict resolver has changes that aren't saved in %1$d files. Saving writes them, with conflict markers for the conflicts still open.</item>
+    </plurals>
+    <string name="quit_dialog_save">Save and quit</string>
+    <string name="quit_dialog_discard">Discard and quit</string>
     <string name="conflict_resolver_different_markers">The file's conflict markers don't match the merge: %1$d conflicts in the file, %2$d here. git can split and join conflicts differently from Leaf. Save replaces the file with the result.</string>
     <string name="conflict_resolver_no_markers_title">No conflict markers left</string>
     <string name="conflict_resolver_no_markers">%1$s has no conflict markers any more: it was resolved outside the resolver, by hand, by an agent or by git rerere. git lists it as conflicted until it's staged.</string>

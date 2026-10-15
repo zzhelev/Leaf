@@ -1075,6 +1075,17 @@ class RepositoryOpenViewModel @Inject constructor(
     val conflictResolverHasUnsavedChanges: Boolean
         get() = conflictResolverViewModel?.hasUnsavedChanges == true
 
+    /** The resolver's file when it has changes that aren't saved, which quitting Leaf would lose (fork-only). */
+    val conflictResolverUnsavedFile: String?
+        get() = conflictResolverViewModel?.unsavedFile
+
+    /** Saves the resolver's file before Leaf quits: see [ConflictResolverViewModel.saveBeforeQuit]. */
+    fun saveConflictResolverBeforeQuit(onSaved: () -> Unit, onFailed: () -> Unit) {
+        val resolver = conflictResolverViewModel
+
+        if (resolver == null) onSaved() else resolver.saveBeforeQuit(onSaved, onFailed)
+    }
+
     /** Esc in the resolver: finishes editing first, then leaves Focus, then closes it. */
     fun escapeConflictResolver() {
         conflictResolverViewModel?.escape()

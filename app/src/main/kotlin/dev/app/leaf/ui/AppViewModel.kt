@@ -121,6 +121,34 @@ class AppViewModel @Inject constructor(
         appSettingsRepository.latestRepositoryTabSelected = tabs.value.indexOf(tab)
     }
 
+    private val quitRequests = QuitRequests()
+
+    /** The quit dialog's question, while a quit waits for it (fork-only). */
+    val quitPrompt: StateFlow<QuitPrompt?> = quitRequests.prompt
+
+    /**
+     * Quits Leaf ([onQuit]), asking first when a tab's conflict resolver has changes that aren't saved (fork-only).
+     * [onCancelled] runs when the user stays, or saving a file fails, whose tab is then selected.
+     */
+    fun quit(onQuit: () -> Unit, onCancelled: () -> Unit = {}) {
+        val unsaved = tabs.value.mapNotNull { tab ->
+            val path = tab.data.conflictResolverUnsavedFile ?: return@mapNotNull null
+
+            UnsavedResolverFile(
+                path = path,
+                tabName = tab.name,
+                worktreeName = tab.worktreeName,
+                save = tab.data::saveConflictResolverBeforeQuit,
+                show = { selectTab(tab) },
+            )
+        }
+
+        quitRequests.request(unsaved, onQuit, onCancelled)
+    }
+
+    /** The answer to [quitPrompt]: save first ([save] true), quit without saving (false), or stay (null). */
+    fun answerQuit(save: Boolean?) = quitRequests.answer(save)
+
     fun closeTab(tab: TabInformation<RepositoryTabViewModel>) {
         // Fork-only: a conflict resolver with changes that aren't saved asks first, in its tab
         if (tab.data.conflictResolverHasUnsavedChanges) {

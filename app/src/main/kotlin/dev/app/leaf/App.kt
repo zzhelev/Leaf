@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
@@ -48,6 +50,7 @@ import dev.app.leaf.lfs.AppLfsFactory
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.ColorsScheme
+import dev.app.leaf.theme.dialogOverlay
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.AppChrome
 import dev.app.leaf.ui.AppTab
@@ -59,6 +62,7 @@ import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.context_menu.AppPopupMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.FastForwardOffer
+import dev.app.leaf.ui.dialogs.QuitDialog
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -68,9 +72,11 @@ import org.eclipse.jgit.lib.Signers
 import org.eclipse.jgit.util.LfsFactory
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import java.awt.Desktop
 import java.io.File
 import java.nio.file.Paths
 import javax.inject.Inject
+import javax.swing.SwingUtilities
 
 private const val TAG = "App"
 private const val MAX_CHARS_CURRENT_TAB_NAME = 250
@@ -236,12 +242,30 @@ class App @Inject constructor(
                 appViewModel.updatePersistedTabs()
             }
 
-            Window(
-                title = "${System.getenv("title") ?: AppConstants.APP_NAME} - $currentTabName",
-                onCloseRequest = {
+            // Fork-only: every way of quitting asks first while a conflict resolver has changes that aren't saved
+            val quitNow: () -> Unit = {
+                SwingUtilities.invokeLater {
                     tempFilesManager.clearAll()
                     this@application.exitApplication()
-                },
+                }
+            }
+
+            DisposableEffect(Unit) {
+                // macOS: Cmd+Q, Quit in the app menu and the Dock, logging out. Without a handler, the JDK exits at once.
+                val desktop = desktopSupporting(Desktop.Action.APP_QUIT_HANDLER)
+
+                desktop?.setQuitHandler { _, response ->
+                    appViewModel.quit(onQuit = quitNow, onCancelled = response::cancelQuit)
+                }
+
+                onDispose { desktop?.setQuitHandler(null) }
+            }
+
+            val quitPrompt = appViewModel.quitPrompt.collectAsState().value
+
+            Window(
+                title = "${System.getenv("title") ?: AppConstants.APP_NAME} - $currentTabName",
+                onCloseRequest = { appViewModel.quit(onQuit = quitNow) },
                 state = windowState,
                 icon = painterResource(Res.drawable.logo),
             ) {
@@ -280,6 +304,16 @@ class App @Inject constructor(
                 compositionValues.add(LocalDateTimeFormat provides dateFormat)
                 compositionValues.add(LocalWindowMinimized provides windowState.isMinimized)
 
+                // A quit from the Dock or a logout can come while Leaf is minimized or in the background
+                LaunchedEffect(quitPrompt != null) {
+                    if (quitPrompt != null) {
+                        windowState.isMinimized = false
+                        window.toFront()
+
+                        desktopSupporting(Desktop.Action.APP_REQUEST_FOREGROUND)?.requestForeground(false)
+                    }
+                }
+
                 CompositionLocalProvider(
                     values = compositionValues.toTypedArray()
                 ) {
@@ -290,6 +324,19 @@ class App @Inject constructor(
                     ) {
                         Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
                             AppTabs()
+                        }
+
+                        if (quitPrompt != null) {
+                            Dialog(
+                                onDismissRequest = { appViewModel.answerQuit(null) },
+                                properties = DialogProperties(
+                                    scrimColor = MaterialTheme.colors.dialogOverlay,
+                                    dismissOnClickOutside = false,
+                                    usePlatformDefaultWidth = false,
+                                ),
+                            ) {
+                                QuitDialog(quitPrompt, onAnswer = appViewModel::answerQuit)
+                            }
                         }
                     }
                 }
@@ -434,6 +481,10 @@ class App @Inject constructor(
         return null
     }
 }
+
+/** The desktop, when it supports [action] (fork-only). Without desktop support, [Desktop.getDesktop] throws. */
+private fun desktopSupporting(action: Desktop.Action): Desktop? =
+    if (Desktop.isDesktopSupported()) Desktop.getDesktop().takeIf { it.isSupported(action) } else null
 
 @Composable
 private fun TabContent(viewModel: RepositoryTabViewModel) {
