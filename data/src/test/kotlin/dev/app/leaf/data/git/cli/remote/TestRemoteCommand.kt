@@ -6,6 +6,7 @@ package dev.app.leaf.data.git.cli.remote
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.git.cli.askpass.ASKPASS_HELPER_NAME
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
@@ -68,6 +69,16 @@ class TestRemoteCommand(
     val gitLfsFetch = GitLfsFetch(gitCli, command)
 
     val partialClone = PartialCloneFetch(jgit, command)
+}
+
+/**
+ * A PATH without git-lfs, as macOS has it until Homebrew installs one: a `git-lfs` in [folder] that fails as git does
+ * without it, before `/usr/bin` and `/bin`. Linux installs the real one there, as CI's runner has it.
+ */
+fun pathWithoutGitLfs(folder: File): String {
+    File(folder, "git-lfs").writeExecutable("#!/bin/sh\necho \"git: 'lfs' is not a git command.\" >&2\nexit 1\n")
+
+    return "${folder.absolutePath}:/usr/bin:/bin"
 }
 
 /**

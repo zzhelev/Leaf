@@ -79,7 +79,7 @@ class GitSigningConfigsTest {
             |#!/bin/sh
             |for argument in "${'$'}@"; do
             |  last=${'$'}argument
-            |  echo "${'$'}argument"
+            |  printf '%s\n' "${'$'}argument"
             |done > "${'$'}(dirname "${'$'}0")/ssh-args"
             |printf '%s' '$SSH_SIGNATURE' > "${'$'}last.sig"
             |""".trimMargin()

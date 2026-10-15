@@ -45,7 +45,7 @@ private val SIGNING_SSH_KEYGEN = """
     dir=${'$'}(dirname "${'$'}0")
     previous=
     for argument in "${'$'}@"; do
-      echo "${'$'}argument"
+      printf '%s\n' "${'$'}argument"
       if [ "${'$'}previous" = "-f" ] && [ -f "${'$'}argument" ]; then cp "${'$'}argument" "${'$'}dir/key"; fi
       previous=${'$'}argument
     done > "${'$'}dir/args"

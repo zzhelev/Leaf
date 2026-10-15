@@ -71,6 +71,9 @@ class RebasingWorktreesTest {
     @BeforeEach
     fun createRepository() {
         SystemReader.setInstance(IsolatedSystemReader(File(tempDir, "config"), originalReader))
+        // The tab's git commits as this identity: without one, git makes one up on macOS, and refuses on Linux
+        globalConfig.parentFile.mkdirs()
+        globalConfig.writeText("[user]\n\tname = Leaf Test\n\temail = test@example.invalid\n")
 
         main.mkdirs()
         git.run(main, "init", "-b", "main")

@@ -96,7 +96,7 @@ class RemoteOperationsBackendTest {
         useLfs()
         File(work, ".git/hooks/pre-push").writeExecutable(LFS_PRE_PUSH_HOOK)
 
-        assertFalse(backend(path = "/usr/bin:/bin").useGitCli(gitDir, uploadsObjects = true))
+        assertFalse(backend().useGitCli(gitDir, uploadsObjects = true))
     }
 
     @Test
@@ -110,14 +110,14 @@ class RemoteOperationsBackendTest {
     fun `LFS objects stored in the git dir count as using LFS`(): Unit = runBlocking {
         File(work, ".git/lfs/objects").mkdirs()
 
-        assertFalse(backend(path = "/usr/bin:/bin").useGitCli(gitDir, uploadsObjects = true))
+        assertFalse(backend().useGitCli(gitDir, uploadsObjects = true))
     }
 
     @Test
     fun `operations that upload nothing use the git CLI in LFS repositories too`(): Unit = runBlocking {
         useLfs()
 
-        assertTrue(backend(path = "/usr/bin:/bin").useGitCli(gitDir, uploadsObjects = false))
+        assertTrue(backend().useGitCli(gitDir, uploadsObjects = false))
     }
 
     @Test
@@ -155,7 +155,7 @@ class RemoteOperationsBackendTest {
         withGit: Boolean = true,
         gitPath: String? = null,
         helper: File? = File(tempDir, "leaf-askpass").apply { writeText("") },
-        path: String = "/usr/bin:/bin",
+        path: String = pathWithoutGitLfs(File(tempDir, "no-lfs-bin")),
     ): RemoteOperationsBackend {
         val settings = AppSettingsService(
             mockk<AppSettingsRepository> {

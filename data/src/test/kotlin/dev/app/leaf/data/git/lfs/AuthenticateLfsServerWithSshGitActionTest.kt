@@ -38,7 +38,7 @@ private const val ANSWER = """{"href": "https://lfs.example.com/org/repo", "head
  * `git-lfs-authenticate` with [ANSWER].
  */
 private val ANSWERING_SSH = """
-    for argument in "${'$'}@"; do echo "${'$'}argument"; done > "${'$'}(dirname "${'$'}0")/args"
+    for argument in "${'$'}@"; do printf '%s\n' "${'$'}argument"; done > "${'$'}(dirname "${'$'}0")/args"
     echo "Warning: Permanently added '[example.com]:2222' (ED25519) to the list of known hosts." >&2
     echo '$ANSWER'
 """.trimIndent()

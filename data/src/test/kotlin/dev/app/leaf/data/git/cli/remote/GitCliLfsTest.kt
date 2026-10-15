@@ -155,7 +155,8 @@ class GitCliLfsTest {
 
     @Test
     fun `without git-lfs, a clone's LFS files are left to the built-in client`(): Unit = runBlocking {
-        val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to "/usr/bin:/bin"))
+        val path = pathWithoutGitLfs(File(tempDir, "no-lfs-bin"))
+        val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to path))
         val destination = File(tempDir, "clone")
 
         val states = clone(remote, destination).toList()
