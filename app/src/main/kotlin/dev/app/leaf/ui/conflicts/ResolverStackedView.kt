@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.conflicts.CellKind
+import dev.app.leaf.domain.conflicts.ChangedWords
 import dev.app.leaf.domain.conflicts.ConflictArrow
 import dev.app.leaf.domain.conflicts.ResultRow
 import dev.app.leaf.domain.conflicts.SidesRow
@@ -136,6 +137,8 @@ fun ResolverStackedView(
     canEdit: Boolean = true,
 ) {
     val syntaxHighlighter = remember(filePath) { getSyntaxHighlighterFromExtension(filePath.substringAfterLast('.')) }
+    // Picks and lines typed keep the chunks' lines, so the words marked are kept until another file loads
+    val words = remember(merge.base, merge.ours, merge.theirs) { ChangedWords(merge) }
     val numberWidth = remember(merge) {
         digits(maxOf(merge.ours.size(), merge.theirs.size(), merge.base.size() + merge.ours.size()))
     }
@@ -207,6 +210,7 @@ fun ResolverStackedView(
                             numberWidth = numberWidth,
                             isCurrentConflict = row.chunk == currentConflictChunk,
                             syntaxHighlighter = syntaxHighlighter,
+                            words = words,
                             actions = actions,
                         )
                     }
@@ -252,6 +256,7 @@ fun ResolverStackedView(
                                 isCurrentConflict = item.chunk == currentConflictChunk,
                                 showBase = showBase,
                                 syntaxHighlighter = syntaxHighlighter,
+                                words = words,
                                 actions = actions,
                                 canEdit = canEdit,
                             )
@@ -266,7 +271,7 @@ fun ResolverStackedView(
                                             .fillMaxHeight()
                                             .background(MaterialTheme.colors.primaryVariant)
                                     )
-                                    PartEditor(editing, numberWidth, editorPlace, Modifier.weight(1f))
+                                    PartEditor(editing, numberWidth, editorPlace, syntaxHighlighter, Modifier.weight(1f))
                                 }
                             }
                         }
@@ -310,6 +315,7 @@ private fun SidesRowView(
     numberWidth: Int,
     isCurrentConflict: Boolean,
     syntaxHighlighter: SyntaxHighlighter,
+    words: ChangedWords,
     actions: PickActions,
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
@@ -321,6 +327,7 @@ private fun SidesRowView(
                 numberWidth = numberWidth,
                 isCurrentConflict = isCurrentConflict,
                 syntaxHighlighter = syntaxHighlighter,
+                words = words,
                 modifier = Modifier.weight(1f),
                 chip = if (row.first) {
                     { SideChip(row.chunk, chunk, side, sides, actions) }
@@ -479,6 +486,7 @@ private fun ResultRowView(
     isCurrentConflict: Boolean,
     showBase: Boolean,
     syntaxHighlighter: SyntaxHighlighter,
+    words: ChangedWords,
     actions: PickActions,
     canEdit: Boolean,
 ) {
@@ -532,7 +540,7 @@ private fun ResultRowView(
                         text = cell.number.toStringWithSpaces(numberWidth),
                         remarked = cell.kind != CellKind.UNCHANGED,
                     )
-                    LineText(text.getString(cell.line), syntaxHighlighter)
+                    LineText(text.getString(cell.line), syntaxHighlighter, marksOf(cell, words))
                 }
             }
         }

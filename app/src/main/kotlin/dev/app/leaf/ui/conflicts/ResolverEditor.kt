@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -63,11 +64,16 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.onDoubleClick
 import dev.app.leaf.extensions.toStringWithSpaces
+import dev.app.leaf.theme.diffAnnotation
+import dev.app.leaf.theme.diffComment
+import dev.app.leaf.theme.diffKeyword
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.diff.LineNumber
+import dev.app.leaf.ui.diff.MAX_HIGHLIGHTED_LINE_CHARACTERS
+import dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter
 import dev.app.leaf.viewmodels.ResolverEdit
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -307,14 +313,15 @@ internal fun Modifier.finishingEditOnPressOutside(editing: Boolean, presses: Edi
  * The text field of a part of the result, with the result's line numbers next to its lines, from
  * [PartEditing.firstNumber]. It takes the focus when it shows, and finishes editing when it leaves the composition, as
  * when the layout changes. Scrolled out of sight, it stays, as LazyColumn keeps the focused item, and typing brings it
- * back. Tabs show as four spaces, as the rows show them. While lines don't wrap, it scrolls sideways with the columns,
- * and keeps the caret in sight.
+ * back. Tabs show as four spaces, and keywords and comments in the rows' colours ([EditorColours]). While lines don't
+ * wrap, it scrolls sideways with the columns, and keeps the caret in sight.
  */
 @Composable
 internal fun PartEditor(
     editing: PartEditing,
     numberWidth: Int,
     place: EditorPlace,
+    syntaxHighlighter: SyntaxHighlighter,
     modifier: Modifier = Modifier,
 ) {
     val edit = editing.edit
@@ -327,6 +334,12 @@ internal fun PartEditor(
     val style = MaterialTheme.typography.body2.copy(
         fontFamily = monoTypography(),
         color = MaterialTheme.colors.onBackground,
+    )
+    val colours = EditorColours(
+        syntaxHighlighter = syntaxHighlighter,
+        keywordColor = MaterialTheme.colors.diffKeyword,
+        commentColor = MaterialTheme.colors.diffComment,
+        annotationColor = MaterialTheme.colors.diffAnnotation,
     )
 
     LaunchedEffect(Unit) {
@@ -390,7 +403,7 @@ internal fun PartEditor(
                 onValueChange = editing.actions.onType,
                 textStyle = style,
                 cursorBrush = SolidColor(MaterialTheme.colors.onBackground),
-                visualTransformation = TabsAsSpaces,
+                visualTransformation = colours,
                 onTextLayout = { result ->
                     layout = result
                     place.laidOut(result, textTop = with(density) { FieldBorder.toPx() })
@@ -441,6 +454,51 @@ private fun EditorLineNumbers(first: Int, numberWidth: Int, text: String, layout
                 }
             }
         }
+    }
+}
+
+/** The most characters of a part that get [EditorColours]: they're worked out again on each change. */
+internal const val MAX_COLOURED_EDIT_CHARACTERS = 100_000
+
+/**
+ * Tabs as four spaces ([TabsAsSpaces]), with the rows' colours for keywords, annotations and comments, line by line, as
+ * [dev.app.leaf.ui.diff.DiffText] colours them (`conflict-resolver.md`, section 11). So a part looks the same once
+ * editing starts, and as it's typed. Past [MAX_COLOURED_EDIT_CHARACTERS], and past the first
+ * [MAX_HIGHLIGHTED_LINE_CHARACTERS] of a line, it's plain, as the rows are.
+ */
+internal data class EditorColours(
+    private val syntaxHighlighter: SyntaxHighlighter,
+    private val keywordColor: Color,
+    private val commentColor: Color,
+    private val annotationColor: Color,
+) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val spaced = TabsAsSpaces.filter(text)
+        val shown = spaced.text.text
+
+        if (shown.length > MAX_COLOURED_EDIT_CHARACTERS) {
+            return spaced
+        }
+
+        val coloured = AnnotatedString.Builder(spaced.text)
+        var lineStart = 0
+
+        for (line in shown.split('\n')) {
+            val highlighted = syntaxHighlighter.syntaxHighlight(
+                annotatedString = AnnotatedString(line.take(MAX_HIGHLIGHTED_LINE_CHARACTERS)),
+                commentColor = commentColor,
+                keywordColor = keywordColor,
+                annotationColor = annotationColor,
+            )
+
+            for (span in highlighted.spanStyles) {
+                coloured.addStyle(span.item, lineStart + span.start, lineStart + span.end)
+            }
+
+            lineStart += line.length + 1
+        }
+
+        return TransformedText(coloured.toAnnotatedString(), spaced.offsetMapping)
     }
 }
 

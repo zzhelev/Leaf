@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isShiftPressed
@@ -94,18 +95,23 @@ class SidewaysScroll {
 /** The lines' sideways scroll while they don't wrap, or null while they do. */
 internal val LocalSidewaysScroll = compositionLocalOf<SidewaysScroll?> { null }
 
-/** A line's text: wrapped, or on one row that scrolls sideways with the others ([LocalSidewaysScroll]). */
+/**
+ * A line's text: wrapped, or on one row that scrolls sideways with the others ([LocalSidewaysScroll]), with [marks] on
+ * the words that its side changed.
+ */
 @Composable
-internal fun LineText(text: String, syntaxHighlighter: SyntaxHighlighter) {
+internal fun LineText(text: String, syntaxHighlighter: SyntaxHighlighter, marks: LineMarks? = null) {
     val sideways = LocalSidewaysScroll.current
+    val matchLine = remember(text, marks) { marks?.matchLine(text) }
+    val markColor = marks?.color ?: Color.Transparent
 
     if (sideways == null) {
-        DiffText(text, matchLine = null, syntaxHighlighter = syntaxHighlighter)
+        DiffText(text, matchLine, syntaxHighlighter, insertedColor = markColor)
     } else {
         // The gap before the text stays put, and DiffText's own padding scrolls out of sight behind it
         Box(Modifier.fillMaxWidth().padding(start = LineStartPadding).clipToBounds()) {
             Box(UnwrappedElement(sideways, hiddenStart = LineStartPadding)) {
-                DiffText(text, matchLine = null, syntaxHighlighter = syntaxHighlighter)
+                DiffText(text, matchLine, syntaxHighlighter, insertedColor = markColor)
             }
         }
     }

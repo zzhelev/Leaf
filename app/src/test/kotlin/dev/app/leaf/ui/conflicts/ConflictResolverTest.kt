@@ -22,11 +22,16 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.domain.conflicts.ColumnShares
+import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.Color
+import dev.app.leaf.domain.conflicts.resolving
+import dev.app.leaf.domain.conflicts.ChangedWords
 import dev.app.leaf.domain.conflicts.editStart
 import dev.app.leaf.domain.conflicts.typing
 import dev.app.leaf.domain.models.ChangedBy
@@ -133,6 +138,52 @@ class ConflictResolverTest {
         assertTrue("0 resolved · 2 merged cleanly" in texts, "$texts")
         assertTrue("Conflict 1 · open: ▶ takes ours, ◀ takes theirs" in texts, "$texts")
     }
+
+    @Test
+    fun `the words that each side changed are marked inside their lines, in a stronger shade of the line's colour`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val words = ChangedWords(merge)
+            val oursLine = merge.ours.getString(5)
+            val theirsLine = merge.theirs.getString(3)
+
+            for (layout in ConflictResolverLayout.entries) {
+                val marks = marksShown(state().copy(layout = layout))
+
+                // Both sides of the open conflict, in the conflict's colour: the result shows neither
+                assertEquals(listOf(words.of(merge.ours, 5)), marks[oursLine]?.map { it.ranges }, "$layout")
+                assertEquals(listOf(words.of(merge.theirs, 3)), marks[theirsLine]?.map { it.ranges }, "$layout")
+                assertTrue(words.of(merge.ours, 5).isNotEmpty() && words.of(merge.theirs, 3).isNotEmpty())
+                assertEquals(0.45f, marks.getValue(oursLine).single().color.alpha, 0.01f, "$layout")
+
+                // Lines added whole get none: the import and theirs' function
+                assertEquals(listOf<IntRange>(), marks["import java.nio.file.Path"]?.flatMap { it.ranges }.orEmpty())
+                assertEquals(listOf<IntRange>(), marks["fun <T> retry(times: Int, block: () -> T): T = block()"]?.flatMap { it.ranges }.orEmpty())
+            }
+
+            // The text after the last mark is drawn too
+            val counted = TextMerge(
+                base = text("val n = 1 // items"),
+                ours = text("val n = 2 // items"),
+                theirs = text("val n = 1 // items"),
+                chunks = listOf(Chunk.Change(lines(0, 1), lines(0, 1), lines(0, 1), ChangedBy.OURS)),
+            )
+
+            assertEquals(listOf(listOf(8..8), listOf(8..8)), marksShown(state(counted))["val n = 2 // items"]?.map { it.ranges })
+
+            // Theirs taken: the result has theirs' line and its marks, in the colour of a resolved conflict
+            for (layout in ConflictResolverLayout.entries) {
+                val resolved = marksShown(state(merge.resolving(3, ConflictResolution.Theirs)).copy(layout = layout))
+                val colours = resolved.getValue(theirsLine).map { it.color }
+
+                // Theirs' column in the conflict's colour, the result in a resolved conflict's
+                assertEquals(2, colours.distinct().size, "$layout: $colours")
+                assertEquals(
+                    listOf(words.of(merge.theirs, 3), words.of(merge.theirs, 3)),
+                    resolved.getValue(theirsLine).map { it.ranges },
+                    "$layout",
+                )
+            }
+        }
 
     @Test
     fun `the arrows take a side, and a change can be undone`(): Unit = runBlocking(Dispatchers.Swing) {
@@ -1229,6 +1280,16 @@ class ConflictResolverTest {
                 assertEquals(1, scene.placesOf("    val text = retry(3) { read(path) }").size)
                 // Numbered as the result: an open conflict's placeholder has no number, and the field's line is 6
                 assertEquals(render(state()).texts.count { it == " 6" } + 1, scene.placesOf(" 6").size)
+
+                // Keywords keep the rows' colour while editing
+                val layouts = mutableListOf<TextLayoutResult>()
+                checkNotNull(field.config[SemanticsActions.GetTextLayoutResult].action).invoke(layouts)
+                val shown = layouts.single().layoutInput.text
+
+                assertTrue(
+                    shown.spanStyles.any { shown.text.substring(it.start, it.end) == "val" && it.item.color.isSpecified },
+                    "${shown.spanStyles}",
+                )
             }
         }
 
@@ -1612,6 +1673,33 @@ class ConflictResolverTest {
     }
 
     private fun ConflictResolverState.ours() = checkNotNull((file as ResolverFile.Loaded).file.ours)
+
+    /** A line's marks as drawn: the ranges with a background, and its colour. */
+    private data class ShownMarks(val ranges: List<IntRange>, val color: Color)
+
+    /** The marks of every line drawn for [state], by line: one entry per time the line is drawn, marked or not. */
+    private fun marksShown(state: ConflictResolverState): Map<String, List<ShownMarks>> {
+        val scene = ImageComposeScene(width = 1400, height = 600, density = Density(1f)) {
+            AppTheme {
+                ConflictResolverContent(state, ResolverLists(), actions())
+            }
+        }
+
+        try {
+            scene.render()
+
+            return scene.nodes()
+                .flatMap { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty() }
+                .map { text ->
+                    val marked = text.spanStyles.filter { it.item.background.isSpecified && it.item.background.alpha > 0f }
+
+                    text.text to ShownMarks(marked.map { it.start until it.end }, marked.firstOrNull()?.item?.background ?: Color.Transparent)
+                }
+                .groupBy({ it.first }, { it.second })
+        } finally {
+            scene.close()
+        }
+    }
 
     /** Every text in the scene. */
     private fun ImageComposeScene.texts(): List<String> =

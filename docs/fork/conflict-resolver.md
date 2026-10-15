@@ -202,7 +202,7 @@ several paths get a card per side for each path.
 | **Synchronized scrolling.** | Meld and JetBrains keep each pane's own lines and map the scroll position from pane to pane. Beyond Compare, WinMerge and KDiff3 pad with filler lines so that rows line up. | **Aligned rows**, as Leaf's split diff does today: one `LazyColumn`, each row holding every column, so the panes can't drift and virtualization comes free. A chunk's row is as tall as its tallest side. The others get hatched fillers. |
 | **Connector gutter and arrows.** | Meld and JetBrains draw curves between ranges of different heights, with arrow and cross icons at the start of each change. Meld's Ctrl-click inserts instead of replacing. | With aligned rows, the gutter is a straight band per chunk, drawn in the row, with its buttons on the first line. No curves, no reading of line positions from three panes. |
 | **Long lines.** | Each pane scrolls sideways on its own. | Soft wrap, as the diff pane does (`DiffText`, `softWrap = true`). Sideways scroll would need one scroll state per column shared by every row, which Compose's `ScrollState` doesn't support. |
-| **Highlighting.** | Word-level and syntax highlighting everywhere. | The read-only rows reuse the diff pane's `SyntaxHighlighter` and line colours. The region being edited goes plain at first. Word-level highlights come later. |
+| **Highlighting.** | Word-level and syntax highlighting everywhere. | The read-only rows reuse the diff pane's `SyntaxHighlighter` and line colours. The region being edited goes plain at first. Word-level highlights come later. Both came in step 6 (section 11). |
 | **Swing editor instead** (RSyntaxTextArea in a `SwingPanel`) | | Rejected. It's a heavyweight component that draws over Compose content, and Leaf's dialogs, popups and tooltips draw on the window's canvas (see CLAUDE.md, Dialogs). It's also a new dependency. |
 
 ## 4. Where it opens, and the external merge tool
@@ -405,7 +405,8 @@ the repository; the sketches below show the layouts.
 4. **Region editing** and the shared undo history, in both layouts. Built 2026-10-13 (section 8 says how).
 5. **Choice cards** for the rows of section 2.4 other than "both modified". Built 2026-10-13 (section 9 says how).
 6. **Later:** word-level highlights, highlighting while editing, and the size limit from measurements. The size limit
-   was measured and set on 2026-10-14 (section 10 says how).
+   was measured and set on 2026-10-14 (section 10 says how), and the words marked and the colours while editing were
+   built on 2026-10-15 (section 11).
 
 ## 8. Region editing (step 4, decided 2026-10-13)
 
@@ -434,8 +435,8 @@ The defaults that came with it:
   and × put other lines in place of the typing; unchanged lines get ↺, which puts them back.
 - **Unsaved typing:** closing the tab and switching worktrees ask (Save, Discard or Cancel), as section 2.3 planned.
   Quitting Leaf doesn't ask, as nothing in Leaf does; that would be a change of its own.
-- **For now:** the field shows plain text (colours while editing are step 6), and with Wrap lines off it doesn't wrap
-  and scrolls sideways with the columns.
+- **For now:** the field shows plain text (colours while editing are step 6, section 11), and with Wrap lines off it
+  doesn't wrap and scrolls sideways with the columns.
 - **Opening a saved file again** (found in the manual run, 2026-10-13): the resolver used to build the merge from the
   stages alone, so a line typed and saved with a conflict still open didn't show when the file was opened again, and
   Save would have written over it. It now picks out of the working file the state that Save wrote: picks where the
@@ -547,3 +548,46 @@ Decided (2026-10-14):
   comparator reads the clock every 1,024 lines and throws past the time (`comparatorWithin`); nothing is left running.
   A deleted file's diff on its card stops the same way, and the card then shows the sizes alone.
 - **Raising the limit later** would need the rows built once rather than on every pick, and fewer objects per line.
+
+## 11. Words marked and colours while editing (step 6, decided 2026-10-15)
+
+Rows tinted whole say that a line changed, not what in it changed, and the base, which would show that, is usually
+hidden. Other tools mark the words: IntelliJ the words each side changed against the base (characters on request),
+VS Code's merge editor the same, Meld the changes within lines against the middle pane. Leaf's own diff pane marks
+characters, with Google's diff-match-patch and its semantic cleanup, in the lines of a hunk that it pairs.
+
+Decided, from options and a mockup:
+- **Each side against the base.** A mark always means "this side changed this", in a change and in a conflict alike,
+  and the result's lines keep the marks of the side that they come from. Ours against theirs, the other option, only
+  says something inside a conflict, and can mostly be read off the two sides' marks.
+- **Words, not characters.** On the mockup's lines, characters marked `POS` of `"POST"`, the `6` of `60_000`, and
+  `sub` of `subtotal`. A word is a run of letters, digits and `_`, a run of spaces, or any other character alone. Words
+  alike between two changes are part of them when they're no longer than either change, which is diff-match-patch's
+  semantic cleanup on words: `1.2.3` to `1.3.0` marks `3.0`, where the diff alone matched the `3` and marked `.0`.
+  Never across lines.
+- **A line changed whole gets no marks**, as its colour already says it; the diff pane does the same. Nor do lines
+  typed, or the base's lines.
+- **Colour:** a stronger shade of the line's own: ours' blue, theirs' purple, a conflict's orange, a resolved
+  conflict's green.
+- **No setting**, as the diff pane has none.
+- **The part being edited keeps the rows' colours** for keywords, annotations and comments as it's typed. Marks leave
+  it while it's typed, and come back with the rows when editing finishes.
+
+How it works:
+- `changedWords` (`domain/conflicts/ChangedWords.kt`) diffs a chunk's words, the side's lines against the base's, with
+  JGit's histogram diff, then joins the short stretches alike. `ChangedWords` keeps them per chunk and side, worked out
+  the first time that a row of the chunk is drawn. Picks and lines typed keep the chunks' lines, so one serves a file
+  for as long as it's shown. A row finds its chunk by its line, with a binary search on the chunks' starts.
+- The rows draw marks through the diff pane's `DiffText`, which marks a `MatchLine`'s inserted text; it took a colour
+  for that (`insertedColor`), which was the diff pane's green. The editor's `EditorColours` is `TabsAsSpaces` with the
+  syntax highlighter's spans, line by line.
+- **Limits:** a chunk of more than 2,000 words, the base's and the side's together, gets no marks. Its diff runs while
+  the rows are drawn, and its time grows with the square of the words that differ: on an M4 Pro, 3,200 words that all
+  differ took 28 ms, and 1,920 took 11. A part over 100,000 characters stays plain while it's edited, as its colours
+  are worked out on each change. With the cache warm, scrolling the 2.5 MB lock file and a 9.4 MB source file took the
+  same time with marks as without (7 ms a frame).
+- **Found on the way:** the marks first reached the cells through a `CompositionLocal`. Opening another file then
+  froze the offscreen harness's view: the list scrolls to the first conflict from a `LaunchedEffect`, which in an
+  offscreen scene lays the list out before the composition is applied ("pending composition has not been applied"),
+  and the rows read the local's new value from it. The cells take the marks as a parameter instead, as they take the
+  syntax highlighter.

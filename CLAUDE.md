@@ -477,7 +477,8 @@ tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Finding
 `ConflictedFile.kt`, UI in `ui/conflicts/`):** steps 1 to 5 of `docs/fork/conflict-resolver.md`: the model, its git
 actions, the views, Columns (ours | result | theirs) and Stacked (the sides on top of the result), editing the result
 one part at a time, with one undo history, and a card per side for the conflicts that three panes can't show. Also
-step 6's size limit, from measurements (the doc's section 10).
+step 6: the size limit, from measurements (the doc's section 10), and the words that each side changed, marked inside
+its lines, with colours while editing (section 11).
 - `GetConflictedFileGitAction` loads a conflicted path as `ConflictedFile`: its stages (through `stagesOf`), its
   `FileConflict`, its `ConflictSides`, and a `ConflictContent` picked in `git mergetool`'s order:
   - `OtherPaths`: a stage alone (DD, AU, UA), as rename/rename leaves;
@@ -642,7 +643,8 @@ step 6's size limit, from measurements (the doc's section 10).
     the row's line to stay where it was, and finishing puts the line at the top back as a row.
   - Columns: `EditorRowLayout` makes the item as tall as the field or a side's lines, and the others get one filler.
     Line numbers are placed at the field's lines (`EditorLineNumbers`). Tabs show as four spaces (`TabsAsSpaces`), as
-    `DiffText` shows them. Without wrapping, the field doesn't wrap, scrolls with `SidewaysScroll` (its
+    `DiffText` shows them, and keywords, annotations and comments in the rows' colours (`EditorColours`, plain past
+    `MAX_COLOURED_EDIT_CHARACTERS`). Without wrapping, the field doesn't wrap, scrolls with `SidewaysScroll` (its
     `editorWidth` lets the longest typed line be reached), and keeps the caret in sight.
   - **Opening a file that was saved** (`ResumedMerge.kt`, `resumedFrom`): `GetConflictedFileGitAction` cuts the merge
     into parts, converts the working file as `git add` would (`checkinLineEndings`, through JGit's input stream: its
@@ -711,6 +713,20 @@ step 6's size limit, from measurements (the doc's section 10).
     stale group), `WriteConflictVersionGitActionTest`, Keep in `ResolveConflictGitActionTest`, `FileSizesTest`, and the
     cards in `ConflictResolverTest`. The view model, with the keys and the cards' buttons, was run against a real
     repository with one conflict of each kind, two renamed files and a file against a folder, in a temporary harness.
+- **Words marked (step 6, `domain/conflicts/ChangedWords.kt`, `ResolverWords.kt`):** the rows mark the words that each
+  side changed inside its lines, against the base, in a stronger shade of the line's colour (`CellKind.markColor`). The
+  result's lines keep the marks of the side that they come from; lines typed and the base's lines get none, nor does a
+  line changed whole.
+  - `changedWords` diffs a chunk's words (runs of letters, digits and `_`, runs of spaces, other characters alone) with
+    JGit's histogram diff, and joins the words alike between two changes when they're on one line and no longer than
+    either change (diff-match-patch's semantic cleanup). A chunk of more than `MAX_COMPARED_WORDS` (2,000) gets none.
+  - `ChangedWords` keeps them per chunk and side, the first time that a row asks, for as long as the file is shown
+    (each layout remembers one by the merge's texts). The cells take it as a parameter, not a `CompositionLocal`: the
+    lists scroll from a `LaunchedEffect`, which in an offscreen scene lays them out before the composition is applied,
+    and a local changed in it threw "pending composition has not been applied", which froze the view.
+  - Marks go through `DiffText`'s `MatchLine` (`LineMarks.matchLine`), whose inserted text takes `insertedColor`.
+  - Tests: `ChangedWordsTest` (domain), the marks of each cell in both layouts and the field's colours in
+    `ConflictResolverTest`, and `EditorColoursTest`.
 
 **Linked worktrees (fork-only, `data/git/worktrees/`, models in `domain/models/Worktree.kt`):**
 - `GetWorktreesInfoUseCase` returns a `WorktreeList`: the base branch, and for each worktree its `Worktree` entry,

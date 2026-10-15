@@ -1279,15 +1279,21 @@ fun DiffLineText(line: Line, diffType: DiffType, onActionTriggered: () -> Unit) 
     }
 }
 
+/** [insertedColor]: the background of [matchLine]'s inserted text, the diff pane's green unless given (fork-only). */
 @Composable
-fun DiffText(text: String, matchLine: MatchLine?, syntaxHighlighter: SyntaxHighlighter) {
+fun DiffText(
+    text: String,
+    matchLine: MatchLine?,
+    syntaxHighlighter: SyntaxHighlighter,
+    insertedColor: Color = MaterialTheme.colors.diffContentAdded,
+) {
     val line = matchLine ?: MatchLine(listOf(DiffMatchPatch.Diff(DiffMatchPatch.Operation.EQUAL, text)))
 
     val diffContentRemoved = MaterialTheme.colors.diffContentRemoved
     val diffComment = MaterialTheme.colors.diffComment
     val diffKeyword = MaterialTheme.colors.diffKeyword
     val diffAnnotation = MaterialTheme.colors.diffAnnotation
-    val diffContentAdded = MaterialTheme.colors.diffContentAdded
+    val diffContentAdded = insertedColor
     val mutedColor = MaterialTheme.colors.onBackgroundSecondary
 
     val hiddenCharacters = remember(line) { (line.shownText().length - MAX_DIFF_LINE_CHARACTERS).coerceAtLeast(0) }
@@ -1301,7 +1307,7 @@ fun DiffText(text: String, matchLine: MatchLine?, syntaxHighlighter: SyntaxHighl
         null
     }
 
-    val annotatedString = remember(line, hiddenCharactersText) {
+    val annotatedString = remember(line, hiddenCharactersText, diffContentAdded) {
         formatDiff(
             line = line,
             commentColor = diffComment,

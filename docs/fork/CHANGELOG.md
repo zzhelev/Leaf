@@ -2,6 +2,31 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver marks the words each side changed (branch `claude/resolver-model-f2582e`)
+
+- **Before:** the resolver tinted a changed line whole, so seeing what changed in it meant comparing it with the base,
+  which is hidden unless Base is on. The part being edited lost the rows' syntax colours.
+- **Now** (step 6 of `docs/fork/conflict-resolver.md`, section 11, picked from options and a mockup):
+  - The words that each side changed are marked inside its lines, against the base, in a stronger shade of the line's
+    colour: `5`, `POST` and `60_000` in a conflict, `subtotal` and `lines` in ours' change. The result's lines keep
+    the marks of the side they come from. Whole words, not characters, and a short stretch alike between two changes
+    joins them, so `1.2.3` to `1.3.0` marks `3.0`. A line added or changed whole gets none, as in the diff pane.
+  - The part being edited keeps the rows' colours for keywords, annotations and comments as it's typed.
+  - A chunk of more than 2,000 words gets no marks, as its diff runs while the rows are drawn: the worst case took
+    11 ms. Scrolling a 2.5 MB lock file took the same time with marks as without.
+- **Found on the way:** the marks first reached the cells through a `CompositionLocal`, and opening another file then
+  froze the view in the offscreen harness ("pending composition has not been applied", from the list's scroll in a
+  `LaunchedEffect`). The cells take them as a parameter, as they take the syntax highlighter.
+- **Tests:** 6 in `ChangedWordsTest` (domain): the mockup's lines, whole words and joining, lines changed whole, line
+  endings and tabs, the word limit, and the marks that each cell of ours, theirs and the result gets. In
+  `ConflictResolverTest`, the marks drawn in both layouts and their colours, and the field's keyword colour. 2 in
+  `EditorColoursTest`.
+  - **Mutation check:** 24 mutations, all caught, 3 of them once a test was added: indentation that changed, a line
+    found in its own side's chunks when the sides' lines are numbered apart, and the text after a line's last mark.
+  - **Harness:** the view model on a demo repository, shot in both layouts, with a conflict taken, while editing, and
+    after opening another file, which found the frozen view above. Scrolling timed with marks and without.
+  - The full suite passes on `7cea9da6` with these changes: `:app` 263 tests, `:domain` 324, `:data` 960, `:common` 7.
+
 ## The conflict resolver's size limit, measured (branch `claude/resolver-model-f2582e`)
 
 - **Before:** text over 10 MB on a side got the choice cards, a guess from step 1. Below it, any text was merged
