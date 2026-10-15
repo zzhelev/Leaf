@@ -344,7 +344,7 @@ class TestTab(
         watchers[count - 1]
     }
 
-    /** Cancels the tab and waits for what it runs, which could still write to the repository (JGit's probe files). */
+    /** Cancels the tab and waits for what it runs, such as a refresh, which could still use the repository. */
     override fun close() = runBlocking {
         withTimeout(10.seconds) { scope.coroutineContext.job.cancelAndJoin() }
     }
