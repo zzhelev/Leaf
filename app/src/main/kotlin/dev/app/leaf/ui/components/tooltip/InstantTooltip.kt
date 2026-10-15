@@ -39,11 +39,14 @@ fun InstantTooltip(
 ) {
     val hoverInteractionSource = remember { MutableInteractionSource() }
     val isHovered by hoverInteractionSource.collectIsHoveredAsState()
+    // Fork-only: none beneath a dialog or a menu, nor after a click until the pointer leaves (TooltipLayers.kt)
+    val visibility = rememberTooltipVisibility()
     val (coordinates, setCoordinates) = remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     Box(
         modifier = modifier
             .hoverable(hoverInteractionSource)
+            .tooltipPresses(visibility)
             .onGloballyPositioned {
                 setCoordinates(it)
             },
@@ -51,7 +54,7 @@ fun InstantTooltip(
         content()
     }
 
-    if (isHovered && coordinates != null && text != null && enabled) {
+    if (isHovered && coordinates != null && text != null && enabled && visibility.canShow) {
         Popup(
             properties = PopupProperties(
                 focusable = false,

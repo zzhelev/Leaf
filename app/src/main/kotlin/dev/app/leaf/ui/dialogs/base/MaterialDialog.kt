@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
+import dev.app.leaf.ui.components.tooltip.TooltipLayer
 import java.awt.Cursor
 import kotlin.math.roundToInt
 
@@ -97,7 +98,10 @@ fun MaterialDialog(
                         vertical = paddingVertical,
                     ),
                 ) {
-                    dragState.content()
+                    // Fork-only: tooltips beneath the dialog don't show while it's open
+                    TooltipLayer {
+                        dragState.content()
+                    }
                 }
 
                 Box(modifier = Modifier.matchParentSize()) {

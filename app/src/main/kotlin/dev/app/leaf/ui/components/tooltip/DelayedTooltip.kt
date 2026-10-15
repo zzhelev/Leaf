@@ -16,10 +16,13 @@ import dev.app.leaf.theme.onBackgroundSecondary
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DelayedTooltip(text: String?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    // Fork-only: none beneath a dialog or a menu, nor after a click until the pointer leaves (TooltipLayers.kt)
+    val visibility = rememberTooltipVisibility()
+
     TooltipArea(
-        modifier = modifier,
+        modifier = modifier.tooltipPresses(visibility),
         tooltip = {
-            if (text != null) {
+            if (text != null && visibility.canShow) {
                 val border = if (MaterialTheme.colors.isDark) {
                     BorderStroke(2.dp, MaterialTheme.colors.onBackgroundSecondary.copy(alpha = 0.2f))
                 } else
