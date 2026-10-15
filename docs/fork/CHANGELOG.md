@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Hooks are found where git finds them, `includeIf` and `~/` included (branch `fix/hooks-from-git`)
+
+- **Before** (Gitnuro#186): JGit read `core.hooksPath` from its own config, which skips the files that `includeIf`
+  names, and took the value as it is.
+  - A hooks folder set for `~/work/` in such a file didn't apply to Leaf's commits: their pre-commit, commit-msg and
+    post-commit hooks didn't run, where `git commit` ran them.
+  - `core.hooksPath = ~/hooks` was a folder named `~` in the working tree.
+- **Now** (`GitHooksDirectory`): each time JGit looks for a hook, Leaf asks git where the hooks are, with
+  `git rev-parse --path-format=absolute --git-path hooks`. That covers Leaf's commits and amends, the commits that
+  JGit's merges and reverts make, and JGit's pushes.
+  - A relative path is from the working tree's root, as with git, and a linked worktree without `core.hooksPath`
+    runs the common git dir's hooks. Without a usable git, JGit's own lookup stays.
+  - A commit runs git three times more (pre-commit, commit-msg, post-commit), about 13 ms each.
+- **Tests:** `GitHooksDirectoryTest` (7), each compared with `git commit` running the same hooks: a folder that an
+  `includeIf` file sets, `~/`, a relative path from an `includeIf` file in a linked worktree, a linked worktree
+  without `core.hooksPath`, a hook that isn't executable, a new instance of the file system, and the fallback without
+  git. `WindowsFsTest` (+1) runs a hook from the folder that git names, through a new instance.
+  - **Mutation check:** 10 mutations, all caught. The first run missed two, and a test was added for each: without
+    `--path-format=absolute`, a relative path set where JGit also reads it was found by JGit's fallback, and
+    `PosixFs`'s copy could lose the lookup.
+  - The full suite passes on `87905b90` with these changes: `:app` 312 tests, `:domain` 339, `:data` 1005,
+    `:common` 7.
+  - Run by hand in a dev run, on a repository whose own `.git/config` includes, with `includeIf`, a file that sets
+    `core.hooksPath` to a `~/` folder: Leaf's commit ran that folder's pre-commit hook, and its commit-msg hook's text
+    was in the commit's message.
+
 ## JGit measures the file system before the tests, not in their repositories (branch `claude/infallible-yalow-2d8d93`)
 
 - **Before:** `CleaningUpWorktreesTest."removes the checked worktrees and their branches, and keeps the rest"` failed

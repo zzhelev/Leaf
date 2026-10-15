@@ -268,10 +268,19 @@ asking.
   `logFor` (eclipse-jgit/jgit#306): `LinkedWorktreeLogsTest` fails if JGit stops taking that folder from `FS.resolve`.
   - Such a file system belongs to its repository. Another worktree opened with a tab's `repository.fs`, as
     `RenameBranchGitAction.moveHead` does, would log its HEAD in the tab's reflog. `moveHead` writes no reflog entry.
-- `WindowsFs` finds hooks with JGit's `findHook` (`core.hooksPath`, the common git dir) and runs them with Git for
-  Windows' `bin\bash.exe` (`GitBash`, which also quotes arguments for MSYS2), with JGit's folder and `GIT_*`
-  variables. It must return `ProcessResult(exitCode, OK)`: JGit takes `ProcessResult(OK)` alone (exit code -1) as a
-  failed hook. The install is `findGitForWindows`'s: the first one on PATH, or in the default folders, with Git Bash.
+- **Hooks are where git finds them (fork-only `GitHooksDirectory`):** `PosixFs` and `WindowsFs` override `findHook`,
+  which runs `git --git-dir=<git dir> rev-parse --path-format=absolute --git-path hooks` in the working tree (the git
+  dir when bare). That's git's answer: `core.hooksPath` from a file that `includeIf` names (Gitnuro#186), `~/`
+  expanded, a relative path from the working tree's root, and the common git dir's `hooks` in a linked worktree. JGit
+  took `core.hooksPath` from its own config, as a plain path. A hook that is missing, or not executable where the file
+  system can tell, is skipped (`hookIn`), as JGit and git skip it. Without a usable git, JGit's own `findHook` looks.
+  - git runs once per hook that JGit looks for, three times per commit (pre-commit, commit-msg, post-commit), about
+    13 ms each. `JGit` gets the lookup injected and gives it to `PosixFs`; Dagger gives `WindowsFs` its own.
+  - Tests: `GitHooksDirectoryTest` compares each case with `git commit` running the same hooks; `WindowsFsTest`.
+- `WindowsFs` runs hooks with Git for Windows' `bin\bash.exe` (`GitBash`, which also quotes arguments for MSYS2),
+  with JGit's folder and `GIT_*` variables. It must return `ProcessResult(exitCode, OK)`: JGit takes
+  `ProcessResult(OK)` alone (exit code -1) as a failed hook. The install is `findGitForWindows`'s: the first one on
+  PATH, or in the default folders, with Git Bash.
 - JGit passes commit-msg an empty path when the git dir is outside the working tree (linked worktrees, submodules):
   `CommitMsgHook` uses `Repository.stripWorkDir`. `PosixFs` and `WindowsFs` both override `runHookIfPresent` to pass
   the absolute path of `<git dir>/COMMIT_EDITMSG` instead (`hookArguments`), as the git CLI does. Another `FS` that
@@ -1334,8 +1343,9 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     leaves out `include` and `includeIf`, whose files git has read.
   - JGit reads an empty value (`key =`) as null, where git reads "", from its own files too.
 - Still from JGit's config: the commits that JGit makes itself, whose commands take no committer (Merge in the branch
-  menu, pull, rebase and interactive rebase, cherry-pick, revert), reflog identities, hooks (`core.hooksPath`, through
-  `FS.findHook`), and every other setting that JGit reads (`merge.conflictStyle`, `pull.rebase`, `core.autocrlf`, …).
+  menu, pull, rebase and interactive rebase, cherry-pick, revert), reflog identities, and every other setting that
+  JGit reads (`merge.conflictStyle`, `pull.rebase`, `core.autocrlf`, …). Hooks are found where git finds them (see
+  `JGit.provide`).
 - Tests: `CommitIdentityTest`, `GitSigningConfigsTest`, the `includeIf` tests in `CreateTagGitActionTest` and
   `SshProgramSignerRealSshKeygenTest`, and `AuthorInfoTest`. git and JGit read the same user config
   (`IsolatedSystemReader.userConfigFile` as `GIT_CONFIG_GLOBAL`), and Leaf's commit is compared with `git commit`'s.
