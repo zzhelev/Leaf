@@ -1212,10 +1212,42 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
 - Not used by terminals, which `ShellManager` also starts, or by `GitExecutableLocator`, which already searches the
   Homebrew locations.
 
+**Identity and signing settings from git (fork-only, `data/.../author/GitIdentities.kt`,
+`data/.../signers/GitSigningConfigs.kt`):** JGit reads no `includeIf` (its parser expands only a section named
+`include`), so an identity or signing settings in a conditionally included file, such as a work identity for
+`~/work/`, didn't apply to Leaf's commits (Gitnuro#186). Leaf's own commits, tags and stashes ask git instead.
+- `GitIdentities.of(gitDir)` runs `git --git-dir=<git dir> -c user.useConfigOnly=true var GIT_AUTHOR_IDENT` and
+  `GIT_COMMITTER_IDENT` side by side (about 13 ms each). That's git's own answer: `includeIf` (`gitdir:`, and
+  `onbranch:` per worktree), `author.*` and `committer.*`, and `GIT_AUTHOR_NAME` and the like from the login shell.
+  `useConfigOnly` makes git refuse rather than make an identity up from the account and the host's name: a refusal
+  (`CommandFailed`) means none, and Leaf's dialog asks. Without a usable git, it's null and JGit's identity stays.
+- `DoCommitGitAction` sets git's committer, and git's author unless it amends (`withIdentities`), at the same time.
+  The identity typed in `CommitAuthorDialog` is the author and the committer: the committer used to be JGit's guess,
+  `<user> <<user>@localhost>`. `CreateTagGitAction` takes git's committer as the tagger, `StashChangesGitAction` as
+  the stash's person.
+- `LoadAuthorGitAction` puts git's author in `AuthorInfo.gitIdentity`. `identityToUse()` prefers it (the bottom bar,
+  the sign-off line), and `isIdentityMissing()`, which decides the dialog (`StatusViewModelExtender.getIdentity`), is
+  false whenever git has one.
+- `GitSigningConfigs.of(gitDir)` reads `git config --list -z` into a JGit `Config` (`configOf`), wrapped in
+  `GitGpgConfig`. `DoCommitGitAction` and `CreateTagGitAction` pass it to JGit's commands (`setGpgConfig`), so
+  `commit.gpgSign`, `tag.gpgSign`, `user.signingKey`, `gpg.format` and `gpg.program` come from git's view, and
+  `SshProgramSigner` reads `gpg.ssh.*` from `GitGpgConfig.config` (`configOr`).
+  - `configOf` writes the entries as config text, so that a key without `=` stays one, which JGit reads as true. It
+    leaves out `include` and `includeIf`, whose files git has read.
+  - JGit reads an empty value (`key =`) as null, where git reads "", from its own files too.
+- Still from JGit's config: the commits that JGit makes itself, whose commands take no committer (Merge in the branch
+  menu, pull, rebase and interactive rebase, cherry-pick, revert), reflog identities, hooks (`core.hooksPath`, through
+  `FS.findHook`), and every other setting that JGit reads (`merge.conflictStyle`, `pull.rebase`, `core.autocrlf`, …).
+- Tests: `CommitIdentityTest`, `GitSigningConfigsTest`, the `includeIf` tests in `CreateTagGitActionTest` and
+  `SshProgramSignerRealSshKeygenTest`, and `AuthorInfoTest`. git and JGit read the same user config
+  (`IsolatedSystemReader.userConfigFile` as `GIT_CONFIG_GLOBAL`), and Leaf's commit is compared with `git commit`'s.
+  `includeIf "gitdir:"` matches the real path, which on macOS starts with `/private` (`canonicalFile`).
+
 **Commit and tag signing (fork-only `data/.../signers/GpgProgramSigner.kt`):** `App.start` registers the signers with
 JGit's `Signers`: `GpgProgramSigner` for `openpgp`, the default `gpg.format`, and `SshProgramSigner` for `ssh`. Commits,
 merges, rebases and tags all find them through `gpg.format`, and `CreateTagGitAction` leaves `tag.gpgSign` and
-`tag.forceSignAnnotated` to JGit's `TagCommand`.
+`tag.forceSignAnnotated` to JGit's `TagCommand`. Leaf's own commits and tags read these settings through git (see
+above).
 - `GpgProgramSigner` runs gpg as git does (`sign_buffer_gpg` in gpg-interface.c):
   - the program is `gpg.openpgp.program` or `gpg.program`, by default `gpg`;
   - it runs with `--status-fd=2 -bsau <key>`, the data on stdin (`ProcessRunner`'s `input`) and the armored signature
@@ -1947,6 +1979,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `createWorktree`). Its
   `close()` cancels the tab and waits: JGit writes `.probe-` files into the git dir, and JUnit failed to delete the
   temp folder while a refresh still ran.
+  - A task's refresh runs after the task's job ends, so joining the task doesn't wait for it. Wait for the data with
+    `awaitLoaded`'s predicate (a state other than the one before the task), not for any loaded value, which may still
+    be the old one. Two tests did, and failed once the refresh ran `git var` before the repository state.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.
@@ -1956,6 +1991,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     output in English, to compare Leaf with git's own refusals (`BranchWorktreesTest`).
   - `testGitCli(shellVariables, configuredPath)` builds a `GitCli`. Credential tests always give it the variables
     that keep git away from the developer's config, even when the helpers run without them.
+    `isolatedGitCli(globalConfig)` builds one that reads `globalConfig` and no system config, as `TestGitCli` does.
+    Every test that builds `DoCommitGitAction`, `CreateTagGitAction`, `StashChangesGitAction` or `LoadAuthorGitAction`
+    needs one, as they run git.
   - `testJGit(shellVariables)` builds a `JGit` whose login shell environment is the given map. Hook tests use
     `File.writeExecutable`, and `createHookTool`, which makes a `leaf-hook-tool` command that is on no PATH
     (`PosixFsTest`, `GitCliTest`).

@@ -2,6 +2,53 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Commits, tags and stashes take git's identity and signing settings, `includeIf` too (branch `fix/includeif-identity`)
+
+- **Before** (Gitnuro#186): JGit reads no `includeIf`. With a personal identity in `~/.gitconfig` and a work identity
+  in a file included for `~/work/`, Leaf committed in `~/work/` as the personal identity, where git commits as the work
+  one.
+  - That went for Leaf's commits and amends, and for the squash merges and merges of agents' branches from the
+    worktree dialogs, where git merges and Leaf commits. Also for tags and stashes, the bottom bar and the sign-off
+    line.
+  - An identity set only in such a file made Leaf ask for one ("Your Git configuration does not have a user identity
+    set"), and the commit then had JGit's guess as its committer, `<user> <<user>@localhost>`.
+  - Signing settings there (`commit.gpgSign`, `user.signingKey`, `gpg.format`, …) didn't apply either, so the
+    commits weren't signed.
+- **Now:**
+  - Leaf asks git who commits: `git var GIT_AUTHOR_IDENT` and `GIT_COMMITTER_IDENT` (`GitIdentities`), with
+    `user.useConfigOnly`, so that git refuses rather than make one up. Leaf's commits take git's committer, and git's
+    author unless they amend. Tags take git's committer as the tagger, and stashes as their person.
+  - The bottom bar and the sign-off line show git's author, and the identity dialog asks only when git has none. The
+    identity typed there is the committer too.
+  - git's answer also has `author.*` and `committer.*`, and `GIT_AUTHOR_NAME` and the like set in the login shell, as
+    in a terminal. Without a usable git, JGit's identity stays.
+  - The signing settings of Leaf's commits and tags come from `git config --list -z` (`GitSigningConfigs`), and the SSH
+    signer reads `gpg.ssh.program` and `gpg.ssh.defaultKeyCommand` from there too.
+  - A commit runs three git commands more, about 13 ms each, the two `git var` side by side.
+- **Still from JGit's config:** the commits that JGit makes itself, whose commands take no committer (Merge in the
+  branch menu, pull, rebase and interactive rebase, cherry-pick, revert), reflog identities, hooks from
+  `core.hooksPath`, and JGit's other settings. Putting git's config under JGit's repository config needs a
+  `FileRepository` subclass that overrides `getConfig()`, which JGit's constructor calls, so it was left out. Moving
+  those operations to the git CLI would cover them.
+- **Tests:** git and JGit read the same user config, and JGit skips its `includeIf`.
+  - `CommitIdentityTest` (10): a commit as `git commit` makes it, an amend, a squash merge and a merge from the
+    worktree dialog, the dialog's check, a typed identity, `onbranch:` in a linked worktree, a tag and a stash,
+    `author.email` and `GIT_AUTHOR_NAME` from the login shell, and the fallback without git.
+  - `GitSigningConfigsTest` (3): every kind of value, as git and JGit read it, and commits signed with gpg and with an
+    ssh program that a file that `includeIf` names gives. `CreateTagGitActionTest` (+1) signs a tag that way, and
+    `SshProgramSignerRealSshKeygenTest` (+1) signs a commit with the real ssh-keygen, which git verifies.
+  - `AuthorInfoTest` (5, domain): which identity shows, and when the dialog asks.
+  - **Mutation check:** 22 mutations, 21 caught. The one that survived took out `configOf`'s escape for tabs: JGit
+    keeps a tab inside double quotes as it is, so that escape went, with the one for backspaces.
+  - Two tab tests read what a task's refresh writes without waiting for it, as that refresh runs after the task ends.
+    The refresh now runs `git var` before it reads the repository state, and they failed every time:
+    `MergingWorktreesTest` now waits until the state isn't `SAFE` any more, and `RemovingWorktreesTest` until the
+    task that the tab started itself is recorded.
+  - The full suite passes on `9e41ded5` with these changes: `:app` 275 tests, `:domain` 339, `:data` 980, `:common` 7.
+  - Run by hand in a dev run, on a repository whose own `.git/config` includes a work identity and SSH signing with
+    `includeIf`: a commit and an amend made in Leaf were the work identity's, the amend kept the author's date, and
+    git verified both signatures.
+
 ## The diff pane's scroll state can't crash Leaf (branch `feature/discard-line-button`)
 
 - **Before** (found in the manual run of the Discard button): discarding a file's last unstaged line crashed the diff
@@ -74,6 +121,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   and Keep mine then writes the file without quitting), and Save and quit.
   - **Mutation check:** 12 mutations, all caught once the Keep mine test had two files. With one, a save that ended
     after the quit was cancelled could still have gone on to save the next file.
+
 
 ## Tooltips stay away from dialogs, menus and clicks (branch `fix/scrollbars-tooltips`)
 

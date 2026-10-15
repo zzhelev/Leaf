@@ -203,6 +203,10 @@ squash-merge one, rebase one, discard one. Afterwards no stale entries remain in
     * #347 better handling of moved files: unknown.
     * Defer the large ones: #331 system SSH client, #336 sparse checkout, #186 conditional gitconfig includes (a JGit
       limitation).
+    * #186, done in part on 2026-10-15 (branch `fix/includeif-identity`): Leaf's own commits, tags and stashes take
+      the identity and signing settings that git uses, `includeIf` included. The commits that JGit makes itself
+      (merge, pull, rebase, cherry-pick, revert), hooks from `core.hooksPath` and other settings still come from
+      JGit's config. Moving those operations to the git CLI, one at a time, would cover them.
 4. Fixing: Fix S items one branch each, with tests where feasible.
 
 ## Keeping in sync with upstream
