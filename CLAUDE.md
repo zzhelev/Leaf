@@ -662,8 +662,17 @@ its lines, with colours while editing (section 11).
     else `DIFFERENT`). A file without markers still gets the No conflict markers panel.
   - Unsaved changes: `ConflictResolverViewModel.hasUnsavedChanges` counts typing that isn't finished. Closing the tab
     (`AppViewModel.closeTab`, through `RepositoryTabViewModel.whenConflictResolverLeft`), the worktree picker's switch
-    and opening another repository in the tab ask in the resolver's strip first (`ResolverLeave.Then`). Quitting Leaf
-    doesn't ask: nothing in Leaf does.
+    and opening another repository in the tab ask in the resolver's strip first (`ResolverLeave.Then`).
+  - **Quitting** (`ui/QuitRequests.kt`, `ui/dialogs/QuitDialog.kt`): closing the window, and on macOS Cmd+Q, Quit in
+    the app menu and the Dock, and logging out go through `AppViewModel.quit`. When a tab's resolver has changes that
+    aren't saved (`unsavedFile`), `QuitDialog` asks first ("Quit Leaf?", each file and its tab): Save and quit
+    (Enter), Discard and quit, or Cancel (Esc). Save and quit saves the files one after another (`saveBeforeQuit`); one
+    that fails stops the quit and selects its tab, whose strip says why. A quit asked for while another waits for its
+    answer or its saves is left to that one.
+    - On macOS, the JDK's default quit handler exits at once (`System.exit`), without the window's close request. So
+      `App.kt` installs its own (`Desktop.setQuitHandler`), which answers `cancelQuit()` when the user stays: a logout
+      stops, as with TextEdit. Leaf comes to the front, un-minimized, while the dialog shows. Cmd+Q now clears Leaf's
+      temp files too, as the close button already did.
   - Tests: `ResolverEditingTest` (domain), `ResolverEditingBytesTest` (data: 2,000 random merges, CRLF and ISO-8859-1
     included, where editing a part without changing it writes the same file, and 2,000 random saved states, which
     come back from their bytes), the saved files in `GetConflictedFileGitActionTest` (`core.autocrlf` included), and

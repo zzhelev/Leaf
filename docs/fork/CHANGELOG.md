@@ -2,6 +2,25 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Quitting asks about the conflict resolver's unsaved changes (branch `claude/zealous-herschel-b15367`)
+
+- **Before:** closing a tab, switching its worktree or opening another repository in it asked about the resolver's
+  picks and lines typed that weren't saved, but quitting Leaf didn't. On macOS, Cmd+Q, the Dock's Quit and logging out
+  didn't even reach Leaf's close request: the JDK's default quit handler calls `System.exit` at once.
+- **Now:** closing the window, Cmd+Q, Quit in the app menu and in the Dock, and logging out ask in one dialog while any
+  tab's resolver has changes that aren't saved: "Quit Leaf?", each file and its tab, then Cancel, Discard and quit, and
+  Save and quit. Enter saves and quits, Esc stays. Save and quit writes the files one after another, then quits; a save
+  that fails stops the quit and selects its tab, whose strip says why. Leaf comes to the front first, and Cancel stops
+  a logout. Without unsaved changes, quitting is as before, except that Cmd+Q now clears Leaf's temp files, as the
+  close button did.
+- **Tests:** `QuitRequestsTest` (each answer, the saves one after another, a save that fails, Keep mine after it, a
+  second quit while one waits) and `QuitDialogTest` (offscreen: the texts, each button, Enter and Esc). The view
+  models' part (`saveBeforeQuit`, `AppViewModel.quit`) ran against a real repository through the Dagger graph in a
+  temporary harness: Cancel, Discard, a save refused because the file changed on disk (Leaf stays and selects the tab,
+  and Keep mine then writes the file without quitting), and Save and quit.
+  - **Mutation check:** 12 mutations, all caught once the Keep mine test had two files. With one, a save that ended
+    after the quit was cancelled could still have gone on to save the next file.
+
 ## Tooltips stay away from dialogs, menus and clicks (branch `fix/scrollbars-tooltips`)
 
 - **Before:** after choosing a menu item that opens a dialog, the row under the pointer, beneath the dialog, showed

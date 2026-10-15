@@ -161,7 +161,8 @@ don't pair up, where rerere gives up on the file: that's "fewer or more conflict
 - **Built (step 2):**
   - leaving a file with picks that aren't saved, or closing the resolver, asks in a strip under the toolbar: Save,
     Discard or Cancel. Since step 4, closing the tab, the worktree picker's switch and opening another repository in
-    the tab ask the same, as typing can be lost (quitting Leaf doesn't: nothing in Leaf asks then);
+    the tab ask the same, as typing can be lost. Since 2026-10-15 quitting Leaf asks too, in a dialog of its own
+    (section 8);
   - a changed working file is noticed when Save or Mark resolved writes (`WorkingFileChanged`): the strip offers Reload
     or Keep mine, which writes over it. Save returns the id of the bytes it wrote, so the resolver's own Saves don't
     count as changes;
@@ -439,7 +440,21 @@ The defaults that came with it:
 - **An edited part:** a conflict counts as resolved (green), and a ✎ marks the part. The arrows, chips and a change's ✓
   and × put other lines in place of the typing; unchanged lines get ↺, which puts them back.
 - **Unsaved typing:** closing the tab and switching worktrees ask (Save, Discard or Cancel), as section 2.3 planned.
-  Quitting Leaf doesn't ask, as nothing in Leaf does; that would be a change of its own.
+- **Quitting** (decided 2026-10-15): Leaf asks before it quits while any tab's resolver has picks or lines typed that
+  aren't saved. Three ways were weighed: one dialog for the whole app (VS Code, Zed, Sublime Text without hot exit),
+  each tab's own strip in turn (TextEdit, Pages and Preview ask in each window), and saving without asking (IntelliJ,
+  Xcode). The dialog was picked: quitting is about the whole app, the dialog says that Leaf is quitting, and one answer
+  covers every tab. Saving without asking would write conflict markers where an agent or a terminal sees them.
+  - **The dialog** (`QuitDialog`): "Quit Leaf?", what saving writes, then each file with its tab's name (`Leaf ·
+    agent1`). Cancel (Esc), Discard and quit, and Save and quit (Enter).
+  - **When:** closing the window, and on macOS Cmd+Q, Quit in the app menu and in the Dock, and logging out or shutting
+    down. Leaf comes to the front first, un-minimized, as a quit from the Dock can come while it's in the background.
+  - **Saving** (`QuitRequests`): the files are saved one after another, then Leaf quits. A save that fails, as when
+    the working file changed on disk, stops the quit and selects its tab, whose strip offers Reload or Keep mine as
+    Save's does. Keep mine then writes the file, and Leaf stays.
+  - **macOS:** the JDK's default quit handler exits at once (`System.exit`, `QuitStrategy.NORMAL_EXIT`), without the
+    window's close request, so Cmd+Q never asked. `App.kt` installs a handler (`Desktop.setQuitHandler`), which answers
+    `cancelQuit()` when the user stays, so a logout stops, as TextEdit's does.
 - **For now:** the field shows plain text (colours while editing are step 6, section 11), and with Wrap lines off it
   doesn't wrap and scrolls sideways with the columns.
 - **Opening a saved file again** (found in the manual run, 2026-10-13): the resolver used to build the merge from the
