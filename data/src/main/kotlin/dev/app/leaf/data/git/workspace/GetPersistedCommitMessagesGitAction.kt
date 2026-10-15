@@ -1,6 +1,7 @@
 package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.repository.readCommitDraft
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.IGetPersistedCommitMessagesGitAction
@@ -12,7 +13,8 @@ class GetPersistedCommitMessagesGitAction @Inject constructor(
 ) : IGetPersistedCommitMessagesGitAction {
     override suspend fun invoke(repositoryPath: String): Either<PersistedCommitMessage, AppError> {
         return jgit.provide(repositoryPath) { git ->
-            val commitMessage = git.repository.readCommitEditMsg()
+            // Fork-only: Leaf's own file, not git's COMMIT_EDITMSG
+            val commitMessage = git.repository.readCommitDraft()
             val mergeMessage = git.repository.readMergeCommitMsg()
             val squashMessage = git.repository.readSquashCommitMsg()
 

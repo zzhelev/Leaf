@@ -71,7 +71,7 @@ class SwitchingWorktreesTest {
 
         File(main, "main-change.txt").writeText("main\n")
         File(feature, "feature-change.txt").writeText("feature\n")
-        File(gitDir(feature), "COMMIT_EDITMSG").writeText("Feature draft")
+        File(gitDir(feature), "LEAF_COMMIT_DRAFT").writeText("Feature draft")
     }
 
     @AfterEach

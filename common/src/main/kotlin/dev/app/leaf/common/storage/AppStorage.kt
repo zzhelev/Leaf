@@ -35,6 +35,12 @@ data class AppStorage(
         /** Per-repository settings file in the git dir, such as sign-off. */
         const val REPOSITORY_CONFIG_FILE_NAME = "leaf"
 
+        /**
+         * The commit field's draft, in each worktree's git dir. Not git's `COMMIT_EDITMSG`, which every commit and
+         * `git rebase --continue` writes, so the field filled with messages that the user never typed.
+         */
+        const val COMMIT_DRAFT_FILE_NAME = "LEAF_COMMIT_DRAFT"
+
         val current: AppStorage by lazy {
             val loadedFrom = AppStorage::class.java.protectionDomain?.codeSource?.location
                 ?.let { runCatching { File(it.toURI()) }.getOrNull() }

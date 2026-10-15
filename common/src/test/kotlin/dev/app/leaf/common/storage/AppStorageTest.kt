@@ -36,7 +36,7 @@ class AppStorageTest {
     fun `no name refers to Gitnuro`() {
         val names = listOf(packaged, dev).flatMap {
             listOf(it.preferencesNode, it.directoryName, it.macLogsDirectoryName)
-        } + AppStorage.LOG_FILE_NAME + AppStorage.REPOSITORY_CONFIG_FILE_NAME
+        } + AppStorage.LOG_FILE_NAME + AppStorage.REPOSITORY_CONFIG_FILE_NAME + AppStorage.COMMIT_DRAFT_FILE_NAME
 
         names.forEach { name ->
             assertFalse(name.contains("gitnuro", ignoreCase = true), "\"$name\" refers to Gitnuro")

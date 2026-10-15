@@ -13,8 +13,8 @@ import java.io.IOException
 /** What a change that the file watcher reports means for a tab. */
 enum class WatchedChange {
     /**
-     * Leaf's own files, JGit's probe files, git's shared index (split index) and commit messages being edited: nothing
-     * to refresh.
+     * Leaf's own files and commit drafts, JGit's probe files, git's shared index (split index) and commit messages being
+     * edited: nothing to refresh.
      */
     NONE,
 
@@ -64,6 +64,11 @@ class WatchedRepository(gitDir: File, commonDir: File) {
 
             // In any worktree's git dir: each git status touches it, as the worktree list runs one in each
             (isInGitDir || isInCommonDir || isInWorktreeGitDir) && name.startsWith(SHARED_INDEX_PREFIX) ->
+                WatchedChange.NONE
+
+            // Any worktree's commit draft, saved a second after each edit in a tab on it. It isn't git's state, and
+            // the worktree list doesn't show it.
+            (isInGitDir || isInCommonDir || isInWorktreeGitDir) && name == AppStorage.COMMIT_DRAFT_FILE_NAME ->
                 WatchedChange.NONE
 
             isInGitDir && name in EDITED_MESSAGE_FILES -> WatchedChange.NONE

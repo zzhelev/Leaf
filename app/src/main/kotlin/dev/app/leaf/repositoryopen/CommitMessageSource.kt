@@ -7,7 +7,10 @@ import dev.app.leaf.domain.models.RepositoryState
 
 /** Which message the commit field shows, and the file in the git dir where its edits are saved (fork-only). */
 enum class CommitMessageSource {
-    /** The draft of a plain commit, in `COMMIT_EDITMSG`. */
+    /**
+     * The draft of a plain commit, in Leaf's `LEAF_COMMIT_DRAFT`. Not git's `COMMIT_EDITMSG`, which every commit made
+     * in a terminal writes.
+     */
     NORMAL,
 
     /** The message of a merge in progress, in `MERGE_MSG`. */

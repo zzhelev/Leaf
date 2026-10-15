@@ -16,7 +16,8 @@ class PersistCommitMessageGitAction @Inject constructor(
             if (state.isMerging || state.isRebasing || state.isReverting) {
                 git.repository.writeMergeCommitMsg(message)
             } else if (state == RepositoryState.SAFE) {
-                git.repository.writeCommitEditMsg(message)
+                // Fork-only: Leaf's own file, not git's COMMIT_EDITMSG
+                git.repository.writeCommitDraft(message)
             }
         }
 }

@@ -110,6 +110,22 @@ class WatchedRepositoryTest {
     }
 
     @Test
+    fun `a commit draft needs nothing, in any worktree's git dir`() {
+        // Saved a second after each edit. Another worktree's used to refresh the worktree list of every other tab.
+        for (tab in listOf(mainTab, linkedTab)) {
+            for (gitDir in listOf(arrayOf("repo", ".git"), arrayOf("repo", ".git", "worktrees", "agent"))) {
+                val draft = path(*gitDir, "LEAF_COMMIT_DRAFT")
+
+                assertEquals(WatchedChange.NONE, tab.changeOf(draft), draft)
+            }
+        }
+
+        // A file of the working tree with the same name
+        assertEquals(WatchedChange.WORKING_TREE, mainTab.changeOf(path("repo", "LEAF_COMMIT_DRAFT")))
+        assertEquals(WatchedChange.WORKING_TREE, mainTab.changeOf(path("repo", "src", "LEAF_COMMIT_DRAFT")))
+    }
+
+    @Test
     fun `a batch refreshes what its most important change needs`() {
         val tab = mainTab
         val gitDir = path("repo", ".git", "HEAD")
