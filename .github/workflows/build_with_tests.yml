@@ -18,6 +18,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # The app's fonts are Git LFS files, which Compose's tests render with. The cache keeps each run from downloading
+      # them again, as LFS downloads count against the owner's monthly bandwidth
+      - name: List the Git LFS objects
+        run: git lfs ls-files --long | cut -d ' ' -f 1 | sort > .lfs-objects
+      - name: Restore the Git LFS objects
+        uses: actions/cache@v6
+        with:
+          path: .git/lfs/objects
+          key: lfs-${{ hashFiles('.lfs-objects') }}
+      - name: Check out the Git LFS files
+        run: git lfs pull
+      - name: Install the libraries that Compose's tests render with
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libgl1 libegl1 libfontconfig1
       - uses: dtolnay/rust-toolchain@stable
       - name: Set up JDK 25
         uses: actions/setup-java@v5
