@@ -8,12 +8,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -139,12 +136,7 @@ private fun CleanupDetails(
     onCheckedChange: (CleanupCandidate, Boolean) -> Unit,
     onDeleteBranchesChange: (Boolean) -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .heightIn(max = MAX_LIST_HEIGHT)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
+    ScrollingBox(maxHeight = MAX_LIST_HEIGHT, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (candidate in state.candidates) {
             val path = candidate.worktree.path
 
@@ -170,13 +162,7 @@ private fun CleanupDetails(
     }
 
     if (state.steps.isNotEmpty()) {
-        Column(
-            modifier = Modifier
-                .heightIn(max = MAX_COMMANDS_HEIGHT)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            WorktreeCommands(state.steps)
-        }
+        WorktreeCommands(state.steps, maxHeight = MAX_COMMANDS_HEIGHT)
     }
 }
 

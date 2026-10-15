@@ -181,6 +181,23 @@ class CleanUpWorktreesDialogTest {
             }
         }
 
+    @Test
+    fun `a long list scrolls, and a short one is as tall as it is`(): Unit = runBlocking(Dispatchers.Swing) {
+        val many = (1..12).map { info(worktree("$repo-agent$it", "refs/heads/agent$it"), merged = MergedIntoBase.COMMITS) }
+        val long = WorktreeCleanup(WorktreeList(WorktreeBaseBranch(automatic = "refs/heads/main"), listOf(main) + many))
+
+        DialogScene(CleanUpWorktreesState(cleanup = long, checked = long.candidates.checkedAtFirst())).use { dialog ->
+            // The list, then the commands: both longer than their room
+            assertEquals(2, dialog.scrollRanges().count { it > 0f }, dialog.scrollRanges().toString())
+            // Both as wide as the dialog's content, so that their scrollbars line up
+            assertEquals(1, dialog.scrollRightEdges().distinct().size, dialog.scrollRightEdges().toString())
+        }
+
+        DialogScene(state.copy(checked = emptySet())).use { dialog ->
+            assertEquals(listOf(0f), dialog.scrollRanges())
+        }
+    }
+
     private fun info(
         worktree: Worktree,
         status: WorktreeStatus? = CLEAN,
@@ -232,6 +249,16 @@ class CleanUpWorktreesDialogTest {
         fun texts(): List<String> = nodes().flatMap { node ->
             node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text }
         }
+
+        /** How far each scrolling part of the dialog can scroll, in pixels. */
+        fun scrollRanges(): List<Float> = nodes().mapNotNull { node ->
+            node.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange)?.maxValue?.invoke()
+        }
+
+        /** Where each scrolling part of the dialog ends at the right, in pixels. */
+        fun scrollRightEdges(): List<Float> = nodes()
+            .filter { it.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange) != null }
+            .map { it.boundsInRoot.right }
 
         /** How many checkboxes the dialog has. */
         fun checkboxes(): Int = nodes().count { it.config.getOrNull(SemanticsProperties.ToggleableState) != null }
