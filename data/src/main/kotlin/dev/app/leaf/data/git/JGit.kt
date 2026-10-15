@@ -20,10 +20,19 @@ import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
-class JGit @Inject constructor(
+class JGit(
     private val windowsFs: Provider<WindowsFs>,
     private val loginShellEnvironment: LoginShellEnvironment,
+    // Fork-only: where git finds hooks, or null to find them as JGit does
+    private val hooksDirectory: HooksDirectory? = null,
 ) {
+    @Inject
+    constructor(
+        windowsFs: Provider<WindowsFs>,
+        loginShellEnvironment: LoginShellEnvironment,
+        gitHooksDirectory: GitHooksDirectory,
+    ) : this(windowsFs, loginShellEnvironment, gitHooksDirectory as HooksDirectory)
+
     // Concurrent because cleanupExcept iterates it while other tabs open repositories
     private val repositories = ConcurrentHashMap<String, Git>()
 
@@ -122,10 +131,10 @@ class JGit @Inject constructor(
     }
 
     /**
-     * Opens a repository with Leaf's file system, which decides how hooks run: through Git Bash on Windows, with the
-     * login shell's environment on macOS and Linux. For a linked worktree, it also keeps HEAD's reflog in the
-     * worktree's own git dir ([LinkedWorktreeLogs]). [provide] and [provideOptional] both use it, as they share the
-     * cache.
+     * Opens a repository with Leaf's file system, which decides where hooks are, as git finds them ([HooksDirectory]),
+     * and how they run: through Git Bash on Windows, with the login shell's environment on macOS and Linux. For a
+     * linked worktree, it also keeps HEAD's reflog in the worktree's own git dir ([LinkedWorktreeLogs]). [provide] and
+     * [provideOptional] both use it, as they share the cache.
      */
     private fun open(repositoryPath: String): Git {
         val gitDir = File(repositoryPath)
@@ -133,7 +142,7 @@ class JGit @Inject constructor(
 
         val fs = when (val detected = FS.detect()) {
             is FS_Win32 -> windowsFs.get().withLinkedWorktreeLogs(linkedWorktreeLogs)
-            is FS_POSIX -> PosixFs(loginShellEnvironment, linkedWorktreeLogs)
+            is FS_POSIX -> PosixFs(loginShellEnvironment, linkedWorktreeLogs, hooksDirectory)
             else -> detected
         }
 

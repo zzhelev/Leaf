@@ -212,4 +212,17 @@ class WindowsFsTest {
         assertInstanceOf(WindowsFs::class.java, copy)
         assertTrue(ran.exists())
     }
+
+    @Test
+    fun `runs the hooks in the folder where git finds them, from a new instance too`() {
+        val ran = File(tempDir, "ran")
+        val gitsHooks = File(tempDir, "git-hooks")
+        addHook("pre-commit", "touch '$ran'", hooksDir = gitsHooks)
+        addHook("pre-commit", "exit 1")
+        val fs = WindowsFs(HooksDirectory { gitsHooks }) { GitBash("/bin/sh", quoteArgument = { it }) }
+
+        withGit(fs = fs.newInstance()) { it.commitChange() }
+
+        assertTrue(ran.exists())
+    }
 }

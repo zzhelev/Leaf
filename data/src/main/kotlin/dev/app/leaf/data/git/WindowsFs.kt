@@ -14,26 +14,31 @@ import javax.inject.Inject
 /**
  * Version of the Windows FS with support for hooks by using Git Bash if present.
  *
- * The hook is found like JGit finds it on other systems: in `core.hooksPath`, or in the `hooks` folder of the common
- * git dir, which linked worktrees share. It runs in the same folder and with the same `GIT_*` variables as JGit's own
- * hook runner, gets its arguments and standard input, and both of its output streams are read while it runs.
+ * The hook is found where git finds it ([HooksDirectory]), or else like JGit finds it on other systems: in
+ * `core.hooksPath`, or in the `hooks` folder of the common git dir, which linked worktrees share. It runs in the same
+ * folder and with the same `GIT_*` variables as JGit's own hook runner, gets its arguments and standard input, and
+ * both of its output streams are read while it runs.
  *
  * Also keeps a linked worktree's HEAD reflog in its own git dir ([withLinkedWorktreeLogs]).
  */
 class WindowsFs : FS_Win32 {
     private val findGitBash: () -> GitBash?
     private val linkedWorktreeLogs: LinkedWorktreeLogs?
+    private val hooksDirectory: HooksDirectory?
 
     @Inject
-    constructor() : this({ GitBash.find(System.getenv("PATH"), System::getenv) })
+    constructor(hooksDirectory: GitHooksDirectory) :
+        this(hooksDirectory, { GitBash.find(System.getenv("PATH"), System::getenv) })
 
-    internal constructor(findGitBash: () -> GitBash?) : super() {
+    internal constructor(hooksDirectory: HooksDirectory? = null, findGitBash: () -> GitBash?) : super() {
         this.findGitBash = findGitBash
+        this.hooksDirectory = hooksDirectory
         linkedWorktreeLogs = null
     }
 
     private constructor(source: WindowsFs, linkedWorktreeLogs: LinkedWorktreeLogs?) : super(source) {
         findGitBash = source.findGitBash
+        hooksDirectory = source.hooksDirectory
         this.linkedWorktreeLogs = linkedWorktreeLogs
     }
 
@@ -45,6 +50,12 @@ class WindowsFs : FS_Win32 {
 
     override fun resolve(dir: File?, name: String): File =
         linkedWorktreeLogs?.resolve(dir, name) ?: super.resolve(dir, name)
+
+    override fun findHook(repository: Repository, hookName: String): File? {
+        val folder = hooksDirectory?.of(repository) ?: return super.findHook(repository, hookName)
+
+        return hookIn(folder, hookName)
+    }
 
     override fun runHookIfPresent(
         repository: Repository,

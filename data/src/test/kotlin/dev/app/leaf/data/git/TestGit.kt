@@ -20,9 +20,12 @@ import java.io.File
 import java.nio.file.Files
 import javax.inject.Provider
 
-/** A [JGit] for tests on macOS and Linux, where [shellVariables] stand for what the login shell adds to hooks. */
-fun testJGit(shellVariables: Map<String, String> = emptyMap()) =
-    JGit(Provider { error("Only used on Windows") }, LoginShellEnvironment { shellVariables })
+/**
+ * A [JGit] for tests on macOS and Linux, where [shellVariables] stand for what the login shell adds to hooks. Hooks are
+ * found as JGit finds them, unless the test gives [hooksDirectory] ([GitHooksDirectory] asks git).
+ */
+fun testJGit(shellVariables: Map<String, String> = emptyMap(), hooksDirectory: HooksDirectory? = null) =
+    JGit(Provider { error("Only used on Windows") }, LoginShellEnvironment { shellVariables }, hooksDirectory)
 
 /**
  * A [GitCli] for tests, where [shellVariables] stand for what the login shell adds, and [configuredPath] for the git

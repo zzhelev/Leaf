@@ -17,23 +17,28 @@ import java.io.OutputStream
  * sets its own variables, such as `GIT_DIR` for hooks, after [runInShell], so they still win.
  *
  * Also gives commit-msg its message file in linked worktrees and submodules, where JGit passes an empty path
- * ([hookArguments]), and keeps a linked worktree's HEAD reflog in its own git dir ([linkedWorktreeLogs]).
+ * ([hookArguments]), keeps a linked worktree's HEAD reflog in its own git dir ([linkedWorktreeLogs]), and finds hooks
+ * where git does ([hooksDirectory]).
  */
 class PosixFs : FS_POSIX {
     private val loginShellEnvironment: LoginShellEnvironment
     private val linkedWorktreeLogs: LinkedWorktreeLogs?
+    private val hooksDirectory: HooksDirectory?
 
     constructor(
         loginShellEnvironment: LoginShellEnvironment,
         linkedWorktreeLogs: LinkedWorktreeLogs? = null,
+        hooksDirectory: HooksDirectory? = null,
     ) : super() {
         this.loginShellEnvironment = loginShellEnvironment
         this.linkedWorktreeLogs = linkedWorktreeLogs
+        this.hooksDirectory = hooksDirectory
     }
 
     private constructor(source: PosixFs) : super(source) {
         loginShellEnvironment = source.loginShellEnvironment
         linkedWorktreeLogs = source.linkedWorktreeLogs
+        hooksDirectory = source.hooksDirectory
     }
 
     override fun newInstance(): FS = PosixFs(this)
@@ -45,6 +50,12 @@ class PosixFs : FS_POSIX {
         return super.runInShell(cmd, args).apply {
             environment().putAll(loginShellEnvironment.variablesBlocking())
         }
+    }
+
+    override fun findHook(repository: Repository, hookName: String): File? {
+        val folder = hooksDirectory?.of(repository) ?: return super.findHook(repository, hookName)
+
+        return hookIn(folder, hookName)
     }
 
     override fun runHookIfPresent(
