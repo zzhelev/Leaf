@@ -3,6 +3,7 @@ package dev.app.leaf.lfs
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.GetTrackingBranchGitAction
+import dev.app.leaf.data.git.lfs.GetLfsUrlSettingGitAction
 import dev.app.leaf.data.git.remotes.GetRemotesGitAction
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.extensions.isHttpOrHttps
@@ -14,8 +15,6 @@ import dev.app.leaf.domain.lfs.LfsServer
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.Repository
-import org.eclipse.jgit.storage.file.FileBasedConfig
-import java.io.File
 import javax.inject.Inject
 
 private const val TAG = "LfsRepository"
@@ -24,20 +23,18 @@ class GetLfsUrlGitAction @Inject constructor(
     private val getTrackingBranchGitAction: GetTrackingBranchGitAction,
     private val getCurrentBranchGitAction: GetCurrentBranchGitAction,
     private val getRemotesGitAction: GetRemotesGitAction,
+    private val getLfsUrlSettingGitAction: GetLfsUrlSettingGitAction,
 ) : IGetLfsUrlGitAction {
     /**
-     * The LFS server for the remote [remoteName], or for the current branch's remote: the one `.lfsconfig` sets, or
-     * else the one at the remote's URL.
+     * The LFS server for the remote [remoteName], or for the current branch's remote: the one `lfs.url` sets, or
+     * else the remote's `remote.<name>.lfsurl`, each in git's config or else in `.lfsconfig`, or else the one at the
+     * remote's URL.
      */
     override suspend operator fun invoke(repository: Repository, remoteName: String?): LfsServer? {
         val git = Git(repository)
         // TODO This only gets the URL from considering happy path config
-        val configFile = File(repository.workTree, ".lfsconfig")
-
-        val config = FileBasedConfig(configFile, repository.fs)
-        config.load()
-
-        val lfsConfigUrl = config.getString("lfs", null, "url")
+        // Git's config too, which git-lfs reads before .lfsconfig (fork-only)
+        val lfsConfigUrl = getLfsUrlSettingGitAction.lfsUrl(repository)
 
         return getLfsServer(git, remoteName, lfsConfigUrl)
     }
@@ -59,8 +56,9 @@ class GetLfsUrlGitAction @Inject constructor(
                 return withoutRemote
             }
 
+            // The branch, not its full ref, which the config has no upstream for (fork-only)
             val trackingBranch =
-                getTrackingBranchGitAction(repositoryPath, currentBranch.name).okOrNull() // TODO Proper error handling?
+                getTrackingBranchGitAction(repositoryPath, currentBranch).okOrNull() // TODO Proper error handling?
             val currentBranchTracedRemote = trackingBranch?.remote
 
             if (currentBranchTracedRemote != null) {
@@ -80,7 +78,10 @@ class GetLfsUrlGitAction @Inject constructor(
                         }
                     // git-lfs asks an SSH remote itself where its LFS server is (git-lfs-authenticate)
                     val remoteLfsUrl = if (remoteUrl.isHttpOrHttps()) "$remote/info/lfs" else remoteUrl
-                    LfsServer(lfsConfigUrl ?: remoteLfsUrl, remoteUrl)
+                    // remote.<name>.lfsurl, which git-lfs reads after lfs.url (fork-only)
+                    val configuredUrl =
+                        lfsConfigUrl ?: getLfsUrlSettingGitAction.remoteLfsUrl(git.repository, remotes[0].name)
+                    LfsServer(configuredUrl ?: remoteLfsUrl, remoteUrl)
                 } else {
                     if (withoutRemote == null) {
                         printError(TAG, "Remote name is null and couldn't obtain tracking branch remote.")
@@ -90,19 +91,20 @@ class GetLfsUrlGitAction @Inject constructor(
             }
         }
 
-        val remoteUrl = git
+        val remote = git
             .remoteList()
             .call()
             .firstOrNull { Constants.R_REMOTES + it.name == remotePath }
-            ?.urIs
-            ?.firstOrNull()
             ?: return withoutRemote
+        val remoteUrl = remote.urIs.firstOrNull() ?: return withoutRemote
 
-        val lfsUrl = when {
-            lfsConfigUrl != null -> lfsConfigUrl
-            remoteUrl.toString().isHttpOrHttps() -> "$remoteUrl/info/lfs"
-            else -> remoteUrl.toString()
-        }
+        val lfsUrl = lfsConfigUrl
+            // remote.<name>.lfsurl, which git-lfs reads after lfs.url (fork-only)
+            ?: getLfsUrlSettingGitAction.remoteLfsUrl(git.repository, remote.name)
+            ?: when {
+                remoteUrl.toString().isHttpOrHttps() -> "$remoteUrl/info/lfs"
+                else -> remoteUrl.toString()
+            }
 
         return LfsServer(lfsUrl, remoteUrl.toString())
     }
