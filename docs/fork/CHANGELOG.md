@@ -2,6 +2,35 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Cleaning up merged worktrees (branch `feat/cleanup-merged`)
+
+- **Before:** worktrees whose work had reached the base were marked "merged" (4.3a), but each had to be removed one at
+  a time, with Remove or Discard, and missing ones pruned separately.
+- **Now** (Phase 4.3b, `docs/fork/agent-awareness.md`): "Clean up merged worktrees…" removes them in one go, with their
+  branches. It's in the Worktrees header's menu, now ⋯ (the base choice moved into it), in a merged row's menu after
+  Discard, and in the Actions list, while there's something to remove.
+  - The dialog reads the worktrees again, and lists the merged and the missing ones. Checked at first: those that lose
+    nothing. Unchecked, with what checking does in amber: changes ("3 uncommitted changes. Checking it deletes them"),
+    a change in the last 5 minutes, where an agent may still work, and a lock other than an ended agent session's,
+    which is unlocked first. A worktree that a running Claude Code session has locked is listed without a checkbox.
+  - "Also delete their branches", on by default, runs `git branch -D`: squash-merged branches fail `-d`. A missing
+    worktree's branch with commits of its own stays.
+  - The commands show, as in the other worktree dialogs, and the button says what it does ("Remove 3 worktrees").
+  - A worktree that an agent changed after the dialog read it gets no `--force`: git refuses it and the cleanup stops,
+    losing nothing.
+- **Refinements to the design note,** from git 2.54: a missing worktree gets its own `git worktree remove`, which git
+  allows, rather than one `git worktree prune`, which would also remove the missing ones left unchecked; and each
+  branch goes after its worktree, as git refuses `branch -D` while a missing worktree still has the branch.
+- **Tests:** 8 in `WorktreeCleanupTest` (domain): which worktrees are offered and in what order, which start checked
+  (changes, unreadable changes, a recent change, locks, an ended and a running session), which branches go, how many
+  the menus count, and the steps. 5 in `CleaningUpWorktreesTest` (data), a tab on a repository with squash-merged,
+  merged with changes, fresh and missing worktrees: what the dialog offers, removing the checked ones from the
+  worktree that goes (the tab switches to main), with changes once checked, a change after the dialog read them that
+  stops the cleanup, and a recent change. 5 in `CleanUpWorktreesDialogTest` (app), rendered offscreen, and the row's
+  menu item in `WorktreesSectionTest`.
+  - **Mutation check:** 20 mutations, all caught.
+  - The full suite passes on `7cea9da6` with these changes: `:app` 266 tests, `:domain` 326, `:data` 965, `:common` 7.
+
 ## The conflict resolver marks the words each side changed (branch `claude/resolver-model-f2582e`)
 
 - **Before:** the resolver tinted a changed line whole, so seeing what changed in it meant comparing it with the base,

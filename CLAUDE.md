@@ -803,7 +803,8 @@ commands.
 - **The tab's own worktree:** removing it switches the tab to the main worktree first. `SwitchWorktreeUseCase.switch`
   runs inside another task; `invoke` and `followRemovedWorktree` launch it as a task of its own.
 - **Prune** shows `git worktree prune --dry-run -v`'s lines (git writes them to stderr), then runs
-  `git worktree prune`. **Lock** asks for an optional reason. **Unlock** runs at once, as it loses nothing.
+  `git worktree prune`. "Clean up merged worktrees…" removes merged and missing worktrees in one go (see Cleaning up
+  merged worktrees). **Lock** asks for an optional reason. **Unlock** runs at once, as it loses nothing.
 - **Create** (`NewWorktreeDialog`, `NewWorktreeViewModel`) opens from the Worktrees header's "+", the picker's last
   row, a branch's menu (side panel and log) and a commit's menu, with a `NewWorktreeStart`. The log gets it through
   `LocalOnNewWorktree`, so that Gitnuro's composables in between don't change.
@@ -1503,16 +1504,18 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   base (see Reviewing a worktree), then "Squash-merge into main…" and "Merge into main…" (see Merging a worktree into
   the base), and "Rebase onto main…" (see Rebasing a worktree onto the base). Switching and opening in a new tab
   aren't offered for the tab's own worktree, a prunable one or a bare repository's (`Worktree.canSwitchTo`).
-- A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, and "Prune missing
-  worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from
+- A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, "Clean up merged
+  worktrees…" when its work is in the base and something can be removed (see Cleaning up merged worktrees), and "Prune
+  missing worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from
   `SidePanel`, and the header's "+" (shown on hover, as in Remotes), which creates a worktree. Every menu ends with
   "Copy path".
 - The side panel's filter matches the folder name, the path, the branches and the origin's tag. When git can't list
   the worktrees, one line says so, with the error in its tooltip.
 - The row's two lines are `WorktreeRowLines`, which the toolbar's picker shows too.
-- The header's button (`WorktreesBaseMenuButton`, the sort button's `SortMenuButton` with the `compare_arrows` icon)
-  is muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows what Automatic
-  picks, the chosen branch (with "Not found" when it's missing), and a note pointing to the branch menus.
+- The header's button (`WorktreesMenuButton`, the sort button's `SortMenuButton` with the `more_horiz` icon, ⋯) is the
+  section's menu. It's muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows
+  what Automatic picks, the chosen branch (with "Not found" when it's missing), a note pointing to the branch menus,
+  and "Clean up merged worktrees…" with how many can go, while any can (`WorktreesState.cleanupCount`).
 
 **Worktree picker (fork-only, `ui/WorktreePicker.kt`):** in the toolbar, right of Open, only while the repository
 has more than one worktree (`worktreePickerRows`, `RepositoryOpenViewModel.worktreePickerState`).
@@ -1568,6 +1571,30 @@ nothing changed.
   - `RepositoryOpenViewModel` applies the setting (`withIdle`), so a change in Settings shows at once. The setting is
     Settings → Worktrees → "Mark worktrees untouched for": never, 7, 14 (the default), 30 or 90 days
     (`AppConfig.WorktreesUntouchedDays`, `worktrees_untouched_days`). Fewer days in the settings file count as 7.
+
+**Cleaning up merged worktrees (fork-only, Phase 4.3b, `CleanUpWorktreesDialog`, `WorktreeCleanupSteps.kt`):** "Clean up
+merged worktrees…" removes, in one task, the linked worktrees whose work is in the base and the ones whose folder is
+missing, and their branches. It's in the header's menu, in a merged row's menu after Discard, and in the Actions list,
+while any can be removed (`WorktreeList.cleanupCount`: merged or missing, not in use by an agent's running session).
+Untouched worktrees that aren't merged aren't offered: removing them loses commits.
+- `GetWorktreeCleanupUseCase` reads the worktrees again when the dialog opens (`GetWorktreesInfoUseCase`, so
+  "merged" is 4.3a's), and the last change of each one offered (`RECENT_CHANGE_MS`, 5 minutes, which the other
+  worktree dialogs' notice shares). The view model adds the tags (`withOrigins`).
+- `WorktreeCleanup.candidates` lists them (`CleanupCandidate`), checked first, then the ones to look at, then the ones
+  in use, each in git's order. Checked when the dialog opens (`isCheckedAtFirst`): no changes, no change in the last 5
+  minutes, and no lock but an agent's session that has ended (`claude -p` keeps its lock after it ends). Changes and
+  other locks are unchecked, with what checking does in amber ("3 uncommitted changes. Checking it deletes them"). A
+  worktree locked by a running session has no checkbox.
+- **Steps** (`cleanupSteps`), from the main worktree, per worktree: `git worktree unlock` when locked,
+  `git worktree remove` (`--force` when it had changes, or they couldn't be read), then `git branch -D` with "Also
+  delete their branches" (on by default). `SwitchTab` to the main worktree first when the tab shows one that goes.
+  - A missing worktree gets its own `git worktree remove`, which git 2.54 allows, rather than `git worktree prune`,
+    which would also remove the missing ones left unchecked. git refuses `branch -D` for a branch that a missing
+    worktree still has, so the branch goes after its worktree.
+  - Only a branch whose work is in the base is deleted (`CleanupCandidate.branch`): a missing worktree's branch with
+    commits of its own stays, and its row says so.
+  - A worktree that was clean when the dialog read it gets no `--force`, so git refuses it, and the steps stop, when
+    an agent changed something since.
 
 **Adding a section touches:** domain model and git action, `RepositoryDataRepository` and its in-memory
 implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt`, `RepositoryOpenViewModel`,

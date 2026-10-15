@@ -5,7 +5,7 @@
 | Question | How should Leaf tell which agent made a worktree, mark the worktrees that are done or forgotten, and clean up the merged ones? |
 | Verified against | `main` at `976c96c5`; git 2.54.0; Claude Code 2.1.287 (a probe run); the other tools' docs and source, 2026-10-14 |
 | Date | 2026-10-14 |
-| Status | Approved 2026-10-14 with every recommendation in section 6; 4.1, 4.2 and 4.3a done |
+| Status | Approved 2026-10-14 with every recommendation in section 6; done (4.3b on 2026-10-15) |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -209,6 +209,18 @@ worktree at a time.
 
 **Tests:** the candidates and their checkboxes from a `WorktreeList` (domain), the steps, and a `TestTab` run with three
 worktrees: squash-merged, merged with changes, and fresh, which isn't listed.
+
+**As built** (approved 2026-10-14 with the recommendations of a mockup):
+- The header's button is ⋯, the section's menu: the base choice, then "Clean up merged worktrees…" with how many can
+  go. One flat list, checked first, then the ones to look at, then the ones in use, each with its reason under it.
+  The button says "Remove 3 worktrees". A row's checkbox is the confirmation: no second question.
+- A missing worktree gets its own `git worktree remove` rather than one `git worktree prune`: prune would also remove
+  the missing worktrees left unchecked, and git 2.54 removes a missing worktree's entry with `remove`. git refuses
+  `branch -D` while a missing worktree still has the branch, so each branch goes after its worktree.
+- A missing worktree's branch is deleted only when its work is in the base; otherwise it stays, and its row says so.
+- A lock of an agent's session that has ended starts checked, unlocked first: `claude -p` keeps its lock after it
+  ends, on exactly the worktrees worth cleaning up. Other locks start unchecked.
+- A worktree whose changes couldn't be read counts as having some: unchecked, and `--force` once checked.
 
 ## 5. Out of scope
 
