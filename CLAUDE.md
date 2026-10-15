@@ -272,8 +272,9 @@ asking.
   `config/IncludedConfig.kt`):** JGit's parser expands only `[include]`, so what a file that `includeIf` names sets (a
   work identity for `~/work/`, signing, `core.hooksPath`, `core.autocrlf`, …) never reached JGit (Gitnuro#186).
   `JGit.open` opens an `IncludedConfigRepository`, whose config is the repository's own file on a layer of what only
-  git reads, on the user's config. JGit's own commits (merge, pull, rebase and interactive rebase, cherry-pick,
-  revert), its reflog entries, its stashes and its other settings then see what git sees.
+  git reads, on the user's config. JGit's own commits (pull's merge and rebase, the interactive rebase, and merge,
+  cherry-pick, revert and rebase when git can't run them), its reflog entries, its stashes and its other settings then
+  see what git sees.
   - `GitIncludedConfig` runs `git --git-dir=<git dir> config --list -z --show-origin --show-scope` and keeps the
     entries of the files reached through `includeIf` (`includedConfig`). git lists an included file's entries right
     after the include, so the next entry from the file that the path names (`~/` in git's HOME, a relative path next
@@ -985,24 +986,59 @@ base as chosen, `origin/main` too, which is what the row's ↑↓ count against,
 - The dialog's content is `RebaseWorktreeDialogContent`, which takes the state, so `RebaseWorktreeDialogTest` renders
   it offscreen.
 
+**Merge, cherry-pick, revert and rebase with git (fork-only, `data/git/cli/operations/`):** Merge in the branch menu,
+cherry-pick, revert and Rebase run the git CLI, as a terminal would: git's merge engine (ort, which follows a file that
+one side renamed), git's messages, every hook that git runs (`pre-merge-commit`, `post-merge`, `post-checkout`,
+`post-rewrite`, …), and the identity and signing settings that git reads. JGit ran them until 2026-10-15, and still
+does when git can't.
+- `GitCliOperations.run` runs `git merge --ff|--no-ff --no-edit <branch>` (`--ff` and `--no-ff` follow Leaf's
+  "Fast-forward merge" setting, over `merge.ff`, as with JGit), `git cherry-pick <commit>`,
+  `git revert --no-edit <commit>` or `git rebase <branch>` in the working tree, with `GIT_EDITOR=:` and no time limit,
+  as git runs hooks.
+- A branch is named as `refArgument` (domain, shared with the worktree dialogs) names it: its short name, so that
+  git's message says "Merge branch 'feature'" or "Merge remote-tracking branch 'origin/feature'" (and " into dev" off
+  `main` and `master`), unless git would take a tag of that name first. JGit's message was "Merge branch 'feature' into
+  main" for both.
+- They run through `GitCliRemoteCommand`, as git may have to ask: it downloads what a partial clone lacks itself (so
+  they don't prefetch, see Partial clones), git-lfs's filter downloads LFS files, and ssh-keygen asks for the
+  passphrase of a key that signs commits (`SshPasswordDialog`). So the processing screen has Cancel: git gets SIGTERM,
+  removes its lock files, and leaves the working tree as far as it got.
+- Stopped at conflicts is exit code 1 with unmerged paths (`git ls-files --unmerged`). Exit code 1 without them is a
+  refusal (a rebase with local changes, a merge of something that isn't a commit, a hook that refuses), and so is any
+  other code (2 for a merge that local changes stop, 128 for a merge while conflicts are left):
+  `GitCliError.CommandFailed` with git's message, in `ErrorDialog`. Merge and rebase return whether they stopped, for
+  the toast; cherry-pick and revert give an error, as JGit's did.
+- A cherry-pick or a revert of a commit whose changes are already there stops, as in a terminal: the cherry-pick keeps
+  `CHERRY_PICK_HEAD` (Abort in the banner), and the revert leaves only `MERGE_MSG`, which Leaf's commit field doesn't
+  show outside a merge.
+- The `Selecting…GitAction`s are bound in place of JGit's: git when `GitCliOperations.useGitCli()` (a usable git and
+  the askpass helper), JGit otherwise. The "Use git for remote operations" setting doesn't apply. Pull still merges
+  and rebases with JGit (see Remote operations), and so does the interactive rebase.
+- Tests: `GitCliOperationsTest` (each operation, conflicts, git's refusals, a renamed file, hooks, an identity from
+  `includeIf`, a merge signed with an SSH key whose passphrase Leaf asks for, Continue after git's rebase stopped, and
+  JGit without git or the helper).
+
 **A rebase that git started (fork-only, `data/git/rebase/GitCliRebase.kt`):** Continue, Skip and Abort, in the status
-pane and the banner, run `git rebase --continue`, `--skip` or `--abort` for a rebase that git started: from "Rebase
-onto", a terminal or an agent. A rebase that JGit started (Leaf's own, interactive ones included) stays with JGit.
+pane and the banner, run `git rebase --continue`, `--skip` or `--abort` for a rebase that git started: Rebase in the
+branch menu (see above), "Rebase onto", a terminal or an agent. A rebase that JGit started (interactive ones, and Rebase
+when git can't run it) stays with JGit.
 - `isRebaseStartedByGit`: a `rebase-apply` folder (git's apply backend), or a `rebase-merge` folder without JGit's
   `onto_name` file, which git 2.54 doesn't write. The `Selecting…RebaseGitAction`s are bound to the domain
-  interfaces, and use JGit when no usable git is found.
+  interfaces, and use JGit when git can't run (`GitCliOperations.useGitCli()`).
 - Neither can go on with the other's (probed on git 2.54 and JGit 7.7): JGit's continue committed git's `message` file
   as it was, with its `# Conflicts:` lines, and its continue, skip and abort left `MERGE_MSG` (the stopped commit's
   message, which a commit from a terminal would take) and `REBASE_HEAD`. JGit doesn't know git's other todo commands
   either (`exec`, `update-ref`, `label`). git refuses to continue JGit's ("could not commit staged changes").
-- git runs with `GIT_EDITOR=:`, so it keeps the stopped commit's message, without its comment lines, and with no time
-  limit, as it runs hooks. A user's own `GIT_EDITOR` would otherwise open, or fail without a terminal.
+- git runs through `GitCliOperations.run`, with `GIT_EDITOR=:`, so it keeps the stopped commit's message, without its
+  comment lines, and with no time limit, as it runs hooks. A user's own `GIT_EDITOR` would otherwise open, or fail
+  without a terminal.
 - Continue and Skip return whether the rebase stopped again at a later commit's conflicts (exit code 1 with unmerged
   paths for git, `STOPPED` for JGit), which the toast then says.
 - A rebase that git started writes `rebase-merge/interactive` even when it isn't interactive, so JGit reads it as
   `REBASING_INTERACTIVE`. Leaf shows it as processing commits (`done` exists), as it did before.
 - git signs the commits that it makes during a rebase as `commit.gpgSign` says, with its own gpg or ssh-keygen rather
-  than Leaf's signers, and without Leaf's askpass (not checked with a key that needs a passphrase).
+  than Leaf's signers. ssh-keygen asks for a key's passphrase in Leaf's dialog, through the askpass helper (checked
+  with a merge, as above). Until 2026-10-15 Continue and Skip ran without it.
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
@@ -1215,8 +1251,9 @@ when it first needs them. JGit can't: it throws `MissingObjectException`, which 
   commit's file (`DiffType.blobIds`), and the versions of a blamed file, with, where it was added, the files that blame
   compares to find a rename (`fileVersions`). Queries show no progress.
 - Changing: JGit's checkout deletes files before it writes the new ones, and a missing blob stopped it halfway, with
-  HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset, merge,
-  cherry-pick, revert, rebase, interactive rebase, and the CLI pull's merge or rebase download first
+  HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset, the
+  interactive rebase, the CLI pull's merge or rebase, and JGit's merge, cherry-pick, revert and rebase (when git can't
+  run them; git downloads what its own need) download first
   (`prefetchCheckout`, `prefetchForMerge`, `prefetchForCherryPick`, `prefetchForRebase`): the blobs where the trees
   involved differ (`blobsThatDiffer`), with the processing screen's progress and Cancel. A failed download is
   `PartialCloneFetchError(nothingChanged = true)`, and nothing changes. Stashes and discards read what was checked out,
@@ -1373,9 +1410,10 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - `configOf` writes the entries as config text, so that a key without `=` stays one, which JGit reads as true. It
     leaves out `include` and `includeIf`, whose files git has read.
   - JGit reads an empty value (`key =`) as null, where git reads "", from its own files too.
-- The commits that JGit makes itself, whose commands take no committer (Merge in the branch menu, pull, rebase and
-  interactive rebase, cherry-pick, revert), its reflog entries and every other setting that JGit reads see the files
-  that `includeIf` names through `IncludedConfigRepository`, and hooks are found where git finds them (see
+- Merge in the branch menu, cherry-pick, revert and Rebase run git (see Merge, cherry-pick, revert and rebase with
+  git). The commits that JGit makes itself, whose commands take no committer (pull's merge and rebase, the interactive
+  rebase, and those four when git can't run them), its reflog entries and every other setting that JGit reads see the
+  files that `includeIf` names through `IncludedConfigRepository`, and hooks are found where git finds them (see
   `JGit.provide`).
 - Tests: `CommitIdentityTest`, `GitSigningConfigsTest`, the `includeIf` tests in `CreateTagGitActionTest` and
   `SshProgramSignerRealSshKeygenTest`, and `AuthorInfoTest`. git and JGit read the same user config

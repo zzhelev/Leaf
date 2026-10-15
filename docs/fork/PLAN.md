@@ -207,8 +207,8 @@ squash-merge one, rebase one, discard one. Afterwards no stale entries remain in
       uses, `includeIf` included (branch `fix/includeif-identity`); hooks are found where git finds them (branch
       `fix/hooks-from-git`); a resolved cherry-pick keeps its author (branch `fix/cherry-pick-author`); and JGit's
       repository config has the files that `includeIf` names, for the commits that JGit makes itself and its other
-      settings (branch `fix/includeif-config`). Next, for git's merge engine (renames) and hooks: merge,
-      cherry-pick, revert and rebase move to the git CLI.
+      settings (branch `fix/includeif-config`). Merge, cherry-pick, revert and rebase run the git CLI, for git's
+      merge engine (renames) and hooks (branch `fix/git-cli-operations`).
 4. Fixing: Fix S items one branch each, with tests where feasible.
 
 ## Keeping in sync with upstream

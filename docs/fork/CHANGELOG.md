@@ -2,6 +2,49 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Merge, cherry-pick, revert and rebase run git (branch `fix/git-cli-operations`)
+
+- **Before:** JGit ran Merge in the branch menu, cherry-pick, revert and Rebase.
+  - Its merge doesn't follow renames: a file that one side renamed and the other changed stopped at a conflict
+    (deleted by us), where git merges the change into the renamed file.
+  - JGit knows four hooks (pre-commit, commit-msg, post-commit, pre-push), so `pre-merge-commit`, `post-merge`,
+    `post-checkout`, `post-rewrite` and `pre-rebase` never ran.
+  - Its merge message was "Merge branch 'feature' into main", for a remote branch too.
+  - A cherry-pick or a revert of a commit whose changes were already there did nothing, and said it was done.
+- **Now** (`GitCliOperations`, `data/git/cli/operations/`): they run `git merge --ff|--no-ff --no-edit <branch>`,
+  `git cherry-pick <commit>`, `git revert --no-edit <commit>` and `git rebase <branch>`, as a terminal would, with
+  git's merge engine, hooks, messages ("Merge branch 'feature'", "Merge remote-tracking branch 'origin/feature'"), and
+  the identity and signing settings that git reads.
+  - They run through `GitCliRemoteCommand`, as git may have to ask: it downloads what a partial clone lacks, git-lfs
+    downloads LFS files, and ssh-keygen asks for the passphrase of a key that signs commits, in Leaf's dialog. The
+    processing screen can cancel them. Continue, Skip and Abort of a rebase that git started go through the same
+    runner, so they ask for passphrases too (before, ssh-keygen ran without Leaf's askpass, and couldn't ask).
+  - Conflicts are found as for the worktree merge: exit code 1 with unmerged paths. Merge and rebase say they stopped
+    at conflicts, as before, and cherry-pick and revert stop with an error, as before (the revert's now says "Revert
+    stopped with conflicts", as the cherry-pick's does, where JGit's said "Revert failed"). Any other failure shows
+    git's message: local changes in the way, a hook that refuses, a commit whose changes are already there (the
+    cherry-pick then waits in progress, to abort in the banner).
+  - A branch is named by its short name unless git would take a tag of that name first (`refArgument`, now shared by
+    the domain's worktree dialogs and the data layer).
+  - JGit runs them when there is no usable git or no askpass helper. Pull still merges and rebases with JGit, and so
+    does the interactive rebase.
+- **Tests:** `GitCliOperationsTest` (23): each operation and git's message, fast-forward or not, a remote branch, a
+  branch with a tag of the same name, conflicts for each, git's refusals (local changes, a merge while conflicts are
+  left, a commit already there), a renamed file merged into, `post-merge`, a `pre-merge-commit` that refuses, an
+  identity from `includeIf`, a merge signed with an SSH key whose passphrase Leaf asks for, Continue after git's
+  rebase stopped, each `Selecting…GitAction` running git, and JGit without git or the helper. `RebasingWorktreesTest`
+  runs Continue, Skip and Abort through the new runner.
+  - JGit's results above (the rename's conflict, the empty cherry-pick and revert) were checked with a probe on JGit's
+    actions, not kept.
+  - **Mutation check:** 15 mutations, all caught: what counts as conflicts (exit code 1, unmerged paths), the
+    fallback without git or the helper, `refArgument` both ways, `--ff` against the setting, the branch's name, the
+    conflict errors of cherry-pick and revert, each `Selecting…GitAction`, and Continue's stop. Not checked:
+    `GIT_EDITOR=:`, as a run without it would start the developer's editor, and `--no-edit` (merge, revert), which
+    only repeats it.
+  - The full suite passes on `ea42dbf7` with these changes: `:app` 315 tests, `:domain` 340, `:data` 1107, `:common` 7.
+    `WorktreeReviewTest`'s first test failed once in the full run and passed in three runs alone: the test waits for
+    the comparison, and the count of uncommitted changes can come after it.
+
 ## The tests pass on Linux, as CI runs them (branch `fix/ci-linux-tests`)
 
 - **Before:** the Test Build workflow failed on every push to `main` since at least 2026-10-08. 19 of `:data`'s tests
