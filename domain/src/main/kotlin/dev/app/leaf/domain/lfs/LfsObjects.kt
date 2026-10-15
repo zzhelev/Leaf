@@ -14,6 +14,15 @@ data class LfsObject(
     @SerialName("oid") val oid: String,
     @SerialName("size") val size: Long,
     @SerialName("actions") val actions: Actions? = null,
+    /** The server's refusal of this object, such as `404 Object does not exist` (fork-only). */
+    @SerialName("error") val error: LfsObjectError? = null,
+)
+
+/** Why the batch API refused an object: an HTTP status and a message (fork-only). */
+@Serializable
+data class LfsObjectError(
+    @SerialName("code") val code: Int? = null,
+    @SerialName("message") val message: String = "",
 )
 
 @Serializable

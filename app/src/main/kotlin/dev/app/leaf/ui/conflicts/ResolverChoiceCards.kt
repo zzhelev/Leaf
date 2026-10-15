@@ -23,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.Icon
+import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +54,7 @@ import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.ConflictStage
 import dev.app.leaf.domain.models.ConflictedFile
 import dev.app.leaf.domain.models.KeptChanges
+import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.PreviewImage
 import dev.app.leaf.domain.models.PreviewLineType
 import dev.app.leaf.domain.models.TextLimit
@@ -67,11 +70,15 @@ import dev.app.leaf.ui.status.label
 import dev.app.leaf.ui.status.named
 import dev.app.leaf.ui.status.other
 import dev.app.leaf.ui.components.PrimaryButton
+import dev.app.leaf.ui.getErrorText
 import dev.app.leaf.viewmodels.ChoicePick
+import dev.app.leaf.viewmodels.LfsDownload
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /** The cards' row, at most this wide, so that a wide window doesn't stretch two images apart. */
@@ -95,6 +102,8 @@ internal fun ChoiceCards(
     pick: ChoicePick?,
     showBase: Boolean,
     paused: Boolean,
+    /** The downloads of Git LFS objects that are running or failed, by object id. */
+    downloads: Map<String, LfsDownload>,
     actions: ResolverActions,
 ) {
     val renamed = file.content as? ConflictContent.Renamed
@@ -119,13 +128,29 @@ internal fun ChoiceCards(
                 modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                SideCard(file, ConflictSide.OURS, pick == ChoicePick.OURS, paused, actions, Modifier.weight(1f))
+                SideCard(
+                    file,
+                    ConflictSide.OURS,
+                    pick == ChoicePick.OURS,
+                    paused,
+                    downloads,
+                    actions,
+                    Modifier.weight(1f),
+                )
 
                 if (showBase && showsBaseCard(file)) {
-                    BaseCard(file, actions, Modifier.weight(0.8f))
+                    BaseCard(file, downloads, actions, Modifier.weight(0.8f))
                 }
 
-                SideCard(file, ConflictSide.THEIRS, pick == ChoicePick.THEIRS, paused, actions, Modifier.weight(1f))
+                SideCard(
+                    file,
+                    ConflictSide.THEIRS,
+                    pick == ChoicePick.THEIRS,
+                    paused,
+                    downloads,
+                    actions,
+                    Modifier.weight(1f),
+                )
             }
 
             if (renamed != null) {
@@ -229,6 +254,7 @@ private fun SideCard(
     side: ConflictSide,
     picked: Boolean,
     paused: Boolean,
+    downloads: Map<String, LfsDownload>,
     actions: ResolverActions,
     modifier: Modifier,
 ) {
@@ -283,8 +309,15 @@ private fun SideCard(
                     Muted(stringResource(Res.string.conflict_resolver_card_not_here, sideName(side, file)))
 
                 absent -> Muted(stringResource(Res.string.conflict_resolver_card_gone, sideName(side, file)))
-                version != null ->
-                    VersionBody(file, version, stage, image, kept = content == ConflictContent.Deleted, actions)
+                version != null -> VersionBody(
+                    file,
+                    version,
+                    stage,
+                    image,
+                    kept = content == ConflictContent.Deleted,
+                    downloads,
+                    actions,
+                )
             }
         }
 
@@ -366,7 +399,12 @@ private fun PickFooter(
 
 /** The base's card, shown with the toolbar's Base: it can't be picked. */
 @Composable
-private fun BaseCard(file: ConflictedFile, actions: ResolverActions, modifier: Modifier) {
+private fun BaseCard(
+    file: ConflictedFile,
+    downloads: Map<String, LfsDownload>,
+    actions: ResolverActions,
+    modifier: Modifier,
+) {
     val version = file.preview?.base ?: return
     val image by decodedImage(version.image())
 
@@ -384,7 +422,7 @@ private fun BaseCard(file: ConflictedFile, actions: ResolverActions, modifier: M
 
         (file.content as? ConflictContent.Renamed)?.let { Mono(it.file.original) }
 
-        VersionBody(file, version, file.base, image, kept = false, actions)
+        VersionBody(file, version, file.base, image, kept = false, downloads, actions)
     }
 }
 
@@ -489,6 +527,7 @@ private fun VersionBody(
     image: DecodedImage,
     /** The version that a side kept, where the other deleted the file: its diff against the base. */
     kept: Boolean,
+    downloads: Map<String, LfsDownload>,
     actions: ResolverActions,
 ) {
     val changes = file.preview?.kept
@@ -553,7 +592,7 @@ private fun VersionBody(
             )
 
             when {
-                !version.downloaded -> Muted(stringResource(Res.string.conflict_resolver_card_lfs_missing))
+                !version.downloaded -> LfsDownloadRow(version.obj, downloads[version.obj.oid], actions)
                 version.image != null -> {
                     ImagePreview(image)
                     OpenLink(stage, actions)
@@ -648,12 +687,73 @@ private fun OpenLink(stage: ConflictStage?, actions: ResolverActions) {
         return
     }
 
-    Text(
-        text = stringResource(Res.string.conflict_resolver_card_open),
-        style = MaterialTheme.typography.body2,
-        color = MaterialTheme.colors.primaryVariant,
-        modifier = Modifier.handMouseClickable { actions.onOpenVersion(stage) },
-    )
+    CardLink(stringResource(Res.string.conflict_resolver_card_open)) { actions.onOpenVersion(stage) }
+}
+
+/**
+ * A Git LFS object that isn't in the repository's LFS store: Download with its size; while it downloads, how much
+ * arrived, and Cancel; after a failure, why, and Try again. Once downloaded, the card shows the object.
+ */
+@Composable
+private fun LfsDownloadRow(obj: LfsObject, download: LfsDownload?, actions: ResolverActions) {
+    when (download) {
+        null -> {
+            Muted(stringResource(Res.string.conflict_resolver_card_lfs_missing))
+            CardLink(
+                text = stringResource(Res.string.conflict_resolver_card_lfs_download, formatFileSize(obj.size)),
+                icon = Res.drawable.download,
+            ) {
+                actions.onDownloadLfs(obj)
+            }
+        }
+
+        is LfsDownload.Running -> {
+            Muted(
+                stringResource(
+                    Res.string.conflict_resolver_card_lfs_downloading,
+                    formatFileSize(download.received),
+                    formatFileSize(obj.size),
+                )
+            )
+            LinearProgressIndicator(
+                progress = if (obj.size > 0) (download.received.toFloat() / obj.size).coerceIn(0f, 1f) else 0f,
+                color = MaterialTheme.colors.primary,
+                backgroundColor = MaterialTheme.colors.onBackground.copy(alpha = 0.1f),
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(2.dp)),
+            )
+            CardLink(stringResource(Res.string.conflict_resolver_card_lfs_cancel)) { actions.onCancelLfsDownload(obj) }
+        }
+
+        is LfsDownload.Failed -> {
+            Text(
+                text = download.error.getErrorText(),
+                style = MaterialTheme.typography.body2,
+                color = MaterialTheme.colors.error,
+            )
+            CardLink(stringResource(Res.string.conflict_resolver_card_lfs_retry)) { actions.onDownloadLfs(obj) }
+        }
+    }
+}
+
+/** A link inside a card, which takes its own clicks: the card's would pick it. */
+@Composable
+private fun CardLink(text: String, icon: DrawableResource? = null, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.handMouseClickable(onClick = onClick),
+    ) {
+        if (icon != null) {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = null,
+                tint = MaterialTheme.colors.primaryVariant,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+
+        Text(text = text, style = MaterialTheme.typography.body2, color = MaterialTheme.colors.primaryVariant)
+    }
 }
 
 /** What the kind of conflict adds under the cards: an edited working file, how a submodule's commits relate. */

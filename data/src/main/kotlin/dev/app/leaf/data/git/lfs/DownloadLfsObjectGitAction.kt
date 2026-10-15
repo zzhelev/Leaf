@@ -29,13 +29,14 @@ class DownloadLfsObjectGitAction @Inject constructor(
     /**
      * Downloads [lfsObject] to a temporary file next to its place in `lfs/objects`, and moves it there once its size
      * and SHA-256 match [oid] (fork-only). Anything in that place counts as the object: a download that broke off used
-     * to stay there, truncated, and the next one appended to it.
+     * to stay there, truncated, and the next one appended to it. [onProgress] gets the bytes received so far.
      */
     override suspend operator fun invoke(
         repository: Repository,
         lfsServer: LfsServer,
         lfsObject: LfsObject,
         oid: AnyLongObjectId,
+        onProgress: (Long) -> Unit,
     ): Either<Unit, LfsError> {
         val downloadUrl = lfsObject.actions?.download?.href ?: return Either.Ok(Unit)
         val headers = lfsObject.actions?.download?.header.orEmpty()
@@ -54,6 +55,7 @@ class DownloadLfsObjectGitAction @Inject constructor(
                     username = null,
                     password = null,
                     sslVerify = sslVerify,
+                    onProgress = onProgress,
                 )
             } else {
                 provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
@@ -64,6 +66,7 @@ class DownloadLfsObjectGitAction @Inject constructor(
                         username = user,
                         password = password,
                         sslVerify = sslVerify,
+                        onProgress = onProgress,
                     )
                 }
             }

@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.CommitSummary
 import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictPreview
 import dev.app.leaf.domain.models.KeptChanges
+import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.PreviewImage
 import dev.app.leaf.domain.models.PreviewLine
 import dev.app.leaf.domain.models.PreviewLineType
@@ -108,21 +109,8 @@ private class VersionReader(
         false
     }
 
-    private fun lfs(entry: DirCacheEntry): VersionPreview.Lfs? {
-        val obj = reader.lfsPointer(entry) ?: return null
-        val media = Lfs(repository).getMediaFile(LongObjectId.fromString(obj.oid))
-        val downloaded = Files.isRegularFile(media) && Files.size(media) == obj.size
-
-        return VersionPreview.Lfs(
-            obj = obj,
-            downloaded = downloaded,
-            image = if (downloaded && image && obj.size <= MAX_PREVIEW_IMAGE_SIZE) {
-                PreviewImage(Files.readAllBytes(media))
-            } else {
-                null
-            },
-        )
-    }
+    private fun lfs(entry: DirCacheEntry): VersionPreview.Lfs? =
+        reader.lfsPointer(entry)?.let { lfsVersion(repository, it, image) }
 
     private fun file(entry: DirCacheEntry): VersionPreview.File {
         val size = reader.getObjectSize(entry.objectId, Constants.OBJ_BLOB)
@@ -137,6 +125,25 @@ private class VersionReader(
             },
         )
     }
+}
+
+/**
+ * A Git LFS pointer to [obj], as its card shows it: whether the object is in the repository's LFS store with the
+ * pointer's size, and its bytes when it's an [image] small enough to show.
+ */
+internal fun lfsVersion(repository: Repository, obj: LfsObject, image: Boolean): VersionPreview.Lfs {
+    val media = Lfs(repository).getMediaFile(LongObjectId.fromString(obj.oid))
+    val downloaded = Files.isRegularFile(media) && Files.size(media) == obj.size
+
+    return VersionPreview.Lfs(
+        obj = obj,
+        downloaded = downloaded,
+        image = if (downloaded && image && obj.size <= MAX_PREVIEW_IMAGE_SIZE) {
+            PreviewImage(Files.readAllBytes(media))
+        } else {
+            null
+        },
+    )
 }
 
 /** The lines of a blob, as an editor counts them: a last line without a line ending counts too. */

@@ -43,6 +43,7 @@ interface LfsRepository {
         sslVerify: Boolean,
     ): Either<Unit, LfsError>
 
+    /** [onProgress] gets the bytes written to [outPath] so far (fork-only). */
     suspend fun downloadObject(
         downloadUrl: String,
         outPath: Path,
@@ -50,6 +51,7 @@ interface LfsRepository {
         username: String?,
         password: String?,
         sslVerify: Boolean,
+        onProgress: (Long) -> Unit = {},
     ): Either<Unit, LfsError>
 
     suspend fun getLfsObjects(

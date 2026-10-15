@@ -7,6 +7,7 @@ import dev.app.leaf.data.git.remotes.GetRemotesGitAction
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.extensions.isHttpOrHttps
 import dev.app.leaf.domain.interfaces.IGetCurrentBranchGitAction
+import dev.app.leaf.domain.interfaces.IGetLfsUrlGitAction
 import dev.app.leaf.domain.interfaces.IGetRemotesGitAction
 import dev.app.leaf.domain.interfaces.IGetTrackingBranchGitAction
 import dev.app.leaf.domain.lfs.LfsServer
@@ -23,12 +24,12 @@ class GetLfsUrlGitAction @Inject constructor(
     private val getTrackingBranchGitAction: GetTrackingBranchGitAction,
     private val getCurrentBranchGitAction: GetCurrentBranchGitAction,
     private val getRemotesGitAction: GetRemotesGitAction,
-) {
+) : IGetLfsUrlGitAction {
     /**
      * The LFS server for the remote [remoteName], or for the current branch's remote: the one `.lfsconfig` sets, or
      * else the one at the remote's URL.
      */
-    suspend operator fun invoke(repository: Repository, remoteName: String?): LfsServer? {
+    override suspend operator fun invoke(repository: Repository, remoteName: String?): LfsServer? {
         val git = Git(repository)
         // TODO This only gets the URL from considering happy path config
         val configFile = File(repository.workTree, ".lfsconfig")

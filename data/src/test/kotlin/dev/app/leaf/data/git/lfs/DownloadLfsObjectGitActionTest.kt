@@ -78,6 +78,16 @@ class DownloadLfsObjectGitActionTest {
     }
 
     @Test
+    fun `a download tells how many bytes arrived, as they arrive`(): Unit = runBlocking {
+        val progress = mutableListOf<Long>()
+
+        assertEquals(Either.Ok(Unit), download { progress += it })
+
+        assertEquals(progress.sorted(), progress)
+        assertEquals(content.size.toLong(), progress.last())
+    }
+
+    @Test
     fun `a download that breaks off leaves nothing, and the next one starts over`(): Unit = runBlocking {
         server.dropDownloadsAfter = content.size / 2
 
@@ -138,7 +148,7 @@ class DownloadLfsObjectGitActionTest {
         assertEquals(listOf(oid.name()), filesNextToObject())
     }
 
-    private suspend fun download(): Either<Unit, LfsError> {
+    private suspend fun download(onProgress: (Long) -> Unit = {}): Either<Unit, LfsError> {
         val action = DownloadLfsObjectGitAction(
             NetworkLfsRepository(LfsNetworkDataSource(createHttpClient())),
             ProvideLfsCredentialsGitAction(
@@ -159,7 +169,7 @@ class DownloadLfsObjectGitActionTest {
             actions = Actions(download = RemoteObjectAccessInfo("${server.url}/objects/${oid.name()}")),
         )
 
-        return action(git.repository, LfsServer(server.url, null), lfsObject, oid)
+        return action(git.repository, LfsServer(server.url, null), lfsObject, oid, onProgress)
     }
 
     private fun filesNextToObject(): List<String> = mediaFile.parentFile.list().orEmpty().sorted()

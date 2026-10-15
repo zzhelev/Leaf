@@ -52,6 +52,9 @@ data class CloneSubmodulesError(val directory: String, val error: GitError) : Gi
 /** git-lfs couldn't download the LFS files of what was pulled or cloned, as [error] says. Nothing was checked out. */
 data class LfsDownloadError(val error: GitError) : GitError
 
+/** Leaf's built-in LFS client couldn't download one LFS object, as [error] says. */
+data class LfsObjectDownloadError(val error: LfsError) : GitError
+
 /** A ref that the remote refused: `!  <source>:<destination>  [rejected] (<reason>)` in `git push --porcelain`. */
 data class RejectedRef(val destination: String, val reason: RejectReason, val detail: String)
 

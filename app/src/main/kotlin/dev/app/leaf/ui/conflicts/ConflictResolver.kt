@@ -83,6 +83,7 @@ import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.ConflictStage
 import dev.app.leaf.domain.models.ConflictedFile
+import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.WorkingFileState
@@ -162,6 +163,8 @@ fun ConflictResolver(viewModel: ConflictResolverViewModel) {
             onPick = viewModel::pick,
             onPickBothNames = viewModel::pickBothNames,
             onOpenVersion = viewModel::openVersion,
+            onDownloadLfs = viewModel::downloadLfsObject,
+            onCancelLfsDownload = viewModel::cancelLfsDownload,
             onAnswerUnsaved = viewModel::answerUnsavedChanges,
             onReload = viewModel::reload,
             onDismissPrompt = viewModel::dismissPrompt,
@@ -282,6 +285,10 @@ class ResolverActions(
     val onPickBothNames: () -> Unit = {},
     /** "Open in the default app" on a card: that version, a stage of the index. */
     val onOpenVersion: (ConflictStage) -> Unit = {},
+    /** Download on a card whose Git LFS object isn't downloaded, or Try again after it failed. */
+    val onDownloadLfs: (LfsObject) -> Unit = {},
+    /** Cancel on a card whose Git LFS object is being downloaded. */
+    val onCancelLfsDownload: (LfsObject) -> Unit = {},
 )
 
 /** The resolver as [state] shows it, without its view model, so that tests can render it. */
@@ -388,7 +395,8 @@ private fun FileView(
 
         state.file is ResolverFile.Failed -> Message(state.file.error.getErrorText())
         file == null -> Message(stringResource(Res.string.conflict_resolver_nothing))
-        file.file.hasChoiceCards -> ChoiceCards(file.file, file.pick, state.showBase, paused, actions)
+        file.file.hasChoiceCards ->
+            ChoiceCards(file.file, file.pick, state.showBase, paused, state.lfsDownloads, actions)
         merge == null -> NoMarkersPanel(file.file.path, actions)
         else -> Column {
             if (file.workingFileState == WorkingFileState.DIFFERENT) {

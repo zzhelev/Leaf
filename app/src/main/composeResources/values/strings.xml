@@ -984,7 +984,11 @@
     <string name="conflict_resolver_card_link_resolves">Points to something that exists</string>
     <string name="conflict_resolver_card_link_missing">Points to nothing</string>
     <string name="conflict_resolver_card_lfs_object">Object %1$s…</string>
-    <string name="conflict_resolver_card_lfs_missing">Not downloaded, so it can't be shown</string>
+    <string name="conflict_resolver_card_lfs_missing">Not downloaded yet</string>
+    <string name="conflict_resolver_card_lfs_download">Download %1$s</string>
+    <string name="conflict_resolver_card_lfs_downloading">Downloading… %1$s of %2$s</string>
+    <string name="conflict_resolver_card_lfs_cancel">Cancel</string>
+    <string name="conflict_resolver_card_lfs_retry">Try again</string>
     <string name="conflict_resolver_card_commit_missing">Not in the submodule's repository</string>
     <string name="conflict_resolver_card_author">%1$s · %2$s</string>
     <string name="conflict_resolver_card_open">Open in the default app</string>
@@ -1003,6 +1007,14 @@
 
     <string name="error_fetch_remote_failed">Couldn't fetch %1$s.</string>
     <string name="error_lfs_download_failed">git-lfs couldn't download the LFS files, so nothing was checked out.</string>
+    <string name="error_lfs_object_no_server">Couldn't download the LFS object: no LFS server was found. Leaf looks for lfs.url in .lfsconfig, then for the current branch's remote, then for origin.</string>
+    <string name="error_lfs_object_http">Couldn't download the LFS object: the LFS server answered %1$s.</string>
+    <string name="error_lfs_object_refused">Couldn't download the LFS object: the LFS server answered %1$s.</string>
+    <string name="error_lfs_object_no_download">Couldn't download the LFS object: the LFS server didn't offer a download.</string>
+    <string name="error_lfs_object_wrong_size">Couldn't download the LFS object: %1$s arrived instead of %2$s, so it wasn't kept.</string>
+    <string name="error_lfs_object_wrong_content">Couldn't download the LFS object: what arrived has another SHA-256 than the pointer's, so it wasn't kept.</string>
+    <string name="error_lfs_object_request_failed">Couldn't download the LFS object: %1$s</string>
+    <string name="error_lfs_object_credentials_denied">Couldn't download the LFS object: the LFS server's credentials weren't given.</string>
     <string name="error_clone_submodules_failed">The repository was cloned into %1$s, but not all of its submodules. Open it to try them again from the Submodules section of the side panel.</string>
     <string name="error_remote_refs_rejected">The remote refused the push:</string>
     <string name="error_remote_ref_fetch_first">%1$s: the remote has commits that you don't have yet. Pull, then push again.</string>

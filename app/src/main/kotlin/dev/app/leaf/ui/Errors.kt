@@ -45,6 +45,14 @@ import dev.app.leaf.app.generated.resources.error_gpg_signing_start_failed
 import dev.app.leaf.app.generated.resources.error_gpg_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_hook_rejection
 import dev.app.leaf.app.generated.resources.error_lfs_download_failed
+import dev.app.leaf.app.generated.resources.error_lfs_object_credentials_denied
+import dev.app.leaf.app.generated.resources.error_lfs_object_http
+import dev.app.leaf.app.generated.resources.error_lfs_object_no_download
+import dev.app.leaf.app.generated.resources.error_lfs_object_no_server
+import dev.app.leaf.app.generated.resources.error_lfs_object_refused
+import dev.app.leaf.app.generated.resources.error_lfs_object_request_failed
+import dev.app.leaf.app.generated.resources.error_lfs_object_wrong_content
+import dev.app.leaf.app.generated.resources.error_lfs_object_wrong_size
 import dev.app.leaf.app.generated.resources.error_open_repository_dir_not_found
 import dev.app.leaf.app.generated.resources.error_open_repository_path_is_not_dir
 import dev.app.leaf.app.generated.resources.error_open_repository_repo_not_found
@@ -83,6 +91,7 @@ import dev.app.leaf.app.generated.resources.error_stale_hunk_discard
 import dev.app.leaf.app.generated.resources.error_stale_hunk_stage
 import dev.app.leaf.app.generated.resources.error_stale_hunk_unstage
 import dev.app.leaf.app.generated.resources.error_stash_no_data
+import dev.app.leaf.domain.conflicts.formatFileSize
 import dev.app.leaf.domain.errors.*
 import dev.app.leaf.domain.models.MergeToolRefusal
 import dev.app.leaf.domain.models.WorktreeBranchUse
@@ -238,6 +247,7 @@ fun AppError.getErrorText(): String {
             error.getErrorText()
 
         is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
+        is LfsObjectDownloadError -> error.getLfsObjectErrorText()
 
         is StaleHunkError -> {
             val explanation = when (action) {
@@ -298,6 +308,31 @@ fun AppError.getErrorText(): String {
             is SshSigningError.SigningFailed -> stringResource(Res.string.error_ssh_signing_failed, this.program, this.output)
         }
     }
+}
+
+/** Why the built-in LFS client couldn't download an object (fork-only). */
+@Composable
+private fun LfsError.getLfsObjectErrorText(): String = when (this) {
+    LfsError.NoServer -> stringResource(Res.string.error_lfs_object_no_server)
+    is LfsError.HttpError -> stringResource(Res.string.error_lfs_object_http, code.toString())
+    is LfsError.ObjectRefused -> stringResource(
+        Res.string.error_lfs_object_refused,
+        listOfNotNull(code, message.ifBlank { null }).joinToString(" "),
+    )
+
+    LfsError.NoDownloadOffered -> stringResource(Res.string.error_lfs_object_no_download)
+    is LfsError.CorruptDownload -> if (receivedSize != expectedSize) {
+        stringResource(
+            Res.string.error_lfs_object_wrong_size,
+            formatFileSize(receivedSize),
+            formatFileSize(expectedSize),
+        )
+    } else {
+        stringResource(Res.string.error_lfs_object_wrong_content)
+    }
+
+    is LfsError.RequestFailed -> stringResource(Res.string.error_lfs_object_request_failed, message)
+    LfsError.CredentialsDenied -> stringResource(Res.string.error_lfs_object_credentials_denied)
 }
 
 /** The explanation, then what git printed, which often has the server's own message. */

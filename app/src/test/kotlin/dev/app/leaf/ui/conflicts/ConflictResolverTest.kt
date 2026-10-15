@@ -34,6 +34,8 @@ import dev.app.leaf.domain.conflicts.resolving
 import dev.app.leaf.domain.conflicts.ChangedWords
 import dev.app.leaf.domain.conflicts.editStart
 import dev.app.leaf.domain.conflicts.typing
+import dev.app.leaf.domain.errors.LfsError
+import dev.app.leaf.domain.errors.LfsObjectDownloadError
 import dev.app.leaf.domain.models.ChangedBy
 import dev.app.leaf.domain.models.CommitRelation
 import dev.app.leaf.domain.models.CommitSummary
@@ -69,6 +71,7 @@ import dev.app.leaf.domain.models.WorkingFileState
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.viewmodels.ChoicePick
 import dev.app.leaf.viewmodels.ConflictResolverState
+import dev.app.leaf.viewmodels.LfsDownload
 import dev.app.leaf.viewmodels.ResolverFile
 import dev.app.leaf.viewmodels.ResolverFileEntry
 import dev.app.leaf.viewmodels.ResolverHandOff
@@ -552,7 +555,99 @@ class ConflictResolverTest {
         assertTrue("LFS · 4 KB" in texts && "LFS · 5 KB" in texts, "$texts")
         assertTrue("Object aaaaaaaaaaaa…" in texts && "Object bbbbbbbbbbbb…" in texts, "$texts")
         assertEquals(1, texts.count { it == "Open in the default app" }, "$texts")
-        assertTrue("Not downloaded, so it can't be shown" in texts, "$texts")
+        assertTrue("Not downloaded yet" in texts && "Download 5 KB" in texts, "$texts")
+    }
+
+    @Test
+    fun `an LFS object that isn't downloaded has Download on its card, which doesn't pick the card`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val downloads = mutableListOf<LfsObject>()
+            val picked = mutableListOf<ConflictSide>()
+
+            val actions = actions(onPick = { picked += it }, onDownloadLfs = { downloads += it })
+
+            val texts = render(lfsChoice(), actions, clickText = "Download 5 KB").texts
+
+            assertEquals(listOf(lfsTheirs), downloads)
+            assertEquals(emptyList<ConflictSide>(), picked)
+            assertEquals(1, texts.count { it == "Download 5 KB" }, "$texts")
+        }
+
+    @Test
+    fun `the base's object has Download on the base's card too`(): Unit = runBlocking(Dispatchers.Swing) {
+        val downloads = mutableListOf<LfsObject>()
+        val state = lfsChoice(showBase = true)
+
+        render(state, actions(onDownloadLfs = { downloads += it }), clickText = "Download 3 KB")
+
+        assertEquals(listOf(lfsBase), downloads)
+    }
+
+    @Test
+    fun `a download shows how much arrived, and Cancel stops it`(): Unit = runBlocking(Dispatchers.Swing) {
+        val cancelled = mutableListOf<LfsObject>()
+        val state = lfsChoice().copy(lfsDownloads = mapOf(lfsTheirs.oid to LfsDownload.Running(received = 2 * 1024)))
+
+        val scene = ImageComposeScene(width = 1400, height = 600, density = Density(1f)) {
+            AppTheme {
+                ConflictResolverContent(state, ResolverLists(), actions(onCancelLfsDownload = { cancelled += it }))
+            }
+        }
+
+        scene.closing {
+            it.render()
+
+            assertTrue("Downloading… 2 KB of 5 KB" in it.texts(), "${it.texts()}")
+            assertTrue("Download 5 KB" !in it.texts() && "Not downloaded yet" !in it.texts(), "${it.texts()}")
+            val progress = it.nodes().mapNotNull { node ->
+                node.config.getOrNull(SemanticsProperties.ProgressBarRangeInfo)?.current
+            }
+
+            assertEquals(listOf(0.4f), progress)
+
+            it.clickOwnText("Cancel")
+        }
+
+        assertEquals(listOf(lfsTheirs), cancelled)
+    }
+
+    @Test
+    fun `a download that failed says why on the card, and Try again downloads again`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val downloads = mutableListOf<LfsObject>()
+            val refused = LfsObjectDownloadError(LfsError.ObjectRefused(404, "Object does not exist"))
+            val failed = LfsDownload.Failed(refused)
+            val state = lfsChoice().copy(lfsDownloads = mapOf(lfsTheirs.oid to failed))
+
+            val texts = render(state, actions(onDownloadLfs = { downloads += it }), clickText = "Try again").texts
+
+            assertTrue(
+                "Couldn't download the LFS object: the LFS server answered 404 Object does not exist." in texts,
+                "$texts",
+            )
+            assertEquals(listOf(lfsTheirs), downloads)
+        }
+
+    @Test
+    fun `a downloaded LFS image shows on its card, with its size in pixels`(): Unit = runBlocking(Dispatchers.Swing) {
+        val png = ByteArrayOutputStream()
+            .also { ImageIO.write(BufferedImage(4, 2, BufferedImage.TYPE_INT_RGB), "png", it) }
+            .toByteArray()
+        val state = lfsChoice(theirs = VersionPreview.Lfs(lfsTheirs, downloaded = true, image = PreviewImage(png)))
+
+        scene(ResolverLists()) { state }.closing { scene ->
+            // Decoded off the UI thread
+            repeat(100) {
+                if (scene.texts().none { it == "PNG · 4 × 2 · 5 KB" }) {
+                    scene.frames(1)
+                    delay(10)
+                }
+            }
+
+            assertTrue("PNG · 4 × 2 · 5 KB" in scene.texts(), "${scene.texts()}")
+            assertEquals(2, scene.texts().count { it == "Open in the default app" }, "${scene.texts()}")
+            assertTrue(scene.texts().none { it.startsWith("Download") }, "${scene.texts()}")
+        }
     }
 
     @Test
@@ -588,9 +683,11 @@ class ConflictResolverTest {
             ) { it.copy(path = "assets/logo.png") }
 
             scene(ResolverLists(), actions = actions(onOpenVersion = { opened += it })) { state }.closing { scene ->
-                // Decoded off the UI thread
+                // Decoded off the UI thread, each image on its own
                 repeat(100) {
-                    if (scene.texts().none { it == "PNG · 2 × 3 · ${png.size} B" }) {
+                    val texts = scene.texts()
+
+                    if (texts.none { it == "PNG · 2 × 3 · ${png.size} B" } || "Can't show this image" !in texts) {
                         scene.frames(1)
                         delay(10)
                     }
@@ -1656,6 +1753,8 @@ class ConflictResolverTest {
         onPick: (ConflictSide) -> Unit = {},
         onPickBothNames: () -> Unit = {},
         onOpenVersion: (ConflictStage) -> Unit = {},
+        onDownloadLfs: (LfsObject) -> Unit = {},
+        onCancelLfsDownload: (LfsObject) -> Unit = {},
         onAnswerUnsaved: (Boolean?) -> Unit = {},
         onSetLayout: (ConflictResolverLayout) -> Unit = {},
         onStackedSplitChanged: (Float) -> Unit = {},
@@ -1694,7 +1793,27 @@ class ConflictResolverTest {
         onPick = onPick,
         onPickBothNames = onPickBothNames,
         onOpenVersion = onOpenVersion,
+        onDownloadLfs = onDownloadLfs,
+        onCancelLfsDownload = onCancelLfsDownload,
     )
+
+    private val lfsOurs = LfsObject("a".repeat(64), 4 * 1024)
+    private val lfsTheirs = LfsObject("b".repeat(64), 5 * 1024)
+    private val lfsBase = LfsObject("c".repeat(64), 3 * 1024)
+
+    /** An LFS image whose ours is downloaded, and [theirs] and the base aren't. */
+    private fun lfsChoice(
+        theirs: VersionPreview.Lfs = VersionPreview.Lfs(lfsTheirs, downloaded = false),
+        showBase: Boolean = false,
+    ) = choice(
+        ConflictContent.Lfs(lfsOurs, lfsTheirs),
+        ConflictPreview(
+            base = VersionPreview.Lfs(lfsBase, downloaded = false),
+            ours = VersionPreview.Lfs(lfsOurs, downloaded = true),
+            theirs = theirs,
+        ),
+        showBase = showBase,
+    ) { it.copy(path = "assets/logo.png") }
 
     /** [state]'s file as a conflict that three panes can't show, with [preview], [pick] and the base [showBase]. */
     private fun choice(

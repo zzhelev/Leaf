@@ -13,5 +13,6 @@ interface IDownloadLfsObjectGitAction {
         lfsServer: LfsServer,
         lfsObject: LfsObject,
         oid: AnyLongObjectId,
+        onProgress: (Long) -> Unit = {},
     ): Either<Unit, LfsError>
 }

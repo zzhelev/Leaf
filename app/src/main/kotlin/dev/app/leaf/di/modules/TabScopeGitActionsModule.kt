@@ -19,6 +19,7 @@ import dev.app.leaf.data.git.config.SaveLocalRepositoryConfigGitAction
 import dev.app.leaf.data.git.conflicts.GetConflictSidesGitAction
 import dev.app.leaf.data.git.conflicts.GetConflictedFileGitAction
 import dev.app.leaf.data.git.conflicts.WriteConflictVersionGitAction
+import dev.app.leaf.data.git.conflicts.DownloadLfsVersionGitAction
 import dev.app.leaf.data.git.conflicts.GetRenamedFilesGitAction
 import dev.app.leaf.data.git.conflicts.ResolveRenamedFileGitAction
 import dev.app.leaf.data.git.conflicts.GetMergeToolGitAction
@@ -44,6 +45,7 @@ import dev.app.leaf.data.git.workspace.*
 import dev.app.leaf.data.log.GetFileCommitsAction
 import dev.app.leaf.domain.GraphRevWalker
 import dev.app.leaf.domain.interfaces.*
+import dev.app.leaf.lfs.GetLfsUrlGitAction
 import dagger.Binds
 import dagger.Module
 
@@ -504,6 +506,14 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsWriteConflictVersionGitAction(action: WriteConflictVersionGitAction): IWriteConflictVersionGitAction
+
+    @Binds
+    @TabScope
+    fun bindsDownloadLfsVersionGitAction(action: DownloadLfsVersionGitAction): IDownloadLfsVersionGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetLfsUrlGitAction(action: GetLfsUrlGitAction): IGetLfsUrlGitAction
 
     @Binds
     @TabScope

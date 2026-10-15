@@ -16,16 +16,18 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.util.cio.*
 import io.ktor.utils.io.*
-import io.ktor.utils.io.jvm.javaio.copyTo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import javax.inject.Inject
 import kotlin.collections.iterator
 
 private const val DEFAULT_ACCEPT_TYPE = "application/vnd.git-lfs+json"
+
+private const val DOWNLOAD_BUFFER_SIZE = 64 * 1024
 
 class LfsNetworkDataSource @Inject constructor(
     private val client: HttpClient,
@@ -115,6 +117,7 @@ class LfsNetworkDataSource @Inject constructor(
         username: String?,
         password: String?,
         sslVerify: Boolean,
+        onProgress: (Long) -> Unit,
     ): Either<Unit, LfsError> {
         // Streamed to the file (fork-only): get() reads the whole body into memory first
         return client(sslVerify).prepareGet(downloadUrl) {
@@ -130,10 +133,28 @@ class LfsNetworkDataSource @Inject constructor(
                 Files.createDirectories(outPath.parent)
 
                 // Replaces what an earlier attempt wrote, which appending kept
-                Files.newOutputStream(outPath).use { output -> channel.copyTo(output) }
+                Files.newOutputStream(outPath).use { output -> channel.copyTo(output, onProgress) }
             }
 
             Either.Ok(Unit)
+        }
+    }
+
+    /** Copies the body to [output], telling [onProgress] how many bytes it wrote so far (fork-only). */
+    private suspend fun ByteReadChannel.copyTo(output: OutputStream, onProgress: (Long) -> Unit) {
+        val buffer = ByteArray(DOWNLOAD_BUFFER_SIZE)
+        var written = 0L
+
+        while (true) {
+            val read = readAvailable(buffer, 0, buffer.size)
+
+            if (read < 0) {
+                break
+            }
+
+            output.write(buffer, 0, read)
+            written += read
+            onProgress(written)
         }
     }
 

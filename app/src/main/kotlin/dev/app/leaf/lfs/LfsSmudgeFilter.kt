@@ -1,15 +1,7 @@
 package dev.app.leaf.lfs
 
-import dev.app.leaf.data.git.lfs.AuthenticateLfsServerWithSshGitAction
-import dev.app.leaf.data.git.lfs.DownloadLfsObjectGitAction
-import dev.app.leaf.data.git.lfs.GetLfsObjectsGitAction
+import dev.app.leaf.data.git.lfs.FetchLfsObjectGitAction
 import dev.app.leaf.domain.errors.Either
-import dev.app.leaf.domain.errors.LfsError
-import dev.app.leaf.domain.extensions.isHttpOrHttps
-import dev.app.leaf.domain.lfs.LfsObjectBatch
-import dev.app.leaf.domain.lfs.LfsObjects
-import dev.app.leaf.domain.lfs.LfsServer
-import dev.app.leaf.domain.models.OperationType
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -37,9 +29,7 @@ class LfsSmudgeFilter @AssistedInject constructor(
     @Assisted input: InputStream,
     @Assisted output: OutputStream,
     private val getLfsUrlGitAction: GetLfsUrlGitAction,
-    private val getLfsObjectsGitAction: GetLfsObjectsGitAction,
-    private val authenticateLfsServerWithSshGitAction: AuthenticateLfsServerWithSshGitAction,
-    private val downloadLfsObjectGitAction: DownloadLfsObjectGitAction,
+    private val fetchLfsObjectGitAction: FetchLfsObjectGitAction,
 ) : FilterCommand(
     if (input.markSupported()) input else BufferedInputStream(input),
     output,
@@ -71,66 +61,14 @@ class LfsSmudgeFilter @AssistedInject constructor(
         repository: Repository,
         lfsPointer: LfsPointer,
     ) = runBlocking {
-
         val lfsServer = getLfsUrlGitAction(repository, null) ?: throw Exception("LFS Url not found")
-        val isHttpUrl = lfsServer.url.isHttpOrHttps()
 
-        val lfsObjectBatches = listOf(LfsObjectBatch(lfsPointer.oid.name(), lfsPointer.size))
+        // The choice cards of a conflict download with the same code (fork-only). Its failure used to be dropped, and
+        // the checkout then read whatever the download left
+        val download = fetchLfsObjectGitAction(repository, lfsServer, lfsPointer.oid, lfsPointer.size)
 
-        val lfsObjects: Either<LfsObjects, LfsError>
-        val finalServer: LfsServer
-
-        if (isHttpUrl) {
-            finalServer = lfsServer
-            lfsObjects = getLfsObjectsGitAction(
-                repository,
-                lfsServer,
-                operationType = OperationType.DOWNLOAD,
-                lfsObjectBatches = lfsObjectBatches,
-                branch = repository.fullBranch,
-                headers = emptyMap(),
-            )
-        } else {
-            val lfsServerInfo = authenticateLfsServerWithSshGitAction(
-                repository = repository,
-                lfsServerUrl = lfsServer.url,
-                operationType = OperationType.DOWNLOAD
-            )
-
-            finalServer = LfsServer(lfsServerInfo.href, lfsServer.remoteUrl)
-
-            lfsObjects = getLfsObjectsGitAction(
-                repository,
-                finalServer,
-                operationType = OperationType.DOWNLOAD,
-                lfsObjectBatches = lfsObjectBatches,
-                branch = repository.fullBranch,
-                headers = lfsServerInfo.header,
-            )
-        }
-
-        when (lfsObjects) {
-            is Either.Err -> throw LfsException("Gettings LFS objects failed with error: ${lfsObjects.error}")
-            is Either.Ok -> {
-
-                val lfsObject = lfsObjects.value.objects.firstOrNull() // There should be only one LFS object
-
-                if (lfsObject != null) {
-                    val download = downloadLfsObjectGitAction(
-                        repository = repository,
-                        lfsServer = finalServer,
-                        lfsObject = lfsObject,
-                        lfsPointer.oid,
-                    )
-
-                    // Its failure used to be dropped, and the checkout then read whatever the download left (fork-only)
-                    if (download is Either.Err) {
-                        throw LfsException(
-                            "Downloading LFS object ${lfsPointer.oid.name()} failed with error: ${download.error}"
-                        )
-                    }
-                }
-            }
+        if (download is Either.Err) {
+            throw LfsException("Downloading LFS object ${lfsPointer.oid.name()} failed with error: ${download.error}")
         }
     }
 

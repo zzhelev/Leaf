@@ -22,6 +22,8 @@ import dev.app.leaf.domain.conflicts.withoutTyping
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.LfsError
+import dev.app.leaf.domain.errors.LfsObjectDownloadError
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.ConflictContent
 import dev.app.leaf.domain.models.ConflictResolution
@@ -29,14 +31,17 @@ import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.ConflictSide
 import dev.app.leaf.domain.models.ConflictStage
 import dev.app.leaf.domain.models.ConflictedFile
+import dev.app.leaf.domain.models.LfsObject
 import dev.app.leaf.domain.models.RenamedFile
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.TextMerge
+import dev.app.leaf.domain.models.VersionPreview
 import dev.app.leaf.domain.models.WorkingFileState
 import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.usecases.DownloadLfsVersionUseCase
 import dev.app.leaf.domain.usecases.GetConflictedFileUseCase
 import dev.app.leaf.domain.usecases.GetRenamedFilesUseCase
 import dev.app.leaf.domain.usecases.MarkConflictResolvedUseCase
@@ -52,7 +57,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -82,6 +89,7 @@ class ConflictResolverViewModel @Inject constructor(
     private val getRenamedFilesUseCase: GetRenamedFilesUseCase,
     private val openMergeToolUseCase: OpenMergeToolUseCase,
     private val openConflictVersionUseCase: OpenConflictVersionUseCase,
+    private val downloadLfsVersionUseCase: DownloadLfsVersionUseCase,
     private val appSettingsService: AppSettingsService,
     private val session: ConflictResolverSession,
 ) : TabViewModel() {
@@ -111,6 +119,9 @@ class ConflictResolverViewModel @Inject constructor(
 
     /** The file that the external merge tool has: it's loaded again once the status comes back with it conflicted. */
     private var inExternalTool: String? = null
+
+    /** The downloads of Git LFS objects that the cards started, by object id. */
+    private val lfsDownloadJobs = ConcurrentHashMap<String, Job>()
 
     /** The files that each side renamed differently, as the index had them at the last status. */
     private var renamed: List<RenamedFile> = emptyList()
@@ -629,6 +640,59 @@ class ConflictResolverViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Downloads [obj], the Git LFS object of a version of the file shown, which its card says isn't downloaded. The
+     * card shows the bytes received, then the version as it is once downloaded, or why it couldn't be. The download
+     * goes on when another file is opened, and every card of the object follows it.
+     */
+    fun downloadLfsObject(obj: LfsObject) {
+        val path = state.value.file.path ?: return
+
+        if (lfsDownloadJobs[obj.oid]?.isActive == true) {
+            return
+        }
+
+        setLfsDownload(obj.oid, LfsDownload.Running(received = 0))
+
+        lfsDownloadJobs[obj.oid] = viewModelScope.launch {
+            val result = downloadLfsVersionUseCase(path, obj) { received ->
+                // Not after Cancel, which took the download out
+                state.update { state ->
+                    if (state.lfsDownloads[obj.oid] is LfsDownload.Running) {
+                        state.copy(lfsDownloads = state.lfsDownloads + (obj.oid to LfsDownload.Running(received)))
+                    } else {
+                        state
+                    }
+                }
+            }
+
+            lfsDownloadJobs.remove(obj.oid, coroutineContext.job)
+
+            when (result) {
+                is Either.Ok -> {
+                    setLfsDownload(obj.oid, null)
+                    updateLoaded { file ->
+                        if (file.path == path) file.copy(file = file.file.withLfsVersion(result.value)) else file
+                    }
+                }
+
+                is Either.Err -> setLfsDownload(obj.oid, lfsDownloadFailure(result.error))
+            }
+        }
+    }
+
+    /** Stops the download of [obj]. What it received so far is deleted. */
+    fun cancelLfsDownload(obj: LfsObject) {
+        lfsDownloadJobs.remove(obj.oid)?.cancel()
+        setLfsDownload(obj.oid, null)
+    }
+
+    private fun setLfsDownload(oid: String, download: LfsDownload?) = state.update { state ->
+        val downloads = if (download == null) state.lfsDownloads - oid else state.lfsDownloads + (oid to download)
+
+        state.copy(lfsDownloads = downloads)
+    }
+
     /** Hands the file to the external merge tool. It's loaded again when the tool is done. */
     fun openInExternalTool() {
         val path = state.value.file.path?.takeUnless { paused } ?: return
@@ -933,7 +997,36 @@ data class ConflictResolverState(
     val edit: ResolverEdit? = null,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
+    /** The downloads of Git LFS objects that the cards started and that are running or failed, by object id. */
+    val lfsDownloads: Map<String, LfsDownload> = emptyMap(),
 )
+
+/** A Git LFS object's download from a choice card. One that ended well is gone, as the card shows the object. */
+sealed interface LfsDownload {
+    /** [received] bytes so far. */
+    data class Running(val received: Long) : LfsDownload
+
+    data class Failed(val error: AppError) : LfsDownload
+}
+
+/** What a card shows after a download failed: its Download again when the user closed the credentials dialog. */
+internal fun lfsDownloadFailure(error: AppError): LfsDownload? =
+    if ((error as? LfsObjectDownloadError)?.error == LfsError.CredentialsDenied) null else LfsDownload.Failed(error)
+
+/** The file, with each of its versions that point to [version]'s LFS object shown as [version], once downloaded. */
+internal fun ConflictedFile.withLfsVersion(version: VersionPreview.Lfs): ConflictedFile {
+    val preview = preview ?: return this
+
+    fun VersionPreview?.updated() = if (this is VersionPreview.Lfs && obj.oid == version.obj.oid) version else this
+
+    return copy(
+        preview = preview.copy(
+            base = preview.base.updated(),
+            ours = preview.ours.updated(),
+            theirs = preview.theirs.updated(),
+        ),
+    )
+}
 
 /** A file of the list. [renamedTo]: a file renamed differently on each side, listed under its old name. */
 data class ResolverFileEntry(
