@@ -1,7 +1,6 @@
 package dev.app.leaf.repositoryopen
 
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.lazy.LazyListState
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.merge_automatic_stash_description
@@ -57,6 +56,7 @@ import dev.app.leaf.updates.UpdatesRepository
 import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
+import dev.app.leaf.viewmodels.newLazyListState
 import dev.app.leaf.viewmodels.sidepanel.*
 import kotlinx.coroutines.CoroutineScope
 import dev.app.leaf.domain.rebase.withFirstStepPicked
@@ -464,7 +464,7 @@ class RepositoryOpenViewModel @Inject constructor(
             getSummaryFromStatusUseCase(status)
         }
 
-    private val verticalListState = MutableStateFlow(LazyListState(0, 0))
+    private val verticalListState = MutableStateFlow(newLazyListState())
     private val horizontalListState = MutableStateFlow(ScrollState(0))
 
 
@@ -1433,7 +1433,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 // keeps its scroll
                 if (diff.diffType != lazyListStateDiffType) {
                     lazyListStateDiffType = diff.diffType
-                    lazyListState.value = LazyListState(0, 0)
+                    lazyListState.value = newLazyListState()
                 }
             }
 
@@ -1448,12 +1448,8 @@ class RepositoryOpenViewModel @Inject constructor(
 
     private var diffJob: Job? = null
 
-    val lazyListState = MutableStateFlow(
-        LazyListState(
-            0,
-            0
-        )
-    )
+    // Fork-only: made through newLazyListState, as diffResult replaces it off the UI thread
+    val lazyListState = MutableStateFlow(newLazyListState())
 
     /** The diff that [lazyListState] scrolls. */
     private var lazyListStateDiffType: DiffType? = null

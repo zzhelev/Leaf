@@ -1,6 +1,5 @@
 package dev.app.leaf.viewmodels
 
-import androidx.compose.foundation.lazy.LazyListState
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
@@ -44,12 +43,8 @@ class HistoryViewModel @Inject constructor(
 
     var filePath: String = ""
 
-    val lazyListState = MutableStateFlow(
-        LazyListState(
-            0,
-            0
-        )
-    )
+    // Fork-only: made through newLazyListState, as selectCommit replaces it off the UI thread
+    val lazyListState = MutableStateFlow(newLazyListState())
 
 
     init {
@@ -135,7 +130,7 @@ class HistoryViewModel @Inject constructor(
                 // Fork-only: GetDiffUseCase turns a cancellation into DiffNotFound, which would blank the diff until the
                 // next commit's loads. And another commit's diff starts at its top, as in the diff pane
                 ensureActive()
-                lazyListState.value = LazyListState(0, 0)
+                lazyListState.value = newLazyListState()
                 _viewDiffResult.value = diffResult
             } catch (ex: Exception) {
                 if (ex is CancellationException) {
