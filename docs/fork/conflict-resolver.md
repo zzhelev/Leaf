@@ -551,15 +551,18 @@ B downloads the base even when its card is hidden, and C can open a credentials 
   dialog puts Download back. Once downloaded, the card shows the image, or "Open in the default app", and a side
   picked stays picked.
 - It downloads with Leaf's built-in LFS client, from the server that the checkout's built-in client uses (`lfs.url`,
-  then `remote.<name>.lfsurl`, then the remote's URL, for the current branch's remote or the only remote), then from
-  `origin`, as git-lfs does: a rebase's HEAD is detached. It checks the object's size and SHA-256 before it's moved
-  into the store. git-lfs has no command that fetches one object: `git lfs fetch` takes a commit, and a revert's or a
-  stash's side isn't on the remote.
+  then `remote.<name>.lfsurl`, then the remote's URL), for the remote that git-lfs picks: the current branch's
+  upstream remote, then `remote.lfsdefault`, then the only remote, then `origin`. A rebase's HEAD is detached, so it
+  has no upstream remote. It checks the object's size and SHA-256 before it's moved into the store. git-lfs has no
+  command that fetches one object: `git lfs fetch` takes a commit, and a revert's or a stash's side isn't on the
+  remote.
 - A download goes on when another file opens, and every card of that object follows it. The resolver's other work
   isn't blocked.
 - From 2026-10-15 the built-in client reads `lfs.url` and `remote.<name>.lfsurl` from git's config (`.git/config`,
   the user's, `includeIf` included) before `.lfsconfig`, as git-lfs does. Before, it read only `lfs.url` in
-  `.lfsconfig`.
+  `.lfsconfig`. Also from 2026-10-15, it takes `remote.lfsdefault` and `origin` itself, so the card asks it once,
+  where it used to ask again for `origin` or the only remote; and a remote's own server is `<url>.git/info/lfs`, as
+  git-lfs has it, where the card's `origin` got `<url>/info/lfs`.
 
 Built: the card in `A/ui/conflicts/ResolverChoiceCards.kt` (`LfsDownloadRow`), the downloads in
 `ConflictResolverViewModel` (`downloadLfsObject`, `ConflictResolverState.lfsDownloads`), and

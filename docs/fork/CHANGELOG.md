@@ -2,6 +2,45 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The built-in LFS client picks its server as git-lfs does, uploads too (branch `claude/amazing-lichterman-7bdace`)
+
+- **Before:** the lookup (`GetLfsUrlGitAction`) still differed from git-lfs 3.8 in the cases that the branch
+  `fix/lfs-url-git-config` left out:
+  - A remote asked by name got `<url>/info/lfs` (`https://host/org/repo/info/lfs`), where git-lfs, and Leaf's own
+    path for the only remote, use `<url>.git/info/lfs`. Pushes through JGit, the cards' fallback to `origin` and the
+    tracked remote took that path.
+  - Uploads through JGit's pre-push hook read neither `lfs.pushurl`, `remote.<name>.lfspushurl` nor the remote's
+    `pushurl`.
+  - Without an upstream, it took the only remote, and stopped there: no `remote.lfsdefault`, no `origin`. With several
+    remotes and no upstream, a checkout without git-lfs failed with "LFS Url not found". A detached HEAD at a
+    branch's commit took that branch's upstream (Gitnuro's `GetCurrentBranchGitAction`), and an upstream counted only
+    with `branch.<name>.merge` too.
+- **Now:** the server is `lfs.pushurl` (uploads), `lfs.url`, the remote's `lfspushurl` (uploads), its `lfsurl`, then
+  its URL (`pushurl` for uploads) as `<url>.git/info/lfs`; a remote with none of them, such as `.` for a local
+  upstream, gets `origin`'s. The remote is the one asked for, or else the current branch's `branch.<name>.remote`,
+  `remote.lfsdefault`, the only remote, then `origin`; a detached HEAD has no branch. `IGetLfsUrlGitAction` takes the
+  operation, and the pre-push hook asks for an upload. The conflict cards ask once, as the lookup falls back to
+  `origin` itself. Credential helpers are asked about the remote's push URL for an upload, as git-lfs does.
+- **Decided:** an empty value still counts as not set, as git-lfs's documentation says ("Default blank (derive from
+  clone URL)"). git-lfs 3.8 takes it as the server: none for an empty `lfs.url`, `origin`'s for another remote's empty
+  `lfsurl`. A test checks git-lfs's side too, so it fails if git-lfs changes.
+- **Not done** (listed in CLAUDE.md): `url.<base>.insteadOf` on `lfs.url`, `FETCH_HEAD`'s URL when `origin` has none,
+  `.lfsconfig` from the index or `HEAD`, the last of several remote URLs, and git-lfs counting `remote.pushDefault` as
+  a remote named "".
+- **Tests:** `GetLfsUrlGitActionTest` (10, 5 new) sets up remotes and settings in 16 steps and compares each with
+  what git-lfs asks: `git lfs env` for a download from each remote, `git lfs push` for an upload to each, and
+  `git lfs fetch` for the remote it picks, against a port where nothing listens (skipped without git-lfs). Its other
+  new tests cover the URL, the upload order, the remote's choice and `origin`'s server. `GetLfsUrlSettingGitActionTest`
+  (11, 4 new) reads the new settings from git's config and `.lfsconfig`, and empty values against `git lfs env`.
+  `LfsPrePushHookTest` (new) runs the pre-push hook against a JDK `HttpServer`. `DownloadLfsVersionGitActionTest` lost
+  its two fallback tests, as the fallback moved into the lookup, and checks that the card asks for a download.
+  - **Mutation check:** 18 mutations, 18 caught, each by a failing test: the `.git` left out of the URL, a trailing
+    `/` kept, the push URL, `lfs.pushurl` and the remote's `lfspushurl` ignored or put after `lfs.url`, `lfs.pushurl`
+    read for downloads, `lfspushurl` read from `.lfsconfig`, `lfsdefault` not read from it and the branch's remote
+    read from it, no `origin` fallback, no `lfsdefault`, no only remote, no upstream, no remote URL for credentials,
+    an empty value counted as set, and the pre-push hook and the card asking for the wrong operation. The pre-push
+    hook's first got through, and `LfsPrePushHookTest` was added for it.
+
 ## The watch follows new and deleted folders during Leaf's own operations too (branch `claude/zealous-tesla-59b911`)
 
 - **Before:** `ObserveRepositoryToRefreshUseCase` watched the folders that a batch of changes created only when it
