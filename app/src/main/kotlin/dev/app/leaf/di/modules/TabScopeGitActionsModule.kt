@@ -5,6 +5,10 @@ import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.author.SaveAuthorGitAction
 import dev.app.leaf.data.git.branches.*
+import dev.app.leaf.data.git.cli.operations.SelectingCherryPickCommitGitAction
+import dev.app.leaf.data.git.cli.operations.SelectingMergeBranchGitAction
+import dev.app.leaf.data.git.cli.operations.SelectingRebaseBranchGitAction
+import dev.app.leaf.data.git.cli.operations.SelectingRevertCommitGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingAddSubmoduleGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingCloneRepositoryGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingDeleteRemoteBranchGitAction
@@ -106,7 +110,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsCherryPickCommitGitAction(action: CherryPickCommitGitAction): ICherryPickCommitGitAction
+    fun bindsCherryPickCommitGitAction(action: SelectingCherryPickCommitGitAction): ICherryPickCommitGitAction
 
     @Binds
     @TabScope
@@ -318,7 +322,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsMergeBranchGitAction(action: MergeBranchGitAction): IMergeBranchGitAction
+    fun bindsMergeBranchGitAction(action: SelectingMergeBranchGitAction): IMergeBranchGitAction
 
     @Binds
     @TabScope
@@ -346,7 +350,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsRebaseBranchGitAction(action: RebaseBranchGitAction): IRebaseBranchGitAction
+    fun bindsRebaseBranchGitAction(action: SelectingRebaseBranchGitAction): IRebaseBranchGitAction
 
     @Binds
     @TabScope
@@ -370,7 +374,7 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsRevertCommitGitAction(action: RevertCommitGitAction): IRevertCommitGitAction
+    fun bindsRevertCommitGitAction(action: SelectingRevertCommitGitAction): IRevertCommitGitAction
 
     @Binds
     @TabScope

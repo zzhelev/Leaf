@@ -13,8 +13,7 @@ import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.GetRefDatesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.GitCli
-import dev.app.leaf.data.git.cli.GitExecutableLocator
-import dev.app.leaf.data.git.cli.ProcessRunner
+import dev.app.leaf.data.git.cli.operations.testGitCliOperations
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
@@ -37,7 +36,6 @@ import dev.app.leaf.data.git.signers.GitSigningConfigs
 import dev.app.leaf.data.git.stash.GetStashListGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
-import dev.app.leaf.data.git.testGitSettings
 import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
@@ -286,7 +284,7 @@ class TestTab(
         runGitCommandGitAction = RunGitCommandGitAction(gitCli),
     )
 
-    private val gitCliRebase = GitCliRebase(gitCli, GitExecutableLocator(ProcessRunner()), testGitSettings(), jgit)
+    private val gitCliRebase = GitCliRebase(testGitCliOperations(jgit, gitCli, repositoryState = repositoryState))
 
     val continueRebase = ContinueRebaseUseCase(
         useCaseExecutor = useCaseExecutor,

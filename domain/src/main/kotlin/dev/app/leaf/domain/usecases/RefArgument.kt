@@ -14,9 +14,18 @@ private val SHORTENED_PREFIXES = listOf("refs/heads/", "refs/remotes/")
  * as a tag of the same name, which git looks for first. Then its full name.
  */
 internal suspend fun IRunGitCommandGitAction.refArgument(folder: String, ref: String): String {
+    return refArgument(ref) { name ->
+        invoke(folder, listOf("rev-parse", "--symbolic-full-name", name)).okOrNull()?.trim()
+    }
+}
+
+/**
+ * How a git command names the branch [ref] (fork-only), as above. [symbolicFullName] gives what
+ * `git rev-parse --symbolic-full-name <name>` prints for a name, or null when git can't tell.
+ */
+suspend fun refArgument(ref: String, symbolicFullName: suspend (String) -> String?): String {
     val prefix = SHORTENED_PREFIXES.firstOrNull { ref.startsWith(it) } ?: return ref
     val shortName = ref.removePrefix(prefix)
-    val resolved = invoke(folder, listOf("rev-parse", "--symbolic-full-name", shortName)).okOrNull()?.trim()
 
-    return if (resolved == ref) shortName else ref
+    return if (symbolicFullName(shortName) == ref) shortName else ref
 }
