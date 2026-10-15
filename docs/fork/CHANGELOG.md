@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Tooltips stay away from dialogs, menus and clicks (branch `fix/scrollbars-tooltips`)
+
+- **Before:** after choosing a menu item that opens a dialog, the row under the pointer, beneath the dialog, showed
+  its tooltip as the pointer moved: a dialog takes the pointer only inside its box. A right-click's tooltip came back
+  with the next move too: Compose's `TooltipArea` hides a tooltip on a press, then shows it again at the next move.
+- **Now** (`TooltipLayers.kt`): a dialog is a layer over the window, and only the topmost layer shows tooltips, so a
+  dialog's own still do. A press, left or right, hides an element's tooltip until the pointer leaves it, as on macOS
+  and Windows. Both tooltip components follow it, so every tooltip in Leaf does. Menus needed nothing: they're
+  focusable popups, which already keep the pointer from what's beneath them.
+- **Tests:** `TooltipLayersTest` hovers offscreen: an instant and a delayed tooltip beneath a layer and in one, after
+  a click and after leaving, and a dialog, a context menu and a header menu covering them.
+  - **Mutation check:** 10 mutations, 8 caught. The two that survived took the layer out of the context menu and the
+    header menu, and showed that they didn't need one, so menus aren't layers.
+
+## The cleanup dialog's lists show that they scroll (branch `fix/scrollbars-tooltips`)
+
+- **Before:** with many worktrees, "Clean up merged worktrees" cut its list off at 300 dp and its commands at 160 dp,
+  and nothing showed that they scrolled.
+- **Now:** both have a scrollbar, in the colours of Leaf's other scrollbars, which shows only when they scroll: inside
+  their right edge, the commands' inside their box, the two in line. They stay as tall as their content below the
+  limit.
+- **Tests:** in `CleanUpWorktreesDialogTest`, a list of 12 worktrees and its commands scroll and end at the same edge,
+  and a short list doesn't scroll. It fails without the limit, and with the list only as wide as its widest row, which
+  put its scrollbar out of line in a first version. The dialog's other tests caught an earlier try, which crashed:
+  Compose's scrollbar can't be asked its intrinsic height.
+
 ## The conflict resolver's gutters keep its rows even (branch `claude/resolver-model-f2582e`)
 
 - **Before** (found in the manual run): with theirs taken, ours' gutter stacked its add-after arrow and the cross that

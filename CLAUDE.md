@@ -1434,7 +1434,11 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   `onDoubleClick`, and the fork-only `textContent` slot, which replaces the text and `additionalInfo`).
   `additionalInfo` must stay the last parameter: upstream's calls pass it as a trailing lambda, which would otherwise
   bind to the parameter after it, without a compile error.
-- Tooltips: `ui/components/tooltip/DelayedTooltip.kt` and `InstantTooltip.kt`.
+- Tooltips: `ui/components/tooltip/DelayedTooltip.kt` and `InstantTooltip.kt`. Fork-only (`TooltipLayers.kt`): a
+  tooltip shows only in the topmost layer, and a press, left or right, hides an element's tooltip until the pointer
+  leaves it. `MaterialDialog` is a `TooltipLayer`: a dialog takes the pointer only inside its box, so the rows beneath
+  it showed their tooltips. Menus need nothing: they're focusable popups, which keep the pointer from what's beneath
+  them (`TooltipLayersTest` checks both). A view that covers the content without a focusable popup should be a layer.
 - Context menus: `ui/context_menu/*ContextMenu.kt`. `branchContextMenuItems` is shared with the log's `BranchChip`.
 
 **Branches:**
@@ -1588,6 +1592,10 @@ Untouched worktrees that aren't merged aren't offered: removing them loses commi
   minutes, and no lock but an agent's session that has ended (`claude -p` keeps its lock after it ends). Changes and
   other locks are unchecked, with what checking does in amber ("3 uncommitted changes. Checking it deletes them"). A
   worktree locked by a running session has no checkbox.
+- The list and the commands scroll past 300 and 160 dp (`WorktreeCommands`' `maxHeight`), each with a scrollbar inside
+  its right edge, the two in line (`ScrollingBox` in `WorktreeDialogParts.kt`, a layout of its own: Leaf's
+  `ScrollableColumn` fills the height it's given, and Compose's scrollbar throws when the dialog asks its intrinsic
+  size).
 - **Steps** (`cleanupSteps`), from the main worktree, per worktree: `git worktree unlock` when locked,
   `git worktree remove` (`--force` when it had changes, or they couldn't be read), then `git branch -D` with "Also
   delete their branches" (on by default). `SwitchTab` to the main worktree first when the tab shows one that goes.
