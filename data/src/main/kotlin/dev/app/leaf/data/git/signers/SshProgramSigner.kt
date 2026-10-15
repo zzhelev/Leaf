@@ -82,7 +82,7 @@ class SshProgramSigner @Inject constructor(
         credentialsProvider: CredentialsProvider?,
     ): GpgSignature {
         // JGit's TagCommand passes no key unless it's set on the command, its CommitCommand passes user.signingKey
-        val settings = SshSigningSettings.of(repository?.config, signingKey ?: config?.signingKey)
+        val settings = SshSigningSettings.of(config.configOr(repository), signingKey ?: config?.signingKey)
         val result = runBlocking { sign(settings, data, repository?.workingDirectory()) }
 
         return when (result) {
@@ -99,7 +99,7 @@ class SshProgramSigner @Inject constructor(
         signingKey: String?,
         credentialsProvider: CredentialsProvider?,
     ): Boolean {
-        val settings = SshSigningSettings.of(repository?.config, signingKey ?: config?.signingKey)
+        val settings = SshSigningSettings.of(config.configOr(repository), signingKey ?: config?.signingKey)
 
         return settings.signingKey != null || settings.defaultKeyCommand != null
     }

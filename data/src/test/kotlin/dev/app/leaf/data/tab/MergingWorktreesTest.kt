@@ -183,7 +183,9 @@ class MergingWorktreesTest {
         assertTask(TaskType.MergeWorktree, stoppedAtConflicts = false)
         assertEquals("Merge branch 'agent1'", File(mainGitDir, "MERGE_MSG").readText().lineSequence().first())
         assertEquals(git.run(main, "rev-parse", "agent1").trim(), File(mainGitDir, "MERGE_HEAD").readText().trim())
-        assertEquals(RepositoryState.MERGING_RESOLVED, tab.awaitLoaded(tab.repositoryData.repositoryState))
+        // The task's refresh runs after it ends
+        val repositoryState = tab.awaitLoaded(tab.repositoryData.repositoryState) { it != RepositoryState.SAFE }
+        assertEquals(RepositoryState.MERGING_RESOLVED, repositoryState)
 
         val commit = tab.doCommit("Merge branch 'agent1'", amend = false, author = null).await()
 

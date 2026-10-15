@@ -1,6 +1,9 @@
 package dev.app.leaf.data.git.tags
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.author.GitIdentities
+import dev.app.leaf.data.git.author.toPersonIdent
+import dev.app.leaf.data.git.signers.GitSigningConfigs
 import dev.app.leaf.domain.interfaces.ICreateTagGitAction
 import dev.app.leaf.domain.models.Commit
 import org.eclipse.jgit.lib.ObjectId
@@ -10,6 +13,8 @@ import javax.inject.Inject
 
 class CreateTagGitAction @Inject constructor(
     private val jgit: JGit,
+    private val gitIdentities: GitIdentities,
+    private val gitSigningConfigs: GitSigningConfigs,
 ) : ICreateTagGitAction {
     override suspend operator fun invoke(repositoryPath: String, tag: String, commit: Commit) =
         jgit.provide(repositoryPath) { git ->
@@ -26,6 +31,9 @@ class CreateTagGitAction @Inject constructor(
                 .setAnnotated(true)
                 .setName(tag)
                 .setObjectId(commit)
+                // Fork-only: git's tagger (its committer) and signing settings, which includeIf may set
+                .apply { gitIdentities.of(git.repository.directory)?.committer?.let { setTagger(it.toPersonIdent()) } }
+                .setGpgConfig(gitSigningConfigs.of(git.repository.directory))
                 .call()
 
             Unit

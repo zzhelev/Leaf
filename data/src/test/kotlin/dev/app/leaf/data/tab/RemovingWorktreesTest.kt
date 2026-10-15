@@ -272,7 +272,8 @@ class RemovingWorktreesTest {
     }
 
     private suspend fun assertSuccess(taskType: TaskType) {
-        val task = tab.repositoryState.completedTasks.first().last()
+        // A task that the tab started itself, such as following a removed worktree, may still be running
+        val task = tab.repositoryState.completedTasks.first { it.isNotEmpty() }.last()
 
         assertEquals(taskType, task.taskType, task.toString())
         assertInstanceOf(CompletedTask.Success::class.java, task, task.toString())

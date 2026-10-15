@@ -7,7 +7,10 @@ import dev.app.leaf.domain.models.Identity
 import org.eclipse.jgit.storage.file.FileBasedConfig
 import javax.inject.Inject
 
-class LoadAuthorGitAction @Inject constructor(private val jgit: JGit) : ILoadAuthorGitAction {
+class LoadAuthorGitAction @Inject constructor(
+    private val jgit: JGit,
+    private val gitIdentities: GitIdentities,
+) : ILoadAuthorGitAction {
     override suspend operator fun invoke(repositoryPath: String) = jgit.provide(repositoryPath) { git ->
         val config = git.repository.config
         val globalConfig = git.repository.config.baseConfig
@@ -24,6 +27,8 @@ class LoadAuthorGitAction @Inject constructor(private val jgit: JGit) : ILoadAut
         AuthorInfo(
             Identity(globalName, globalEmail),
             Identity(name, email),
+            // Fork-only: who git commits as, which JGit can't tell when includeIf sets it
+            gitIdentity = gitIdentities.of(git.repository.directory)?.author,
         )
     }
 }

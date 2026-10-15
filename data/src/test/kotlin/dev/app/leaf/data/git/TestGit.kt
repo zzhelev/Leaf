@@ -37,6 +37,10 @@ fun testGitCli(shellVariables: Map<String, String> = emptyMap(), configuredPath:
     )
 }
 
+/** A [GitCli] that reads [globalConfig] as the user's config, and no system config, as [TestGitCli] does. */
+fun isolatedGitCli(globalConfig: File) =
+    testGitCli(mapOf("GIT_CONFIG_GLOBAL" to globalConfig.path, "GIT_CONFIG_NOSYSTEM" to "1"))
+
 /** Leaf's settings for tests, with the git executable set to [configuredPath], or found by Leaf when it's null. */
 fun testGitSettings(configuredPath: String? = null) = AppSettingsService(
     mockk<AppSettingsRepository> {

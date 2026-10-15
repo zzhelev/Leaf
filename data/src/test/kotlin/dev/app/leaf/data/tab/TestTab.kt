@@ -5,6 +5,7 @@ package dev.app.leaf.data.tab
 
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
@@ -30,6 +31,7 @@ import dev.app.leaf.data.git.remotes.GetRemotesGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.repository.OpenRepositoryGitAction
 import dev.app.leaf.data.git.repository.PersistCommitMessageGitAction
+import dev.app.leaf.data.git.signers.GitSigningConfigs
 import dev.app.leaf.data.git.stash.GetStashListGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
@@ -160,7 +162,7 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
         repositoryDataRepository = repositoryData,
         repositoryStateRepository = repositoryState,
         getStashListGitAction = getStashList,
-        loadAuthorGitAction = LoadAuthorGitAction(jgit),
+        loadAuthorGitAction = LoadAuthorGitAction(jgit, GitIdentities(gitCli)),
         getStatusGitAction = SlowStatus(getStatus, statusDelay),
         getRemotesUseCase = getRemotes,
         getSubmodulesGitAction = GetSubmodulesGitAction(jgit, JGitSubmoduleMapper()),
@@ -254,10 +256,12 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
             commitMapper,
             JGitIdentityMapper(),
             jgit,
+            GitIdentities(gitCli),
+            GitSigningConfigs(gitCli),
         ),
         useCaseExecutor = useCaseExecutor,
         loadSignOffConfigGitAction = LoadSignOffConfigGitAction(jgit),
-        getAuthorUseCase = GetAuthorUseCase(LoadAuthorGitAction(jgit), useCaseExecutor),
+        getAuthorUseCase = GetAuthorUseCase(LoadAuthorGitAction(jgit, GitIdentities(gitCli)), useCaseExecutor),
         persistCommitMessageUseCase = PersistCommitMessageUseCase(PersistCommitMessageGitAction(jgit)),
         cleanUpAfterCommitGitAction = CleanUpAfterCommitGitAction(jgit),
     )

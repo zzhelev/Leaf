@@ -6,8 +6,10 @@ package dev.app.leaf.data.git.signers
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.locateProgram
+import dev.app.leaf.data.git.isolatedGitCli
 import dev.app.leaf.data.git.tags.CreateTagGitAction
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -110,7 +112,8 @@ class GpgProgramSignerRealGpgTest {
 
         Signers.set(GpgConfig.GpgFormat.OPENPGP, signer)
         val result = try {
-            CreateTagGitAction(testJGit())(
+            val gitCli = isolatedGitCli(File(tempDir, "config/global.gitconfig"))
+            CreateTagGitAction(testJGit(), GitIdentities(gitCli), GitSigningConfigs(gitCli))(
                 File(repository, ".git").path,
                 "v1",
                 Commit(head, "Initial commit", identity, identity, 0, emptyList()),

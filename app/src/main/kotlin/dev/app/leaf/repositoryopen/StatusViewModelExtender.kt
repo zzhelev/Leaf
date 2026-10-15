@@ -810,10 +810,8 @@ class StatusViewModelExtender @AssistedInject constructor(
             is Either.Ok -> data.value
         }
 
-        return if (
-            author.repositoryIdentity.name.isNullOrEmpty() && author.globalIdentity.name.isNullOrEmpty() ||
-            author.repositoryIdentity.email.isNullOrEmpty() && author.globalIdentity.email.isNullOrEmpty()
-        ) {
+        // Fork-only: git may have an identity that JGit doesn't see (includeIf)
+        return if (author.isIdentityMissing()) {
             committerDataRequestState.value = CommitterDataRequestState.WaitingInput(author)
 
             val committerData = committerDataRequestState.awaitAnswer()

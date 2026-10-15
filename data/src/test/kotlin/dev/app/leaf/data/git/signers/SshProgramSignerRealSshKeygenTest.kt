@@ -6,14 +6,21 @@ package dev.app.leaf.data.git.signers
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.locateProgram
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.AskpassProcessRunner
 import dev.app.leaf.data.git.cli.askpass.answeringDialogs
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.isolatedGitCli
+import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.tags.CreateTagGitAction
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.data.git.workspace.DoCommitGitAction
+import dev.app.leaf.data.mappers.JGitCommitMapper
+import dev.app.leaf.data.mappers.JGitIdentityMapper
+import dev.app.leaf.data.mappers.RepositoryStateMapper
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.credentials.CredentialsRequest
@@ -126,7 +133,8 @@ class SshProgramSignerRealSshKeygenTest {
 
         Signers.set(GpgConfig.GpgFormat.SSH, signer())
         val result = try {
-            CreateTagGitAction(testJGit())(
+            val gitCli = isolatedGitCli(File(tempDir, "config/global.gitconfig"))
+            CreateTagGitAction(testJGit(), GitIdentities(gitCli), GitSigningConfigs(gitCli))(
                 File(repository, ".git").path,
                 "v1",
                 Commit(head, "Initial commit", identity, identity, 0, emptyList()),
@@ -137,6 +145,45 @@ class SshProgramSignerRealSshKeygenTest {
 
         assertTrue(result is Either.Ok, "$result")
         assertGoodSignature(git.run(repository, environment, "verify-tag", "v1"))
+    }
+
+    @Test
+    fun `signs a commit as a file that includeIf names says, which git verifies`(): Unit = runBlocking {
+        val key = createKey("id_ed25519")
+        val repository = git.initRepository(File(tempDir, "repo"))
+        git.run(repository, "config", "gpg.ssh.allowedSignersFile", File(tempDir, "allowed_signers").path)
+        val signing = File(tempDir, "signing.gitconfig")
+        signing.writeText(
+            "[commit]\n\tgpgSign = true\n[gpg]\n\tformat = ssh\n" +
+                "[user]\n\tname = Leaf Test\n\temail = $EMAIL\n\tsigningKey = ${key.path}\n"
+        )
+        // git matches gitdir against the real path, which on macOS starts with /private
+        File(tempDir, "config/global.gitconfig").appendText(
+            "[includeIf \"gitdir:${repository.canonicalPath}/\"]\n\tpath = ${signing.path}\n"
+        )
+        File(repository, "a.txt").writeText("a\n")
+        git.run(repository, "add", "a.txt")
+        val gitCli = isolatedGitCli(File(tempDir, "config/global.gitconfig"))
+        val jgit = testJGit()
+        val doCommit = DoCommitGitAction(
+            GetRepositoryStateGitAction(jgit, RepositoryStateMapper()),
+            JGitCommitMapper(JGitIdentityMapper()),
+            JGitIdentityMapper(),
+            jgit,
+            GitIdentities(gitCli),
+            GitSigningConfigs(gitCli),
+        )
+
+        Signers.set(GpgConfig.GpgFormat.SSH, signer())
+        val result = try {
+            doCommit(File(repository, ".git").path, "Signed", false, null)
+        } finally {
+            Signers.set(GpgConfig.GpgFormat.SSH, null)
+        }
+
+        assertTrue(result is Either.Ok, "$result")
+        assertGoodSignature(git.run(repository, environment, "verify-commit", "HEAD"))
+        assertEquals("Leaf Test <$EMAIL>\n", git.run(repository, "log", "-1", "--format=%cn <%ce>"))
     }
 
     @Test

@@ -5,7 +5,10 @@ package dev.app.leaf.data.git.tags
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.cli.ProcessRunner
+import dev.app.leaf.data.git.isolatedGitCli
+import dev.app.leaf.data.git.signers.GitSigningConfigs
 import dev.app.leaf.data.git.signers.GpgProgramSigner
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
@@ -42,7 +45,10 @@ class CreateTagGitActionTest {
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
     private val jgit = testJGit()
-    private val createTag = CreateTagGitAction(jgit)
+    private val createTag by lazy {
+        val gitCli = isolatedGitCli(File(tempDir, "config/global.gitconfig"))
+        CreateTagGitAction(jgit, GitIdentities(gitCli), GitSigningConfigs(gitCli))
+    }
 
     /** Records its arguments next to itself and signs like gpg. */
     private val gpg by lazy {
@@ -107,6 +113,29 @@ class CreateTagGitActionTest {
 
         assertNull(tagSignature(repository, "v1"))
         assertFalse(File(gpg.parentFile, "args").exists())
+    }
+
+    @Test
+    fun `signs and names the tagger as a file that includeIf names says`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "work/repo"))
+        val workConfig = File(tempDir, "work.gitconfig")
+        workConfig.writeText(
+            "[tag]\n\tgpgSign = true\n[gpg]\n\tprogram = ${gpg.path}\n" +
+                "[user]\n\tname = Work Tagger\n\temail = tagger@work.example\n"
+        )
+        // git matches gitdir against the real path, which on macOS starts with /private
+        File(tempDir, "config/global.gitconfig").writeText(
+            "[includeIf \"gitdir:${File(tempDir, "work").canonicalPath}/\"]\n\tpath = ${workConfig.path}\n"
+        )
+
+        assertInstanceOf(Either.Ok::class.java, createTag(gitDir(repository), "v1", head(repository)))
+
+        assertEquals(SIGNATURE.trim(), tagSignature(repository, "v1")?.trim())
+        assertEquals("Work Tagger <tagger@work.example>", File(gpg.parentFile, "args").readLines()[2])
+        assertEquals(
+            "Work Tagger <tagger@work.example>",
+            git.run(repository, "for-each-ref", "--format=%(taggername) %(taggeremail)", "refs/tags/v1").trim(),
+        )
     }
 
     private fun gitDir(repository: File) = File(repository, ".git").path

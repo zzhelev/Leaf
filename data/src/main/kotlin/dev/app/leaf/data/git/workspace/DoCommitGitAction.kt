@@ -2,7 +2,10 @@ package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.common.use
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.author.GitIdentities
+import dev.app.leaf.data.git.author.withIdentities
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
+import dev.app.leaf.data.git.signers.GitSigningConfigs
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
 import dev.app.leaf.domain.errors.Either
@@ -25,6 +28,8 @@ class DoCommitGitAction @Inject constructor(
     private val commitMapper: JGitCommitMapper,
     private val identityMapper: JGitIdentityMapper,
     private val jgit: JGit,
+    private val gitIdentities: GitIdentities,
+    private val gitSigningConfigs: GitSigningConfigs,
 ) : IDoCommitGitAction {
     override suspend operator fun invoke(
         repositoryPath: String,
@@ -49,6 +54,9 @@ class DoCommitGitAction @Inject constructor(
         val isMerging = state.isMerging
         val output = ByteArrayOutputStream()
         val printStream = PrintStream(output, true, Charsets.UTF_8)
+        // Fork-only: who git commits as and how it signs, which JGit can't tell when includeIf sets it
+        val identities = if (author == null) gitIdentities.of(git.repository.directory) else null
+        val gpgConfig = gitSigningConfigs.of(git.repository.directory)
 
         use(output, printStream) {
             val commit = git
@@ -60,11 +68,13 @@ class DoCommitGitAction @Inject constructor(
                 .setHookOutputStream(printStream)
                 .run {
                     if (author != null) {
-                        setAuthor(identityMapper.toData(author))
+                        // Fork-only: the identity given for this commit is its committer's too
+                        identityMapper.toData(author).let { setAuthor(it).setCommitter(it) }
                     } else {
-                        this
+                        withIdentities(identities, amend)
                     }
                 }
+                .setGpgConfig(gpgConfig)
                 .call()
 
             commitMapper.toDomain(commit)
