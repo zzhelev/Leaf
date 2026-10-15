@@ -14,6 +14,7 @@ import org.eclipse.jgit.diff.RawText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** The resolver's three columns, row by row, and what its arrows do. */
@@ -44,6 +45,48 @@ class ResolverColumnsTest {
             Chunk.Unchanged(lines(2, 3), lines(3, 4), lines(2, 3)),
         ),
     )
+
+    @Test
+    fun `a pick is opened again from where the side taken had its arrow, so each gutter keeps one button`() {
+        assertNull(ConflictResolution.Unresolved.reopensFrom())
+        assertEquals(ConflictSide.OURS, ConflictResolution.Ours.reopensFrom())
+        assertEquals(ConflictSide.THEIRS, ConflictResolution.Theirs.reopensFrom())
+
+        val picks = listOf(
+            ConflictResolution.Ours,
+            ConflictResolution.Theirs,
+            ConflictResolution.OursThenTheirs,
+            ConflictResolution.TheirsThenOurs,
+        )
+
+        for (resolution in picks) {
+            for (side in ConflictSide.entries) {
+                val buttons = listOfNotNull(resolution.arrowFor(side), side.takeIf { resolution.reopensFrom() == it })
+
+                assertTrue(buttons.size <= 1, "$resolution, $side: $buttons")
+            }
+        }
+
+        // The base or lines typed keep both arrows, and ours' gutter opens the conflict again too
+        for (resolution in listOf(ConflictResolution.Base, ConflictResolution.Edited(TypedLines(text("x"))))) {
+            assertEquals(ConflictSide.OURS, resolution.reopensFrom())
+            assertEquals(ConflictArrow.TAKE, resolution.arrowFor(ConflictSide.OURS))
+        }
+    }
+
+    @Test
+    fun `a gutter's buttons go one a row from the chunk's first, and its last row has those left over`() {
+        // One row: every button
+        assertEquals(0..1, gutterButtonsOnRow(buttons = 2, row = 0, rows = 1))
+        // Two rows: one each
+        assertEquals(0..0, gutterButtonsOnRow(buttons = 2, row = 0, rows = 2))
+        assertEquals(1..1, gutterButtonsOnRow(buttons = 2, row = 1, rows = 2))
+        // More rows than buttons: none past them
+        assertTrue(gutterButtonsOnRow(buttons = 2, row = 2, rows = 3).isEmpty())
+        assertTrue(gutterButtonsOnRow(buttons = 1, row = 1, rows = 3).isEmpty())
+        // More buttons than rows: the last row has the rest
+        assertEquals(1..2, gutterButtonsOnRow(buttons = 3, row = 1, rows = 2))
+    }
 
     @Test
     fun `each chunk takes the rows of its tallest column, and the others get fillers`() {

@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver's gutters keep its rows even (branch `claude/resolver-model-f2582e`)
+
+- **Before** (found in the manual run): with theirs taken, ours' gutter stacked its add-after arrow and the cross that
+  opens the conflict again on the conflict's first row, which pushed the rows below it down by a button's height in
+  all three columns. With ours taken, the two were in different gutters and nothing moved.
+- **Now:** the cross goes where the side taken had its arrow: theirs' gutter after taking theirs, ours' otherwise. A
+  pick leaves each gutter one button, one-line conflicts included. A gutter that still has two (the base or lines
+  typed taken, or a change's ✓ and × next to lines typed) puts the second on the chunk's second row, which is then
+  as tall as a button, as the first already is: 4 px over a line, not 24. A one-line chunk still stacks them.
+- **Tests:** in `ResolverColumnsTest`, where the cross goes after each pick and which buttons each row shows. In
+  `ConflictResolverTest`, the cross where theirs' arrow was with the next line where it was, and the base taken in a
+  two-line conflict. 4 mutations, all caught (one by the domain test alone, as no view test has a one-row chunk
+  with two buttons). The full suite passes on `179ff537` with these changes: `:app` 264 tests, `:domain` 326,
+  `:data` 960, `:common` 7.
+
 ## Cleaning up merged worktrees (branch `feat/cleanup-merged`)
 
 - **Before:** worktrees whose work had reached the base were marked "merged" (4.3a), but each had to be removed one at

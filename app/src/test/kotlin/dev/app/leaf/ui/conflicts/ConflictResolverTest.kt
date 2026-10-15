@@ -186,6 +186,46 @@ class ConflictResolverTest {
         }
 
     @Test
+    fun `the gutters' buttons don't stack, and each makes its row no taller than a button`(): Unit = runBlocking(Dispatchers.Swing) {
+        val next = "    return parse(text)"
+        val open = render(state())
+        val openTop = open.textBounds.getValue(next).first().top
+
+        // Theirs taken: + in ours' gutter, and × in theirs', where theirs' arrow was. They used to stack in ours'
+        val theirs = render(state(merge.resolving(3, ConflictResolution.Theirs)))
+        val add = theirs.bounds.getValue("Add ours after theirs: main").single()
+        val reopen = theirs.bounds.getValue("Open this conflict again").single()
+
+        assertEquals(open.bounds.getValue("Take ours: main").single(), add)
+        assertEquals(open.bounds.getValue("Take theirs: feature/retry").single(), reopen)
+        assertEquals(openTop, theirs.textBounds.getValue(next).first().top, 0.5f)
+
+        // The base taken, in a conflict of two lines: ours' arrow on its first row, and × on its second
+        val twoLines = TextMerge(
+            base = text("a", "b1", "b2", "c"),
+            ours = text("a", "o1", "o2", "c"),
+            theirs = text("a", "t1", "t2", "c"),
+            chunks = listOf(
+                Chunk.Unchanged(lines(0, 1), lines(0, 1), lines(0, 1)),
+                Chunk.Conflict(lines(1, 3), lines(1, 3), lines(1, 3)),
+                Chunk.Unchanged(lines(3, 4), lines(3, 4), lines(3, 4)),
+            ),
+        )
+        val openTwoLines = render(state(twoLines))
+        val lineHeight = openTwoLines.textBounds.getValue("a").first().height
+        val base = render(state(twoLines.resolving(1, ConflictResolution.Base)))
+        val arrow = base.bounds.getValue("Take ours: main").single()
+        val back = base.bounds.getValue("Open this conflict again").single()
+
+        assertTrue(back.top >= arrow.bottom && abs(back.left - arrow.left) < 1f, "$arrow, $back")
+        // The second row is as tall as a button, as the first already is: a few pixels over its line, where a
+        // second button on the first row added a whole button
+        val grown = base.textBounds.getValue("c").first().top - openTwoLines.textBounds.getValue("c").first().top
+
+        assertTrue(grown <= arrow.height + 2f - lineHeight + 0.5f, "Grew $grown, a line is $lineHeight, a button $arrow")
+    }
+
+    @Test
     fun `the arrows take a side, and a change can be undone`(): Unit = runBlocking(Dispatchers.Swing) {
         val taken = mutableListOf<Pair<Int, ConflictSide>>()
         val applied = mutableListOf<Pair<Int, Boolean>>()

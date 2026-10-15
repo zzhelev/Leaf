@@ -61,6 +61,8 @@ import dev.app.leaf.domain.conflicts.ColumnCell
 import dev.app.leaf.domain.conflicts.ColumnRow
 import dev.app.leaf.domain.conflicts.ConflictArrow
 import dev.app.leaf.domain.conflicts.arrowFor
+import dev.app.leaf.domain.conflicts.gutterButtonsOnRow
+import dev.app.leaf.domain.conflicts.reopensFrom
 import dev.app.leaf.domain.models.ChangedBy
 import dev.app.leaf.domain.models.ConflictOperation
 import dev.app.leaf.domain.models.ConflictResolution
@@ -183,6 +185,8 @@ fun ResolverColumnsView(
 
             val anchorRow = editorPlace.anchorRow
             val items = remember(rows, editChunk, anchorRow) { listItems(rows, { it.chunk }, editChunk, anchorRow) }
+            // The gutters spread a chunk's buttons over its rows
+            val rowsOfChunk = remember(rows) { rows.groupingBy { it.chunk }.eachCount() }
 
             editorPlace.Restore(items)
 
@@ -192,6 +196,7 @@ fun ResolverColumnsView(
                         is ListItem.Line -> ResolverRow(
                             row = item.row,
                             rowInChunk = item.rowInChunk,
+                            rowsInChunk = rowsOfChunk[item.chunk] ?: 1,
                             chunk = merge.chunks[item.chunk],
                             sides = sides,
                             numberWidth = numberWidth,
@@ -362,6 +367,7 @@ fun ConflictSides.explanation(): String {
 private fun ResolverRow(
     row: ColumnRow,
     rowInChunk: Int,
+    rowsInChunk: Int,
     chunk: Chunk,
     sides: ConflictSides?,
     numberWidth: Int,
@@ -377,7 +383,7 @@ private fun ResolverRow(
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         Cell(row.ours, numberWidth, isCurrentConflict, syntaxHighlighter, words, Modifier.weight(shares.ours.asWeight()))
-        Gutter(row, chunk, ConflictSide.OURS, sides, actions, edges)
+        Gutter(row.chunk, rowInChunk, rowsInChunk, chunk, ConflictSide.OURS, sides, actions, edges)
 
         Box(Modifier.weight(shares.result.asWeight()).fillMaxHeight()) {
             ContextMenu(items = { resultMenu(row.chunk, chunk, sides, actions, canEdit) }) {
@@ -395,7 +401,7 @@ private fun ResolverRow(
             }
         }
 
-        Gutter(row, chunk, ConflictSide.THEIRS, sides, actions, edges)
+        Gutter(row.chunk, rowInChunk, rowsInChunk, chunk, ConflictSide.THEIRS, sides, actions, edges)
         Cell(row.theirs, numberWidth, isCurrentConflict, syntaxHighlighter, words, Modifier.weight(shares.theirs.asWeight()))
     }
 }
@@ -424,9 +430,9 @@ private fun EditorRow(
 
     EditorRowLayout(shares) {
         SideLines(rows.map { it.ours }, numberWidth, isCurrentConflict, syntaxHighlighter, words)
-        Gutter(first, chunk, ConflictSide.OURS, sides, actions, edges)
+        Gutter(first.chunk, rowInChunk = 0, rowsInChunk = 1, chunk, ConflictSide.OURS, sides, actions, edges)
         PartEditor(editing, numberWidth, place, syntaxHighlighter)
-        Gutter(first, chunk, ConflictSide.THEIRS, sides, actions, edges)
+        Gutter(first.chunk, rowInChunk = 0, rowsInChunk = 1, chunk, ConflictSide.THEIRS, sides, actions, edges)
         SideLines(rows.map { it.theirs }, numberWidth, isCurrentConflict, syntaxHighlighter, words)
     }
 }
@@ -586,111 +592,142 @@ private fun ResultCell(
 }
 
 /**
- * A gutter next to the result: the buttons of [chunk] for [side]'s column, on its first row. Dragging it moves the edge
- * between [side]'s column and the result.
+ * A gutter next to the result: the buttons of [chunk] for [side]'s column, one on each of the chunk's rows from the
+ * first, and those left over on its last ([gutterButtonsOnRow]), so that two don't make a row taller than its line.
+ * Dragging it moves the edge between [side]'s column and the result.
  */
 @Composable
 private fun Gutter(
-    row: ColumnRow,
+    chunkIndex: Int,
+    rowInChunk: Int,
+    rowsInChunk: Int,
     chunk: Chunk,
     side: ConflictSide,
     sides: ConflictSides?,
     actions: PickActions,
     edges: ColumnEdges,
 ) {
+    val buttons = gutterButtons(chunkIndex, chunk, side, sides?.label(side), actions)
+
     Column(
         modifier = Modifier.width(GutterWidth).fillMaxHeight().columnEdge(side, edges),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        if (!row.first) {
-            return@Column
+        for (index in gutterButtonsOnRow(buttons.size, rowInChunk, rowsInChunk)) {
+            buttons[index]()
         }
+    }
+}
 
-        val sideName = sides?.label(side)
-
-        when (chunk) {
-            // Lines typed in place of unchanged lines: the left gutter puts them back
-            is Chunk.Unchanged -> if (chunk.edited != null && side == ConflictSide.OURS) {
+/** The buttons of [chunk] for [side]'s gutter, in the order that its rows show them. */
+private fun gutterButtons(
+    chunkIndex: Int,
+    chunk: Chunk,
+    side: ConflictSide,
+    sideName: String?,
+    actions: PickActions,
+): List<@Composable () -> Unit> = buildList {
+    when (chunk) {
+        // Lines typed in place of unchanged lines: the left gutter puts them back
+        is Chunk.Unchanged -> if (chunk.edited != null && side == ConflictSide.OURS) {
+            add {
                 GutterButton(
                     painter = painterResource(Res.drawable.undo),
                     tooltip = stringResource(Res.string.conflict_resolver_put_back),
                     color = MaterialTheme.colors.onBackgroundSecondary,
-                    onClick = { actions.onPutBack(row.chunk) },
+                    onClick = { actions.onPutBack(chunkIndex) },
                 )
             }
+        }
 
-            is Chunk.Change -> {
-                // Ours' and both sides' changes on the left, theirs' on the right
-                val onThisSide = if (side == ConflictSide.OURS) chunk.by != ChangedBy.THEIRS else chunk.by == ChangedBy.THEIRS
+        is Chunk.Change -> {
+            // Ours' and both sides' changes on the left, theirs' on the right
+            val onThisSide = if (side == ConflictSide.OURS) chunk.by != ChangedBy.THEIRS else chunk.by == ChangedBy.THEIRS
 
-                if (onThisSide) {
-                    if (chunk.edited != null) {
-                        // In place of the lines typed: the change's, or the base's
-                        GutterButton(
-                            painter = painterResource(Res.drawable.check),
-                            tooltip = stringResource(Res.string.conflict_resolver_change_instead),
-                            color = MaterialTheme.colors.addFile,
-                            onClick = { actions.onSetApplied(row.chunk, true) },
-                        )
-                        GutterButton(
-                            painter = painterResource(Res.drawable.close),
-                            tooltip = stringResource(Res.string.conflict_resolver_base_instead),
-                            color = MaterialTheme.colors.onBackgroundSecondary,
-                            onClick = { actions.onSetApplied(row.chunk, false) },
-                        )
-                    } else if (chunk.applied) {
-                        GutterButton(
-                            painter = painterResource(Res.drawable.close),
-                            tooltip = stringResource(Res.string.conflict_resolver_undo_change),
-                            color = MaterialTheme.colors.onBackgroundSecondary,
-                            onClick = { actions.onSetApplied(row.chunk, false) },
-                        )
-                    } else {
-                        GutterButton(
-                            painter = painterResource(Res.drawable.check),
-                            tooltip = stringResource(Res.string.conflict_resolver_apply_change),
-                            color = MaterialTheme.colors.addFile,
-                            onClick = { actions.onSetApplied(row.chunk, true) },
-                        )
-                    }
-                }
+            if (!onThisSide) {
+                return@buildList
             }
 
-            is Chunk.Conflict -> {
-                val (take, addAfter) = when (side) {
-                    ConflictSide.OURS -> Res.string.conflict_resolver_take_ours to Res.string.conflict_resolver_add_ours
-                    ConflictSide.THEIRS -> Res.string.conflict_resolver_take_theirs to Res.string.conflict_resolver_add_theirs
+            if (chunk.edited != null) {
+                // In place of the lines typed: the change's, or the base's
+                add {
+                    GutterButton(
+                        painter = painterResource(Res.drawable.check),
+                        tooltip = stringResource(Res.string.conflict_resolver_change_instead),
+                        color = MaterialTheme.colors.addFile,
+                        onClick = { actions.onSetApplied(chunkIndex, true) },
+                    )
                 }
-                val arrowIcon = if (side == ConflictSide.OURS) Res.drawable.arrow_forward else Res.drawable.arrow_back
+                add {
+                    GutterButton(
+                        painter = painterResource(Res.drawable.close),
+                        tooltip = stringResource(Res.string.conflict_resolver_base_instead),
+                        color = MaterialTheme.colors.onBackgroundSecondary,
+                        onClick = { actions.onSetApplied(chunkIndex, false) },
+                    )
+                }
+            } else if (chunk.applied) {
+                add {
+                    GutterButton(
+                        painter = painterResource(Res.drawable.close),
+                        tooltip = stringResource(Res.string.conflict_resolver_undo_change),
+                        color = MaterialTheme.colors.onBackgroundSecondary,
+                        onClick = { actions.onSetApplied(chunkIndex, false) },
+                    )
+                }
+            } else {
+                add {
+                    GutterButton(
+                        painter = painterResource(Res.drawable.check),
+                        tooltip = stringResource(Res.string.conflict_resolver_apply_change),
+                        color = MaterialTheme.colors.addFile,
+                        onClick = { actions.onSetApplied(chunkIndex, true) },
+                    )
+                }
+            }
+        }
 
-                when (chunk.resolution.arrowFor(side)) {
-                    ConflictArrow.TAKE -> GutterButton(
+        is Chunk.Conflict -> {
+            val name = sideName ?: side.name.lowercase()
+            val (take, addAfter) = when (side) {
+                ConflictSide.OURS -> Res.string.conflict_resolver_take_ours to Res.string.conflict_resolver_add_ours
+                ConflictSide.THEIRS -> Res.string.conflict_resolver_take_theirs to Res.string.conflict_resolver_add_theirs
+            }
+            val arrowIcon = if (side == ConflictSide.OURS) Res.drawable.arrow_forward else Res.drawable.arrow_back
+
+            when (chunk.resolution.arrowFor(side)) {
+                ConflictArrow.TAKE -> add {
+                    GutterButton(
                         painter = painterResource(arrowIcon),
-                        tooltip = stringResource(take, sideName ?: side.name.lowercase()),
+                        tooltip = stringResource(take, name),
                         color = MaterialTheme.colors.conflictFile,
                         filled = true,
-                        onClick = { actions.onTake(row.chunk, side) },
+                        onClick = { actions.onTake(chunkIndex, side) },
                     )
-
-                    ConflictArrow.ADD_AFTER -> GutterButton(
-                        painter = painterResource(Res.drawable.add),
-                        tooltip = stringResource(addAfter, sideName ?: side.name.lowercase()),
-                        color = MaterialTheme.colors.conflictFile,
-                        filled = true,
-                        onClick = { actions.onTake(row.chunk, side) },
-                    )
-
-                    null -> Unit
                 }
 
-                // The left gutter also opens a resolved conflict again
-                if (side == ConflictSide.OURS && chunk.resolution != ConflictResolution.Unresolved) {
+                ConflictArrow.ADD_AFTER -> add {
+                    GutterButton(
+                        painter = painterResource(Res.drawable.add),
+                        tooltip = stringResource(addAfter, name),
+                        color = MaterialTheme.colors.conflictFile,
+                        filled = true,
+                        onClick = { actions.onTake(chunkIndex, side) },
+                    )
+                }
+
+                null -> Unit
+            }
+
+            // Where the side taken had its arrow, so that a pick leaves each gutter one button
+            if (chunk.resolution.reopensFrom() == side) {
+                add {
                     GutterButton(
                         painter = painterResource(Res.drawable.close),
                         tooltip = stringResource(Res.string.conflict_resolver_reset_conflict),
                         color = MaterialTheme.colors.onBackgroundSecondary,
-                        onClick = { actions.onResolve(row.chunk, ConflictResolution.Unresolved) },
+                        onClick = { actions.onResolve(chunkIndex, ConflictResolution.Unresolved) },
                     )
                 }
             }

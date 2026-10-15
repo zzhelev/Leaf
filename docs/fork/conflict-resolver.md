@@ -265,6 +265,11 @@ the repository; the sketches below show the layouts.
 - Arrows point into the result: **▶** takes ours, **◀** takes theirs. Once one side is taken, the other side's arrow
   adds its lines after it, so "both" in either order is two clicks. The conflict's menu also has Ours then theirs and
   Theirs then ours. A cross rejects a change, and a one-sided change that was applied goes back to the base.
+- **Two buttons in a gutter** (found in the manual run, 2026-10-15): with theirs taken, ours' gutter had its add-after
+  arrow and the cross that opens the conflict again stacked on the first row, which made that row a button taller
+  than its line. The cross now goes where the side taken had its arrow, so a pick leaves each gutter one button, and
+  a gutter that still has two (the base or lines typed taken, or a change's ✓ and × next to lines typed) puts the
+  second on the chunk's second row. A one-line chunk still stacks them.
 - An open conflict shows a hatched placeholder in the result. **Base** shows the base text in every placeholder.
 - Good: the arrows map straight onto the columns, the user knows it from Meld, and JetBrains, SmartGit and Sublime
   Merge work this way too. Bad: each column gets a third of the width, so long lines wrap. It wants a window around

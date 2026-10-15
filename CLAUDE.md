@@ -552,8 +552,11 @@ its lines, with colours while editing (section 11).
     - Tests: `ResolveInTurnTest`, `ConflictsToOpenTest` (domain), and `ResolvingConflictsInMergeToolTest`, which runs
       the files that `conflictsToOpen` picks from a tab's status through a fake tool.
   - The rows come from `columnRows` (`domain/conflicts/ResolverColumns.kt`): one `ColumnRow` per line of a chunk's
-    tallest column, fillers in the others, the gutters' buttons on its first row. `arrowFor` and `taking` are the
-    arrows: ▶ and ◀ take a side; once one is taken, the other side's adds after it.
+    tallest column, fillers in the others. `arrowFor` and `taking` are the arrows: ▶ and ◀ take a side; once one is
+    taken, the other side's adds after it. A gutter's buttons go one a row from the chunk's first, those left over on
+    its last (`gutterButtonsOnRow`), and a resolved conflict's × (open it again) where the side taken had its arrow
+    (`reopensFrom`): two stacked on one row made it a button taller than its line (found in the manual run,
+    2026-10-15). A button is still 4 px over a line, as the first row of every change is.
   - The view model follows the status (`afterStatus`): it stays on the shown file once that stops being conflicted,
     until the user opens the next one (below), and says "All conflicts resolved" when none is left, or closes when
     nothing was resolved here. Leaving a file with changes that aren't saved, picks or lines typed, asks in a strip

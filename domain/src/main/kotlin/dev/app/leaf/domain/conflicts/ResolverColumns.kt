@@ -251,6 +251,23 @@ fun ConflictResolution.arrowFor(side: ConflictSide): ConflictArrow? = when (this
     ConflictResolution.Unresolved, ConflictResolution.Base, is ConflictResolution.Edited -> ConflictArrow.TAKE
 }
 
+/**
+ * The gutter that opens a resolved conflict again: where the arrow of the side taken was, theirs' after taking theirs
+ * and ours' otherwise, so that a pick leaves each gutter one button. Null for an open conflict.
+ */
+fun ConflictResolution.reopensFrom(): ConflictSide? = when (this) {
+    ConflictResolution.Unresolved -> null
+    ConflictResolution.Theirs -> ConflictSide.THEIRS
+    else -> ConflictSide.OURS
+}
+
+/**
+ * Which of a gutter's [buttons] the chunk's [row]th of [rows] shows: one a row, from the first, so that they don't
+ * make a row taller than its line, and those left over on the chunk's last row.
+ */
+fun gutterButtonsOnRow(buttons: Int, row: Int, rows: Int): IntRange =
+    if (row < rows - 1) row until minOf(row + 1, buttons) else row until buttons
+
 /** The resolution after [side]'s arrow: see [arrowFor]. */
 fun ConflictResolution.taking(side: ConflictSide): ConflictResolution = when (this) {
     ConflictResolution.Ours -> if (side == ConflictSide.THEIRS) ConflictResolution.OursThenTheirs else this
