@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A resolved cherry-pick keeps the picked commit's author (branch `fix/cherry-pick-author`)
+
+- **Before:** when a cherry-pick stopped at conflicts and the resolution was committed in Leaf, the commit's author
+  was its committer, with the commit's time. JGit's `CommitCommand` doesn't read the author of `CHERRY_PICK_HEAD`,
+  which `git commit` keeps, with its date. Upstream did the same.
+- **Now:** `DoCommitGitAction` sets the picked commit's author and author date (`cherryPickedAuthor`) when it commits
+  during a cherry-pick without amending. The committer is git's, as for Leaf's other commits.
+- **Tests:** `CommitIdentityTest` (+1): Leaf's cherry-pick stops at a conflict and Leaf commits the resolution; the
+  same resolution committed with `git commit --no-edit` has the same author, author date and committer.
+  - Mutation check: without the line that sets the picked commit's author, that test fails.
+  - The full suite passes on `24fb0e3d` with finding hooks where git does and these changes: `:app` 315 tests,
+    `:domain` 340, `:data` 1075 (14 skipped), `:common` 7.
+
 ## Hooks are found where git finds them, `includeIf` and `~/` included (branch `fix/hooks-from-git`)
 
 - **Before** (Gitnuro#186): JGit read `core.hooksPath` from its own config, which skips the files that `includeIf`

@@ -1332,6 +1332,8 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   The identity typed in `CommitAuthorDialog` is the author and the committer: the committer used to be JGit's guess,
   `<user> <<user>@localhost>`. `CreateTagGitAction` takes git's committer as the tagger, `StashChangesGitAction` as
   the stash's person.
+  - A resolved cherry-pick keeps the picked commit's author and author date (`cherryPickedAuthor`, from
+    `CHERRY_PICK_HEAD`), as `git commit` does, unless it amends. JGit's `CommitCommand` took the committer.
 - `LoadAuthorGitAction` puts git's author in `AuthorInfo.gitIdentity`. `identityToUse()` prefers it (the bottom bar,
   the sign-off line), and `isIdentityMissing()`, which decides the dialog (`StatusViewModelExtender.getIdentity`), is
   false whenever git has one.
