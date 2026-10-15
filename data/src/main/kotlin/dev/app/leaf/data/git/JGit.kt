@@ -3,12 +3,15 @@ package dev.app.leaf.data.git
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.cli.remote.missingObjectError
+import dev.app.leaf.data.git.config.GitIncludedConfig
+import dev.app.leaf.data.git.config.IncludedConfigSource
 import dev.app.leaf.data.git.remote_operations.sshNeedsGitError
 import dev.app.leaf.data.git.repository.unsupportedIndexError
 import dev.app.leaf.data.git.signers.gpgSigningError
 import dev.app.leaf.data.git.signers.sshSigningError
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.errors.*
+import kotlinx.coroutines.sync.withLock
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.util.FS
 import org.eclipse.jgit.util.FS_POSIX
@@ -25,13 +28,21 @@ class JGit(
     private val loginShellEnvironment: LoginShellEnvironment,
     // Fork-only: where git finds hooks, or null to find them as JGit does
     private val hooksDirectory: HooksDirectory? = null,
+    // Fork-only: what git reads through includeIf, or null to open repositories as JGit does
+    private val includedConfig: IncludedConfigSource? = null,
 ) {
     @Inject
     constructor(
         windowsFs: Provider<WindowsFs>,
         loginShellEnvironment: LoginShellEnvironment,
         gitHooksDirectory: GitHooksDirectory,
-    ) : this(windowsFs, loginShellEnvironment, gitHooksDirectory as HooksDirectory)
+        gitIncludedConfig: GitIncludedConfig,
+    ) : this(
+        windowsFs,
+        loginShellEnvironment,
+        gitHooksDirectory as HooksDirectory,
+        gitIncludedConfig as IncludedConfigSource,
+    )
 
     // Concurrent because cleanupExcept iterates it while other tabs open repositories
     private val repositories = ConcurrentHashMap<String, Git>()
@@ -55,6 +66,8 @@ class JGit(
         } else {
             cachedGit
         }
+
+        refreshIncludedConfig(git)
 
         try {
             Either.Ok(block(git))
@@ -88,6 +101,8 @@ class JGit(
             null
         }
 
+        git?.let { refreshIncludedConfig(it) }
+
         try {
             Either.Ok(block(git))
         } catch (ex: Exception) {
@@ -111,6 +126,8 @@ class JGit(
         }.bind()
 
         git.use {
+            refreshIncludedConfig(git)
+
             try {
                 Either.Ok(block(git))
             } catch (ex: Exception) {
@@ -146,7 +163,26 @@ class JGit(
             else -> detected
         }
 
-        return Git.open(gitDir, fs)
+        return if (includedConfig != null) openWithIncludedConfig(gitDir, fs) else Git.open(gitDir, fs)
+    }
+
+    /**
+     * Fork-only: puts what git reads through `includeIf` under the repository's config ([IncludedConfigRepository]),
+     * the first time and whenever one of the files that it depends on changed. Otherwise this only reads their state.
+     */
+    private suspend fun refreshIncludedConfig(git: Git) {
+        val repository = git.repository as? IncludedConfigRepository ?: return
+        val source = includedConfig ?: return
+
+        try {
+            repository.includedConfigLock.withLock {
+                if (repository.isIncludedConfigStale()) {
+                    repository.useIncludedConfig(source.read(repository))
+                }
+            }
+        } catch (ex: Exception) {
+            printError(TAG, "Reading the config as JGit does, as git's includes couldn't be read: ${ex.message}")
+        }
     }
 
     fun cleanupExcept(repositoriesToKeep: Set<String>) {

@@ -61,8 +61,11 @@ class GitSigningConfigs @Inject constructor(
  * A JGit config with [entries], as `git config --list` gives them, with their includes in place. They're written as
  * config text for JGit to read, so that a key without `=` stays one, which JGit reads as true, as git does.
  */
-internal fun configOf(entries: List<ConfigEntry>): Config {
-    val text = buildString {
+internal fun configOf(entries: List<ConfigEntry>): Config = Config().apply { fromText(configText(entries)) }
+
+/** [entries] as config text, for JGit to read. It leaves out `include` and `includeIf`, whose files git has read. */
+internal fun configText(entries: List<ConfigEntry>): String {
+    return buildString {
         for ((key, value) in entries) {
             val firstDot = key.indexOf('.')
             val lastDot = key.lastIndexOf('.')
@@ -92,8 +95,6 @@ internal fun configOf(entries: List<ConfigEntry>): Config {
             append('\n')
         }
     }
-
-    return Config().apply { fromText(text) }
 }
 
 private fun escapeSubsection(subsection: String) = subsection

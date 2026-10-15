@@ -6,6 +6,7 @@ package dev.app.leaf.data.git
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.GitExecutableLocator
 import dev.app.leaf.data.git.cli.ProcessRunner
+import dev.app.leaf.data.git.config.IncludedConfigSource
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.services.AppSettingsService
@@ -22,10 +23,19 @@ import javax.inject.Provider
 
 /**
  * A [JGit] for tests on macOS and Linux, where [shellVariables] stand for what the login shell adds to hooks. Hooks are
- * found as JGit finds them, unless the test gives [hooksDirectory] ([GitHooksDirectory] asks git).
+ * found as JGit finds them, unless the test gives [hooksDirectory] ([GitHooksDirectory] asks git), and repositories
+ * open as JGit opens them, unless it gives [includedConfig] ([GitIncludedConfig] asks git).
  */
-fun testJGit(shellVariables: Map<String, String> = emptyMap(), hooksDirectory: HooksDirectory? = null) =
-    JGit(Provider { error("Only used on Windows") }, LoginShellEnvironment { shellVariables }, hooksDirectory)
+fun testJGit(
+    shellVariables: Map<String, String> = emptyMap(),
+    hooksDirectory: HooksDirectory? = null,
+    includedConfig: IncludedConfigSource? = null,
+) = JGit(
+    windowsFs = Provider { error("Only used on Windows") },
+    loginShellEnvironment = LoginShellEnvironment { shellVariables },
+    hooksDirectory = hooksDirectory,
+    includedConfig = includedConfig,
+)
 
 /**
  * A [GitCli] for tests, where [shellVariables] stand for what the login shell adds, and [configuredPath] for the git
