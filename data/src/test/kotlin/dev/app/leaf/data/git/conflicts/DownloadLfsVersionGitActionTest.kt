@@ -34,6 +34,7 @@ import dev.app.leaf.domain.errors.LfsObjectDownloadError
 import dev.app.leaf.domain.interfaces.IGetLfsUrlGitAction
 import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.models.LfsObject
+import dev.app.leaf.domain.models.OperationType
 import dev.app.leaf.domain.models.PreviewImage
 import dev.app.leaf.domain.models.VersionPreview
 import io.mockk.mockk
@@ -84,10 +85,13 @@ class DownloadLfsVersionGitActionTest {
         )
     }
 
-    /** What the stand-in for the app's `GetLfsUrlGitAction` was asked: the remote, null for the current branch's. */
-    private val serverRequests = mutableListOf<String?>()
+    /**
+     * What the stand-in for the app's `GetLfsUrlGitAction` was asked: the remote, null for the one git-lfs picks, and
+     * the operation.
+     */
+    private val serverRequests = mutableListOf<Pair<String?, OperationType>>()
 
-    /** The LFS server that the repository has for each remote, null for the current branch's. */
+    /** The LFS server that the stand-in finds for the remote, or for the one git-lfs picks. */
     private var servers: (String?) -> LfsServer? = { LfsServer(server.url, remoteUrl = null) }
 
     private val contents = mapOf(
@@ -125,7 +129,7 @@ class DownloadLfsVersionGitActionTest {
 
             assertEquals(Either.Ok(expected), result)
             assertEquals(contents.getValue("feature").toList(), mediaFile("feature").readBytes().toList())
-            assertEquals(listOf<String?>(null), serverRequests)
+            assertEquals(listOf<Pair<String?, OperationType>>(null to OperationType.DOWNLOAD), serverRequests)
             // In steps, up to the whole object
             assertTrue(progress.size > 1 && progress == progress.sorted(), "$progress")
             assertEquals(objects.getValue("feature").size, progress.last())
@@ -176,28 +180,6 @@ class DownloadLfsVersionGitActionTest {
 
         assertEquals(Either.Err(LfsObjectDownloadError(LfsError.NoServer)), download(objects.getValue("feature")))
         assertEquals(emptyList<String>(), server.requests)
-    }
-
-    @Test
-    fun `when the current branch has no LFS server, as a rebase's detached HEAD, origin's is asked, as git-lfs does`():
-        Unit = runBlocking {
-        mergePhotos(onServer = listOf("feature"))
-        git.run(repository, "remote", "add", "fork", "https://example.com/fork.git")
-        git.run(repository, "remote", "add", "origin", "https://example.com/origin.git")
-        servers = { remote -> LfsServer(server.url, remoteUrl = null).takeIf { remote == "refs/remotes/origin" } }
-
-        assertTrue(download(objects.getValue("feature")) is Either.Ok)
-        assertEquals(listOf(null, "refs/remotes/origin"), serverRequests)
-    }
-
-    @Test
-    fun `with one remote that isn't origin, that one's is asked`(): Unit = runBlocking {
-        mergePhotos(onServer = listOf("feature"))
-        git.run(repository, "remote", "add", "upstream", "https://example.com/upstream.git")
-        servers = { remote -> LfsServer(server.url, remoteUrl = null).takeIf { remote == "refs/remotes/upstream" } }
-
-        assertTrue(download(objects.getValue("feature")) is Either.Ok)
-        assertEquals(listOf(null, "refs/remotes/upstream"), serverRequests)
     }
 
     @Test
@@ -277,8 +259,12 @@ class DownloadLfsVersionGitActionTest {
             LoginShellEnvironment { shellVariables },
         )
         val getLfsUrl = object : IGetLfsUrlGitAction {
-            override suspend fun invoke(repository: Repository, remoteName: String?): LfsServer? {
-                serverRequests += remoteName
+            override suspend fun invoke(
+                repository: Repository,
+                remoteName: String?,
+                operation: OperationType,
+            ): LfsServer? {
+                serverRequests += remoteName to operation
                 return servers(remoteName)
             }
         }

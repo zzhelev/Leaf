@@ -252,7 +252,9 @@ class LfsPrePushHook @AssistedInject constructor(
         }
 
         if (!isDryRun) {
-            val lfsServer = getLfsUrlGitAction(repository, remote()) ?: throw Exception("LFS Url not found")
+            // lfs.pushurl and the remote's push URL, as git-lfs uploads (fork-only)
+            val lfsServer = getLfsUrlGitAction(repository, remote(), OperationType.UPLOAD)
+                ?: throw Exception("LFS Url not found")
             val isHttpUrl = lfsServer.url.isHttpOrHttps()
 
             val lfsObjectBatches = toPush.map { LfsObjectBatch(it.oid.name(), it.size) }

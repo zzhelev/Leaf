@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.lfs
 
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.domain.errors.okOrNull
+import dev.app.leaf.domain.models.OperationType
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.storage.file.FileBasedConfig
 import java.io.File
@@ -24,16 +25,52 @@ private const val LFS_CONFIG_FILE = ".lfsconfig"
  * remote, then the remote's [remoteLfsUrl], then the remote's URL, which the caller turns into a server. Each is read
  * from git's own config first (the repository's, the user's and the system's, `includeIf` included), then from
  * `.lfsconfig` in the working tree, so an `lfs.url` in `.lfsconfig` beats a `remote.<name>.lfsurl` in git's config.
+ * Also the settings by which git-lfs picks the remote: [branchRemote], then [lfsDefaultRemote].
+ *
+ * An empty value counts as not set, as git-lfs's documentation has it ("Default blank (derive from clone URL)").
+ * git-lfs 3.8 itself takes an empty value as the server, and is then left without one, or takes `origin`'s for another
+ * remote.
  */
 class GetLfsUrlSettingGitAction @Inject constructor(
     private val gitCli: GitCli,
 ) {
-    /** `lfs.url`, or null when neither git's config nor `.lfsconfig` sets it. */
-    suspend fun lfsUrl(repository: Repository): String? = setting(repository, "lfs", null, "url")
+    /**
+     * `lfs.url`, or null when neither git's config nor `.lfsconfig` sets it. For an upload, `lfs.pushurl` comes first,
+     * so one in `.lfsconfig` beats an `lfs.url` in git's config.
+     */
+    suspend fun lfsUrl(repository: Repository, operation: OperationType = OperationType.DOWNLOAD): String? {
+        val pushUrl = if (operation == OperationType.UPLOAD) setting(repository, "lfs", null, "pushurl") else null
 
-    /** `remote.<remoteName>.lfsurl`, which git-lfs reads only when [lfsUrl] is null. */
-    suspend fun remoteLfsUrl(repository: Repository, remoteName: String): String? =
-        setting(repository, "remote", remoteName, "lfsurl")
+        return pushUrl ?: setting(repository, "lfs", null, "url")
+    }
+
+    /**
+     * `remote.<remoteName>.lfsurl`, which git-lfs reads only when [lfsUrl] is null. For an upload,
+     * `remote.<remoteName>.lfspushurl` comes first, from git's config only: git-lfs ignores it in `.lfsconfig`.
+     */
+    suspend fun remoteLfsUrl(
+        repository: Repository,
+        remoteName: String,
+        operation: OperationType = OperationType.DOWNLOAD,
+    ): String? {
+        val pushUrl = if (operation == OperationType.UPLOAD) {
+            gitConfigValue(repository, "remote", remoteName, "lfspushurl")
+        } else {
+            null
+        }
+
+        return pushUrl ?: setting(repository, "remote", remoteName, "lfsurl")
+    }
+
+    /**
+     * `branch.<branch>.remote`, the remote whose server git-lfs uses for the branch, from git's config only: git-lfs
+     * ignores it in `.lfsconfig`. Without `branch.<branch>.merge` too, which git-lfs doesn't need.
+     */
+    suspend fun branchRemote(repository: Repository, branch: String): String? =
+        gitConfigValue(repository, "branch", branch, "remote")
+
+    /** `remote.lfsdefault`: the remote whose server git-lfs uses when the current branch has no upstream remote. */
+    suspend fun lfsDefaultRemote(repository: Repository): String? = setting(repository, "remote", null, "lfsdefault")
 
     private suspend fun setting(repository: Repository, section: String, subsection: String?, name: String): String? =
         gitConfigValue(repository, section, subsection, name)

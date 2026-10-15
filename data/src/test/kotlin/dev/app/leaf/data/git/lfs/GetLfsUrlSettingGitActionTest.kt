@@ -6,8 +6,10 @@ package dev.app.leaf.data.git.lfs
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testGitCli
+import dev.app.leaf.domain.models.OperationType
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -110,6 +112,81 @@ class GetLfsUrlSettingGitActionTest {
     }
 
     @Test
+    fun `for an upload, lfs pushurl comes first, from either file, before lfs url from either`(): Unit = runBlocking {
+        git.run(repository, "config", "lfs.url", "https://repository.example.com/repo")
+        assertEquals("https://repository.example.com/repo", lfsUrl(OperationType.UPLOAD))
+
+        lfsConfigFile("[lfs]\n\tpushurl = https://lfsconfig.example.com/push\n")
+        assertEquals("https://lfsconfig.example.com/push", lfsUrl(OperationType.UPLOAD))
+        assertEquals("https://repository.example.com/repo", lfsUrl())
+
+        git.run(repository, "config", "--global", "lfs.pushurl", "https://user.example.com/push")
+        assertEquals("https://user.example.com/push", lfsUrl(OperationType.UPLOAD))
+        assertEquals("https://repository.example.com/repo", lfsUrl())
+    }
+
+    @Test
+    fun `for an upload, a remote's lfspushurl comes first, from git's config only`(): Unit = runBlocking {
+        lfsConfigFile(
+            "[remote \"origin\"]\n\tlfsurl = https://lfsconfig.example.com/origin\n" +
+                "\tlfspushurl = https://lfsconfig.example.com/origin-push\n",
+        )
+        // git-lfs ignores it in .lfsconfig
+        assertEquals("https://lfsconfig.example.com/origin", remoteLfsUrl("origin", OperationType.UPLOAD))
+
+        git.run(repository, "config", "--global", "remote.origin.lfspushurl", "https://user.example.com/origin-push")
+        assertEquals("https://user.example.com/origin-push", remoteLfsUrl("origin", OperationType.UPLOAD))
+        assertEquals("https://lfsconfig.example.com/origin", remoteLfsUrl("origin"))
+        assertNull(lfsUrl(OperationType.UPLOAD))
+    }
+
+    @Test
+    fun `remote lfsdefault is read from git's config, then from lfsconfig, and a branch's remote from git's only`():
+        Unit = runBlocking {
+        assertNull(setting { lfsDefaultRemote(it) })
+
+        lfsConfigFile("[remote]\n\tlfsdefault = fork\n[branch \"main\"]\n\tremote = fork\n")
+        assertEquals("fork", setting { lfsDefaultRemote(it) })
+        // git-lfs ignores it in .lfsconfig
+        assertNull(setting { branchRemote(it, "main") })
+
+        git.run(repository, "config", "remote.lfsdefault", "upstream")
+        git.run(repository, "config", "branch.feature/x.remote", "upstream")
+        assertEquals("upstream", setting { lfsDefaultRemote(it) })
+        assertEquals("upstream", setting { branchRemote(it, "feature/x") })
+        assertNull(setting { branchRemote(it, "main") })
+    }
+
+    @Test
+    fun `an empty value counts as not set, as git-lfs's documentation says, where git-lfs 3_8 has no server`():
+        Unit = runBlocking {
+        git.run(repository, "remote", "add", "origin", "https://example.com/org/repo")
+        git.run(repository, "remote", "add", "upstream", "https://example.com/upstream/repo")
+        lfsConfigFile("[lfs]\n\tpushurl = https://lfsconfig.example.com/push\n")
+        git.run(repository, "config", "remote.upstream.lfsurl", "")
+        git.run(repository, "config", "lfs.pushurl", "")
+
+        assertNull(remoteLfsUrl("upstream"))
+        // So .lfsconfig's counts
+        assertEquals("https://lfsconfig.example.com/push", lfsUrl(OperationType.UPLOAD))
+
+        // git-lfs takes an empty remote.<name>.lfsurl as the remote's server, and then asks origin's
+        if (isGitLfsInstalled()) {
+            assertEquals("https://example.com/org/repo.git/info/lfs", gitLfsEndpoint("upstream"))
+        }
+
+        git.run(repository, "config", "lfs.url", "")
+        assertNull(lfsUrl())
+
+        // and an empty lfs.url as every remote's
+        if (isGitLfsInstalled()) {
+            val endpoints = git.run(repository, mapOf("HOME" to tempDir.absolutePath), "lfs", "env").lines()
+                .filter { it.startsWith("Endpoint") }
+            assertEquals(listOf("Endpoint (upstream)= (auth=none)"), endpoints)
+        }
+    }
+
+    @Test
     fun `without a usable git, JGit's config is read`(): Unit = runBlocking {
         // A user config that only JGit reads, so that the two can be told apart
         File(tempDir, "jgit-config/user.gitconfig").apply { parentFile.mkdirs() }.writeText(
@@ -133,9 +210,7 @@ class GetLfsUrlSettingGitActionTest {
 
     @Test
     fun `the setting is the one that git-lfs uses`(): Unit = runBlocking {
-        val gitLfs = ProcessBuilder("/bin/sh", "-c", "command -v git-lfs").start()
-            .let { process -> process.inputStream.readBytes().decodeToString().trim().also { process.waitFor() } }
-        assumeTrue(gitLfs.isNotEmpty()) { "git-lfs isn't installed" }
+        assumeTrue(isGitLfsInstalled()) { "git-lfs isn't installed" }
 
         git.run(repository, "remote", "add", "origin", "https://example.com/org/repo")
         git.run(repository, "remote", "add", "upstream", "https://example.com/upstream/repo")
@@ -178,14 +253,19 @@ class GetLfsUrlSettingGitActionTest {
         return line.substringAfter("=").substringBefore(" (auth=")
     }
 
+    private fun isGitLfsInstalled(): Boolean = ProcessBuilder("/bin/sh", "-c", "command -v git-lfs").start()
+        .let { process -> process.inputStream.readBytes().decodeToString().trim().also { process.waitFor() } }
+        .isNotEmpty()
+
     private fun lfsConfigFile(url: String) =
         lfsConfigFile.writeText(if (url.startsWith("[")) url else "[lfs]\n\turl = $url\n")
 
-    private suspend fun lfsUrl(): String? = Git.open(repository).use { git ->
-        GetLfsUrlSettingGitAction(testGitCli(shellVariables)).lfsUrl(git.repository)
-    }
+    private suspend fun lfsUrl(operation: OperationType = OperationType.DOWNLOAD): String? =
+        setting { lfsUrl(it, operation) }
 
-    private suspend fun remoteLfsUrl(remote: String): String? = Git.open(repository).use { git ->
-        GetLfsUrlSettingGitAction(testGitCli(shellVariables)).remoteLfsUrl(git.repository, remote)
-    }
+    private suspend fun remoteLfsUrl(remote: String, operation: OperationType = OperationType.DOWNLOAD): String? =
+        setting { remoteLfsUrl(it, remote, operation) }
+
+    private suspend fun setting(read: suspend GetLfsUrlSettingGitAction.(Repository) -> String?): String? =
+        Git.open(repository).use { git -> GetLfsUrlSettingGitAction(testGitCli(shellVariables)).read(git.repository) }
 }
