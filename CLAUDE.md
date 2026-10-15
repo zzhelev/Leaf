@@ -2096,6 +2096,21 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
   `data/src/test/kotlin`, `domain/src/test/kotlin`, `common/src/test/kotlin` and `app/src/test/kotlin`.
+- **CI runs them on Linux** (`.github/workflows/build_with_tests.yml`, `ubuntu-latest`, `build` then `test`), so they
+  must pass there too (fixed on 2026-10-15, after a week of red runs):
+  - Fake programs record their arguments with `printf '%s\n'`, never `echo`: dash, Ubuntu's `/bin/sh`, takes `-n` as
+    `echo`'s option and prints nothing.
+  - A test whose git commits (merges, rebases) gives git an identity in its global config: git makes one up from the
+    account and the host on macOS, and refuses on Linux ("Committer identity unknown").
+  - A PATH without git-lfs is `pathWithoutGitLfs` (`TestRemoteCommand.kt`): Linux installs git-lfs in `/usr/bin`.
+  - Compose's tests render with the app's fonts, which are LFS files: the workflow restores `.git/lfs/objects` from
+    the Actions cache, keyed on the LFS objects' ids, and runs `git lfs pull`, so the 9.3 MB of fonts count against
+    the account's LFS bandwidth (10 GiB a month free) only when they change. It installs `libgl1` and `libegl1` too.
+  - The build stops at the first module whose tests fail, so a red `:data` hides `:app`'s tests.
+  - Reproducing CI: an `eclipse-temurin:25-jdk` container with git, git-lfs, OpenSSH, `libgl1`, `libegl1`,
+    `libfontconfig1` and rustup, the repository copied in (not mounted, as the build writes Linux outputs) with its
+    fonts, and Gradle run as a user other than root, which ignores folder permissions. A few process and login shell
+    tests fail only in a container.
 - JUnit 5 and MockK are already declared in `app`, `data` and `domain`. The `buildsrc` convention plugin enables the
   JUnit platform, so new test files need no build changes. `kotlinx-coroutines-test` is not a dependency; use
   `runBlocking`.

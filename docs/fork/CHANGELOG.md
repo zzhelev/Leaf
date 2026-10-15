@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The tests pass on Linux, as CI runs them (branch `fix/ci-linux-tests`)
+
+- **Before:** the Test Build workflow failed on every push to `main` since at least 2026-10-08. 19 of `:data`'s tests
+  failed on Ubuntu, and passed on macOS:
+  - the worktree merge and rebase tests (10) gave git an empty global config. git makes an identity up on macOS, and
+    refuses on Linux ("Committer identity unknown");
+  - the fake `ssh-keygen` of the signing tests (7) recorded its arguments with `echo`, which in dash, Ubuntu's
+    `/bin/sh`, takes `-n` as its own option and prints nothing, so every argument after it moved up a line;
+  - two LFS tests took `/usr/bin:/bin` for a PATH without git-lfs, where Linux installs it.
+  - The build stopped there, so CI had never run `:app`'s tests. They render with the app's fonts, which are LFS
+    files, and the checkout had only their pointers: a conflict resolver test that measures lines failed with the
+    fallback font.
+- **Now:** those tests give git an identity, fake programs record their arguments with `printf '%s\n'` (a fake ssh
+  that passed by luck too), and `pathWithoutGitLfs` puts a `git-lfs` that fails, as git without it does, first on the
+  PATH.
+  - The workflow checks the fonts out with `git lfs pull`, from `.git/lfs/objects` restored from the Actions cache, so
+    a run downloads them (9.3 MB, from the account's 10 GiB of LFS bandwidth a month) only when they change, and
+    installs `libgl1` and `libegl1`, which Compose renders with. The app is unchanged.
+- **Tests:** in an Ubuntu 26.04 container (Temurin 25, git 2.53, git-lfs 3.7, OpenSSH 10.2, a user other than root),
+  the same 19 tests failed before and pass now. `:app`'s 315 tests pass there with the fonts, and one fails with their
+  pointers. Five process and login shell tests fail only in the container; CI passed them. On macOS, the 7 classes
+  changed pass.
+
 ## JGit reads the files that `includeIf` names, for its own commits and settings (branch `fix/includeif-config`)
 
 - **Before** (Gitnuro#186): JGit's config parser expands only `[include]`.
