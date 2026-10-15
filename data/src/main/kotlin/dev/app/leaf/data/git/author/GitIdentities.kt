@@ -12,6 +12,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.eclipse.jgit.api.CommitCommand
 import org.eclipse.jgit.lib.PersonIdent
+import org.eclipse.jgit.lib.Repository
+import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.util.RawParseUtils
 import java.io.File
 import javax.inject.Inject
@@ -84,6 +86,17 @@ internal fun CommitCommand.withIdentities(identities: CommitIdentities?, amend: 
     author?.let { setAuthor(it) }
 
     return this
+}
+
+/**
+ * The author of the commit that a cherry-pick stopped at (`CHERRY_PICK_HEAD`), with its date, or null when no
+ * cherry-pick goes on. `git commit` keeps that author when it commits the resolved cherry-pick, where JGit's
+ * `CommitCommand` takes the committer as the author.
+ */
+internal fun Repository.cherryPickedAuthor(): PersonIdent? {
+    val picked = readCherryPickHead() ?: return null
+
+    return RevWalk(this).use { walk -> walk.parseCommit(picked).authorIdent }
 }
 
 /** This identity now, in the time zone that JGit uses. */

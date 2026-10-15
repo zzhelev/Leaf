@@ -3,6 +3,7 @@ package dev.app.leaf.data.git.workspace
 import dev.app.leaf.common.use
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.author.GitIdentities
+import dev.app.leaf.data.git.author.cherryPickedAuthor
 import dev.app.leaf.data.git.author.withIdentities
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.signers.GitSigningConfigs
@@ -57,6 +58,8 @@ class DoCommitGitAction @Inject constructor(
         // Fork-only: who git commits as and how it signs, which JGit can't tell when includeIf sets it
         val identities = if (author == null) gitIdentities.of(git.repository.directory) else null
         val gpgConfig = gitSigningConfigs.of(git.repository.directory)
+        // Fork-only: a resolved cherry-pick keeps the picked commit's author, as git commit does
+        val pickedAuthor = if (state.isCherryPicking && !amend) git.repository.cherryPickedAuthor() else null
 
         use(output, printStream) {
             val commit = git
@@ -74,6 +77,7 @@ class DoCommitGitAction @Inject constructor(
                         withIdentities(identities, amend)
                     }
                 }
+                .apply { pickedAuthor?.let { setAuthor(it) } }
                 .setGpgConfig(gpgConfig)
                 .call()
 

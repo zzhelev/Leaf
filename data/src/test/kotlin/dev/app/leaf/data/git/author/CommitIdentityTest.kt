@@ -5,6 +5,8 @@ package dev.app.leaf.data.git.author
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
+import dev.app.leaf.data.git.log.CherryPickCommitGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.signers.GitSigningConfigs
 import dev.app.leaf.data.git.stash.StashChangesGitAction
@@ -37,6 +39,7 @@ import java.io.File
 
 private const val PERSONAL = "Personal Name <personal@example.com>"
 private const val WORK = "Work Name <work@example.com>"
+private const val AGENT_DATE = "2026-01-02T03:04:05+01:00"
 
 /**
  * Who Leaf commits, tags and stashes as, compared with git, when an `includeIf` file sets the identity (Gitnuro#186).
@@ -133,6 +136,43 @@ class CommitIdentityTest {
 
         assertEquals("$WORK|$WORK", identities(repository))
         assertEquals(2, git(repository, "log", "-1", "--format=%p").trim().split(" ").size)
+    }
+
+    @Test
+    fun `a resolved cherry-pick keeps the picked commit's author, as git commit does`(): Unit = runBlocking {
+        writeGlobalConfig(personalIdentity = true)
+        val repository = workRepository()
+        stage(repository, "a.txt")
+        git(repository, "commit", "-m", "First")
+        git(repository, "switch", "-q", "-c", "agent")
+        File(repository, "a.txt").writeText("Agent's change\n")
+        git(repository, "commit", "-a", "-m", "Agent's change", "--author=Agent <agent@example.com>")
+        git(repository, "commit", "--amend", "--no-edit", "--date=$AGENT_DATE")
+        val picked = git(repository, "rev-parse", "HEAD").trim()
+        git(repository, "switch", "-q", "main")
+        File(repository, "a.txt").writeText("Main's change\n")
+        git(repository, "commit", "-a", "-m", "Main's change")
+        val start = git(repository, "rev-parse", "HEAD").trim()
+        val agent = Identity("Agent", "agent@example.com")
+
+        // Leaf's cherry-pick stops at the conflict, and Leaf commits the resolution with the message it left
+        val pick = CherryPickCommitGitAction(jgit, testPartialCloneFetch(jgit))(
+            gitDir(repository),
+            Commit(picked, "Agent's change", agent, agent, 0, emptyList()),
+        )
+        assertInstanceOf(Either.Err::class.java, pick)
+        resolveConflict(repository)
+        val message = File(repository, ".git/MERGE_MSG").readText()
+        assertInstanceOf(Either.Ok::class.java, doCommit()(gitDir(repository), message, false, null))
+        val byLeaf = identitiesAndAuthorDate(repository)
+
+        git(repository, "reset", "-q", "--hard", start)
+        assertEquals(1, gitCli.execute(repository, listOf("cherry-pick", picked)).okOrNull()?.exitCode)
+        resolveConflict(repository)
+        git(repository, "commit", "--no-edit")
+
+        assertEquals("Agent <agent@example.com> 2026-01-02 03:04:05 +0100|$WORK", byLeaf)
+        assertEquals(identitiesAndAuthorDate(repository), byLeaf)
     }
 
     @Test
@@ -279,6 +319,14 @@ class CommitIdentityTest {
 
     private fun identities(repository: File, revision: String = "HEAD") =
         git(repository, "log", "-1", "--format=%an <%ae>|%cn <%ce>", revision).trim()
+
+    private fun identitiesAndAuthorDate(repository: File) =
+        git(repository, "log", "-1", "--format=%an <%ae> %ai|%cn <%ce>").trim()
+
+    private fun resolveConflict(repository: File) {
+        File(repository, "a.txt").writeText("Both changes\n")
+        git(repository, "add", "a.txt")
+    }
 
     private fun gitDir(repository: File) = File(repository, ".git").path
 
