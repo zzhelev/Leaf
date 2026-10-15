@@ -550,14 +550,16 @@ B downloads the base even when its card is hidden, and C can open a credentials 
   bar and Cancel, which deletes what arrived. A failure stays in the card, with Try again; closing the credentials
   dialog puts Download back. Once downloaded, the card shows the image, or "Open in the default app", and a side
   picked stays picked.
-- It downloads with Leaf's built-in LFS client, from the server that the checkout's built-in client uses (`lfs.url` in
-  `.lfsconfig`, the current branch's remote, the only remote), then from `origin`, as git-lfs does: a rebase's HEAD
-  is detached. It checks the object's size and SHA-256 before it's moved into the store. git-lfs has no command that
-  fetches one object: `git lfs fetch` takes a commit, and a revert's or a stash's side isn't on the remote.
+- It downloads with Leaf's built-in LFS client, from the server that the checkout's built-in client uses (`lfs.url`,
+  then `remote.<name>.lfsurl`, then the remote's URL, for the current branch's remote or the only remote), then from
+  `origin`, as git-lfs does: a rebase's HEAD is detached. It checks the object's size and SHA-256 before it's moved
+  into the store. git-lfs has no command that fetches one object: `git lfs fetch` takes a commit, and a revert's or a
+  stash's side isn't on the remote.
 - A download goes on when another file opens, and every card of that object follows it. The resolver's other work
   isn't blocked.
-- Not done: the built-in client doesn't read `lfs.url` from `.git/config`, or `remote.<name>.lfsurl`, as git-lfs does.
-  The checkout's downloads have the same gap.
+- From 2026-10-15 the built-in client reads `lfs.url` and `remote.<name>.lfsurl` from git's config (`.git/config`,
+  the user's, `includeIf` included) before `.lfsconfig`, as git-lfs does. Before, it read only `lfs.url` in
+  `.lfsconfig`.
 
 Built: the card in `A/ui/conflicts/ResolverChoiceCards.kt` (`LfsDownloadRow`), the downloads in
 `ConflictResolverViewModel` (`downloadLfsObject`, `ConflictResolverState.lfsDownloads`), and

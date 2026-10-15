@@ -710,8 +710,8 @@ its lines, with colours while editing (section 11).
     (`LfsDownloadRow`), which downloads that object alone with the built-in LFS client (`DownloadLfsVersionUseCase`,
     `DownloadLfsVersionGitAction`), then reads the version again (`lfsVersion`): the image, or "Open in the default
     app". Nothing downloads without the click, as LFS servers can be slow or metered.
-    - The server is the checkout's (`IGetLfsUrlGitAction`, the app's `GetLfsUrlGitAction`: `lfs.url` in
-      `.lfsconfig`, then the current branch's remote, or the only remote), then `origin` or the only remote, as git-lfs
+    - The server is the checkout's (`IGetLfsUrlGitAction`, the app's `GetLfsUrlGitAction`: the current branch's
+      remote, or the only remote, see The built-in LFS client's server), then `origin` or the only remote, as git-lfs
       asks `origin`: a rebase's HEAD is detached. Not git-lfs: it has no command that fetches one object, and
       `git lfs fetch` takes a commit, which a revert's or a stash's side isn't on the remote.
     - `ConflictResolverViewModel.downloadLfsObject` keeps the downloads by object id in
@@ -1021,6 +1021,19 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     out, but `--no-checkout` doesn't run it, and without `pre-push` a push would fall back to JGit's upload.
   - Other checkouts (switching branches, reset, stash) are unchanged: JGit runs the configured `filter.lfs.smudge`
     (`git-lfs smudge`) once per file, without Leaf's dialogs, or writes the pointers when git-lfs isn't set up.
+- **The built-in LFS client's server (fork-only `GetLfsUrlSettingGitAction`, `data/git/lfs/`):** `GetLfsUrlGitAction`
+  reads it in git-lfs 3.8's order: `lfs.url`, then the remote's `remote.<name>.lfsurl`, then the remote's URL. Each
+  setting comes from git's config first, the repository's over the user's, then from `.lfsconfig` in the working tree,
+  so an `lfs.url` in `.lfsconfig` beats a `remote.<name>.lfsurl` in `.git/config`. Before 2026-10-15 only `lfs.url`
+  in `.lfsconfig` counted.
+  - git reads them (`git config --get`, for `includeIf`), and its answer stands: exit code 1 is "not set". JGit's
+    config is read only when git can't run, or can't read its config.
+  - The remote is the one asked for, or the current branch's upstream remote, or the only one. git-lfs also reads
+    `remote.lfsdefault`, falls back to `origin`, and takes `lfs.pushurl` and `remote.<name>.lfspushurl` for uploads;
+    Leaf doesn't. Until 2026-10-15 the upstream was looked up by the branch's full ref
+    (`branch.refs/heads/main.remote`), so a repository with several remotes got no server unless `lfs.url` was set.
+  - An empty value counts as not set, where git-lfs is left without a server.
+  - `GetLfsUrlSettingGitActionTest` compares each step with `git lfs env`'s endpoints (skipped without git-lfs).
 - **The built-in LFS client's downloads (fork-only checks):** `DownloadLfsObjectGitAction` downloads to
   `<oid>.<random>.tmp` next to the object in `lfs/objects`, and renames it into place once its size and SHA-256 are
   the pointer's. Otherwise it returns `LfsError.CorruptDownload`, which fails the checkout. The temporary file is

@@ -2,6 +2,36 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The built-in LFS client reads `lfs.url` and `remote.<name>.lfsurl` from git's config (branch `fix/lfs-url-git-config`)
+
+- **Before:** Leaf's built-in LFS client, which a conflict's card and checkouts without git-lfs download with, took
+  `lfs.url` only from `.lfsconfig` in the working tree. An `lfs.url` set in `.git/config` or the user's config, and
+  any `remote.<name>.lfsurl`, were ignored, and the client asked the remote's own LFS server instead.
+- **Now** (`GetLfsUrlSettingGitAction`): `lfs.url`, then the remote's `remote.<name>.lfsurl`, then the remote's URL.
+  Each setting comes from git's config first, the repository's over the user's and with `includeIf`, then from
+  `.lfsconfig`: the order that git-lfs 3.8's `git lfs env` showed, where an `lfs.url` in `.lfsconfig` beats a
+  `remote.<name>.lfsurl` in `.git/config`. git reads them; JGit's config only when git can't run. They apply to pushes
+  through JGit's pre-push hook too, as git-lfs uses both for uploads when no push URL is set.
+- **Fixed on the way:** the lookup asked for the current branch's upstream by its full ref
+  (`branch.refs/heads/main.remote`, never set), so the current branch's remote was never found: with several remotes,
+  checkouts without git-lfs had no LFS server unless `lfs.url` was set, and the cards fell back to `origin`. It now
+  passes the branch, as git-lfs takes the branch's remote.
+- **Not done:** `lfs.pushurl` and `remote.<name>.lfspushurl` for uploads, `remote.lfsdefault`, and git-lfs's fallback
+  to `origin` when the branch has no upstream and there are several remotes. An empty value counts as not set, where
+  git-lfs is left without a server.
+- **Tests:** `GetLfsUrlSettingGitActionTest` reads both settings from the repository's config, the user's, a file that
+  `includeIf` adds and `.lfsconfig`, in their order, for a remote whose name has dots too, and from JGit's config
+  without a usable git. It sets them one after another, for `origin` and for the remote that the branch tracks, and
+  compares each step with `git lfs env` (skipped without git-lfs). `GetLfsUrlGitActionTest` checks that the server
+  lookup uses them, for the only remote, the remote asked for and the remote tracked, with the remote's URL still
+  asked for credentials.
+  - **Mutation check:** 15 mutations, 15 caught, each by a failing test: in the data action, git's config not read,
+    `.lfsconfig` first, JGit read when git says "not set", no JGit fallback, and the remote's name left out of git's
+    key, of JGit's lookup and of `.lfsconfig`'s, or `.lfsconfig` not read for remotes; in the server lookup, the
+    remote's `lfsurl` ignored or put before `lfs.url` (for the only remote and for a named one), `lfs.url` ignored,
+    `origin`'s `lfsurl` taken for another remote, and the upstream looked up by full ref again. The `lfsurl` put
+    before `lfs.url` for the only remote first got through, and a test was added for it.
+
 ## Commits, tags and stashes take git's identity and signing settings, `includeIf` too (branch `fix/includeif-identity`)
 
 - **Before** (Gitnuro#186): JGit reads no `includeIf`. With a personal identity in `~/.gitconfig` and a work identity
