@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.tab
 
+import dev.app.leaf.data.git.FileChangesWatcher
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.author.GitIdentities
@@ -105,12 +106,12 @@ import dev.app.leaf.domain.usecases.RunWorktreeStepsUseCase
 import dev.app.leaf.domain.usecases.SkipRebaseUseCase
 import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
 import io.mockk.mockk
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -121,9 +122,15 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * A tab's repositories and use cases, built as Dagger builds them for each tab, with the real git actions. Each watch
- * of the file watcher gets a [RecordingFileChangesWatcher], in [watchers].
+ * of the file watcher gets a [RecordingFileChangesWatcher], in [watchers], or with [realFileWatcher] the app's
+ * [FileChangesWatcher].
  */
-class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO) : AutoCloseable {
+class TestTab(
+    jgit: JGit,
+    gitCli: GitCli,
+    statusDelay: Duration = Duration.ZERO,
+    realFileWatcher: Boolean = false,
+) : AutoCloseable {
     val scope = TabCoroutineScope()
     val repositoryData = InMemoryRepositoryDataRepository()
     val repositoryState = InMemoryRepositoryStateRepository()
@@ -197,7 +204,9 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
 
     val observeRepositoryToRefresh = ObserveRepositoryToRefreshUseCase(
         tabCoroutineScope = scope,
-        fileChangesWatcherProvider = Provider { RecordingFileChangesWatcher().also { watchers += it } },
+        fileChangesWatcherProvider = Provider {
+            if (realFileWatcher) FileChangesWatcher() else RecordingFileChangesWatcher().also { watchers += it }
+        },
         repositoryDataRepository = repositoryData,
         getWorktreeUseCase = getWorktree,
         refreshDataUseCase = refreshData,
@@ -348,9 +357,13 @@ private class SlowStatus(private val status: IGetStatusGitAction, private val de
     }
 }
 
-/** A file watcher that only notes the folders it was given, and whether it was closed. It never sees changes. */
+/**
+ * A file watcher that only notes the folders it was given, and whether it was closed. It never sees changes: it
+ * reports the [events] that a test sends.
+ */
 class RecordingFileChangesWatcher : IFileChangesWatcher {
     val watchedPaths: MutableList<String> = CopyOnWriteArrayList()
+    val events = Channel<WatcherEvent>(Channel.UNLIMITED)
 
     @Volatile
     var isClosed = false
@@ -364,7 +377,7 @@ class RecordingFileChangesWatcher : IFileChangesWatcher {
         watchedPaths -= path
     }
 
-    override suspend fun observeEvents(): Flow<WatcherEvent> = flow { awaitCancellation() }
+    override suspend fun observeEvents(): Flow<WatcherEvent> = events.receiveAsFlow()
 
     override fun close() {
         isClosed = true

@@ -6,10 +6,10 @@
   using the CLI, check this [section](#alternative-setting-up-jdk-for-use-on-cli). Packaging the app (for example
   `./gradlew packageDmg`) needs a full JDK 25 that includes `jlink`, `jpackage` and the jmods, such as the JetBrains
   Runtime SDK (JBRSDK) 25.
-- **Rust:** Leaf is mainly written in Kotlin (JVM) but also uses Rust for some specific tasks. Install
-  [rustup](https://rustup.rs/), and make sure `cargo` is in the path. `rs/rust-toolchain.toml` pins the Rust version,
-  which rustup installs the first time the build runs cargo. The Rust to Kotlin bindings are generated with uniffi as
-  part of the build. Gradle runs cargo only when something in `rs/` changed.
+- **Rust:** Leaf is written in Kotlin (JVM), except for `leaf-askpass`, a small Rust program that answers the prompts
+  of the git commands Leaf runs. Install [rustup](https://rustup.rs/), and make sure `cargo` is in the path.
+  `rs/rust-toolchain.toml` pins the Rust version, which rustup installs the first time the build runs cargo. Gradle
+  runs cargo only when something in `rs/` changed.
 - **Git LFS:** The bundled fonts are stored with [Git LFS](https://git-lfs.com/). Install it and run `git lfs pull`
   after cloning, otherwise the app is built with placeholder files instead of fonts.
 - **Packages for Linux ARM64/aarch64**: You need to install the `aarch64-linux-gnu-gcc` package to cross compile the

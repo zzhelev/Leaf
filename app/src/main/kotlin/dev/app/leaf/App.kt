@@ -159,7 +159,6 @@ class App @Inject constructor(
 
     @OptIn(ExperimentalFoundationApi::class)
     suspend fun start(args: Array<String>) {
-        initNativeDependencies()
         logsRepository.initLogging()
         // In the background, so that the shell has usually finished before the first hook needs its PATH
         loginShellEnvironment.prewarm()
@@ -345,24 +344,6 @@ class App @Inject constructor(
                 }
             }
         }
-    }
-
-    private fun initNativeDependencies() {
-        val leafRsName = when (currentOs) {
-            OS.LINUX -> "libleaf_rs.so"
-            OS.WINDOWS -> "leaf_rs.dll"
-            OS.MAC -> "libleaf_rs.dylib"
-            else -> throw Exception("OS not supported")
-        }
-
-        val leafRsInputStream = javaClass.getResourceAsStream("/$leafRsName")
-
-        leafRsInputStream?.use { inputStream ->
-            // Fork-only: never written in place, as another Leaf may have loaded it (see extractNativeLibrary)
-            val leafRsFile = extractNativeLibrary(inputStream.readBytes(), tempFilesManager.tempDir(), leafRsName)
-
-            System.load(leafRsFile.absolutePath)
-        } ?: throw Exception("LeafRs native dependency not found")
     }
 
     private suspend fun addDirTab(dirToOpen: File) {

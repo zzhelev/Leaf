@@ -15,7 +15,6 @@ build/
 .externalNativeBuild
 .cxx
 rs/target/
-src/main/resources/*leaf_rs*
 *.salive
 *.hprof
 *.dylib

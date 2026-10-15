@@ -63,8 +63,8 @@ jobs:
           distribution: 'jetbrains'
       - name: Build the DMG
         run: ./gradlew :app:packageDmg -Pcompose.desktop.mac.sign=false
-      - name: Check the Rust library was built
-        run: test -f app/src/main/resources/libleaf_rs.dylib
+      - name: Check leaf-askpass was built
+        run: test -f app/src/main/resources/leaf-askpass
       - name: Collect the files
         run: |
           mkdir Output
@@ -102,9 +102,9 @@ jobs:
       - name: Build the app
         shell: cmd
         run: gradlew.bat createDistributable
-      - name: Check the Rust library was built
+      - name: Check leaf-askpass was built
         shell: bash
-        run: test -f app/src/main/resources/leaf_rs.dll
+        run: test -f app/src/main/resources/leaf-askpass.exe
       - name: Build the installer
         # Calls Inno Setup's compiler directly: the Inno-Setup-Action didn't pass /DMyAppVersion through to it.
         shell: cmd
@@ -161,8 +161,8 @@ jobs:
           architecture: x64
       - name: Build the jar
         run: ./gradlew fatJarLinux -PisLinuxAarch64=${{ matrix.aarch64 }} -PuseCross=true
-      - name: Check the Rust library was built
-        run: test -f app/src/main/resources/libleaf_rs.so
+      - name: Check leaf-askpass was built
+        run: test -f app/src/main/resources/leaf-askpass
       - name: Collect the files
         run: |
           mkdir Output
@@ -180,7 +180,7 @@ jobs:
     # works on systems as old as the one it was built on:
     # - The package's dependencies are the build system's package names. Ubuntu 24.04's renamed libraries (such as
     #   libasound2t64) don't exist on Debian 12 or Ubuntu 22.04, while 24.04 still accepts 22.04's names.
-    # - The Rust library needs the build system's glibc or newer (2.35 on 22.04).
+    # - leaf-askpass, the one Rust program, needs the build system's glibc or newer (2.35 on 22.04).
     strategy:
       fail-fast: false
       matrix:
@@ -214,8 +214,8 @@ jobs:
           distribution: 'jetbrains'
       - name: Build the package
         run: ./gradlew :app:packageDeb
-      - name: Check the Rust library was built
-        run: test -f app/src/main/resources/libleaf_rs.so
+      - name: Check leaf-askpass was built
+        run: test -f app/src/main/resources/leaf-askpass
       - name: Check the arm64 package depends on libegl1
         if: matrix.arch == 'arm64'
         run: |

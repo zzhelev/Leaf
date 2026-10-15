@@ -3,25 +3,8 @@ name = "leaf-rs"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-crate-type = ["cdylib"]
-name = "leaf_rs"
-
-[dependencies]
-notify = "8.0.0"
-thiserror = "2.0.11"
-uniffi = { version = "0.31.1", features = [ "cli" ] }
-
-[build-dependencies]
-uniffi = { version = "0.31.1", features = [ "build" ] }
-
-
 [profile.release]
 strip = true
-
-[[bin]]
-name = "uniffi-bindgen"
-path = "uniffi-bindgen.rs"
 
 [[bin]]
 name = "leaf-askpass"

@@ -14,8 +14,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   produces `Leaf.app`, `Leaf-*.dmg` and `Leaf-linux-*.jar`. Also the macOS bundle ID `io.github.zzhelev.leaf` and
   `leaf.iss`, which has its own AppId. Also `README.md` and `DEVELOPMENT.md`.
 - **Code and build:** the Kotlin package `dev.app.leaf` (also the Gradle `group`, so Compose's `Res` package is
-  `dev.app.leaf.app.generated.resources`), the root Gradle project `Leaf`, the Rust crate `leaf_rs` (native library
-  `libleaf_rs.dylib`) and `LeafException`.
+  `dev.app.leaf.app.generated.resources`), the root Gradle project `Leaf`, the Rust crate `leaf-rs` (which builds
+  `leaf-askpass`) and `LeafException`.
 - **Links:** the Welcome page's "Source code" and "Report a bug", the bottom bar's Releases link, `VERSION_CHECK_URL`
   (Leaf's `latest.json` on the `main` branch) and the publishing target in `.github/workflows/release.yml` all
   point at `zzhelev/Leaf`. The release workflow still names upstream's self-hosted runners.
@@ -108,11 +108,9 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
 - Gradle 9.3.1, via the wrapper.
 - **Rust 1.99.0.** `rs/rust-toolchain.toml` pins it, with the `minimal` profile (no docs, clippy or rustfmt), and
   rustup installs it automatically the first time cargo runs in `rs/`. `cargo` must be on `PATH` (`~/.cargo/bin`).
-  It was `nightly` until 2026-10-15, though nothing needed a nightly feature. Edition 2024 needs 1.85 or newer, and
-  `lib.rs`'s `if let … &&` chains 1.88, so this machine's default stable (1.75) can't build it. `rs/Cargo.lock` is
-  tracked, so every build gets the same dependencies.
-- `cargo-kotars` is **not** needed, despite upstream's DEVELOPMENT.md. Bindings are generated with uniffi
-  (`cargo run --bin uniffi-bindgen`, defined in `rs/`). The build passed without kotars installed.
+  It was `nightly` until 2026-10-15, though nothing needed a nightly feature. Edition 2024 needs 1.85 or newer, so
+  this machine's default stable (1.75) can't build it. `rs/Cargo.lock` is tracked, so every build gets the same
+  dependencies (since 2026-10-15, none: `leaf-askpass` uses the standard library only).
 - git 2.54 (Apple Git) is at `/usr/bin/git`. The app runs it through `GitCli` (see Git operations).
 
 ## Commands (verified)
@@ -120,7 +118,7 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
 Run everything from the repo root, with `JAVA_HOME` set as above.
 
 ```bash
-./gradlew build                          # full build + tests; ~5 min, plus ~1.5 min for a cold Rust build
+./gradlew build                          # full build + tests; ~5 min (a cold Rust build adds ~2 s)
 ./gradlew test                           # all tests (:app, :common, :data, :domain)
 ./gradlew :data:test                     # ~25 s when the build is warm
 ./gradlew :app:run                       # launch the app
@@ -155,8 +153,9 @@ Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOM
 - The packaged skiko jar still contains `libskiko-macos-x64.dylib`, because skiko's macos-arm64 runtime jar ships both
   architectures. Only the extracted arm64 library is loaded.
 - The app starts with `--enable-native-access=ALL-UNNAMED` (`compose.desktop.application.jvmArgs`), and the Linux fat
-  jar's manifest sets `Enable-Native-Access: ALL-UNNAMED`. Without them, JDK 25 warns when the Rust library and JNA
-  load native code, and a later JDK will refuse.
+  jar's manifest sets `Enable-Native-Access: ALL-UNNAMED`. Without them, JDK 25 warns when skiko, Compose's renderer,
+  loads its native library, and a later JDK will refuse. Leaf has no native library of its own since 2026-10-15, and
+  no JNA.
 - **Settings are JSON, not protobuf.** DataStore Preferences' own file format goes through its bundled protobuf,
   which calls `sun.misc.Unsafe`, and JDK 25 warns about it. DataStore 1.2.1 and 1.3.0-alpha11 both do. So
   `DatastoreModule` stores the settings with the fork-only `JsonPreferencesSerializer`.
@@ -166,7 +165,7 @@ Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOM
 - **Linux `.deb`:** `./gradlew :app:packageDeb` builds it on Linux only, and needs `fakeroot` and `dpkg-deb`. It
   installs Leaf to `/opt/leaf` with an entry in the applications menu.
   - The release workflow builds it natively on Ubuntu 22.04 for each CPU: jpackage can't cross-build, the package
-    depends on the build system's library package names, and the Rust library needs its glibc or newer. So it
+    depends on the build system's library package names, and `leaf-askpass` needs its glibc or newer. So it
     installs on Debian 12, Ubuntu 22.04 and newer.
   - jpackage lists only the libraries it finds installed as dependencies. skiko's arm64 library needs `libEGL.so.1`,
     so the workflow installs `libegl1` before packaging and checks that the arm64 package depends on it.
@@ -186,21 +185,18 @@ asking.
 
 - **Rust tasks (fork-only, `app/build.gradle.kts`, group `rust`):**
   - `cargoBuild` runs `cargo build --release` in `rs/` (`cross build --target=…` with `-PuseCross=true` on Linux), and
-    `copyRustBuild` copies the library and `leaf-askpass` into the app's resources. `processResources` depends on it,
-    so every app build, run or package does, and so does `:data:test`, whose tests run `leaf-askpass`.
-  - `generateRustBindings` runs `cargo build --lib` (debug: a release build strips the metadata that uniffi reads),
-    then uniffi-bindgen. `:domain`'s `compileKotlin` and `kspKotlin` depend on it, so `:domain` alone builds in a fresh
-    checkout or worktree.
-  - `rustTasks` runs all three.
-  - They declare their inputs (`rs/src`, the `.rs` files, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml` and
-    `uniffi.toml`, plus the release and target options) and their outputs, so Gradle skips them while those don't
-    change. A cargo failure fails the build.
+    `copyRustBuild` copies `leaf-askpass` into the app's resources. `processResources` depends on it, so every app
+    build, run or package does, and so does `:data:test`, whose tests run `leaf-askpass`. `rustTasks` runs both.
+  - They declare their inputs (the `.rs` files, `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml`, plus the release
+    and target options) and their outputs, so Gradle skips them while those don't change. A cargo failure fails the
+    build. `:domain` builds without cargo.
   - Until 2026-10-15, cargo ran in `rustTasks`'s configuration block whenever the task was in the graph, three times
     per build, and a failure only printed `Code is N`.
+  - Leftovers of the Rust file watcher in older checkouts, both gitignored, go by themselves: `:domain`'s
+    `removeRustBindings` deletes `domain/src/main/kotlin/dev/app/leaf/autogenerated/` (uniffi's bindings, which no
+    longer compile) before compiling, and `copyRustBuild` deletes `libleaf_rs.*` from the app's resources.
 - Generated, gitignored outputs:
-  - `domain/src/main/kotlin/dev/app/leaf/autogenerated/` (uniffi Kotlin bindings, `leaf_rs.kt`)
-  - `app/src/main/resources/libleaf_rs.dylib`
-  - `app/src/main/resources/leaf-askpass` (`.exe` on Windows), which `copyRustBuild` copies next to the library
+  - `app/src/main/resources/leaf-askpass` (`.exe` on Windows), which `copyRustBuild` copies there
   - `rs/target/`
 - **Dev runs have their own storage.** `AppStorage` counts a run as packaged in two cases:
   - the `jpackage.app-version` system property is set, which only jpackage's launcher does (the macOS and Windows apps
@@ -216,42 +212,34 @@ asking.
     `FileSystemPreferencesFactory` is unavailable on macOS, and `-Duser.home` does not affect them.
   - Passing `-Duser.home` to `:app:run` through an init script did not take effect; the Compose plugin sets the run
     task's JVM args.
-- **Each build loads its own copy of the Rust library (fork-only `extractNativeLibrary`).** At startup it goes to
-  `<app data>/tmp/leaf_rs-<first 16 hex digits of its SHA-256>/libleaf_rs.dylib`, written to a temporary file and
-  renamed into place, never into a file that's already there. So dev runs from different worktrees (each cargo build
-  embeds its path) and two versions of the packaged app can run at once. Before 2026-10-13 every build rewrote
-  `tmp/libleaf_rs.dylib` in place, and macOS killed a Leaf that loaded it while another had it mapped (exit 137,
-  `SIGKILL (Code Signature Invalid)` in `~/Library/Logs/DiagnosticReports/java-*.ips`, no log line). Builds from
-  before then still clash with each other. On macOS, JNA also extracts its own copy to `~/Library/Caches/JNA/temp`,
-  and that's the one uniffi calls.
 
 ## Module map
 
 - `app`: Compose Desktop UI and entry point (`main.kt`, `App.kt`).
   - Also holds the view models (`viewmodels/`, `repositoryopen/RepositoryOpenViewModel.kt`), Dagger components and
     modules (`di/`), dialogs, theme, keybindings, terminal launchers, LFS glue and the update checker.
-  - Its build script holds the Rust build glue and the packaging config.
+  - Its build script builds `leaf-askpass` with cargo, and holds the packaging config.
 - `common`: tiny shared utilities: the `@TabScope` annotation, logging (`printLog`/`printError(TAG, ...)`), OS
   detection, `combine` overloads up to 30 flows (`flows/FlowExtensions.kt`), and Closeable helpers. Also the fork-only
   `storage/AppStorage.kt` with every storage name (see Name).
 - `domain`: use cases, git-action interfaces, models, the error types (`Either`, `AppError`), repository interfaces
-  (tab/app state, settings), `UseCaseExecutor`, `TabCoroutineScope`, `ShellManager`, credentials, and the uniffi
-  bindings.
+  (tab/app state, settings), `UseCaseExecutor`, `TabCoroutineScope`, `ShellManager` and credentials.
   - Not pure: it depends on JGit and Compose, and many interfaces still leak JGit types.
 - `data`: JGit implementations of the git actions (`data/git/**`), the JGit instance cache (`data/git/JGit.kt`), the
-  file watcher wrapper, in-memory tab repositories, DataStore-backed settings, and JGit→domain mappers.
+  file watcher (`data/git/FileChangesWatcher.kt`), in-memory tab repositories, DataStore-backed settings, and
+  JGit→domain mappers.
   - The fork-only `network/HttpClients.kt` builds the Ktor clients for LFS and the update check. They check TLS
     certificates against the JVM's trust store. An LFS request skips the check only when `http.sslVerify` is false
     for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
-- `rs`: Rust cdylib `leaf_rs`, exported via uniffi.
-  - `FileWatcher` uses notify 8.
+- `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
+  helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
+  extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
+  - No library: the file watcher, the cdylib's last export, moved to the JDK's `WatchService` on 2026-10-15 (see
+    Refresh), and uniffi, its bindings and JNA went with it.
   - No SSH: OpenSSH's programs do all of it, run by git, by the built-in LFS client and by `SshProgramSigner` (see
     Remote operations, and Commit and tag signing). libssh-rs, with its vendored libssh and OpenSSL, was removed on
     2026-10-09 (stage 5 of `docs/fork/remote-operations.md`).
-  - The binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only) is the askpass program and credential
-    helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar like the library, and
-    `AskpassHelper` extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
 - `buildSrc`: convention plugin `buildsrc.convention.kotlin-jvm`. It sets toolchain 25, `-Xexplicit-backing-fields`,
   `-Xcontext-parameters` and the JUnit platform.
 
@@ -1903,17 +1891,34 @@ author, date and time, and "3 of 12".
 
 ## Refresh
 
-**Rust** (`rs/src/lib.rs`):
-- `FileWatcher` on notify 8. `watch()` is a **blocking** loop that batches Create/Modify/Remove events and flushes
-  them with a ~500 ms throttle.
-- It is called from a `callbackFlow` in `data/.../git/FileChangesWatcher.kt`, which runs on a single-thread view of
-  `Dispatchers.IO` per watch (`flowOn`, fork-only). It used to run on the tab's `Dispatchers.Default`, one thread per
-  loaded tab, so with as many tabs as cores nothing else on Default ran. `FileChangesWatcherTest` (`:data`) loads the
-  library from `app/src/main/resources` through `uniffi.component.leaf_rs.libraryOverride`.
-- Fork-only: closing a `FileChangesWatcher` destroys its Rust `FileWatcher` (uniffi's `close()` is `destroy()`), so it
-  can't watch again. It isn't tab-scoped: `ObserveRepositoryToRefreshUseCase` takes a `Provider` and gets one per
-  watch, which the watch closes when it ends.
-- `add_watch` error codes are ignored.
+**The watcher (fork-only, `data/.../git/FileChangesWatcher.kt`):** the JDK's `WatchService`, since 2026-10-15. Gitnuro
+moved the watcher to Rust (notify) in 2023 because Java's polled on macOS. JetBrains' JDK, which runs Leaf (packaged,
+and in dev runs from IntelliJ's runtime), watches with FSEvents there (`sun.nio.fs.MacOSXWatchService`) and reports a
+change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW. Other JDKs poll on macOS.
+- `observeEvents()` is a **blocking** loop (`poll` with a 500 ms timeout, `BATCH_TIME_MS`) on a single-thread view of
+  `Dispatchers.IO` per watch (`flowOn`). It used to run on the tab's `Dispatchers.Default`, one thread per loaded tab,
+  so with as many tabs as cores nothing else on Default ran.
+- It batches created, modified and deleted paths, and reports them once 500 ms pass without events, or every 500 ms
+  while they keep coming. A path created and deleted within one batch (a temporary file) is left out. JBR itself
+  delivers events about every 500 ms.
+- `FileChanged` and `FileType` are in `domain/models/FileChanged.kt` (they were uniffi records). `DIRECTORY` is a
+  folder created, or a watched folder deleted: the watch checks the disk, or its keys, since `WatchService` doesn't say.
+- A folder's own "modified" event is left out: its time changes with its entries, and JBR reports that when it lists
+  the folder above (Windows too). What changed in it comes from its own registration, if it has one. Found in a dev
+  run: after a commit, the next change in the working tree's root reported `.git` too, which refreshed ALL.
+- **Recursive folders:** one registration with `ExtendedWatchEventModifier.FILE_TREE` where the JDK has it (JBR's macOS
+  watcher, Windows). Elsewhere (Linux, and macOS JDKs that poll) each folder has a registration, and the watch adds
+  the folders created there itself. Files written into a new folder before its registration go unreported, but the
+  folder's creation is a change. A folder under a `FILE_TREE` registration isn't registered again on its own: JBR
+  would drop `FILE_TREE`, and the use case does that to `worktrees` once git creates it.
+- **`OVERFLOW`:** the JDK keeps 512 events per folder until they're taken, then drops them, and JBR does it for any
+  large change in one folder at once (600 files written together). The watch reports `WatcherEvent.ChangesLost`, and
+  the use case watches the working tree's folders again and refreshes ALL, unless a task runs or just ran.
+- Each watch has its own watcher (`ObserveRepositoryToRefreshUseCase` takes a `Provider`), which closes its watch
+  service when the watch ends. A cancelled watch stops within 500 ms; `close()` ends it at once. A folder that can't
+  be watched (missing, or past Linux's inotify limits) is logged, and the watch goes on.
+- Tests: `FileChangesWatcherTest` runs it on the machine's JDK, with and without `FILE_TREE` (`watchesTrees`), and
+  `RefreshingOnChangesTest` runs a `TestTab` with it: an edit, a commit from a terminal, a change in another worktree.
 
 **`domain/.../usecases/ObserveRepositoryToRefreshUseCase.kt`:**
 - What it watches:
@@ -1943,8 +1948,8 @@ author, date and time, and "3 of 12".
   worktree.
 - Events are dropped (not deferred) while a task runs and for 1.5 s after one.
 - Fork-only: the use case is `@TabScope` and keeps its watch's job. `invoke()` stops the previous watch first, and
-  `stop()` cancels it before a switch to another worktree. The cancelled watch's Rust loop notices within 500 ms
-  (`WATCH_TIMEOUT`) and closes its own watcher, so the new watch doesn't wait for it. Closing the tab cancels the
+  `stop()` cancels it before a switch to another worktree. The cancelled watch notices within 500 ms
+  (`BATCH_TIME_MS`) and closes its own watcher, so the new watch doesn't wait for it. Closing the tab cancels the
   tab's scope, which ends the watch too.
 
 **Taking turns (fork-only, `domain/DataRefreshRunner.kt`):** a tab's refreshes run one at a time.
@@ -2061,11 +2066,11 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.
 - `TestTab` (`data/src/test/kotlin/dev/app/leaf/data/tab/`) builds a tab's repositories and use cases as Dagger does,
   with the real git actions, around a temp repository, and a `RecordingFileChangesWatcher` for each watch, which
-  notes the folders it was given. `SwitchingWorktreesTest`, `WatchingWorktreesTest`, `RemovingWorktreesTest` and
-  `CreatingWorktreesTest` use it; the last two run the steps that the worktree dialogs show (`runWorktreeSteps`,
-  `createWorktree`). Its
-  `close()` cancels the tab and waits: JGit writes `.probe-` files into the git dir, and JUnit failed to delete the
-  temp folder while a refresh still ran.
+  notes the folders it was given and reports the `events` that a test sends. With `realFileWatcher`, each watch gets
+  the app's `FileChangesWatcher` instead (`RefreshingOnChangesTest`). `SwitchingWorktreesTest`,
+  `WatchingWorktreesTest`, `RemovingWorktreesTest` and `CreatingWorktreesTest` use it; the last two run the steps that
+  the worktree dialogs show (`runWorktreeSteps`, `createWorktree`). Its `close()` cancels the tab and waits: JGit
+  writes `.probe-` files into the git dir, and JUnit failed to delete the temp folder while a refresh still ran.
   - A task's refresh runs after the task's job ends, so joining the task doesn't wait for it. Wait for the data with
     `awaitLoaded`'s predicate (a state other than the one before the task), not for any loaded value, which may still
     be the old one. Two tests did, and failed once the refresh ran `git var` before the repository state.

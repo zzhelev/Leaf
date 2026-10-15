@@ -51,7 +51,8 @@ dependencies {
     implementation(libs.ktor.client.logging)
 }
 
-// Some tests use the Rust library or leaf-askpass that :app copies into its resources, and skip without them.
+// The tests of the git commands that Leaf runs use the leaf-askpass that :app copies into its resources, and skip
+// without it.
 tasks.test {
     dependsOn(":app:copyRustBuild")
 }

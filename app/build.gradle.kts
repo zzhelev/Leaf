@@ -1,12 +1,10 @@
 import org.gradle.jvm.tasks.Jar
-import org.gradle.process.ExecOperations
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermissions
-import javax.inject.Inject
 
 plugins {    // Apply the shared build logic from a convention plugin.
     // The shared code is located in `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts`.
@@ -32,8 +30,6 @@ val projectName = "Leaf"
 // Required for JPackage, as it doesn't accept additional suffixes after the version.
 val projectVersionSimplified = "1.1.1"
 
-val rustGeneratedSource = "${layout.buildDirectory.get()}/generated/source/uniffi/main/dev/app/leaf/java"
-
 val packageName = "dev.app.leaf"
 group = packageName
 version = projectVersion
@@ -42,10 +38,6 @@ val isLinuxAarch64 = (properties.getOrDefault("isLinuxAarch64", "false") as Stri
 val useCross = (properties.getOrDefault("useCross", "false") as String).toBoolean()
 val isRustRelease = (properties.getOrDefault("isRustRelease", "true") as String).toBoolean()
 
-
-sourceSets.getByName("main") {
-    kotlin.srcDir(rustGeneratedSource)
-}
 
 sourceSets.main.get().java.srcDirs("app/src/main/resources").includes.addAll(arrayOf("**/*.*"))
 
@@ -144,12 +136,8 @@ compose.desktop {
     application {
         mainClass = "dev.app.leaf.MainKt"
 
-        // The Rust library and JNA load native code: JDK 25 warns without this, and a later JDK will refuse.
+        // Skiko, Compose's renderer, loads its native library: JDK 25 warns without this, and a later JDK will refuse.
         jvmArgs("--enable-native-access=ALL-UNNAMED")
-
-        sourceSets.forEach {
-            it.java.srcDir(rustGeneratedSource)
-        }
 
         nativeDistributions {
             includeAllModules = true
@@ -404,12 +392,6 @@ tasks.register("tasksList") {
 
 val rustProjectDir: File = rootProject.file("rs")
 
-val libName = when (currentOs()) {
-    OS.LINUX -> "libleaf_rs.so"
-    OS.WINDOWS -> "leaf_rs.dll"
-    OS.MAC -> "libleaf_rs.dylib"
-}
-
 val askpassName = when (currentOs()) {
     OS.WINDOWS -> "leaf-askpass.exe"
     else -> "leaf-askpass"
@@ -427,14 +409,14 @@ val rustOutputDir: File = rustProjectDir.resolve(
 
 // What cargo builds from. The toolchain file picks the Rust version.
 fun rustSources() = fileTree(rustProjectDir) {
-    include("src/**", "*.rs", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "uniffi.toml")
+    include("*.rs", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml")
 }
 
-// Builds the library and leaf-askpass. Gradle runs cargo only when the files in rustSources() or the build options
-// change, and a cargo failure fails the build.
+// Builds leaf-askpass, the askpass program and credential helper of the git commands that Leaf runs. Gradle runs cargo
+// only when the files in rustSources() or the build options change, and a cargo failure fails the build.
 val cargoBuild = tasks.register<Exec>("cargoBuild") {
     group = "rust"
-    description = "Builds the Rust library and leaf-askpass."
+    description = "Builds leaf-askpass."
     workingDir(rustProjectDir)
     commandLine(
         buildList {
@@ -447,24 +429,22 @@ val cargoBuild = tasks.register<Exec>("cargoBuild") {
     inputs.files(rustSources()).withPropertyName("sources").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.property("release", isRustRelease)
     inputs.property("target", rustTarget.orEmpty())
-    outputs.file(rustOutputDir.resolve(libName))
     outputs.file(rustOutputDir.resolve(askpassName))
 }
 
-// Leaf loads the library, and runs leaf-askpass, from its resources (see App.initNativeDependencies and
-// AskpassHelper). Both are gitignored there.
+// Leaf extracts leaf-askpass from its resources and runs it (see AskpassHelper). It's gitignored there.
 val copyRustBuild = tasks.register("copyRustBuild") {
     group = "rust"
-    description = "Copies the Rust library and leaf-askpass into the app's resources."
-    val resourcesDir = layout.projectDirectory.dir("src/main/resources").asFile
-    val copies = listOf(libName, askpassName).map { name -> rustOutputDir.resolve(name) to resourcesDir.resolve(name) }
+    description = "Copies leaf-askpass into the app's resources."
+    val source = rustOutputDir.resolve(askpassName)
+    val target = layout.projectDirectory.file("src/main/resources/$askpassName").asFile
     inputs.files(cargoBuild).withPropertyName("builtFiles")
-    outputs.files(copies.map { it.second })
+    outputs.file(target)
     doLast {
         // A new file rather than new bytes in the old one, as a running Leaf may have it open
-        copies.forEach { (source, target) ->
-            Files.copy(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
+        Files.copy(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        // The Rust library that builds copied there until 2026-10-15, which the app would still ship
+        target.parentFile.listFiles { file -> "leaf_rs" in file.name }.orEmpty().forEach { it.delete() }
     }
 }
 
@@ -472,43 +452,8 @@ tasks.named("processResources") {
     dependsOn(copyRustBuild)
 }
 
-// Runs commands in a task's actions. Project.exec is gone in Gradle 9.
-interface InjectedExecOperations {
-    @get:Inject
-    val execOperations: ExecOperations
-}
-
-val execOperations = objects.newInstance<InjectedExecOperations>().execOperations
-
-// The Kotlin bindings of the library, which :domain compiles (its compileKotlin and kspKotlin depend on this task).
-val generateRustBindings = tasks.register("generateRustBindings") {
-    group = "rust"
-    description = "Generates the Kotlin bindings of the Rust library with uniffi."
-    val outDir = rootProject.file("domain/src/main/kotlin/dev/app/leaf/autogenerated")
-    inputs.files(rustSources()).withPropertyName("sources").withPathSensitivity(PathSensitivity.RELATIVE)
-    outputs.file(outDir.resolve("dev/app/leaf/leaf_rs.kt"))
-    doLast {
-        // From a debug build, as a release build strips the metadata that uniffi reads. cargo run doesn't build the
-        // library: a bin can't link to a cdylib.
-        execOperations.exec {
-            workingDir(rustProjectDir)
-            commandLine("cargo", "build", "--lib")
-        }
-        execOperations.exec {
-            workingDir(rustProjectDir)
-            commandLine(
-                "cargo", "run", "--bin", "uniffi-bindgen", "generate",
-                "--language", "kotlin",
-                "--out-dir", outDir.absolutePath,
-                "--library", "target/debug/$libName",
-                "--config", "uniffi.toml",
-            )
-        }
-    }
-}
-
 tasks.register("rustTasks") {
     group = "rust"
-    description = "Builds everything Rust: the library and leaf-askpass in the app's resources, and the bindings."
-    dependsOn(copyRustBuild, generateRustBindings)
+    description = "Builds leaf-askpass into the app's resources."
+    dependsOn(copyRustBuild)
 }

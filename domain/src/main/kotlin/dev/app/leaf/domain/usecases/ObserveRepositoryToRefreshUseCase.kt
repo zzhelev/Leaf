@@ -1,6 +1,5 @@
 package dev.app.leaf.domain.usecases
 
-import dev.app.leaf.FileType
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.common.printDebug
 import dev.app.leaf.common.printError
@@ -10,6 +9,7 @@ import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.interfaces.IFileChangesWatcher
 import dev.app.leaf.domain.interfaces.IGetCommonGitDirGitAction
 import dev.app.leaf.domain.interfaces.IGetStatusGitAction
+import dev.app.leaf.domain.models.FileType
 import dev.app.leaf.domain.models.WatcherEvent
 import dev.app.leaf.domain.refresh.WatchedRepository
 import dev.app.leaf.domain.refresh.WorktreeChangesRefresher
@@ -115,8 +115,24 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                                 }
                             }
 
+                            // Fork-only: what changed isn't known, and new folders may have gone unreported
+                            is WatcherEvent.ChangesLost -> {
+                                if (canRefreshData()) {
+                                    printDebug(TAG, "Changes went unreported, refreshing everything")
+
+                                    if (watchedRepository.worktreesDir.isDirectory) {
+                                        fileChangesWatcher.addPathToWatch(watchedRepository.worktreesDir.path, true)
+                                    }
+
+                                    watchWorkingTree(fileChangesWatcher, repositoryPath, worktreeDir, watchedRepository)
+                                    refreshDataUseCase(DataToRefresh.ALL)
+                                } else {
+                                    printDebug(TAG, "Ignoring unreported changes because an operation runs or just ran")
+                                }
+                            }
+
                             is WatcherEvent.WatchInitError -> {
-                                printDebug(TAG, "Watch init error: ${event.code}")
+                                printDebug(TAG, "Watch init error: ${event.message}")
                             }
                         }
                     }
@@ -134,25 +150,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                 fileChangesWatcher.addPathToWatch("$commonDir${systemSeparator}refs", true)
             }
 
-            val status = getStatusGitAction(repositoryPath).okOrNull()
-
-            val worktreeDirFile = File(worktreeDir)
-
-            val dirs = getDirsToWatch(
-                worktreeDir = worktreeDir + systemSeparator,
-                excludedRelativePaths = HashSet(listOf(".git")),
-                dirFile = worktreeDirFile,
-                ignoreList = status?.ignored.orEmpty(),
-                watchedRepository = watchedRepository,
-            )
-
-            if (status != null) {
-                for (child in dirs) {
-                    if (!status.ignored.contains(child.absolutePath.removePrefix(repositoryPath))) {
-                        fileChangesWatcher.addPathToWatch(child.absolutePath, false)
-                    }
-                }
-            }
+            watchWorkingTree(fileChangesWatcher, repositoryPath, worktreeDir, watchedRepository)
         }.apply {
             invokeOnCompletion {
                 fileChangesWatcher.close()
@@ -161,12 +159,40 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
     }
 
     /**
-     * Stops watching the tab's worktree (fork-only), before the tab switches to another one. The watch's Rust loop
-     * notices within half a second, then its watcher closes.
+     * Stops watching the tab's worktree (fork-only), before the tab switches to another one. The watch notices within
+     * half a second, then its watcher closes.
      */
     fun stop() {
         watch?.cancel()
         watch = null
+    }
+
+    /** Watches each folder of the working tree that git doesn't ignore. Watching a folder again changes nothing. */
+    private suspend fun watchWorkingTree(
+        fileChangesWatcher: IFileChangesWatcher,
+        repositoryPath: String,
+        worktreeDir: String,
+        watchedRepository: WatchedRepository,
+    ) {
+        val status = getStatusGitAction(repositoryPath).okOrNull()
+
+        val worktreeDirFile = File(worktreeDir)
+
+        val dirs = getDirsToWatch(
+            worktreeDir = worktreeDir + systemSeparator,
+            excludedRelativePaths = HashSet(listOf(".git")),
+            dirFile = worktreeDirFile,
+            ignoreList = status?.ignored.orEmpty(),
+            watchedRepository = watchedRepository,
+        )
+
+        if (status != null) {
+            for (child in dirs) {
+                if (!status.ignored.contains(child.absolutePath.removePrefix(repositoryPath))) {
+                    fileChangesWatcher.addPathToWatch(child.absolutePath, false)
+                }
+            }
+        }
     }
 
     private suspend fun canRefreshData(): Boolean {

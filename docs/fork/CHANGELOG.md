@@ -2,6 +2,49 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The file watcher runs on the JDK, and Leaf's Rust is only `leaf-askpass` (branch `claude/jolly-davinci-5d25f1`)
+
+- **Before:** the file watcher was Rust (notify 8), the only export of the `leaf_rs` cdylib, called through uniffi's
+  generated bindings and JNA. Gitnuro moved it there in 2023 because Java's watcher polled on macOS. Every build ran
+  uniffi-bindgen, every launch extracted and loaded the library (`extractNativeLibrary`), and dev runs of builds from
+  before 2026-10-13 killed each other over it.
+- **Now:** `FileChangesWatcher` runs on the JDK's `WatchService`. JetBrains' JDK, which runs Leaf, watches with FSEvents
+  on macOS (`MacOSXWatchService`), with a change reported about 200 ms after it; Linux uses inotify, Windows
+  ReadDirectoryChangesW. It keeps what the Rust watcher did: the blocking loop on a thread of its own, batches of
+  changes once 500 ms pass without events or every 500 ms while they keep coming, temporary files left out, folders
+  created or deleted told apart, a cancelled watch stopping within 500 ms, and a watcher per watch, closed when it
+  ends.
+  - Recursive folders (`refs`, `modules`, `worktrees`) are one `FILE_TREE` registration where the JDK has it (JBR on
+    macOS, Windows), and a registration per folder elsewhere (Linux), with the folders created later added by the
+    watch.
+  - New: lost events (`OVERFLOW`, past 512 waiting events in one folder, which a large checkout reaches) become
+    `WatcherEvent.ChangesLost`, which watches the working tree's folders again and refreshes everything.
+  - A folder's own "modified" event (its time changed with its entries) is left out: JBR reports it when it lists the
+    folder above. Found in a dev run, where the next change in the root after a commit reported `.git` too, and
+    refreshed everything.
+  - New: a folder watched with its tree isn't registered again on its own. JBR then drops `FILE_TREE`, and the refresh
+    did that to `worktrees` once git created it (the Rust watcher, through notify, likely lost its recursion the same
+    way).
+  - `FileChanged` and `FileType` moved from the bindings to `domain/models/FileChanged.kt`.
+- **Removed:** the cdylib (`rs/src/lib.rs`), uniffi and `uniffi-bindgen`, `uniffi.toml`, the bindings folders, JNA,
+  `generateRustBindings`, `App.initNativeDependencies` and `extractNativeLibrary` with its test. `rs/` builds
+  `leaf-askpass` alone, with no dependencies, and `:domain` builds without cargo. Older checkouts' gitignored leftovers
+  go by themselves: `removeRustBindings` deletes the bindings, which no longer compile, and `copyRustBuild` deletes
+  `libleaf_rs.*` from the app's resources. `--enable-native-access=ALL-UNNAMED` stays, for skiko.
+- **Tests:** `FileChangesWatcherTest` (16) runs the watcher on the machine's JDK: the collecting thread left free,
+  batching and the 500 ms rate, folders created and deleted, a subfolder whose entries changed, a folder alone versus
+  its tree with and without `FILE_TREE`, a tree added again on its own, lost events, removal, cancelling and closing,
+  and the batch's rules.
+  `RefreshingOnChangesTest` (4) runs a `TestTab` with it: an edit refreshes the status, a commit from a terminal the
+  branch, staging in another worktree the worktree list, and lost changes everything, with the new folders watched.
+  - **Dev run** (JBR 25, macOS 26.6), against a temporary repository with a linked worktree: an edit refreshed the
+    status, a commit from a terminal everything, staging in the other worktree the worktree list, and a folder created
+    after the watch started was watched (a file in it was reported).
+  - **Mutation check:** 18 mutations of the watcher and the use case, 16 caught. Taking out the 500 ms rate survives
+    on macOS, where JBR delivers FSEvents about every 500 ms anyway; on Linux, inotify reports each write and the rate
+    test fails. Reporting on silence only once 500 ms passed since the last report is equivalent, as the poll's
+    timeout is 500 ms.
+
 ## The Rust build runs only when `rs/` changes, and its failures fail the build (branch `claude/jolly-davinci-5d25f1`)
 
 - **Before:** `app/build.gradle.kts` ran cargo three times (a release build, a debug build, uniffi-bindgen) inside the
