@@ -2,6 +2,43 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The commit field's draft is Leaf's own (branch `fix/commit-draft-file`)
+
+- **Before:** the commit field kept its draft in git's `.git/COMMIT_EDITMSG` (upstream's behaviour), and filled from it
+  whenever the field was blank. git writes that file as scratch space: every `git commit` from a terminal, which agents
+  run all the time next to Leaf, and `git rebase --continue`, which Leaf runs since the operations moved to git. So a
+  blank field showed someone else's last message, and the user's next commit could take it. Seen in a manual run on
+  2026-10-16: a demo script's `git commit -m "Add topic.txt"` became the field's text. After `git rebase --continue`
+  the field took the message with git's whole comment block (`# Conflicts: …`, `# Please enter the commit message…`).
+- **Now:** the draft is in `<git dir>/LEAF_COMMIT_DRAFT` (`AppStorage.COMMIT_DRAFT_FILE_NAME`, `CommitDraft.kt`), in
+  each worktree's own git dir, as `COMMIT_EDITMSG` was. Leaf no longer reads, writes or removes `COMMIT_EDITMSG`.
+  JGit's commit still writes the message there every time, for the commit-msg hook even when there is none
+  (`CommitMsgHook.canRun` only checks the file's path), and Leaf no longer removes it afterwards, so it keeps the last
+  message, as after git's commit. `MERGE_MSG` and `SQUASH_MSG` work as before.
+  - Not the `leaf` config file: in the main worktree it is shared by every worktree's tab, and holds the base branch
+    and the folder state, which a save every second while typing would race.
+  - No migration (decided 2026-10-16): nothing tells a draft that an older Leaf left in `COMMIT_EDITMSG` from git's
+    message, and taking one over would bring the bug back once.
+  - The file watcher ignores any worktree's draft. Another worktree's `COMMIT_EDITMSG` refreshed the worktree list, so
+    typing in one tab made the others run git in every worktree.
+- **Found, not changed:** a merge's commit in Leaf clears the plain draft after the merge is over, so the draft that
+  the merge kept out of view is removed from disk (upstream's behaviour, with `COMMIT_EDITMSG` before). The field still
+  shows it until a restart or a worktree switch.
+- **Tests:** `CommitDraftTest` (5, temp repositories with git as the reference): a draft saved, read back and removed,
+  with `COMMIT_EDITMSG` untouched; a terminal `git commit -m` and a `git rebase --continue` after conflicts, whose
+  messages (the second with git's comments) aren't taken, nor replace a draft; a linked worktree's draft in its own git
+  dir; `MERGE_MSG` during a merge, as before. `DraftingCommitMessagesTest` runs a tab: a draft survives an agent's
+  commit and a refresh, Leaf's commit removes it, and the next terminal commit leaves the field's message empty.
+  `WatchedRepositoryTest` checks the draft in each git dir, `SwitchingWorktreesTest` reads the feature worktree's draft
+  from the new file, and `AppStorageTest` checks the new name.
+  - **Mutation check:** 7 mutations, all caught, each by a failing test: reading `COMMIT_EDITMSG` again, writing it
+    again, the watcher's rule gone, the rule for the tab's own git dir only, no draft read, clearing that keeps the
+    file, and the draft in the common git dir.
+  - The full suite passes on `4a7df80f` with these changes: `:app` 315 tests, `:domain` 341, `:data` 1113, `:common` 7.
+  - Manual run on macOS (2026-10-16), on a demo repository whose last commit left its message in `COMMIT_EDITMSG`: a
+    draft, a commit from a terminal, a rebase that stopped at a conflict and went on with `git rebase --continue` in a
+    terminal, then a commit in Leaf, which removed the draft and left its message in `COMMIT_EDITMSG`.
+
 ## `WorktreeReviewTest` waits for the worktree list (branch `fix/worktree-review-test-wait`)
 
 - **Before:** the class's first test failed once in a full `./gradlew test` (`expected: <3> but was: <null>`, the

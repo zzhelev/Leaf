@@ -26,7 +26,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
   - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
     state, the worktrees' base branch, and where new worktrees go, shared by the worktrees). They are the same file in
-    a repository's main worktree.
+    a repository's main worktree;
+  - the per-worktree file `<git dir>/LEAF_COMMIT_DRAFT`, the commit field's draft (see The plain draft).
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
 - **Gitnuro is named only where GPL-3.0 needs it:** the README's License section says, in one dated sentence, that
@@ -963,6 +964,17 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
   message, as a field fills from its file only while it's blank. For the same reason, a merge's or a squash merge's
   field is cleared once its file is gone, unless a merge goes on. Commit is disabled while files have conflicts, as git
   refuses then.
+- **The plain draft** (fork-only, `data/git/repository/CommitDraft.kt`, 2026-10-16) is in `<git dir>/LEAF_COMMIT_DRAFT`
+  (`AppStorage.COMMIT_DRAFT_FILE_NAME`), in the worktree's own git dir. Upstream kept it in git's `COMMIT_EDITMSG`,
+  which git uses as scratch space: every `git commit` from a terminal (an agent's) and `git rebase --continue`, with its
+  comment lines, left their message there, and a blank field took it as the draft.
+  - Leaf no longer reads, writes or removes `COMMIT_EDITMSG`. JGit's commit writes the message there every time, for
+    the commit-msg hook, whether there is one or not (`CommitMsgHook.canRun` only checks the file's path, see
+    `hookArguments`). Leaf used to remove it right after; it now keeps the last message, as after git's commit.
+  - A draft that an older Leaf left in `COMMIT_EDITMSG` isn't moved over, as nothing tells it from git's message.
+  - Leaf's commit removes the draft (`DoCommitUseCase`). A merge's commit removes it too, as the merge is over by
+    then, though the merge kept the draft out of view (upstream's behaviour): the field still shows it, but a restart
+    or a worktree switch loses it unless it's edited first.
 - A plain merge then goes on in Leaf's merge UI: `MERGE_MSG` in the field, the Merge button, the banner.
 - When a merge ends, conflicts or not, the tab selects the uncommitted changes (`worktreeResultsToShow`), where its
   result waits. A selected commit, or the review, would hide it.
@@ -2039,8 +2051,9 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
   - `STATUS + LOG + REPO_STATE` for anything else, the working tree (which refreshes the worktree list too);
   - WORKTREES for another worktree's git dir under `<common>/worktrees/`, and in a linked worktree for the main
     worktree's files in the common git dir (`HEAD`, `index`, …);
-  - nothing for Leaf's `leaf` file (and `leaf.lock`) and JGit's `.probe-` files in either git dir, or for
-    `COMMIT_EDITMSG`, `MERGE_MSG` and `SQUASH_MSG` in the tab's git dir.
+  - nothing for Leaf's `leaf` file (and `leaf.lock`) and JGit's `.probe-` files in either git dir, for any worktree's
+    `LEAF_COMMIT_DRAFT`, which a tab saves a second after each edit, or for `COMMIT_EDITMSG`, `MERGE_MSG` and
+    `SQUASH_MSG` in the tab's git dir.
 
   Paths are compared as given and as real paths (macOS reports `/private/var/...`), and a folder only contains what
   is under it with a separator. The old `startsWith(gitDir)` also matched `.gitignore` and `.github/`, which
