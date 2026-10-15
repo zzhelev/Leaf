@@ -280,7 +280,9 @@ asking.
   the absolute path of `<git dir>/COMMIT_EDITMSG` instead (`hookArguments`), as the git CLI does. Another `FS` that
   runs hooks needs the same.
 - Exceptions inside `provide` become `GenericError` (or come from an `errorHandle` mapper). `GpgSigningException`,
-  `SshSigningException` and `SshNeedsGitException` are looked for in the cause chain first, as JGit wraps them.
+  `SshSigningException` and `SshNeedsGitException` are looked for in the cause chain first, as JGit wraps them, then
+  (fork-only) an index that JGit can't read (`UnsupportedIndexError`) and a missing object (`MissingObjectError`): see
+  Index formats that JGit can't read, and Partial clones.
 - Closing a tab, or replacing it ("Open another repository"), closes and drops the cached `Git` of every repository
   that no remaining tab has open (`CleanRepositoriesResourcesUseCase` → `GitProviderService` → `JGit.cleanupExcept`). The keys to keep are the git
   dirs from `RepositorySelectionState.Open.path`, never `<working tree>/.git`: linked worktrees and submodules have no
@@ -1108,6 +1110,69 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   started, and `UseCaseExecutor` records nothing for a cancelled task, even if its code turned the cancellation into
   an error. `CredentialsStateManager` goes back to `None` when the coroutine waiting for a dialog is cancelled, and
   `AppTab` then closes the dialog.
+
+**Index formats that JGit can't read (fork-only, `data/git/repository/IndexExtensions.kt`,
+`domain/index/UnsupportedIndex.kt`):** git writes the index split (`git update-index --split-index`,
+`core.splitIndex`) or sparse (`index.sparse` with a cone-mode sparse checkout) for large repositories. JGit 7.7 fails
+at the first entry it can't read: a split index has entries without a path (`Invalid path: `), a sparse one has folders
+(`Invalid path: b/`). So whatever reads the index fails: status, staging, uncommitted diffs, blame, commits,
+checkouts, stashes, merges. JGit reads the index before it changes anything, so nothing is left half done. A sparse
+checkout with a full index, and `feature.manyFiles` (version 4 without a checksum), are fine.
+- `JGit.toGitError` turns a failure with a `CorruptObjectException` in its cause chain into `UnsupportedIndexError`
+  when `unsupportedIndex` finds the reason in the index file. `indexExtensions` lists its extensions (gitformat-index
+  versions 2 to 4: they come after the entries, so every entry is read past). `link` is split, `sdir` sparse, and
+  another one whose signature isn't uppercase, which JGit refuses too, is `UnknownExtension`. The file is read only
+  after a failure, so an index that JGit reads costs nothing. `sharedindex.*` files prove nothing: git leaves them
+  after `--no-split-index`.
+- Status fails with it, so `RepositoryOpenViewModel.unsupportedIndex` follows the status's `DataState.Error`, and
+  `UnsupportedIndexBanner` (`ui/status/`) shows an amber strip under the toolbar, with the commands, until a status
+  loads, as after converting. "Convert index…" opens `ConvertIndexDialog`, which shows the commands
+  (`WorktreeCommands`) and runs them with `RunWorktreeStepsUseCase` (`TaskType.ConvertIndex`). Any other operation's
+  `ErrorDialog` gives the same explanation, with the commands and their `cd` for a terminal.
+- `conversionSteps`: split is `git update-index --no-split-index`, after `git config core.splitIndex false` when that
+  is on (git only warns, and splits again at its next write); sparse is `git sparse-checkout reapply
+  --no-sparse-index`, which keeps the patterns and sets `index.sparse=false` in the worktree's config. Both keep the
+  staged changes. `UnknownExtension` has no command, and the strip no button.
+- What doesn't read the index works: the log, branches, a commit's files and diffs, file history, worktree review.
+  `GetDiffEntryFromDiffTypeGitAction` used to read the index for every diff, and `FormatDiffGitAction` goes on without
+  submodules for a commit's diff when JGit can't list them, as it does from the index.
+- Moving status and staging to the git CLI was the alternative, not built: JGit's commit, checkout, stash, merge and
+  discard read the index too.
+- Tests: `IndexExtensionsTest` (index files of every version that git 2.54 writes), `UnsupportedIndexTest` (Leaf's
+  actions on split and sparse indexes, and the conversions), `UnsupportedIndexBannerTest`.
+
+**Partial clones (fork-only, `data/git/cli/remote/PartialCloneFetch.kt`):** a partial clone (`git clone
+--filter=blob:none`) has every commit and tree, but only the files that it checked out, and git downloads the others
+from the promisor remote (`remote.<name>.promisor`, or `extensions.partialClone` from older git: `promisorRemotes`)
+when it first needs them. JGit can't: it throws `MissingObjectException`, which `JGit.toGitError` turns into
+`MissingObjectError`.
+- `PartialCloneFetch` runs what git runs to fetch from its promisor remote (`promisor-remote.c`):
+  `git -c fetch.negotiationAlgorithm=noop fetch <remote> --no-tags --no-write-fetch-head --recurse-submodules=no
+  --filter=blob:none --stdin`, with the objects' ids on stdin (`GitCliRemoteCommand.run`'s `input`), so Leaf's
+  credential dialogs apply. JGit's cached `Git` sees git's new pack when it next misses an object. A download that
+  fails is `PartialCloneFetchError`, with git's error: offline, git says why ("Could not resolve host").
+- Reading (`retryingMissing`): the diff pane (`FormatDiffGitAction`), a commit's files, worktree review, blame, the
+  conflict resolver's loading and "Open in the default app" run again after downloading what they missed, up to 10
+  times, each for a new object. The first download also takes what the operation reads next: both versions of a
+  commit's file (`DiffType.blobIds`), and the versions of a blamed file, with, where it was added, the files that blame
+  compares to find a rename (`fileVersions`). Queries show no progress.
+- Changing: JGit's checkout deletes files before it writes the new ones, and a missing blob stopped it halfway, with
+  HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset, merge,
+  cherry-pick, revert, rebase, interactive rebase, and the CLI pull's merge or rebase download first
+  (`prefetchCheckout`, `prefetchForMerge`, `prefetchForCherryPick`, `prefetchForRebase`): the blobs where the trees
+  involved differ (`blobsThatDiffer`), with the processing screen's progress and Cancel. A failed download is
+  `PartialCloneFetchError(nothingChanged = true)`, and nothing changes. Stashes and discards read what was checked out,
+  so they aren't covered; nor is JGit's pull, the fallback (see Remote operations, Choice).
+- Lists don't read blobs: `GetCommitDiffEntriesGitAction`, `GetBranchComparisonGitAction`,
+  `GetDiffEntryFromStatusEntryGitAction` and `unmergedDiffEntry` call `git.diff()` with `setShowNameAndStatusOnly(true)`.
+  Without it, JGit formats every file's diff into a null stream: selecting a commit read all its changed files, in
+  every repository.
+- The diff pane (`ViewDiffResult.Failed`, `DiffLoadFailure`) and file history show a missing object's error in place,
+  with Try again (`RepositoryOpenViewModel.retryDiff`); the pane used to close. A commit's file list shows it above the
+  list, and a blame that fails opens `ErrorDialog`, where it used to say nothing.
+- A treeless clone (`--filter=tree:0`) lacks trees too, which are downloaded one per try, so an operation can give up.
+- Tests: `PartialCloneTest` (clones with `--filter=blob:none` over `file://`, from a source with
+  `uploadpack.allowFilter`), `DiffLoadFailureTest`.
 
 **Login shell environment (fork-only, `data/shell/LoginShellEnvironment.kt`):** an app opened from the Finder, the
 Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find node, npx or other Homebrew and nvm tools

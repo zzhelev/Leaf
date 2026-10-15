@@ -2,6 +2,66 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Split indexes, sparse indexes and partial clones (branch `claude/strange-lewin-b68009`)
+
+- **Before** (found with a probe on git 2.54 and JGit 7.7):
+  - In a repository whose index git wrote split (`git update-index --split-index`, `core.splitIndex`) or sparse
+    (`index.sparse` with a cone-mode sparse checkout), JGit fails at its first entry: "Invalid path: ", or
+    "Invalid path: b/". Status, staging, uncommitted diffs, blame and checkouts failed with that message, and the log
+    stayed empty, as it loads the status first. Viewing a file in a commit failed too, as
+    `GetDiffEntryFromDiffTypeGitAction` read the index for every diff. Every `git status` that the worktree list runs
+    touches the split index's `sharedindex.<id>` file, which the file watcher took for a change: the tab refreshed
+    everything twice a second.
+  - In a partial clone (`git clone --filter=blob:none`), JGit can't download the files that the clone hasn't, and
+    throws `MissingObjectException`. Selecting an older commit failed (JGit formatted every changed file's diff to
+    list them, which nothing read), and so did its diffs, blame and worktree review. Checking out another branch
+    deleted a file, then failed with HEAD where it was; a hard reset moved HEAD, then failed with a file staged.
+- **Now, split and sparse indexes** (picked from options and a mockup: a strip, with a Convert button):
+  - An amber strip under the toolbar says what git did to the index and what doesn't work until it's converted, with
+    the commands, which can be selected: `git update-index --no-split-index` (after `git config core.splitIndex false`
+    when that is on), or `git sparse-checkout reapply --no-sparse-index`, which keeps the sparse checkout. "Convert
+    index…" shows them in a dialog and runs them. The strip goes once a status loads, whoever converted the index.
+  - Any other operation that fails on the index says the same in `ErrorDialog`, with the commands and their `cd`.
+  - The log, branches, a commit's files and diffs, file history and worktree review work with such an index.
+  - The index file is read only after JGit failed on it: its extensions say which format it is (`link`, `sdir`, or
+    another that readers must know).
+  - The watcher ignores `sharedindex*` files in the git dirs, which ends the refresh loop.
+  - Moving status and staging to the git CLI was the alternative; it isn't built, as commit, checkout, stash, merge and
+    discard read the index through JGit too.
+- **Now, partial clones:**
+  - Leaf has git fetch what JGit misses, as git does for its promisor remote: one `git fetch <remote>
+    --filter=blob:none --stdin` with the objects' ids, through Leaf's credential dialogs, then runs the diff, blame,
+    file list, review or conflict loading again. The first download takes what it will read next too: both versions
+    of a diff's file, and every version of a blamed file.
+  - Checkouts, hard reset, merge, cherry-pick, revert, rebase, interactive rebase and pull download the files they
+    will write before JGit starts, with progress and Cancel on the processing screen. A failed download changes
+    nothing, and `ErrorDialog` says why.
+  - A diff that can't be downloaded, offline for example, says so in the diff pane (and in file history), with git's
+    output and Try again, as picked from the mockup. The pane used to close. A blame that fails opens `ErrorDialog`;
+    it used to say nothing.
+  - Lists of a commit's files no longer format each file's diff, which nothing read: selecting a commit reads no file
+    contents, in every repository.
+- **Tests,** each written first and seen to fail:
+  - `UnsupportedIndexTest` (9, data): status, staging, checkout and blame on split and sparse indexes give the
+    explanation and the commands; a commit's diff and a tab's log work; running the conversions keeps staged changes
+    and the sparse checkout, and status works again.
+  - `IndexExtensionsTest` (9, data): index files that git 2.54 wrote in versions 2, 3 (extended flags) and 4, split
+    and sparse, `feature.manyFiles`, an unknown extension, and damaged files.
+  - `PartialCloneTest` (13, data), clones with `--filter=blob:none` over `file://`: a commit's files without
+    downloading, a diff that downloads its two versions and nothing else, blame, review, a download that fails, and
+    checkout, a checkout whose download fails (nothing changes), merge with conflicts, hard reset, cherry-pick, revert,
+    pull, and two rebases, one of which needs a version that only a replayed commit has.
+  - `WatchedRepositoryTest` (domain): the shared index needs no refresh. `UnsupportedIndexBannerTest` (5) and
+    `DiffLoadFailureTest` (2) render the strip, the error text and the pane offscreen.
+  - **Mutation check:** 21 mutations, all caught. One survived at first, the rebase's download of what the replayed
+    commits have, as the first rebase test replayed a single commit: the second rebase test catches it.
+  - The full suite passes on `9e41ded5` with these changes: `:app` 282 tests, `:domain` 335, `:data` 996, `:common` 7.
+- **Manual run** (`:app:run` on demo repositories, screenshots of the window): the strip on a split and a sparse index
+  over the log, with no refresh loop; converting from a terminal removed the strip and showed the changes. The partial
+  clone opened without downloading anything. A temporary harness on the real view model then showed an old commit's
+  diff after one download, the pane's error with the remote gone, Try again loading it once the remote was back, and a
+  checkout of `origin/feature` that left a clean working tree.
+
 ## The built-in LFS client reads `lfs.url` and `remote.<name>.lfsurl` from git's config (branch `fix/lfs-url-git-config`)
 
 - **Before:** Leaf's built-in LFS client, which a conflict's card and checkouts without git-lfs download with, took
