@@ -268,6 +268,35 @@ asking.
   `logFor` (eclipse-jgit/jgit#306): `LinkedWorktreeLogsTest` fails if JGit stops taking that folder from `FS.resolve`.
   - Such a file system belongs to its repository. Another worktree opened with a tab's `repository.fs`, as
     `RenameBranchGitAction.moveHead` does, would log its HEAD in the tab's reflog. `moveHead` writes no reflog entry.
+- **The files that `includeIf` names, under JGit's config (fork-only `IncludedConfigRepository`,
+  `config/IncludedConfig.kt`):** JGit's parser expands only `[include]`, so what a file that `includeIf` names sets (a
+  work identity for `~/work/`, signing, `core.hooksPath`, `core.autocrlf`, …) never reached JGit (Gitnuro#186).
+  `JGit.open` opens an `IncludedConfigRepository`, whose config is the repository's own file on a layer of what only
+  git reads, on the user's config. JGit's own commits (merge, pull, rebase and interactive rebase, cherry-pick,
+  revert), its reflog entries, its stashes and its other settings then see what git sees.
+  - `GitIncludedConfig` runs `git --git-dir=<git dir> config --list -z --show-origin --show-scope` and keeps the
+    entries of the files reached through `includeIf` (`includedConfig`). git lists an included file's entries right
+    after the include, so the next entry from the file that the path names (`~/` in git's HOME, a relative path next
+    to the including file, both as git prints them, without resolving links) starts them. A key that the user's or the system's
+    config sets again after such a file also gets those later values, as git takes the last one.
+  - `provide`, `provideOptional` and `provideOnce` read it again (one at a time, `includedConfigLock`) when a file
+    that it depends on changed (JGit's `FileSnapshot`): every file git read, every include's target even when missing,
+    the repository's HEAD (`onbranch:`), its config and `config.worktree`, and the user's `~/.gitconfig` and XDG
+    config. Otherwise they only check those files.
+  - JGit's `FileRepository` puts its config on the user's config in its constructor, and reads it there, before a
+    subclass is set up: `getConfig()` returns JGit's own until the subclass's exists. After that, JGit uses its
+    private config only to load it and to convert the ref storage, which Leaf never does; the object database keeps
+    it for pack settings.
+  - Saving the repository's config writes only the repository's own entries. Without a usable git, the layer is
+    empty, and a repository that no `includeIf` applies to reads as before.
+  - A key that the repository's own config sets stays the repository's in JGit, even where that file has an
+    `includeIf` after it, which git reads later. JGit reads no `author.*` and `committer.*`, so its merges and reverts
+    take `user.*` for both.
+  - Repositories that Leaf opens elsewhere (`SubmoduleWalk`, `RenameBranchGitAction.moveHead`,
+    `OpenRepositoryGitAction`'s checks) are plain JGit repositories.
+  - Tests: `IncludedConfigTest` checks the entries against git's own list, `IncludedConfigRepositoryTest` JGit's
+    merge, revert, cherry-pick, rebase, interactive rebase and pull, a snapshot stash, a signed merge, a hook and the
+    reflog against git.
 - **Hooks are where git finds them (fork-only `GitHooksDirectory`):** `PosixFs` and `WindowsFs` override `findHook`,
   which runs `git --git-dir=<git dir> rev-parse --path-format=absolute --git-path hooks` in the working tree (the git
   dir when bare). That's git's answer: `core.hooksPath` from a file that `includeIf` names (Gitnuro#186), `~/`
@@ -1344,9 +1373,9 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - `configOf` writes the entries as config text, so that a key without `=` stays one, which JGit reads as true. It
     leaves out `include` and `includeIf`, whose files git has read.
   - JGit reads an empty value (`key =`) as null, where git reads "", from its own files too.
-- Still from JGit's config: the commits that JGit makes itself, whose commands take no committer (Merge in the branch
-  menu, pull, rebase and interactive rebase, cherry-pick, revert), reflog identities, and every other setting that
-  JGit reads (`merge.conflictStyle`, `pull.rebase`, `core.autocrlf`, …). Hooks are found where git finds them (see
+- The commits that JGit makes itself, whose commands take no committer (Merge in the branch menu, pull, rebase and
+  interactive rebase, cherry-pick, revert), its reflog entries and every other setting that JGit reads see the files
+  that `includeIf` names through `IncludedConfigRepository`, and hooks are found where git finds them (see
   `JGit.provide`).
 - Tests: `CommitIdentityTest`, `GitSigningConfigsTest`, the `includeIf` tests in `CreateTagGitActionTest` and
   `SshProgramSignerRealSshKeygenTest`, and `AuthorInfoTest`. git and JGit read the same user config

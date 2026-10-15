@@ -2,6 +2,40 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## JGit reads the files that `includeIf` names, for its own commits and settings (branch `fix/includeif-config`)
+
+- **Before** (Gitnuro#186): JGit's config parser expands only `[include]`.
+  - The commits that JGit makes itself took the identity and signing settings of the user's config, without the work
+    identity that a file included for `~/work/` sets: Merge in the branch menu, pull's merge and rebase, rebase and
+    interactive rebase, cherry-pick and revert. So did their reflog entries, and the backup stashes before a merge or
+    a pull.
+  - JGit's other settings in such files didn't apply either (`core.autocrlf`, `merge.conflictStyle`, `pull.rebase`,
+    `core.hooksPath` as JGit reads it, …).
+- **Now** (`IncludedConfigRepository`, `GitIncludedConfig`): JGit opens repositories with a layer of what git reads
+  only through `includeIf`, between the user's config and the repository's own file.
+  - Leaf finds it in `git config --list -z --show-origin --show-scope`: the entries of the files reached through an
+    `includeIf`, and of what those files include.
+  - It reads them again when one of the files that they depend on changes: the files that git read, the includes'
+    targets, the repository's HEAD for `onbranch:`, and the config files that git would read if they appeared.
+    Otherwise Leaf only checks those files' state.
+  - A key that the user's config sets again after the include keeps git's last value. A key that the repository's own
+    file sets stays the repository's in JGit, even where an `includeIf` in that file comes after it. JGit reads no
+    `author.*` or `committer.*`, so its merges and reverts take `user.*` for both.
+  - Saving the repository's config writes only the repository's own entries. Without a usable git, or where no
+    `includeIf` applies, JGit reads as before.
+- **Tests:** `IncludedConfigTest` (8) checks the entries against git's own list: a file that `includeIf` names and
+  not one that `[include]` or an unmatched `includeIf` names, an include inside such a file, `onbranch:` in the
+  repository's own config, `~/` and a relative path next to a config file that is a symbolic link, a value set again
+  after the include, the files watched, and the fallback without git.
+  - `IncludedConfigRepositoryTest` (15) compares with git: Merge in the branch menu (its reflog entry too), revert,
+    cherry-pick, rebase, interactive rebase, a pull's merge and rebase, a snapshot stash, a merge signed as the
+    included file says, a hook from its `core.hooksPath`, saving the repository's config, reading again after the
+    file or the branch changed, a later value, a repository without `includeIf`, and the fallback without git.
+  - **Mutation check:** 14 mutations, all caught. The first run missed two: comparing the includes' real paths, which
+    git never needs, so the paths are now compared as git prints them, and reading origins that git prints relative,
+    which a test now checks.
+  - The full suite passes on `63f86d02` with these changes: `:app` 315 tests, `:domain` 340, `:data` 1084, `:common` 7.
+
 ## A resolved cherry-pick keeps the picked commit's author (branch `fix/cherry-pick-author`)
 
 - **Before:** when a cherry-pick stopped at conflicts and the resolution was committed in Leaf, the commit's author
