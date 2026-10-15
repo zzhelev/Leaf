@@ -2,6 +2,37 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The diff pane's scroll state can't crash Leaf (branch `feature/discard-line-button`)
+
+- **Before** (found in the manual run of the Discard button): discarding a file's last unstaged line crashed the diff
+  pane with "Reading a state that was created after the snapshot was taken". The view model makes a new
+  `LazyListState` for each diff on `Dispatchers.Default` (upstream code), which puts its states in the global
+  snapshot, and a frame whose snapshot began earlier can't read them. The pane gets it from a `StateFlow`, which
+  doesn't go through snapshots, so such a frame could. File history makes its diff's state the same way.
+- **Now** (`newLazyListState`, `ScrollStates.kt`): both view models make the state inside
+  `Snapshot.withMutableSnapshot`, which gives each of its states a record that every snapshot can read.
+- **Tests:** `ScrollStatesTest` makes a state on another thread and reads it in an older snapshot, and shows that a
+  plain `LazyListState` fails there with the crash's message. The crash itself didn't reproduce offscreen: a harness
+  on the real Dagger graph repeated the manual run's steps (staging and discarding every line, tooltips showing)
+  without an error, so the cause is a race with the window's frames.
+  - **Mutation check:** making the state the plain way again fails the test.
+
+## Discard a line from its own button (branch `feature/discard-line-button`)
+
+- **Before:** in the Unstaged diff, the pointer over a changed line showed a button to stage it, and nothing to
+  discard it: "Discard line" was in the line's right-click menu, which nothing pointed to. The menu had no Stage or
+  Unstage. The line's button and its menu also stayed during a merge, rebase, cherry-pick or revert, when the hunk
+  header has no buttons.
+- **Now** (`DiffLineActions.kt`): a red Discard button follows Stage, and the menu has the buttons' items: Stage line
+  and Discard line in Unstaged, Unstage line in Staged. Each button has a tooltip. The text starts further right in
+  Unstaged to leave room for the two buttons. Discarding asks first, as before. Neither buttons nor menu show while the
+  hunk buttons are hidden.
+- **Tests:** `DiffLineActionsTest` checks which actions each line gets, then renders the unified and split diffs
+  offscreen: it hovers a line, clicks its buttons, opens its menu and clicks an item, and checks that the buttons don't
+  cover the text. A menu ignores a right-click within 20 ms of the last one, in any test, so the test waits first.
+  - **Mutation check:** 7 mutations, 7 caught: no Discard in Unstaged, no gating, the text at 16 dp, an empty menu,
+    Discard staging in either view, and buttons without the pointer over the line.
+
 ## The conflict resolver's LFS cards download their object (branch `claude/pensive-bhaskara-bd6e77`)
 
 - **Before:** a Git LFS conflict's card whose object wasn't in the local LFS store said "Not downloaded, so it can't be
@@ -43,7 +74,6 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   and Keep mine then writes the file without quitting), and Save and quit.
   - **Mutation check:** 12 mutations, all caught once the Keep mine test had two files. With one, a save that ended
     after the quit was cancelled could still have gone on to save the next file.
-
 
 ## Tooltips stay away from dialogs, menus and clicks (branch `fix/scrollbars-tooltips`)
 

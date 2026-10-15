@@ -398,6 +398,11 @@ upstream actions (`StageHunkGitAction`, `DiscardUnstagedHunkLineGitAction`, …)
 - File names are quoted as git quotes them (`patchName`): a tab would end an unquoted name.
 - Without a usable git, the actions fail with `GitCliError` and change nothing. There is no JGit fallback: the old
   JGit code decoded and re-encoded the text as UTF-8, and discarded lines by number without checking them.
+- **A line's buttons and menu (fork-only, `ui/diff/DiffLineActions.kt`):** the pointer over a changed line shows
+  Stage and Discard in Unstaged, Unstage in Staged, and its right-click menu has the same items (`lineActions`).
+  Upstream had only the button to stage or unstage, and Discard in the menu. Unstaged's text starts 40 dp after the
+  line numbers to make room for two buttons (`lineTextStart`, through `DiffText`'s `startPadding`). Like the hunk
+  buttons, neither shows while a merge, rebase, cherry-pick or revert goes on (`isRepositoryInSafeState`).
 
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
@@ -1295,6 +1300,13 @@ Worktree operations will go through a fork-only git CLI adapter in its own packa
 - Newer code uses explicit backing fields: `val x: StateFlow<T>` + `field = MutableStateFlow(...)`. Older code uses
   `_x` / `asStateFlow()`.
 - Newer screens take `onAction(SealedAction)`.
+- **Compose state made off the UI thread (fork-only, `viewmodels/ScrollStates.kt`):** a `LazyListState` that a view
+  model makes on `Dispatchers.Default` is in the global snapshot, and a frame whose snapshot began earlier can't read
+  it ("Reading a state that was created after the snapshot was taken"). A `StateFlow` can hand it to such a frame, and
+  the diff pane crashed that way. Make them with `newLazyListState()`, which makes the state inside
+  `Snapshot.withMutableSnapshot`, so every snapshot can read it. Any other Compose state that a view model makes off
+  the UI thread needs the same. The crash didn't reproduce offscreen, only in a window; `ScrollStatesTest` checks it
+  with an older snapshot.
 
 **Data state:** each piece of repository data is a `Flow<DataState<T>>` (Loading/Loaded/Error) in
 `InMemoryRepositoryDataRepository`. `RefreshDataUseCase` refreshes it per `DataToRefresh` value. A step that throws
