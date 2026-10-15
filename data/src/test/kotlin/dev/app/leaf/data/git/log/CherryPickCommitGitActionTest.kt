@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.log
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
@@ -29,7 +30,7 @@ class CherryPickCommitGitActionTest {
     lateinit var tempDir: File
 
     private val originalReader: SystemReader = SystemReader.getInstance()
-    private val action = CherryPickCommitGitAction(testJGit())
+    private val action = testJGit().let { CherryPickCommitGitAction(it, testPartialCloneFetch(it)) }
     private lateinit var git: TestGitCli
     private lateinit var work: File
 

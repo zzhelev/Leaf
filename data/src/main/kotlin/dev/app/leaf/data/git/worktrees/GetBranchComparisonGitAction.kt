@@ -4,6 +4,7 @@
 package dev.app.leaf.data.git.worktrees
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
@@ -32,8 +33,17 @@ import javax.inject.Inject
 class GetBranchComparisonGitAction @Inject constructor(
     private val jgit: JGit,
     private val commitMapper: JGitCommitMapper,
+    private val partialClone: PartialCloneFetch,
 ) : IGetBranchComparisonGitAction {
     override suspend operator fun invoke(
+        repositoryPath: String,
+        base: String,
+        branch: String,
+    ): Either<BranchComparison, GitError> = withContext(Dispatchers.IO) {
+        partialClone.retryingMissing(repositoryPath) { compare(repositoryPath, base, branch) }
+    }
+
+    private suspend fun compare(
         repositoryPath: String,
         base: String,
         branch: String,
@@ -52,6 +62,8 @@ class GetBranchComparisonGitAction @Inject constructor(
                 git.diff()
                     .setOldTree(repository.treeParser(mergeBase.tree))
                     .setNewTree(repository.treeParser(RevWalk(repository).use { it.parseCommit(branchId).tree }))
+                    // The entries alone: formatting each file's diff, which nothing reads, reads all its blobs
+                    .setShowNameAndStatusOnly(true)
                     .call()
                     .sortedBy { it.filePath }
             }

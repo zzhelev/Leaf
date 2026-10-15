@@ -93,6 +93,23 @@ class WatchedRepositoryTest {
     }
 
     @Test
+    fun `git touching a split index's shared index needs nothing, in any worktree's git dir`() {
+        // Every git status touches it, as the worktree list runs, which refreshed everything again, in a loop
+        for (tab in listOf(mainTab, linkedTab)) {
+            for (gitDir in listOf(arrayOf("repo", ".git"), arrayOf("repo", ".git", "worktrees", "agent"))) {
+                val sharedIndex = path(*gitDir, "sharedindex.44785d4b4942dc08997e8d3af7a0c4c51bc2ef4d")
+
+                assertEquals(WatchedChange.NONE, tab.changeOf(sharedIndex), sharedIndex)
+                assertEquals(WatchedChange.NONE, tab.changeOf(path(*gitDir, "sharedindex_x1Yz2W")), sharedIndex)
+            }
+        }
+
+        // Writing the index changes the index file too, which refreshes as before
+        assertEquals(WatchedChange.REPOSITORY, mainTab.changeOf(path("repo", ".git", "index")))
+        assertEquals(WatchedChange.WORKING_TREE, mainTab.changeOf(path("repo", "sharedindex.txt")))
+    }
+
+    @Test
     fun `a batch refreshes what its most important change needs`() {
         val tab = mainTab
         val gitDir = path("repo", ".git", "HEAD")

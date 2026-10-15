@@ -12,6 +12,7 @@ import dev.app.leaf.data.git.MergeContents.MyersOnlyMerge
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.MergeBranchGitAction
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.diff.CanGenerateTextDiffGitAction
 import dev.app.leaf.data.git.diff.FormatDiffGitAction
 import dev.app.leaf.data.git.diff.FormatHunksGitAction
@@ -172,7 +173,7 @@ class GitOnlyConfigValuesTest {
         branches(Conflict)
         git.run(work, "switch", "feature")
 
-        assertEquals(Either.Ok(true), keepingConfig(ZDIFF3) { RebaseBranchGitAction(jgit)(gitDir, branch("main")) })
+        assertEquals(Either.Ok(true), keepingConfig(ZDIFF3) { RebaseBranchGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, branch("main")) })
 
         assertEquals(Conflict.result, conflictIn(work))
     }
@@ -183,7 +184,7 @@ class GitOnlyConfigValuesTest {
         branches(Clean)
         git.run(work, "switch", "feature")
 
-        val result = keepingConfig("diff.algorithm=$algorithm") { RebaseBranchGitAction(jgit)(gitDir, branch("main")) }
+        val result = keepingConfig("diff.algorithm=$algorithm") { RebaseBranchGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, branch("main")) }
 
         assertEquals(Either.Ok(false), result)
         assertEquals(Clean.result, File(work, FILE).readText())
@@ -241,7 +242,7 @@ class GitOnlyConfigValuesTest {
     fun `a cherry-pick stops at conflicts with zdiff3's layout`(): Unit = runBlocking {
         branches(Conflict)
 
-        val result = keepingConfig(ZDIFF3) { CherryPickCommitGitAction(jgit)(gitDir, commit("feature")) }
+        val result = keepingConfig(ZDIFF3) { CherryPickCommitGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, commit("feature")) }
 
         assertEquals(
             "Cherry-pick stopped with conflicts. Fix the conflicts and commit the desired changes.",
@@ -257,7 +258,7 @@ class GitOnlyConfigValuesTest {
         branches(Clean)
 
         val result = keepingConfig("diff.algorithm=$algorithm") {
-            CherryPickCommitGitAction(jgit)(gitDir, commit("feature"))
+            CherryPickCommitGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, commit("feature"))
         }
 
         assertEquals(Either.Ok(Unit), result)
@@ -268,7 +269,7 @@ class GitOnlyConfigValuesTest {
     fun `a revert stops at conflicts with zdiff3's layout`(): Unit = runBlocking {
         val reverted = revertableCommit(Conflict)
 
-        val result = keepingConfig(ZDIFF3) { RevertCommitGitAction(jgit)(gitDir, commit(reverted)) }
+        val result = keepingConfig(ZDIFF3) { RevertCommitGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, commit(reverted)) }
 
         assertEquals("Revert failed. Fix the conflicts and commit the desired changes.", message(result))
         assertEquals(Conflict.result, conflictIn(work))
@@ -280,7 +281,7 @@ class GitOnlyConfigValuesTest {
         val reverted = revertableCommit(Clean)
 
         val result = keepingConfig("diff.algorithm=$algorithm") {
-            RevertCommitGitAction(jgit)(gitDir, commit(reverted))
+            RevertCommitGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, commit(reverted))
         }
 
         assertEquals(Either.Ok(Unit), result)
@@ -336,7 +337,7 @@ class GitOnlyConfigValuesTest {
         commitFile(Clean.ours)
 
         val result = keepingConfig("diff.algorithm=$algorithm") {
-            GetCommitDiffEntriesGitAction(jgit)(gitDir, commit("HEAD"))
+            GetCommitDiffEntriesGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, commit("HEAD"))
         }
 
         assertEquals(listOf(FILE), (result as? Either.Ok)?.value?.map { it.newPath }, "$result")
@@ -358,11 +359,11 @@ class GitOnlyConfigValuesTest {
         return block().also { assertEquals(before, config.readText(), "The repository's config changed") }
     }
 
-    private suspend fun merge(branch: String) = MergeBranchGitAction(jgit)(gitDir, branch(branch), fastForward = true)
+    private suspend fun merge(branch: String) = MergeBranchGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, branch(branch), fastForward = true)
 
     /** Starts an interactive rebase onto [onto] and runs its steps as they are, as the rebase screen does. */
     private suspend fun rebaseInteractively(onto: String): Either<Unit, GitError> {
-        val started = StartRebaseInteractiveGitAction(jgit)(gitDir, commit(onto))
+        val started = StartRebaseInteractiveGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, commit(onto))
 
         if (started is Either.Err) {
             return started
@@ -390,6 +391,7 @@ class GitOnlyConfigValuesTest {
             GetSubmodulesGitAction(jgit, JGitSubmoduleMapper()),
             TextDiffFromDiffLinesGitAction(),
             jgit,
+            testPartialCloneFetch(jgit),
         )
     }
 
@@ -416,7 +418,7 @@ class GitOnlyConfigValuesTest {
         commitFile(contents.ours)
         git.run(work, "switch", "feature")
 
-        assertEquals(Either.Ok(true), keepingConfig(setting) { RebaseBranchGitAction(jgit)(gitDir, branch("main")) })
+        assertEquals(Either.Ok(true), keepingConfig(setting) { RebaseBranchGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, branch("main")) })
 
         File(work, "other.txt").writeText("resolved\n")
         git.run(work, "add", "other.txt")

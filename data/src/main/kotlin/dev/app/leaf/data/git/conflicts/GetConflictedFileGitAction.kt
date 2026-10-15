@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
@@ -66,12 +67,15 @@ private const val MAX_LFS_POINTER_SIZE = 1024L
 
 class GetConflictedFileGitAction @Inject constructor(
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : IGetConflictedFileGitAction {
     override suspend fun invoke(repositoryPath: String, path: String): Either<ConflictedFile, GitError> =
         withContext(Dispatchers.IO) {
-            jgit.provide(repositoryPath) { git ->
-                loadConflictedFile(git.repository, path)
-                    ?: raiseError(ConflictError.NotConflicted(listOf(path)))
+            partialClone.retryingMissing(repositoryPath) {
+                jgit.provide(repositoryPath) { git ->
+                    loadConflictedFile(git.repository, path)
+                        ?: raiseError(ConflictError.NotConflicted(listOf(path)))
+                }
             }
         }
 }

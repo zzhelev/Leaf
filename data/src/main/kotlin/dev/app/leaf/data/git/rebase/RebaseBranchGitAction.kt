@@ -1,6 +1,8 @@
 package dev.app.leaf.data.git.rebase
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
+import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.exceptions.UncommittedChangesDetectedException
 import dev.app.leaf.domain.interfaces.IRebaseBranchGitAction
 import dev.app.leaf.domain.models.Branch
@@ -11,10 +13,14 @@ import javax.inject.Inject
 
 class RebaseBranchGitAction @Inject constructor(
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : IRebaseBranchGitAction {
     override suspend operator fun invoke(repositoryPath: String, branch: Branch) = jgit.provide(repositoryPath) { git ->
         val rebaseBranch: ObjectId =
             git.repository.resolve(branch.name) ?: throw Exception("Branch ${branch.name} not found")
+
+        // Fork-only: JGit can't download what a partial clone lacks, and would stop halfway
+        partialClone.prefetchForRebase(git.repository, rebaseBranch).bind()
 
         val rebaseResult = git.rebase()
             .setOperation(RebaseCommand.Operation.BEGIN)

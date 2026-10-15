@@ -6,6 +6,7 @@ import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.errors.isMissingObject
 import dev.app.leaf.domain.exceptions.MissingDiffEntryException
 import dev.app.leaf.domain.interfaces.IFormatDiffGitAction
 import dev.app.leaf.domain.interfaces.IGenerateSplitHunkFromDiffResultGitAction
@@ -31,7 +32,13 @@ class GetDiffUseCase @Inject constructor(
                 is Either.Ok -> result.value
                 is Either.Err -> {
                     logDiffError(diffType, result.error)
-                    return ViewDiffResult.DiffNotFound(diffType)
+
+                    // Fork-only: the pane says why, as the user can do something about it
+                    return if (result.error.isMissingObject()) {
+                        ViewDiffResult.Failed(diffType, result.error)
+                    } else {
+                        ViewDiffResult.DiffNotFound(diffType)
+                    }
                 }
             }
             val diffEntry = diffFormat.diffEntry

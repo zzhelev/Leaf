@@ -88,6 +88,7 @@ fun TaskType.successTitle(): String? {
         TaskType.AbortSquashMerge -> "Squash merge aborted"
         TaskType.RebaseWorktree -> "Rebase completed"
         TaskType.OpenMergeTool, TaskType.ResolveConflict -> "Conflict resolved"
+        TaskType.ConvertIndex -> "Index converted"
         TaskType.ResolveConflictsInMergeTool -> "Conflicts resolved"
         else -> null
     }

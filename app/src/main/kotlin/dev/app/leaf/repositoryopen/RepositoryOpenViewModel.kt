@@ -15,12 +15,15 @@ import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.conflicts.ConflictsToOpen
 import dev.app.leaf.domain.conflicts.conflictsToOpen
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.UnsupportedIndexError
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.exceptions.InvalidMessageException
 import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.extensions.openFileInFolder
 import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
+import dev.app.leaf.domain.index.UnsupportedIndex
+import dev.app.leaf.domain.index.conversionSteps
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WorktreesVisibility
@@ -539,6 +542,21 @@ class RepositoryOpenViewModel @Inject constructor(
     /** What ours and theirs are, while files have conflicts (fork-only). */
     val conflictSides = statusViewModelExtender.conflictSides
 
+    /**
+     * The worktree's index, while JGit can't read it (fork-only): status fails then. Kept while the status reloads, so
+     * the strip doesn't flicker, and gone once a status loads, as after the index was converted.
+     */
+    val unsupportedIndex: StateFlow<UnsupportedIndex?> = repositoryDataRepository.status
+        .filter { it !is DataState.Loading }
+        .map { ((it as? DataState.Error)?.error as? UnsupportedIndexError)?.index }
+        .distinctUntilChanged()
+        .stateIn(null)
+
+    /** Converts the worktree's index with the commands the strip's dialog showed (fork-only). */
+    fun convertIndex(index: UnsupportedIndex) {
+        runWorktreeStepsUseCase(TaskType.ConvertIndex, index.conversionSteps())
+    }
+
     init {
         closeViewFlow.collectLatestInViewModel {
             when (it) {
@@ -989,6 +1007,12 @@ class RepositoryOpenViewModel @Inject constructor(
             when (val result = blameFileUseCase(filePath)) {
                 is Either.Err -> {
                     resetBlameState()
+                    // Fork-only: a blame that fails says why, as a file that a partial clone couldn't download
+                    repositoryStateRepository.addCompletedTaskFailed(
+                        TaskType.BlameFile,
+                        result.error,
+                        FailureSeverity.HIGH,
+                    )
                 }
 
                 is Either.Ok -> {
@@ -1411,10 +1435,21 @@ class RepositoryOpenViewModel @Inject constructor(
     val diffTypeFlow = settings.diffTextViewType
     val isDisplayFullFile = settings.diffDisplayFullFile
 
-    val diffRefreshTrigger = repositoryStateRepository
-        .refreshTriggered
-        .filter { it.contains(DataToRefresh.ALL) || it.contains(DataToRefresh.STATUS) }
+    /** "Try again" in a diff that couldn't be loaded (fork-only). */
+    private val diffRetries = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    val diffRefreshTrigger = merge(
+        repositoryStateRepository
+            .refreshTriggered
+            .filter { it.contains(DataToRefresh.ALL) || it.contains(DataToRefresh.STATUS) },
+        diffRetries.map { emptyList() },
+    )
         .onStart { emit(emptyList()) }
+
+    /** Loads the diff again, after it couldn't be loaded (fork-only). */
+    fun retryDiff() {
+        diffRetries.tryEmit(Unit)
+    }
 
     val diffResult: StateFlow<ViewDiffResult?> = combine(
         diffSelected,
@@ -1425,6 +1460,11 @@ class RepositoryOpenViewModel @Inject constructor(
     ) { diffSelected, _, diffType, isDisplayFullFile, _ ->
         if (diffSelected?.entries?.count() == 1) {
             val diff = loadDiff(diffSelected.entries.first(), diffType, isDisplayFullFile)
+
+            // Fork-only: Esc closes a diff that couldn't be loaded too
+            if (diff is ViewDiffResult.Failed) {
+                addToCloseables()
+            }
 
             if (diff is ViewDiffResult.Loaded) {
                 addToCloseables()
@@ -1531,6 +1571,7 @@ class RepositoryOpenViewModel @Inject constructor(
             is ViewDiffResult.DiffNotFound -> state.diffType
             is ViewDiffResult.Loaded -> state.diffType
             is ViewDiffResult.Loading -> state.diffType
+            is ViewDiffResult.Failed -> state.diffType
             else -> null
         }
 

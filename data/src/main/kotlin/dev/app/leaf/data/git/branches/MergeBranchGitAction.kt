@@ -1,6 +1,8 @@
 package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
+import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.exceptions.UncommittedChangesDetectedException
 import dev.app.leaf.domain.interfaces.IMergeBranchGitAction
 import dev.app.leaf.domain.models.Branch
@@ -12,6 +14,7 @@ import javax.inject.Inject
 
 class MergeBranchGitAction @Inject constructor(
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : IMergeBranchGitAction {
     /**
      * @return true if success has conflicts, false if success without conflicts
@@ -29,6 +32,9 @@ class MergeBranchGitAction @Inject constructor(
 
         val mergeBase: ObjectId = git.repository.resolve(branch.name) ?: throw Exception("Branch ${branch.name} not found")
         val currentBranch = git.repository.branch.orEmpty()
+
+        // Fork-only: JGit can't download what a partial clone lacks, and would stop halfway
+        partialClone.prefetchForMerge(git.repository, mergeBase).bind()
 
         val mergeResult = git
             .merge()

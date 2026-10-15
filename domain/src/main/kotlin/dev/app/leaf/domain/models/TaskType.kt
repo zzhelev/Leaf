@@ -92,4 +92,5 @@ sealed interface TaskType {
     data object OpenMergeTool : TaskType
     data object ResolveConflictsInMergeTool : TaskType
     data object ResolveConflict : TaskType
+    data object ConvertIndex : TaskType
 }

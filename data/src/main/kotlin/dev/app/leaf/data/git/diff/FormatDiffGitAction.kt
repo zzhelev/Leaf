@@ -1,11 +1,15 @@
 package dev.app.leaf.data.git.diff
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
+import dev.app.leaf.data.git.cli.remote.blobIds
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.EntryContent
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
+import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.UnsupportedIndexError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.interfaces.IFormatDiffGitAction
 import dev.app.leaf.domain.models.DiffResult
@@ -28,14 +32,28 @@ class FormatDiffGitAction @Inject constructor(
     private val getSubmodulesGitAction: GetSubmodulesGitAction,
     private val textDiffFromDiffLinesGitAction: TextDiffFromDiffLinesGitAction,
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : IFormatDiffGitAction {
+    // Fork-only: in a partial clone, git downloads the versions that JGit doesn't find, and the diff runs again
     override suspend operator fun invoke(
+        repositoryPath: String,
+        diffType: DiffType,
+        isDisplayFullFile: Boolean,
+    ) = partialClone.retryingMissing(repositoryPath, alsoNeeded = { diffType.blobIds() }) {
+        format(repositoryPath, diffType, isDisplayFullFile)
+    }
+
+    private suspend fun format(
         repositoryPath: String,
         diffType: DiffType,
         isDisplayFullFile: Boolean,
     ) = jgit.provide(repositoryPath) { git ->
         val repository = git.repository
-        val submodules = getSubmodulesGitAction(repositoryPath).bind()
+        // Fork-only: JGit lists submodules from the index, which it can't read when git wrote it split or sparse. A
+        // commit's diff doesn't need it, so it goes on without them.
+        val submodulesResult = getSubmodulesGitAction(repositoryPath)
+        val unreadableIndex = (submodulesResult as? Either.Err)?.error is UnsupportedIndexError
+        val submodules = if (unreadableIndex && diffType is DiffType.CommitDiff) emptyMap() else submodulesResult.bind()
 
         val diffEntry = getDiffEntryFromDiffTypeGitAction(git, diffType)
 

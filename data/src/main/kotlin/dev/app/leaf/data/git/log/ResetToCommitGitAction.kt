@@ -1,6 +1,8 @@
 package dev.app.leaf.data.git.log
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
+import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.interfaces.IResetToCommitGitAction
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.usecases.ResetType
@@ -9,6 +11,7 @@ import javax.inject.Inject
 
 class ResetToCommitGitAction @Inject constructor(
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : IResetToCommitGitAction {
     override suspend operator fun invoke(repositoryPath: String, commit: Commit, resetType: ResetType) =
         jgit.provide(repositoryPath) { git ->
@@ -17,6 +20,11 @@ class ResetToCommitGitAction @Inject constructor(
                 ResetType.MIXED -> ResetCommand.ResetType.MIXED
                 ResetType.HARD -> ResetCommand.ResetType.HARD
             }
+            // Fork-only: JGit can't download what a partial clone lacks, and would stop halfway
+            if (resetType == ResetType.HARD) {
+                partialClone.prefetchCheckout(git.repository, commit.hash).bind()
+            }
+
             git
                 .reset()
                 .setMode(reset)

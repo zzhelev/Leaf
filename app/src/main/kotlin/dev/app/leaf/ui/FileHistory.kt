@@ -39,6 +39,7 @@ import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.TooltipText
+import dev.app.leaf.ui.diff.DiffLoadFailure
 import dev.app.leaf.ui.diff.HunkSplitTextDiff
 import dev.app.leaf.ui.diff.HunkUnifiedTextDiff
 import dev.app.leaf.ui.getStyledErrorText
@@ -216,6 +217,11 @@ fun HistoryContentLoaded(
                     onSelectAdjacentCommit = onSelectAdjacentCommit,
                     onShowInList = { scope.launch { commitsListState.showInMiddle(selectedPosition) } },
                 )
+            }
+
+            // Fork-only: says why the diff isn't there, as a file that a partial clone couldn't download
+            if (viewDiffResult is ViewDiffResult.Failed) {
+                DiffLoadFailure(viewDiffResult.error, onTryAgain = { selectedCommit?.let(onCommitSelected) })
             }
 
             if (

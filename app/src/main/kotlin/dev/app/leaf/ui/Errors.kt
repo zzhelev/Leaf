@@ -4,7 +4,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import dev.app.leaf.domain.index.UnsupportedIndex
+import dev.app.leaf.domain.index.conversionSteps
+import dev.app.leaf.domain.worktrees.shellLines
+import dev.app.leaf.ui.status.consequence
+import dev.app.leaf.ui.status.summary
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.error_missing_object
+import dev.app.leaf.app.generated.resources.error_partial_clone_fetch
+import dev.app.leaf.app.generated.resources.error_partial_clone_not_sent
+import dev.app.leaf.app.generated.resources.error_partial_clone_nothing_changed
+import dev.app.leaf.app.generated.resources.unsupported_index_commands
 import dev.app.leaf.app.generated.resources.error_checkout_branch_bisected_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_branch_checked_out_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_branch_rebased_in_worktree
@@ -123,6 +133,10 @@ fun AppError.getStyledErrorText(): AnnotatedString {
     }
 }
 
+/** The commands that convert the index, with the `cd` into its worktree, to paste in a terminal. */
+private fun UnsupportedIndex.shellCommands(): List<String> =
+    shellLines(conversionSteps(), System.getProperty("user.home")) { "" }
+
 /** The parts of [getErrorText] that [getStyledErrorText] shows in a monospace font. */
 private fun AppError.monospaceParts(): List<String> = when (this) {
     is CheckoutBranchError.BranchUsedByWorktree -> listOf(worktreePath)
@@ -143,6 +157,8 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is ConflictError.WorkingFileChanged -> listOf(path)
     is ConflictError.NotAFile -> listOf(path)
     is ConflictError.ConflictsLeft -> listOf(path)
+    is UnsupportedIndexError -> index.shellCommands() + listOfNotNull((index as? UnsupportedIndex.UnknownExtension)?.extension)
+    is PartialCloneFetchError -> error?.monospaceParts().orEmpty()
     else -> emptyList()
 }
 
@@ -248,6 +264,27 @@ fun AppError.getErrorText(): String {
 
         is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
         is LfsObjectDownloadError -> error.getLfsObjectErrorText()
+
+        is UnsupportedIndexError -> {
+            val commands = index.shellCommands()
+
+            listOfNotNull(
+                index.summary() + " " + index.consequence(),
+                commands.takeIf { it.isNotEmpty() }?.let {
+                    stringResource(Res.string.unsupported_index_commands) + "\n\n" + it.joinToString("\n")
+                },
+            ).joinToString("\n\n")
+        }
+
+        is MissingObjectError -> stringResource(Res.string.error_missing_object, message)
+
+        is PartialCloneFetchError -> {
+            val explanation = stringResource(Res.string.error_partial_clone_fetch, remote) +
+                if (nothingChanged) " " + stringResource(Res.string.error_partial_clone_nothing_changed) else ""
+            val cause = error?.getErrorText() ?: stringResource(Res.string.error_partial_clone_not_sent, remote)
+
+            explanation + "\n\n" + cause
+        }
 
         is StaleHunkError -> {
             val explanation = when (action) {

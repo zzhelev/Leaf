@@ -10,6 +10,7 @@ import dev.app.leaf.data.git.MergeContents.Companion.conflictIn
 import dev.app.leaf.data.git.MergeContents.Conflict
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.cli.remote.GitCliPullBranchGitAction
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
 import dev.app.leaf.data.git.cli.remote.TestRemoteCommand
 import dev.app.leaf.data.git.credentials.HttpCredentialsFactory
 import dev.app.leaf.data.git.remote_operations.HandleTransportGitAction
@@ -198,6 +199,7 @@ class GitOnlyConfigValuesPullTest {
             jgit = jgit,
             remoteCommand = remote.command,
             gitLfsFetch = remote.gitLfsFetch,
+            partialClone = PartialCloneFetch(jgit, remote.command),
             checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
             deleteStashGitAction = DeleteStashGitAction(jgit),
             commitMapper = JGitCommitMapper(JGitIdentityMapper()),

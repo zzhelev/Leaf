@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.rebase
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
@@ -35,7 +36,7 @@ class RebaseBranchGitActionTest {
     lateinit var tempDir: File
 
     private val originalReader: SystemReader = SystemReader.getInstance()
-    private val action = RebaseBranchGitAction(testJGit())
+    private val action = testJGit().let { RebaseBranchGitAction(it, testPartialCloneFetch(it)) }
     private lateinit var git: TestGitCli
     private lateinit var work: File
 

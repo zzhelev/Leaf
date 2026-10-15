@@ -37,6 +37,7 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.log.Log
 import dev.app.leaf.ui.status.OperationInProgressBanner
+import dev.app.leaf.ui.status.UnsupportedIndexBanner
 import dev.app.leaf.ui.LocalAppChrome
 import dev.app.leaf.ui.status.StatusPane
 import dev.app.leaf.ui.status.abortOperationInProgress
@@ -207,6 +208,22 @@ fun RepositoryOpenPage(
                             )
                         },
                     )
+                }
+
+                // Fork-only: stays while JGit can't read the worktree's index, whoever wrote or converts it
+                val unsupportedIndex by repositoryOpenViewModel.unsupportedIndex.collectAsState()
+
+                unsupportedIndex?.let { index ->
+                    if (!resolverFocused) {
+                        UnsupportedIndexBanner(
+                            index = index,
+                            onConvert = {
+                                onNavigate(
+                                    Screen.ConvertIndex(index, onConvert = { repositoryOpenViewModel.convertIndex(index) })
+                                )
+                            },
+                        )
+                    }
                 }
 
                 RepoContent(

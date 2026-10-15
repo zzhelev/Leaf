@@ -14,6 +14,7 @@ import dev.app.leaf.data.git.branches.GetRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.GitExecutableLocator
 import dev.app.leaf.data.git.cli.ProcessRunner
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
@@ -239,7 +240,7 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
         repositoryDataRepository = repositoryData,
         getWorktreeStatusGitAction = GetWorktreeStatusGitAction(gitCli),
         getWorktreeActivityGitAction = GetWorktreeActivityGitAction(gitCli),
-        getBranchComparisonGitAction = GetBranchComparisonGitAction(jgit, commitMapper),
+        getBranchComparisonGitAction = GetBranchComparisonGitAction(jgit, commitMapper, testPartialCloneFetch(jgit)),
         getBranchMergedGitAction = GetBranchMergedGitAction(gitCli),
         runGitCommandGitAction = RunGitCommandGitAction(gitCli),
     )

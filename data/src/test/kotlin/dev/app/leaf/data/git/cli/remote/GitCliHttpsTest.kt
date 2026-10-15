@@ -189,6 +189,7 @@ class GitCliHttpsTest {
                 jgit = jgit,
                 remoteCommand = remote.command,
                 gitLfsFetch = remote.gitLfsFetch,
+                partialClone = PartialCloneFetch(jgit, remote.command),
                 checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
                 deleteStashGitAction = DeleteStashGitAction(jgit),
                 commitMapper = JGitCommitMapper(JGitIdentityMapper()),

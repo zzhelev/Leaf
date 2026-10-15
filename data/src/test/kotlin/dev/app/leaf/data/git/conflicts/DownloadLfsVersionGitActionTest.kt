@@ -9,6 +9,7 @@ import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.AskpassProcessRunner
 import dev.app.leaf.data.git.cli.remote.FakeLfsServer
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.credentials.CredentialHelpers
 import dev.app.leaf.data.git.lfs.AuthenticateLfsServerWithSshGitAction
 import dev.app.leaf.data.git.lfs.DownloadLfsObjectGitAction
@@ -294,8 +295,9 @@ class DownloadLfsVersionGitActionTest {
         return action(File(repository, ".git").path, path, obj, onProgress)
     }
 
-    private suspend fun load() =
-        assertOk(GetConflictedFileGitAction(testJGit())(File(repository, ".git").path, "photo.png"))
+    private suspend fun load() = testJGit().let { jgit ->
+        assertOk(GetConflictedFileGitAction(jgit, testPartialCloneFetch(jgit))(File(repository, ".git").path, "photo.png"))
+    }
 
     private fun <T> withRepository(block: (Repository) -> T): T =
         FileRepositoryBuilder().setGitDir(File(repository, ".git")).build().use(block)

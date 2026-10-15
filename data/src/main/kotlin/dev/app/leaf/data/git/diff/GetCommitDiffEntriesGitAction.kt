@@ -1,6 +1,7 @@
 package dev.app.leaf.data.git.diff
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.fullData
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
@@ -15,8 +16,15 @@ import javax.inject.Inject
 
 class GetCommitDiffEntriesGitAction @Inject constructor(
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : IGetCommitDiffEntriesGitAction {
+    // Fork-only: in a partial clone, git downloads what JGit doesn't find, and the diff runs again
     override suspend operator fun invoke(
+        repositoryPath: String,
+        commit: Commit,
+    ) = partialClone.retryingMissing(repositoryPath) { diffEntries(repositoryPath, commit) }
+
+    private suspend fun diffEntries(
         repositoryPath: String,
         commit: Commit,
     ) = jgit.provide(repositoryPath) { git ->
@@ -43,6 +51,8 @@ class GetCommitDiffEntriesGitAction @Inject constructor(
         return@provide git.diff()
             .setNewTree(newTreeParser)
             .setOldTree(oldTreeParser)
+            // Fork-only: the entries alone. Formatting each file's diff, which nothing read, read all its blobs
+            .setShowNameAndStatusOnly(true)
             .call()
             .sortedBy { it.filePath }
     }

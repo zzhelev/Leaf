@@ -8,6 +8,7 @@ import dev.app.leaf.data.git.RawFileManager
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.diff.CanGenerateTextDiffGitAction
 import dev.app.leaf.data.git.diff.FormatDiffGitAction
 import dev.app.leaf.data.git.diff.FormatHunksGitAction
@@ -84,6 +85,7 @@ class HunkActionsTest {
             GetSubmodulesGitAction(jgit, JGitSubmoduleMapper()),
             TextDiffFromDiffLinesGitAction(),
             jgit,
+            testPartialCloneFetch(jgit),
         )
     }
 

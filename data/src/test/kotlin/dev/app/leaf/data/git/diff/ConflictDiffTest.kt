@@ -9,6 +9,7 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.MergeBranchGitAction
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.repository.ResetRepositoryStateGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
@@ -64,6 +65,7 @@ class ConflictDiffTest {
             GetSubmodulesGitAction(jgit, JGitSubmoduleMapper()),
             TextDiffFromDiffLinesGitAction(),
             jgit,
+            testPartialCloneFetch(jgit),
         )
     }
 
@@ -105,7 +107,7 @@ class ConflictDiffTest {
         branchesChangingNotes(main = "main's line\n", feature = "feature's line\n")
         val feature = Branch(git.run(repository, "rev-parse", "feature").trim(), "refs/heads/feature", isLocal = true)
 
-        assertEquals(Either.Ok(true), MergeBranchGitAction(jgit)(gitDir(), feature, fastForward = true))
+        assertEquals(Either.Ok(true), MergeBranchGitAction(jgit, testPartialCloneFetch(jgit))(gitDir(), feature, fastForward = true))
 
         val diff = conflictDiff("notes.txt")
 

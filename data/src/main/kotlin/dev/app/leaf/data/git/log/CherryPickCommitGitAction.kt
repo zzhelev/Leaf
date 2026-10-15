@@ -1,7 +1,9 @@
 package dev.app.leaf.data.git.log
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
 import dev.app.leaf.domain.errors.GenericError
+import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.ICherryPickCommitGitAction
 import dev.app.leaf.domain.models.Commit
@@ -10,10 +12,14 @@ import javax.inject.Inject
 
 class CherryPickCommitGitAction @Inject constructor(
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : ICherryPickCommitGitAction {
     override suspend operator fun invoke(repositoryPath: String, commit: Commit) = jgit.provide(repositoryPath) { git ->
         val base =
             git.repository.resolve(commit.hash) ?: throw Exception("Commit ${commit.hash} not found")
+
+        // Fork-only: JGit can't download what a partial clone lacks, and would stop halfway
+        partialClone.prefetchForCherryPick(git.repository, base).bind()
 
         val result = git.cherryPick()
             .include(base)

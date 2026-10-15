@@ -5,6 +5,7 @@ package dev.app.leaf.data.tab
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.conflicts.GetConflictedFileGitAction
 import dev.app.leaf.data.git.conflicts.WriteConflictResultGitAction
 import dev.app.leaf.data.git.conflicts.mergeWithConflictsIn
@@ -50,7 +51,7 @@ class ResolvingConflictsTest {
     }
 
     private val getConflictedFile by lazy {
-        GetConflictedFileUseCase(GetConflictedFileGitAction(jgit), tab.useCaseExecutor)
+        GetConflictedFileUseCase(GetConflictedFileGitAction(jgit, testPartialCloneFetch(jgit)), tab.useCaseExecutor)
     }
     private val save by lazy { SaveConflictResolutionUseCase(WriteConflictResultGitAction(jgit), tab.useCaseExecutor) }
     private val markResolved by lazy {

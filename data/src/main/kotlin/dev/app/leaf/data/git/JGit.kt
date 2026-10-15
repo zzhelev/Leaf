@@ -2,7 +2,9 @@ package dev.app.leaf.data.git
 
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
+import dev.app.leaf.data.git.cli.remote.missingObjectError
 import dev.app.leaf.data.git.remote_operations.sshNeedsGitError
+import dev.app.leaf.data.git.repository.unsupportedIndexError
 import dev.app.leaf.data.git.signers.gpgSigningError
 import dev.app.leaf.data.git.signers.sshSigningError
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -48,7 +50,7 @@ class JGit @Inject constructor(
         try {
             Either.Ok(block(git))
         } catch (ex: Exception) {
-            Either.Err(ex.toGitError(errorHandle))
+            Either.Err(ex.toGitError(git, errorHandle))
         }
     }
 
@@ -80,7 +82,7 @@ class JGit @Inject constructor(
         try {
             Either.Ok(block(git))
         } catch (ex: Exception) {
-            Either.Err(ex.toGitError(errorHandle))
+            Either.Err(ex.toGitError(git, errorHandle))
         }
     }
 
@@ -103,18 +105,20 @@ class JGit @Inject constructor(
             try {
                 Either.Ok(block(git))
             } catch (ex: Exception) {
-                Either.Err(ex.toGitError(errorHandle))
+                Either.Err(ex.toGitError(git, errorHandle))
             }
         }
     }
 
     /**
      * Signing errors come first: commits, merges, rebases and tags all sign, and an operation's own [errorHandle]
-     * doesn't know about them. So does JGit's refusal of SSH remotes, which every remote operation can meet.
+     * doesn't know about them. So does JGit's refusal of SSH remotes, which every remote operation can meet, and so do
+     * an index that JGit can't read and an object that a partial clone hasn't downloaded (fork-only), which any
+     * operation can meet.
      */
-    private fun Exception.toGitError(errorHandle: ((Exception) -> GitError)?): GitError {
-        return gpgSigningError() ?: sshSigningError() ?: sshNeedsGitError() ?: errorHandle?.invoke(this)
-            ?: GenericError(message.orEmpty(), this)
+    private fun Exception.toGitError(git: Git?, errorHandle: ((Exception) -> GitError)?): GitError {
+        return gpgSigningError() ?: sshSigningError() ?: sshNeedsGitError() ?: unsupportedIndexError(git?.repository)
+            ?: missingObjectError() ?: errorHandle?.invoke(this) ?: GenericError(message.orEmpty(), this)
     }
 
     /**

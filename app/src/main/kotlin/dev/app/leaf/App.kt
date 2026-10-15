@@ -40,6 +40,7 @@ import dev.app.leaf.data.git.signers.SshProgramSigner
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.TempFilesManager
 import dev.app.leaf.domain.credentials.CredentialsRequest
+import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
@@ -137,6 +138,8 @@ sealed interface Screen : NavKey {
     data class WorktreeCreate(val start: NewWorktreeStart) : Screen
     data object WorktreesPrune : Screen
     data object WorktreesCleanUp : Screen
+    /** Converts the worktree's [index] to the format JGit reads (fork-only), after showing the commands. */
+    data class ConvertIndex(val index: UnsupportedIndex, val onConvert: () -> Unit) : Screen
 }
 
 

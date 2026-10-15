@@ -4,8 +4,10 @@
 package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
 import dev.app.leaf.data.git.worktrees.refuseIfUsedByOtherWorktree
 import dev.app.leaf.domain.errors.CheckoutBranchError
+import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.ICheckoutRemoteBranchGitAction
 import dev.app.leaf.domain.models.Branch
@@ -23,6 +25,7 @@ import javax.inject.Inject
 
 class CheckoutRemoteBranchGitAction @Inject constructor(
     private val jgit: JGit,
+    private val partialClone: PartialCloneFetch,
 ) : ICheckoutRemoteBranchGitAction {
     override suspend operator fun invoke(
         repositoryPath: String,
@@ -45,6 +48,9 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
 
         when {
             localRef == null -> {
+                // JGit can't download what a partial clone lacks, and would stop halfway
+                partialClone.prefetchCheckout(repository, remoteBranch.name).bind()
+
                 git.checkout()
                     .setCreateBranch(true)
                     .setName(remoteBranch.simpleName)
@@ -55,6 +61,10 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
 
             // Already checked out, so only the fast-forward has something to do
             repository.fullBranch == localName -> {
+                if (fastForward) {
+                    partialClone.prefetchCheckout(repository, remoteBranch.name).bind()
+                }
+
                 if (fastForward && !git.fastForwardCurrentBranch(remoteRef())) {
                     cannotFastForward()
                 }
@@ -63,6 +73,7 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
             else -> {
                 // Before the fast-forward too, which would move the branch under the other worktree's files
                 refuseIfUsedByOtherWorktree(repository, localName)
+                partialClone.prefetchCheckout(repository, if (fastForward) remoteBranch.name else localName).bind()
 
                 if (fastForward && !git.fastForwardBranch(localRef, remoteRef())) {
                     cannotFastForward()

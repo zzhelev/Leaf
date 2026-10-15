@@ -257,6 +257,7 @@ fun TaskType.errorTitle(): String {
         TaskType.RebaseWorktree -> "Rebase failed"
         TaskType.OpenMergeTool, TaskType.ResolveConflictsInMergeTool -> "Conflict not resolved"
         TaskType.ResolveConflict -> "Could not resolve the conflicts"
+        TaskType.ConvertIndex -> "Could not convert the index"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"
         TaskType.AddRemote -> "Adding remote failed"

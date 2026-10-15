@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import kotlinx.coroutines.runBlocking
@@ -24,7 +25,7 @@ class WriteConflictVersionGitActionTest {
 
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
-    private val write = WriteConflictVersionGitAction(testJGit())
+    private val write = testJGit().let { WriteConflictVersionGitAction(it, testPartialCloneFetch(it)) }
     private val repository by lazy { git.initRepository(File(tempDir, "repo")) }
     private val folder by lazy { File(tempDir, "tmp") }
 

@@ -8,6 +8,7 @@ import dev.app.leaf.data.git.RawFileManager
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
+import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.diff.CanGenerateTextDiffGitAction
 import dev.app.leaf.data.git.diff.FormatDiffGitAction
 import dev.app.leaf.data.git.diff.FormatHunksGitAction
@@ -62,7 +63,7 @@ class GetBranchComparisonGitActionTest {
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
     private val jgit = testJGit()
-    private val compare by lazy { GetBranchComparisonGitAction(jgit, JGitCommitMapper(JGitIdentityMapper())) }
+    private val compare by lazy { GetBranchComparisonGitAction(jgit, JGitCommitMapper(JGitIdentityMapper()), testPartialCloneFetch(jgit)) }
 
     private val repo by lazy { File(tempDir, "repo") }
     private val gitDir by lazy { File(repo, ".git").path }
@@ -256,6 +257,7 @@ class GetBranchComparisonGitActionTest {
             GetSubmodulesGitAction(jgit, JGitSubmoduleMapper()),
             TextDiffFromDiffLinesGitAction(),
             jgit,
+            testPartialCloneFetch(jgit),
         )
     }
 }

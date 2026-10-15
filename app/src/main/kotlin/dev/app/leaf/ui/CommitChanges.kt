@@ -20,6 +20,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.compose.rememberInTab
+import dev.app.leaf.domain.errors.isMissingObject
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
@@ -166,6 +167,18 @@ private fun CommitChangesView(
 
                     if (commitChangesState.isLoading) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+
+                    // Fork-only: a partial clone that couldn't download what listing the files reads says so
+                    commitChangesState.error?.takeIf { it.isMissingObject() }?.let { error ->
+                        SelectionContainer {
+                            Text(
+                                text = error.getStyledErrorText(),
+                                style = MaterialTheme.typography.body2,
+                                color = MaterialTheme.colors.onBackground,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
                     }
 
                     ChangedFilesList(

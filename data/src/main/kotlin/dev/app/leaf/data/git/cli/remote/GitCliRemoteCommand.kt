@@ -50,12 +50,14 @@ class GitCliRemoteCommand @Inject constructor(
      * user typed can be kept. By default, when git succeeded.
      * @param onProgress receives git's progress, then null once git is done. By default it goes to the processing
      * screen; a clone, which has no repository yet, shows it in its own dialog.
+     * @param input what git reads from stdin, such as the objects that `git fetch --stdin` fetches.
      */
     suspend fun run(
         workingDirectory: File,
         args: List<String>,
         authenticated: (GitCliOutput) -> Boolean = { it.exitCode == 0 },
         onProgress: (TaskProgress?) -> Unit = repositoryStateRepository::updateTaskProgress,
+        input: ByteArray? = null,
     ): Either<GitCliOutput, GitError> {
         val helper = askpassHelper.path() ?: return Either.Err(
             GitCliError.StartFailed("git ${args.joinToString(" ")}", "Leaf's askpass helper is missing")
@@ -84,6 +86,7 @@ class GitCliRemoteCommand @Inject constructor(
                     args = cacheHelper + args,
                     timeout = Duration.INFINITE,
                     environment = askpassEnvironment(helper) + LFS_PROGRESS + serverEnvironment,
+                    input = input,
                     onStderr = progress::accept,
                     onStdout = stdoutProgress::accept,
                 )

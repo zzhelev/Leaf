@@ -1,8 +1,10 @@
 package dev.app.leaf.domain.usecases
 
+import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.GraphLogGenerator
 import dev.app.leaf.domain.Pagination
 import dev.app.leaf.domain.errors.*
+import dev.app.leaf.domain.errors.UnsupportedIndexError
 import dev.app.leaf.domain.interfaces.*
 import dev.app.leaf.domain.models.GraphCommits
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
@@ -25,10 +27,13 @@ class GetLogUseCase @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
 ) {
     suspend operator fun invoke(repository: String, pagination: Pagination) = either<GraphCommits, AppError> {
-        val status = getStatusGitAction(repository).bind()
+        // Fork-only: with an index that JGit can't read, the log shows without the uncommitted changes, as the strip
+        // that says why does
+        val statusResult = getStatusGitAction(repository)
+        val status = if ((statusResult as? Either.Err)?.error is UnsupportedIndexError) null else statusResult.bind()
         val currentBranch = getCurrentBranchAction(repository).bind()
 
-        val hasUncommittedChanges = status.staged.isNotEmpty() || status.unstaged.isNotEmpty()
+        val hasUncommittedChanges = status != null && (status.staged.isNotEmpty() || status.unstaged.isNotEmpty())
 
         val branches = getBranchesGitAction(repository).okOrNull().orEmpty()
         val tags = getTagsGitAction(repository).okOrNull().orEmpty()

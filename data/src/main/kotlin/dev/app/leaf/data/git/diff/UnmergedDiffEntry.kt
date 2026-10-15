@@ -53,6 +53,8 @@ internal fun unmergedDiffEntry(git: Git, path: String): DiffEntry? {
     val entry = git.diff()
         .setOldTree(DirCacheIterator(oursIndex))
         .setPathFilter(PathFilter.create(path))
+        // The entry alone: formatting its diff, which nothing reads, reads both blobs
+        .setShowNameAndStatusOnly(true)
         .call()
         .firstOrNull { it.oldPath == path || it.newPath == path }
 

@@ -1052,4 +1052,27 @@
     <string name="error_ssh_signing_cancelled">Could not sign: the dialog that asked for the key's passphrase was closed</string>
     <string name="error_ssh_signing_failed">%1$s failed to sign the data: %2$s</string>
 
+    <!-- Fork-only: an index that JGit can't read, and a partial clone's files that couldn't be downloaded -->
+    <string name="unsupported_index_split">This repository's index is split, which Leaf can't read.</string>
+    <string name="unsupported_index_sparse">This repository's index is sparse, which Leaf can't read.</string>
+    <string name="unsupported_index_unknown">This repository's index has an extension that Leaf can't read (%1$s).</string>
+    <string name="unsupported_index_until_converted">Uncommitted changes, staging, commits and checkouts won't work until it's converted.</string>
+    <string name="unsupported_index_no_conversion">Uncommitted changes, staging, commits and checkouts won't work, and git has no command that converts it.</string>
+    <string name="unsupported_index_sparse_kept">Your sparse checkout stays as it is.</string>
+    <string name="unsupported_index_convert">Convert index…</string>
+    <string name="unsupported_index_commands">Convert it with Convert index… in the strip above the repository, or in a terminal:</string>
+    <string name="convert_index_dialog_title">Convert the index</string>
+    <string name="convert_index_dialog_subtitle">git writes the index again, in the format that Leaf reads. Your files and staged changes stay as they are.</string>
+    <string name="convert_index_dialog_subtitle_sparse">git writes the index again, in the format that Leaf reads. Your files, staged changes and sparse checkout stay as they are.</string>
+    <string name="convert_index_dialog_split_configured">core.splitIndex is on in this repository, so git would split the index again: the first command turns it off.</string>
+    <string name="convert_index_dialog_convert">Convert</string>
+    <string name="error_missing_object">The repository doesn't have an object that this needs. %1$s</string>
+    <string name="error_partial_clone_fetch">Leaf couldn't download the files that this needs from %1$s. The repository is a partial clone, which downloads files when they're first needed.</string>
+    <string name="error_partial_clone_nothing_changed">Nothing was changed.</string>
+    <string name="error_partial_clone_not_sent">git fetched without an error, but %1$s didn't send them.</string>
+    <string name="diff_failed_download_title">Leaf couldn't download this file from %1$s.</string>
+    <string name="diff_failed_title">Leaf couldn't show this file's changes.</string>
+    <string name="diff_failed_partial_clone">The repository is a partial clone, which downloads files when they're first needed.</string>
+    <string name="diff_failed_try_again">Try again</string>
+
 </resources>

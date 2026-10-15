@@ -3,7 +3,10 @@
 
 package dev.app.leaf.data.git.cli.remote
 
+import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.testGitCli
+import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.data.git.cli.askpass.ASKPASS_HELPER_NAME
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
@@ -28,6 +31,7 @@ class TestRemoteCommand(
     globalConfig: File,
     cacheCredentials: Boolean = true,
     shellVariables: Map<String, String> = emptyMap(),
+    jgit: JGit = testJGit(),
 ) {
     val credentialsStateManager = CredentialsStateManager()
     val credentialsCache = CredentialsCacheRepository()
@@ -62,4 +66,13 @@ class TestRemoteCommand(
     )
 
     val gitLfsFetch = GitLfsFetch(gitCli, command)
+
+    val partialClone = PartialCloneFetch(jgit, command)
 }
+
+/**
+ * A [PartialCloneFetch] for the git actions that use one, with [jgit], their own. It only runs git in a partial clone,
+ * through the built askpass helper; without it, the fetch fails to start.
+ */
+fun testPartialCloneFetch(jgit: JGit, globalConfig: File = File("build/no-global.gitconfig")): PartialCloneFetch =
+    TestRemoteCommand(File("../app/src/main/resources", ASKPASS_HELPER_NAME), globalConfig, jgit = jgit).partialClone

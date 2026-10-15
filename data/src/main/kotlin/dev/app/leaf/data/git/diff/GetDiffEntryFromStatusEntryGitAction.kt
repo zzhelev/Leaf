@@ -39,6 +39,8 @@ class GetDiffEntryFromStatusEntryGitAction @Inject constructor(
                     setOldTree(EmptyTreeIterator()) // Required if the repository is empty
                 }
             }
+            // Fork-only: the entry alone. Formatting its diff, which nothing read, read both blobs
+            .setShowNameAndStatusOnly(true)
             .call()
             .firstOrNull()
             ?: throw MissingDiffEntryException("Diff entry not found")

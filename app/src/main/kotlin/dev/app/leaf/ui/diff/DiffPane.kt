@@ -267,6 +267,16 @@ fun DiffPane(
                 }
             }
 
+            // Fork-only: says why, rather than closing
+            is ViewDiffResult.Failed -> {
+                Column {
+                    PathOnlyDiffHeader(
+                        filePath = viewDiffResult.diffType?.filePath.orEmpty(),
+                        onCloseDiffView = { closeDiffView() })
+                    DiffLoadFailure(viewDiffResult.error, onTryAgain = { viewModel.retryDiff() })
+                }
+            }
+
             is ViewDiffResult.Loading -> {
                 Column {
                     PathOnlyDiffHeader(

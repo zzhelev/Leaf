@@ -3,6 +3,7 @@ package dev.app.leaf.viewmodels
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.isMissingObject
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.exceptions.MissingDiffEntryException
 import dev.app.leaf.domain.extensions.filePath
@@ -115,7 +116,15 @@ class HistoryViewModel @Inject constructor(
             previousJob?.cancelAndJoin()
 
             try {
-                val diffEntries = getCommitDiffEntriesUseCase(commit).okOrNull().orEmpty()
+                val diffEntriesResult = getCommitDiffEntriesUseCase(commit)
+
+                // Fork-only: a partial clone that couldn't download what the commit's diff reads says so
+                if (diffEntriesResult is Either.Err && diffEntriesResult.error.isMissingObject()) {
+                    _viewDiffResult.value = ViewDiffResult.Failed(null, diffEntriesResult.error)
+                    return@launch
+                }
+
+                val diffEntries = diffEntriesResult.okOrNull().orEmpty()
                 val diffEntry = diffEntries.firstOrNull { entry ->
                     entry.filePath == this@HistoryViewModel.filePath
                 }

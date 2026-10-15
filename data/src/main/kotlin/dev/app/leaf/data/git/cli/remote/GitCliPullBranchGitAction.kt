@@ -55,6 +55,7 @@ class GitCliPullBranchGitAction @Inject constructor(
     private val jgit: JGit,
     private val remoteCommand: GitCliRemoteCommand,
     private val gitLfsFetch: GitLfsFetch,
+    private val partialClone: PartialCloneFetch,
     private val checkHasUncommittedChangesGitAction: CheckHasUncommittedChangesGitAction,
     private val deleteStashGitAction: DeleteStashGitAction,
     private val commitMapper: JGitCommitMapper,
@@ -78,12 +79,20 @@ class GitCliPullBranchGitAction @Inject constructor(
             fetch(source)
         }
 
-        if (source.remote != LOCAL_REMOTE) {
-            // Before anything changes, so that a failed download leaves the branch as it was
-            jgit.provide(repositoryPath) { git ->
-                gitLfsFetch(git.repository, source.remote, ObjectId.fromString(fetched.objectId)).bind()
-            }.bind()
-        }
+        // Before anything changes, so that a failed download leaves the branch as it was
+        jgit.provide(repositoryPath) { git ->
+            val commit = ObjectId.fromString(fetched.objectId)
+
+            if (pullType == PullType.REBASE) {
+                partialClone.prefetchForRebase(git.repository, commit).bind()
+            } else {
+                partialClone.prefetchForMerge(git.repository, commit).bind()
+            }
+
+            if (source.remote != LOCAL_REMOTE) {
+                gitLfsFetch(git.repository, source.remote, commit).bind()
+            }
+        }.bind()
 
         val hasConflicts = jgit.provide(repositoryPath) { git ->
             useBuiltinLfs(git.repository) {

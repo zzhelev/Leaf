@@ -12,7 +12,10 @@ import java.io.IOException
 
 /** What a change that the file watcher reports means for a tab. */
 enum class WatchedChange {
-    /** Leaf's own files, JGit's probe files and commit messages being edited: nothing to refresh. */
+    /**
+     * Leaf's own files, JGit's probe files, git's shared index (split index) and commit messages being edited: nothing
+     * to refresh.
+     */
     NONE,
 
     /** The tab's git dir, or the refs and config that every worktree shares. */
@@ -52,9 +55,15 @@ class WatchedRepository(gitDir: File, commonDir: File) {
         val name = File(path).name
         val isInGitDir = parent in gitDirs
         val isInCommonDir = parent in commonDirs
+        // A linked worktree's git dir, <common git dir>/worktrees/<name>
+        val isInWorktreeGitDir = File(path).parentFile?.parent in worktreesDirs
 
         return when {
             (isInGitDir || isInCommonDir) && (name.startsWith(PROBE_FILE_PREFIX) || name in LEAF_FILES) ->
+                WatchedChange.NONE
+
+            // In any worktree's git dir: each git status touches it, as the worktree list runs one in each
+            (isInGitDir || isInCommonDir || isInWorktreeGitDir) && name.startsWith(SHARED_INDEX_PREFIX) ->
                 WatchedChange.NONE
 
             isInGitDir && name in EDITED_MESSAGE_FILES -> WatchedChange.NONE
@@ -107,6 +116,12 @@ class WatchedRepository(gitDir: File, commonDir: File) {
 
         /** JGit creates these to measure the file system's timestamps. */
         const val PROBE_FILE_PREFIX = ".probe-"
+
+        /**
+         * A split index's shared index, `sharedindex.<id>`, and git's temporary files for it. git touches it whenever it
+         * reads the index, to keep it from expiring, and writes the `index` file when the index changes.
+         */
+        const val SHARED_INDEX_PREFIX = "sharedindex"
 
         /** What every worktree shares besides `refs`, which changes its refs or what it shows. */
         val SHARED_FILES = listOf("packed-refs", "config")

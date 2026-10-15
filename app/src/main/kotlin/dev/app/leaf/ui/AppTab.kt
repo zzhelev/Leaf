@@ -488,6 +488,15 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.ConvertIndex>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            ConvertIndexDialog(
+                                index = entry.index,
+                                onConvert = entry.onConvert,
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.ConfirmAction>(
                             metadata = dialogsMetadata
                         ) { entry ->

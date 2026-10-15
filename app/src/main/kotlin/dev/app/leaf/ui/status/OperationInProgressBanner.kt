@@ -35,7 +35,7 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** Dark text on the conflict color, which is the same amber in the light and the dark theme. */
-private val OnConflictColor = Color(0xFF1E1E1E)
+internal val OnConflictColor = Color(0xFF1E1E1E)
 
 /**
  * The operation that the repository is in the middle of, the files that still have conflicts, and what ours and theirs
