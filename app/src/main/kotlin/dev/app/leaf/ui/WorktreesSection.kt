@@ -108,7 +108,7 @@ fun LazyListScope.worktrees(
                 onExpand = onExpand,
                 hoverIcon = { NewWorktreeButton(actions.onNew) },
                 sortAction = baseChoice?.let { base ->
-                    { WorktreesBaseMenuButton(base, onChooseBase) }
+                    { WorktreesMenuButton(base, worktreesState.cleanupCount, onChooseBase, actions.onCleanUp) }
                 },
             )
         }
@@ -126,6 +126,7 @@ fun LazyListScope.worktrees(
                 row = row,
                 baseBranch = worktreesState.baseBranch,
                 mergeTarget = worktreesState.mergeTarget,
+                canCleanUp = row.info.merged != null && worktreesState.cleanupCount > 0,
                 onClick = { onWorktreeClicked(row.info) },
                 onSwitchTo = { onSwitchToWorktree(row.info) },
                 onOpenInNewTab = { onOpenInNewTab(row.info) },
@@ -150,6 +151,7 @@ data class WorktreeActions(
     val onReview: (Worktree) -> Unit = {},
     val onMerge: (Worktree, WorktreeMergeKind) -> Unit = { _, _ -> },
     val onRebase: (Worktree) -> Unit = {},
+    val onCleanUp: () -> Unit = {},
 )
 
 /** The header's button that creates a worktree from the base branch, shown while the header is hovered. */
@@ -193,6 +195,7 @@ private fun WorktreeItem(
     row: WorktreeRow,
     baseBranch: String?,
     mergeTarget: String?,
+    canCleanUp: Boolean,
     onClick: () -> Unit,
     onSwitchTo: () -> Unit,
     onOpenInNewTab: () -> Unit,
@@ -206,7 +209,16 @@ private fun WorktreeItem(
 
     ContextMenu(
         items = {
-            worktreeContextMenuItems(worktree, onSwitchTo, onOpenInNewTab, onCopyPath, actions, baseBranch, mergeTarget)
+            worktreeContextMenuItems(
+                worktree,
+                onSwitchTo,
+                onOpenInNewTab,
+                onCopyPath,
+                actions,
+                baseBranch,
+                mergeTarget,
+                canCleanUp,
+            )
         }
     ) {
         DelayedTooltip(worktreeTooltip(row.info, baseBranch)) {
@@ -297,7 +309,7 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
                 idleLabel != null -> SecondaryLabel(
                     stringResource(Res.string.side_pane_worktree_idle, idleLabel),
                     modifier = Modifier.padding(start = 8.dp),
-                    color = MaterialTheme.colors.idleText,
+                    color = MaterialTheme.colors.amberText,
                 )
 
                 ageLabel != null -> SecondaryLabel(ageLabel, modifier = Modifier.padding(start = 8.dp))
@@ -341,7 +353,8 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
  * The menu of [worktree]'s row: reviewing its changes when its branch isn't [baseBranch], squash-merging or merging it
  * into [mergeTarget] when it isn't that either, and rebasing it onto [baseBranch]; switching the tab to it, or opening
  * it in a new tab, when the tab can switch to it; for a linked worktree, locking or unlocking it, removing or
- * discarding it, and pruning when its folder is missing; and copying its path.
+ * discarding it, cleaning up merged worktrees when [canCleanUp] (its work is in the base, and something can be
+ * removed), and pruning when its folder is missing; and copying its path.
  */
 internal fun worktreeContextMenuItems(
     worktree: Worktree,
@@ -351,6 +364,7 @@ internal fun worktreeContextMenuItems(
     actions: WorktreeActions = WorktreeActions(),
     baseBranch: String? = null,
     mergeTarget: String? = null,
+    canCleanUp: Boolean = false,
 ): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
     if (worktree.branchToReview(baseBranch) != null) {
         addContextMenu(
@@ -430,6 +444,14 @@ internal fun worktreeContextMenuItems(
             onClick = { actions.onDiscard(worktree) },
         )
 
+        if (canCleanUp) {
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.side_pane_worktree_clean_up) },
+                icon = { painterResource(Res.drawable.delete) },
+                onClick = actions.onCleanUp,
+            )
+        }
+
         if (worktree.prunable != null) {
             addContextMenu(
                 composableLabel = { stringResource(Res.string.side_pane_worktree_prune) },
@@ -485,10 +507,10 @@ internal fun AgentTag(label: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * The amber of "idle": the conflict color, and a darker one on a light background, where the bright one is hard to read
- * as text.
+ * The amber of "idle", and of what the cleanup dialog asks to look at first: the conflict color, and a darker one on a
+ * light background, where the bright one is hard to read as text.
  */
-private val Colors.idleText: Color
+internal val Colors.amberText: Color
     @Composable
     get() = if (isLight) IDLE_TEXT_ON_LIGHT else conflictFile
 
@@ -647,12 +669,17 @@ private fun AheadBehind.comparedText(other: String): String = if (ahead == 0 && 
 }
 
 /**
- * The header button that chooses the branch the worktrees are compared to: muted while Leaf picks it, accent-colored
- * with the branch's name once one is chosen. Its menu goes back to Automatic; other branches are chosen from their
- * right-click menus.
+ * The section's menu button (⋯): muted while Leaf picks the branch the worktrees are compared to, accent-colored with
+ * the branch's name once one is chosen. Its menu goes back to Automatic (other branches are chosen from their
+ * right-click menus), and offers "Clean up merged worktrees…" while [cleanupCount] worktrees can be removed.
  */
 @Composable
-private fun WorktreesBaseMenuButton(base: WorktreeBaseBranch, onChooseBase: (branch: String?) -> Unit) {
+private fun WorktreesMenuButton(
+    base: WorktreeBaseBranch,
+    cleanupCount: Int,
+    onChooseBase: (branch: String?) -> Unit,
+    onCleanUp: () -> Unit,
+) {
     val chosen = base.chosen
     val automatic = base.automatic
 
@@ -694,6 +721,19 @@ private fun WorktreesBaseMenuButton(base: WorktreeBaseBranch, onChooseBase: (bra
 
         add(SortMenuItem.Divider)
         add(SortMenuItem.Note(stringResource(Res.string.side_pane_worktrees_base_note)))
+
+        if (cleanupCount > 0) {
+            add(SortMenuItem.Divider)
+            add(
+                SortMenuItem.Option(
+                    label = stringResource(Res.string.side_pane_worktree_clean_up),
+                    hint = pluralStringResource(Res.plurals.side_pane_worktrees_clean_up_hint, cleanupCount, cleanupCount),
+                    isChecked = false,
+                    closesMenu = true,
+                    onClick = onCleanUp,
+                )
+            )
+        }
     }
 
     SortMenuButton(
@@ -701,8 +741,8 @@ private fun WorktreesBaseMenuButton(base: WorktreeBaseBranch, onChooseBase: (bra
         activeLabel = chosen?.let { baseBranchName(it) },
         showFolderIcon = false,
         menuItems = items,
-        icon = Res.drawable.compare_arrows,
-        tooltip = stringResource(Res.string.side_pane_worktrees_base_tooltip),
+        icon = Res.drawable.more_horiz,
+        tooltip = stringResource(Res.string.side_pane_worktrees_menu_tooltip),
     )
 }
 

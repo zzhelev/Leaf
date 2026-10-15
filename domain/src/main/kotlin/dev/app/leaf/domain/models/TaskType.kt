@@ -82,6 +82,7 @@ sealed interface TaskType {
     data object RemoveWorktree : TaskType
     data object DiscardWorktree : TaskType
     data object PruneWorktrees : TaskType
+    data object CleanUpWorktrees : TaskType
     data object LockWorktree : TaskType
     data object UnlockWorktree : TaskType
     data object SquashMergeWorktree : TaskType

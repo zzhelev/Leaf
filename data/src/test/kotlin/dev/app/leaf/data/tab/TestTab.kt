@@ -92,6 +92,7 @@ import dev.app.leaf.domain.usecases.GetWorktreeMergeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRebaseUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRemovalUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.GetWorktreeCleanupUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import dev.app.leaf.domain.usecases.ObserveRepositoryToRefreshUseCase
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
@@ -135,6 +136,16 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
     private val getStashList = GetStashListGitAction(commitMapper, jgit)
     private val getStatus = GetStatusGitAction(jgit)
     private val getTags = GetTagsGitAction(JGitTagMapper(), jgit)
+    private val getWorktreesInfo = GetWorktreesInfoUseCase(
+        GetWorktreesGitAction(gitCli, jgit),
+        GetWorktreeStatusGitAction(gitCli),
+        GetAheadBehindGitAction(gitCli),
+        GetWorktreeBaseBranchGitAction(jgit),
+        GetCommitTimesGitAction(jgit),
+        GetMergedIntoBaseGitAction(gitCli, jgit),
+        GetWorktreeActivityGitAction(gitCli),
+        useCaseExecutor,
+    )
     private val getRemotes = GetRemotesUseCase(
         GetRemotesGitAction(RemoteConfigToRemoteMapper(), jgit),
         GetRemoteBranchesGitAction(JGitBranchMapper(), jgit),
@@ -175,16 +186,7 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
             graphLogGenerator = GraphLogGenerator(Provider { JGitGraphRevWalker(jgit, commitMapper) }),
             repositoryDataRepository = repositoryData,
         ),
-        getWorktreesInfoUseCase = GetWorktreesInfoUseCase(
-            GetWorktreesGitAction(gitCli, jgit),
-            GetWorktreeStatusGitAction(gitCli),
-            GetAheadBehindGitAction(gitCli),
-            GetWorktreeBaseBranchGitAction(jgit),
-            GetCommitTimesGitAction(jgit),
-            GetMergedIntoBaseGitAction(gitCli, jgit),
-            GetWorktreeActivityGitAction(gitCli),
-            useCaseExecutor,
-        ),
+        getWorktreesInfoUseCase = getWorktreesInfo,
         worktreesRefreshRunner = WorktreesRefreshRunner(),
         dataRefreshRunner = DataRefreshRunner(),
         scope = scope,
@@ -296,6 +298,8 @@ class TestTab(jgit: JGit, gitCli: GitCli, statusDelay: Duration = Duration.ZERO)
     )
 
     val followRemovedWorktree = FollowRemovedWorktreeUseCase(repositoryData, switchWorktree)
+
+    val getWorktreeCleanup = GetWorktreeCleanupUseCase(getWorktreesInfo, GetWorktreeActivityGitAction(gitCli))
 
     val createWorktree = CreateWorktreeUseCase(
         useCaseExecutor = useCaseExecutor,

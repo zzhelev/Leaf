@@ -122,6 +122,22 @@ class WorktreesSectionTest {
     }
 
     @Test
+    fun `offers to clean up merged worktrees after Discard, when a merged one can go`() {
+        var cleanedUp = 0
+        val actions = WorktreeActions(onCleanUp = { cleanedUp++ })
+
+        val items = worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, actions, canCleanUp = true)
+        val labels = labels(items)
+
+        assertEquals(labels.indexOf("Discard…") + 1, labels.indexOf("Clean up merged worktrees…"), labels.toString())
+        items.filterIsInstance<ContextMenuElement.ContextTextEntry>()[labels.indexOf("Clean up merged worktrees…")]
+            .onClick()
+        assertEquals(1, cleanedUp)
+
+        assertFalse("Clean up merged worktrees…" in labels(worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, actions)))
+    }
+
+    @Test
     fun `offers to review the changes of a worktree on another branch than the base, first`() {
         val reviewed = mutableListOf<String>()
         val actions = WorktreeActions(onReview = { reviewed += it.path })

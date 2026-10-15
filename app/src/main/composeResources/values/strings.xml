@@ -61,6 +61,7 @@
 
     <!-- Check for updates: the Actions list, the Welcome page and the macOS Help menu -->
     <string name="quick_actions_check_for_updates">Check for updates</string>
+    <string name="quick_actions_clean_up_worktrees">Clean up merged worktrees</string>
     <string name="app_menu_help">Help</string>
     <string name="app_menu_check_for_updates">Check for Updates…</string>
     <string name="check_for_updates_dialog_title">Check for updates</string>
@@ -96,6 +97,7 @@
     <string name="side_pane_worktree_remove">Remove…</string>
     <string name="side_pane_worktree_discard">Discard…</string>
     <string name="side_pane_worktree_prune">Prune missing worktrees…</string>
+    <string name="side_pane_worktree_clean_up">Clean up merged worktrees…</string>
     <string name="side_pane_worktrees_new">New worktree</string>
     <string name="worktree_picker_new">New worktree…</string>
     <string name="side_pane_worktree_missing">missing</string>
@@ -131,7 +133,7 @@
     <string name="side_pane_worktree_tooltip_made_by_folder">Made by %1$s: its folder matches %2$s</string>
     <string name="side_pane_worktree_tooltip_labelled">Labelled %1$s: its folder matches %2$s</string>
     <string name="side_pane_worktree_tooltip_prunable">The folder is missing: %1$s.\ngit worktree prune would remove this worktree.</string>
-    <string name="side_pane_worktrees_base_tooltip">Compare worktrees to…</string>
+    <string name="side_pane_worktrees_menu_tooltip">Compare worktrees to a branch, clean up merged worktrees</string>
     <string name="side_pane_worktrees_base_title">Compare worktrees to</string>
     <string name="side_pane_worktrees_base_automatic">Automatic</string>
     <string name="side_pane_worktrees_base_automatic_hint">%1$s (origin's default branch, main or master)</string>
@@ -139,6 +141,10 @@
     <string name="side_pane_worktrees_base_missing">Not found, comparing to %1$s</string>
     <string name="side_pane_worktrees_base_missing_none">Not found, nothing is compared</string>
     <string name="side_pane_worktrees_base_note">Right-click a branch to compare worktrees to it</string>
+    <plurals name="side_pane_worktrees_clean_up_hint">
+        <item quantity="one">%1$d worktree is merged or missing</item>
+        <item quantity="other">%1$d worktrees are merged or missing</item>
+    </plurals>
 
     <!-- Branches that a worktree uses, in the branch list and the log (fork-only) -->
     <string name="branch_worktree_tooltip_checked_out">Another worktree has this branch checked out, so it can't be checked out here or deleted.</string>
@@ -460,6 +466,34 @@
     <string name="prune_worktrees_dialog_subtitle">Remove the entries of the worktrees whose folders are missing? Their branches are kept.</string>
     <string name="prune_worktrees_dialog_nothing">There's nothing to prune.</string>
     <string name="prune_worktrees_dialog_prune">Prune</string>
+    <string name="clean_up_worktrees_dialog_title">Clean up merged worktrees</string>
+    <string name="clean_up_worktrees_dialog_subtitle">Removes worktrees whose work is in %1$s, and worktrees whose folder is missing.</string>
+    <string name="clean_up_worktrees_dialog_subtitle_no_base">Removes worktrees whose folder is missing.</string>
+    <string name="clean_up_worktrees_dialog_checking">Checking the worktrees…</string>
+    <string name="clean_up_worktrees_dialog_nothing">There's nothing to clean up.</string>
+    <string name="clean_up_worktrees_dialog_remove_none">Remove</string>
+    <plurals name="clean_up_worktrees_dialog_remove">
+        <item quantity="one">Remove %1$d worktree</item>
+        <item quantity="other">Remove %1$d worktrees</item>
+    </plurals>
+    <string name="clean_up_worktrees_dialog_missing">Its folder is missing</string>
+    <string name="clean_up_worktrees_dialog_missing_branch_kept">Its folder is missing. Its branch isn't merged into %1$s, so it stays</string>
+    <plurals name="clean_up_worktrees_dialog_changes">
+        <item quantity="one">%1$d uncommitted change. Checking it deletes it</item>
+        <item quantity="other">%1$d uncommitted changes. Checking it deletes them</item>
+    </plurals>
+    <string name="clean_up_worktrees_dialog_changes_unknown">Its changes couldn't be read. Checking it deletes any it has</string>
+    <string name="clean_up_worktrees_dialog_recent_change_now">Changed less than a minute ago. An agent may still be working in it</string>
+    <plurals name="clean_up_worktrees_dialog_recent_change">
+        <item quantity="one">Changed %1$d minute ago. An agent may still be working in it</item>
+        <item quantity="other">Changed %1$d minutes ago. An agent may still be working in it</item>
+    </plurals>
+    <string name="clean_up_worktrees_dialog_locked">Locked. Checking it unlocks it first</string>
+    <string name="clean_up_worktrees_dialog_locked_reason">Locked: %1$s. Checking it unlocks it first</string>
+    <string name="clean_up_worktrees_dialog_locked_session_ended">Locked by a %1$s session that has ended. It's unlocked first</string>
+    <string name="clean_up_worktrees_dialog_in_use">In use by a %1$s session that is still running</string>
+    <string name="clean_up_worktrees_dialog_delete_branches">Also delete their branches</string>
+    <string name="clean_up_worktrees_dialog_ignored_files">git deletes their ignored files too, such as build output and .env files.</string>
 
     <!-- New worktree dialog -->
     <string name="worktree_review_title">%1$s compared with %2$s</string>

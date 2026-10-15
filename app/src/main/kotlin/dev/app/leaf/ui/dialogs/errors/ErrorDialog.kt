@@ -248,6 +248,7 @@ fun TaskType.errorTitle(): String {
         TaskType.RemoveWorktree -> "Could not remove the worktree"
         TaskType.DiscardWorktree -> "Could not discard the worktree"
         TaskType.PruneWorktrees -> "Could not prune the worktrees"
+        TaskType.CleanUpWorktrees -> "Could not clean up the worktrees"
         TaskType.LockWorktree -> "Could not lock the worktree"
         TaskType.UnlockWorktree -> "Could not unlock the worktree"
         TaskType.SquashMergeWorktree -> "Could not squash-merge"

@@ -154,6 +154,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.RemoveWorktree -> "Removing worktree"
         TaskType.DiscardWorktree -> "Discarding worktree"
         TaskType.PruneWorktrees -> "Pruning worktrees"
+        TaskType.CleanUpWorktrees -> "Removing worktrees"
         TaskType.LockWorktree -> "Locking worktree"
         TaskType.UnlockWorktree -> "Unlocking worktree"
         TaskType.SquashMergeWorktree -> "Squash-merging"

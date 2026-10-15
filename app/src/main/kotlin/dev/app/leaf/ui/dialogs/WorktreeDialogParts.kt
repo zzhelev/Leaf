@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.models.RECENT_CHANGE_MS
 import dev.app.leaf.domain.worktrees.WorktreeStep
 import dev.app.leaf.domain.worktrees.shellLines
 import dev.app.leaf.theme.conflictFile
@@ -28,7 +29,6 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.minutes
 
 /** Dark text on the conflict color, which is the same amber in the light and the dark theme. */
 private val OnNoticeColor = Color(0xFF1E1E1E)
@@ -118,7 +118,7 @@ fun DialogNotice(text: String) {
 }
 
 /** A worktree that changed this recently may have an agent working in it. */
-private val RECENT_CHANGE = 5.minutes
+private val RECENT_CHANGE = RECENT_CHANGE_MS.milliseconds
 
 /**
  * Says that the worktree [worktreeName] changed in the last few minutes, at [lastChange] (milliseconds since the

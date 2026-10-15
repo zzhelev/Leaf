@@ -53,5 +53,6 @@ interface TabComponent {
     fun mergeWorktreeViewModelFactory(): MergeWorktreeViewModel.Factory
     fun rebaseWorktreeViewModelFactory(): RebaseWorktreeViewModel.Factory
     fun pruneWorktreesViewModel(): PruneWorktreesViewModel
+    fun cleanUpWorktreesViewModel(): CleanUpWorktreesViewModel
     fun newWorktreeViewModelFactory(): NewWorktreeViewModel.Factory
 }

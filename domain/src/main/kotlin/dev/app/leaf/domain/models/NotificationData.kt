@@ -80,6 +80,7 @@ fun TaskType.successTitle(): String? {
         TaskType.RemoveWorktree -> "Worktree removed"
         TaskType.DiscardWorktree -> "Worktree discarded"
         TaskType.PruneWorktrees -> "Worktrees pruned"
+        TaskType.CleanUpWorktrees -> "Worktrees cleaned up"
         TaskType.LockWorktree -> "Worktree locked"
         TaskType.UnlockWorktree -> "Worktree unlocked"
         TaskType.SquashMergeWorktree -> "Squash merge staged, review it, then commit"

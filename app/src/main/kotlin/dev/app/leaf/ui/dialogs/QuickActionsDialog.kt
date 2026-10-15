@@ -34,18 +34,24 @@ fun QuickActionsDialog(
     onShowSignOff: () -> Unit,
     onShowClone: () -> Unit,
     onCheckForUpdates: () -> Unit,
+    onCleanUpWorktrees: () -> Unit,
 ) {
     val textFieldFocusRequester = remember { FocusRequester() }
     val checkForUpdates = stringResource(Res.string.quick_actions_check_for_updates)
+    // Fork-only: offered while the tab's worktree list has merged or missing worktrees
+    val cleanUpWorktrees = stringResource(Res.string.quick_actions_clean_up_worktrees)
+    val canCleanUpWorktrees by viewModel.canCleanUpWorktrees.collectAsState()
 
     // TODO Extract list of actions strings
-    val items = remember(checkForUpdates) {
-        listOf(
+    val items = remember(checkForUpdates, cleanUpWorktrees, canCleanUpWorktrees) {
+        listOfNotNull(
             QuickAction(Res.drawable.code, "Open repository in file manager", QuickActionType.OPEN_DIR_IN_FILE_MANAGER),
             QuickAction(Res.drawable.download, "Clone new repository", QuickActionType.CLONE),
             QuickAction(Res.drawable.refresh, "Refresh repository data", QuickActionType.REFRESH),
             QuickAction(Res.drawable.sign, "Signoff config", QuickActionType.SIGN_OFF),
             QuickAction(Res.drawable.update, checkForUpdates, QuickActionType.CHECK_FOR_UPDATES),
+            QuickAction(Res.drawable.delete, cleanUpWorktrees, QuickActionType.CLEAN_UP_WORKTREES)
+                .takeIf { canCleanUpWorktrees },
         )
     }
 
@@ -73,6 +79,7 @@ fun QuickActionsDialog(
                 QuickActionType.REFRESH -> viewModel.refreshRepository()
                 QuickActionType.SIGN_OFF -> onShowSignOff()
                 QuickActionType.CHECK_FOR_UPDATES -> onCheckForUpdates()
+                QuickActionType.CLEAN_UP_WORKTREES -> onCleanUpWorktrees()
             }
         },
         searchFilter = searchFilter,
@@ -173,4 +180,5 @@ enum class QuickActionType {
     REFRESH,
     SIGN_OFF,
     CHECK_FOR_UPDATES,
+    CLEAN_UP_WORKTREES,
 }

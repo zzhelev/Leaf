@@ -480,6 +480,14 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.WorktreesCleanUp>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            CleanUpWorktreesDialog(
+                                viewModel = tabViewModel(entry) { it.cleanUpWorktreesViewModel() },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.ConfirmAction>(
                             metadata = dialogsMetadata
                         ) { entry ->
@@ -514,6 +522,7 @@ fun AppTab(
                                 onShowSignOff = { backStack.add(Screen.SignOffData) },
                                 onShowClone = { backStack.add(Screen.CloneRepository) },
                                 onCheckForUpdates = { backStack.add(Screen.CheckForUpdates) },
+                                onCleanUpWorktrees = { backStack.add(Screen.WorktreesCleanUp) },
                             )
                         }
                         entry<Screen.Author>(

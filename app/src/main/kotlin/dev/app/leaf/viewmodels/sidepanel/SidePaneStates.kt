@@ -8,6 +8,7 @@ import dev.app.leaf.domain.sorting.RefRow
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.worktrees.WorktreeRow
+import dev.app.leaf.domain.worktrees.cleanupCount
 import dev.app.leaf.domain.worktrees.mergeTarget
 import dev.app.leaf.domain.worktrees.worktreeRows
 import dev.app.leaf.ui.UiDataState
@@ -141,6 +142,8 @@ data class WorktreesState(
     val baseChoice: WorktreeBaseBranch? = null,
     /** The local branch that "Squash-merge into" and "Merge into" merge into (fork-only), null when there's none. */
     val mergeTarget: String? = null,
+    /** How many worktrees "Clean up merged worktrees…" can remove (fork-only), which offers it while there's one. */
+    val cleanupCount: Int = 0,
     val error: AppError? = null,
 )
 
@@ -159,6 +162,7 @@ fun combineWorktreesState(
             baseBranch = baseBranch,
             baseChoice = worktrees.data?.baseChoice(),
             mergeTarget = mergeTarget(baseBranch, branches.data.orEmpty().map { it.name }),
+            cleanupCount = worktrees.data?.cleanupCount() ?: 0,
             error = worktrees.error,
         )
     }

@@ -130,6 +130,7 @@ sealed interface Screen : NavKey {
     /** Creates a worktree (fork-only) from [start]: the base branch, a branch or a commit. */
     data class WorktreeCreate(val start: NewWorktreeStart) : Screen
     data object WorktreesPrune : Screen
+    data object WorktreesCleanUp : Screen
 }
 
 
