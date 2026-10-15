@@ -691,7 +691,7 @@ its lines, with colours while editing (section 11).
     decodes off the UI thread; a link's target and whether it resolves from the link's folder; a submodule's commit,
     named from the submodule's repository (`SubmoduleWalk.getSubmoduleRepository`), with which contains the other and
     its checkout (`SubmodulePreview`); a Git LFS pointer's object, downloaded when JGit's `Lfs.getMediaFile` has it
-    with the pointer's size.
+    with the pointer's size (`lfsVersion`), which the card can download (below).
   - One side deleted the file: Keep stages the working file as it is (`keepWorkingFile`), as `git mergetool`'s
     "modified" does, so edits since the merge stay. The card's diff (`keptChanges`, git's hunks with 3 lines of
     context, at most `MAX_PREVIEW_LINES`, 300) is the working file's, converted as `git add` would (`checkedIn`), and
@@ -701,6 +701,26 @@ its lines, with colours while editing (section 11).
   - "Open in the default app" (binary files and downloaded LFS objects): `OpenConflictVersionUseCase` has
     `WriteConflictVersionGitAction` write the stage's blob, or its LFS object, to `<app data>/tmp/<id>_<name>`, moved
     into place, then opens it as the diff pane opens an image.
+  - **Downloading an LFS object (decided 2026-10-15):** a card whose object isn't in the store has "Download 4.2 MB"
+    (`LfsDownloadRow`), which downloads that object alone with the built-in LFS client (`DownloadLfsVersionUseCase`,
+    `DownloadLfsVersionGitAction`), then reads the version again (`lfsVersion`): the image, or "Open in the default
+    app". Nothing downloads without the click, as LFS servers can be slow or metered.
+    - The server is the checkout's (`IGetLfsUrlGitAction`, the app's `GetLfsUrlGitAction`: `lfs.url` in
+      `.lfsconfig`, then the current branch's remote, or the only remote), then `origin` or the only remote, as git-lfs
+      asks `origin`: a rebase's HEAD is detached. Not git-lfs: it has no command that fetches one object, and
+      `git lfs fetch` takes a commit, which a revert's or a stash's side isn't on the remote.
+    - `ConflictResolverViewModel.downloadLfsObject` keeps the downloads by object id in
+      `ConflictResolverState.lfsDownloads`: `Running` with the bytes received (`LfsRepository.downloadObject`'s
+      `onProgress`) and Cancel, or `Failed` with the error in the card and Try again. One that ends well leaves the
+      map, and the shown file's versions of that object take the new preview (`withLfsVersion`), so the pick stays. A
+      download goes on when another file opens. Closing the credentials dialog puts Download back
+      (`LfsError.CredentialsDenied`, `lfsDownloadFailure`).
+    - It runs with `execute`, without the processing screen: the card shows its progress and its failure.
+    - `FetchLfsObjectGitAction` (`data/git/lfs/`) downloads one object for the card and for `LfsSmudgeFilter`:
+      `git-lfs-authenticate` for an SSH server, the batch API, then `DownloadLfsObjectGitAction`. The batch API's
+      refusal of the object (`LfsObject.error`, such as `404 Object does not exist`) is `LfsError.ObjectRefused`; the
+      smudge filter used to skip the download then, and fail reading a file that wasn't there. Exceptions (ssh's, an
+      unknown host) are `LfsError.RequestFailed`. `LfsObjectDownloadError` carries them as a `GitError`.
   - **Renamed on both sides (`RenamedFiles.kt`, `ConflictContent.Renamed`, `RenamedFile`):** git records the old name
     at stage 1 alone, ours' new name at stage 2 alone and theirs' at stage 3 alone, and writes the same merged blob at
     both new names. `renamedFiles` pairs the new names by that blob (a blob that two pairs share stays out), and the old
@@ -725,6 +745,9 @@ its lines, with colours while editing (section 11).
     stale group), `WriteConflictVersionGitActionTest`, Keep in `ResolveConflictGitActionTest`, `FileSizesTest`, and the
     cards in `ConflictResolverTest`. The view model, with the keys and the cards' buttons, was run against a real
     repository with one conflict of each kind, two renamed files and a file against a folder, in a temporary harness.
+  - Tests of the download: `DownloadLfsVersionGitActionTest` (data: a `FakeLfsServer`, and a stand-in for
+    `IGetLfsUrlGitAction`), `LfsDownloadsTest` (app), and the cards' states in `ConflictResolverTest`. The view model
+    downloaded from a local LFS server through the Dagger graph in a temporary harness.
 - **Words marked (step 6, `domain/conflicts/ChangedWords.kt`, `ResolverWords.kt`):** the rows mark the words that each
   side changed inside its lines, against the base, in a stronger shade of the line's colour (`CellKind.markColor`). The
   result's lines keep the marks of the side that they come from; lines typed and the base's lines get none, nor does a
@@ -1001,7 +1024,7 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     appended to the object's place, unchecked, and kept there truncated.
   - `LfsSmudgeFilter` downloads again when the object in place has another size than the pointer, as git-lfs does.
   - `LfsNetworkDataSource.downloadObject` streams to the file on `Dispatchers.IO` (`prepareGet().execute`): `get()`
-    reads the whole body into memory first.
+    reads the whole body into memory first. It tells `onProgress` how many bytes it wrote, for the choice cards.
 - **The built-in LFS client over SSH** (without git-lfs): `AuthenticateLfsServerWithSshGitAction` asks the host for
   the LFS server as git-lfs does, `ssh [-p <port>] [<user>@]<host> 'git-lfs-authenticate <path> <operation>'`, with
   the URL's path as git-lfs has it (JGit's `URIish` drops the `/` of `ssh://host/~/repo`, which git-lfs keeps).

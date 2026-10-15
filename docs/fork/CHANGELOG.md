@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The conflict resolver's LFS cards download their object (branch `claude/pensive-bhaskara-bd6e77`)
+
+- **Before:** a Git LFS conflict's card whose object wasn't in the local LFS store said "Not downloaded, so it can't be
+  shown", and offered neither the image nor "Open in the default app". Usually theirs: ours was checked out.
+- **Now** (option A of three mocked up, `conflict-resolver.md` section 9): the card says "Not downloaded yet" and
+  "Download 4.2 MB". A click downloads that object alone with Leaf's built-in LFS client, from the server that the
+  checkout's client uses, then `origin`; the card shows the bytes received, a bar and Cancel, then the image or "Open
+  in the default app". A failure stays in the card with Try again. A side picked stays picked, and a download goes on
+  when another file opens.
+- **Also:** the checkout's smudge filter downloads with the same code (`FetchLfsObjectGitAction`). When the LFS server
+  refused an object (`404 Object does not exist`), it used to skip the download, then fail reading a file that
+  wasn't there; it now says what the server answered. Downloads report the bytes written.
+- **Tests:** `DownloadLfsVersionGitActionTest` downloads from a `FakeLfsServer`: an image, a video, an object already
+  stored, one the server doesn't have, no server, `origin` and the only remote as fallbacks, a closed credentials
+  dialog, and a cancelled download, which leaves nothing next to the store. `DownloadLfsObjectGitActionTest` checks the
+  progress, `LfsDownloadsTest` the view model's updates, and `ConflictResolverTest` each state of the card. A temporary
+  harness ran the view model through the Dagger graph against a local LFS server. An existing test of the cards waited
+  for one image to decode and checked the other, and failed in 2 of 4 runs; it now waits for both.
+  - **Mutation check:** 14 mutations, 14 caught, each by a failing test: the server's refusal, the credentials
+    dialog, the remote fallbacks, an object already stored, the image check, the progress, the base's card, and the
+    card's links and bar. The view model's guard that keeps a late progress update from bringing back a cancelled
+    download has no test of its own.
+
 ## Quitting asks about the conflict resolver's unsaved changes (branch `claude/zealous-herschel-b15367`)
 
 - **Before:** closing a tab, switching its worktree or opening another repository in it asked about the resolver's
@@ -20,6 +43,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   and Keep mine then writes the file without quitting), and Save and quit.
   - **Mutation check:** 12 mutations, all caught once the Keep mine test had two files. With one, a save that ended
     after the quit was cancelled could still have gone on to save the next file.
+
 
 ## Tooltips stay away from dialogs, menus and clicks (branch `fix/scrollbars-tooltips`)
 

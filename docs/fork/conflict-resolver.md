@@ -5,7 +5,7 @@
 | Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. Step 4 (region editing and one undo history) built 2026-10-13 (section 8). Step 5 (the choice cards) built 2026-10-13 (section 9). |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. Step 4 (region editing and one undo history) built 2026-10-13 (section 8). Step 5 (the choice cards) built 2026-10-13 (section 9), and the LFS cards' Download 2026-10-15. |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
 
@@ -178,7 +178,7 @@ don't pair up, where rerere gives up on the file: that's "fewer or more conflict
 | Both added | stages 2, 3 | Three panes with an empty base: identical lines merge, the rest conflicts. |
 | Deleted by us or by them | 1 and 3, or 1 and 2. A file that one side renamed and the other deleted looks the same, at its new path | A choice: keep the modified version (its diff against the base is shown) or delete the file. Keep stages the working file, delete runs `git rm`. Like `git mergetool`'s "(m)odified or (d)eleted". |
 | Binary, images included | any stage binary (`RawText.isBinary`) | A choice: use ours or use theirs (`git checkout --ours`/`--theirs`, then stage). Images side by side with the existing `ImageDiff`. |
-| LFS | stages are pointer files | Like binary. Merging pointers line by line means nothing. The card shows each side's size and object id. A preview needs the objects, which the built-in LFS client can download later. |
+| LFS | stages are pointer files | Like binary. Merging pointers line by line means nothing. The card shows each side's size and object id. A preview needs the object, which the card downloads with the built-in LFS client when asked (section 9). |
 | Submodule | mode `160000` | A choice of commit, written with `git update-index --cacheinfo`, as `git mergetool` does. The submodule's own checkout isn't touched. |
 | Symbolic link | mode `120000` | A choice of target, as in `git mergetool`. |
 | Rename conflicts (rename/rename, file/directory) | each version alone at its own path: the original at stage 1 (DD), each side's name at 2 or 3 (AU, UA). git also records a file against a symbolic link or a submodule at two paths | Not handled at first (the resolver said what git reported and pointed to the terminal). Since step 5: a file renamed on both sides opens as one, to pick its name (section 9), and the rest get a card per side for each path. |
@@ -492,7 +492,8 @@ What the cards show:
 - **Binary:** each side's size; PNG, JPEG, GIF, WebP, BMP and ICO up to 16 MB also as an image, with its size in pixels.
   "Open in the default app" opens a copy from Leaf's temporary folder, as the diff pane's image click does.
 - **Git LFS:** each side's object id and size; the object as an image, or opened in the default app, once it's in the
-  repository's LFS store with its pointer's size. Nothing is downloaded.
+  repository's LFS store with its pointer's size. Since 2026-10-15 a card whose object isn't there can download it
+  (below).
 - **Submodule:** each commit's subject, author and date, read from the submodule's own repository, which commit has
   the other in its history, and which commit the submodule has checked out. Its checkout doesn't change.
 - **Symbolic link:** each target, and whether it points to something that exists.
@@ -527,6 +528,41 @@ Built: the previews in `DA/git/conflicts/ConflictPreviews.kt` (`ConflictedFile.p
 `WriteConflictVersionGitAction`, renamed files in `DA/git/conflicts/RenamedFiles.kt` and
 `ResolveRenamedFileGitAction`, the pick in `ConflictResolverViewModel`, and the cards in
 `A/ui/conflicts/ResolverChoiceCards.kt`. CLAUDE.md has the details.
+
+### Downloading an LFS object from its card (decided 2026-10-15)
+
+A side whose LFS object wasn't downloaded said "Not downloaded, so it can't be shown", and offered neither the image
+nor "Open in the default app". It's usually theirs: ours was checked out, theirs was only fetched. Other tools:
+
+- GitHub Desktop: a pull request that's still open (desktop/desktop#21759) shows LFS images in diffs behind a "Show
+  Diff" button, never on its own, as LFS servers can be slow or metered. An earlier one (#17686) downloaded through
+  `git lfs smudge` as the diff opened, and the maintainers turned it down for that.
+- GitKraken: the diff shows the pointer. Its LFS pulls are in its LFS menu, for the whole repository.
+- Fork: since 1.0.76 it can "preview and download LFS images"; its notes don't say whether on a click.
+- git: a partial clone fetches missing objects when they're needed, without asking.
+
+Three ways were mocked up: **A**, Download on each card that lacks its object; **B**, one Download for the file, in a
+strip above the cards; **C**, downloads up to 16 MB as the file opens, and A's link for larger ones. **A was picked**:
+nothing downloads without a click, the link is where the card said what's missing, and only that object is fetched.
+B downloads the base even when its card is hidden, and C can open a credentials dialog because a file opened.
+
+- The card says "Not downloaded yet" and "Download 4.2 MB". While it downloads: "Downloading… 1.3 MB of 4.2 MB", a
+  bar and Cancel, which deletes what arrived. A failure stays in the card, with Try again; closing the credentials
+  dialog puts Download back. Once downloaded, the card shows the image, or "Open in the default app", and a side
+  picked stays picked.
+- It downloads with Leaf's built-in LFS client, from the server that the checkout's built-in client uses (`lfs.url` in
+  `.lfsconfig`, the current branch's remote, the only remote), then from `origin`, as git-lfs does: a rebase's HEAD
+  is detached. It checks the object's size and SHA-256 before it's moved into the store. git-lfs has no command that
+  fetches one object: `git lfs fetch` takes a commit, and a revert's or a stash's side isn't on the remote.
+- A download goes on when another file opens, and every card of that object follows it. The resolver's other work
+  isn't blocked.
+- Not done: the built-in client doesn't read `lfs.url` from `.git/config`, or `remote.<name>.lfsurl`, as git-lfs does.
+  The checkout's downloads have the same gap.
+
+Built: the card in `A/ui/conflicts/ResolverChoiceCards.kt` (`LfsDownloadRow`), the downloads in
+`ConflictResolverViewModel` (`downloadLfsObject`, `ConflictResolverState.lfsDownloads`), and
+`DA/git/conflicts/DownloadLfsVersionGitAction.kt` with `DA/git/lfs/FetchLfsObjectGitAction.kt`, which the checkout's
+smudge filter now downloads with too. CLAUDE.md has the details.
 
 ## 10. Size limits (step 6, measured 2026-10-14)
 
