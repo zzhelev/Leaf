@@ -2097,14 +2097,20 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   that a test sends. With `realFileWatcher`, each watch gets
   the app's `FileChangesWatcher` instead (`RefreshingOnChangesTest`). `SwitchingWorktreesTest`,
   `WatchingWorktreesTest`, `RemovingWorktreesTest` and `CreatingWorktreesTest` use it; the last two run the steps that
-  the worktree dialogs show (`runWorktreeSteps`, `createWorktree`). Its `close()` cancels the tab and waits: JGit
-  writes `.probe-` files into the git dir, and JUnit failed to delete the temp folder while a refresh still ran.
+  the worktree dialogs show (`runWorktreeSteps`, `createWorktree`). Its `close()` cancels the tab and waits for its
+  refreshes, which still run git and JGit in the temp folder that JUnit deletes.
   - A task's refresh runs after the task's job ends, so joining the task doesn't wait for it. Wait for the data with
     `awaitLoaded`'s predicate (a state other than the one before the task), not for any loaded value, which may still
     be the old one. Two tests did, and failed once the refresh ran `git var` before the repository state.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.
+  - JGit measures a file store's timestamps once per JVM when its config has no measurement, which an isolated config
+    never has: for 3 seconds it rewrites a `.probe-<uuid>` file in the folder of the first file it reads, and creates
+    that folder again when it's gone. `git worktree remove` failed to delete a linked worktree's git dir that way
+    ("Directory not empty"). So `MeasureJGitFileStore`, next to `TestGit.kt`, has it measure before the first test,
+    in a temporary folder with an isolated config. It's a JUnit Platform `LauncherSessionListener`, registered in
+    `data/src/test/resources/META-INF/services`, and needs `junit-platform-launcher` as `testImplementation`.
   - `TestGitCli` runs the git CLI with global and system config ignored. JGit can't create linked worktrees, so use
     the CLI to set them up. `run(dir, env, args)` adds environment variables, for example `GIT_COMMITTER_DATE` to fix
     commit, tag and reflog dates (`GetRefDatesGitActionTest`). `runFailing` expects git to fail and returns its

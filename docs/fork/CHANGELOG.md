@@ -2,6 +2,41 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## JGit measures the file system before the tests, not in their repositories (branch `claude/infallible-yalow-2d8d93`)
+
+- **Before:** `CleaningUpWorktreesTest."removes the checked worktrees and their branches, and keeps the rest"` failed
+  about one run in four when its class ran alone (2 of 10 here, 2 of 7 on `9e41ded5`): `git worktree remove
+  ../squashed` exited with 255 and "failed to delete '.git/worktrees/squashed': Directory not empty".
+- **Cause:** watching that git dir while the cleanup ran showed one file that wasn't git's: `.probe-<uuid>`. It was
+  there before the cleanup started, and was back less than a millisecond after git deleted it.
+  - JGit 7.7 measures a file store's timestamp resolution once per JVM, the first time it takes a snapshot of a file on
+    a file store that its config has no measurement for (`FS.FileStoreAttributes`). For the last 3 seconds of it, it
+    writes a `.probe-<uuid>` file again and again in that file's folder, and creates the folder again when it's gone.
+    Then it saves the result in the JGit config that is current at that moment. Other callers don't wait for those 3
+    seconds.
+  - Tests point JGit's config at an empty file (`IsolatedSystemReader`), so every test JVM measured again, in the
+    first git dir that a test read with JGit. When the class runs alone, this test runs first, and its tab opens the
+    `squashed` worktree. So the probe was writing in the git dir that the cleanup removed a second or two later.
+  - A measurement that ended after its test had put the previous `SystemReader` back would have been saved in the
+    developer's `~/.config/jgit/config`.
+- **Not the app's:** Leaf saves the measurement in `~/.config/jgit/config`, one per Java vendor, Java version and
+  volume, and this machine's has JBR 25.0.4.1's. So the app measures only on its first launch with a new runtime, or
+  for a volume it hasn't measured, and then for 3 seconds in the first git dir that it reads. Clean up, Remove and
+  Discard can't be confirmed that soon after launch. An agent's `git worktree remove` in those seconds could fail the
+  same way, so the app is unchanged.
+- **Now** (`MeasureJGitFileStore`, a JUnit Platform `LauncherSessionListener` registered in `:data`'s test resources):
+  before the first test of each test JVM, JGit measures in a temporary folder of its own, with an isolated JGit config.
+  The listener waits until JGit has saved the measurement there, then deletes the folder. The tests' folders are on the
+  same file store, so JGit doesn't measure again. `junit-platform-launcher` is now `testImplementation`, for the
+  listener's interface.
+  - The 3 seconds come before the first test now: in this class, the first test went from 4.6 s to 2.3 s.
+  - `TestTab.close()` said that it waits because JGit writes `.probe-` files into the git dir, which was this
+    measurement. It still waits for the tab's refreshes, which run git and JGit in the test's folder.
+- **Tests** (on `87905b90`): the class passed 20 runs in a row (`--rerun`), against 2 failures in 10 runs before,
+  and `:data`'s 997 tests passed. A poll of the git dir during the cleanup saw no `.probe-` file, and the developer's
+  `~/.config/jgit/config` didn't change. Rebased onto `12a929ec` (the file watcher on the JDK), `:data`'s 1,050 tests
+  passed.
+
 ## The built-in LFS client picks its server as git-lfs does, uploads too (branch `claude/amazing-lichterman-7bdace`)
 
 - **Before:** the lookup (`GetLfsUrlGitAction`) still differed from git-lfs 3.8 in the cases that the branch
