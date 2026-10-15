@@ -5,7 +5,7 @@
 | Question | Should Leaf resolve conflicts itself, with three panes in the style of Meld and the JetBrains merge dialog, and how? |
 | Verified against | `main` at `ee50fb6a`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-12 |
-| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. Step 4 (region editing and one undo history) built 2026-10-13 (section 8). Step 5 (the choice cards) built 2026-10-13 (section 9), and the LFS cards' Download 2026-10-15. |
+| Status | Approved 2026-10-12: Option A by default, with a switch to Option B, and every recommendation in section 6. Step 1 (the model and its git actions), step 2 (the read-only Columns view) and step 3 (the Stacked layout and the switch) built the same day, on `main` at `28cceb84`. Step 4 (region editing and one undo history) built 2026-10-13 (section 8). Step 5 (the choice cards) built 2026-10-13 (section 9), and the LFS cards' Download 2026-10-15. Step 6: the size limit set from measurements 2026-10-14 (section 10), and the words marked and the colours while editing built 2026-10-15 (section 11). |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
 
