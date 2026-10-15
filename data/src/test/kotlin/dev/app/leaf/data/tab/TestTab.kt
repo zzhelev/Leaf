@@ -115,6 +115,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Provider
 import kotlin.time.Duration
@@ -358,8 +359,8 @@ private class SlowStatus(private val status: IGetStatusGitAction, private val de
 }
 
 /**
- * A file watcher that only notes the folders it was given, and whether it was closed. It never sees changes: it
- * reports the [events] that a test sends.
+ * A file watcher that only notes the folders it was given, and whether it was closed. Like the app's watcher, it
+ * skips a folder that doesn't exist. It never sees changes: it reports the [events] that a test sends.
  */
 class RecordingFileChangesWatcher : IFileChangesWatcher {
     val watchedPaths: MutableList<String> = CopyOnWriteArrayList()
@@ -370,7 +371,9 @@ class RecordingFileChangesWatcher : IFileChangesWatcher {
         private set
 
     override fun addPathToWatch(path: String, isRecursive: Boolean) {
-        watchedPaths += path
+        if (File(path).isDirectory) {
+            watchedPaths += path
+        }
     }
 
     override fun removePathFromWatch(path: String) {

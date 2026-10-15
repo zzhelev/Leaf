@@ -7,12 +7,22 @@ import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.domain.models.FileChanged
+import dev.app.leaf.domain.models.FileType
+import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.models.WatcherEvent
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.eclipse.jgit.util.FileUtils
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
@@ -100,9 +110,7 @@ class RefreshingOnChangesTest {
     fun `lost changes refresh everything, and watch the folders created meanwhile`(): Unit = runBlocking {
         val tab = openTab(realFileWatcher = false)
         val watcher = tab.awaitWatch(1)
-        withTimeout(10.seconds) {
-            while (watcher.watchedPaths.none { File(it).canonicalPath == File(main, "src").canonicalPath }) delay(10)
-        }
+        awaitWatching(watcher, File(main, "src"))
 
         val created = File(main, "created").apply { mkdir() }
         File(created, "file.txt").writeText("new\n")
@@ -115,10 +123,109 @@ class RefreshingOnChangesTest {
         tab.awaitLoaded(tab.repositoryData.localBranches) { branches ->
             branches.any { it.name == "refs/heads/unreported" }
         }
+        awaitWatching(watcher, created)
+    }
+
+    @Test
+    fun `a folder created while an operation runs is watched, and refreshes nothing`(): Unit = runBlocking {
+        val tab = openTab(realFileWatcher = false)
+        val watcher = tab.awaitWatch(1)
+        // The working tree as the watch has it, which the watcher's paths start with
+        val workingTree = File(awaitWatching(watcher, File(main, "src"))).parentFile
+        val operationEnds = CompletableDeferred<Unit>()
+        val operation = startOperation(tab, operationEnds)
+
+        val created = File(workingTree, "created").apply { mkdir() }
+        val file = File(created, "file.txt").apply { writeText("new\n") }
+        watcher.events.send(
+            WatcherEvent.ChangesDetected(
+                listOf(FileChanged(created.path, FileType.DIRECTORY), FileChanged(file.path, FileType.FILE))
+            )
+        )
+
+        awaitWatching(watcher, created)
+        // A refresh would start right after the folder is watched
+        delay(500)
+        assertFalse("created/file.txt" in tab.unstagedFiles())
+
+        operationEnds.complete(Unit)
+        operation.join()
+    }
+
+    @Test
+    fun `a deleted folder is no longer watched, in a batch that created none`(): Unit = runBlocking {
+        val tab = openTab(realFileWatcher = false)
+        val watcher = tab.awaitWatch(1)
+        val src = awaitWatching(watcher, File(main, "src"))
+
+        FileUtils.delete(File(src), FileUtils.RECURSIVE)
+        watcher.events.send(
+            WatcherEvent.ChangesDetected(
+                listOf(
+                    FileChanged(src, FileType.DIRECTORY),
+                    FileChanged(File(src, "main.txt").path, FileType.FILE),
+                )
+            )
+        )
+
         withTimeout(10.seconds) {
-            while (watcher.watchedPaths.none { File(it).canonicalPath == created.canonicalPath }) delay(10)
+            while (src in watcher.watchedPaths) delay(10)
         }
     }
+
+    @Test
+    fun `lost changes while an operation runs watch the folders created meanwhile, and refresh nothing`(): Unit =
+        runBlocking {
+            // git removes the folder of the linked worktrees' git dirs with the last one
+            git.run(main, "worktree", "remove", feature.path)
+            val worktreesDir = File(main, ".git/worktrees")
+            assertFalse(worktreesDir.exists())
+
+            val tab = openTab(realFileWatcher = false)
+            val watcher = tab.awaitWatch(1)
+            awaitWatching(watcher, File(main, "src"))
+            val operationEnds = CompletableDeferred<Unit>()
+            val operation = startOperation(tab, operationEnds)
+
+            val created = File(main, "created").apply { mkdir() }
+            File(created, "file.txt").writeText("new\n")
+            git.run(main, "worktree", "add", File(tempDir, "agent").path, "-b", "agent")
+
+            watcher.events.send(WatcherEvent.ChangesLost)
+
+            awaitWatching(watcher, worktreesDir)
+            awaitWatching(watcher, created)
+            // A refresh would start right after the folders are watched
+            delay(500)
+            val branches = tab.awaitLoaded(tab.repositoryData.localBranches)
+            assertFalse(branches.any { it.name == "refs/heads/agent" })
+
+            operationEnds.complete(Unit)
+            operation.join()
+        }
+
+    /** Runs an operation of Leaf's, such as a checkout, until [ends] completes. */
+    private suspend fun CoroutineScope.startOperation(tab: TestTab, ends: CompletableDeferred<Unit>): Job {
+        val operation = launch {
+            tab.repositoryState.runOperation(TaskType.CheckoutBranch, isForegroundTask = true) { ends.await() }
+        }
+        withTimeout(10.seconds) { tab.repositoryState.currentTask.first { it != null } }
+
+        return operation
+    }
+
+    /** Waits until [watcher] watches [folder], and returns the path that it was given. */
+    private suspend fun awaitWatching(watcher: RecordingFileChangesWatcher, folder: File): String =
+        withTimeout(10.seconds) {
+            var path: String? = null
+
+            while (path == null) {
+                path = watcher.watchedPaths.firstOrNull { File(it).canonicalPath == folder.canonicalPath }
+                if (path == null) delay(10)
+            }
+
+            path
+        }
 
     private suspend fun openTab(realFileWatcher: Boolean): TestTab {
         val tab = TestTab(

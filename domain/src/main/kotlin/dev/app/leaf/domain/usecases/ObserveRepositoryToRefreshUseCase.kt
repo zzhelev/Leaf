@@ -87,6 +87,16 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                                     fileChangesWatcher.addPathToWatch(worktreesDir.path, true)
                                 }
 
+                                // Fork-only: in every batch, also while an operation runs and just after, when nothing
+                                // is refreshed here. Otherwise the folders that a checkout or a pull creates go unwatched
+                                updateWatchedDirectories(
+                                    fileChangesWatcher,
+                                    event,
+                                    repositoryPath,
+                                    worktreeDir + systemSeparator,
+                                    watchedRepository,
+                                )
+
                                 // Nothing for Leaf's own files, JGit's probe files and commit messages being edited
                                 val dataToRefresh = watchedRepository.dataToRefresh(changes.map { it.path })
 
@@ -97,14 +107,6 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                                 printDebug(TAG, "Changes detected: ${changes.toList()}, to refresh: $dataToRefresh")
 
                                 if (canRefreshData()) {
-                                    updateWatchedDirectories(
-                                        fileChangesWatcher,
-                                        event,
-                                        repositoryPath,
-                                        worktreeDir + systemSeparator,
-                                        watchedRepository,
-                                    )
-
                                     if (dataToRefresh == listOf(DataToRefresh.WORKTREES)) {
                                         worktreeChangesRefresher.onChanged()
                                     } else {
@@ -117,14 +119,15 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
 
                             // Fork-only: what changed isn't known, and new folders may have gone unreported
                             is WatcherEvent.ChangesLost -> {
+                                // Also while an operation runs, as a large checkout is what loses changes
+                                if (watchedRepository.worktreesDir.isDirectory) {
+                                    fileChangesWatcher.addPathToWatch(watchedRepository.worktreesDir.path, true)
+                                }
+
+                                watchWorkingTree(fileChangesWatcher, repositoryPath, worktreeDir, watchedRepository)
+
                                 if (canRefreshData()) {
                                     printDebug(TAG, "Changes went unreported, refreshing everything")
-
-                                    if (watchedRepository.worktreesDir.isDirectory) {
-                                        fileChangesWatcher.addPathToWatch(watchedRepository.worktreesDir.path, true)
-                                    }
-
-                                    watchWorkingTree(fileChangesWatcher, repositoryPath, worktreeDir, watchedRepository)
                                     refreshDataUseCase(DataToRefresh.ALL)
                                 } else {
                                     printDebug(TAG, "Ignoring unreported changes because an operation runs or just ran")
@@ -245,10 +248,11 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                         fileChangesWatcher.addPathToWatch(dir.path, false)
                     }
                 }
+            }
 
-                for (dir in removedDirs) {
-                    fileChangesWatcher.removePathFromWatch(dir.path)
-                }
+            // Fork-only: not only in a batch that also created a folder
+            for (dir in removedDirs) {
+                fileChangesWatcher.removePathFromWatch(dir.path)
             }
         }
     }
