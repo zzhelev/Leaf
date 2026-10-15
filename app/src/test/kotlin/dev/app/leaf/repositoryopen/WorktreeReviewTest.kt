@@ -238,8 +238,12 @@ class WorktreeReviewTest {
         assertEquals("leaf-agent1", gone.worktreeName)
     }
 
+    /**
+     * The review once the comparison loaded and the worktree list is in it. The state can show the comparison first, as
+     * the list comes from a flow of its own, which a full test run's load can hold back.
+     */
     private suspend fun loaded(): WorktreeReviewState = withTimeout(5.seconds) {
-        review.reviewState.first { it != null && !it.isLoading }!!
+        review.reviewState.first { it != null && !it.isLoading && it.uncommittedChanges != null }!!
     }
 
     /** Refreshes the local branches as the tab does: Loading while git reads them, which takes a moment. */
