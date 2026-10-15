@@ -32,6 +32,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.app.leaf.app.generated.resources.*
@@ -563,23 +564,27 @@ fun HunkUnifiedTextDiff(
                     val highestLineNumberLength = highestLineNumber.toString().count()
 
                     items(hunk.lines) { line ->
+                        // Fork-only: the line's buttons and its menu offer the same actions (DiffLineActions.kt)
+                        val actions = lineActions(line, diffType, canUseHunkActions)
+                        val onLineAction = { action: LineAction ->
+                            if (action == LineAction.DISCARD) {
+                                onDiscardLine(diffResult.diffEntry, hunk, line)
+                            } else {
+                                onUnStageLine(diffResult.diffEntry, hunk, line)
+                            }
+                        }
+
                         DiffContextMenu(
                             selectedText = selectedText,
-                            diffType = diffType,
-                            onDiscardLine = { onDiscardLine(diffResult.diffEntry, hunk, line) },
-                            line = line,
+                            actions = actions,
+                            onLineAction = onLineAction,
                         ) {
                             DiffLine(
                                 highestLineNumberLength,
                                 line,
                                 diffType = diffType,
-                                onActionTriggered = {
-                                    onUnStageLine(
-                                        diffResult.diffEntry,
-                                        hunk,
-                                        line,
-                                    )
-                                },
+                                actions = actions,
+                                onLineAction = onLineAction,
                             )
                         }
                     }
@@ -649,17 +654,19 @@ fun HunkSplitTextDiff(
                             selectableSide = selectableSide,
                             diffType = diffType,
                             selectedText = selectedText,
-                            onActionTriggered = { line ->
-                                onUnStageLine(diffResult.diffEntry, splitHunk.sourceHunk, line)
+                            canUseLineActions = canUseHunkActions,
+                            onLineAction = { line, action ->
+                                if (action == LineAction.DISCARD) {
+                                    onDiscardLine(diffResult.diffEntry, splitHunk.sourceHunk, line)
+                                } else {
+                                    onUnStageLine(diffResult.diffEntry, splitHunk.sourceHunk, line)
+                                }
                             },
                             onChangeSelectableSide = { newSelectableSide ->
                                 if (newSelectableSide != selectableSide) {
                                     selectableSide = newSelectableSide
                                 }
                             },
-                            onDiscardLine = { line ->
-                                onDiscardLine(diffResult.diffEntry, splitHunk.sourceHunk, line)
-                            }
                         )
                     }
                 }
@@ -684,9 +691,9 @@ fun SplitDiffLine(
     selectableSide: SelectableSide,
     diffType: DiffType,
     selectedText: AnnotatedString,
+    canUseLineActions: Boolean,
     onChangeSelectableSide: (SelectableSide) -> Unit,
-    onActionTriggered: (Line) -> Unit,
-    onDiscardLine: (Line) -> Unit,
+    onLineAction: (Line, LineAction) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -703,9 +710,9 @@ fun SplitDiffLine(
             lineSelectableSide = SelectableSide.OLD,
             onChangeSelectableSide = onChangeSelectableSide,
             diffType = diffType,
-            onActionTriggered = { if (oldLine != null) onActionTriggered(oldLine) },
+            canUseLineActions = canUseLineActions,
+            onLineAction = onLineAction,
             selectedText = selectedText,
-            onDiscardLine = onDiscardLine,
         )
 
         Box(
@@ -725,9 +732,9 @@ fun SplitDiffLine(
             lineSelectableSide = SelectableSide.NEW,
             onChangeSelectableSide = onChangeSelectableSide,
             diffType = diffType,
-            onActionTriggered = { if (newLine != null) onActionTriggered(newLine) },
+            canUseLineActions = canUseLineActions,
+            onLineAction = onLineAction,
             selectedText = selectedText,
-            onDiscardLine = onDiscardLine,
         )
 
     }
@@ -744,9 +751,9 @@ fun SplitDiffLineSide(
     lineSelectableSide: SelectableSide,
     diffType: DiffType,
     selectedText: AnnotatedString,
+    canUseLineActions: Boolean,
     onChangeSelectableSide: (SelectableSide) -> Unit,
-    onActionTriggered: () -> Unit,
-    onDiscardLine: (Line) -> Unit,
+    onLineAction: (Line, LineAction) -> Unit,
 ) {
     var pressedAndMoved by remember(line) { mutableStateOf(Pair(false, false)) }
     var movesCount by remember(line) { mutableStateOf(0) }
@@ -780,6 +787,8 @@ fun SplitDiffLineSide(
             }
     ) {
         if (line != null) {
+            val actions = lineActions(line, diffType, canUseLineActions)
+
             // To avoid both sides being selected, disable one side when the use is interacting with the other
             DynamicSelectionDisable(
                 currentSelectableSide != lineSelectableSide &&
@@ -787,16 +796,16 @@ fun SplitDiffLineSide(
             ) {
                 DiffContextMenu(
                     selectedText,
-                    line,
-                    diffType,
-                    onDiscardLine = { onDiscardLine(line) },
+                    actions = actions,
+                    onLineAction = { onLineAction(line, it) },
                 ) {
                     SplitDiffLine(
                         highestLineNumberLength = highestLineNumberLength,
                         line = line,
                         lineNumber = displayLineNumber,
                         diffType = diffType,
-                        onActionTriggered = onActionTriggered,
+                        actions = actions,
+                        onLineAction = { onLineAction(line, it) },
                     )
                 }
             }
@@ -807,32 +816,13 @@ fun SplitDiffLineSide(
 @Composable
 fun DiffContextMenu(
     selectedText: AnnotatedString,
-    line: Line,
-    diffType: DiffType,
-    onDiscardLine: () -> Unit,
+    actions: List<LineAction>,
+    onLineAction: (LineAction) -> Unit,
     content: @Composable () -> Unit,
 ) {
     ContextMenu(
         enabled = selectedText.isEmpty(),
-        items = {
-            if (
-                line.lineType != LineType.CONTEXT &&
-                diffType is DiffType.UncommittedDiff &&
-                diffType.entryType == EntryType.UNSTAGED &&
-                diffType.statusType == StatusType.MODIFIED
-            ) {
-                listOf(
-                    ContextMenuElement.ContextTextEntry(
-                        label = "Discard line",
-                        icon = { painterResource(Res.drawable.undo) },
-                        onClick = {
-                            onDiscardLine()
-                        }
-                    )
-                )
-            } else
-                emptyList()
-        },
+        items = { lineActionMenuItems(actions, onLineAction) },
     ) {
         content()
     }
@@ -1163,7 +1153,8 @@ fun DiffLine(
     highestLineNumberLength: Int,
     line: Line,
     diffType: DiffType,
-    onActionTriggered: () -> Unit,
+    actions: List<LineAction>,
+    onLineAction: (LineAction) -> Unit,
 ) {
     val backgroundColor = when (line.lineType) {
         LineType.ADDED -> MaterialTheme.colors.diffLineAdded
@@ -1198,7 +1189,7 @@ fun DiffLine(
             )
         }
 
-        DiffLineText(line, diffType, onActionTriggered = onActionTriggered)
+        DiffLineText(line, diffType, actions, onLineAction)
     }
 }
 
@@ -1208,7 +1199,8 @@ fun SplitDiffLine(
     line: Line,
     lineNumber: Int,
     diffType: DiffType,
-    onActionTriggered: () -> Unit,
+    actions: List<LineAction>,
+    onLineAction: (LineAction) -> Unit,
 ) {
     val backgroundColor = when (line.lineType) {
         LineType.ADDED -> MaterialTheme.colors.diffLineAdded
@@ -1227,13 +1219,13 @@ fun SplitDiffLine(
             )
         }
 
-        DiffLineText(line, diffType, onActionTriggered = onActionTriggered)
+        DiffLineText(line, diffType, actions, onLineAction)
     }
 }
 
 
 @Composable
-fun DiffLineText(line: Line, diffType: DiffType, onActionTriggered: () -> Unit) {
+fun DiffLineText(line: Line, diffType: DiffType, actions: List<LineAction>, onLineAction: (LineAction) -> Unit) {
     val fileExtension = diffType.filePath.split(".").lastOrNull()
     val syntaxHighlighter = getSyntaxHighlighterFromExtension(fileExtension)
 
@@ -1243,49 +1235,26 @@ fun DiffLineText(line: Line, diffType: DiffType, onActionTriggered: () -> Unit) 
     val isHovered by hoverInteraction.collectIsHoveredAsState()
 
     Box(modifier = Modifier.hoverable(hoverInteraction)) {
-        if (
-            isHovered &&
-            diffType is DiffType.UncommittedDiff &&
-            line.lineType != LineType.CONTEXT &&
-            diffType.statusType == StatusType.MODIFIED
-        ) {
-            val color: Color = if (diffType.entryType == EntryType.STAGED) {
-                MaterialTheme.colors.error
-            } else {
-                MaterialTheme.colors.primary
-            }
-
-            val iconName = remember(diffType) {
-                if (diffType.entryType == EntryType.STAGED) {
-                    Res.drawable.remove
-                } else {
-                    Res.drawable.add
-                }
-            }
-
-            Icon(
-                painterResource(iconName),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .clickable { onActionTriggered() }
-                    .size(16.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(color),
-            )
+        // Fork-only: Unstaged also has Discard next to Stage, and neither shows while the hunks have no buttons
+        if (isHovered && actions.isNotEmpty()) {
+            LineActionButtons(actions, onLineAction)
         }
 
-        DiffText(text, matchLine, syntaxHighlighter)
+        DiffText(text, matchLine, syntaxHighlighter, startPadding = lineTextStart(diffType))
     }
 }
 
-/** [insertedColor]: the background of [matchLine]'s inserted text, the diff pane's green unless given (fork-only). */
+/**
+ * [insertedColor]: the background of [matchLine]'s inserted text, the diff pane's green unless given (fork-only).
+ * [startPadding]: the room before the text, where the diff pane puts a line's buttons (fork-only).
+ */
 @Composable
 fun DiffText(
     text: String,
     matchLine: MatchLine?,
     syntaxHighlighter: SyntaxHighlighter,
     insertedColor: Color = MaterialTheme.colors.diffContentAdded,
+    startPadding: Dp = 16.dp,
 ) {
     val line = matchLine ?: MatchLine(listOf(DiffMatchPatch.Diff(DiffMatchPatch.Operation.EQUAL, text)))
 
@@ -1324,7 +1293,7 @@ fun DiffText(
     Text(
         text = annotatedString,
         modifier = Modifier
-            .padding(start = 16.dp)
+            .padding(start = startPadding)
             .fillMaxWidth(),
         fontFamily = monoTypography(),
         style = MaterialTheme.typography.body2,

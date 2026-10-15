@@ -355,6 +355,9 @@
         <item quantity="one">%1$s more character</item>
         <item quantity="other">%1$s more characters</item>
     </plurals>
+    <string name="diff_line_stage">Stage line</string>
+    <string name="diff_line_unstage">Unstage line</string>
+    <string name="diff_line_discard">Discard line</string>
 
     <!-- Worktree actions: remove, discard, lock and prune -->
     <string name="worktree_dialog_commands">Leaf runs:</string>
