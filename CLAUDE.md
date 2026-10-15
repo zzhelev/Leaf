@@ -2196,6 +2196,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - A task's refresh runs after the task's job ends, so joining the task doesn't wait for it. Wait for the data with
     `awaitLoaded`'s predicate (a state other than the one before the task), not for any loaded value, which may still
     be the old one. Two tests did, and failed once the refresh ran `git var` before the repository state.
+- A view model's state that `combine`s several flows can show one of them before another arrives. A test waits for a
+  state that has everything it asserts, not for the first one that has part of it: `WorktreeReviewTest.loaded()` waits
+  for the comparison and for the worktree list's count, which failed once in a full run.
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.

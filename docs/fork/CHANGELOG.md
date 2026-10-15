@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## `WorktreeReviewTest` waits for the worktree list (branch `fix/worktree-review-test-wait`)
+
+- **Before:** the class's first test failed once in a full `./gradlew test` (`expected: <3> but was: <null>`, the
+  count of the worktree's uncommitted changes), and passed in three runs alone.
+- **Cause:** the test's `loaded()` took the first state whose comparison had loaded. The review's state combines the
+  comparison with the worktree list, which comes from a flow of its own and is null until it arrives, so a state with
+  the comparison and no list can come first. The view model is right to show it: the count is unknown until then,
+  and the next state has it. No production code changed.
+- **Now:** `loaded()` also waits for the count. Every test sets the worktree list before it opens the review.
+- **Tests** (on `1649446d`): a temporary test that gave the review the worktree list 300 ms after the comparison failed
+  with the old wait, with the same message, and passed with the new one. With the new wait, the class passed 30 runs
+  in a row (`--rerun`) with a CPU burner on each of the 14 cores, and `:app`'s 315 tests passed 5 runs in a row.
+  - The same 30 runs with the old wait passed too, so that load doesn't bring the failure back: the temporary test is
+    what shows the fix.
+
 ## Merge, cherry-pick, revert and rebase run git (branch `fix/git-cli-operations`)
 
 - **Before:** JGit ran Merge in the branch menu, cherry-pick, revert and Rebase.
