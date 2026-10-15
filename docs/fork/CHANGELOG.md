@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The watch follows new and deleted folders during Leaf's own operations too (branch `claude/zealous-tesla-59b911`)
+
+- **Before:** `ObserveRepositoryToRefreshUseCase` watched the folders that a batch of changes created only when it
+  could refresh: not while a task ran, nor for 1.5 s after one. So a folder created by Leaf's own checkout, merge or
+  pull was never watched, and edits in it didn't refresh the status until the tab watched again (a worktree switch,
+  or reopening). Deleted folders were only unwatched in a batch that also created one. Both came from Gitnuro. Lost
+  changes (new with the JDK watcher) didn't watch the working tree again during a task either.
+- **Now:** every batch registers its new folders and unregisters its deleted ones, and lost changes watch the working
+  tree again, whatever runs. Only the refresh waits for the task, as before.
+- **Tests:** `RefreshingOnChangesTest` (7, 3 new), with a `RecordingFileChangesWatcher`: a folder created while an
+  operation runs is watched and nothing refreshes, a deleted folder is unwatched in a batch that created none, and
+  lost changes while an operation runs watch the folders created meanwhile (`.git/worktrees` included) and refresh
+  nothing. The recording watcher now skips a folder that doesn't exist, as the app's does: it noted the missing
+  `.git/worktrees` at the watch's start, which hid whether lost changes watched it.
+  - **Mutation check:** 8 mutations of the use case, 7 caught: new folders registered behind the gate again, deleted
+    ones unwatched only with a new folder or not at all, the working tree or `worktrees` re-watched after lost changes
+    behind the gate, and a refresh during an operation, after a batch or after lost changes. Registering after the
+    "nothing to refresh" return survives: such batches (Leaf's `leaf` file, JGit's probe files, commit messages) have
+    no folders.
+
 ## The file watcher runs on the JDK, and Leaf's Rust is only `leaf-askpass` (branch `claude/jolly-davinci-5d25f1`)
 
 - **Before:** the file watcher was Rust (notify 8), the only export of the `leaf_rs` cdylib, called through uniffi's

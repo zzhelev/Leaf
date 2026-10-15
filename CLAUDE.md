@@ -1913,7 +1913,7 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
   would drop `FILE_TREE`, and the use case does that to `worktrees` once git creates it.
 - **`OVERFLOW`:** the JDK keeps 512 events per folder until they're taken, then drops them, and JBR does it for any
   large change in one folder at once (600 files written together). The watch reports `WatcherEvent.ChangesLost`, and
-  the use case watches the working tree's folders again and refreshes ALL, unless a task runs or just ran.
+  the use case watches the working tree's folders again, and refreshes ALL unless a task runs or just ran.
 - Each watch has its own watcher (`ObserveRepositoryToRefreshUseCase` takes a `Provider`), which closes its watch
   service when the watch ends. A cancelled watch stops within 500 ms; `close()` ends it at once. A folder that can't
   be watched (missing, or past Linux's inotify limits) is logged, and the watch goes on.
@@ -1946,7 +1946,11 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
 - WORKTREES alone goes through `WorktreeChangesRefresher`: right away, then at most once every 2 s while changes keep
   coming. An agent that runs git rewrites its worktree's index all the time, and each refresh runs git in every
   worktree.
-- Events are dropped (not deferred) while a task runs and for 1.5 s after one.
+- Refreshes are dropped (not deferred) while a task runs and for 1.5 s after one. Fork-only: the watch still follows
+  the folders that each batch creates or deletes, and watches the working tree again after lost changes. Before, a
+  folder created by Leaf's own checkout, merge or pull, or in the 1.5 s after one, was never watched, and deleted
+  folders were only unwatched in a batch that also created one. `RefreshingOnChangesTest` checks them with a
+  `RecordingFileChangesWatcher`, and that nothing refreshes while the task runs.
 - Fork-only: the use case is `@TabScope` and keeps its watch's job. `invoke()` stops the previous watch first, and
   `stop()` cancels it before a switch to another worktree. The cancelled watch notices within 500 ms
   (`BATCH_TIME_MS`) and closes its own watcher, so the new watch doesn't wait for it. Closing the tab cancels the
@@ -2066,7 +2070,8 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `GIT_TERMINAL_PROMPT=0` and no askpass variables, so it fails rather than asking, and no repository's config applies.
 - `TestTab` (`data/src/test/kotlin/dev/app/leaf/data/tab/`) builds a tab's repositories and use cases as Dagger does,
   with the real git actions, around a temp repository, and a `RecordingFileChangesWatcher` for each watch, which
-  notes the folders it was given and reports the `events` that a test sends. With `realFileWatcher`, each watch gets
+  notes the folders it was given (those that exist, as the app's watcher skips the others) and reports the `events`
+  that a test sends. With `realFileWatcher`, each watch gets
   the app's `FileChangesWatcher` instead (`RefreshingOnChangesTest`). `SwitchingWorktreesTest`,
   `WatchingWorktreesTest`, `RemovingWorktreesTest` and `CreatingWorktreesTest` use it; the last two run the steps that
   the worktree dialogs show (`runWorktreeSteps`, `createWorktree`). Its `close()` cancels the tab and waits: JGit
