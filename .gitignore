@@ -15,7 +15,6 @@ build/
 .externalNativeBuild
 .cxx
 rs/target/
-rs/Cargo.lock
 src/main/resources/*leaf_rs*
 *.salive
 *.hprof

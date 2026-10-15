@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The Rust build runs only when `rs/` changes, and its failures fail the build (branch `claude/jolly-davinci-5d25f1`)
+
+- **Before:** `app/build.gradle.kts` ran cargo three times (a release build, a debug build, uniffi-bindgen) inside the
+  configuration block of `rustTasks`, whenever an app build, run or test had it in its graph, whether `rs/` had
+  changed or not. Failures were ignored: `executePrintingData` printed `Code is 101` and the build went on with the
+  library from the build before, or none. `:domain` alone failed in a fresh worktree, which had no bindings yet.
+  `rs/rust-toolchain.toml` pinned `nightly`, a different compiler every day, and `rs/Cargo.lock` was gitignored.
+- **Now:** three tasks, which Gradle skips while their inputs don't change: `cargoBuild` (`cargo build --release`, or
+  `cross` for the Linux jars), `copyRustBuild` (into the app's resources, before `processResources`) and
+  `generateRustBindings` (before `:domain`'s `compileKotlin` and `kspKotlin`). Their inputs are `rs/src`, the `.rs`
+  files, `Cargo.toml`, `Cargo.lock`, the toolchain file and `uniffi.toml`. A cargo failure fails the build. The
+  toolchain file pins Rust 1.99.0 (minimal profile), and `Cargo.lock` is tracked. `:data:test` depends on
+  `copyRustBuild`, as its tests run `leaf-askpass`.
+- **Checked:** a second `:app:rustTasks` runs no cargo; a syntax error in `leaf-askpass.rs` fails `processResources`
+  with cargo's error; `:domain:compileKotlin` regenerates deleted bindings first. The release workflow's steps are
+  unchanged: `dtolnay/rust-toolchain` installs rustup's stable without setting `RUSTUP_TOOLCHAIN`, so cargo in `rs/`
+  installs the pinned version from the toolchain file, as it installed nightly before.
+
 ## Split indexes, sparse indexes and partial clones (branch `claude/strange-lewin-b68009`)
 
 - **Before** (found with a probe on git 2.54 and JGit 7.7):

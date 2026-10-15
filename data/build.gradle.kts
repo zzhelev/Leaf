@@ -51,6 +51,11 @@ dependencies {
     implementation(libs.ktor.client.logging)
 }
 
+// Some tests use the Rust library or leaf-askpass that :app copies into its resources, and skip without them.
+tasks.test {
+    dependsOn(":app:copyRustBuild")
+}
+
 // TODO This code is duplicated with app build.gradle.kts
 fun currentOs(): OS {
     val os = System.getProperty("os.name")
