@@ -5,6 +5,8 @@ package dev.app.leaf.data.git.stash
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.author.GitIdentities
+import dev.app.leaf.data.git.isolatedGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.text.MessageFormat
 
 /**
  * What a `MessageFormat` pattern reads: `{0}` is the first argument, `{b}` isn't one, and `'` quotes until the next `'`.
@@ -29,9 +32,9 @@ import java.io.File
 private const val QUOTES_AND_BRACES = "{0} a{b} it's {1} ''"
 
 /**
- * Stashes keep the message they're given. The snapshot command that Gitnuro copied from JGit's stash command took its
- * messages as `MessageFormat` patterns, and both `'` and `{` can be in a branch's name, which the backups' messages
- * give.
+ * Stashes keep the message they're given. JGit's stash command takes its messages as `MessageFormat` patterns, as did
+ * the snapshot command that Gitnuro copied from it, and both `'` and `{` can be in a branch's name, which the backups'
+ * messages give, and in a message that the user types.
  */
 @DisabledOnOs(OS.WINDOWS)
 class StashMessagesTest {
@@ -85,6 +88,39 @@ class StashMessagesTest {
         assertEquals("Snapshot WIP $on", message("refs/stash"))
         assertEquals("index $on", message("refs/stash^2"))
         assertEquals("untracked files $on", message("refs/stash^3"))
+    }
+
+    @Test
+    fun `a stash keeps the message that the user typed as it is`(): Unit = runBlocking {
+        val stash = StashChangesGitAction(jgit, GitIdentities(isolatedGitCli(globalConfig)))(gitDir, QUOTES_AND_BRACES)
+
+        assertInstanceOf(Either.Ok::class.java, stash, stash.toString())
+        assertEquals(QUOTES_AND_BRACES, stashListEntry())
+        assertEquals(QUOTES_AND_BRACES, message("refs/stash"))
+    }
+
+    @Test
+    fun `a stash without a message is named as JGit names it`(): Unit = runBlocking {
+        git.run(repository, "switch", "-c", "it's{0}")
+        val head = git.run(repository, "rev-parse", "--short=7", "HEAD").trim()
+
+        val stash = StashChangesGitAction(jgit, GitIdentities(isolatedGitCli(globalConfig)))(gitDir, null)
+
+        assertInstanceOf(Either.Ok::class.java, stash, stash.toString())
+        assertEquals("WIP on it's{0}: $head Initial commit", message("refs/stash"))
+    }
+
+    @Test
+    fun `messageFormatText formats to the text as it is, for every text of up to 6 of these characters`() {
+        var texts = listOf("")
+
+        repeat(6) {
+            texts = texts.flatMap { text -> "'{}0a".map { text + it } }
+
+            for (text in texts) {
+                assertEquals(text, MessageFormat.format(messageFormatText(text), "main", "abc1234", "Subject"), text)
+            }
+        }
     }
 
     /** The newest entry of the stash list, which `git stash list` shows. */

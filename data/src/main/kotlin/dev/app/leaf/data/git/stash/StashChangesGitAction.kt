@@ -18,7 +18,8 @@ class StashChangesGitAction @Inject constructor(
             .setIncludeUntracked(true)
             .apply {
                 if (message != null)
-                    setWorkingDirectoryMessage(message)
+                    // Fork-only: as typed, though JGit formats it as a MessageFormat pattern
+                    setWorkingDirectoryMessage(messageFormatText(message))
             }
             // Fork-only: git's committer, which includeIf may set
             .apply { gitIdentities.of(git.repository.directory)?.committer?.let { setPerson(it.toPersonIdent()) } }
