@@ -8,6 +8,7 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.repository.PersistCommitMessageGitAction
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.usecases.DataToRefresh
 import dev.app.leaf.domain.usecases.PersistCommitMessageUseCase
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -80,7 +82,7 @@ class DraftingCommitMessagesTest {
         // Leaf's commit of the draft ends it
         File(main, "b.txt").writeText("b\n")
         git.run(main, "add", "b.txt")
-        val commit = tab.doCommit("Leaf's draft", amend = false, author = null).await()
+        val commit = tab.doCommit("Leaf's draft", amend = false, author = null, isMergeMessage = false).await()
 
         assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
         tab.awaitLoaded(tab.repositoryData.persistedCommitMessage) { it.commitMessage == null }
@@ -90,6 +92,93 @@ class DraftingCommitMessagesTest {
         tab.refreshData(DataToRefresh.STATUS).join()
 
         assertNull(tab.awaitLoaded(tab.repositoryData.persistedCommitMessage).commitMessage)
+    }
+
+    @Test
+    fun `a merge's commit leaves the draft, which the merge kept out of view`(): Unit = runBlocking {
+        featureBranchChanging("a.txt")
+        tab.openRepository(main.path)
+        persistCommitMessage(gitDir.path, "Leaf's draft")
+
+        // As "Merge into main…" does. The field shows MERGE_MSG until the commit.
+        git.run(main, "merge", "--no-ff", "--no-commit", "feature")
+        val commit = tab.doCommit("Merge branch 'feature'", amend = false, author = null, isMergeMessage = true).await()
+
+        assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
+        assertEquals(2, git.run(main, "log", "-1", "--format=%P").trim().split(" ").size, "the merge's commit")
+        assertFalse(File(gitDir, "MERGE_MSG").exists())
+        assertEquals("Leaf's draft", draftAsReadAfterRestart())
+    }
+
+    @Test
+    fun `a squash merge's commit leaves the draft too`(): Unit = runBlocking {
+        featureBranchChanging("a.txt")
+        tab.openRepository(main.path)
+        persistCommitMessage(gitDir.path, "Leaf's draft")
+
+        // As "Squash-merge into main…" does. git records no state for it, so the repository is SAFE all along.
+        git.run(main, "merge", "--squash", "feature")
+        val commit = tab.doCommit("Squashed feature", amend = false, author = null, isMergeMessage = true).await()
+
+        assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
+        assertFalse(File(gitDir, "SQUASH_MSG").exists())
+        assertEquals("Leaf's draft", draftAsReadAfterRestart())
+    }
+
+    @Test
+    fun `a cherry-pick's commit takes the draft, which the field shows meanwhile`(): Unit = runBlocking {
+        featureBranchChanging("README.md")
+        commitInTerminal("README.md", "Change README.md on main")
+        tab.openRepository(main.path)
+        persistCommitMessage(gitDir.path, "Leaf's draft")
+
+        git.runFailing(main, "cherry-pick", "feature")
+        resolveInTerminal("README.md")
+        assertTrue(File(gitDir, "CHERRY_PICK_HEAD").exists())
+        val commit = tab.doCommit("Leaf's draft", amend = false, author = null, isMergeMessage = false).await()
+
+        assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
+        assertFalse(File(gitDir, "CHERRY_PICK_HEAD").exists())
+        assertNull(draftAsReadAfterRestart())
+    }
+
+    @Test
+    fun `a revert's commit takes the draft, which the field shows meanwhile`(): Unit = runBlocking {
+        commitInTerminal("README.md", "First change")
+        File(main, "README.md").writeText("second\n")
+        git.run(main, "commit", "-am", "Second change")
+        tab.openRepository(main.path)
+        persistCommitMessage(gitDir.path, "Leaf's draft")
+
+        git.runFailing(main, "revert", "--no-edit", "HEAD~1")
+        resolveInTerminal("README.md")
+        assertTrue(File(gitDir, "REVERT_HEAD").exists())
+        val commit = tab.doCommit("Leaf's draft", amend = false, author = null, isMergeMessage = false).await()
+
+        assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
+        assertFalse(File(gitDir, "REVERT_HEAD").exists())
+        assertNull(draftAsReadAfterRestart())
+    }
+
+    /** The draft as a tab opened afterwards reads it, after a restart or a worktree switch. */
+    private suspend fun draftAsReadAfterRestart(): String? {
+        val messages = GetPersistedCommitMessagesGitAction(jgit)(gitDir.path)
+
+        return (messages as Either.Ok).value.commitMessage
+    }
+
+    /** Commits a change to [fileName] on a new branch `feature`, and switches back. */
+    private fun featureBranchChanging(fileName: String) {
+        git.run(main, "switch", "-c", "feature")
+        File(main, fileName).writeText("feature\n")
+        git.run(main, "add", fileName)
+        git.run(main, "commit", "-m", "Change $fileName on feature")
+        git.run(main, "switch", "-")
+    }
+
+    private fun resolveInTerminal(fileName: String) {
+        File(main, fileName).writeText("resolved\n")
+        git.run(main, "add", fileName)
     }
 
     private fun commitInTerminal(fileName: String, message: String) {

@@ -37,8 +37,10 @@ class ContinueRebaseUseCase @Inject constructor(
                 val amendCommitId = rebaseInteractiveState.commitToAmendId
 
                 if (!amendCommitId.isNullOrBlank()) {
-                    // Fork-only: amends within this task, and doesn't continue when the amend fails
-                    doCommitUseCase.commit(repositoryPath, message, true, onIdentityRequest()).bind()
+                    // Fork-only: amends within this task, and doesn't continue when the amend fails. The message is the
+                    // commit field's, which a rebase saves in MERGE_MSG, so the amend removes it.
+                    doCommitUseCase.commit(repositoryPath, message, true, onIdentityRequest(), isMergeMessage = false)
+                        .bind()
                 }
             }
 

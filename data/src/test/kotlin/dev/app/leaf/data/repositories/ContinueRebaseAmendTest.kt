@@ -97,7 +97,10 @@ class ContinueRebaseAmendTest {
         }
 
         val persistMessage = object : IPersistCommitMessageGitAction {
-            override suspend fun invoke(repositoryPath: String, message: String?) = Either.Ok(Unit)
+            override suspend fun invoke(repositoryPath: String, message: String?): Either<Unit, GitError> {
+                steps.add("persist $message")
+                return Either.Ok(Unit)
+            }
         }
 
         val doCommitUseCase = DoCommitUseCase(
@@ -141,6 +144,8 @@ class ContinueRebaseAmendTest {
         assertEquals(
             listOf(
                 "amend 'Amended message' (amend=true) during ${TaskType.ContinueRebase}",
+                // The field's message, which a rebase saves in MERGE_MSG
+                "persist null",
                 "continue during ${TaskType.ContinueRebase}",
             ),
             steps,

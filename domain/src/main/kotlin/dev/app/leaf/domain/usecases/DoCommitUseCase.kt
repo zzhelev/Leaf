@@ -30,10 +30,16 @@ class DoCommitUseCase @Inject constructor(
     private val cleanUpAfterCommitGitAction: ICleanUpAfterCommitGitAction,
     private val putBackMergeAutostashGitAction: IPutBackMergeAutostashGitAction,
 ) {
+    /**
+     * Fork-only: [isMergeMessage] says that [message] is a merge's or a squash merge's, from MERGE_MSG or SQUASH_MSG,
+     * which the commit removes itself. Otherwise the message that the commit field saved is removed after the commit:
+     * the draft, or MERGE_MSG while a rebase goes on.
+     */
     operator fun invoke(
         message: String,
         amend: Boolean,
         author: Identity?,
+        isMergeMessage: Boolean,
     ): Deferred<Either<Commit, AppError>> {
         return useCaseExecutor.executeLaunchAsync(
             taskType = TaskType.DoCommit,
@@ -46,7 +52,7 @@ class DoCommitUseCase @Inject constructor(
                 DataToRefresh.STASHES,
             ),
         ) { repositoryPath ->
-            commit(repositoryPath, message, amend, author)
+            commit(repositoryPath, message, amend, author, isMergeMessage)
         }
     }
 
@@ -59,6 +65,7 @@ class DoCommitUseCase @Inject constructor(
         message: String,
         amend: Boolean,
         author: Identity?,
+        isMergeMessage: Boolean,
     ): Either<Commit, AppError> = either {
         val signOffConfig = loadSignOffConfigGitAction(repositoryPath).bind()
 
@@ -76,7 +83,11 @@ class DoCommitUseCase @Inject constructor(
 
         doCommitGitAction(repositoryPath, finalMessage, amend, author)
             .onOk {
-                persistCommitMessageUseCase(repositoryPath, null)
+                // Fork-only: only the message that was committed. A merge's commit leaves the repository SAFE, where
+                // this would remove the draft that the merge kept out of view.
+                if (!isMergeMessage) {
+                    persistCommitMessageUseCase(repositoryPath, null)
+                }
 
                 // Fork-only: removes SQUASH_MSG and the merge's files that git's commit removes and JGit's doesn't
                 cleanUpAfterCommitGitAction(repositoryPath).onErr {

@@ -788,7 +788,13 @@ class StatusViewModelExtender @AssistedInject constructor(
         val hadOngoingPersistJob = persistMessageJob?.isActive == true
         persistMessageJob?.cancelAndJoin()
 
-        val doCommitResult = doCommitUseCase(message, amend, personIdent).await()
+        // Fork-only: a merge's and a squash merge's commits leave the draft, which they kept out of view
+        val doCommitResult = doCommitUseCase(
+            message,
+            amend,
+            personIdent,
+            isMergeMessage = source != CommitMessageSource.NORMAL,
+        ).await()
 
         if (doCommitResult is Either.Ok) {
             // Fork-only: clears the message that was committed. The commit removed its file, and clearing the field

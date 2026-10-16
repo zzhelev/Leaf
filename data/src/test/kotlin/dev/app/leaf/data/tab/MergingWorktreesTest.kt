@@ -127,7 +127,12 @@ class MergingWorktreesTest {
         open(main)
         run(merge(agent), WorktreeMergeKind.SQUASH)
 
-        val commit = tab.doCommit("agent1\n\n- Add b\n- Add a new file", amend = false, author = null).await()
+        val commit = tab.doCommit(
+            "agent1\n\n- Add b\n- Add a new file",
+            amend = false,
+            author = null,
+            isMergeMessage = true,
+        ).await()
 
         assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
         assertEquals(emptyList<String>(), gitStatus(main))
@@ -169,7 +174,7 @@ class MergingWorktreesTest {
 
             File(main, "f.txt").writeText("z\nb\n")
             git.run(main, "add", "f.txt")
-            val commit = tab.doCommit("Squashed agent1", amend = false, author = null).await()
+            val commit = tab.doCommit("Squashed agent1", amend = false, author = null, isMergeMessage = true).await()
 
             assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
             for (name in listOf("SQUASH_MSG", "MERGE_MSG", "MERGE_MODE", "AUTO_MERGE")) {
@@ -190,7 +195,7 @@ class MergingWorktreesTest {
         val repositoryState = tab.awaitLoaded(tab.repositoryData.repositoryState) { it != RepositoryState.SAFE }
         assertEquals(RepositoryState.MERGING_RESOLVED, repositoryState)
 
-        val commit = tab.doCommit("Merge branch 'agent1'", amend = false, author = null).await()
+        val commit = tab.doCommit("Merge branch 'agent1'", amend = false, author = null, isMergeMessage = true).await()
 
         assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
         assertEquals(2, git.run(main, "log", "-1", "--format=%P").trim().split(" ").size)

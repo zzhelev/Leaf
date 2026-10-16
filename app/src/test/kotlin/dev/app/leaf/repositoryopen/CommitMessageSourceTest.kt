@@ -24,6 +24,9 @@ class CommitMessageSourceTest {
     fun `shows the draft otherwise, also before the state is known`() {
         assertEquals(CommitMessageSource.NORMAL, commitMessageSource(RepositoryState.SAFE, false))
         assertEquals(CommitMessageSource.NORMAL, commitMessageSource(RepositoryState.REBASING_MERGE, false))
+        // So a cherry-pick's or a revert's commit commits the draft, and removes it
+        assertEquals(CommitMessageSource.NORMAL, commitMessageSource(RepositoryState.CHERRY_PICKING_RESOLVED, false))
+        assertEquals(CommitMessageSource.NORMAL, commitMessageSource(RepositoryState.REVERTING_RESOLVED, false))
         assertEquals(CommitMessageSource.NORMAL, commitMessageSource(null, false))
     }
 }

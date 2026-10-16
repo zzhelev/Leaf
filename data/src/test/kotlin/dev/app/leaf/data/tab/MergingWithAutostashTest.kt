@@ -116,7 +116,8 @@ class MergingWithAutostashTest {
             assertTrue(hasMergeAutostash())
 
             resolve()
-            val commit = tab.doCommit("Merge branch 'feature'", amend = false, author = null).await()
+            val commit =
+                tab.doCommit("Merge branch 'feature'", amend = false, author = null, isMergeMessage = true).await()
 
             assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
             assertEquals("local\n", read("other.txt"))
@@ -136,7 +137,7 @@ class MergingWithAutostashTest {
         merge("feature")
         resolve()
 
-        val commit = tab.doCommit("Merge branch 'feature'", amend = false, author = null).await()
+        val commit = tab.doCommit("Merge branch 'feature'", amend = false, author = null, isMergeMessage = true).await()
 
         assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
         assertEquals(listOf("UU merged.txt"), status())
@@ -266,7 +267,7 @@ class MergingWithAutostashTest {
         git.run(repository, "merge", "--squash", "clean")
         assertTrue(hasMergeAutostash())
 
-        val commit = tab.doCommit("Squashed clean", amend = false, author = null).await()
+        val commit = tab.doCommit("Squashed clean", amend = false, author = null, isMergeMessage = true).await()
 
         assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
         assertEquals("local\n", read("other.txt"))
