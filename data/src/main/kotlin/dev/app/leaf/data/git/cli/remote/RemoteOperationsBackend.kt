@@ -35,6 +35,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import org.eclipse.jgit.errors.MissingObjectException
+import org.eclipse.jgit.lib.BranchConfig
+import org.eclipse.jgit.lib.Constants
+import org.eclipse.jgit.lib.Repository
+import org.eclipse.jgit.revwalk.RevWalk
+import org.eclipse.jgit.treewalk.TreeWalk
 import java.io.File
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
@@ -42,6 +48,9 @@ import kotlin.time.Duration.Companion.seconds
 private const val TAG = "RemoteOperationsBackend"
 
 private val LFS_VERSION_TIMEOUT = 10.seconds
+
+/** How `.gitattributes` names git-lfs's filter (`git lfs track`). */
+private const val LFS_FILTER = "filter=lfs"
 
 /**
  * Decides whether a remote operation runs with the git CLI or with JGit, Leaf's built-in implementation. The git CLI
@@ -52,7 +61,8 @@ private val LFS_VERSION_TIMEOUT = 10.seconds
  *   `pre-push` hook doesn't run git-lfs, or git-lfs isn't installed. JGit uploads them itself.
  *
  * Fetch, pull, clone, and adding or updating a submodule use it the same way, as they upload nothing. JGit does a
- * pull's merge and a clone's checkout either way.
+ * clone's checkout either way. A pull runs `git pull`, unless git's checkout would need Leaf's built-in LFS
+ * ([pullNeedsBuiltinLfs]): then it fetches with git and JGit merges.
  *
  * It never switches after git has started: a push could then run twice.
  *
@@ -104,13 +114,31 @@ class RemoteOperationsBackend @Inject constructor(
         return null
     }
 
+    /**
+     * Whether a pull of [remoteBranch], or of the branch's upstream, needs Leaf's built-in LFS client: the repository
+     * uses LFS, or the branch pulled does as its remote-tracking branch has it, and git-lfs doesn't work. `git pull`
+     * would then check out pointer files without a word, or fail with `filter.lfs.required` (which `git lfs install`
+     * sets), a rebase halfway.
+     */
+    suspend fun pullNeedsBuiltinLfs(repositoryPath: String, remoteBranch: Branch?): Boolean {
+        val lfs = jgit.provide(repositoryPath) { git ->
+            val repository = git.repository
+            val usesLfs = usesLfs(repository) || pulledCommitUsesLfs(repository, remoteBranch)
+
+            LfsUse(usesLfs, prePushRunsLfs = false, repository.commandDirectory())
+        }
+
+        val use = when (lfs) {
+            is Either.Err -> return false // The pull itself will report the problem
+            is Either.Ok -> lfs.value
+        }
+
+        return use.usesLfs && !gitLfsWorks(use.directory)
+    }
+
     private suspend fun gitUploadsLfsObjects(repositoryPath: String): Boolean {
         val lfs = jgit.provide(repositoryPath) { git ->
             val repository = git.repository
-            val attributes = if (repository.isBare) null else File(repository.workTree, ".gitattributes")
-
-            val usesLfs = File(repository.commonDirectory ?: repository.directory, "lfs").isDirectory ||
-                attributes?.takeIf { it.isFile }?.readText()?.contains("filter=lfs") == true
 
             // git-lfs's hook runs "git lfs pre-push"; hook managers that call it are found the same way
             val prePushRunsLfs = repository.fs.findHook(repository, "pre-push")
@@ -118,7 +146,7 @@ class RemoteOperationsBackend @Inject constructor(
                 ?.readText()
                 ?.let { it.contains("git lfs") || it.contains("git-lfs") } == true
 
-            LfsUse(usesLfs, prePushRunsLfs, repository.commandDirectory())
+            LfsUse(usesLfs(repository), prePushRunsLfs, repository.commandDirectory())
         }
 
         val use = when (lfs) {
@@ -130,11 +158,46 @@ class RemoteOperationsBackend @Inject constructor(
             return true
         }
 
-        return use.prePushRunsLfs &&
-            gitCli.run(use.directory, listOf("lfs", "version"), LFS_VERSION_TIMEOUT) is Either.Ok
+        return use.prePushRunsLfs && gitLfsWorks(use.directory)
+    }
+
+    private suspend fun gitLfsWorks(directory: File): Boolean {
+        return gitCli.run(directory, listOf("lfs", "version"), LFS_VERSION_TIMEOUT) is Either.Ok
     }
 
     private class LfsUse(val usesLfs: Boolean, val prePushRunsLfs: Boolean, val directory: File)
+}
+
+/** Whether [repository] uses LFS: it has LFS objects, or its root `.gitattributes` names the LFS filter. */
+private fun usesLfs(repository: Repository): Boolean {
+    val attributes = if (repository.isBare) null else File(repository.workTree, Constants.DOT_GIT_ATTRIBUTES)
+
+    return File(repository.commonDirectory ?: repository.directory, "lfs").isDirectory ||
+        attributes?.takeIf { it.isFile }?.readText()?.contains(LFS_FILTER) == true
+}
+
+/**
+ * Whether the root `.gitattributes` of what a pull pulls names the LFS filter, as far as Leaf knows it before the
+ * fetch: [remoteBranch]'s commit, or else the remote-tracking branch of the branch's upstream. A file that a partial
+ * clone hasn't downloaded counts as no.
+ */
+private fun pulledCommitUsesLfs(repository: Repository, remoteBranch: Branch?): Boolean {
+    val ref = remoteBranch?.name
+        ?: repository.branch?.let { BranchConfig(repository.config, it).remoteTrackingBranch }
+        ?: return false
+    val commit = repository.resolve(ref) ?: return false
+
+    return try {
+        RevWalk(repository).use { walk ->
+            val tree = walk.parseCommit(commit).tree
+
+            TreeWalk.forPath(repository, Constants.DOT_GIT_ATTRIBUTES, tree)?.use { treeWalk ->
+                repository.open(treeWalk.getObjectId(0)).bytes.decodeToString().contains(LFS_FILTER)
+            } == true
+        }
+    } catch (e: MissingObjectException) {
+        false
+    }
 }
 
 /** Pushes with the git CLI or with JGit, as [RemoteOperationsBackend] decides. */
@@ -188,11 +251,13 @@ class SelectingFetchAllRemotesGitAction @Inject constructor(
 }
 
 /**
- * Pulls with the git CLI's fetch or with JGit, as [RemoteOperationsBackend] decides. Either way JGit merges, with its
- * built-in LFS, so git-lfs doesn't take part.
+ * Pulls as [RemoteOperationsBackend] decides: with `git pull` ([GitPullGitAction]); with git's fetch and JGit's merge
+ * or rebase, with Leaf's built-in LFS, when git's checkout would need it
+ * ([RemoteOperationsBackend.pullNeedsBuiltinLfs]); or with JGit alone.
  */
 class SelectingPullBranchGitAction @Inject constructor(
     private val backend: RemoteOperationsBackend,
+    private val gitPullGitAction: GitPullGitAction,
     private val gitCliPullBranchGitAction: GitCliPullBranchGitAction,
     private val jGitPullBranchGitAction: PullBranchGitAction,
 ) : IPullBranchGitAction {
@@ -202,10 +267,15 @@ class SelectingPullBranchGitAction @Inject constructor(
         mergeAutoStash: Boolean,
         remoteBranch: Branch?,
         automaticStashDescription: String,
-    ): Either<PullHasConflicts, GitError> = if (backend.useGitCli(repositoryPath, uploadsObjects = false)) {
-        gitCliPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
-    } else {
-        jGitPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
+    ): Either<PullHasConflicts, GitError> = when {
+        !backend.useGitCli(repositoryPath, uploadsObjects = false) ->
+            jGitPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
+
+        backend.pullNeedsBuiltinLfs(repositoryPath, remoteBranch) ->
+            gitCliPullBranchGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
+
+        else ->
+            gitPullGitAction(repositoryPath, pullType, mergeAutoStash, remoteBranch, automaticStashDescription)
     }
 }
 

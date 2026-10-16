@@ -12,6 +12,7 @@ import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.domain.errors.SshNeedsGitError
+import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.services.AppSettingsService
 import io.mockk.every
@@ -121,6 +122,54 @@ class RemoteOperationsBackendTest {
     }
 
     @Test
+    fun `a pull in a repository without LFS runs git pull`(): Unit = runBlocking {
+        assertFalse(backend().pullNeedsBuiltinLfs(gitDir, remoteBranch = null))
+    }
+
+    @Test
+    fun `a pull in an LFS repository runs git pull when git-lfs works`(): Unit = runBlocking {
+        useLfs()
+
+        assertFalse(backend(path = gitLfsFolder.absolutePath + ":/usr/bin:/bin").pullNeedsBuiltinLfs(gitDir, null))
+    }
+
+    @Test
+    fun `a pull in an LFS repository needs the built-in client when git-lfs isn't installed`(): Unit = runBlocking {
+        useLfs()
+
+        assertTrue(backend().pullNeedsBuiltinLfs(gitDir, remoteBranch = null))
+    }
+
+    @Test
+    fun `a pull needs the built-in client when LFS objects are stored in the git dir`(): Unit = runBlocking {
+        File(work, ".git/lfs/objects").mkdirs()
+
+        assertTrue(backend().pullNeedsBuiltinLfs(gitDir, remoteBranch = null))
+    }
+
+    @Test
+    fun `a pull needs the built-in client when the upstream's remote-tracking branch uses LFS`(): Unit = runBlocking {
+        val upstream = commitLfsAttributesOnAnotherBranch()
+        // The remote's fetch refspec maps the upstream to its remote-tracking branch
+        git.run(work, "remote", "add", "origin", File(tempDir, "origin.git").absolutePath)
+        git.run(work, "update-ref", "refs/remotes/origin/main", upstream)
+        git.run(work, "config", "branch.main.remote", "origin")
+        git.run(work, "config", "branch.main.merge", "refs/heads/main")
+
+        assertTrue(backend().pullNeedsBuiltinLfs(gitDir, remoteBranch = null))
+    }
+
+    @Test
+    fun `a pull needs the built-in client when the chosen remote branch uses LFS`(): Unit = runBlocking {
+        val feature = commitLfsAttributesOnAnotherBranch()
+        git.run(work, "update-ref", "refs/remotes/origin/feature", feature)
+
+        val remoteBranch = Branch(hash = feature, name = "refs/remotes/origin/feature", isLocal = false)
+        assertTrue(backend().pullNeedsBuiltinLfs(gitDir, remoteBranch))
+        assertFalse(backend().pullNeedsBuiltinLfs(gitDir, remoteBranch = null))
+    }
+
+    @Test
     fun `a clone uses the git CLI`(): Unit = runBlocking {
         assertTrue(backend().useGitCli())
     }
@@ -149,6 +198,19 @@ class RemoteOperationsBackendTest {
 
     private fun useLfs() {
         File(work, ".gitattributes").writeText("*.bin filter=lfs diff=lfs merge=lfs -text\n")
+    }
+
+    /** A commit that adds LFS to `.gitattributes`, on a branch that the working tree doesn't have checked out. */
+    private fun commitLfsAttributesOnAnotherBranch(): String {
+        git.run(work, "switch", "-c", "lfs")
+        useLfs()
+        git.run(work, "add", ".gitattributes")
+        git.run(work, "commit", "-m", "Use LFS")
+        val commit = git.run(work, "rev-parse", "HEAD").trim()
+        git.run(work, "switch", "main")
+        git.run(work, "branch", "-D", "lfs")
+
+        return commit
     }
 
     private fun backend(

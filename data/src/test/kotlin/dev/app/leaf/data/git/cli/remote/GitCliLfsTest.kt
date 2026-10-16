@@ -234,6 +234,27 @@ class GitCliLfsTest {
     }
 
     @Test
+    fun `git pull checks out a pull's new LFS files with git-lfs's filter`(): Unit = runBlocking {
+        val work = cloneWithGit()
+        val pushed = commitLfsFile("second.bin")
+        val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to pathWithGitLfs))
+
+        val result = testGitPullGitAction(jgit, remote.gitCli)(
+            File(work, ".git").path,
+            PullType.MERGE,
+            mergeAutoStash = true,
+            remoteBranch = null,
+            "automatic stash",
+        )
+
+        assertEquals(Either.Ok(false), result)
+        assertEquals(pushed, git.run(work, "rev-parse", "HEAD").trim())
+        assertArrayEquals(File(source, "second.bin").readBytes(), File(work, "second.bin").readBytes())
+        assertEquals(emptyList<String>(), builtinDownloads)
+        assertTrue("filter-process" in gitLfsLog.readLines()) { gitLfsLog.readText() }
+    }
+
+    @Test
     fun `a pull whose LFS files can't be downloaded changes nothing`(): Unit = runBlocking {
         val work = cloneWithGit()
         val before = git.run(work, "rev-parse", "HEAD").trim()

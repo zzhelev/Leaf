@@ -53,6 +53,8 @@ private val NO_EDITOR = mapOf("GIT_EDITOR" to ":")
  * They go through [GitCliRemoteCommand], as git may have to ask: it downloads what a partial clone lacks, git-lfs's
  * filter downloads LFS files, and ssh-keygen asks for the passphrase of a key that signs commits. So the processing
  * screen can cancel them too: git gets SIGTERM, and removes its lock files.
+ *
+ * `git pull` runs through [run] too ([dev.app.leaf.data.git.cli.remote.GitPullGitAction]).
  */
 class GitCliOperations @Inject constructor(
     private val gitCli: GitCli,
@@ -85,14 +87,19 @@ class GitCliOperations @Inject constructor(
      * failure, as is any other exit code but 0, such as 128 for a merge while conflicts are left. No time limit, as
      * git runs hooks.
      *
-     * A merge or a rebase that ends, aborted too, puts back what `merge.autoStash` or `rebase.autoStash` set aside.
-     * When that doesn't apply, git keeps it in the stash list as "autostash", exits with 0 nonetheless, and the tab
-     * shows a notice ([Autostashes.noticeIfKept]).
+     * A merge or a rebase that ends, aborted too, puts back what `merge.autoStash` or `rebase.autoStash` set aside, and
+     * so does `git pull`'s. When that doesn't apply, git keeps it in the stash list as "autostash", exits with 0
+     * nonetheless, and the tab shows a notice ([Autostashes.noticeIfKept]).
+     *
+     * @param failure the error for a failure, by default [GitCliError.CommandFailed] with git's message.
      */
     suspend fun run(
         repositoryPath: String,
         args: List<String>,
         mayStop: Boolean = true,
+        failure: (GitCliOutput) -> GitError = { output ->
+            GitCliError.CommandFailed("git " + args.joinToString(" "), output.exitCode, failureMessage(output))
+        },
     ): Either<Boolean, GitError> = either {
         val workTree = workTree(repositoryPath).bind()
         val autostashOperation = autostashOperation(args)
@@ -107,9 +114,7 @@ class GitCliOperations @Inject constructor(
         when {
             output.exitCode == 0 -> Either.Ok(false)
             mayStop && output.exitCode == STOPPED_EXIT_CODE && hasConflicts(workTree) -> Either.Ok(true)
-            else -> Either.Err(
-                GitCliError.CommandFailed("git " + args.joinToString(" "), output.exitCode, failureMessage(output))
-            )
+            else -> Either.Err(failure(output))
         }
     }
 
@@ -137,10 +142,14 @@ class GitCliOperations @Inject constructor(
     }
 }
 
-/** What git may set the user's changes aside for, as `git <args>` runs: a merge or a rebase. */
+/**
+ * What git may set the user's changes aside for, as `git <args>` runs: a merge or a rebase, or a pull, which merges or
+ * rebases as its flag says.
+ */
 private fun autostashOperation(args: List<String>): AutostashOperation? = when (args.firstOrNull()) {
     "merge" -> AutostashOperation.MERGE
     "rebase" -> AutostashOperation.REBASE
+    "pull" -> if ("--rebase" in args) AutostashOperation.REBASE else AutostashOperation.MERGE
     else -> null
 }
 

@@ -34,22 +34,19 @@ import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.ObjectId
 import org.eclipse.jgit.lib.RefUpdate
 import org.eclipse.jgit.lib.Repository
-import org.eclipse.jgit.lib.RepositoryState
 import org.eclipse.jgit.merge.MergeStrategy
 import org.eclipse.jgit.revwalk.RevWalk
 import java.io.File
 import javax.inject.Inject
 
-private const val LOCAL_REMOTE = "."
-
 /**
  * Pulls like [dev.app.leaf.data.git.remote_operations.PullBranchGitAction], but fetches with `git fetch`: JGit then
- * merges or rebases the fetched commit, as JGit's `PullCommand` does after its own fetch. So Leaf's automatic stash,
- * its conflict handling and its built-in LFS stay, and git never opens an editor for the merge message. When git-lfs
- * is installed, it downloads the commit's LFS objects first ([GitLfsFetch]), so the built-in LFS only reads them.
+ * merges or rebases the fetched commit, as JGit's `PullCommand` does after its own fetch, with Leaf's built-in LFS.
+ * Leaf uses it for a repository that uses LFS when git-lfs doesn't work, where `git pull` ([GitPullGitAction]) would
+ * check out pointer files or fail ([RemoteOperationsBackend.pullNeedsBuiltinLfs]). When git-lfs is installed, it
+ * downloads the commit's LFS objects first ([GitLfsFetch]), so the built-in LFS only reads them.
  *
- * What is pulled is what JGit's `PullCommand` (and git) pulls: [Branch] when one is given, or else the branch's
- * upstream (`branch.<name>.remote` and `branch.<name>.merge`), or else the branch of the same name on `origin`.
+ * What is pulled is what JGit's `PullCommand` (and git) pulls ([pullSource]).
  */
 class GitCliPullBranchGitAction @Inject constructor(
     private val jgit: JGit,
@@ -226,49 +223,5 @@ class GitCliPullBranchGitAction @Inject constructor(
         if (update.update() != RefUpdate.Result.NEW) {
             throw Exception("Could not update ${head.target.name} to the pulled commit")
         }
-    }
-
-    private class PullSource(
-        val remote: String,
-        /** The full name of the ref to pull from the remote, such as `refs/heads/main`. */
-        val ref: String,
-        /** Whether it's the branch's configured upstream. */
-        val isUpstream: Boolean,
-        val directory: File,
-        val gitDir: File,
-    )
-
-    private fun pullSource(repository: Repository, remoteBranch: Branch?): PullSource {
-        if (repository.repositoryState != RepositoryState.SAFE) {
-            throw Exception("Can't pull while this is in progress: ${repository.repositoryState.description}")
-        }
-
-        val directory = repository.commandDirectory()
-        val gitDir = repository.directory
-
-        if (remoteBranch != null) {
-            return PullSource(
-                remote = remoteBranch.remoteName,
-                ref = Constants.R_HEADS + remoteBranch.simpleName,
-                isUpstream = false,
-                directory = directory,
-                gitDir = gitDir,
-            )
-        }
-
-        val branch = repository.fullBranch?.takeIf { it.startsWith(Constants.R_HEADS) }?.removePrefix(Constants.R_HEADS)
-            ?: throw Exception("HEAD isn't on a branch, so there is no branch to pull into.")
-
-        val config = repository.config
-        val merge = config.getString(ConfigConstants.CONFIG_BRANCH_SECTION, branch, ConfigConstants.CONFIG_KEY_MERGE)
-        val remote = config.getString(ConfigConstants.CONFIG_BRANCH_SECTION, branch, ConfigConstants.CONFIG_KEY_REMOTE)
-
-        return PullSource(
-            remote = remote ?: Constants.DEFAULT_REMOTE_NAME,
-            ref = (merge ?: branch).let { if (it.startsWith(Constants.R_REFS)) it else Constants.R_HEADS + it },
-            isUpstream = merge != null && remote != null,
-            directory = directory,
-            gitDir = gitDir,
-        )
     }
 }

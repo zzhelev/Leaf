@@ -40,8 +40,9 @@ private const val OVERWRITE_FILE_TXT =
     "The pull didn't merge, as it would overwrite your changes to file.txt. Commit or stash them, then pull again."
 
 /**
- * Fetching and pulling with the git CLI ([GitCliFetchAllRemotesGitAction], [GitCliPullBranchGitAction]) from bare
- * repositories on disk, which another clone changes. Skipped when the askpass helper isn't built.
+ * Fetching with the git CLI ([GitCliFetchAllRemotesGitAction]), and pulling with git's fetch and JGit's merge or rebase
+ * ([GitCliPullBranchGitAction], which LFS repositories use where git-lfs doesn't work), from bare repositories on disk,
+ * which another clone changes. `git pull` is [GitPullTest]'s. Skipped when the askpass helper isn't built.
  */
 @DisabledOnOs(OS.WINDOWS)
 class GitCliFetchPullTest {

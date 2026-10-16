@@ -280,6 +280,25 @@ class PartialCloneTest {
         assertEquals("", status())
     }
 
+    @Test
+    fun `git pull downloads what it merges itself`(): Unit = runBlocking {
+        git.run(source, "mv", "c.txt", "e.txt")
+        commit("four", "a.txt" to "v4\n")
+
+        val hasConflicts = testGitPullGitAction(jgit, remote.gitCli)(
+            gitDir,
+            PullType.MERGE,
+            mergeAutoStash = true,
+            remoteBranch = null,
+            "automatic stash",
+        )
+
+        assertEquals(Either.Ok(false), hasConflicts)
+        assertEquals("v4\n", File(clone, "a.txt").readText())
+        assertTrue(File(clone, "e.txt").isFile)
+        assertEquals("", status())
+    }
+
     private fun commit(message: String, vararg files: Pair<String, String>): String {
         for ((path, content) in files) {
             File(source, path).writeText(content)
