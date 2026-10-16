@@ -1034,6 +1034,11 @@ does when git can't.
   merge that completed, as before, and (fork-only) after a failure that changed nothing: HEAD still at the backup's
   first parent and no merge in progress (`IsUnchangedSinceGitAction`), unless the task was cancelled. Each of git's
   refusals used to leave a stash. It's kept after conflicts and after a hook that refuses with `MERGE_HEAD` left.
+- The backup's message, and the pulls', names branches, which can hold `'` and `{`. So (fork-only)
+  `SnapshotStashCreateCommand` takes a message as text, and formats only its own default patterns with `MessageFormat`,
+  where `'` quotes and `{` starts an argument. JGit's `StashCreateCommand` formats any message, so
+  `StashChangesGitAction` passes the user's through `messageFormatText`. Tests: `StashMessagesTest`, and two in
+  `MergingWithAutostashTest`.
 - Tests: `GitCliOperationsTest` (each operation, conflicts, git's refusals, a renamed file, hooks, an identity from
   `includeIf`, a merge signed with an SSH key whose passphrase Leaf asks for, Continue after git's rebase stopped, and
   JGit without git or the helper).

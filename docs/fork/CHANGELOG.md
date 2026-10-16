@@ -2,6 +2,44 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Stashes keep the message they're given (branch `fix/backup-stash-message`)
+
+- **Before:** `SnapshotStashCreateCommand` (Gitnuro's, copied from JGit's `StashCreateCommand`) ran its message through
+  `java.text.MessageFormat`, as a pattern for the branch, the commit and its subject. Its callers give a finished
+  sentence that names branches: Merge's backup (`Automatic snapshot stash before merge of "feature" to "main"`) and
+  both pulls'. git allows `'` and `{` in a branch's name (`git check-ref-format --branch` takes `it's`, `a{b}`, `a{`
+  and `x{1}`), and `MessageFormat` reads `'` as a quote and `{` as an argument. So, with uncommitted changes and
+  "Automatically stash uncommitted changes before merge" on:
+  - an `'` was dropped from the backup's message (`it's` gave `its`, seen in a test on 2026-10-16);
+  - a `{` failed the backup with `IllegalArgumentException` (`can't parse argument number: b`, `Unmatched braces in the
+    pattern.`), so Merge and pull failed before they started, with that text in `ErrorDialog`;
+  - `{1}` became the commit's short id.
+
+  A stash that the user names ("Stash with message") went through JGit's own `StashCreateCommand`, which does the
+  same: "don't" was saved as "dont", and a `{` failed the stash.
+- **Now:**
+  - `SnapshotStashCreateCommand` takes `indexMessage` and `workingDirectoryMessage` as text. They're null by default,
+    and then it formats its default patterns as before. Its callers didn't change.
+  - `StashChangesGitAction` passes the user's message through the fork-only `messageFormatText`
+    (`MessageFormatText.kt`), a pattern that JGit formats back to the text. A quote holds a `{` and every `{` and `'`
+    that follow it: a quote that ends where the next one starts, or before a `''`, pairs up as a `'` of the text (the
+    first version gave `{'{` for `{{`, which the test below caught).
+- **Tests** (on `ff6e2b84`):
+  - `MergingWithAutostashTest` (+2): Merge of a branch `it's` and of a branch `a{b}`, with uncommitted changes, stops
+    at a conflict, and the backup's stash list entry and commit message are the sentence as given. Before the fix the
+    first gave `its`, and the second failed with `can't parse argument number: b`. Its `BACKUP_MESSAGE` has its
+    apostrophe back ("Leaf's backup before merging"), which three more tests then failed on.
+  - `StashMessagesTest` (5, new): a backup's message and the user's stash message, both with `{0} a{b} it's {1} ''`,
+    are kept as they are (both failed with `can't parse argument number: b` before). The default messages
+    (`Snapshot WIP on`, `index on`, `untracked files on`, and JGit's `WIP on`) still fill in a branch named `it's{0}`
+    and a subject with `{1}` as they are. `messageFormatText` gives back each of the 19,530 texts of up to 6 of
+    `'{}0a`.
+  - `:data` passes (1,141 tests, none skipped), and `:app` compiles. The other modules' tests don't reach this code,
+    and weren't run.
+  - Run in a window (a dev run on 2026-10-16, with the demo repository that `/tmp/leaf-stash-message-demo-setup.sh`
+    makes): Merge of `a{b}` and of `it's`, with an uncommitted change, stopped at the conflict, and the stash list had
+    each backup with its branch's name as it is. "Stash with message" wasn't tried there.
+
 ## Changes that git sets aside come back (branch `fix/merge-autostash`)
 
 - **Before:** since Merge runs `git merge` (item 4), a user's `merge.autoStash=true` set local changes aside in
