@@ -2,6 +2,48 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Changes that git sets aside come back (branch `fix/merge-autostash`)
+
+- **Before:** since Merge runs `git merge` (item 4), a user's `merge.autoStash=true` set local changes aside in
+  `MERGE_AUTOSTASH`. So did the worktree merge dialog's `--squash` and `--no-commit` merges, and a merge from a
+  terminal or an agent. git keeps them there until the merge is committed or aborted.
+  - Leaf's commit (JGit) and Leaf's Abort (JGit's hard reset) left the ref, and the changes were gone from the working
+    tree. The next `git commit` in a terminal put them back without a word, maybe days later, and `git reset --hard`
+    or the next `git merge` stored them in the stash list (git 2.54 probed).
+  - The squash merge's Abort (`git reset --merge`) stored them in the stash list, where its dialog says unstaged
+    changes are kept.
+  - When putting them back conflicted, git stored them as "autostash" and exited with 0. Leaf said "Merge completed"
+    (or "Rebase completed", with `rebase.autoStash`) while files had conflicts, and deleted its backup snapshot.
+  - Leaf kept its backup snapshot after every failed merge, git's refusals included, so each refusal left a stash.
+- **Now** (`Autostashes.kt`, `data/git/cli/operations/`):
+  - Merge honours `merge.autoStash`, as the user decided: a merge with local changes in the files it merges goes
+    through, where git refused before (and JGit before item 4).
+  - Leaf puts the changes back as git does: after every Leaf commit, as `git commit`, and after Abort of a merge,
+    cherry-pick or revert, as `git merge --abort`. That's `git stash apply`, or `git stash store -m autostash`, then
+    the ref goes. The squash merge's Abort takes the ref out before `git reset --merge`, as `git merge --abort` does,
+    and puts it back when git refuses.
+  - When they don't go back, a dialog says so (`AutostashNoticeDialog`): what set them aside, when, the files with
+    conflicts, and that they're in the stash list as "autostash" (the side panel shows "On main: autostash"). It
+    isn't a toast, which would be gone before it's read. For git's own merges and rebases, `GitCliOperations.run`
+    notices a new "autostash" entry after an exit code of 0, Continue and Abort of a rebase included.
+  - Leaf's commit refreshes the stash list.
+  - `MergeBranchUseCase` deletes its backup after a failure that changed nothing: HEAD where it was, no merge in
+    progress, and not cancelled (`IsUnchangedSinceGitAction`).
+- **Tests** (on `4a7df80f`):
+  - `AutostashesTest` (7): each put-back case against `git commit` in a twin repository, a linked worktree, a
+    reftable repository (skipped where git has no reftable backend), and another tool's stash made meanwhile.
+  - `MergingWithAutostashTest` (10, in a `TestTab`): Merge, Leaf's commit and Abort, the squash merge's Abort and
+    commit, a refused squash Abort, the notice, the stash list's refresh, the backup.
+  - `GitCliOperationsTest` (+4): a rebase's notice, after Continue and Abort too, and none when the changes go back.
+  - `AutostashNoticeDialogTest` (5).
+  - **Mutation check:** 20 mutations, all caught: apply versus store, removing the ref, the squash Abort taking it out
+    and putting it back, the notice's conditions (exit code 0, a new entry, named "autostash", merge and rebase,
+    Abort), the put-back after a commit and after Abort, the stash list's refresh, the backup rule both ways and its
+    repository state, the files listed, and the dialog's texts. The name check and the Abort case needed two more
+    tests, added. Not checked: a cancelled merge keeping its backup, and a failing `git stash store`.
+  - The full suite passes: `:app` 320 tests, `:domain` 340, `:data` 1128, `:common` 7.
+  - The dialog was rendered offscreen and looked at. Not yet run in a window (`/tmp/leaf-autostash-demo-setup.sh`
+    makes a demo repository).
 ## The commit field's draft is Leaf's own (branch `fix/commit-draft-file`)
 
 - **Before:** the commit field kept its draft in git's `.git/COMMIT_EDITMSG` (upstream's behaviour), and filled from it

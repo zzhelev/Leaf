@@ -361,6 +361,8 @@ code, "worktree" means the working directory, not linked worktrees.
   - Fork-only: a toast stays as long as its text takes to read (`notificationDuration`: 2 s plus 60 ms a character,
     4 to 12 s, and at least 6 s for a warning or an error), and while the pointer is over it. Upstream's went after
     2 s, before a longer message could be read.
+  - Fork-only: a task that succeeded but left the user's set-aside changes in the stash list also shows a dialog,
+    `AutostashNoticeDialog` (see Changes that git sets aside).
   - The toast is gone after a few seconds, so `OperationInProgressBanner` (fork-only, `ui/status/`) shows an amber strip under
     the toolbar while the repository is in the middle of a merge, rebase, cherry-pick or revert, with the files that
     still have conflicts and an Abort button right after the text (the text is only as wide as it needs, so the
@@ -953,12 +955,14 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
     then the plain draft), and saves edits to it (`PersistSquashMessageUseCase`, which never empties it).
   - `OperationInProgressBanner` says "Squash merge staged…" (`Operation.SQUASH`). Its Abort runs `git reset --merge`
     (`AbortSquashMergeUseCase`), which undoes the staged changes and keeps unstaged ones, and refuses, changing nothing,
-    while a file that the squash merge changed has unstaged changes.
+    while a file that the squash merge changed has unstaged changes. What `merge.autoStash` set aside comes back too
+    (see Changes that git sets aside).
   - A squash merge that stops at conflicts writes `MERGE_MSG` too. Ours is the target; theirs is "the changes being
     applied", as git doesn't record the branch.
 - **After Leaf's commit,** `CleanUpAfterCommitGitAction` removes what git's commit removes and JGit's leaves:
   `SQUASH_MSG`, `MERGE_MSG`, `MERGE_MODE` and `AUTO_MERGE`, unless a rebase goes on. A `MERGE_MSG` left there would be
-  the message of the next commit made in a terminal.
+  the message of the next commit made in a terminal. Then `PutBackMergeAutostashGitAction` puts back what
+  `merge.autoStash` set aside (see Changes that git sets aside).
 - **The commit field** (fork-only fixes): a commit clears the field it committed from. Upstream cleared the field shown
   after the commit's refresh, which was the plain draft after a merge, and the next merge then showed the old merge
   message, as a field fills from its file only while it's blank. For the same reason, a merge's or a squash merge's
@@ -1026,9 +1030,49 @@ does when git can't.
 - The `Selecting…GitAction`s are bound in place of JGit's: git when `GitCliOperations.useGitCli()` (a usable git and
   the askpass helper), JGit otherwise. The "Use git for remote operations" setting doesn't apply. Pull still merges
   and rebases with JGit (see Remote operations), and so does the interactive rebase.
+- `MergeBranchUseCase` deletes its backup snapshot ("Automatically stash uncommitted changes before merge") after a
+  merge that completed, as before, and (fork-only) after a failure that changed nothing: HEAD still at the backup's
+  first parent and no merge in progress (`IsUnchangedSinceGitAction`), unless the task was cancelled. Each of git's
+  refusals used to leave a stash. It's kept after conflicts and after a hook that refuses with `MERGE_HEAD` left.
 - Tests: `GitCliOperationsTest` (each operation, conflicts, git's refusals, a renamed file, hooks, an identity from
   `includeIf`, a merge signed with an SSH key whose passphrase Leaf asks for, Continue after git's rebase stopped, and
   JGit without git or the helper).
+
+**Changes that git sets aside (fork-only, `data/git/cli/operations/Autostashes.kt`):** Leaf's merges and rebases run
+git without `--no-autostash`, so the user's `merge.autoStash` and `rebase.autoStash` apply, as in a terminal: git sets
+local changes aside (a stash commit) and puts them back when the operation ends. Findings from git 2.54 are in the
+tests.
+- A rebase's (`rebase-merge/autostash`) is git's to the end: Leaf's Continue, Skip and Abort run git for a rebase that
+  git started.
+- A merge's waits in `MERGE_AUTOSTASH` until the merge is committed or aborted, even after a clean `--no-commit` or
+  `--squash` merge (the worktree merge dialog). `git commit` puts it back after any commit, and `git merge --abort`
+  after the reset; `git reset --hard`, `git reset --merge` and `git merge --quit` store it in the stash list instead.
+  Leaf commits with JGit and aborts with JGit's hard reset or `git reset --merge`, so it puts it back itself:
+  - `PutBackMergeAutostashGitAction`, after every Leaf commit (`DoCommitUseCase`) and after Abort of a merge,
+    cherry-pick or revert (`ResetRepositoryStateUseCase`): `git stash apply <id>`, else
+    `git stash store -m autostash <id>`, then `git update-ref -d MERGE_AUTOSTASH <id>`, as git's
+    `apply_save_autostash_ref`. A failure leaves the ref, so nothing is lost, and is only logged.
+  - `AbortSquashMergeGitAction` takes the ref out first, as `git merge --abort` does, then runs `git reset --merge` and
+    puts it back. When git refuses, the ref goes back, and the squash merge waits as before.
+  - Left behind, the next `git commit` in a terminal put the changes back without a word, maybe days later and on
+    another branch; `git reset --hard` or the next `git merge` stored them. Leaf left it behind until 2026-10-16.
+  - git keeps it per worktree, and with the reftable backend it isn't a file, so Leaf asks git
+    (`git rev-parse -q --verify MERGE_AUTOSTASH`).
+- **When they don't go back** (they conflict with the result, changes made since are in the way, or an untracked file
+  is where a staged new file of the user's was, which a `git rebase --abort` meets too), git stores them in
+  the stash list as "autostash", and still exits with 0: after a merge or a rebase, Leaf says "Merge completed" while
+  files have conflicts. So `GitCliOperations.run` compares the stash list's newest entry before and after a merge or
+  rebase that exits with 0 (`noticeIfKept`: a new one named "autostash"), and the put-back reports its own.
+  - Both add an `AutostashNotice` (what set them aside, when they were put back, and the files with conflicts, empty
+    when the apply was refused) to `RepositoryStateRepository.autostashNotices`. The tab shows each in
+    `AutostashNoticeDialog` (`Screen.ChangesInStash`), with the setting, the files and "autostash" in the monospace
+    font, until OK. It isn't a toast, which would be gone before it's read, nor an `ErrorDialog`, as the commit or
+    abort succeeded.
+- Tests: `AutostashesTest` (each case of the put-back against `git commit` in a twin repository, a linked worktree, a
+  reftable repository when git has the backend, and another tool's stash made meanwhile), `MergingWithAutostashTest`
+  (Merge, Leaf's commit and Abort, the squash Abort and commit, and the backup, in a `TestTab`),
+  `GitCliOperationsTest` (a rebase's notice, after Continue and Abort too, and none when the changes go back),
+  `AutostashNoticeDialogTest`.
 
 **A rebase that git started (fork-only, `data/git/rebase/GitCliRebase.kt`):** Continue, Skip and Abort, in the status
 pane and the banner, run `git rebase --continue`, `--skip` or `--abort` for a rebase that git started: Rebase in the
