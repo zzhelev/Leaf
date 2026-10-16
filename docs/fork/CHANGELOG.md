@@ -2,6 +2,58 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Pull runs git pull (branch `fix/git-cli-pull`)
+
+- **Before:** Pull fetched with git, then JGit merged or rebased what `FETCH_HEAD` marked
+  (`GitCliPullBranchGitAction`), so a pull didn't get what Merge and Rebase got with item 4: git's merge engine, which
+  follows renames, git's messages, and the hooks that only git runs (`pre-merge-commit`, `post-merge`,
+  `post-rewrite`). JGit's rebase onto the fetched commit replayed the commits that a force-pushed upstream had replaced,
+  which could stop at their conflicts. `merge.autoStash` and `rebase.autoStash` didn't apply, and refusals had Leaf's
+  own message.
+- **Now** (`GitPullGitAction`, `data/git/cli/remote/`): Pull runs `git pull --progress` with `--no-rebase --no-edit`
+  or `--rebase`, through `GitCliOperations.run`, as in a terminal. The user decided on 2026-10-16
+  (`docs/fork/remote-operations.md`, stage 6):
+  - Merging or rebasing stays Leaf's setting and its menu: git's `pull.rebase` doesn't decide.
+  - `pull.ff=only` refuses a merge, even one chosen from the menu: Leaf reads it with `git config` (so `includeIf`
+    applies) and adds `--ff-only`, as an explicit `--no-rebase` merges otherwise.
+  - `merge.autoStash` and `rebase.autoStash` apply. Changes that don't go back get `AutostashNoticeDialog`, as with
+    Merge: `GitCliOperations.run` counts `git pull` as a merge or a rebase by its flag. A merge's `MERGE_AUTOSTASH`
+    waits for Leaf's commit or Abort, which put it back.
+  - Stopped at conflicts is exit code 1 with unmerged paths; any other failure is a `RemoteOperationError` with git's
+    message, local changes in the way included.
+  - The backup snapshot stays for merge pulls only, and is deleted after a pull that completed, or that failed
+    without changing anything (`IsUnchangedSinceGitAction`, as Merge does).
+  - With an upstream, git gets no remote and no branch, and pulls it; otherwise Leaf names the chosen remote branch,
+    or the branch of the same name on `origin` (`pullSource`, moved to `PullSource.kt`). Leaf's own checks for a
+    detached HEAD and an operation in progress run first.
+  - A repository that uses LFS, where git-lfs doesn't work, keeps the old pull (`pullNeedsBuiltinLfs`): `git pull`
+    would check out pointer files, or fail with `filter.lfs.required`. LFS counts from the `lfs` folder, or
+    `filter=lfs` in the root `.gitattributes` of the working tree or of what is pulled, as its remote-tracking branch
+    has it. `SelectingPullBranchGitAction` chooses among the three pulls.
+  - Not changed: the domain, the app, the DI modules, and Gitnuro's files. `GIT_SEQUENCE_EDITOR`, which the plan
+    added, isn't needed: `--rebase` overrides `pull.rebase=interactive`, the only way to an interactive rebase here.
+- **Tests:**
+  - `GitPullTest` (31): fast-forwards, `pull.ff` (`false`, `only` from an `includeIf` file, `only` with a
+    fast-forward and with a rebase), git's merge messages on `main` and off it, rebasing, a force-pushed upstream
+    (fork point), merge and rebase conflicts, local changes and an untracked file in the way, a rebase refused before
+    fetching, `rebase.autoStash` and `merge.autoStash` (put back, kept with a notice, and `MERGE_AUTOSTASH` during
+    conflicts), hooks (`post-merge`, a refusing `pre-merge-commit`, `post-rewrite`), a renamed file, a chosen remote
+    branch, no upstream, a local upstream, a missing upstream branch, a fetch that fails, a detached HEAD, and a branch
+    without commits.
+  - `RemoteOperationsBackendTest` (+6), `GitCliLfsTest` (+1: git-lfs's filter checks the files out),
+    `PartialCloneTest` (+1). `GitCliFetchPullTest` stays, for the old pull.
+  - **Mutation check:** 13 mutations, all caught by named tests: `pull` not counted as a merge or a rebase for the
+    notice, and the two swapped; no `--ff-only` from `pull.ff`; `--no-autostash` on merge pulls; the backup rule each
+    way (kept after success, deleted after conflicts, kept after any failure, deleted after any failure); no remote
+    and branch without an upstream; `GitCliError` in place of `RemoteOperationError`; and the LFS choice (never the
+    old pull, git-lfs not checked, the pulled commit not read). Not checked: a cancelled pull keeping its backup.
+  - The full build passes: `:app` 320 tests, `:domain` 341, `:data` 1173, `:common` 7.
+  - Manual run: `/tmp/leaf-pull-demo-setup.sh` makes a demo repository (a renamed file, `merge.autoStash` with an
+    uncommitted edit, hooks that log, and a force-pushed branch in a linked worktree), checked with plain git. Run in a
+    window on 2026-10-16: a merge pull made git's merge commit ("Merge branch 'main' of /tmp/leaf-pull-demo/origin")
+    and followed the rename, with `post-merge`; rebase pulls were refused with git's message while the edit was
+    uncommitted, then rebased with `post-rewrite`. The force-pushed worktree wasn't pulled in a window.
+
 ## Stashes keep the message they're given (branch `fix/backup-stash-message`)
 
 - **Before:** `SnapshotStashCreateCommand` (Gitnuro's, copied from JGit's `StashCreateCommand`) ran its message through

@@ -25,7 +25,8 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
 - **Recommendation:** move remote operations to the git CLI in stages: push first, then fetch and pull, then clone.
   Keep JGit and libssh only as a fallback when no usable git is found. Fix the TLS problem now, whatever the
   decision. Section 4 has the plan. Stages 0, 1 (push), 2 (fetch and pull), 3 (clone and submodules) and 4 (LFS
-  downloads with git-lfs) are done, and so is stage 5: libssh is gone.
+  downloads with git-lfs) are done, and so is stage 5: libssh is gone. Since stage 6, a pull merges or rebases with
+  git too (`git pull`).
 
 ## 1. How remote operations work today
 
@@ -376,6 +377,7 @@ Found while building it:
 - JGit's merge of a pull that would overwrite local changes returns `FAILED` (or throws `CheckoutConflictException`
   for a fast-forward), and Leaf's JGit pull reported it as "Pull completed". Both pulls now report the files.
 - JGit's merge message adds ` into main`, which git leaves out for `main` and `master`. Both pulls keep JGit's.
+  Stage 6 replaced this pull with `git pull`, except in LFS repositories where git-lfs doesn't work.
 
 **Stage 3: clone and submodules (M), done on branch `feat/git-cli-clone`.** The fork changelog and CLAUDE.md
 ("Remote operations") describe what was built; the plan as written before follows.
@@ -569,6 +571,31 @@ Found while building it:
   reading `core.sshCommand` needs no case of its own for it.
 - Measured on this machine (Apple Silicon), cold, with Cargo's caches warm: the release build of `rs/` went from 97 s
   to 72 s, the debug build from 88 s to 18 s, and `libleaf_rs.dylib` from 4,154,464 to 595,072 bytes.
+
+**Stage 6: pull merges with git (M), done on branch `fix/git-cli-pull`.** After Merge, cherry-pick, revert and Rebase
+moved to git (item 4), a pull runs `git pull` (`GitPullGitAction`), through `GitCliOperations.run`. The fork changelog
+and CLAUDE.md ("Remote operations") describe it. Planned on 2026-10-16 with probes against git 2.54; the user's
+decisions:
+- Merging or rebasing stays Leaf's setting and its menu (`--rebase` or `--no-rebase`); git's `pull.rebase` doesn't
+  decide.
+- `pull.ff=only` refuses a merge, even when chosen from the menu: Leaf adds `--ff-only`, as an explicit `--no-rebase`
+  merges otherwise.
+- `merge.autoStash` and `rebase.autoStash` apply, and changes that don't go back get `AutostashNoticeDialog`, as with
+  Merge (`fix/merge-autostash`, which made Leaf's commit and Abort put back `MERGE_AUTOSTASH`).
+- A repository that uses LFS, where git-lfs doesn't work, keeps stage 2's pull (git's fetch, JGit's merge with the
+  built-in LFS). Leaf's built-in client as git's LFS filter would cover `git pull` and item 4's operations too, and
+  is its own item.
+- The backup snapshot stays for merge pulls only, with Merge's rule for deleting it.
+- Refusals show git's message.
+
+Found while building it:
+- `git pull --rebase` rebases from the fork point that the remote-tracking branch's reflog gives, so a force-pushed
+  upstream's replaced commits are left out. `git rebase FETCH_HEAD`, and JGit's rebase onto the fetched commit,
+  replayed them, with conflicts.
+- With an upstream, a branch that the remote doesn't have gives git's "Your configuration specifies to merge with the
+  ref … but no such ref was fetched", exit code 1, like a fetch that fails, so only unmerged paths tell conflicts.
+- JGit's `BranchConfig.getRemoteTrackingBranch` maps an upstream through the remote's fetch refspec, so it gives
+  nothing for a remote that isn't configured.
 
 ### Decisions
 

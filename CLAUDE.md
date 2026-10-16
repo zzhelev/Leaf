@@ -273,7 +273,7 @@ asking.
   `config/IncludedConfig.kt`):** JGit's parser expands only `[include]`, so what a file that `includeIf` names sets (a
   work identity for `~/work/`, signing, `core.hooksPath`, `core.autocrlf`, …) never reached JGit (Gitnuro#186).
   `JGit.open` opens an `IncludedConfigRepository`, whose config is the repository's own file on a layer of what only
-  git reads, on the user's config. JGit's own commits (pull's merge and rebase, the interactive rebase, and merge,
+  git reads, on the user's config. JGit's own commits (the interactive rebase, and pull's merge and rebase, merge,
   cherry-pick, revert and rebase when git can't run them), its reflog entries, its stashes and its other settings then
   see what git sees.
   - `GitIncludedConfig` runs `git --git-dir=<git dir> config --list -z --show-origin --show-scope` and keeps the
@@ -1028,8 +1028,8 @@ does when git can't.
   `CHERRY_PICK_HEAD` (Abort in the banner), and the revert leaves only `MERGE_MSG`, which Leaf's commit field doesn't
   show outside a merge.
 - The `Selecting…GitAction`s are bound in place of JGit's: git when `GitCliOperations.useGitCli()` (a usable git and
-  the askpass helper), JGit otherwise. The "Use git for remote operations" setting doesn't apply. Pull still merges
-  and rebases with JGit (see Remote operations), and so does the interactive rebase.
+  the askpass helper), JGit otherwise. The "Use git for remote operations" setting doesn't apply. Pull runs
+  `git pull` (see Remote operations); the interactive rebase stays with JGit.
 - `MergeBranchUseCase` deletes its backup snapshot ("Automatically stash uncommitted changes before merge") after a
   merge that completed, as before, and (fork-only) after a failure that changed nothing: HEAD still at the backup's
   first parent and no merge in progress (`IsUnchangedSinceGitAction`), unless the task was cancelled. Each of git's
@@ -1043,10 +1043,10 @@ does when git can't.
   `includeIf`, a merge signed with an SSH key whose passphrase Leaf asks for, Continue after git's rebase stopped, and
   JGit without git or the helper).
 
-**Changes that git sets aside (fork-only, `data/git/cli/operations/Autostashes.kt`):** Leaf's merges and rebases run
-git without `--no-autostash`, so the user's `merge.autoStash` and `rebase.autoStash` apply, as in a terminal: git sets
-local changes aside (a stash commit) and puts them back when the operation ends. Findings from git 2.54 are in the
-tests.
+**Changes that git sets aside (fork-only, `data/git/cli/operations/Autostashes.kt`):** Leaf's merges, rebases and
+pulls run git without `--no-autostash`, so the user's `merge.autoStash` and `rebase.autoStash` apply, as in a
+terminal: git sets local changes aside (a stash commit) and puts them back when the operation ends. Findings from git
+2.54 are in the tests.
 - A rebase's (`rebase-merge/autostash`) is git's to the end: Leaf's Continue, Skip and Abort run git for a rebase that
   git started.
 - A merge's waits in `MERGE_AUTOSTASH` until the merge is committed or aborted, even after a clean `--no-commit` or
@@ -1110,8 +1110,37 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
   one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
   dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
-- Pull (`GitCliPullBranchGitAction`) fetches with git, then JGit merges or rebases, as its `PullCommand` does after its
-  own fetch: Leaf's automatic stash, conflict handling and built-in LFS stay, and git never opens an editor.
+- Pull runs `git pull` (`GitPullGitAction`) through `GitCliOperations.run`, as Merge runs `git merge`: git fetches,
+  then merges or rebases with its own engine (ort, which follows renames), its messages (`Merge branch 'main' of
+  <url>`, and ` into feat` off `main` and `master`), its hooks and git-lfs's filter. A rebase starts from the fork
+  point, so the commits that a force-pushed upstream replaced are left out; JGit's rebase onto the fetched commit
+  replayed them, and could stop at their conflicts. JGit pulled until 2026-10-16.
+  - Merging or rebasing is Leaf's choice, passed as `--no-rebase` or `--rebase`, so `pull.rebase` and
+    `branch.<name>.rebase` don't apply, as with JGit. An explicit `--no-rebase` merges even with `pull.ff=only`, and
+    Leaf's Pull button passes one too, so Leaf reads `pull.ff` with `git config` (for `includeIf`) and adds
+    `--ff-only` when it's `only`, as JGit refused. `--rebase` ignores `pull.ff`, as JGit's rebase did.
+  - What is pulled is what JGit's `PullCommand` pulls (`pullSource`, which refuses a detached HEAD, or a merge or
+    rebase in progress, before git runs): with an upstream, git gets no remote and no branch, so it fetches the whole
+    remote, or fetches nothing for a local upstream (remote `.`); otherwise Leaf names the chosen remote branch, or the
+    branch of the same name on `origin`. A branch without commits takes the pulled commit.
+  - `merge.autoStash` and `rebase.autoStash` apply (see Changes that git sets aside). When the changes that git set
+    aside don't go back, git exits with 0 and the tab shows `AutostashNoticeDialog`: `GitCliOperations.run` counts
+    `git pull` as a merge or a rebase by its flag.
+  - Stopped at conflicts is exit code 1 with unmerged paths. git also exits with 1 for a fetch that fails and for
+    local changes in the way of a fast-forward, with 2 for local changes in the way of a merge, and with 128 for a
+    rebase with unstaged changes: those are `RemoteOperationError`s (`remoteOperationError`), with git's message, which
+    names the files, in place of Leaf's own ("The pull didn't merge, as it would overwrite your changes to …").
+  - Before a merge pull, Leaf takes its backup snapshot ("Automatically stash uncommitted changes before merge"), and
+    deletes it after a pull that completed, or that failed without changing anything (`IsUnchangedSinceGitAction`, as
+    Merge does). It's kept after conflicts, and after a hook that refuses with `MERGE_HEAD` left. A rebase pull takes
+    none: git refuses uncommitted changes before it fetches, unless `rebase.autoStash` sets them aside.
+- A repository that uses LFS, where git-lfs doesn't work, pulls with `GitCliPullBranchGitAction` instead
+  (`RemoteOperationsBackend.pullNeedsBuiltinLfs`), as `git pull` would check out pointer files without a word, or fail
+  with `filter.lfs.required` (which `git lfs install` sets), a rebase halfway. It fetches with git, then JGit merges or
+  rebases with Leaf's built-in LFS, as its `PullCommand` does after its own fetch, and git never opens an editor.
+  - A repository uses LFS when its common git dir has an `lfs` folder, or a root `.gitattributes` names `filter=lfs`:
+    the working tree's, or that of the commit pulled as its remote-tracking branch has it (a file that a partial clone
+    hasn't downloaded counts as no).
   - What is pulled is what `PullCommand` pulls: the chosen remote branch, or the upstream (`branch.<name>.remote` and
     `.merge`), or the branch of the same name on `origin`. An upstream is fetched with `git fetch <remote>`, which
     updates every remote-tracking branch and marks it for merge in `FETCH_HEAD`. Anything else is fetched by name.
@@ -1120,12 +1149,12 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   - The merge message names it with git's own description from `FETCH_HEAD` (`branch 'main' of <url>`), and JGit adds
     ` into <branch>`. `pull.ff` is read as `PullCommand` reads it. An upstream that is a local branch (remote `.`) is
     merged without fetching, and a branch without commits takes the pulled commit.
-  - `mergeHasConflicts` and `rebaseHasConflicts` (`remote_operations/PullOutcome.kt`) tell both pulls, JGit's and the
-    CLI's, what happened. A merge that would overwrite local changes throws `PullWouldOverwriteException` (JGit
+  - `mergeHasConflicts` and `rebaseHasConflicts` (`remote_operations/PullOutcome.kt`) tell both pulls, JGit's and
+    this one, what happened. A merge that would overwrite local changes throws `PullWouldOverwriteException` (JGit
     returns `FAILED`, or throws `CheckoutConflictException` for a fast-forward); it used to count as a pull without
-    conflicts. The CLI pull then drops its backup stash, since nothing changed. A rebase's `CONFLICTS` and `FAILED`
+    conflicts. This pull then drops its backup stash, since nothing changed. A rebase's `CONFLICTS` and `FAILED`
     throw it too (local files stopped it, and the branch is as it was); `CONFLICTS` used to count as conflicts.
-  - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (both pulls and both clones). It turns on
+  - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (JGit's pull, this one, and both clones). It turns on
     `filter.lfs.useJGitBuiltin` in the cached repository's in-memory config, and puts it back in `finally`: an
     action's `config.save()`, such as saving the author, writes that config to `.git/config`.
 - Clone (`GitCliCloneRepositoryGitAction`) runs `git clone --progress --no-checkout -- <url> <folder>` from the
@@ -1142,9 +1171,10 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     names its folder. The clone dialog's error box scrolls once it's 200 dp tall, as git's output can be long.
   - `CloneViewModel` no longer creates the folder first, so a failed clone leaves none. JGit's clone, the fallback,
     removes the folder too when it created it.
-- **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, or merges or rebases what a pull fetched, Leaf
-  runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every object in `<git dir>/lfs/objects` (git-lfs
-  and JGit use the same layout), so Leaf's built-in client (`app/.../lfs/`) downloads nothing.
+- **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, or merges or rebases what
+  `GitCliPullBranchGitAction` fetched, Leaf runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every
+  object in `<git dir>/lfs/objects` (git-lfs and JGit use the same layout), so Leaf's built-in client (`app/.../lfs/`)
+  downloads nothing. `git pull` needs none of it: git-lfs's filter (`filter-process`) checks the files out.
   - It runs only when the commit's root `.gitattributes` has `filter=lfs` and `git lfs version` works. In a large
     repository without LFS, git-lfs would read the whole tree to find out. Without git-lfs, the built-in client
     downloads as before.
@@ -1223,8 +1253,9 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     them itself.
 
   It decides before git starts, never after a failure, which could push twice. The LFS condition applies only to
-  push: a fetch doesn't involve git-lfs, and JGit does a pull's merge and a clone's checkout either way. A clone has
-  no repository yet, so it asks `useGitCli()` without one.
+  push: a fetch doesn't involve git-lfs, and JGit does a clone's checkout either way. A pull in an LFS repository
+  where git-lfs doesn't work takes `GitCliPullBranchGitAction` in place of `git pull` (`pullNeedsBuiltinLfs`, see
+  above). A clone has no repository yet, so it asks `useGitCli()` without one.
 - **JGit and SSH:** JGit can't reach SSH remotes. `HandleTransportGitAction` gives an `SshTransport` (so after
   `insteadOf`) the `NoSshSessionFactory`, which fails before connecting with `SshNeedsGitError`. Its reason is
   `RemoteOperationsBackend.whyNotGitCli()` (the setting off, no usable git, no helper), or else an LFS push that git
@@ -1313,8 +1344,8 @@ when it first needs them. JGit can't: it throws `MissingObjectException`, which 
   compares to find a rename (`fileVersions`). Queries show no progress.
 - Changing: JGit's checkout deletes files before it writes the new ones, and a missing blob stopped it halfway, with
   HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset, the
-  interactive rebase, the CLI pull's merge or rebase, and JGit's merge, cherry-pick, revert and rebase (when git can't
-  run them; git downloads what its own need) download first
+  interactive rebase, `GitCliPullBranchGitAction`'s merge or rebase, and JGit's merge, cherry-pick, revert and rebase
+  (when git can't run them; git downloads what its own need, `git pull`'s too) download first
   (`prefetchCheckout`, `prefetchForMerge`, `prefetchForCherryPick`, `prefetchForRebase`): the blobs where the trees
   involved differ (`blobsThatDiffer`), with the processing screen's progress and Cancel. A failed download is
   `PartialCloneFetchError(nothingChanged = true)`, and nothing changes. Stashes and discards read what was checked out,
@@ -1471,9 +1502,10 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
   - `configOf` writes the entries as config text, so that a key without `=` stays one, which JGit reads as true. It
     leaves out `include` and `includeIf`, whose files git has read.
   - JGit reads an empty value (`key =`) as null, where git reads "", from its own files too.
-- Merge in the branch menu, cherry-pick, revert and Rebase run git (see Merge, cherry-pick, revert and rebase with
-  git). The commits that JGit makes itself, whose commands take no committer (pull's merge and rebase, the interactive
-  rebase, and those four when git can't run them), its reflog entries and every other setting that JGit reads see the
+- Merge in the branch menu, cherry-pick, revert, Rebase and Pull run git (see Merge, cherry-pick, revert and rebase
+  with git, and Remote operations). The commits that JGit makes itself, whose commands take no committer (the
+  interactive rebase, and pull's merge and rebase and those four when git can't run them), its reflog entries and
+  every other setting that JGit reads see the
   files that `includeIf` names through `IncludedConfigRepository`, and hooks are found where git finds them (see
   `JGit.provide`).
 - Tests: `CommitIdentityTest`, `GitSigningConfigsTest`, the `includeIf` tests in `CreateTagGitActionTest` and
@@ -2293,9 +2325,11 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - `builtAskpassHelper()` finds the helper in `app/src/main/resources`. Tests that run it are skipped without it.
   - `answeringDialogs` plays the user: it answers each `CredentialsRequest` in turn and returns the dialogs shown.
   - `TestRemoteCommand` builds a `GitCliRemoteCommand` with git kept away from the developer's config.
-  - `GitCliPushBranchGitActionTest` and `GitCliFetchPullTest` use bare repositories on disk, which another clone
-    changes. `GitCliCloneTest` clones, and adds and updates submodules, from repositories on disk; its global config
-    sets `protocol.file.allow=always` for the local submodules.
+  - `GitCliPushBranchGitActionTest`, `GitPullTest` and `GitCliFetchPullTest` (the fetch, and the pull that JGit
+    merges) use bare repositories on disk, which another clone changes. `GitPullTest` checks each pull against what
+    `git pull` does in a terminal, and `GitCliLfsTest` and `PartialCloneTest` have a `git pull` each.
+    `GitCliCloneTest` clones, and adds and updates submodules, from repositories on disk; its global config sets
+    `protocol.file.allow=always` for the local submodules.
   - `GitCliHttpsTest` runs `git http-backend` as CGI behind Basic authentication in a JDK `HttpServer`. The clone
     tests cancel while git waits for a dialog (`awaitDialog`), which is when git has made the folder.
   - `GitCliSshTest` runs sshd with forced commands, and sets `core.sshCommand` (`-F /dev/null`, its own known_hosts,
