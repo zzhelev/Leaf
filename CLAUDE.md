@@ -27,7 +27,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
     state, the worktrees' base branch, and where new worktrees go, shared by the worktrees). They are the same file in
     a repository's main worktree;
-  - the per-worktree file `<git dir>/LEAF_COMMIT_DRAFT`, the commit field's draft (see The plain draft).
+  - the per-worktree file `<git dir>/LEAF_COMMIT_DRAFT`, the commit field's draft, and during a rebase
+    `<git dir>/rebase-merge/leaf-amend-message-<commit>`, its message for an edit stop (see The plain draft).
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
 - **Gitnuro is named only where GPL-3.0 needs it:** the README's License section says, in one dated sentence, that
@@ -951,8 +952,9 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
 - **A squash merge in progress:** git records no state for it (no `MERGE_HEAD`; JGit says SAFE), so
   `isSquashMergeInProgress` is `SQUASH_MSG` there while something is staged or has conflicts. A leftover `SQUASH_MSG`
   doesn't count.
-  - The commit field shows `SQUASH_MSG` then (`CommitMessageSource`: a merge's message first, then a squash merge's,
-    then the plain draft), and saves edits to it (`PersistSquashMessageUseCase`, which never empties it).
+  - The commit field shows `SQUASH_MSG` then (`CommitMessageSource`: `MERGE_MSG` during a merge, cherry-pick or
+    revert, an edit stop's message during a rebase, then a squash merge's, then the plain draft), and saves edits to it
+    (`PersistSquashMessageUseCase`, which never empties it).
   - `OperationInProgressBanner` says "Squash merge staged…" (`Operation.SQUASH`). Its Abort runs `git reset --merge`
     (`AbortSquashMergeUseCase`), which undoes the staged changes and keeps unstaged ones, and refuses, changing nothing,
     while a file that the squash merge changed has unstaged changes. What `merge.autoStash` set aside comes back too
@@ -965,9 +967,10 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
   `merge.autoStash` set aside (see Changes that git sets aside).
 - **The commit field** (fork-only fixes): a commit clears the field it committed from. Upstream cleared the field shown
   after the commit's refresh, which was the plain draft after a merge, and the next merge then showed the old merge
-  message, as a field fills from its file only while it's blank. For the same reason, a merge's or a squash merge's
-  field is cleared once its file is gone, unless a merge goes on. Commit is disabled while files have conflicts, as git
-  refuses then.
+  message, as a field fills from its file only while it's blank. For the same reason, the fields of `MERGE_MSG` and
+  `SQUASH_MSG` are cleared once their file is gone, unless the field still shows `MERGE_MSG` (a merge, cherry-pick or
+  revert goes on). Commit is disabled while files have conflicts, as git refuses then, and during a cherry-pick with an
+  empty message, as during a revert: JGit commits an empty message, which git refuses.
 - **The plain draft** (fork-only, `data/git/repository/CommitDraft.kt`, 2026-10-16) is in `<git dir>/LEAF_COMMIT_DRAFT`
   (`AppStorage.COMMIT_DRAFT_FILE_NAME`), in the worktree's own git dir. Upstream kept it in git's `COMMIT_EDITMSG`,
   which git uses as scratch space: every `git commit` from a terminal (an agent's) and `git rebase --continue`, with its
@@ -977,14 +980,38 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
     `hookArguments`). Leaf used to remove it right after; it now keeps the last message, as after git's commit.
   - A draft that an older Leaf left in `COMMIT_EDITMSG` isn't moved over, as nothing tells it from git's message.
   - A commit removes only the message it committed. The caller says which (`DoCommitUseCase`'s `isMergeMessage`,
-    from the field's `CommitMessageSource`). A plain commit removes the draft. A merge's or a squash merge's commit
-    leaves it, as the commit removes their own files (JGit's commit, `CleanUpAfterCommitGitAction`). Until 2026-10-16
-    they removed the draft too, as the repository is SAFE after them, where `PersistCommitMessageGitAction` picks the
-    draft.
-  - The field shows `MERGE_MSG` only while merging (upstream's `isMerging`), so during a cherry-pick or a revert it
-    shows the draft, and their commits take it and remove it. An interactive rebase's amend removes `MERGE_MSG`,
-    where the field's edits go during a rebase. The field's edits aren't saved during a cherry-pick, and go to
-    `MERGE_MSG` during a revert, which the field doesn't read (upstream's behaviour).
+    from the field's `CommitMessageSource.isMergeMessage`). A plain commit removes the draft. The commit of a merge,
+    cherry-pick, revert or squash merge leaves it, as the commit removes their own files (JGit's commit,
+    `CleanUpAfterCommitGitAction`). Until 2026-10-16 merges and squash merges removed the draft too, as the repository
+    is SAFE after them, where `PersistCommitMessageGitAction` picks the draft.
+  - **Which message, in each state** (`commitMessageSource`, `domain/models/CommitMessageSource.kt`, 2026-10-16): the
+    field shows it, and `PersistCommitMessageGitAction` saves the field's edits there, as both go by it:
+    - while merging, cherry-picking or reverting, `MERGE_MSG` (`MERGE`): git's message, which `git commit` takes
+      then: the merge's, the picked commit's, or `Revert "…"` and `This reverts commit <id>.`. The draft waits, out of
+      view, and comes back after the commit or Abort (JGit's commit and its hard reset remove `MERGE_MSG`);
+    - while rebasing (`REBASE`), the message for the commit that the rebase stopped at to edit (`rebase-merge/amend`,
+      which git and JGit write at an `edit` stop), in `rebase-merge/leaf-amend-message-<commit>`
+      (`RebaseEditMessage.kt`, `AppStorage.REBASE_EDIT_MESSAGE_FILE_PREFIX`). Until one is saved, the field shows the
+      commit's own message, HEAD's, which `git commit --amend` starts from (`headCommitMessage`). Amend is ticked at
+      such a stop (upstream's default), so Continue amends with it even unchanged, a commit that the rebase rewrites
+      anyway; with an empty field, the button read Skip. Continue's amend removes the file. Each stop has its own, so a
+      message that a Continue from a terminal left isn't the next stop's, and the field's text is replaced when the
+      stop changes (`persistedCommitMessageFlow`'s `key`). The file goes with the rebase's folder. At the other stops
+      of a rebase the field can't be edited, shows the last commit's message, and nothing is saved;
+    - `SQUASH_MSG` while a squash merge waits, and the draft otherwise, also while bisecting.
+
+    Until 2026-10-16 the field showed `MERGE_MSG` only while merging (upstream's `isMerging`), and the draft
+    otherwise, while its edits went to `MERGE_MSG` during a revert or a rebase and nowhere during a cherry-pick: a
+    restart showed the draft as it was before, and a cherry-pick's or a revert's commit took the draft. At an edit stop
+    a draft, typed for another commit, became the amended commit's message, as Amend fills only an empty field.
+    `MERGE_MSG` wouldn't do for an edit stop: JGit's interactive rebase leaves a conflicted commit's `MERGE_MSG` through
+    the later stops, and after the rebase.
+  - **git's conflict comments** (`withoutConflictsHint`, `data/git/workspace/ConflictsHint.kt`): git and JGit add the
+    conflicted files to `MERGE_MSG` as comments (`# Conflicts:`, then `#\t<path>` lines, in `core.commentChar`),
+    which `git commit` strips. JGit's commit keeps a message as it is, so a merge committed in Leaf after conflicts kept
+    them. `GetPersistedCommitMessagesGitAction` leaves them out, and git's scissors line with what follows it
+    (`commit.cleanup=scissors`), so the field shows what its commit will have. The user's own lines stay, even ones that
+    start with `#`, which `git commit` would strip. git adds them at the end, JGit before the message's footers.
 - A plain merge then goes on in Leaf's merge UI: `MERGE_MSG` in the field, the Merge button, the banner.
 - When a merge ends, conflicts or not, the tab selects the uncommitted changes (`worktreeResultsToShow`), where its
   result waits. A selected commit, or the review, would hide it.
@@ -1032,7 +1059,7 @@ does when git can't.
   the toast; cherry-pick and revert give an error, as JGit's did.
 - A cherry-pick or a revert of a commit whose changes are already there stops, as in a terminal: the cherry-pick keeps
   `CHERRY_PICK_HEAD` (Abort in the banner), and the revert leaves only `MERGE_MSG`, which Leaf's commit field doesn't
-  show outside a merge.
+  show without `REVERT_HEAD` (the repository is SAFE).
 - The `Selecting…GitAction`s are bound in place of JGit's: git when `GitCliOperations.useGitCli()` (a usable git and
   the askpass helper), JGit otherwise. The "Use git for remote operations" setting doesn't apply. Pull runs
   `git pull` (see Remote operations); the interactive rebase stays with JGit.
@@ -2139,8 +2166,8 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
   - WORKTREES for another worktree's git dir under `<common>/worktrees/`, and in a linked worktree for the main
     worktree's files in the common git dir (`HEAD`, `index`, …);
   - nothing for Leaf's `leaf` file (and `leaf.lock`) and JGit's `.probe-` files in either git dir, for any worktree's
-    `LEAF_COMMIT_DRAFT`, which a tab saves a second after each edit, or for `COMMIT_EDITMSG`, `MERGE_MSG` and
-    `SQUASH_MSG` in the tab's git dir.
+    `LEAF_COMMIT_DRAFT` and `rebase-merge/leaf-amend-message-<commit>`, which a tab saves a second after each edit, or
+    for `COMMIT_EDITMSG`, `MERGE_MSG` and `SQUASH_MSG` in the tab's git dir.
 
   Paths are compared as given and as real paths (macOS reports `/private/var/...`), and a folder only contains what
   is under it with a separator. The old `startsWith(gitDir)` also matched `.gitignore` and `.github/`, which

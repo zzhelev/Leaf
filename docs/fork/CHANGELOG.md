@@ -2,6 +2,90 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The commit field during a cherry-pick, a revert and a rebase (branch `fix/commit-field-during-operations`)
+
+- **Before:** the field showed `MERGE_MSG` only while merging (upstream's `isMerging`), and the draft during a
+  cherry-pick, a revert or a rebase, while `PersistCommitMessageGitAction` saved its edits nowhere during a cherry-pick
+  and in `MERGE_MSG` during a revert or a rebase. So a restart or a worktree switch in the middle of one showed the
+  draft as it was, and the edits were gone. A cherry-pick's or a revert's commit took the draft and removed it, and
+  git's own message (the picked commit's, or `Revert "…"`) was never offered. At a rebase's edit stop, a draft typed
+  for another commit stayed in the field, Amend (which fills only an empty field) left it there, and Continue amended
+  the commit with it. A cherry-pick could be committed with an empty message, which JGit allows and git refuses. And a
+  merge committed in Leaf after conflicts kept git's `# Conflicts:` comment lines in its message: `git commit` strips
+  them, JGit's commit keeps a message as it is. (Found, not changed, in `fix/commit-clears-own-message`'s entry; all
+  upstream's behaviour, the last one with JGit's merge too.)
+- **Now** (options picked with the user on 2026-10-16: git's message, a file of the stop's own with the commit's
+  message to start from, and stripping):
+  - One rule, `commitMessageSource` (moved from the app to `domain/models/CommitMessageSource.kt`), says what the field
+    shows and where `PersistCommitMessageGitAction` saves its edits, so the two can't disagree again: `MERGE_MSG` while
+    merging, cherry-picking or reverting; while rebasing, the message for the commit that the rebase stopped at to
+    edit; `SQUASH_MSG` while a squash merge waits; the draft otherwise, also while bisecting, which saved nothing.
+  - A cherry-pick or a revert shows git's message, as `git commit` takes it then, and keeps the edits there. Its commit
+    counts as a merge message (`CommitMessageSource.isMergeMessage`, which `StatusViewModelExtender.commit` passes in
+    place of `source != NORMAL`), so it leaves the draft, which comes back after the commit or Abort. Its Commit button
+    is disabled with an empty message, as the revert's was.
+  - A rebase's edit stop has a message of its own, in `rebase-merge/leaf-amend-message-<commit>`
+    (`RebaseEditMessage.kt`), for the commit in `rebase-merge/amend`, which git and JGit write at an `edit` stop. The
+    field shows the commit's own message (HEAD's) until one is saved, as `git commit --amend` starts from it: Amend is
+    ticked at such a stop (upstream's default), and only fills an empty field when ticked again, so an empty field read
+    Skip until something was typed. Continue amends with it even unchanged, a commit that the rebase rewrites anyway.
+    Continue's amend removes the file
+    (`isMergeMessage = false`, as before: it removed `MERGE_MSG`). Each stop has its own, so a message that a Continue
+    from a terminal left behind isn't the next stop's, and the view model replaces the field's text when the stop
+    changes (`persistedCommitMessageFlow`'s new `key`). The file goes with the rebase's folder. At the other stops of
+    a rebase, the field can't be edited, as before, and nothing is saved.
+    - Not `MERGE_MSG`: JGit's interactive rebase leaves a conflicted commit's `MERGE_MSG` through the later stops and
+      after the rebase ends (checked with JGit 7.7), so a later edit stop would have shown, and amended with, another
+      commit's message. git's rebase removes it.
+    - The file watcher ignores the file in any worktree's git dir: in a linked worktree, the recursive watch of the
+      worktrees' git dirs saw each save, and refreshed everything.
+  - `GetPersistedCommitMessagesGitAction` leaves out the conflicts that git and JGit list as comments in `MERGE_MSG`
+    (`withoutConflictsHint`, `ConflictsHint.kt`), and git's scissors line with what follows (`commit.cleanup=scissors`),
+    so the field shows what its commit will have, for merges too. git adds them at the end, JGit before the message's
+    footers, in any `core.commentChar`. The user's own lines stay, even ones that start with `#`, which `git commit`
+    would strip.
+- **Found, not changed:**
+  - JGit's interactive rebase leaves `MERGE_MSG` after a conflicted step, also once the rebase is over. Leaf's field
+    doesn't show it any more, but a `git commit` in a terminal takes a leftover `MERGE_MSG` as its message (checked
+    with git 2.54) until Leaf's next commit removes it (`CleanUpAfterCommitGitAction`).
+  - Emptying the field during a merge, a cherry-pick or a revert removes `MERGE_MSG`, as `PersistCommitMessageUseCase`
+    saves a blank message as none (upstream's behaviour during a merge).
+- **Tests** (on `0c330b21`):
+  - `CommitMessageSourceTest`, moved to `:domain` (+3): `MERGE` during a cherry-pick or a revert, `REBASE` during every
+    rebase state, the draft while bisecting or applying, and which messages the commit removes itself.
+  - `DraftingCommitMessagesTest` (+3, and two rewritten, in a `TestTab`): a cherry-pick and a revert that stopped at
+    conflicts show git's message without its comments, keep the edits in `MERGE_MSG`, and their commits
+    (`isMergeMessage = true`) commit the edits and leave the draft. A merge's message is committed without the
+    comments. Leaf's interactive rebase (JGit's), with a conflicted commit, then three to edit: the conflicted commit's
+    `MERGE_MSG` stays, each stop starts from its commit's message, the edit stop's message goes to its own file,
+    Continue with Amend commits it and removes it, a message left by a Continue elsewhere isn't the next stop's, and the
+    draft is there all along. At a conflict stop, nothing is saved.
+  - `ConflictsHintTest` (5): `withoutConflictsHint` against `git commit`'s message after a merge, a cherry-pick and a
+    revert stopped at conflicts, with the default settings, `core.commentChar=;` and `commit.cleanup=scissors`;
+    JGit's `MergeMessageFormatter` with footers; a squash merge's empty message; the user's lines that look like
+    comments.
+  - `CommitDraftTest` (+1): the draft is saved while bisecting. `WatchedRepositoryTest` (+1): the stop's file needs no
+    refresh in any worktree's git dir.
+  - **Mutation check:** 13 mutations, all caught, each by a failing test: cherry-pick and revert showing the draft, a
+    rebase showing the draft, the stop's message counted as a merge message, a rebase saving in `MERGE_MSG` (the old
+    behaviour), no stripping, no scissors, a block without the blank line before it, a word as the comment string, one
+    file for every stop, a file written at a stop without `amend`, the watcher's rule gone, no commit's message to
+    start from, and the draft saved only in a SAFE repository (the old behaviour). A file written at a stop without
+    `amend` and the draft survived a first run, and got their tests.
+    Not covered by a test: the view model (the field's text replaced when the stop changes, `isMergeMessage` passed
+    from the source) and the cherry-pick's Commit button. The manual run checked the first, not the button with an
+    empty message.
+  - The full suite passes (`./gradlew build`): `:app` 317 tests (3 moved to `:domain`), `:domain` 348, `:data` 1193,
+    `:common` 7.
+  - **Manual run** (dev run on macOS, 2026-10-16, `/tmp/leaf-commit-field-demo-setup.sh`), with a draft in the field
+    and git run in a terminal, as an agent would: a cherry-pick that stopped at conflicts showed the picked commit's
+    message without `# Conflicts:`, with Commit disabled until the conflict was resolved, and `git cherry-pick --abort`
+    brought the draft back. A revert showed `Revert "…"`. At the edit stops of a `git rebase -i`, the field could be
+    edited, showed a message saved for that stop, and was replaced at the next stop after a `git rebase --continue`
+    from the terminal; with the commit's message to start from (run again after adding it), each stop showed its
+    commit's message, with Continue. The draft came back once the rebase ended. Typing in the field and Leaf's own
+    buttons weren't driven: the tests cover the saving, the commit and the amend.
+
 ## A commit removes only the message it committed (branch `fix/commit-clears-own-message`)
 
 - **Before:** after every commit from the commit field, `DoCommitUseCase` removed "the field's saved message", which
