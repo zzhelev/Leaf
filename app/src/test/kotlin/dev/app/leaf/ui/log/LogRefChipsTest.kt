@@ -107,7 +107,7 @@ class LogRefChipsTest {
     fun `cuts the first chip down when it alone doesn't fit next to +N, and the message keeps some room`() {
         val long = Branch(HASH, "refs/heads/feature/a-branch-name-that-goes-on-for-a-long-while", isLocal = true)
 
-        // The long chip is 200 wide, and with +2 doesn't fit in the share of 220
+        // The long chip is 250 wide, and with +2 doesn't fit in the share of 220
         render(width = NARROW, branches = listOf(long, branches[0], branches[2]), tags = emptyList(), currentBranch = long)
 
         assertEquals(listOf(long.logName, "+2", "Message"), shownTexts())
@@ -125,7 +125,7 @@ class LogRefChipsTest {
         val currentText = nodes().first { it.texts().contains(current.logName) }.boundsInRoot
         val otherText = nodes().first { it.texts().contains(other.logName) }.boundsInRoot
 
-        assertTrue(otherText.width < 200f, otherText.toString())
+        assertTrue(otherText.width < 250f, otherText.toString())
         // The current branch's mark after the name takes its room from the name, rather than being pushed out
         assertTrue(currentText.width < otherText.width - 10f, "$currentText, $otherText")
     }

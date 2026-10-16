@@ -2101,7 +2101,7 @@ of its Message cell.
     push, pull, delete, compare worktrees, copy, each naming the remote branch.
   - Checkout, merge and rebase are left out there: at the same commit they do what the local branch's items do.
 - The chips take at most 80% of the Message column (`REF_CHIPS_SHARE`, 60% at first), and the message keeps 64 dp
-  whatever the share (`MIN_MESSAGE_WIDTH`). A chip takes at most 200 dp: a longer name ends in "…", with the whole name
+  whatever the share (`MIN_MESSAGE_WIDTH`). A chip takes at most 250 dp: a longer name ends in "…", with the whole name
   in its tooltip (`Chip`), and the marks after it keep their room.
   - What doesn't fit goes into a +N chip (`fitChips`).
   - When not even the first chip fits next to +N, it still shows whole, or cut down to 120 dp at least, as long as the

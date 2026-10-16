@@ -89,7 +89,7 @@ import org.jetbrains.compose.resources.stringResource
 private const val REF_CHIPS_SHARE = 0.8f
 
 /** Widest that a chip gets in a row. A longer name ends in "…", and its tooltip has the whole name. */
-private val MAX_REF_CHIP_WIDTH = 200.dp
+private val MAX_REF_CHIP_WIDTH = 250.dp
 
 /**
  * Narrowest that the first chip gets when it's cut down to fit. With every mark (86 dp at most), the name keeps about
