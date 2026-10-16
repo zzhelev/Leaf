@@ -32,8 +32,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.time.Duration.Companion.seconds
 
-// SnapshotStashCreateCommand formats it with MessageFormat, which drops apostrophes
-private const val BACKUP_MESSAGE = "Backup before merging"
+private const val BACKUP_MESSAGE = "Leaf's backup before merging"
 
 /**
  * A tab that merges with the user's `merge.autoStash`, and commits and aborts as Leaf does: git sets local changes
@@ -214,6 +213,15 @@ class MergingWithAutostashTest {
     }
 
     @Test
+    fun `Leaf's backup keeps an apostrophe in the branch's name`(): Unit = runBlocking {
+        backupNamesTheBranchAsItIs("it's")
+    }
+
+    @Test
+    fun `Leaf's backup keeps braces in the branch's name, where the merge failed before it started`(): Unit =
+        runBlocking { backupNamesTheBranchAsItIs("a{b}") }
+
+    @Test
     fun `aborting a squash merge puts the changes back, where git reset --merge would stash them`(): Unit =
         runBlocking {
             autoStash()
@@ -276,10 +284,29 @@ class MergingWithAutostashTest {
     }
 
     /** Merges [branch] as the branch menu does, with Leaf's backup, and returns the task. */
-    private suspend fun merge(branch: String): CompletedTask {
+    private suspend fun merge(branch: String, backupMessage: String = BACKUP_MESSAGE): CompletedTask {
         val hash = git.run(repository, "rev-parse", branch).trim()
 
-        return awaitTask { tab.mergeBranch(Branch(hash, "refs/heads/$branch", isLocal = true), BACKUP_MESSAGE) }
+        return awaitTask { tab.mergeBranch(Branch(hash, "refs/heads/$branch", isLocal = true), backupMessage) }
+    }
+
+    /**
+     * Merges [branch], which has feature's conflict with main, so Leaf keeps its backup, named as the branch menu names
+     * it. Both `'` and `{` can be in a branch's name, and the backup's message used to be a `MessageFormat` pattern.
+     */
+    private suspend fun backupNamesTheBranchAsItIs(branch: String) {
+        git.run(repository, "branch", branch, "feature")
+        write("other.txt" to "local\n")
+        open()
+        // As merge_automatic_stash_description words it
+        val backupMessage = "Automatic snapshot stash before merge of \"$branch\" to \"main\""
+
+        val task = merge(branch, backupMessage)
+
+        assertEquals(CompletedTask.Success(task.date, TaskType.MergeBranch, stoppedAtConflicts = true), task)
+        assertTrue(File(repository, ".git/MERGE_HEAD").exists())
+        assertEquals(listOf(backupMessage), stashes())
+        assertEquals(backupMessage, git.run(repository, "log", "-1", "--format=%B", "refs/stash").trimEnd('\n'))
     }
 
     private suspend fun awaitTask(launch: () -> Unit): CompletedTask {

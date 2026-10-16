@@ -28,10 +28,12 @@ private const val MSG_INDEX = "index on {0}: {1} {2}"
 private const val MSG_UNTRACKED = "untracked files on {0}: {1} {2}"
 private const val MSG_WORKING_DIR = "Snapshot WIP on {0}: {1} {2}"
 
+// Fork-only: a message given is the message, without MessageFormat, as callers give a finished sentence with branch
+// names in it, and both ' and { can be in a branch's name. Without one, the default pattern is formatted.
 class SnapshotStashCreateCommand(
     repository: Repository,
-    private val indexMessage: String = MSG_INDEX,
-    private val workingDirectoryMessage: String = MSG_WORKING_DIR,
+    private val indexMessage: String? = null,
+    private val workingDirectoryMessage: String? = null,
     private val ref: String = Constants.R_STASH,
     private val person: PersonIdent = PersonIdent(repository),
     private val includeUntracked: Boolean = false,
@@ -175,8 +177,8 @@ class SnapshotStashCreateCommand(
                             val builder = createBuilder()
                             builder.setParentId(headCommit)
                             builder.setTreeId(cache.writeTree(inserter))
-                            builder.message = MessageFormat.format(
-                                indexMessage, branch,
+                            builder.message = indexMessage ?: MessageFormat.format(
+                                MSG_INDEX, branch,
                                 headCommit.abbreviate(Constants.OBJECT_ID_ABBREV_STRING_LENGTH)
                                     .name(),
                                 headCommit.shortMessage
@@ -220,8 +222,8 @@ class SnapshotStashCreateCommand(
                                 builder.addParentId(untrackedCommit)
                             }
 
-                            builder.message = MessageFormat.format(
-                                workingDirectoryMessage,
+                            builder.message = workingDirectoryMessage ?: MessageFormat.format(
+                                MSG_WORKING_DIR,
                                 branch,
                                 headCommit
                                     .abbreviate(Constants.OBJECT_ID_ABBREV_STRING_LENGTH)
