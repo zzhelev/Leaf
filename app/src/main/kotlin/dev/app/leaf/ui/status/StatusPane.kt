@@ -621,6 +621,8 @@ private fun CommitField(
 
             repositoryState.isCherryPicking -> CherryPickingButtons(
                 haveConflictsBeenSolved = !hasUnstagedFiles,
+                // Fork-only: as reverting's. JGit commits an empty message, which git refuses.
+                canCommit = commitMessage.text.isNotBlank(),
                 onAbort = onResetRepoState,
                 onCommit = {
                     doCommit()
@@ -720,6 +722,7 @@ fun MergeButtons(
 @Composable
 fun CherryPickingButtons(
     haveConflictsBeenSolved: Boolean,
+    canCommit: Boolean,
     onAbort: () -> Unit,
     onCommit: () -> Unit,
 ) {
@@ -743,7 +746,7 @@ fun CherryPickingButtons(
                 .weight(1f)
                 .padding(start = 4.dp)
                 .fillMaxHeight(),
-            enabled = haveConflictsBeenSolved,
+            enabled = canCommit && haveConflictsBeenSolved,
             onClick = onCommit,
         )
     }

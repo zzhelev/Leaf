@@ -38,7 +38,7 @@ class ContinueRebaseUseCase @Inject constructor(
 
                 if (!amendCommitId.isNullOrBlank()) {
                     // Fork-only: amends within this task, and doesn't continue when the amend fails. The message is the
-                    // commit field's, which a rebase saves in MERGE_MSG, so the amend removes it.
+                    // commit field's, which a rebase saves in a file of Leaf's for this stop, so the amend removes it.
                     doCommitUseCase.commit(repositoryPath, message, true, onIdentityRequest(), isMergeMessage = false)
                         .bind()
                 }

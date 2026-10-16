@@ -144,7 +144,7 @@ class ContinueRebaseAmendTest {
         assertEquals(
             listOf(
                 "amend 'Amended message' (amend=true) during ${TaskType.ContinueRebase}",
-                // The field's message, which a rebase saves in MERGE_MSG
+                // The field's message, which a rebase saves in a file of Leaf's for the stop
                 "persist null",
                 "continue during ${TaskType.ContinueRebase}",
             ),

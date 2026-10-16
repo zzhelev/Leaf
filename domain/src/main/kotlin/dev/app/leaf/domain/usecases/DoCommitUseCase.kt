@@ -31,9 +31,9 @@ class DoCommitUseCase @Inject constructor(
     private val putBackMergeAutostashGitAction: IPutBackMergeAutostashGitAction,
 ) {
     /**
-     * Fork-only: [isMergeMessage] says that [message] is a merge's or a squash merge's, from MERGE_MSG or SQUASH_MSG,
-     * which the commit removes itself. Otherwise the message that the commit field saved is removed after the commit:
-     * the draft, or MERGE_MSG while a rebase goes on.
+     * Fork-only: [isMergeMessage] says that [message] is from MERGE_MSG (a merge's, cherry-pick's or revert's) or
+     * from SQUASH_MSG, which the commit removes itself. Otherwise the message that the commit field saved is removed
+     * after the commit: the draft, or the message for the commit that a rebase stopped at to edit.
      */
     operator fun invoke(
         message: String,
@@ -83,8 +83,8 @@ class DoCommitUseCase @Inject constructor(
 
         doCommitGitAction(repositoryPath, finalMessage, amend, author)
             .onOk {
-                // Fork-only: only the message that was committed. A merge's commit leaves the repository SAFE, where
-                // this would remove the draft that the merge kept out of view.
+                // Fork-only: only the message that was committed. A merge's, cherry-pick's or revert's commit leaves
+                // the repository SAFE, where this would remove the draft that it kept out of view.
                 if (!isMergeMessage) {
                     persistCommitMessageUseCase(repositoryPath, null)
                 }

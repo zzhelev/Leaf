@@ -41,6 +41,12 @@ data class AppStorage(
          */
         const val COMMIT_DRAFT_FILE_NAME = "LEAF_COMMIT_DRAFT"
 
+        /**
+         * The commit field's message for the commit that a rebase stopped at to edit, followed by that commit's id, in
+         * the rebase's `rebase-merge` folder: it goes with the rebase, and each stop has its own.
+         */
+        const val REBASE_EDIT_MESSAGE_FILE_PREFIX = "leaf-amend-message-"
+
         val current: AppStorage by lazy {
             val loadedFrom = AppStorage::class.java.protectionDomain?.codeSource?.location
                 ?.let { runCatching { File(it.toURI()) }.getOrNull() }

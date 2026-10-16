@@ -5,6 +5,7 @@ package dev.app.leaf.domain.refresh
 
 import dev.app.leaf.common.storage.AppStorage
 import dev.app.leaf.domain.GitConstants
+import dev.app.leaf.domain.RebaseConstants
 import dev.app.leaf.domain.usecases.DataToRefresh
 import dev.app.leaf.domain.worktrees.gitDirFromDotGitFile
 import java.io.File
@@ -57,6 +58,10 @@ class WatchedRepository(gitDir: File, commonDir: File) {
         val isInCommonDir = parent in commonDirs
         // A linked worktree's git dir, <common git dir>/worktrees/<name>
         val isInWorktreeGitDir = File(path).parentFile?.parent in worktreesDirs
+        // The rebase's folder in any worktree's git dir
+        val rebaseDir = File(path).parentFile?.takeIf { it.name == RebaseConstants.REBASE_MERGE }
+        val isInRebaseDir = rebaseDir?.parent.let { it != null && (it in gitDirs || it in commonDirs) } ||
+            rebaseDir?.parentFile?.parent in worktreesDirs
 
         return when {
             (isInGitDir || isInCommonDir) && (name.startsWith(PROBE_FILE_PREFIX) || name in LEAF_FILES) ->
@@ -70,6 +75,9 @@ class WatchedRepository(gitDir: File, commonDir: File) {
             // the worktree list doesn't show it.
             (isInGitDir || isInCommonDir || isInWorktreeGitDir) && name == AppStorage.COMMIT_DRAFT_FILE_NAME ->
                 WatchedChange.NONE
+
+            // Any worktree's message for a rebase's edit stop, saved like the draft
+            isInRebaseDir && name.startsWith(AppStorage.REBASE_EDIT_MESSAGE_FILE_PREFIX) -> WatchedChange.NONE
 
             isInGitDir && name in EDITED_MESSAGE_FILES -> WatchedChange.NONE
             isLinkedWorktree && path.isIn(gitDirs) -> WatchedChange.REPOSITORY

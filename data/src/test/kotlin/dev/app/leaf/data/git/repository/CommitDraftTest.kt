@@ -7,6 +7,7 @@ import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
+import dev.app.leaf.data.mappers.RepositoryStateMapper
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.PersistedCommitMessage
 import kotlinx.coroutines.runBlocking
@@ -32,7 +33,7 @@ class CommitDraftTest {
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
     private val jgit by lazy { testJGit() }
-    private val persist by lazy { PersistCommitMessageGitAction(jgit) }
+    private val persist by lazy { PersistCommitMessageGitAction(jgit, RepositoryStateMapper()) }
     private val read by lazy { GetPersistedCommitMessagesGitAction(jgit) }
 
     private val repository by lazy { git.initRepository(File(tempDir, "repo")) }
@@ -140,6 +141,18 @@ class CommitDraftTest {
         assertEquals("Merge feature, keeping main's README", messages.mergeMessage)
         // The plain draft waits for the merge to end
         assertEquals("My draft", messages.commitMessage)
+    }
+
+    @Test
+    fun `a draft is saved while bisecting, where the field shows it`(): Unit = runBlocking {
+        git.run(repository, "bisect", "start")
+        // Where JGit's BISECTING comes from
+        assertTrue(File(gitDir, "BISECT_LOG").exists())
+
+        // Upstream saved it only in a SAFE repository, so it was lost while bisecting
+        persist(gitDir.path, "Found the bad commit")
+
+        assertEquals("Found the bad commit", messages(gitDir).commitMessage)
     }
 
     private suspend fun messages(gitDir: File): PersistedCommitMessage {

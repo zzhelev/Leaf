@@ -126,6 +126,29 @@ class WatchedRepositoryTest {
     }
 
     @Test
+    fun `the message for a rebase's edit stop needs nothing, in any worktree's git dir`() {
+        // Saved like the draft, in the rebase's folder. In a linked worktree, the recursive watch of the worktrees'
+        // git dirs sees it, and refreshed everything at each save.
+        val name = "leaf-amend-message-0123456789abcdef0123456789abcdef01234567"
+
+        for (tab in listOf(mainTab, linkedTab)) {
+            for (gitDir in listOf(arrayOf("repo", ".git"), arrayOf("repo", ".git", "worktrees", "agent"))) {
+                val message = path(*gitDir, "rebase-merge", name)
+
+                assertEquals(WatchedChange.NONE, tab.changeOf(message), message)
+            }
+        }
+
+        // git's own files there are the rebase's state
+        assertEquals(
+            WatchedChange.REPOSITORY,
+            linkedTab.changeOf(path("repo", ".git", "worktrees", "agent", "rebase-merge", "done")),
+        )
+        // A folder of the working tree with the same name
+        assertEquals(WatchedChange.WORKING_TREE, mainTab.changeOf(path("repo", "rebase-merge", name)))
+    }
+
+    @Test
     fun `a batch refreshes what its most important change needs`() {
         val tab = mainTab
         val gitDir = path("repo", ".git", "HEAD")

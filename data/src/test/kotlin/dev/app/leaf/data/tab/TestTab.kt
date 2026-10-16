@@ -289,7 +289,9 @@ class TestTab(
         useCaseExecutor = useCaseExecutor,
         loadSignOffConfigGitAction = LoadSignOffConfigGitAction(jgit),
         getAuthorUseCase = GetAuthorUseCase(LoadAuthorGitAction(jgit, GitIdentities(gitCli)), useCaseExecutor),
-        persistCommitMessageUseCase = PersistCommitMessageUseCase(PersistCommitMessageGitAction(jgit)),
+        persistCommitMessageUseCase = PersistCommitMessageUseCase(
+            PersistCommitMessageGitAction(jgit, RepositoryStateMapper()),
+        ),
         cleanUpAfterCommitGitAction = CleanUpAfterCommitGitAction(jgit),
         putBackMergeAutostashGitAction = PutBackMergeAutostashGitAction(autostashes, jgit),
     )

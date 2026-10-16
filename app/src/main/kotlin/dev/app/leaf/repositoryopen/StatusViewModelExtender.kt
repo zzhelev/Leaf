@@ -111,6 +111,9 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     private val squashCommitMessage = persistedCommitMessageFlow { it.squashMessage }
 
+    /** Fork-only: each edit stop of a rebase has its own message, so the field starts over at the next one. */
+    private val rebaseCommitMessage = persistedCommitMessageFlow(key = { it.rebaseEditStop }) { it.rebaseEditMessage }
+
     /**
      * Fork-only: whether a squash merge waits to be committed, which git tells only by its SQUASH_MSG and the index.
      * While any of them reloads, the last answer stays, so that the commit field and the banner don't flicker. It's
@@ -140,12 +143,14 @@ class StatusViewModelExtender @AssistedInject constructor(
         normalCommitMessage,
         mergeCommitMessage,
         squashCommitMessage,
+        rebaseCommitMessage,
         commitMessageSource,
-    ) { normalCommitMessage, mergeCommitMessage, squashCommitMessage, source ->
+    ) { normalCommitMessage, mergeCommitMessage, squashCommitMessage, rebaseCommitMessage, source ->
         when (source) {
             CommitMessageSource.NORMAL -> normalCommitMessage
             CommitMessageSource.MERGE -> mergeCommitMessage
             CommitMessageSource.SQUASH -> squashCommitMessage
+            CommitMessageSource.REBASE -> rebaseCommitMessage
         }
     }.stateIn(TextFieldValue(""))
 
@@ -153,10 +158,18 @@ class StatusViewModelExtender @AssistedInject constructor(
         CommitMessageSource.NORMAL -> normalCommitMessage
         CommitMessageSource.MERGE -> mergeCommitMessage
         CommitMessageSource.SQUASH -> squashCommitMessage
+        CommitMessageSource.REBASE -> rebaseCommitMessage
     }
 
 
-    private fun persistedCommitMessageFlow(filter: (PersistedCommitMessage) -> String?): MutableStateFlow<TextFieldValue> {
+    /**
+     * Fork-only: a message whose [key] changes replaces the field's text, where another message only fills a blank
+     * field.
+     */
+    private fun persistedCommitMessageFlow(
+        key: (PersistedCommitMessage) -> String? = { null },
+        filter: (PersistedCommitMessage) -> String?,
+    ): MutableStateFlow<TextFieldValue> {
         val textFlow = MutableStateFlow(TextFieldValue(""))
 
         viewModelScope.launch {
@@ -169,17 +182,27 @@ class StatusViewModelExtender @AssistedInject constructor(
                     textFlow.value = TextFieldValue("")
                 }
 
+                var shownKey: String? = null
+
                 repositoryDataRepository
                     .persistedCommitMessage
                     .map {
                         it
                             .dataOrNull()
-                            ?.let { persistedCommitMessage -> filter(persistedCommitMessage) }
+                            ?.let { persistedCommitMessage ->
+                                key(persistedCommitMessage) to filter(persistedCommitMessage)
+                            }
                     }
                     .distinctUntilChanged()
-                    .collect {
-                        if (textFlow.value.text.isBlank()) {
-                            val newText = it.orEmpty()
+                    .collect { keyedMessage ->
+                        val isOtherKey = keyedMessage != null && keyedMessage.first != shownKey
+
+                        if (keyedMessage != null) {
+                            shownKey = keyedMessage.first
+                        }
+
+                        if (isOtherKey || textFlow.value.text.isBlank()) {
+                            val newText = keyedMessage?.second.orEmpty()
                             textFlow.value = TextFieldValue(newText, selection = TextRange(newText.count()))
                         }
                     }
@@ -282,17 +305,19 @@ class StatusViewModelExtender @AssistedInject constructor(
         .stateIn(StatusState())
 
     init {
-        // Fork-only: a field fills from its file only while it's blank, so a merge's or a squash merge's message would
-        // stay after its file is gone, and show at the next merge in place of git's. A squash merge that stops at
-        // conflicts writes MERGE_MSG too. So the field is cleared once its file is gone, unless a merge goes on, whose
-        // field the user may have just emptied.
+        // Fork-only: a field fills from its file only while it's blank, so the message of a merge, cherry-pick, revert
+        // or squash merge would stay after its file is gone, and show at the next one in place of git's. A squash merge
+        // that stops at conflicts writes MERGE_MSG too. So the field is cleared once its file is gone, unless the field
+        // still shows MERGE_MSG, which the user may have just emptied.
         combine(
             repositoryDataRepository.persistedCommitMessage.mapNotNull { (it as? DataState.Loaded)?.data },
             repositoryDataRepository.repositoryState.filter { it !is DataState.Loading },
         ) { messages, repositoryState ->
             messages to repositoryState.dataOrNull()
         }.collectLatestInCoroutineScope { (messages, repositoryState) ->
-            if (messages.mergeMessage == null && repositoryState?.isMerging != true) {
+            val showsMergeMessage = commitMessageSource(repositoryState, false) == CommitMessageSource.MERGE
+
+            if (messages.mergeMessage == null && !showsMergeMessage) {
                 mergeCommitMessage.value = TextFieldValue("")
             }
 
@@ -779,7 +804,8 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     fun commit(message: String) = viewModelScope.launch {
         val amend = isAmend.value
-        // Fork-only: the commit ends a merge or a squash merge, so the field's source changes before it returns
+        // Fork-only: the commit ends a merge, cherry-pick, revert or squash merge, so the field's source changes before
+        // it returns
         val source = currentCommitMessageSource()
 
         val personIdent = getIdentity()
@@ -788,17 +814,18 @@ class StatusViewModelExtender @AssistedInject constructor(
         val hadOngoingPersistJob = persistMessageJob?.isActive == true
         persistMessageJob?.cancelAndJoin()
 
-        // Fork-only: a merge's and a squash merge's commits leave the draft, which they kept out of view
+        // Fork-only: the commits of a merge, cherry-pick, revert or squash merge leave the draft, which they kept out
+        // of view
         val doCommitResult = doCommitUseCase(
             message,
             amend,
             personIdent,
-            isMergeMessage = source != CommitMessageSource.NORMAL,
+            isMergeMessage = source.isMergeMessage,
         ).await()
 
         if (doCommitResult is Either.Ok) {
             // Fork-only: clears the message that was committed. The commit removed its file, and clearing the field
-            // the source has now would drop the draft that a merge had kept out of view.
+            // the source has now would drop the draft that a merge, cherry-pick or revert had kept out of view.
             messageFlowOf(source).value = TextFieldValue("")
             isAmend.value = false
         } else {
