@@ -2,6 +2,7 @@ package dev.app.leaf.data.repositories
 
 import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.models.AutostashNotice
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.CompletedTask
@@ -25,6 +26,8 @@ class InMemoryRepositoryStateRepository @Inject constructor() : RepositoryStateR
         field = MutableSharedFlow()
     override val taskProgress: StateFlow<TaskProgress?>
         field = MutableStateFlow(null)
+    override val autostashNotices: StateFlow<List<AutostashNotice>>
+        field = MutableStateFlow(emptyList())
 
     @Volatile
     private var currentTaskJob: Job? = null
@@ -84,6 +87,14 @@ class InMemoryRepositoryStateRepository @Inject constructor() : RepositoryStateR
 
     override suspend fun refreshTriggered(dataToRefresh: List<DataToRefresh>) {
         refreshTriggered.emit(dataToRefresh)
+    }
+
+    override fun addAutostashNotice(notice: AutostashNotice) {
+        autostashNotices.update { it + notice }
+    }
+
+    override fun autostashNoticeShown(notice: AutostashNotice) {
+        autostashNotices.update { it - notice }
     }
 
     private fun addCompletedTask(completedTask: CompletedTask) {

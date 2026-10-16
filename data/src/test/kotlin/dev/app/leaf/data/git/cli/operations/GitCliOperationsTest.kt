@@ -23,12 +23,16 @@ import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
+import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.models.AutostashNotice
+import dev.app.leaf.domain.models.AutostashOperation
+import dev.app.leaf.domain.models.AutostashPutBackAfter
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
 import kotlinx.coroutines.runBlocking
@@ -83,7 +87,8 @@ class GitCliOperationsTest {
     private val jgit = testJGit()
     private val credentialsStateManager = CredentialsStateManager()
     private val gitCli by lazy { testGitCli(shellVariables) }
-    private val operations by lazy { testGitCliOperations(jgit, gitCli, credentialsStateManager) }
+    private val repositoryState = InMemoryRepositoryStateRepository()
+    private val operations by lazy { testGitCliOperations(jgit, gitCli, credentialsStateManager, repositoryState) }
     private val git by lazy { TestGitCli(globalConfig) }
     private lateinit var work: File
 
@@ -404,6 +409,98 @@ class GitCliOperationsTest {
     }
 
     @Test
+    fun `a rebase whose set-aside changes don't go back says so, and git keeps them in the stash list`(): Unit =
+        runBlocking {
+            git.run(work, "config", "rebase.autoStash", "true")
+            commit("shared.txt", "base\n")
+            commitOnBranch("topic", "topic.txt", "topic\n")
+            commit("shared.txt", "main\n")
+            git.run(work, "switch", "topic")
+            File(work, "shared.txt").writeText("local\n")
+
+            val result = GitCliRebaseBranchGitAction(operations)(gitDir, localBranch("main"))
+
+            // git exits with 0: the rebase is done
+            assertEquals(Either.Ok(false), result)
+            assertEquals(rev("main"), rev("HEAD~1"))
+            assertEquals("shared.txt", unmergedPaths())
+            assertEquals("autostash", git.run(work, "stash", "list", "--format=%gs").trim())
+            assertEquals(
+                listOf(
+                    AutostashNotice(AutostashOperation.REBASE, AutostashPutBackAfter.OPERATION, listOf("shared.txt"), 0)
+                ),
+                notices(),
+            )
+        }
+
+    @Test
+    fun `so does a rebase that git continues to the end`(): Unit = runBlocking {
+        git.run(work, "config", "rebase.autoStash", "true")
+        commit("shared.txt", "base\n")
+        commitOnBranch("topic", "conflict.txt", "topic\n")
+        commit("conflict.txt", "main\n")
+        commit("shared.txt", "main\n")
+        git.run(work, "switch", "topic")
+        File(work, "shared.txt").writeText("local\n")
+        assertEquals(Either.Ok(true), GitCliRebaseBranchGitAction(operations)(gitDir, localBranch("main")))
+        assertEquals(emptyList<AutostashNotice>(), notices(), "Nothing went back yet")
+
+        File(work, "conflict.txt").writeText("resolved\n")
+        git.run(work, "add", "conflict.txt")
+
+        assertEquals(Either.Ok(false), GitCliRebase(operations).run(gitDir, "--continue", mayStop = true))
+        assertEquals("shared.txt", unmergedPaths())
+        assertEquals(
+            listOf(AutostashNotice(AutostashOperation.REBASE, AutostashPutBackAfter.OPERATION, listOf("shared.txt"), 0)),
+            notices(),
+        )
+    }
+
+    @Test
+    fun `so does a rebase that git aborts, when a file is in the way`(): Unit = runBlocking {
+        git.run(work, "config", "rebase.autoStash", "true")
+        commitOnBranch("topic", "conflict.txt", "topic\n")
+        commit("conflict.txt", "main\n")
+        git.run(work, "switch", "topic")
+        // git sets the staged new file aside, and an untracked file takes its place
+        File(work, "new.txt").writeText("staged\n")
+        git.run(work, "add", "new.txt")
+        assertEquals(Either.Ok(true), GitCliRebaseBranchGitAction(operations)(gitDir, localBranch("main")))
+        File(work, "new.txt").writeText("untracked\n")
+
+        assertEquals(Either.Ok(false), GitCliRebase(operations).run(gitDir, "--abort", mayStop = false))
+        assertEquals("untracked\n", File(work, "new.txt").readText())
+        assertEquals("autostash", git.run(work, "stash", "list", "--format=%gs").trim())
+        assertEquals(
+            listOf(AutostashNotice(AutostashOperation.REBASE, AutostashPutBackAfter.ABORT, emptyList(), 0)),
+            notices(),
+        )
+    }
+
+    @Test
+    fun `a merge or a rebase that puts the set-aside changes back says nothing`(): Unit = runBlocking {
+        git.run(work, "config", "merge.autoStash", "true")
+        git.run(work, "config", "rebase.autoStash", "true")
+        commitOnBranch("feature", "feature.txt", "feature\n")
+        commit("main.txt", "main\n")
+        // One that git kept earlier
+        File(work, "main.txt").writeText("earlier\n")
+        git.run(work, "stash", "store", "-m", "autostash", git.run(work, "stash", "create").trim())
+        git.run(work, "checkout", "main.txt")
+        File(work, "README.md").writeText("local\n")
+
+        assertEquals(Either.Ok(false), merge(localBranch("feature"), fastForward = false))
+        assertEquals("local\n", File(work, "README.md").readText())
+
+        git.run(work, "switch", "feature")
+        assertEquals(Either.Ok(false), GitCliRebaseBranchGitAction(operations)(gitDir, localBranch("main")))
+
+        assertEquals("local\n", File(work, "README.md").readText())
+        assertEquals("autostash\n", git.run(work, "stash", "list", "--format=%gs"))
+        assertEquals(emptyList<AutostashNotice>(), notices())
+    }
+
+    @Test
     fun `Leaf's merge, cherry-pick, revert and rebase run git when it can`(): Unit = runBlocking {
         // JGit in tests reads no includeIf, so only git's commits have this identity
         File(root, "work.gitconfig").writeText("[user]\n\tname = Work Name\n\temail = work@example.invalid\n")
@@ -493,6 +590,8 @@ class GitCliOperationsTest {
     private fun <T> Either<T, GitError>.ok(): T = (this as? Either.Ok)?.value ?: error("Expected success: $this")
 
     private fun unmergedPaths() = git.run(work, "diff", "--name-only", "--diff-filter=U").trim()
+
+    private fun notices() = repositoryState.autostashNotices.value.map { it.copy(date = 0) }
 
     private fun failure(result: Either<*, GitError>): GitCliError.CommandFailed {
         return (result as? Either.Err)?.error as? GitCliError.CommandFailed ?: error("Expected git to fail: $result")

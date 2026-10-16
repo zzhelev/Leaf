@@ -13,7 +13,10 @@ import dev.app.leaf.domain.interfaces.IDoCommitGitAction
 import dev.app.leaf.domain.interfaces.ILoadAuthorGitAction
 import dev.app.leaf.domain.interfaces.ILoadSignOffConfigGitAction
 import dev.app.leaf.domain.interfaces.ICleanUpAfterCommitGitAction
+import dev.app.leaf.domain.interfaces.IPutBackMergeAutostashGitAction
 import dev.app.leaf.domain.interfaces.IPersistCommitMessageGitAction
+import dev.app.leaf.domain.models.AutostashPutBack
+import dev.app.leaf.domain.models.AutostashPutBackAfter
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.RebaseInteractiveState
@@ -105,6 +108,10 @@ class ContinueRebaseAmendTest {
             PersistCommitMessageUseCase(persistMessage),
             object : ICleanUpAfterCommitGitAction {
                 override suspend fun invoke(repositoryPath: String) = Either.Ok(Unit)
+            },
+            object : IPutBackMergeAutostashGitAction {
+                override suspend fun invoke(repositoryPath: String, after: AutostashPutBackAfter) =
+                    Either.Ok(AutostashPutBack.None)
             },
         )
 

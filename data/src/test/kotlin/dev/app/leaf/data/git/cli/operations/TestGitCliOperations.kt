@@ -46,5 +46,6 @@ fun testGitCliOperations(
         askpassHelper = askpassHelper,
         appSettingsService = testGitSettings(gitExecutablePath),
         jgit = jgit,
+        autostashes = Autostashes(gitCli, repositoryState),
     )
 }

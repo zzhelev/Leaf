@@ -9,10 +9,16 @@ import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
+import dev.app.leaf.data.git.branches.MergeBranchGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.GetRefDatesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.operations.AbortSquashMergeGitAction
+import dev.app.leaf.data.git.cli.operations.Autostashes
+import dev.app.leaf.data.git.cli.operations.GitCliMergeBranchGitAction
+import dev.app.leaf.data.git.cli.operations.PutBackMergeAutostashGitAction
+import dev.app.leaf.data.git.cli.operations.SelectingMergeBranchGitAction
 import dev.app.leaf.data.git.cli.operations.testGitCliOperations
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
@@ -30,12 +36,17 @@ import dev.app.leaf.data.git.rebase.SelectingSkipRebaseGitAction
 import dev.app.leaf.data.git.rebase.SkipRebaseGitAction
 import dev.app.leaf.data.git.remotes.GetRemotesGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
+import dev.app.leaf.data.git.repository.IsUnchangedSinceGitAction
 import dev.app.leaf.data.git.repository.OpenRepositoryGitAction
 import dev.app.leaf.data.git.repository.PersistCommitMessageGitAction
+import dev.app.leaf.data.git.repository.ResetRepositoryStateGitAction
 import dev.app.leaf.data.git.signers.GitSigningConfigs
+import dev.app.leaf.data.git.stash.CreateSnapshotStashGitAction
+import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.stash.GetStashListGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
+import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
@@ -78,6 +89,7 @@ import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.WatcherEvent
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.repositories.DataState
+import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.AbortRebaseUseCase
 import dev.app.leaf.domain.usecases.AbortSquashMergeUseCase
 import dev.app.leaf.domain.usecases.ContinueRebaseUseCase
@@ -96,19 +108,23 @@ import dev.app.leaf.domain.usecases.GetWorktreeRemovalUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeCleanupUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
+import dev.app.leaf.domain.usecases.MergeBranchUseCase
 import dev.app.leaf.domain.usecases.ObserveRepositoryToRefreshUseCase
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.PersistCommitMessageUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
+import dev.app.leaf.domain.usecases.ResetRepositoryStateUseCase
 import dev.app.leaf.domain.usecases.RunWorktreeStepsUseCase
 import dev.app.leaf.domain.usecases.SkipRebaseUseCase
 import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
@@ -129,6 +145,7 @@ class TestTab(
     gitCli: GitCli,
     statusDelay: Duration = Duration.ZERO,
     realFileWatcher: Boolean = false,
+    backUpBeforeMerge: Boolean = true,
 ) : AutoCloseable {
     val scope = TabCoroutineScope()
     val repositoryData = InMemoryRepositoryDataRepository()
@@ -253,10 +270,11 @@ class TestTab(
         runGitCommandGitAction = RunGitCommandGitAction(gitCli),
     )
 
+    private val autostashes = Autostashes(gitCli, repositoryState)
+
     val abortSquashMerge = AbortSquashMergeUseCase(
         useCaseExecutor = useCaseExecutor,
-        getWorktreePathGitAction = GetWorktreePathGitAction(jgit),
-        runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+        abortSquashMergeGitAction = AbortSquashMergeGitAction(autostashes, gitCli, jgit),
     )
 
     val doCommit = DoCommitUseCase(
@@ -273,6 +291,36 @@ class TestTab(
         getAuthorUseCase = GetAuthorUseCase(LoadAuthorGitAction(jgit, GitIdentities(gitCli)), useCaseExecutor),
         persistCommitMessageUseCase = PersistCommitMessageUseCase(PersistCommitMessageGitAction(jgit)),
         cleanUpAfterCommitGitAction = CleanUpAfterCommitGitAction(jgit),
+        putBackMergeAutostashGitAction = PutBackMergeAutostashGitAction(autostashes, jgit),
+    )
+
+    val resetRepositoryState = ResetRepositoryStateUseCase(
+        useCaseExecutor = useCaseExecutor,
+        resetRepositoryStateGitAction = ResetRepositoryStateGitAction(jgit),
+        putBackMergeAutostashGitAction = PutBackMergeAutostashGitAction(autostashes, jgit),
+    )
+
+    private val operations = testGitCliOperations(jgit, gitCli, repositoryState = repositoryState)
+
+    /** Merge in the branch menu, with git, and Leaf's backup when [backUpBeforeMerge]. */
+    val mergeBranch = MergeBranchUseCase(
+        mergeBranchGitAction = SelectingMergeBranchGitAction(
+            operations,
+            GitCliMergeBranchGitAction(operations),
+            MergeBranchGitAction(jgit, testPartialCloneFetch(jgit)),
+        ),
+        appSettingsService = AppSettingsService(
+            mockk<AppSettingsRepository> {
+                every { autoStashOnMerge } returns flowOf(backUpBeforeMerge)
+                every { fastForwardMerge } returns flowOf(false)
+                every { gitExecutablePath } returns flowOf(null)
+            }
+        ),
+        checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
+        useCaseExecutor = useCaseExecutor,
+        deleteStashGitAction = DeleteStashGitAction(jgit),
+        createSnapshotStashGitAction = CreateSnapshotStashGitAction(commitMapper, jgit),
+        isUnchangedSinceGitAction = IsUnchangedSinceGitAction(jgit),
     )
 
     val getWorktreeRebase = GetWorktreeRebaseUseCase(
@@ -284,7 +332,7 @@ class TestTab(
         runGitCommandGitAction = RunGitCommandGitAction(gitCli),
     )
 
-    private val gitCliRebase = GitCliRebase(testGitCliOperations(jgit, gitCli, repositoryState = repositoryState))
+    private val gitCliRebase = GitCliRebase(operations)
 
     val continueRebase = ContinueRebaseUseCase(
         useCaseExecutor = useCaseExecutor,

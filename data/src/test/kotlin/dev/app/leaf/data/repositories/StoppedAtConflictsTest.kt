@@ -68,7 +68,7 @@ class StoppedAtConflictsTest {
                 coEvery { merge(GIT_DIR, branch, false) } returns Either.Ok(hasConflicts)
 
                 lastTask(TaskType.MergeBranch) {
-                    MergeBranchUseCase(merge, settings, mockk(), executor, mockk(), mockk())(branch, "stash")
+                    MergeBranchUseCase(merge, settings, mockk(), executor, mockk(), mockk(), mockk())(branch, "stash")
                 }
             })
         }

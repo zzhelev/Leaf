@@ -777,6 +777,21 @@
     <!-- Error dialog -->
     <string name="error_dialog_copy_button_tooltip">Copy error</string>
     <string name="error_dialog_switch_to_worktree">Switch to worktree</string>
+    <string name="autostash_notice_title">Your changes are in the stash</string>
+    <string name="autostash_notice_set_aside_merge">git set your uncommitted changes aside before the merge (merge.autoStash).</string>
+    <string name="autostash_notice_set_aside_rebase">git set your uncommitted changes aside before the rebase (rebase.autoStash).</string>
+    <string name="autostash_notice_after_merge">after the merge</string>
+    <string name="autostash_notice_after_rebase">after the rebase</string>
+    <string name="autostash_notice_after_commit">after the commit</string>
+    <string name="autostash_notice_after_abort_merge">after aborting the merge</string>
+    <string name="autostash_notice_after_abort_rebase">after aborting the rebase</string>
+    <string name="autostash_notice_conflicts">Putting them back %1$s left conflicts in:</string>
+    <string name="autostash_notice_conflicts_end">They're also saved in the stash list as autostash. Drop that stash once the conflicts are resolved.</string>
+    <string name="autostash_notice_refused">Putting them back %1$s didn't work, as other changes are in the way. They're saved in the stash list as autostash: apply it once those changes are committed or stashed.</string>
+    <plurals name="autostash_notice_more_files">
+        <item quantity="one">and %1$d more file</item>
+        <item quantity="other">and %1$d more files</item>
+    </plurals>
 
     <!-- Clone -->
     <string name="clone_error_invalid_directory">Invalid empty directory</string>

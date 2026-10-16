@@ -58,6 +58,7 @@ fun AppTab(
 ) {
     val errors by repositoryTabViewModel.severeErrors.collectAsState()
     val lastError = errors.firstOrNull()
+    val autostashNotice = repositoryTabViewModel.autostashNotices.collectAsState().value.firstOrNull()
 
     val tasks = repositoryTabViewModel.notifications.collectAsState().value
         .toList()
@@ -81,6 +82,17 @@ fun AppTab(
             val screen = Screen.Error(it)
 
             // Coming back to the tab runs this again, while the error's dialog is still open
+            if (!backStack.contains(screen)) {
+                backStack.add(screen)
+            }
+        }
+    }
+
+    // Fork-only
+    LaunchedEffect(autostashNotice) {
+        autostashNotice?.let {
+            val screen = Screen.ChangesInStash(it)
+
             if (!backStack.contains(screen)) {
                 backStack.add(screen)
             }
@@ -242,6 +254,17 @@ fun AppTab(
                                     repositoryTabViewModel.completedTaskAlreadyShown(it.error)
                                 },
                                 onSwitchToWorktree = { path -> repositoryTabViewModel.switchToWorktree(path) },
+                            )
+                        }
+                        entry<Screen.ChangesInStash>(
+                            metadata = dialogsMetadata
+                        ) {
+                            AutostashNoticeDialog(
+                                notice = it.notice,
+                                onAccept = {
+                                    backStack.remove(it)
+                                    repositoryTabViewModel.autostashNoticeShown(it.notice)
+                                },
                             )
                         }
                         entry<Screen.AddEditRemote>(

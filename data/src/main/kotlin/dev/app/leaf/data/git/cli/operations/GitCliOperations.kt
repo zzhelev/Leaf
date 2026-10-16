@@ -27,6 +27,8 @@ import dev.app.leaf.domain.interfaces.IMergeBranchGitAction
 import dev.app.leaf.domain.interfaces.IRebaseBranchGitAction
 import dev.app.leaf.domain.interfaces.IRevertCommitGitAction
 import dev.app.leaf.domain.interfaces.IsMultiStep
+import dev.app.leaf.domain.models.AutostashOperation
+import dev.app.leaf.domain.models.AutostashPutBackAfter
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.services.AppSettingsService
@@ -59,6 +61,7 @@ class GitCliOperations @Inject constructor(
     private val askpassHelper: AskpassHelper,
     private val appSettingsService: AppSettingsService,
     private val jgit: JGit,
+    private val autostashes: Autostashes,
 ) {
     /** Whether git runs these operations: Leaf found a usable git, and has the askpass helper. */
     suspend fun useGitCli(): Boolean {
@@ -81,6 +84,10 @@ class GitCliOperations @Inject constructor(
      * when it refuses, as for a rebase with local changes, or a merge of something that isn't a commit: that's a
      * failure, as is any other exit code but 0, such as 128 for a merge while conflicts are left. No time limit, as
      * git runs hooks.
+     *
+     * A merge or a rebase that ends, aborted too, puts back what `merge.autoStash` or `rebase.autoStash` set aside.
+     * When that doesn't apply, git keeps it in the stash list as "autostash", exits with 0 nonetheless, and the tab
+     * shows a notice ([Autostashes.noticeIfKept]).
      */
     suspend fun run(
         repositoryPath: String,
@@ -88,7 +95,14 @@ class GitCliOperations @Inject constructor(
         mayStop: Boolean = true,
     ): Either<Boolean, GitError> = either {
         val workTree = workTree(repositoryPath).bind()
+        val autostashOperation = autostashOperation(args)
+        val stashBefore = autostashOperation?.let { autostashes.newestStash(workTree) }
         val output = remoteCommand.run(workTree, args, environment = NO_EDITOR).bind()
+
+        if (autostashOperation != null && output.exitCode == 0) {
+            val after = if ("--abort" in args) AutostashPutBackAfter.ABORT else AutostashPutBackAfter.OPERATION
+            autostashes.noticeIfKept(workTree, stashBefore, autostashOperation, after)
+        }
 
         when {
             output.exitCode == 0 -> Either.Ok(false)
@@ -121,6 +135,13 @@ class GitCliOperations @Inject constructor(
 
         return unmergedPaths(output).isNotEmpty()
     }
+}
+
+/** What git may set the user's changes aside for, as `git <args>` runs: a merge or a rebase. */
+private fun autostashOperation(args: List<String>): AutostashOperation? = when (args.firstOrNull()) {
+    "merge" -> AutostashOperation.MERGE
+    "rebase" -> AutostashOperation.REBASE
+    else -> null
 }
 
 /**

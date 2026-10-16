@@ -6,11 +6,9 @@ package dev.app.leaf.domain.usecases
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
 import dev.app.leaf.domain.UseCaseExecutor
-import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.onErr
-import dev.app.leaf.domain.interfaces.IGetWorktreePathGitAction
+import dev.app.leaf.domain.interfaces.IAbortSquashMergeGitAction
 import dev.app.leaf.domain.interfaces.IPersistSquashMessageGitAction
-import dev.app.leaf.domain.interfaces.IRunGitCommandGitAction
 import dev.app.leaf.domain.models.TaskType
 import kotlinx.coroutines.Job
 import javax.inject.Inject
@@ -39,20 +37,18 @@ class PersistSquashMessageUseCase @Inject constructor(
 /**
  * Undoes a squash merge that waits to be committed (fork-only), conflicts included: `git reset --merge`, which also
  * removes `SQUASH_MSG`. A squash merge leaves no state that `git merge --abort` could undo. Changes that the user made
- * since are kept, unless they're in a file that the squash merge changed: then git refuses, and changes nothing.
+ * since are kept, unless they're in a file that the squash merge changed: then git refuses, and changes nothing. The
+ * changes that `merge.autoStash` set aside are put back ([IAbortSquashMergeGitAction]).
  */
 class AbortSquashMergeUseCase @Inject constructor(
     private val useCaseExecutor: UseCaseExecutor,
-    private val getWorktreePathGitAction: IGetWorktreePathGitAction,
-    private val runGitCommandGitAction: IRunGitCommandGitAction,
+    private val abortSquashMergeGitAction: IAbortSquashMergeGitAction,
 ) {
     operator fun invoke(): Job = useCaseExecutor.executeLaunch(
         taskType = TaskType.AbortSquashMerge,
         dataToRefresh = arrayOf(DataToRefresh.ALL),
         refreshEvenIfFailed = true,
     ) { repositoryPath ->
-        val workTree = getWorktreePathGitAction(repositoryPath).bind()
-
-        runGitCommandGitAction(workTree, listOf("reset", "--merge"))
+        abortSquashMergeGitAction(repositoryPath)
     }
 }

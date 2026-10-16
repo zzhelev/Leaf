@@ -12,6 +12,7 @@ import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.IInitLocalRepositoryGitAction
+import dev.app.leaf.domain.models.AutostashNotice
 import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
@@ -186,6 +187,9 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
     val taskProgress: StateFlow<TaskProgress?> = repositoryStateRepository.taskProgress
 
+    /** Changes that git set aside and couldn't put back, shown one after another until dismissed (fork-only). */
+    val autostashNotices: StateFlow<List<AutostashNotice>> = repositoryStateRepository.autostashNotices
+
     val credentialsState: StateFlow<CredentialsState> = credentialsStateManager.credentialsState
 
 
@@ -207,6 +211,10 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
             openRepositoryUseCase(directory)
         }
+    }
+
+    fun autostashNoticeShown(notice: AutostashNotice) {
+        repositoryStateRepository.autostashNoticeShown(notice)
     }
 
     fun completedTaskAlreadyShown(task: CompletedTask) {

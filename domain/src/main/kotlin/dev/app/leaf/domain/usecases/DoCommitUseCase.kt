@@ -13,6 +13,8 @@ import dev.app.leaf.domain.errors.onOk
 import dev.app.leaf.domain.interfaces.ICleanUpAfterCommitGitAction
 import dev.app.leaf.domain.interfaces.IDoCommitGitAction
 import dev.app.leaf.domain.interfaces.ILoadSignOffConfigGitAction
+import dev.app.leaf.domain.interfaces.IPutBackMergeAutostashGitAction
+import dev.app.leaf.domain.models.AutostashPutBackAfter
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.TaskType
@@ -26,6 +28,7 @@ class DoCommitUseCase @Inject constructor(
     private val getAuthorUseCase: GetAuthorUseCase,
     private val persistCommitMessageUseCase: PersistCommitMessageUseCase,
     private val cleanUpAfterCommitGitAction: ICleanUpAfterCommitGitAction,
+    private val putBackMergeAutostashGitAction: IPutBackMergeAutostashGitAction,
 ) {
     operator fun invoke(
         message: String,
@@ -34,7 +37,14 @@ class DoCommitUseCase @Inject constructor(
     ): Deferred<Either<Commit, AppError>> {
         return useCaseExecutor.executeLaunchAsync(
             taskType = TaskType.DoCommit,
-            dataToRefresh = arrayOf(DataToRefresh.STATUS, DataToRefresh.BRANCHES, DataToRefresh.LOG, DataToRefresh.REPO_STATE),
+            // Fork-only: STASHES, as the autostash that the commit puts back may go to the stash list
+            dataToRefresh = arrayOf(
+                DataToRefresh.STATUS,
+                DataToRefresh.BRANCHES,
+                DataToRefresh.LOG,
+                DataToRefresh.REPO_STATE,
+                DataToRefresh.STASHES,
+            ),
         ) { repositoryPath ->
             commit(repositoryPath, message, amend, author)
         }
@@ -71,6 +81,11 @@ class DoCommitUseCase @Inject constructor(
                 // Fork-only: removes SQUASH_MSG and the merge's files that git's commit removes and JGit's doesn't
                 cleanUpAfterCommitGitAction(repositoryPath).onErr {
                     printError(TAG, "Failed to clean up after the commit: $it")
+                }
+
+                // Fork-only: puts back what merge.autoStash set aside, as git's commit does after any commit
+                putBackMergeAutostashGitAction(repositoryPath, AutostashPutBackAfter.COMMIT).onErr {
+                    printError(TAG, "Failed to put back the merge's autostash: $it")
                 }
             }
     }

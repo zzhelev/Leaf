@@ -1,6 +1,7 @@
 package dev.app.leaf.domain.repositories
 
 import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.models.AutostashNotice
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.usecases.DataToRefresh
@@ -30,6 +31,11 @@ interface RepositoryStateRepository {
     suspend fun addCompletedTaskWithConflicts(completedTask: TaskType)
     suspend fun addCompletedTaskFailed(completedTask: TaskType, reason: AppError, severity: FailureSeverity)
     suspend fun refreshTriggered(dataToRefresh: List<DataToRefresh>)
+
+    /** Changes that git set aside and couldn't put back, which the tab shows until they're dismissed (fork-only). */
+    val autostashNotices: StateFlow<List<AutostashNotice>>
+    fun addAutostashNotice(notice: AutostashNotice)
+    fun autostashNoticeShown(notice: AutostashNotice)
 }
 
 sealed interface CompletedTask {

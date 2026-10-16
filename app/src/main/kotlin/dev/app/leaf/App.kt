@@ -99,6 +99,8 @@ sealed interface Screen : NavKey {
     data class BranchReset(val targetCommit: Commit) : Screen
     data class AddEditRemote(val remote: Remote?) : Screen
     data class Error(val error: CompletedTask.Failure) : Screen
+    /** git couldn't put back the changes that it set aside, which are in the stash list (fork-only). */
+    data class ChangesInStash(val notice: AutostashNotice) : Screen
     data object SubmoduleAdd : Screen
     data class HttpCredentials(val credentialsRequest: CredentialsRequest.HttpCredentialsRequest) : Screen
     data class SshCredentials(val credentialsRequest: CredentialsRequest.SshCredentialsRequest) : Screen

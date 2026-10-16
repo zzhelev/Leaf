@@ -15,6 +15,8 @@ import javax.inject.Inject
  * Merges [Branch] into what is checked out with `git merge` (fork-only), with git's own message ("Merge branch
  * 'feature'", "Merge remote-tracking branch 'origin/feature'") and its hooks. Returns whether it stopped at conflicts.
  * `--ff` and `--no-ff` follow Leaf's "Fast-forward merge" setting, over the user's `merge.ff`, as JGit's merge did.
+ * The user's `merge.autoStash` applies, as in a terminal: git sets local changes aside, and puts them back once the
+ * merge is committed or aborted ([Autostashes]).
  */
 class GitCliMergeBranchGitAction @Inject constructor(
     private val operations: GitCliOperations,

@@ -5,6 +5,8 @@ import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.author.SaveAuthorGitAction
 import dev.app.leaf.data.git.branches.*
+import dev.app.leaf.data.git.cli.operations.AbortSquashMergeGitAction
+import dev.app.leaf.data.git.cli.operations.PutBackMergeAutostashGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingCherryPickCommitGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingMergeBranchGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingRebaseBranchGitAction
@@ -534,4 +536,16 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetMergeToolGitAction(action: GetMergeToolGitAction): IGetMergeToolGitAction
+
+    @Binds
+    @TabScope
+    fun bindsPutBackMergeAutostashGitAction(action: PutBackMergeAutostashGitAction): IPutBackMergeAutostashGitAction
+
+    @Binds
+    @TabScope
+    fun bindsAbortSquashMergeGitAction(action: AbortSquashMergeGitAction): IAbortSquashMergeGitAction
+
+    @Binds
+    @TabScope
+    fun bindsIsUnchangedSinceGitAction(action: IsUnchangedSinceGitAction): IIsUnchangedSinceGitAction
 }
