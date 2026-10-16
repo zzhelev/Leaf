@@ -976,9 +976,15 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
     the commit-msg hook, whether there is one or not (`CommitMsgHook.canRun` only checks the file's path, see
     `hookArguments`). Leaf used to remove it right after; it now keeps the last message, as after git's commit.
   - A draft that an older Leaf left in `COMMIT_EDITMSG` isn't moved over, as nothing tells it from git's message.
-  - Leaf's commit removes the draft (`DoCommitUseCase`). A merge's commit removes it too, as the merge is over by
-    then, though the merge kept the draft out of view (upstream's behaviour): the field still shows it, but a restart
-    or a worktree switch loses it unless it's edited first.
+  - A commit removes only the message it committed. The caller says which (`DoCommitUseCase`'s `isMergeMessage`,
+    from the field's `CommitMessageSource`). A plain commit removes the draft. A merge's or a squash merge's commit
+    leaves it, as the commit removes their own files (JGit's commit, `CleanUpAfterCommitGitAction`). Until 2026-10-16
+    they removed the draft too, as the repository is SAFE after them, where `PersistCommitMessageGitAction` picks the
+    draft.
+  - The field shows `MERGE_MSG` only while merging (upstream's `isMerging`), so during a cherry-pick or a revert it
+    shows the draft, and their commits take it and remove it. An interactive rebase's amend removes `MERGE_MSG`,
+    where the field's edits go during a rebase. The field's edits aren't saved during a cherry-pick, and go to
+    `MERGE_MSG` during a revert, which the field doesn't read (upstream's behaviour).
 - A plain merge then goes on in Leaf's merge UI: `MERGE_MSG` in the field, the Merge button, the banner.
 - When a merge ends, conflicts or not, the tab selects the uncommitted changes (`worktreeResultsToShow`), where its
   result waits. A selected commit, or the review, would hide it.

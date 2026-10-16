@@ -2,6 +2,42 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A commit removes only the message it committed (branch `fix/commit-clears-own-message`)
+
+- **Before:** after every commit from the commit field, `DoCommitUseCase` removed "the field's saved message", which
+  `PersistCommitMessageGitAction` picks from the state *after* the commit. A merge's commit and a squash merge's
+  (whose state is SAFE throughout, as git records none) both leave the repository SAFE, where that's the plain draft.
+  So committing a merge, or a squash merge from "Squash-merge into main…", deleted the draft in `LEAF_COMMIT_DRAFT`
+  that the merge had kept out of view. The field still showed it, but a restart or a worktree switch lost it unless it
+  was edited first (found, not changed, in `fix/commit-draft-file`'s entry; upstream's behaviour with
+  `COMMIT_EDITMSG`).
+- **Now:** the caller says which message it committed. `DoCommitUseCase.invoke` and `commit` take `isMergeMessage`,
+  and remove the saved message only when it's false. `StatusViewModelExtender.commit` passes
+  `source != CommitMessageSource.NORMAL`, read before the commit: the commit itself removes `MERGE_MSG` and
+  `SQUASH_MSG` (JGit's commit and `CleanUpAfterCommitGitAction`). `ContinueRebaseUseCase`'s amend passes false, so it
+  still removes `MERGE_MSG`, where the field's edits go during a rebase.
+  - Reading the state before the commit was the other way. It would have missed the squash merge, and kept the draft
+    after a cherry-pick's or a revert's commit, which commit the draft: the field shows `MERGE_MSG` only while merging
+    (upstream's `isMerging`), so it shows the draft during them.
+- **Found, not changed:** during a cherry-pick, the field's edits aren't saved (`PersistCommitMessageGitAction` writes
+  nothing in `CHERRY_PICKING`), and during a revert or a rebase they go to `MERGE_MSG`, which the field doesn't read.
+  So a restart in the middle of one shows the draft as it was before. The field doesn't offer git's own message
+  there either ("Revert …", or the picked commit's). Upstream's behaviour.
+- **Tests** (on `ff6e2b84`, and again after rebasing onto `54c19696`):
+  - `DraftingCommitMessagesTest` (+4, in a `TestTab`): a merge's commit (`--no-ff --no-commit`) and a squash merge's
+    leave the draft, as a tab opened afterwards reads it, and their message files go. A cherry-pick's and a revert's
+    commit, after conflicts, take the draft.
+  - `ContinueRebaseAmendTest`: the amend removes the saved message between amending and continuing.
+  - `CommitMessageSourceTest`: the field shows the draft during a cherry-pick or a revert.
+  - `MergingWorktreesTest` and `MergingWithAutostashTest` commit their merges with `isMergeMessage = true`.
+  - **Mutation check:** 6 mutations, all caught, each by a failing test: removing the saved message always (the old
+    behaviour, which fails the merge and squash merge tests), never, or the other way round; `invoke` not passing the
+    flag on; the rebase's amend keeping `MERGE_MSG`; the field showing `MERGE_MSG` during a cherry-pick or a revert.
+    Not covered by a test: the view model's `source != CommitMessageSource.NORMAL`, which the manual run checked.
+  - **Manual run** (dev run, 2026-10-16, `/tmp/leaf-draft-demo-setup.sh`): a draft in main's field, then "Squash-merge
+    into main…" and "Merge into main…" from two worktree rows, each committed from the field, then a switch to a
+    worktree and back. The draft stayed in `LEAF_COMMIT_DRAFT`, and `MERGE_MSG` and `SQUASH_MSG` were gone.
+
 ## Pull runs git pull (branch `fix/git-cli-pull`)
 
 - **Before:** Pull fetched with git, then JGit merged or rebased what `FETCH_HEAD` marked
@@ -155,7 +191,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     typing in one tab made the others run git in every worktree.
 - **Found, not changed:** a merge's commit in Leaf clears the plain draft after the merge is over, so the draft that
   the merge kept out of view is removed from disk (upstream's behaviour, with `COMMIT_EDITMSG` before). The field still
-  shows it until a restart or a worktree switch.
+  shows it until a restart or a worktree switch. Fixed in `fix/commit-clears-own-message`.
 - **Tests:** `CommitDraftTest` (5, temp repositories with git as the reference): a draft saved, read back and removed,
   with `COMMIT_EDITMSG` untouched; a terminal `git commit -m` and a `git rebase --continue` after conflicts, whose
   messages (the second with git's comments) aren't taken, nor replace a draft; a linked worktree's draft in its own git
