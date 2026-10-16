@@ -48,8 +48,10 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   - A file upstream adds in a new folder lands under `com/jetpackduba/gitnuro/` without any conflict.
   - A file the fork rewrote comes up as modify/delete, and upstream's change has to be ported by hand.
 
-  After resolving, `git ls-files '*jetpackduba*'` must print nothing, and new files need `dev.app.leaf` packages. The
-  first sync (2026-10-07) is described in `docs/fork/CHANGELOG.md`.
+  After resolving, `git ls-files '*jetpackduba*'` must print nothing, and new files need `dev.app.leaf` packages.
+  Also read what git merged without a conflict in files the fork changed: on 2026-10-16 it merged upstream's fix of
+  the Actions list into Leaf's, which gave two actions a second dismiss (see Dialogs). The syncs of 2026-10-07 and
+  2026-10-16 are described in `docs/fork/CHANGELOG.md`.
 - **Commit identity:** `Zhelyazko Zhelev <zzhelev@gmail.com>`, set in the repo's own `.git/config`. Never commit under
   another identity.
 - **Pushing:** `git push origin main`, from a terminal or from Leaf. Since 2026-10-10 the repo's `.git/config` sets
@@ -1655,7 +1657,9 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 - `sealed interface Screen` in `App.kt`, `entry<Screen.X>` in `ui/AppTab.kt`.
 - Opened with `backStack.add(...)`, through an `onNavigate` lambda.
 - The Actions list (`QuickActionsDialog`) closes itself before it runs an action, so an action that opens a dialog only
-  adds it. Closing afterwards would remove the new dialog, the top of the back stack.
+  adds it. Closing afterwards would remove the new dialog, the top of the back stack. Upstream fixed the same bug the
+  other way (1cac7a00: its `AppTab` callbacks remove the list, then add theirs). Leaf keeps its own, so its callbacks
+  only add: both together close the screen under the list, the tab's repository.
 - `ui/dialogs/base/IconBasedDialog.kt` is the base for confirm-style dialogs.
 - Every dialog renders through `ui/dialogs/base/MaterialDialog.kt`. `DialogSceneStrategy` uses Compose's common
   `Dialog`, which on desktop draws on the main window's canvas, not in an OS window, and only takes clicks inside its
@@ -1797,7 +1801,8 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
 - What is saved: open tabs as their git dir (`Open.path`), and tabs that haven't loaded yet as the path they were
   created with (`RepositoryTabViewModel.initialPath`). Tabs on the welcome page (`None`) are skipped.
 - Never save `repositoryPath.value`. It is started lazily and stays `null` until something collects it, which tabs
-  scrolled out of the tab bar never do. A `null` in the saved list makes `loadPersistedTabs` throw at startup.
+  scrolled out of the tab bar never do. `loadPersistedTabs` skips a `null` in the saved list (upstream's 2040386b), so
+  that tab is lost; it used to throw at startup.
 
 ## Sidebar and branch list
 
@@ -1821,7 +1826,10 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 - Context menus: `ui/context_menu/*ContextMenu.kt`. `branchContextMenuItems` is shared with the log's `BranchChip`.
 
 **Branches:**
-- Model: `domain/models/Branch.kt` (`hash`, full ref `name`, `isLocal`). It has no tracking or ahead/behind fields.
+- Model: `domain/models/Branch.kt` (`hash`, full ref `name`, `isLocal`, `trackingBranch`). No ahead/behind fields.
+  - `trackingBranch` is `branch.<name>.remote` and `.merge`, which `refreshBranches` reads for each local branch
+    (`GetTrackingBranchUseCase`, upstream's 4bc8b17d). Elsewhere it's null, Leaf's default (upstream has none). It's
+    part of a branch's equality, so compare branches from different sources with `isSameBranch` or by name.
 - Loaded by `GetBranchesGitAction` (`git.branchList()`) via `RefreshDataUseCase.refreshBranches`.
 - Double-clicking a local branch checks it out immediately. When another worktree uses it, it switches the tab to that
   worktree instead (fork-only, `RepositoryOpenViewModel.checkoutBranch`), from the side panel and from the log's
@@ -1884,12 +1892,13 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   conflict color when there are conflicts); and `↑ahead ↓behind` versus the base branch, or "merged".
 - The tooltip (`worktreeTooltip`) has the full path, the change counts, the comparison to the base and to the
   upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
-- A click selects the worktree's commit in the log (its branch when it's on one). A double-click switches the tab to
-  the worktree (see Identity and persistence), as does "Switch to worktree" in its menu (`worktreeContextMenuItems`),
-  followed by "Open in new tab". The menu starts with "Review changes" for a worktree on a branch other than the
-  base (see Reviewing a worktree), then "Squash-merge into main…" and "Merge into main…" (see Merging a worktree into
-  the base), and "Rebase onto main…" (see Rebasing a worktree onto the base). Switching and opening in a new tab
-  aren't offered for the tab's own worktree, a prunable one or a bare repository's (`Worktree.canSwitchTo`).
+- A click selects the worktree's commit in the log (its branch when it's on one), and scrolls the log to it. A
+  double-click switches the tab to the worktree (see Identity and persistence), as does "Switch to worktree" in its
+  menu (`worktreeContextMenuItems`), followed by "Open in new tab". The menu starts with "Review changes" for a
+  worktree on a branch other than the base (see Reviewing a worktree), then "Squash-merge into main…" and "Merge into
+  main…" (see Merging a worktree into the base), and "Rebase onto main…" (see Rebasing a worktree onto the base).
+  Switching and opening in a new tab aren't offered for the tab's own worktree, a prunable one or a bare repository's
+  (`Worktree.canSwitchTo`).
 - A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, "Clean up merged
   worktrees…" when its work is in the base and something can be removed (see Cleaning up merged worktrees), and "Prune
   missing worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from
@@ -2086,6 +2095,8 @@ of its Message cell.
   current branch first and tags last. Before, tags came first and the current branch had no place of its own.
 - A remote branch with the name of a local branch on the same commit shares that branch's chip
   (`LogRef.LocalBranch.remotes`), as in IntelliJ, Git Graph and Fork: a cloud mark whose tooltip names it.
+  - Upstream joins a local branch's chip with the branch it tracks (4bc8b17d: `trackingRemoteBranch`, a gold cloud
+    with its own menu). Leaf keeps this rule, and `BranchChip` takes `sharedRemotes` in its place.
   - The chip's menu is the local branch's, a separator, then the remote branch's items (`sharedChipRemoteItems`):
     push, pull, delete, compare worktrees, copy, each naming the remote branch.
   - Checkout, merge and rebase are left out there: at the same commit they do what the local branch's items do.
@@ -2099,10 +2110,25 @@ of its Message cell.
   a chip of its own, grouped as branches, remote branches and tags, which double-click and right-click as in the row.
   - An action in it closes it first (`LogRefActions.dismissingFirst`), so a dialog it opens isn't behind it.
   - Esc and a click outside close it too.
+- A remote branch's chip has a cloud icon, on its lane's colour. Upstream's is on a fixed gold (`0xFFbd9b46`), which
+  Leaf leaves out. The current branch's marker grows and shrinks on checkout (upstream's `animateFloatAsState`).
+- `branchContextMenuItems` and `BranchChip` take callbacks that get the branch, as upstream's do since 4bc8b17d.
 - `LogRefChips` is a `SubcomposeLayout`: every chip is composed and measured, and only the ones that fit are placed.
   The others are still in the semantics tree, so `LogRefChipsTest` checks `layoutInfo.isPlaced` up the parents.
 - The Message cell is a `Row` with `weight(1f)`, so the columns after it keep their widths. Before, the chips were
   measured first, and a row with many of them squeezed the message, then Author and Date, to nothing.
+
+**The log under the diff pane (upstream's b2f9188f):** `MainContentView` keeps the log composed while the diff pane
+shows over it (`Modifier.focusable(!showDiff)`), so closing a diff doesn't compose the log again.
+- Compose hit-tests the sibling below where nothing in the top one takes the pointer. So the diff pane is wrapped in
+  `Modifier.coveringWhatIsBelow()` (fork-only, `ui/components/`): the diff's header has a background and no pointer
+  input, so without it a click on its empty parts would select a log row under it, and hovering would show that row's
+  tooltips (`CoveringWhatIsBelowTest` shows it for any view over another).
+- The log scrolls to a selected branch or tag, and to a selected commit only when `SelectedItem.CommitItem.scrollToItem`
+  says so: a stash from the side panel, a detached worktree's row. A commit picked in the log, blame or the rebase list
+  doesn't scroll it. `LogAction.CommitSelected` says whether the commit is a stash, which the side panel highlights.
+- `scrollToCommit` doesn't scroll when the commit's line is already on screen. A line's key starts with its commit's
+  hash (fork-only fix: upstream looked for the commit's message, which no key has).
 
 **File history's selected commit (fork-only, `ui/FileHistorySelection.kt`, `viewmodels/FileHistoryCommits.kt`):**
 `HistoryViewModel.selectedCommit` is the commit whose diff is shown. The list highlights its row

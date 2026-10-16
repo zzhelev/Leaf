@@ -2,6 +2,61 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Upstream sync: stash highlighting, shared log chips, quick actions (branch `sync/upstream-2026-10-16`)
+
+- **Merged:** `upstream/main` up to `1cac7a00`, the second sync (the first was `f4f39528`, merge base `415b3729`). Six
+  commits:
+  - `00b25acf` bumped Gitnuro to 2.0-beta04. Leaf keeps its own version (1.1.1, code 28).
+  - `b2f9188f`: a stash selected in the log is highlighted in the side panel (`LogAction.CommitSelected` carries
+    `isStash`), and `SelectedItem.CommitItem` says whether the log scrolls to it (`scrollToItem`). The log stays
+    composed under the diff pane, so closing a diff doesn't compose it again. `@Immutable` on `SelectedItem` and the
+    side panel's states.
+  - `4bc8b17d`: a local branch's log chip joins the remote branch it tracks on the same commit. With it come
+    `Branch.trackingBranch`, which `refreshBranches` reads for local branches, branch menu callbacks that get the
+    branch, a cloud icon for remote branch chips, an animated current-branch marker, and a branch refresh after a push.
+  - `f5cafbb7`: upstream's `bundleID = packageName` inside `macOS {}` read that block's own `packageName`. Leaf's bundle
+    ID is written out, so only the rename of the top-level val to `appPackageName` came over. It sets `group`, which is
+    unchanged.
+  - `2040386b`: `loadPersistedTabs` skips `null`s. Leaf never saves one (`pathToPersist`, first sync), and a bad entry
+    can't stop Leaf from starting now either.
+  - `1cac7a00`: the Actions list's Clone and Signoff, which Leaf had fixed its own way (`df7bb3ee`).
+- **Conflicts:** imports and packages from the rename. `AppViewModel.kt`, `SidePanel.kt` and `SidePaneStates.kt`, which
+  the fork rewrote, came up as modify/delete and were ported by hand. Content conflicts in `Log.kt` (the chips),
+  `BranchContextMenu.kt` (Leaf's worktree items), `RefreshDataUseCase` (Leaf's runners), `RepositoryOpen.kt` and the
+  version files.
+- **Kept Leaf's:**
+  - Shared chips: `LogRefChips` (a remote branch of the same name, from any remote, with its items in the chip's menu)
+    over upstream's loop in `CommitMessage` and its gold cloud with a menu of its own. `BranchChip` takes
+    `sharedRemotes` in place of upstream's `trackingRemoteBranch`.
+  - Quick actions: git merged upstream's `QuickActionsDialog` change into Leaf's without a conflict, which gave "Open
+    repository in file manager" and "Refresh repository data" a second `onDismiss()`, and upstream's `AppTab` callbacks
+    remove the list before adding their dialog. Either would have removed the screen under the list, the tab's
+    repository. Both are left out. `Screen.Clone`, unused, is gone.
+- **Changed from upstream** (previewed offscreen, and chosen by the user):
+  - A remote branch's chip has the cloud icon on its lane's colour, as the rest of the chip. Upstream's is on a fixed
+    gold (`0xFFbd9b46`), which isn't a theme colour.
+  - `Branch.trackingBranch` defaults to `null`, as Leaf's code and tests build branches without it. It's part of a
+    branch's equality, and Leaf compares branches from different sources by name.
+- **Fixed on top:**
+  - The log under the diff: Compose hit-tests the sibling below where nothing in the top one takes the pointer, and
+    the diff's header has only a background there. A click on its empty parts would have selected a log row under it.
+    `Modifier.coveringWhatIsBelow` (fork-only) wraps the diff pane.
+  - `scrollToCommit` skips the scroll when the commit's line is on screen, but upstream looked for the commit's message
+    in the lines' keys, which hold its hash. It never matched, and always matched a commit with an empty message,
+    which then never scrolled. It looks for the hash.
+  - Upstream's `InstantTooltip(AnnotatedString)` overload passes Leaf's `leadingContent` and `maxLines` on, which the
+    `String` one now forwards to it.
+- **Changed:** a detached worktree's row scrolls the log to its commit, as a branch's row does. Selecting a branch, tag
+  or stash whose line is already on screen no longer scrolls the log.
+- **Tests:** `CoveringWhatIsBelowTest` (3): without the modifier, a click and hover on an empty spot of a view drawn
+  over another reach the one below; with it, neither does, and what's inside still gets its clicks.
+  `TrackingBranchesTest` (2, in a `TestTab`): local branches carry the branch they track, and a branch refresh reads an
+  upstream set since. Full build on the merge, before the lane colour: 1,870 tests (app 320, common 7, data 1,195,
+  domain 348), all passing; after it, the log, context menu and component tests again.
+- **Manual run:** the user's dev run on `/tmp/leaf-sync-demo-setup.sh`'s repository (two remotes, stashes, a branch
+  worktree and a detached one, an uncommitted change), with the Actions list. The remote chips' colours and the
+  marker's animation were rendered offscreen from the real chip code before and after.
+
 ## The commit field during a cherry-pick, a revert and a rebase (branch `fix/commit-field-during-operations`)
 
 - **Before:** the field showed `MERGE_MSG` only while merging (upstream's `isMerging`), and the draft during a
