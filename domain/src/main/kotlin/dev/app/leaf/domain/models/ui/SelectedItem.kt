@@ -1,17 +1,29 @@
 package dev.app.leaf.domain.models.ui
 
+import androidx.compose.runtime.Immutable
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Tag
 
+@Immutable
 sealed interface SelectedItem {
+    @Immutable
     data object None : SelectedItem
+
+    @Immutable
     data object UncommittedChanges : SelectedItem
+
+    @Immutable
     sealed interface CommitBasedItem : SelectedItem {
         val commit: Commit
     }
 
+    @Immutable
     data class BranchItem(val branch: Branch, override val commit: Commit) : CommitBasedItem
+
+    @Immutable
     data class TagItem(val tag: Tag, override val commit: Commit) : CommitBasedItem
-    data class CommitItem(override val commit: Commit, val isStash: Boolean) : CommitBasedItem
+
+    @Immutable
+    data class CommitItem(override val commit: Commit, val isStash: Boolean, val scrollToItem: Boolean) : CommitBasedItem
 }

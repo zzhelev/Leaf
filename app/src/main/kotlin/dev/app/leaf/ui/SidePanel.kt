@@ -203,7 +203,11 @@ fun SidePanel(
             stashes(
                 stashesState = stashesState,
                 selectedItem = selectedItem,
-                viewModel = viewModel,
+                onExpandStashes = { viewModel.onExpandStashes() },
+                onSelectStash = { viewModel.selectStash(it) },
+                onApplyStash = { viewModel.applyStash(it) },
+                onPopStash = { viewModel.popStash(it) },
+                onDeleteStash = { viewModel.deleteStash(it) },
                 onConfirmAction = onConfirmAction,
             )
 
@@ -324,18 +328,18 @@ fun LazyListScope.localBranches(
                         worktreesBase = branchWorktrees.baseChoice,
                         onBranchClicked = { viewModel.selectBranch(branch) },
                         onBranchDoubleClicked = { viewModel.checkoutBranch(branch) },
-                        onCheckoutBranch = { viewModel.checkoutBranch(branch) },
-                        onMergeBranch = { viewModel.mergeBranch(branch) },
-                        onRebaseBranch = { viewModel.rebaseBranch(branch) },
-                        onDeleteBranch = { onDeleteBranch(branch) },
-                        onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(branch) },
-                        onRenameBranch = { onRenameBranch(branch) },
+                        onCheckoutBranch = { viewModel.checkoutBranch(it) },
+                        onMergeBranch = { viewModel.mergeBranch(it) },
+                        onRebaseBranch = { viewModel.rebaseBranch(it) },
+                        onDeleteBranch = { onDeleteBranch(it) },
+                        onChangeDefaultUpstreamBranch = { onChangeDefaultUpstreamBranch(it) },
+                        onRenameBranch = { onRenameBranch(it) },
                         onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                         onSwitchToWorktree = { viewModel.switchToWorktree(it) },
                         onNewWorktree = { onNewWorktree(NewWorktreeStart.LocalBranch(branch)) },
                         onCopyBranchNameToClipboard = {
                             scope.launch {
-                                clipboard.setClipboardText(branch.simpleName)
+                                clipboard.setClipboardText(it.simpleName)
                             }
                         },
                     )
@@ -436,21 +440,21 @@ fun LazyListScope.remotes(
                                 currentBranch = remotesState.currentBranch,
                                 worktreesBase = worktreesBase,
                                 onBranchClicked = { viewModel.selectBranch(remoteBranch) },
-                                onCheckoutBranch = { viewModel.checkoutRemoteBranch(remoteBranch) },
+                                onCheckoutBranch = { viewModel.checkoutRemoteBranch(it) },
                                 onDeleteBranch = {
-                                    onConfirmAction(ConfirmableAction.DeleteRemoteBranch(remoteBranch)) {
-                                        viewModel.deleteRemoteBranch(remoteBranch)
+                                    onConfirmAction(ConfirmableAction.DeleteRemoteBranch(it)) {
+                                        viewModel.deleteRemoteBranch(it)
                                     }
                                 },
-                                onPushRemoteBranch = { viewModel.pushToRemoteBranch(remoteBranch) },
-                                onPullRemoteBranch = { viewModel.pullFromRemoteBranch(remoteBranch) },
-                                onRebaseRemoteBranch = { viewModel.rebaseBranch(remoteBranch) },
-                                onMergeRemoteBranch = { viewModel.mergeBranch(remoteBranch) },
+                                onPushRemoteBranch = { viewModel.pushToRemoteBranch(it) },
+                                onPullRemoteBranch = { viewModel.pullFromRemoteBranch(it) },
+                                onRebaseRemoteBranch = { viewModel.rebaseBranch(it) },
+                                onMergeRemoteBranch = { viewModel.mergeBranch(it) },
                                 onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                                 onNewWorktree = { onNewWorktree(NewWorktreeStart.RemoteBranch(remoteBranch)) },
                                 onCopyBranchNameToClipboard = {
                                     scope.launch {
-                                        clipboard.setClipboardText(remoteBranch.simpleName)
+                                        clipboard.setClipboardText(it.simpleName)
                                     }
                                 }
                             )
@@ -527,8 +531,12 @@ fun LazyListScope.tags(
 @OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.stashes(
     stashesState: StashesState,
-    viewModel: RepositoryOpenViewModel,
     selectedItem: SelectedItem,
+    onExpandStashes: () -> Unit,
+    onSelectStash: (Commit) -> Unit,
+    onApplyStash: (Commit) -> Unit,
+    onPopStash: (Commit) -> Unit,
+    onDeleteStash: (Commit) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
 ) {
     val isExpanded = stashesState.isExpanded
@@ -545,7 +553,7 @@ fun LazyListScope.stashes(
                     itemsCount = stashes.count(),
                     hoverIcon = null,
                     isExpanded = isExpanded,
-                    onExpand = { viewModel.onExpandStashes() }
+                    onExpand = onExpandStashes,
                 )
             }
         }
@@ -556,11 +564,11 @@ fun LazyListScope.stashes(
             Stash(
                 stash,
                 isSelected = selectedItem is SelectedItem.CommitItem && selectedItem.isStash && selectedItem.commit.hash == stash.hash,
-                onClick = { viewModel.selectStash(stash) },
-                onApply = { viewModel.applyStash(stash) },
-                onPop = { viewModel.popStash(stash) },
+                onClick = { onSelectStash(stash) },
+                onApply = { onApplyStash(stash) },
+                onPop = { onPopStash(stash) },
                 onDelete = {
-                    onConfirmAction(ConfirmableAction.DropStash(stash)) { viewModel.deleteStash(stash) }
+                    onConfirmAction(ConfirmableAction.DropStash(stash)) { onDeleteStash(stash) }
                 },
             )
         }
@@ -697,16 +705,16 @@ private fun Branch(
     isSelectedItem: Boolean,
     onBranchClicked: () -> Unit,
     onBranchDoubleClicked: () -> Unit,
-    onCheckoutBranch: () -> Unit,
-    onMergeBranch: () -> Unit,
-    onRebaseBranch: () -> Unit,
-    onDeleteBranch: () -> Unit,
-    onChangeDefaultUpstreamBranch: () -> Unit,
-    onRenameBranch: () -> Unit,
+    onCheckoutBranch: (Branch) -> Unit,
+    onMergeBranch: (Branch) -> Unit,
+    onRebaseBranch: (Branch) -> Unit,
+    onDeleteBranch: (Branch) -> Unit,
+    onChangeDefaultUpstreamBranch: (Branch) -> Unit,
+    onRenameBranch: (Branch) -> Unit,
     onChooseWorktreesBase: (branch: String?) -> Unit,
     onSwitchToWorktree: (Worktree) -> Unit,
     onNewWorktree: () -> Unit,
-    onCopyBranchNameToClipboard: () -> Unit,
+    onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
 
@@ -799,15 +807,15 @@ private fun RemoteBranches(
     currentBranch: Branch?,
     worktreesBase: WorktreeBaseBranch?,
     onBranchClicked: () -> Unit,
-    onCheckoutBranch: () -> Unit,
-    onDeleteBranch: () -> Unit,
-    onPushRemoteBranch: () -> Unit,
-    onPullRemoteBranch: () -> Unit,
-    onRebaseRemoteBranch: () -> Unit,
-    onMergeRemoteBranch: () -> Unit,
+    onCheckoutBranch: (Branch) -> Unit,
+    onDeleteBranch: (Branch) -> Unit,
+    onPushRemoteBranch: (Branch) -> Unit,
+    onPullRemoteBranch: (Branch) -> Unit,
+    onRebaseRemoteBranch: (Branch) -> Unit,
+    onMergeRemoteBranch: (Branch) -> Unit,
     onChooseWorktreesBase: (branch: String?) -> Unit,
     onNewWorktree: () -> Unit,
-    onCopyBranchNameToClipboard: () -> Unit,
+    onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     ContextMenu(
         items = {
@@ -838,7 +846,7 @@ private fun RemoteBranches(
             isSelected = false,
             iconResourcePath = Res.drawable.branch,
             onClick = onBranchClicked,
-            onDoubleClick = onCheckoutBranch,
+            onDoubleClick = { onCheckoutBranch(remoteBranch) },
         ) {
             RefTrailingLabel(ageLabel, isCurrentBranch = false)
         }

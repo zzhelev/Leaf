@@ -148,7 +148,7 @@ class WorktreeReviewTest {
         review.open(agent, "refs/heads/main")
         loaded()
 
-        selectedItem.value = SelectedItem.CommitItem(commit("Fix", "c0"), isStash = false)
+        selectedItem.value = SelectedItem.CommitItem(commit("Fix", "c0"), isStash = false, scrollToItem = false)
 
         withTimeout(5.seconds) { review.reviewState.first { it == null } }
         withTimeout(5.seconds) { while (closeableViews.isNotEmpty()) delay(10.milliseconds) }
@@ -161,7 +161,7 @@ class WorktreeReviewTest {
 
     @Test
     fun `closing selects again what was selected before it opened`(): Unit = runBlocking {
-        val before = SelectedItem.CommitItem(commit("Fix", "c0"), isStash = false)
+        val before = SelectedItem.CommitItem(commit("Fix", "c0"), isStash = false, scrollToItem = false)
         selectedItem.value = before
         review.open(agent, "refs/heads/main")
         loaded()
@@ -175,7 +175,7 @@ class WorktreeReviewTest {
 
     @Test
     fun `showing the uncommitted changes closes it for the status`(): Unit = runBlocking {
-        selectedItem.value = SelectedItem.CommitItem(commit("Fix", "c0"), isStash = false)
+        selectedItem.value = SelectedItem.CommitItem(commit("Fix", "c0"), isStash = false, scrollToItem = false)
         review.open(agent, "refs/heads/main")
         loaded()
 

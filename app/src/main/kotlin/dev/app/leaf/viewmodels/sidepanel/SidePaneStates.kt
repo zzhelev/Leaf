@@ -1,5 +1,6 @@
 package dev.app.leaf.viewmodels.sidepanel
 
+import androidx.compose.runtime.Immutable
 import dev.app.leaf.common.flows.combine
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.extensions.lowercaseContains
@@ -17,8 +18,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 
+@Immutable
 data class SubmodulesState(val isLoading: Boolean, val submodules: List<Pair<String, Submodule>>, val isExpanded: Boolean)
 
+@Immutable
 data class TagsState(
     val tags: List<Tag>,
     val isExpanded: Boolean,
@@ -26,9 +29,10 @@ data class TagsState(
     val sortState: RefSortState = RefSortState(),
 )
 
+@Immutable
 data class StashesState(val stashes: List<Commit>, val isExpanded: Boolean)
 
-
+@Immutable
 data class BranchesState(
     val isLoading: Boolean,
     val branches: List<Branch>,

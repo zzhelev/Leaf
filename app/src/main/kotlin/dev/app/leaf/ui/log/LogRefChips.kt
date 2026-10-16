@@ -300,20 +300,20 @@ private fun BranchRefChip(
     val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
 
     BranchChip(
-        ref = branch,
+        branch = branch,
         color = color,
         currentBranch = currentBranch,
         isCurrentBranch = branch.isSameBranch(currentBranch),
-        onCheckoutBranch = { actions.onCheckoutBranch(branch) },
-        onMergeBranch = { actions.onMergeBranch(branch) },
-        onDeleteBranch = { actions.onDeleteBranch(branch) },
-        onDeleteRemoteBranch = { actions.onDeleteRemoteBranch(branch) },
-        onRebaseBranch = { actions.onRebaseBranch(branch) },
-        onPullRemoteBranch = { actions.onPullRemoteBranch(branch) },
-        onPushRemoteBranch = { actions.onPushRemoteBranch(branch) },
-        onChangeDefaultUpstreamBranch = { actions.onChangeDefaultUpstreamBranch(branch) },
-        onRenameBranch = { actions.onRenameBranch(branch) },
-        onCopyBranchNameToClipboard = { actions.onCopyBranchNameToClipboard(branch) },
+        onCheckoutBranch = actions.onCheckoutBranch,
+        onMergeBranch = actions.onMergeBranch,
+        onDeleteBranch = actions.onDeleteBranch,
+        onDeleteRemoteBranch = actions.onDeleteRemoteBranch,
+        onRebaseBranch = actions.onRebaseBranch,
+        onPullRemoteBranch = actions.onPullRemoteBranch,
+        onPushRemoteBranch = actions.onPushRemoteBranch,
+        onChangeDefaultUpstreamBranch = actions.onChangeDefaultUpstreamBranch,
+        onRenameBranch = actions.onRenameBranch,
+        onCopyBranchNameToClipboard = actions.onCopyBranchNameToClipboard,
         sharedRemotes = sharedRemotes,
         sharedRemotesMenuItems = {
             sharedChipRemoteItems(

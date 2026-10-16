@@ -1,13 +1,17 @@
 package dev.app.leaf.domain.models
 
+import androidx.compose.runtime.Immutable
 import dev.app.leaf.domain.BranchesConstants.LOCAL_PREFIX_LENGTH
 import dev.app.leaf.domain.BranchesConstants.REMOTE_PREFIX_LENGTH
 import org.eclipse.jgit.lib.Constants
 
+@Immutable
 data class Branch(
     val hash: String,
     val name: String,
     val isLocal: Boolean,
+    // Fork-only default: refreshBranches sets it for local branches, and Leaf's own code builds branches without it
+    val trackingBranch: TrackingBranch? = null,
 ) {
     val isRemote = !isLocal
     val simpleName: String
@@ -50,6 +54,8 @@ data class Branch(
                 else -> simpleName
             }
         }
+
+    val matchesTrackingBranchName = this.simpleName == this.trackingBranch?.branch
 
     // TODO Override equals?
     fun isSameBranch(otherRef: Branch?): Boolean {

@@ -9,6 +9,7 @@ import dev.app.leaf.domain.WorktreesRefreshRunner
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.flatten
 import dev.app.leaf.domain.errors.mapOk
+import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.interfaces.*
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
@@ -37,6 +38,7 @@ class RefreshDataUseCase @Inject constructor(
     private val getRebaseInteractiveTodoLinesUseCase: GetRebaseInteractiveTodoLinesUseCase,
     private val getRebaseLinesFullMessageUseCase: GetRebaseLinesFullMessageUseCase,
     private val getPersistedCommitMessagesGitAction: IGetPersistedCommitMessagesGitAction,
+    private val getTrackingBranchUseCase: GetTrackingBranchUseCase,
     private val getLogUseCase: GetLogUseCase,
     private val getWorktreesInfoUseCase: GetWorktreesInfoUseCase,
     private val worktreesRefreshRunner: WorktreesRefreshRunner,
@@ -118,7 +120,12 @@ class RefreshDataUseCase @Inject constructor(
     private suspend fun refreshBranches() {
         useCaseExecutor.executeWithoutResult { repositoryPath ->
             repositoryDataRepository.updateLocalBranches(repositoryPath) {
-                getBranchesGitAction(repositoryPath)
+                getBranchesGitAction(repositoryPath).mapOk { branches ->
+                    branches.map { branch ->
+                        val remoteBranch = getTrackingBranchUseCase(branch).okOrNull()
+                        branch.copy(trackingBranch = remoteBranch)
+                    }
+                }
             }
 
             repositoryDataRepository.updateCurrentBranch(repositoryPath) {

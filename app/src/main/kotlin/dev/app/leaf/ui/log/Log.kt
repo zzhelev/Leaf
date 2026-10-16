@@ -3,6 +3,7 @@
 package dev.app.leaf.ui.log
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -113,6 +114,7 @@ private const val TAG = "LogView"
 // TODO Min size for message column
 @Composable
 fun Log(
+    modifier: Modifier,
     viewModel: RepositoryOpenViewModel,
     selectedItem: SelectedItem,
     repositoryState: RepositoryState,
@@ -145,12 +147,15 @@ fun Log(
     }
 
     LaunchedEffect(selectedItem) {
-        if (!(selectedItem is SelectedItem.CommitItem && !selectedItem.isStash) && selectedItem is SelectedItem.CommitBasedItem) {
+        if (
+            (selectedItem is SelectedItem.CommitBasedItem && selectedItem !is SelectedItem.CommitItem) ||
+            (selectedItem is SelectedItem.CommitItem && selectedItem.scrollToItem)
+        ) {
             scrollToCommit(logStatus.verticalScrollState, logStatus.commitList, selectedItem.commit)
         }
     }
 
-    BoxWithConstraints {
+    BoxWithConstraints(modifier) {
         CompositionLocalProvider(
             LocalBranchWorktrees provides branchWorktrees,
             LocalOnChooseWorktreesBase provides viewModel::chooseWorktreesBase,
@@ -410,13 +415,21 @@ private fun LogView(
 suspend fun scrollToCommit(
     verticalScrollState: LazyListState,
     commitList: GraphCommits,
-    commit: Commit?,
+    commit: Commit,
 ) {
     val index = commitList.commits.entries.indexOfFirst { it.value.hash == commit?.hash }
     // TODO Show a message informing the user why we aren't scrolling
     // Index can be -1 if the ref points to a commit that is not shown in the graph due to the limited
     // number of displayed commits.
-    if (index >= 0) verticalScrollState.scrollToItem(index)
+    // Fork-only fix: a line's key starts with its commit's hash (see CommitsList). Upstream looked for the message,
+    // which no key has, and which every key has when it's empty
+    val isCommitAlreadyVisible = verticalScrollState.layoutInfo.visibleItemsInfo.any {
+        (it.key as? String)?.startsWith(commit.hash) == true
+    }
+
+    if (!isCommitAlreadyVisible) {
+        if (index >= 0) verticalScrollState.scrollToItem(index)
+    }
 }
 
 suspend fun scrollToUncommittedChanges(
@@ -650,13 +663,14 @@ fun CommitsList(
             },
         )
         { graphNode ->
+            val isStash = stashes.contains(graphNode.hash)
             CommitLine(
                 graphWidth = graphWidth,
                 columnsLayout = columnsLayout,
                 graphNode = graphNode,
                 isSelected = selectedCommit?.hash == graphNode.hash,
                 showInAmend = logState.currentBranch?.hash == graphNode.hash && !hasUncommittedChanges,
-                isStash = stashes.contains(graphNode.hash),
+                isStash = isStash,
                 branches = branches[graphNode.hash].orEmpty(),
                 tags = tags[graphNode.hash].orEmpty(),
                 currentBranch = logState.currentBranch,
@@ -678,7 +692,7 @@ fun CommitsList(
                 onPullFromRemoteBranch = { onAction(LogAction.PullFromRemoteBranch(it)) },
                 onRebaseBranch = { onAction(LogAction.Rebase(it)) },
                 onRebaseInteractive = { onAction(LogAction.RebaseInteractive(graphNode.commit)) },
-                onRevCommitSelected = { onAction(LogAction.CommitSelected(graphNode.commit)) },
+                onRevCommitSelected = { onAction(LogAction.CommitSelected(graphNode.commit, isStash)) },
                 onChangeDefaultUpstreamBranch = { onChangeUpstreamBranch(it) },
                 onRenameBranch = { onRenameBranch(it) },
                 onDeleteStash = {
@@ -1407,35 +1421,36 @@ fun UncommittedChangesGraphNode(
 fun BranchChip(
     modifier: Modifier = Modifier,
     isCurrentBranch: Boolean = false,
-    ref: Branch,
+    branch: Branch,
     currentBranch: Branch?,
-    onCheckoutBranch: () -> Unit,
-    onMergeBranch: () -> Unit,
-    onDeleteBranch: () -> Unit,
-    onDeleteRemoteBranch: () -> Unit,
-    onRebaseBranch: () -> Unit,
-    onPushRemoteBranch: () -> Unit,
-    onPullRemoteBranch: () -> Unit,
-    onChangeDefaultUpstreamBranch: () -> Unit,
-    onCopyBranchNameToClipboard: () -> Unit,
-    onRenameBranch: () -> Unit,
+    onCheckoutBranch: (Branch) -> Unit,
+    onMergeBranch: (Branch) -> Unit,
+    onDeleteBranch: (Branch) -> Unit,
+    onDeleteRemoteBranch: (Branch) -> Unit,
+    onRebaseBranch: (Branch) -> Unit,
+    onPushRemoteBranch: (Branch) -> Unit,
+    onPullRemoteBranch: (Branch) -> Unit,
+    onChangeDefaultUpstreamBranch: (Branch) -> Unit,
+    onCopyBranchNameToClipboard: (Branch) -> Unit,
+    onRenameBranch: (Branch) -> Unit,
     color: Color,
-    // Fork-only: the remote branches of the same name that share this local branch's chip, and their menu items
+    // Fork-only: the remote branches of the same name that share this local branch's chip, and their menu items, in
+    // place of upstream's trackingRemoteBranch
     sharedRemotes: List<Branch> = emptyList(),
     sharedRemotesMenuItems: () -> List<ContextMenuElement> = { emptyList() },
 ) {
     val branchWorktrees = LocalBranchWorktrees.current
-    val worktreeUsers = branchWorktrees.usersOf(ref)
+    val worktreeUsers = branchWorktrees.usersOf(branch)
     val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
     val onSwitchToWorktree = LocalOnSwitchToWorktree.current
     val onNewWorktree = LocalOnNewWorktree.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
-            branch = ref,
+            branch = branch,
             currentBranch = currentBranch,
             isCurrentBranch = isCurrentBranch,
-            isLocal = ref.isLocal,
+            isLocal = branch.isLocal,
             onCheckoutBranch = onCheckoutBranch,
             onMergeBranch = onMergeBranch,
             onDeleteBranch = onDeleteBranch,
@@ -1452,7 +1467,9 @@ fun BranchChip(
             onSwitchToWorktree = onSwitchToWorktree,
             onNewWorktree = onNewWorktree?.let { onNew ->
                 {
-                    onNew(if (ref.isLocal) NewWorktreeStart.LocalBranch(ref) else NewWorktreeStart.RemoteBranch(ref))
+                    onNew(
+                        if (branch.isLocal) NewWorktreeStart.LocalBranch(branch) else NewWorktreeStart.RemoteBranch(branch)
+                    )
                 }
             },
         ) + sharedRemotesMenuItems().let { items ->
@@ -1460,7 +1477,7 @@ fun BranchChip(
         }
     }
 
-    val endingContent: @Composable () -> Unit = {
+    val endingContent: @Composable RowScope.() -> Unit = {
         if (sharedRemotes.isNotEmpty()) {
             SharedRemotesChipMark(remotes = sharedRemotes, modifier = Modifier.padding(end = 6.dp))
         }
@@ -1473,14 +1490,16 @@ fun BranchChip(
             )
         }
 
-        if (isCurrentBranch) {
-            Icon(
-                painter = painterResource(Res.drawable.location),
-                contentDescription = null,
-                modifier = Modifier.padding(end = 6.dp),
-                tint = MaterialTheme.colors.primaryVariant,
-            )
-        }
+        val sizeMultiplierCurrentBranch by animateFloatAsState(if (isCurrentBranch) 1f else 0f)
+
+        Icon(
+            painter = painterResource(Res.drawable.location),
+            contentDescription = null,
+            modifier = Modifier
+                .size((18 * sizeMultiplierCurrentBranch).dp)
+                .padding(end = (6 * sizeMultiplierCurrentBranch).dp),
+            tint = MaterialTheme.colors.primaryVariant,
+        )
     }
 
     Chip(
@@ -1491,9 +1510,11 @@ fun BranchChip(
             orientation = Orientation.Vertical,
         ),
         color = color,
-        text = ref.logName,
-        icon = Res.drawable.branch,
-        onCheckoutRef = onCheckoutBranch,
+        // Fork-only: a remote branch's chip keeps its lane's colour, where upstream's is a fixed gold. Its cloud icon
+        // says that it's remote.
+        text = branch.logName,
+        icon = if (branch.isLocal) Res.drawable.branch else Res.drawable.cloud,
+        onCheckoutRef = { onCheckoutBranch(branch) },
         contextMenuItemsList = contextMenuItemsList,
         endingContent = endingContent,
     )
@@ -1548,9 +1569,10 @@ fun Chip(
     text: String,
     icon: DrawableResource,
     color: Color,
+    iconBackgroundColor: Color = color,
     onCheckoutRef: () -> Unit,
     contextMenuItemsList: () -> List<ContextMenuElement>,
-    endingContent: @Composable () -> Unit = {},
+    endingContent: @Composable RowScope.() -> Unit = {},
 ) {
     // The first click of a double click selects the commit, which recomposes the line. A new lambda as key would
     // restart the double click detection and lose that first click.
@@ -1572,7 +1594,7 @@ fun Chip(
                 modifier = modifier,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(modifier = Modifier.background(color = color)) {
+                Box(modifier = Modifier.background(color = iconBackgroundColor)) {
                     Icon(
                         modifier = Modifier
                             .padding(MaterialTheme.linesHeight.refChipIconPadding)

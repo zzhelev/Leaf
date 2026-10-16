@@ -32,6 +32,7 @@ import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.ui.*
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
+import dev.app.leaf.ui.components.coveringWhatIsBelow
 import dev.app.leaf.ui.conflicts.ConflictResolver
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffPane
@@ -419,41 +420,47 @@ fun MainContentView(
                             // Fork-only: blame had the focus, so the tab takes it back, as when the diff closes
                             tabFocusRequester.requestFocus()
                         },
-                        onSelectCommit = { viewModel.selectCommit(it) }
+                        onSelectCommit = { viewModel.selectCommit(it, isStash = false) }
                     )
                 } else {
                     Column {
                         Box(modifier = Modifier.weight(1f, true)) {
-                            if (diffSelected?.entries?.count() == 1) {
+                            val showDiff = diffSelected?.entries?.count() == 1
+
+                            Log(
+                                modifier = Modifier.focusable(!showDiff),
+                                viewModel = viewModel,
+                                selectedItem = selectedItem,
+                                repositoryState = repositoryState,
+                                // TODO Move nav outside of this? Applies to next lines
+                                onCreateBranch = { onNavigate(Screen.BranchCreate(it)) },
+                                onResetBranch = { onNavigate(Screen.BranchReset(it)) },
+                                onCreateTag = { onNavigate(Screen.TagCreate(it)) },
+                                onChangeUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
+                                onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
+                                onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
+                                onDeleteTag = { onNavigate(Screen.TagDelete(it)) },
+                                onConfirmAction = { action, onConfirm ->
+                                    onNavigate(Screen.ConfirmAction(action, onConfirm))
+                                },
+                                onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
+                            )
+
+                            if (showDiff) {
                                 val tabFocusRequester = LocalTabFocusRequester.current
 
-                                DiffPane(
-                                    viewModel = viewModel,
-                                    onCloseDiffView = {
-                                        tabFocusRequester.requestFocus()
-                                    },
-                                    onConfirmAction = { action, onConfirm, onStopAsking ->
-                                        onNavigate(Screen.ConfirmAction(action, onConfirm, onStopAsking))
-                                    },
-                                )
-                            } else {
-                                Log(
-                                    viewModel = viewModel,
-                                    selectedItem = selectedItem,
-                                    repositoryState = repositoryState,
-                                    // TODO Move nav outside of this? Applies to next lines
-                                    onCreateBranch = { onNavigate(Screen.BranchCreate(it)) },
-                                    onResetBranch = { onNavigate(Screen.BranchReset(it)) },
-                                    onCreateTag = { onNavigate(Screen.TagCreate(it)) },
-                                    onChangeUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
-                                    onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
-                                    onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
-                                    onDeleteTag = { onNavigate(Screen.TagDelete(it)) },
-                                    onConfirmAction = { action, onConfirm ->
-                                        onNavigate(Screen.ConfirmAction(action, onConfirm))
-                                    },
-                                    onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
-                                )
+                                // Fork-only: the log stays under the diff, which takes the pointer where nothing in it does
+                                Box(modifier = Modifier.coveringWhatIsBelow()) {
+                                    DiffPane(
+                                        viewModel = viewModel,
+                                        onCloseDiffView = {
+                                            tabFocusRequester.requestFocus()
+                                        },
+                                        onConfirmAction = { action, onConfirm, onStopAsking ->
+                                            onNavigate(Screen.ConfirmAction(action, onConfirm, onStopAsking))
+                                        },
+                                    )
+                                }
                             }
                         }
 

@@ -30,6 +30,7 @@ import dev.app.leaf.domain.usecases.GetLogUseCase
 import dev.app.leaf.domain.usecases.GetRebaseInteractiveTodoLinesUseCase
 import dev.app.leaf.domain.usecases.GetRebaseLinesFullMessageUseCase
 import dev.app.leaf.domain.usecases.GetRemotesUseCase
+import dev.app.leaf.domain.usecases.GetTrackingBranchUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import io.mockk.coEvery
@@ -95,6 +96,7 @@ fun testRefreshDataUseCase(
         getRebaseInteractiveTodoLinesUseCase = GetRebaseInteractiveTodoLinesUseCase(mockk(), executor),
         getRebaseLinesFullMessageUseCase = GetRebaseLinesFullMessageUseCase(mockk(), executor),
         getPersistedCommitMessagesGitAction = getCommitMessages,
+        getTrackingBranchUseCase = GetTrackingBranchUseCase(mockk(), executor),
         getLogUseCase = GetLogUseCase(
             getBranches,
             getTags,

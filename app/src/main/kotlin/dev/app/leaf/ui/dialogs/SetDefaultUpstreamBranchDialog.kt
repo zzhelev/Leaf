@@ -19,7 +19,6 @@ import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.RemoteInfo
 import dev.app.leaf.ui.components.FilterDropdown
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
-import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import dev.app.leaf.ui.dropdowns.DropDownOption
 import dev.app.leaf.viewmodels.SetDefaultUpstreamBranchState
 import dev.app.leaf.viewmodels.SetUpstreamBranchDialogViewModel
@@ -30,7 +29,7 @@ import org.jetbrains.compose.resources.painterResource
 fun SetDefaultUpstreamBranchDialogPreview() {
     SetDefaultUpstreamBranchDialogView(
         state = SetDefaultUpstreamBranchState.Loaded(
-            Branch("XYZ", "main", isLocal = true),
+            Branch("XYZ", "main", isLocal = true, trackingBranch = null),
             null,
             emptyList(),
             null,

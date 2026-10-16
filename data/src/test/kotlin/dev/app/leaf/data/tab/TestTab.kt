@@ -13,6 +13,7 @@ import dev.app.leaf.data.git.branches.MergeBranchGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.GetRefDatesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchesGitAction
+import dev.app.leaf.data.git.branches.GetTrackingBranchGitAction
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.operations.AbortSquashMergeGitAction
 import dev.app.leaf.data.git.cli.operations.Autostashes
@@ -102,6 +103,7 @@ import dev.app.leaf.domain.usecases.GetNewWorktreeContextUseCase
 import dev.app.leaf.domain.usecases.GetRebaseInteractiveTodoLinesUseCase
 import dev.app.leaf.domain.usecases.GetRebaseLinesFullMessageUseCase
 import dev.app.leaf.domain.usecases.GetRemotesUseCase
+import dev.app.leaf.domain.usecases.GetTrackingBranchUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeMergeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRebaseUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRemovalUseCase
@@ -202,6 +204,7 @@ class TestTab(
             useCaseExecutor,
         ),
         getPersistedCommitMessagesGitAction = GetPersistedCommitMessagesGitAction(jgit),
+        getTrackingBranchUseCase = GetTrackingBranchUseCase(GetTrackingBranchGitAction(jgit), useCaseExecutor),
         getLogUseCase = GetLogUseCase(
             getBranchesGitAction = getBranches,
             getTagsGitAction = getTags,

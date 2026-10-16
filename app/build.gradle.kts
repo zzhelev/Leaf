@@ -30,8 +30,8 @@ val projectName = "Leaf"
 // Required for JPackage, as it doesn't accept additional suffixes after the version.
 val projectVersionSimplified = "1.1.1"
 
-val packageName = "dev.app.leaf"
-group = packageName
+val appPackageName = "dev.app.leaf"
+group = appPackageName
 version = projectVersion
 
 val isLinuxAarch64 = (properties.getOrDefault("isLinuxAarch64", "false") as String).toBoolean()
