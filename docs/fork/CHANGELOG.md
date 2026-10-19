@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Terminal button on macOS opens one instance (Gitnuro#208, 2026-10-19)
+
+- **Bug:** every click on Terminal started another Terminal.app process (iTerm2 warned about a second instance). The
+  provider ran `open -a <app> -n --args <repo>`: `-n` starts a new instance even when one runs, and `--args` hands the
+  path to the app as an argument rather than as a folder to open.
+- **Reproduced** on Terminal.app, which wasn't running: two clicks gave two processes, each with two windows (one at the
+  repo, one at `~`).
+- **Fix** (`MacTerminalProvider`): `open -a <app> <repo>`, the folder as a document, as when it is dropped on the app.
+  Checked by hand: Terminal and iTerm2 open it in their running instance, one window at the repo per click, also for a
+  path with spaces and non-ASCII characters (`space ünï repo 日本`). The path is one element of the argument list, and
+  a JVM started without `LANG` still passes it as UTF-8.
+- **Which apps:** the built-in Terminal, and a custom path (Settings → Terminal) whose app is `Terminal`, `iTerm` or
+  `iTerm2`, as a name or a path, with or without `.app`. **Any other custom path keeps the old command**, `-n --args
+  <repo>`: Ghostty, kitty, Alacritty and WezTerm weren't installed, so none was checked. They still start a new
+  instance per click. Giving every custom path the folder form was offered and declined (2026-10-19): an emulator that
+  needs its arguments could stop working.
+- **Not changed:** when Terminal isn't running, it opens its own startup window (Terminal's "On startup" preference) next
+  to the repo's. The old command did the same.
+- **Tests:** `MacTerminalProviderTest` has a fake `IShellManager` that records the command: the built-in command, a
+  path with spaces and unicode, custom paths for both apps (name, `.app`, full path, trailing slash), and the
+  unchanged command for others. Three mutations (always the old command, always the new, `iterm2` left out) each failed
+  the tests they should.
+
 ## Renames in the commit and review file lists (Gitnuro#347, list part, 2026-10-19)
 
 - **Bug:** a commit that git shows as `R old -> new` listed a deletion and an addition, in the commit's file list and
