@@ -34,6 +34,9 @@ sealed interface RemoteOperationError : GitError {
     /** The server's TLS certificate couldn't be verified. */
     data class CertificateProblem(override val output: String) : RemoteOperationError
 
+    /** A clone of a chosen [branch] or tag that the remote doesn't have. */
+    data class BranchNotFound(val branch: String, override val output: String) : RemoteOperationError
+
     /** Any other failure, explained by git's [output] alone. */
     data class Failed(val exitCode: Int, override val output: String) : RemoteOperationError
 }

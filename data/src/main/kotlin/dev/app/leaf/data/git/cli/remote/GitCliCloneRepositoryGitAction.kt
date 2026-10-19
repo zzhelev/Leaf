@@ -39,6 +39,11 @@ private const val SUBMODULES_STAGE = "Cloning submodules"
  * needed. When it's installed, git-lfs downloads the LFS objects before the checkout. With `cloneSubmodules`,
  * `git submodule update --init --recursive` then clones the submodules, as `git clone --recurse-submodules` does.
  *
+ * With a `branch`, git checks out that branch or tag (`--branch`, a tag leaves HEAD detached), and with `singleBranch`
+ * fetches only it (`--single-branch`), which also limits `remote.origin.fetch`. HEAD then points at it, so the checkout,
+ * git-lfs and the submodules below all follow. A branch that the remote lacks is `RemoteOperationError.BranchNotFound`,
+ * and git has made no folder by then.
+ *
  * A clone that fails or is cancelled is removed, as git removes it: the folder, or what's in it when it was an empty
  * folder before. git refuses a folder with files in it, which is then left alone. Only a clone whose submodules failed
  * is kept, as with `git clone --recurse-submodules`, since the repository itself is complete.
@@ -48,7 +53,13 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
     private val remoteCommand: GitCliRemoteCommand,
     private val gitLfsFetch: GitLfsFetch,
 ) {
-    operator fun invoke(directory: File, url: String, cloneSubmodules: Boolean): Flow<CloneState> = channelFlow {
+    operator fun invoke(
+        directory: File,
+        url: String,
+        cloneSubmodules: Boolean,
+        branch: String? = null,
+        singleBranch: Boolean = false,
+    ): Flow<CloneState> = channelFlow {
         val destination = directory.absoluteFile
         val existed = destination.exists()
         // Leaf only removes what the clone created
@@ -59,7 +70,7 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
             send(CloneState.Cloning("Starting...", 0, 0))
 
             val error = try {
-                clone(destination, url, cloneSubmodules)
+                clone(destination, url, cloneSubmodules, branch, singleBranch)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -82,10 +93,12 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
         destination: File,
         url: String,
         cloneSubmodules: Boolean,
+        branch: String?,
+        singleBranch: Boolean,
     ): GitError? {
         val clone = remoteCommand.run(
             workingDirectory = destination.parentFile ?: destination,
-            args = listOf("clone", "--progress", "--no-checkout", "--", url, destination.path),
+            args = cloneArguments(url, destination, branch, singleBranch),
             onProgress = { reportProgress(it, prefix = "") },
         )
 
@@ -196,6 +209,18 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
         }
     }
 }
+
+/**
+ * `git clone`'s arguments. `--branch=<name>`, not `--branch <name>`, so that a name that starts with `-` is a value.
+ * `--single-branch` without a branch clones the remote's default branch alone.
+ */
+internal fun cloneArguments(url: String, destination: File, branch: String?, singleBranch: Boolean): List<String> =
+    buildList {
+        addAll(listOf("clone", "--progress", "--no-checkout"))
+        if (!branch.isNullOrBlank()) add("--branch=${branch.trim()}")
+        if (singleBranch) add("--single-branch")
+        addAll(listOf("--", url, destination.path))
+    }
 
 /** JGit's checkout progress, as the clone dialog shows it. The checkout stops once the clone is cancelled. */
 private class CheckoutProgress(private val scope: ProducerScope<CloneState>) : ProgressMonitor {

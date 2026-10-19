@@ -38,6 +38,9 @@ class CloneViewModel @Inject constructor(
     private val _folder = MutableStateFlow(TextFieldValue(""))
     val folder = _folder.asStateFlow()
 
+    private val _branch = MutableStateFlow(TextFieldValue(""))
+    val branch = _branch.asStateFlow()
+
     private val _cloneState = MutableStateFlow<CloneState>(CloneState.None)
     val cloneState = _cloneState.asStateFlow()
 
@@ -46,7 +49,15 @@ class CloneViewModel @Inject constructor(
 
     private var cloneJob: Job? = null
 
-    fun clone(directoryPath: String, url: String, folder: String, cloneSubmodules: Boolean) {
+    /** [branch] is a branch or a tag, blank for the repository's default branch. [onlyThisBranch] needs one. */
+    fun clone(
+        directoryPath: String,
+        url: String,
+        folder: String,
+        cloneSubmodules: Boolean,
+        branch: String = "",
+        onlyThisBranch: Boolean = false,
+    ) {
         cloneJob = viewModelScope.launch {
             if (directoryPath.isBlank()) {
                 error.value = CloneUiError.EmptyDirectory
@@ -75,7 +86,15 @@ class CloneViewModel @Inject constructor(
             // Not created here: the clone creates it, so that it removes it again if it fails or is cancelled
             val repoDir = File(directory, folder)
 
-            cloneRepositoryGitAction(repoDir, url, cloneSubmodules)
+            val chosenBranch = branch.trim().ifEmpty { null }
+
+            cloneRepositoryGitAction(
+                directory = repoDir,
+                url = url,
+                cloneSubmodules = cloneSubmodules,
+                branch = chosenBranch,
+                singleBranch = onlyThisBranch && chosenBranch != null,
+            )
                 .flowOn(Dispatchers.IO)
                 .collect { newCloneStatus ->
                     if (newCloneStatus is CloneState.Fail) {
@@ -133,6 +152,10 @@ class CloneViewModel @Inject constructor(
 
     fun onFolderNameChanged(folderName: TextFieldValue) {
         _folder.value = folderName
+    }
+
+    fun onBranchChanged(branch: TextFieldValue) {
+        _branch.value = branch
     }
 }
 

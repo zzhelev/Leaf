@@ -288,11 +288,17 @@ class SelectingCloneRepositoryGitAction @Inject constructor(
     private val gitCliCloneRepositoryGitAction: GitCliCloneRepositoryGitAction,
     private val jGitCloneRepositoryGitAction: CloneRepositoryGitAction,
 ) : ICloneRepositoryGitAction {
-    override fun invoke(directory: File, url: String, cloneSubmodules: Boolean): Flow<CloneState> = flow {
+    override fun invoke(
+        directory: File,
+        url: String,
+        cloneSubmodules: Boolean,
+        branch: String?,
+        singleBranch: Boolean,
+    ): Flow<CloneState> = flow {
         val states = if (backend.useGitCli()) {
-            gitCliCloneRepositoryGitAction(directory, url, cloneSubmodules)
+            gitCliCloneRepositoryGitAction(directory, url, cloneSubmodules, branch, singleBranch)
         } else {
-            jGitCloneRepositoryGitAction(directory, url, cloneSubmodules)
+            jGitCloneRepositoryGitAction(directory, url, cloneSubmodules, branch, singleBranch)
         }
 
         emitAll(states)

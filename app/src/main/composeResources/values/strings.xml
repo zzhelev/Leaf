@@ -813,6 +813,10 @@
     <string name="clone_error_invalid_directory">Invalid empty directory</string>
     <string name="clone_error_invalid_url">Invalid empty URL</string>
     <string name="clone_error_invalid_folder_name">Invalid empty folder name</string>
+    <string name="clone_branch_title">Branch or tag (optional)</string>
+    <string name="clone_branch_hint">Default branch of the repository</string>
+    <string name="clone_only_this_branch">Only this branch</string>
+    <string name="clone_only_this_branch_note">Fetches only this branch. A later fetch brings only this branch too.</string>
 
     <!-- Errors -->
     <string name="error_create_branch_already_exists">Branch "%1$s" already exists, please try with a different name</string>
@@ -1063,6 +1067,7 @@
     <string name="error_remote_host_key_not_verified">The SSH server's host key couldn't be verified, so git didn't connect.</string>
     <string name="error_remote_connection_failed">Couldn't connect to the remote.</string>
     <string name="error_remote_certificate_problem">The server's TLS certificate couldn't be verified.</string>
+    <string name="error_remote_branch_not_found">The repository has no branch or tag named "%1$s".</string>
     <string name="error_remote_failed">Git failed with exit code %1$d.</string>
 
     <string name="error_gpg_signing_no_key">Could not sign: no signing key. Set user.signingKey, or user.name and user.email to sign with the key of that identity</string>

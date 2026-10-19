@@ -154,6 +154,28 @@ class GitCliLfsTest {
     }
 
     @Test
+    fun `git-lfs downloads the LFS files of the chosen branch`(): Unit = runBlocking {
+        git.run(source, "switch", "-c", "feature")
+        File(source, "branch.bin").writeBytes(Random(7).nextBytes(20_000))
+        git.run(source, "add", ".")
+        git.run(source, "commit", "-m", "Add branch.bin")
+        git.run(source, "push", "origin", "feature")
+        val featureHead = git.run(source, "rev-parse", "HEAD").trim()
+        val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to pathWithGitLfs))
+        val destination = File(tempDir, "clone")
+
+        val states = clone(remote, destination, branch = "feature", singleBranch = true).toList()
+
+        assertEquals(CloneState.Completed(destination), states.last()) { "$states" }
+        assertEquals("refs/heads/feature", git.run(destination, "symbolic-ref", "HEAD").trim())
+        assertArrayEquals(File(source, "branch.bin").readBytes(), File(destination, "branch.bin").readBytes())
+        assertEquals(emptyList<String>(), builtinDownloads)
+        // The objects of the branch's commit, not of the remote's default branch
+        assertEquals(listOf("version", "fetch origin $featureHead", "update"), gitLfsLog.readLines())
+        assertEquals("", git.run(destination, "status", "--porcelain"))
+    }
+
+    @Test
     fun `without git-lfs, a clone's LFS files are left to the built-in client`(): Unit = runBlocking {
         val path = pathWithoutGitLfs(File(tempDir, "no-lfs-bin"))
         val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to path))
@@ -293,8 +315,13 @@ class GitCliLfsTest {
         assertTrue(File(tempDir, "lfs-store/${lfsOid("third.bin", work)}").isFile)
     }
 
-    private fun clone(remote: TestRemoteCommand, destination: File, url: String = "file://${origin.absolutePath}") =
-        GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, url, false)
+    private fun clone(
+        remote: TestRemoteCommand,
+        destination: File,
+        url: String = "file://${origin.absolutePath}",
+        branch: String? = null,
+        singleBranch: Boolean = false,
+    ) = GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, url, false, branch, singleBranch)
 
     private suspend fun pull(remote: TestRemoteCommand, work: File): Either<PullHasConflicts, GitError> =
         GitCliPullBranchGitAction(

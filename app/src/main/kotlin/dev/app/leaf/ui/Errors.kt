@@ -73,6 +73,7 @@ import dev.app.leaf.app.generated.resources.error_open_repository_repo_not_found
 import dev.app.leaf.app.generated.resources.error_open_repository_repository_load
 import dev.app.leaf.app.generated.resources.error_remote_access_denied
 import dev.app.leaf.app.generated.resources.error_remote_authentication_failed
+import dev.app.leaf.app.generated.resources.error_remote_branch_not_found
 import dev.app.leaf.app.generated.resources.error_remote_certificate_problem
 import dev.app.leaf.app.generated.resources.error_remote_connection_failed
 import dev.app.leaf.app.generated.resources.error_remote_failed
@@ -402,6 +403,7 @@ private fun RemoteOperationError.getRemoteOperationErrorText(): String {
         is RemoteOperationError.HostKeyNotVerified -> stringResource(Res.string.error_remote_host_key_not_verified)
         is RemoteOperationError.ConnectionFailed -> stringResource(Res.string.error_remote_connection_failed)
         is RemoteOperationError.CertificateProblem -> stringResource(Res.string.error_remote_certificate_problem)
+        is RemoteOperationError.BranchNotFound -> stringResource(Res.string.error_remote_branch_not_found, branch)
         is RemoteOperationError.Failed -> stringResource(Res.string.error_remote_failed, exitCode)
     }
 

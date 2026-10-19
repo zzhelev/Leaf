@@ -10,6 +10,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.*
 import androidx.compose.ui.graphics.Color
@@ -19,14 +20,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.clone_branch_hint
+import dev.app.leaf.app.generated.resources.clone_branch_title
 import dev.app.leaf.app.generated.resources.clone_error_invalid_directory
 import dev.app.leaf.app.generated.resources.clone_error_invalid_folder_name
 import dev.app.leaf.app.generated.resources.clone_error_invalid_url
+import dev.app.leaf.app.generated.resources.clone_only_this_branch
+import dev.app.leaf.app.generated.resources.clone_only_this_branch_note
 import dev.app.leaf.app.generated.resources.generic_save_as_default
 import dev.app.leaf.app.generated.resources.search
 import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
+import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.outlinedTextFieldColors
 import dev.app.leaf.theme.textButtonColors
 import dev.app.leaf.ui.components.AdjustableOutlinedTextField
@@ -52,6 +58,8 @@ fun CloneDialog(
     var url by remember(cloneViewModel) { mutableStateOf(cloneViewModel.repositoryUrl.value) }
     var directory by remember(cloneViewModel) { mutableStateOf(cloneViewModel.directoryPath.value) }
     var folder by remember(cloneViewModel) { mutableStateOf(cloneViewModel.folder.value) }
+    var branch by remember(cloneViewModel) { mutableStateOf(cloneViewModel.branch.value) }
+    var onlyThisBranch by remember { mutableStateOf(false) }
     var cloneSubmodules by remember { mutableStateOf(true) }
 
     // Starts from the default clone directory, unless a directory is already there
@@ -101,6 +109,10 @@ fun CloneDialog(
                     onDirectoryChange = { directory = it },
                     onFolderChange = { folder = it },
                     onCloneSubmodulesChange = { cloneSubmodules = it },
+                    branch = branch,
+                    onlyThisBranch = onlyThisBranch,
+                    onBranchChange = { branch = it },
+                    onOnlyThisBranchChange = { onlyThisBranch = it },
                 )
             }
         }
@@ -119,6 +131,10 @@ private fun CloneDialogView(
     onDirectoryChange: (TextFieldValue) -> Unit,
     onFolderChange: (TextFieldValue) -> Unit,
     onCloneSubmodulesChange: (Boolean) -> Unit,
+    branch: TextFieldValue,
+    onlyThisBranch: Boolean,
+    onBranchChange: (TextFieldValue) -> Unit,
+    onOnlyThisBranchChange: (Boolean) -> Unit,
 ) {
     val error by cloneViewModel.error.collectAsState()
     val saveDirAsDefault by cloneViewModel.saveDirAsDefault.collectAsState()
@@ -126,6 +142,7 @@ private fun CloneDialogView(
     val urlFocusRequester = remember { FocusRequester() }
     val directoryFocusRequester = remember { FocusRequester() }
     val folderFocusRequester = remember { FocusRequester() }
+    val branchFocusRequester = remember { FocusRequester() }
     val directoryButtonFocusRequester = remember { FocusRequester() }
     val cloneButtonFocusRequester = remember { FocusRequester() }
     val cancelButtonFocusRequester = remember { FocusRequester() }
@@ -219,7 +236,7 @@ private fun CloneDialogView(
             focusRequester = folderFocusRequester,
             focusProperties = {
                 previous = cancelButtonFocusRequester
-                next = directoryFocusRequester
+                next = branchFocusRequester
             },
             onValueChange = { folderName ->
                 onFolderChange(folderName)
@@ -227,6 +244,71 @@ private fun CloneDialogView(
                 cloneViewModel.resetStateIfError()
             }
         )
+
+        TextInput(
+            modifier = Modifier.padding(top = 16.dp),
+            title = stringResource(Res.string.clone_branch_title),
+            hint = stringResource(Res.string.clone_branch_hint),
+            value = branch,
+            focusRequester = branchFocusRequester,
+            focusProperties = {
+                previous = folderFocusRequester
+                next = cloneButtonFocusRequester
+            },
+            onValueChange = { branchName ->
+                onBranchChange(branchName)
+                cloneViewModel.onBranchChanged(branchName)
+                cloneViewModel.resetStateIfError()
+            }
+        )
+
+        // Needs a branch to be only that one
+        val hasBranch = branch.text.isNotBlank()
+        val singleBranch = onlyThisBranch && hasBranch
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .alpha(if (hasBranch) 1f else 0.5f)
+                .then(
+                    if (hasBranch) {
+                        Modifier.handMouseClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) {
+                            onOnlyThisBranchChange(!onlyThisBranch)
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+        ) {
+            Checkbox(
+                checked = singleBranch,
+                onCheckedChange = onOnlyThisBranchChange,
+                enabled = hasBranch,
+                modifier = Modifier
+                    .padding(all = 8.dp)
+                    .size(12.dp)
+            )
+
+            Text(
+                stringResource(Res.string.clone_only_this_branch),
+                style = MaterialTheme.typography.body2,
+                color = MaterialTheme.colors.onBackground,
+            )
+        }
+
+        AnimatedVisibility(singleBranch) {
+            Text(
+                stringResource(Res.string.clone_only_this_branch_note),
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                modifier = Modifier.padding(start = 28.dp),
+            )
+        }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -295,12 +377,12 @@ private fun CloneDialogView(
             )
             PrimaryButton(
                 onClick = {
-                    cloneViewModel.clone(directory.text, url.text, folder.text, cloneSubmodules)
+                    cloneViewModel.clone(directory.text, url.text, folder.text, cloneSubmodules, branch.text, singleBranch)
                 },
                 modifier = Modifier
                     .focusRequester(cloneButtonFocusRequester)
                     .focusProperties {
-                        previous = directoryButtonFocusRequester
+                        previous = branchFocusRequester
                         next = cancelButtonFocusRequester
                     },
                 text = "Clone"
@@ -405,6 +487,7 @@ private fun Cancelling() {
 private fun TextInput(
     modifier: Modifier = Modifier,
     title: String,
+    hint: String = "",
     value: TextFieldValue,
     enabled: Boolean = true,
     focusRequester: FocusRequester,
@@ -425,6 +508,7 @@ private fun TextInput(
 
         AdjustableOutlinedTextField(
             value = value,
+            hint = hint,
             modifier = Modifier
                 .focusRequester(focusRequester)
                 .focusProperties(focusProperties),

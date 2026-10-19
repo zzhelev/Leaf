@@ -48,13 +48,26 @@ private val CONNECTION_FAILED = listOf(
     "Connection closed by",
 )
 
+/** git prints `Remote branch X not found in upstream origin`, JGit `Remote branch 'X' not found in upstream origin`. */
+private val BRANCH_NOT_FOUND = Regex("Remote branch '?(.+?)'? not found in upstream")
+
+/** A clone's message about a branch or tag that the remote doesn't have, from git's or JGit's output. */
+fun branchNotFound(output: String): RemoteOperationError.BranchNotFound? {
+    val branch = BRANCH_NOT_FOUND.find(output)?.groupValues?.get(1) ?: return null
+
+    return RemoteOperationError.BranchNotFound(branch, output)
+}
+
 /** Tells from git's stderr why a command that talks to a remote failed. */
 fun remoteOperationError(exitCode: Int, stderr: String): RemoteOperationError {
     val output = readableGitOutput(stderr)
+    // Only a clone of a chosen branch says it, and it got as far as the remote's refs
+    val missingBranch = branchNotFound(output)
 
     fun mentions(patterns: List<String>) = patterns.any { output.contains(it) }
 
     return when {
+        missingBranch != null -> missingBranch
         mentions(HOST_KEY_CHANGED) -> RemoteOperationError.HostKeyChanged(output)
         mentions(HOST_KEY_NOT_VERIFIED) -> RemoteOperationError.HostKeyNotVerified(output)
         mentions(CERTIFICATE_PROBLEM) -> RemoteOperationError.CertificateProblem(output)
