@@ -57,6 +57,25 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   Unstaged, a toast said so). The selection and folder-row menus and the symbolic `.gitignore` error were checked by the
   tests only.
 
+## File watcher: one registration per clean folder (2026-10-19)
+
+- **Bug:** a file created in a large repository's working tree, such as a migration under
+  `application/src/main/resources/db/migration`, didn't show until Cmd+R. The packaged Leaf's watcher was alive (thread
+  dump), but its registrations past about 250 delivered nothing: macOS gives the JDK's `MacOSXWatchService` one
+  FSEvents stream per registered folder, the limit is shared by every tab and process, and nothing reports a stream
+  that failed. A probe on the repository (474 non-ignored folders) saw events for the first 238 and none for the
+  rest; a fresh process on 700 empty folders stopped at about 265.
+- **Fix:** `workingTreeWatchPlan` registers a folder with nothing left out under it (ignored folders, `.git`, linked
+  worktrees) once, recursively. The recollection repository needs about a dozen registrations instead of 474.
+  `ObserveRepositoryToRefreshUseCase` uses it for the whole tree and for each folder created later. Links aren't
+  followed.
+- **Notice:** `WatchRegistrations` counts the watchers' folders across tabs. On macOS, from 200 of the ~250 limit the
+  bottom bar shows an amber "File watching near its limit" chip in every tab, with the count and what to do in its
+  tooltip (`WatchLimitNotice`). A count, not a detection: macOS gives no error. No fallback to timed refreshes yet.
+- **Tests:** `WorkingTreeWatchPlanTest`, `WatchRegistrationsTest`, `WatchLimitNoticeTest`, the count in
+  `FileChangesWatcherTest`, and in `RefreshingOnChangesTest` an edit in 12 of 300 folders with the app's
+  watcher, which fails on the old code (15 s timeout) and passes now.
+
 ## Upstream sync: stash highlighting, shared log chips, quick actions (branch `sync/upstream-2026-10-16`)
 
 - **Merged:** `upstream/main` up to `1cac7a00`, the second sync (the first was `f4f39528`, merge base `415b3729`). Six

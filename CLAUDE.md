@@ -2213,7 +2213,22 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
 
 **`domain/.../usecases/ObserveRepositoryToRefreshUseCase.kt`:**
 - What it watches:
-  - the working-tree root and every non-ignored subdirectory, each non-recursive. Fork-only: except the folders of
+  - the working-tree root and the non-ignored folders under it (`workingTreeWatchPlan`, `domain/refresh/`). Fork-only
+    (2026-10-19): a folder with no ignored folder, `.git` or linked worktree under it is one recursive registration,
+    and only a folder that has one is watched alone, followed by the folders in it. macOS gives the JDK's watch service
+    one FSEvents stream per registration, and past about 250 streams in all, shared by every tab and process, new
+    ones silently deliver nothing: with a registration per folder, the 474 folders of one repository left a file
+    created in a late one unreported until Cmd+R. The same plan runs for each folder created later
+    (`updateWatchedDirectories`). Links aren't followed. A `getStatus` that fails leaves the working tree unwatched
+    (logged), as the ignored folders aren't known. `RefreshingOnChangesTest` has the 300-folder case with the app's
+    watcher.
+  - **The limit notice (2026-10-19):** `WatchRegistrations` (app singleton, `domain/refresh/`) counts the keys of every
+    `FileChangesWatcher` (`update` after each add or remove, `release` on close). On macOS, from `WATCH_WARNING_AT`
+    (200, as other apps share the system's ~250) its `warning` flow gives a `WatchUsage`, which
+    `RepositoryOpenViewModel.watchWarning` passes to `BottomInfoBar`'s amber `WatchLimitNotice` chip ("File watching
+    near its limit", the count and the tab count in its tooltip). It is in every tab and goes when the count drops.
+    The crossing is logged in both directions. It's a count, not a detection: macOS reports no failed stream. Not
+    built: a hard limit where new tabs refresh on a timer instead. Fork-only: except the folders of
     the repository's linked worktrees inside it, such as agents' `.claude/worktrees/<name>`
     (`WatchedRepository.isLinkedWorktreeFolder`: a `.git` file that points into `<common git dir>/worktrees/`).
     Every file that an agent or its build wrote there used to refresh the tab's status and log, unless a gitignore
