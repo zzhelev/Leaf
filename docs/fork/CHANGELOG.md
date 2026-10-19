@@ -2,6 +2,59 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Choose… for the Clone dialog's Branch field (follows Gitnuro#209, 2026-10-19)
+
+- **Request:** option C of the clone dialog, with the rule that nothing asks the server until the user clicks the
+  button. "Typing will not care about the git server, only the Choose… button will care."
+- **What it does:** "Choose…" sits beside the Branch field and lists the remote's branches and tags in a popup under
+  it. A click asks once (`git ls-remote`); typing in the field, opening the dialog and changing the URL never do. What is
+  typed filters the list that the remote sent, locally. A blank URL says "Invalid empty URL" and asks nothing.
+- **The popup (decided 2026-10-19, layout A of two):** a grouped list (BRANCHES, TAGS) with the default branch first and
+  marked, what was typed in bold, "N of M match" under it, at most 280 dp tall and as wide as the field and the button.
+  B was a flat list with an icon per row, which the groups make unnecessary.
+  - While it asks: "Asking github.com for its branches and tags…", a spinner and Cancel (git is killed).
+  - A failure is in the popup, in the dialog's red error box, with Try again.
+  - The field keeps the focus: ↓ and ↑ move through the rows, starting from none, and Enter picks the highlighted row
+    only, as what was typed may be the whole name. A click picks too. Esc closes the list before the dialog, and so does
+    a press anywhere in the dialog but the Branch row. Tab goes Folder, Branch, Choose…, Clone.
+- **git:** `git ls-remote --symref -- <url> HEAD refs/heads/* refs/tags/*`, run in the temp folder through the same
+  runner as a clone, so the credential, host key and passphrase dialogs are the clone's. `--heads --tags` was the plan, and
+  it leaves out the `ref: refs/heads/main<TAB>HEAD` line that names the default branch. The patterns keep it, and keep
+  GitHub's many `refs/pull/*` from being sent. JGit does the same through its transport handler when git can't run.
+- **Found while building:**
+  - Kotlin block comments nest: `refs/heads/*` in a KDoc opened a comment that swallowed the file, and KSP said an action
+    "could not be resolved" (now in CLAUDE.md, Code style).
+  - A non-focusable popup gets no outside-press events and a focusable one takes the field's focus, so a press elsewhere
+    is found by an `Initial`-pass `pointerInput` on the dialog's column. The popup's rows pick on a tap, as a
+    `clickable` would take the focus.
+  - The first dialog test of closing the dialog passed without the dialog's code: the test also cleared the view model,
+    which cancels the request by itself. The view model is the tab's and outlives the dialog, so the test now closes the
+    dialog alone. The same check found a JGit test that accepted any default branch, and a selector test that couldn't
+    tell git from JGit (an `insteadOf` in git's config alone does).
+- **Tests (56 new):** `RemoteRefsTest` (6), `BranchChoicesTest` (7), `GitCliListRemoteRefsGitActionTest` (12),
+  `GitCliHttpsTest` (3: Basic authentication through Leaf's dialog and the cache, a wrong password, a closed dialog,
+  and Cancel with no git left running), `CloneViewModelTest` (11), `CloneDialogTest` (12 new, rendered offscreen, one
+  with a real pointer press on a row) and `CloneBranchChoicesTest` (5).
+  - Mutation checks: 59, each caught by a named test. The list action (each pattern, `--symref`, `--`, the exit code, the
+    parser, JGit's default branch and transport, the selector either way), the filter (case, trimming, anywhere, default
+    first, the total, a tag as the default), the view model (a second click, a blank URL, the trimmed URL, closing,
+    picking, a new URL, starting a clone, the host, a failure, asking on typing or on creation) and the dialog (asking
+    on typing in either field, Esc, closing the dialog, a pick, a press elsewhere or on the row, the filter, the focus,
+    Enter and the arrows, the highlight after typing, the count, a tap, Try again, the default mark).
+- **Manual run** (the real dialog from the real Dagger graph with the real git, offscreen, in a temporary harness),
+  against `/tmp/leaf-choose-demo` (51 branches, 123 tags, `main` the default):
+  - a local path and `http://demo:secret@127.0.0.1:8765/…` (a `git http-backend` behind Basic authentication) both list
+    174 refs, with `main` first and marked; "agent/task-1" leaves 11, "release" leaves 4; a pick fills the field and
+    closes the list;
+  - a path that isn't a repository shows "The remote refused access to the repository, or the repository doesn't exist."
+    and git's lines, with Try again; a blank URL says "Invalid empty URL".
+  - Then run by the user in the real window (2026-10-20) against the same demo, with a local path and the Basic-auth
+    server: the list, the credentials dialog (a wrong password, a closed dialog, then the right one), a pick and a
+    clone of the picked branch. The first try never asked: the harness's credentials in the URL had been stored in
+    the user's keychain by git's `credential approve` (`osxkeychain`), and the real Leaf used them. The entry was
+    removed with `git credential reject`, and the second try asked. A harness on the real graph uses the user's own git
+    config, so it must not put credentials in a URL.
+
 ## Discard all in the Unstaged pane (Gitnuro#224, 2026-10-19)
 
 - **Feature:** "Discard all changes…" in a new "⋯" menu of the Unstaged header, between the search button and Stage all.
@@ -85,9 +138,8 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   nothing without one), is off by default, and when it is on a line says what it does: "Fetches only this branch. A
   later fetch brings only this branch too." Tab goes Folder, Branch, Clone (it went from Folder back to Directory).
   - The other layouts: B put Folder and Branch on one row and the two boxes on another (80 dp shorter, but Folder
-    shrinks to half the width); C added a "Choose…" button that lists the remote's branches. C is wanted next, with the
-    rule that nothing asks the server until the user clicks the button, and typing never does (plan in the session
-    notes, `clone-choose-branch-plan.md`).
+    shrinks to half the width); C added a "Choose…" button that lists the remote's branches, with the rule that nothing
+    asks the server until the user clicks the button, and typing never does. C is built (see the entry above).
   - Tags are accepted (`git clone --branch v1.0` does too): the clone ends with a detached HEAD.
 - **git** gets `--branch=<name>` and `--single-branch` (`cloneArguments`). The `=` form makes a name that starts with
   `-` a value. What git 2.54 does with `--no-checkout`, so the steps after it needed no change: HEAD is

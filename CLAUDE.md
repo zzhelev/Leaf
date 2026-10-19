@@ -1382,6 +1382,50 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       missing branch, a name starting with `-`, submodules of the branch, the clone the app runs for git and for JGit),
       `CloneRepositoryGitActionBranchTest` (the same for JGit), `GitCliLfsTest` (git-lfs fetches the branch's commit)
       and `CloneDialogTest` (the field and the box, rendered).
+  - **Choose… (fork-only, 2026-10-19, follows Gitnuro#209):** a button beside the Branch field lists the remote's
+    branches and tags in a popup under it. It is the only thing that asks the remote: typing in the field, opening the
+    dialog and changing the URL never do, and a click asks once.
+    - **git** (`GitCliListRemoteRefsGitAction`): `git ls-remote --symref -- <url> HEAD refs/heads/* refs/tags/*`
+      through `GitCliRemoteCommand`, so the credential, host key and passphrase dialogs are a clone's, and cancelling
+      the coroutine kills git (`GitCliHttpsTest` checks that no git is left). `--heads --tags` would drop the
+      `ref: refs/heads/main<TAB>HEAD` line that names the default branch, and sends the `refs/pull/*` that GitHub has
+      many of; the patterns do neither. It runs in the temp folder, which is no repository, so the user's config
+      (`url.<base>.insteadOf`) applies and a repository's doesn't, and it reports no progress, so nothing reaches a
+      tab's processing screen. A URL that looks like an option is a URL (`--`). Failures are `remoteOperationError`'s.
+    - **JGit** (`ListRemoteRefsGitAction`, the fallback): one `Git.lsRemoteRepository()` through the transport handler.
+      JGit reads HEAD's target from the server's advertisement (checked over `file://`), so the default branch is the
+      same as git's. `SelectingListRemoteRefsGitAction` picks like the clone's (the setting, a usable git, the helper).
+    - **Model** (`domain/models/RemoteRefs.kt`, `domain/clone/BranchChoices.kt`): `RemoteRefs(defaultBranch, branches,
+      tags)` as short names in natural order; the `^{}` lines of annotated tags and every other namespace are left
+      out, and the default branch only when the remote has it. `choicesFor(text)` filters what the remote sent, locally:
+      trimmed, case-insensitive, anywhere in the name, the default branch first, with where the text matched.
+      `remoteHostOf(url)` names who is asked ("Asking github.com…").
+    - **View model** (`CloneViewModel.branchChoices`: `Closed`, `Loading(host)`, `Loaded`, `Failed`): `chooseBranch(url)`
+      cancels the previous request, and a blank URL is `CloneUiError.EmptyUrl` with no request. `closeBranchChoices`
+      cancels the request. Starting a clone, or a URL whose text changed (not a caret move), closes the list, which
+      was of the old URL. `pickBranch(name)` fills the field with the caret at its end.
+    - **The popup** (layout A of two, decided 2026-10-19; `ui/dialogs/CloneBranchChoices.kt`): a `Popup` under the row
+      of the field and its button (`TextInput`'s `end` slot), as wide as the row and at most 280 dp tall. While it asks
+      it says "Asking <host> for its branches and tags…" with Cancel. Then it lists BRANCHES and TAGS, the default
+      branch marked, with what was typed in bold and "N of M match" under it. A failure is in the dialog's red error
+      box with Try again.
+      - **The field keeps the focus**, so what is typed filters the list. Hence a non-focusable popup, and rows and
+        buttons that pick on a tap (`detectTapGestures`), not a `clickable`, which would take the focus. ↓ and ↑ move
+        through the rows, starting from none, and Enter picks the highlighted row only: what was typed may be the whole
+        name. Choose… puts the focus in the Branch field (the URL's when it's blank). Tab goes Folder, Branch,
+        Choose…, Clone.
+      - **Closing:** Esc closes the list before the dialog (`MaterialDialog`'s `onCloseRequested`, which sees Esc
+        first), and a press anywhere in the dialog but the Branch row does too: a non-focusable popup gets no
+        outside-press events, so an `Initial`-pass `pointerInput` on the dialog's column looks (the list is a layer of
+        its own, so presses on it don't come there). Closing the dialog closes the list, which stops git
+        (`DisposableEffect`: the view model is the tab's and outlives the dialog).
+    - Tests (56): `RemoteRefsTest`, `BranchChoicesTest`, `GitCliListRemoteRefsGitActionTest` (local repositories, the
+      default branch, an empty one, a HEAD that points nowhere, 3,000 tags, JGit's list equal to git's, the backend
+      that the setting picks, shown by an `insteadOf` that only git reads), `GitCliHttpsTest` (the dialog, the cache,
+      a wrong password, a closed dialog, Cancel), `CloneViewModelTest`, `CloneDialogTest` (nothing asks before the
+      click, one request per click, the list, the filter, a pick with a real press, the keys, Esc, a press elsewhere,
+      Try again, closing the dialog) and `CloneBranchChoicesTest` (the keys and the list's items). 59 mutations of the
+      list action, the filter, the view model and the dialog were each caught by a named test.
 - **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, or merges or rebases what
   `GitCliPullBranchGitAction` fetched, Leaf runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every
   object in `<git dir>/lfs/objects` (git-lfs and JGit use the same layout), so Leaf's built-in client (`app/.../lfs/`)
@@ -2506,6 +2550,9 @@ shows up through `PollWorktreesUseCase` (`worktreePollTicks` in `refresh/Worktre
 - Kotlin official style (`kotlin.code.style=official`), 4-space indent.
 - Classes are named `XUseCase`, `IXGitAction` / `XGitAction`, `XViewModel`.
 - Composables are PascalCase. Side panel sections are lowerCamel `LazyListScope` extensions. Callbacks are `onXxx`.
+- **Kotlin block comments nest.** `refs/heads/*` in a KDoc or a comment opens a comment inside it, and the rest of the
+  file is comment until a second `*/`. The compiler then reports something far away (KSP said that an action "could
+  not be resolved"). Write the pattern in a string, or leave the `/*` out of comments.
 
 **Licensing:**
 - New files written for Leaf start with these two lines, then a blank line:
