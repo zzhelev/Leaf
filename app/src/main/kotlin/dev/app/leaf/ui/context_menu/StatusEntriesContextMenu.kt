@@ -21,6 +21,8 @@ fun statusEntryContextMenuItems(
     onOpenFileInFolder: () -> Unit,
     /** Fork-only: for a conflicted file, its merge tool and "Use ours" and "Use theirs". */
     conflictActions: ConflictMenuActions? = null,
+    /** Fork-only: opens the ignore dialog, offered for an untracked file in Unstaged. */
+    onIgnore: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
         if (conflictActions != null && statusEntry.conflict != null) {
@@ -87,6 +89,19 @@ fun statusEntryContextMenuItems(
             )
         }
 
+        // Fork-only: ignoring a tracked file changes nothing until it's removed from the index, so only new files
+        if (
+            onIgnore != null &&
+            entryType == EntryType.UNSTAGED &&
+            statusEntry.statusType == StatusType.ADDED
+        ) {
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.status_entries_context_menu_ignore) },
+                icon = { painterResource(Res.drawable.visibility_off) },
+                onClick = onIgnore,
+            )
+        }
+
         addContextMenu(
             composableLabel = { stringResource(Res.string.status_entries_context_menu_open_file_in_folder) },
             icon = { painterResource(Res.drawable.folder_open) },
@@ -126,6 +141,10 @@ fun statusEntriesContextMenuItems(
     onCopyFilesPath: (relative: Boolean) -> Unit,
     /** Fork-only: "Use ours" and "Use theirs" for all of them, when they all have conflicts. */
     onUseConflictSide: ((ConflictSide) -> Unit)? = null,
+    /** Fork-only: how many of them are untracked files in Unstaged, which the ignore dialog takes. */
+    ignoreCount: Int = 0,
+    /** Fork-only: opens the ignore dialog for those files, or null when none of the selected files is untracked. */
+    onIgnore: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
         if (onUseConflictSide != null) {
@@ -176,6 +195,16 @@ fun statusEntriesContextMenuItems(
                 },
                 icon = { painterResource(Res.drawable.undo) },
                 onClick = onDiscard,
+            )
+        }
+
+        if (onIgnore != null) {
+            addContextMenu(
+                composableLabel = {
+                    stringResource(Res.string.status_entries_context_menu_ignore_multiple_files, ignoreCount)
+                },
+                icon = { painterResource(Res.drawable.visibility_off) },
+                onClick = onIgnore,
             )
         }
 

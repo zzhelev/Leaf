@@ -439,6 +439,16 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.Ignore>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            IgnoreDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider.ignoreViewModelFactory().create(entry.request)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.WorktreeRemove>(
                             metadata = dialogsMetadata
                         ) { entry ->

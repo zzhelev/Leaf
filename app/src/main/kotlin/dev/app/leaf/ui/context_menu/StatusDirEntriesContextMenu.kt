@@ -10,6 +10,8 @@ fun statusDirEntriesContextMenuItems(
     onStageChanges: () -> Unit,
     /** Shown in Unstaged when set. */
     onDiscardDirectoryChanges: (() -> Unit)?,
+    /** Fork-only: opens the ignore dialog for the folder, shown in Unstaged when set. */
+    onIgnoreFolder: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
         addContextMenu(
@@ -30,13 +32,23 @@ fun statusDirEntriesContextMenuItems(
             onClick = onStageChanges,
         )
 
-        if (entryType == EntryType.UNSTAGED && onDiscardDirectoryChanges != null) {
+        if (entryType == EntryType.UNSTAGED && (onDiscardDirectoryChanges != null || onIgnoreFolder != null)) {
             add(ContextMenuElement.ContextSeparator)
+        }
 
+        if (entryType == EntryType.UNSTAGED && onDiscardDirectoryChanges != null) {
             addContextMenu(
                 composableLabel = { stringResource(Res.string.status_dir_entries_context_menu_discard_changes) },
                 icon = { painterResource(Res.drawable.undo) },
                 onClick = onDiscardDirectoryChanges,
+            )
+        }
+
+        if (entryType == EntryType.UNSTAGED && onIgnoreFolder != null) {
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.status_dir_entries_context_menu_ignore) },
+                icon = { painterResource(Res.drawable.visibility_off) },
+                onClick = onIgnoreFolder,
             )
         }
     }

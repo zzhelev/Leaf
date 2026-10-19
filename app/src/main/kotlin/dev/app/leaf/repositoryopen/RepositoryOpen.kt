@@ -502,6 +502,7 @@ fun MainContentView(
                         onDiscardFolderChanges = { folderPath, discard ->
                             onNavigate(Screen.DiscardFolderChanges(folderPath, discard))
                         },
+                        onIgnore = { request -> onNavigate(Screen.Ignore(request)) },
                         onConfirmAction = { action, onConfirm -> onNavigate(Screen.ConfirmAction(action, onConfirm)) },
                     )
                 }

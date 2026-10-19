@@ -45,6 +45,7 @@ interface TabComponent {
     fun deleteTagViewModelFactory(): DeleteTagViewModel.Factory
     fun resetBranchViewModelFactory(): ResetBranchViewModel.Factory
     fun discardChangesViewModelFactory(): DiscardChangesViewModel.Factory
+    fun ignoreViewModelFactory(): IgnoreViewModel.Factory
     fun addEditRemoteViewModelFactory(): AddEditRemoteViewModel.Factory
     fun submoduleDialogViewModel(): SubmoduleDialogViewModel
     fun signOffDialogViewModel(): SignOffDialogViewModel

@@ -104,6 +104,7 @@ fun ProcessingScreen(
 fun getTitle(taskType: TaskType): String {
     return when (taskType) {
         TaskType.AbortRebase -> "Aborting rebase"
+        TaskType.AddIgnoreRules -> "Adding ignore rules"
         TaskType.AddRemote -> "Adding remote"
         TaskType.AddSubmodule -> "Adding submodule"
         TaskType.ApplyStash -> "Applying stash"

@@ -47,10 +47,14 @@ import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.stash.GetStashListGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
+import dev.app.leaf.data.git.workspace.AddIgnoreRulesGitAction
 import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
+import dev.app.leaf.data.git.workspace.GlobalIgnoreFile
+import dev.app.leaf.data.git.workspace.IgnoreTargets
+import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.data.git.workspace.GetStatusGitAction
 import dev.app.leaf.data.git.worktrees.CopyWorktreeFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
@@ -107,6 +111,7 @@ import dev.app.leaf.domain.usecases.GetTrackingBranchUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeMergeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRebaseUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRemovalUseCase
+import dev.app.leaf.domain.usecases.AddIgnoreRulesUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeCleanupUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
@@ -371,6 +376,11 @@ class TestTab(
         useCaseExecutor = useCaseExecutor,
         saveWorktreeCreationSettingsGitAction = SaveWorktreeCreationSettingsGitAction(jgit),
         runWorktreeStepsUseCase = runWorktreeSteps,
+    )
+
+    val addIgnoreRules = AddIgnoreRulesUseCase(
+        useCaseExecutor,
+        AddIgnoreRulesGitAction(jgit, IgnoreTargets(GlobalIgnoreFile(gitCli, LoginShellEnvironment { emptyMap() }))),
     )
 
     val getNewWorktreeContext = GetNewWorktreeContextUseCase(

@@ -2,6 +2,61 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Ignore from the Unstaged menus (Gitnuro#175, 2026-10-19)
+
+- **What:** "Ignore…" in the Unstaged menus of an untracked file (after "Delete file"), of a selection (`Ignore N
+  files…`, counting its untracked files) and of a folder row of the tree view (`Ignore folder…`). It opens
+  `IgnoreDialog`: what to ignore (the file, its folder, its extension, or a custom pattern typed in a field that starts
+  from the selected file's rule), where to write it (`.gitignore` at the root of the tab's working tree, `info/exclude`
+  in the common git dir, or the global ignore list), and the lines it adds, with those the file has already left out.
+  The place used last is kept per repository (`ignore.place` in `<common git dir>/leaf`), except the global list, which
+  affects every repository and isn't remembered.
+  - Only untracked files and folders that show one: ignoring a tracked file changes nothing until `git rm --cached`.
+    The Staged pane has none.
+  - A selection offers its files, each folder once (a folder inside another one is covered by it) and each extension
+    once. A file name with a line break can't be written to a pattern file, so it is left out, and the dialog says so.
+  - The custom pattern is written as typed, one rule per line, comments and negations included. Cmd+Enter adds.
+- **How:** `IgnoreRules.kt` (domain) builds the rules, `AddIgnoreRulesGitAction` appends them (`IgnoreFiles.kt`),
+  `AddIgnoreRulesUseCase` runs it as a task that refreshes the status (`TaskType.AddIgnoreRules`), and
+  `GetIgnoreContextGitAction` reads both files' lines and the place used last when the dialog opens.
+  - A file is `/path/to/file`, a folder `/path/to/folder/`, an extension `*.ext`. Backslashes go before `\ * ? [` and
+    before the white space that ends a name.
+  - **JGit differs from git here, found by the tests:** git drops only trailing spaces from a pattern line, JGit all
+    trailing white space, and JGit also drops it from a folder's name before the folder rule's slash. A file named
+    with a trailing tab was ignored by git and still listed by Leaf, and so was a folder named with a trailing space.
+    So white space that ends a name is always escaped. The tests run every rule through `git ls-files --others
+    --exclude-standard` and through Leaf's own status, which must list the same files.
+  - The rules are appended as bytes: a file's encoding, byte order mark and line endings stay. New lines get the file's
+    first line ending (LF for a new or one-line file), a last line without one gets it first, and a rule that the file
+    has already, byte for byte without its `\r`, isn't added again.
+  - Nothing is written through a symbolic link, which git 2.32 and later ignores as `.gitignore` anyway, nor to a
+    folder: `IgnoreError.FileNotWritable`, shown in the dialog and in `ErrorDialog`. Only `<working tree>/.gitignore`,
+    `<common git dir>/info/exclude` and the global list are ever written.
+  - **The global list** (`GlobalIgnoreFile`, SourceTree's "Global ignore list"): the file that `core.excludesFile` names
+    in the user's own git config (`git config --global --type=path`, so `~` and `includeIf` work), else git's default,
+    `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore` with the login shell's `HOME` and `XDG_CONFIG_HOME`. Only
+    the user's config counts: a repository's own `core.excludesFile` could point Leaf at any file, so when it differs
+    the place is refused (`IgnoreError.GlobalListOverridden`, as git doesn't read the user's list there either). A link
+    to a file, as dotfile managers make, is written through, as it is the user's own file; a link to nothing, a folder
+    and a relative path are refused. JGit reads git's default file too (the tests check).
+- **Not done:**
+  - The file watcher keeps watching a folder that was ignored until the tab reopens, as it reads the ignored folders
+    only when it starts (an edit of `.gitignore` outside Leaf does the same). A build that writes into an ignored
+    folder goes on refreshing the tab until then.
+- **Tests:** `IgnoreRulesTest` (domain: the rules, the options and which menus offer them),
+  `AddIgnoreRulesGitActionTest` (temp repositories against git and JGit: each kind of rule, 120 random names, names with
+  special characters and white space, a missing, unterminated, CRLF, byte-order-marked and non-UTF-8 `.gitignore`,
+  symbolic links, `info/exclude`, a linked worktree, the place used last), `AddGlobalIgnoreRulesGitActionTest` (the
+  global list: the configured file, `~`, git's default, a link, the refusals, a repository that sets it itself),
+  `IgnoringFilesTest` (a tab: the task refreshes
+  the status and records its outcome), `IgnoreContextMenuTest` and `IgnoreDialogTest` (the three menus, and the dialog
+  from its state). Mutations of the rules and the writer (8), the dialog and the menus (6), what the menus offer (3) and
+  the global list (6) are each caught by a named test.
+- **Run by hand** on a demo repository with `:app:run` (before the global list was added): the menu, the dialog, a folder rule on an untracked `output/`
+  folder in a repository whose `.gitignore` has no final newline (the rule went on its own line, the files left
+  Unstaged, a toast said so). The selection and folder-row menus and the symbolic `.gitignore` error were checked by the
+  tests only.
+
 ## Upstream sync: stash highlighting, shared log chips, quick actions (branch `sync/upstream-2026-10-16`)
 
 - **Merged:** `upstream/main` up to `1cac7a00`, the second sync (the first was `f4f39528`, merge base `415b3729`). Six

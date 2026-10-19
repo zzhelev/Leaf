@@ -285,7 +285,7 @@ private fun IncludeSection(
 }
 
 @Composable
-private fun RadioRow(isSelected: Boolean, text: String, onClick: () -> Unit) {
+internal fun RadioRow(isSelected: Boolean, text: String, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.handMouseClickable(onClick = onClick),
@@ -307,7 +307,7 @@ private fun RadioRow(isSelected: Boolean, text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun FieldLabel(text: String) {
+internal fun FieldLabel(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.caption,
@@ -317,7 +317,7 @@ private fun FieldLabel(text: String) {
 }
 
 @Composable
-private fun FieldError(text: String) {
+internal fun FieldError(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.caption,

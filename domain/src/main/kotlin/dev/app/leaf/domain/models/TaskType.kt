@@ -14,6 +14,7 @@ sealed interface TaskType {
     data object UnstageLine : TaskType
     data object DiscardFile : TaskType
     data object DeleteFile : TaskType
+    data object AddIgnoreRules : TaskType
     data object BlameFile : TaskType
     data object HistoryFile : TaskType
     data object DoCommit : TaskType

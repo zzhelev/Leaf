@@ -1090,4 +1090,48 @@
     <string name="diff_failed_partial_clone">The repository is a partial clone, which downloads files when they're first needed.</string>
     <string name="diff_failed_try_again">Try again</string>
 
+    <string name="status_entries_context_menu_ignore">Ignore…</string>
+    <string name="status_entries_context_menu_ignore_multiple_files">Ignore %1$s files…</string>
+    <string name="status_dir_entries_context_menu_ignore">Ignore folder…</string>
+
+    <string name="ignore_dialog_title">Ignore</string>
+    <string name="ignore_dialog_subtitle_folder">Folder %1$s</string>
+    <plurals name="ignore_dialog_subtitle_files">
+        <item quantity="one">%1$d untracked file</item>
+        <item quantity="other">%1$d untracked files</item>
+    </plurals>
+    <string name="ignore_dialog_what">What to ignore</string>
+    <string name="ignore_dialog_option_file">This file</string>
+    <string name="ignore_dialog_option_files">These %1$d files</string>
+    <string name="ignore_dialog_option_folder">Everything in %1$s</string>
+    <string name="ignore_dialog_option_folders">Everything in %1$d folders: %2$s</string>
+    <string name="ignore_dialog_option_extension">All %1$s files</string>
+    <string name="ignore_dialog_option_extensions">All files that match %1$s</string>
+    <string name="ignore_dialog_option_custom">Custom pattern</string>
+    <string name="ignore_dialog_custom_hint">One pattern per line, as in a .gitignore file. A pattern is written as typed.</string>
+    <plurals name="ignore_dialog_unsupported">
+        <item quantity="one">%1$d file has a line break in its name, which a pattern file can't hold, so it is left out.</item>
+        <item quantity="other">%1$d files have a line break in their names, which a pattern file can't hold, so they are left out.</item>
+    </plurals>
+    <string name="ignore_dialog_where">Where</string>
+    <string name="ignore_dialog_place_gitignore">.gitignore</string>
+    <string name="ignore_dialog_place_gitignore_hint">In the repository, shared with others once you commit it.</string>
+    <string name="ignore_dialog_place_exclude">.git/info/exclude</string>
+    <string name="ignore_dialog_place_exclude_hint">Only on this computer, for every worktree of the repository.</string>
+    <string name="ignore_dialog_place_global">Global ignore list</string>
+    <string name="ignore_dialog_place_global_hint">On this computer, for every repository.</string>
+    <string name="ignore_dialog_lines">Lines to add to %1$s</string>
+    <string name="ignore_dialog_custom_empty">Type a pattern to add.</string>
+    <string name="ignore_dialog_already">%1$s already has this.</string>
+    <plurals name="ignore_dialog_already_some">
+        <item quantity="one">%1$d of these lines is already there.</item>
+        <item quantity="other">%1$d of these lines are already there.</item>
+    </plurals>
+    <string name="ignore_dialog_add">Add</string>
+    <string name="ignore_dialog_reading">Reading the ignore files…</string>
+    <string name="error_ignore_symbolic_link">%1$s is a symbolic link. Leaf doesn't write through one, as that could change a file outside the repository, so nothing was written.</string>
+    <string name="error_ignore_not_a_file">%1$s isn't a file, so nothing was written.</string>
+    <string name="error_ignore_not_absolute">core.excludesFile is %1$s, which isn't an absolute path, so Leaf can't tell where your global ignore list is. Nothing was written.</string>
+    <string name="error_ignore_global_overridden">This repository's git config sets core.excludesFile to %1$s, so git doesn't read your global ignore list here, and rules written to it wouldn't apply.</string>
+
 </resources>

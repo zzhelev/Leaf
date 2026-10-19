@@ -10,6 +10,10 @@ import dev.app.leaf.domain.worktrees.shellLines
 import dev.app.leaf.ui.status.consequence
 import dev.app.leaf.ui.status.summary
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.error_ignore_global_overridden
+import dev.app.leaf.app.generated.resources.error_ignore_not_a_file
+import dev.app.leaf.app.generated.resources.error_ignore_not_absolute
+import dev.app.leaf.app.generated.resources.error_ignore_symbolic_link
 import dev.app.leaf.app.generated.resources.error_missing_object
 import dev.app.leaf.app.generated.resources.error_partial_clone_fetch
 import dev.app.leaf.app.generated.resources.error_partial_clone_not_sent
@@ -146,6 +150,8 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
     is SshNeedsGitError -> if (reason == SshNeedsGitError.Reason.LfsPushWithoutGitLfs) listOf("git lfs install") else emptyList()
     is StaleHunkError -> listOf(path)
+    is IgnoreError.FileNotWritable -> listOf(path)
+    is IgnoreError.GlobalListOverridden -> listOf(path)
     is ConflictError.NotConflicted -> paths
     is ConflictError.CantDiscard -> paths
     ConflictError.NoMergeTool -> listOf("git config --global merge.tool meld", "merge.guitool", "git mergetool --tool-help")
@@ -327,6 +333,14 @@ fun AppError.getErrorText(): String {
             is ConflictError.NotAFile -> stringResource(Res.string.error_conflict_not_a_file, path)
             is ConflictError.ConflictsLeft -> stringResource(Res.string.error_conflict_conflicts_left, path, count)
         }
+
+        is IgnoreError.FileNotWritable -> when (reason) {
+            IgnoreError.Reason.SYMBOLIC_LINK -> stringResource(Res.string.error_ignore_symbolic_link, path)
+            IgnoreError.Reason.NOT_A_FILE -> stringResource(Res.string.error_ignore_not_a_file, path)
+            IgnoreError.Reason.NOT_ABSOLUTE -> stringResource(Res.string.error_ignore_not_absolute, path)
+        }
+
+        is IgnoreError.GlobalListOverridden -> stringResource(Res.string.error_ignore_global_overridden, path)
 
         is SshNeedsGitError -> when (reason) {
             SshNeedsGitError.Reason.SettingOff -> stringResource(Res.string.error_ssh_needs_git_setting_off)

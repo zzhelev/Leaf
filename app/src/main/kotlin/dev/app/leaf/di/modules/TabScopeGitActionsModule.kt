@@ -240,6 +240,14 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
+    fun bindsAddIgnoreRulesGitAction(action: AddIgnoreRulesGitAction): IAddIgnoreRulesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetIgnoreContextGitAction(action: GetIgnoreContextGitAction): IGetIgnoreContextGitAction
+
+    @Binds
+    @TabScope
     fun bindsGetSpecificCommitMessageGitAction(action: GetSpecificCommitMessageGitAction): IGetSpecificCommitMessageGitAction
 
     @Binds

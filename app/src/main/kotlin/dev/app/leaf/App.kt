@@ -41,6 +41,7 @@ import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.TempFilesManager
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.index.UnsupportedIndex
+import dev.app.leaf.domain.ignore.IgnoreRequest
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
@@ -128,6 +129,8 @@ sealed interface Screen : NavKey {
         val onCheckout: (fastForward: Boolean) -> Unit,
     ) : Screen
     data class DiscardFolderChanges(val folderPath: String, val discard: DiscardedFiles) : Screen
+    /** Adds ignore rules for untracked files or a folder (fork-only). */
+    data class Ignore(val request: IgnoreRequest) : Screen
     /** Removes [worktree] (fork-only), or with [discard] discards it: its changes and its branch go too. */
     data class WorktreeRemove(val worktree: Worktree, val discard: Boolean) : Screen
     data class WorktreeLock(val worktree: Worktree) : Screen

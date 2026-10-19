@@ -35,6 +35,9 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.extensions.parentDirectoryPath
+import dev.app.leaf.domain.ignore.IgnoreRequest
+import dev.app.leaf.domain.ignore.ignoreRequestFor
+import dev.app.leaf.domain.ignore.ignoreRequestForFolder
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.sorting.DiscardedFiles
@@ -73,6 +76,8 @@ fun StatusPane(
     onHistoryFile: (String) -> Unit,
     /** Asks to discard the unstaged changes of a folder, as [discard] says. */
     onDiscardFolderChanges: (folderPath: String, discard: DiscardedFiles) -> Unit,
+    /** Opens the ignore dialog for untracked files or a folder (fork-only). */
+    onIgnore: (IgnoreRequest) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     completedTasks: StateFlow<List<CompletedTask>>,
 ) {
@@ -177,6 +182,7 @@ fun StatusPane(
                     onBlameFile = onBlameFile,
                     onHistoryFile = onHistoryFile,
                     onDiscardFolderChanges = onDiscardFolderChanges,
+                    onIgnore = onIgnore,
                     onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
                     modifier = Modifier.height(heights.staged.dp),
@@ -197,6 +203,7 @@ fun StatusPane(
                     onBlameFile = onBlameFile,
                     onHistoryFile = onHistoryFile,
                     onDiscardFolderChanges = onDiscardFolderChanges,
+                    onIgnore = onIgnore,
                     onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
                     modifier = Modifier.height(heights.unstaged.dp),
@@ -283,6 +290,8 @@ fun StatusChangesList(
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
     onDiscardFolderChanges: (folderPath: String, discard: DiscardedFiles) -> Unit,
+    /** Opens the ignore dialog for untracked files or a folder (fork-only). */
+    onIgnore: (IgnoreRequest) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onAction: (StatusAction) -> Unit,
     modifier: Modifier = Modifier,
@@ -312,12 +321,20 @@ fun StatusChangesList(
         }
     }
 
+    // Unstaged only, and only for a folder that shows a new (untracked) file, which is what ignoring hides
+    val folderIgnoreAction: (folderPath: String) -> (() -> Unit)? = { folderPath ->
+        ignoreRequestForFolder(statusState.entriesShownUnder(folderPath, entryType), entryType, folderPath)
+            ?.let { request -> { onIgnore(request) } }
+    }
+
     ChangesList(
         title = title,
         actionInfo = actionInfo,
         entryType = entryType,
         rows = rows,
         folderDiscardAction = folderDiscardAction,
+        folderIgnoreAction = folderIgnoreAction,
+        onIgnore = onIgnore,
         viewState = statusState.viewState,
         showSearch = showSearch,
         searchFilter = searchFilter,
@@ -365,6 +382,10 @@ fun ChangesList(
     rows: List<FileRow<StatusEntry>>,
     /** What discarding a folder does, or null when its menu shouldn't offer it. */
     folderDiscardAction: (folderPath: String) -> (() -> Unit)?,
+    /** Opens the ignore dialog for a folder, or null when its menu shouldn't offer it (fork-only). */
+    folderIgnoreAction: (folderPath: String) -> (() -> Unit)?,
+    /** Opens the ignore dialog for untracked files (fork-only). */
+    onIgnore: (IgnoreRequest) -> Unit,
     viewState: FilesViewState,
     showSearch: Boolean,
     searchFilter: TextFieldValue,
@@ -393,6 +414,7 @@ fun ChangesList(
             onReset = { onDiscardFile(statusEntry) },
             onDelete = { onDeleteFile(statusEntry) },
             onOpenFileInFolder = { onAction(StatusAction.OpenInFolder(statusEntry.parentDirectoryPath)) },
+            onIgnore = { onIgnore(IgnoreRequest.Files(listOf(statusEntry.filePath))) },
             onCopyFilePath = { relative ->
                 onCopy(
                     relative,
@@ -409,6 +431,8 @@ fun ChangesList(
 
     fun selectedEntriesContextMenu(): (StatusEntry) -> List<ContextMenuElement> = {
         val discard = selectedEntries.map { it.statusEntry }.selectionDiscard()
+        // Fork-only: the untracked files among them, which the ignore dialog takes
+        val ignore = ignoreRequestFor(selectedEntries.map { it.statusEntry }, entryType)
 
         statusEntriesContextMenuItems(
             selectedEntriesCount = selectedEntries.count(),
@@ -426,6 +450,8 @@ fun ChangesList(
             onUseConflictSide = selectedEntries.map { it.statusEntry }
                 .takeIf { entries -> entries.all { it.conflict != null } }
                 ?.let { entries -> { side -> onUseConflictSide(entries, side) } },
+            ignoreCount = ignore?.paths?.size ?: 0,
+            onIgnore = ignore?.let { request -> { onIgnore(request) } },
         )
     }
 
@@ -503,6 +529,7 @@ fun ChangesList(
                     entryType = entryType,
                     onStageChanges = { onAction(StatusAction.DirectoryAction(folder.path, entryType)) },
                     onDiscardDirectoryChanges = folderDiscardAction(folder.path),
+                    onIgnoreFolder = folderIgnoreAction(folder.path),
                 )
             },
             fileTrailingAction = { statusEntry, isHovered ->

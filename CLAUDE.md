@@ -462,6 +462,43 @@ conflicts compares the working file with ours (stage 2). For a file that both si
   by path, whatever index it scanned.
 - Conflicted files get no hunk or line actions (see above).
 
+**Ignoring untracked files (fork-only, `domain/ignore/IgnoreRules.kt`, `data/git/workspace/IgnoreFiles.kt`,
+`ui/dialogs/IgnoreDialog.kt`, Gitnuro#175):** "Ignore…" in the Unstaged menus of an untracked file (after "Delete file"),
+of a selection (`Ignore N files…`) and of a folder row (`Ignore folder…`) opens `IgnoreDialog` (`Screen.Ignore`).
+- **Who offers it:** `ignoreRequestFor` (the untracked files, `StatusType.ADDED`, of an Unstaged selection) and
+  `ignoreRequestForFolder` (a folder row that shows one), both in `IgnoreRules.kt` and used by `StatusPane`. A tracked
+  file isn't offered: ignoring it changes nothing until `git rm --cached`. Staged has none.
+- **The dialog** (`IgnoreViewModel`, `IgnoreState`): what to ignore (`ignoreOptions`: the files, their folders, their
+  extensions; or a custom pattern, one rule per line, written as typed, starting from the first option's rules), where
+  (`IgnorePlace.GITIGNORE`: `<working tree>/.gitignore`, `EXCLUDE`: `<common git dir>/info/exclude`, shared by the
+  worktrees, or `GLOBAL`: the user's global ignore list), and the lines it adds (`rulesToAdd` leaves out those the file
+  has). `GetIgnoreContextUseCase` reads both
+  files' lines and the place used last (`ignore.place` in `<common git dir>/leaf`, `IgnorePlaceConfig`) when it opens;
+  `AddIgnoreRulesUseCase` (`TaskType.AddIgnoreRules`) writes and refreshes the status. The place used last is never
+  `GLOBAL`: one click from a hurried Add shouldn't write a rule for every repository. The file watcher would see a
+  `.gitignore` change too, but drops refreshes while a task runs and for 1.5 s after one, and doesn't see `info/exclude`.
+- **Rules** (`ignoreFileRule`, `ignoreFolderRule`, `ignoreExtensionRule`): `/path/file`, `/path/folder/`, `*.ext`.
+  Backslashes go before `\ * ? [` and before the white space that ends a name. **JGit reads pattern lines differently
+  from git:** git drops only trailing spaces unless escaped, JGit all trailing white space, and also before the slash of
+  a folder rule. So a name ending in a tab was ignored by git and still listed by Leaf. Every end of a name is escaped.
+  A name with a line break has no rule (a pattern line can't hold it).
+- **Writing** (`IgnoreFiles.append`): bytes appended, so the encoding, a byte order mark and the line endings stay. The
+  file's first line ending is used (LF for a new or one-line file), a last line without one gets it first, and a line
+  that is there already (byte for byte without `\r`) isn't added. Nothing is written through a symbolic link, which git
+  2.32 and later ignores as `.gitignore` too, or to a folder: `IgnoreError.FileNotWritable`, checked again at the open
+  (`NOFOLLOW_LINKS`). Only the three files of the places are ever written (`IgnoreTargets` finds them).
+- **The global list** (`GlobalIgnoreFile`): `core.excludesFile` from `git config --global --type=path` (`~`, `includeIf`),
+  else `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore` from the login shell's environment. Never from the
+  repository's own config, which could point Leaf at any file: when `git config` without `--global` says another path,
+  the place is refused (`GlobalListOverridden`). A link to a file is written through (dotfile managers), a link to
+  nothing, a folder and a relative path aren't.
+- **Not done:** the watcher watches the folders that weren't ignored when it started, so an ignored folder stays watched until
+  the tab reopens (an edit of `.gitignore` in an editor does the same).
+- Tests: `IgnoreRulesTest` (domain), `AddIgnoreRulesGitActionTest` (every rule, 120 random names, the `.gitignore`
+  states and the places, against `git ls-files --others --exclude-standard` and Leaf's JGit status, which must agree),
+  `AddGlobalIgnoreRulesGitActionTest` (the global list), `IgnoringFilesTest` (a `TestTab`), `IgnoreContextMenuTest`,
+  `IgnoreDialogTest`.
+
 **Resolving conflicts (fork-only, `data/git/conflicts/`, models in `domain/models/FileConflict.kt`):** "Open in merge
 tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Findings from git 2.54 are in the tests.
 - `StatusEntry.conflict` (a `FileConflict`) says what ours (stage 2) and theirs (stage 3) have at a conflicted path: a
