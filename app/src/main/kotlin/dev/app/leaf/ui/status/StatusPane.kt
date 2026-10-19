@@ -310,7 +310,9 @@ fun StatusChangesList(
         EntryType.UNSTAGED -> stringResource(Res.string.uncommited_changes_unstaged_title)
     }
 
-    val actionInfo = getActionInfo(entryType)
+    // Fork-only: with a search narrowing the list, the button says how many files it acts on
+    val bulkTarget = statusState.bulkTarget(entryType, selectedEntries.map { it.statusEntry })
+    val actionInfo = getActionInfo(entryType).withMatches(entryType, bulkTarget)
     val rows = when (entryType) {
         EntryType.STAGED -> statusState.stagedRows
         EntryType.UNSTAGED -> statusState.unstagedRows
@@ -366,6 +368,7 @@ fun StatusChangesList(
     ChangesList(
         title = title,
         actionInfo = actionInfo,
+        allActionEnabled = !bulkTarget.isNoOp,
         entryType = entryType,
         rows = rows,
         moreItems = moreItems,
@@ -415,6 +418,8 @@ fun StatusChangesList(
 fun ChangesList(
     title: String,
     actionInfo: ActionInfo,
+    /** False while a search matches nothing: the all-files button does nothing (fork-only). */
+    allActionEnabled: Boolean = true,
     entryType: EntryType,
     rows: List<FileRow<StatusEntry>>,
     /** The items of the header's "⋯" menu, none for no menu (fork-only). */
@@ -519,6 +524,7 @@ fun ChangesList(
             title = title,
             actionInfo = actionInfo,
             onAllAction = { onAction(StatusAction.AllEntriesAction(entryType)) },
+            allActionEnabled = allActionEnabled,
             moreItems = moreItems,
             sortAction = {
                 FilesSortMenuButton(
@@ -964,6 +970,36 @@ fun ConfirmationButton(
             style = MaterialTheme.typography.body1.copy(color = contentColor),
         )
     }
+}
+
+/** The header button's label while a search narrows the list: "Stage 3 matches" (fork-only, see [BulkTarget]). */
+@Composable
+private fun ActionInfo.withMatches(entryType: EntryType, target: BulkTarget): ActionInfo {
+    val staged = entryType == EntryType.STAGED
+
+    val title = when (target) {
+        BulkTarget.NoMatches -> stringResource(
+            if (staged) Res.string.uncommited_changes_staged_no_matches_action
+            else Res.string.uncommited_changes_unstaged_no_matches_action
+        )
+
+        is BulkTarget.Matches -> if (target.entries.size == 1) {
+            stringResource(
+                if (staged) Res.string.uncommited_changes_staged_one_match_action
+                else Res.string.uncommited_changes_unstaged_one_match_action
+            )
+        } else {
+            stringResource(
+                if (staged) Res.string.uncommited_changes_staged_matches_action
+                else Res.string.uncommited_changes_unstaged_matches_action,
+                target.entries.size,
+            )
+        }
+
+        else -> return this
+    }
+
+    return copy(applyToAllTitle = title)
 }
 
 @Composable

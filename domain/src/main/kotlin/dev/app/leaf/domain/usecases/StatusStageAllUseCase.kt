@@ -4,6 +4,7 @@ import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.interfaces.IStageAllGitAction
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.TaskType
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 private const val TAG = "StatusStageAllUseCase"
@@ -12,8 +13,8 @@ class StatusStageAllUseCase @Inject constructor(
     private val stageAllGitAction: IStageAllGitAction,
     private val useCaseExecutor: UseCaseExecutor,
 ) {
-    operator fun invoke(entries: List<StatusEntry>?) {
-        useCaseExecutor.executeLaunch(
+    operator fun invoke(entries: List<StatusEntry>?): Job {
+        return useCaseExecutor.executeLaunch(
             taskType = TaskType.StageAllFiles,
             dataToRefresh = arrayOf(DataToRefresh.STATUS),
         ) { repositoryPath ->

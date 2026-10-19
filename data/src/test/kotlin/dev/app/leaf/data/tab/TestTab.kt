@@ -99,6 +99,8 @@ import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.AbortRebaseUseCase
 import dev.app.leaf.domain.usecases.DiscardAllUseCase
+import dev.app.leaf.domain.usecases.StatusStageAllUseCase
+import dev.app.leaf.data.git.workspace.StageAllGitAction
 import dev.app.leaf.domain.usecases.AbortSquashMergeUseCase
 import dev.app.leaf.domain.usecases.ContinueRebaseUseCase
 import dev.app.leaf.domain.usecases.CreateWorktreeUseCase
@@ -386,6 +388,8 @@ class TestTab(
         useCaseExecutor,
         DiscardAllGitAction(GetStatusGitAction(jgit), DiscardEntriesGitAction(jgit), jgit),
     )
+
+    val stageAll = StatusStageAllUseCase(StageAllGitAction(GetStatusGitAction(jgit), jgit), useCaseExecutor)
 
     val addIgnoreRules = AddIgnoreRulesUseCase(
         useCaseExecutor,

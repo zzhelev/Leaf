@@ -5,7 +5,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.collectLatestInCoroutineScope
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
-import dev.app.leaf.common.extensions.nullIf
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CloseableView
@@ -694,15 +693,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     }
 
 
-    private fun stageAll() {
-        val entries = selectedUnstagedDiffEntries
-            .value
-            .ifEmpty { null }
-            ?.map { it.statusEntry }
-            ?.nullIf { it.count() == 1 }
-
-        stageAllUseCase(entries)
-    }
+    private fun stageAll() = applyToAll(EntryType.UNSTAGED)
 
     private fun discardStaged(statusEntries: List<StatusEntry>) {
         discardEntriesUseCase(statusEntries, isStaged = true)
@@ -715,14 +706,23 @@ class StatusViewModelExtender @AssistedInject constructor(
     private fun stage(statusEntry: StatusEntry) = stageUseCase(statusEntry)
     private fun unstage(statusEntry: StatusEntry) = unstageUseCase(statusEntry)
 
-    private fun unstageAll() {
-        val entries = selectedStagedDiffEntries
-            .value
-            .ifEmpty { null }
-            ?.map { it.statusEntry }
-            ?.nullIf { it.count() == 1 }
+    private fun unstageAll() = applyToAll(EntryType.STAGED)
 
-        unstageAllUseCase(entries)
+    /** The header button: the selection, the files that a search matches, or every file (see [BulkTarget]). */
+    private fun applyToAll(entryType: EntryType) {
+        val selected = when (entryType) {
+            EntryType.STAGED -> selectedStagedDiffEntries
+            EntryType.UNSTAGED -> selectedUnstagedDiffEntries
+        }.value.map { it.statusEntry }
+
+        val target = statusState.value.bulkTarget(entryType, selected)
+
+        if (target.isNoOp) return
+
+        when (entryType) {
+            EntryType.STAGED -> unstageAllUseCase(target.entriesToApply)
+            EntryType.UNSTAGED -> stageAllUseCase(target.entriesToApply)
+        }
     }
 
     fun addStagedSearchToCloseableView() {

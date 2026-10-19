@@ -12,6 +12,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +47,8 @@ fun FilesChangedHeader(
     showActionForSelected: Boolean,
     actionInfo: ActionInfo? = null,
     onAllAction: (() -> Unit)? = null,
+    /** Fork-only: false greys the all-files button out and makes it do nothing. */
+    allActionEnabled: Boolean = true,
     /** Shown before the search button, for example a sort and view menu. The title keeps priority over it. */
     sortAction: (@Composable () -> Unit)? = null,
     /** Fork-only: the items of a "⋯" menu between the search button and the all-files button, none for no menu. */
@@ -125,8 +128,8 @@ fun FilesChangedHeader(
                     isParentHovered = isHeaderHovered,
                     backgroundButton = actionInfo.color,
                     onBackgroundColor = actionInfo.textColor,
-                    onClick = onAllAction,
-                    modifier = Modifier.padding(start = 4.dp, end = 16.dp),
+                    onClick = { if (allActionEnabled) onAllAction() },
+                    modifier = Modifier.padding(start = 4.dp, end = 16.dp).alpha(if (allActionEnabled) 1f else 0.5f),
                 )
             }
         }
