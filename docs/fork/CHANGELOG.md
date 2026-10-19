@@ -2,6 +2,30 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## "Delete file" on a folder that holds another repository (2026-10-20)
+
+- **Bug:** JGit lists an untracked folder that holds another repository as one row, so "Delete file" on an agent's
+  linked worktree inside the repository (`.claude/worktrees/<name>`, `.agent/wt`) or on a nested clone deleted the
+  whole folder, `.git` included, after a confirmation that only said an untracked file can't be restored. For a linked
+  worktree, git's `.git/worktrees/<id>` was left behind (prunable). Found while building Discard all (follow-up 1).
+- **Probe (temp repo):** a linked worktree inside and a nested clone are one row each; a folder with only new files is
+  listed file by file; an empty folder isn't listed; a linked worktree outside the repository isn't listed.
+- **Decided with the user (option C of A refuse, B warn, C hybrid):**
+  - **A linked worktree of this repository is refused**, with an `ErrorDialog` that names it and points to Remove in
+    the Worktrees section (`DeleteFileError.LinkedWorktree`). Nothing to confirm first, so the menu item goes
+    straight to the explanation. `DeleteFileGitAction` looks at the folder again, so a stale selection is refused too.
+  - **Any other nested repository** (a clone, or a worktree of another repository) can still be deleted, in a dialog
+    titled "Delete repository" that says it's another git repository whose history and uncommitted work can't be
+    restored, with a "Delete repository" button.
+  - Plain files and folders of new files delete as before; a link is deleted as a link.
+- **Not done:** the file count that the mockup showed ("1,284 files"). It needs a walk of the folder when the dialog
+  opens, which the status can't afford for every untracked row; the warning doesn't need it.
+- **How:** `StatusEntry.nestedRepository` (`NestedRepository.LINKED_WORKTREE`, `REPOSITORY`), set by
+  `GetStatusGitAction` from a `.git` folder or file in each untracked folder (`nestedRepositoryOf`, one stat each; a
+  `.git` file that points into `<common git dir>/worktrees/` is a linked worktree).
+- **Also fixed:** `DeleteFileUseCase` ran as `TaskType.DiscardFile`, so a failed delete said "Discard file failed".
+- Tests: `DeleteFileGitActionTest` (linked worktree refused and whole, stale path, nested clone, another repository's
+  worktree, new files), the dialog cases in `ConfirmActionDialogTest`.
 ## Stage all and Unstage all follow the search (2026-10-20)
 
 - **Bug:** with a search open in Unstaged or Staged, the header button still acted on every file, including the ones the

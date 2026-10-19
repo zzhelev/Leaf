@@ -1902,6 +1902,14 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   - Discards show what is lost: a hunk's header, the line. A file or a selection in the Staged list loses its unstaged
     changes too, as `DiscardEntriesGitAction` resets the index entry and then checks the file out. Putting back
     removed lines (a line, or a hunk that adds none) or a deleted file loses nothing, so those get no warning.
+  - **Delete file on a folder that holds another repository (fork-only, 2026-10-20):** JGit lists such an untracked
+    folder as one row (a linked worktree inside the repository, a nested clone). `GetStatusGitAction` sets
+    `StatusEntry.nestedRepository` (`nestedRepositoryOf`: a `.git` folder or file in the folder; a `.git` file that
+    points into `<common git dir>/worktrees/` is `LINKED_WORKTREE`, anything else `REPOSITORY`). A linked worktree is
+    refused: `StatusPane` skips the confirmation and `DeleteFileGitAction` returns `DeleteFileError.LinkedWorktree`
+    (checked again from the disk, so a stale selection is refused too), whose `ErrorDialog` points to Remove in the
+    Worktrees section. Deleting the folder would leave `.git/worktrees/<id>` behind. Another repository still deletes,
+    in a dialog titled "Delete repository" ("Delete repository" button). Tests: `DeleteFileGitActionTest`.
   - Discarding never touches a file with conflicts (`StatusEntry.hasConflicts`), as `git restore` refuses one ("path
     is unmerged"): resetting it took HEAD's version, ours, without saying so, and left a file that ours deleted as an
     untracked file. Its menu has no "Discard file changes", as "Use ours" and "Use theirs" name the side they take.
