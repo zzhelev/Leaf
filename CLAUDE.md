@@ -1874,6 +1874,52 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     see Hunk and line actions).
   - `onStopAsking` is `Screen.ConfirmAction`'s last parameter, so pass `onConfirm` in the parentheses: a trailing
     lambda would be `onStopAsking`, and fail to compile without `onConfirm`.
+- **Discard all (fork-only, 2026-10-19, Gitnuro#224, `domain/sorting/DiscardAll.kt`, `DiscardAllGitAction`):**
+  "Discard all changes…" is the only item of a "⋯" menu in the Unstaged header (`HeaderMenuButton`, between the search
+  button and Stage all, through `FilesChangedHeader.moreItems`; the Staged header has none). It sits in a menu, not
+  beside Stage all, so that a click on the most used button can't reach it, and it always asks. Chosen from three
+  placements (a second header button, this menu, a split button), with the user, on 2026-10-19.
+  - **It never deleted a new file before, and still doesn't by default.** `DiscardEntriesGitAction` checks paths out,
+    which does nothing for an untracked file (probed 2026-10-19: a selection with new files left them, and discarding a
+    staged new file only unstaged it), and the folder discard says "N new files are kept". Deleting is "Delete file".
+    So the dialog's box "Also delete N new files" is the one new way to lose files. It starts unticked every time
+    (`ConfirmOption`, never remembered), changes the warning ("Neither the changes nor the 9 new files can be
+    restored") and the button ("Discard and delete"), and with only new files and the box unticked the button is
+    disabled.
+  - **What it acts on:** the files that the list shows (`StatusState.entriesShown`): all of them, or only the search
+    matches while the box is open and not blank, and the dialog says so ("…to 3 files matching "parser""). Stage all
+    differs: its header button stages every file, search or not, or the selection when more than one file is selected
+    (`StatusViewModelExtender.stageAll`); only folder rows follow the search. The selection is ignored here, as it has
+    its own "Discard N files".
+  - **The plan** (`allDiscard()`, `DiscardAllPlan`): `restored` (tracked files changed or deleted), `newFiles`,
+    `keptConflicted` and `keptSubmodules`. Every entry is in exactly one list. The menu says "Nothing to discard"
+    when `hasWork` is false.
+  - **The dialog** is `ConfirmActionDialog` with `ConfirmableAction.DiscardAll(plan, search, deleteNewFiles)`. The
+    box is a `ConfirmOption`, a state holder inside the action, so that its value reaches the confirm lambda without
+    changing `Screen.ConfirmAction`'s callers: `StatusPane` reads `action.deleteNewFiles.isChecked` when it confirms.
+    It counts the files, names the files with conflicts in the monospace font (five, then "and N more") and counts the
+    submodules that are left. No "don't ask again": only hunks and lines get that.
+  - **The action** is one task (`TaskType.DiscardAllFiles`, one refresh, also after a failure). It reads the status
+    again and acts only on the entries that it still lists as the dialog counted them, as `StageAllGitAction` does,
+    because an agent may work in the worktree while the dialog is open. A file that was staged, committed, changed
+    kind or conflicted since is left alone, and so is every file that appeared after. It restores by explicit paths
+    (never `checkout .` or `reset --hard`) through `DiscardEntriesGitAction`, which refuses files with conflicts, and
+    deletes the new files only after that went well.
+  - **Deleting a new file** (`deleteNewFile`): a plain file or a link, deleted as a link, never a folder. An untracked
+    entry that is a folder holds another repository, such as a linked worktree inside this one (agents' tools make
+    them), and the files of a folder with new files in it are listed one by one. Then it removes the folders that
+    this leaves empty, as `git clean -fd` does, and stops at one that has anything else in it, an ignored file
+    included. Ignored files are never listed, so never deleted. The check that a file's folder is inside the working
+    tree is defence only: the fresh status never lists a file behind a link.
+  - **Submodules** (found by the tests): JGit's checkout of a submodule whose commit moved throws `MissingObject`
+    ("Missing unknown …"), and it failed the whole discard, folder and selection discards included. git's own
+    `checkout -- .` leaves submodules alone. `DiscardEntriesGitAction` skips gitlinks now, and the status flags them
+    (`StatusEntry.isSubmodule`, from `gitlinkPaths`, which reads the index only when a `.gitmodules` file exists), so
+    "Discard all" counts them as left ("1 submodule that moved on is left as it is").
+  - Tests: `DiscardAllTest` (domain), `DiscardAllGitActionTest` (temp repos, with the result compared with `git
+    checkout -- .` and `git clean -fd` on a twin), `DiscardingAllTest` (a `TestTab`), `DiscardAllMenuTest` (the
+    header, rendered and clicked), the dialog cases in `ConfirmActionDialogTest`, and two in
+    `DiscardEntriesGitActionTest`.
 
 ## Repository tabs
 

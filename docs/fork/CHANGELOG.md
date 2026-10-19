@@ -2,6 +2,80 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Discard all in the Unstaged pane (Gitnuro#224, 2026-10-19)
+
+- **Feature:** "Discard all changes…" in a new "⋯" menu of the Unstaged header, between the search button and Stage all.
+  Throwing away what an agent left in a worktree took a selection, or one file at a time. Always asks first
+  (`ConfirmActionDialog`), says what is lost and that it can't be restored, counts the files, names the files with
+  conflicts that it leaves (five, then "and N more"), and counts the submodules left.
+- **Decided with the user (2026-10-19), from three options each:**
+  - **New files:** a box "Also delete N new files", unticked every time and never remembered. It changes the warning
+    ("Neither the changes nor the 9 new files can be restored") and the button ("Discard and delete"). With only new
+    files and the box unticked, the button is disabled.
+  - **Search:** it acts on the files that the list shows, so a search for "parser" discards its matches and the dialog
+    says so. Stage all differs on purpose: its header button stages every file, search or not.
+  - **Placement:** a menu, not a second button beside Stage all, so that a click on the most used button can't reach
+    it. Not offered in Staged. The selection is ignored: it has its own "Discard N files".
+- **The brief's premise was wrong, found by probing a temp repository:** discarding an untracked file never deleted it
+  (`DiscardEntriesGitAction` checks paths out, which does nothing for them, and the folder discard says "N new files are
+  kept"). Deleting is the separate "Delete file". So tracked-only was already the behaviour, and deleting new files is
+  the one new way to lose work, behind the box.
+- **Safe against a worktree that changes under the dialog** (agents write while it's open): `DiscardAllGitAction` reads
+  the status again and acts only on entries that it still lists as counted, as `StageAllGitAction` does. A file staged,
+  committed, changed kind or conflicted since is left alone, and so is every file that appeared after. It restores by
+  explicit paths, never `checkout .` or `reset --hard`, then deletes the new files, and stops before deleting when the
+  restore fails (files with conflicts are refused, as in the other discards).
+- **Deleting new files:** plain files and links (deleted as links), never a folder. An untracked entry that is a folder
+  holds another repository, such as a linked worktree inside this one (what agents' tools make), so it stays. Then the
+  folders that this leaves empty go, as `git clean -fd` removes them, but never one with anything else in it, an
+  ignored file included. Ignored files are never listed, so never touched. The result equals `git checkout -- .` and
+  `git clean -fd` on a twin repository (a test).
+- **Bug found by the tests, fixed:** JGit's checkout of a submodule whose commit moved throws `MissingObject` ("Missing
+  unknown …") and failed the whole discard, so the folder discard and the selection discard failed too whenever a
+  submodule that had moved on was among the files. git's `checkout -- .` leaves submodules alone. `DiscardEntriesGitAction`
+  now skips gitlinks, and the status flags them (`StatusEntry.isSubmodule`, from the index, read only when a
+  `.gitmodules` file exists), so "Discard all" counts them as left.
+- **Tests:** 51 new, each run on temp repositories where git is involved.
+  - `DiscardAllTest` (10, domain): what each list holds, the order, a search narrowing it, submodules, no work.
+  - `DiscardAllGitActionTest` (13): restore and keep, delete and the folders left empty, an ignored file keeping its
+    folder, the twin comparison with git, a half staged file, conflicts (kept, and refused when the status was stale),
+    stale entries (staged, committed, changed kind and created since), a new file staged since, a link to a folder
+    (deleted as a link, its target kept), a repository and a linked worktree inside, a submodule that moved on, and an
+    empty plan.
+  - `DiscardingAllTest` (3, a `TestTab`): the task records its outcome and the status refreshes, with and without the new
+    files, and a folder that can't be written fails the task after the restore, with the pane refreshed.
+  - `DiscardAllMenuTest` (10): the menu in Unstaged and not in Staged, nothing runs before the dialog confirms, the plan
+    and the box reach the action, a search, text left in a closed search box, only new files matching, and "Nothing to
+    discard".
+  - `ConfirmActionDialogTest` (13 new): the wording in each state, the box, the disabled button, five names and "and N
+    more", the submodule note, no "don't ask again". `DiscardEntriesGitActionTest` (2 new): a submodule that moved on,
+    and no flag without `.gitmodules`.
+  - The whole suite (`./gradlew test`, 2,129 tests, none failing, none skipped) ran on this change.
+  - 25 mutations are each caught by a named test: restore, delete, and both unchecked against the fresh status; folders
+    deleted recursively; emptied folders kept; non-empty folders deleted too; the checkout of submodules not skipped,
+    and that together with the action's own filter removed; no gitlink flag in the status; new files deleted before
+    the restore; the use case ignoring the box; no refresh after a failure; the plan keeping new files in `restored`,
+    not listing conflicts, and `hasWork` ignoring new files; the dialog with the box ticked by default, the button
+    enabled with nothing to do, deleting without the box, every conflicted file named, the search missing from the
+    subtitle, and the box shown without new files; the menu in Staged too, ignoring the search, losing the box's value,
+    asking nothing, and a closed search box still narrowing. One survives on purpose: removing only the action's own
+    submodule filter, because `DiscardEntriesGitAction` skips submodules as well (both removed is caught).
+  - Two mutations did not compile at first and the harness reported them as surviving (Kotlin's errors go to stderr,
+    which it didn't read): "emptied folders kept" and "search missing from the subtitle". Both were redone as
+    mutations that compile, and then caught.
+- **Manual run:** against `/tmp/leaf-discard-all-demo`, which has a conflict, a submodule that moved on, changed and
+  deleted files, new files in a new folder, ignored files, and a linked worktree inside the repository. A dev run
+  showed the "⋯" between the search button and Stage all, and the linked worktree listed as one untracked entry
+  (`wt`), the case that the folder guard is for. No click was made in the real window: other apps were on top of it.
+  The menu, the dialog and the confirm are clicked in the rendered tests instead (`DiscardAllMenuTest`,
+  `ConfirmActionDialogTest`), and `DiscardingAllTest` runs the task on a real repository. The panes were also
+  rendered at 400 px with long paths: the header and menu, and the dialog in each state.
+- **Not covered:** the check in `deleteNewFile` that a file's folder is inside the working tree is defence only: the
+  fresh status never lists a file behind a link, so no test reaches it.
+- **Left for later (see the notes folder):** "Delete file" on an untracked folder entry deletes it recursively, a linked
+  worktree inside the repository included; Stage all stages files that a search hides; the folder and selection discard
+  dialogs count submodules as files.
+
 ## Clone a chosen branch or tag (Gitnuro#209, 2026-10-19)
 
 - **Request:** "I want to clone specific branches only through the UI, instead of cloning the whole repo." The Clone
