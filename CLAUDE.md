@@ -954,8 +954,9 @@ worktree on a branch other than the base (`branchToReview`, `domain/worktrees/Wo
 - `GetBranchComparisonGitAction` reads it with JGit, as it only reads: the merge base (`RevFilter.MERGE_BASE`, the
   first one with several), the commits oldest first (the newest `MAX_COMPARED_COMMITS`, 1000, and the count of all),
   the commits that the base has and the branch doesn't, and the diff from the merge base's tree to the branch's
-  (`git.diff()`, as `GetCommitDiffEntriesGitAction` does for a commit). Branches without a commit in common have no
-  diff. A file opens in the diff pane as a commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
+  (`diffWithRenames`, as `GetCommitDiffEntriesGitAction` does for a commit: files that the branch moved are renames,
+  see Renames in file lists). Branches without a commit in common have no diff. A file opens in the diff pane as a
+  commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
 - **State:** the review sets the selection to `SelectedItem.None` while it's shown, rather than being a `SelectedItem`
   of its own, which Gitnuro's code handles in many places. Selecting anything else closes it; the close button and
   Esc (`CloseableView.WORKTREE_REVIEW`) close it and select again what was selected before.
@@ -964,6 +965,68 @@ worktree on a branch other than the base (`branchToReview`, `domain/worktrees/Wo
   comparison stays on screen while the next loads.
 - The worktree's uncommitted changes aren't in it, as a merge leaves them out. A line under the files counts them,
   from the worktree list's status, with a link that switches the tab to the worktree, or shows the tab's own.
+
+**Renames in file lists (fork-only, `data/git/diff/RenameDetection.kt`, the commit and review lists of Gitnuro#347,
+2026-10-19):** a commit that git shows as `R old -> new` used to list a deletion and an addition. `git.diff()` finds
+renames only when `diff.renames` is set, as JGit reads the unset key as off, where git's default is on.
+`GetCommitDiffEntriesGitAction` and `GetBranchComparisonGitAction` call `Repository.diffWithRenames` instead, so a
+commit's list and a worktree review's show a moved file as one `RENAME` entry (`DiffEntry.filePath` is the new path,
+`oldPath` the old one, `score` how much is alike). The Staged and Unstaged lists show none: they come from JGit's status
+and the index, where git's `R  old -> new` needs a rename status type and every stage, unstage, discard and diff action
+keyed by path to handle it.
+- **Detection:** a plain scan with `DiffFormatter` (renames off), then JGit's `RenameDetector` on its added and deleted
+  files, at git's score of 50 (JGit's own is 60), in stages, each on what the one before left:
+  1. exact renames, the same blob: found by id, no blob read (1,500 moved files, a few ms);
+  2. files of the same name, each added file against the deleted files of its own name only: how a refactor that moves
+     files and edits their `package` line goes (git does this stage too);
+  3. everything left, when each side has at most `diff.renameLimit` files, for a file renamed as well as moved.
+     `DEFAULT_RENAME_LIMIT` (100) applies when the key isn't set. JGit's own is 400, git's 1,000.
+- `diff.renames=false` turns it off; any other value, `copies` too, finds renames. Not `DiffFormatter`'s own detection
+  (`setDetectRenames(false)` after `setRepository`, which switches it on from the key with JGit's score and limit).
+- **Why a limit of 100 (probe, 2026-10-19, JGit 7.7):** the content stage (2 and 3) re-reads and hashes the added
+  file's blob for every deleted file it compares it with, so it costs the square of the files per side. Moved and
+  edited files on loose objects, which an agent's fresh commits are: 150 files took 2.7 s, 400 files 27 s (100 KB each,
+  120 s). Packed objects are about 20 times faster. The same cost applied to `diff.renames=true`, with JGit's limit.
+- **A budget:** stages 2 and 3 stop after `MAX_RENAME_DETECTION_TIME` (2 s) and when the coroutine is cancelled
+  (`TimeAndCancellation`, a `ProgressMonitor`), keeping what the earlier stages paired. A cancelled call throws
+  (`ensureActive`), though `JGit.provide` turns that into an error result. `DiffFormatter` can't do this: it returns an
+  empty list when its monitor cancels, which would have blanked the list.
+- **A partial clone** (`readableBlobs`): stages 2 and 3 only see the files whose blobs the repository has, so a list
+  downloads nothing (see Partial clones, Lists don't read blobs). A commit's exact renames are found whatever is
+  missing, and a commit made in the clone itself pairs its edited moves too.
+- **JGit's quirks, handled:**
+  - `RenameDetector` changes the entries that it pairs (it turned a deleted file's change type into `RENAME`), so the
+    entries that stay as they are (`MODIFY`) are taken before it runs, and only its own leftovers are used after it.
+    A stage that is cancelled in the middle changes none.
+  - A file that was added twice with a deleted file's content is a `RENAME` and a `COPY`. git shows an addition for the
+    second, so a copy is the `ADD` it came from.
+- **The rows (`FileItem.renamedFrom`, `RenamedFrom`, `ChangedFilesList`):** `toFileItems` sets it from the entry
+  (`DiffEntry.renamedFrom`), and Staged and Unstaged leave it null. A renamed row shows `← label` right after the file
+  name, in split columns at the start of the directory column, and its tooltip says "Renamed from <old path> (92%
+  similar)". Option B of three (chosen 2026-10-19); the first layout put the hint after the directory, which is long in
+  Kotlin and Java paths and took all the room in a 380 px pane, so the hint was cut off in most rows.
+  - The directory is what gives way. The name takes at most 55% of the row and the hint 80% of what's left
+    (`atMost`), so a long class name leaves the hint room.
+  - `RenamedFrom.label` shows only the part of the old path that differs, as git writes `{old => new}`: the old name
+    when the file stayed in its folder (`Lexer.kt`), the old folders that differ when it kept its name (`…/legacy/`,
+    the `…/` standing for the folders that both paths start with), and those with the old name when both changed
+    (`…/parse/Lex.kt`). The whole old path when nothing of its folder is left: into a folder below its own, or from the
+    top folder.
+  - The arrow has the colour of the row's icon (`modifyFile`), and the label is stronger than the muted directory. The
+    rename icon is `ArrowForward`, where `Refresh` read as "reload".
+  - A search matches the old path too (`matchesSearch`). Sorting and the three views need nothing: `path` is the new
+    path, and `FileChangeKind.Renamed` already ranked.
+- **The diff pane (`ui/diff/RenamedDiff.kt`):** the header adds `← old path · 92% similar` after the name (the path is
+  cut first when it's narrow; no percentage for 100). A rename with no change has no hunks, which left the pane blank:
+  it says "Renamed from X. The content is unchanged." (`renamedWithoutChanges`, for the unified and the split view).
+  A rename with edits shows the diff from the old file to the new one, read by blob id as any commit's file.
+- **File history:** `HistoryViewModel` finds the commit's entry by the new or the old path. Under the new path only,
+  the history of `old.txt` closed its diff at the commit that moved it, which was a deletion before.
+- Tests: `RenameDetectionTest` (exact, edited, in a folder, half alike against git's `-M`, copies, `diff.renames` false,
+  true and `copies`, the limit and `diff.renameLimit`, many files by name, 1,500 exact, no time, out of time half way,
+  cancelled, a blobless partial clone and a commit made in one), `GetBranchComparisonGitActionTest` (the review, and the
+  diff of a moved file), `RenamedFromTest`, `CommitChangesRenamesTest`, `ChangedFilesListRenamesTest`,
+  `RenamedDiffTest`, `HistoryViewModelTest`.
 
 **Merging a worktree into the base (fork-only, Phase 3.4, `MergeWorktreeDialog`, `WorktreeMergeSteps.kt`):**
 "Squash-merge into main…" and "Merge into main…" follow "Review changes" in a worktree row's menu, for a worktree on a
@@ -1472,10 +1535,11 @@ when it first needs them. JGit can't: it throws `MissingObjectException`, which 
   involved differ (`blobsThatDiffer`), with the processing screen's progress and Cancel. A failed download is
   `PartialCloneFetchError(nothingChanged = true)`, and nothing changes. Stashes and discards read what was checked out,
   so they aren't covered; nor is JGit's pull, the fallback (see Remote operations, Choice).
-- Lists don't read blobs: `GetCommitDiffEntriesGitAction`, `GetBranchComparisonGitAction`,
-  `GetDiffEntryFromStatusEntryGitAction` and `unmergedDiffEntry` call `git.diff()` with `setShowNameAndStatusOnly(true)`.
-  Without it, JGit formats every file's diff into a null stream: selecting a commit read all its changed files, in
-  every repository.
+- Lists don't read blobs: `GetDiffEntryFromStatusEntryGitAction` and `unmergedDiffEntry` call `git.diff()` with
+  `setShowNameAndStatusOnly(true)`. Without it, JGit formats every file's diff into a null stream: selecting a commit
+  read all its changed files, in every repository. `GetCommitDiffEntriesGitAction` and `GetBranchComparisonGitAction`
+  scan with a `DiffFormatter` that formats nothing, and find renames (`diffWithRenames`): exact ones read no blob, and
+  the stages that compare content only look at the blobs that the clone has (see Renames in file lists).
 - The diff pane (`ViewDiffResult.Failed`, `DiffLoadFailure`) and file history show a missing object's error in place,
   with Try again (`RepositoryOpenViewModel.retryDiff`); the pane used to close. A commit's file list shows it above the
   list, and a blame that fails opens `ErrorDialog`, where it used to say nothing.
@@ -2097,7 +2161,8 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   state is per repository in `<common git dir>/leaf`, section `sidePanel` (`RefFolderExpansionConfig`).
 - Files changed, Staged and Unstaged render `FileRow`s with `ui/ChangedFilesList.kt` (`CommitChangesState.rows`,
   `StatusState.stagedRows`/`unstagedRows`) and share `AppConfig.FilesChangedView`. The old `show_changes_as_tree` key
-  is only read, as that setting's default until it's saved.
+  is only read, as that setting's default until it's saved. A renamed file's row (commit and review lists) has a
+  `← old name` hint after its name (see Renames in file lists).
 - `combineStatusState` builds the two panes' lists (`StatusLists`: entries, rows, searches, view settings) in a
   `combine` of their own. The commit message, selection and the rest join them afterwards, so a letter typed in the
   commit message no longer sorts and groups every changed file again (`StatusStateTest`).

@@ -2,6 +2,76 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Renames in the commit and review file lists (Gitnuro#347, list part, 2026-10-19)
+
+- **Bug:** a commit that git shows as `R old -> new` listed a deletion and an addition, in the commit's file list and
+  in a worktree review's. `git.diff()` has no switch for renames and finds them only when `diff.renames` is set, as JGit
+  reads the unset key as off, where git's default is on. Reviewing an agent's branch is Leaf's core flow, and a move
+  read as two unrelated changes. The Staged and Unstaged lists are not part of this (they need a rename status type, and
+  every stage, unstage, discard and diff action keyed by path to handle it).
+- **Fix:** `Repository.diffWithRenames` (`data/git/diff/RenameDetection.kt`), which `GetCommitDiffEntriesGitAction` and
+  `GetBranchComparisonGitAction` call. Stages, each on what the one before left, at git's score of 50 (JGit's is 60):
+  exact renames (same blob, no read), files of the same name (how a refactor that moves files and edits their `package`
+  line goes), then the rest up to `diff.renameLimit`. `diff.renames=false` turns it off.
+- **Why not JGit's limit (probe, JGit 7.7):** its content stage re-reads the added file's blob for every deleted file
+  it compares, so it costs the square of the files per side. Moved and edited files on loose objects, which an agent's
+  fresh commits are: 150 files 2.7 s, 400 files 27 s, 400 files of 100 KB 120 s (packed: about 20 times faster). So
+  Leaf's default is 100 files per side, an explicit `diff.renameLimit` is honoured, and stages 2 and 3 have a 2 s budget
+  and stop when the coroutine is cancelled, keeping what the earlier stages paired. The brief had said to keep 400.
+- **Partial clones:** a list downloads nothing. Exact renames read no blob; the stages that compare content only look
+  at blobs the clone has. A commit made in the clone itself pairs its edited moves too.
+- **Found by the tests:** `RenameDetector` changes the entries that it pairs (a deleted file's type became `RENAME` in
+  the list), so the unchanged entries are taken before it runs; JGit reports the second of two identical added files as
+  a `COPY`, where git shows an addition; and `DiffFormatter` returns an empty list when its progress monitor cancels,
+  which would have blanked the list (the reason for using `RenameDetector` directly).
+- **The rows (decided 2026-10-19, option B of three):** a renamed row shows `← label` right after its name, in split
+  columns at the start of the directory column, with "Renamed from <old path> (92% similar)" as its tooltip. The label
+  is only the part of the old path that differs, as git's `{old => new}`: `Lexer.kt`, `…/legacy/`, `…/parse/Lex.kt`.
+  The rename icon is an arrow (`Refresh` read as "reload"). A search matches the old path too.
+  - The first layout put the hint after the directory. The user pointed out that directory names are long and the pane
+    is narrow, so it was cut off in most rows (rendered with Kotlin-style paths at 380 px). Now the directory is what
+    gives way: the hint comes before it, the name takes at most 55% of the row and the hint 80% of the rest, and the
+    label drops the folders that both paths share, which had made it as long as the directory.
+- **The diff pane:** the header adds `← old path · 92% similar` (the path is cut first when narrow). A rename with no
+  change has no hunks and left the pane blank; it says "Renamed from X. The content is unchanged." now. A rename with
+  edits shows the diff from the old file. File history finds the commit that moved a file under its old name too (it
+  closed the diff there: it was a deletion before).
+- **Tests:** 37 new, each run on temp repositories where git is involved.
+  - `RenameDetectionTest` (18): a move that changes nothing (the same blob, score 100), one with edits (score under 100),
+    a rename in its folder, files half alike (git's score of 50, where JGit's 60 misses them, compared with `git diff
+    -M`), a file copied from (a rename and an addition, as git shows it), `diff.renames` false, true and `copies`, a
+    refactor of 150 files found by name over the limit, 101 renamed and edited files over the default limit (with and
+    without `diff.renames` set) and found with `diff.renameLimit`, 1,500 exact renames, no time, out of time half way,
+    a cancelled call, the first commit, and three on a `--filter=blob:none` clone: nothing downloaded for a list, the
+    files whose blobs it has paired in the same stage as ones it lacks, and a commit made in the clone.
+  - `GetBranchComparisonGitActionTest` (a review of moved files, the diff of a moved file with edits, and that an
+    unchanged rename has no hunks, with the full file shown or not), `RenamedFromTest` (7: the label rules),
+    `CommitChangesRenamesTest` (2), `ChangedFilesListRenamesTest` (4: every view, the order, none without renames),
+    `RenamedDiffTest` (4) and `HistoryViewModelTest` (the old path's history at the commit that moved the file).
+  - The whole suite (`./gradlew test`, 2,076 tests, none failing, none skipped) ran on `3c22b181` with this change,
+    before the last two tests were added (the mixed partial clone one and the order one); those and the classes above
+    ran after, 50 tests, all passing.
+  - 22 mutations are each caught by a named test: JGit's own detection left on, its limit of 400 and its score of 60,
+    copies kept, the unchanged entries read after the detector, every blob counted as readable, the same-name stage
+    skipped, no `ensureActive`, `diff.renames=false` and `diff.renameLimit` ignored, a time budget that never ends, the
+    exact stage running the content stage, the history ignoring the old path, the search ignoring it, file items without
+    `renamedFrom`, the label keeping its shared folders or always showing the whole path, the empty state for any empty
+    diff, the similarity always shown, and no hint in the folder tree, in split columns, or ahead of the directory.
+    Three needed work: the first form of the `readableBlobs` mutation survived, because the `MissingObjectException`
+    safety net gave the same result when all of a commit's blobs were missing (a test with a readable pair and a
+    missing one in the same stage catches it); the hint's place was only caught because the mutation dropped it (an
+    order test does now); and one mutation didn't compile (it removed a variable that was still used), so it was
+    written again.
+- **Run by hand:** the offscreen render of the real graph, as `CLAUDE.md` describes it (a throwaway test through
+  `DaggerAppComponent`, deleted, with the dev prefs key that it writes put back as it was): `/tmp/leaf-renames-demo`
+  has a commit with every kind of move. Its list read 128 entries, 125 of them renames: the 120 files moved with their
+  `package` line edited (found by name), an exact move (100), a move with an edited line (97), a rename in a folder with
+  a few edits (89), a move up to the top folder, and one in a long path; and one addition, one deletion and one change.
+  The rows were rendered at 380 and 520 px in all four views, with Kotlin-style paths. The diff pane showed the edited
+  one's single changed line with `← src/ui/old/Card.kt` in the header, and the unchanged one's "Renamed from … The
+  content is unchanged." under its header. A window wasn't driven: selecting a commit takes a click, and clicks go to
+  whatever is on top. `/tmp/leaf-renames-demo-agent` is a linked worktree on `agent-moves` for "Review changes".
+
 ## Merge, Commit and Continue with files that aren't staged, and why a button is disabled (Gitnuro#120 and #124, 2026-10-19)
 
 - **Bug:** during a merge, a cherry-pick or a rebase, any file in the Unstaged list disabled Merge, Commit and Continue,
