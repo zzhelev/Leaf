@@ -345,15 +345,21 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
 
         is ConfirmableAction.DeleteFile -> ConfirmationTexts(
             icon = delete,
-            title = stringResource(Res.string.delete_file_dialog_title),
+            title = stringResource(
+                if (entry.nestedRepository != null) Res.string.delete_repository_dialog_title
+                else Res.string.delete_file_dialog_title,
+            ),
             subtitle = stringResource(Res.string.delete_file_dialog_subtitle, entry.filePath),
-            // Unstaged ADDED entries are the untracked files
-            warning = if (entry.statusType == StatusType.ADDED) {
-                stringResource(Res.string.delete_file_dialog_warning_untracked)
-            } else {
-                stringResource(Res.string.delete_file_dialog_warning_tracked)
+            // Unstaged ADDED entries are the untracked files. A nested repository is a folder (fork-only)
+            warning = when {
+                entry.nestedRepository != null -> stringResource(Res.string.delete_repository_dialog_warning)
+                entry.statusType == StatusType.ADDED -> stringResource(Res.string.delete_file_dialog_warning_untracked)
+                else -> stringResource(Res.string.delete_file_dialog_warning_tracked)
             },
-            primaryAction = stringResource(Res.string.confirm_dialog_delete),
+            primaryAction = stringResource(
+                if (entry.nestedRepository != null) Res.string.delete_repository_dialog_primary
+                else Res.string.confirm_dialog_delete,
+            ),
         )
 
         is ConfirmableAction.AbortOperation -> {

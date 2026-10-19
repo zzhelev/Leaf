@@ -385,7 +385,12 @@ fun StatusChangesList(
         onBlameFile = onBlameFile,
         onHistoryFile = onHistoryFile,
         onDeleteFile = { statusEntry ->
-            onConfirmAction(ConfirmableAction.DeleteFile(statusEntry)) { onAction(StatusAction.Delete(statusEntry)) }
+            if (statusEntry.nestedRepository == NestedRepository.LINKED_WORKTREE) {
+                // Refused with an explanation, so there is nothing to confirm (fork-only)
+                onAction(StatusAction.Delete(statusEntry))
+            } else {
+                onConfirmAction(ConfirmableAction.DeleteFile(statusEntry)) { onAction(StatusAction.Delete(statusEntry)) }
+            }
         },
         onDiscardFile = { statusEntry ->
             onConfirmAction(ConfirmableAction.DiscardFile(statusEntry)) { onAction(StatusAction.Reset(statusEntry)) }

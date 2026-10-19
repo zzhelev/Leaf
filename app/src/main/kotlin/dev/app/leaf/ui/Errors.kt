@@ -41,6 +41,7 @@ import dev.app.leaf.app.generated.resources.error_create_branch_already_exists
 import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_branch_checked_out_in_worktree
+import dev.app.leaf.app.generated.resources.error_delete_file_linked_worktree
 import dev.app.leaf.app.generated.resources.error_delete_branch_not_merged
 import dev.app.leaf.app.generated.resources.error_delete_branch_rebased_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_tag_has_own_commits
@@ -146,6 +147,7 @@ private fun UnsupportedIndex.shellCommands(): List<String> =
 private fun AppError.monospaceParts(): List<String> = when (this) {
     is CheckoutBranchError.BranchUsedByWorktree -> listOf(worktreePath)
     is DeleteBranchError.BranchUsedByWorktree -> listOf(worktreePath)
+    is DeleteFileError.LinkedWorktree -> listOf(path)
     is RenameBranchError.BranchRebasedInWorktree -> listOf(worktreePath)
     is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
@@ -191,6 +193,10 @@ fun AppError.getErrorText(): String {
                 WorktreeBranchUse.Bisecting ->
                     stringResource(Res.string.error_checkout_branch_bisected_in_worktree, branch, worktreePath)
             }
+        }
+
+        is DeleteFileError -> when (this) {
+            is DeleteFileError.LinkedWorktree -> stringResource(Res.string.error_delete_file_linked_worktree, path)
         }
 
         is DeleteBranchError -> when (this) {

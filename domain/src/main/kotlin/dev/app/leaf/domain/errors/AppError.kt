@@ -60,6 +60,15 @@ sealed interface DeleteBranchError : GitError {
     ) : DeleteBranchError
 }
 
+/** A file deletion that is refused (fork-only). */
+sealed interface DeleteFileError : GitError {
+    /**
+     * [path] is a linked worktree of this repository. Deleting its folder would leave git's records of it behind, so
+     * Remove or Discard in the Worktrees section is the way. Nothing changed.
+     */
+    data class LinkedWorktree(val path: String) : DeleteFileError
+}
+
 sealed interface RenameBranchError : GitError {
     /**
      * The local branch [branch] can't be renamed because the worktree at [worktreePath] is rebasing it, as git refuses

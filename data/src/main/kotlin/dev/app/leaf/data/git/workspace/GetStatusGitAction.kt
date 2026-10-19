@@ -9,6 +9,7 @@ import dev.app.leaf.domain.extensions.flatListOf
 import dev.app.leaf.domain.interfaces.IGetStatusGitAction
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.FileConflict
+import dev.app.leaf.domain.models.NestedRepository
 import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
@@ -17,11 +18,18 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import org.eclipse.jgit.api.Status as JGitStatus
 
+private data class StatusParts(
+    val status: JGitStatus,
+    val conflicts: Map<String, FileConflict?>,
+    val submodules: Set<String>,
+    val nested: Map<String, NestedRepository>,
+)
+
 class GetStatusGitAction @Inject constructor(
     private val jgit: JGit,
 ) : IGetStatusGitAction {
     override suspend operator fun invoke(repository: String, paths: List<String>) = either {
-        val (status, conflicts, submodules) = withContext(Dispatchers.IO) {
+        val (status, conflicts, submodules, nested) = withContext(Dispatchers.IO) {
             jgit.provide(repository) { git ->
                 val status = git
                     .status()
@@ -32,16 +40,21 @@ class GetStatusGitAction @Inject constructor(
                     }
                     .call()
 
-                Triple(
+                val nested = status.untracked.mapNotNull { path ->
+                    nestedRepositoryOf(git.repository.workTree, git.repository.commonDirectory, path)?.let { path to it }
+                }.toMap()
+
+                StatusParts(
                     status,
                     fileConflicts(git, status.conflicting),
                     gitlinkPaths(git, status.modified + status.missing),
+                    nested,
                 )
             }
         }.bind()
 
         val staged = getStaged(status)
-        val unstaged = getUnstaged(status, conflicts, submodules)
+        val unstaged = getUnstaged(status, conflicts, submodules, nested)
 
         Either.Ok(Status(staged, unstaged, status.ignoredNotInIndex.toList()))
     }
@@ -50,9 +63,10 @@ class GetStatusGitAction @Inject constructor(
         status: JGitStatus,
         conflicts: Map<String, FileConflict?>,
         submodules: Set<String>,
+        nested: Map<String, NestedRepository>,
     ): List<StatusEntry> {
         val untracked = status.untracked.map {
-            StatusEntry(it, StatusType.ADDED, entryType = EntryType.UNSTAGED)
+            StatusEntry(it, StatusType.ADDED, entryType = EntryType.UNSTAGED, nestedRepository = nested[it])
         }
         val modified = status.modified.map {
             StatusEntry(it, StatusType.MODIFIED, entryType = EntryType.UNSTAGED, isSubmodule = it in submodules)

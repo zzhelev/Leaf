@@ -618,6 +618,9 @@
     <string name="delete_file_dialog_title">Delete file</string>
     <string name="delete_file_dialog_subtitle">Delete "%1$s"?</string>
     <string name="delete_file_dialog_warning_untracked">The file isn't in git, so it can't be restored.</string>
+    <string name="delete_repository_dialog_title">Delete repository</string>
+    <string name="delete_repository_dialog_warning">It's another git repository, with its own history. Neither the history nor any work in it that isn't committed can be restored.</string>
+    <string name="delete_repository_dialog_primary">Delete repository</string>
     <string name="delete_file_dialog_warning_tracked">Its changes that aren't staged can't be restored.</string>
     <string name="abort_dialog_title_merge">Abort merge</string>
     <string name="abort_dialog_subtitle_merge">Abort the merge in progress?</string>
@@ -872,6 +875,7 @@
     <string name="error_checkout_branch_checked_out_in_worktree">"%1$s" can't be checked out here, as it's checked out in the worktree at\n\n%2$s\n\nA branch can be checked out in only one worktree at a time. Nothing was changed.</string>
     <string name="error_checkout_branch_rebased_in_worktree">"%1$s" can't be checked out here, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
     <string name="error_checkout_branch_bisected_in_worktree">"%1$s" can't be checked out here, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_delete_file_linked_worktree">"%1$s" is a linked worktree of this repository, so deleting its folder would leave git's records of it behind.\n\nRemove it from the Worktrees section instead, which also asks about its changes and branch. Nothing was changed.</string>
     <string name="error_delete_branch_checked_out_in_worktree">"%1$s" can't be deleted, as it's checked out in the worktree at\n\n%2$s\n\nCheck out another branch there first. Nothing was changed.</string>
     <string name="error_delete_branch_rebased_in_worktree">"%1$s" can't be deleted, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
     <string name="error_delete_branch_bisected_in_worktree">"%1$s" can't be deleted, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>

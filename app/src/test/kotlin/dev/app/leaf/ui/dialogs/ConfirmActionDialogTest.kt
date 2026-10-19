@@ -19,6 +19,7 @@ import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
+import dev.app.leaf.domain.models.NestedRepository
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.sorting.DiscardAllPlan
@@ -46,6 +47,36 @@ private fun hunk(header: String, vararg lines: Line) =
 
 /** The confirmations of discards, and the "Don't ask again" of hunks and lines (fork-only). */
 class ConfirmActionDialogTest {
+    @Test
+    fun `deleting a nested repository says so and asks for Delete repository`(): Unit = runBlocking(Dispatchers.Swing) {
+        val entry = StatusEntry(
+            "tools/vendor/some-very-long-nested-repository-name",
+            StatusType.ADDED,
+            nestedRepository = NestedRepository.REPOSITORY,
+        )
+
+        DialogScene(ConfirmableAction.DeleteFile(entry)).use { dialog ->
+            assertTrue(dialog.texts().any { it.contains("another git repository") })
+            assertTrue(dialog.isClickable("Delete repository"))
+            assertFalse(dialog.isClickable("Delete"))
+
+            dialog.click("Delete repository")
+
+            assertEquals(listOf("confirm"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `deleting an untracked file keeps the usual dialog`(): Unit = runBlocking(Dispatchers.Swing) {
+        val entry = StatusEntry("notes.txt", StatusType.ADDED)
+
+        DialogScene(ConfirmableAction.DeleteFile(entry)).use { dialog ->
+            assertTrue(dialog.texts().any { it.contains("can't be restored") })
+            assertTrue(dialog.isClickable("Delete"))
+            assertFalse(dialog.texts().any { it.contains("another git repository") })
+        }
+    }
+
     @Test
     fun `discarding with the box checked stops asking, then discards`(): Unit = runBlocking(Dispatchers.Swing) {
         DialogScene(ConfirmableAction.DiscardLine(FILE, addedLine), canStopAsking = true).use { dialog ->
