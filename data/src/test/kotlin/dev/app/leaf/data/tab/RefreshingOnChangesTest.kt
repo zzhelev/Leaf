@@ -77,6 +77,24 @@ class RefreshingOnChangesTest {
     }
 
     @Test
+    fun `an edit in any of hundreds of folders refreshes the status`(): Unit = runBlocking {
+        // macOS stops delivering events past about 250 registrations, so watching each folder left the last ones dead
+        val folders = (0 until 300).map { File(main, "many/d$it").apply { mkdirs() } }
+        File(main, ".gitignore").writeText("build/\n")
+        File(main, "build/classes").mkdirs()
+        val tab = openTab(realFileWatcher = true)
+
+        // Each folder, one file at a time, as any edit refreshes everything and would show the files of the others
+        for (index in folders.indices step 25) {
+            val file = File(folders[index], "file.txt")
+
+            repeatUntil({ tab.unstagedFiles().contains("many/d$index/file.txt") }) {
+                file.writeText("edited ${System.nanoTime()}\n")
+            }
+        }
+    }
+
+    @Test
     fun `a commit made in a terminal refreshes the current branch`(): Unit = runBlocking {
         val tab = openTab(realFileWatcher = true)
         // Lets the watch start, as the commit happens once

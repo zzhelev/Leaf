@@ -7,6 +7,7 @@ import dev.app.leaf.domain.interfaces.IFileChangesWatcher
 import dev.app.leaf.domain.models.FileChanged
 import dev.app.leaf.domain.models.FileType
 import dev.app.leaf.domain.models.WatcherEvent
+import dev.app.leaf.domain.refresh.WatchRegistrations
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
@@ -57,8 +58,13 @@ private val WATCHED_KINDS = arrayOf(ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE)
  * always when false (for tests), each folder in it has a registration of its own, and the watch adds one for each
  * folder created there.
  */
-class FileChangesWatcher internal constructor(private val watchesTrees: Boolean) : AutoCloseable, IFileChangesWatcher {
+class FileChangesWatcher internal constructor(
+    private val watchesTrees: Boolean,
+    private val registrations: WatchRegistrations = WatchRegistrations(),
+) : AutoCloseable, IFileChangesWatcher {
     @Inject
+    constructor(registrations: WatchRegistrations) : this(watchesTrees = true, registrations = registrations)
+
     constructor() : this(watchesTrees = true)
 
     private val watchService: WatchService? = try {
@@ -107,12 +113,23 @@ class FileChangesWatcher internal constructor(private val watchesTrees: Boolean)
         } catch (e: ClosedWatchServiceException) {
             // The watch has ended
         }
+
+        reportRegistrations()
     }
 
     override fun removePathFromWatch(path: String) {
         val folder = Path.of(path)
         val key = keys.remove(folder) ?: return
         key.cancel()
+
+        try {
+            removeFolders(folder, key)
+        } finally {
+            reportRegistrations()
+        }
+    }
+
+    private fun removeFolders(folder: Path, key: WatchKey) {
         fileTrees.remove(folder)
 
         // The folders that the watch added under it
@@ -165,7 +182,12 @@ class FileChangesWatcher internal constructor(private val watchesTrees: Boolean)
         }
     }.flowOn(watchDispatcher)
 
+    /** Tells the app's count how many folders this watch has registered, a key for each. */
+    private fun reportRegistrations() = registrations.update(this, keys.size)
+
     override fun close() {
+        registrations.release(this)
+
         try {
             watchService?.close()
         } catch (e: IOException) {
@@ -264,6 +286,8 @@ class FileChangesWatcher internal constructor(private val watchesTrees: Boolean)
             if (!Files.exists(folder, LinkOption.NOFOLLOW_LINKS)) {
                 batch.add(folder.toString(), ENTRY_DELETE, isFolder = true)
             }
+
+            reportRegistrations()
         }
     }
 
@@ -278,6 +302,8 @@ class FileChangesWatcher internal constructor(private val watchesTrees: Boolean)
         } catch (e: ClosedWatchServiceException) {
             // The watch has ended
         }
+
+        reportRegistrations()
     }
 }
 

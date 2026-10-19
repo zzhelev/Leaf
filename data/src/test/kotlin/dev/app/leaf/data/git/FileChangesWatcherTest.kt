@@ -6,6 +6,8 @@ package dev.app.leaf.data.git
 import dev.app.leaf.domain.models.FileChanged
 import dev.app.leaf.domain.models.FileType
 import dev.app.leaf.domain.models.WatcherEvent
+import dev.app.leaf.domain.refresh.WatchRegistrations
+import dev.app.leaf.domain.refresh.WatchUsage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -324,6 +326,24 @@ class FileChangesWatcherTest {
 
         assertEquals(WatcherEvent.ChangesLost, batch.take())
         assertEquals(null, batch.take())
+    }
+
+    @Test
+    fun `the app's count follows the folders watched, and drops them when the watch closes`() {
+        val registrations = WatchRegistrations(isLimited = true)
+        val watcher = FileChangesWatcher(watchesTrees = false, registrations = registrations).also { watchers += it }
+        val inner = File(dir, "a/b").apply { mkdirs() }
+        File(dir, "c").mkdirs()
+
+        // Each folder in it has a registration of its own, as without recursive watching
+        watcher.addPathToWatch(dir.absolutePath, true)
+        assertEquals(WatchUsage(registrations = 4, tabs = 1), registrations.usage.value)
+
+        watcher.removePathFromWatch(inner.absolutePath)
+        assertEquals(3, registrations.usage.value.registrations)
+
+        watcher.close()
+        assertEquals(WatchUsage(registrations = 0, tabs = 0), registrations.usage.value)
     }
 
     private fun watcher(watchesTrees: Boolean = true) = FileChangesWatcher(watchesTrees).also { watchers += it }

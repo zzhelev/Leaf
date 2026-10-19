@@ -43,6 +43,7 @@ import dev.app.leaf.ui.LocalAppChrome
 import dev.app.leaf.ui.status.StatusPane
 import dev.app.leaf.ui.status.abortOperationInProgress
 import dev.app.leaf.ui.status.operationInProgress
+import dev.app.leaf.domain.refresh.WatchUsage
 import dev.app.leaf.updates.Update
 import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -250,10 +251,12 @@ fun RepositoryOpenPage(
 
             val userInfo by repositoryOpenViewModel.authorInfoSimple.collectAsState()
             val newUpdate = repositoryOpenViewModel.update.collectAsState().value
+            val watchWarning = repositoryOpenViewModel.watchWarning.collectAsState().value
 
             RepositoryOpenBottomInfoBar(
                 userInfo,
                 newUpdate,
+                watchWarning,
                 onOpenUrlInBrowser = { repositoryOpenViewModel.openUrlInBrowser(it) },
                 onShowAuthorInfoDialog = { onNavigate(Screen.Author) },
             )
@@ -291,12 +294,14 @@ private fun ConflictResolverViewModel?.isFocused(): Boolean = this?.state?.colle
 private fun RepositoryOpenBottomInfoBar(
     userInfo: UiDataState<Identity>,
     newUpdate: Update?,
+    watchWarning: WatchUsage?,
     onOpenUrlInBrowser: (String) -> Unit,
     onShowAuthorInfoDialog: () -> Unit,
 ) {
     BottomInfoBar(
         newUpdate,
         onOpenUrlInBrowser,
+        watchWarning = watchWarning,
         leadingContent = {
             Box(
                 modifier = Modifier

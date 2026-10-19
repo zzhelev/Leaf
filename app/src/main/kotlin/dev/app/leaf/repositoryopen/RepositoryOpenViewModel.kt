@@ -26,6 +26,8 @@ import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.index.conversionSteps
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
+import dev.app.leaf.domain.refresh.WatchRegistrations
+import dev.app.leaf.domain.refresh.WatchUsage
 import dev.app.leaf.domain.refresh.WorktreesVisibility
 import dev.app.leaf.domain.repositories.*
 import dev.app.leaf.domain.services.AppSettingsService
@@ -122,6 +124,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val increaseLogCountUseCase: IncreaseLogCountUseCase,
     private val blameFileUseCase: BlameFileUseCase,
     updatesRepository: UpdatesRepository,
+    watchRegistrations: WatchRegistrations,
     private val fetchRemotesUseCase: FetchRemotesUseCase,
     private val deleteRemoteInfoUseCase: DeleteRemoteInfoUseCase,
     private val checkoutCommitUseCase: CheckoutCommitUseCase,
@@ -1000,6 +1003,9 @@ class RepositoryOpenViewModel @Inject constructor(
     }
 
     val update: StateFlow<Update?> = updatesRepository.update
+
+    /** How many folders every tab's watcher holds, while that is near what macOS delivers events for (fork-only). */
+    val watchWarning: StateFlow<WatchUsage?> = watchRegistrations.warning
 
     fun blameFile(filePath: String) {
         viewModelScope.launch {

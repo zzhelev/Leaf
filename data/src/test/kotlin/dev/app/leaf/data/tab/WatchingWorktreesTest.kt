@@ -86,7 +86,8 @@ class WatchingWorktreesTest {
         tab.observeRepositoryToRefresh()
 
         val featureWatcher = tab.awaitWatch(2)
-        awaitWatching(featureWatcher, File(feature, "feature-only"))
+        // Nothing in it is left out, so its folder is watched with everything under it
+        awaitWatching(featureWatcher, feature)
         withTimeout(5.seconds) {
             while (!mainWatcher.isClosed) delay(10)
         }

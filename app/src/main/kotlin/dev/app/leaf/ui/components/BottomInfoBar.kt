@@ -13,6 +13,7 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.bottom_info_bar_app_version
 import dev.app.leaf.app.generated.resources.bottom_info_bar_update_available
 import dev.app.leaf.extensions.handMouseClickable
+import dev.app.leaf.domain.refresh.WatchUsage
 import dev.app.leaf.updates.Update
 import org.jetbrains.compose.resources.stringResource
 
@@ -20,6 +21,7 @@ import org.jetbrains.compose.resources.stringResource
 fun BottomInfoBar(
     newUpdate: Update?,
     onOpenUrlInBrowser: (String) -> Unit,
+    watchWarning: WatchUsage? = null,
     leadingContent: @Composable (() -> Unit)? = null,
 ) {
     Row(
@@ -33,6 +35,10 @@ fun BottomInfoBar(
         leadingContent?.invoke()
 
         Spacer(Modifier.weight(1f, true))
+
+        if (watchWarning != null) {
+            WatchLimitNotice(watchWarning, modifier = Modifier.padding(end = 16.dp))
+        }
 
         if (newUpdate != null) {
             SecondaryButton(
