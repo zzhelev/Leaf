@@ -1918,6 +1918,20 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     see Hunk and line actions).
   - `onStopAsking` is `Screen.ConfirmAction`'s last parameter, so pass `onConfirm` in the parentheses: a trailing
     lambda would be `onStopAsking`, and fail to compile without `onConfirm`.
+- **Stage all and Unstage all follow the search (fork-only, 2026-10-20, `ui/status/BulkTarget.kt`):** the header button
+  of Staged and Unstaged acts on what the pane shows, as a folder row does. It used to pass `null` entries unless two
+  or more files were selected, and `StageAllGitAction` reads `null` as every file, so a search for "parser" staged the
+  files that it hid, and one that matched nothing staged everything. Chosen from options with the user.
+  - **The rule** (`StatusState.bulkTarget(entryType, selected)`, which `StatusViewModelExtender.applyToAll` and the
+    header's label both use): two or more selected files win, hidden ones included (`Selected`, "Stage selected");
+    otherwise no search, or a search that matches every file, is `All` ("Stage all"); a search that narrows the list is
+    `Matches` ("Stage 3 matches", "Stage 1 match", "Unstage 3 matches"); a search with no match is `NoMatches`: the
+    button is greyed ("Stage 0 matches", `allActionEnabled = false` in `FilesChangedHeader`) and does nothing, as
+    `null` would mean every file. One selected file counts as no selection, as before.
+  - Each pane has its own search. Text in a closed search box narrows nothing (`activeSearchOf`).
+  - `StatusStageAllUseCase` now returns its `Job`, so a test can join it.
+  - Tests: `BulkTargetTest`, `StageAllHeaderTest` (label and click, rendered), `StagingShownFilesTest` (a `TestTab`:
+    `null` stages every file, the shown files stage only those).
 - **Discard all (fork-only, 2026-10-19, Gitnuro#224, `domain/sorting/DiscardAll.kt`, `DiscardAllGitAction`):**
   "Discard all changes…" is the only item of a "⋯" menu in the Unstaged header (`HeaderMenuButton`, between the search
   button and Stage all, through `FilesChangedHeader.moreItems`; the Staged header has none). It sits in a menu, not
@@ -1932,9 +1946,8 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     disabled.
   - **What it acts on:** the files that the list shows (`StatusState.entriesShown`): all of them, or only the search
     matches while the box is open and not blank, and the dialog says so ("…to 3 files matching "parser""). Stage all
-    differs: its header button stages every file, search or not, or the selection when more than one file is selected
-    (`StatusViewModelExtender.stageAll`); only folder rows follow the search. The selection is ignored here, as it has
-    its own "Discard N files".
+    follows the search too since 2026-10-20 (see Stage all and Unstage all follow the search). The selection is
+    ignored here, as it has its own "Discard N files".
   - **The plan** (`allDiscard()`, `DiscardAllPlan`): `restored` (tracked files changed or deleted), `newFiles`,
     `keptConflicted` and `keptSubmodules`. Every entry is in exactly one list. The menu says "Nothing to discard"
     when `hasWork` is false.

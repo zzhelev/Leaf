@@ -2,6 +2,18 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Stage all and Unstage all follow the search (2026-10-20)
+
+- **Bug:** with a search open in Unstaged or Staged, the header button still acted on every file, including the ones the
+  search hid, and a search that matched nothing staged everything. Only folder rows followed the search. Found while
+  building "Discard all", which acts on what the list shows.
+- **Fix, chosen with the user from options and a rendered mockup:** the button acts on what the pane shows. While a
+  search narrows the list it reads "Stage 3 matches" ("Stage 1 match", "Unstage 3 matches" in Staged); with no search,
+  or one that matches every file, it still reads "Stage all"; with no match it is greyed ("Stage 0 matches") and does
+  nothing. Two or more selected files still win ("Stage selected"), hidden ones included.
+- Logic in `StatusState.bulkTarget` (`ui/status/BulkTarget.kt`), shared by the button's action and its label.
+  Tests: `BulkTargetTest`, `StageAllHeaderTest`, `StagingShownFilesTest`.
+
 ## Choose… for the Clone dialog's Branch field (follows Gitnuro#209, 2026-10-19)
 
 - **Request:** option C of the clone dialog, with the rule that nothing asks the server until the user clicks the
@@ -55,6 +67,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     removed with `git credential reject`, and the second try asked. A harness on the real graph uses the user's own git
     config, so it must not put credentials in a URL.
 
+
 ## Discard all in the Unstaged pane (Gitnuro#224, 2026-10-19)
 
 - **Feature:** "Discard all changes…" in a new "⋯" menu of the Unstaged header, between the search button and Stage all.
@@ -66,7 +79,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     ("Neither the changes nor the 9 new files can be restored") and the button ("Discard and delete"). With only new
     files and the box unticked, the button is disabled.
   - **Search:** it acts on the files that the list shows, so a search for "parser" discards its matches and the dialog
-    says so. Stage all differs on purpose: its header button stages every file, search or not.
+    says so. Stage all followed on 2026-10-20 (see below).
   - **Placement:** a menu, not a second button beside Stage all, so that a click on the most used button can't reach
     it. Not offered in Staged. The selection is ignored: it has its own "Discard N files".
 - **The brief's premise was wrong, found by probing a temp repository:** discarding an untracked file never deleted it
