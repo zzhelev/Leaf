@@ -9,6 +9,7 @@ import dev.app.leaf.domain.errors.errOrNull
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.lowercaseContains
+import dev.app.leaf.domain.extensions.renamedFrom
 import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.ui.SelectedItem
@@ -91,7 +92,7 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
 
         val searching = showSearch && searchFilter.text.isNotBlank()
         val visibleChanges = if (searching) {
-            state.changes.filter { it.filePath.lowercaseContains(searchFilter.text) }
+            state.changes.filter { it.matchesSearch(searchFilter.text) }
         } else {
             state.changes
         }
@@ -221,6 +222,10 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
 
 }
 
+/** Fork-only: a renamed file is found by the name that it had too. */
+internal fun DiffEntry.matchesSearch(text: String): Boolean =
+    filePath.lowercaseContains(text) || renamedFrom?.path?.lowercaseContains(text) == true
+
 internal fun List<DiffEntry>.toFileItems(): List<FileItem<DiffEntry>> {
     val keyCounts = HashMap<String, Int>()
 
@@ -234,6 +239,7 @@ internal fun List<DiffEntry>.toFileItems(): List<FileItem<DiffEntry>> {
             key = if (count == 1) baseKey else "$baseKey#$count",
             path = path,
             kind = entry.changeKind,
+            renamedFrom = entry.renamedFrom,
         )
     }
 }

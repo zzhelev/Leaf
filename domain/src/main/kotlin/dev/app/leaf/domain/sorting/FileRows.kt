@@ -38,12 +38,15 @@ enum class FileChangeKind { Conflicting, Added, Modified, Renamed, Deleted }
  * A changed file to sort and group.
  *
  * @param key Unique within the list, used for row keys.
+ * @param renamedFrom Where the file came from, when a commit or a review renamed or moved it ([path] is the new one).
+ *   Staged and Unstaged leave it null: they show no renames.
  */
 data class FileItem<out T>(
     val item: T,
     val key: String,
     val path: String,
     val kind: FileChangeKind,
+    val renamedFrom: RenamedFrom? = null,
 ) {
     val fileName: String = path.substringAfterLast('/')
 

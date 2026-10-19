@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.worktrees
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
+import dev.app.leaf.data.git.diff.diffWithRenames
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
@@ -59,13 +60,12 @@ class GetBranchComparisonGitAction @Inject constructor(
             val changes = if (mergeBase == null) {
                 emptyList()
             } else {
-                git.diff()
-                    .setOldTree(repository.treeParser(mergeBase.tree))
-                    .setNewTree(repository.treeParser(RevWalk(repository).use { it.parseCommit(branchId).tree }))
-                    // The entries alone: formatting each file's diff, which nothing reads, reads all its blobs
-                    .setShowNameAndStatusOnly(true)
-                    .call()
-                    .sortedBy { it.filePath }
+                // The entries alone: formatting each file's diff, which nothing reads, reads all its blobs. Files that
+                // the branch moved are renames, as in a commit's list
+                repository.diffWithRenames(
+                    oldTree = repository.treeParser(mergeBase.tree),
+                    newTree = repository.treeParser(RevWalk(repository).use { it.parseCommit(branchId).tree }),
+                ).sortedBy { it.filePath }
             }
 
             BranchComparison(

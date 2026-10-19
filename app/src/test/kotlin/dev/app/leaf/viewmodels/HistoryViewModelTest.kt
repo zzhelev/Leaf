@@ -71,6 +71,9 @@ class HistoryViewModelTest {
     /** The file's commits, newest first, as git log lists them. */
     private val commits = listOf("a", "b", "c").map { commit(it) }
 
+    /** The commits that moved the file to another path, which the change lists show as a rename. */
+    private val renamedIn = mutableSetOf<String>()
+
     /** How long loading a commit's changed files takes, by hash, to make one finish after another. */
     private val loadTimes = mutableMapOf<String, Long>()
 
@@ -132,6 +135,22 @@ class HistoryViewModelTest {
 
         viewModel.awaitDiffOf(commits[0])
         assertEquals(commits[0], viewModel.selectedCommit.value)
+
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `the commit that moved the file is in the history of the name that it had`(): Unit = runBlocking {
+        renamedIn += hash("b")
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+        viewModel.awaitDiffOf(commits[0])
+
+        viewModel.selectCommit(commits[1])
+
+        // A rename lists the new path, where the deletion that it used to be listed the old one
+        viewModel.awaitDiffOf(commits[1])
+        assertEquals(hash("b"), viewModel.shownDiffId())
 
         viewModel.onClear()
     }
@@ -223,8 +242,12 @@ class HistoryViewModelTest {
 
     /** The file's change in [commit], told apart from the other commits' by the file's id. */
     private fun diffEntry(commit: Commit) = mockk<DiffEntry> {
-        every { changeType } returns DiffEntry.ChangeType.MODIFY
-        every { newPath } returns FILE
+        val isRename = commit.hash in renamedIn
+
+        every { changeType } returns if (isRename) DiffEntry.ChangeType.RENAME else DiffEntry.ChangeType.MODIFY
+        every { oldPath } returns FILE
+        every { newPath } returns if (isRename) "src/Moved.kt" else FILE
+        every { score } returns 100
         every { newId } returns AbbreviatedObjectId.fromObjectId(ObjectId.fromString(commit.hash))
     }
 

@@ -48,13 +48,9 @@ class GetCommitDiffEntriesGitAction @Inject constructor(
 
         val newTreeParser = prepareTreeParser(repository, fullCommit)
 
-        return@provide git.diff()
-            .setNewTree(newTreeParser)
-            .setOldTree(oldTreeParser)
-            // Fork-only: the entries alone. Formatting each file's diff, which nothing read, read all its blobs
-            .setShowNameAndStatusOnly(true)
-            .call()
-            .sortedBy { it.filePath }
+        // Fork-only: the entries alone. Formatting each file's diff, which nothing read, read all its blobs. And moved
+        // files as renames, which git.diff() shows only with diff.renames set
+        return@provide repository.diffWithRenames(oldTreeParser, newTreeParser).sortedBy { it.filePath }
     }
 }
 

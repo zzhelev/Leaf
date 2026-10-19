@@ -185,6 +185,10 @@
     <string name="files_changed_view_folder_tree_hint">Nested, chains collapsed</string>
     <string name="files_changed_column_file">File</string>
     <string name="files_changed_column_directory">Directory</string>
+    <string name="files_changed_renamed_from_unchanged">Renamed from %1$s (content unchanged)</string>
+    <string name="files_changed_renamed_from_similar">Renamed from %1$s (%2$s similar)</string>
+    <string name="diff_renamed_unchanged">Renamed from %1$s. The content is unchanged.</string>
+    <string name="diff_renamed_similar">%1$s similar</string>
 
     <!-- Uncommited changes view -->
     <string name="uncommited_changes_unstaged_title">Unstaged</string>

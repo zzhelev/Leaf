@@ -27,19 +27,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.files_changed_column_directory
 import dev.app.leaf.app.generated.resources.files_changed_column_file
+import dev.app.leaf.app.generated.resources.files_changed_renamed_from_similar
+import dev.app.leaf.app.generated.resources.files_changed_renamed_from_unchanged
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FileSortKey
 import dev.app.leaf.domain.sorting.FilesViewMode
 import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.RenamedFrom
 import dev.app.leaf.domain.sorting.SortSettingsCodec
 import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.handMouseClickable
@@ -48,6 +55,7 @@ import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.linesHeight
+import dev.app.leaf.theme.modifyFile
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.FolderEntryContent
 import dev.app.leaf.ui.components.ScrollableLazyColumn
@@ -64,6 +72,13 @@ private val COLUMN_GAP = 16.dp
 private val ROW_END_PADDING = 16.dp
 private val TREE_INDENT = 18.dp
 private val TREE_FOLDER_START = 10.dp
+
+/** Between a renamed file's name and where it came from, and after the hint. */
+private val HINT_GAP = 10.dp
+
+/** The most that a renamed file's name takes of the row, and that its hint takes of what the name leaves. */
+private const val NAME_MAX_SHARE = 0.55f
+private const val HINT_MAX_SHARE = 0.8f
 
 /**
  * Changed files as a flat list, split columns or a folder tree, for the Files changed, Staged and Unstaged panes.
@@ -257,11 +272,17 @@ fun <T> ChangedFilesList(
                             { isHovered -> action(row.file.item, isHovered) }
                         },
                     ) {
+                        // Where a renamed file came from, right after its name: the directory, which is long and which
+                        // the pane often can't fit, is what gives way to it
+                        val renamedHint: (@Composable RowScope.() -> Unit)? = row.file.renamedFrom?.let { from ->
+                            { RenamedFromHint(from, row.file.path) }
+                        }
+
                         when (viewState.viewMode) {
                             FilesViewMode.FlatList -> if (viewState.sortKey == FileSortKey.FileName) {
-                                FileNameFirstContent(row.file.fileName, row.file.directory)
+                                FileNameFirstContent(row.file.fileName, row.file.directory, renamedHint)
                             } else {
-                                DirectoryFirstContent(row.file.fileName, row.file.directory)
+                                DirectoryFirstContent(row.file.fileName, row.file.directory, renamedHint)
                             }
 
                             FilesViewMode.SplitColumns -> SplitColumnsContent(
@@ -269,12 +290,20 @@ fun <T> ChangedFilesList(
                                 directory = row.file.directory,
                                 path = row.file.path,
                                 ratio = splitRatio,
+                                renamedHint = renamedHint,
                             )
 
-                            FilesViewMode.FolderTree -> FileNameText(
-                                row.file.fileName,
-                                Modifier.padding(end = ROW_END_PADDING),
-                            )
+                            FilesViewMode.FolderTree -> {
+                                FileNameText(row.file.fileName, Modifier.nameBesides(renamedHint))
+
+                                if (renamedHint == null) {
+                                    Spacer(Modifier.width(ROW_END_PADDING))
+                                } else {
+                                    Spacer(Modifier.width(HINT_GAP))
+                                    renamedHint()
+                                    Spacer(Modifier.width(ROW_END_PADDING))
+                                }
+                            }
                         }
                     }
                 }
@@ -455,7 +484,11 @@ private fun ChangedFileRow(
 
 /** `dir/` in muted text, then the file name, as Leaf has always shown changed files. */
 @Composable
-private fun RowScope.DirectoryFirstContent(fileName: String, directory: String) {
+private fun RowScope.DirectoryFirstContent(
+    fileName: String,
+    directory: String,
+    renamedHint: (@Composable RowScope.() -> Unit)?,
+) {
     if (directory.isNotEmpty()) {
         Text(
             text = directory,
@@ -476,13 +509,29 @@ private fun RowScope.DirectoryFirstContent(fileName: String, directory: String) 
         )
     }
 
-    FileNameText(fileName, Modifier.padding(end = ROW_END_PADDING))
+    FileNameText(fileName, Modifier.nameBesides(renamedHint))
+
+    if (renamedHint != null) {
+        Spacer(Modifier.width(HINT_GAP))
+        renamedHint()
+    }
+
+    Spacer(Modifier.width(ROW_END_PADDING))
 }
 
 /** The file name, then its directory in muted text, so a list sorted by file name is easy to scan. */
 @Composable
-private fun RowScope.FileNameFirstContent(fileName: String, directory: String) {
-    FileNameText(fileName, Modifier)
+private fun RowScope.FileNameFirstContent(
+    fileName: String,
+    directory: String,
+    renamedHint: (@Composable RowScope.() -> Unit)?,
+) {
+    FileNameText(fileName, Modifier.nameBesides(renamedHint))
+
+    if (renamedHint != null) {
+        Spacer(Modifier.width(HINT_GAP))
+        renamedHint()
+    }
 
     if (directory.isNotEmpty()) {
         Text(
@@ -501,9 +550,18 @@ private fun RowScope.FileNameFirstContent(fileName: String, directory: String) {
     }
 }
 
-/** The file name and directory in two columns. The directory keeps its end visible when it doesn't fit. */
+/**
+ * The file name and directory in two columns. The directory keeps its end visible when it doesn't fit. A renamed file's
+ * hint leads the directory's column, so it is the directory that is cut short.
+ */
 @Composable
-private fun RowScope.SplitColumnsContent(fileName: String, directory: String, path: String, ratio: Float) {
+private fun RowScope.SplitColumnsContent(
+    fileName: String,
+    directory: String,
+    path: String,
+    ratio: Float,
+    renamedHint: (@Composable RowScope.() -> Unit)?,
+) {
     Row(
         modifier = Modifier
             .weight(1f)
@@ -522,15 +580,88 @@ private fun RowScope.SplitColumnsContent(fileName: String, directory: String, pa
 
         Spacer(Modifier.width(COLUMN_GAP))
 
-        DelayedTooltip(text = path, modifier = Modifier.weight(1f - ratio)) {
-            StartEllipsisPathText(
-                text = directory,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.body2,
-                color = MaterialTheme.colors.onBackgroundSecondary,
-            )
+        if (renamedHint == null) {
+            DelayedTooltip(text = path, modifier = Modifier.weight(1f - ratio)) {
+                StartEllipsisPathText(
+                    text = directory,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.body2,
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.weight(1f - ratio),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                renamedHint()
+
+                Spacer(Modifier.width(HINT_GAP))
+
+                DelayedTooltip(text = path, modifier = Modifier.weight(1f, fill = false)) {
+                    StartEllipsisPathText(
+                        text = directory,
+                        modifier = Modifier,
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onBackgroundSecondary,
+                    )
+                }
+            }
         }
     }
+}
+
+/**
+ * `← Lexer.kt` after a renamed file's name: only the part of the old path that changed ([RenamedFrom.label]), with the
+ * whole path and how much of the content is alike in its tooltip. The arrow has the colour of the row's icon, and the
+ * label is stronger than the muted directory, as this is what the row is about.
+ */
+@Composable
+private fun RowScope.RenamedFromHint(renamedFrom: RenamedFrom, path: String) {
+    val tooltip = when {
+        renamedFrom.isContentUnchanged ->
+            stringResource(Res.string.files_changed_renamed_from_unchanged, renamedFrom.path)
+
+        else -> stringResource(
+            Res.string.files_changed_renamed_from_similar,
+            renamedFrom.path,
+            "${renamedFrom.similarity}%",
+        )
+    }
+    val arrowColor = MaterialTheme.colors.modifyFile
+    val text = remember(renamedFrom, path, arrowColor) {
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = arrowColor)) { append("\u2190") }
+            append(" ${renamedFrom.label(path)}")
+        }
+    }
+
+    DelayedTooltip(text = tooltip, modifier = Modifier.atMost(HINT_MAX_SHARE)) {
+        Text(
+            text = text,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.body2,
+            color = MaterialTheme.colors.onBackground.copy(alpha = 0.75f),
+        )
+    }
+}
+
+/** The file name, which a renamed file's hint can't leave without room: at most [NAME_MAX_SHARE] of the row. */
+private fun Modifier.nameBesides(renamedHint: (@Composable RowScope.() -> Unit)?): Modifier =
+    if (renamedHint == null) this else atMost(NAME_MAX_SHARE)
+
+/** Measures what it's given with at most [share] of the width on offer, so that what comes after keeps some. */
+private fun Modifier.atMost(share: Float): Modifier = layout { measurable, constraints ->
+    val limit = if (constraints.hasBoundedWidth) {
+        constraints.copy(maxWidth = (constraints.maxWidth * share).toInt().coerceAtLeast(constraints.minWidth))
+    } else {
+        constraints
+    }
+    val placeable = measurable.measure(limit)
+
+    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }
 
 @Composable

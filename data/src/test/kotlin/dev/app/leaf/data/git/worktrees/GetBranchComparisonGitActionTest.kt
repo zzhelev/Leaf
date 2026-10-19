@@ -200,6 +200,51 @@ class GetBranchComparisonGitActionTest {
         assertEquals("Commit $total", comparison.commits.last().shortMessage)
     }
 
+    @Test
+    fun `files that the branch moved are renames, and the diff of a moved file is from the old one`(): Unit = runBlocking {
+        val text = (1..20).joinToString("") { "line $it of the guide\n" }
+        write("guide.txt", text)
+        write("notes.txt", "notes ".repeat(10) + "\n" + text)
+        commit("Add the guide and the notes")
+        git.run(repo, "checkout", "-q", "-b", "mover")
+        File(repo, "docs").mkdirs()
+        git.run(repo, "mv", "guide.txt", "docs/guide.txt")
+        git.run(repo, "mv", "notes.txt", "docs/notes.txt")
+        write("docs/notes.txt", ("notes ".repeat(10) + "\n" + text).replace("line 3 of", "edited line 3 of"))
+        commit("Move the guide and the notes into docs")
+
+        val comparison = comparison("refs/heads/main", "refs/heads/mover")
+
+        assertEquals(
+            listOf(
+                Triple("docs/guide.txt", ChangeType.RENAME, "guide.txt"),
+                Triple("docs/notes.txt", ChangeType.RENAME, "notes.txt"),
+            ),
+            comparison.changes.map { Triple(it.filePath, it.changeType, it.oldPath) },
+        )
+        assertEquals(100, comparison.changes[0].score)
+
+        // The moved file with edits shows what changed in it, as a diff of the old file
+        val edited = formatDiff()(gitDir, DiffType.CommitDiff(comparison.changes[1]), isDisplayFullFile = false)
+        val lines = assertInstanceOf(DiffResult.Text::class.java, (edited as Either.Ok).value).hunks.flatMap { it.lines }
+
+        assertEquals(
+            listOf(LineType.REMOVED to "line 3 of the guide", LineType.ADDED to "edited line 3 of the guide"),
+            lines.filter { it.lineType != LineType.CONTEXT }.map { it.lineType to it.text.trimEnd('\n') },
+        )
+
+        // The moved file without edits has nothing to show: the diff pane says that it was renamed
+        for (isDisplayFullFile in listOf(false, true)) {
+            val unchanged = formatDiff()(gitDir, DiffType.CommitDiff(comparison.changes[0]), isDisplayFullFile)
+
+            assertEquals(
+                emptyList<Any>(),
+                assertInstanceOf(DiffResult.Text::class.java, (unchanged as Either.Ok).value).hunks,
+                "Full file: $isDisplayFullFile",
+            )
+        }
+    }
+
     private fun DiffEntry.described() = "$changeType $oldPath ${oldId.name()} $newPath ${newId.name()}"
 
     private suspend fun comparison(base: String, branch: String): BranchComparison =

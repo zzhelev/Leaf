@@ -202,8 +202,12 @@ fun DiffPane(
                 }
 
                 val scrollState by viewModel.lazyListState.collectAsState()
+                // Fork-only: a rename without changes has no hunks, which left the pane blank
+                val renamedWithoutChanges = diffResult.renamedWithoutChanges()
 
-                when (diffResult) {
+                if (renamedWithoutChanges != null) {
+                    RenamedWithoutChanges(renamedWithoutChanges)
+                } else when (diffResult) {
                     is DiffResult.TextSplit -> HunkSplitTextDiff(
                         diffType = diffType,
                         scrollState = scrollState,
@@ -969,6 +973,9 @@ private fun DiffHeader(
                         maxLines = 1,
                         modifier = Modifier.padding(end = 16.dp),
                     )
+
+                    // Fork-only: where a renamed file came from
+                    diffEntry.renamedFrom?.let { RenamedFromHeader(it) }
                 }
             }
         }

@@ -7,6 +7,7 @@ import dev.app.leaf.domain.errors.isMissingObject
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.exceptions.MissingDiffEntryException
 import dev.app.leaf.domain.extensions.filePath
+import dev.app.leaf.domain.extensions.renamedFrom
 import dev.app.leaf.domain.interfaces.IGenerateSplitHunkFromDiffResultGitAction
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.services.AppSettingsService
@@ -125,8 +126,10 @@ class HistoryViewModel @Inject constructor(
                 }
 
                 val diffEntries = diffEntriesResult.okOrNull().orEmpty()
+                // Fork-only: the commit that moved the file is also in the history of the name that it had
                 val diffEntry = diffEntries.firstOrNull { entry ->
-                    entry.filePath == this@HistoryViewModel.filePath
+                    entry.filePath == this@HistoryViewModel.filePath ||
+                            entry.renamedFrom?.path == this@HistoryViewModel.filePath
                 }
 
                 if (diffEntry == null) {

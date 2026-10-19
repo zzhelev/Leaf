@@ -39,7 +39,8 @@ val DiffEntry.icon: ImageVector
             DiffEntry.ChangeType.MODIFY -> Icons.Default.Edit
             DiffEntry.ChangeType.DELETE -> Icons.Default.Delete
             DiffEntry.ChangeType.COPY -> Icons.Default.Add
-            DiffEntry.ChangeType.RENAME -> Icons.Default.Refresh
+            // Fork-only: an arrow, as Refresh reads as "reload"
+            DiffEntry.ChangeType.RENAME -> Icons.Default.ArrowForward
             else -> throw NotImplementedError("Unexpected ChangeType")
         }
     }
