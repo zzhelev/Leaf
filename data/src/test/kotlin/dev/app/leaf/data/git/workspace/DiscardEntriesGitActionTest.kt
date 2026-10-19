@@ -138,6 +138,46 @@ class DiscardEntriesGitActionTest {
         }
     }
 
+    @Test
+    fun `a submodule that moved on stays as it is, and the other files are still restored`(): Unit = runBlocking {
+        val library = git.initRepository(File(tempDir, "library"))
+        val repository = git.initRepository(File(tempDir, "repo"))
+        write(repository, "a.txt", "a")
+        git.run(repository, "add", ".")
+        git.run(repository, "commit", "-m", "File")
+        git.run(repository, "submodule", "add", library.absolutePath, "sub")
+        git.run(repository, "commit", "-m", "Add submodule")
+        write(repository, "a.txt", "a changed")
+        git.run(File(repository, "sub"), "commit", "--allow-empty", "-m", "Moves on")
+        val moved = git.run(File(repository, "sub"), "rev-parse", "HEAD")
+
+        val entries = unstaged(repository)
+
+        assertEquals(setOf("a.txt", "sub"), entries.map { it.filePath }.toSet())
+        assertEquals(listOf("sub"), entries.filter { it.isSubmodule }.map { it.filePath })
+
+        // JGit's checkout of the submodule failed with "Missing unknown ...", and restored nothing
+        assertInstanceOf(Either.Ok::class.java, discard(gitDir(repository), entries, staged = false))
+
+        assertEquals("a", read(repository, "a.txt"))
+        assertEquals(moved, git.run(File(repository, "sub"), "rev-parse", "HEAD"), "The submodule keeps its commit")
+    }
+
+    @Test
+    fun `a repository without a gitmodules file doesn't flag anything, and still discards`(): Unit = runBlocking {
+        val repository = git.initRepository(File(tempDir, "repo"))
+        write(repository, "a.txt", "a")
+        git.run(repository, "add", ".")
+        git.run(repository, "commit", "-m", "File")
+        write(repository, "a.txt", "a changed")
+
+        val entries = unstaged(repository)
+
+        assertEquals(listOf(false), entries.map { it.isSubmodule })
+        assertInstanceOf(Either.Ok::class.java, discard(gitDir(repository), entries, staged = false))
+        assertEquals("a", read(repository, "a.txt"))
+    }
+
     /** What discarding could change: the index with its stages, the status, and the files. */
     private fun snapshot(repository: File) = listOf(
         git.run(repository, "ls-files", "--stage"),

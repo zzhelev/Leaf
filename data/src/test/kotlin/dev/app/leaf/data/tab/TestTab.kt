@@ -50,6 +50,8 @@ import dev.app.leaf.data.git.tags.GetTagsGitAction
 import dev.app.leaf.data.git.workspace.AddIgnoreRulesGitAction
 import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
+import dev.app.leaf.data.git.workspace.DiscardAllGitAction
+import dev.app.leaf.data.git.workspace.DiscardEntriesGitAction
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
 import dev.app.leaf.data.git.workspace.GlobalIgnoreFile
@@ -96,6 +98,7 @@ import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.AbortRebaseUseCase
+import dev.app.leaf.domain.usecases.DiscardAllUseCase
 import dev.app.leaf.domain.usecases.AbortSquashMergeUseCase
 import dev.app.leaf.domain.usecases.ContinueRebaseUseCase
 import dev.app.leaf.domain.usecases.CreateWorktreeUseCase
@@ -377,6 +380,11 @@ class TestTab(
         useCaseExecutor = useCaseExecutor,
         saveWorktreeCreationSettingsGitAction = SaveWorktreeCreationSettingsGitAction(jgit),
         runWorktreeStepsUseCase = runWorktreeSteps,
+    )
+
+    val discardAll = DiscardAllUseCase(
+        useCaseExecutor,
+        DiscardAllGitAction(GetStatusGitAction(jgit), DiscardEntriesGitAction(jgit), jgit),
     )
 
     val addIgnoreRules = AddIgnoreRulesUseCase(

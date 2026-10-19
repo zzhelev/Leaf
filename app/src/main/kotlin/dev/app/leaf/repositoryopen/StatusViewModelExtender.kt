@@ -39,6 +39,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val stageAllUseCase: StatusStageAllUseCase,
     private val unstageAllUseCase: StatusUnstageAllUseCase,
     private val discardEntriesUseCase: DiscardEntriesUseCase,
+    private val discardAllUseCase: DiscardAllUseCase,
     private val deleteFileUseCase: DeleteFileUseCase,
     private val resetRepositoryStateUseCase: ResetRepositoryStateUseCase,
     private val abortRebaseUseCase: AbortRebaseUseCase,
@@ -434,6 +435,8 @@ class StatusViewModelExtender @AssistedInject constructor(
             EntryType.STAGED -> discardSelectedStaged()
             EntryType.UNSTAGED -> discardSelectedUnstaged()
         }
+
+        is StatusAction.DiscardAll -> discardAllUseCase(action.plan, action.deleteNewFiles)
 
         is StatusAction.SelectedEntriesAction -> when (action.entryType) {
             EntryType.STAGED -> unstageAll()

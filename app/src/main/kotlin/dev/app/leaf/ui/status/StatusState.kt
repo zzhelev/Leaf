@@ -72,6 +72,19 @@ data class StatusState(
     }
 
     /**
+     * The search text that narrows [entryType]'s list, or null when the pane isn't searching (fork-only). What a bulk
+     * action acts on is the files shown, as with a folder row.
+     */
+    fun activeSearchOf(entryType: EntryType): String? = when (entryType) {
+        EntryType.STAGED -> activeSearch(showSearchStaged, searchFilterStaged)
+        EntryType.UNSTAGED -> activeSearch(showSearchUnstaged, searchFilterUnstaged)
+    }
+
+    /** The files that [entryType]'s pane lists: all of them, or only the search matches while it searches (fork-only). */
+    fun entriesShown(entryType: EntryType): List<StatusEntry> =
+        getEntriesByEntryType(entryType).filteredBySearch(activeSearchOf(entryType))
+
+    /**
      * The files a folder row stands for: every file under [folderPath], including those inside closed folders, or only
      * the search matches while the pane is searching.
      */

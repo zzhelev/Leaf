@@ -43,6 +43,7 @@ import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.sorting.DiscardedFiles
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.sorting.allDiscard
 import dev.app.leaf.domain.sorting.folderDiscard
 import dev.app.leaf.domain.sorting.selectionDiscard
 import dev.app.leaf.extensions.handMouseClickable
@@ -56,6 +57,7 @@ import dev.app.leaf.theme.textFieldColors
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
+import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.ui.context_menu.ConflictMenuActions
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
@@ -325,6 +327,36 @@ fun StatusChangesList(
         }
     }
 
+    // Fork-only, Unstaged only: "Discard all" acts on the files that the list shows, the search matches while it searches
+    val search = statusState.activeSearchOf(entryType)
+    val discardAllLabel = stringResource(Res.string.status_header_discard_all)
+    val nothingToDiscardLabel = stringResource(Res.string.status_header_nothing_to_discard)
+    val moreItems = if (entryType == EntryType.UNSTAGED) {
+        val plan = remember(statusState.unstaged, search) { statusState.entriesShown(entryType).allDiscard() }
+
+        if (plan.hasWork) {
+            listOf(
+                SortMenuItem.Option(
+                    label = discardAllLabel,
+                    isChecked = false,
+                    closesMenu = true,
+                    isDestructive = true,
+                    icon = Res.drawable.undo,
+                ) {
+                    val action = ConfirmableAction.DiscardAll(plan, search)
+
+                    onConfirmAction(action) {
+                        onAction(StatusAction.DiscardAll(plan, action.deleteNewFiles.isChecked))
+                    }
+                }
+            )
+        } else {
+            listOf(SortMenuItem.Note(nothingToDiscardLabel))
+        }
+    } else {
+        emptyList()
+    }
+
     // Unstaged only, and only for a folder that shows a new (untracked) file, which is what ignoring hides
     val folderIgnoreAction: (folderPath: String) -> (() -> Unit)? = { folderPath ->
         ignoreRequestForFolder(statusState.entriesShownUnder(folderPath, entryType), entryType, folderPath)
@@ -336,6 +368,7 @@ fun StatusChangesList(
         actionInfo = actionInfo,
         entryType = entryType,
         rows = rows,
+        moreItems = moreItems,
         folderDiscardAction = folderDiscardAction,
         folderIgnoreAction = folderIgnoreAction,
         onIgnore = onIgnore,
@@ -384,6 +417,8 @@ fun ChangesList(
     actionInfo: ActionInfo,
     entryType: EntryType,
     rows: List<FileRow<StatusEntry>>,
+    /** The items of the header's "⋯" menu, none for no menu (fork-only). */
+    moreItems: List<SortMenuItem>,
     /** What discarding a folder does, or null when its menu shouldn't offer it. */
     folderDiscardAction: (folderPath: String) -> (() -> Unit)?,
     /** Opens the ignore dialog for a folder, or null when its menu shouldn't offer it (fork-only). */
@@ -484,6 +519,7 @@ fun ChangesList(
             title = title,
             actionInfo = actionInfo,
             onAllAction = { onAction(StatusAction.AllEntriesAction(entryType)) },
+            moreItems = moreItems,
             sortAction = {
                 FilesSortMenuButton(
                     viewState = viewState,

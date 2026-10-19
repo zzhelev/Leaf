@@ -22,9 +22,12 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.search
+import dev.app.leaf.app.generated.resources.status_header_more_actions
+import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.theme.tertiarySurface
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 @Immutable
 data class ActionInfo(
@@ -45,6 +48,8 @@ fun FilesChangedHeader(
     onAllAction: (() -> Unit)? = null,
     /** Shown before the search button, for example a sort and view menu. The title keeps priority over it. */
     sortAction: (@Composable () -> Unit)? = null,
+    /** Fork-only: the items of a "⋯" menu between the search button and the all-files button, none for no menu. */
+    moreItems: List<SortMenuItem> = emptyList(),
     onSearchFilterToggled: (Boolean) -> Unit,
     onSearchFocused: () -> Unit,
     searchFilter: TextFieldValue,
@@ -107,6 +112,10 @@ fun FilesChangedHeader(
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colors.onBackground,
                 )
+            }
+
+            if (moreItems.isNotEmpty()) {
+                HeaderMenuButton(moreItems, stringResource(Res.string.status_header_more_actions))
             }
 
             if (actionInfo != null && onAllAction != null) {

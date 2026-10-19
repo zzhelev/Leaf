@@ -199,6 +199,7 @@ fun TaskType.errorTitle(): String {
         TaskType.StageLine -> "File line stage failed"
         TaskType.UnstageLine -> "File line unstage failed"
         TaskType.DiscardFile -> "Discard file failed"
+        TaskType.DiscardAllFiles -> "Discarding all changes failed"
         TaskType.DeleteFile -> "Delete file failed"
         TaskType.AddIgnoreRules -> "Adding ignore rules failed"
         TaskType.BlameFile -> "File blaming failed"

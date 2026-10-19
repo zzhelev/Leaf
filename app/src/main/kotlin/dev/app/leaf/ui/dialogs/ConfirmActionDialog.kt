@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
@@ -39,9 +40,11 @@ import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.sorting.DiscardAllPlan
 import dev.app.leaf.theme.diffLineAdded
 import dev.app.leaf.theme.diffLineRemoved
 import dev.app.leaf.theme.monoTypography
+import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.ui.components.CheckboxText
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
@@ -90,6 +93,17 @@ sealed interface ConfirmableAction {
     data class DiscardFiles(val count: Int, val entryType: EntryType, val keptConflicted: Int = 0) : ConfirmableAction
 
     /**
+     * Discards the unstaged changes of the files that [plan] lists ("Discard all", fork-only): the pane's files, or
+     * only its [search] matches while it searches. The new files go only with [deleteNewFiles] ticked, which the
+     * caller reads when the dialog confirms.
+     */
+    data class DiscardAll(
+        val plan: DiscardAllPlan,
+        val search: String?,
+        val deleteNewFiles: ConfirmOption = ConfirmOption(),
+    ) : ConfirmableAction
+
+    /**
      * Resolves the conflicts of [entries] with [side]'s version, which loses the other side's changes and any edits
      * made to the files. [sides] names the two sides, as few people remember which is ours.
      */
@@ -103,6 +117,14 @@ sealed interface ConfirmableAction {
 /** Code that the dialog shows as it is, such as the line that's discarded. */
 private class CodeSnippet(val text: String, val background: Color)
 
+/** A box that the user ticks to let an action do something more. It is unticked every time the dialog opens. */
+class ConfirmOption {
+    var isChecked by mutableStateOf(false)
+}
+
+/** The box of [option], with its [label] and a [hint] under it. */
+private class OptionTexts(val label: String, val hint: String?, val option: ConfirmOption)
+
 private class ConfirmationTexts(
     val icon: Painter,
     val title: String,
@@ -112,6 +134,14 @@ private class ConfirmationTexts(
     val code: CodeSnippet? = null,
     /** What the action leaves alone, such as selected files with conflicts. */
     val note: String? = null,
+    /** The names of the files that [note] counts, in the monospace font (fork-only). */
+    val noteFiles: String? = null,
+    /** Another thing that the action leaves alone, after [noteFiles] (fork-only). */
+    val secondNote: String? = null,
+    /** A box for something more that the action may do (fork-only). */
+    val option: OptionTexts? = null,
+    /** False while the action would do nothing, which the box may change (fork-only). */
+    val isPrimaryEnabled: Boolean = true,
     /** The label of the "Don't ask again" box, for actions whose confirmation can be turned off. */
     val stopAsking: String? = null,
 )
@@ -138,6 +168,7 @@ fun ConfirmActionDialog(
         title = texts.title,
         subtitle = texts.subtitle,
         primaryActionText = texts.primaryAction,
+        isPrimaryActionEnabled = texts.isPrimaryEnabled,
         onDismiss = onDismiss,
         onPrimaryActionClicked = {
             if (stopAskingLabel != null && stopAsking) {
@@ -167,6 +198,25 @@ fun ConfirmActionDialog(
                 KeptFilesNote(texts.note, Modifier.fillMaxWidth())
             }
 
+            if (texts.noteFiles != null) {
+                Text(
+                    text = texts.noteFiles,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    style = MaterialTheme.typography.body2,
+                    fontFamily = monoTypography(),
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            if (texts.secondNote != null) {
+                KeptFilesNote(texts.secondNote, Modifier.fillMaxWidth())
+            }
+
+            if (texts.option != null) {
+                OptionBox(texts.option)
+            }
+
             if (stopAskingLabel != null) {
                 CheckboxText(
                     value = stopAsking,
@@ -174,6 +224,27 @@ fun ConfirmActionDialog(
                     text = stopAskingLabel,
                 )
             }
+        }
+    }
+}
+
+/** The box of an option, with the hint that says what ticking it costs. */
+@Composable
+private fun OptionBox(texts: OptionTexts) {
+    Column {
+        CheckboxText(
+            value = texts.option.isChecked,
+            onCheckedChange = { texts.option.isChecked = !texts.option.isChecked },
+            text = texts.label,
+        )
+
+        if (texts.hint != null) {
+            Text(
+                text = texts.hint,
+                modifier = Modifier.padding(start = 32.dp),
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                style = MaterialTheme.typography.caption,
+            )
         }
     }
 }
@@ -440,5 +511,71 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 null
             },
         )
+
+        is ConfirmableAction.DiscardAll -> {
+            val restored = plan.restored.size
+            val newFiles = plan.newFiles.size
+            val kept = plan.keptConflicted.map { it.filePath }
+            val deleting = newFiles > 0 && deleteNewFiles.isChecked
+
+            ConfirmationTexts(
+                icon = undo,
+                title = stringResource(Res.string.discard_all_dialog_title),
+                subtitle = when {
+                    plan.restoresNothing -> stringResource(Res.string.discard_all_dialog_nothing_to_restore)
+                    search != null ->
+                        pluralStringResource(Res.plurals.discard_all_dialog_subtitle_matching, restored, restored, search)
+
+                    else -> pluralStringResource(Res.plurals.discard_files_dialog_subtitle_unstaged, restored, restored)
+                },
+                warning = when {
+                    deleting && !plan.restoresNothing ->
+                        pluralStringResource(Res.plurals.discard_all_dialog_warning_with_new, newFiles, newFiles)
+
+                    deleting -> pluralStringResource(Res.plurals.discard_all_dialog_warning_only_new, newFiles, newFiles)
+                    plan.restoresNothing -> null
+                    else -> stringResource(Res.string.discard_changes_dialog_warning)
+                },
+                primaryAction = if (deleting) {
+                    stringResource(Res.string.discard_all_dialog_discard_and_delete)
+                } else {
+                    stringResource(Res.string.confirm_dialog_discard)
+                },
+                note = if (kept.isNotEmpty()) {
+                    pluralStringResource(Res.plurals.discard_dialog_conflicted_files_kept, kept.size, kept.size)
+                } else {
+                    null
+                },
+                noteFiles = if (kept.isNotEmpty()) {
+                    val more = kept.size - MAX_NAMED_FILES
+
+                    kept.take(MAX_NAMED_FILES).joinToString(", ") +
+                            if (more > 0) " " + stringResource(Res.string.discard_all_dialog_and_more, more) else ""
+                } else {
+                    null
+                },
+                secondNote = if (plan.keptSubmodules.isNotEmpty()) {
+                    val submodules = plan.keptSubmodules.size
+
+                    pluralStringResource(Res.plurals.discard_all_dialog_submodules_kept, submodules, submodules)
+                } else {
+                    null
+                },
+                option = if (newFiles > 0) {
+                    OptionTexts(
+                        label = pluralStringResource(Res.plurals.discard_all_dialog_delete_new_files, newFiles, newFiles),
+                        hint = stringResource(Res.string.discard_all_dialog_new_files_hint),
+                        option = deleteNewFiles,
+                    )
+                } else {
+                    null
+                },
+                // Without tracked changes, the box is the only thing that makes it do something
+                isPrimaryEnabled = !plan.restoresNothing || deleting,
+            )
+        }
     }
 }
+
+/** How many files with conflicts "Discard all" names before "and N more". */
+private const val MAX_NAMED_FILES = 5

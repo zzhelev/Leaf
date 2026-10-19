@@ -7,6 +7,7 @@ import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusSectionSizes
+import dev.app.leaf.domain.sorting.DiscardAllPlan
 import dev.app.leaf.domain.sorting.FilesViewState
 
 sealed interface StatusAction {
@@ -24,6 +25,9 @@ sealed interface StatusAction {
         val selectedEntries: List<DiffType.UncommittedDiff>,
     ) : StatusAction
     data class DiscardSelected(val entryType: EntryType) : StatusAction
+
+    /** "Discard all" in Unstaged: restores what [plan] lists, and with [deleteNewFiles] deletes its new files (fork-only). */
+    data class DiscardAll(val plan: DiscardAllPlan, val deleteNewFiles: Boolean) : StatusAction
     data class SelectedEntriesAction(val entryType: EntryType) : StatusAction
     data class OpenInFolder(val path: String) : StatusAction
     data class TreeDirectoryToggle(val path: String, val entryType: EntryType) : StatusAction

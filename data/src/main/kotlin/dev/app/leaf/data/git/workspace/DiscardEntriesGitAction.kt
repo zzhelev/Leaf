@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.lib.FileMode
 import javax.inject.Inject
 
 class DiscardEntriesGitAction @Inject constructor(
@@ -35,7 +36,14 @@ class DiscardEntriesGitAction @Inject constructor(
                 resetPaths(git, paths)
             }
 
-            checkoutPaths(git, paths)
+            // Fork-only: JGit can't check out a submodule whose commit moved ("Missing unknown ..."), which failed the
+            // whole discard. git's checkout leaves submodules alone too.
+            val index = git.repository.readDirCache()
+            val files = paths.filter { index.getEntry(it)?.fileMode != FileMode.GITLINK }
+
+            if (files.isNotEmpty()) {
+                checkoutPaths(git, files)
+            }
         }
 
     private suspend fun resetPaths(git: Git, paths: List<String>) =

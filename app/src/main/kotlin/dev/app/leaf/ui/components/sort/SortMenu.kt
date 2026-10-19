@@ -61,6 +61,10 @@ sealed interface SortMenuItem {
         val hint: String? = null,
         /** Whether choosing the option closes the menu. Toggles and order changes keep it open. */
         val closesMenu: Boolean = false,
+        /** Draws the label in the error color, for an action that can lose work (fork-only). */
+        val isDestructive: Boolean = false,
+        /** An icon in the place of the check mark, for an option that isn't checked (fork-only). */
+        val icon: DrawableResource? = null,
         val onClick: () -> Unit,
     ) : SortMenuItem
 
@@ -297,6 +301,13 @@ private fun MenuOption(
                     tint = MaterialTheme.colors.primaryVariant,
                     modifier = Modifier.fillMaxSize(),
                 )
+            } else if (option.icon != null) {
+                Icon(
+                    painter = painterResource(option.icon),
+                    contentDescription = null,
+                    tint = if (option.isDestructive) MaterialTheme.colors.error else MaterialTheme.colors.onBackground,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
 
@@ -304,7 +315,7 @@ private fun MenuOption(
             Text(
                 text = option.label,
                 style = MaterialTheme.typography.body2,
-                color = MaterialTheme.colors.onBackground,
+                color = if (option.isDestructive) MaterialTheme.colors.error else MaterialTheme.colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

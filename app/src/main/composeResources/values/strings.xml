@@ -702,6 +702,34 @@
         <item quantity="other">Discard the changes to %1$d files?</item>
     </plurals>
     <string name="discard_files_dialog_warning_staged">Both their staged and unstaged changes are discarded. They can't be restored.</string>
+    <string name="discard_all_dialog_title">Discard all changes</string>
+    <string name="discard_all_dialog_nothing_to_restore">No file has changes to restore.</string>
+    <plurals name="discard_all_dialog_subtitle_matching">
+        <item quantity="one">Discard the unstaged changes to %1$d file matching "%2$s"?</item>
+        <item quantity="other">Discard the unstaged changes to %1$d files matching "%2$s"?</item>
+    </plurals>
+    <plurals name="discard_all_dialog_warning_with_new">
+        <item quantity="one">Neither the changes nor the new file can be restored.</item>
+        <item quantity="other">Neither the changes nor the %1$d new files can be restored.</item>
+    </plurals>
+    <plurals name="discard_all_dialog_warning_only_new">
+        <item quantity="one">The new file can't be restored.</item>
+        <item quantity="other">The %1$d new files can't be restored.</item>
+    </plurals>
+    <plurals name="discard_all_dialog_delete_new_files">
+        <item quantity="one">Also delete %1$d new file</item>
+        <item quantity="other">Also delete %1$d new files</item>
+    </plurals>
+    <string name="discard_all_dialog_new_files_hint">They aren't in git, so they can't be restored either.</string>
+    <string name="discard_all_dialog_discard_and_delete">Discard and delete</string>
+    <string name="discard_all_dialog_and_more">and %1$d more</string>
+    <plurals name="discard_all_dialog_submodules_kept">
+        <item quantity="one">%1$d submodule that moved on is left as it is.</item>
+        <item quantity="other">%1$d submodules that moved on are left as they are.</item>
+    </plurals>
+    <string name="status_header_more_actions">More actions</string>
+    <string name="status_header_discard_all">Discard all changes…</string>
+    <string name="status_header_nothing_to_discard">Nothing to discard</string>
     <string name="use_ours_dialog_title">Use ours</string>
     <string name="use_theirs_dialog_title">Use theirs</string>
     <string name="use_side_dialog_subtitle_file">Resolve "%1$s" with %2$s?</string>

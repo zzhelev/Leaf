@@ -21,7 +21,7 @@ class GetStatusGitAction @Inject constructor(
     private val jgit: JGit,
 ) : IGetStatusGitAction {
     override suspend operator fun invoke(repository: String, paths: List<String>) = either {
-        val (status, conflicts) = withContext(Dispatchers.IO) {
+        val (status, conflicts, submodules) = withContext(Dispatchers.IO) {
             jgit.provide(repository) { git ->
                 val status = git
                     .status()
@@ -32,25 +32,33 @@ class GetStatusGitAction @Inject constructor(
                     }
                     .call()
 
-                status to fileConflicts(git, status.conflicting)
+                Triple(
+                    status,
+                    fileConflicts(git, status.conflicting),
+                    gitlinkPaths(git, status.modified + status.missing),
+                )
             }
         }.bind()
 
         val staged = getStaged(status)
-        val unstaged = getUnstaged(status, conflicts)
+        val unstaged = getUnstaged(status, conflicts, submodules)
 
         Either.Ok(Status(staged, unstaged, status.ignoredNotInIndex.toList()))
     }
 
-    private fun getUnstaged(status: JGitStatus, conflicts: Map<String, FileConflict?>): List<StatusEntry> {
+    private fun getUnstaged(
+        status: JGitStatus,
+        conflicts: Map<String, FileConflict?>,
+        submodules: Set<String>,
+    ): List<StatusEntry> {
         val untracked = status.untracked.map {
             StatusEntry(it, StatusType.ADDED, entryType = EntryType.UNSTAGED)
         }
         val modified = status.modified.map {
-            StatusEntry(it, StatusType.MODIFIED, entryType = EntryType.UNSTAGED)
+            StatusEntry(it, StatusType.MODIFIED, entryType = EntryType.UNSTAGED, isSubmodule = it in submodules)
         }
         val missing = status.missing.map {
-            StatusEntry(it, StatusType.REMOVED, entryType = EntryType.UNSTAGED)
+            StatusEntry(it, StatusType.REMOVED, entryType = EntryType.UNSTAGED, isSubmodule = it in submodules)
         }
         val conflicting = status.conflicting.map {
             StatusEntry(it, StatusType.CONFLICTING, entryType = EntryType.UNSTAGED, conflict = conflicts[it])
