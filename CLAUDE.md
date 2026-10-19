@@ -492,8 +492,8 @@ of a selection (`Ignore N files…`) and of a folder row (`Ignore folder…`) op
   repository's own config, which could point Leaf at any file: when `git config` without `--global` says another path,
   the place is refused (`GlobalListOverridden`). A link to a file is written through (dotfile managers), a link to
   nothing, a folder and a relative path aren't.
-- **Not done:** the watcher watches the folders that weren't ignored when it started, so an ignored folder stays watched until
-  the tab reopens (an edit of `.gitignore` in an editor does the same).
+- **The watcher:** a folder that the rule ignores stops being watched once the refreshed status lists it, and so does
+  one that an editor's edit of a pattern file ignores (see Refresh, `WorkingTreeWatches`).
 - Tests: `IgnoreRulesTest` (domain), `AddIgnoreRulesGitActionTest` (every rule, 120 random names, the `.gitignore`
   states and the places, against `git ls-files --others --exclude-standard` and Leaf's JGit status, which must agree),
   `AddGlobalIgnoreRulesGitActionTest` (the global list), `IgnoringFilesTest` (a `TestTab`), `IgnoreContextMenuTest`,
@@ -2222,6 +2222,22 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
     (`updateWatchedDirectories`). Links aren't followed. A `getStatus` that fails leaves the working tree unwatched
     (logged), as the ignored folders aren't known. `RefreshingOnChangesTest` has the 300-folder case with the app's
     watcher.
+  - **Following the ignored folders (2026-10-19, `WorkingTreeWatches`, `domain/refresh/`):** a folder that is watched
+    with everything under it can't leave one out, so a folder that git starts to ignore later stayed watched, and each
+    file a build wrote in it refreshed the tab, until the tab opened again. That is a rule added in Leaf (Ignore…) or in
+    an editor, in `info/exclude` or the global list, and a folder that a build makes in a clean one (`target/`).
+    `WorkingTreeWatches` keeps what the watcher was given for the working tree, and the use case passes it each status
+    that the tab loads (`onStatus`, from `RepositoryDataRepository.status`): when the folders among its `ignored` paths
+    aren't the ones the registrations were planned for, it plans the whole tree again. A registration that the new plan
+    lacks, or has the other way (alone or as a whole), is removed first, so that no change is delivered twice and no
+    registration counts against macOS's limit for nothing, then every folder of the plan is added: watching again
+    changes nothing, and brings back a folder that was deleted and made again. A folder whose rule is removed is
+    watched again, as one registration where it can. Ignored files don't count, only folders (a stat each, once the
+    status's paths differ from the last). A status that arrives before the first plan is applied after it. A folder
+    created under a registration for everything gets none of its own. `unwatch` takes the folders under a deleted one
+    too. Tests: `WorkingTreeWatchesTest` (a fake watcher that keeps what it's given as the app's does), the real
+    watcher with and without `FILE_TREE` in `FileChangesWatcherTest`, and `RefreshingOnChangesTest` (Leaf's Ignore, and
+    a build folder).
   - **The limit notice (2026-10-19):** `WatchRegistrations` (app singleton, `domain/refresh/`) counts the keys of every
     `FileChangesWatcher` (`update` after each add or remove, `release` on close). On macOS, from `WATCH_WARNING_AT`
     (200, as other apps share the system's ~250) its `warning` flow gives a `WatchUsage`, which

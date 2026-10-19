@@ -8,6 +8,7 @@ import dev.app.leaf.domain.models.FileType
 import dev.app.leaf.domain.models.WatcherEvent
 import dev.app.leaf.domain.refresh.WatchRegistrations
 import dev.app.leaf.domain.refresh.WatchUsage
+import dev.app.leaf.domain.refresh.WorkingTreeWatches
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -240,6 +241,48 @@ class FileChangesWatcherTest {
         File(agent, "index").writeText("1")
 
         watch.events.awaitChange(File(agent, "index"))
+        watch.stop()
+    }
+
+    @ParameterizedTest(name = "with FILE_TREE where the JDK has it: {0}")
+    @ValueSource(booleans = [true, false])
+    fun `a folder that becomes ignored in a folder watched as a whole stops being reported, and is again once it is not`(
+        watchesTrees: Boolean,
+    ): Unit = runBlocking {
+        val generated = File(dir, "src/generated/deep").apply { mkdirs() }.parentFile
+        val other = File(dir, "src/other").apply { mkdirs() }
+        val watcher = watcher(watchesTrees)
+        // The working tree is one registration for all that is under it, which can't leave the folder out
+        val watches = WorkingTreeWatches(watcher, dir, isLeftOut = { false })
+        watches.watchAll(emptyList())
+        val watch = watch(watcher)
+
+        File(generated, "before.txt").writeText("1")
+        watch.events.awaitChange(File(generated, "before.txt"))
+
+        watches.onStatus(listOf("src/generated"))
+        // FSEvents reports what changes after its stream started, a moment after the registration
+        delay(300)
+
+        File(generated, "ignored.txt").writeText("2")
+        File(other, "marker.txt").writeText("3")
+        val events = watch.events.awaitChanges(File(other, "marker.txt")).toMutableList()
+
+        // What was written in the ignored folder could come in a later batch
+        delay(1.5.seconds)
+        while (true) {
+            (watch.events.tryReceive().getOrNull() as? WatcherEvent.ChangesDetected)?.let { events += it } ?: break
+        }
+
+        val reported = events.flatMap { it.changes }.map { it.path }
+        assertFalse(reported.any { it.startsWith(generated.path) && it.endsWith("ignored.txt") }, "$reported")
+
+        watches.onStatus(emptyList())
+        delay(300)
+
+        File(generated, "again.txt").writeText("4")
+        watch.events.awaitChange(File(generated, "again.txt"))
+
         watch.stop()
     }
 

@@ -137,6 +137,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Provider
 import kotlin.time.Duration
@@ -431,15 +432,24 @@ class RecordingFileChangesWatcher : IFileChangesWatcher {
     var isClosed = false
         private set
 
+    private val recursivePaths: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
     override fun addPathToWatch(path: String, isRecursive: Boolean) {
         if (File(path).isDirectory) {
-            watchedPaths += path
+            // As the app's watcher, watching a folder again is one registration still
+            if (path !in watchedPaths) watchedPaths += path
+
+            if (isRecursive) recursivePaths += path else recursivePaths -= path
         }
     }
 
     override fun removePathFromWatch(path: String) {
         watchedPaths -= path
+        recursivePaths -= path
     }
+
+    /** Whether [path] is watched with everything under it. */
+    fun isWatchedRecursively(path: String) = path in recursivePaths
 
     override suspend fun observeEvents(): Flow<WatcherEvent> = events.receiveAsFlow()
 

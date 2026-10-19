@@ -40,9 +40,8 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     to a file, as dotfile managers make, is written through, as it is the user's own file; a link to nothing, a folder
     and a relative path are refused. JGit reads git's default file too (the tests check).
 - **Not done:**
-  - The file watcher keeps watching a folder that was ignored until the tab reopens, as it reads the ignored folders
-    only when it starts (an edit of `.gitignore` outside Leaf does the same). A build that writes into an ignored
-    folder goes on refreshing the tab until then.
+  - The file watcher kept watching a folder that was ignored until the tab reopened. Done later the same day (see
+    "File watcher follows the folders that get ignored").
 - **Tests:** `IgnoreRulesTest` (domain: the rules, the options and which menus offer them),
   `AddIgnoreRulesGitActionTest` (temp repositories against git and JGit: each kind of rule, 120 random names, names with
   special characters and white space, a missing, unterminated, CRLF, byte-order-marked and non-UTF-8 `.gitignore`,
@@ -56,6 +55,21 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   folder in a repository whose `.gitignore` has no final newline (the rule went on its own line, the files left
   Unstaged, a toast said so). The selection and folder-row menus and the symbolic `.gitignore` error were checked by the
   tests only.
+
+## File watcher follows the folders that get ignored (2026-10-19)
+
+- **Bug:** the follow-up of Ignore…. The watcher read the ignored folders once, when it started. A folder that became
+  ignored afterwards, by Ignore… or by an edit of `.gitignore`, `info/exclude` or the global list, stayed watched until
+  the tab was opened again, and since the folders without an ignored folder under them are one recursive registration
+  (below), the whole of that registration kept reporting it, so a build that wrote into the folder refreshed the tab's
+  status, log and worktree list over and over. A folder that a build made inside a clean one (`target/`) did the same,
+  and a folder whose rule was removed was never watched.
+- **Fix:** `WorkingTreeWatches` keeps what was registered for the working tree. Each status that a tab loads goes to it,
+  and when the ignored folders in it aren't those the registrations were planned for, it plans the working tree again:
+  what the plan lacks is removed (before anything is added, so nothing is delivered twice), then the plan is added.
+  Ignored files don't change it. A folder that stops being ignored is watched again, as one registration where it can.
+- **Tests:** `WorkingTreeWatchesTest`, the real watcher with and without `FILE_TREE` in `FileChangesWatcherTest`, and in
+  `RefreshingOnChangesTest` Leaf's Ignore… and a build folder, each failing without the fix.
 
 ## File watcher: one registration per clean folder (2026-10-19)
 

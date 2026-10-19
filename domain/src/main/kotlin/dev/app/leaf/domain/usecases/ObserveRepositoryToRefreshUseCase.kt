@@ -12,8 +12,9 @@ import dev.app.leaf.domain.interfaces.IGetStatusGitAction
 import dev.app.leaf.domain.models.FileType
 import dev.app.leaf.domain.models.WatcherEvent
 import dev.app.leaf.domain.refresh.WatchedRepository
+import dev.app.leaf.domain.refresh.WorkingTreeWatches
 import dev.app.leaf.domain.refresh.WorktreeChangesRefresher
-import dev.app.leaf.domain.refresh.workingTreeWatchPlan
+import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import kotlinx.coroutines.Job
@@ -27,8 +28,6 @@ import kotlin.time.Duration.Companion.seconds
 private const val TAG = "ObserveRepositoryToRefreshUseCase"
 
 private const val REFRESH_TIME_SINCE_LAST_OPERATION = 1_500L
-
-private const val GIT_FOLDER = ".git"
 
 /** The file watcher refreshes the worktree list at most this often while other worktrees keep changing. */
 private val MIN_TIME_BETWEEN_WORKTREES_REFRESHES = 2.seconds
@@ -69,6 +68,11 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
             // Fork-only: the git dir that the worktrees share, to see what changes in the other worktrees
             val commonDir = getCommonGitDirGitAction(repositoryPath).okOrNull() ?: repositoryPath
             val watchedRepository = WatchedRepository(File(repositoryPath), File(commonDir))
+            val workingTreeWatches = WorkingTreeWatches(
+                fileChangesWatcher,
+                File(worktreeDir),
+                isLeftOut = watchedRepository::isLinkedWorktreeFolder,
+            )
             val worktreeChangesRefresher = WorktreeChangesRefresher(this, MIN_TIME_BETWEEN_WORKTREES_REFRESHES) {
                 refreshDataUseCase(DataToRefresh.WORKTREES).join()
             }
@@ -93,10 +97,10 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                                 // Fork-only: in every batch, also while an operation runs and just after, when nothing
                                 // is refreshed here. Otherwise the folders that a checkout or a pull creates go unwatched
                                 updateWatchedDirectories(
-                                    fileChangesWatcher,
                                     event,
                                     repositoryPath,
                                     worktreeDir + systemSeparator,
+                                    workingTreeWatches,
                                     watchedRepository,
                                 )
 
@@ -127,7 +131,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                                     fileChangesWatcher.addPathToWatch(watchedRepository.worktreesDir.path, true)
                                 }
 
-                                watchWorkingTree(fileChangesWatcher, repositoryPath, worktreeDir, watchedRepository)
+                                watchWorkingTree(workingTreeWatches, repositoryPath)
 
                                 if (canRefreshData()) {
                                     printDebug(TAG, "Changes went unreported, refreshing everything")
@@ -144,6 +148,15 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                     }
             }
 
+            // Fork-only: a folder that gets ignored, or stops being, is watched as it now should be
+            launch {
+                repositoryDataRepository.status.collect { status ->
+                    if (status is DataState.Loaded) {
+                        workingTreeWatches.onStatus(status.data.ignored)
+                    }
+                }
+            }
+
             fileChangesWatcher.addPathToWatch(worktreeDir, false)
             fileChangesWatcher.addPathToWatch(repositoryPath, false)
             fileChangesWatcher.addPathToWatch("$repositoryPath${systemSeparator}refs", true)
@@ -156,7 +169,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                 fileChangesWatcher.addPathToWatch("$commonDir${systemSeparator}refs", true)
             }
 
-            watchWorkingTree(fileChangesWatcher, repositoryPath, worktreeDir, watchedRepository)
+            watchWorkingTree(workingTreeWatches, repositoryPath)
         }.apply {
             invokeOnCompletion {
                 fileChangesWatcher.close()
@@ -175,14 +188,9 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
 
     /**
      * Watches the working tree's folders that git doesn't ignore. Watching a folder again changes nothing. Whatever
-     * has no ignored folder under it is watched with one registration (see [workingTreeWatchPlan]).
+     * has no ignored folder under it is watched with one registration (see [WorkingTreeWatches]).
      */
-    private suspend fun watchWorkingTree(
-        fileChangesWatcher: IFileChangesWatcher,
-        repositoryPath: String,
-        worktreeDir: String,
-        watchedRepository: WatchedRepository,
-    ) {
+    private suspend fun watchWorkingTree(workingTreeWatches: WorkingTreeWatches, repositoryPath: String) {
         val status = getStatusGitAction(repositoryPath).okOrNull()
 
         if (status == null) {
@@ -191,35 +199,7 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
             return
         }
 
-        watchFolders(
-            fileChangesWatcher,
-            File(worktreeDir),
-            worktreeDir + systemSeparator,
-            status.ignored,
-            watchedRepository,
-        )
-    }
-
-    private fun watchFolders(
-        fileChangesWatcher: IFileChangesWatcher,
-        root: File,
-        worktreeDirPath: String,
-        ignored: List<String>,
-        watchedRepository: WatchedRepository,
-    ) {
-        val ignoredFolders = ignored.toHashSet()
-
-        val plan = workingTreeWatchPlan(root) { folder ->
-            val relativePath = folder.absolutePath.removePrefix(worktreeDirPath)
-
-            relativePath in ignoredFolders ||
-                relativePath == GIT_FOLDER ||
-                watchedRepository.isLinkedWorktreeFolder(folder)
-        }
-
-        for (watched in plan) {
-            fileChangesWatcher.addPathToWatch(watched.folder.absolutePath, watched.isRecursive)
-        }
+        workingTreeWatches.watchAll(status.ignored)
     }
 
     private suspend fun canRefreshData(): Boolean {
@@ -240,10 +220,10 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
     }
 
     private suspend fun updateWatchedDirectories(
-        fileChangesWatcher: IFileChangesWatcher,
         event: WatcherEvent.ChangesDetected,
         repositoryPath: String,
         worktreeDirPath: String,
+        workingTreeWatches: WorkingTreeWatches,
         watchedRepository: WatchedRepository,
     ) {
         val directories = event
@@ -270,20 +250,14 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                         !watchedRepository.isLinkedWorktreeFolder(File(dir.path))
                     ) {
                         // The folders created inside it too, which no event reports once it has files
-                        watchFolders(
-                            fileChangesWatcher,
-                            File(dir.path),
-                            worktreeDirPath,
-                            status.ignored,
-                            watchedRepository,
-                        )
+                        workingTreeWatches.watchNew(File(dir.path), status.ignored)
                     }
                 }
             }
 
             // Fork-only: not only in a batch that also created a folder
             for (dir in removedDirs) {
-                fileChangesWatcher.removePathFromWatch(dir.path)
+                workingTreeWatches.unwatch(dir.path)
             }
         }
     }

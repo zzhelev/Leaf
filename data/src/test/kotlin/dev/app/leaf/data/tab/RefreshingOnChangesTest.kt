@@ -7,6 +7,7 @@ import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.domain.ignore.IgnorePlace
 import dev.app.leaf.domain.models.FileChanged
 import dev.app.leaf.domain.models.FileType
 import dev.app.leaf.domain.models.TaskType
@@ -23,6 +24,7 @@ import org.eclipse.jgit.util.FileUtils
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
@@ -220,6 +222,55 @@ class RefreshingOnChangesTest {
 
             operationEnds.complete(Unit)
             operation.join()
+        }
+
+    @Test
+    fun `a folder that Leaf's Ignore covers is no longer watched with its parent`(): Unit = runBlocking {
+        File(main, "src/generated/deep").mkdirs()
+        File(main, "src/generated/out.txt").writeText("generated\n")
+        val tab = openTab(realFileWatcher = false)
+        val watcher = tab.awaitWatch(1)
+        val src = awaitWatching(watcher, File(main, "src"))
+        // Nothing in it is ignored: one registration for it and all that is under it
+        assertTrue(watcher.isWatchedRecursively(src))
+
+        tab.addIgnoreRules(IgnorePlace.GITIGNORE, listOf("/src/generated/")).join()
+
+        // The status that the task refreshes lists the folder as ignored
+        withTimeout(10.seconds) {
+            while (watcher.isWatchedRecursively(src)) delay(10)
+        }
+        assertTrue(watcher.watchedPaths.contains(src), "src is watched alone: ${watcher.watchedPaths}")
+        assertFalse(watcher.watchedPaths.any { File(it).canonicalPath.startsWith(File(main, "src/generated").canonicalPath) })
+    }
+
+    @Test
+    fun `a folder that a build makes in a folder watched as a whole is left out once the status lists it`(): Unit =
+        runBlocking {
+            File(main, ".gitignore").writeText("target/\n")
+            val tab = openTab(realFileWatcher = false)
+            val watcher = tab.awaitWatch(1)
+            val src = awaitWatching(watcher, File(main, "src"))
+            assertTrue(watcher.isWatchedRecursively(src))
+            // The refreshes that the watch starts wait until 1.5 s after the last operation
+            delay(1.6.seconds)
+
+            val target = File(main, "src/target/classes").apply { mkdirs() }
+            val workingTree = File(src).parentFile
+            val file = File(target, "A.class").apply { writeText("class") }
+            watcher.events.send(
+                WatcherEvent.ChangesDetected(
+                    listOf(
+                        FileChanged(File(workingTree, "src/target").path, FileType.DIRECTORY),
+                        FileChanged(file.path, FileType.FILE),
+                    )
+                )
+            )
+
+            withTimeout(10.seconds) {
+                while (watcher.isWatchedRecursively(src)) delay(10)
+            }
+            assertFalse(watcher.watchedPaths.any { File(it).canonicalPath.startsWith(File(main, "src/target").canonicalPath) })
         }
 
     /** Runs an operation of Leaf's, such as a checkout, until [ends] completes. */
