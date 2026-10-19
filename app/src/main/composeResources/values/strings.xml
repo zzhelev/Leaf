@@ -206,6 +206,16 @@
     <string name="uncommited_changes_primary_button_skip">Skip</string>
     <string name="uncommited_changes_secondary_button_abort">Abort</string>
     <string name="uncommited_changes_amend_check">Amend previous commit</string>
+    <plurals name="finish_hint_conflicts">
+        <item quantity="one">Resolve the conflicts in %1$d file first.</item>
+        <item quantity="other">Resolve the conflicts in %1$d files first.</item>
+    </plurals>
+    <plurals name="finish_hint_unstaged_changes">
+        <item quantity="one">Stage or discard the changes to %1$d tracked file to continue.</item>
+        <item quantity="other">Stage or discard the changes to %1$d tracked files to continue.</item>
+    </plurals>
+    <string name="finish_hint_empty_message">Write a commit message.</string>
+    <string name="finish_hint_nothing_staged">Stage some changes to commit.</string>
 
     <!-- Merge automatic stash -->
     <string name="merge_automatic_stash_description">Automatic snapshot stash before merge of "%1$s" to "%2$s"</string>

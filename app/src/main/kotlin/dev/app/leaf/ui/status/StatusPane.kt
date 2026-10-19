@@ -104,8 +104,7 @@ fun StatusPane(
     val showSearchUnstaged = statusState.showSearchUnstaged
     val searchFilterUnstaged = statusState.searchFilterUnstaged
 
-    val isAmenableRebaseInteractive =
-        statusState.repositoryState.isRebasing && rebaseInteractiveState is RebaseInteractiveState.ProcessingCommits && rebaseInteractiveState.isCurrentStepAmenable
+    val isAmenableRebaseInteractive = statusState.isAmenableRebaseInteractive
 
     val doCommit = {
         onAction(StatusAction.Commit(commitMessage.text))
@@ -113,8 +112,12 @@ fun StatusPane(
     }
 
     // Fork-only: git refuses to commit while files have conflicts, as after a squash merge that stopped at some
-    val canCommit = commitMessage.text.isNotEmpty() && statusState.hasStagedFiles && statusState.haveConflictsBeenSolved
-    val canAmend = commitMessage.text.isNotEmpty() && statusState.hasPreviousCommits
+    val canCommit = statusState.canCommit
+    val canAmend = statusState.canAmend
+    // Fork-only: what stops the primary button, and what the field says about it (see FinishBlockers.kt)
+    val finishBlocker = statusState.finishBlocker()
+    val finishHint = statusState.finishHint()
+    val showsContinue = statusState.showsContinue()
     val tabFocusRequester = LocalTabFocusRequester.current
 
     // Only when a search opens or closes, not at each change of the state, such as each letter typed in the search
@@ -242,11 +245,12 @@ fun StatusPane(
                     previousCommitMessage = statusState.previousCommitMessage,
                     statusState.repositoryState,
                     isAmenableRebaseInteractive,
-                    statusState.hasUnstagedFiles,
+                    showsContinue,
                     rebaseInteractiveState,
-                    statusState.hasStagedFiles,
+                    finishBlocker,
                     isAmendRebaseInteractive,
-                    !statusState.isLoading && statusState.haveConflictsBeenSolved,
+                    finishHint,
+                    statusState.isLoading,
                     setCommitMessage = {
                         onAction(StatusAction.UpdateCommitMessage(it))
                     },
@@ -565,7 +569,7 @@ private fun BoxScope.EntryHoverAction(isHovered: Boolean, actionInfo: ActionInfo
 }
 
 @Composable
-private fun CommitField(
+internal fun CommitField(
     canCommit: Boolean,
     isAmend: Boolean,
     canAmend: Boolean,
@@ -574,11 +578,12 @@ private fun CommitField(
     previousCommitMessage: String?,
     repositoryState: RepositoryState,
     isAmenableRebaseInteractive: Boolean,
-    hasUnstagedFiles: Boolean,
+    showsContinue: Boolean,
     rebaseInteractiveState: RebaseInteractiveState,
-    hasStagedFiles: Boolean,
+    finishBlocker: FinishBlocker?,
     isAmendRebaseInteractive: Boolean,
-    haveConflictsBeenSolved: Boolean,
+    finishHint: FinishBlocker?,
+    isLoading: Boolean,
     setCommitMessage: (TextFieldValue) -> Unit,
     onResetRepoState: () -> Unit,
     onAbortRebase: () -> Unit,
@@ -589,6 +594,15 @@ private fun CommitField(
     modifier: Modifier = Modifier,
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
+    // Fork-only: a merge's, cherry-pick's or revert's primary button follows finishBlocker, and the key does what it
+    // does. A revert's also waits for the status to load.
+    val finishEnabled = finishBlocker == null && !(repositoryState.isReverting && isLoading)
+    val acceptsCommit = if (repositoryState.isMerging || repositoryState.isCherryPicking || repositoryState.isReverting) {
+        finishEnabled
+    } else {
+        canCommit || isAmend && canAmend
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -598,7 +612,7 @@ private fun CommitField(
                 .fillMaxWidth()
                 .weight(weight = 1f, fill = true)
                 .onPreviewKeyEvent { keyEvent ->
-                    if (keyEvent.matchesBinding(KeybindingOption.TEXT_ACCEPT) && (canCommit || isAmend && canAmend)) {
+                    if (keyEvent.matchesBinding(KeybindingOption.TEXT_ACCEPT) && acceptsCommit) {
                         doCommit()
                         true
                     } else
@@ -624,9 +638,14 @@ private fun CommitField(
             textStyle = MaterialTheme.typography.body1,
         )
 
+        // Fork-only: why the primary button below is disabled
+        if (finishHint != null) {
+            FinishHint(finishHint)
+        }
+
         when {
             repositoryState.isMerging -> MergeButtons(
-                haveConflictsBeenSolved = !hasUnstagedFiles,
+                enabled = finishEnabled,
                 onAbort = onResetRepoState,
                 onMerge = { doCommit() }
             )
@@ -635,8 +654,8 @@ private fun CommitField(
                 val isCurrentStepAmenable =
                     (rebaseInteractiveState as? RebaseInteractiveState.ProcessingCommits)?.isCurrentStepAmenable == true
                 RebasingButtons(
-                    canContinue = hasStagedFiles || hasUnstagedFiles || (isAmenableRebaseInteractive && isAmendRebaseInteractive && commitMessage.text.isNotEmpty()),
-                    haveConflictsBeenSolved = !hasUnstagedFiles,
+                    canContinue = showsContinue,
+                    continueEnabled = finishEnabled,
                     onAbort = onAbortRebase,
                     onContinue = onContinueRebase,
                     onSkip = onSkipRebase,
@@ -647,9 +666,7 @@ private fun CommitField(
             }
 
             repositoryState.isCherryPicking -> CherryPickingButtons(
-                haveConflictsBeenSolved = !hasUnstagedFiles,
-                // Fork-only: as reverting's. JGit commits an empty message, which git refuses.
-                canCommit = commitMessage.text.isNotBlank(),
+                enabled = finishEnabled,
                 onAbort = onResetRepoState,
                 onCommit = {
                     doCommit()
@@ -657,8 +674,7 @@ private fun CommitField(
             )
 
             repositoryState.isReverting -> RevertingButtons(
-                haveConflictsBeenSolved = haveConflictsBeenSolved,
-                canCommit = commitMessage.text.isNotBlank(),
+                enabled = finishEnabled,
                 onAbort = onResetRepoState,
                 onCommit = {
                     doCommit()
@@ -716,7 +732,7 @@ fun UncommittedChangesButtons(
 
 @Composable
 fun MergeButtons(
-    haveConflictsBeenSolved: Boolean,
+    enabled: Boolean,
     onAbort: () -> Unit,
     onMerge: () -> Unit,
 ) {
@@ -740,7 +756,7 @@ fun MergeButtons(
                 .weight(1f)
                 .padding(start = 4.dp)
                 .fillMaxHeight(),
-            enabled = haveConflictsBeenSolved,
+            enabled = enabled,
             onClick = onMerge,
         )
     }
@@ -748,8 +764,7 @@ fun MergeButtons(
 
 @Composable
 fun CherryPickingButtons(
-    haveConflictsBeenSolved: Boolean,
-    canCommit: Boolean,
+    enabled: Boolean,
     onAbort: () -> Unit,
     onCommit: () -> Unit,
 ) {
@@ -773,7 +788,7 @@ fun CherryPickingButtons(
                 .weight(1f)
                 .padding(start = 4.dp)
                 .fillMaxHeight(),
-            enabled = canCommit && haveConflictsBeenSolved,
+            enabled = enabled,
             onClick = onCommit,
         )
     }
@@ -785,7 +800,7 @@ fun RebasingButtons(
     isAmendable: Boolean,
     isAmend: Boolean,
     onAmendChecked: (Boolean) -> Unit,
-    haveConflictsBeenSolved: Boolean,
+    continueEnabled: Boolean,
     onAbort: () -> Unit,
     onContinue: () -> Unit,
     onSkip: () -> Unit,
@@ -820,7 +835,7 @@ fun RebasingButtons(
                         .weight(1f)
                         .padding(start = 4.dp)
                         .fillMaxHeight(),
-                    enabled = haveConflictsBeenSolved,
+                    enabled = continueEnabled,
                     onClick = onContinue,
                 )
             } else {
@@ -839,8 +854,7 @@ fun RebasingButtons(
 
 @Composable
 fun RevertingButtons(
-    canCommit: Boolean,
-    haveConflictsBeenSolved: Boolean,
+    enabled: Boolean,
     onAbort: () -> Unit,
     onCommit: () -> Unit,
 ) {
@@ -863,7 +877,7 @@ fun RevertingButtons(
                 .weight(1f)
                 .padding(start = 4.dp)
                 .fillMaxHeight(),
-            enabled = canCommit && haveConflictsBeenSolved,
+            enabled = enabled,
             onClick = onCommit,
         )
     }

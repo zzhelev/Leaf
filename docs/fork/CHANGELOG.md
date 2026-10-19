@@ -2,6 +2,57 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Merge, Commit and Continue with files that aren't staged, and why a button is disabled (Gitnuro#120 and #124, 2026-10-19)
+
+- **Bug:** during a merge, a cherry-pick or a rebase, any file in the Unstaged list disabled Merge, Commit and Continue,
+  a stray untracked file or a build output as much as a change that matters (`StatusPane` passed
+  `haveConflictsBeenSolved = !hasUnstagedFiles`). git lets `git commit` finish a merge and a cherry-pick with such files
+  around, and with nothing staged at all (Gitnuro#120's report: every conflict taken from our side, and a merge tool's
+  `.orig` file left in the folder). Agents leave untracked files in their worktrees, so finishing a merge in Leaf was
+  blocked. And nothing said why a button was disabled (#124).
+- **Fix:** `StatusState.finishBlocker()` (`ui/status/FinishBlockers.kt`) is one small function that returns the first
+  thing that stops the primary button, or null:
+  - Merge: conflicts only.
+  - A cherry-pick's or a revert's Commit: conflicts, a blank message, and nothing staged. Without the last, enabling the
+    button with only untracked files around would have made an empty commit, which JGit refuses (an error dialog).
+  - A rebase's Continue: conflicts, and unstaged changes to tracked files (modified or deleted), which `git rebase
+    --continue` refuses in both backends. Untracked files don't count.
+  - Commit and Amend outside an operation: as before (a message, staged files, no conflicts), now with their reasons.
+- **Continue or Skip:** a rebase with only untracked files left, or nothing, now offers Skip. Continue did nothing there
+  with JGit's rebase (`NOTHING_TO_COMMIT`, reported as a plain continue), git's apply backend refuses it, and Skip loses
+  no work in that state. A blocked Continue stays Continue, disabled, as Skip would discard the changes.
+- **The hint (decided 2026-10-19, option B of three):** `FinishHint` is a line between the message field and the
+  buttons: "Resolve the conflicts in 2 files first.", "Stage or discard the changes to 3 tracked files to continue.",
+  "Write a commit message.", "Stage some changes to commit." (a tooltip on the button, and a hint only during an
+  operation, were the other options). It names the first reason, and outside an operation it is silent while the field
+  rests, with no message and nothing staged.
+- **The key:** Ctrl or Cmd+Enter in the message field does what the primary button does in a merge, cherry-pick or
+  revert. It needed staged files, whatever Merge allowed, and committed a merge that the button had refused.
+- **JGit's rebase gets git's rule:** its continue goes on with tracked changes that aren't staged. The pane doesn't
+  know which tool started the rebase, and one rule is easier to trust.
+- **Not changed:** Merge isn't disabled by an empty message (as before); a changed submodule counts as a tracked change
+  where git's check ignores submodules, so Leaf may block where git wouldn't; Skip's dialog still doesn't say that it
+  discards changes, which it can't in the state where Skip is offered.
+- **Tests:** `FinishBlockersTest` (the rules for every repository state, all combinations of files, message and amend
+  against the rules written out, and that the reason given is true), `CommitFieldTest` (the field rendered from a
+  `StatusState`: buttons, what a disabled one does when clicked, the hint and its place, the key),
+  `RebaseWithUnstagedFilesTest` (what git's merge and apply backends and JGit do with each kind of unstaged file, for
+  Continue and Skip) and `FinishingWithUnstagedFilesTest` (a tab commits a merge, a cherry-pick and a revert, and
+  continues and skips both kinds of rebase, with files around that aren't staged, and JGit refuses the empty ones).
+  The whole suite (`./gradlew test`, 2,041 tests, none failing) ran on `861e0768` with this change. 14 mutations are each caught by a named test: the rebase counting untracked files, Merge blocked by tracked changes,
+  Continue shown for any unstaged file, the cherry-pick forgetting "nothing staged", conflicts always counted as one,
+  Commit not needing staged files, the hint not shown or speaking while the field rests, Continue, Merge and the
+  cherry-pick's Commit ignoring their blockers, the key keeping the old rule, a revert not waiting for the status, and
+  JGit allowing an empty cherry-pick commit.
+- **Run by hand** with `:app:run` on demo repositories under `/tmp/leaf-demo-finish` (the window captured, nothing
+  clicked): a merge and a cherry-pick stopped at a conflict, and a rebase stopped with its conflict resolved and staged,
+  each with an untracked `build.log` and a changed, unstaged `README.md` (the merge also with a `notes.txt.orig`). With
+  the conflict, the hint says "Resolve the conflicts in 1 file first." and Merge and Commit are disabled. After
+  resolving it with git in a terminal (the watcher refreshed the pane), Merge and Commit are enabled with those files
+  still in Unstaged. The rebase with README unstaged: Continue disabled, "Stage or discard the changes to 1 tracked file
+  to continue."; staged, Continue enabled with `build.log` left. Clicking the buttons, and Skip (only untracked files
+  left), were checked by the tests and an offscreen render only.
+
 ## Ignore from the Unstaged menus (Gitnuro#175, 2026-10-19)
 
 - **What:** "Ignore…" in the Unstaged menus of an untracked file (after "Delete file"), of a selection (`Ignore N
