@@ -1356,6 +1356,32 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     names its folder. The clone dialog's error box scrolls once it's 200 dp tall, as git's output can be long.
   - `CloneViewModel` no longer creates the folder first, so a failed clone leaves none. JGit's clone, the fallback,
     removes the folder too when it created it.
+  - **A chosen branch or tag (fork-only, Gitnuro#209, 2026-10-19):** the dialog's "Branch or tag (optional)" field and
+    "Only this branch" box reach `ICloneRepositoryGitAction` as `branch` (trimmed, blank is none) and `singleBranch`.
+    The box needs a branch to be checked, though the action takes `--single-branch` alone too (the remote's default
+    branch only). git gets `--branch=<name>`, in the `=` form so that a name that starts with `-` is a value, and
+    `--single-branch` (`cloneArguments`).
+    - What git 2.54 does with `--no-checkout`, and what the steps after it rely on: HEAD is `refs/heads/<branch>`, so
+      the checkout, `git lfs fetch <remote> <commit>` and the `.gitmodules` check all follow the chosen branch, with
+      no change. A tag leaves HEAD detached at the tag's commit (annotated tags too), and the code already took
+      `origin` when HEAD has no branch. `--single-branch` sets `remote.origin.fetch` to the branch alone
+      (`+refs/heads/x:refs/remotes/origin/x`; for a tag `+refs/tags/v1:refs/tags/v1` and no branch at all), so a later
+      fetch, Leaf's too, brings only that. The dialog says so under the box. It limits the superproject only:
+      `git submodule update` clones the submodules whole.
+    - **A branch the remote lacks:** git exits with 128 and `fatal: Remote branch X not found in upstream origin`,
+      having made no folder. `remoteOperationError` turns it into `RemoteOperationError.BranchNotFound` (`branchNotFound`,
+      which JGit's `Remote branch 'X' not found in upstream origin` also matches), whose text says the repository has no
+      branch or tag named X, then git's line. The existing cleanup leaves a chosen empty folder empty.
+    - **JGit (the fallback):** `setBranch(name)` finds a branch, then a tag, and leaves HEAD detached for a tag. For
+      one branch, `setCloneAllBranches(false)` alone still clones every branch: it needs `setBranchesToClone` with a
+      full ref, and a list with both `refs/heads/x` and `refs/tags/x` fails when one is missing. So with
+      `singleBranch`, one `Git.lsRemoteRepository()` call inside the clone's own transport block (the same credentials)
+      picks the branch, else the tag, else the remote's HEAD target; a name that is neither fails as JGit's own clone
+      does, as `BranchNotFound`.
+    - Tests: `GitCliCloneTest` (a branch, trimming, tags, only this branch, only a tag, the default branch alone, a
+      missing branch, a name starting with `-`, submodules of the branch, the clone the app runs for git and for JGit),
+      `CloneRepositoryGitActionBranchTest` (the same for JGit), `GitCliLfsTest` (git-lfs fetches the branch's commit)
+      and `CloneDialogTest` (the field and the box, rendered).
 - **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, or merges or rebases what
   `GitCliPullBranchGitAction` fetched, Leaf runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every
   object in `<git dir>/lfs/objects` (git-lfs and JGit use the same layout), so Leaf's built-in client (`app/.../lfs/`)
@@ -2197,6 +2223,10 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   - `Log` renders with just the tab's `repositoryOpenViewModel()`, its `selectedItem` and `repositoryState`, inside
     `AppTheme`. Settings it changes go to the dev `user_prefs.json`; copy that file first and put it back.
   - Hover tooltips (`InstantTooltip`) don't show offscreen, not even the graph node's, so check them in a dev run.
+  - `ImageComposeScene.render()` has a fixed clock by default (`nanoTime = 0`), so animations never advance: a state
+    change shows in the semantics at once, but the screenshot keeps the old pixels of an `AnimatedVisibility` or a
+    check box. Pass `System.nanoTime()` and let a dozen frames run with a `delay` between them before encoding the
+    PNG (found with the Clone dialog's "Only this branch" note, 2026-10-19).
 
 ## Log
 

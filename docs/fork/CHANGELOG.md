@@ -2,6 +2,69 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Clone a chosen branch or tag (Gitnuro#209, 2026-10-19)
+
+- **Request:** "I want to clone specific branches only through the UI, instead of cloning the whole repo." The Clone
+  dialog had a URL, a directory, a folder and "Clone submodules", and always cloned every branch.
+- **The dialog (decided 2026-10-19, layout A of three):** "Branch or tag (optional)" below Folder, with "Default branch
+  of the repository" as its hint, and a box "Only this branch" under it. The box needs a branch (it is dimmed and does
+  nothing without one), is off by default, and when it is on a line says what it does: "Fetches only this branch. A
+  later fetch brings only this branch too." Tab goes Folder, Branch, Clone (it went from Folder back to Directory).
+  - The other layouts: B put Folder and Branch on one row and the two boxes on another (80 dp shorter, but Folder
+    shrinks to half the width); C added a "Choose…" button that lists the remote's branches. C is wanted next, with the
+    rule that nothing asks the server until the user clicks the button, and typing never does (plan in the session
+    notes, `clone-choose-branch-plan.md`).
+  - Tags are accepted (`git clone --branch v1.0` does too): the clone ends with a detached HEAD.
+- **git** gets `--branch=<name>` and `--single-branch` (`cloneArguments`). The `=` form makes a name that starts with
+  `-` a value. What git 2.54 does with `--no-checkout`, so the steps after it needed no change: HEAD is
+  `refs/heads/<branch>`, so JGit's checkout, `git lfs fetch <remote> <commit>` and the `.gitmodules` check all use the
+  branch. A tag leaves HEAD detached at the tag's commit (annotated tags too). `--single-branch` sets
+  `remote.origin.fetch` to the branch alone (`+refs/heads/x:refs/remotes/origin/x`, for a tag `+refs/tags/v1:refs/tags/v1`
+  and no branch), so a later fetch in Leaf brings only that. Only the superproject is limited: submodules are cloned
+  whole.
+- **A branch that the remote lacks:** git exits with 128 and `fatal: Remote branch X not found in upstream origin`, and
+  has made no folder. It is `RemoteOperationError.BranchNotFound` now (`branchNotFound` in `RemoteErrors.kt`, which
+  JGit's `Remote branch 'X' not found in upstream origin` matches too), and the dialog says "The repository has no
+  branch or tag named "X"." with git's line under it. Before, it would have read "Git failed with exit code 128", and
+  "upstream origin" in a clone dialog means nothing. A chosen empty folder stays empty, as for any failed clone.
+- **JGit, the fallback** (`setBranch`, `setBranchesToClone`): found by probing JGit 7.7 before writing it.
+  - `setBranch(name)` takes a short name and tries a branch, then a tag.
+  - `setCloneAllBranches(false)` alone still clones every branch. For one branch it needs `setBranchesToClone` with a
+    full ref, and a list holding both `refs/heads/x` and `refs/tags/x` fails when either is missing.
+  - So with "Only this branch", one `Git.lsRemoteRepository()` call inside the clone's own transport block (the same
+    credentials, no second question) picks the branch, else the tag, else the remote's HEAD target for a clone without
+    a branch. A name that is neither fails as JGit's own clone would.
+- **Tests (28 new):**
+  - `GitCliCloneTest` (15): a branch (HEAD, tracking, every branch fetched), trimming and a blank branch, annotated and
+    lightweight tags, only this branch (and that a later fetch leaves a new branch out), only a tag, the default branch
+    alone, a missing branch (readable, no folder, with and without single-branch), an empty chosen folder left empty, a
+    name that starts with `-`, access denied still being access denied, the submodules of the chosen branch (and that
+    single-branch leaves them whole), the arguments, and the clone that the app runs through `SelectingClone…` with git
+    and with JGit.
+  - `CloneRepositoryGitActionBranchTest` (7): the same cases for JGit.
+  - `GitCliLfsTest` (1): git-lfs fetches the objects of the chosen branch's commit.
+  - `CloneDialogTest` (5, rendered offscreen): the field and the box, what is sent, that the box waits for a branch
+    and goes when the branch is cleared, and the error in the dialog.
+  - Mutation checks: 16, all caught. Without `--branch`, without `--single-branch`, an untrimmed or a blank branch, the
+    selector dropping the branch (git) or the single-branch switch (JGit), the error not recognized, JGit without
+    `setBranchesToClone`, without its error mapping, without the tag lookup, without `setBranch`, without the default
+    branch, and in the dialog the box sending the raw check, never turning on, enabled without a branch, or the branch
+    not sent.
+- **Manual run** (the real dialog, rendered offscreen from the real Dagger graph with the real git, in a temporary
+  harness; no window was clicked), against `/tmp/leaf-clone-demo/source`, which has the branches `feature/clone-branch`,
+  `release/1.0` and `docs`, the tag `v0.9` and the annotated tag `v1.0`:
+  - `feature/clone-branch`: HEAD on it, every branch fetched, `feature.txt` there, clean status;
+  - `release/1.0` with "Only this branch": the only remote ref is `origin/release/1.0`, and the refspec names it;
+  - `v1.0`: detached HEAD at the tag's commit;
+  - `nope`: the dialog says `The repository has no branch or tag named "nope".`, then git's line, and no folder is left;
+  - no branch: `main`, as before.
+  - A first demo had a submodule on the feature branch, and its clone stopped with git's `transport 'file' not allowed`
+    (git 2.38.1 and later refuse a submodule from a local path unless `protocol.file.allow=always`, as in a terminal;
+    the dialog then keeps the repository and says so). The submodule is out of the demo, and the tests cover it.
+- **Found while building:** `ImageComposeScene.render()` has a fixed clock by default, so a screenshot of an
+  `AnimatedVisibility` or a check box kept the old pixels while the semantics already showed the new state (now in
+  CLAUDE.md, Offscreen UI checks).
+
 ## Terminal button on macOS opens one instance (Gitnuro#208, 2026-10-19)
 
 - **Bug:** every click on Terminal started another Terminal.app process (iTerm2 warned about a second instance). The
@@ -24,6 +87,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   path with spaces and unicode, custom paths for both apps (name, `.app`, full path, trailing slash), and the
   unchanged command for others. Three mutations (always the old command, always the new, `iterm2` left out) each failed
   the tests they should.
+
 
 ## Renames in the commit and review file lists (Gitnuro#347, list part, 2026-10-19)
 
