@@ -1,11 +1,16 @@
 package dev.app.leaf.viewmodels
 
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.TabViewModel
+import dev.app.leaf.domain.clone.remoteHostOf
 import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.ICloneRepositoryGitAction
+import dev.app.leaf.domain.interfaces.IListRemoteRefsGitAction
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.CloneState
+import dev.app.leaf.domain.models.RemoteRefs
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.system.OpenFilePickerUseCase
 import dev.app.leaf.system.PickerType
@@ -23,6 +28,7 @@ import javax.inject.Inject
 
 class CloneViewModel @Inject constructor(
     private val cloneRepositoryGitAction: ICloneRepositoryGitAction,
+    private val listRemoteRefsGitAction: IListRemoteRefsGitAction,
     private val openFilePickerUseCase: OpenFilePickerUseCase,
     private val appSettings: AppSettingsService,
 ) : TabViewModel() {
@@ -47,7 +53,12 @@ class CloneViewModel @Inject constructor(
     val error: StateFlow<CloneUiError?>
         field = MutableStateFlow<CloneUiError?>(null)
 
+    /** What "Choose…" shows under the Branch field. It only leaves [BranchChoicesState.Closed] when the button is clicked. */
+    val branchChoices: StateFlow<BranchChoicesState>
+        field = MutableStateFlow<BranchChoicesState>(BranchChoicesState.Closed)
+
     private var cloneJob: Job? = null
+    private var listJob: Job? = null
 
     /** [branch] is a branch or a tag, blank for the repository's default branch. [onlyThisBranch] needs one. */
     fun clone(
@@ -58,6 +69,8 @@ class CloneViewModel @Inject constructor(
         branch: String = "",
         onlyThisBranch: Boolean = false,
     ) {
+        closeBranchChoices()
+
         cloneJob = viewModelScope.launch {
             if (directoryPath.isBlank()) {
                 error.value = CloneUiError.EmptyDirectory
@@ -107,6 +120,41 @@ class CloneViewModel @Inject constructor(
         }
     }
 
+    /**
+     * "Choose…": asks the remote at [url] for its branches and tags, once per click. Typing in the Branch field never
+     * does, and neither does opening the dialog or changing the URL. Without a URL, it says so as Clone does.
+     */
+    fun chooseBranch(url: String) {
+        if (url.isBlank()) {
+            error.value = CloneUiError.EmptyUrl
+            return
+        }
+
+        resetStateIfError()
+        listJob?.cancel()
+        branchChoices.value = BranchChoicesState.Loading(remoteHostOf(url))
+
+        listJob = viewModelScope.launch {
+            branchChoices.value = when (val result = listRemoteRefsGitAction(url.trim())) {
+                is Either.Ok -> BranchChoicesState.Loaded(result.value)
+                is Either.Err -> BranchChoicesState.Failed(result.error)
+            }
+        }
+    }
+
+    /** Closes the list, and stops a request that is still running: git is killed. */
+    fun closeBranchChoices() {
+        listJob?.cancel()
+        listJob = null
+        branchChoices.value = BranchChoicesState.Closed
+    }
+
+    /** Puts a branch or tag that the list offered in the field, and closes the list. */
+    fun pickBranch(name: String) {
+        _branch.value = TextFieldValue(name, TextRange(name.length))
+        closeBranchChoices()
+    }
+
     fun cancelClone() {
         viewModelScope.launch {
             _cloneState.value = CloneState.Cancelling
@@ -147,6 +195,11 @@ class CloneViewModel @Inject constructor(
     }
 
     fun onRepositoryUrlChanged(repositoryUrl: TextFieldValue) {
+        // What was listed belongs to the old URL
+        if (repositoryUrl.text != _repositoryUrl.value.text) {
+            closeBranchChoices()
+        }
+
         _repositoryUrl.value = repositoryUrl
     }
 
@@ -157,6 +210,15 @@ class CloneViewModel @Inject constructor(
     fun onBranchChanged(branch: TextFieldValue) {
         _branch.value = branch
     }
+}
+
+/** The "Choose…" list under the Branch field. */
+sealed interface BranchChoicesState {
+    data object Closed : BranchChoicesState
+    /** Waiting for the remote, [host] being where the request went (null for a local path). */
+    data class Loading(val host: String?) : BranchChoicesState
+    data class Loaded(val refs: RemoteRefs) : BranchChoicesState
+    data class Failed(val error: AppError) : BranchChoicesState
 }
 
 sealed interface CloneUiError {

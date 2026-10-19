@@ -843,6 +843,17 @@
     <string name="clone_error_invalid_folder_name">Invalid empty folder name</string>
     <string name="clone_branch_title">Branch or tag (optional)</string>
     <string name="clone_branch_hint">Default branch of the repository</string>
+    <string name="clone_choose_branch">Choose…</string>
+    <string name="clone_choose_branch_loading">Asking %1$s for its branches and tags…</string>
+    <string name="clone_choose_branch_loading_unknown_host">Asking the repository for its branches and tags…</string>
+    <string name="clone_choose_branch_cancel">Cancel</string>
+    <string name="clone_choose_branch_try_again">Try again</string>
+    <string name="clone_choose_branch_branches">Branches</string>
+    <string name="clone_choose_branch_tags">Tags</string>
+    <string name="clone_choose_branch_default">default</string>
+    <string name="clone_choose_branch_count">%1$d of %2$d match</string>
+    <string name="clone_choose_branch_none">No branch or tag matches.</string>
+    <string name="clone_choose_branch_empty">This repository has no branches or tags.</string>
     <string name="clone_only_this_branch">Only this branch</string>
     <string name="clone_only_this_branch_note">Fetches only this branch. A later fetch brings only this branch too.</string>
 

@@ -13,6 +13,7 @@ import dev.app.leaf.data.git.cli.operations.SelectingRebaseBranchGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingRevertCommitGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingAddSubmoduleGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingCloneRepositoryGitAction
+import dev.app.leaf.data.git.cli.remote.SelectingListRemoteRefsGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingDeleteRemoteBranchGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingFetchAllRemotesGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingPullBranchGitAction
@@ -117,6 +118,10 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsCloneRepositoryGitAction(action: SelectingCloneRepositoryGitAction): ICloneRepositoryGitAction
+
+    @Binds
+    @TabScope
+    fun bindsListRemoteRefsGitAction(action: SelectingListRemoteRefsGitAction): IListRemoteRefsGitAction
 
     @Binds
     @TabScope

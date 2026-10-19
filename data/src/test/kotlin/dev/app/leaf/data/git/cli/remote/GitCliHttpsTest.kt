@@ -23,8 +23,10 @@ import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteOperationError
 import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.PullType
+import dev.app.leaf.domain.models.RemoteRefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
@@ -275,6 +277,59 @@ class GitCliHttpsTest {
             assertEquals("keep", File(precious, "keep.txt").readText())
         }
 
+    @Test
+    fun `listing branches and tags asks through Leaf's dialog, and the cache answers the next listing`(): Unit =
+        runBlocking {
+            publishRefs()
+            val remote = TestRemoteCommand(helper, globalConfig)
+
+            val (result, dialogs) = remote.credentialsStateManager.answeringDialogs({ httpCredentialsAccepted(USER, PASSWORD) }) {
+                list(remote)
+            }
+
+            assertEquals(RemoteRefs("main", listOf("feature/x", "main"), listOf("v1")), (result as Either.Ok).value)
+            assertEquals(listOf(CredentialsRequest.HttpCredentialsRequest(user = null, askPassword = true)), dialogs)
+
+            val (again, dialogsAgain) = remote.credentialsStateManager.answeringDialogs { list(remote) }
+
+            assertEquals(result, again)
+            assertEquals(emptyList<CredentialsRequest>(), dialogsAgain)
+        }
+
+    @Test
+    fun `listing with a wrong password says so, and a closed dialog is a refused prompt`(): Unit = runBlocking {
+        publishRefs()
+        val remote = TestRemoteCommand(helper, globalConfig)
+
+        val (wrong, _) = remote.credentialsStateManager.answeringDialogs({ httpCredentialsAccepted(USER, "wrong") }) {
+            list(remote)
+        }
+
+        assertInstanceOf(RemoteOperationError.AuthenticationFailed::class.java, (wrong as Either.Err).error)
+
+        val (closed, dialogs) = remote.credentialsStateManager.answeringDialogs({ credentialsDenied() }) { list(remote) }
+
+        assertInstanceOf(RemoteOperationError.PromptRefused::class.java, (closed as Either.Err).error)
+        assertEquals(1, dialogs.size)
+    }
+
+    @Test
+    fun `cancelling a listing while git waits for an answer stops git`(): Unit = runBlocking {
+        publishRefs()
+        val remote = TestRemoteCommand(helper, globalConfig)
+
+        val listing = launch(Dispatchers.Default) { list(remote) }
+        remote.awaitDialog()
+        assertTrue(gitTalkingToServer(), "git should be waiting for the dialog")
+
+        listing.cancelAndJoin()
+
+        assertEquals(CredentialsState.None, remote.credentialsStateManager.credentialsState.value)
+        assertTrue(listing.isCancelled)
+        // git, and what it started, are gone
+        withTimeout(10.seconds) { while (gitTalkingToServer()) delay(50) }
+    }
+
     private fun remoteWithUrl(url: String, cacheCredentials: Boolean = true): TestRemoteCommand {
         git.run(work, "remote", "add", "origin", url)
 
@@ -294,6 +349,27 @@ class GitCliHttpsTest {
     /** Pushes `work` to the served repository, with the credentials in the URL, so that it has something to clone. */
     private fun publishWork() {
         git.run(work, "push", "http://$USER:$PASSWORD@127.0.0.1:${server.address.port}/repo.git", "main")
+    }
+
+    /** Whether a git process has the served repository's URL on its command line: `ls-remote`, or `git-remote-http`. */
+    private fun gitTalkingToServer(): Boolean {
+        val url = ":${server.address.port}/repo.git"
+
+        return ProcessHandle.allProcesses().anyMatch { process ->
+            val command = (listOfNotNull(process.info().command().orElse(null)) + process.info().arguments().orElse(emptyArray()))
+            command.any { it.contains(url) }
+        }
+    }
+
+    private suspend fun list(remote: TestRemoteCommand): Either<RemoteRefs, GitError> =
+        GitCliListRemoteRefsGitAction(remote.command)(servedUrl())
+
+    /** Pushes `work` as main, with a branch `feature/x` and a tag `v1`, to the served repository. */
+    private fun publishRefs() {
+        git.run(work, "branch", "feature/x")
+        git.run(work, "tag", "v1")
+        git.run(work, "push", "http://$USER:$PASSWORD@127.0.0.1:${server.address.port}/repo.git", "main", "feature/x", "v1")
+        // The served repository is bare and new: its HEAD names main, which it now has
     }
 
     private suspend fun push(remote: TestRemoteCommand): Either<Unit, GitError> =

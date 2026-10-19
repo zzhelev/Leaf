@@ -3,7 +3,16 @@
 
 package dev.app.leaf.ui.dialogs
 
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerButtons
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -12,9 +21,13 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.ShellManager
+import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteOperationError
 import dev.app.leaf.domain.interfaces.ICloneRepositoryGitAction
+import dev.app.leaf.domain.interfaces.IListRemoteRefsGitAction
 import dev.app.leaf.domain.models.CloneState
+import dev.app.leaf.domain.models.RemoteRefs
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.system.OpenFilePickerUseCase
@@ -22,6 +35,8 @@ import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.viewmodels.CloneViewModel
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -36,11 +51,44 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.TimeUnit
 
 private const val BRANCH_TITLE = "Branch or tag (optional)"
 private const val ONLY_THIS_BRANCH = "Only this branch"
 private const val NOTE = "Fetches only this branch. A later fetch brings only this branch too."
+private const val CHOOSE = "Choose…"
+private const val ASKING = "Asking example.com for its branches and tags…"
+
+private val REFS = RemoteRefs(
+    defaultBranch = "main",
+    branches = listOf("docs", "feature/clone-branch", "main", "release/1.2", "release/1.10"),
+    tags = listOf("v0.9", "v1.0"),
+)
+private val REF_NAMES = (REFS.branches + REFS.tags).toSet()
+
+/** Records each request for the list of "Choose…", and answers when the test says so. */
+private class AskedRefs : IListRemoteRefsGitAction {
+    val asked = AtomicInteger()
+    val cancelled = AtomicInteger()
+    private val requests = LinkedBlockingQueue<Pair<String, CompletableDeferred<Either<RemoteRefs, GitError>>>>()
+
+    override suspend fun invoke(url: String): Either<RemoteRefs, GitError> {
+        val answer = CompletableDeferred<Either<RemoteRefs, GitError>>()
+        asked.incrementAndGet()
+        requests.put(url to answer)
+
+        try {
+            return answer.await()
+        } catch (e: CancellationException) {
+            cancelled.incrementAndGet()
+            throw e
+        }
+    }
+
+    /** The URL of the next request, and what answers it. */
+    fun nextRequest() = checkNotNull(requests.poll(5, TimeUnit.SECONDS)) { "Nothing was asked" }
+}
 
 /** The Clone dialog's Branch field and "Only this branch" (fork-only), run against a view model with a recording clone. */
 class CloneDialogTest {
@@ -133,9 +181,296 @@ class CloneDialogTest {
         }
     }
 
+    @Test
+    fun `Choose is a button, and nothing asks the remote before it is clicked`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            assertTrue(dialog.canClick(CHOOSE), "${dialog.texts()}")
+
+            // Typing, a changed URL and the dialog opening are not a reason to ask
+            dialog.fill()
+            dialog.type(BRANCH, "feat")
+            dialog.type(URL, "https://example.com/other.git")
+            dialog.type(BRANCH, "feature/x")
+            dialog.type(BRANCH, "")
+
+            assertEquals(0, list.asked.get())
+            assertTrue(dialog.texts().none { it.startsWith("Asking") }, "${dialog.texts()}")
+        }
+    }
+
+    @Test
+    fun `a click asks the URL once and says who it asks, and Cancel stops it`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            dialog.fill()
+            dialog.choose()
+
+            assertEquals("https://example.com/r.git", list.nextRequest().first)
+            dialog.waitForText { ASKING in it }
+
+            // The dialog has a Cancel too: the one in the list is the pointer's, as the list is a layer of its own
+            dialog.clickWithPointer("Cancel")
+
+            assertTrue(dialog.texts().none { it == ASKING }, "${dialog.texts()}")
+            waitUntil { list.cancelled.get() == 1 }
+            assertEquals(0, dialog.closes)
+            assertEquals(1, list.asked.get())
+        }
+    }
+
+    @Test
+    fun `without a URL it says so and asks nothing`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            dialog.click(CHOOSE)
+
+            assertTrue("Invalid empty URL" in dialog.texts(), "${dialog.texts()}")
+            assertTrue(dialog.texts().none { it.startsWith("Asking") })
+            assertEquals(0, list.asked.get())
+        }
+    }
+
+    @Test
+    fun `the list has the default branch first, then the branches and the tags, and counts them`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val list = AskedRefs()
+
+            DialogScene(list = list).use { dialog ->
+                dialog.fill()
+                dialog.choose()
+                dialog.answer(list, Either.Ok(REFS))
+
+                assertEquals(
+                    listOf("main", "docs", "feature/clone-branch", "release/1.2", "release/1.10", "v0.9", "v1.0"),
+                    dialog.listed(),
+                )
+                assertTrue("BRANCHES" in dialog.texts() && "TAGS" in dialog.texts(), "${dialog.texts()}")
+                assertTrue("default" in dialog.texts(), "${dialog.texts()}")
+                assertTrue("7 of 7 match" in dialog.texts(), "${dialog.texts()}")
+            }
+        }
+
+    @Test
+    fun `typing in the field filters the list without asking again`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            dialog.fill()
+            dialog.choose()
+            dialog.answer(list, Either.Ok(REFS))
+
+            dialog.type(BRANCH, "REL")
+
+            assertEquals(listOf("release/1.2", "release/1.10"), dialog.listed())
+            assertTrue("2 of 7 match" in dialog.texts(), "${dialog.texts()}")
+
+            dialog.type(BRANCH, "zzz")
+
+            assertEquals(emptyList<String>(), dialog.listed())
+            assertTrue("No branch or tag matches." in dialog.texts(), "${dialog.texts()}")
+
+            dialog.type(BRANCH, "")
+
+            assertEquals(7, dialog.listed().size)
+            assertEquals(1, list.asked.get())
+        }
+    }
+
+    @Test
+    fun `a click on a row puts it in the field, closes the list, and the clone takes it`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val list = AskedRefs()
+
+            DialogScene(list = list).use { dialog ->
+                dialog.fill()
+                dialog.choose()
+                dialog.answer(list, Either.Ok(REFS))
+
+                // A real press on the row: the list is a layer of its own, and a press elsewhere closes it
+                dialog.clickWithPointer("feature/clone-branch")
+
+                assertEquals("feature/clone-branch", dialog.fieldText(BRANCH))
+                assertEquals(emptyList<String>(), dialog.listed())
+                assertTrue(dialog.canClick(ONLY_THIS_BRANCH))
+
+                dialog.click("Clone")
+
+                assertEquals(Call(File(tempDir, "r"), "feature/clone-branch", singleBranch = false), dialog.nextCall())
+            }
+        }
+
+    @Test
+    fun `the arrows move through the rows and Enter picks the one moved to`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            dialog.fill()
+            dialog.type(BRANCH, "e")
+            dialog.choose()
+            dialog.answer(list, Either.Ok(REFS))
+
+            // "e" is in these three and not in "docs"
+            assertEquals(listOf("feature/clone-branch", "release/1.2", "release/1.10"), dialog.listed())
+
+            // What was typed may be the whole name, so Enter alone picks nothing
+            dialog.press(Key.Enter)
+
+            assertEquals("e", dialog.fieldText(BRANCH))
+            assertEquals(3, dialog.listed().size)
+
+            dialog.press(Key.DirectionDown)
+            dialog.press(Key.DirectionDown)
+
+            assertTrue(dialog.isSelected("release/1.2"), "${dialog.texts()}")
+
+            dialog.press(Key.DirectionUp)
+
+            assertTrue(dialog.isSelected("feature/clone-branch"), "${dialog.texts()}")
+
+            // The filter changed, so the highlight starts over, and Enter picks nothing again
+            dialog.type(BRANCH, "rel")
+
+            assertEquals(listOf("release/1.2", "release/1.10"), dialog.listed())
+            assertFalse(dialog.isSelected("release/1.2") || dialog.isSelected("release/1.10"), "${dialog.texts()}")
+
+            dialog.press(Key.Enter)
+
+            assertEquals("rel", dialog.fieldText(BRANCH))
+            assertEquals(2, dialog.listed().size)
+
+            dialog.press(Key.DirectionDown)
+            dialog.press(Key.DirectionDown)
+            dialog.press(Key.Enter)
+
+            assertEquals("release/1.10", dialog.fieldText(BRANCH))
+            assertEquals(emptyList<String>(), dialog.listed())
+        }
+    }
+
+    @Test
+    fun `Esc closes the list first and the dialog next`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            dialog.fill()
+            dialog.choose()
+            dialog.answer(list, Either.Ok(REFS))
+
+            dialog.press(Key.Escape)
+
+            assertEquals(emptyList<String>(), dialog.listed())
+            assertEquals(0, dialog.closes)
+
+            dialog.press(Key.Escape)
+
+            assertEquals(1, dialog.closes)
+        }
+    }
+
+    @Test
+    fun `Esc while the list waits stops the request`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            dialog.fill()
+            dialog.choose()
+            dialog.waitForText { ASKING in it }
+
+            dialog.press(Key.Escape)
+
+            assertEquals(0, dialog.closes)
+            assertTrue(dialog.texts().none { it == ASKING }, "${dialog.texts()}")
+            waitUntil { list.cancelled.get() == 1 }
+        }
+    }
+
+    @Test
+    fun `a press elsewhere in the dialog closes the list, a press on the field does not`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val list = AskedRefs()
+
+            DialogScene(list = list).use { dialog ->
+                dialog.fill()
+                dialog.choose()
+                dialog.answer(list, Either.Ok(REFS))
+
+                dialog.pressAt(dialog.centerOf(BRANCH_TITLE).copy(x = 300f).let { it.copy(y = it.y + 19f) })
+
+                assertEquals(7, dialog.listed().size)
+
+                dialog.pressAt(dialog.centerOf("Clone a new repository"))
+
+                assertEquals(emptyList<String>(), dialog.listed())
+                assertEquals(0, dialog.closes)
+            }
+        }
+
+    @Test
+    fun `a failure is in the list with Try again, which asks once more`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+
+        DialogScene(list = list).use { dialog ->
+            dialog.fill()
+            dialog.choose()
+            dialog.answer(list, Either.Err(RemoteOperationError.ConnectionFailed("fatal: Could not resolve host: example.com")))
+
+            assertTrue(dialog.texts().any { it.contains("Could not resolve host: example.com") }, "${dialog.texts()}")
+            assertTrue(dialog.canClick("Try again"))
+
+            dialog.clickWithPointer("Try again")
+
+            assertEquals(2, list.asked.get())
+            dialog.waitForText { ASKING in it }
+
+            dialog.answer(list, Either.Ok(REFS))
+
+            assertEquals(7, dialog.listed().size)
+        }
+    }
+
+    @Test
+    fun `closing the dialog while the list waits stops the request`(): Unit = runBlocking(Dispatchers.Swing) {
+        val list = AskedRefs()
+        val dialog = DialogScene(list = list)
+
+        try {
+            dialog.fill()
+            dialog.choose()
+            dialog.waitForText { ASKING in it }
+
+            // Only the dialog goes: the request stops because the dialog closed the list, not because the view model went
+            dialog.closeScene()
+
+            waitUntil { list.cancelled.get() == 1 }
+        } finally {
+            dialog.close()
+        }
+    }
+
+    /** Waits for [condition], as the view model works from another thread. */
+    private suspend fun waitUntil(condition: () -> Boolean) {
+        repeat(100) {
+            if (condition()) return
+            delay(50)
+        }
+        fail<Unit>("It didn't happen in 5 seconds")
+    }
+
     private data class Call(val directory: File, val branch: String?, val singleBranch: Boolean)
 
-    private inner class DialogScene(result: CloneState = CloneState.Cloning("Starting...", 0, 0)) : AutoCloseable {
+    private inner class DialogScene(
+        result: CloneState = CloneState.Cloning("Starting...", 0, 0),
+        private val list: IListRemoteRefsGitAction = mockk(),
+    ) : AutoCloseable {
+        var closes = 0
+        private var closed = false
+        private var sceneClosed = false
+        private var eventTime = 0L
+
         private val calls = LinkedBlockingQueue<Call>()
 
         private val action = object : ICloneRepositoryGitAction {
@@ -154,6 +489,7 @@ class CloneDialogTest {
 
         private val viewModel = CloneViewModel(
             cloneRepositoryGitAction = action,
+            listRemoteRefsGitAction = list,
             openFilePickerUseCase = OpenFilePickerUseCase(ShellManager()),
             appSettings = AppSettingsService(
                 mockk<AppSettingsRepository> { every { cloneDefaultDirectory } returns flowOf(null) }
@@ -162,7 +498,7 @@ class CloneDialogTest {
 
         private val scene = ImageComposeScene(width = 800, height = 1000, density = Density(1f)) {
             AppTheme {
-                CloneDialog(cloneViewModel = viewModel, onClose = {}, onOpenRepository = {})
+                CloneDialog(cloneViewModel = viewModel, onClose = { closes++ }, onOpenRepository = {})
             }
         }
 
@@ -240,8 +576,76 @@ class CloneDialogTest {
             return nodes
         }
 
-        override fun close() {
+        /** The clickable that has [text], the one nearest the top of the dialog when several do (the popup's Cancel). */
+        private fun topmostClickable(text: String): SemanticsNode =
+            clickable(text).minBy { it.boundsInWindow.top }
+
+        /** Clicks the button or row [text] of the list, which is a layer of its own, as a user does: with the pointer. */
+        fun clickWithPointer(text: String) {
+            val at = topmostClickable(text).boundsInWindow.center
+
+            pressAt(at)
+        }
+
+        fun pressAt(at: Offset) {
+            eventTime += 10
+            scene.sendPointerEvent(
+                PointerEventType.Press, at, timeMillis = eventTime,
+                buttons = PointerButtons(isPrimaryPressed = true), button = PointerButton.Primary,
+            )
+            eventTime += 10
+            scene.sendPointerEvent(
+                PointerEventType.Release, at, timeMillis = eventTime,
+                buttons = PointerButtons(), button = PointerButton.Primary,
+            )
+            scene.render()
+            scene.render()
+        }
+
+        /** Where [text] is in the dialog, for a press. */
+        fun centerOf(text: String): Offset =
+            nodes().first { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text } }
+                .boundsInWindow.center
+
+        @OptIn(InternalComposeUiApi::class, ExperimentalComposeUiApi::class)
+        fun press(key: Key) {
+            scene.sendKeyEvent(KeyEvent(key = key, type = KeyEventType.KeyDown))
+            scene.sendKeyEvent(KeyEvent(key = key, type = KeyEventType.KeyUp))
+            scene.render()
+            scene.render()
+        }
+
+        /** The branches and tags that the list shows, in the order it shows them. */
+        fun listed(): List<String> = texts().filter { it in REF_NAMES }
+
+        fun isSelected(text: String): Boolean = nodes().any { node ->
+            node.config.getOrNull(SemanticsProperties.Selected) == true &&
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text }
+        }
+
+        /** Answers the request that "Choose…" made, and waits for the list to show it. */
+        suspend fun answer(list: AskedRefs, result: Either<RemoteRefs, GitError>) {
+            list.nextRequest().second.complete(result)
+            waitForText { texts -> texts.none { it == ASKING } }
+        }
+
+        /** Clicks "Choose…" and waits for its request, which is answered by [answer]. */
+        fun choose() = click(CHOOSE)
+
+        /**
+         * Takes the dialog off the screen and leaves the view model, which outlives it in the app (it is the tab's):
+         * what the dialog started must stop by itself.
+         */
+        fun closeScene() {
+            if (sceneClosed) return
+            sceneClosed = true
             scene.close()
+        }
+
+        override fun close() {
+            if (closed) return
+            closed = true
+            closeScene()
             viewModel.onClear()
         }
     }

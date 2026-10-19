@@ -11,6 +11,7 @@ import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.remote_operations.CloneRepositoryGitAction
 import dev.app.leaf.data.git.remote_operations.DeleteRemoteBranchGitAction
 import dev.app.leaf.data.git.remote_operations.FetchAllRemotesGitAction
+import dev.app.leaf.data.git.remote_operations.ListRemoteRefsGitAction
 import dev.app.leaf.data.git.remote_operations.PullBranchGitAction
 import dev.app.leaf.data.git.remote_operations.PushBranchGitAction
 import dev.app.leaf.data.git.submodules.AddSubmoduleGitAction
@@ -22,6 +23,7 @@ import dev.app.leaf.domain.interfaces.IAddSubmoduleGitAction
 import dev.app.leaf.domain.interfaces.ICloneRepositoryGitAction
 import dev.app.leaf.domain.interfaces.IDeleteRemoteBranchGitAction
 import dev.app.leaf.domain.interfaces.IFetchAllRemotesGitAction
+import dev.app.leaf.domain.interfaces.IListRemoteRefsGitAction
 import dev.app.leaf.domain.interfaces.IPullBranchGitAction
 import dev.app.leaf.domain.interfaces.IPushBranchGitAction
 import dev.app.leaf.domain.interfaces.IUpdateSubmoduleGitAction
@@ -29,6 +31,7 @@ import dev.app.leaf.domain.interfaces.PullHasConflicts
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.PullType
+import dev.app.leaf.domain.models.RemoteRefs
 import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.services.AppSettingsService
 import kotlinx.coroutines.flow.Flow
@@ -303,6 +306,23 @@ class SelectingCloneRepositoryGitAction @Inject constructor(
 
         emitAll(states)
     }
+}
+
+/**
+ * Lists a remote's branches and tags with the git CLI or with JGit, as [RemoteOperationsBackend] decides when the
+ * request starts: the Clone dialog's "Choose…". It reads nothing of a repository, so nothing there decides.
+ */
+class SelectingListRemoteRefsGitAction @Inject constructor(
+    private val backend: RemoteOperationsBackend,
+    private val gitCliListRemoteRefsGitAction: GitCliListRemoteRefsGitAction,
+    private val jGitListRemoteRefsGitAction: ListRemoteRefsGitAction,
+) : IListRemoteRefsGitAction {
+    override suspend fun invoke(url: String): Either<RemoteRefs, GitError> =
+        if (backend.useGitCli()) {
+            gitCliListRemoteRefsGitAction(url)
+        } else {
+            jGitListRemoteRefsGitAction(url)
+        }
 }
 
 /** Clones or updates a submodule with the git CLI or with JGit, as [RemoteOperationsBackend] decides. */

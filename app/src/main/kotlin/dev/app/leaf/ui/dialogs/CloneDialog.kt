@@ -15,6 +15,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -29,6 +32,7 @@ import dev.app.leaf.app.generated.resources.clone_only_this_branch
 import dev.app.leaf.app.generated.resources.clone_only_this_branch_note
 import dev.app.leaf.app.generated.resources.generic_save_as_default
 import dev.app.leaf.app.generated.resources.search
+import dev.app.leaf.domain.clone.choicesFor
 import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
@@ -41,6 +45,7 @@ import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableColumn
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import dev.app.leaf.ui.getErrorText
+import dev.app.leaf.viewmodels.BranchChoicesState
 import dev.app.leaf.viewmodels.CloneUiError
 import dev.app.leaf.viewmodels.CloneViewModel
 import org.jetbrains.compose.resources.painterResource
@@ -61,6 +66,12 @@ fun CloneDialog(
     var branch by remember(cloneViewModel) { mutableStateOf(cloneViewModel.branch.value) }
     var onlyThisBranch by remember { mutableStateOf(false) }
     var cloneSubmodules by remember { mutableStateOf(true) }
+    val isBranchListOpen = cloneViewModel.branchChoices.collectAsState().value !is BranchChoicesState.Closed
+
+    // Closing the dialog closes the list, which stops git if it still waits for the remote
+    DisposableEffect(cloneViewModel) {
+        onDispose { cloneViewModel.closeBranchChoices() }
+    }
 
     // Starts from the default clone directory, unless a directory is already there
     LaunchedEffect(cloneViewModel) {
@@ -73,7 +84,8 @@ fun CloneDialog(
     }
 
     MaterialDialog(
-        onCloseRequested = onClose,
+        // Esc closes the list under the Branch field first
+        onCloseRequested = { if (isBranchListOpen) cloneViewModel.closeBranchChoices() else onClose() },
         background = MaterialTheme.colors.surface,
     ) {
         Box(
@@ -138,18 +150,46 @@ private fun CloneDialogView(
 ) {
     val error by cloneViewModel.error.collectAsState()
     val saveDirAsDefault by cloneViewModel.saveDirAsDefault.collectAsState()
+    val branchChoices by cloneViewModel.branchChoices.collectAsState()
+    val density = LocalDensity.current
+
+    var dialogCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var branchRowCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var branchRowWidth by remember { mutableStateOf(0) }
+
+    // What "Choose…" lists for what the field holds: the remote was asked once, typing only filters what it sent
+    val choices = remember(branchChoices, branch.text) {
+        (branchChoices as? BranchChoicesState.Loaded)?.refs?.choicesFor(branch.text)
+    }
+    val choiceRows = remember(choices) { choices?.let { it.branches + it.tags }.orEmpty() }
+    var highlighted by remember(branchChoices, branch.text) { mutableStateOf(-1) }
 
     val urlFocusRequester = remember { FocusRequester() }
     val directoryFocusRequester = remember { FocusRequester() }
     val folderFocusRequester = remember { FocusRequester() }
     val branchFocusRequester = remember { FocusRequester() }
+    val chooseButtonFocusRequester = remember { FocusRequester() }
     val directoryButtonFocusRequester = remember { FocusRequester() }
     val cloneButtonFocusRequester = remember { FocusRequester() }
     val cancelButtonFocusRequester = remember { FocusRequester() }
 
+    fun pickBranch(name: String) {
+        onBranchChange(TextFieldValue(name, selection = TextRange(name.length)))
+        cloneViewModel.pickBranch(name)
+        cloneViewModel.resetStateIfError()
+        branchFocusRequester.requestFocus()
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth()
             .padding(horizontal = 8.dp)
+            .onGloballyPositioned { dialogCoordinates = it }
+            .closingBranchChoicesOnPressOutside(
+                isOpen = { cloneViewModel.branchChoices.value !is BranchChoicesState.Closed },
+                dialog = { dialogCoordinates },
+                branchRow = { branchRowCoordinates },
+                onClose = cloneViewModel::closeBranchChoices,
+            )
     ) {
         Text(
             "Clone a new repository",
@@ -246,20 +286,56 @@ private fun CloneDialogView(
         )
 
         TextInput(
-            modifier = Modifier.padding(top = 16.dp),
+            modifier = Modifier.padding(top = 16.dp).branchChoicesKeys(
+                highlighted = highlighted,
+                rowCount = choiceRows.size,
+                onHighlight = { highlighted = it },
+                onPick = { pickBranch(choiceRows[it].name) },
+            ),
             title = stringResource(Res.string.clone_branch_title),
             hint = stringResource(Res.string.clone_branch_hint),
             value = branch,
             focusRequester = branchFocusRequester,
             focusProperties = {
                 previous = folderFocusRequester
-                next = cloneButtonFocusRequester
+                next = chooseButtonFocusRequester
             },
             onValueChange = { branchName ->
                 onBranchChange(branchName)
                 cloneViewModel.onBranchChanged(branchName)
                 cloneViewModel.resetStateIfError()
-            }
+            },
+            fieldRowModifier = Modifier.onGloballyPositioned {
+                branchRowCoordinates = it
+                branchRowWidth = it.size.width
+            },
+            end = {
+                ChooseBranchButton(
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .focusRequester(chooseButtonFocusRequester)
+                        .focusProperties {
+                            previous = branchFocusRequester
+                            next = cloneButtonFocusRequester
+                        },
+                    onClick = {
+                        // The one place that asks the remote: typing and opening the dialog never do
+                        cloneViewModel.chooseBranch(url.text)
+
+                        if (url.text.isBlank()) urlFocusRequester.requestFocus() else branchFocusRequester.requestFocus()
+                    },
+                )
+
+                BranchChoicesPopup(
+                    state = branchChoices,
+                    choices = choices,
+                    highlighted = highlighted,
+                    width = with(density) { branchRowWidth.toDp() },
+                    onPick = ::pickBranch,
+                    onTryAgain = { cloneViewModel.chooseBranch(url.text) },
+                    onCancel = cloneViewModel::closeBranchChoices,
+                )
+            },
         )
 
         // Needs a branch to be only that one
@@ -382,7 +458,7 @@ private fun CloneDialogView(
                 modifier = Modifier
                     .focusRequester(cloneButtonFocusRequester)
                     .focusProperties {
-                        previous = branchFocusRequester
+                        previous = chooseButtonFocusRequester
                         next = cancelButtonFocusRequester
                     },
                 text = "Clone"
@@ -495,6 +571,9 @@ private fun TextInput(
     onValueChange: (TextFieldValue) -> Unit,
     textFieldShape: Shape = RoundedCornerShape(4.dp),
     trailingIcon: @Composable (() -> Unit)? = null,
+    // Fork-only: something beside the field (the Branch field's "Choose…"), in a row of its own with [fieldRowModifier]
+    fieldRowModifier: Modifier = Modifier,
+    end: @Composable (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier,
@@ -506,18 +585,29 @@ private fun TextInput(
                 .padding(bottom = 8.dp),
         )
 
-        AdjustableOutlinedTextField(
-            value = value,
-            hint = hint,
-            modifier = Modifier
-                .focusRequester(focusRequester)
-                .focusProperties(focusProperties),
-            enabled = enabled,
-            onValueChange = onValueChange,
-            colors = outlinedTextFieldColors(),
-            singleLine = true,
-            shape = textFieldShape,
-            trailingIcon = trailingIcon,
-        )
+        val field: @Composable (Modifier) -> Unit = { fieldModifier ->
+            AdjustableOutlinedTextField(
+                value = value,
+                hint = hint,
+                modifier = fieldModifier
+                    .focusRequester(focusRequester)
+                    .focusProperties(focusProperties),
+                enabled = enabled,
+                onValueChange = onValueChange,
+                colors = outlinedTextFieldColors(),
+                singleLine = true,
+                shape = textFieldShape,
+                trailingIcon = trailingIcon,
+            )
+        }
+
+        if (end == null) {
+            field(Modifier)
+        } else {
+            Row(modifier = fieldRowModifier, verticalAlignment = Alignment.CenterVertically) {
+                field(Modifier.weight(1f))
+                end()
+            }
+        }
     }
 }
