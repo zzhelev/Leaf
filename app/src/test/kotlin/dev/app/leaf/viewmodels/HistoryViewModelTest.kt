@@ -8,21 +8,34 @@ import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.GenericError
+import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.errors.RestoreFileError
 import dev.app.leaf.domain.interfaces.IFormatDiffGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
 import dev.app.leaf.domain.interfaces.IGetFileCommitsAction
+import dev.app.leaf.domain.interfaces.IGetFileRestorePlanGitAction
+import dev.app.leaf.domain.interfaces.IGetWorktreePathGitAction
 import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.ViewDiffResult
 import dev.app.leaf.domain.repositories.AppSettingsRepository
+import dev.app.leaf.domain.repositories.CompletedTask
+import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
+import dev.app.leaf.domain.restore.CurrentFile
+import dev.app.leaf.domain.restore.FileRestorePlan
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetDiffUseCase
 import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
+import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
+import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -39,6 +52,8 @@ import org.eclipse.jgit.lib.AbbreviatedObjectId
 import org.eclipse.jgit.lib.ObjectId
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import javax.inject.Provider
 import kotlin.time.Duration.Companion.seconds
@@ -61,12 +76,27 @@ class HistoryViewModelTest {
         every { repositoryPath } returns "/repo/.git"
     }
 
+    private val stateRepository = InMemoryRepositoryStateRepository()
+
     private val useCaseExecutor = UseCaseExecutor(
         repositoryDataRepository,
-        InMemoryRepositoryStateRepository(),
+        stateRepository,
         Provider { error("Nothing is refreshed") },
         tabScope,
     )
+
+    /** What the repository's working tree is: a path, or an error for a bare repository. */
+    private var workTree: Either<String, GitError> = Either.Ok("/repo")
+
+    private var restorePlan: Either<FileRestorePlan, GitError> = Either.Ok(FileRestorePlan("src/App.kt", "", CurrentFile.UNCHANGED, false))
+
+    private val getWorktreePath = mockk<IGetWorktreePathGitAction> {
+        coEvery { this@mockk(any()) } coAnswers { workTree }
+    }
+
+    private val getFileRestorePlan = mockk<IGetFileRestorePlanGitAction> {
+        coEvery { this@mockk(any(), any(), any()) } coAnswers { restorePlan }
+    }
 
     /** The file's commits, newest first, as git log lists them. */
     private val commits = listOf("a", "b", "c").map { commit(it) }
@@ -108,6 +138,10 @@ class HistoryViewModelTest {
         settings,
         GetFileCommitsUseCase(getFileCommits, useCaseExecutor),
         GetDiffUseCase(formatDiff, mockk(), repositoryDataRepository),
+        GetWorktreeUseCase(getWorktreePath, useCaseExecutor),
+        GetFileRestorePlanUseCase(getFileRestorePlan, useCaseExecutor),
+        RestoreFileVersionUseCase(useCaseExecutor, mockk()),
+        stateRepository,
     )
 
     @AfterEach
@@ -226,6 +260,57 @@ class HistoryViewModelTest {
 
         assertEquals(0, viewModel.lazyListState.value.firstVisibleItemIndex)
 
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `the file can be restored where the repository has a working tree`(): Unit = runBlocking {
+        val viewModel = historyViewModel()
+        assertFalse(viewModel.canRestore.value, "until it knows")
+
+        viewModel.fileHistory(FILE)
+
+        withTimeout(5.seconds) { viewModel.canRestore.first { it } }
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `a bare repository can't restore the file`(): Unit = runBlocking {
+        workTree = Either.Err(RestoreFileError.NoWorkTree)
+        val viewModel = historyViewModel()
+
+        viewModel.fileHistory(FILE)
+        viewModel.awaitDiffOf(commits[0])
+        delay(200)
+
+        assertFalse(viewModel.canRestore.value)
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `the plan of a restore is what the confirmation shows`(): Unit = runBlocking {
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+
+        val plan = FileRestorePlan(FILE, commits[1].hash, CurrentFile.UNSTAGED_CHANGES, hasStagedChanges = true)
+        restorePlan = Either.Ok(plan)
+
+        assertEquals(plan, viewModel.planRestore(commits[1]))
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `a plan that can't be made opens the error dialog, and there is nothing to confirm`(): Unit = runBlocking {
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+        restorePlan = Either.Err(GenericError("git isn't there"))
+
+        assertNull(viewModel.planRestore(commits[1]))
+
+        val failed = stateRepository.completedTasks.value.single() as CompletedTask.Failure
+        assertEquals(TaskType.RestoreFileVersion, failed.taskType)
+        assertEquals(GenericError("git isn't there"), failed.reason)
+        assertEquals(FailureSeverity.HIGH, failed.severity)
         viewModel.onClear()
     }
 

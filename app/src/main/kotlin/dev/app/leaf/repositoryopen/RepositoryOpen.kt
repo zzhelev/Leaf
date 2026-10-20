@@ -346,14 +346,33 @@ fun RepoContent(
 
         if (historyViewModel != null) {
             val tabFocusRequester = LocalTabFocusRequester.current
+            val scope = rememberCoroutineScope()
+            val closeHistory: () -> Unit = {
+                repositoryOpenViewModel.closeHistory()
+                // Fork-only: file history had the focus, so the tab takes it back, as when the diff closes
+                tabFocusRequester.requestFocus()
+            }
 
             FileHistory(
                 historyViewModel = historyViewModel,
-                onClose = {
-                    repositoryOpenViewModel.closeHistory()
-                    // Fork-only: file history had the focus, so the tab takes it back, as when the diff closes
-                    tabFocusRequester.requestFocus()
-                }
+                onClose = closeHistory,
+                // Fork-only: looks at the file first, then asks before it overwrites it
+                onRestoreVersion = { commit ->
+                    scope.launch {
+                        historyViewModel.planRestore(commit)?.let { plan ->
+                            onNavigate(
+                                Screen.ConfirmAction(
+                                    action = ConfirmableAction.RestoreFileVersion(historyViewModel.filePath, commit, plan),
+                                    onConfirm = { historyViewModel.restore(commit) },
+                                )
+                            )
+                        }
+                    }
+                },
+                onShowChanges = {
+                    closeHistory()
+                    repositoryOpenViewModel.selectUncommittedChanges()
+                },
             )
         }
     } else {

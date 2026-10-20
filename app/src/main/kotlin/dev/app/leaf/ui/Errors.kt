@@ -42,6 +42,13 @@ import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_branch_checked_out_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_file_linked_worktree
+import dev.app.leaf.app.generated.resources.error_restore_file_no_work_tree
+import dev.app.leaf.app.generated.resources.error_restore_file_not_in_commit
+import dev.app.leaf.app.generated.resources.error_restore_file_conflicted
+import dev.app.leaf.app.generated.resources.error_restore_file_folder_in_place
+import dev.app.leaf.app.generated.resources.error_restore_file_parent_not_folder
+import dev.app.leaf.app.generated.resources.error_restore_file_git_failed
+import dev.app.leaf.app.generated.resources.error_restore_file_git_failed_kept
 import dev.app.leaf.app.generated.resources.error_delete_branch_not_merged
 import dev.app.leaf.app.generated.resources.error_delete_branch_rebased_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_tag_has_own_commits
@@ -148,6 +155,11 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is CheckoutBranchError.BranchUsedByWorktree -> listOf(worktreePath)
     is DeleteBranchError.BranchUsedByWorktree -> listOf(worktreePath)
     is DeleteFileError.LinkedWorktree -> listOf(path)
+    is RestoreFileError.NotInCommit -> listOf(path, commit.take(7))
+    is RestoreFileError.Conflicted -> listOf(path)
+    is RestoreFileError.FolderInPlace -> listOf(path)
+    is RestoreFileError.ParentNotFolder -> listOf(path, parent)
+    is RestoreFileError.GitFailed -> listOfNotNull(path, keptAt)
     is RenameBranchError.BranchRebasedInWorktree -> listOf(worktreePath)
     is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
@@ -197,6 +209,23 @@ fun AppError.getErrorText(): String {
 
         is DeleteFileError -> when (this) {
             is DeleteFileError.LinkedWorktree -> stringResource(Res.string.error_delete_file_linked_worktree, path)
+        }
+
+        is RestoreFileError -> when (this) {
+            RestoreFileError.NoWorkTree -> stringResource(Res.string.error_restore_file_no_work_tree)
+            is RestoreFileError.NotInCommit ->
+                stringResource(Res.string.error_restore_file_not_in_commit, path, commit.take(7))
+
+            is RestoreFileError.Conflicted -> stringResource(Res.string.error_restore_file_conflicted, path)
+            is RestoreFileError.FolderInPlace -> stringResource(Res.string.error_restore_file_folder_in_place, path)
+            is RestoreFileError.ParentNotFolder ->
+                stringResource(Res.string.error_restore_file_parent_not_folder, path, parent)
+
+            is RestoreFileError.GitFailed -> if (keptAt == null) {
+                stringResource(Res.string.error_restore_file_git_failed, path, output)
+            } else {
+                stringResource(Res.string.error_restore_file_git_failed_kept, path, output, keptAt!!)
+            }
         }
 
         is DeleteBranchError -> when (this) {

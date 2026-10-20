@@ -122,6 +122,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.DeinitSubmodule -> "Deinitializing submodule"
         TaskType.DeleteBranch -> "Deleting branch"
         TaskType.DeleteFile -> "Deleting file"
+        TaskType.RestoreFileVersion -> "Restoring file"
         TaskType.DeleteRemote -> "Deleting remote"
         TaskType.DeleteRemoteBranch -> "Deleting remote branch"
         TaskType.DeleteStash -> "Deleting stash"

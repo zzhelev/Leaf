@@ -10,10 +10,16 @@ import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.renamedFrom
 import dev.app.leaf.domain.interfaces.IGenerateSplitHunkFromDiffResultGitAction
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.repositories.FailureSeverity
+import dev.app.leaf.domain.repositories.RepositoryStateRepository
+import dev.app.leaf.domain.restore.FileRestorePlan
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetDiffUseCase
 import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
+import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
+import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.ensureActive
@@ -30,6 +36,11 @@ class HistoryViewModel @Inject constructor(
     private val settings: AppSettingsService,
     private val getFileCommitsUseCase: GetFileCommitsUseCase,
     private val getDiffUseCase: GetDiffUseCase,
+    // Fork-only: "Restore this version of the file"
+    private val getWorktreeUseCase: GetWorktreeUseCase,
+    private val getFileRestorePlanUseCase: GetFileRestorePlanUseCase,
+    private val restoreFileVersionUseCase: RestoreFileVersionUseCase,
+    private val repositoryStateRepository: RepositoryStateRepository,
 ) : TabViewModel() {
     private val _historyState = MutableStateFlow<HistoryState>(HistoryState.Loading(""))
     val historyState: StateFlow<HistoryState> = _historyState
@@ -42,6 +53,15 @@ class HistoryViewModel @Inject constructor(
     val selectedCommit: StateFlow<Commit?> = _selectedCommit
 
     private var selectCommitJob: Job? = null
+
+    // Fork-only: whether the repository has a working tree to restore the file into. A bare one hasn't, and the rows'
+    // menu then has no item for it.
+    private val _canRestore = MutableStateFlow(false)
+    val canRestore: StateFlow<Boolean> = _canRestore
+
+    // Fork-only: the version that was last restored, which the view says until the user dismisses it
+    private val _restored = MutableStateFlow<RestoredVersion?>(null)
+    val restored: StateFlow<RestoredVersion?> = _restored
 
     var filePath: String = ""
 
@@ -87,6 +107,7 @@ class HistoryViewModel @Inject constructor(
     fun fileHistory(filePath: String) = viewModelScope.launch {
         this@HistoryViewModel.filePath = filePath
         _historyState.value = HistoryState.Loading(filePath)
+        launch { _canRestore.value = getWorktreeUseCase() is Either.Ok }
 
         val log = getFileCommitsUseCase(filePath)
 
@@ -98,6 +119,44 @@ class HistoryViewModel @Inject constructor(
 
         // Fork-only: opens on the newest commit, rather than on an empty diff
         (log as? Either.Ok)?.value?.firstOrNull()?.let { selectCommit(it) }
+    }
+
+    /**
+     * Fork-only: looks at what restoring the file from [commit] would replace, for the dialog that asks first. A
+     * failure opens the error dialog, as the restore's own would, and gives null.
+     */
+    suspend fun planRestore(commit: Commit): FileRestorePlan? {
+        return when (val result = getFileRestorePlanUseCase(commit, filePath)) {
+            is Either.Ok -> result.value
+
+            is Either.Err -> {
+                repositoryStateRepository.addCompletedTaskFailed(
+                    TaskType.RestoreFileVersion,
+                    result.error,
+                    FailureSeverity.HIGH,
+                )
+                null
+            }
+        }
+    }
+
+    /**
+     * Fork-only: writes the file as [commit] had it into the working tree. The task shows its own failure; once it
+     * worked, [restored] says so, as the status pane that shows the file's change isn't on screen here.
+     */
+    fun restore(commit: Commit) {
+        val path = filePath
+        _restored.value = null
+
+        viewModelScope.launch {
+            if (restoreFileVersionUseCase(commit, path).await() is Either.Ok) {
+                _restored.value = RestoredVersion(path, commit)
+            }
+        }
+    }
+
+    fun dismissRestored() {
+        _restored.value = null
     }
 
     /** Fork-only: selects the commit [offset] rows below the selected one, newer when negative (↑ and ↓). */
@@ -156,6 +215,9 @@ class HistoryViewModel @Inject constructor(
         }
     }
 }
+
+/** Fork-only: [filePath] was written into the working tree as [commit] had it. */
+data class RestoredVersion(val filePath: String, val commit: Commit)
 
 sealed class HistoryState(val filePath: String) {
     class Loading(filePath: String) : HistoryState(filePath)

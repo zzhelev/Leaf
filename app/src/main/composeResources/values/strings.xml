@@ -300,6 +300,14 @@
     <string name="file_history_position_tooltip">Show in the list</string>
     <string name="file_history_newer_commit">Newer commit</string>
     <string name="file_history_older_commit">Older commit</string>
+    <string name="file_history_context_menu_restore_version">Restore this version of the file</string>
+    <string name="file_history_context_menu_copy_commit_hash">Copy commit hash</string>
+    <string name="file_history_context_menu_copy_commit_message">Copy commit message</string>
+    <string name="file_history_copy_hash_tooltip">Copy the commit hash</string>
+    <string name="file_history_hash_copied">Copied</string>
+    <string name="file_history_restored">Restored to its version in %1$s. The file is now changed in your working tree.</string>
+    <string name="file_history_restored_show_changes">Show changes</string>
+    <string name="file_history_restored_dismiss">Dismiss</string>
 
     <!-- Log context menu -->
     <string name="log_context_menu_show_status_to_amend">Show status to amend this commit</string>
@@ -711,6 +719,15 @@
         <item quantity="other">Discard the changes to %1$d files?</item>
     </plurals>
     <string name="discard_files_dialog_warning_staged">Both their staged and unstaged changes are discarded. They can't be restored.</string>
+    <string name="restore_file_dialog_title">Restore this version of the file?</string>
+    <string name="restore_file_dialog_subtitle">"%1$s" as it was in %2$s "%3$s".</string>
+    <string name="restore_file_dialog_restore">Restore</string>
+    <string name="restore_file_dialog_note">Only the file in your working tree changes. Nothing is staged or committed.</string>
+    <string name="restore_file_dialog_staged_note">Its staged changes stay staged.</string>
+    <string name="restore_file_dialog_missing_note">The file isn't in your working tree now. Restoring creates it.</string>
+    <string name="restore_file_dialog_warning_unstaged">Your unstaged changes to this file will be lost. They can't be restored.</string>
+    <string name="restore_file_dialog_warning_untracked">This file isn't tracked by git. Its current content will be replaced, and can't be restored.</string>
+    <string name="restore_file_dialog_warning_ignored">This file is ignored by git. Its current content will be replaced, and can't be restored.</string>
     <string name="discard_all_dialog_title">Discard all changes</string>
     <string name="discard_all_dialog_nothing_to_restore">No file has changes to restore.</string>
     <plurals name="discard_all_dialog_subtitle_matching">
@@ -875,6 +892,13 @@
     <string name="error_checkout_branch_checked_out_in_worktree">"%1$s" can't be checked out here, as it's checked out in the worktree at\n\n%2$s\n\nA branch can be checked out in only one worktree at a time. Nothing was changed.</string>
     <string name="error_checkout_branch_rebased_in_worktree">"%1$s" can't be checked out here, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
     <string name="error_checkout_branch_bisected_in_worktree">"%1$s" can't be checked out here, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_restore_file_no_work_tree">This repository has no working tree, so there is nowhere to restore the file to. Nothing was changed.</string>
+    <string name="error_restore_file_not_in_commit">%2$s has no version of "%1$s" to restore: it deleted the file, or moved it somewhere else. Nothing was changed.</string>
+    <string name="error_restore_file_conflicted">"%1$s" has conflicts. Resolve them first, as restoring would write over the file with the conflict markers in it. Nothing was changed.</string>
+    <string name="error_restore_file_folder_in_place">A folder named "%1$s" is where the file goes. Restoring would delete it, with everything in it that git doesn't track. Move or delete the folder first. Nothing was changed.</string>
+    <string name="error_restore_file_parent_not_folder">"%2$s" is a file or a link, and the folder of "%1$s" goes there. Restoring would replace it with a folder and lose its content. Move it first. Nothing was changed.</string>
+    <string name="error_restore_file_git_failed">git couldn't restore "%1$s":\n\n%2$s\n\nYour file was put back as it was.</string>
+    <string name="error_restore_file_git_failed_kept">git couldn't restore "%1$s":\n\n%2$s\n\nPutting your file back failed too. It's at\n\n%3$s</string>
     <string name="error_delete_file_linked_worktree">"%1$s" is a linked worktree of this repository, so deleting its folder would leave git's records of it behind.\n\nRemove it from the Worktrees section instead, which also asks about its changes and branch. Nothing was changed.</string>
     <string name="error_delete_branch_checked_out_in_worktree">"%1$s" can't be deleted, as it's checked out in the worktree at\n\n%2$s\n\nCheck out another branch there first. Nothing was changed.</string>
     <string name="error_delete_branch_rebased_in_worktree">"%1$s" can't be deleted, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>

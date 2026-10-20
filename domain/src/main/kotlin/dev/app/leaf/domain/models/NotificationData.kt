@@ -36,6 +36,7 @@ fun TaskType.successTitle(): String? {
         TaskType.DiscardFile -> "File discarded"
         TaskType.DiscardAllFiles -> "Changes discarded"
         TaskType.DeleteFile -> "File deleted"
+        TaskType.RestoreFileVersion -> "File restored"
         TaskType.AddIgnoreRules -> "Ignore rules added"
         TaskType.RevertCommit -> "Commit reverted"
         TaskType.CherryPickCommit -> "Commit cherry-picked"

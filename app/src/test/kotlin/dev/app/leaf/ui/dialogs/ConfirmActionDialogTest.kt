@@ -9,6 +9,8 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
+import dev.app.leaf.domain.errors.RestoreFileError
+import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.ConflictCommit
 import dev.app.leaf.domain.models.ConflictOperation
 import dev.app.leaf.domain.models.ConflictSide
@@ -17,11 +19,14 @@ import dev.app.leaf.domain.models.ConflictVersion.FILE as FILE_VERSION
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.FileConflict
 import dev.app.leaf.domain.models.Hunk
+import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
 import dev.app.leaf.domain.models.NestedRepository
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.restore.CurrentFile
+import dev.app.leaf.domain.restore.FileRestorePlan
 import dev.app.leaf.domain.sorting.DiscardAllPlan
 import dev.app.leaf.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
@@ -487,6 +492,111 @@ class ConfirmActionDialogTest {
             assertFalse(dialog.texts().any { it.startsWith("Don't ask again") }, dialog.texts().toString())
         }
     }
+
+    @Test
+    fun `restoring a file says which version, and that only the working file changes`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(restore(CurrentFile.UNCHANGED)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("Restore this version of the file?" in texts, texts.toString())
+            assertTrue(
+                "\"src/parser/Lexer.kt\" as it was in e4f5a6b \"Rename Lexer to Tokenizer\"." in texts,
+                texts.toString(),
+            )
+            assertTrue("Only the file in your working tree changes. Nothing is staged or committed." in texts, texts.toString())
+            assertFalse(texts.any { it.contains("will be lost") }, "A file without changes loses nothing: $texts")
+
+            dialog.click("Restore")
+
+            assertEquals(listOf("confirm"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `restoring a file with unstaged changes warns that they are lost, and that staged ones stay`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            DialogScene(restore(CurrentFile.UNSTAGED_CHANGES, hasStagedChanges = true)).use { dialog ->
+                val texts = dialog.texts()
+
+                assertTrue(
+                    "Your unstaged changes to this file will be lost. They can't be restored." in texts,
+                    texts.toString(),
+                )
+                assertTrue("Its staged changes stay staged." in texts, texts.toString())
+            }
+        }
+
+    @Test
+    fun `restoring over a new file or an ignored one warns that its content is replaced`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            DialogScene(restore(CurrentFile.UNTRACKED)).use { dialog ->
+                assertTrue(dialog.texts().any { it.startsWith("This file isn't tracked by git.") }, dialog.texts().toString())
+            }
+
+            DialogScene(restore(CurrentFile.IGNORED)).use { dialog ->
+                assertTrue(dialog.texts().any { it.startsWith("This file is ignored by git.") }, dialog.texts().toString())
+            }
+        }
+
+    @Test
+    fun `restoring a file that isn't there says that it is created`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(restore(CurrentFile.MISSING)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("The file isn't in your working tree now. Restoring creates it." in texts, texts.toString())
+            assertFalse(texts.any { it.contains("will be lost") }, texts.toString())
+        }
+    }
+
+    @Test
+    fun `a commit that has no version of the file says why, and its button does nothing`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val refusal = RestoreFileError.NotInCommit("src/parser/Lexer.kt", "e4f5a6b".padEnd(40, '0'))
+
+            DialogScene(restore(CurrentFile.UNCHANGED, refusal = refusal)).use { dialog ->
+                val texts = dialog.texts()
+
+                assertTrue(
+                    texts.any { it.startsWith("e4f5a6b has no version of \"src/parser/Lexer.kt\" to restore") },
+                    texts.toString(),
+                )
+                assertFalse(texts.any { it.startsWith("Only the file in your working tree changes") }, texts.toString())
+                assertFalse(dialog.isClickable("Restore"), "the button is disabled")
+            }
+        }
+
+    @Test
+    fun `a subject that is too long is cut in the subtitle`(): Unit = runBlocking(Dispatchers.Swing) {
+        val long = "A subject that goes on and on about what the change does and why, far past the width"
+        val action = ConfirmableAction.RestoreFileVersion(
+            FILE,
+            restoreCommit.copy(message = long),
+            FileRestorePlan(FILE, restoreCommit.hash, CurrentFile.UNCHANGED, hasStagedChanges = false),
+        )
+
+        DialogScene(action).use { dialog ->
+            assertTrue(dialog.texts().any { it.contains("A subject that goes on and on") && it.contains("…\".") }, dialog.texts().toString())
+        }
+    }
+
+    private val restoreCommit = Commit(
+        hash = "e4f5a6b".padEnd(40, '0'),
+        message = "Rename Lexer to Tokenizer\n\nIt reads tokens now.",
+        committer = Identity("Zhelyazko Zhelev", "zzhelev@gmail.com"),
+        author = Identity("Zhelyazko Zhelev", "zzhelev@gmail.com"),
+        date = 1_760_000_000,
+        parentsHashes = emptyList(),
+    )
+
+    private fun restore(
+        current: CurrentFile,
+        hasStagedChanges: Boolean = false,
+        refusal: RestoreFileError? = null,
+    ) = ConfirmableAction.RestoreFileVersion(
+        "src/parser/Lexer.kt",
+        restoreCommit,
+        FileRestorePlan("src/parser/Lexer.kt", restoreCommit.hash, current, hasStagedChanges, refusal),
+    )
 
     private class DialogScene(action: ConfirmableAction, canStopAsking: Boolean = false) : AutoCloseable {
         val calls = mutableListOf<String>()

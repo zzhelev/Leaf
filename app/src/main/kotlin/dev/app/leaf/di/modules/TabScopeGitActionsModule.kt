@@ -185,6 +185,14 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
+    fun bindsGetFileRestorePlanGitAction(action: GetFileRestorePlanGitAction): IGetFileRestorePlanGitAction
+
+    @Binds
+    @TabScope
+    fun bindsRestoreFileVersionGitAction(action: RestoreFileVersionGitAction): IRestoreFileVersionGitAction
+
+    @Binds
+    @TabScope
     fun bindsDiscardUnstagedHunkLineGitAction(action: DiscardUnstagedHunkLineGitAction): IDiscardUnstagedHunkLineGitAction
 
     @Binds

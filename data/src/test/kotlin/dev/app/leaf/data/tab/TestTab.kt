@@ -51,6 +51,15 @@ import dev.app.leaf.data.git.workspace.AddIgnoreRulesGitAction
 import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
 import dev.app.leaf.data.git.workspace.DiscardAllGitAction
+import dev.app.leaf.data.git.cli.askpass.AskpassHelper
+import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
+import dev.app.leaf.data.git.testAppSettings
+import dev.app.leaf.data.git.workspace.FileRestorePlanner
+import dev.app.leaf.data.git.workspace.RestoreFileVersionGitAction
+import dev.app.leaf.data.repositories.CredentialsCacheRepository
+import dev.app.leaf.domain.credentials.CredentialsStateManager
+import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
 import dev.app.leaf.data.git.workspace.DiscardEntriesGitAction
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
@@ -387,6 +396,22 @@ class TestTab(
     val discardAll = DiscardAllUseCase(
         useCaseExecutor,
         DiscardAllGitAction(GetStatusGitAction(jgit), DiscardEntriesGitAction(jgit), jgit),
+    )
+
+    /** "Restore this version of the file" in file history, with git running through the built askpass helper. */
+    val restoreFileVersion = RestoreFileVersionUseCase(
+        useCaseExecutor,
+        RestoreFileVersionGitAction(
+            FileRestorePlanner(jgit, gitCli),
+            GitCliRemoteCommand(
+                gitCli = gitCli,
+                askpassHelper = AskpassHelper { builtAskpassHelper() },
+                credentialsStateManager = CredentialsStateManager(),
+                credentialsRepository = CredentialsCacheRepository(),
+                appSettingsService = testAppSettings(),
+                repositoryStateRepository = repositoryState,
+            ),
+        ),
     )
 
     val stageAll = StatusStageAllUseCase(StageAllGitAction(GetStatusGitAction(jgit), jgit), useCaseExecutor)

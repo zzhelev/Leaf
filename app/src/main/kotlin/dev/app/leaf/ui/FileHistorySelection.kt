@@ -17,15 +17,23 @@ import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.expand_more
+import dev.app.leaf.app.generated.resources.file_history_copy_hash_tooltip
+import dev.app.leaf.app.generated.resources.file_history_hash_copied
 import dev.app.leaf.app.generated.resources.file_history_newer_commit
 import dev.app.leaf.app.generated.resources.file_history_older_commit
 import dev.app.leaf.app.generated.resources.file_history_position
@@ -33,15 +41,22 @@ import dev.app.leaf.app.generated.resources.file_history_position_tooltip
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
+import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.AvatarImage
+import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 private const val DISABLED_BUTTON_ALPHA = 0.3F
+
+/** How long "Copied" shows after the hash was copied. */
+private const val COPIED_SHOWN_MS = 2_000L
 
 /**
  * A strip above the diff in file history (fork-only): the commit whose diff is shown, where it is in the list, and
@@ -76,24 +91,31 @@ fun FileHistoryCommitStrip(
                 .weight(1f)
                 .padding(horizontal = 12.dp),
         ) {
-            Text(
-                text = commit.shortMessage,
-                style = MaterialTheme.typography.body1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // The whole message is the subject's tooltip: the line has room for the subject only (Gitnuro#146)
+            DelayedTooltip(text = remember(commit.message) { commit.message.forTooltip().ifBlank { null } }) {
+                Text(
+                    text = commit.shortMessage,
+                    style = MaterialTheme.typography.body1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
-            Text(
-                text = listOf(
-                    commit.shortHash,
-                    commit.author.name.orEmpty(),
-                    commit.date.toSmartSystemString(showTime = true),
-                ).filter { it.isNotEmpty() }.joinToString(" · "),
-                style = MaterialTheme.typography.body2,
-                color = MaterialTheme.colors.onBackgroundSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CopyableHash(hash = commit.hash, shortHash = commit.shortHash)
+
+                Text(
+                    text = listOf(
+                        commit.author.name.orEmpty(),
+                        commit.date.toSmartSystemString(showTime = true),
+                    ).filter { it.isNotEmpty() }.joinToString(" · ", prefix = "· "),
+                    style = MaterialTheme.typography.body2,
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 6.dp),
+                )
+            }
         }
 
         InstantTooltip(text = stringResource(Res.string.file_history_position_tooltip)) {
@@ -119,6 +141,41 @@ fun FileHistoryCommitStrip(
             isNewer = false,
             enabled = position < count - 1,
             onClick = { onSelectAdjacentCommit(1) },
+        )
+    }
+}
+
+/** The commit's short hash, which copies the whole one when it's clicked, as the hash of `CommitChanges` does. */
+@Composable
+private fun CopyableHash(hash: String, shortHash: String) {
+    var copied by remember(hash) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
+
+    InstantTooltip(text = stringResource(Res.string.file_history_copy_hash_tooltip)) {
+        Text(
+            text = shortHash,
+            style = MaterialTheme.typography.body2,
+            color = MaterialTheme.colors.onBackgroundSecondary,
+            maxLines = 1,
+            modifier = Modifier.handMouseClickable {
+                scope.launch {
+                    clipboard.setClipboardText(hash)
+                    copied = true
+                    delay(COPIED_SHOWN_MS)
+                    copied = false
+                }
+            },
+        )
+    }
+
+    if (copied) {
+        Text(
+            text = stringResource(Res.string.file_history_hash_copied),
+            style = MaterialTheme.typography.caption,
+            color = MaterialTheme.colors.primaryVariant,
+            maxLines = 1,
+            modifier = Modifier.padding(start = 4.dp),
         )
     }
 }

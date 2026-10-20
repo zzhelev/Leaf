@@ -22,10 +22,12 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
+import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.close
@@ -39,6 +41,9 @@ import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.TooltipText
+import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import dev.app.leaf.ui.context_menu.ContextMenu
+import dev.app.leaf.ui.context_menu.fileHistoryContextMenu
 import dev.app.leaf.ui.diff.DiffLoadFailure
 import dev.app.leaf.ui.diff.HunkSplitTextDiff
 import dev.app.leaf.ui.diff.HunkUnifiedTextDiff
@@ -54,8 +59,14 @@ import org.jetbrains.compose.resources.painterResource
 fun FileHistory(
     historyViewModel: HistoryViewModel,
     onClose: () -> Unit,
+    // Fork-only: asks the user, then restores the file from the commit. Null leaves the menu without it.
+    onRestoreVersion: ((Commit) -> Unit)? = null,
+    // Fork-only: closes the history and shows the working tree's changes, where a restored file is
+    onShowChanges: () -> Unit = {},
 ) {
     val historyState by historyViewModel.historyState.collectAsState()
+    val canRestore by historyViewModel.canRestore.collectAsState()
+    val restored by historyViewModel.restored.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
 
@@ -85,11 +96,20 @@ fun FileHistory(
     ) {
         Header(filePath = historyState.filePath, onClose = onClose)
 
+        restored?.let {
+            RestoredVersionStrip(
+                restored = it,
+                onShowChanges = onShowChanges,
+                onDismiss = { historyViewModel.dismissRestored() },
+            )
+        }
+
         HistoryContent(
             historyViewModel,
             historyState,
             onCommitSelected = { historyViewModel.selectCommit(it) },
             onSelectAdjacentCommit = { historyViewModel.selectAdjacentCommit(it) },
+            onRestoreVersion = onRestoreVersion.takeIf { canRestore },
         )
     }
 }
@@ -136,6 +156,7 @@ private fun HistoryContent(
     historyState: HistoryState,
     onCommitSelected: (Commit) -> Unit,
     onSelectAdjacentCommit: (offset: Int) -> Unit,
+    onRestoreVersion: ((Commit) -> Unit)?,
 ) {
     val textScrollState by historyViewModel.lazyListState.collectAsState()
     val viewDiffResult by historyViewModel.viewDiffResult.collectAsState()
@@ -149,6 +170,7 @@ private fun HistoryContent(
             selectedCommit = selectedCommit,
             onCommitSelected = onCommitSelected,
             onSelectAdjacentCommit = onSelectAdjacentCommit,
+            onRestoreVersion = onRestoreVersion,
         )
 
         is HistoryState.Loading -> Box { }
@@ -175,11 +197,13 @@ fun HistoryContentLoaded(
     selectedCommit: Commit?,
     onCommitSelected: (Commit) -> Unit,
     onSelectAdjacentCommit: (offset: Int) -> Unit,
+    onRestoreVersion: ((Commit) -> Unit)? = null,
 ) {
     // Fork-only: the selected commit's row, kept in view when ↑ and ↓ select another
     val commitsListState = rememberLazyListState()
     val selectedPosition = positionOf(historyState.commits, selectedCommit)
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
 
     LaunchedEffect(selectedPosition) {
         commitsListState.keepInView(selectedPosition)
@@ -197,11 +221,22 @@ fun HistoryContentLoaded(
             state = commitsListState,
         ) {
             itemsIndexed(historyState.commits) { index, commit ->
-                HistoryCommit(
-                    commit = commit,
-                    isSelected = index == selectedPosition,
-                    onCommitSelected = { onCommitSelected(commit) }
-                )
+                // Fork-only: a menu on the rows (Gitnuro#146, #149)
+                ContextMenu(
+                    items = {
+                        fileHistoryContextMenu(
+                            onRestoreVersion = onRestoreVersion?.let { restore -> { restore(commit) } },
+                            onCopyCommitHash = { scope.launch { clipboard.setClipboardText(commit.hash) } },
+                            onCopyCommitMessage = { scope.launch { clipboard.setClipboardText(commit.message.trim()) } },
+                        )
+                    }
+                ) {
+                    HistoryCommit(
+                        commit = commit,
+                        isSelected = index == selectedPosition,
+                        onCommitSelected = { onCommitSelected(commit) }
+                    )
+                }
             }
         }
 
@@ -298,11 +333,14 @@ fun HistoryCommit(
         )
 
         Column {
-            Text(
-                text = commit.shortMessage,
-                maxLines = 1,
-                style = MaterialTheme.typography.body1,
-            )
+            // Fork-only: the whole message, as the row has only its subject
+            DelayedTooltip(text = remember(commit.message) { commit.message.forTooltip().ifBlank { null } }) {
+                Text(
+                    text = commit.shortMessage,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.body1,
+                )
+            }
 
             Row {
                 Text(

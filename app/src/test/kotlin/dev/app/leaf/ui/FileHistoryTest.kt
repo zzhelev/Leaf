@@ -4,6 +4,7 @@
 package dev.app.leaf.ui
 
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,6 +19,10 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.NativeClipboard
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
@@ -27,7 +32,9 @@ import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
+import dev.app.leaf.domain.errors.RestoreFileError
 import dev.app.leaf.domain.interfaces.IGetFileCommitsAction
+import dev.app.leaf.domain.interfaces.IGetWorktreePathGitAction
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.Identity
@@ -37,6 +44,9 @@ import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetDiffUseCase
 import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
+import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
+import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.viewmodels.HistoryState
 import dev.app.leaf.viewmodels.HistoryViewModel
@@ -56,6 +66,9 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.Transferable
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Provider
 import kotlin.time.Duration.Companion.seconds
 
@@ -71,6 +84,19 @@ class FileHistoryTest {
 
     private var selected by mutableStateOf<Commit?>(commits[0])
     private val steps = mutableListOf<Int>()
+
+    /** The commits that "Restore this version of the file" was chosen for. */
+    private val restoreRequests = mutableListOf<Commit>()
+
+    /** Whether the repository has a working tree, which the menu's restore item needs. */
+    private var hasWorkTree = true
+
+    private var offerRestore = true
+
+    /** How many times the view model asked for the working tree. */
+    private val workTreeAsked = AtomicInteger()
+
+    private val clipboard = RecordingClipboard()
 
     private var scene: ImageComposeScene? = null
     private var frameTime = 0L
@@ -105,7 +131,8 @@ class FileHistoryTest {
         render()
 
         assertEquals(listOf("Commit 03"), stripTexts().filter { it.startsWith("Commit") })
-        assertTrue(stripTexts().any { it.startsWith("0303030 · Zhelyazko Zhelev · ") }, stripTexts().toString())
+        assertTrue(stripTexts().contains("0303030"), stripTexts().toString())
+        assertTrue(stripTexts().any { it.startsWith("· Zhelyazko Zhelev · ") }, stripTexts().toString())
         assertTrue(stripTexts().contains("3 of 40"), stripTexts().toString())
     }
 
@@ -174,6 +201,92 @@ class FileHistoryTest {
         assertWholeRowInList("Commit 08")
     }
 
+    @Test
+    fun `a right-click on a row opens the menu of that row, whichever commit is selected`() {
+        render()
+
+        rightClick(listRow("Commit 05").center)
+
+        assertEquals(
+            listOf("Restore this version of the file", "Copy commit hash", "Copy commit message"),
+            menuItems(),
+        )
+        assertEquals(commits[0], selected, "the right-click doesn't select the row")
+
+        click(menuItem("Restore this version of the file").center)
+
+        assertEquals(listOf(commits[4]), restoreRequests)
+    }
+
+    @Test
+    fun `the menu copies the whole hash and the whole message of its row`() {
+        val body = commit(2).copy(message = "Fix the parser\n\nIt took the last line twice.\n")
+        val withBody = commits.map { if (it.hash == body.hash) body else it }
+        render(withBody)
+
+        rightClick(listRow("Fix the parser").center)
+        click(menuItem("Copy commit hash").center)
+        assertEventually { clipboard.text == body.hash }
+
+        rightClick(listRow("Fix the parser").center)
+        click(menuItem("Copy commit message").center)
+        assertEventually { clipboard.text == "Fix the parser\n\nIt took the last line twice." }
+    }
+
+    @Test
+    fun `a repository without a working tree has no restore item, only the copies`() {
+        offerRestore = false
+        render()
+
+        rightClick(listRow("Commit 02").center)
+
+        assertEquals(listOf("Copy commit hash", "Copy commit message"), menuItems())
+    }
+
+    @Test
+    fun `the file history offers the restore when the repository has a working tree`() {
+        val viewModel = renderFileHistory()
+
+        rightClick(listRow("Commit 02").center)
+
+        assertEventually { "Restore this version of the file" in menuItems() }
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `the file history offers no restore in a repository without a working tree`() {
+        hasWorkTree = false
+        val viewModel = renderFileHistory()
+        assertEventually { workTreeAsked.get() > 0 }
+        Thread.sleep(200)
+        settle()
+
+        rightClick(listRow("Commit 02").center)
+
+        assertEquals(listOf("Copy commit hash", "Copy commit message"), menuItems())
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `a click on the hash in the strip copies it, and says so`() {
+        selected = commits[2]
+        render()
+
+        click(stripNode("0303030").boundsInWindow.center)
+
+        assertEventually { clipboard.text == commits[2].hash }
+        assertEventually { "Copied" in stripTexts() }
+    }
+
+    @Test
+    fun `a commit's message for a tooltip has no line past 72 columns, and is cut after 20 lines`() {
+        val long = "word ".repeat(40).trim()
+
+        assertTrue(long.forTooltip().lines().all { it.length <= 72 }, long.forTooltip())
+        assertEquals("one\ntwo", "one\r\ntwo\n".forTooltip())
+        assertEquals((1..20).joinToString("\n") { "line $it" } + "\n…", (1..25).joinToString("\n") { "line $it" }.forTooltip())
+    }
+
     /** All of file history, with its view model around git actions that list [commits] and find no diffs. */
     private fun renderFileHistory(): HistoryViewModel {
         val repositoryDataRepository = mockk<RepositoryDataRepository> { every { repositoryPath } returns "/repo/.git" }
@@ -193,12 +306,22 @@ class FileHistoryTest {
                 every { diffDisplayFullFile } returns MutableStateFlow(false)
             }
         )
+        val getWorktreePath = mockk<IGetWorktreePathGitAction> {
+            coEvery { this@mockk(any()) } coAnswers {
+                workTreeAsked.incrementAndGet()
+                if (hasWorkTree) Either.Ok("/repo") else Either.Err(RestoreFileError.NoWorkTree)
+            }
+        }
         val viewModel = HistoryViewModel(
             GetCommitDiffEntriesUseCase(getCommitDiffEntries, mockk(), useCaseExecutor),
             mockk(),
             settings,
             GetFileCommitsUseCase(getFileCommits, useCaseExecutor),
             GetDiffUseCase(mockk(), mockk(), repositoryDataRepository),
+            GetWorktreeUseCase(getWorktreePath, useCaseExecutor),
+            GetFileRestorePlanUseCase(mockk(), useCaseExecutor),
+            RestoreFileVersionUseCase(useCaseExecutor, mockk()),
+            InMemoryRepositoryStateRepository(),
         )
 
         viewModel.fileHistory("src/App.kt")
@@ -206,7 +329,13 @@ class FileHistoryTest {
 
         scene = ImageComposeScene(width = WIDTH, height = HEIGHT) {
             AppTheme {
-                FileHistory(historyViewModel = viewModel, onClose = {})
+                CompositionLocalProvider(LocalClipboard provides clipboard) {
+                    FileHistory(
+                        historyViewModel = viewModel,
+                        onClose = {},
+                        onRestoreVersion = { restoreRequests += it },
+                    )
+                }
             }
         }
         settle()
@@ -221,11 +350,12 @@ class FileHistoryTest {
         settle()
     }
 
-    private fun render() {
+    private fun render(shown: List<Commit> = commits) {
         scene = ImageComposeScene(width = WIDTH, height = HEIGHT) {
             AppTheme {
+                CompositionLocalProvider(LocalClipboard provides clipboard) {
                 HistoryContentLoaded(
-                    historyState = HistoryState.Loaded("src/App.kt", commits),
+                    historyState = HistoryState.Loaded("src/App.kt", shown),
                     viewDiffResult = null,
                     scrollState = LazyListState(),
                     selectedCommit = selected,
@@ -234,7 +364,9 @@ class FileHistoryTest {
                         steps += offset
                         adjacentCommit(commits, selected, offset)?.let { selected = it }
                     },
+                    onRestoreVersion = if (offerRestore) { commit -> restoreRequests += commit } else null,
                 )
+                }
             }
         }
         settle()
@@ -260,6 +392,43 @@ class FileHistoryTest {
         )
         scene.sendPointerEvent(PointerEventType.Release, position, button = PointerButton.Primary)
         settle()
+    }
+
+    private fun rightClick(position: Offset) {
+        val scene = scene!!
+
+        // A menu ignores a right-click that comes within 20 ms of the last one, in any test
+        Thread.sleep(50)
+        scene.sendPointerEvent(PointerEventType.Move, position)
+        scene.sendPointerEvent(
+            PointerEventType.Press,
+            position,
+            buttons = PointerButtons(isSecondaryPressed = true),
+            button = PointerButton.Secondary,
+        )
+        scene.sendPointerEvent(PointerEventType.Release, position, buttons = PointerButtons(), button = PointerButton.Secondary)
+        settle()
+    }
+
+    /** The labels of the menu that a right-click opened, which is a popup of its own, over the list. */
+    private fun menuItems(): List<String> = nodes()
+        .flatMap { it.texts() }
+        .filter { it in setOf("Restore this version of the file", "Copy commit hash", "Copy commit message") }
+
+    private fun menuItem(label: String): Rect = nodes()
+        .first { label in it.texts() }
+        .boundsInWindow
+
+    /** Waits for what a coroutine of the scene does, which runs on its own thread, rendering meanwhile. */
+    private fun assertEventually(condition: () -> Boolean) {
+        val deadline = System.nanoTime() + 5_000_000_000L
+
+        while (!condition() && System.nanoTime() < deadline) {
+            Thread.sleep(20)
+            settle()
+        }
+
+        assertTrue(condition(), "it didn't happen in 5 s")
     }
 
     /** Moves the pointer off the list, so that no row shows the hover. */
@@ -318,5 +487,20 @@ class FileHistoryTest {
             date = 1_760_000_000,
             parentsHashes = emptyList(),
         )
+    }
+}
+
+/** A clipboard that keeps the text put on it, as the system's isn't there in a test. */
+@OptIn(ExperimentalComposeUiApi::class)
+private class RecordingClipboard : Clipboard {
+    @Volatile
+    var text: String? = null
+
+    override val nativeClipboard: NativeClipboard get() = error("Not used")
+
+    override suspend fun getClipEntry(): ClipEntry? = null
+
+    override suspend fun setClipEntry(clipEntry: ClipEntry?) {
+        text = (clipEntry?.nativeClipEntry as? Transferable)?.getTransferData(DataFlavor.stringFlavor) as? String
     }
 }

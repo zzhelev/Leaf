@@ -40,6 +40,8 @@ import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.restore.CurrentFile
+import dev.app.leaf.domain.restore.FileRestorePlan
 import dev.app.leaf.domain.sorting.DiscardAllPlan
 import dev.app.leaf.theme.diffLineAdded
 import dev.app.leaf.theme.diffLineRemoved
@@ -48,6 +50,7 @@ import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.ui.components.CheckboxText
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
+import dev.app.leaf.ui.getErrorText
 import dev.app.leaf.ui.status.named
 import dev.app.leaf.ui.status.other
 import org.jetbrains.compose.resources.painterResource
@@ -102,6 +105,12 @@ sealed interface ConfirmableAction {
         val search: String?,
         val deleteNewFiles: ConfirmOption = ConfirmOption(),
     ) : ConfirmableAction
+
+    /**
+     * Writes [filePath] as [commit] had it into the working tree ("Restore this version of the file" in file history,
+     * fork-only). [plan] says what the file is now, which is replaced, or why it can't be restored.
+     */
+    data class RestoreFileVersion(val filePath: String, val commit: Commit, val plan: FileRestorePlan) : ConfirmableAction
 
     /**
      * Resolves the conflicts of [entries] with [side]'s version, which loses the other side's changes and any edits
@@ -518,6 +527,37 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             },
         )
 
+        is ConfirmableAction.RestoreFileVersion -> {
+            val refusal = plan.refusal
+
+            ConfirmationTexts(
+                icon = undo,
+                title = stringResource(Res.string.restore_file_dialog_title),
+                subtitle = stringResource(
+                    Res.string.restore_file_dialog_subtitle,
+                    filePath,
+                    commit.shortHash,
+                    commit.shortMessage.truncated(MAX_SUBJECT_LENGTH),
+                ),
+                warning = when {
+                    refusal != null -> refusal.getErrorText()
+                    plan.current == CurrentFile.UNSTAGED_CHANGES -> stringResource(Res.string.restore_file_dialog_warning_unstaged)
+                    plan.current == CurrentFile.UNTRACKED -> stringResource(Res.string.restore_file_dialog_warning_untracked)
+                    plan.current == CurrentFile.IGNORED -> stringResource(Res.string.restore_file_dialog_warning_ignored)
+                    else -> null
+                },
+                primaryAction = stringResource(Res.string.restore_file_dialog_restore),
+                note = if (refusal == null) stringResource(Res.string.restore_file_dialog_note) else null,
+                secondNote = when {
+                    refusal != null -> null
+                    plan.current == CurrentFile.MISSING -> stringResource(Res.string.restore_file_dialog_missing_note)
+                    plan.hasStagedChanges -> stringResource(Res.string.restore_file_dialog_staged_note)
+                    else -> null
+                },
+                isPrimaryEnabled = refusal == null,
+            )
+        }
+
         is ConfirmableAction.DiscardAll -> {
             val restored = plan.restored.size
             val newFiles = plan.newFiles.size
@@ -585,3 +625,8 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
 
 /** How many files with conflicts "Discard all" names before "and N more". */
 private const val MAX_NAMED_FILES = 5
+
+/** How long a commit's subject may be in the restore dialog's subtitle. */
+private const val MAX_SUBJECT_LENGTH = 60
+
+private fun String.truncated(length: Int) = if (this.length <= length) this else take(length - 1).trimEnd() + "…"
