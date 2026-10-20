@@ -157,7 +157,6 @@ fun LogColumnCells(
     graphCommit: GraphCommit,
     layout: LogColumnsLayout,
     nodeColor: Color,
-    isDimmed: Boolean,
 ) {
     for (entry in layout.shown) {
         key(entry.column) {
@@ -169,8 +168,8 @@ fun LogColumnCells(
                     .padding(horizontal = CELL_PADDING),
             ) {
                 when (entry.column) {
-                    LogColumn.Author -> AuthorCell(graphCommit, nodeColor, isDimmed)
-                    LogColumn.Committer -> CommitterCell(graphCommit, nodeColor, isDimmed)
+                    LogColumn.Author -> AuthorCell(graphCommit, nodeColor)
+                    LogColumn.Committer -> CommitterCell(graphCommit, nodeColor)
                     LogColumn.Date -> DateCell(graphCommit, layout.dateShowsTime)
                     LogColumn.Commit -> CommitCell(graphCommit)
                 }
@@ -184,7 +183,7 @@ fun LogColumnCells(
  * committer's small avatar sits on the author's, and the tooltip names both, with both dates.
  */
 @Composable
-private fun AuthorCell(graphCommit: GraphCommit, nodeColor: Color, isDimmed: Boolean) {
+private fun AuthorCell(graphCommit: GraphCommit, nodeColor: Color) {
     val commit = graphCommit.commit
     val author = commit.author
     val committer = commit.committer
@@ -211,13 +210,12 @@ private fun AuthorCell(graphCommit: GraphCommit, nodeColor: Color, isDimmed: Boo
         avatarColor = nodeColor,
         badge = committer.takeIf { isCommittedBySomeoneElse },
         tooltip = tooltip,
-        isDimmed = isDimmed,
     )
 }
 
 /** The committer, with a grey avatar when it's someone other than the author. */
 @Composable
-private fun CommitterCell(graphCommit: GraphCommit, nodeColor: Color, isDimmed: Boolean) {
+private fun CommitterCell(graphCommit: GraphCommit, nodeColor: Color) {
     val commit = graphCommit.commit
 
     PersonCell(
@@ -225,7 +223,6 @@ private fun CommitterCell(graphCommit: GraphCommit, nodeColor: Color, isDimmed: 
         avatarColor = if (commit.isCommittedBySomeoneElse) OTHER_COMMITTER_COLOR else nodeColor,
         badge = null,
         tooltip = commit.committer.nameAndEmail(),
-        isDimmed = isDimmed,
     )
 }
 
@@ -235,7 +232,6 @@ private fun PersonCell(
     avatarColor: Color,
     badge: Identity?,
     tooltip: String,
-    isDimmed: Boolean,
 ) {
     InstantTooltip(
         text = tooltip,
@@ -256,7 +252,7 @@ private fun PersonCell(
                 text = person.name.orEmpty(),
                 modifier = Modifier.padding(start = AVATAR_NAME_GAP),
                 style = MaterialTheme.typography.body2,
-                color = if (isDimmed) MaterialTheme.colors.onBackgroundSecondary else MaterialTheme.colors.onBackground,
+                color = MaterialTheme.colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

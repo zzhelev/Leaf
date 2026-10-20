@@ -324,7 +324,8 @@ private fun LogView(
                 scrollState = verticalScrollState,
                 horizontalScrollState = horizontalScrollState,
                 hasUncommittedChanges = hasUncommittedChanges,
-                searchFilter = if (searchFilterValue is LogSearch.SearchResults) searchFilterValue.commits else null,
+                searchFilter = (searchFilterValue as? LogSearch.SearchResults)?.matchingCommits,
+                focusedSearchMatch = (searchFilterValue as? LogSearch.SearchResults)?.focusedCommit?.hash,
                 selectedCommit = selectedCommit,
                 logState = logState,
                 repositoryState = repositoryState,
@@ -486,6 +487,13 @@ fun SearchFilter(
                             true
                         }
 
+                        keyEvent.matchesBinding(KeybindingOption.SEARCH_PREVIOUS_RESULT) -> {
+                            scope.launch {
+                                logViewModel.selectPreviousFilterCommit()
+                            }
+                            true
+                        }
+
                         else -> false
                     }
                 },
@@ -547,6 +555,7 @@ fun CommitsList(
     scrollState: LazyListState,
     hasUncommittedChanges: Boolean,
     searchFilter: List<GraphCommit>?,
+    focusedSearchMatch: String?,
     selectedCommit: Commit?,
     logState: LogState,
     repositoryState: RepositoryState,
@@ -675,6 +684,7 @@ fun CommitsList(
                 tags = tags[graphNode.hash].orEmpty(),
                 currentBranch = logState.currentBranch,
                 matchesSearchFilter = searchFilter?.contains(graphNode),
+                isFocusedSearchMatch = focusedSearchMatch == graphNode.hash,
                 horizontalScrollState = horizontalScrollState,
                 showCreateNewBranch = { onCreateBranch(graphNode.commit) },
                 showCreateNewTag = { onCreateTag(graphNode.commit) },
@@ -916,6 +926,7 @@ private fun CommitLine(
     isStash: Boolean,
     showInAmend: Boolean,
     matchesSearchFilter: Boolean?,
+    isFocusedSearchMatch: Boolean,
     showCreateNewBranch: () -> Unit,
     showCreateNewTag: () -> Unit,
     resetBranch: () -> Unit,
@@ -1009,6 +1020,7 @@ private fun CommitLine(
                     .fillMaxHeight()
                     .background(MaterialTheme.colors.background)
                     .backgroundIf(isSelected, MaterialTheme.colors.backgroundSelected)
+                    .outlinedWhenFocusedMatch(isFocusedSearchMatch)
             ) {
 
                 if (matchesSearchFilter == true) {
@@ -1024,13 +1036,13 @@ private fun CommitLine(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(end = LOG_ROW_END_PADDING),
+                        .padding(end = LOG_ROW_END_PADDING)
+                        .dimmedWhenNotMatching(matchesSearchFilter),
                 ) {
                     CommitMessage(
                         graphCommit = graphNode,
                         columnsLayout = columnsLayout,
                         nodeColor = nodeColor,
-                        matchesSearchFilter = matchesSearchFilter,
                         currentBranch = currentBranch,
                         isStash = isStash,
                         branches = branches,
@@ -1069,7 +1081,6 @@ fun CommitMessage(
     tags: List<Tag>,
     branches: List<Branch>,
     nodeColor: Color,
-    matchesSearchFilter: Boolean?,
     onCheckoutBranch: (ref: Branch) -> Unit,
     onMergeBranch: (ref: Branch) -> Unit,
     onDeleteBranch: (ref: Branch) -> Unit,
@@ -1131,7 +1142,7 @@ fun CommitMessage(
                     .padding(start = 8.dp)
                     .weight(1f),
                 style = MaterialTheme.typography.body2,
-                color = if (matchesSearchFilter == false) MaterialTheme.colors.onBackgroundSecondary else MaterialTheme.colors.onBackground,
+                color = MaterialTheme.colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1141,7 +1152,6 @@ fun CommitMessage(
             graphCommit = graphCommit,
             layout = columnsLayout,
             nodeColor = nodeColor,
-            isDimmed = matchesSearchFilter == false,
         )
     }
 }

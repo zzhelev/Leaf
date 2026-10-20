@@ -24,6 +24,11 @@ enum class KeybindingOption {
     SIMPLE_ACCEPT,
 
     /**
+     * Used in the log search to go back one result, as SIMPLE_ACCEPT goes forward one
+     */
+    SEARCH_PREVIOUS_RESULT,
+
+    /**
      * Used to accept multi-line text field like the commit message
      */
     TEXT_ACCEPT,
@@ -108,6 +113,9 @@ private fun baseKeybindings() = mapOf(
     ),
     KeybindingOption.SIMPLE_ACCEPT to listOf(
         Keybinding(key = Key.Enter),
+    ),
+    KeybindingOption.SEARCH_PREVIOUS_RESULT to listOf(
+        Keybinding(key = Key.Enter, shift = true),
     ),
     KeybindingOption.TEXT_ACCEPT to listOf(
         Keybinding(control = true, key = Key.Enter),

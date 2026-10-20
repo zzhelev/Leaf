@@ -22,6 +22,8 @@ import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.extensions.openFileInFolder
 import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
+import dev.app.leaf.domain.log.SearchStep
+import dev.app.leaf.domain.log.steppedSearchIndex
 import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.index.conversionSteps
 import dev.app.leaf.domain.models.*
@@ -1331,50 +1333,36 @@ class RepositoryOpenViewModel @Inject constructor(
             // TODO Instead of casting commits to list, use LinkedHashMap everywhere
             logSearchFilterResults.value = LogSearch.SearchResults(matchingCommits.values.toList(), startingUiIndex)
         } else {
-            logSearchFilterResults.value = LogSearch.SearchResults(emptyList(), NONE_MATCHING_INDEX)
+            logSearchFilterResults.value = LogSearch.SearchResults(emptyList(), NONE_MATCHING_INDEX, hasTerm = false)
         }
     }
 
-    suspend fun selectPreviousFilterCommit() {
-        val logSearchFilterResultsValue = logSearchFilterResults.value
+    suspend fun selectPreviousFilterCommit() = stepSearchResult(SearchStep.PREVIOUS)
 
-        if (logSearchFilterResultsValue !is LogSearch.SearchResults) {
-            return
+    suspend fun selectNextFilterCommit() = stepSearchResult(SearchStep.NEXT)
+
+    /**
+     * Moves to the previous or next search result, wrapping at the ends (fork-only), and scrolls to it,
+     * also when it's the one already there, as with a single result. `update` keeps a step from putting an older
+     * list back over the results of a search typed meanwhile.
+     */
+    private suspend fun stepSearchResult(step: SearchStep) {
+        var commitToFocus: GraphCommit? = null
+
+        logSearchFilterResults.update { current ->
+            // The block runs again when another write came in between
+            commitToFocus = null
+
+            if (current !is LogSearch.SearchResults) return@update current
+
+            val newIndex = steppedSearchIndex(current.index, current.commits.size, step)
+
+            commitToFocus = current.commits.getOrNull(newIndex - 1) // The index starts at 1, the list at 0
+
+            if (newIndex == current.index) current else current.copy(index = newIndex)
         }
 
-        val index = logSearchFilterResultsValue.index
-        val commits = logSearchFilterResultsValue.commits
-
-        if (index == NONE_MATCHING_INDEX || index == FIRST_INDEX)
-            return
-
-        val newIndex = index - 1
-        val newCommitToSelect = commits[newIndex - 1]
-
-        logSearchFilterResults.value = logSearchFilterResultsValue.copy(index = newIndex)
-        _focusCommit.emit(newCommitToSelect)
-    }
-
-    suspend fun selectNextFilterCommit() {
-        val logSearchFilterResultsValue = logSearchFilterResults.value
-
-        if (logSearchFilterResultsValue !is LogSearch.SearchResults) {
-            return
-        }
-
-        val index = logSearchFilterResultsValue.index
-        val commits = logSearchFilterResultsValue.commits
-        val totalCount = logSearchFilterResultsValue.totalCount
-
-        if (index == NONE_MATCHING_INDEX || index == totalCount)
-            return
-
-        val newIndex = index + 1
-        // Use index instead of newIndex because Kotlin arrays start at 0 while the UI count starts at 1
-        val newCommitToSelect = commits[index]
-
-        logSearchFilterResults.value = logSearchFilterResultsValue.copy(index = newIndex)
-        _focusCommit.emit(newCommitToSelect)
+        commitToFocus?.let { _focusCommit.emit(it) }
     }
 
     fun closeSearch() {
