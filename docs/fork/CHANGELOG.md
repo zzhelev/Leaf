@@ -2,6 +2,48 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The commit message has a title row and a hint, and Amend is in its menu (upstream issue 344, 2026-10-20)
+
+- **Request:** upstream issue 344: the commit message field "looks like text inside an input box" where the two panels
+  above have title rows. The reporter's sketch: a "Commit Message" row like "Staged" and "Unstaged", then the text area, with
+  "Write your commit message here" as a placeholder at 30 to 50% transparency.
+- **What it does:** a row "Commit message" above the field, as tall and coloured as the Staged and Unstaged headers (34 dp,
+  the same surface, text and left edge; a test compares them). The field under it has no floating label: the hint "Write your
+  commit message here" shows while it is empty, at 60% of the text colour (4.1:1 on white, 7.2:1 on the dark theme's
+  field), and goes with the first letter. The field has the lists' background, and an underline only while it has the focus,
+  where the grey one at rest made it look like an input box.
+- **What the row says:** "Commit message"; "Merge message" while merging; a muted "· read-only" after the title at a rebase
+  stop that can't be amended, which replaces the old label's "(read-only)"; and "· amending last commit" in the accent
+  that the Amend checkbox had when ticked, while Amend is on (the button reads Amend too).
+- **Amend moved into a "⋯" menu at the end of the row,** the Unstaged header's menu button, with one item, "Amend last
+  commit", checked while on. The checkbox under the field is gone, so the field has room for 22 dp more at the same saved
+  height, and the Commit button has the 8 dp above it that Merge's and the others have. At an amendable rebase stop the
+  menu is the rebase's amend switch (Amend is on there at first, so the tag shows). During a merge, a cherry-pick, a revert,
+  and at the rebase's other stops, there is nothing to amend and no menu. It takes a click more than the checkbox did.
+  **Chosen with the user, on 2026-10-20, from mockups:** a title row only, Amend as a checkbox in the row, and Amend in a
+  menu (picked); the hint at 50, 60 or 70% opacity (60% picked); one title per state (as in "What the row says", picked).
+- **Sizes:** the row is a fixed extra on top of the saved commit field height, which still counts what is under it, so a
+  saved height needs no migration and gives the same field. The lists give up 34 dp in total (17 each at the defaults). `fitTo`
+  and both drag handles take the row off the pane first, the minimums are unchanged, and the sections add up to the pane at
+  any size (5,000 random panes, sizes and drags).
+- **Unchanged:** Cmd+Enter, undo, the focus, the draft file (`LEAF_COMMIT_DRAFT`) and a custom theme's text colours. The
+  message is still drawn in the typography's color, `onBackground`, also when it can't be edited: the scheme's disabled
+  color never applied. The Files changed pane's commit message is a different, read-only thing, and wasn't touched.
+- **Found on the way:**
+  - Leaf's typography has a color of its own, so neither a `TextField`'s placeholder color nor its `textColor` applies;
+    the hint passes its color itself.
+  - The hint fades in over 83 ms when the field empties (Material's own), so a test has to let the scene's clock run.
+  - A `Popup` isn't drawn by the offscreen scene, though its items are in the semantics.
+- **Checked:**
+  - Tests: `StatusSectionSizesTest` (18), `CommitMessageFieldTest` (11), `CommitFieldTest` (19); the suites of `:domain` (443)
+    and `:app` (529) pass.
+  - 24 mutations: 22 caught by a named test. The two others: an equivalent one (`textColor`, as above) and
+    `heights.commitSection` in `StatusPane`, which needs a tab.
+  - A temporary harness on the real Dagger graph, on a demo repository with a linked worktree in each state (normal, a merge,
+    a rebase at an edit stop and at conflicts, a cherry-pick): the pane's geometry against `fitTo`, the hint going when
+    something is typed, the draft file holding the message, Amend through the menu, and Cmd+Enter in the field amending the
+    last commit with the staged change. The demo is `commit-message-title-demo.sh` in the session notes.
+
 ## An avatar colour per person, and a mark on HEAD's row in the log (upstream issues 231 and 255, 2026-10-20)
 
 - **Requests:** upstream issue 231, "the avatars of different people are highlighted in the same colour", and upstream
@@ -127,6 +169,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   the search, and the real `Log` scrolled to its row (2115) with it selected.
 - **Not done:** no way back to the child after a jump (select it in the log, as before), and a parent that isn't loaded shows
   no subject until it is (it would take a git read per parent). Shallow clones weren't looked at.
+
 
 ## A menu on the rows of file history: restore a version, copy the hash and the message (upstream issues 149 and 146, 2026-10-20)
 

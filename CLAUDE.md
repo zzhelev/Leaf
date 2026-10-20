@@ -1127,6 +1127,7 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
     revert (`acceptsCommit`); it needed staged files, whatever the Merge button allowed. Elsewhere it is as before.
   - `CommitField` is `internal` for its test. `StatusPane` passes it the values that `StatusState` derives
     (`canCommit`, `canAmend`, `showsContinue()`, `finishBlocker()`, `finishHint()`), and `CommitFieldTest` repeats that.
+    It has the title row and the hint too (see Status pane sections), and no Amend checkbox.
   - Tests: `FinishBlockersTest` (the rules for every repository state, all combinations of files, message and amend
     against the rules written out, and that the reason given is true), `CommitFieldTest` (rendered from a `StatusState`:
     the buttons, what a disabled one does when clicked, the hint and where it is, the key),
@@ -2325,6 +2326,44 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   - `StatusSectionSizes` (`domain/models/`) holds Staged's share of the lists and the commit field's height. `fitTo`
     fits them to the pane: each list keeps 100 dp and the commit field 140 dp. The drag functions start from the
     fitted heights, so a drag never has to undo an overshoot.
+  - **The commit message's title row (fork-only, upstream issue 344, 2026-10-20, `ui/status/CommitMessageField.kt`)** is a
+    fixed extra on top of the commit field, so `commitFieldHeight` still counts what is under it (the message, its hint
+    and the buttons): a saved height needs no migration and gives the same field. `fitTo` takes the title row
+    (`STATUS_COMMIT_TITLE_HEIGHT`, 34 dp, the Staged and Unstaged headers') and the dividers off the pane first
+    (`availableFor`), `StatusSectionHeights` has `commitTitle` and `commitSection` (the pane gives the section
+    `heights.commitSection`), and both drag functions use the same maths. The lists give up 34 dp in total (17 each at the
+    defaults), and the minimums are unchanged: 140 dp is now the message, a hint and the buttons, with room to spare, as
+    the Amend row is gone. The sections and the dividers add up to the pane at any size (`StatusSectionSizesTest`, 5,000
+    random panes, sizes and drags).
+  - **What the row says** (`commitMessageHeader`, by the repository's state): "Commit message"; "Merge message" while
+    merging; a muted "· read-only" after the title at a rebase stop that can't be amended, where the field shows the last
+    message and can't be edited (it replaces the old label "Commit message (read-only)"); and, while Amend is on,
+    "· amending last commit" in the `secondary` colour, which the Amend checkbox had when ticked. The button reads Amend
+    then too. The row is laid out as `FilesChangedHeader`'s (a test compares the two), with the title keeping its room and
+    the tag cut first in a narrow pane.
+  - **Amend is a menu item.** A "⋯" (`HeaderMenuButton`, the Unstaged header's) at the end of the row has "Amend last
+    commit", checked while on (`amendMenuItems`). It is the amend switch of the state: `onAmendChecked` outside an
+    operation, `onAmendRebaseInteractiveChecked` at an amendable rebase stop (`isAmenableRebaseInteractive`, where Amend is
+    on at first, so the tag shows). Nothing to amend during a merge, a cherry-pick, a revert or at the rebase's other
+    stops: no menu. The checkbox under the field is gone (`UncommittedChangesButtons`, `RebasingButtons`), and the button
+    has the 8 dp above it that Merge's and the others have. It costs a click more than the checkbox did. Chosen with
+    the user from three mockups (title row only, Amend in the row, Amend in a menu).
+  - **The field** (`CommitMessageTextField`) is still Material's `TextField`, so undo, Cmd+Enter, the focus and the draft
+    are as they were, but with no label: a hint "Write your commit message here" while it is empty, at 60% of the text
+    colour (`COMMIT_MESSAGE_PLACEHOLDER_ALPHA`; the reporter asked for 30 to 50% transparency; contrast 4.1:1 on white,
+    7.2:1 on the dark theme's field), none on a field that can't be edited. Leaf's typography has a color of its own, which
+    neither a `TextField`'s placeholder color nor its `textColor` overrides, so the hint passes its color itself, and the
+    message, also when it can't be edited, is drawn in `onBackground` (the scheme's disabled color never applied, as
+    before; the "read-only" tag says it). The hint fades in over 83 ms when the field empties. The field has the lists'
+    background and no underline until it has the focus.
+  - Tests: `StatusSectionSizesTest`, `CommitMessageFieldTest` (the hint and typing, its colours in both themes and a custom
+    one, the underline, the row against `FilesChangedHeader`, the tag's colours, a narrow row, `commitMessageHeader` for
+    every state, the menu item) and `CommitFieldTest` (the title per state, the menu and what picking does, the layout).
+    22 of 24 mutations were caught by a named test; the other two are an equivalent one (`textColor`, above) and
+    `heights.commitSection` in `StatusPane`, which needs a tab and was checked in the real Dagger graph instead, on a
+    repository with a linked worktree in each state (normal, merge, rebase at an edit stop and at conflicts,
+    cherry-pick): the geometry against `fitTo`, typing into the field, the draft file, Amend through the menu and
+    Cmd+Enter amending the commit. The scene doesn't draw a `Popup`, so an open menu is only in the semantics.
   - They are global: `StatusSectionsConfig` (app singleton) → `AppSettingsRepository.statusSectionSizes`, stored in the
     prefs node as `statusStagedShare` and `statusCommitFieldHeight`, like the pane widths. `StatusPane` keeps a local
     copy during a drag and sends `StatusAction.SectionSizesChanged` when it ends.
