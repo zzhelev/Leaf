@@ -2649,6 +2649,32 @@ a mockup; "Copy file path" was left out, as it is the same for every row.
   `ConfirmActionDialogTest`. The view model's restore, with `restored`, ran on the real Dagger graph in a temporary
   harness (the `UseCaseExecutor` of a unit test can't refresh, and `RefreshDataUseCase` can't be mocked).
 
+**Log keyboard (fork-only, 2026-10-20, `ui/log/LogKeyboard.kt`, `domain/log/LogNavigation.kt`):** the log's rows take
+Up, Down, Page Up, Page Down, Home and End. Left and Right do nothing (decided with the user).
+- **Rules** (`movedLogRow`, `movedLogSelection`, domain): rows are the uncommitted changes' row when shown (row 0), then
+  the commits. The current row is the uncommitted changes, or the row of a selected commit, branch or tag; anything else
+  (nothing, a review, an unloaded commit) is no row, and the first key then selects row 0 (End the last). No wrap: the
+  selection stops at the ends. A page is the rows shown less one, at least 1.
+- **View model** (`RepositoryOpenViewModel.moveLogSelection`): reads `selectedItem` and writes the new selection in the
+  caller's thread, not in a launched coroutine. Key repeat outruns a recomposition, so a step worked out from what the
+  view drew would repeat or skip rows, and launched writes could land out of order. It returns the row to bring into view.
+  `selectCommit` and `selectUncommittedChanges` keep their `launch` and share their bodies with it (`applyCommitSelection`,
+  `applyUncommittedChangesSelection`), so the search counter follows the arrows as it follows a click. The commit pane
+  loads the last selection only (`flatMapLatest`), so holding a key queues no loads.
+- **View:** `CommitsList` makes the list focusable (`focusRequester`, `onPreviewKeyEvent`), and a click on a row, or on
+  the uncommitted changes' row, focuses it: until then the tab holds the focus and the keys do nothing, as with the
+  changed-files lists. `KeyEvent.logMove()` takes bare keys only: Alt+arrows change the tab, and Shift, Ctrl and Cmd are
+  left to other shortcuts. The tab's handler is above the list and doesn't use these keys, so its shortcuts still work.
+  A key that can't move is consumed, so the list doesn't scroll under the selection.
+- **Scrolling** (`bringRowIntoView`): the least that shows the row in full, a row at a time for stepping; a row out of
+  view goes to the start (above) or the end (below), as pages, Home and End do. Not `scrollToCommit`, which puts the row
+  at the top.
+- **Search stays separate:** Enter and Shift+Enter step through matches and only scroll; the arrows select.
+- Tests: `LogNavigationTest` (domain: the rules, the uncommitted row's offset, branches and tags, empty logs),
+  `LogKeyboardTest` (the key mapping with each modifier, and the scroll in a `LazyColumn`). Not covered by a kept test:
+  the view model method and the focus on click, which need the Dagger graph and a window. Three mutations (the scroll's
+  sign, the modifier check, wrap-around) were each caught.
+
 **Log search (fork-only changes, 2026-10-20):** the bar is `SearchFilter` (`ui/log/Log.kt`), over
 `RepositoryOpenViewModel.logSearchFilterResults`: `LogSearch.SearchResults(commits, index, totalCount, hasTerm)`, where
 `index` is the counter's number, starting at 1, and 0 means no result.

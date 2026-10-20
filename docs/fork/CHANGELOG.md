@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The log's rows take the arrow keys (2026-10-20)
+
+- **Request:** the log was mouse-only: after a click on a commit, the keys did nothing.
+- **What it does:** Up and Down select the previous or next row, and the commit pane follows, as for a click. Page Up
+  and Page Down move by what the list shows, less one; Home and End go to the first and last row. The uncommitted
+  changes' row is the first row when the log shows one. A selected branch or tag counts as its commit. With nothing
+  selected, or a selected commit that isn't loaded, the first key selects the top row (End the last).
+- **The list takes the focus when a row is clicked,** as the changed-files lists do, so the keys do nothing until the
+  first click. Alt+arrows still change the tab, and Shift, Ctrl or Cmd with a key is left to other shortcuts.
+- **Left and Right do nothing**, decided with the user: a row has nothing to step into. Not checked what other git
+  clients do with them.
+- **No wrap-around:** the selection stops at the first and last loaded commit (the log can hold tens of thousands).
+  The list scrolls the least that shows the row, a row at a time; pages, Home and End jump. A key that can't move is
+  consumed, so the list doesn't scroll under the selection.
+- **Search is separate:** Enter and Shift+Enter still step through matches (they only scroll); the arrows select.
+- Details: CLAUDE.md, "Log keyboard".
+
 ## Double-click on the file list's column separator fits the file column (2026-10-20)
 
 - Staged, Unstaged and Files changed in split columns: a double-click on the separator sizes the file column to the longest
