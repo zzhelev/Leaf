@@ -50,6 +50,7 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.printLog
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.BranchesConstants.LOCAL_PREFIX_LENGTH
+import dev.app.leaf.domain.log.headCommitHash
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.extensions.*
@@ -580,6 +581,7 @@ fun CommitsList(
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
     var hasToScrollIfUncommittedChangesAppear by remember { mutableStateOf(false) }
+    val headHash = remember(logState.currentBranch) { headCommitHash(logState.currentBranch) }
 
     val firstCommitKey = commitList.commits.keys.firstOrNull().orEmpty()
     // The first commit when the log was last shown, kept for the tab. Showing the log again, such as after closing a
@@ -678,6 +680,7 @@ fun CommitsList(
                 columnsLayout = columnsLayout,
                 graphNode = graphNode,
                 isSelected = selectedCommit?.hash == graphNode.hash,
+                isHead = graphNode.hash == headHash,
                 showInAmend = logState.currentBranch?.hash == graphNode.hash && !hasUncommittedChanges,
                 isStash = isStash,
                 branches = branches[graphNode.hash].orEmpty(),
@@ -922,6 +925,7 @@ private fun CommitLine(
     columnsLayout: LogColumnsLayout,
     graphNode: GraphCommit,
     isSelected: Boolean,
+    isHead: Boolean,
     currentBranch: Branch?,
     isStash: Boolean,
     showInAmend: Boolean,
@@ -1010,6 +1014,7 @@ private fun CommitLine(
                         isStash = isStash,
                         nodeColor = nodeColor,
                         isSelected = isSelected,
+                        isHead = isHead,
                     )
                 }
             }
@@ -1041,6 +1046,7 @@ private fun CommitLine(
                 ) {
                     CommitMessage(
                         graphCommit = graphNode,
+                        isHead = isHead,
                         columnsLayout = columnsLayout,
                         nodeColor = nodeColor,
                         currentBranch = currentBranch,
@@ -1081,6 +1087,7 @@ fun CommitMessage(
     tags: List<Tag>,
     branches: List<Branch>,
     nodeColor: Color,
+    isHead: Boolean = false,
     onCheckoutBranch: (ref: Branch) -> Unit,
     onMergeBranch: (ref: Branch) -> Unit,
     onDeleteBranch: (ref: Branch) -> Unit,
@@ -1141,7 +1148,7 @@ fun CommitMessage(
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .weight(1f),
-                style = MaterialTheme.typography.body2,
+                style = MaterialTheme.typography.body2.boldWhenHead(isHead),
                 color = MaterialTheme.colors.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1187,6 +1194,7 @@ fun CommitsGraph(
     isStash: Boolean,
     nodeColor: Color,
     isSelected: Boolean,
+    isHead: Boolean = false,
 ) {
     val passingLanes = plotCommit.passingLanes
     val forkingOffLanes = plotCommit.forkingOffLanes
@@ -1299,6 +1307,7 @@ fun CommitsGraph(
             isMerge = plotCommit.commit.parentCount > 1,
             isStash = isStash,
             color = nodeColor,
+            isHead = isHead,
         )
     }
 }
@@ -1342,6 +1351,7 @@ fun CommitNode(
     isMerge: Boolean,
     isStash: Boolean,
     color: Color,
+    isHead: Boolean = false,
 ) {
     if (isStash) {
         Box(
@@ -1378,6 +1388,8 @@ fun CommitNode(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
+                if (isHead) HeadRing()
+
                 Box(
                     modifier = Modifier
                         .size(COMMIT_NODE_SIZE)
