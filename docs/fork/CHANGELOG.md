@@ -2,10 +2,10 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
-## A menu on the rows of file history: restore a version, copy the hash and the message (Gitnuro#149, #146, 2026-10-20)
+## A menu on the rows of file history: restore a version, copy the hash and the message (upstream issues 149 and 146, 2026-10-20)
 
-- **Requests:** Gitnuro#149, "checkout a file to a previous version in file history" (the report needs the terminal for
-  `git checkout <sha> -- <path>`), and what was left of Gitnuro#146, "copy commit details, at least the sha-1", and no way to
+- **Requests:** upstream issue 149, "checkout a file to a previous version in file history" (the report needs the terminal for
+  `git checkout <sha> -- <path>`), and what was left of upstream issue 146, "copy commit details, at least the sha-1", and no way to
   see the whole commit message.
 - **What it does:** a right-click on a row of file history opens **Restore this version of the file**, then **Copy commit
   hash** (the whole hash) and **Copy commit message** (the whole message). The row's subject and the strip's show the whole

@@ -2436,7 +2436,7 @@ author, date and time, and "3 of 12".
   `ensureActive()` before it writes, or the diff would go blank until the next one loads. Another commit's diff starts
   at its top, as in the diff pane.
 
-**File history's row menu (fork-only, Gitnuro#149 and #146, 2026-10-20, `ui/context_menu/FileHistoryContextMenu.kt`,
+**File history's row menu (fork-only, upstream issues 149 and 146, 2026-10-20, `ui/context_menu/FileHistoryContextMenu.kt`,
 `ui/FileHistoryRestore.kt`, `data/git/workspace/RestoreFileVersionGitAction.kt`):** a right-click on a row opens "Restore
 this version of the file", a separator, "Copy commit hash" (the whole hash) and "Copy commit message" (the whole message,
 trimmed). It acts on the row clicked, not on the selected commit. The row's subject and the strip's carry the whole

@@ -8,7 +8,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The menu of a row of file history (fork-only, Gitnuro#146 and #149). [onRestoreVersion] is null where the file
+ * The menu of a row of file history (fork-only, upstream issues 146 and 149). [onRestoreVersion] is null where the file
  * can't be restored, as in a bare repository, which has no working tree: then there's no item for it.
  */
 fun fileHistoryContextMenu(

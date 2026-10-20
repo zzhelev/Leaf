@@ -91,7 +91,7 @@ fun FileHistoryCommitStrip(
                 .weight(1f)
                 .padding(horizontal = 12.dp),
         ) {
-            // The whole message is the subject's tooltip: the line has room for the subject only (Gitnuro#146)
+            // The whole message is the subject's tooltip: the line has room for the subject only (upstream issue 146)
             DelayedTooltip(text = remember(commit.message) { commit.message.forTooltip().ifBlank { null } }) {
                 Text(
                     text = commit.shortMessage,

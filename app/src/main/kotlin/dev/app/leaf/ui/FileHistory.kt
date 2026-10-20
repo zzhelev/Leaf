@@ -221,7 +221,7 @@ fun HistoryContentLoaded(
             state = commitsListState,
         ) {
             itemsIndexed(historyState.commits) { index, commit ->
-                // Fork-only: a menu on the rows (Gitnuro#146, #149)
+                // Fork-only: a menu on the rows (upstream issues 146 and 149)
                 ContextMenu(
                     items = {
                         fileHistoryContextMenu(
