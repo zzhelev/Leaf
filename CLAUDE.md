@@ -1895,8 +1895,8 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     `ConfirmableAction` says what the dialog shows, and `onConfirm` is what the button used to run, so the action's
     own code is unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote
     branch or a remote, dropping a stash, aborting a merge, rebase, cherry-pick or revert, skipping a rebase commit,
-    force push, discarding a file or a selection (the Staged and Unstaged menus), a hunk or a line (the diff), and
-    resolving conflicts with ours or theirs.
+    force push, discarding a file or a selection (the Staged and Unstaged menus), a hunk or a line (the diff),
+    resolving conflicts with ours or theirs, and restoring a file's version from file history.
     Discarding a folder has its own `DiscardChangesDialog`. The reset dialog warns when Hard would discard
     uncommitted changes.
   - Discards show what is lost: a hunk's header, the line. A file or a selection in the Staged list loses its unstaged
@@ -2429,12 +2429,67 @@ shows over it (`Modifier.focusable(!showDiff)`), so closing a diff doesn't compo
 author, date and time, and "3 of 12".
 - File history opens on the newest commit. ↑ and ↓ (`FileHistory`'s own `onKeyEvent`, which the tab's shortcuts let
   through) and the strip's chevrons call `selectAdjacentCommit`. The list keeps the row in view (`keepInView`, as the
-  status pane's lists do), and a click on "3 of 12" scrolls it back to the middle (`showInMiddle`). Not a click on the
-  hash: elsewhere (`CommitChanges`) that copies it.
+  status pane's lists do), and a click on "3 of 12" scrolls it back to the middle (`showInMiddle`). A click on the hash
+  copies it (`CopyableHash`, "Copied" for 2 s), as `CommitChanges`'s does.
 - `selectCommit` cancels the previous commit's load and waits for it to end, so the last commit selected is the diff
   shown however fast the keys come. `GetDiffUseCase` turns a cancellation into `DiffNotFound`, so the load checks
   `ensureActive()` before it writes, or the diff would go blank until the next one loads. Another commit's diff starts
   at its top, as in the diff pane.
+
+**File history's row menu (fork-only, Gitnuro#149 and #146, 2026-10-20, `ui/context_menu/FileHistoryContextMenu.kt`,
+`ui/FileHistoryRestore.kt`, `data/git/workspace/RestoreFileVersionGitAction.kt`):** a right-click on a row opens "Restore
+this version of the file", a separator, "Copy commit hash" (the whole hash) and "Copy commit message" (the whole message,
+trimmed). It acts on the row clicked, not on the selected commit. The row's subject and the strip's carry the whole
+message as a tooltip (`forTooltip`: broken at 72 columns, 20 lines at most). Items and wording chosen with the user from
+a mockup; "Copy file path" was left out, as it is the same for every row.
+- **Restore writes the working file only:** `git --literal-pathspecs restore --source=<commit> --worktree -- <path>`, run
+  in the tab's working tree (a linked worktree's own folder) through `GitCliRemoteCommand`, so a partial clone's
+  download and Git LFS's filter get Leaf's credential dialogs, progress and Cancel. The index is untouched: staged
+  changes stay staged and nothing new is staged, where `git checkout <commit> -- <path>` would stage it too. No JGit
+  fallback: without a usable git it fails and changes nothing. A bare repository has no working tree, so
+  `HistoryViewModel.canRestore` (from `GetWorktreeUseCase`) is false and the item isn't offered.
+- **File history doesn't follow renames** (`GetFileCommitsAction` is `log().addPath`, which has no `FollowFilter`): the
+  history of `new.txt` starts at the commit that renamed it, which has the file. The history of `old.txt` ends with
+  that commit as its newest row, where `old.txt` doesn't exist. So the only rename case is that boundary row, which is
+  the same as a commit that deleted the file.
+- **The plan (`FileRestorePlanner`, `GetFileRestorePlanUseCase`):** before the dialog opens, `HistoryViewModel.planRestore`
+  looks at what restoring would replace, and the restore looks again just before it runs (the dialog may have been open
+  a while). The file as `git status --porcelain=v1 -z --no-renames --ignored=traditional` says (`currentFileOf`):
+  missing, unchanged, staged only, unstaged changes, untracked or ignored; and whether it has staged changes. The
+  dialog (`ConfirmableAction.RestoreFileVersion`, the generic `ConfirmActionDialog`, no "don't ask again") warns, in the
+  red box, only where content is lost: unstaged changes, an untracked file, an ignored one. It always says that only
+  the working file changes, and that staged changes stay staged, or that a missing file is created.
+- **Refused before git runs** (`RestoreFileError`, the dialog shows the reason with a disabled Restore, and the action
+  returns it too): the commit has no file at the path (`NotInCommit`: it deleted it or moved it, or the path is a
+  folder or a submodule there; the item stays on that row, the dialog says why); the file has conflicts; a folder is
+  where the file goes; a file or a link is where a folder of the path goes; a path outside the repository. Probed with
+  git 2.54, plain `git restore --source` does none of this silently right: it deletes a folder at the path with its
+  untracked files, replaces a file where a folder goes with the user's unsaved edits in it, and overwrites a conflicted
+  file's markers, all with exit 0. A link at the path is replaced by the file and its target left alone, as git does.
+  `git status` runs only when none of those applies, as git refuses a path beyond a link.
+- **The working file waits aside while git runs** (`WorkingFileBackup`): `git restore` removes the file, or empties it,
+  before it has the version it writes. A partial clone that can't download the blob left the file at 0 bytes, and a
+  Git LFS smudge that failed (object missing, git-lfs not on PATH) left it deleted, whatever `filter.lfs.required` says,
+  both with the user's unsaved work. So Leaf moves it into `<git dir>/leaf-restore/restore-<random>/` (a rename, so
+  content, mode and link target are kept), runs git, and deletes the copy once git worked. When git fails, or the task
+  is cancelled (in `NonCancellable`, so the file is back before the cancellation goes on), it deletes what git left
+  and moves the original back. If that fails too, `RestoreFileError.GitFailed.keptAt` says where the original is. A
+  file that wasn't there stays not there.
+- **The result:** the task refreshes the status, even after a failure (`TaskType.RestoreFileVersion`, toast "File
+  restored"). A failure is `RestoreFileError` or git's own message in `ErrorDialog` (HIGH). Success also sets
+  `HistoryViewModel.restored`, which `RestoredVersionStrip` shows under the header until dismissed: "Restored to its
+  version in e4f5a6b. The file is now changed in your working tree.", and "Show changes" closes file history and
+  selects the uncommitted changes. File history covers the status pane, so a toast alone would be gone before the user
+  could see the result. `RestoreFileVersionUseCase` returns the `Deferred` result (`executeLaunchAsync`).
+- Not handled: a sparse checkout's path outside the cone is written anyway (git does too); `core.autocrlf` and other
+  filters run as git runs them.
+- Tests: `RestoreFileVersionGitActionTest` (each case against plain git on a copy of the repository: files' bytes and
+  modes, status and index; the refusals; a linked worktree; a bare repository; a failing smudge filter, Cancel, Git LFS
+  with the object missing, and a partial clone online and offline, where plain git is shown to delete or empty the
+  file), `RestoringFileVersionTest` (a `TestTab`: the result, the refresh, the failure), `FileRestorePlanTest`,
+  `FileHistoryTest` (the menu, the copies, the strip's hash), `HistoryViewModelTest`, and the dialog in
+  `ConfirmActionDialogTest`. The view model's restore, with `restored`, ran on the real Dagger graph in a temporary
+  harness (the `UseCaseExecutor` of a unit test can't refresh, and `RefreshDataUseCase` can't be mocked).
 
 **Log search (fork-only changes, 2026-10-20):** the bar is `SearchFilter` (`ui/log/Log.kt`), over
 `RepositoryOpenViewModel.logSearchFilterResults`: `LogSearch.SearchResults(commits, index, totalCount, hasTerm)`, where

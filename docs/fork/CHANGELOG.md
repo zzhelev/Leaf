@@ -2,6 +2,58 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A menu on the rows of file history: restore a version, copy the hash and the message (Gitnuro#149, #146, 2026-10-20)
+
+- **Requests:** Gitnuro#149, "checkout a file to a previous version in file history" (the report needs the terminal for
+  `git checkout <sha> -- <path>`), and what was left of Gitnuro#146, "copy commit details, at least the sha-1", and no way to
+  see the whole commit message.
+- **What it does:** a right-click on a row of file history opens **Restore this version of the file**, then **Copy commit
+  hash** (the whole hash) and **Copy commit message** (the whole message). The row's subject and the strip's show the whole
+  message as a tooltip, and a click on the hash in the strip copies it ("Copied"), as in the commit's footer. No "Copy file
+  path": it is the same for every row. Items, wording and the rest were chosen with the user from a mockup.
+- **Restore writes the working file only** (`git restore --source=<commit> --worktree`), where the report's
+  `git checkout <sha> -- <path>` also stages it. What was staged stays staged, and nothing is committed or staged for the
+  user. A confirmation says what is lost: the unstaged changes, or an untracked or ignored file's content, or nothing for
+  a clean file, and that a missing file is created. No "don't ask again".
+- **The commit that removed the file** (deleted, or moved away) keeps the item. The dialog says that the commit has no
+  version of the file, with a disabled Restore.
+- **File history doesn't follow renames,** which the task text assumed. The history of `new.txt` starts at the rename
+  commit, which has the file, and the history of `old.txt` ends with it as the newest row, which hasn't. So the one rename
+  case is that boundary row, handled as a removal. Following renames in file history would be a feature of its own.
+- **After a restore** a green strip under the header of file history says "Restored to its version in e4f5a6b. The file is
+  now changed in your working tree." with "Show changes", which closes file history and shows the uncommitted changes. File
+  history covers the status pane, and a toast is gone before it's read. A failure opens `ErrorDialog`.
+- **What plain `git restore --source` does that Leaf doesn't** (probed on temp repos with git 2.54 and git-lfs 3.8; the
+  probe notes are `file-history-menu-149-146-findings.md` in the session notes):
+
+  | Case | git alone | Leaf |
+  | --- | --- | --- |
+  | A folder where the file goes, with untracked files | deletes the folder and them, exit 0 | refuses |
+  | A file where a folder of the path goes (with unsaved edits) | replaces it with a folder, exit 0 | refuses (a link too) |
+  | The file has conflicts | overwrites the markers, exit 0 | refuses |
+  | A partial clone can't download the blob | empties the file to 0 bytes, exit 128 | puts the file back, shows git's error |
+  | A Git LFS smudge fails (object missing, no git-lfs) | deletes the file, exit non-zero | puts the file back, shows git's error |
+  | The commit has no file at the path | `pathspec did not match`, nothing changed | says so before, in the dialog |
+
+  The last two rows are why the working file is moved aside while git runs and moved back when git fails or is cancelled
+  (`WorkingFileBackup`). A rename keeps content, mode and link target, and costs nothing for a big file.
+- **How:** `FileRestorePlanner` (what the file is now, and the refusals, read for the dialog and again just before the
+  restore), `GetFileRestorePlanGitAction`, `RestoreFileVersionGitAction` (through `GitCliRemoteCommand`, so a partial clone's
+  download and Git LFS get the credential dialogs, progress and Cancel), `RestoreFileVersionUseCase` (returns the
+  result for the strip), `RestoreFileError`, `ConfirmableAction.RestoreFileVersion`, `fileHistoryContextMenu`,
+  `RestoredVersionStrip`. `HistoryViewModel` knows whether the repository has a working tree: a bare one gets no item.
+- **Not done:** a sparse checkout's path outside the cone is written anyway, as git does. Files with Git LFS need git-lfs
+  to be installed, as for any git command that checks them out.
+- Tests: `RestoreFileVersionGitActionTest` (24: every case against plain git on a copy of the repository, a failing
+  filter, Cancel, Git LFS, a partial clone online and offline, a link in the file's place), `RestoringFileVersionTest`
+  (a `TestTab`: the result, the refresh, the failure), `FileRestorePlanTest`, the menu, the copies and the strip's hash
+  in `FileHistoryTest`, `HistoryViewModelTest`, and the dialog in `ConfirmActionDialogTest`. 24 mutations were each
+  caught by a named test: 11 of the restore, the planner and the backup, and 13 of the menu, the view model, the
+  tooltip and the dialog. The backup that copies back instead of moving back survived until the test for a link.
+- **Found while testing:** the view model's restore, with the strip's state, ran on the real Dagger graph against a temp
+  repository in a throwaway harness (a unit test's `UseCaseExecutor` can't refresh, and `RefreshDataUseCase` can't be
+  mocked on JDK 25), and the menu, the strip and the dialog were rendered offscreen and looked at.
+
 ## A System theme that follows the operating system (upstream issue 309, 2026-10-20)
 
 - **Request:** the reporter's desktop environment turns dark mode on at sunset and light mode at dawn, and the theme had
