@@ -2319,6 +2319,11 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   `StatusState.stagedRows`/`unstagedRows`) and share `AppConfig.FilesChangedView`. The old `show_changes_as_tree` key
   is only read, as that setting's default until it's saved. A renamed file's row (commit and review lists) has a
   `← old name` hint after its name (see Renames in file lists).
+- **Fitting the split columns (fork-only, 2026-10-20):** a double-click on the separator in `SplitColumnsHeader` fits
+  the file column to the longest name of the rows shown (`ChangedFilesList`): the 300 longest names are measured with
+  `body2`, and `fittedSplitRatio` adds 4 dp and clamps to a drag's bounds (15 to 85%), so in a narrow pane a long name
+  is still cut. A renamed row's hint is in the directory column and isn't measured. The result is saved as a drag's
+  is. Test: `ChangedFilesListFitColumnTest`.
 - `combineStatusState` builds the two panes' lists (`StatusLists`: entries, rows, searches, view settings) in a
   `combine` of their own. The commit message, selection and the rest join them afterwards, so a letter typed in the
   commit message no longer sorts and groups every changed file again (`StatusStateTest`).

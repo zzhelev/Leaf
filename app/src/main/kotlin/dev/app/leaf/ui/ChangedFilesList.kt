@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -27,11 +28,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -76,6 +79,12 @@ private val TREE_FOLDER_START = 10.dp
 /** Between a renamed file's name and where it came from, and after the hint. */
 private val HINT_GAP = 10.dp
 
+/** Room kept after the longest name when a double-click fits the name column to it. */
+private val FIT_SLACK = 4.dp
+
+/** Only the longest names are measured when fitting: they are the widest in nearly every font. */
+private const val FIT_MEASURED_NAMES = 300
+
 /** The most that a renamed file's name takes of the row, and that its hint takes of what the name leaves. */
 private const val NAME_MAX_SHARE = 0.55f
 private const val HINT_MAX_SHARE = 0.8f
@@ -118,6 +127,10 @@ fun <T> ChangedFilesList(
     var folderCursorKey by remember(resetKey) { mutableStateOf<String?>(null) }
 
     var splitRatio by remember(viewState.splitRatio) { mutableStateOf(viewState.splitRatio) }
+
+    val textMeasurer = rememberTextMeasurer()
+    val nameStyle = MaterialTheme.typography.body2
+    val fitSlackPx = with(LocalDensity.current) { FIT_SLACK.toPx() }
 
     val indexByKey = remember(rows) { rows.withIndex().associate { (index, row) -> row.key to index } }
     val selectedItems = remember(selectedEntries) { selectedEntries.toSet() }
@@ -229,6 +242,19 @@ fun <T> ChangedFilesList(
                         .coerceIn(SortSettingsCodec.MIN_SPLIT_RATIO, SortSettingsCodec.MAX_SPLIT_RATIO)
                 },
                 onRatioChangeFinished = { onSplitRatioChange(splitRatio) },
+                onFitToContent = { availablePx ->
+                    val longestName = rows.asSequence()
+                        .filterIsInstance<FileRow.File<T>>()
+                        .map { it.file.fileName }
+                        .sortedByDescending { it.length }
+                        .take(FIT_MEASURED_NAMES)
+                        .maxOfOrNull { textMeasurer.measure(it, nameStyle, softWrap = false, maxLines = 1).size.width }
+
+                    fittedSplitRatio(longestName, fitSlackPx, availablePx)?.let { fitted ->
+                        splitRatio = fitted
+                        onSplitRatioChange(fitted)
+                    }
+                },
             )
         }
 
@@ -318,6 +344,8 @@ private fun SplitColumnsHeader(
     /** Change of the ratio, as a share of the columns' width. */
     onRatioDelta: (Float) -> Unit,
     onRatioChangeFinished: () -> Unit,
+    /** Double-click on the separator, with the width that the two columns share. */
+    onFitToContent: (availablePx: Float) -> Unit,
 ) {
     var columnsWidthPx by remember { mutableStateOf(0f) }
     val gapPx = with(LocalDensity.current) { COLUMN_GAP.toPx() }
@@ -345,6 +373,9 @@ private fun SplitColumnsHeader(
                     .width(COLUMN_GAP)
                     .fillMaxHeight()
                     .pointerHoverIcon(resizePointerIconEast)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onDoubleTap = { onFitToContent(columnsWidthPx - gapPx) })
+                    }
                     .draggable(
                         state = dragState,
                         orientation = Orientation.Horizontal,
@@ -370,6 +401,17 @@ private fun SplitColumnsHeader(
                 .background(MaterialTheme.colors.onBackground.copy(alpha = 0.08f))
         )
     }
+}
+
+/**
+ * The ratio at which the name column just holds [longestNamePx] plus [slackPx], within the bounds a drag keeps. Null
+ * when there is no name or no room to measure against, which leaves the columns as they are.
+ */
+internal fun fittedSplitRatio(longestNamePx: Int?, slackPx: Float, availablePx: Float): Float? {
+    if (longestNamePx == null || availablePx <= 0f) return null
+
+    return ((longestNamePx + slackPx) / availablePx)
+        .coerceIn(SortSettingsCodec.MIN_SPLIT_RATIO, SortSettingsCodec.MAX_SPLIT_RATIO)
 }
 
 @Composable

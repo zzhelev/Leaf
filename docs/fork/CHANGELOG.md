@@ -2,6 +2,11 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Double-click on the file list's column separator fits the file column (2026-10-20)
+
+- Staged, Unstaged and Files changed in split columns: a double-click on the separator sizes the file column to the longest
+  file name shown, within the 15 to 85% a drag keeps, and saves it. Not added to the log's columns.
+
 ## The commit message has a title row and a hint, and Amend is in its menu (upstream issue 344, 2026-10-20)
 
 - **Request:** upstream issue 344: the commit message field "looks like text inside an input box" where the two panels
