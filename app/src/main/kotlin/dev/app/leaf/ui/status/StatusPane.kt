@@ -2,6 +2,7 @@
 
 package dev.app.leaf.ui.status
 
+import dev.app.leaf.domain.worktrees.workTreeOf
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
@@ -1010,7 +1011,7 @@ fun getActionInfo(entryType: EntryType): ActionInfo {
 }
 
 
-private suspend fun copyEntriesPath(
+internal suspend fun copyEntriesPath(
     clipboard: Clipboard,
     entries: List<StatusEntry>,
     relative: Boolean,
@@ -1020,7 +1021,9 @@ private suspend fun copyEntriesPath(
         if (relative) {
             entry.filePath
         } else {
-            repositoryPath.orEmpty() + systemSeparator + entry.filePath
+            // Fork-only: the status state holds the git dir (`<repo>/.git`, or a linked worktree's folder under
+            // `<common git dir>/worktrees/`), so the working tree comes from it
+            repositoryPath?.let { workTreeOf(it) }.orEmpty() + systemSeparator + entry.filePath
         }
     }
 
