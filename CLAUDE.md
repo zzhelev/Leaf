@@ -2390,7 +2390,8 @@ resets them. By default only Date is on, as before.
   - Then the author's avatar carries the committer's 10 dp avatar in grey on its bottom-right edge, and the Committer
     cell's avatar is grey too. The badge's circle, plus a 1.5 dp ring, is cleared from the author's avatar
     (`BlendMode.Clear` in an offscreen layer), so it stands apart on any row background, the selected row's included.
-  - `AvatarImage` draws the initial in `LocalTextStyle`, so the badge provides a 7 sp style.
+  - `AvatarImage` draws the initial in `LocalTextStyle`, so the badge provides a 7 sp style. Its fill is the person's
+    own colour (see Avatar colours); only the badge and the Committer column's grey are given.
   - Every row keeps the badge's room (20 × 18 dp, then 4 dp before the name), so names line up.
 - **Dates:** Date is the commit date, by which the log orders its rows (`RevSort.COMMIT_TIME_DESC`). After a rebase,
   the dates the changes were written would jump out of order. `Commit.authorDate` holds when the change was written.
@@ -2428,6 +2429,68 @@ of its Message cell.
   The others are still in the semantics tree, so `LogRefChipsTest` checks `layoutInfo.isPlaced` up the parents.
 - The Message cell is a `Row` with `weight(1f)`, so the columns after it keep their widths. Before, the chips were
   measured first, and a row with many of them squeezed the message, then Author and Date, to nothing.
+
+**Avatar colours (fork-only, upstream issue 231, 2026-10-20, `domain/avatars/AvatarColors.kt`,
+`ui/components/AvatarImage.kt`):** an avatar without a picture (the provider is None by default, or Gravatar has none) is
+the person's initial on a fill that is theirs, the same in the log, the commit details footer, file history and the
+graph node's tooltip.
+- **What it was:** the log's Author and Committer columns and the node's tooltip passed the row's lane colour, so one
+  person had a colour per lane, different people on a lane shared one, and
+  the white initial on a lane colour held only 2.4 to 3.8 : 1 (2.65 on the main lane's blue). The commit footer and file
+  history had the theme's primary for everyone.
+- **The colour** (`Identity.avatarKey`, `avatarPaletteIndex`, `avatarColorArgb`): the key is the email, trimmed, in NFC
+  and lower case, or the name when the email is blank; neither is no colour. The index is FNV-1a over the key's UTF-8
+  bytes with MurmurHash3's finalizer, `Math.floorMod` the size of `AVATAR_PALETTE`: 12 fills (Tailwind's 600 and 700
+  tones, in hue order). Not `String.hashCode`, which gives `dev1@x` and `dev2@x` neighbours, so neighbouring palette
+  entries. **The list and the hash are part of what a person's colour is:** editing, reordering or re-hashing recolours
+  everyone, and `AvatarColorsTest` has the indices and colours of five people worked out apart from the code.
+- **`AvatarImage(color = null)`** takes the person's colour. A `color` that is given wins, and is for what isn't a
+  person's: the grey of the committer's badge and of the Committer column when someone else committed
+  (`OTHER_COMMITTER_COLOR`, which stays grey). No name and no email keeps the theme's primary. `LogColumnCells` lost its
+  `nodeColor`.
+- **The bar** (`AvatarPaletteTest`): the white initial holds 4.5 : 1 on every fill (WCAG's text threshold; the lowest is
+  4.60), each fill holds 3 : 1 against the plain row of the light and the dark theme (3.05), and no two fills are closer
+  than 18 in CIELAB (the closest pair, red and orange, is 18.8). A custom theme can't break the first, as the fill
+  doesn't depend on the theme, and can't be promised the second, as its background is its own.
+- **Chosen from** the graph's six lane colours, each darkened until white holds 4.5 (only six colours, so five authors
+  share one 90% of the time, and an avatar shares a colour with an unrelated graph line; 12 gives 62%), and the twelve.
+  The theme's colours were out: the dark theme's secondary is yellow (1.65 : 1 with white), and green, red and amber
+  mean added, deleted and conflicting. A hash can't tell everyone apart; it keeps one person recognisable, and the name
+  stays next to the avatar. One person with two emails has two colours, as git has two identities for them.
+- Tests: `AvatarColorsTest` (domain: the goldens, case, spaces, email over name, blank email, accents, no identity, 5,000
+  emails over 12 colours within 80 to 120% of an even share, neighbours, UTF-8), `AvatarPaletteTest` (the bar, with a
+  check of the contrast formula), `AvatarImageTest` (the fill read off a rendered avatar: the person's, case-proof, the
+  same in both themes, a given colour wins, no identity). The real `Log` was rendered offscreen against a demo
+  repository with ten authors in both themes.
+
+**HEAD's row (fork-only, upstream issue 255, 2026-10-20, `domain/log/HeadCommit.kt`, `ui/log/HeadMark.kt`):** the commit
+that the tab's worktree has checked out gets a ring around its node in the graph, where one looks for HEAD, and its
+subject in bold, where one reads the list. The branch chip already came first, with the pin icon.
+- **Which row:** `headCommitHash(currentBranch)` is the tip of the tab's `currentBranch`, and `CommitsList` passes
+  `isHead` to `CommitLine`, which gives it to `CommitsGraph` and `CommitNode` (the ring) and to `CommitMessage` (the
+  bold). Probed in `MarkingHeadTest`, each against `git rev-parse HEAD`:
+  - a branch: its tip. A checkout from a terminal moves the mark with the next refresh;
+  - **a detached HEAD, also during a rebase or a bisect, has a `currentBranch`:** a branch named `HEAD` at its commit
+    (JGit's branch list holds it, first, so `GetCurrentBranchGitAction`'s fallback by hash finds it before a branch at the
+    same commit). The task text said there is none. The commit is marked once, not once for HEAD and once for the branch;
+  - **a linked worktree's tab:** that worktree's own HEAD (`currentBranch` reads the tab's git dir), never the main
+    worktree's. Other worktrees' branches keep their chips with the folder badge, and their commits get no mark;
+  - an unborn branch (`git checkout --orphan`) or an empty repository: `currentBranch` is null, nothing is marked, and
+    the other branches' commits are still in the log;
+  - a HEAD older than the commits the log has loaded (it holds at least 2,000): no row is marked, and nothing breaks.
+- **The look:** the ring is in the text colour, 2 dp, 14 dp wide, which is the lane's cell: a bigger ring would be cut
+  to it, and its inside is the 10 dp node's size. Chosen with the user from a ring, a ring with bold, bold alone and a row
+  tint (2026-10-20). A tint can't tell itself from the selection, which is pale blue in the light theme and covers it in
+  the dark one. A ring in the lane's colour blends into the node.
+- **It leaves the rest of the row alone:** the selection fills the row, a search match has its bar and the focused one
+  its outline in the message cell, and a row that doesn't match fades without its graph, so the ring stays at full
+  strength there. Checked in the worst case: HEAD selected, matching and focused, in both themes.
+- **Not done:** other worktrees' HEADs get no mark. A ring with a gap around the node would need a wider cell than the
+  lane.
+- Tests: `HeadCommitTest` (domain), `MarkingHeadTest` (a `TestTab` on real repositories, ten tests: the states above, and a
+  2,100-commit repository from `git fast-import`), `HeadMarkTest` (pixels of `CommitsGraph` with and without `isHead`, in
+  both themes, selected too, and the bold). The wiring of `CommitsList` and the whole row were run against a demo
+  repository through the Dagger graph in a temporary harness and rendered in both themes.
 
 **The log under the diff pane (upstream's b2f9188f):** `MainContentView` keeps the log composed while the diff pane
 shows over it (`Modifier.focusable(!showDiff)`), so closing a diff doesn't compose the log again.

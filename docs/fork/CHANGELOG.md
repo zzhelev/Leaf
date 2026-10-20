@@ -2,6 +2,60 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## An avatar colour per person, and a mark on HEAD's row in the log (upstream issues 231 and 255, 2026-10-20)
+
+- **Requests:** upstream issue 231, "the avatars of different people are highlighted in the same colour", and upstream
+  issue 255, "it's hard to locate the current HEAD on the graph". Both look changes, so each went through options with
+  real renders of the log (ten authors, a case variant of one email, a bot, GitHub as committer, a linked worktree, HEAD
+  in the middle, both themes) before any code; the user picked B and the ring with bold, and agreed the bar below.
+- **What the task text had wrong:** the log didn't paint every avatar in one colour. Its Author and Committer columns and
+  the node's tooltip passed the row's **lane colour**: one person changed colour from lane to lane, different people on a
+  lane shared one, and the white initial held 2.4 to 3.8 : 1 on the six lane colours (2.65 on the main lane's blue). The
+  commit footer and file history had the theme's primary for everyone. And **a detached HEAD does have a `currentBranch`**,
+  a branch named `HEAD` at its commit, so one rule finds HEAD's row in every state.
+- **Avatar colours (231):** an avatar without a picture is the initial on the person's own colour, the same in the log,
+  the details footer, file history and the node's tooltip. It comes from a hash of the email (trimmed, NFC, lower case; the
+  name when there is no email) into 12 fills, Tailwind's 600 and 700 tones. Someone with no name and no email keeps the
+  theme's primary, and the committer's grey (the badge, and the Committer column when someone else committed) is left
+  alone. The bar, tested: white initial 4.5 : 1 on every fill (lowest 4.60), each fill 3 : 1 against the plain row of the
+  light and dark themes (lowest 3.05), no two within 18 in CIELAB (closest 18.8). A custom theme can't break the first and
+  can't be promised the second. Not the six lane colours darkened (the other option: six colours, so five authors share
+  one 90% of the time, against 62% for twelve, and an avatar would match an unrelated graph line), and not theme colours
+  (the dark theme's secondary is yellow, 1.65 : 1 with white; green, red and amber mean added, deleted, conflicting).
+  One person with two emails has two colours, as in git.
+- **HEAD's row (255):** the commit that the tab's worktree has checked out gets a 2 dp ring in the text colour around its
+  node and its subject in bold. Chosen from a ring, a ring with bold, bold alone and a row tint: a tint looks like the
+  selection (pale blue in the light theme, and the dark theme's selection covers it), and a ring in the lane's colour
+  blends into the node. The mark leaves the selection, the search's bar and outline, and the dim of non-matching rows
+  alone, and was checked in the worst case: HEAD selected, matching and focused.
+  - Which row: `headCommitHash(currentBranch)`. A branch gives its tip; a detached HEAD (also in a rebase or a bisect) its
+    commit, once, not also for the branch at that commit; a linked worktree's tab only that worktree's HEAD; an unborn
+    branch or an empty repository nothing; a HEAD older than the log's loaded commits no row.
+  - The ring is 14 dp, the lane's cell: a bigger one would be cut to it, and its inside is the 10 dp node's size.
+- **Not done:** other worktrees' HEADs get no mark, and the ring has no gap around the node, which would need a cell
+  wider than the lane.
+- **How:** `domain/avatars/AvatarColors.kt` (`avatarKey`, `avatarPaletteIndex`, `AVATAR_PALETTE`), `AvatarImage(color =
+  null)`, `LogColumnCells` without `nodeColor`, `domain/log/HeadCommit.kt`, `ui/log/HeadMark.kt` (`HeadRing`,
+  `boldWhenHead`), and the `isHead` parameter through `CommitsList`, `CommitLine`, `CommitsGraph`, `CommitNode` and
+  `CommitMessage`.
+- Tests (43): `AvatarColorsTest` (12: five people's colours worked out apart from the code, case, spaces, email over name,
+  blank email, accents, no identity, 5,000 emails over 12 colours, neighbours, UTF-8), `AvatarPaletteTest` (4: the bar),
+  `AvatarImageTest` (6: the fill read off a rendered avatar), `HeadCommitTest` (5), `MarkingHeadTest` (10: a real tab on
+  real repositories, each against `git rev-parse HEAD`: a branch and a checkout from a terminal, detached at a tip and at
+  a commit no branch has, a linked worktree both ways, an unborn branch, an empty repository, a rebase stopped at a
+  conflict, a bisect, and a 2,100-commit repository from `git fast-import` with HEAD at its root), `HeadMarkTest` (6:
+  the ring's pixels in both themes, selected too, and the bold). 20 of 21 mutations were caught by a named test; the
+  21st, the ring drawn over the node instead of under it, shows the same picture (the ring is hollow and its inside is the
+  node's size). The whole suite: 2,382 tests, none failing, on `016a73cd` plus this work.
+- **Run manually:** the dev app on a temp repository with ten authors (a case variant of one email, a bot, GitHub as
+  committer on the merges, a linked worktree on its own branch, HEAD in the middle), in the light theme, its window
+  captured: each person keeps a colour from row to row, the grey badges are grey, and `wip/search-polish`'s row has the
+  ring and the bold subject. The dark theme and a detached HEAD were rendered offscreen from the same `Log`.
+- **Found while testing:** the first renders of the ring were 14 dp, not the 18 dp that the code asked for: the lane's cell
+  is 14 dp wide and Compose cut the ring to it. The code now says 14. The real `Log` was rendered against a demo
+  repository through the Dagger graph in a throwaway harness that found the ring by its pixels (one, on HEAD's row, in
+  both themes and for a detached HEAD) and the bold through the text layouts (HEAD's subject only).
+
 ## A menu on the rows of file history: restore a version, copy the hash and the message (upstream issues 149 and 146, 2026-10-20)
 
 - **Requests:** upstream issue 149, "checkout a file to a previous version in file history" (the report needs the terminal for
