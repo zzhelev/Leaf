@@ -15,18 +15,27 @@ import androidx.compose.ui.graphics.Shape
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import dev.app.leaf.LocalAvatarProvider
+import dev.app.leaf.domain.avatars.avatarColorArgb
 import dev.app.leaf.domain.extensions.sha256
 import dev.app.leaf.domain.models.Identity
 import org.eclipse.jgit.lib.PersonIdent
 
+/**
+ * A person's avatar: their picture, or when there is none the initial on a fill. Without a [color] (fork-only, upstream
+ * issue 231) the fill is the person's own, from `AVATAR_PALETTE`, which is the same everywhere they show up: the log,
+ * the details footer, file history. Only the theme's primary is left for someone with no name and no email. A [color]
+ * is for what isn't a person's colour, such as the grey of the committer's badge.
+ */
 @Composable
 fun AvatarImage(
     modifier: Modifier = Modifier,
     personIdent: Identity,
     shape: Shape = CircleShape,
-    color: Color = MaterialTheme.colors.primary,
+    color: Color? = null,
 ) {
     val current = LocalAvatarProvider.current
+    val primary = MaterialTheme.colors.primary
+    val fill = color ?: remember(personIdent, primary) { personIdent.avatarColorArgb()?.let { Color(it) } ?: primary }
 
     Box(
         modifier = modifier
@@ -52,7 +61,7 @@ fun AvatarImage(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(color),
+                    .background(fill),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

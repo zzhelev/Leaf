@@ -156,7 +156,6 @@ fun LogColumnHeaders(
 fun LogColumnCells(
     graphCommit: GraphCommit,
     layout: LogColumnsLayout,
-    nodeColor: Color,
 ) {
     for (entry in layout.shown) {
         key(entry.column) {
@@ -168,8 +167,8 @@ fun LogColumnCells(
                     .padding(horizontal = CELL_PADDING),
             ) {
                 when (entry.column) {
-                    LogColumn.Author -> AuthorCell(graphCommit, nodeColor)
-                    LogColumn.Committer -> CommitterCell(graphCommit, nodeColor)
+                    LogColumn.Author -> AuthorCell(graphCommit)
+                    LogColumn.Committer -> CommitterCell(graphCommit)
                     LogColumn.Date -> DateCell(graphCommit, layout.dateShowsTime)
                     LogColumn.Commit -> CommitCell(graphCommit)
                 }
@@ -183,7 +182,7 @@ fun LogColumnCells(
  * committer's small avatar sits on the author's, and the tooltip names both, with both dates.
  */
 @Composable
-private fun AuthorCell(graphCommit: GraphCommit, nodeColor: Color) {
+private fun AuthorCell(graphCommit: GraphCommit) {
     val commit = graphCommit.commit
     val author = commit.author
     val committer = commit.committer
@@ -207,7 +206,7 @@ private fun AuthorCell(graphCommit: GraphCommit, nodeColor: Color) {
 
     PersonCell(
         person = author,
-        avatarColor = nodeColor,
+        avatarColor = null,
         badge = committer.takeIf { isCommittedBySomeoneElse },
         tooltip = tooltip,
     )
@@ -215,12 +214,12 @@ private fun AuthorCell(graphCommit: GraphCommit, nodeColor: Color) {
 
 /** The committer, with a grey avatar when it's someone other than the author. */
 @Composable
-private fun CommitterCell(graphCommit: GraphCommit, nodeColor: Color) {
+private fun CommitterCell(graphCommit: GraphCommit) {
     val commit = graphCommit.commit
 
     PersonCell(
         person = commit.committer,
-        avatarColor = if (commit.isCommittedBySomeoneElse) OTHER_COMMITTER_COLOR else nodeColor,
+        avatarColor = if (commit.isCommittedBySomeoneElse) OTHER_COMMITTER_COLOR else null,
         badge = null,
         tooltip = commit.committer.nameAndEmail(),
     )
@@ -229,7 +228,7 @@ private fun CommitterCell(graphCommit: GraphCommit, nodeColor: Color) {
 @Composable
 private fun PersonCell(
     person: Identity,
-    avatarColor: Color,
+    avatarColor: Color?,
     badge: Identity?,
     tooltip: String,
 ) {
@@ -265,7 +264,7 @@ private fun PersonCell(
  * the badge stands apart on any row background, the selected row's included.
  */
 @Composable
-private fun AvatarWithBadge(person: Identity, color: Color, badge: Identity?) {
+private fun AvatarWithBadge(person: Identity, color: Color?, badge: Identity?) {
     Box(modifier = Modifier.size(AVATAR_SLOT_WIDTH, AVATAR_SLOT_HEIGHT)) {
         AvatarImage(
             modifier = Modifier

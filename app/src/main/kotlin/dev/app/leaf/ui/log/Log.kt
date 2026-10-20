@@ -1151,7 +1151,6 @@ fun CommitMessage(
         LogColumnCells(
             graphCommit = graphCommit,
             layout = columnsLayout,
-            nodeColor = nodeColor,
         )
     }
 }
@@ -1370,7 +1369,6 @@ fun CommitNode(
                 AvatarImage(
                     modifier = Modifier.size(COMMIT_TOOLTIP_AVATAR_SIZE),
                     personIdent = author,
-                    color = color,
                 )
             },
             modifier = modifier,
