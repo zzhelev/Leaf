@@ -4,6 +4,7 @@ import dev.app.leaf.data.git.disableJGitAutoGc
 import dev.app.leaf.data.git.readGitOnlyConfigValues
 import dev.app.leaf.data.repositories.configuration.initPreferencesPath
 import dev.app.leaf.di.DaggerAppComponent
+import dev.app.leaf.theme.followSystemThemeOnLinux
 
 
 suspend fun main(args: Array<String>) {
@@ -16,6 +17,7 @@ suspend fun main(args: Array<String>) {
     initPreferencesPath()
     disableJGitAutoGc()
     readGitOnlyConfigValues()
+    followSystemThemeOnLinux()
 
     val app: App = DaggerAppComponent
         .create()

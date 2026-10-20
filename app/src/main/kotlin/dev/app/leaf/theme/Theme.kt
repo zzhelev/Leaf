@@ -2,6 +2,7 @@
 
 package dev.app.leaf.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.Colors
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
@@ -10,6 +11,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
+import dev.app.leaf.domain.models.ui.resolved
 import dev.app.leaf.ui.dropdowns.DropDownOption
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -50,12 +52,17 @@ fun AppTheme(
     selectedTheme: Theme = Theme.Dark,
     linesHeightType: LinesHeightType = LinesHeightType.COMPACT,
     customTheme: ColorsScheme? = null,
+    // Fork-only: read only when the System theme is selected. Compose polls the operating system's setting, so a
+    // change recomposes this, and the colours with it
+    systemIsDark: Boolean = selectedTheme == Theme.System && isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val theme = when (selectedTheme) {
+    val theme = when (selectedTheme.resolved(systemIsDark)) {
         Theme.Light -> lightTheme
         Theme.Dark -> darkTheme
         Theme.Custom -> customTheme ?: defaultAppTheme
+        // resolved() never returns it
+        Theme.System -> defaultAppTheme
     }
 
     val lineHeight = when (linesHeightType) {
@@ -174,5 +181,6 @@ val Colors.isDark: Boolean
 val themeLists = listOf(
     DropDownOption(Theme.Light, "Light"),
     DropDownOption(Theme.Dark, "Dark"),
+    DropDownOption(Theme.System, "System"),
     DropDownOption(Theme.Custom, "Custom"),
 )
