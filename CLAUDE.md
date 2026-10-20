@@ -2436,6 +2436,35 @@ author, date and time, and "3 of 12".
   `ensureActive()` before it writes, or the diff would go blank until the next one loads. Another commit's diff starts
   at its top, as in the diff pane.
 
+**Log search (fork-only changes, 2026-10-20):** the bar is `SearchFilter` (`ui/log/Log.kt`), over
+`RepositoryOpenViewModel.logSearchFilterResults`: `LogSearch.SearchResults(commits, index, totalCount, hasTerm)`, where
+`index` is the counter's number, starting at 1, and 0 means no result.
+- **What builds it:** typing (`searchLog`; the newest term wins). It searches the loaded commits only, and
+  a refresh doesn't run it again, so the results keep the commits of the log as it was when the term was typed. An empty
+  field is `hasTerm = false`: `matchingCommits` is then null and no row is dimmed. An empty list would make every row a
+  non-match, and with the dim below the whole log faded as the bar opened.
+- **Wrap-around:** `steppedSearchIndex` (`domain/log/SearchNavigation.kt`) gives the result after a step: next from the
+  last goes to the first, previous from the first to the last, one result stays, none is 0, and an index outside the
+  results counts as before the first (next) or after the last (previous). The down button and Enter step forward, the
+  up button and Shift+Enter (`KeybindingOption.SEARCH_PREVIOUS_RESULT`) back, all through `stepSearchResult`.
+  - It writes with `MutableStateFlow.update`, so a step can't put an older list back over the results of a search typed
+    meanwhile. That is by construction: a racing test can't tell it from a plain read and write, as the window is too
+    narrow (tried).
+  - It scrolls to the result even when the index didn't change, so with one result Enter brings the log back to it. With
+    no result it does nothing.
+- **A step scrolls, it doesn't select** (decided 2026-10-20: "mark only"). The commit pane stays on the user's own
+  selection. `scrollToCommit` doesn't scroll when the row is on screen, so the mark below is the only sign of which
+  result is current. A click on a match (`selectCommit`) moves the counter to it.
+- **Rows** (`ui/log/SearchMatchStyle.kt`): a non-match fades as a whole (`dimmedWhenNotMatching`: message, ref chips,
+  avatars, author and date), to 45% in the dark theme and 55% in the light one, which leaves its text at about 4.5:1 and
+  3.5:1. The graph isn't part of it, so its lines stay continuous. The old dim only changed the message and names to
+  `onBackgroundSecondary`: in the dark theme 11.8:1 against a match's 19.2:1, too close to tell apart. The focused
+  match (`SearchResults.focusedCommit`, the counter's) has a 2 dp outline in the matches' bar colour
+  (`outlinedWhenFocusedMatch`), which keeps the selection's fill visible inside it. Every match keeps its 4 dp bar.
+- Tests: `SearchNavigationTest` (domain), `LogSearchTest`, and `SearchMatchStyleTest` (pixels, both themes). The view
+  model and the real `Log` ran against a demo repository through the Dagger graph in a temporary harness (wrap both
+  ways, one result, none, an empty field, a click, 3,200 steps racing 150 searches, renders in both themes).
+
 ## Refresh
 
 **The watcher (fork-only, `data/.../git/FileChangesWatcher.kt`):** the JDK's `WatchService`, since 2026-10-15. Gitnuro

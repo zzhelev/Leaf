@@ -2,6 +2,34 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Log search: wrap-around, a clearer dim, a mark on the current match (2026-10-20)
+
+- **Reported:** the up and down buttons stopped at the first and the last result, the commits that don't
+  match were hardly dimmer than the ones that do ("at least in the Dark theme"), and with several matches in a row
+  there was no sign of which one the counter pointed at.
+- **Probe:** a step only scrolls the log, and only when the row is off screen, so with the next match in view the counter
+  changed and nothing else did. Shift+Enter did nothing. The old dim was the text colour `onBackgroundSecondary` on the
+  message and the names: 11.8:1 against a match's 19.2:1 in the dark theme (7.1:1 against 14.7:1 in the light one), and
+  avatars, ref chips and dates weren't dimmed. A refresh doesn't run the search again (not changed).
+- **Chosen with the user, from renders of the real rows (options A to E for the dim, F1 to F3 for the mark):**
+  - **Both directions wrap.** Down from the last result goes to the first, up from the first to the last, in the
+    buttons and in Enter; Shift+Enter goes back. One result stays at 1/1 and Enter scrolls back to it; no result does
+    nothing. The counter reads "34/34" after the wrap.
+  - **Non-matches fade as a whole row** (message, chips, avatars, author, date), to 45% in the dark theme and 55% in
+    the light one. The graph isn't faded.
+  - **The current match has a 2 dp outline** in the colour of the matches' bar (gold in dark, purple in light), which
+    stays readable on the selected row. A step still only scrolls: it doesn't select the commit, so the commit pane
+    keeps the user's own selection.
+- **Also fixed:** an empty search field counted every row as a non-match. With the old dim nobody saw it; with the new one
+  the whole log would have faded as the bar opened. `SearchResults.hasTerm` says that nothing is searched for.
+- **How:** `steppedSearchIndex` (`domain/log/SearchNavigation.kt`) and `stepSearchResult` (it uses `update`, so a step
+  can't put an older list back over a new search); `ui/log/SearchMatchStyle.kt` for the dim and the outline;
+  `KeybindingOption.SEARCH_PREVIOUS_RESULT`. `LogColumnCells` lost its `isDimmed` parameter.
+- **Not done:** searching commits that aren't loaded yet, and running the search again after a refresh.
+- Tests: `SearchNavigationTest`, `LogSearchTest`, `SearchMatchStyleTest`; 19 mutations were each caught by a named test.
+  A temporary harness ran the real view model and `Log` against a demo repository: wrap both ways, one result, none, an
+  empty field, a click, and 3,200 steps racing 150 searches (no index outside its list).
+
 ## "Delete file" on a folder that holds another repository (2026-10-20)
 
 - **Bug:** JGit lists an untracked folder that holds another repository as one row, so "Delete file" on an agent's
