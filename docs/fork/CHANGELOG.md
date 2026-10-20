@@ -56,6 +56,78 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   repository through the Dagger graph in a throwaway harness that found the ring by its pixels (one, on HEAD's row, in
   both themes and for a detached HEAD) and the bold through the text layouts (HEAD's subject only).
 
+## Parents in the commit details: see them, and jump to them (upstream issue 270, 2026-10-20)
+
+- **Request:** upstream issue 270, "display parent commit": see the parent of the selected commit and jump to it, and a
+  merge commit should show its two parents (the reporter's model is SmartGit's right panel).
+- **What it does:** the commit's footer lists each parent under the hash: an arrow, the short hash and the subject. A
+  merge numbers its rows (1, 2, in git's order). A click selects that parent in the log and scrolls to it, as a click on
+  its row would. A right-click opens **Select in the log** and **Copy commit hash**, and the tooltip has the message, the
+  author and date, and the whole hash (for a merge, also which parent it is). It shows for log commits and for a branch or
+  tag picked in the side panel; worktree review and file history have their own views and are unchanged.
+- **Chosen with the user from a mockup (2026-10-20):** option A of three (rows inside the footer; the others were hash chips
+  and a block of its own between the message and the footer), click selects, load until found.
+- **One parent, or none, costs no height:** the footer is still 72 dp for a normal commit and for a root commit ("Root
+  commit, no parent"). A merge adds 20 dp. A stash lists only its first parent, the commit it was made on: its other parents
+  are the index and untracked-files commits, which the log skips.
+- **More than 4 parents** (an octopus merge) show 3 rows and "Show N more parents", which opens the rest in place, 7.5 rows
+  at most before the block scrolls (the row cut in half says there are more), and "Show fewer parents" closes it. Selecting
+  another commit closes it too. Every parent stays reachable, hidden ones by the same click and menu. Asked by the user
+  after the mockup: the first plan ended in "and N more parents" with no way to open them.
+- **A parent older than the commits the log has loaded** (it loads 2,000 and then 500 per page; the first parent of the last
+  loaded commit is always one) is loaded by the click. The row shows a spinner and "Looking, click to stop"; the search loads
+  a page, then twice as many commits at each step, 25,000 more at most, off the UI thread. A second click, or selecting
+  another commit, stops it when the running step ends. When it ends without the commit the row says why and stays so until
+  another commit is selected, in amber ("Not in the log": no branch, tag or stash reaches it; "Not in the next 25,000";
+  "Couldn't load the log"), and a click tries again, and after the limit goes 25,000 further.
+- **Why doubling steps:** the log's walk is `RevSort.TOPO`, so each page costs about the whole history whatever it loads. A
+  probe on a repository of 66,000 commits with merges: 155 ms for a page of 500, 190 ms for a step of 10,000. A parent just
+  past the loaded log costs one page, and one far away a few steps.
+- **Found while rendering:** the first wording of the rows ("Not loaded yet, click to load it", "Not found in 25,000 more
+  commits. Click to look further") was cut at the pane's default width of 330 dp, right where it said what to do. The
+  rows now have short texts (about 22 characters fit) and the explanation is in the tooltip. And the select waits for the
+  log's state to have the loaded commit: `Log` scrolls with the list it had when the selection changed, so a selection that
+  comes first scrolls nowhere.
+- **A merge whose parent is far:** the log keeps a merged branch's commits together, so which parent is far depends on the
+  walk, and the data test uses two long branches to have one either way.
+- **How:** `parentLinks` (`domain/log/ParentLinks.kt`) picks the rows; `LoadLogUntilCommitUseCase` loads the log
+  until a commit is in it (on `IncreaseLogCountUseCase`); `CommitParentsController` (`repositoryopen/`, made by
+  `RepositoryOpenViewModel`) holds the jump and the rows; `ParentRows` (`ui/`) draws them in `CommitFooter`, which takes
+  them as a slot. `CommitChanges.kt` changed by 26 lines, the view model by 20. A new drawable (`arrow_upward`),
+  strings, and `TestTab` and `TestGitCli.runWithInput` in the tests.
+- **Tests (52 new):** `ParentLinksTest` (13: one parent, a merge, root, stash, four and five and 66 parents, hidden
+  ones loaded or not, blank and repeated hashes, and which hashes the lookup is asked for), `LoadingLogUntilCommitTest` (8,
+  on repositories of up to 5,200 commits made with `git fast-import`: a loaded commit, just past a page, several pages
+  away, a merge with a far parent, a parent of the last loaded commit, a commit no ref reaches, the limit, and a cancelled
+  search that goes on again), `CommitParentsControllerTest` (14, with a fake search: a click on a loaded parent, the
+  search and its progress, a log state that never has the commit, every way a search can end, a second click, another
+  selection, a step that ends late, another parent clicked meanwhile, a stash, the hidden rows), `CommitFooterParentsTest`
+  (17, rendered at 330 px: every state, the heights, the numbers, a click, the menu and its copy, the links that open and
+  close the hidden rows, and the scroll of an opened octopus; set `LEAF_RENDER_DIR` for a PNG of each state in both themes).
+  **Full run** on `016a73cd` plus this change (not committed at the time), 2026-10-20: domain 451, data 1,389, app
+  544, common 7 tests, all passing. The first full run had one failure, `WorktreeReviewTest` "showing the uncommitted changes
+  closes it for the status" (a 5 s wait that timed out in a 14-minute run on a busy machine, in a test that doesn't touch
+  this work); it passes 5 of 5 alone and in a run of the app module by itself. After the rebase onto `c1a50aa1` (the
+  avatar colours, which the footer draws, and HEAD's mark in the log) every module compiled and the four new test classes
+  passed again.
+  **20 mutations** of the pure function, the loading, the controller and the rows: 19 caught, each by a named test (the
+  stash, repeated and blank hashes, 4 against 5 parents, numbering, doubling steps, the limit, stopping a search, a late
+  step, the click on a loaded parent, the reset of the opened rows, the selection of a found parent, the numbers, the
+  search on one row, the root row, the copied hash, the footer's height). One survived and stays: the `ensureActive()` at
+  the top of the search's loop, as the next `awaitLoadedLog()` sees a cancellation too; it states the contract.
+  What the mutations found: a removed limit made the search spin without ever suspending, which hung the build rather than
+  failing a test, so `LoadingLogUntilCommitTest` runs on a thread of its own with a timeout (JUnit's interrupt can't stop
+  a loop that never suspends); a duplicate "is it loaded" check before the loop was an equivalent mutant, and was removed;
+  and a baseline run failed once on "selecting another commit stops the search": the reset for a new selection ran in a
+  collector of its own and could land after an immediate click. It now runs in the state's own pipeline, before the state
+  for the new commit exists, and the tests wait for that state (16 runs in a row pass, 6 of them under CPU load).
+- **Run against the real graph** (a temporary harness, not kept; its copy and the renders are in the session notes): on a demo
+  repository of 4,237 commits with a merge, an octopus merge, a stash, and a merge with a parent 2,100 commits down. The view
+  model listed the parents, a click selected them, the far parent was loaded (501 more commits) while the row showed
+  the search, and the real `Log` scrolled to its row (2115) with it selected.
+- **Not done:** no way back to the child after a jump (select it in the log, as before), and a parent that isn't loaded shows
+  no subject until it is (it would take a git read per parent). Shallow clones weren't looked at.
+
 ## A menu on the rows of file history: restore a version, copy the hash and the message (upstream issues 149 and 146, 2026-10-20)
 
 - **Requests:** upstream issue 149, "checkout a file to a previous version in file history" (the report needs the terminal for

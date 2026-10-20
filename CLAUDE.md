@@ -2601,6 +2601,40 @@ a mockup; "Copy file path" was left out, as it is the same for every row.
   model and the real `Log` ran against a demo repository through the Dagger graph in a temporary harness (wrap both
   ways, one result, none, an empty field, a click, 3,200 steps racing 150 searches, renders in both themes).
 
+**Parents in the commit details (fork-only, upstream issue 270, 2026-10-20):** `CommitFooter` lists the selected commit's
+parents under the hash, one row each. It is the footer of `CommitChanges`, so it shows for a log commit and for a branch or
+tag picked in the side panel. Worktree review and the file-history strip have views of their own and show none.
+- **Rows** (`ui/ParentRows.kt`, what they show is `parentLinks` in `domain/log/ParentLinks.kt`): an arrow, the parent's number
+  when the commit is a merge, its short hash and its subject, which is cut first. A parent that the log hasn't loaded has no
+  subject ("Not loaded yet"). A root commit says "Root commit, no parent". A stash lists only its first parent, the commit it
+  was made on: its others are the index and untracked commits, which the log skips (`commitsToSkip`). More than 4 parents
+  show 3 and "Show N more parents", which opens the rest in place, 7.5 rows at most before it scrolls (the row cut in half
+  says there are more), and closes when another commit is selected. Blank and repeated hashes are left out.
+- **Height:** the footer is `heightIn(min = 72.dp)`, so a commit with one parent or none is as tall as before, and a merge
+  adds 20 dp (a row is 22 dp, a line of the footer's own text 16). A row's text has about 22 characters at the pane's default
+  330 dp, so the row texts are short ("Not loaded yet", "Not in the next 25,000") and the explanations are in the tooltips. The
+  first wording, "Not loaded yet, click to load it", showed as "Not loaded yet, click t…" in the render.
+- **A click selects the parent** in the log (`selectCommit(…, scrollToItem = true)`, which scrolls unless the row is on
+  screen). The row's menu has "Select in the log" and "Copy commit hash". `CommitParentsController` (`repositoryopen/`, made by
+  `RepositoryOpenViewModel`, exposed as `commitParentsState`) holds it all: the rows from the selected commit and the
+  loaded log, what a click is doing (`ParentJump`) and whether the hidden rows are open. Selecting another commit ends both.
+- **A parent older than the loaded log** starts `LoadLogUntilCommitUseCase`. It loads the log further as paging does: a
+  page (500) first, then twice as many at each step, at most 25,000 more commits. It ends as `Found`, `NotReachable` (the log
+  ran out: no branch, tag or stash reaches the commit), `LimitReached` or `LogUnavailable`. The row shows a spinner and
+  "Looking, click to stop", and a second click, or selecting another commit, stops it when the running step ends, as a walk
+  can't be stopped inside. Any other result stays on the row, amber, until another commit is selected: a toast would be
+  gone before it was read. A click on that row tries again, and after `LimitReached` goes 25,000 further.
+- **Selecting waits for the log's state.** The controller selects a found parent only once `logState` has it: `Log` scrolls
+  with the list it had when the selection changed, and a selection that comes first scrolls nowhere.
+- **Why steps that double:** the log's walk is `RevSort.TOPO`, which costs about the whole history at each page, whatever
+  the page holds. A probe on 66,000 commits with merges: 155 ms for a page of 500, 190 ms for a step of 10,000. So the
+  number of steps matters more than their size, and a parent just past the loaded log costs one page.
+- Tests: `ParentLinksTest`; `LoadingLogUntilCommitTest` (data: repositories of up to 5,200 commits, made with
+  `git fast-import` through `TestGitCli.runWithInput`); `CommitParentsControllerTest` (the search is a fake there);
+  `CommitFooterParentsTest` (rendered at 330 px, with PNGs of every state in both themes when `LEAF_RENDER_DIR` is set). The
+  view model ran against the real Dagger graph in a temporary harness, which also checked that the real `Log` scrolls to a
+  parent that had to be loaded.
+
 ## Refresh
 
 **The watcher (fork-only, `data/.../git/FileChangesWatcher.kt`):** the JDK's `WatchService`, since 2026-10-15. Upstream
