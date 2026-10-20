@@ -73,6 +73,7 @@ import dev.app.leaf.data.git.worktrees.GetBranchComparisonGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
 import dev.app.leaf.data.git.worktrees.GetMergedIntoBaseGitAction
+import dev.app.leaf.data.git.worktrees.GetOtherWorktreeHeadsGitAction
 import dev.app.leaf.data.git.worktrees.GetCommonGitDirGitAction
 import dev.app.leaf.data.git.worktrees.GetUnmergedFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetWorktreeActivityGitAction
@@ -208,6 +209,7 @@ class TestTab(
         getTagsGitAction = getTags,
         getRemotesUseCase = getRemotes,
         getStashListGitAction = getStashList,
+        getOtherWorktreeHeadsGitAction = GetOtherWorktreeHeadsGitAction(gitCli, jgit),
         getStatusGitAction = getStatus,
         getCurrentBranchAction = getCurrentBranch,
         graphLogGenerator = GraphLogGenerator(Provider { JGitGraphRevWalker(jgit, commitMapper) }),

@@ -21,6 +21,7 @@ class GetLogUseCase @Inject constructor(
     private val getTagsGitAction: IGetTagsGitAction,
     private val getRemotesUseCase: GetRemotesUseCase,
     private val getStashListGitAction: IGetStashListGitAction,
+    private val getOtherWorktreeHeadsGitAction: IGetOtherWorktreeHeadsGitAction,
     private val getStatusGitAction: IGetStatusGitAction,
     private val getCurrentBranchAction: IGetCurrentBranchGitAction,
     private val graphLogGenerator: GraphLogGenerator,
@@ -40,10 +41,16 @@ class GetLogUseCase @Inject constructor(
         val remoteBranches = getRemotesUseCase().okOrNull().orEmpty().flatMap { it.branchesList }
         val stashes = getStashListGitAction(repository).okOrNull().orEmpty().map { it.hash }
 
-        val hashes = branches.map { it.hash } +
+        val refHashes = branches.map { it.hash } +
                 stashes +
                 tags.map { it.commitHash } +
                 remoteBranches.map { it.hash }
+
+        // Fork-only: a commit that only another worktree's detached HEAD has (an agent's) is no ref's. A failure leaves
+        // the log as it was.
+        val otherWorktreeHeads = getOtherWorktreeHeadsGitAction(repository).okOrNull().orEmpty()
+            .filter { it !in refHashes }
+        val hashes = refHashes + otherWorktreeHeads
 
         val r = graphLogGenerator.generate(
             repository,

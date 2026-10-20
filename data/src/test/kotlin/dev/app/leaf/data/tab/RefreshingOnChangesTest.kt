@@ -127,6 +127,23 @@ class RefreshingOnChangesTest {
     }
 
     @Test
+    fun `commits made on another worktree's detached HEAD show in the log`(): Unit = runBlocking {
+        // No ref points to them, so the log has them only through that worktree's HEAD, which the watcher sees move
+        val agent = File(tempDir, "agent")
+        git.run(main, "worktree", "add", "--detach", agent.path)
+        val tab = openTab(realFileWatcher = true)
+        tab.awaitLoaded(tab.repositoryData.log)
+        delay(1.seconds)
+
+        for (work in listOf("Agent work", "More agent work")) {
+            git.run(agent, "commit", "--allow-empty", "-m", work)
+            val commit = git.run(agent, "rev-parse", "HEAD").trim()
+
+            tab.awaitLoaded(tab.repositoryData.log) { rows -> rows.values.any { it.hash == commit } }
+        }
+    }
+
+    @Test
     fun `lost changes refresh everything, and watch the folders created meanwhile`(): Unit = runBlocking {
         val tab = openTab(realFileWatcher = false)
         val watcher = tab.awaitWatch(1)

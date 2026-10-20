@@ -111,7 +111,7 @@ internal fun Repository.worktreeHeads(): List<WorktreeHead> {
 }
 
 /** Each worktree's git dir and folder, main worktree first, like git's `get_worktrees`. */
-private fun Repository.worktreeGitDirs(): List<Pair<File, String>> {
+internal fun Repository.worktreeGitDirs(): List<Pair<File, String>> {
     val commonDir = commonDirectory.canonicalFile
     val isBare = config.getBoolean(ConfigConstants.CONFIG_CORE_SECTION, ConfigConstants.CONFIG_KEY_BARE, false)
 

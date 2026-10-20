@@ -32,7 +32,6 @@ class WatchedRepositoryTest {
         assertEquals(WatchedChange.REPOSITORY, tab.changeOf(path("repo", ".git", "HEAD")))
         assertEquals(WatchedChange.REPOSITORY, tab.changeOf(path("repo", ".git", "refs", "heads", "main")))
         assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "worktrees")))
-        assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "worktrees", "agent")))
         assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "worktrees", "agent", "index")))
         assertEquals(WatchedChange.WORKING_TREE, tab.changeOf(path("repo", "src", "Main.kt")))
         assertEquals(false, tab.isLinkedWorktree)
@@ -62,12 +61,72 @@ class WatchedRepositoryTest {
     fun `in a linked worktree, the main worktree and the other linked ones refresh only the list`() {
         val tab = linkedTab
 
-        assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "HEAD")))
         assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "index")))
-        assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "worktrees", "other", "HEAD")))
-        // Its name starts like the tab's
-        assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "worktrees", "agent2", "HEAD")))
+        assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "worktrees", "other", "index")))
         assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(path("repo", ".git", "worktrees")))
+    }
+
+    @Test
+    fun `another worktree's HEAD moving is its own change, in either kind of tab`() {
+        // A detached commit, a checkout, a rebase's or a bisect's step: the log starts from a detached HEAD's commit
+        for (tab in listOf(mainTab, linkedTab)) {
+            assertEquals(WatchedChange.OTHER_WORKTREE_HEAD, tab.changeOf(path("repo", ".git", "worktrees", "other", "HEAD")))
+            // Its name starts like the tab's
+            assertEquals(WatchedChange.OTHER_WORKTREE_HEAD, tab.changeOf(path("repo", ".git", "worktrees", "agent2", "HEAD")))
+        }
+
+        // The main worktree's, which a linked worktree's tab doesn't have as its own. In the main worktree's tab it is
+        // the tab's.
+        assertEquals(WatchedChange.OTHER_WORKTREE_HEAD, linkedTab.changeOf(path("repo", ".git", "HEAD")))
+        assertEquals(WatchedChange.REPOSITORY, mainTab.changeOf(path("repo", ".git", "HEAD")))
+        assertEquals(WatchedChange.REPOSITORY, linkedTab.changeOf(path("repo", ".git", "worktrees", "agent", "HEAD")))
+    }
+
+    @Test
+    fun `a worktree added or removed is its HEAD's change too, as its files can go unreported`() {
+        // A direct child of the worktrees' folder is a worktree's git dir
+        assertEquals(WatchedChange.OTHER_WORKTREE_HEAD, mainTab.changeOf(path("repo", ".git", "worktrees", "agent")))
+        assertEquals(WatchedChange.OTHER_WORKTREE_HEAD, linkedTab.changeOf(path("repo", ".git", "worktrees", "other")))
+        // The tab's own is the tab's
+        assertEquals(WatchedChange.REPOSITORY, linkedTab.changeOf(path("repo", ".git", "worktrees", "agent")))
+        // The folder itself, and what is deeper, aren't
+        assertEquals(WatchedChange.OTHER_WORKTREES, mainTab.changeOf(path("repo", ".git", "worktrees")))
+        assertEquals(WatchedChange.OTHER_WORKTREES, mainTab.changeOf(path("repo", ".git", "worktrees", "agent", "refs")))
+    }
+
+    @Test
+    fun `what git does in another worktree besides moving its HEAD isn't a HEAD change`() {
+        // Each git status rewrites the index, a commit on a branch moves the branch's ref (and logs/HEAD), a commit
+        // takes HEAD.lock and COMMIT_EDITMSG, and a rebase writes its folder: the probe of 2026-10-20 saw these without
+        // HEAD in the paths that it saw HEAD in
+        val others = listOf(
+            arrayOf("index"),
+            arrayOf("ORIG_HEAD"),
+            arrayOf("HEAD.lock"),
+            arrayOf("COMMIT_EDITMSG"),
+            arrayOf("logs", "HEAD"),
+            arrayOf("rebase-merge", "HEAD"),
+            arrayOf("rebase-merge", "done"),
+            arrayOf("refs", "HEAD"),
+            arrayOf("BISECT_LOG"),
+        )
+
+        for (tab in listOf(mainTab, linkedTab)) {
+            for (file in others) {
+                val change = tab.changeOf(path("repo", ".git", "worktrees", "other", *file))
+
+                assertEquals(WatchedChange.OTHER_WORKTREES, change, file.joinToString("/"))
+            }
+        }
+
+        for (file in listOf("index", "HEAD.lock", "ORIG_HEAD", "COMMIT_EDITMSG")) {
+            assertEquals(WatchedChange.OTHER_WORKTREES, linkedTab.changeOf(path("repo", ".git", file)), file)
+        }
+
+        // A file called HEAD in the working tree, or deeper in the git dir, is nothing's HEAD
+        assertEquals(WatchedChange.WORKING_TREE, mainTab.changeOf(path("repo", "HEAD")))
+        assertEquals(WatchedChange.WORKING_TREE, linkedTab.changeOf(path("repo", "HEAD")))
+        assertEquals(WatchedChange.REPOSITORY, mainTab.changeOf(path("repo", ".git", "refs", "heads", "HEAD")))
     }
 
     @Test
@@ -167,6 +226,34 @@ class WatchedRepositoryTest {
     }
 
     @Test
+    fun `another worktree's HEAD refreshes the log too, and its index alone doesn't`() {
+        val tab = mainTab
+        val otherHead = path("repo", ".git", "worktrees", "agent", "HEAD")
+        val otherIndex = path("repo", ".git", "worktrees", "agent", "index")
+        val ownHead = path("repo", ".git", "HEAD")
+        val workingTree = path("repo", "a.txt")
+        val leafFile = path("repo", ".git", "leaf")
+
+        // The WORKTREES in it is what has the caller throttle the refresh
+        assertEquals(listOf(DataToRefresh.LOG, DataToRefresh.WORKTREES), tab.dataToRefresh(listOf(otherHead)))
+        assertEquals(
+            listOf(DataToRefresh.LOG, DataToRefresh.WORKTREES),
+            tab.dataToRefresh(listOf(otherIndex, otherHead, leafFile)),
+        )
+        assertEquals(listOf(DataToRefresh.WORKTREES), tab.dataToRefresh(listOf(otherIndex, otherIndex)))
+        // Anything of the tab's own is what it was, and its refresh reads the other worktrees' HEADs too
+        assertEquals(listOf(DataToRefresh.ALL), tab.dataToRefresh(listOf(otherHead, ownHead)))
+        assertEquals(
+            listOf(DataToRefresh.STATUS, DataToRefresh.LOG, DataToRefresh.REPO_STATE),
+            tab.dataToRefresh(listOf(otherHead, workingTree)),
+        )
+        assertEquals(
+            listOf(DataToRefresh.LOG, DataToRefresh.WORKTREES),
+            linkedTab.dataToRefresh(listOf(path("repo", ".git", "HEAD"))),
+        )
+    }
+
+    @Test
     fun `knows the worktrees folder, which the watcher adds once git creates it`() {
         assertEquals(true, mainTab.isWorktreesDir(path("repo", ".git", "worktrees")))
         assertEquals(true, linkedTab.isWorktreesDir(path("repo", ".git", "worktrees")))
@@ -186,7 +273,7 @@ class WatchedRepositoryTest {
         val realRepo = repo.canonicalFile
 
         assertEquals(WatchedChange.REPOSITORY, tab.changeOf(File(realRepo, ".git/HEAD").path))
-        assertEquals(WatchedChange.OTHER_WORKTREES, tab.changeOf(File(realRepo, ".git/worktrees/agent/HEAD").path))
+        assertEquals(WatchedChange.OTHER_WORKTREE_HEAD, tab.changeOf(File(realRepo, ".git/worktrees/agent/HEAD").path))
         assertEquals(WatchedChange.REPOSITORY, tab.changeOf(File(link, ".git/HEAD").path))
         assertEquals(WatchedChange.WORKING_TREE, tab.changeOf(File(realRepo, "a.txt").path))
     }

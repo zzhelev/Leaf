@@ -73,8 +73,12 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                 File(worktreeDir),
                 isLeftOut = watchedRepository::isLinkedWorktreeFolder,
             )
-            val worktreeChangesRefresher = WorktreeChangesRefresher(this, MIN_TIME_BETWEEN_WORKTREES_REFRESHES) {
-                refreshDataUseCase(DataToRefresh.WORKTREES).join()
+            val worktreeChangesRefresher = WorktreeChangesRefresher(
+                this,
+                MIN_TIME_BETWEEN_WORKTREES_REFRESHES,
+            ) { includesLog ->
+                // The log's refresh lists the worktrees again after it
+                refreshDataUseCase(if (includesLog) DataToRefresh.LOG else DataToRefresh.WORKTREES).join()
             }
 
             launch {
@@ -114,8 +118,9 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                                 printDebug(TAG, "Changes detected: ${changes.toList()}, to refresh: $dataToRefresh")
 
                                 if (canRefreshData()) {
-                                    if (dataToRefresh == listOf(DataToRefresh.WORKTREES)) {
-                                        worktreeChangesRefresher.onChanged()
+                                    if (DataToRefresh.WORKTREES in dataToRefresh) {
+                                        // Only the other worktrees' changes have it. Their HEAD moving needs the log too
+                                        worktreeChangesRefresher.onChanged(includesLog = DataToRefresh.LOG in dataToRefresh)
                                     } else {
                                         refreshDataUseCase(*dataToRefresh.toTypedArray())
                                     }

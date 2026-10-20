@@ -22,8 +22,15 @@ enum class WatchedChange {
     /** The tab's git dir, or the refs and config that every worktree shares. */
     REPOSITORY,
 
-    /** Another worktree's git dir, or the main worktree's `HEAD` and `index` in a linked worktree's tab. */
+    /** Another worktree's git dir, or the main worktree's `index` and other files in a linked worktree's tab. */
     OTHER_WORKTREES,
+
+    /**
+     * Another worktree's `HEAD`, or a worktree added or removed: its commit moved. With a detached HEAD, which no ref
+     * points to, the log starts from that commit. A commit on a branch changes the branch's ref, not `HEAD`, and git
+     * rewrites `index` all the time, so neither is this.
+     */
+    OTHER_WORKTREE_HEAD,
 
     /** Anything else: the tab's working tree. */
     WORKING_TREE,
@@ -81,16 +88,26 @@ class WatchedRepository(gitDir: File, commonDir: File) {
 
             isInGitDir && name in EDITED_MESSAGE_FILES -> WatchedChange.NONE
             isLinkedWorktree && path.isIn(gitDirs) -> WatchedChange.REPOSITORY
+            // Another worktree's HEAD. Its git dir being created or removed counts too: on Linux the files of a new
+            // folder can go unreported before it's watched, and the folder's own change is what's left.
+            isInWorktreeGitDir && name == HEAD_FILE -> WatchedChange.OTHER_WORKTREE_HEAD
+            parent in worktreesDirs -> WatchedChange.OTHER_WORKTREE_HEAD
             path.isIn(worktreesDirs) -> WatchedChange.OTHER_WORKTREES
             path.isIn(gitDirs) -> WatchedChange.REPOSITORY
             isLinkedWorktree && (path.isIn(sharedRefsDirs) || path in sharedFiles) -> WatchedChange.REPOSITORY
             // The main worktree's HEAD, index and other files
+            isLinkedWorktree && isInCommonDir && name == HEAD_FILE -> WatchedChange.OTHER_WORKTREE_HEAD
             isLinkedWorktree && path.isIn(commonDirs) -> WatchedChange.OTHER_WORKTREES
             else -> WatchedChange.WORKING_TREE
         }
     }
 
-    /** What to refresh for a batch of changed [paths]: nothing, everything, the working tree, or the worktrees. */
+    /**
+     * What to refresh for a batch of changed [paths]: nothing, everything, the working tree, or the worktrees. Another
+     * worktree's HEAD moving also refreshes the log. A result with [DataToRefresh.WORKTREES] comes from the other
+     * worktrees alone, and is the caller's to throttle ([WorktreeChangesRefresher]): the log's refresh lists the
+     * worktrees again after it.
+     */
     fun dataToRefresh(paths: List<String>): List<DataToRefresh> {
         val changes = paths.mapTo(mutableSetOf(), ::changeOf)
 
@@ -100,6 +117,7 @@ class WatchedRepository(gitDir: File, commonDir: File) {
             WatchedChange.WORKING_TREE in changes ->
                 listOf(DataToRefresh.STATUS, DataToRefresh.LOG, DataToRefresh.REPO_STATE)
 
+            WatchedChange.OTHER_WORKTREE_HEAD in changes -> listOf(DataToRefresh.LOG, DataToRefresh.WORKTREES)
             WatchedChange.OTHER_WORKTREES in changes -> listOf(DataToRefresh.WORKTREES)
             else -> emptyList()
         }
@@ -126,6 +144,7 @@ class WatchedRepository(gitDir: File, commonDir: File) {
     private companion object {
         const val WORKTREES_DIR = "worktrees"
         const val REFS_DIR = "refs"
+        const val HEAD_FILE = "HEAD"
 
         /** JGit creates these to measure the file system's timestamps. */
         const val PROBE_FILE_PREFIX = ".probe-"
