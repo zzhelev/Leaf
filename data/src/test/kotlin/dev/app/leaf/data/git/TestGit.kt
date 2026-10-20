@@ -103,6 +103,15 @@ class TestGitCli(private val emptyGlobalConfig: File) {
         return output
     }
 
+    /** Runs git with [input] on its standard input, for example `fast-import`, which makes thousands of commits at once. */
+    fun runWithInput(workingDir: File, input: String, vararg args: String): String {
+        val (exitCode, output) = execute(workingDir, emptyMap(), args, input)
+
+        check(exitCode == 0) { "'git ${args.joinToString(" ")}' failed with exit code $exitCode: $output" }
+
+        return output
+    }
+
     /**
      * Runs git expecting it to fail, for example to see how git itself refuses something, and returns what it printed.
      * Its messages are in English.
@@ -115,7 +124,12 @@ class TestGitCli(private val emptyGlobalConfig: File) {
         return output
     }
 
-    private fun execute(workingDir: File, env: Map<String, String>, args: Array<out String>): Pair<Int, String> {
+    private fun execute(
+        workingDir: File,
+        env: Map<String, String>,
+        args: Array<out String>,
+        input: String? = null,
+    ): Pair<Int, String> {
         emptyGlobalConfig.parentFile.mkdirs()
         emptyGlobalConfig.createNewFile()
 
@@ -138,6 +152,11 @@ class TestGitCli(private val emptyGlobalConfig: File) {
                 environment().putAll(env)
             }
             .start()
+
+        if (input != null) {
+            // Written from another thread: git may print before it has read all of its input
+            Thread { process.outputStream.use { it.write(input.toByteArray()) } }.start()
+        }
 
         val output = process.inputStream.bufferedReader().readText()
 

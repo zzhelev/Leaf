@@ -127,6 +127,8 @@ import dev.app.leaf.domain.usecases.GetWorktreeRebaseUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeRemovalUseCase
 import dev.app.leaf.domain.usecases.AddIgnoreRulesUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.IncreaseLogCountUseCase
+import dev.app.leaf.domain.usecases.LoadLogUntilCommitUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeCleanupUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import dev.app.leaf.domain.usecases.MergeBranchUseCase
@@ -201,6 +203,18 @@ class TestTab(
     )
     private val getWorktree = GetWorktreeUseCase(GetWorktreePathGitAction(jgit), useCaseExecutor)
 
+    private val getLog = GetLogUseCase(
+        getBranchesGitAction = getBranches,
+        getTagsGitAction = getTags,
+        getRemotesUseCase = getRemotes,
+        getStashListGitAction = getStashList,
+        getStatusGitAction = getStatus,
+        getCurrentBranchAction = getCurrentBranch,
+        graphLogGenerator = GraphLogGenerator(Provider { JGitGraphRevWalker(jgit, commitMapper) }),
+        repositoryDataRepository = repositoryData,
+    )
+    private val dataRefreshRunner = DataRefreshRunner()
+
     val refreshData = RefreshDataUseCase(
         useCaseExecutor = useCaseExecutor,
         getBranchesGitAction = getBranches,
@@ -225,21 +239,16 @@ class TestTab(
         ),
         getPersistedCommitMessagesGitAction = GetPersistedCommitMessagesGitAction(jgit),
         getTrackingBranchUseCase = GetTrackingBranchUseCase(GetTrackingBranchGitAction(jgit), useCaseExecutor),
-        getLogUseCase = GetLogUseCase(
-            getBranchesGitAction = getBranches,
-            getTagsGitAction = getTags,
-            getRemotesUseCase = getRemotes,
-            getStashListGitAction = getStashList,
-            getStatusGitAction = getStatus,
-            getCurrentBranchAction = getCurrentBranch,
-            graphLogGenerator = GraphLogGenerator(Provider { JGitGraphRevWalker(jgit, commitMapper) }),
-            repositoryDataRepository = repositoryData,
-        ),
+        getLogUseCase = getLog,
         getWorktreesInfoUseCase = getWorktreesInfo,
         worktreesRefreshRunner = WorktreesRefreshRunner(),
-        dataRefreshRunner = DataRefreshRunner(),
+        dataRefreshRunner = dataRefreshRunner,
         scope = scope,
     ).also { refresh = it }
+
+    /** Loads the log further than its first commits, as scrolling to its end does, and until a commit is there. */
+    val increaseLogCount = IncreaseLogCountUseCase(repositoryData, useCaseExecutor, getLog, dataRefreshRunner)
+    val loadLogUntilCommit = LoadLogUntilCommitUseCase(repositoryData, increaseLogCount)
 
     val observeRepositoryToRefresh = ObserveRepositoryToRefreshUseCase(
         tabCoroutineScope = scope,

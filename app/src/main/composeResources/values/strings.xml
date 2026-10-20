@@ -1228,4 +1228,23 @@
     <string name="error_ignore_not_absolute">core.excludesFile is %1$s, which isn't an absolute path, so Leaf can't tell where your global ignore list is. Nothing was written.</string>
     <string name="error_ignore_global_overridden">This repository's git config sets core.excludesFile to %1$s, so git doesn't read your global ignore list here, and rules written to it wouldn't apply.</string>
 
+    <!-- Parents in the commit details -->
+    <string name="commit_parents_root">Root commit, no parent</string>
+    <string name="commit_parents_not_loaded">Not loaded yet</string>
+    <string name="commit_parents_looking">Looking, click to stop</string>
+    <string name="commit_parents_looking_tooltip">Loading older commits to find it: %1$s loaded so far. Click to stop.</string>
+    <string name="commit_parents_not_reachable">Not in the log</string>
+    <string name="commit_parents_limit_reached">Not in the next %1$s</string>
+    <string name="commit_parents_unavailable">Couldn't load the log</string>
+    <string name="commit_parents_show_more">Show %1$d more parents</string>
+    <string name="commit_parents_show_fewer">Show fewer parents</string>
+    <string name="commit_parents_menu_select">Select in the log</string>
+    <string name="commit_parents_menu_copy_hash">Copy commit hash</string>
+    <string name="commit_parents_tooltip_first">Parent %1$d: the branch this commit was merged into</string>
+    <string name="commit_parents_tooltip_other">Parent %1$d: a branch that was merged in</string>
+    <string name="commit_parents_tooltip_not_loaded">Older than the commits loaded in the log. Click to load it.</string>
+    <string name="commit_parents_tooltip_not_reachable">Not in the log: no branch, tag or stash reaches it.</string>
+    <string name="commit_parents_tooltip_limit_reached">Not found in %1$s more commits. Click to look further.</string>
+    <string name="commit_parents_tooltip_unavailable">The log couldn't be loaded. Click to try again.</string>
+
 </resources>

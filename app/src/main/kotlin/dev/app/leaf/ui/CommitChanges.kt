@@ -33,6 +33,7 @@ import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.repositoryopen.CommitChangesAction
 import dev.app.leaf.repositoryopen.CommitChangesState
+import dev.app.leaf.repositoryopen.CommitParentsState
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.tertiarySurface
@@ -58,6 +59,9 @@ fun CommitChanges(
             .filterIsInstance<DiffSelected.CommitedChanges>()
     }.collectAsState(null)
 
+    // Fork-only: the commit's parents (upstream issue 270), shown only once they are the shown commit's
+    val parentsState by viewModel.commitParentsState.collectAsState()
+
     CommitChangesView(
         diffSelected = diffSelected,
         commitChangesState = commitChangesState,
@@ -79,6 +83,9 @@ fun CommitChanges(
         onDirectoryClicked = { viewModel.onAction(CommitChangesAction.TreeDirectoryToggle(it)) },
         onViewStateChanged = { viewModel.onAction(CommitChangesAction.ViewStateChanged(it)) },
         onSectionSizesChanged = { viewModel.onAction(CommitChangesAction.SectionSizesChanged(it)) },
+        parentsState = parentsState,
+        onParentClicked = { viewModel.onParentClicked(it) },
+        onToggleMoreParents = { viewModel.toggleMoreParents() },
     )
 }
 
@@ -96,6 +103,9 @@ private fun CommitChangesView(
     onDirectoryClicked: (path: String) -> Unit,
     onViewStateChanged: (FilesViewState) -> Unit,
     onSectionSizesChanged: (CommitChangesSectionSizes) -> Unit,
+    parentsState: CommitParentsState? = null,
+    onParentClicked: (hash: String) -> Unit = {},
+    onToggleMoreParents: () -> Unit = {},
 ) {
     val tabFocusRequester = LocalTabFocusRequester.current
     val commit = commitChangesState.commit
@@ -226,6 +236,9 @@ private fun CommitChangesView(
                 hash = commit.hash,
                 date = commit.date,
                 author = commit.author,
+                parents = parentsState?.takeIf { it.commit.hash == commit.hash }?.let { state ->
+                    { ParentRows(state, onParentClicked, onToggleMoreParents, Modifier.padding(end = 16.dp)) }
+                },
             )
         }
     }
@@ -258,6 +271,7 @@ fun CommitFooter(
     hash: String,
     date: Long,
     author: Identity,
+    parents: (@Composable () -> Unit)? = null,
 ) {
     var copied by remember(hash) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -266,8 +280,9 @@ fun CommitFooter(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
-            .background(MaterialTheme.colors.tertiarySurface),
+            .heightIn(min = 72.dp)
+            .background(MaterialTheme.colors.tertiarySurface)
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AvatarImage(
@@ -279,7 +294,7 @@ fun CommitFooter(
 
         Column(
             modifier = Modifier
-                .fillMaxSize(),
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.Center
         ) {
             TooltipText(
@@ -337,6 +352,8 @@ fun CommitFooter(
                     tooltipTitle = smartDateTooltip,
                 )
             }
+
+            parents?.invoke()
         }
     }
 }

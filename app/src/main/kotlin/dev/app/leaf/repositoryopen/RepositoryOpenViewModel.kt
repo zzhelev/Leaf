@@ -124,6 +124,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val verticalSplitPaneConfig: VerticalSplitPaneConfig,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val increaseLogCountUseCase: IncreaseLogCountUseCase,
+    private val loadLogUntilCommitUseCase: LoadLogUntilCommitUseCase,
     private val blameFileUseCase: BlameFileUseCase,
     updatesRepository: UpdatesRepository,
     watchRegistrations: WatchRegistrations,
@@ -527,6 +528,25 @@ class RepositoryOpenViewModel @Inject constructor(
     )
 
     val commitChangesState = commitChangesViewModelExtender.commitChangesState
+
+    // Fork-only: the parents in the commit details, and the jump to one of them (upstream issue 270)
+    private val commitParents = CommitParentsController(
+        scope = viewModelScope,
+        selectedCommit = selectedItem.map { (it as? SelectedItem.CommitBasedItem)?.commit },
+        loadedCommits = logState
+            .map { it.commitList }
+            .distinctUntilChanged { old, new -> old === new }
+            .stateIn(logState.value.commitList),
+        stashes = logState.map { it.stashes },
+        loadLogUntilCommit = { hash, onProgress -> loadLogUntilCommitUseCase(hash, onProgress = onProgress) },
+        select = { commit -> selectCommit(commit, isStash = false, scrollToItem = true) },
+    )
+
+    val commitParentsState = commitParents.state
+
+    fun onParentClicked(hash: String) = commitParents.onParentClicked(hash)
+
+    fun toggleMoreParents() = commitParents.toggleExpanded()
 
     // Fork-only: the review of a worktree's changes, in place of Files changed
     private val worktreeReviewViewModelExtender = worktreeReviewViewModelExtenderFactory.create(
