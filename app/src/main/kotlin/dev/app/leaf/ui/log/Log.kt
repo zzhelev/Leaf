@@ -50,6 +50,7 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.printLog
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.BranchesConstants.LOCAL_PREFIX_LENGTH
+import dev.app.leaf.domain.log.LogMove
 import dev.app.leaf.domain.log.headCommitHash
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
@@ -179,6 +180,7 @@ fun Log(
                 onDeleteTag = onDeleteTag,
                 onConfirmAction = onConfirmAction,
                 onAction = { viewModel.onAction(it) },
+                onMoveSelection = viewModel::moveLogSelection,
                 searchView = {
                     SearchFilter(
                         logViewModel = viewModel,
@@ -212,6 +214,7 @@ private fun LogView(
     onDeleteTag: (Tag) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onAction: (LogAction) -> Unit,
+    onMoveSelection: (LogMove, pageSize: Int, hasUncommittedRow: Boolean) -> Int?,
     searchView: @Composable (LogSearch.SearchResults) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -346,6 +349,7 @@ private fun LogView(
                 onDeleteTag = onDeleteTag,
                 onConfirmAction = onConfirmAction,
                 onAction = onAction,
+                onMoveSelection = onMoveSelection,
             )
 
             val density = LocalDensity.current.density
@@ -566,6 +570,7 @@ fun CommitsList(
     tags: Map<String, List<Tag>>,
     stashes: HashSet<String>,
     onAction: (LogAction) -> Unit,
+    onMoveSelection: (LogMove, pageSize: Int, hasUncommittedRow: Boolean) -> Int?,
     onCreateBranch: (Commit) -> Unit,
     onResetBranch: (Commit) -> Unit,
     onCreateTag: (Commit) -> Unit,
@@ -620,10 +625,32 @@ fun CommitsList(
         }
     }
 
+    val showsUncommittedRow = hasUncommittedChanges ||
+        repositoryState.isMerging ||
+        repositoryState.isRebasing ||
+        repositoryState.isCherryPicking
+
+    // Fork-only: the list takes the focus when a row is clicked, and the arrow, page, Home and End keys move the
+    // selection (the commit pane follows it). Left and Right do nothing. The tab's own shortcuts still reach their
+    // handler above, as the arrows aren't theirs.
+    val listFocusRequester = remember { FocusRequester() }
+
     ScrollableLazyColumn(
         state = scrollState,
         modifier = Modifier
             .fillMaxSize()
+            .focusRequester(listFocusRequester)
+            .focusable()
+            .onPreviewKeyEvent { keyEvent ->
+                val move = keyEvent.logMove() ?: return@onPreviewKeyEvent false
+
+                val row = onMoveSelection(move, scrollState.pageRows(), showsUncommittedRow)
+
+                if (row != null) scope.launch { scrollState.bringRowIntoView(row) }
+
+                // Consumed also at the ends, so that a key that can't move doesn't scroll the list under the selection
+                true
+            }
             // The underlying composable assigned to the horizontal scroll bar won't be receiving the scroll events
             // because the commits list will consume the events, so this code tries to scroll manually when it detects
             // horizontal scrolling
@@ -634,18 +661,16 @@ fun CommitsList(
                 }
             },
     ) {
-        if (
-            hasUncommittedChanges ||
-            repositoryState.isMerging ||
-            repositoryState.isRebasing ||
-            repositoryState.isCherryPicking
-        ) {
+        if (showsUncommittedRow) {
             item {
                 Box(
                     modifier = Modifier.height(MaterialTheme.linesHeight.logCommitHeight)
                         .clipToBounds()
                         .fillMaxWidth()
-                        .handMouseClickable { onAction(LogAction.UncommittedChangesSelected) }
+                        .handMouseClickable {
+                            listFocusRequester.requestFocus()
+                            onAction(LogAction.UncommittedChangesSelected)
+                        }
                 ) {
                     UncommittedChangesGraphNode(
                         hasPreviousCommits = commitList.commits.isNotEmpty(),
@@ -705,7 +730,10 @@ fun CommitsList(
                 onPullFromRemoteBranch = { onAction(LogAction.PullFromRemoteBranch(it)) },
                 onRebaseBranch = { onAction(LogAction.Rebase(it)) },
                 onRebaseInteractive = { onAction(LogAction.RebaseInteractive(graphNode.commit)) },
-                onRevCommitSelected = { onAction(LogAction.CommitSelected(graphNode.commit, isStash)) },
+                onRevCommitSelected = {
+                    listFocusRequester.requestFocus()
+                    onAction(LogAction.CommitSelected(graphNode.commit, isStash))
+                },
                 onChangeDefaultUpstreamBranch = { onChangeUpstreamBranch(it) },
                 onRenameBranch = { onRenameBranch(it) },
                 onDeleteStash = {

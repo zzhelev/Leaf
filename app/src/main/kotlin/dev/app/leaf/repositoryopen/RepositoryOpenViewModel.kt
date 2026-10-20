@@ -22,7 +22,9 @@ import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.extensions.openFileInFolder
 import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
+import dev.app.leaf.domain.log.LogMove
 import dev.app.leaf.domain.log.SearchStep
+import dev.app.leaf.domain.log.movedLogSelection
 import dev.app.leaf.domain.log.steppedSearchIndex
 import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.index.conversionSteps
@@ -1277,6 +1279,14 @@ class RepositoryOpenViewModel @Inject constructor(
     private fun revertCommit(commit: Commit) = revertCommitUseCase(commit)
 
     fun selectUncommittedChanges(forceAmend: Boolean = false) = viewModelScope.launch {
+        applyUncommittedChangesSelection()
+
+        if (forceAmend) {
+            statusViewModelExtender.amend(true)
+        }
+    }
+
+    private fun applyUncommittedChangesSelection() {
         selectedItem.value = SelectedItem.UncommittedChanges
 
         val searchValue = logSearchFilterResults.value
@@ -1284,10 +1294,6 @@ class RepositoryOpenViewModel @Inject constructor(
             val lastIndexSelected = getLastIndexSelected()
 
             logSearchFilterResults.value = searchValue.copy(index = lastIndexSelected)
-        }
-
-        if (forceAmend) {
-            statusViewModelExtender.amend(true)
         }
     }
 
@@ -1301,6 +1307,10 @@ class RepositoryOpenViewModel @Inject constructor(
     }
 
     fun selectCommit(commit: Commit, isStash: Boolean, scrollToItem: Boolean = false) = viewModelScope.launch {
+        applyCommitSelection(commit, isStash, scrollToItem)
+    }
+
+    private fun applyCommitSelection(commit: Commit, isStash: Boolean, scrollToItem: Boolean) {
         selectedItem.value = SelectedItem.CommitItem(commit, isStash = isStash, scrollToItem = scrollToItem)
 
         val searchValue = logSearchFilterResults.value
@@ -1314,6 +1324,38 @@ class RepositoryOpenViewModel @Inject constructor(
 
             logSearchFilterResults.value = searchValue.copy(index = index)
         }
+    }
+
+    /**
+     * Moves the log's selection with the keyboard (fork-only) and returns the row to bring into view, or null when
+     * nothing moved. Rows are counted as in the list: the uncommitted changes' row first when the log shows one.
+     *
+     * It reads the selection and writes the new one right here, not in a launched coroutine: key repeat comes faster
+     * than a recomposition, so a step computed from what the view last drew would repeat or skip rows, and launched
+     * writes could land out of order. A step selects the row and scrolls to it, as a click does. The commit pane loads
+     * only the last selection (`flatMapLatest`), so holding a key doesn't queue a load per row.
+     */
+    fun moveLogSelection(move: LogMove, pageSize: Int, hasUncommittedRow: Boolean): Int? {
+        val log = logState.value
+        val commits = log.commitList.values.toList()
+        val offset = if (hasUncommittedRow) 1 else 0
+
+        val target = movedLogSelection(
+            selected = selectedItem.value,
+            commitHashes = commits.map { it.hash },
+            hasUncommittedRow = hasUncommittedRow,
+            move = move,
+            pageSize = pageSize,
+        ) ?: return null
+
+        if (target < offset) {
+            applyUncommittedChangesSelection()
+        } else {
+            val commit = commits[target - offset]
+            applyCommitSelection(commit.commit, isStash = log.stashes.contains(commit.hash), scrollToItem = false)
+        }
+
+        return target
     }
 
     /** The search for the last term typed. Each new term cancels it, so that a slower earlier search can't win. */
