@@ -54,6 +54,39 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   repository in a throwaway harness (a unit test's `UseCaseExecutor` can't refresh, and `RefreshDataUseCase` can't be
   mocked on JDK 25), and the menu, the strip and the dialog were rendered offscreen and looked at.
 
+## The original project's and its author's names are out of the repository's text (2026-10-20)
+
+- **Why:** the user wants Leaf decoupled from the names. New text had followed that rule since the same morning (the log
+  search entry below has none); this sweeps the old text, with the user's yes, in two steps: the project's name, then
+  its author's.
+- **What:** 165 lines in 28 files for the project's name, and 6 lines in 3 files for the author's: `CLAUDE.md`,
+  `docs/fork/` (this file, the plan, the notes, the probes), code comments and test comments.
+  - An issue is "upstream issue 186" where it was the project's name and a number.
+  - Its code, tags and `main` are "upstream's"; an installed copy of the app, or its prefs and folders, is "the original
+    app" (`AppStorage`, the storage entries below, the manual check of the own-storage entry). Its libraries are "the
+    original author's".
+  - `CLAUDE.md` opens with "Fork of an open-source git client" and points to the README's License section for its name.
+    The `upstream` remote is described as "the original project" (`git remote -v` has its URL).
+  - **The merge checklist's check no longer spells either name.** It was `git ls-files` on the author's name, to find
+    files that landed under upstream's own package folder. It now reads the owner and the repository from
+    `git remote get-url upstream` and lists the paths and the files that have either: the paths must be none, and the
+    files the README and `AppStorageTest` (see Branches and remotes in `CLAUDE.md`). Tried on the current tree: no
+    path, and those two files once the text was swept. The tree has no such folder today; the notes only described one.
+  - The Phase 0 probe: the command that opened a folder the way the original app does is now `original-open`, in
+    `WorktreeProbe.java` and `worktree-probe.sh`, with the log prefix `[original]` and the temp folder
+    `worktree-probe.XXXXXX`.
+  - Lines that grew past 120 columns were wrapped again, and nothing else in their paragraphs changed.
+- **Stays, on purpose:**
+  - The README's License section (GPL-3.0 section 5a): the one sentence that names the project and links its
+    repository, whose address has the author's name, and which files keep its license.
+  - `AppStorageTest`'s check that no storage name contains the original app's name (`no name refers to the original
+    app`): it needs the string to compare with, and it protects an installed copy's data.
+  - The address of the `upstream` remote in `.git/config`, which isn't tracked and which merging needs.
+  - Commit messages already pushed: `main` is published, so history isn't rewritten.
+- **Checked:** the search that the merge checklist now holds finds the names only in the README and `AppStorageTest`,
+  and no tracked path has either. A word-by-word comparison with the old text shows only the intended changes. The tests
+  of the code files that changed still pass.
+
 ## A System theme that follows the operating system (upstream issue 309, 2026-10-20)
 
 - **Request:** the reporter's desktop environment turns dark mode on at sunset and light mode at dawn, and the theme had
@@ -165,7 +198,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - Logic in `StatusState.bulkTarget` (`ui/status/BulkTarget.kt`), shared by the button's action and its label.
   Tests: `BulkTargetTest`, `StageAllHeaderTest`, `StagingShownFilesTest`.
 
-## Choose… for the Clone dialog's Branch field (follows Gitnuro#209, 2026-10-19)
+## Choose… for the Clone dialog's Branch field (follows upstream issue 209, 2026-10-19)
 
 - **Request:** option C of the clone dialog, with the rule that nothing asks the server until the user clicks the
   button. "Typing will not care about the git server, only the Choose… button will care."
@@ -219,7 +252,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     config, so it must not put credentials in a URL.
 
 
-## Discard all in the Unstaged pane (Gitnuro#224, 2026-10-19)
+## Discard all in the Unstaged pane (upstream issue 224, 2026-10-19)
 
 - **Feature:** "Discard all changes…" in a new "⋯" menu of the Unstaged header, between the search button and Stage all.
   Throwing away what an agent left in a worktree took a selection, or one file at a time. Always asks first
@@ -293,7 +326,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   worktree inside the repository included; Stage all stages files that a search hides; the folder and selection discard
   dialogs count submodules as files.
 
-## Clone a chosen branch or tag (Gitnuro#209, 2026-10-19)
+## Clone a chosen branch or tag (upstream issue 209, 2026-10-19)
 
 - **Request:** "I want to clone specific branches only through the UI, instead of cloning the whole repo." The Clone
   dialog had a URL, a directory, a folder and "Clone submodules", and always cloned every branch.
@@ -355,7 +388,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   `AnimatedVisibility` or a check box kept the old pixels while the semantics already showed the new state (now in
   CLAUDE.md, Offscreen UI checks).
 
-## Terminal button on macOS opens one instance (Gitnuro#208, 2026-10-19)
+## Terminal button on macOS opens one instance (upstream issue 208, 2026-10-19)
 
 - **Bug:** every click on Terminal started another Terminal.app process (iTerm2 warned about a second instance). The
   provider ran `open -a <app> -n --args <repo>`: `-n` starts a new instance even when one runs, and `--args` hands the
@@ -379,7 +412,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   the tests they should.
 
 
-## Renames in the commit and review file lists (Gitnuro#347, list part, 2026-10-19)
+## Renames in the commit and review file lists (upstream issue 347, list part, 2026-10-19)
 
 - **Bug:** a commit that git shows as `R old -> new` listed a deletion and an addition, in the commit's file list and
   in a worktree review's. `git.diff()` has no switch for renames and finds them only when `diff.renames` is set, as JGit
@@ -449,14 +482,14 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   content is unchanged." under its header. A window wasn't driven: selecting a commit takes a click, and clicks go to
   whatever is on top. `/tmp/leaf-renames-demo-agent` is a linked worktree on `agent-moves` for "Review changes".
 
-## Merge, Commit and Continue with files that aren't staged, and why a button is disabled (Gitnuro#120 and #124, 2026-10-19)
+## Merge, Commit and Continue with files that aren't staged, and why a button is disabled (upstream issues 120 and 124, 2026-10-19)
 
 - **Bug:** during a merge, a cherry-pick or a rebase, any file in the Unstaged list disabled Merge, Commit and Continue,
   a stray untracked file or a build output as much as a change that matters (`StatusPane` passed
   `haveConflictsBeenSolved = !hasUnstagedFiles`). git lets `git commit` finish a merge and a cherry-pick with such files
-  around, and with nothing staged at all (Gitnuro#120's report: every conflict taken from our side, and a merge tool's
-  `.orig` file left in the folder). Agents leave untracked files in their worktrees, so finishing a merge in Leaf was
-  blocked. And nothing said why a button was disabled (#124).
+  around, and with nothing staged at all (upstream issue 120's report: every conflict taken from our side, and a merge
+  tool's `.orig` file left in the folder). Agents leave untracked files in their worktrees, so finishing a merge in Leaf
+  was blocked. And nothing said why a button was disabled (#124).
 - **Fix:** `StatusState.finishBlocker()` (`ui/status/FinishBlockers.kt`) is one small function that returns the first
   thing that stops the primary button, or null:
   - Merge: conflicts only.
@@ -500,7 +533,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   to continue."; staged, Continue enabled with `build.log` left. Clicking the buttons, and Skip (only untracked files
   left), were checked by the tests and an offscreen render only.
 
-## Ignore from the Unstaged menus (Gitnuro#175, 2026-10-19)
+## Ignore from the Unstaged menus (upstream issue 175, 2026-10-19)
 
 - **What:** "Ignore…" in the Unstaged menus of an untracked file (after "Delete file"), of a selection (`Ignore N
   files…`, counting its untracked files) and of a folder row of the tree view (`Ignore folder…`). It opens
@@ -592,7 +625,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 
 - **Merged:** `upstream/main` up to `1cac7a00`, the second sync (the first was `f4f39528`, merge base `415b3729`). Six
   commits:
-  - `00b25acf` bumped Gitnuro to 2.0-beta04. Leaf keeps its own version (1.1.1, code 28).
+  - `00b25acf` bumped upstream's version to 2.0-beta04. Leaf keeps its own version (1.1.1, code 28).
   - `b2f9188f`: a stash selected in the log is highlighted in the side panel (`LogAction.CommitSelected` carries
     `isStash`), and `SelectedItem.CommitItem` says whether the log scrolls to it (`scrollToItem`). The log stays
     composed under the diff pane, so closing a diff doesn't compose it again. `@Immutable` on `SelectedItem` and the
@@ -791,7 +824,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     would check out pointer files, or fail with `filter.lfs.required`. LFS counts from the `lfs` folder, or
     `filter=lfs` in the root `.gitattributes` of the working tree or of what is pulled, as its remote-tracking branch
     has it. `SelectingPullBranchGitAction` chooses among the three pulls.
-  - Not changed: the domain, the app, the DI modules, and Gitnuro's files. `GIT_SEQUENCE_EDITOR`, which the plan
+  - Not changed: the domain, the app, the DI modules, and upstream's files. `GIT_SEQUENCE_EDITOR`, which the plan
     added, isn't needed: `--rebase` overrides `pull.rebase=interactive`, the only way to an interactive rebase here.
 - **Tests:**
   - `GitPullTest` (31): fast-forwards, `pull.ff` (`false`, `only` from an `includeIf` file, `only` with a
@@ -817,7 +850,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 
 ## Stashes keep the message they're given (branch `fix/backup-stash-message`)
 
-- **Before:** `SnapshotStashCreateCommand` (Gitnuro's, copied from JGit's `StashCreateCommand`) ran its message through
+- **Before:** `SnapshotStashCreateCommand` (upstream's, copied from JGit's `StashCreateCommand`) ran its message through
   `java.text.MessageFormat`, as a pattern for the branch, the commit and its subject. Its callers give a finished
   sentence that names branches: Merge's backup (`Automatic snapshot stash before merge of "feature" to "main"`) and
   both pulls'. git allows `'` and `{` in a branch's name (`git check-ref-format --branch` takes `it's`, `a{b}`, `a{`
@@ -1015,7 +1048,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 
 ## JGit reads the files that `includeIf` names, for its own commits and settings (branch `fix/includeif-config`)
 
-- **Before** (Gitnuro#186): JGit's config parser expands only `[include]`.
+- **Before** (upstream issue 186): JGit's config parser expands only `[include]`.
   - The commits that JGit makes itself took the identity and signing settings of the user's config, without the work
     identity that a file included for `~/work/` sets: Merge in the branch menu, pull's merge and rebase, rebase and
     interactive rebase, cherry-pick and revert. So did their reflog entries, and the backup stashes before a merge or
@@ -1062,8 +1095,8 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 
 ## Hooks are found where git finds them, `includeIf` and `~/` included (branch `fix/hooks-from-git`)
 
-- **Before** (Gitnuro#186): JGit read `core.hooksPath` from its own config, which skips the files that `includeIf`
-  names, and took the value as it is.
+- **Before** (upstream issue 186): JGit read `core.hooksPath` from its own config, which skips the files that
+  `includeIf` names, and took the value as it is.
   - A hooks folder set for `~/work/` in such a file didn't apply to Leaf's commits: their pre-commit, commit-msg and
     post-commit hooks didn't run, where `git commit` ran them.
   - `core.hooksPath = ~/hooks` was a folder named `~` in the working tree.
@@ -1132,7 +1165,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     `pushurl`.
   - Without an upstream, it took the only remote, and stopped there: no `remote.lfsdefault`, no `origin`. With several
     remotes and no upstream, a checkout without git-lfs failed with "LFS Url not found". A detached HEAD at a
-    branch's commit took that branch's upstream (Gitnuro's `GetCurrentBranchGitAction`), and an upstream counted only
+    branch's commit took that branch's upstream (upstream's `GetCurrentBranchGitAction`), and an upstream counted only
     with `branch.<name>.merge` too.
 - **Now:** the server is `lfs.pushurl` (uploads), `lfs.url`, the remote's `lfspushurl` (uploads), its `lfsurl`, then
   its URL (`pushurl` for uploads) as `<url>.git/info/lfs`; a remote with none of them, such as `.` for a local
@@ -1165,7 +1198,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Before:** `ObserveRepositoryToRefreshUseCase` watched the folders that a batch of changes created only when it
   could refresh: not while a task ran, nor for 1.5 s after one. So a folder created by Leaf's own checkout, merge or
   pull was never watched, and edits in it didn't refresh the status until the tab watched again (a worktree switch,
-  or reopening). Deleted folders were only unwatched in a batch that also created one. Both came from Gitnuro. Lost
+  or reopening). Deleted folders were only unwatched in a batch that also created one. Both came from upstream. Lost
   changes (new with the JDK watcher) didn't watch the working tree again during a task either.
 - **Now:** every batch registers its new folders and unregisters its deleted ones, and lost changes watch the working
   tree again, whatever runs. Only the refresh waits for the task, as before.
@@ -1183,7 +1216,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 ## The file watcher runs on the JDK, and Leaf's Rust is only `leaf-askpass` (branch `claude/jolly-davinci-5d25f1`)
 
 - **Before:** the file watcher was Rust (notify 8), the only export of the `leaf_rs` cdylib, called through uniffi's
-  generated bindings and JNA. Gitnuro moved it there in 2023 because Java's watcher polled on macOS. Every build ran
+  generated bindings and JNA. Upstream moved it there in 2023 because Java's watcher polled on macOS. Every build ran
   uniffi-bindgen, every launch extracted and loaded the library (`extractNativeLibrary`), and dev runs of builds from
   before 2026-10-13 killed each other over it.
 - **Now:** `FileChangesWatcher` runs on the JDK's `WatchService`. JetBrains' JDK, which runs Leaf, watches with FSEvents
@@ -1333,9 +1366,9 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 
 ## Commits, tags and stashes take git's identity and signing settings, `includeIf` too (branch `fix/includeif-identity`)
 
-- **Before** (Gitnuro#186): JGit reads no `includeIf`. With a personal identity in `~/.gitconfig` and a work identity
-  in a file included for `~/work/`, Leaf committed in `~/work/` as the personal identity, where git commits as the work
-  one.
+- **Before** (upstream issue 186): JGit reads no `includeIf`. With a personal identity in `~/.gitconfig` and a work
+  identity in a file included for `~/work/`, Leaf committed in `~/work/` as the personal identity, where git commits as
+  the work one.
   - That went for Leaf's commits and amends, and for the squash merges and merges of agents' branches from the
     worktree dialogs, where git merges and Leaf commits. Also for tags and stashes, the bottom bar and the sign-off
     line.
@@ -1801,7 +1834,7 @@ Phase 3.5 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.m
 
 ## Two Leafs built from different sources run side by side (branch `claude/inspiring-bouman-f4c4e9`)
 
-- **Before:** `App.initNativeDependencies` (Gitnuro's) copied the Rust library to `<app data>/tmp/libleaf_rs.dylib`,
+- **Before:** `App.initNativeDependencies` (upstream's) copied the Rust library to `<app data>/tmp/libleaf_rs.dylib`,
   writing into the file that was there. When another Leaf had it loaded, macOS killed the Leaf that was starting, in
   `dlopen` (exit 137, `SIGKILL (Code Signature Invalid)`, no log line). So two dev Leafs from different worktrees
   couldn't run at once (each cargo build embeds its path), and a new version of the packaged app started while an old
@@ -2179,7 +2212,7 @@ Phase 3.3 of `docs/fork/PLAN.md`, as designed in `docs/fork/worktree-lifecycle.m
 - **Before:** Esc closed neither file history nor an expanded blame. Both have their own Esc handler, but the tab's
   shortcuts (`onPreviewKeyEvent` in `RepositoryOpen.kt`) see every key first, and their EXIT branch consumed Esc
   with `closeLastView()`, which only knows the diff and the searches. So Esc in blame closed whatever was last in
-  that list instead, such as the side panel's search next to it. Upstream Gitnuro has the same code.
+  that list instead, such as the side panel's search next to it. Upstream has the same code.
 - **Now:** the tab's EXIT branch closes file history, then an expanded blame, then the last closeable view, as before.
   File history opened over blame takes two presses of Esc. Closing either gives the focus back to the tab, as closing
   the diff does, so the next Esc, F5 or other shortcut works without a click first.
@@ -2591,9 +2624,9 @@ Phase 2b of `docs/fork/PLAN.md`. The design, with the options weighed, is in `do
     and handling files without conflicts as conflicted.
   - `./gradlew test` passes, with 853 tests (65 in `:app`, 605 in `:data`, 176 in `:domain`, 7 in `:common`).
 
-## Settings that did nothing, and UI bugs from Gitnuro's code (branch `fix/settings-and-ui`)
+## Settings that did nothing, and UI bugs from upstream's code (branch `fix/settings-and-ui`)
 
-From the review of the files that come from Gitnuro (2026-10-09), which found them worth fixing rather than rewriting.
+From the review of the files that come from upstream (2026-10-09), which found them worth fixing rather than rewriting.
 
 - **Removed settings:** Proxy (Settings → Network) and "Do not verify SSL security" (Security). Neither ever applied:
   the proxy code was commented out, and the SSL switch turned off credential caching instead. git's `http.proxy` and
@@ -2635,8 +2668,8 @@ From the review of the files that come from Gitnuro (2026-10-09), which found th
 - **Tests:** 15 new. `RemovedSettingsMigrationTest` (2), the cache setting in `HttpCredentialsProviderTest` and
   `ProvideLfsCredentialsGitActionTest` (1 each), `StatusStateTest` (2), `SyntaxHighlighterTest` (3),
   `FormatDiffTest` (3), `RebaseStepsTest` (3).
-- **Plan:** `docs/fork/PLAN.md` no longer asks for upstreamable changes: Leaf sends no pull requests to Gitnuro, and
-  keeps its changes to Gitnuro's files small so that merging upstream stays cheap.
+- **Plan:** `docs/fork/PLAN.md` no longer asks for upstreamable changes: Leaf sends no pull requests to upstream, and
+  keeps its changes to upstream's files small so that merging upstream stays cheap.
 
 ## A diff with no changes left logs one line (branch `claude/dazzling-liskov-e3958a`)
 
@@ -2698,7 +2731,7 @@ From the review of the files that come from Gitnuro (2026-10-09), which found th
 
 ## Hunk and line actions apply patches with git (branch `claude/funny-bhaskara-df3d47`)
 
-The code review of 2026-10-09 found these the only Gitnuro code whose approach needed replacing rather than fixing.
+The code review of 2026-10-09 found these the only upstream code whose approach needed replacing rather than fixing.
 
 - **Before:** staging, unstaging and discarding a hunk or a line edited the file's text with JGit.
   - The text was decoded as UTF-8 and written back as UTF-8. In a Latin-1 or Windows-1252 file, which JGit shows as
@@ -2745,7 +2778,7 @@ The code review of 2026-10-09 found these the only Gitnuro code whose approach n
 
 ## Many tabs no longer stall each other (branch `fix/many-tabs-concurrency`)
 
-Five concurrency and lifecycle bugs in code from Gitnuro, which hurt most with one tab per agent's worktree. A review
+Five concurrency and lifecycle bugs in code from upstream, which hurt most with one tab per agent's worktree. A review
 on 2026-10-09 found them.
 
 - **File watcher:** each loaded tab's watch loop, which blocks, ran on `Dispatchers.Default`, where tabs and view
@@ -2789,7 +2822,7 @@ on 2026-10-09 found them.
 
 ## Failures that the data code dropped (branch `claude/festive-lamport-994739`)
 
-Six fixes from the 2026-10-09 review of the code that comes from Gitnuro, where a failure was ignored or left bad
+Six fixes from the 2026-10-09 review of the code that comes from upstream, where a failure was ignored or left bad
 state behind.
 
 - **LFS downloads** (the built-in client, which runs when git-lfs isn't installed):
@@ -3340,7 +3373,7 @@ The deletion half of Phase 1.3 in `docs/fork/PLAN.md`, and the same fix for rena
   - Leaf's own temporary folders use it too, still best effort (`IGNORE_ERRORS`): `TempFilesManager.clearAll` when the
     window closes, and the askpass socket's folder. Nothing puts links there, but Leaf's code no longer calls
     `deleteRecursively` at all. `CLAUDE.md` now says not to.
-- **Upstream:** Gitnuro's `main` has the same code in both actions and in `TempFilesManager`. Worth reporting there.
+- **Upstream:** `main` there has the same code in both actions and in `TempFilesManager`. Worth reporting there.
 - **Tests:** 6 new, all in `:data`, skipped on Windows, where creating links needs Developer Mode or admin rights.
   - `DeleteFileGitActionTest` (4) takes its entries from the status, as the Status pane does: a link to a folder outside
     the repository, and an untracked repository with such a link in it. Also a file that's already gone, and a file
@@ -3846,7 +3879,7 @@ known", and the one noted for LFS ("Unlike git-lfs, credentials from the helper 
 
 ## SSH errors show the server's message (branch `fix/ssh-server-messages`)
 
-Stage 0b of `docs/fork/remote-operations.md`, and the message part of Gitnuro#294.
+Stage 0b of `docs/fork/remote-operations.md`, and the message part of upstream issue 294.
 
 - **Before:** when an SSH server accepted the key and then refused the command, push, fetch and clone failed with
   "Something failed writing to channel STDIN: … Remote channel is closed". GitHub does that for another account's
@@ -3917,7 +3950,7 @@ Stage 0b of `docs/fork/remote-operations.md`, and the message part of Gitnuro#29
 
 - **Before:** "Delete branch" in the side panel and on the log's branch chips deleted at once, and always with force
   (`setForce(true) // TODO Should it be forced?`), so one misclick lost a branch whose commits were on no other ref
-  (Gitnuro#137). "Delete tag" deleted at once too.
+  (upstream issue 137). "Delete tag" deleted at once too.
 - **Now** both open a confirmation dialog (`Screen.BranchDelete`, `Screen.TagDelete`, `DeleteRefDialog.kt`):
   - A branch is deleted without force first. When JGit refuses because it isn't merged into HEAD (as `git branch -d`
     checks), the dialog says so, with the number of commits that are on no other branch, tag or HEAD, and offers
@@ -4067,8 +4100,8 @@ Closes the gap listed under "Still unlike git" in "Only the password is asked fo
 ## Commits and tags are signed by running gpg (branch `claude/dazzling-murdock-cc2402`)
 
 - **Before:** OpenPGP signing used JGit's BouncyCastle signer (`AppGpgSigner`). It couldn't find keys kept by keyboxd
-  (`use-keyboxd`, GnuPG 2.4's default) and made ED25519 signatures that failed to verify (Gitnuro#194, #293). Tag
-  signing also threw "Unsupported gpg format: null" unless `gpg.format` was `gpg`, a value git doesn't have.
+  (`use-keyboxd`, GnuPG 2.4's default) and made ED25519 signatures that failed to verify (upstream issues 194 and 293).
+  Tag signing also threw "Unsupported gpg format: null" unless `gpg.format` was `gpg`, a value git doesn't have.
 - **Now:** the new `GpgProgramSigner` runs gpg as git does: `gpg.program` (default `gpg`) with
   `--status-fd=2 -bsau <key>`, the data on stdin, and `[GNUPG:] SIG_CREATED` required. The key is `user.signingKey`, or
   else the committer's identity. gpg gets the login shell's environment, and a program name is looked up on that PATH.
@@ -4220,7 +4253,7 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
     stored, so nothing is erased for them.
 - **Shared helper code:** the new `CredentialHelpers` finds the helper for a URL and runs `get`, `store` and `erase`,
   for both `HttpCredentialsProvider` and LFS. The code moved out of `HttpCredentialsProvider` almost unchanged: `get`
-  now returns a `HelperAnswer` instead of filling JGit's credential items. As Gitnuro's code, the file stays
+  now returns a `HelperAnswer` instead of filling JGit's credential items. As upstream's code, the file stays
   GPL-3.0-only and has no SPDX header.
 - **Remote URL:** `GetLfsUrlGitAction` now returns an `LfsServer`, a new domain model with the LFS URL and the remote's
   URL. The URL from `.lfsconfig` still comes first, but the remote is now looked up too. Its "couldn't obtain the
@@ -4523,7 +4556,7 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
 
 ## Hooks run on Windows again (branch `claude/funny-vaughan-00e1d8`)
 
-- **Before:** `WindowsFs`, from upstream's c43e8e26 (Gitnuro#314), ran hooks with Git Bash but returned
+- **Before:** `WindowsFs`, from upstream's c43e8e26 (upstream issue 314), ran hooks with Git Bash but returned
   `ProcessResult(Status.OK)`, whose exit code is -1. JGit counts an OK result with a non-zero exit code as a failed
   hook, so any pre-commit, commit-msg or pre-push hook rejected every commit or push, even one that exited 0. It also:
   - ignored the hook's exit code;
@@ -4566,8 +4599,8 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
 
 - **Before:** Leaf opened from the Finder or the Dock inherits launchd's PATH (`/usr/bin:/bin:/usr/sbin:/sbin`). A
   hook that runs node, npx, lefthook, husky or pre-commit, or anything else from Homebrew or nvm, failed with
-  `command not found` and blocked the commit (Gitnuro#236, #321, #298). The same went for post-checkout hooks and LFS
-  filters run by `git worktree add`.
+  `command not found` and blocked the commit (upstream issues 236, 321 and 298). The same went for post-checkout hooks
+  and LFS filters run by `git worktree add`.
 - **Now:** at startup `LoginShellEnvironment` runs the user's shell once in the background, as an interactive login
   shell (`$SHELL -i -l -c`), and reads its environment. Hooks, clean and smudge filters and diff tools run by JGit
   (through the new `PosixFs`) and every git CLI run get the new and changed variables. JGit's `GIT_DIR` and GitCli's
@@ -4724,7 +4757,8 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
   - `415b3729`: tabs that haven't loaded yet are saved too, so restoring tabs lazily no longer drops them.
 - **Conflicts:** imports and packages from the rename, and `GitCliModule` next to the new `ServicesModule`.
   `OpenRepositoryGitAction` came up as modify/delete, because the fork rewrote it, so its `use {}` was ported by hand.
-  `data/services/GitProviderService.kt` landed under `com/jetpackduba/gitnuro/` without a conflict and was moved.
+  `data/services/GitProviderService.kt` landed under upstream's own package folder without a conflict and
+  was moved.
 - **Fixed on top:**
   - Upstream picked the repositories to keep as each tab's working tree + `/.git`. A linked worktree's git dir is
     `<main>/.git/worktrees/<name>`, a submodule's is under `.git/modules/`, and Windows uses `\`. So closing any tab
@@ -4837,8 +4871,8 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
   - Creates a draft release with the built-in `GITHUB_TOKEN`.
   - Triggers on `leaf-*` tags only, plus manual build-only runs.
 - **Windows installer:** `leaf.iss` now names it `Leaf-<version>-windows-x64-setup.exe`.
-- **Tags:** `origin` fetches only `leaf-*` tags, and Gitnuro's tags are fetched into `refs/upstream-tags/*`. The copies
-  of Gitnuro's tags in local `refs/tags` were removed, and all 24 copied Gitnuro tags were deleted from
+- **Tags:** `origin` fetches only `leaf-*` tags, and upstream's tags are fetched into `refs/upstream-tags/*`. The copies
+  of upstream's tags in local `refs/tags` were removed, and all 24 copied upstream tags were deleted from
   `zzhelev/Leaf`, which now has only `leaf-*` tags.
 - **`leaf-0.1.0`:** published by hand as a pre-release with the macOS DMG.
 - **Verified locally:** the 1.0.0 DMG packages, the app reports 1.0.0, the tests pass, and the workflow YAML parses.
@@ -4872,7 +4906,7 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
 - **AGPL-3.0-only:** the 18 files written for Leaf carry SPDX headers, and the license text is in
   `LICENSES/AGPL-3.0-only.txt`. The files are the git CLI adapter, the JGit auto-gc guard, the storage names, and the
   fork's tests.
-- **GPL-3.0-only:** files that come from Gitnuro stay under `LICENSE`, even where the fork edited them.
+- **GPL-3.0-only:** files that come from upstream stay under `LICENSE`, even where the fork edited them.
 - **Combined work:** GPL-3.0 section 13 lets Leaf be distributed as a combined work. AGPL-3.0 section 13, on network
   interaction, then applies to the whole.
 - **README:** the License section explains the split, and the credit's license sentence matches it. A new "Name and
@@ -4886,15 +4920,15 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
   (2.0-beta03, app code 25). Until `fork/main` is on GitHub, the URL returns 404, the JSON parse throws, and that
   update check stops with a stack trace on stderr, as it does offline.
 - **Release workflow:** publishes to `zzhelev/Leaf`. It still names upstream's self-hosted runners.
-- **Renamed:** `gitnuro.iss` to `leaf.iss`, the root Gradle project to `Leaf`, `GitnuroException` to `LeafException`,
-  and the Gitnuro names in the test fixtures.
-- **Kotlin package** `com.jetpackduba.gitnuro` is now `dev.app.leaf`. The Gradle group, the Compose `Res` package
-  (`dev.app.leaf.app.generated.resources`), the main class, the uniffi package and the GraalVM metadata (now in
+- **Renamed:** the installer script to `leaf.iss`, the root Gradle project to `Leaf`, the exception class to
+  `LeafException`, and the old names in the test fixtures.
+- **Kotlin package:** the old one is now `dev.app.leaf`. The Gradle group, the Compose `Res`
+  package (`dev.app.leaf.app.generated.resources`), the main class, the uniffi package and the GraalVM metadata (now in
   `META-INF/native-image/leaf/`) follow. Git records 72 small files as deleted and added rather than renamed, because
   most of their lines changed, so `git log --follow` may not connect their history.
-- **Rust crate** `gitnuro_rs` is now `leaf_rs`: the native library is `libleaf_rs.dylib` and the bindings are
+- **Rust crate:** the old `…_rs` is now `leaf_rs`: the native library is `libleaf_rs.dylib` and the bindings are
   `leaf_rs.kt`.
-- **Kept on purpose:** the "based on Gitnuro" credit, the `libssh-rs` and `kotars` dependencies from JetpackDuba's
+- **Kept on purpose:** the credit to the original project, the `libssh-rs` and `kotars` dependencies from the original author's
   repositories, and the bundle ID `io.github.zzhelev.leaf`.
 - **Verified:** after a clean build all 45 tests pass. The packaged app was launched with a temp repo:
   - the Rust file watcher reported a file change;
@@ -4903,45 +4937,47 @@ Closes the first three gaps listed under "Credential helpers get the host and pa
 
 ## README and DEVELOPMENT.md for Leaf (branch `docs/leaf-readme`)
 
-- **README.md** now describes Leaf. It opens with a "Built on Gitnuro" section that credits Gitnuro and its author,
+- **README.md** now describes Leaf. It opens with a "Built on" section that credits the original project and its author,
   explains Leaf's separate roadmap, gives the fork date and the license, and welcomes sharing work in either direction.
-  - Removed, because they describe Gitnuro and not Leaf:
+  - Removed, because they describe the original app and not Leaf:
     - the upstream release badge;
-    - the Gitnuro screenshot (`res/img/cover.png` is kept);
+    - the original app's screenshot (`res/img/cover.png` is kept);
     - the Flathub, Homebrew and release download links;
     - the Sponsors section.
-  - Added a License section. Links to Gitnuro's issue tracker stay.
+  - Added a License section. Links to the original project's issue tracker stay.
 - **DEVELOPMENT.md** says Leaf. It also corrects the requirements: JDK 25 (and a full JDK for packaging), no
   `cargo-kotars`, and Git LFS for the fonts.
-- `CLAUDE.md` and `docs/fork/` still name Gitnuro where they mean the upstream project or an installed Gitnuro.
+- `CLAUDE.md` and `docs/fork/` still named the original project where they meant upstream or an installed copy of it
+  (swept on 2026-10-20).
 
 ## Own storage for Leaf (branch `feature/leaf-own-storage`)
 
-- **Leaf no longer shares data with Gitnuro.** Every storage name now comes from the fork-only `AppStorage`
-  (`common/storage/`), and none of them mention Gitnuro. On macOS, a packaged Leaf uses:
-  - the prefs node `LeafConfig` for tabs, recent repos and pane widths (was `GitnuroConfig`);
-  - `~/Library/Application Support/leaf/` for the settings file and `tmp/` (were `.../gitnuro/` and
-    `~/Library/Application/gitnuro/`);
-  - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log` (was `com.jetpackduba.Gitnuro/gitnuro.log`);
-  - `<git dir>/leaf` for per-repository settings such as sign-off (was `<git dir>/gitnuro`).
+- **Leaf no longer shares data with the original app.** Every storage name now comes from the fork-only `AppStorage`
+  (`common/storage/`), and none of them mention it. On macOS, a packaged Leaf uses:
+  - the prefs node `LeafConfig` for tabs, recent repos and pane widths (was the original app's node);
+  - `~/Library/Application Support/leaf/` for the settings file and `tmp/` (were the original app's folders, one
+    of them missing "Support");
+  - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log` (was a log in the original app's own folder);
+  - `<git dir>/leaf` for per-repository settings such as sign-off (was a file named after the original app).
 
-  Linux and Windows use `leaf` in place of `gitnuro` or `Gitnuro` in the same paths.
-- **Fresh start.** Nothing is imported from Gitnuro. Tabs, recent repos, settings and per-repository settings start
-  empty.
+  Linux and Windows use `leaf` in place of the original app's name in the same paths.
+- **Fresh start.** Nothing is imported from the original app. Tabs, recent repos, settings and per-repository settings
+  start empty.
 - **Dev runs are separate.** Without jpackage's `jpackage.app-version` property, Leaf uses `LeafDevConfig`, `leaf-dev`
   and `io.github.zzhelev.leaf-dev`. So `./gradlew :app:run` can't change an installed Leaf's tabs or overwrite the
   native library a running Leaf extracted. A Linux `java -jar` run also counts as a dev run.
-- **Fixed in passing:** the macOS app folder was `~/Library/Application/gitnuro`, missing "Support" (an upstream bug).
-- **Unchanged:** the Rust crate name, so the extracted library is still `libgitnuro_rs.dylib` (PLAN.md, rule 8).
+- **Fixed in passing:** the macOS app folder was `~/Library/Application/<app name>`, missing "Support" (an upstream
+  bug).
+- **Unchanged:** the Rust crate name, so the extracted library kept its old name (PLAN.md, rule 8).
 - **Tests:** `AppStorageTest` has four tests:
   - packaged names;
   - dev and packaged runs share no name;
-  - no name mentions Gitnuro;
+  - no name mentions the original app;
   - the test JVM counts as a dev run.
-- **Manual check (macOS):** with Gitnuro 1.5 running, launched and quit the packaged Leaf, then ran and stopped
-  `./gradlew :app:run`.
+- **Manual check (macOS):** with the original app (1.5) running, launched and quit the packaged Leaf, then ran and
+  stopped `./gradlew :app:run`.
   - Leaf created `LeafConfig` and the dev run created `LeafDevConfig`, each with its own folders and log.
-  - Gitnuro's prefs node and settings file were byte-for-byte unchanged.
+  - The original app's prefs node and settings file were byte-for-byte unchanged.
   - The per-repository `<git dir>/leaf` file was not exercised manually.
 
 ## macOS packaging fixes (branch `fix/macos-bundle-id`)
@@ -4956,45 +4992,47 @@ Both bugs come from upstream commit `a9a0f318` ("Added config to build MacOS DMG
   Compose 1.12.0 the property only sets the default, despite what the Compose docs say. Signing stays on by default,
   and `-Pcompose.desktop.mac.sign=false` now turns it off.
 - **Verified:** `:app:packageDmg` with a JBR SDK 25 produces `Leaf-2.0.0.dmg` (175 MB).
-  - All 46 native binaries in `Leaf.app`, and `libgitnuro_rs.dylib` inside the app jar, are arm64.
+  - All 46 native binaries in `Leaf.app`, and the native library inside the app jar, are arm64.
   - `codesign --verify --deep --strict` passes (ad hoc signature).
   - The bundled runtime has no `/opt/homebrew` links, and the real fonts are packed.
-- **Not yet done:** launching the packaged app. Leaf still shares `GitnuroConfig` with an installed Gitnuro.
+- **Not yet done:** launching the packaged app. Leaf still shares its prefs node with an installed copy of the original
+  app.
 
 ## Renamed to Leaf (branch `feature/rename-to-leaf`)
 
 This is one isolated commit touching only display name and packaging (PLAN.md, rule 8).
 
 - **Display name:** the window title, Welcome page, About dialog, Settings subtitles, the settings tooltip and two
-  error messages now say Leaf. The About text credits Gitnuro ("based on Gitnuro").
+  error messages now say Leaf. The About text credits the original project.
 - **Packaging:**
   - `projectName` is `Leaf`, so the outputs are `Leaf.app`, `Leaf-<version>.dmg` and `Leaf-linux-*.jar`.
-  - The macOS bundle ID is `io.github.zzhelev.leaf`, so Leaf and an installed Gitnuro are separate apps to macOS.
-  - `gitnuro.iss` has a new AppId, so a Windows Leaf install doesn't replace Gitnuro. It also has new publisher, URL
-    and exe name, and paths that follow the new build output.
+  - The macOS bundle ID is `io.github.zzhelev.leaf`, so Leaf and an installed copy of the original app are separate apps
+    to macOS.
+  - The installer script has a new AppId, so a Windows Leaf install doesn't replace the original app. It also has new
+    publisher, URL and exe name, and paths that follow the new build output.
   - In `.github/workflows/release.yml`, artifact names and paths follow `projectName`.
 - **Unchanged:**
   - Kotlin package names.
   - The Rust crate.
-  - Storage locations. Leaf still shares settings, tabs and logs with an installed Gitnuro.
+  - Storage locations. Leaf still shares settings, tabs and logs with an installed copy of the original app.
   - The upstream links: Source code, Report a bug, Releases.
   - The update check against upstream's `latest.json`.
-  - The release workflow's publishing target (`JetpackDuba/Gitnuro`, self-hosted runners).
+  - The release workflow's publishing target (the original project's repository, self-hosted runners).
 
 ## Leaf app icon (branch `feature/leaf-icon`)
 
 - **New icon, "Midrib":** a lime leaf on a forest-green tile. Its veins are cut out of the leaf and branch off the
   midrib the way branches leave `main`. It was designed in the Claude Design project "Leaf app icon", which also holds
   the two rejected options.
-- **Files were replaced in place**, so no config changed. `app/build.gradle.kts`, `gitnuro.iss` and the native-image
-  reachability metadata still point at the same paths.
+- **Files were replaced in place**, so no config changed. `app/build.gradle.kts`, the installer script and the
+  native-image reachability metadata still point at the same paths.
   - `icons/icon.icns`: macOS grid (an 824 px tile on a 1024 px canvas), with all ten iconset sizes from 16 to 1024.
     The old file only had 512.
   - `icons/icon.ico`: full-bleed, at 16, 24, 32, 48, 64, 128 and 256. The old file only had 256.
   - `icons/logo.svg` and `app/src/main/composeResources/drawable/logo.svg` (the window icon): full-bleed SVG.
 - **The SVGs use only paths, strokes and one linear gradient.** There are no masks, transforms or clip paths; the vein
   cuts are painted with the tile's gradient. They were checked with Skia's SVG renderer, which Compose uses.
-- The display name, package names and bundle ID still say Gitnuro (PLAN.md, rule 8).
+- The display name, package names and bundle ID still said the original name (PLAN.md, rule 8).
 
 ## 1.1: Git CLI adapter (branch `feature/git-cli-adapter`)
 

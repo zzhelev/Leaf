@@ -18,7 +18,7 @@ CP="$CP:$(jar org.slf4j/slf4j-api 'slf4j-api-*.jar')"
 CP="$CP:$(jar com.googlecode.javaewah/JavaEWAH 'JavaEWAH-*.jar')"
 CP="$CP:$(jar commons-codec/commons-codec 'commons-codec-*.jar')"
 
-LAB="$(mktemp -d "${TMPDIR:-/tmp}/gitnuro-worktree-probe.XXXXXX")"
+LAB="$(mktemp -d "${TMPDIR:-/tmp}/worktree-probe.XXXXXX")"
 if [[ "${KEEP:-0}" == "1" ]]; then echo "Keeping temp repos in $LAB"; else trap 'rm -rf "$LAB"' EXIT; fi
 
 probe() { "$JAVA" -cp "$CP" "$PROBE" "$@" 2>&1 | grep -v '^SLF4J' || true; }
@@ -40,10 +40,10 @@ new_repo "$M"
 git -C "$M" worktree add -q ../wt-test -b test
 git -C "$M" worktree add -q .claude/worktrees/agent1 -b agent1
 
-section "1a. Gitnuro open flow, sibling worktree ../wt-test"
-probe gitnuro-open "$LAB/open/wt-test"
-section "1b. Gitnuro open flow, nested worktree .claude/worktrees/agent1"
-probe gitnuro-open "$M/.claude/worktrees/agent1"
+section "1a. Original app's open flow, sibling worktree ../wt-test"
+probe original-open "$LAB/open/wt-test"
+section "1b. Original app's open flow, nested worktree .claude/worktrees/agent1"
+probe original-open "$M/.claude/worktrees/agent1"
 section "1c. Plain JGit Git.open(<linked worktree dir>)"
 probe git-open "$LAB/open/wt-test"
 

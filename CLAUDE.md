@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Fork of [Gitnuro](https://github.com/JetpackDuba/Gitnuro) (Kotlin, Compose Desktop, JGit) that adds first-class git
-worktree support for AI-agent workflows. The fork plan and working rules are in `docs/fork/PLAN.md`. Read them before
-starting any work item. Findings about JGit and worktrees are in `docs/fork/architecture-notes.md`.
+Fork of an open-source git client (Kotlin, Compose Desktop, JGit; the README's License section names it) that adds
+first-class git worktree support for AI-agent workflows. The fork plan and working rules are in `docs/fork/PLAN.md`.
+Read them before starting any work item. Findings about JGit and worktrees are in `docs/fork/architecture-notes.md`.
 
-This file and everything under `docs/fork/` are fork-only. Leaf sends no pull requests upstream; it merges Gitnuro's
+This file and everything under `docs/fork/` are fork-only. Leaf sends no pull requests upstream; it merges upstream's
 changes in (see `docs/fork/PLAN.md`).
 
 ## Name
@@ -20,7 +20,7 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   (Leaf's `latest.json` on the `main` branch) and the publishing target in `.github/workflows/release.yml` all
   point at `zzhelev/Leaf`. The release workflow still names upstream's self-hosted runners.
 - **Own storage:** every storage name comes from the fork-only `AppStorage` (`common/.../common/storage/`), so Leaf
-  never reads or writes an installed Gitnuro's data. On macOS, a packaged Leaf uses:
+  never reads or writes the original app's data. On macOS, a packaged Leaf uses:
   - the `java.util.prefs` node `LeafConfig` (tabs, recent repos, pane widths);
   - `~/Library/Application Support/leaf/` (the settings file `user_prefs.json`, and `tmp/`);
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
@@ -31,13 +31,18 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
     `<git dir>/rebase-merge/leaf-amend-message-<commit>`, its message for an edit stop (see The plain draft).
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
-- **Gitnuro is named only where GPL-3.0 needs it:** the README's License section says, in one dated sentence, that
-  Leaf is a modified version of Gitnuro (section 5a), and which files keep Gitnuro's license. The app's About text
-  doesn't name it (2026-10-09). Both stay as long as any code from Gitnuro is in Leaf.
+- **The original project, and its author, are named only where GPL-3.0 needs it:** the README's License section says,
+  in one dated sentence, that Leaf is a modified version of it (section 5a), links its repository (whose address has
+  the author's name) and says which files keep its license. The app's About text doesn't name it (2026-10-09). Both
+  stay as long as any code from it is in Leaf. Everything else says "upstream" (its code and tags, the `upstream`
+  remote) or "the original app" (an installed copy), and an issue is "upstream issue 186". The one other place with
+  the project's name is `AppStorageTest`, whose check that no storage name contains it needs the string. Swept from the
+  rest of the repository on 2026-10-20, the author's name too; the check is under Branches and remotes. Old commit
+  messages keep both, as `main` is published.
 
 ## Branches and remotes
 
-- `origin` = Leaf (`zzhelev/Leaf`), `upstream` = `JetpackDuba/Gitnuro`.
+- `origin` = Leaf (`zzhelev/Leaf`), `upstream` = the original project (`git remote -v` has the URL).
 - `main` is Leaf's integration branch. It tracks `origin/main`, which is the default branch on GitHub. Work items
   branch off `main`. Until 2026-10-05 it was called `fork/main`, and the local `main` mirrored upstream.
 - The 2.0 rewrite lives on `upstream/main` (tags `2.0.0-beta01..03`). The other upstream branches are stale. There is
@@ -45,10 +50,22 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   never rebase it.
 - **Syncing and the package rename:** git follows the rename to `dev/app/leaf` for most files, but not all:
   - A file upstream adds next to existing files comes up as a "file location" conflict, already at the Leaf path.
-  - A file upstream adds in a new folder lands under `com/jetpackduba/gitnuro/` without any conflict.
+  - A file upstream adds in a new folder lands under upstream's own package folder (under `com/`) without any
+    conflict.
   - A file the fork rewrote comes up as modify/delete, and upstream's change has to be ported by hand.
 
-  After resolving, `git ls-files '*jetpackduba*'` must print nothing, and new files need `dev.app.leaf` packages.
+  After resolving, new files need `dev.app.leaf` packages, and the names of the project and its author must be in no
+  path and in no file but the README's License section and `AppStorageTest`. The check reads both names from the
+  remote, so that the repository doesn't have to spell them:
+
+  ```bash
+  url=$(git remote get-url upstream)
+  owner=$(basename "$(dirname "$url")" | sed 's/.*://' | tr '[:upper:]' '[:lower:]')
+  repo=$(basename "$url" .git | tr '[:upper:]' '[:lower:]')
+  git ls-files "*${owner}*" "*${repo}*"          # must print nothing: no folder or file under upstream's names
+  git grep -I -i -l -e "$owner" -e "$repo"       # must print README.md and AppStorageTest.kt, nothing else
+  ```
+
   Also read what git merged without a conflict in files the fork changed: on 2026-10-16 it merged upstream's fix of
   the Actions list into Leaf's, which gave two actions a second dismiss (see Dialogs). The syncs of 2026-10-07 and
   2026-10-16 are described in `docs/fork/CHANGELOG.md`.
@@ -63,7 +80,7 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   ```bash
   git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push https://github.com/zzhelev/Leaf.git main
   ```
-- **Tags:** Leaf's tags are `leaf-X.Y.Z`. `origin` fetches only `leaf-*` tags. Gitnuro's tags come from `upstream`
+- **Tags:** Leaf's tags are `leaf-X.Y.Z`. `origin` fetches only `leaf-*` tags. Upstream's tags come from `upstream`
   into `refs/upstream-tags/*` (list them with `git for-each-ref refs/upstream-tags`), so `git push --tags` never sends
   them.
 
@@ -152,8 +169,8 @@ Packaging, verified on 2026-10-05 for arm64 only, with a JBR SDK 25 as `JAVA_HOM
   the JIT and library-validation entitlements the JVM needs. That build runs on the machine that built it. Sharing it
   needs a Developer ID and notarization: set `SIGNING_IDENTITY` and the `NOTARIZATION_*` env vars, and pass
   `-Pcompose.desktop.mac.sign=true`.
-- The app is `Leaf.app` with bundle ID `io.github.zzhelev.leaf`, so it installs alongside Gitnuro. It has its own
-  storage (see Name), so it doesn't touch an installed Gitnuro's tabs, settings or logs.
+- The app is `Leaf.app` with bundle ID `io.github.zzhelev.leaf`, so it installs alongside the original app. It has its
+  own storage (see Name), so it doesn't touch the original app's tabs, settings or logs.
 - The packaged skiko jar still contains `libskiko-macos-x64.dylib`, because skiko's macos-arm64 runtime jar ships both
   architectures. Only the extracted arm64 library is loaded.
 - The app starts with `--enable-native-access=ALL-UNNAMED` (`compose.desktop.application.jvmArgs`), and the Linux fat
@@ -211,7 +228,7 @@ asking.
   Anything else is a dev run. So `./gradlew :app:run` and IDE runs, which load module jars or class folders, use the
   prefs node `LeafDevConfig`, `~/Library/Application Support/leaf-dev/` and
   `~/Library/Logs/io.github.zzhelev.leaf-dev/leaf.log`. They can't touch the installed `/Applications/Leaf.app` or
-  `/Applications/Gitnuro.app` on this machine.
+  an installed copy of the original app on this machine.
   - Prefs nodes live in `~/Library/Preferences/com.apple.java.util.prefs.plist` on macOS. They cannot be redirected:
     `FileSystemPreferencesFactory` is unavailable on macOS, and `-Duser.home` does not affect them.
   - Passing `-Duser.home` to `:app:run` through an init script did not take effect; the Compose plugin sets the run
@@ -274,7 +291,7 @@ asking.
     `RenameBranchGitAction.moveHead` does, would log its HEAD in the tab's reflog. `moveHead` writes no reflog entry.
 - **The files that `includeIf` names, under JGit's config (fork-only `IncludedConfigRepository`,
   `config/IncludedConfig.kt`):** JGit's parser expands only `[include]`, so what a file that `includeIf` names sets (a
-  work identity for `~/work/`, signing, `core.hooksPath`, `core.autocrlf`, …) never reached JGit (Gitnuro#186).
+  work identity for `~/work/`, signing, `core.hooksPath`, `core.autocrlf`, …) never reached JGit (upstream issue 186).
   `JGit.open` opens an `IncludedConfigRepository`, whose config is the repository's own file on a layer of what only
   git reads, on the user's config. JGit's own commits (the interactive rebase, and pull's merge and rebase, merge,
   cherry-pick, revert and rebase when git can't run them), its reflog entries, its stashes and its other settings then
@@ -304,7 +321,7 @@ asking.
     reflog against git.
 - **Hooks are where git finds them (fork-only `GitHooksDirectory`):** `PosixFs` and `WindowsFs` override `findHook`,
   which runs `git --git-dir=<git dir> rev-parse --path-format=absolute --git-path hooks` in the working tree (the git
-  dir when bare). That's git's answer: `core.hooksPath` from a file that `includeIf` names (Gitnuro#186), `~/`
+  dir when bare). That's git's answer: `core.hooksPath` from a file that `includeIf` names (upstream issue 186), `~/`
   expanded, a relative path from the working tree's root, and the common git dir's `hooks` in a linked worktree. JGit
   took `core.hooksPath` from its own config, as a plain path. A hook that is missing, or not executable where the file
   system can tell, is skipped (`hookIn`), as JGit and git skip it. Without a usable git, JGit's own `findHook` looks.
@@ -463,8 +480,9 @@ conflicts compares the working file with ours (stage 2). For a file that both si
 - Conflicted files get no hunk or line actions (see above).
 
 **Ignoring untracked files (fork-only, `domain/ignore/IgnoreRules.kt`, `data/git/workspace/IgnoreFiles.kt`,
-`ui/dialogs/IgnoreDialog.kt`, Gitnuro#175):** "Ignore…" in the Unstaged menus of an untracked file (after "Delete file"),
-of a selection (`Ignore N files…`) and of a folder row (`Ignore folder…`) opens `IgnoreDialog` (`Screen.Ignore`).
+`ui/dialogs/IgnoreDialog.kt`, upstream issue 175):** "Ignore…" in the Unstaged menus of an untracked file (after "Delete
+file"), of a selection (`Ignore N files…`) and of a folder row (`Ignore folder…`) opens `IgnoreDialog`
+(`Screen.Ignore`).
 - **Who offers it:** `ignoreRequestFor` (the untracked files, `StatusType.ADDED`, of an Unstaged selection) and
   `ignoreRequestForFolder` (a folder row that shows one), both in `IgnoreRules.kt` and used by `StatusPane`. A tracked
   file isn't offered: ignoring it changes nothing until `git rm --cached`. Staged has none.
@@ -928,7 +946,7 @@ commands.
   merged worktrees). **Lock** asks for an optional reason. **Unlock** runs at once, as it loses nothing.
 - **Create** (`NewWorktreeDialog`, `NewWorktreeViewModel`) opens from the Worktrees header's "+", the picker's last
   row, a branch's menu (side panel and log) and a commit's menu, with a `NewWorktreeStart`. The log gets it through
-  `LocalOnNewWorktree`, so that Gitnuro's composables in between don't change.
+  `LocalOnNewWorktree`, so that upstream's composables in between don't change.
   - `NewWorktreeStart.startPoint` (`domain/worktrees/NewWorktreeSteps.kt`) turns it into git's start point: the base
     branch, or the tab's branch or commit without one; `--no-track` for a remote base, `--track` for a remote branch
     picked in a menu. A local branch that no worktree uses can be checked out instead of branched from.
@@ -958,7 +976,7 @@ worktree on a branch other than the base (`branchToReview`, `domain/worktrees/Wo
   see Renames in file lists). Branches without a commit in common have no diff. A file opens in the diff pane as a
   commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
 - **State:** the review sets the selection to `SelectedItem.None` while it's shown, rather than being a `SelectedItem`
-  of its own, which Gitnuro's code handles in many places. Selecting anything else closes it; the close button and
+  of its own, which upstream's code handles in many places. Selecting anything else closes it; the close button and
   Esc (`CloseableView.WORKTREE_REVIEW`) close it and select again what was selected before.
 - It reads the comparison again when the commit of the branch or the base changes in the tab's branch data, which the
   file watcher refreshes when an agent commits. A refresh that finds the same commits doesn't, and the last
@@ -966,9 +984,9 @@ worktree on a branch other than the base (`branchToReview`, `domain/worktrees/Wo
 - The worktree's uncommitted changes aren't in it, as a merge leaves them out. A line under the files counts them,
   from the worktree list's status, with a link that switches the tab to the worktree, or shows the tab's own.
 
-**Renames in file lists (fork-only, `data/git/diff/RenameDetection.kt`, the commit and review lists of Gitnuro#347,
-2026-10-19):** a commit that git shows as `R old -> new` used to list a deletion and an addition. `git.diff()` finds
-renames only when `diff.renames` is set, as JGit reads the unset key as off, where git's default is on.
+**Renames in file lists (fork-only, `data/git/diff/RenameDetection.kt`, the commit and review lists of upstream issue
+347, 2026-10-19):** a commit that git shows as `R old -> new` used to list a deletion and an addition. `git.diff()`
+finds renames only when `diff.renames` is set, as JGit reads the unset key as off, where git's default is on.
 `GetCommitDiffEntriesGitAction` and `GetBranchComparisonGitAction` call `Repository.diffWithRenames` instead, so a
 commit's list and a worktree review's show a moved file as one `RENAME` entry (`DiffEntry.filePath` is the new path,
 `oldPath` the old one, `score` how much is alike). The Staged and Unstaged lists show none: they come from JGit's status
@@ -1073,11 +1091,11 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
   `SQUASH_MSG` are cleared once their file is gone, unless the field still shows `MERGE_MSG` (a merge, cherry-pick or
   revert goes on). What disables its buttons, and the line that says why, are in the next bullet.
 - **What disables the primary button, and the hint that says why (fork-only, `ui/status/FinishBlockers.kt` and
-  `FinishHint.kt`, 2026-10-19, Gitnuro#120 and #124):** `StatusState.finishBlocker()` returns the first thing that stops
-  Merge, a cherry-pick's or a revert's Commit, a rebase's Continue, or Commit and Amend outside an operation, or null.
-  `CommitField` enables the primary button when it's null, and shows `FinishHint` for `finishHint()` in a line between
-  the message field and the buttons ("Resolve the conflicts in 2 files first.", "Stage or discard the changes to 3
-  tracked files to continue.", "Write a commit message.", "Stage some changes to commit."). Until 2026-10-19 Merge, a
+  `FinishHint.kt`, 2026-10-19, upstream issues 120 and 124):** `StatusState.finishBlocker()` returns the first thing
+  that stops Merge, a cherry-pick's or a revert's Commit, a rebase's Continue, or Commit and Amend outside an operation,
+  or null. `CommitField` enables the primary button when it's null, and shows `FinishHint` for `finishHint()` in a line
+  between the message field and the buttons ("Resolve the conflicts in 2 files first.", "Stage or discard the changes to
+  3 tracked files to continue.", "Write a commit message.", "Stage some changes to commit."). Until 2026-10-19 Merge, a
   cherry-pick's Commit and a rebase's Continue were disabled by any file in the Unstaged list (`!hasUnstagedFiles`), an
   untracked build output or a merge tool's `.orig` file included, and nothing said why. Agents leave such files in their
   worktrees, so finishing a merge in Leaf was blocked.
@@ -1356,11 +1374,11 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     names its folder. The clone dialog's error box scrolls once it's 200 dp tall, as git's output can be long.
   - `CloneViewModel` no longer creates the folder first, so a failed clone leaves none. JGit's clone, the fallback,
     removes the folder too when it created it.
-  - **A chosen branch or tag (fork-only, Gitnuro#209, 2026-10-19):** the dialog's "Branch or tag (optional)" field and
-    "Only this branch" box reach `ICloneRepositoryGitAction` as `branch` (trimmed, blank is none) and `singleBranch`.
-    The box needs a branch to be checked, though the action takes `--single-branch` alone too (the remote's default
-    branch only). git gets `--branch=<name>`, in the `=` form so that a name that starts with `-` is a value, and
-    `--single-branch` (`cloneArguments`).
+  - **A chosen branch or tag (fork-only, upstream issue 209, 2026-10-19):** the dialog's "Branch or tag (optional)"
+    field and "Only this branch" box reach `ICloneRepositoryGitAction` as `branch` (trimmed, blank is none) and
+    `singleBranch`. The box needs a branch to be checked, though the action takes `--single-branch` alone too (the
+    remote's default branch only). git gets `--branch=<name>`, in the `=` form so that a name that starts with `-` is a
+    value, and `--single-branch` (`cloneArguments`).
     - What git 2.54 does with `--no-checkout`, and what the steps after it rely on: HEAD is `refs/heads/<branch>`, so
       the checkout, `git lfs fetch <remote> <commit>` and the `.gitmodules` check all follow the chosen branch, with
       no change. A tag leaves HEAD detached at the tag's commit (annotated tags too), and the code already took
@@ -1382,7 +1400,7 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       missing branch, a name starting with `-`, submodules of the branch, the clone the app runs for git and for JGit),
       `CloneRepositoryGitActionBranchTest` (the same for JGit), `GitCliLfsTest` (git-lfs fetches the branch's commit)
       and `CloneDialogTest` (the field and the box, rendered).
-  - **Choose… (fork-only, 2026-10-19, follows Gitnuro#209):** a button beside the Branch field lists the remote's
+  - **Choose… (fork-only, 2026-10-19, follows upstream issue 209):** a button beside the Branch field lists the remote's
     branches and tags in a popup under it. It is the only thing that asks the remote: typing in the field, opening the
     dialog and changing the URL never do, and a click asks once.
     - **git** (`GitCliListRemoteRefsGitAction`): `git ls-remote --symref -- <url> HEAD refs/heads/* refs/tags/*`
@@ -1455,7 +1473,7 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     config is read only when git can't run, or can't read its config.
   - The remote is the one asked for, or else git-lfs's pick: the current branch's `branch.<name>.remote` (without
     `.merge`, which git-lfs doesn't need), then `remote.lfsdefault`, then the only remote, then `origin`. A detached
-    HEAD, as in a rebase, has no branch, even at a branch's commit, where Gitnuro's `GetCurrentBranchGitAction` finds
+    HEAD, as in a rebase, has no branch, even at a branch's commit, where upstream's `GetCurrentBranchGitAction` finds
     that branch. So the conflict cards ask once (`DownloadLfsVersionGitAction`, which had its own `origin` fallback),
     and checkouts without git-lfs find a server with several remotes and no upstream.
   - Credential helpers are asked about that remote's URL (its push URL for an upload), as git-lfs's
@@ -1619,7 +1637,7 @@ when it first needs them. JGit can't: it throws `MissingObjectException`, which 
 
 **Login shell environment (fork-only, `data/shell/LoginShellEnvironment.kt`):** an app opened from the Finder, the
 Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find node, npx or other Homebrew and nvm tools
-(Gitnuro#236).
+(upstream issue 236).
 - At startup, `App.start` calls `prewarm()`. On macOS and Linux, this runs `$SHELL -i -l -c` once in the background,
   with a 10 s timeout, and reads `env -0` printed between random markers (startup files may print, for example
   iTerm's escape codes).
@@ -1736,7 +1754,7 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
 **Identity and signing settings from git (fork-only, `data/.../author/GitIdentities.kt`,
 `data/.../signers/GitSigningConfigs.kt`):** JGit reads no `includeIf` (its parser expands only a section named
 `include`), so an identity or signing settings in a conditionally included file, such as a work identity for
-`~/work/`, didn't apply to Leaf's commits (Gitnuro#186). Leaf's own commits, tags and stashes ask git instead.
+`~/work/`, didn't apply to Leaf's commits (upstream issue 186). Leaf's own commits, tags and stashes ask git instead.
 - `GitIdentities.of(gitDir)` runs `git --git-dir=<git dir> -c user.useConfigOnly=true var GIT_AUTHOR_IDENT` and
   `GIT_COMMITTER_IDENT` side by side (about 13 ms each). That's git's own answer: `includeIf` (`gitdir:`, and
   `onbranch:` per worktree), `author.*` and `committer.*`, and `GIT_AUTHOR_NAME` and the like from the login shell.
@@ -1796,7 +1814,7 @@ above).
   "Exception caught during execution of commit command". `JGit.provide` finds it in the cause chain and returns its
   `GpgSigningError` before the operation's own `errorHandle` runs.
 - JGit's BouncyCastle signer (Leaf's old `AppGpgSigner`) is gone: it couldn't find keys kept by keyboxd
-  (`use-keyboxd`, GnuPG 2.4's default), and its ED25519 signatures failed to verify (Gitnuro#194, #293).
+  (`use-keyboxd`, GnuPG 2.4's default), and its ED25519 signatures failed to verify (upstream issues 194 and 293).
 - BouncyCastle is gone too. `jgit-gpg`, `bcpg` and the JCE provider that `main.kt` registered were only there for that
   signer:
   - Leaf's own JCE calls (AES, SHA-256) and the TLS of JGit, Ktor and OkHttp use the JDK's providers.
@@ -1940,7 +1958,7 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   - `StatusStageAllUseCase` now returns its `Job`, so a test can join it.
   - Tests: `BulkTargetTest`, `StageAllHeaderTest` (label and click, rendered), `StagingShownFilesTest` (a `TestTab`:
     `null` stages every file, the shown files stage only those).
-- **Discard all (fork-only, 2026-10-19, Gitnuro#224, `domain/sorting/DiscardAll.kt`, `DiscardAllGitAction`):**
+- **Discard all (fork-only, 2026-10-19, upstream issue 224, `domain/sorting/DiscardAll.kt`, `DiscardAllGitAction`):**
   "Discard all changes…" is the only item of a "⋯" menu in the Unstaged header (`HeaderMenuButton`, between the search
   button and Stage all, through `FilesChangedHeader.moreItems`; the Staged header has none). It sits in a menu, not
   beside Stage all, so that a click on the most used button can't reach it, and it always asks. Chosen from three
@@ -2522,7 +2540,7 @@ a mockup; "Copy file path" was left out, as it is the same for every row.
 
 ## Refresh
 
-**The watcher (fork-only, `data/.../git/FileChangesWatcher.kt`):** the JDK's `WatchService`, since 2026-10-15. Gitnuro
+**The watcher (fork-only, `data/.../git/FileChangesWatcher.kt`):** the JDK's `WatchService`, since 2026-10-15. Upstream
 moved the watcher to Rust (notify) in 2023 because Java's polled on macOS. JetBrains' JDK, which runs Leaf (packaged,
 and in dev runs from IntelliJ's runtime), watches with FSEvents there (`sun.nio.fs.MacOSXWatchService`) and reports a
 change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW. Other JDKs poll on macOS.
@@ -2662,7 +2680,7 @@ shows up through `PollWorktreesUseCase` (`worktreePollTicks` in `refresh/Worktre
 **Licensing:**
 - New files written for Leaf start with these two lines, then a blank line:
   `// SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev` and `// SPDX-License-Identifier: AGPL-3.0-only`.
-- Files that come from Gitnuro stay GPL-3.0-only and get no header, even when the fork edits them.
+- Files that come from upstream stay GPL-3.0-only and get no header, even when the fork edits them.
 - The AGPL text is in `LICENSES/AGPL-3.0-only.txt` and the GPL text in `LICENSE`. README's License section explains
   the split, and its "Name and logo" section keeps the Leaf name and logo out of both licenses.
 

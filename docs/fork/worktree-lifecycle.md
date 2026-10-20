@@ -50,8 +50,8 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
   the tab's worktree: `UseCaseExecutor` passes the tab's git dir.
 - **Commit message:** the status pane's commit field. There is no commit dialog. `GetPersistedCommitMessagesGitAction`
   reads `SQUASH_MSG`, but nothing uses it.
-- **Two-commit diff (Gitnuro#206):** not in 2.0. The log selects one commit (`SelectedItem`), and Files changed diffs a
-  commit with its first parent. The diff pane reads both sides by blob id, so it can show any two trees' diff.
+- **Two-commit diff (upstream issue 206):** not in 2.0. The log selects one commit (`SelectedItem`), and Files changed
+  diffs a commit with its first parent. The diff pane reads both sides by blob id, so it can show any two trees' diff.
 - **Conflicts:** edit, stage, then Continue or Commit. The banner (`OperationInProgressBanner`) has Abort. Nothing
   runs `git mergetool`.
 - **A tab whose worktree is removed** keeps the dead git dir until it's reopened (`repositoryOfRemovedWorktree` only
@@ -201,8 +201,8 @@ branch's tree, and the diff pane reads blobs by id, so `FormatDiffGitAction` nee
 **Uncommitted changes** in that worktree aren't part of a merge, so they aren't in the list. A line says how many there
 are, with a link that switches to the worktree, or "Show them" for the tab's own worktree.
 
-**State:** a comparison held next to the selection, not a new `SelectedItem` variant. `SelectedItem` is Gitnuro's, and
-its `when`s are spread through Gitnuro's code. While the review shows, the selection is `None`. Selecting anything else
+**State:** a comparison held next to the selection, not a new `SelectedItem` variant. `SelectedItem` is upstream's, and
+its `when`s are spread through upstream's code. While the review shows, the selection is `None`. Selecting anything else
 closes it; its close button and Esc select again what was selected before.
 
 **Kept up to date:** the comparison is read again when the branch's or the base's commit moves, as an agent keeps
@@ -211,8 +211,8 @@ committing. The last one stays on screen meanwhile.
 **The subtitle:** the mockup said "as a merge would bring them", which isn't true of a squash-merged branch. The base
 already has its changes, but the three-dot diff still lists them, as git's does.
 
-**Gitnuro#206** (comparing two commits) isn't part of this item, but the panel takes any two refs, so it can build on
-it later.
+**Upstream issue 206** (comparing two commits) isn't part of this item, but the panel takes any two refs, so it can
+build on it later.
 
 ### 3.4 Merge and squash-merge into the base (plan items 3, 4)
 
@@ -359,7 +359,7 @@ copies in a temporary folder).
 
 ## 4. Out of scope
 
-- Comparing two commits from the log (Gitnuro#206). The review panel can host it later.
+- Comparing two commits from the log (upstream issue 206). The review panel can host it later.
 - Phase 4: origin labels, stale markers, "Clean up merged worktrees".
 - `git worktree move` and `repair`, and bare repositories' worktrees.
 - Claude Code's `WorktreeCreate` hook. It replaces Claude Code's own `git worktree add`, which Leaf doesn't run.

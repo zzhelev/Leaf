@@ -12,11 +12,12 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Fork-only probe backing docs/fork/architecture-notes.md. Mirrors the JGit calls Gitnuro makes (as of upstream
- * 62442f26) and runs them against throwaway repos. Driven by worktree-probe.sh; never point it at a real repository.
+ * Fork-only probe backing docs/fork/architecture-notes.md. Mirrors the JGit calls the original app makes (as of
+ * upstream 62442f26) and runs them against throwaway repos. Driven by worktree-probe.sh; never point it at a real
+ * repository.
  *
  * Usage: java -cp <jgit + deps> WorktreeProbe.java <op> <path> [branch]
- *   gitnuro-open <dir>        OpenRepositoryGitAction.invoke + JGit.provide's Git.open(gitDir)
+ *   original-open <dir>       OpenRepositoryGitAction.invoke + JGit.provide's Git.open(gitDir)
  *   git-open <dir>            plain Git.open(dir)
  *   checkout <gitDir> <name>  CheckoutBranchGitAction for a local branch
  *   delete <gitDir> <ref>     DeleteBranchGitAction (always forced)
@@ -29,7 +30,7 @@ public class WorktreeProbe {
         File path = new File(args[1]);
 
         switch (op) {
-            case "gitnuro-open" -> gitnuroOpen(path);
+            case "original-open" -> originalOpen(path);
             case "git-open" -> describe(Git.open(path));
             case "checkout" -> {
                 try (Git git = Git.open(path)) {
@@ -64,26 +65,26 @@ public class WorktreeProbe {
     }
 
     /** Port of OpenRepositoryGitAction.invoke, followed by JGit.provide's Git.open(repositoryPath). */
-    private static void gitnuroOpen(File directory) throws Exception {
+    private static void originalOpen(File directory) throws Exception {
         File[] children = directory.listFiles();
         boolean dotGitIsFile = children != null
                 && Arrays.stream(children).anyMatch(f -> f.getName().equals(".git") && f.isFile());
         Repository repository;
         if (dotGitIsFile) {
-            System.out.println("[gitnuro] .git is a file -> openSubmoduleRepository");
+            System.out.println("[original] .git is a file -> openSubmoduleRepository");
             File parent = getRepositoryParent(directory);
             if (parent == null) {
-                System.out.println("[gitnuro] RESULT: throws InvalidDirectoryException(\"Submodule's parent repository not found\")");
+                System.out.println("[original] RESULT: throws InvalidDirectoryException(\"Submodule's parent repository not found\")");
                 return;
             }
-            System.out.println("[gitnuro] parent repository found at " + parent);
+            System.out.println("[original] parent repository found at " + parent);
             Repository parentRepo = openRepository(parent);
             String prefix = Pattern.quote(parentRepo.getDirectory().getParent() + File.separator);
             String relative = directory.getAbsolutePath().replaceFirst("^" + prefix, "");
-            System.out.println("[gitnuro] SubmoduleWalk.getSubmoduleRepository(parent, \"" + relative + "\")");
+            System.out.println("[original] SubmoduleWalk.getSubmoduleRepository(parent, \"" + relative + "\")");
             repository = SubmoduleWalk.getSubmoduleRepository(parentRepo, relative);
             if (repository == null) {
-                System.out.println("[gitnuro] RESULT: null -> OpenRepoError.RepositoryNotFoundInPath");
+                System.out.println("[original] RESULT: null -> OpenRepoError.RepositoryNotFoundInPath");
                 return;
             }
         } else {
@@ -91,7 +92,7 @@ public class WorktreeProbe {
         }
         repository.getWorkTree();
         String tabPath = repository.getDirectory().getAbsolutePath();
-        System.out.println("[gitnuro] tab repositoryPath = " + tabPath);
+        System.out.println("[original] tab repositoryPath = " + tabPath);
         describe(Git.open(new File(tabPath)));
     }
 

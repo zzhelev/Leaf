@@ -1,4 +1,4 @@
-# Architecture notes: Gitnuro 2.0 and linked worktrees (Phase 0)
+# Architecture notes: upstream 2.0 and linked worktrees (Phase 0)
 
 | | |
 |---|---|
@@ -8,8 +8,8 @@
 | Reproduce | `docs/fork/probes/worktree-probe.sh`, and `worktree-reflog-probe.sh` for §6 |
 
 **How to reproduce.** Every JGit result below comes from `docs/fork/probes/WorktreeProbe.java`, which calls JGit the
-same way Gitnuro does, and is driven by `docs/fork/probes/worktree-probe.sh` against throwaway repos in `$TMPDIR`.
-Re-run the script after a JGit upgrade or a Phase 1 fix. Line numbers are relative to `62442f26`.
+same way the original app does, and is driven by `docs/fork/probes/worktree-probe.sh` against throwaway repos in
+`$TMPDIR`. Re-run the script after a JGit upgrade or a Phase 1 fix. Line numbers are relative to `62442f26`.
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`,
 `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`, `G/` = `data/src/main/kotlin/dev/app/leaf/data/git/`.
@@ -19,10 +19,10 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`,
 | Question | Answer | Severity |
 |---|---|---|
 | JGit version | `7.7.0.202606012155-r`. It can read linked worktrees, but has no API that lists the worktrees of a repo. | — |
-| Can Gitnuro open a linked worktree? | **No** for a sibling folder (`../wt-test`): the open fails silently. Yes, by accident, for a worktree nested inside the main working tree. **Fixed on `fix/open-linked-worktree`.** | High (blocks the whole plan) |
+| Can the original app open a linked worktree? | **No** for a sibling folder (`../wt-test`): the open fails silently. Yes, by accident, for a worktree nested inside the main working tree. **Fixed on `fix/open-linked-worktree`.** | High (blocks the whole plan) |
 | Does checkout refuse a branch that is checked out in another worktree? | **No.** Both worktrees end up on the same branch. | High |
 | Does branch deletion refuse a branch that is checked out in another worktree? | **No.** Deletion is always forced, has no confirmation, and leaves the other worktree on an unborn branch. | High |
-| Does Gitnuro run gc or prune? | Not explicitly. JGit's auto-GC can run during merge, rebase, fetch and push. JGit GC **ignores other worktrees' HEADs, indexes, per-worktree refs and reflogs**. Objects only they reference are deleted on a later GC, once they are more than two weeks old. | Medium (rare, but data loss) |
+| Does the original app run gc or prune? | Not explicitly. JGit's auto-GC can run during merge, rebase, fetch and push. JGit GC **ignores other worktrees' HEADs, indexes, per-worktree refs and reflogs**. Objects only they reference are deleted on a later GC, once they are more than two weeks old. | Medium (rare, but data loss) |
 | Does JGit write a linked worktree's HEAD reflog in the right place? (found 2026-10-09) | **No.** In a tab on a linked worktree, every move of HEAD is logged in the main worktree's `logs/HEAD` (§6). git's gc loses nothing because of it, but `@{-1}`, `HEAD@{n}` and Leaf's checkout dates are wrong in both worktrees. **Fixed on `fix/worktree-head-reflog`.** | Medium |
 
 ## 1. JGit version
@@ -72,9 +72,9 @@ Steps:
 
 | Case | Result |
 |---|---|
-| Probe 1a: Gitnuro's open flow on `../wt-test` | `InvalidDirectoryException("Submodule's parent repository not found")` |
+| Probe 1a: the original app's open flow on `../wt-test` | `InvalidDirectoryException("Submodule's parent repository not found")` |
 | Real app: `./gradlew :app:run --args="<tmp>/wt-test"` | stderr: `Exception in thread "DefaultDispatcher-worker-11" ...InvalidDirectoryException: Submodule's parent repository not found at ...OpenRepositoryGitAction$openSubmoduleRepository$2.invokeSuspend(OpenRepositoryGitAction.kt:74)`. No error dialog. |
-| Probe 1b: Gitnuro's open flow on nested `.claude/worktrees/agent1` | Opens. `SubmoduleWalk.getSubmoduleRepository` builds from the work tree, and JGit resolves the `gitdir:` file and `commondir`. The tab's `repositoryPath` becomes `<common>/.git/worktrees/agent1`. |
+| Probe 1b: the original app's open flow on nested `.claude/worktrees/agent1` | Opens. `SubmoduleWalk.getSubmoduleRepository` builds from the work tree, and JGit resolves the `gitdir:` file and `commondir`. The tab's `repositoryPath` becomes `<common>/.git/worktrees/agent1`. |
 | Probe 1c: plain `Git.open(wt-test)` | Opens correctly (see the JGit section above). |
 
 ### Knock-on problems for the nested case
@@ -110,7 +110,7 @@ from the code; they were not exercised in the app.
 
 ## 3. Checkout guard
 
-**Answer:** no guard. JGit's `CheckoutCommand` knows nothing about other worktrees, and Gitnuro adds no check.
+**Answer:** no guard. JGit's `CheckoutCommand` knows nothing about other worktrees, and the original app adds no check.
 
 **Code:**
 - `G/branches/CheckoutBranchGitAction.kt:12-25` is a plain `git.checkout().setName(branch.name).call()`.
@@ -195,8 +195,8 @@ In the jar, `Repository.autoGC(...)` is called from:
 - `transport/Transport`, i.e. fetch, pull and push
 - `transport/ReceivePack`
 
-Gitnuro uses all of these except `ReceivePack`. `FileRepository.autoGC` runs `GC` with `setAuto(true)`, which only does
-work when a threshold is exceeded:
+The original app uses all of these except `ReceivePack`. `FileRepository.autoGC` runs `GC` with `setAuto(true)`, which
+only does work when a threshold is exceeded:
 - `gc.auto`: default 6700 loose objects, estimated by sampling.
 - `gc.autoPackLimit`: the pack count must exceed `limit + 1`; the default limit is 50.
 - `gc.auto=0` disables auto-GC.
@@ -226,8 +226,8 @@ worktree references.
 - At risk: anything reachable only from another worktree's detached HEAD, its index, its per-worktree refs, or its
   reflog. That includes the branch-deletion case in section 4, a rebase in progress in another worktree, and
   `git checkout --detach` sessions.
-- The risk needs two JGit GC runs, at least two weeks apart, triggered from a Gitnuro tab on the same repository. The
-  chance is low, but the loss is silent and permanent.
+- The risk needs two JGit GC runs, at least two weeks apart, triggered from a tab of the original app on the same
+  repository. The chance is low, but the loss is silent and permanent.
 
 **Decision (1.0, branch `fix/jgit-autogc`):** the option chosen is none of (a)–(c) below. A JGit
 `SystemReader.Delegate` (`G/NoAutoGcSystemReader.kt`, installed in `A/main.kt`) injects `gc.auto=0` and
@@ -238,10 +238,10 @@ worktree references.
 - Covered by `NoAutoGcSystemReaderTest`.
 
 **Options considered:**
-- **(a)** When the repository has linked worktrees, disable auto-GC for Gitnuro's JGit instances by overriding
+- **(a)** When the repository has linked worktrees, disable auto-GC for the original app's JGit instances by overriding
   `gc.auto` / `gc.autoPackLimit` in the in-memory config only. This is fragile: `FileRepository.getConfig()` reloads
   the config when the file changes.
-- **(b)** Prevent the commands Gitnuro calls from triggering auto-GC. Needs investigation: `autoGC` is called
+- **(b)** Prevent the commands the original app calls from triggering auto-GC. Needs investigation: `autoGC` is called
   unconditionally at the end of `MergeCommand` and `RebaseCommand`.
 - **(c)** Document the risk and leave gc to the git CLI. Never write `gc.auto` into the user's config without asking.
 
@@ -454,7 +454,7 @@ All verified in source.
 - `app/build.gradle.kts` (from upstream `a9a0f318`): inside `macOS { }`, `bundleID = packageName` read the DSL's null
   `packageName`, and `sign.set(true)` blocked the `compose.desktop.mac.sign` opt-out. In the fork, the Leaf rename's
   literal bundle ID fixes the first and `fix/macos-bundle-id` fixes the second. Both are candidates for an upstream PR.
-- `D/TempFilesManager.kt` (`AppFilesManager`): the macOS app folder is `~/Library/Application/gitnuro`, which is
+- `D/TempFilesManager.kt` (`AppFilesManager`): the macOS app folder is `~/Library/Application/<app name>`, which is
   missing "Support". The fork fixed it as part of `feature/leaf-own-storage`.
 - `DEVELOPMENT.md` is outdated: it says JDK 17+ (25 is needed) and that `cargo-kotars` is required (uniffi is used now).
   It also doesn't mention Git LFS, which the fonts need. The fork corrected its copy on `docs/leaf-readme`.

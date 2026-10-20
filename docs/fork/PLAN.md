@@ -1,18 +1,18 @@
-# Gitnuro Fork — Plan for Claude Code
+# Leaf fork — Plan for Claude Code
 
 Place this file at `docs/fork/PLAN.md` in the fork.
 
 ## Goal
 
-Turn Gitnuro into a git client that handles AI-agent workflows well, mainly Claude Code and OpenCode. These agents
-create many git worktrees. The core idea: a worktree is a branch with its own folder. The client should show worktrees
-as a property of branches, not as separate repositories, and support their whole lifecycle: see, review, merge or
-squash back, discard.
+Turn the upstream git client into one that handles AI-agent workflows well, mainly Claude Code and OpenCode. These
+agents create many git worktrees. The core idea: a worktree is a branch with its own folder. The client should show
+worktrees as a property of branches, not as separate repositories, and support their whole lifecycle: see, review, merge
+or squash back, discard.
 
 Secondary goal: fix easy open upstream issues in the fork.
 
-Leaf sends no pull requests to `JetpackDuba/Gitnuro` (decided on 2026-10-09). It keeps merging `upstream/main` to take
-Gitnuro's fixes, so changes to the files that come from Gitnuro stay small, which keeps those merges cheap.
+Leaf sends no pull requests upstream (decided on 2026-10-09). It keeps merging `upstream/main` to take
+upstream's fixes, so changes to the files that come from upstream stay small, which keeps those merges cheap.
 
 ## Working rules (apply to every phase)
 
@@ -20,7 +20,7 @@ Gitnuro's fixes, so changes to the files that come from Gitnuro stay small, whic
    implementing.
 2. One branch per work item, created off `main` (see Phase 0). Keep commits small and focused.
 3. Keep upstream merges cheap. Follow the existing code style and module boundaries. In the files that come from
-   Gitnuro, change what the work item needs: no unrelated refactors, no mass reformatting, no cleanup of dead code or
+   upstream, change what the work item needs: no unrelated refactors, no mass reformatting, no cleanup of dead code or
    hardcoded strings. A rewritten file turns every later upstream change to it into a hand port. Replace one only for
    a reason that a targeted fix can't meet, such as the hunk and line actions moving to `git apply`.
 4. Ask before adding dependencies, changing architecture across modules, or touching build or packaging config.
@@ -34,7 +34,7 @@ Gitnuro's fixes, so changes to the files that come from Gitnuro stay small, whic
 
 ## Phase 0 — Setup and orientation
 
-1. Remotes: `origin` is the fork and `upstream` is `JetpackDuba/Gitnuro`. Verify with `git remote -v`.
+1. Remotes: `origin` is the fork and `upstream` is the original project's repository. Verify with `git remote -v`.
 2. Find the active development line. The 2.0 rewrite (2.0.0-beta tags) is where new work should go. Determine whether it
    lives on upstream `main` or another branch.
     * Create `fork/main` from it. That's our integration branch.
@@ -56,14 +56,14 @@ Gitnuro's fixes, so changes to the files that come from Gitnuro stay small, whic
     * Code style and conventions observed (DI approach, coroutines and dispatchers, state management).
 5. Write `docs/fork/architecture-notes.md` answering these questions with file references:
     * JGit version in use.
-    * Opening a linked worktree: Can Gitnuro open a linked worktree folder (its `.git` is a file pointing to
+    * Opening a linked worktree: Can the original app open a linked worktree folder (its `.git` is a file pointing to
       `<common>/.git/worktrees/<name>`)? Test it by creating a temp repo, running `git worktree add ../wt-test -b test`,
-      and opening `wt-test` in Gitnuro.
+      and opening `wt-test` in the original app.
     * Checkout guard: Does checkout refuse a branch that is already checked out in another worktree? The git CLI
       refuses; JGit may not. If JGit allows it, that's a bug to fix in Phase 1.
     * Branch deletion guard: Does branch deletion refuse a branch that is checked out in another worktree?
-    * gc and prune: Does Gitnuro ever run JGit `gc` or prune? JGit may not consider other worktrees' HEADs and indexes
-      as roots, which risks deleting reachable objects.
+    * gc and prune: Does the original app ever run JGit `gc` or prune? JGit may not consider other worktrees' HEADs and
+      indexes as roots, which risks deleting reachable objects.
 6. Report findings and stop for review before Phase 1.
 
 ## Phase 1 — Worktree awareness (read-only)
@@ -118,7 +118,7 @@ Worktree operations go through the real `git` CLI, not JGit. JGit stays in use f
 * Poll worktree status on window focus and on a modest interval (for example every 10 s, configurable). Only poll while
   the sidebar section is visible. Must not cause the UI freezes described in upstream issue #335.
 
-Acceptance: With a repo where Claude Code has created two worktrees, Gitnuro shows both in the sidebar and as badges in
+Acceptance: With a repo where Claude Code has created two worktrees, Leaf shows both in the sidebar and as badges in
 the branch list. It updates within seconds when an agent commits or leaves uncommitted changes, without freezing the
 UI.
 
@@ -165,7 +165,7 @@ Every destructive action requires a confirmation dialog that shows the exact git
     * Warn if that worktree has uncommitted changes, or was modified within the last few minutes (an agent may still be
       working).
 6. Conflicts:
-    * Reuse Gitnuro's existing conflict UI.
+    * Reuse upstream's existing conflict UI.
     * Add an "Open in external merge tool" action that runs `git mergetool` in the correct worktree, respecting the
       user's configured tool (for example Meld).
 7. Remove worktree:
@@ -193,7 +193,7 @@ squash-merge one, rebase one, discard one. Afterwards no stale entries remain in
 
 ## Phase 5 — Easy upstream issues
 
-1. List open issues: `gh issue list -R JetpackDuba/Gitnuro --state open --limit 200 --json number,title,labels,body,createdAt`.
+1. List open issues: `gh issue list -R <upstream's owner/repo> --state open --limit 200 --json number,title,labels,body,createdAt`.
 2. Triage into `docs/fork/issue-triage.md` with columns: number, title, still reproducible on 2.0 (yes/no/untested),
    estimated effort (S/M/L), notes.
 3. Starting candidates to verify first, judged only by their titles, so the size estimates are unconfirmed:

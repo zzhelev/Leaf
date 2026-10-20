@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Question | Should fetch, pull, push and clone run through the git CLI (`GitCli`) instead of JGit with the libssh-rs transport? |
-| Verified against | `main` at `e1426c90`; libssh-rs `41424c6` (JetpackDuba's fork, vendored libssh 0.11); JGit 7.7.0 |
+| Verified against | `main` at `e1426c90`; libssh-rs `41424c6` (the original author's fork, vendored libssh 0.11); JGit 7.7.0 |
 | Date | 2026-10-07 |
 | Platform | macOS 26.6 arm64, git 2.54.0 (Apple Git-157), OpenSSH 10.3p1, git-lfs 3.8.0 |
 
@@ -327,7 +327,7 @@ the CLI reproduces. Effort sizes are rough: S, M, L.
   (`ssh_session_is_known_server`, `ssh_session_update_known_hosts`) and `SshRemoteSession`, with a confirmation
   dialog (`SshHostKeyDialog`), as ssh does with `StrictHostKeyChecking ask`. `StrictHostKeyChecking` itself isn't
   read.
-- 0a and 0c affect upstream Gitnuro too. Reporting them upstream was considered and declined (decision 5).
+- 0a and 0c affect upstream too. Reporting them upstream was considered and declined (decision 5).
 
 **Stage 1: push (L), done on branch `feat/git-cli-push`.** Push first: #294 is about push, push doesn't touch the
 working tree, and `--porcelain` describes its result completely. What was built is described in the fork changelog
