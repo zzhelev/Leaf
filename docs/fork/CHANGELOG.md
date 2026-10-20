@@ -2,6 +2,52 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A System theme that follows the operating system (upstream issue 309, 2026-10-20)
+
+- **Request:** the reporter's desktop environment turns dark mode on at sunset and light mode at dawn, and the theme had
+  to be changed by hand to match.
+- **What it does:** Settings → Appearance → Theme has a fourth choice, **System**, between Dark and Custom. Leaf draws the
+  light or the dark theme as the operating system is set, and switches while it is open, with no restart. Its subtitle:
+  "Select the UI theme between light and dark mode. System follows your operating system and switches with it."
+- **Decided with the user:** the default stays Dark, for a new install too. A new install and someone who never chose a
+  theme both have no `theme` key, so making System the default would turn that person's Dark into whatever their
+  system says. System is opt-in. Linux's polling is switched on without trying it (below).
+- **How:**
+  - `Theme.System` (last in the enum) and `Theme.resolved(systemIsDark)` (`domain/models/ui/ThemeResolution.kt`), which
+    makes System Dark or Light and leaves the other themes alone.
+  - `AppTheme` is the one place that turns the choice into colours. It reads `isSystemInDarkTheme()` only while System
+    is selected, through a `systemIsDark` parameter that tests set. Everything else asks `MaterialTheme.colors.isLight`
+    or the `appTheme` flow, so the syntax colours, the diff, the conflict resolver and the popups follow with no change.
+    A custom theme's JSON has its own `isLight` and ignores the system.
+  - **Following the system (read from the Compose 1.12.1 and skiko 0.150.1 jars, then run on macOS):**
+    `isSystemInDarkTheme()` changes only because Compose asks skiko for the setting once a second
+    (`DesktopComposeUiFlags.pollSystemTheme`). Compose ships that on for macOS and Windows and **off for Linux**, where
+    the setting is read once at startup and System would never follow. `followSystemThemeOnLinux()`
+    (`theme/SystemThemePolling.kt`, called from `main`) turns it on there. Nothing changes on macOS and Windows.
+- **Found on the way:** `ThemeMapper` threw `IllegalStateException` for a stored value it didn't know, inside the
+  settings flow that `App.start` reads at launch, so such a value stopped Leaf from starting. An unknown value now
+  reads as no choice, which gives the default. A Leaf from before this one still stops on `"system"`: after a downgrade,
+  delete the `theme` key from `user_prefs.json`.
+- **Verified:**
+  - **macOS, by the user flipping System Settings → Appearance** while a watcher logged the setting (`defaults read -g
+    AppleInterfaceStyle`) and the brightness of Leaf's window, sampled about twice a second. A dev run with System
+    selected: the window was light with the system on Light, dark in the same sample as the system turned Dark
+    (10:27:42), and light again in the same sample as it turned Light (10:28:02). Compose's own poll is once a second.
+    The native title bar followed the system as before.
+  - Two things went wrong in that check, neither in Leaf: the first watcher hung while the user flipped (a missing
+    timeout on its own `screencapture`), so the flip was done twice, and it picked a sibling session's Leaf window
+    (the same process name) for some samples, which showed as flips of the brightness with the system unchanged.
+  - 24 new tests, and 17 deliberate breaks of the code were each caught by a named test.
+  - The Theme row, rendered offscreen with the subtitle in both themes at 640 and 420 dp: the subtitle wraps and the
+    drop-down keeps its room.
+- **Not verified:** Windows (Compose's own default, which polls), and Linux, where the flag is a guess. It depends on
+  what skiko's Linux detection reads (the report is from a Linux desktop environment), and a setting it can't read is
+  reported as light. Someone with a Linux desktop should flip it there before this counts as done on Linux.
+- Tests: `ThemeResolutionTest`, `ThemeSettingTest` (every value stored and read back through a real settings file and
+  a restart, an unknown value reads as the default, files from earlier versions still read), `AppThemeSystemTest` (a
+  system setting that flips in `AppTheme`, including the palette the rest of the app reads, and that every theme is in
+  the drop-down), `SystemThemePollingTest` (which systems poll, so that a Compose update that changes it shows).
+
 ## Log search: wrap-around, a clearer dim, a mark on the current match (2026-10-20)
 
 - **Reported:** the up and down buttons stopped at the first and the last result, the commits that don't
@@ -29,6 +75,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - Tests: `SearchNavigationTest`, `LogSearchTest`, `SearchMatchStyleTest`; 19 mutations were each caught by a named test.
   A temporary harness ran the real view model and `Log` against a demo repository: wrap both ways, one result, none, an
   empty field, a click, and 3,200 steps racing 150 searches (no index outside its list).
+
 
 ## "Delete file" on a folder that holds another repository (2026-10-20)
 

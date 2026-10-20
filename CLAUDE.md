@@ -2639,6 +2639,33 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `verify_ssl`. git's own `http.proxy` and `http.sslVerify` apply to the git commands Leaf runs.
   `RemovedSettingsMigration` deletes their keys from `user_prefs.json`, the plain-text proxy password included. A
   setting removed later goes into `REMOVED_SETTINGS`.
+- **The System theme (fork-only, upstream issue 309, 2026-10-20):** Settings → Appearance → Theme is Light, Dark, System or
+  Custom. System follows the operating system's light or dark setting and changes with it while Leaf is open.
+  - `AppTheme` is the only place that turns the choice into colours. `Theme.resolved(systemIsDark)`
+    (`domain/models/ui/ThemeResolution.kt`) makes System Dark or Light, and the other themes stay as they are. AppTheme
+    reads `isSystemInDarkTheme()` only while System is selected, as its `systemIsDark` parameter, which tests pass.
+    Everything else asks `MaterialTheme.colors.isLight` / `isDark` or the `appTheme` flow, so it follows without
+    knowing about System. A custom theme's JSON has its own `isLight` and ignores the system.
+  - **How it follows (Compose Desktop 1.12.1, read from the jars):** `isSystemInDarkTheme()` changes only because
+    Compose asks skiko for the setting once a second (`DesktopComposeUiFlags.pollSystemTheme`, an experimental flag).
+    Compose ships it on for macOS and Windows and off for Linux, where the setting is read once at startup.
+    `followSystemThemeOnLinux()` (`theme/SystemThemePolling.kt`, called from `main`) turns it on there.
+    `SystemThemePollingTest` fails if a Compose update changes which systems poll.
+  - **Where it was tried:** macOS, with the system flipped by hand while the window was watched (see
+    `docs/fork/CHANGELOG.md`). Windows is Compose's own default and Linux's flag is a guess: it depends on what skiko's
+    Linux detection reads, and a setting it can't read (`UNKNOWN`) counts as light. Look at both before calling the
+    System theme done there.
+  - The macOS title bar follows the system whatever the choice (`-Dapple.awt.application.appearance=system` in the
+    packaged app, and the default in a dev run), so Light or Dark can differ from it. System makes them agree.
+  - Stored as `theme`: `light`, `dark`, `custom` or `system`. **An unknown value reads as no choice** (fork-only,
+    `ThemeMapper`), so `DEFAULT_THEME` applies. It used to throw inside the settings flow, which `App.start` reads at
+    launch, so a Leaf from before 2026-10-20 doesn't start on a file that says `system`: after a downgrade, delete the
+    `theme` key from `user_prefs.json`.
+  - The default is still Dark, for a new install too. Someone who never chose has no `theme` key, like a new install,
+    so making System the default would turn their Dark into whatever their system says.
+  - Tests: `ThemeResolutionTest`, `ThemeSettingTest` (the mapper and a real settings file: a restart, an unknown value),
+    `AppThemeSystemTest` (a flipping system setting in `AppTheme`, and that every theme is in the drop-down),
+    `SystemThemePollingTest`.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
