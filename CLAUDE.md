@@ -2530,11 +2530,44 @@ subject in bold, where one reads the list. The branch chip already came first, w
   its outline in the message cell, and a row that doesn't match fades without its graph, so the ring stays at full
   strength there. Checked in the worst case: HEAD selected, matching and focused, in both themes.
 - **Not done:** other worktrees' HEADs get no mark. A ring with a gap around the node would need a wider cell than the
-  lane.
+  lane. Their detached commits are in the log since 2026-10-20, with no mark and no chip (see What the log starts from).
 - Tests: `HeadCommitTest` (domain), `MarkingHeadTest` (a `TestTab` on real repositories, ten tests: the states above, and a
   2,100-commit repository from `git fast-import`), `HeadMarkTest` (pixels of `CommitsGraph` with and without `isHead`, in
   both themes, selected too, and the bold). The wiring of `CommitsList` and the whole row were run against a demo
   repository through the Dagger graph in a temporary harness and rendered in both themes.
+
+**What the log starts from (fork-only, 2026-10-20, `GetLogUseCase`, `data/git/worktrees/OtherWorktreeHeads.kt`):** the
+walk starts at the branches (the tab's own detached HEAD is the branch named `HEAD`), stashes, tags, remote branches, and
+since 2026-10-20 the commit that each **other** worktree has detached. No ref points to such a commit, so an agent's work on
+a detached HEAD was missing from the log (found with a probe: `main` with two commits, `git worktree add --detach`, a commit
+there, the tab on `main`: two rows). A detached worktree at an older, reachable commit showed it already, which hid the bug.
+- **Which worktrees** (`IGetOtherWorktreeHeadsGitAction`, `GetOtherWorktreeHeadsGitAction`): every worktree but the tab's
+  own, with HEAD detached. A rebase stopped at a conflict and a bisect have a detached HEAD too. Left out: a worktree on a
+  branch (its tip is the branch's, an unborn one included), one whose folder or `.git` file is missing (git's prunable,
+  a locked one too, which git doesn't prune), a `HEAD` file that can't be read or whose commit the repository lacks, and a
+  bare repository's own HEAD. Each
+  commit once, and `GetLogUseCase` leaves out those that a ref has. A failure leaves the log as it was.
+- **Where they come from, settled with measurements** (git 2.54, a clone of this repository with 1,803 commits and 20
+  worktrees): `GetLogUseCase` alone takes about 42 ms and starts no process; `git worktree list --porcelain -z` takes 18 ms
+  (a bare `git rev-parse` 11 ms), so one process per refresh would add 43%; reading the 20 `worktrees/*/HEAD` files takes
+  0.7 ms. So the files are read (`otherWorktreeHeads`, which shares `worktreeGitDirs` with the branch guards). Not
+  `RepositoryDataRepository.worktrees`: `RefreshDataUseCase` refreshes it after the log, so it is stale while the log is
+  read.
+- **Reftable:** the `HEAD` files of a reftable repository are all `ref: refs/heads/.invalid` (the main one's too), so they
+  can't tell a detached worktree. Then, and only then (`OtherWorktreeHeads.needsGit`), `git worktree list` answers, through
+  `parseWorktreeList`, with the same rules (detached, not bare, not prunable, folder there, not the tab's own).
+- **Refresh:** another worktree's HEAD file moving is `WatchedChange.OTHER_WORKTREE_HEAD` and refreshes `LOG + WORKTREES`
+  (see Refresh). The real watcher reports `worktrees/<name>/HEAD` for a detached commit, a checkout, a switch and each
+  step of a rebase or a bisect, and not for a commit on a branch (that is the branch's ref, which refreshes everything) or
+  for `git status`, which only rewrites `index`.
+- **The look is unchanged:** the commit has no chip and no mark (`LogRefs` and `HeadCommit` read the refs and the tab's own
+  HEAD). The "Not in the log" tooltip of a parent that nothing reaches still says "no branch, tag or stash", which is now a
+  little short: another worktree's HEAD reaches it too.
+- Tests: `GetOtherWorktreeHeadsGitActionTest` (each rule against git, a reftable repository, a bare one, 20 worktrees),
+  `GetLogStartCommitsTest` (the hashes the walk starts from, with a recording walker), `OtherWorktreeHeadsInLogTest` (a
+  `TestTab` on real repositories: the log is `git rev-list` over the refs plus those commits; detached, rebase, bisect, a
+  linked tab, a branch, a missing folder, the tab's own HEAD and chips, 20 worktrees, and the refresh by the watcher's
+  events), one real-watcher test in `RefreshingOnChangesTest`.
 
 **The log under the diff pane (upstream's b2f9188f):** `MainContentView` keeps the log composed while the diff pane
 shows over it (`Modifier.focusable(!showDiff)`), so closing a diff doesn't compose the log again.
@@ -2664,7 +2697,7 @@ tag picked in the side panel. Worktree review and the file-history strip have vi
   loaded log, what a click is doing (`ParentJump`) and whether the hidden rows are open. Selecting another commit ends both.
 - **A parent older than the loaded log** starts `LoadLogUntilCommitUseCase`. It loads the log further as paging does: a
   page (500) first, then twice as many at each step, at most 25,000 more commits. It ends as `Found`, `NotReachable` (the log
-  ran out: no branch, tag or stash reaches the commit), `LimitReached` or `LogUnavailable`. The row shows a spinner and
+  ran out: no branch, tag, stash or other worktree's HEAD reaches the commit), `LimitReached` or `LogUnavailable`. The row shows a spinner and
   "Looking, click to stop", and a second click, or selecting another commit, stops it when the running step ends, as a walk
   can't be stopped inside. Any other result stays on the row, amber, until another commit is selected: a toast would be
   gone before it was read. A click on that row tries again, and after `LimitReached` goes 25,000 further.
@@ -2756,8 +2789,12 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
   important change in it:
   - ALL for the tab's git dir, and in a linked worktree for the shared `refs/`, `packed-refs` and `config`;
   - `STATUS + LOG + REPO_STATE` for anything else, the working tree (which refreshes the worktree list too);
-  - WORKTREES for another worktree's git dir under `<common>/worktrees/`, and in a linked worktree for the main
-    worktree's files in the common git dir (`HEAD`, `index`, …);
+  - `LOG + WORKTREES` for another worktree's `HEAD` (`OTHER_WORKTREE_HEAD`), and for a worktree's git dir created or
+    removed (a direct child of `<common>/worktrees/`, since on Linux the files of a new folder can go unreported before it
+    is watched), and in a linked worktree for the main worktree's `HEAD`: the log starts from a detached HEAD's commit
+    (see What the log starts from). Not `logs/HEAD`, `HEAD.lock`, `ORIG_HEAD` or `index`;
+  - WORKTREES for anything else in another worktree's git dir under `<common>/worktrees/`, and in a linked worktree for
+    the main worktree's other files in the common git dir (`index`, …);
   - nothing for Leaf's `leaf` file (and `leaf.lock`) and JGit's `.probe-` files in either git dir, for any worktree's
     `LEAF_COMMIT_DRAFT` and `rebase-merge/leaf-amend-message-<commit>`, which a tab saves a second after each edit, or
     for `COMMIT_EDITMSG`, `MERGE_MSG` and `SQUASH_MSG` in the tab's git dir.
@@ -2765,9 +2802,12 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
   Paths are compared as given and as real paths (macOS reports `/private/var/...`), and a folder only contains what
   is under it with a separator. The old `startsWith(gitDir)` also matched `.gitignore` and `.github/`, which
   refreshed everything.
-- WORKTREES alone goes through `WorktreeChangesRefresher`: right away, then at most once every 2 s while changes keep
-  coming. An agent that runs git rewrites its worktree's index all the time, and each refresh runs git in every
-  worktree.
+- WORKTREES, with or without the log, goes through `WorktreeChangesRefresher`: right away, then at most once every 2 s
+  while changes keep coming. An agent that runs git rewrites its worktree's index all the time, and each refresh runs git
+  in every worktree. `onChanged(includesLog = true)` (a HEAD that moved) makes the next refresh a LOG one, which lists the
+  worktrees again after it, so it costs no second refresh; the flag is kept until a refresh takes it, so index churn after
+  a HEAD change doesn't lose it, and index churn alone never refreshes the log (300 index events: no log refresh; 300 HEAD
+  events: one per gap, `OtherWorktreeHeadsInLogTest`).
 - Refreshes are dropped (not deferred) while a task runs and for 1.5 s after one. Fork-only: the watch still follows
   the folders that each batch creates or deletes, and watches the working tree again after lost changes. Before, a
   folder created by Leaf's own checkout, merge or pull, or in the 1.5 s after one, was never watched, and deleted
@@ -2938,7 +2978,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 - `TestTab` (`data/src/test/kotlin/dev/app/leaf/data/tab/`) builds a tab's repositories and use cases as Dagger does,
   with the real git actions, around a temp repository, and a `RecordingFileChangesWatcher` for each watch, which
   notes the folders it was given (those that exist, as the app's watcher skips the others) and reports the `events`
-  that a test sends. With `realFileWatcher`, each watch gets
+  that a test sends. Send them with real paths (`File.canonicalPath`): on macOS the tab's git dir is `/var/...` and its
+  common git dir `/private/var/...`, as the real watcher reports it, and `WatchedRepository` matches a `/var/...` path
+  against the tab's git dir, which refreshes everything (`OtherWorktreeHeadsInLogTest`). With `realFileWatcher`, each watch gets
   the app's `FileChangesWatcher` instead (`RefreshingOnChangesTest`). `SwitchingWorktreesTest`,
   `WatchingWorktreesTest`, `RemovingWorktreesTest` and `CreatingWorktreesTest` use it; the last two run the steps that
   the worktree dialogs show (`runWorktreeSteps`, `createWorktree`). Its `close()` cancels the tab and waits for its

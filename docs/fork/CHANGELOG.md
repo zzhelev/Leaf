@@ -49,6 +49,79 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
     something is typed, the draft file holding the message, Amend through the menu, and Cmd+Enter in the field amending the
     last commit with the staged change. The demo is `commit-message-title-demo.sh` in the session notes.
 
+## The log starts from the commits that other worktrees have detached (2026-10-20)
+
+- **Found, not requested:** while answering whether other worktrees' HEADs should get a mark (HEAD's row, upstream issue
+  255), a probe showed commits missing from the log. A `TestTab` on temp repositories: `main` with two commits,
+  `git worktree add --detach ../other`, a commit made in `other`, the tab on `main`: two rows. `GetLogUseCase` walked from
+  the branches (the tab's own detached HEAD comes in as the branch named `HEAD`), stashes, tags and remote branches, and
+  another worktree's HEAD is no ref. A detached worktree at an older, reachable commit showed that commit, which hid the
+  bug. So an agent's work on a detached HEAD, which Claude Code, Codex and Conductor leave worktrees in, was not in Leaf's
+  log until something named it. `git log --all` shows it. The user chose to fix it and not to add any mark (2026-10-20).
+- **The fix:** the walk also starts from the commit of each **other** worktree whose HEAD is detached
+  (`IGetOtherWorktreeHeadsGitAction`). A rebase stopped at a conflict and a bisect have a detached HEAD, so they count.
+  Left out: the tab's own worktree (already the branch `HEAD`), a worktree on a branch (its tip is the branch's, an unborn
+  one included), one whose folder or `.git` file is missing (git's prunable, or a locked one that is as missing), a `HEAD`
+  file that can't be read or whose commit the repository lacks, and a bare repository's own HEAD. Each commit once, and
+  not again if a ref has it. If reading fails the log is what it was. Loading more commits starts from them too. **No
+  look change:** the commit has no chip and no mark.
+- **Where the HEADs come from, settled with measurements** (git 2.54, macOS, a clone of this repository, 1,803 commits, 20
+  worktrees): `GetLogUseCase` alone takes about 42 ms (39 to 62) and starts no process; `git worktree list --porcelain
+  -z` takes 18 ms (29 at most; a bare `git rev-parse` 11 ms), which would make each log refresh 43% slower; reading the
+  20 `worktrees/*/HEAD` files takes 0.7 ms. So `OtherWorktreeHeads.kt` reads the files, with the folder list that the
+  branch guards use. Not `RepositoryDataRepository.worktrees`, which `RefreshDataUseCase` refreshes after the log.
+- **Reftable:** in a reftable repository every `HEAD` file is `ref: refs/heads/.invalid`, the main worktree's too, so the
+  files can't tell a detached worktree (probed with git 2.54). Then, and only then, `git worktree list` answers through
+  `parseWorktreeList`, with the same rules. The files are right for every other repository, so the common case starts no
+  process.
+- **Refresh:** a probe with the app's real watcher (macOS, FSEvents) shows what each git action in another worktree
+  reports under the common git dir. A commit on a detached HEAD, a checkout, a switch and a rebase's steps report
+  `worktrees/<name>/HEAD`; `git add` and `git status` only `index`; a commit on a branch the branch's ref, `logs/HEAD`,
+  `index` and `COMMIT_EDITMSG`, never `HEAD`; adding or removing a worktree its folder and its `HEAD`. So
+  `WatchedRepository` has a new change, `OTHER_WORKTREE_HEAD`: another worktree's `HEAD` (and the main worktree's, in a
+  linked worktree's tab), or a direct child of `worktrees/` created or deleted (on Linux the files of a new folder can go
+  unreported before it is watched). It refreshes `LOG + WORKTREES`; the log's refresh lists the worktrees again after it,
+  so it costs no extra refresh. Not `index`, `logs/HEAD`, `HEAD.lock` or `ORIG_HEAD`.
+- **The same throttle:** `WorktreeChangesRefresher.onChanged(includesLog = true)` makes the next refresh a log refresh,
+  right away or after the 2 s gap, and keeps the request until a refresh takes it, so index churn after a HEAD change
+  doesn't lose it. Cost, tested: 300 `index` events in 1.5 s refresh the worktrees and never the log; 300 `HEAD` events
+  refresh the log once at the start and then once per gap.
+- **Tests (46):** `GetOtherWorktreeHeadsGitActionTest` (19: git's `rev-parse HEAD` as the reference; detached, from the main
+  worktree and a linked one, the main worktree's from a linked tab, a branch, an unborn branch, two worktrees at one
+  commit, a rebase stopped at a conflict, a bisect, a missing folder locked or not, a folder whose `.git` file is gone
+  (git calls it prunable), an unreadable `HEAD` and a commit that isn't there, no `gitdir` file, a bare repository, 20
+  worktrees, and a reftable repository: stubs, the filter, a prunable one, a bare one), `GetLogStartCommitsTest` (5: the
+  hashes the walk starts from, with a recording walker), `OtherWorktreeHeadsInLogTest` (13: a `TestTab` on real
+  repositories, the log compared with `git rev-list` over the refs plus those commits, each commit checked to be on no
+  ref; detached, rebase, bisect, a linked tab, a branch, a missing folder, the tab's own HEAD marked once and no chip, 20
+  worktrees, and the refresh by the watcher's events: a commit, a worktree added, one removed, an index storm, a HEAD
+  storm), `WatchedRepositoryTest` (4 new), `WorktreeChangesRefresherTest` (4 new), and a real-watcher test in
+  `RefreshingOnChangesTest` (two commits on a detached HEAD show with no refresh from the test). All 20 mutations were
+  caught by named tests: no extra heads, no dedupe against the refs, a missing folder not skipped, a worktree whose `.git`
+  file is gone not skipped (the first try of this one survived: the folder check hid it, and the files and git paths
+  disagreed about such a worktree until `.git` became the check), the tab's own worktree not skipped, an unknown commit not
+  skipped, the reftable stub not seen, the git fallback taking branches, taking the tab itself and taking a prunable
+  worktree, no `HEAD` rule, the rule widened to every file of the worktree's git dir, no rule for a worktree added or
+  removed, none for the main `HEAD` in a linked tab, a HEAD change refreshing the list only, the refresher never asking
+  for the log, always asking, losing the request when another call waits, the use case ignoring the flag, and the log
+  refresh not throttled. The suites: `:domain` 476 tests and `:data` 1,435, none failing, before the last two tests
+  were added; after them, the data packages `tab`, `git.worktrees` and `repositories` (293 tests) passed again.
+- **Rendered and run:** the real `Log` on a demo repository (`main` with a tag, a worktree on `feature/export`, three
+  agents on detached HEADs with two, one and three commits of their own), light and dark, before and after: 7 rows
+  before, 13 after, the agents' lanes in the graph and no chip on their rows. The harness then made a commit in an agent's
+  worktree while the tab was open, and the log showed it with no refresh from the harness (real watcher). The dev app ran on
+  it once, its window captured with `screencapture -l` and nothing clicked: the commit appeared within seconds, and
+  `agent-tests` went from `↑1` to `↑2` in the Worktrees section.
+- **Found while testing:** synthetic watcher events in a `TestTab` must carry real paths. On macOS the tab's git dir is
+  `/var/...` and the common git dir `/private/var/...`, as the real watcher reports it; a first version of the tests sent
+  `/var/...` paths, which matched the tab's git dir, refreshed everything, and failed the "index only" tests. The tests now
+  send canonical paths.
+- **Noticed, not changed:** a newer agent commit takes the first lane, so `main` and HEAD's ring move to the next lane
+  and the chip changes colour, as for any branch newer than the checked out one (the first lane is reserved for the current
+  branch only while there are uncommitted changes). The parent row's "Not in the log: no branch, tag or stash reaches it"
+  tooltip is a little short now: another worktree's HEAD reaches it too. And `refreshData(LOG)` on the 20-worktree clone
+  took 2 to 46 s a call, as it also runs `git status` in each (erratic, a busy machine; not investigated).
+
 ## An avatar colour per person, and a mark on HEAD's row in the log (upstream issues 231 and 255, 2026-10-20)
 
 - **Requests:** upstream issue 231, "the avatars of different people are highlighted in the same colour", and upstream
