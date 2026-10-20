@@ -19,8 +19,8 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 /**
- * Stage all with the entries that a search shows (fork-only, Gitnuro#224's sibling): the header button gives the use
- * case the files the pane lists, and only those end up staged. `null` still means every file.
+ * Stage all with the entries that a search shows (fork-only, upstream issue 224's sibling): the header button gives the
+ * use case the files the pane lists, and only those end up staged. `null` still means every file.
  */
 @DisabledOnOs(OS.WINDOWS)
 class StagingShownFilesTest {

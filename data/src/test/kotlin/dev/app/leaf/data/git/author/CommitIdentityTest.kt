@@ -42,8 +42,8 @@ private const val WORK = "Work Name <work@example.com>"
 private const val AGENT_DATE = "2026-01-02T03:04:05+01:00"
 
 /**
- * Who Leaf commits, tags and stashes as, compared with git, when an `includeIf` file sets the identity (Gitnuro#186).
- * git and JGit read the same user config, and JGit skips its `includeIf`.
+ * Who Leaf commits, tags and stashes as, compared with git, when an `includeIf` file sets the identity (upstream issue
+ * 186). git and JGit read the same user config, and JGit skips its `includeIf`.
  */
 @DisabledOnOs(OS.WINDOWS)
 class CommitIdentityTest {

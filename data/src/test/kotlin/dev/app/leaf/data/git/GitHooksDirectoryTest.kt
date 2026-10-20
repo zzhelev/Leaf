@@ -22,7 +22,7 @@ import java.io.File
 
 /**
  * Where Leaf's commits find their hooks ([GitHooksDirectory], through [PosixFs]), compared with `git commit`, which
- * runs the same hooks. git and JGit read the same user config, and JGit skips its `includeIf` (Gitnuro#186).
+ * runs the same hooks. git and JGit read the same user config, and JGit skips its `includeIf` (upstream issue 186).
  */
 @DisabledOnOs(OS.WINDOWS)
 class GitHooksDirectoryTest {

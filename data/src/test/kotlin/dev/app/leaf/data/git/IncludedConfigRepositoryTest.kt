@@ -55,8 +55,8 @@ private const val PGP_SIGNATURE = "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0W
 
 /**
  * The commits that JGit makes itself, their signatures, reflog entries and hooks, in a repository whose identity a
- * file that `includeIf` names sets ([IncludedConfigRepository]), compared with git (Gitnuro#186). git and JGit read
- * the same user config, and JGit skips its `includeIf`.
+ * file that `includeIf` names sets ([IncludedConfigRepository]), compared with git (upstream issue 186). git and JGit
+ * read the same user config, and JGit skips its `includeIf`.
  */
 @DisabledOnOs(OS.WINDOWS)
 class IncludedConfigRepositoryTest {

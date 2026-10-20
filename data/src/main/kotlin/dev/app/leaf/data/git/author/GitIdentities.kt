@@ -28,7 +28,7 @@ data class CommitIdentities(val author: Identity?, val committer: Identity?)
 /**
  * Reads who git commits as in a repository, with `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT`. JGit
  * reads `user.name` and `user.email` only, and never from the files that `includeIf` names, so an identity set for
- * some folders, such as a work identity, didn't apply to Leaf's commits (Gitnuro#186). git's answer also has
+ * some folders, such as a work identity, didn't apply to Leaf's commits (upstream issue 186). git's answer also has
  * `author.*` and `committer.*`, and `GIT_AUTHOR_NAME` and the like from the login shell, as in a terminal.
  *
  * `user.useConfigOnly` keeps git from making an identity up from the account and the host's name, which `git commit`

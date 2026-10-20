@@ -24,9 +24,9 @@ fun interface HooksDirectory {
 
 /**
  * Asks git where a repository's hooks are, with `git rev-parse --path-format=absolute --git-path hooks`. JGit reads
- * `core.hooksPath` from its own config, which skips the files that `includeIf` names (Gitnuro#186), and takes the
- * value as it is, so `~/hooks` was a folder named `~` in the working tree. git's answer has both, a relative path from
- * the working tree's root, and the common git dir's `hooks` in a linked worktree.
+ * `core.hooksPath` from its own config, which skips the files that `includeIf` names (upstream issue 186), and takes
+ * the value as it is, so `~/hooks` was a folder named `~` in the working tree. git's answer has both, a relative path
+ * from the working tree's root, and the common git dir's `hooks` in a linked worktree.
  */
 class GitHooksDirectory @Inject constructor(
     private val gitCli: GitCli,

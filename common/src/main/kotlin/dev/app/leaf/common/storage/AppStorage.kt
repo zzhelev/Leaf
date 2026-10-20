@@ -16,7 +16,8 @@ private const val PACKAGED_APP_PROPERTY = "jpackage.app-version"
 const val PACKAGED_JAR_ATTRIBUTE = "Leaf-Packaged"
 
 /**
- * Names of everything Leaf stores outside a repository, so it never shares data with an installed Gitnuro.
+ * Names of everything Leaf stores outside a repository, so it never shares data with an installed copy of the original
+ * app.
  *
  * Dev runs get their own names, so they can't change the tabs or settings of an installed Leaf, or overwrite the native
  * library a running Leaf extracted.

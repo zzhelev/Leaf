@@ -33,14 +33,14 @@ class AppStorageTest {
     }
 
     @Test
-    fun `no name refers to Gitnuro`() {
+    fun `no name refers to the original app`() {
         val names = listOf(packaged, dev).flatMap {
             listOf(it.preferencesNode, it.directoryName, it.macLogsDirectoryName)
         } + AppStorage.LOG_FILE_NAME + AppStorage.REPOSITORY_CONFIG_FILE_NAME + AppStorage.COMMIT_DRAFT_FILE_NAME +
             AppStorage.REBASE_EDIT_MESSAGE_FILE_PREFIX
 
         names.forEach { name ->
-            assertFalse(name.contains("gitnuro", ignoreCase = true), "\"$name\" refers to Gitnuro")
+            assertFalse(name.contains("gitnuro", ignoreCase = true), "\"$name\" refers to the original app")
         }
     }
 

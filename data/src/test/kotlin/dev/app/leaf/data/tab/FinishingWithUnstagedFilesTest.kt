@@ -30,7 +30,7 @@ import java.io.File
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Finishing a merge, a cherry-pick, a revert or a rebase with files around that aren't staged (Gitnuro#120): the
+ * Finishing a merge, a cherry-pick, a revert or a rebase with files around that aren't staged (upstream issue 120): the
  * status pane's Merge, Commit and Continue are enabled then (`FinishBlockers`), and these are the use cases they run.
  * The repository: main has base, A and B on conflict.txt, feature has one commit on it, so merging or cherry-picking
  * feature and reverting A all stop at a conflict. tracked.txt is a tracked file the tests change, build.log is an
@@ -101,7 +101,7 @@ class FinishingWithUnstagedFilesTest {
     @Test
     fun `a merge resolved to our side has nothing staged, and is committed with two parents`(): Unit = runBlocking {
         git.runFailing(repository, "merge", "feature")
-        // Gitnuro#120: every conflict taken from our side, a merge tool's leftover file in the folder
+        // upstream issue 120: every conflict taken from our side, a merge tool's leftover file in the folder
         git.run(repository, "checkout", "--ours", "conflict.txt")
         git.run(repository, "add", "conflict.txt")
         write("conflict.txt.orig" to "leftover\n")

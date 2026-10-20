@@ -28,7 +28,7 @@ private const val TAG = "IncludedConfigRepository"
 /**
  * A repository whose config has, under the repository's own file, what git reads through `includeIf` and JGit
  * doesn't ([IncludedConfig]): JGit's commands then see the identity, signing settings, hooks folder and other
- * settings that git sees (Gitnuro#186). Without such entries it reads as JGit's own repository does.
+ * settings that git sees (upstream issue 186). Without such entries it reads as JGit's own repository does.
  *
  * JGit's [FileRepository] puts its config on the user's config when it's created, so this returns a config of its own
  * for the same file, on [included], which is on the user's config. JGit's constructor reads the config before this

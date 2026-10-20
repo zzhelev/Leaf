@@ -55,9 +55,9 @@ private fun status(
 )
 
 /**
- * The commit field's buttons and the line that says why the primary one is disabled (Gitnuro#120 and #124), rendered
- * from a [StatusState] as `StatusPane` renders them. A button that is disabled does nothing when clicked, and the
- * keyboard shortcut for committing does what the primary button does.
+ * The commit field's buttons and the line that says why the primary one is disabled (upstream issues 120 and 124),
+ * rendered from a [StatusState] as `StatusPane` renders them. A button that is disabled does nothing when clicked, and
+ * the keyboard shortcut for committing does what the primary button does.
  */
 class CommitFieldTest {
     // --- Merge

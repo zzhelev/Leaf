@@ -91,7 +91,7 @@ private data class Comparing(
 
 /**
  * The review of a worktree's changes (fork-only). It's held next to the selection, which it sets to
- * [SelectedItem.None] while it's shown, rather than being a [SelectedItem] of its own, as Gitnuro's code handles those
+ * [SelectedItem.None] while it's shown, rather than being a [SelectedItem] of its own, as upstream's code handles those
  * in many places. Selecting anything else closes it.
  *
  * It reads the comparison again when the branch or the base moves, as an agent keeps committing.

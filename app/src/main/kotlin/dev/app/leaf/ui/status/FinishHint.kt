@@ -22,9 +22,9 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * One line between the commit field and its buttons that says why the primary button is disabled (fork-only, Gitnuro
- * #124): the user can't tell otherwise whether a message, staged files or something else is missing. It is only there
- * while something blocks the button ([finishHint]).
+ * One line between the commit field and its buttons that says why the primary button is disabled (fork-only, upstream
+ * issue 124): the user can't tell otherwise whether a message, staged files or something else is missing. It is only
+ * there while something blocks the button ([finishHint]).
  */
 @Composable
 fun FinishHint(blocker: FinishBlocker, modifier: Modifier = Modifier) {

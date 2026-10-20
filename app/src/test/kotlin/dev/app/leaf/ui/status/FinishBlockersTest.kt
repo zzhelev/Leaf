@@ -62,9 +62,9 @@ private fun state(
 )
 
 /**
- * Why the commit field's primary button is disabled (Gitnuro#120, #124). git's own rules were probed on git 2.54
- * (`RebaseWithUnstagedFilesTest`): a merge and a cherry-pick finish with unstaged and untracked files around, and a
- * rebase's Continue refuses unstaged changes to tracked files only.
+ * Why the commit field's primary button is disabled (upstream issues 120 and 124). git's own rules were probed on git
+ * 2.54 (`RebaseWithUnstagedFilesTest`): a merge and a cherry-pick finish with unstaged and untracked files around, and
+ * a rebase's Continue refuses unstaged changes to tracked files only.
  */
 class FinishBlockersTest {
     // --- Merge
@@ -81,7 +81,7 @@ class FinishBlockersTest {
 
     @Test
     fun `a merge is allowed with nothing staged, as git makes the merge commit anyway`() {
-        // The conflicts were all resolved to our side: the merge commit still has two parents (Gitnuro#120)
+        // The conflicts were all resolved to our side: the merge commit still has two parents (upstream issue 120)
         for (repositoryState in merging) {
             assertNull(state(repositoryState).finishBlocker(), "$repositoryState")
             assertNull(state(repositoryState, message = "Merge branch 'agent1'").finishBlocker())

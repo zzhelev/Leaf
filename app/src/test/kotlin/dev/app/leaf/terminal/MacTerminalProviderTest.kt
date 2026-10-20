@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * Terminal button on macOS (Gitnuro#208): what [MacTerminalProvider] asks `open` to do. The shell is a fake that
+ * Terminal button on macOS (upstream issue 208): what [MacTerminalProvider] asks `open` to do. The shell is a fake that
  * records the command, so no window opens.
  */
 class MacTerminalProviderTest {

@@ -42,7 +42,7 @@ private const val USER_ID = "Leaf Test <leaf@example.com>"
 /**
  * Signs with the real gpg, when it's installed, and verifies with the git CLI. The key is an ED25519 key without a
  * passphrase, in a throwaway GNUPGHOME that keeps keys in keyboxd (`use-keyboxd`), as GnuPG 2.4 does for new users;
- * JGit's BouncyCastle signer failed on both (Gitnuro#194, #293). The developer's own keyring is never used.
+ * JGit's BouncyCastle signer failed on both (upstream issues 194 and 293). The developer's own keyring is never used.
  */
 @DisabledOnOs(OS.WINDOWS)
 class GpgProgramSignerRealGpgTest {

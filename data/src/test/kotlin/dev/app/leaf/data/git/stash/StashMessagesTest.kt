@@ -33,7 +33,7 @@ private const val QUOTES_AND_BRACES = "{0} a{b} it's {1} ''"
 
 /**
  * Stashes keep the message they're given. JGit's stash command takes its messages as `MessageFormat` patterns, as did
- * the snapshot command that Gitnuro copied from it, and both `'` and `{` can be in a branch's name, which the backups'
+ * the snapshot command that upstream copied from it, and both `'` and `{` can be in a branch's name, which the backups'
  * messages give, and in a message that the user types.
  */
 @DisabledOnOs(OS.WINDOWS)

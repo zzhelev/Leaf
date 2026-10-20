@@ -22,8 +22,8 @@ import java.io.File
 
 /**
  * What a rebase's Continue and Skip do with files that aren't staged, in git's rebases (both backends, 2.54) and JGit's
- * (7.7). These are the findings that the status pane's rules rest on (`FinishBlockers`, Gitnuro#120): git refuses to
- * continue with unstaged changes to tracked files, and not with untracked files. JGit continues with both.
+ * (7.7). These are the findings that the status pane's rules rest on (`FinishBlockers`, upstream issue 120): git
+ * refuses to continue with unstaged changes to tracked files, and not with untracked files. JGit continues with both.
  *
  * Every rebase starts at the same conflict: `feature` and `main` both changed a.txt, so `git rebase main` stops there.
  * b.txt and c.txt are tracked files that the tests change, u.txt is an untracked one.

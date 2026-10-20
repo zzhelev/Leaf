@@ -58,9 +58,9 @@ private val IGNORED_VARIABLES = setOf(
  * The environment that the user's login shell sets up, for the hooks, filters and git processes that Leaf starts.
  *
  * An app started from the macOS Finder or Dock, or from a Linux desktop launcher, inherits a minimal environment
- * without the changes made in the shell's startup files, so a hook can't find tools such as node (Gitnuro#236). Leaf
- * runs the login shell once, in the background, and adds the variables it prints to those processes. An app started
- * from a terminal already has them, so then no shell is run.
+ * without the changes made in the shell's startup files, so a hook can't find tools such as node (upstream issue 236).
+ * Leaf runs the login shell once, in the background, and adds the variables it prints to those processes. An app
+ * started from a terminal already has them, so then no shell is run.
  */
 @Singleton
 class LoginShellEnvironment internal constructor(resolve: suspend () -> Map<String, String>) {

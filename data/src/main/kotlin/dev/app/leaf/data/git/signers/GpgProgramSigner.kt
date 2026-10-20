@@ -48,7 +48,7 @@ private const val GPG_ERR_NO_PIN_ENTRY = 85
  * stdout, and `[GNUPG:] SIG_CREATED` on the status output. gpg-agent and its pinentry ask for the key's passphrase.
  *
  * It replaces JGit's BouncyCastle signer, which reimplements gpg: it can't find keys kept by keyboxd (GnuPG 2.4's
- * `use-keyboxd`), and its ED25519 signatures fail to verify (Gitnuro#194, #293).
+ * `use-keyboxd`), and its ED25519 signatures fail to verify (upstream issues 194 and 293).
  *
  * gpg runs with the login shell's environment, so that Homebrew's gpg is found when Leaf is opened from the Finder.
  */
