@@ -53,7 +53,6 @@ import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.abortButton
-import dev.app.leaf.theme.textFieldColors
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
@@ -97,7 +96,6 @@ fun StatusPane(
     val isAmend = statusState.isAmend
     val isAmendRebaseInteractive = statusState.isAmendRebaseInteractive
     val committerDataRequestState = statusState.committerDataRequestState
-    val rebaseInteractiveState = statusState.rebaseInteractiveState
     val selectedUnstagedDiffEntries = statusState.selectedUnstagedDiffEntries
     val selectedStagedDiffEntries = statusState.selectedStagedDiffEntries
 
@@ -248,7 +246,6 @@ fun StatusPane(
                     statusState.repositoryState,
                     isAmenableRebaseInteractive,
                     showsContinue,
-                    rebaseInteractiveState,
                     finishBlocker,
                     isAmendRebaseInteractive,
                     finishHint,
@@ -276,7 +273,8 @@ fun StatusPane(
 
                         onAction(StatusAction.ToggleAmendRebaseInteractive(amend))
                     },
-                    modifier = Modifier.height(heights.commitField.dp),
+                    // Fork-only: the title row comes on top of the saved field height
+                    modifier = Modifier.height(heights.commitSection.dp),
                 )
             }
         }
@@ -626,7 +624,6 @@ internal fun CommitField(
     repositoryState: RepositoryState,
     isAmenableRebaseInteractive: Boolean,
     showsContinue: Boolean,
-    rebaseInteractiveState: RebaseInteractiveState,
     finishBlocker: FinishBlocker?,
     isAmendRebaseInteractive: Boolean,
     finishHint: FinishBlocker?,
@@ -654,7 +651,15 @@ internal fun CommitField(
         modifier = modifier
             .fillMaxWidth()
     ) {
-        TextField(
+        // Fork-only (upstream issue 344): a title row like the lists' headers, and a field with a hint, not a label
+        CommitMessageTitle(
+            header = commitMessageHeader(repositoryState, isAmenableRebaseInteractive, isAmend, isAmendRebaseInteractive),
+            onToggleAmend = {
+                if (repositoryState.isRebasing) onAmendRebaseInteractiveChecked(!isAmendRebaseInteractive) else onAmendChecked(!isAmend)
+            },
+        )
+
+        CommitMessageTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(weight = 1f, fill = true)
@@ -668,21 +673,6 @@ internal fun CommitField(
             value = if (isReadOnlyRebase) TextFieldValue(previousCommitMessage.orEmpty()) else commitMessage,
             onValueChange = setCommitMessage,
             enabled = !repositoryState.isRebasing || isAmenableRebaseInteractive,
-            label = {
-                val text = if (isReadOnlyRebase) {
-                    stringResource(Res.string.uncommited_changes_text_input_label_message_read_only)
-                } else {
-                    stringResource(Res.string.uncommited_changes_text_input_label_message)
-                }
-
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.body2,
-                    color = MaterialTheme.colors.primaryVariant,
-                )
-            },
-            colors = textFieldColors(),
-            textStyle = MaterialTheme.typography.body1,
         )
 
         // Fork-only: why the primary button below is disabled
@@ -697,20 +687,13 @@ internal fun CommitField(
                 onMerge = { doCommit() }
             )
 
-            repositoryState.isRebasing -> {
-                val isCurrentStepAmenable =
-                    (rebaseInteractiveState as? RebaseInteractiveState.ProcessingCommits)?.isCurrentStepAmenable == true
-                RebasingButtons(
-                    canContinue = showsContinue,
-                    continueEnabled = finishEnabled,
-                    onAbort = onAbortRebase,
-                    onContinue = onContinueRebase,
-                    onSkip = onSkipRebase,
-                    isAmendable = isCurrentStepAmenable,
-                    isAmend = isAmendRebaseInteractive,
-                    onAmendChecked = onAmendRebaseInteractiveChecked,
-                )
-            }
+            repositoryState.isRebasing -> RebasingButtons(
+                canContinue = showsContinue,
+                continueEnabled = finishEnabled,
+                onAbort = onAbortRebase,
+                onContinue = onContinueRebase,
+                onSkip = onSkipRebase,
+            )
 
             repositoryState.isCherryPicking -> CherryPickingButtons(
                 enabled = finishEnabled,
@@ -732,7 +715,6 @@ internal fun CommitField(
                 canCommit = canCommit,
                 canAmend = canAmend,
                 isAmend = isAmend,
-                onAmendChecked = onAmendChecked,
                 onCommit = doCommit,
             )
         }
@@ -744,7 +726,6 @@ fun UncommittedChangesButtons(
     canCommit: Boolean,
     canAmend: Boolean,
     isAmend: Boolean,
-    onAmendChecked: (Boolean) -> Unit,
     onCommit: () -> Unit,
 ) {
     val buttonText = if (isAmend)
@@ -753,14 +734,10 @@ fun UncommittedChangesButtons(
         stringResource(Res.string.uncommited_changes_primary_button_commit)
 
     Column {
-        CheckboxText(
-            value = isAmend,
-            onCheckedChange = { onAmendChecked(!isAmend) },
-            text = stringResource(Res.string.uncommited_changes_amend_check)
-        )
+        // Fork-only: Amend is in the commit message title row's menu now (upstream issue 344)
         Row(
             modifier = Modifier
-                .padding(top = 2.dp)
+                .padding(top = 8.dp)
         ) {
             ConfirmationButton(
                 text = buttonText,
@@ -844,23 +821,13 @@ fun CherryPickingButtons(
 @Composable
 fun RebasingButtons(
     canContinue: Boolean,
-    isAmendable: Boolean,
-    isAmend: Boolean,
-    onAmendChecked: (Boolean) -> Unit,
     continueEnabled: Boolean,
     onAbort: () -> Unit,
     onContinue: () -> Unit,
     onSkip: () -> Unit,
 ) {
+    // Fork-only: the amend switch of an amendable stop is in the commit message's title row (upstream issue 344)
     Column {
-        if (isAmendable) {
-            CheckboxText(
-                value = isAmend,
-                onCheckedChange = { onAmendChecked(!isAmend) },
-                text = stringResource(Res.string.uncommited_changes_amend_check)
-            )
-        }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()

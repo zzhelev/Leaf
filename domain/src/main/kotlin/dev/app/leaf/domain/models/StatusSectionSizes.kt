@@ -9,8 +9,14 @@ const val SECTION_DIVIDER_HEIGHT = 8f
 /** The smallest Staged or Unstaged list, in dp: the header, the column header of Split columns and one row. */
 const val STATUS_MIN_LIST_HEIGHT = 100f
 
-/** The smallest commit field, in dp: a one-line message box, the Amend checkbox and the buttons. */
+/** The smallest commit field, in dp: a one-line message box, the line that says why Commit is disabled, and the buttons. */
 const val STATUS_MIN_COMMIT_FIELD_HEIGHT = 140f
+
+/**
+ * The commit message's title row, in dp, as tall as the Staged and Unstaged headers. It comes on top of the commit field,
+ * so [StatusSectionSizes.commitFieldHeight] counts only what is under it: the message, its hint and the buttons.
+ */
+const val STATUS_COMMIT_TITLE_HEIGHT = 34f
 
 const val STATUS_DEFAULT_STAGED_SHARE = 0.5f
 const val STATUS_DEFAULT_COMMIT_FIELD_HEIGHT = 192f
@@ -32,12 +38,12 @@ data class StatusSectionSizes(
     )
 
     /**
-     * The sections' heights in a pane [height] dp tall, both dividers included. Each list keeps at least
-     * [STATUS_MIN_LIST_HEIGHT] and the commit field at least [STATUS_MIN_COMMIT_FIELD_HEIGHT]. In a pane too short for
-     * that, the commit field keeps its minimum and the lists split what's left evenly.
+     * The sections' heights in a pane [height] dp tall, both dividers and the commit message's title row included. Each
+     * list keeps at least [STATUS_MIN_LIST_HEIGHT] and the commit field at least [STATUS_MIN_COMMIT_FIELD_HEIGHT]. In a
+     * pane too short for that, the commit field keeps its minimum and the lists split what's left evenly.
      */
     fun fitTo(height: Float): StatusSectionHeights {
-        val available = (height - 2 * SECTION_DIVIDER_HEIGHT).coerceAtLeast(0f)
+        val available = availableFor(height)
         val commitField = commitFieldHeight
             .coerceAtMost(available - 2 * STATUS_MIN_LIST_HEIGHT)
             .coerceAtLeast(STATUS_MIN_COMMIT_FIELD_HEIGHT)
@@ -49,7 +55,12 @@ data class StatusSectionSizes(
             lists / 2
         }
 
-        return StatusSectionHeights(staged = staged, unstaged = lists - staged, commitField = commitField)
+        return StatusSectionHeights(
+            staged = staged,
+            unstaged = lists - staged,
+            commitField = commitField,
+            commitTitle = commitTitleFor(height),
+        )
     }
 
     /** The sizes after dragging the handle between the lists [delta] dp down, in a pane [height] dp tall. */
@@ -72,7 +83,7 @@ data class StatusSectionSizes(
      */
     fun withCommitDividerMoved(height: Float, delta: Float, stagedOnTop: Boolean): StatusSectionSizes {
         val heights = fitTo(height)
-        val available = height - 2 * SECTION_DIVIDER_HEIGHT
+        val available = availableFor(height)
         val maxCommitField = available - 2 * STATUS_MIN_LIST_HEIGHT
 
         if (maxCommitField < STATUS_MIN_COMMIT_FIELD_HEIGHT) return this
@@ -87,9 +98,23 @@ data class StatusSectionSizes(
     }
 }
 
-/** In dp. */
+/** The title row's height in a pane [height] dp tall: whole, unless the pane has no room for the dividers and it. */
+private fun commitTitleFor(height: Float) =
+    STATUS_COMMIT_TITLE_HEIGHT.coerceAtMost((height - 2 * SECTION_DIVIDER_HEIGHT).coerceAtLeast(0f))
+
+/** What the two lists and the commit field share in a pane [height] dp tall: what the dividers and the title row leave. */
+private fun availableFor(height: Float) =
+    (height - 2 * SECTION_DIVIDER_HEIGHT - commitTitleFor(height)).coerceAtLeast(0f)
+
+/** In dp. The two dividers and these four add up to the pane's height. */
 data class StatusSectionHeights(
     val staged: Float,
     val unstaged: Float,
+    /** The message, its hint and the buttons, under the title row. */
     val commitField: Float,
-)
+    /** The title row above the commit field. */
+    val commitTitle: Float = STATUS_COMMIT_TITLE_HEIGHT,
+) {
+    /** The whole commit section, the title row and what is under it. */
+    val commitSection: Float get() = commitTitle + commitField
+}

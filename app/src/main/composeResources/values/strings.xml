@@ -207,7 +207,11 @@
     <string name="uncommited_changes_staged_one_match_action">Unstage 1 match</string>
     <string name="uncommited_changes_staged_no_matches_action">Unstage 0 matches</string>
 
-    <string name="uncommited_changes_text_input_label_message_read_only">Commit message (read-only)</string>
+    <string name="uncommited_changes_message_title">Commit message</string>
+    <string name="uncommited_changes_message_title_merge">Merge message</string>
+    <string name="uncommited_changes_message_read_only">read-only</string>
+    <string name="uncommited_changes_message_amending">amending last commit</string>
+    <string name="uncommited_changes_amend_menu_item">Amend last commit</string>
     <string name="uncommited_changes_text_input_label_message">Write your commit message here</string>
     <string name="uncommited_changes_primary_button_commit">Commit</string>
     <string name="uncommited_changes_primary_button_amend">Amend</string>
@@ -215,7 +219,6 @@
     <string name="uncommited_changes_primary_button_continue">Continue</string>
     <string name="uncommited_changes_primary_button_skip">Skip</string>
     <string name="uncommited_changes_secondary_button_abort">Abort</string>
-    <string name="uncommited_changes_amend_check">Amend previous commit</string>
     <plurals name="finish_hint_conflicts">
         <item quantity="one">Resolve the conflicts in %1$d file first.</item>
         <item quantity="other">Resolve the conflicts in %1$d files first.</item>

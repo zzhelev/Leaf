@@ -312,6 +312,111 @@ class CommitFieldTest {
         }
     }
 
+    // --- The title row (fork-only, upstream issue 344)
+
+    @Test
+    fun `the title row says Commit message, and has no Amend checkbox under the field`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            Field(status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")).use { field ->
+                assertTrue("Commit message" in field.texts(), field.texts().toString())
+                assertFalse("Amend previous commit" in field.texts())
+                assertFalse(field.texts().any { it.startsWith("·") })
+                assertTrue("More actions" in field.descriptions())
+            }
+        }
+
+    @Test
+    fun `the title says Merge message while merging, and the other operations and a read-only rebase have no menu`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            Field(status(RepositoryState.MERGING, message = "Merge branch 'agent1'")).use { field ->
+                assertTrue("Merge message" in field.texts() && "Commit message" !in field.texts())
+                assertFalse("More actions" in field.descriptions())
+            }
+
+            for (state in listOf(RepositoryState.CHERRY_PICKING, RepositoryState.REVERTING)) {
+                Field(status(state, staged = listOf(stagedFile), message = "Fix")).use { field ->
+                    assertTrue("Commit message" in field.texts(), "$state")
+                    assertFalse("More actions" in field.descriptions(), "$state")
+                }
+            }
+
+            // The rebase's other stops can't amend: the field shows the last message and the row says it can't be edited
+            Field(status(RepositoryState.REBASING_INTERACTIVE, staged = listOf(stagedFile))).use { field ->
+                assertTrue("Commit message" in field.texts())
+                assertTrue("· read-only" in field.texts(), field.texts().toString())
+                assertFalse("More actions" in field.descriptions())
+            }
+        }
+
+    @Test
+    fun `Amend last commit is in the menu, turns the row and the button over, and turns off again`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val state = status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")
+
+            Field(state).use { field ->
+                assertFalse("Amend last commit" in field.texts(), "The menu starts closed")
+                assertTrue("Commit" in field.texts() && "Amend" !in field.texts())
+
+                field.clickDescription("More actions")
+                field.click("Amend last commit")
+
+                assertEquals(listOf(true), field.amendToggles)
+                assertEquals(emptyList<Boolean>(), field.rebaseAmendToggles)
+            }
+
+            Field(state.copy(isAmend = true)).use { field ->
+                assertTrue("· amending last commit" in field.texts(), field.texts().toString())
+                assertTrue("Amend" in field.texts() && "Commit" !in field.texts())
+
+                field.clickDescription("More actions")
+                field.click("Amend last commit")
+
+                assertEquals(listOf(false), field.amendToggles)
+            }
+        }
+
+    @Test
+    fun `at a rebase stop that can be amended the menu is there, and it is the rebase's amend switch`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val stop = RebaseInteractiveState.ProcessingCommits(commitToAmendId = "abc1234")
+            val state = status(RepositoryState.REBASING_INTERACTIVE, message = "Reworded").copy(rebaseInteractiveState = stop)
+
+            Field(state).use { field ->
+                assertFalse(field.texts().any { it.startsWith("·") })
+
+                field.clickDescription("More actions")
+                field.click("Amend last commit")
+
+                assertEquals(listOf(true), field.rebaseAmendToggles)
+                assertEquals(emptyList<Boolean>(), field.amendToggles)
+            }
+
+            Field(state.copy(isAmendRebaseInteractive = true)).use { field ->
+                assertTrue("· amending last commit" in field.texts())
+                // Continue amends, so it is still Continue
+                assertTrue("Continue" in field.texts() && "Amend" !in field.texts())
+
+                field.clickDescription("More actions")
+                field.click("Amend last commit")
+
+                assertEquals(listOf(false), field.rebaseAmendToggles)
+            }
+        }
+
+    @Test
+    fun `the title row, the field and the button fill the section, with the other buttons' gap above the button`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            Field(status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")).use { field ->
+                val message = field.fieldBounds()
+                val commit = field.bounds("Commit")
+
+                // The title row is 34 dp, and the Amend row that was under the field is gone
+                assertEquals(34f, message.top, 0.5f, "The field starts under the title row")
+                assertEquals(8f, commit.top - message.bottom, 0.5f, "The same 8 dp as in a merge")
+                assertEquals(220f, commit.bottom, 0.5f, "The button ends the section")
+            }
+        }
+
     // --- Where the hint is
 
     @Test
@@ -337,6 +442,8 @@ class CommitFieldTest {
         var continues = 0
         var skips = 0
         var aborts = 0
+        val amendToggles = mutableListOf<Boolean>()
+        val rebaseAmendToggles = mutableListOf<Boolean>()
 
         private val scene = ImageComposeScene(width = 400, height = 220, density = Density(1f)) {
             AppTheme {
@@ -350,7 +457,6 @@ class CommitFieldTest {
                     repositoryState = state.repositoryState,
                     isAmenableRebaseInteractive = state.isAmenableRebaseInteractive,
                     showsContinue = state.showsContinue(),
-                    rebaseInteractiveState = state.rebaseInteractiveState,
                     finishBlocker = state.finishBlocker(),
                     isAmendRebaseInteractive = state.isAmendRebaseInteractive,
                     finishHint = state.finishHint(),
@@ -360,8 +466,8 @@ class CommitFieldTest {
                     onAbortRebase = { aborts++ },
                     onContinueRebase = { continues++ },
                     onSkipRebase = { skips++ },
-                    onAmendChecked = {},
-                    onAmendRebaseInteractiveChecked = {},
+                    onAmendChecked = { amendToggles += it },
+                    onAmendRebaseInteractiveChecked = { rebaseAmendToggles += it },
                     modifier = Modifier.height(220.dp),
                 )
             }
@@ -380,6 +486,22 @@ class CommitFieldTest {
             text.endsWith(".") && text != "Previous"
         }
 
+        fun descriptions(): List<String> = nodes().flatMap { it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty() }
+
+        /** Clicks the clickable element described as [description]. */
+        fun clickDescription(description: String) {
+            val node = nodes().first { node ->
+                node.config.getOrNull(SemanticsActions.OnClick) != null &&
+                    description in node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+            }
+
+            checkNotNull(node.config[SemanticsActions.OnClick].action).invoke()
+            scene.render()
+        }
+
+        /** The message field's bounds. */
+        fun fieldBounds() = nodes().first { it.config.contains(SemanticsProperties.EditableText) }.boundsInRoot
+
         fun bounds(text: String) = nodes().first { node ->
             node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == text }
         }.boundsInRoot
@@ -395,11 +517,11 @@ class CommitFieldTest {
             scene.render()
         }
 
-        /** Focuses the message field with a click, then presses the shortcut: Ctrl+Enter, or Cmd+Enter on macOS. */
+        /** Focuses the message field with a click (under the title row), then presses the shortcut: Ctrl+Enter, or Cmd+Enter on macOS. */
         @OptIn(InternalComposeUiApi::class, ExperimentalComposeUiApi::class)
         fun pressCommitShortcut() {
-            scene.sendPointerEvent(PointerEventType.Press, Offset(100f, 20f))
-            scene.sendPointerEvent(PointerEventType.Release, Offset(100f, 20f))
+            scene.sendPointerEvent(PointerEventType.Press, Offset(100f, 70f))
+            scene.sendPointerEvent(PointerEventType.Release, Offset(100f, 70f))
             scene.render()
 
             for ((control, meta) in listOf(true to false, false to true)) {
