@@ -1,6 +1,8 @@
 package dev.app.leaf.domain.services
 
 import dev.app.leaf.common.flows.defaultIfNull
+import dev.app.leaf.domain.commitmessage.CommitMessageHints
+import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
@@ -92,6 +94,20 @@ class AppSettingsService @Inject constructor(
     /** Whether the diff pane wraps long lines. */
     val diffWrapLines: Flow<Boolean>
         get() = appSettingsRepository.diffWrapLines.defaultIfNull { true }
+
+    /** Whether the commit field counts a long subject and tints what goes past 72 characters. */
+    val commitSubjectLengthHint: Flow<Boolean>
+        get() = appSettingsRepository.commitSubjectLengthHint.defaultIfNull { true }
+
+    /** The column of the commit field's ruler, 0 for none. */
+    val commitMessageRuler: Flow<Int>
+        get() = appSettingsRepository.commitMessageRuler.defaultIfNull { CommitMessageRuler.DEFAULT_COLUMN }
+
+    /** The commit field's helpers, as the two settings above turn them on. */
+    val commitMessageHints: Flow<CommitMessageHints>
+        get() = combine(commitSubjectLengthHint, commitMessageRuler) { subjectLength, rulerColumn ->
+            CommitMessageHints(subjectLength, rulerColumn)
+        }
     val cacheCredentialsInMemory: Flow<Boolean> get() = appSettingsRepository.cacheCredentialsInMemory.defaultIfNull { DEFAULT_CACHE_CREDENTIALS_IN_MEMORY }
     val terminalPath: Flow<String?> get() = appSettingsRepository.terminalPath
 

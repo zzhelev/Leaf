@@ -4,6 +4,10 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.common.flows.combine
 import dev.app.leaf.common.printLog
+import dev.app.leaf.domain.commitmessage.CommitMessageHints
+import dev.app.leaf.domain.commitmessage.CommitMessageLayout
+import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.sorting.CollapsedFolders
@@ -59,7 +63,14 @@ data class StatusState(
     val conflictSides: ConflictSides? = null,
     /** A squash merge waits to be committed (fork-only), which the repository state doesn't tell. */
     val isSquashMergeInProgress: Boolean = false,
+    /** How git cleans up the message before committing it (fork-only): `commit.cleanup` and the comment prefix. */
+    val messageCleanup: MessageCleanup = MessageCleanup.DEFAULT,
+    /** The commit field's helpers that the settings turn on (fork-only). */
+    val messageHints: CommitMessageHints = CommitMessageHints(),
 ) {
+    /** What the commit field shows about its message, as git will commit it (fork-only). */
+    val messageLayout: CommitMessageLayout = commitMessageLayout(commitMessage.text, messageCleanup)
+
     val hasPreviousCommits: Boolean = previousCommitMessage != null
 
     val haveConflictsBeenSolved: Boolean = unstaged.none { it.statusType == StatusType.CONFLICTING }
@@ -146,6 +157,8 @@ fun combineStatusState(
     sectionSizes: Flow<StatusSectionSizes>,
     conflictSides: Flow<ConflictSides?> = flowOf(null),
     squashMergeInProgress: Flow<Boolean> = flowOf(false),
+    messageCleanup: Flow<MessageCleanup> = flowOf(MessageCleanup.DEFAULT),
+    messageHints: Flow<CommitMessageHints> = flowOf(CommitMessageHints()),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -210,6 +223,8 @@ fun combineStatusState(
         sectionSizes,
         conflictSides,
         squashMergeInProgress,
+        messageCleanup,
+        messageHints,
     ) {
             lists,
             swapUncommittedChanges,
@@ -226,6 +241,8 @@ fun combineStatusState(
             sectionSizes,
             conflictSides,
             squashMergeInProgress,
+            messageCleanup,
+            messageHints,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -255,6 +272,8 @@ fun combineStatusState(
             sectionSizes = sectionSizes,
             conflictSides = conflictSides,
             isSquashMergeInProgress = squashMergeInProgress,
+            messageCleanup = messageCleanup,
+            messageHints = messageHints,
         )
     }
 }

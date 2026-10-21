@@ -54,4 +54,10 @@ sealed interface AppConfig {
 
     /** Whether the diff pane wraps long lines, or keeps each on one row and scrolls sideways (fork-only). */
     data class DiffWrapLines(val value: Boolean) : AppConfig
+
+    /** Whether the commit field counts a long subject and tints what goes past 72 characters (fork-only). */
+    data class CommitSubjectLengthHint(val value: Boolean) : AppConfig
+
+    /** The column of the commit field's ruler, 0 for none (fork-only). See [dev.app.leaf.domain.commitmessage.CommitMessageRuler]. */
+    data class CommitMessageRuler(val column: Int) : AppConfig
 }

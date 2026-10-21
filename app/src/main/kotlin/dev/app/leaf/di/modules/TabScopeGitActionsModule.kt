@@ -573,4 +573,10 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsIsUnchangedSinceGitAction(action: IsUnchangedSinceGitAction): IIsUnchangedSinceGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetCommitMessageCleanupGitAction(
+        action: GetCommitMessageCleanupGitAction,
+    ): IGetCommitMessageCleanupGitAction
 }

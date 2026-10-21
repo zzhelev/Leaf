@@ -22,7 +22,8 @@ sealed interface FinishBlocker {
 
     data object NothingStaged : FinishBlocker
 
-    data object EmptyMessage : FinishBlocker
+    /** No message. [commentsOnly] when there is text, but only comment lines, which git leaves out (fork-only). */
+    data class EmptyMessage(val commentsOnly: Boolean = false) : FinishBlocker
 }
 
 private fun StatusState.conflicts(): FinishBlocker.Conflicts? =
@@ -39,10 +40,12 @@ private fun StatusState.unstagedChanges(): FinishBlocker.UnstagedChanges? =
         .takeIf { it > 0 }
         ?.let { FinishBlocker.UnstagedChanges(it) }
 
-private fun StatusState.emptyMessage(blank: Boolean): FinishBlocker.EmptyMessage? =
-    FinishBlocker.EmptyMessage.takeIf {
-        if (blank) commitMessage.text.isBlank() else commitMessage.text.isEmpty()
-    }
+/**
+ * The message would leave the commit without one once git cleans it up: blank, or only comment lines (fork-only). git
+ * refuses that commit, and JGit would make it. A verbatim message (`commit.cleanup=verbatim`) only when it's empty.
+ */
+private fun StatusState.emptyMessage(): FinishBlocker.EmptyMessage? =
+    FinishBlocker.EmptyMessage(commentsOnly = commitMessage.text.isNotBlank()).takeIf { messageLayout.isEmpty }
 
 private fun StatusState.nothingStaged(): FinishBlocker.NothingStaged? =
     FinishBlocker.NothingStaged.takeIf { !hasStagedFiles }
@@ -55,31 +58,34 @@ val StatusState.isAmenableRebaseInteractive: Boolean
 
 /** Whether Commit works outside an operation: a message, staged files, and no conflicts (a squash merge's). */
 val StatusState.canCommit: Boolean
-    get() = commitMessage.text.isNotEmpty() && hasStagedFiles && haveConflictsBeenSolved
+    get() = !messageLayout.isEmpty && hasStagedFiles && haveConflictsBeenSolved
 
 /** Whether Amend works: a message, and a commit to amend. */
 val StatusState.canAmend: Boolean
-    get() = commitMessage.text.isNotEmpty() && hasPreviousCommits
+    get() = !messageLayout.isEmpty && hasPreviousCommits
 
 /**
  * What stops the primary button of the commit field, or null when it works: Merge, a cherry-pick's or a revert's
  * Commit, a rebase's Continue, or Commit/Amend outside an operation.
  *
- * - Merge: only conflicts. git finishes a merge with unstaged or untracked files around, and with nothing staged
- *   (the merge commit still has two parents).
- * - Cherry-pick and revert: conflicts, a blank message (JGit commits it, which git refuses), and nothing staged, as
- *   JGit refuses an empty commit there (`DoCommitGitAction` allows one only for a merge or an amend).
+ * - Merge: conflicts, and a message that git's clean-up leaves empty. git finishes a merge with unstaged or untracked
+ *   files around, and with nothing staged (the merge commit still has two parents).
+ * - Cherry-pick and revert: conflicts, an empty message, and nothing staged, as JGit refuses an empty commit there
+ *   (`DoCommitGitAction` allows one only for a merge or an amend).
  * - Rebase Continue: conflicts and unstaged changes to tracked files, as git refuses them. JGit's continue would go
  *   on with them, but a rebase behaves the same whichever of them started it.
  * - Outside an operation: Commit needs a message, staged files and no conflicts, and Amend a message and a commit.
  *
+ * A message counts as empty when nothing is left of it once git cleans it up (fork-only, [emptyMessage]): blank, or only
+ * comment lines.
+ *
  * The first one in the order of the lists above is the one returned.
  */
 fun StatusState.finishBlocker(): FinishBlocker? = when {
-    repositoryState.isMerging -> conflicts()
+    repositoryState.isMerging -> conflicts() ?: emptyMessage()
     repositoryState.isRebasing -> rebaseBlocker()
     repositoryState.isCherryPicking || repositoryState.isReverting ->
-        conflicts() ?: emptyMessage(blank = true) ?: nothingStaged()
+        conflicts() ?: emptyMessage() ?: nothingStaged()
 
     else -> commitBlocker()
 }
@@ -96,12 +102,12 @@ fun StatusState.rebaseBlocker(): FinishBlocker? = conflicts() ?: unstagedChanges
  */
 fun StatusState.showsContinue(): Boolean = hasStagedFiles ||
         rebaseBlocker() != null ||
-        (isAmenableRebaseInteractive && isAmendRebaseInteractive && commitMessage.text.isNotEmpty())
+        (isAmenableRebaseInteractive && isAmendRebaseInteractive && !messageLayout.isEmpty)
 
 private fun StatusState.commitBlocker(): FinishBlocker? = when {
     canCommit || (isAmend && canAmend) -> null
     // From here on, neither works. Both need a message, and canCommit needs the rest.
-    else -> conflicts() ?: emptyMessage(blank = false) ?: nothingStaged()
+    else -> conflicts() ?: emptyMessage() ?: nothingStaged()
 }
 
 /**

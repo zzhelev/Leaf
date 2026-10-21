@@ -30,6 +30,11 @@ private fun removed(path: String = "old.txt") = StatusEntry(path, StatusType.REM
 private fun conflicting(path: String = "notes.txt") = StatusEntry(path, StatusType.CONFLICTING)
 private fun staged(path: String = "src/Main.kt") = StatusEntry(path, StatusType.MODIFIED, EntryType.STAGED)
 
+private const val MERGE_MESSAGE = "Merge branch 'agent1'"
+
+/** The rule written out: a line that isn't blank and isn't a comment, which git's default clean-up keeps. */
+private fun StatusState.hasMessage() = commitMessage.text.lines().any { it.isNotBlank() && !it.startsWith("#") }
+
 private val merging = listOf(RepositoryState.MERGING, RepositoryState.MERGING_RESOLVED)
 private val cherryPicking = listOf(RepositoryState.CHERRY_PICKING, RepositoryState.CHERRY_PICKING_RESOLVED)
 private val reverting = listOf(RepositoryState.REVERTING, RepositoryState.REVERTING_RESOLVED)
@@ -74,8 +79,10 @@ class FinishBlockersTest {
         for (repositoryState in merging) {
             val files = listOf(untracked(), untracked("out/x.o"), modified(), removed())
 
-            assertNull(state(repositoryState, unstaged = files).finishBlocker(), "$repositoryState")
-            assertNull(state(repositoryState, staged = listOf(staged()), unstaged = files).finishBlocker())
+            assertNull(state(repositoryState, unstaged = files, message = MERGE_MESSAGE).finishBlocker(), "$repositoryState")
+            assertNull(
+                state(repositoryState, staged = listOf(staged()), unstaged = files, message = MERGE_MESSAGE).finishBlocker()
+            )
         }
     }
 
@@ -83,8 +90,18 @@ class FinishBlockersTest {
     fun `a merge is allowed with nothing staged, as git makes the merge commit anyway`() {
         // The conflicts were all resolved to our side: the merge commit still has two parents (upstream issue 120)
         for (repositoryState in merging) {
-            assertNull(state(repositoryState).finishBlocker(), "$repositoryState")
-            assertNull(state(repositoryState, message = "Merge branch 'agent1'").finishBlocker())
+            assertNull(state(repositoryState, message = MERGE_MESSAGE).finishBlocker(), "$repositoryState")
+        }
+    }
+
+    @Test
+    fun `a merge needs a message that git's clean-up leaves something of, as git refuses an empty one`() {
+        for (repositoryState in merging) {
+            assertEquals(FinishBlocker.EmptyMessage(), state(repositoryState).finishBlocker(), "$repositoryState")
+            assertEquals(
+                FinishBlocker.EmptyMessage(commentsOnly = true),
+                state(repositoryState, message = "# Conflicts:\n#\tnotes.txt\n").finishBlocker(),
+            )
         }
     }
 
@@ -121,12 +138,12 @@ class FinishBlockersTest {
     fun `a cherry-pick or a revert needs a message that isn't blank`() {
         for (repositoryState in cherryPicking + reverting) {
             assertEquals(
-                FinishBlocker.EmptyMessage,
+                FinishBlocker.EmptyMessage(),
                 state(repositoryState, staged = listOf(staged()), message = "").finishBlocker(),
                 "$repositoryState",
             )
             assertEquals(
-                FinishBlocker.EmptyMessage,
+                FinishBlocker.EmptyMessage(),
                 state(repositoryState, staged = listOf(staged()), message = "  \n ").finishBlocker(),
             )
         }
@@ -151,7 +168,7 @@ class FinishBlockersTest {
                 state(repositoryState, unstaged = listOf(conflicting())).finishBlocker(),
                 "$repositoryState",
             )
-            assertEquals(FinishBlocker.EmptyMessage, state(repositoryState).finishBlocker())
+            assertEquals(FinishBlocker.EmptyMessage(), state(repositoryState).finishBlocker())
             assertEquals(FinishBlocker.NothingStaged, state(repositoryState, message = "m").finishBlocker())
         }
     }
@@ -262,11 +279,11 @@ class FinishBlockersTest {
             state(RepositoryState.SAFE, unstaged = listOf(modified()), message = "Fix").finishBlocker(),
         )
         assertEquals(
-            FinishBlocker.EmptyMessage,
+            FinishBlocker.EmptyMessage(),
             state(RepositoryState.SAFE, staged = listOf(staged())).finishBlocker(),
         )
         // Neither: the message comes first
-        assertEquals(FinishBlocker.EmptyMessage, state(RepositoryState.SAFE).finishBlocker())
+        assertEquals(FinishBlocker.EmptyMessage(), state(RepositoryState.SAFE).finishBlocker())
     }
 
     @Test
@@ -294,7 +311,7 @@ class FinishBlockersTest {
     fun `Amend needs a message and a commit to amend`() {
         assertNull(state(RepositoryState.SAFE, isAmend = true, message = "Reworded").finishBlocker())
         assertEquals(
-            FinishBlocker.EmptyMessage,
+            FinishBlocker.EmptyMessage(),
             state(RepositoryState.SAFE, isAmend = true, message = "").finishBlocker(),
         )
         // No commit yet, and nothing to commit instead
@@ -319,7 +336,7 @@ class FinishBlockersTest {
             state(RepositoryState.SAFE, message = "Fix").finishHint(),
         )
         assertEquals(
-            FinishBlocker.EmptyMessage,
+            FinishBlocker.EmptyMessage(),
             state(RepositoryState.SAFE, staged = listOf(staged())).finishHint(),
         )
         assertNull(state(RepositoryState.SAFE, staged = listOf(staged()), message = "Fix").finishHint())
@@ -328,7 +345,7 @@ class FinishBlockersTest {
     @Test
     fun `an amend with no message gets a hint, as the user has started`() {
         assertEquals(
-            FinishBlocker.EmptyMessage,
+            FinishBlocker.EmptyMessage(),
             state(RepositoryState.SAFE, isAmend = true).finishHint(),
         )
     }
@@ -341,8 +358,8 @@ class FinishBlockersTest {
             assertEquals(bare.finishBlocker(), bare.finishHint(), "$repositoryState")
         }
 
-        assertEquals(FinishBlocker.EmptyMessage, state(RepositoryState.CHERRY_PICKING, staged = listOf(staged())).finishHint())
-        assertNull(state(RepositoryState.MERGING, unstaged = listOf(untracked())).finishHint())
+        assertEquals(FinishBlocker.EmptyMessage(), state(RepositoryState.CHERRY_PICKING, staged = listOf(staged())).finishHint())
+        assertNull(state(RepositoryState.MERGING, unstaged = listOf(untracked()), message = MERGE_MESSAGE).finishHint())
         assertNull(state(RepositoryState.REBASING_MERGE, staged = listOf(staged()), unstaged = listOf(untracked())).finishHint())
     }
 
@@ -357,7 +374,7 @@ class FinishBlockersTest {
         listOf(untracked(), modified(), conflicting()),
     )
     private val sampleStaged = listOf(emptyList(), listOf(staged()))
-    private val sampleMessages = listOf("", "  ", "Fix")
+    private val sampleMessages = listOf("", "  ", "Fix", "# only a comment\n\n")
 
     private fun everyState(repositoryStates: List<RepositoryState>, check: (StatusState) -> Unit) {
         for (repositoryState in repositoryStates) for (staged in sampleStaged) for (unstaged in sampleFiles) {
@@ -379,12 +396,14 @@ class FinishBlockersTest {
     @Test
     fun `every state, a button works exactly when its rules are met`() {
         everyState(merging) { state ->
-            assertEquals(state.unstaged.none { it.statusType == StatusType.CONFLICTING }, state.finishBlocker() == null)
+            val works = state.unstaged.none { it.statusType == StatusType.CONFLICTING } && state.hasMessage()
+
+            assertEquals(works, state.finishBlocker() == null)
         }
 
         everyState(cherryPicking + reverting) { state ->
             val works = state.unstaged.none { it.statusType == StatusType.CONFLICTING } &&
-                    state.commitMessage.text.isNotBlank() &&
+                    state.hasMessage() &&
                     state.staged.isNotEmpty()
 
             assertEquals(works, state.finishBlocker() == null, "${state.repositoryState} ${state.unstaged}")
@@ -398,7 +417,7 @@ class FinishBlockersTest {
 
         // The rule that StatusPane used before, which this keeps outside an operation
         everyState(listOf(RepositoryState.SAFE, RepositoryState.BISECTING)) { state ->
-            val message = state.commitMessage.text.isNotEmpty()
+            val message = state.hasMessage()
             val noConflicts = state.unstaged.none { it.statusType == StatusType.CONFLICTING }
             val works = (message && state.staged.isNotEmpty() && noConflicts) ||
                     (state.isAmend && message && state.hasPreviousCommits)
@@ -425,7 +444,10 @@ class FinishBlockersTest {
                 }
 
                 FinishBlocker.NothingStaged -> assertTrue(state.staged.isEmpty())
-                FinishBlocker.EmptyMessage -> assertTrue(state.commitMessage.text.isBlank())
+                is FinishBlocker.EmptyMessage -> {
+                    assertFalse(state.hasMessage())
+                    assertEquals(state.commitMessage.text.isNotBlank(), blocker.commentsOnly)
+                }
             }
 
             // The hint is the blocker or nothing, never another reason
@@ -447,7 +469,11 @@ class FinishBlockersTest {
             "Stage or discard the changes to 3 tracked files to continue.",
             render(FinishBlocker.UnstagedChanges(3)),
         )
-        assertEquals("Write a commit message.", render(FinishBlocker.EmptyMessage))
+        assertEquals("Write a commit message.", render(FinishBlocker.EmptyMessage()))
+        assertEquals(
+            "Write a commit message. git leaves out the comment lines, so nothing is left.",
+            render(FinishBlocker.EmptyMessage(commentsOnly = true)),
+        )
         assertEquals("Stage some changes to commit.", render(FinishBlocker.NothingStaged))
     }
 

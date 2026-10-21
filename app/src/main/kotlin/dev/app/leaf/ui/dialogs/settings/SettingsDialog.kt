@@ -28,6 +28,7 @@ import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.Error
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
+import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
@@ -104,6 +105,9 @@ val settings = listOf(
             state,
             onAction
         )
+    },
+    SettingsEntry.Entry(Res.drawable.message, Res.string.settings_entry_commits) { state, onAction ->
+        Commits(state, onAction)
     },
     SettingsEntry.Entry(
         Res.drawable.cloud,
@@ -310,6 +314,36 @@ private fun RemoteActions(settingsViewState: SettingsViewState, onAction: (Setti
     )
 }
 
+
+/** Fork-only: the commit field's helpers. */
+@Composable
+private fun Commits(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+    SettingToggle(
+        title = stringResource(Res.string.settings_commits_subject_length_title),
+        subtitle = stringResource(Res.string.settings_commits_subject_length_subtitle),
+        value = settingsViewState.commitSubjectLengthHint,
+        onValueChanged = { value -> onAction(SettingsAction.SetConfig(AppConfig.CommitSubjectLengthHint(value))) },
+    )
+
+    val ruler = settingsViewState.commitMessageRuler
+
+    SettingDropDown(
+        title = stringResource(Res.string.settings_commits_ruler_title),
+        subtitle = stringResource(Res.string.settings_commits_ruler_subtitle),
+        // Also a value that only the settings file has
+        dropDownOptions = (CommitMessageRuler.CHOICES + ruler).distinct().sorted().map { column ->
+            DropDownOption(column, commitMessageRulerName(column))
+        },
+        onOptionSelected = { option -> onAction(SettingsAction.SetConfig(AppConfig.CommitMessageRuler(option.value))) },
+        currentOption = ruler,
+    )
+}
+
+@Composable
+private fun commitMessageRulerName(column: Int): String = when {
+    column <= 0 -> stringResource(Res.string.settings_commits_ruler_off)
+    else -> stringResource(Res.string.settings_commits_ruler_column, column)
+}
 
 @Composable
 private fun Worktrees(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {

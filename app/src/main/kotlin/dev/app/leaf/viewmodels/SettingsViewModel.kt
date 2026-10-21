@@ -5,6 +5,7 @@ import dev.app.leaf.LogsRepository
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.common.flows.combine
 import dev.app.leaf.common.printError
+import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.gitcli.GitExecutable
@@ -90,6 +91,8 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.conflictOpener,
             appSettingsService.conflictResolverLayout,
             appSettingsService.conflictResolverWrapLines,
+            appSettingsService.commitSubjectLengthHint,
+            appSettingsService.commitMessageRuler,
             appSettingsService.fastForwardMerge,
             appSettingsService.autoStashOnMerge,
             appSettingsService.cloneDefaultDirectory,
@@ -118,6 +121,8 @@ class SettingsViewModel @Inject constructor(
             conflictOpener,
             conflictResolverLayout,
             conflictResolverWrapLines,
+            commitSubjectLengthHint,
+            commitMessageRuler,
             fastForwardMerge,
             autoStashOnMerge,
             cloneDefaultDirectory,
@@ -148,6 +153,8 @@ class SettingsViewModel @Inject constructor(
                 conflictOpener,
                 conflictResolverLayout,
                 conflictResolverWrapLines,
+                commitSubjectLengthHint,
+                commitMessageRuler,
                 fastForwardMerge,
                 autoStashOnMerge,
                 cloneDefaultDirectory,
@@ -182,6 +189,8 @@ class SettingsViewModel @Inject constructor(
             conflictOpener = ConflictOpener.DEFAULT,
             conflictResolverLayout = ConflictResolverLayout.DEFAULT,
             conflictResolverWrapLines = true,
+            commitSubjectLengthHint = true,
+            commitMessageRuler = CommitMessageRuler.DEFAULT_COLUMN,
             fastForwardMerge = false,
             autoStashOnMerge = false,
             cloneDefaultDirectory = "",
@@ -224,6 +233,10 @@ data class SettingsViewState(
     val conflictResolverLayout: ConflictResolverLayout,
     /** Whether the built-in resolver wraps long lines. */
     val conflictResolverWrapLines: Boolean,
+    /** Whether the commit field counts a long subject and tints what goes past 72 characters. */
+    val commitSubjectLengthHint: Boolean,
+    /** The column of the commit field's ruler, 0 for none. */
+    val commitMessageRuler: Int,
     val fastForwardMerge: Boolean,
     val autoStashOnMerge: Boolean,
     val cloneDefaultDirectory: String?,

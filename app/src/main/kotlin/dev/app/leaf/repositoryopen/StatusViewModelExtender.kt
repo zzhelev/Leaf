@@ -5,6 +5,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.collectLatestInCoroutineScope
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
+import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CloseableView
@@ -59,6 +60,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val resolveConflictUseCase: ResolveConflictUseCase,
     private val persistSquashMessageUseCase: PersistSquashMessageUseCase,
     private val abortSquashMergeUseCase: AbortSquashMergeUseCase,
+    private val getCommitMessageCleanupUseCase: GetCommitMessageCleanupUseCase,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -278,6 +280,16 @@ class StatusViewModelExtender @AssistedInject constructor(
         }
         .stateIn(null)
 
+    /**
+     * Fork-only: how git cleans up the commit message, read again with each status, as the config may have changed. It
+     * reads JGit's cached config, which only reads its files again when they changed.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val messageCleanup: StateFlow<MessageCleanup> = repositoryDataRepository.status
+        .filter { it !is DataState.Loading }
+        .mapLatest { getCommitMessageCleanupUseCase() }
+        .stateIn(MessageCleanup.DEFAULT)
+
     val statusState = combineStatusState(
         repositoryDataRepository.status.toUiDataState(),
         showSearchStaged,
@@ -301,6 +313,8 @@ class StatusViewModelExtender @AssistedInject constructor(
         statusSectionsConfig.sizes,
         conflictSides,
         squashMergeInProgress,
+        messageCleanup,
+        appSettings.commitMessageHints,
     )
         .stateIn(StatusState())
 

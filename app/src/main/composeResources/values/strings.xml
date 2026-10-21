@@ -228,6 +228,14 @@
         <item quantity="other">Stage or discard the changes to %1$d tracked files to continue.</item>
     </plurals>
     <string name="finish_hint_empty_message">Write a commit message.</string>
+    <string name="finish_hint_comments_only">Write a commit message. git leaves out the comment lines, so nothing is left.</string>
+    <string name="commit_message_subject_count">%1$d</string>
+    <string name="commit_message_subject_count_over">%1$d / %2$d</string>
+    <string name="commit_message_subject_count_tooltip">Under %1$d characters is ideal; up to %2$d shows whole in most git tools.</string>
+    <string name="commit_message_subject_count_over_tooltip">Up to %1$d characters is recommended, so that git tools and servers show the subject whole.</string>
+    <string name="commit_message_runs_on_hint">No blank line after the subject.</string>
+    <string name="commit_message_insert_blank_line">Insert one</string>
+    <string name="commit_message_runs_on_tooltip">Git tools read the whole first paragraph as the subject.</string>
     <string name="finish_hint_nothing_staged">Stage some changes to commit.</string>
 
     <!-- Merge automatic stash -->
@@ -805,6 +813,7 @@
     <string name="settings_entry_remote_actions">Remote actions</string>
     <string name="settings_entry_worktrees">Worktrees</string>
     <string name="settings_entry_conflicts">Conflicts</string>
+    <string name="settings_entry_commits">Commits</string>
     <string name="settings_section_network">Network</string>
     <string name="settings_entry_auth">Authentication</string>
     <string name="settings_section_tools">Tools</string>
@@ -844,6 +853,12 @@
     <string name="settings_layout_confirm_hunk_and_line_discards_subtitle">Discarding whole files always asks</string>
     <string name="diff_wrap_lines_tooltip">Wrap long lines. Turned off, each line stays on one row, and the lines scroll sideways together: swipe sideways, use Shift and the wheel, or drag the scrollbar under the lines.</string>
     <string name="settings_layout_diff_wrap_title">Wrap long lines in diffs</string>
+    <string name="settings_commits_subject_length_title">Subject length hint</string>
+    <string name="settings_commits_subject_length_subtitle">Count the subject's characters past 50, and tint what goes past 72. Commit still works with a longer subject.</string>
+    <string name="settings_commits_ruler_title">Column ruler</string>
+    <string name="settings_commits_ruler_subtitle">A line at this column in the commit message, which then uses a monospace font. It shows when the pane is wide enough.</string>
+    <string name="settings_commits_ruler_off">Off</string>
+    <string name="settings_commits_ruler_column">Column %1$d</string>
     <string name="settings_layout_diff_wrap_subtitle">Turned off, each line of a diff stays on one row, and the lines scroll sideways together. The diff's header has the same switch.</string>
     <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation, which reaches HTTPS remotes but not SSH ones.</string>
 

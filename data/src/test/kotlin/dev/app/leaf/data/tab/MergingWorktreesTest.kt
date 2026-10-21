@@ -137,7 +137,8 @@ class MergingWorktreesTest {
         assertInstanceOf(Either.Ok::class.java, commit, commit.toString())
         assertEquals(emptyList<String>(), gitStatus(main))
         assertFalse(File(mainGitDir, "SQUASH_MSG").exists())
-        assertEquals("agent1\n\n- Add b\n- Add a new file\n", git.run(main, "log", "-1", "--format=%B"))
+        // The message ends with a line feed, as git's commits do, and %B adds one
+        assertEquals("agent1\n\n- Add b\n- Add a new file\n\n", git.run(main, "log", "-1", "--format=%B"))
         assertEquals(1, git.run(main, "log", "-1", "--format=%P").trim().split(" ").size)
     }
 

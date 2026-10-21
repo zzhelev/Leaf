@@ -35,6 +35,9 @@ import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.compose.rememberInTab
+import dev.app.leaf.domain.commitmessage.CommitMessageHints
+import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.domain.ignore.IgnoreRequest
 import dev.app.leaf.domain.ignore.ignoreRequestFor
@@ -276,6 +279,8 @@ fun StatusPane(
                     },
                     // Fork-only: the title row comes on top of the saved field height
                     modifier = Modifier.height(heights.commitSection.dp),
+                    messageCleanup = statusState.messageCleanup,
+                    messageHints = statusState.messageHints,
                 )
             }
         }
@@ -637,8 +642,17 @@ internal fun CommitField(
     onAmendChecked: (Boolean) -> Unit,
     onAmendRebaseInteractiveChecked: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    /** How git cleans the message up, which the field shows (fork-only). */
+    messageCleanup: MessageCleanup = MessageCleanup.DEFAULT,
+    /** The subject's count and tint, and the ruler, as the settings say (fork-only). */
+    messageHints: CommitMessageHints = CommitMessageHints(),
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
+    // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
+    // shows the last commit's message, which isn't committed again.
+    val messageLayout = remember(commitMessage.text, messageCleanup) {
+        commitMessageLayout(commitMessage.text, messageCleanup)
+    }.takeUnless { isReadOnlyRebase }
     // Fork-only: a merge's, cherry-pick's or revert's primary button follows finishBlocker, and the key does what it
     // does. A revert's also waits for the status to load.
     val finishEnabled = finishBlocker == null && !(repositoryState.isReverting && isLoading)
@@ -658,6 +672,7 @@ internal fun CommitField(
             onToggleAmend = {
                 if (repositoryState.isRebasing) onAmendRebaseInteractiveChecked(!isAmendRebaseInteractive) else onAmendChecked(!isAmend)
             },
+            subjectCount = messageLayout?.let { subjectCount(it, messageHints) },
         )
 
         CommitMessageTextField(
@@ -674,7 +689,16 @@ internal fun CommitField(
             value = if (isReadOnlyRebase) TextFieldValue(previousCommitMessage.orEmpty()) else commitMessage,
             onValueChange = setCommitMessage,
             enabled = !repositoryState.isRebasing || isAmenableRebaseInteractive,
+            cleanup = messageCleanup,
+            hints = messageHints,
         )
+
+        // Fork-only: a subject that runs on into the next line, which git log would show as one
+        if (messageLayout?.blankLineAt != null) {
+            SubjectRunsOnHint(
+                onInsertBlankLine = { setCommitMessage(commitMessage.withBlankLineAfterSubject(messageCleanup)) },
+            )
+        }
 
         // Fork-only: why the primary button below is disabled
         if (finishHint != null) {

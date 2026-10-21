@@ -72,6 +72,8 @@ private val conflictOpenerPreference get() = stringPreferencesKey("conflict_open
 private val conflictResolverLayoutPreference get() = stringPreferencesKey("conflict_resolver_layout")
 private val conflictResolverWrapLinesPreference get() = booleanPreferencesKey("conflict_resolver_wrap_lines")
 private val diffWrapLinesPreference get() = booleanPreferencesKey("diff_wrap_lines")
+private val commitSubjectLengthHintPreference get() = booleanPreferencesKey("commit_subject_length_hint")
+private val commitMessageRulerPreference get() = intPreferencesKey("commit_message_ruler")
 
 private val cacheCredentialsPreference get() = booleanPreferencesKey("cache_credentials_in_memory")
 private val terminalPathPreference get() = stringPreferencesKey("terminal_path")
@@ -154,6 +156,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
         }
     override val conflictResolverWrapLines get() = preferences.data[conflictResolverWrapLinesPreference]
     override val diffWrapLines get() = preferences.data[diffWrapLinesPreference]
+    override val commitSubjectLengthHint get() = preferences.data[commitSubjectLengthHintPreference]
+    override val commitMessageRuler get() = preferences.data[commitMessageRulerPreference]
 
 
     // Network
@@ -180,6 +184,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                     setValue(conflictResolverLayoutPreference, appConfig.value.name.lowercase())
                 is AppConfig.ConflictResolverWrapLines -> setValue(conflictResolverWrapLinesPreference, appConfig.value)
                 is AppConfig.DiffWrapLines -> setValue(diffWrapLinesPreference, appConfig.value)
+                is AppConfig.CommitSubjectLengthHint -> setValue(commitSubjectLengthHintPreference, appConfig.value)
+                is AppConfig.CommitMessageRuler -> setValue(commitMessageRulerPreference, appConfig.column)
                 is AppConfig.DateFormatCustomFormat -> setValue(dateFormatCustomFormatPreference, appConfig.value)
                 is AppConfig.DateFormatIs24h -> setValue(dateFormatIs24hPreference, appConfig.value)
                 is AppConfig.DateFormatUseDefault -> setValue(dateFormatUseDefaultPreference, appConfig.value)

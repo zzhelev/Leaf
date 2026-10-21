@@ -57,5 +57,9 @@ private fun FinishBlocker.text(): String = when (this) {
     is FinishBlocker.Conflicts -> pluralStringResource(Res.plurals.finish_hint_conflicts, files, files)
     is FinishBlocker.UnstagedChanges -> pluralStringResource(Res.plurals.finish_hint_unstaged_changes, files, files)
     FinishBlocker.NothingStaged -> stringResource(Res.string.finish_hint_nothing_staged)
-    FinishBlocker.EmptyMessage -> stringResource(Res.string.finish_hint_empty_message)
+    is FinishBlocker.EmptyMessage -> if (commentsOnly) {
+        stringResource(Res.string.finish_hint_comments_only)
+    } else {
+        stringResource(Res.string.finish_hint_empty_message)
+    }
 }
