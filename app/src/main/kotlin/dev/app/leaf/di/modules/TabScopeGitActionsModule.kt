@@ -587,4 +587,8 @@ interface TabScopeGitActionsModule {
     fun bindsGetCommitMessageCleanupGitAction(
         action: GetCommitMessageCleanupGitAction,
     ): IGetCommitMessageCleanupGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetCommitTemplateGitAction(action: GetCommitTemplateGitAction): IGetCommitTemplateGitAction
 }

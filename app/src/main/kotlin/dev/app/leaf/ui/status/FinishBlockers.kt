@@ -24,6 +24,12 @@ sealed interface FinishBlocker {
 
     /** No message. [commentsOnly] when there is text, but only comment lines, which git leaves out (fork-only). */
     data class EmptyMessage(val commentsOnly: Boolean = false) : FinishBlocker
+
+    /**
+     * The message is what Tab started it with, unedited (fork-only, [isUneditedStart]): the commit template, which git
+     * refuses unchanged, or the branch's ticket [key] alone. [isTemplate] when the start has the template.
+     */
+    data class UneditedStart(val key: String?, val isTemplate: Boolean) : FinishBlocker
 }
 
 private fun StatusState.conflicts(): FinishBlocker.Conflicts? =
@@ -50,15 +56,22 @@ private fun StatusState.emptyMessage(): FinishBlocker.EmptyMessage? =
 private fun StatusState.nothingStaged(): FinishBlocker.NothingStaged? =
     FinishBlocker.NothingStaged.takeIf { !hasStagedFiles }
 
+private fun StatusState.uneditedStart(): FinishBlocker.UneditedStart? = messageStart
+    ?.takeIf { isStartUnedited }
+    ?.let { FinishBlocker.UneditedStart(it.key, isTemplate = it.template != null) }
+
 /** An interactive rebase stopped at a commit that the user can amend. */
 val StatusState.isAmenableRebaseInteractive: Boolean
     get() = repositoryState.isRebasing &&
             rebaseInteractiveState is RebaseInteractiveState.ProcessingCommits &&
             rebaseInteractiveState.isCurrentStepAmenable
 
-/** Whether Commit works outside an operation: a message, staged files, and no conflicts (a squash merge's). */
+/**
+ * Whether Commit works outside an operation: a message, staged files, and no conflicts (a squash merge's). Fork-only: not
+ * the commit template or the branch's ticket key as Tab wrote them ([StatusState.isStartUnedited]).
+ */
 val StatusState.canCommit: Boolean
-    get() = !messageLayout.isEmpty && hasStagedFiles && haveConflictsBeenSolved
+    get() = !messageLayout.isEmpty && !isStartUnedited && hasStagedFiles && haveConflictsBeenSolved
 
 /** Whether Amend works: a message, and a commit to amend. */
 val StatusState.canAmend: Boolean
@@ -75,6 +88,7 @@ val StatusState.canAmend: Boolean
  * - Rebase Continue: conflicts and unstaged changes to tracked files, as git refuses them. JGit's continue would go
  *   on with them, but a rebase behaves the same whichever of them started it.
  * - Outside an operation: Commit needs a message, staged files and no conflicts, and Amend a message and a commit.
+ *   Fork-only: Commit also refuses the commit template unedited, as git does, and the ticket key alone ([uneditedStart]).
  *
  * A message counts as empty when nothing is left of it once git cleans it up (fork-only, [emptyMessage]): blank, or only
  * comment lines.
@@ -107,7 +121,7 @@ fun StatusState.showsContinue(): Boolean = hasStagedFiles ||
 private fun StatusState.commitBlocker(): FinishBlocker? = when {
     canCommit || (isAmend && canAmend) -> null
     // From here on, neither works. Both need a message, and canCommit needs the rest.
-    else -> conflicts() ?: emptyMessage() ?: nothingStaged()
+    else -> conflicts() ?: emptyMessage() ?: uneditedStart() ?: nothingStaged()
 }
 
 /**

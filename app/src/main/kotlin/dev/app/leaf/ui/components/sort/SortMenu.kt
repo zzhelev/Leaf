@@ -65,6 +65,8 @@ sealed interface SortMenuItem {
         val isDestructive: Boolean = false,
         /** An icon in the place of the check mark, for an option that isn't checked (fork-only). */
         val icon: DrawableResource? = null,
+        /** False greys the option out, and choosing it does nothing, such as an action with nothing to act on. */
+        val isEnabled: Boolean = true,
         val onClick: () -> Unit,
     ) : SortMenuItem
 
@@ -231,7 +233,11 @@ internal fun SortMenuPopup(
                     is SortMenuItem.Title -> MenuTitle(item.text)
                     is SortMenuItem.Option -> MenuOption(
                         option = item,
-                        onClick = {
+                        onClick = onClick@{
+                            if (!item.isEnabled) {
+                                return@onClick
+                            }
+
                             item.onClick()
 
                             if (item.closesMenu) {
@@ -285,10 +291,20 @@ private fun MenuOption(
                     false
                 }
             }
-            .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onClick() }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                enabled = option.isEnabled,
+            ) { onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = if (option.hint == null) Alignment.CenterVertically else Alignment.Top,
     ) {
+        val labelColor = when {
+            !option.isEnabled -> MaterialTheme.colors.onBackground.copy(alpha = DISABLED_OPTION_ALPHA)
+            option.isDestructive -> MaterialTheme.colors.error
+            else -> MaterialTheme.colors.onBackground
+        }
+
         Box(
             modifier = Modifier
                 .padding(end = 8.dp, top = if (option.hint == null) 0.dp else 2.dp)
@@ -305,7 +321,7 @@ private fun MenuOption(
                 Icon(
                     painter = painterResource(option.icon),
                     contentDescription = null,
-                    tint = if (option.isDestructive) MaterialTheme.colors.error else MaterialTheme.colors.onBackground,
+                    tint = labelColor,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -315,7 +331,7 @@ private fun MenuOption(
             Text(
                 text = option.label,
                 style = MaterialTheme.typography.body2,
-                color = if (option.isDestructive) MaterialTheme.colors.error else MaterialTheme.colors.onBackground,
+                color = labelColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -331,6 +347,9 @@ private fun MenuOption(
         }
     }
 }
+
+/** How strong a greyed-out option's label is: Material's disabled content alpha. */
+private const val DISABLED_OPTION_ALPHA = 0.38f
 
 @Composable
 private fun MenuNote(text: String) {

@@ -44,6 +44,8 @@ import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitlintRules
 import dev.app.leaf.domain.commitmessage.ConventionalHistory
 import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.commitmessage.MessageStart
+import dev.app.leaf.domain.commitmessage.canWrapBody
 import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.domain.ignore.IgnoreRequest
@@ -294,6 +296,8 @@ fun StatusPane(
                     onToggleSignOff = { onAction(StatusAction.ToggleSignOff) },
                     conventionalHistory = statusState.conventionalHistory,
                     commitlintRules = statusState.commitlintRules,
+                    messageStart = statusState.messageStart,
+                    scopeKey = statusState.scopeKey,
                 )
             }
         }
@@ -669,6 +673,10 @@ internal fun CommitField(
     conventionalHistory: ConventionalHistory = ConventionalHistory(),
     /** The worktree's commitlint config, which narrows them (fork-only). */
     commitlintRules: CommitlintRules? = null,
+    /** What Tab writes into the empty field: the branch's ticket key and the commit template (fork-only). */
+    messageStart: MessageStart? = null,
+    /** The branch's ticket key as the first scope suggestion, where the key doesn't go in front of the subject (fork-only). */
+    scopeKey: String? = null,
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
@@ -694,9 +702,13 @@ internal fun CommitField(
     val coAuthorSuggestion = remember(commitMessage, coAuthors.candidates) {
         coAuthorSuggestion(commitMessage, coAuthors.candidates)
     }.takeIf { suggests }
-    val typeSuggestion = remember(commitMessage, conventionalHistory, messageHints.conventionalCommits, commitlintRules) {
-        commitTypeSuggestion(commitMessage, conventionalHistory, messageHints.conventionalCommits, commitlintRules)
+    val typeSuggestion = remember(commitMessage, conventionalHistory, messageHints.conventionalCommits, commitlintRules, scopeKey) {
+        commitTypeSuggestion(commitMessage, conventionalHistory, messageHints.conventionalCommits, commitlintRules, scopeKey)
     }.takeIf { suggests && coAuthorSuggestion == null }
+    // Fork-only: the branch's ticket key and the commit template, which the empty field shows and Tab writes
+    val offeredStart = messageStart.takeIf { !isReadOnlyRebase && isFieldFocused && commitMessage.text.isEmpty() }
+    // Fork-only: "Wrap body at 72 columns" is greyed out while every line fits
+    val canWrapBody = remember(commitMessage.text, messageCleanup) { canWrapBody(commitMessage.text, messageCleanup) }
     val suggestionCount = coAuthorSuggestion?.choices?.size ?: typeSuggestion?.choices?.size
     val typed = coAuthorSuggestion?.line?.value ?: typeSuggestion?.typed
     var highlighted by remember(coAuthorSuggestion?.choices, typeSuggestion?.choices, typed.isNullOrEmpty()) {
@@ -752,6 +764,7 @@ internal fun CommitField(
                 isAmend,
                 isAmendRebaseInteractive,
                 isSignOff = isSignOff,
+                canWrapBody = canWrapBody,
             ),
             onToggleAmend = {
                 if (repositoryState.isRebasing) onAmendRebaseInteractiveChecked(!isAmendRebaseInteractive) else onAmendChecked(!isAmend)
@@ -759,6 +772,7 @@ internal fun CommitField(
             subjectCount = messageLayout?.let { subjectCount(it, messageHints) },
             onAddCoAuthor = { onCoAuthorAction(CoAuthorAction.AddLine) },
             onToggleSignOff = onToggleSignOff,
+            onWrapBody = { setCommitMessage(commitMessage.withWrappedBody(messageCleanup)) },
         )
 
         Box(
@@ -792,6 +806,12 @@ internal fun CommitField(
                                 true
                             }
 
+                            // Fork-only: Tab writes the start that the empty field shows
+                            isPlainTab(keyEvent) && offeredStart != null -> {
+                                setCommitMessage(offeredStart.toFieldValue())
+                                true
+                            }
+
                             // Fork-only: Enter continues or ends a list of co-authors, as an editor's list
                             isPlainEnter(keyEvent) && commitMessage.afterCoAuthorEnter() != null -> {
                                 setCommitMessage(checkNotNull(commitMessage.afterCoAuthorEnter()))
@@ -811,6 +831,7 @@ internal fun CommitField(
                 enabled = !repositoryState.isRebasing || isAmenableRebaseInteractive,
                 cleanup = messageCleanup,
                 hints = messageHints,
+                startGhost = offeredStart?.text,
             )
 
             val suggestionsWidth = with(LocalDensity.current) { fieldWidth.toDp() }
@@ -832,6 +853,11 @@ internal fun CommitField(
                     onPick = { setCommitMessage(commitMessage.withConventionalChoice(typeSuggestion, it)) },
                 )
             }
+        }
+
+        // Fork-only: what Tab writes into the empty field
+        if (offeredStart != null) {
+            MessageStartHint(offeredStart)
         }
 
         // Fork-only: a subject that runs on into the next line, which git log would show as one

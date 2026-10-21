@@ -318,20 +318,20 @@ class CommitMessageFieldTest {
 
     @Test
     fun `the header follows the state of the repository`() {
-        // Fork-only: Add co-author wherever the field can be edited (canAddCoAuthor), not at a read-only stop
+        // Fork-only: Add co-author and Wrap body wherever the field can be edited (canAddCoAuthor), not at a read-only stop
 
         // Outside an operation: Amend is the field's own flag
         for (state in listOf(RepositoryState.SAFE, RepositoryState.BISECTING, RepositoryState.APPLY)) {
             val header = commitMessageHeader(state, isAmenableRebaseInteractive = false, isAmend = true, isAmendRebaseInteractive = false)
 
-            assertEquals(CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false)), header, "$state")
+            assertEquals(CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)), header, "$state")
             assertEquals(AmendItem(false), commitMessageHeader(state, false, isAmend = false, isAmendRebaseInteractive = true).amend, "$state")
         }
 
         // Merging: git's message, and nothing to amend
         for (state in listOf(RepositoryState.MERGING, RepositoryState.MERGING_RESOLVED)) {
             assertEquals(
-                CommitMessageHeader(isMergeMessage = true, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false)),
+                CommitMessageHeader(isMergeMessage = true, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)),
                 commitMessageHeader(state, false, isAmend = true, isAmendRebaseInteractive = true),
                 "$state",
             )
@@ -343,7 +343,7 @@ class CommitMessageFieldTest {
             RepositoryState.REVERTING, RepositoryState.REVERTING_RESOLVED,
         )) {
             assertEquals(
-                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false)),
+                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)),
                 commitMessageHeader(state, false, isAmend = true, isAmendRebaseInteractive = true),
                 "$state",
             )
@@ -360,7 +360,7 @@ class CommitMessageFieldTest {
                 "$state",
             )
             assertEquals(
-                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false)),
+                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)),
                 commitMessageHeader(state, isAmenableRebaseInteractive = true, isAmend = false, isAmendRebaseInteractive = true),
                 "$state",
             )

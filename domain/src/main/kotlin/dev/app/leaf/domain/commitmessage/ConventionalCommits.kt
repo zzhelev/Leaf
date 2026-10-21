@@ -35,6 +35,16 @@ enum class ConventionalCommitsMode {
     companion object {
         val DEFAULT = AUTOMATIC
     }
+
+    /**
+     * Whether the commit field suggests types in a repository with [history] and [rules]: always or never as the setting
+     * says, or, when automatic, where the recent subjects use them or a commitlint config is set up.
+     */
+    fun suggestsIn(history: ConventionalHistory, rules: CommitlintRules?): Boolean = when (this) {
+        OFF -> false
+        ALWAYS -> true
+        AUTOMATIC -> history.usesConventionalCommits || rules != null
+    }
 }
 
 /**
@@ -87,8 +97,11 @@ fun conventionalHistory(commits: Iterable<Commit>): ConventionalHistory {
     return ConventionalHistory(typeUses, scopeUses, conventional, sampled)
 }
 
-/** A type or a scope to suggest, with how often the history used it. */
-data class ConventionalChoice(val name: String, val uses: Int)
+/**
+ * A type or a scope to suggest, with how often the history used it. [isFromBranch] for the ticket key of the branch's
+ * name, which comes first among the scopes.
+ */
+data class ConventionalChoice(val name: String, val uses: Int, val isFromBranch: Boolean = false)
 
 /** What the caret is typing at the start of the subject, which the suggestions complete from the text's start to [end]. */
 sealed interface ConventionalQuery {
@@ -153,13 +166,15 @@ fun commitTypeChoices(
 /**
  * The scopes to suggest for [type] and what was [typed]: those the history used with that type, the most used first, or
  * the history's scopes of any type when it used none with this one, and those a commitlint config allows. Those that
- * start with [typed], ignoring case, and that [rules] allow.
+ * start with [typed], ignoring case, and that [rules] allow. Fork-only: the ticket key of the branch's name
+ * ([branchKey], [ticketKeyIn]) comes first.
  */
 fun commitScopeChoices(
     type: String,
     typed: String,
     history: ConventionalHistory,
     rules: CommitlintRules? = null,
+    branchKey: String? = null,
 ): List<ConventionalChoice> {
     val uses = history.scopeUses[type]?.takeIf { it.isNotEmpty() }
         ?: history.scopeUses.values.fold(HashMap<String, Int>()) { all, scopes ->
@@ -167,12 +182,16 @@ fun commitScopeChoices(
             all
         }
     val listed = rules?.scopes?.takeIf { it.allows }?.values.orEmpty()
-    val names = (uses.keys + listed).distinct()
+    val names = (uses.keys + listed + listOfNotNull(branchKey)).distinct()
 
     return names
         .filter { it.startsWith(typed, ignoreCase = true) && (rules == null || rules.allowsScope(it)) }
-        .map { ConventionalChoice(it, uses[it] ?: 0) }
-        .sortedWith(compareByDescending<ConventionalChoice> { it.uses }.thenBy { it.name })
+        .map { ConventionalChoice(it, uses[it] ?: 0, isFromBranch = it == branchKey) }
+        .sortedWith(
+            compareByDescending<ConventionalChoice> { it.isFromBranch }
+                .thenByDescending { it.uses }
+                .thenBy { it.name }
+        )
 }
 
 /**

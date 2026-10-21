@@ -70,7 +70,7 @@ class CoAuthorSuggestionsTest {
     // --- The menu
 
     @Test
-    fun `the menu has Add Signed-off-by and Add co-author wherever the field can be edited, after Amend`() {
+    fun `the menu has Add Signed-off-by, Add co-author and Wrap wherever the field can be edited, after Amend`() {
         fun labels(state: RepositoryState, isAmenableRebase: Boolean = false): List<String> =
             commitMessageMenuItems(
                 commitMessageHeader(state, isAmenableRebase, isAmend = false, isAmendRebaseInteractive = false),
@@ -79,14 +79,15 @@ class CoAuthorSuggestionsTest {
                 onToggleAmend = {},
                 onAddCoAuthor = {},
                 signOffLabel = "Add Signed-off-by",
+                wrapBodyLabel = "Wrap",
             ).map { item -> (item as? SortMenuItem.Option)?.label ?: "—" }
 
-        assertEquals(listOf("Amend last commit", "Add Signed-off-by", "—", "Add co-author"), labels(RepositoryState.SAFE))
-        assertEquals(listOf("Add Signed-off-by", "—", "Add co-author"), labels(RepositoryState.MERGING))
-        assertEquals(listOf("Add Signed-off-by", "—", "Add co-author"), labels(RepositoryState.CHERRY_PICKING))
-        assertEquals(listOf("Add Signed-off-by", "—", "Add co-author"), labels(RepositoryState.REVERTING))
+        assertEquals(listOf("Amend last commit", "Add Signed-off-by", "—", "Add co-author", "Wrap"), labels(RepositoryState.SAFE))
+        assertEquals(listOf("Add Signed-off-by", "—", "Add co-author", "Wrap"), labels(RepositoryState.MERGING))
+        assertEquals(listOf("Add Signed-off-by", "—", "Add co-author", "Wrap"), labels(RepositoryState.CHERRY_PICKING))
+        assertEquals(listOf("Add Signed-off-by", "—", "Add co-author", "Wrap"), labels(RepositoryState.REVERTING))
         assertEquals(
-            listOf("Amend last commit", "Add Signed-off-by", "—", "Add co-author"),
+            listOf("Amend last commit", "Add Signed-off-by", "—", "Add co-author", "Wrap"),
             labels(RepositoryState.REBASING_INTERACTIVE, isAmenableRebase = true),
         )
         assertEquals(emptyList<String>(), labels(RepositoryState.REBASING_INTERACTIVE), "A read-only field")
@@ -136,7 +137,7 @@ class CoAuthorSuggestionsTest {
             coAuthorLabel = "Add co-author",
             onToggleAmend = {},
             onAddCoAuthor = { added++ },
-        ).last() as SortMenuItem.Option
+        ).filterIsInstance<SortMenuItem.Option>().single { it.label == "Add co-author" }
 
         item.onClick()
 

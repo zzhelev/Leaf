@@ -62,4 +62,10 @@ private fun FinishBlocker.text(): String = when (this) {
     } else {
         stringResource(Res.string.finish_hint_empty_message)
     }
+
+    is FinishBlocker.UneditedStart -> if (isTemplate || key == null) {
+        stringResource(Res.string.finish_hint_unedited_template)
+    } else {
+        stringResource(Res.string.finish_hint_key_only, key)
+    }
 }

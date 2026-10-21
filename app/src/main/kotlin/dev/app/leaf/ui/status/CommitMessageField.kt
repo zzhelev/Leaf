@@ -62,13 +62,18 @@ import dev.app.leaf.app.generated.resources.uncommited_changes_message_read_only
 import dev.app.leaf.app.generated.resources.uncommited_changes_message_title
 import dev.app.leaf.app.generated.resources.uncommited_changes_message_title_merge
 import dev.app.leaf.app.generated.resources.uncommited_changes_text_input_label_message
+import dev.app.leaf.app.generated.resources.commit_message_wrap_body
+import dev.app.leaf.app.generated.resources.commit_message_wrap_body_nothing
+import dev.app.leaf.domain.commitmessage.BODY_WRAP_COLUMN
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitMessageLayout
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.SUBJECT_LIMIT
 import dev.app.leaf.domain.commitmessage.SUBJECT_SOFT_LIMIT
 import dev.app.leaf.domain.commitmessage.commitMessageLayout
+import dev.app.leaf.domain.commitmessage.offsetAfterWrap
 import dev.app.leaf.domain.commitmessage.withBlankLineAfterSubject
+import dev.app.leaf.domain.commitmessage.wrapBody
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.STATUS_COMMIT_TITLE_HEIGHT
 import dev.app.leaf.theme.conflictFile
@@ -97,6 +102,7 @@ internal const val COMMIT_MESSAGE_PLACEHOLDER_ALPHA = 0.6f
  * @property canAddCoAuthor the menu has "Add co-author" (fork-only): wherever the field can be edited
  * @property signOff the menu's "Add Signed-off-by" (fork-only), the repository's sign-off setting, wherever the field can
  * be edited
+ * @property wrapBody the menu's "Wrap body at 72 columns" (fork-only), wherever the field can be edited
  */
 internal data class CommitMessageHeader(
     val isMergeMessage: Boolean,
@@ -104,10 +110,14 @@ internal data class CommitMessageHeader(
     val amend: AmendItem?,
     val canAddCoAuthor: Boolean = false,
     val signOff: SignOffItem? = null,
+    val wrapBody: WrapBodyItem? = null,
 ) {
     /** The row has its "⋯" menu. */
-    val hasMenu: Boolean get() = amend != null || signOff != null || canAddCoAuthor
+    val hasMenu: Boolean get() = amend != null || signOff != null || canAddCoAuthor || wrapBody != null
 }
+
+/** The row's "Wrap body at 72 columns" item (fork-only), greyed out while every line of the body fits. */
+internal data class WrapBodyItem(val canWrap: Boolean)
 
 /** The row's "Add Signed-off-by" item (fork-only), [isOn] when Leaf adds `Signed-off-by` as it commits. */
 internal data class SignOffItem(val isOn: Boolean)
@@ -121,18 +131,24 @@ internal fun commitMessageHeader(
     isAmend: Boolean,
     isAmendRebaseInteractive: Boolean,
     isSignOff: Boolean = false,
-) = CommitMessageHeader(
-    isMergeMessage = repositoryState.isMerging,
-    isReadOnly = repositoryState.isRebasing && !isAmenableRebaseInteractive,
-    amend = when {
-        // A rebase has its own switch, which only an interactive rebase's amendable stops use
-        repositoryState.isRebasing -> AmendItem(isAmendRebaseInteractive).takeIf { isAmenableRebaseInteractive }
-        repositoryState.isMerging || repositoryState.isCherryPicking || repositoryState.isReverting -> null
-        else -> AmendItem(isAmend)
-    },
-    canAddCoAuthor = !(repositoryState.isRebasing && !isAmenableRebaseInteractive),
-    signOff = SignOffItem(isSignOff).takeUnless { repositoryState.isRebasing && !isAmenableRebaseInteractive },
-)
+    canWrapBody: Boolean = false,
+): CommitMessageHeader {
+    val isReadOnly = repositoryState.isRebasing && !isAmenableRebaseInteractive
+
+    return CommitMessageHeader(
+        isMergeMessage = repositoryState.isMerging,
+        isReadOnly = isReadOnly,
+        amend = when {
+            // A rebase has its own switch, which only an interactive rebase's amendable stops use
+            repositoryState.isRebasing -> AmendItem(isAmendRebaseInteractive).takeIf { isAmenableRebaseInteractive }
+            repositoryState.isMerging || repositoryState.isCherryPicking || repositoryState.isReverting -> null
+            else -> AmendItem(isAmend)
+        },
+        canAddCoAuthor = !isReadOnly,
+        signOff = SignOffItem(isSignOff).takeUnless { isReadOnly },
+        wrapBody = WrapBodyItem(canWrapBody).takeUnless { isReadOnly },
+    )
+}
 
 /**
  * The title row above the commit message, laid out as the Staged and Unstaged headers are ([FilesChangedHeader]):
@@ -150,6 +166,8 @@ internal fun CommitMessageTitle(
     onAddCoAuthor: () -> Unit = {},
     /** The menu's "Add Signed-off-by" (fork-only). */
     onToggleSignOff: () -> Unit = {},
+    /** The menu's "Wrap body at 72 columns" (fork-only). */
+    onWrapBody: () -> Unit = {},
 ) {
     val title = if (header.isMergeMessage) {
         stringResource(Res.string.uncommited_changes_message_title_merge)
@@ -231,6 +249,9 @@ internal fun CommitMessageTitle(
                     onAddCoAuthor = onAddCoAuthor,
                     signOffLabel = stringResource(Res.string.commit_message_sign_off_menu_item),
                     onToggleSignOff = onToggleSignOff,
+                    wrapBodyLabel = stringResource(Res.string.commit_message_wrap_body, BODY_WRAP_COLUMN),
+                    wrapBodyHint = stringResource(Res.string.commit_message_wrap_body_nothing),
+                    onWrapBody = onWrapBody,
                 ),
                 tooltip = stringResource(Res.string.status_header_more_actions),
             )
@@ -240,7 +261,8 @@ internal fun CommitMessageTitle(
 
 /**
  * The row's menu: the switches, "Amend last commit" where there is something to amend and "Add Signed-off-by"
- * (fork-only), then "Add co-author" (fork-only), where the field can be edited, with a divider between them.
+ * (fork-only), then the actions, "Add co-author" and "Wrap body at 72 columns" (fork-only), where the field can be
+ * edited, with a divider between them. Wrap is greyed out, saying why, while every line fits.
  */
 internal fun commitMessageMenuItems(
     header: CommitMessageHeader,
@@ -250,6 +272,9 @@ internal fun commitMessageMenuItems(
     onAddCoAuthor: () -> Unit,
     signOffLabel: String = "",
     onToggleSignOff: () -> Unit = {},
+    wrapBodyLabel: String = "",
+    wrapBodyHint: String = "",
+    onWrapBody: () -> Unit = {},
 ): List<SortMenuItem> = buildList {
     header.amend?.let { addAll(amendMenuItems(it, amendLabel, onToggleAmend)) }
 
@@ -269,6 +294,23 @@ internal fun commitMessageMenuItems(
                 closesMenu = true,
                 icon = Res.drawable.person,
                 onClick = onAddCoAuthor,
+            )
+        )
+    }
+
+    header.wrapBody?.let { wrapBody ->
+        if (isNotEmpty() && !header.canAddCoAuthor) {
+            add(SortMenuItem.Divider)
+        }
+
+        add(
+            SortMenuItem.Option(
+                label = wrapBodyLabel,
+                isChecked = false,
+                hint = wrapBodyHint.takeUnless { wrapBody.canWrap },
+                closesMenu = true,
+                isEnabled = wrapBody.canWrap,
+                onClick = onWrapBody,
             )
         )
     }
@@ -298,6 +340,8 @@ internal fun CommitMessageTextField(
     cleanup: MessageCleanup = MessageCleanup.DEFAULT,
     /** The subject's tint past [SUBJECT_LIMIT] and the ruler, as the settings say (fork-only). */
     hints: CommitMessageHints = CommitMessageHints(),
+    /** What Tab writes into the empty field, shown in place of its hint (fork-only, [MessageStart]). */
+    startGhost: String? = null,
 ) {
     val ruler = hints.ruler
     // Fork-only: a ruler counts columns, which only a monospace font lines up with
@@ -323,7 +367,7 @@ internal fun CommitMessageTextField(
         placeholder = if (enabled) {
             {
                 Text(
-                    text = stringResource(Res.string.uncommited_changes_text_input_label_message),
+                    text = startGhost ?: stringResource(Res.string.uncommited_changes_text_input_label_message),
                     style = textStyle,
                     // The typography has a color of its own, which the field's placeholder color wouldn't override
                     color = MaterialTheme.colors.onBackground.copy(alpha = COMMIT_MESSAGE_PLACEHOLDER_ALPHA),
@@ -503,6 +547,22 @@ internal fun SubjectRunsOnHint(onInsertBlankLine: () -> Unit, modifier: Modifier
 }
 
 internal const val INSERT_BLANK_LINE_TAG = "insertBlankLine"
+
+/**
+ * [value] with its body wrapped at [BODY_WRAP_COLUMN] ([wrapBody]), the selection kept before the same characters
+ * (fork-only), as wrapping only changes white space.
+ */
+internal fun TextFieldValue.withWrappedBody(cleanup: MessageCleanup): TextFieldValue {
+    val wrapped = wrapBody(text, cleanup)
+
+    return TextFieldValue(
+        text = wrapped,
+        selection = TextRange(
+            offsetAfterWrap(text, wrapped, selection.start),
+            offsetAfterWrap(text, wrapped, selection.end),
+        ),
+    )
+}
 
 /**
  * [value] with a blank line after its subject ([withBlankLineAfterSubject]), the selection moved with the text after it

@@ -59,28 +59,23 @@ internal data class CommitTypeSuggestion(
  * What the field suggests for [value], or null: not while [mode] is off, nor with [ConventionalCommitsMode.AUTOMATIC] in
  * a repository whose recent subjects don't use the format ([ConventionalHistory.usesConventionalCommits]) and that has
  * no commitlint config ([rules]); not where the caret isn't typing a type or a scope; not when nothing matches. [rules]
- * leave out what the config doesn't allow.
+ * leave out what the config doesn't allow. The ticket key of the branch's name ([branchKey]) is the first scope.
  */
 internal fun commitTypeSuggestion(
     value: TextFieldValue,
     history: ConventionalHistory,
     mode: ConventionalCommitsMode,
     rules: CommitlintRules? = null,
+    branchKey: String? = null,
 ): CommitTypeSuggestion? {
-    val suggests = when (mode) {
-        ConventionalCommitsMode.OFF -> false
-        ConventionalCommitsMode.ALWAYS -> true
-        ConventionalCommitsMode.AUTOMATIC -> history.usesConventionalCommits || rules != null
-    }
-
-    if (!suggests || !value.selection.collapsed) {
+    if (!mode.suggestsIn(history, rules) || !value.selection.collapsed) {
         return null
     }
 
     val query = conventionalQueryAt(value.text, value.selection.end) ?: return null
     val choices = when (query) {
         is ConventionalQuery.Type -> commitTypeChoices(query.typed, history, rules)
-        is ConventionalQuery.Scope -> commitScopeChoices(query.type, query.typed, history, rules)
+        is ConventionalQuery.Scope -> commitScopeChoices(query.type, query.typed, history, rules, branchKey)
     }
 
     return if (choices.isEmpty()) {
@@ -173,7 +168,11 @@ internal fun CommitTypeSuggestionsList(
 @Composable
 private fun RowScope.CommitTypeRowContent(choice: ConventionalChoice, typed: String, isType: Boolean) {
     val matchStyle = SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colors.primaryVariant)
-    val description = if (isType) commitTypeDescription(choice.name) else null
+    val description = when {
+        isType -> commitTypeDescription(choice.name)
+        choice.isFromBranch -> stringResource(Res.string.commit_type_suggestions_from_branch)
+        else -> null
+    }
 
     Text(
         text = withMatch(choice.name, typed, matchStyle),

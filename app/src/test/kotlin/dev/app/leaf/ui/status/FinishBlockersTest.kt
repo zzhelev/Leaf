@@ -448,6 +448,8 @@ class FinishBlockersTest {
                     assertFalse(state.hasMessage())
                     assertEquals(state.commitMessage.text.isNotBlank(), blocker.commentsOnly)
                 }
+
+                is FinishBlocker.UneditedStart -> assertTrue(state.isStartUnedited)
             }
 
             // The hint is the blocker or nothing, never another reason

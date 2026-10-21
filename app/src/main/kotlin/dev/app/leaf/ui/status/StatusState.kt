@@ -9,7 +9,10 @@ import dev.app.leaf.domain.commitmessage.CommitMessageLayout
 import dev.app.leaf.domain.commitmessage.CommitlintRules
 import dev.app.leaf.domain.commitmessage.ConventionalHistory
 import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.commitmessage.MessageStart
 import dev.app.leaf.domain.commitmessage.commitMessageLayout
+import dev.app.leaf.domain.commitmessage.isUneditedStart
+import dev.app.leaf.domain.commitmessage.messageStart
 import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.sorting.CollapsedFolders
@@ -77,9 +80,32 @@ data class StatusState(
     val conventionalHistory: ConventionalHistory = ConventionalHistory(),
     /** The worktree's commitlint config, which narrows those suggestions, or null (fork-only). */
     val commitlintRules: CommitlintRules? = null,
+    /** The branch's ticket key and git's commit template, which an empty field offers to start from (fork-only). */
+    val messageStartInputs: MessageStartInputs = MessageStartInputs(),
 ) {
     /** What the commit field shows about its message, as git will commit it (fork-only). */
     val messageLayout: CommitMessageLayout = commitMessageLayout(commitMessage.text, messageCleanup)
+
+    /**
+     * What an empty field offers, which Tab writes (fork-only): only for a plain commit, the one that git starts from its
+     * template, not an amend or the message of a merge, a cherry-pick, a revert, a rebase or a squash merge. The key goes
+     * in front of the subject unless the field suggests Conventional Commits types here, where it is the first scope.
+     */
+    val messageStart: MessageStart? = messageStartInputs.takeIf {
+        !isAmend && commitMessageSource(repositoryState, isSquashMergeInProgress) == CommitMessageSource.NORMAL
+    }?.let { inputs ->
+        val subjectKey = inputs.key.takeUnless {
+            messageHints.conventionalCommits.suggestsIn(conventionalHistory, commitlintRules)
+        }
+
+        messageStart(subjectKey, subjectKey?.let(inputs.keyStyle::prefix), inputs.template, messageCleanup)
+    }
+
+    /** The message is [messageStart] as Tab wrote it, which Commit refuses (fork-only, [isUneditedStart]). */
+    val isStartUnedited: Boolean = isUneditedStart(commitMessage.text, messageStart, messageCleanup)
+
+    /** The ticket key that the Conventional Commits suggestions offer as the first scope, or null (fork-only). */
+    val scopeKey: String? = messageStartInputs.key.takeIf { messageStart?.key == null }
 
     val hasPreviousCommits: Boolean = previousCommitMessage != null
 
@@ -173,6 +199,7 @@ fun combineStatusState(
     isSignOff: Flow<Boolean> = flowOf(false),
     conventionalHistory: Flow<ConventionalHistory> = flowOf(ConventionalHistory()),
     commitlintRules: Flow<CommitlintRules?> = flowOf(null),
+    messageStartInputs: Flow<MessageStartInputs> = flowOf(MessageStartInputs()),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -243,6 +270,7 @@ fun combineStatusState(
         isSignOff,
         conventionalHistory,
         commitlintRules,
+        messageStartInputs,
     ) {
             lists,
             swapUncommittedChanges,
@@ -265,6 +293,7 @@ fun combineStatusState(
             isSignOff,
             conventionalHistory,
             commitlintRules,
+            messageStartInputs,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -300,6 +329,7 @@ fun combineStatusState(
             isSignOff = isSignOff,
             conventionalHistory = conventionalHistory,
             commitlintRules = commitlintRules,
+            messageStartInputs = messageStartInputs,
         )
     }
 }

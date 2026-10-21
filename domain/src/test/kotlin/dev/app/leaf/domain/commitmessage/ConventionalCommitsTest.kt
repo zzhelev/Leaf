@@ -148,6 +148,36 @@ class ConventionalCommitsTest {
         )
     }
 
+    @Test
+    fun `the branch's ticket key is the first scope, if the typing and the config allow it`() {
+        val history = history("feat(clone): a", "feat(clone): b", "feat(log): c")
+
+        val choices = commitScopeChoices("feat", "", history, branchKey = "PROJ-1")
+        assertEquals(listOf("PROJ-1", "clone", "log"), choices.map { it.name })
+        assertEquals(listOf(true, false, false), choices.map { it.isFromBranch })
+
+        assertEquals(listOf("clone"), commitScopeChoices("feat", "c", history, branchKey = "PROJ-1").map { it.name })
+        assertEquals(
+            listOf("ui"),
+            commitScopeChoices(
+                "feat", "", history, CommitlintRules("x", scopes = EnumRule(setOf("ui"), allows = true)), "PROJ-1",
+            ).map { it.name },
+        )
+    }
+
+    @Test
+    fun `when the field suggests types, as the setting says`() {
+        val conventional = history("feat: a", "fix: b")
+        val plain = history("Add a", "Fix b")
+        val config = CommitlintRules("commitlint.config.js")
+
+        assertTrue(ConventionalCommitsMode.AUTOMATIC.suggestsIn(conventional, null))
+        assertFalse(ConventionalCommitsMode.AUTOMATIC.suggestsIn(plain, null))
+        assertTrue(ConventionalCommitsMode.AUTOMATIC.suggestsIn(plain, config))
+        assertTrue(ConventionalCommitsMode.ALWAYS.suggestsIn(plain, null))
+        assertFalse(ConventionalCommitsMode.OFF.suggestsIn(conventional, config))
+    }
+
     // --- Completing
 
     @Test

@@ -9,6 +9,8 @@ import dev.app.leaf.domain.commitmessage.CoAuthor
 import dev.app.leaf.domain.commitmessage.CommitlintRules
 import dev.app.leaf.domain.commitmessage.ConventionalHistory
 import dev.app.leaf.domain.commitmessage.conventionalHistory
+import dev.app.leaf.domain.commitmessage.ticketKeyIn
+import dev.app.leaf.domain.commitmessage.ticketKeyStyle
 import dev.app.leaf.domain.commitmessage.MARKED_CO_AUTHOR_TRAILER
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.SignOffChanges
@@ -79,6 +81,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val saveSignOffConfigUseCase: SaveSignOffConfigUseCase,
     private val signOffChanges: SignOffChanges,
     private val getCommitlintRulesUseCase: GetCommitlintRulesUseCase,
+    private val getCommitTemplateUseCase: GetCommitTemplateUseCase,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -342,6 +345,28 @@ class StatusViewModelExtender @AssistedInject constructor(
         .mapLatest { getCommitlintRulesUseCase() }
         .stateIn(null)
 
+    /**
+     * Fork-only: what an empty commit field offers to start from. The ticket key in the current branch's name, written
+     * as the newest subjects write theirs (worked out off the UI thread when the log changes), and git's commit
+     * template, read again with each status, as the config or the file may have changed.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val messageStartInputs: Flow<MessageStartInputs> = combine(
+        repositoryDataRepository.currentBranch
+            .map { branch -> branch.dataOrNull()?.name?.let(::ticketKeyIn) }
+            .distinctUntilChanged(),
+        repositoryDataRepository.log
+            .map { log -> ticketKeyStyle(log.dataOrNull()?.values?.map { it.commit }.orEmpty()) }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.Default),
+        repositoryDataRepository.status
+            .filter { it !is DataState.Loading }
+            .mapLatest { getCommitTemplateUseCase() }
+            .distinctUntilChanged(),
+    ) { key, keyStyle, template ->
+        MessageStartInputs(key, keyStyle, template)
+    }.onStart { emit(MessageStartInputs()) }
+
     /** Fork-only: the line that "Add co-author" added, while leaving it untouched takes it out again. */
     private val coAuthorInsertion = MutableStateFlow<CoAuthorInsertion?>(null)
     private val coAuthorDismissals = MutableStateFlow(0)
@@ -393,6 +418,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         isSignOff,
         conventionalHistory,
         commitlintRules,
+        messageStartInputs,
     )
         .stateIn(StatusState())
 
