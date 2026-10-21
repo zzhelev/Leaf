@@ -580,6 +580,10 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
+    fun bindsGetCommitlintRulesGitAction(action: GetCommitlintRulesGitAction): IGetCommitlintRulesGitAction
+
+    @Binds
+    @TabScope
     fun bindsGetCommitMessageCleanupGitAction(
         action: GetCommitMessageCleanupGitAction,
     ): IGetCommitMessageCleanupGitAction

@@ -58,6 +58,11 @@ sealed interface AppConfig {
     /** Whether the commit field counts a long subject and tints what goes past 72 characters (fork-only). */
     data class CommitSubjectLengthHint(val value: Boolean) : AppConfig
 
+    /** When the commit field suggests Conventional Commits types and scopes (fork-only). */
+    data class ConventionalCommitsSuggestions(
+        val value: dev.app.leaf.domain.commitmessage.ConventionalCommitsMode,
+    ) : AppConfig
+
     /** The column of the commit field's ruler, 0 for none (fork-only). See [dev.app.leaf.domain.commitmessage.CommitMessageRuler]. */
     data class CommitMessageRuler(val column: Int) : AppConfig
 

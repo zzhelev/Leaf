@@ -11,6 +11,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.AvatarProviderMapper
 import dev.app.leaf.data.repositories.configuration.mappers.LinesHeightMapper
 import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapper
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
+import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
@@ -74,6 +75,7 @@ private val conflictResolverLayoutPreference get() = stringPreferencesKey("confl
 private val conflictResolverWrapLinesPreference get() = booleanPreferencesKey("conflict_resolver_wrap_lines")
 private val diffWrapLinesPreference get() = booleanPreferencesKey("diff_wrap_lines")
 private val commitSubjectLengthHintPreference get() = booleanPreferencesKey("commit_subject_length_hint")
+private val conventionalCommitsSuggestionsPreference get() = stringPreferencesKey("conventional_commits_suggestions")
 private val commitMessageRulerPreference get() = intPreferencesKey("commit_message_ruler")
 
 private val diffWhitespacePreference get() = stringPreferencesKey("diff_whitespace")
@@ -163,6 +165,12 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val commitSubjectLengthHint get() = preferences.data[commitSubjectLengthHintPreference]
     override val commitMessageRuler get() = preferences.data[commitMessageRulerPreference]
 
+    /** Stored as the value's name in lower case, as [conflictOpener] is. An unknown value reads as no choice. */
+    override val conventionalCommitsSuggestions
+        get() = preferences.data[conventionalCommitsSuggestionsPreference].map { stored ->
+            ConventionalCommitsMode.entries.firstOrNull { it.name.lowercase() == stored }
+        }
+
     /** Stored as the mode's name in lower case. A name that this version doesn't know reads as the default. */
     override val diffWhitespace
         get() = preferences.data[diffWhitespacePreference].map { stored ->
@@ -197,6 +205,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.DiffWrapLines -> setValue(diffWrapLinesPreference, appConfig.value)
                 is AppConfig.CommitSubjectLengthHint -> setValue(commitSubjectLengthHintPreference, appConfig.value)
                 is AppConfig.CommitMessageRuler -> setValue(commitMessageRulerPreference, appConfig.column)
+                is AppConfig.ConventionalCommitsSuggestions ->
+                    setValue(conventionalCommitsSuggestionsPreference, appConfig.value.name.lowercase())
                 is AppConfig.DiffWhitespace -> setValue(diffWhitespacePreference, appConfig.value.name.lowercase())
                 is AppConfig.DiffShowWhitespace -> setValue(diffShowWhitespacePreference, appConfig.value)
                 is AppConfig.DateFormatCustomFormat -> setValue(dateFormatCustomFormatPreference, appConfig.value)

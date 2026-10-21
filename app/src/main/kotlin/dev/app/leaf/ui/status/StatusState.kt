@@ -6,6 +6,8 @@ import dev.app.leaf.common.flows.combine
 import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitMessageLayout
+import dev.app.leaf.domain.commitmessage.CommitlintRules
+import dev.app.leaf.domain.commitmessage.ConventionalHistory
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.extensions.lowercaseContains
@@ -71,6 +73,10 @@ data class StatusState(
     val coAuthors: CoAuthorState = CoAuthorState(),
     /** Whether Leaf adds `Signed-off-by` when committing: the repository's sign-off setting (fork-only). */
     val isSignOff: Boolean = false,
+    /** The Conventional Commits types and scopes of the loaded history, for the commit field's suggestions (fork-only). */
+    val conventionalHistory: ConventionalHistory = ConventionalHistory(),
+    /** The worktree's commitlint config, which narrows those suggestions, or null (fork-only). */
+    val commitlintRules: CommitlintRules? = null,
 ) {
     /** What the commit field shows about its message, as git will commit it (fork-only). */
     val messageLayout: CommitMessageLayout = commitMessageLayout(commitMessage.text, messageCleanup)
@@ -165,6 +171,8 @@ fun combineStatusState(
     messageHints: Flow<CommitMessageHints> = flowOf(CommitMessageHints()),
     coAuthors: Flow<CoAuthorState> = flowOf(CoAuthorState()),
     isSignOff: Flow<Boolean> = flowOf(false),
+    conventionalHistory: Flow<ConventionalHistory> = flowOf(ConventionalHistory()),
+    commitlintRules: Flow<CommitlintRules?> = flowOf(null),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -233,6 +241,8 @@ fun combineStatusState(
         messageHints,
         coAuthors,
         isSignOff,
+        conventionalHistory,
+        commitlintRules,
     ) {
             lists,
             swapUncommittedChanges,
@@ -253,6 +263,8 @@ fun combineStatusState(
             messageHints,
             coAuthors,
             isSignOff,
+            conventionalHistory,
+            commitlintRules,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -286,6 +298,8 @@ fun combineStatusState(
             messageHints = messageHints,
             coAuthors = coAuthors,
             isSignOff = isSignOff,
+            conventionalHistory = conventionalHistory,
+            commitlintRules = commitlintRules,
         )
     }
 }

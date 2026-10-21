@@ -9,5 +9,5 @@ enum class CloseableView {
     STAGED_CHANGES_SEARCH,
     UNSTAGED_CHANGES_SEARCH,
     WORKTREE_REVIEW, // Fork-only
-    CO_AUTHOR_SUGGESTIONS, // Fork-only
+    COMMIT_FIELD_SUGGESTIONS, // Fork-only
 }

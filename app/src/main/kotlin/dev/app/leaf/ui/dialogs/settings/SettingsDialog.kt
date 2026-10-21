@@ -29,6 +29,7 @@ import dev.app.leaf.domain.models.Error
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.commitmessage.CommitMessageRuler
+import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
@@ -321,11 +322,11 @@ private fun Commits(settingsViewState: SettingsViewState, onAction: (SettingsAct
     SettingToggle(
         title = stringResource(Res.string.settings_commits_subject_length_title),
         subtitle = stringResource(Res.string.settings_commits_subject_length_subtitle),
-        value = settingsViewState.commitSubjectLengthHint,
+        value = settingsViewState.commitMessageHints.subjectLength,
         onValueChanged = { value -> onAction(SettingsAction.SetConfig(AppConfig.CommitSubjectLengthHint(value))) },
     )
 
-    val ruler = settingsViewState.commitMessageRuler
+    val ruler = settingsViewState.commitMessageHints.rulerColumn
 
     SettingDropDown(
         title = stringResource(Res.string.settings_commits_ruler_title),
@@ -337,6 +338,25 @@ private fun Commits(settingsViewState: SettingsViewState, onAction: (SettingsAct
         onOptionSelected = { option -> onAction(SettingsAction.SetConfig(AppConfig.CommitMessageRuler(option.value))) },
         currentOption = ruler,
     )
+
+    SettingDropDown(
+        title = stringResource(Res.string.settings_commits_conventional_title),
+        subtitle = stringResource(Res.string.settings_commits_conventional_subtitle),
+        dropDownOptions = ConventionalCommitsMode.entries.map { mode ->
+            DropDownOption(mode, conventionalCommitsModeName(mode))
+        },
+        onOptionSelected = { option ->
+            onAction(SettingsAction.SetConfig(AppConfig.ConventionalCommitsSuggestions(option.value)))
+        },
+        currentOption = settingsViewState.commitMessageHints.conventionalCommits,
+    )
+}
+
+@Composable
+private fun conventionalCommitsModeName(mode: ConventionalCommitsMode): String = when (mode) {
+    ConventionalCommitsMode.AUTOMATIC -> stringResource(Res.string.settings_commits_conventional_automatic)
+    ConventionalCommitsMode.ALWAYS -> stringResource(Res.string.settings_commits_conventional_always)
+    ConventionalCommitsMode.OFF -> stringResource(Res.string.settings_commits_conventional_off)
 }
 
 @Composable

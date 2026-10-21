@@ -323,26 +323,26 @@ class CoAuthorSuggestionsTest {
     @OptIn(InternalComposeUiApi::class, ExperimentalComposeUiApi::class)
     fun `keys with a modifier, and other keys, stay with the field`() {
         fun key(key: Key, meta: Boolean = false, ctrl: Boolean = false, shift: Boolean = false) =
-            coAuthorKey(
+            suggestionKey(
                 KeyEvent(key = key, type = KeyEventType.KeyDown, isMetaPressed = meta, isCtrlPressed = ctrl, isShiftPressed = shift),
                 highlighted = 0,
                 count = 3,
             )
 
-        assertEquals(CoAuthorKey.Pick(0), key(Key.Enter))
+        assertEquals(SuggestionKey.Pick(0), key(Key.Enter))
         assertNull(key(Key.Enter, meta = true), "Cmd+Enter commits")
         assertNull(key(Key.Enter, ctrl = true), "Ctrl+Enter commits")
         assertNull(key(Key.Enter, shift = true))
         assertNull(key(Key.A))
-        assertNull(coAuthorKey(KeyEvent(key = Key.Enter, type = KeyEventType.KeyUp), 0, 3))
-        assertEquals(CoAuthorKey.Highlight(1), key(Key.DirectionDown))
+        assertNull(suggestionKey(KeyEvent(key = Key.Enter, type = KeyEventType.KeyUp), 0, 3))
+        assertEquals(SuggestionKey.Highlight(1), key(Key.DirectionDown))
 
         // Nothing highlighted: Enter stays with the field, which ends the list, and Tab takes the first
-        fun none(key: Key) = coAuthorKey(KeyEvent(key = key, type = KeyEventType.KeyDown), highlighted = -1, count = 3)
+        fun none(key: Key) = suggestionKey(KeyEvent(key = key, type = KeyEventType.KeyDown), highlighted = -1, count = 3)
         assertNull(none(Key.Enter))
-        assertEquals(CoAuthorKey.Pick(0), none(Key.Tab))
-        assertEquals(CoAuthorKey.Highlight(0), none(Key.DirectionDown))
-        assertEquals(CoAuthorKey.Highlight(0), none(Key.DirectionUp))
+        assertEquals(SuggestionKey.Pick(0), none(Key.Tab))
+        assertEquals(SuggestionKey.Highlight(0), none(Key.DirectionDown))
+        assertEquals(SuggestionKey.Highlight(0), none(Key.DirectionUp))
     }
 
     /** [CommitField] with [message], the caret at [caret], and [PEOPLE] to suggest. */

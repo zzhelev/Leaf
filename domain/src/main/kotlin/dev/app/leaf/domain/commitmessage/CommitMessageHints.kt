@@ -8,10 +8,12 @@ package dev.app.leaf.domain.commitmessage
  *
  * @property subjectLength the subject's count past [SUBJECT_SOFT_LIMIT] characters, and its tint past [SUBJECT_LIMIT]
  * @property rulerColumn the column of the ruler, which also sets the field in a monospace font, or 0 for none
+ * @property conventionalCommits when the field suggests Conventional Commits types and scopes
  */
 data class CommitMessageHints(
     val subjectLength: Boolean = true,
     val rulerColumn: Int = CommitMessageRuler.DEFAULT_COLUMN,
+    val conventionalCommits: ConventionalCommitsMode = ConventionalCommitsMode.DEFAULT,
 ) {
     /** The ruler's column, or null when there's none. */
     val ruler: Int? get() = rulerColumn.takeIf { it > 0 }

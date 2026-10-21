@@ -3,6 +3,7 @@ package dev.app.leaf.domain.services
 import dev.app.leaf.common.flows.defaultIfNull
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitMessageRuler
+import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
@@ -104,10 +105,18 @@ class AppSettingsService @Inject constructor(
     val commitMessageRuler: Flow<Int>
         get() = appSettingsRepository.commitMessageRuler.defaultIfNull { CommitMessageRuler.DEFAULT_COLUMN }
 
-    /** The commit field's helpers, as the two settings above turn them on. */
+    /** When the commit field suggests Conventional Commits types and scopes. */
+    val conventionalCommitsSuggestions: Flow<ConventionalCommitsMode>
+        get() = appSettingsRepository.conventionalCommitsSuggestions.defaultIfNull { ConventionalCommitsMode.DEFAULT }
+
+    /** The commit field's helpers, as the settings above turn them on. */
     val commitMessageHints: Flow<CommitMessageHints>
-        get() = combine(commitSubjectLengthHint, commitMessageRuler) { subjectLength, rulerColumn ->
-            CommitMessageHints(subjectLength, rulerColumn)
+        get() = combine(
+            commitSubjectLengthHint,
+            commitMessageRuler,
+            conventionalCommitsSuggestions,
+        ) { subjectLength, rulerColumn, conventionalCommits ->
+            CommitMessageHints(subjectLength, rulerColumn, conventionalCommits)
         }
 
     /** How the diffs treat whitespace when they compare two versions of a file. */

@@ -41,6 +41,8 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
+import dev.app.leaf.domain.commitmessage.CommitlintRules
+import dev.app.leaf.domain.commitmessage.ConventionalHistory
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.extensions.parentDirectoryPath
@@ -290,6 +292,8 @@ fun StatusPane(
                     onCoAuthorAction = { onAction(StatusAction.CoAuthors(it)) },
                     isSignOff = statusState.isSignOff,
                     onToggleSignOff = { onAction(StatusAction.ToggleSignOff) },
+                    conventionalHistory = statusState.conventionalHistory,
+                    commitlintRules = statusState.commitlintRules,
                 )
             }
         }
@@ -661,6 +665,10 @@ internal fun CommitField(
     /** The repository's sign-off setting, which the menu's "Add Signed-off-by" switches (fork-only). */
     isSignOff: Boolean = false,
     onToggleSignOff: () -> Unit = {},
+    /** The types and scopes that the history uses, for the Conventional Commits suggestions (fork-only). */
+    conventionalHistory: ConventionalHistory = ConventionalHistory(),
+    /** The worktree's commitlint config, which narrows them (fork-only). */
+    commitlintRules: CommitlintRules? = null,
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
@@ -668,8 +676,9 @@ internal fun CommitField(
     val messageLayout = remember(commitMessage.text, messageCleanup) {
         commitMessageLayout(commitMessage.text, messageCleanup)
     }.takeUnless { isReadOnlyRebase }
-    // Fork-only: suggestions while the caret is on a Co-authored-by line (CoAuthorSuggestions.kt). Esc hides them, through
-    // the tab, until the text changes.
+    // Fork-only: suggestions while the caret is on a Co-authored-by line (CoAuthorSuggestions.kt), or typing a
+    // Conventional Commits type or scope at the subject's start (CommitTypeSuggestions.kt). Esc hides them, through the
+    // tab, until the text changes.
     val fieldFocusRequester = remember { FocusRequester() }
     var isFieldFocused by remember { mutableStateOf(false) }
     var fieldWidth by remember { mutableStateOf(0) }
@@ -681,13 +690,29 @@ internal fun CommitField(
         }
     }
 
+    val suggests = !isReadOnlyRebase && isFieldFocused && dismissedText != commitMessage.text
     val coAuthorSuggestion = remember(commitMessage, coAuthors.candidates) {
         coAuthorSuggestion(commitMessage, coAuthors.candidates)
-    }.takeIf { !isReadOnlyRebase && isFieldFocused && dismissedText != commitMessage.text }
-    var highlighted by remember(coAuthorSuggestion?.choices, coAuthorSuggestion?.line?.value?.isEmpty()) {
-        mutableStateOf(firstHighlighted(coAuthorSuggestion))
+    }.takeIf { suggests }
+    val typeSuggestion = remember(commitMessage, conventionalHistory, messageHints.conventionalCommits, commitlintRules) {
+        commitTypeSuggestion(commitMessage, conventionalHistory, messageHints.conventionalCommits, commitlintRules)
+    }.takeIf { suggests && coAuthorSuggestion == null }
+    val suggestionCount = coAuthorSuggestion?.choices?.size ?: typeSuggestion?.choices?.size
+    val typed = coAuthorSuggestion?.line?.value ?: typeSuggestion?.typed
+    var highlighted by remember(coAuthorSuggestion?.choices, typeSuggestion?.choices, typed.isNullOrEmpty()) {
+        mutableStateOf(firstHighlighted(typed))
     }
-    val showsSuggestions = coAuthorSuggestion != null
+    val showsSuggestions = suggestionCount != null
+
+    fun pickSuggestion(index: Int) {
+        when {
+            coAuthorSuggestion != null ->
+                setCommitMessage(commitMessage.withCoAuthor(coAuthorSuggestion, coAuthorSuggestion.choices[index]))
+
+            typeSuggestion != null ->
+                setCommitMessage(commitMessage.withConventionalChoice(typeSuggestion, typeSuggestion.choices[index]))
+        }
+    }
 
     DisposableEffect(showsSuggestions) {
         onCoAuthorAction(CoAuthorAction.SuggestionsShown(showsSuggestions))
@@ -754,17 +779,16 @@ internal fun CommitField(
                     }
                     .onGloballyPositioned { fieldWidth = it.size.width }
                     .onPreviewKeyEvent { keyEvent ->
-                        val suggestion = coAuthorSuggestion
-                        val coAuthorKey = suggestion?.let { coAuthorKey(keyEvent, highlighted, it.choices.size) }
+                        val key = suggestionCount?.let { suggestionKey(keyEvent, highlighted, it) }
 
                         when {
-                            coAuthorKey is CoAuthorKey.Highlight -> {
-                                highlighted = coAuthorKey.index
+                            key is SuggestionKey.Highlight -> {
+                                highlighted = key.index
                                 true
                             }
 
-                            coAuthorKey is CoAuthorKey.Pick -> {
-                                setCommitMessage(commitMessage.withCoAuthor(suggestion, suggestion.choices[coAuthorKey.index]))
+                            key is SuggestionKey.Pick -> {
+                                pickSuggestion(key.index)
                                 true
                             }
 
@@ -789,13 +813,23 @@ internal fun CommitField(
                 hints = messageHints,
             )
 
+            val suggestionsWidth = with(LocalDensity.current) { fieldWidth.toDp() }
+
             if (coAuthorSuggestion != null) {
                 CoAuthorSuggestionsPopup(
                     suggestion = coAuthorSuggestion,
                     highlighted = highlighted,
-                    width = with(LocalDensity.current) { fieldWidth.toDp() },
+                    width = suggestionsWidth,
                     onHighlight = { highlighted = it },
                     onPick = { setCommitMessage(commitMessage.withCoAuthor(coAuthorSuggestion, it)) },
+                )
+            } else if (typeSuggestion != null) {
+                CommitTypeSuggestionsPopup(
+                    suggestion = typeSuggestion,
+                    highlighted = highlighted,
+                    width = suggestionsWidth,
+                    onHighlight = { highlighted = it },
+                    onPick = { setCommitMessage(commitMessage.withConventionalChoice(typeSuggestion, it)) },
                 )
             }
         }

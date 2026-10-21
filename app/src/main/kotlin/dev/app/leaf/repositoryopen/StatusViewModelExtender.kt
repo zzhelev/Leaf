@@ -6,6 +6,9 @@ import dev.app.leaf.collectLatestInCoroutineScope
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.domain.commitmessage.CoAuthor
+import dev.app.leaf.domain.commitmessage.CommitlintRules
+import dev.app.leaf.domain.commitmessage.ConventionalHistory
+import dev.app.leaf.domain.commitmessage.conventionalHistory
 import dev.app.leaf.domain.commitmessage.MARKED_CO_AUTHOR_TRAILER
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.SignOffChanges
@@ -75,6 +78,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val loadSignOffConfigUseCase: LoadSignOffConfigUseCase,
     private val saveSignOffConfigUseCase: SaveSignOffConfigUseCase,
     private val signOffChanges: SignOffChanges,
+    private val getCommitlintRulesUseCase: GetCommitlintRulesUseCase,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -318,6 +322,26 @@ class StatusViewModelExtender @AssistedInject constructor(
         .flowOn(Dispatchers.Default)
         .onStart { emit(emptyList()) }
 
+    /**
+     * Fork-only: the Conventional Commits types and scopes of the history that the log has loaded, for the commit field's
+     * suggestions. Worked out again off the UI thread when the log changes.
+     */
+    private val conventionalHistory: Flow<ConventionalHistory> = repositoryDataRepository.log
+        .map { log -> conventionalHistory(log.dataOrNull()?.values?.map { it.commit }.orEmpty()) }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .onStart { emit(ConventionalHistory()) }
+
+    /**
+     * Fork-only: the worktree's commitlint config, which narrows the Conventional Commits suggestions, read again with
+     * each status, as the file watcher refreshes it when the config changes.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val commitlintRules: StateFlow<CommitlintRules?> = repositoryDataRepository.status
+        .filter { it !is DataState.Loading }
+        .mapLatest { getCommitlintRulesUseCase() }
+        .stateIn(null)
+
     /** Fork-only: the line that "Add co-author" added, while leaving it untouched takes it out again. */
     private val coAuthorInsertion = MutableStateFlow<CoAuthorInsertion?>(null)
     private val coAuthorDismissals = MutableStateFlow(0)
@@ -367,6 +391,8 @@ class StatusViewModelExtender @AssistedInject constructor(
         appSettings.commitMessageHints,
         coAuthorState,
         isSignOff,
+        conventionalHistory,
+        commitlintRules,
     )
         .stateIn(StatusState())
 
@@ -532,9 +558,9 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.CoAuthors -> when (val coAuthorAction = action.action) {
             CoAuthorAction.AddLine -> addCoAuthorLine()
             is CoAuthorAction.SuggestionsShown -> if (coAuthorAction.shown) {
-                addCloseableView(CloseableView.CO_AUTHOR_SUGGESTIONS)
+                addCloseableView(CloseableView.COMMIT_FIELD_SUGGESTIONS)
             } else {
-                removeCloseableView(CloseableView.CO_AUTHOR_SUGGESTIONS)
+                removeCloseableView(CloseableView.COMMIT_FIELD_SUGGESTIONS)
             }
 
             CoAuthorAction.FieldLeft -> takeOutUntouchedCoAuthorLine()

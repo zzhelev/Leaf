@@ -1,5 +1,6 @@
 package dev.app.leaf.domain.repositories
 
+import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
@@ -54,6 +55,7 @@ interface AppSettingsRepository {
     val diffWrapLines: Flow<Boolean?>
     val commitSubjectLengthHint: Flow<Boolean?>
     val commitMessageRuler: Flow<Int?>
+    val conventionalCommitsSuggestions: Flow<ConventionalCommitsMode?>
 
     val diffWhitespace: Flow<DiffWhitespaceMode?>
     val diffShowWhitespace: Flow<Boolean?>
