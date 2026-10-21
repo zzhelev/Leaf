@@ -3301,6 +3301,56 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - Tests: `ThemeResolutionTest`, `ThemeSettingTest` (the mapper and a real settings file: a restart, an unknown value),
     `AppThemeSystemTest` (a flipping system setting in `AppTheme`, and that every theme is in the drop-down),
     `SystemThemePollingTest`.
+- **The Style setting (fork-only, 2026-10-21, `theme/StyleColors.kt`, `domain/models/ui/AccentStyle.kt`):** Settings →
+  Appearance → Style, under Theme: Tonal (the default, a new install's too), Classic (Leaf's look until 2026-10-21) and
+  Quiet, for the built-in themes. Chosen with the user on the "Leaf Colours" board in Claude Design (project
+  `5fe7f140-cd30-47ab-a95a-1994cadae8d9`; options 1a Classic, 1d Tonal, 1f Quiet, whose values are in the code): the
+  button blue #0070D8 and red #C93838 (OKLCH chroma 0.18) were too bright next to the diff tints (0.02 to 0.03).
+  - **Roles, not colours** (`StyleColors`, provided by `AppTheme` as `LocalStyleColors`, read as
+    `MaterialTheme.styleColors`): `mainAction` (Commit, Merge, Continue, `PrimaryButton`, `ConfirmationButton`; filled
+    in every style), `action` (Stage file, hunk, line and all; `SecondaryButton`'s default), `neutral` (Unstage file,
+    hunk, line and all; red in Classic, as before), `destructive` (Discard hunk and line, Abort, `AbortButton`),
+    `warningStrip` (the operation banner, `UnsupportedIndexBanner`, `WatchLimitNotice`, `DialogNotice`, the resolver's
+    counter, and their `button`: Resolve conflicts, Convert index…), `successStrip` (file history's restored strip and
+    its Show changes) and `warningIcon` (a conflicted file's icon in the lists, the log's summary and the resolver's file
+    list, and the icons of `FinishHint`, the subject hint and `AutostashNoticeDialog`). A `RoleColors` is a fill, a
+    content colour and a 1 dp line inside the edge (`roleBorder`); a full-width strip draws its line along the bottom
+    (`bottomEdge`). They're kept out of `ColorsScheme`, so a custom theme's JSON needs nothing new.
+  - **Buttons take a role:** `SecondaryButton(colors = …)`, `SecondaryButtonCompactable` and `ActionInfo.colors`.
+    `textColor` and `backgroundButton` default to the role's, and a caller that gives a fill of its own (the
+    `secondarySurface` of Use ours or the resolver's strip buttons) gets no line. Only the call sites that passed raw
+    accent colours changed.
+  - **`primary`** (`ColorsScheme.styled`): in Tonal and Quiet it's the muted blue, #376AAA in light and #3464A0 in dark,
+    everywhere (toasts, switches, the tab's progress, the update button), and so is the light theme's `primaryVariant`
+    (links, the tab underline, focused fields), which was the same blue. The dark theme's `primaryVariant` (#9FD1FF)
+    stays: the muted blue holds 3.2 : 1 on the dark background. Decided with the user. The resolver's "ours" cells and
+    legend use `primary`, so they take the muted blue too.
+  - **Unchanged in every style** (decided with the user): the resolver's filled amber arrows and its conflict cells, the
+    diff tints, `error` (error boxes and toasts) and the board's undecided rows 1g to 1m: the log lanes, the file status
+    icons, the light theme's purple `secondary`, the dark navy headers, the dark background and the scrollbar.
+  - **Custom themes:** the style doesn't apply (`AppTheme` checks the resolved theme). `classicStyleColors(scheme)` lays
+    the theme's own `primary`, `error`, `conflictingFile` and `addFile` out as Classic, and `primary` stays the theme's.
+    The Style row (after the custom theme's JSON, which belongs to Theme) is greyed out while Theme is Custom, and says
+    "Custom themes use their own colours." Outside `AppTheme`
+    (previews, some tests), `styleColors` falls back to Classic from `MaterialTheme.colors`.
+  - **A line's buttons are opaque** (`LineActionButtons`): their fill is laid on the theme's background. Quiet's 8% white
+    took the line's tint, on which dark Quiet's Discard icon held 2.9 : 1.
+  - **Stored** as `accent_style` in `user_prefs.json`, the lower-case name (`AppConfig.AccentStyle`,
+    `AccentStyle.fromStored`): none and an unknown value read as Tonal, and never throw. `SettingsViewModel` reads the
+    theme and the style as one flow, as its `combine` is near 30. `AppTheme(accentStyle = …)` defaults to Tonal, so a test
+    that renders `AppTheme(theme)` gets Tonal.
+  - **Classic is the old look:** every component with a role rendered byte for byte as on the commit before, in both
+    themes (a temporary harness, 2026-10-21).
+  - **Not met:** the warning icon (#C68128) holds 3 : 1 on the light background, but 2.6 on a selected row and 2.7 on
+    `secondarySurface`; the strips' icons hold 2.8 on the tonal light strip, where the text says the same.
+  - Tests: `StyleColorsContrastTest` (each style, theme and role: labels 4.5 : 1 on every surface the button is on, the
+    strips' text and buttons 4.5, a line's icon 3, the warning icon 3 on the background in Tonal and Quiet, while
+    Classic keeps its 1.75 : 1 amber), `StyleRenderTest` (fills and lines read off rendered buttons, the hunk header,
+    line buttons, the lists' headers, the banner, the strips, notices and the hint icon), `AppThemeStyleTest` (roles,
+    `primary`, custom themes, the board's values), `AccentStyleSettingTest` (data), `AccentStyleSettingRowTest`, and the
+    counter in `ConflictResolverTest`. 32 mutations were each caught by a named test. Not covered by a kept test:
+    `App.kt` passing the setting to `AppTheme`, and `SettingsViewModel`'s state; the real panes were rendered through the
+    Dagger graph in each style and theme in a temporary harness.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in

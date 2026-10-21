@@ -2,6 +2,25 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Style: Tonal, Classic and Quiet colours for buttons and notices (2026-10-21)
+
+- **Request:** the button blue (#0070D8) and red (#C93838) felt too bright next to the diff tints. Reviewed with the user
+  on the "Leaf Colours" board in Claude Design, which compared six options in both themes.
+- **What it does:** Settings → Appearance → Style, under Theme: **Tonal** (the default, for new installs and for anyone
+  who hasn't chosen) gives buttons a pale tint with dark text, in the diff tints' family, and only Commit, Merge and
+  Continue stay filled; **Classic** is Leaf as it was; **Quiet** makes most buttons neutral, with red only in the text of
+  destructive ones. Unstage loses nothing, so in Tonal and Quiet it's neutral rather than red.
+- **Strips and notices:** the conflict banner, the index banner, the file watching chip, the worktree dialogs' notices
+  and the resolver's counter take a pale amber with a line along their edge, and the restored strip a pale green, in
+  place of the full amber and green with near-black text. The conflicted file's icon and the hints' icons take a darker
+  amber, which holds 3 : 1 on white (the old one held 1.75 : 1).
+- **Everywhere else:** in Tonal and Quiet the accent blue is a muted #376AAA (#3464A0 in the dark theme): toasts,
+  switches, links, the tab underline. The resolver's amber arrows and conflicts, the diff, the log and the file status
+  icons keep their colours.
+- **Custom themes** keep their own colours, laid out as Classic; the Style row is greyed out for them.
+- Classic renders byte for byte as before. Every style's text holds 4.5 : 1 where its buttons and strips are (a test).
+- Details: CLAUDE.md, "The Style setting".
+
 ## Wrap body at 72, a ticket key from the branch name, and the commit template (2026-10-21)
 
 - **Request:** the last three items of the commit message mockups, built with the defaults proposed to the user.
