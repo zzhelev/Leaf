@@ -71,4 +71,10 @@ sealed interface StatusAction {
 
     /** Opens a conflicted file in the built-in resolver, which `RepositoryOpenViewModel` shows (fork-only). */
     data class OpenInResolver(val statusEntry: StatusEntry) : StatusAction
+
+    /** What the commit field's co-author suggestions did (fork-only). */
+    data class CoAuthors(val action: CoAuthorAction) : StatusAction
+
+    /** Switches the repository's sign-off setting, from the commit message's menu (fork-only). */
+    data object ToggleSignOff : StatusAction
 }

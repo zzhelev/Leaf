@@ -253,6 +253,14 @@
     <string name="commit_message_subject_count_over_tooltip">Up to %1$d characters is recommended, so that git tools and servers show the subject whole.</string>
     <string name="commit_message_runs_on_hint">No blank line after the subject.</string>
     <string name="commit_message_insert_blank_line">Insert one</string>
+    <string name="commit_message_add_co_author">Add co-author</string>
+    <string name="commit_message_sign_off_menu_item">Add Signed-off-by</string>
+    <string name="commit_message_signed_off">with Signed-off-by</string>
+    <string name="co_author_suggestions_type_someone">Someone else? Type Name &lt;email&gt;</string>
+    <plurals name="co_author_suggestions_more">
+        <item quantity="one">%1$d more: keep typing</item>
+        <item quantity="other">%1$d more: keep typing</item>
+    </plurals>
     <string name="commit_message_runs_on_tooltip">Git tools read the whole first paragraph as the subject.</string>
     <string name="finish_hint_nothing_staged">Stage some changes to commit.</string>
 

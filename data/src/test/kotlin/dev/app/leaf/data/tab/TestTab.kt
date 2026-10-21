@@ -47,6 +47,7 @@ import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.stash.GetStashListGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.tags.GetTagsGitAction
+import dev.app.leaf.data.git.workspace.AddTrailerGitAction
 import dev.app.leaf.data.git.workspace.AddIgnoreRulesGitAction
 import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
@@ -328,6 +329,7 @@ class TestTab(
         ),
         cleanUpAfterCommitGitAction = CleanUpAfterCommitGitAction(jgit),
         putBackMergeAutostashGitAction = PutBackMergeAutostashGitAction(autostashes, jgit),
+        addTrailerGitAction = AddTrailerGitAction(gitCli),
     )
 
     val resetRepositoryState = ResetRepositoryStateUseCase(

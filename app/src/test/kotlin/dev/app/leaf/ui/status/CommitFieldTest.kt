@@ -326,17 +326,20 @@ class CommitFieldTest {
         }
 
     @Test
-    fun `the title says Merge message while merging, and the other operations and a read-only rebase have no menu`(): Unit =
+    fun `the title says Merge message while merging, the operations' menu has no Amend, and a read-only rebase no menu`(): Unit =
         runBlocking(Dispatchers.Swing) {
+            // Fork-only: the menu has Add co-author wherever the field can be edited, and Amend only where it applies
             Field(status(RepositoryState.MERGING, message = "Merge branch 'agent1'")).use { field ->
                 assertTrue("Merge message" in field.texts() && "Commit message" !in field.texts())
-                assertFalse("More actions" in field.descriptions())
+                field.clickDescription("More actions")
+                assertTrue("Add co-author" in field.texts() && "Amend last commit" !in field.texts(), field.texts().toString())
             }
 
             for (state in listOf(RepositoryState.CHERRY_PICKING, RepositoryState.REVERTING)) {
                 Field(status(state, staged = listOf(stagedFile), message = "Fix")).use { field ->
                     assertTrue("Commit message" in field.texts(), "$state")
-                    assertFalse("More actions" in field.descriptions(), "$state")
+                    field.clickDescription("More actions")
+                    assertTrue("Add co-author" in field.texts() && "Amend last commit" !in field.texts(), "$state")
                 }
             }
 

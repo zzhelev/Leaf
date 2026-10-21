@@ -38,10 +38,15 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.commit_message_add_co_author
+import dev.app.leaf.app.generated.resources.commit_message_sign_off_menu_item
+import dev.app.leaf.app.generated.resources.commit_message_signed_off
+import dev.app.leaf.app.generated.resources.person
 import dev.app.leaf.app.generated.resources.commit_message_insert_blank_line
 import dev.app.leaf.app.generated.resources.commit_message_runs_on_hint
 import dev.app.leaf.app.generated.resources.commit_message_runs_on_tooltip
@@ -89,12 +94,23 @@ internal const val COMMIT_MESSAGE_PLACEHOLDER_ALPHA = 0.6f
  * be edited
  * @property amend the "Amend last commit" item of the row's menu, or null where there is nothing to amend: during a
  * merge, a cherry-pick, a revert, and at the rebase's other stops
+ * @property canAddCoAuthor the menu has "Add co-author" (fork-only): wherever the field can be edited
+ * @property signOff the menu's "Add Signed-off-by" (fork-only), the repository's sign-off setting, wherever the field can
+ * be edited
  */
 internal data class CommitMessageHeader(
     val isMergeMessage: Boolean,
     val isReadOnly: Boolean,
     val amend: AmendItem?,
-)
+    val canAddCoAuthor: Boolean = false,
+    val signOff: SignOffItem? = null,
+) {
+    /** The row has its "⋯" menu. */
+    val hasMenu: Boolean get() = amend != null || signOff != null || canAddCoAuthor
+}
+
+/** The row's "Add Signed-off-by" item (fork-only), [isOn] when Leaf adds `Signed-off-by` as it commits. */
+internal data class SignOffItem(val isOn: Boolean)
 
 /** The row's "Amend last commit" item, [isOn] when the next commit amends the last one. */
 internal data class AmendItem(val isOn: Boolean)
@@ -104,6 +120,7 @@ internal fun commitMessageHeader(
     isAmenableRebaseInteractive: Boolean,
     isAmend: Boolean,
     isAmendRebaseInteractive: Boolean,
+    isSignOff: Boolean = false,
 ) = CommitMessageHeader(
     isMergeMessage = repositoryState.isMerging,
     isReadOnly = repositoryState.isRebasing && !isAmenableRebaseInteractive,
@@ -113,6 +130,8 @@ internal fun commitMessageHeader(
         repositoryState.isMerging || repositoryState.isCherryPicking || repositoryState.isReverting -> null
         else -> AmendItem(isAmend)
     },
+    canAddCoAuthor = !(repositoryState.isRebasing && !isAmenableRebaseInteractive),
+    signOff = SignOffItem(isSignOff).takeUnless { repositoryState.isRebasing && !isAmenableRebaseInteractive },
 )
 
 /**
@@ -127,16 +146,30 @@ internal fun CommitMessageTitle(
     modifier: Modifier = Modifier,
     /** The subject's length, shown at the row's end when it is long (fork-only, [subjectCount]). */
     subjectCount: SubjectCount? = null,
+    /** The menu's "Add co-author" (fork-only). */
+    onAddCoAuthor: () -> Unit = {},
+    /** The menu's "Add Signed-off-by" (fork-only). */
+    onToggleSignOff: () -> Unit = {},
 ) {
     val title = if (header.isMergeMessage) {
         stringResource(Res.string.uncommited_changes_message_title_merge)
     } else {
         stringResource(Res.string.uncommited_changes_message_title)
     }
-    val tag = when {
-        header.isReadOnly -> stringResource(Res.string.uncommited_changes_message_read_only)
-        header.amend?.isOn == true -> stringResource(Res.string.uncommited_changes_message_amending)
-        else -> null
+    // Fork-only: "with Signed-off-by" follows, muted, as the line is added when committing, out of the field's sight
+    val tags = buildList {
+        when {
+            header.isReadOnly ->
+                add(stringResource(Res.string.uncommited_changes_message_read_only) to MaterialTheme.colors.onBackgroundSecondary)
+
+            // The accent that the Amend checkbox had when it was ticked
+            header.amend?.isOn == true ->
+                add(stringResource(Res.string.uncommited_changes_message_amending) to MaterialTheme.colors.secondary)
+        }
+
+        if (header.signOff?.isOn == true) {
+            add(stringResource(Res.string.commit_message_signed_off) to MaterialTheme.colors.onBackgroundSecondary)
+        }
     }
 
     Row(
@@ -161,13 +194,18 @@ internal fun CommitMessageTitle(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            if (tag != null) {
+            if (tags.isNotEmpty()) {
                 Text(
-                    // The title keeps its room, and the tag gets what is left
+                    // The title keeps its room, and the tags get what is left
                     modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp),
-                    text = "· $tag",
-                    // The accent that the Amend checkbox had when it was ticked
-                    color = if (header.isReadOnly) MaterialTheme.colors.onBackgroundSecondary else MaterialTheme.colors.secondary,
+                    text = buildAnnotatedString {
+                        tags.forEachIndexed { index, (tag, color) ->
+                            withStyle(SpanStyle(color = color)) {
+                                append(if (index == 0) "· $tag" else " · $tag")
+                            }
+                        }
+                    },
+                    color = tags.first().second,
                     style = MaterialTheme.typography.body2,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -179,20 +217,64 @@ internal fun CommitMessageTitle(
             SubjectCountText(
                 subjectCount,
                 // The menu button has room of its own around its icon
-                modifier = Modifier.padding(start = 4.dp, end = if (header.amend == null) 16.dp else 0.dp),
+                modifier = Modifier.padding(start = 4.dp, end = if (header.hasMenu) 0.dp else 16.dp),
             )
         }
 
-        header.amend?.let { amend ->
+        if (header.hasMenu) {
             HeaderMenuButton(
-                items = amendMenuItems(amend, stringResource(Res.string.uncommited_changes_amend_menu_item), onToggleAmend),
+                items = commitMessageMenuItems(
+                    header,
+                    amendLabel = stringResource(Res.string.uncommited_changes_amend_menu_item),
+                    coAuthorLabel = stringResource(Res.string.commit_message_add_co_author),
+                    onToggleAmend = onToggleAmend,
+                    onAddCoAuthor = onAddCoAuthor,
+                    signOffLabel = stringResource(Res.string.commit_message_sign_off_menu_item),
+                    onToggleSignOff = onToggleSignOff,
+                ),
                 tooltip = stringResource(Res.string.status_header_more_actions),
             )
         }
     }
 }
 
-/** The row's menu: "Amend last commit", checked while it is on. It closes the menu, as there is nothing else to pick. */
+/**
+ * The row's menu: the switches, "Amend last commit" where there is something to amend and "Add Signed-off-by"
+ * (fork-only), then "Add co-author" (fork-only), where the field can be edited, with a divider between them.
+ */
+internal fun commitMessageMenuItems(
+    header: CommitMessageHeader,
+    amendLabel: String,
+    coAuthorLabel: String,
+    onToggleAmend: () -> Unit,
+    onAddCoAuthor: () -> Unit,
+    signOffLabel: String = "",
+    onToggleSignOff: () -> Unit = {},
+): List<SortMenuItem> = buildList {
+    header.amend?.let { addAll(amendMenuItems(it, amendLabel, onToggleAmend)) }
+
+    header.signOff?.let { signOff ->
+        add(SortMenuItem.Option(label = signOffLabel, isChecked = signOff.isOn, closesMenu = true, onClick = onToggleSignOff))
+    }
+
+    if (header.canAddCoAuthor) {
+        if (isNotEmpty()) {
+            add(SortMenuItem.Divider)
+        }
+
+        add(
+            SortMenuItem.Option(
+                label = coAuthorLabel,
+                isChecked = false,
+                closesMenu = true,
+                icon = Res.drawable.person,
+                onClick = onAddCoAuthor,
+            )
+        )
+    }
+}
+
+/** "Amend last commit", checked while it is on. It closes the menu. */
 internal fun amendMenuItems(amend: AmendItem, label: String, onToggleAmend: () -> Unit): List<SortMenuItem> = listOf(
     SortMenuItem.Option(
         label = label,

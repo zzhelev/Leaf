@@ -67,6 +67,10 @@ data class StatusState(
     val messageCleanup: MessageCleanup = MessageCleanup.DEFAULT,
     /** The commit field's helpers that the settings turn on (fork-only). */
     val messageHints: CommitMessageHints = CommitMessageHints(),
+    /** Whom the commit field suggests as co-authors, and its "Add co-author" line (fork-only). */
+    val coAuthors: CoAuthorState = CoAuthorState(),
+    /** Whether Leaf adds `Signed-off-by` when committing: the repository's sign-off setting (fork-only). */
+    val isSignOff: Boolean = false,
 ) {
     /** What the commit field shows about its message, as git will commit it (fork-only). */
     val messageLayout: CommitMessageLayout = commitMessageLayout(commitMessage.text, messageCleanup)
@@ -159,6 +163,8 @@ fun combineStatusState(
     squashMergeInProgress: Flow<Boolean> = flowOf(false),
     messageCleanup: Flow<MessageCleanup> = flowOf(MessageCleanup.DEFAULT),
     messageHints: Flow<CommitMessageHints> = flowOf(CommitMessageHints()),
+    coAuthors: Flow<CoAuthorState> = flowOf(CoAuthorState()),
+    isSignOff: Flow<Boolean> = flowOf(false),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -225,6 +231,8 @@ fun combineStatusState(
         squashMergeInProgress,
         messageCleanup,
         messageHints,
+        coAuthors,
+        isSignOff,
     ) {
             lists,
             swapUncommittedChanges,
@@ -243,6 +251,8 @@ fun combineStatusState(
             squashMergeInProgress,
             messageCleanup,
             messageHints,
+            coAuthors,
+            isSignOff,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -274,6 +284,8 @@ fun combineStatusState(
             isSquashMergeInProgress = squashMergeInProgress,
             messageCleanup = messageCleanup,
             messageHints = messageHints,
+            coAuthors = coAuthors,
+            isSignOff = isSignOff,
         )
     }
 }

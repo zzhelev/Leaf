@@ -14,6 +14,9 @@ import dev.app.leaf.domain.interfaces.ILoadAuthorGitAction
 import dev.app.leaf.domain.interfaces.ILoadSignOffConfigGitAction
 import dev.app.leaf.domain.interfaces.ICleanUpAfterCommitGitAction
 import dev.app.leaf.domain.interfaces.IPutBackMergeAutostashGitAction
+import dev.app.leaf.domain.interfaces.IAddTrailerGitAction
+import dev.app.leaf.domain.commitmessage.TrailerIfExists
+import dev.app.leaf.domain.commitmessage.appendTrailer
 import dev.app.leaf.domain.interfaces.IPersistCommitMessageGitAction
 import dev.app.leaf.domain.models.AutostashPutBack
 import dev.app.leaf.domain.models.AutostashPutBackAfter
@@ -115,6 +118,14 @@ class ContinueRebaseAmendTest {
             object : IPutBackMergeAutostashGitAction {
                 override suspend fun invoke(repositoryPath: String, after: AutostashPutBackAfter) =
                     Either.Ok(AutostashPutBack.None)
+            },
+            object : IAddTrailerGitAction {
+                override suspend fun invoke(
+                    repositoryPath: String,
+                    message: String,
+                    trailer: String,
+                    ifExists: TrailerIfExists,
+                ) = Either.Ok(appendTrailer(message, trailer, ifExists))
             },
         )
 

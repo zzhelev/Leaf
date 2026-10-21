@@ -613,6 +613,8 @@ class RepositoryOpenViewModel @Inject constructor(
 
                 CloseableView.WORKTREE_REVIEW -> worktreeReviewViewModelExtender.close()
 
+                CloseableView.CO_AUTHOR_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
+
             }
         }
 

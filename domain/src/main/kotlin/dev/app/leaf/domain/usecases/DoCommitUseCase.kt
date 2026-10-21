@@ -3,6 +3,9 @@ package dev.app.leaf.domain.usecases
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
 import dev.app.leaf.domain.SignOffConstants
+import dev.app.leaf.domain.commitmessage.TrailerIfExists
+import dev.app.leaf.domain.commitmessage.isTrailerLine
+import dev.app.leaf.domain.interfaces.IAddTrailerGitAction
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
@@ -29,6 +32,7 @@ class DoCommitUseCase @Inject constructor(
     private val persistCommitMessageUseCase: PersistCommitMessageUseCase,
     private val cleanUpAfterCommitGitAction: ICleanUpAfterCommitGitAction,
     private val putBackMergeAutostashGitAction: IPutBackMergeAutostashGitAction,
+    private val addTrailerGitAction: IAddTrailerGitAction,
 ) {
     /**
      * Fork-only: [isMergeMessage] says that [message] is from MERGE_MSG (a merge's, cherry-pick's or revert's) or
@@ -76,7 +80,18 @@ class DoCommitUseCase @Inject constructor(
                 .replace(SignOffConstants.DEFAULT_SIGN_OFF_FORMAT_USER, authorToSign.name.orEmpty())
                 .replace(SignOffConstants.DEFAULT_SIGN_OFF_FORMAT_EMAIL, authorToSign.email.orEmpty())
 
-            "$message\n\n$signature"
+            // Fork-only: a trailer joins the message's trailers, as `git commit -s` puts it. A paragraph of its own left the
+            // trailers before it, such as Co-authored-by, out of the message's trailer block.
+            if (isTrailerLine(signature)) {
+                addTrailerGitAction(
+                    repositoryPath,
+                    message,
+                    signature,
+                    TrailerIfExists.ADD_IF_DIFFERENT_NEIGHBOR,
+                ).bind()
+            } else {
+                "$message\n\n$signature"
+            }
         } else
             message
 

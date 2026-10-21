@@ -5,7 +5,16 @@ import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.collectLatestInCoroutineScope
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
+import dev.app.leaf.domain.commitmessage.CoAuthor
+import dev.app.leaf.domain.commitmessage.MARKED_CO_AUTHOR_TRAILER
 import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.commitmessage.SignOffChanges
+import dev.app.leaf.domain.SignOffConstants
+import dev.app.leaf.domain.errors.okOrNull
+import dev.app.leaf.domain.commitmessage.appendTrailer
+import dev.app.leaf.domain.commitmessage.coAuthorCandidates
+import dev.app.leaf.domain.commitmessage.withEmptyCoAuthorLine
+import dev.app.leaf.domain.commitmessage.withoutEmptyCoAuthorLines
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CloseableView
@@ -31,6 +40,7 @@ import kotlin.math.min
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val PERSIST_MESSAGE_DELAY_IN_MS = 1_000L
+
 
 
 class StatusViewModelExtender @AssistedInject constructor(
@@ -61,6 +71,10 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val persistSquashMessageUseCase: PersistSquashMessageUseCase,
     private val abortSquashMergeUseCase: AbortSquashMergeUseCase,
     private val getCommitMessageCleanupUseCase: GetCommitMessageCleanupUseCase,
+    private val addTrailerUseCase: AddTrailerUseCase,
+    private val loadSignOffConfigUseCase: LoadSignOffConfigUseCase,
+    private val saveSignOffConfigUseCase: SaveSignOffConfigUseCase,
+    private val signOffChanges: SignOffChanges,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -290,6 +304,42 @@ class StatusViewModelExtender @AssistedInject constructor(
         .mapLatest { getCommitMessageCleanupUseCase() }
         .stateIn(MessageCleanup.DEFAULT)
 
+    /**
+     * Fork-only: whom the commit field suggests as co-authors, from the history that the log has loaded, without the
+     * user. Worked out again off the UI thread when the log or the identity changes.
+     */
+    private val coAuthorCandidates: Flow<List<CoAuthor>> = combine(
+        repositoryDataRepository.log.map { it.dataOrNull() },
+        repositoryDataRepository.author.map { it.dataOrNull()?.identityToUse() },
+    ) { log, you ->
+        coAuthorCandidates(log?.values?.map { it.commit }.orEmpty(), you)
+    }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .onStart { emit(emptyList()) }
+
+    /** Fork-only: the line that "Add co-author" added, while leaving it untouched takes it out again. */
+    private val coAuthorInsertion = MutableStateFlow<CoAuthorInsertion?>(null)
+    private val coAuthorDismissals = MutableStateFlow(0)
+    private var coAuthorInsertions = 0L
+
+    private val coAuthorState = combine(coAuthorCandidates, coAuthorInsertion, coAuthorDismissals) {
+            candidates, insertion, dismissals ->
+        CoAuthorState(candidates, insertion, dismissals)
+    }
+
+    /**
+     * Fork-only: the repository's sign-off setting, per worktree in `<git dir>/leaf`. Read again with each status, as a
+     * worktree switch changes it, and when the commit message's menu or the Actions list's dialog saves it.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val isSignOff: StateFlow<Boolean> = combine(
+        repositoryDataRepository.status.filter { it !is DataState.Loading },
+        signOffChanges.count,
+    ) { _, _ -> }
+        .mapLatest { loadSignOffConfigUseCase().okOrNull()?.isEnabled == true }
+        .stateIn(false)
+
     val statusState = combineStatusState(
         repositoryDataRepository.status.toUiDataState(),
         showSearchStaged,
@@ -315,6 +365,8 @@ class StatusViewModelExtender @AssistedInject constructor(
         squashMergeInProgress,
         messageCleanup,
         appSettings.commitMessageHints,
+        coAuthorState,
+        isSignOff,
     )
         .stateIn(StatusState())
 
@@ -477,7 +529,61 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.UseConflictSide -> resolveConflictUseCase(action.filePaths, action.side)
         // RepositoryOpenViewModel shows the resolver
         is StatusAction.OpenInResolver -> Unit
+        is StatusAction.CoAuthors -> when (val coAuthorAction = action.action) {
+            CoAuthorAction.AddLine -> addCoAuthorLine()
+            is CoAuthorAction.SuggestionsShown -> if (coAuthorAction.shown) {
+                addCloseableView(CloseableView.CO_AUTHOR_SUGGESTIONS)
+            } else {
+                removeCloseableView(CloseableView.CO_AUTHOR_SUGGESTIONS)
+            }
+
+            CoAuthorAction.FieldLeft -> takeOutUntouchedCoAuthorLine()
+        }
+
+        StatusAction.ToggleSignOff -> toggleSignOff()
     }
+
+    /** Fork-only: the commit message's "Add Signed-off-by" switches the repository's setting, and keeps its format. */
+    private fun toggleSignOff() = viewModelScope.launch {
+        val current = loadSignOffConfigUseCase().okOrNull()
+            ?: SignOffConfig(SignOffConstants.DEFAULT_SIGN_OFF_ENABLED, SignOffConstants.DEFAULT_SIGN_OFF_FORMAT)
+
+        saveSignOffConfigUseCase(current.copy(isEnabled = !current.isEnabled))
+    }
+
+    /**
+     * Fork-only: "Add co-author" adds an empty `Co-authored-by` line where git puts trailers, with the caret at its end,
+     * where the field suggests people. git places a marked trailer, and the marker shows where it went
+     * ([withEmptyCoAuthorLine]).
+     */
+    private fun addCoAuthorLine() = viewModelScope.launch {
+        val before = currentCommitMessage()
+        val (after, caret) = withEmptyCoAuthorLine(addTrailerUseCase(before.text, MARKED_CO_AUTHOR_TRAILER))
+            ?: withEmptyCoAuthorLine(appendTrailer(before.text, MARKED_CO_AUTHOR_TRAILER))
+            ?: return@launch
+
+        updateCommitMessage(TextFieldValue(after, TextRange(caret)))
+        coAuthorInsertion.value = CoAuthorInsertion(++coAuthorInsertions, before, after)
+    }
+
+    /** Fork-only: Esc closed the co-author suggestions, which the field then hides until its text changes. */
+    fun dismissCoAuthorSuggestions() {
+        takeOutUntouchedCoAuthorLine()
+        coAuthorDismissals.value++
+    }
+
+    /** Fork-only: the line that "Add co-author" added goes again when the message is still as the line left it. */
+    private fun takeOutUntouchedCoAuthorLine() {
+        val insertion = coAuthorInsertion.value ?: return
+        coAuthorInsertion.value = null
+
+        if (currentCommitMessage().text == insertion.after) {
+            updateCommitMessage(insertion.before)
+        }
+    }
+
+    /** Fork-only: the message as the field has it now, which [commitMessage] only follows a moment later. */
+    private fun currentCommitMessage(): TextFieldValue = messageFlowOf(currentCommitMessageSource()).value
 
     fun rejectCommitterData() {
         this.committerDataRequestState.value = CommitterDataRequestState.Reject
@@ -791,7 +897,8 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     private fun continueRebase(message: String) = viewModelScope.launch {
         continueRebaseUseCase(
-            message = message,
+            // Fork-only: as for a commit, no empty Co-authored-by trailer
+            message = withoutEmptyCoAuthorLines(message),
             isAmendRebaseInteractive = isAmendRebaseInteractive.value,
             repositoryState = repositoryDataRepository.repositoryState.value.dataOrNull() ?: RepositoryState.SAFE,
             rebaseInteractiveState = rebaseInteractiveState.value,
@@ -819,7 +926,10 @@ class StatusViewModelExtender @AssistedInject constructor(
         isAmendRebaseInteractive.value = isAmend
     }
 
-    fun commit(message: String) = viewModelScope.launch {
+    fun commit(fieldMessage: String) = viewModelScope.launch {
+        // Fork-only: a Co-authored-by line that names no one would be committed as an empty trailer
+        val message = withoutEmptyCoAuthorLines(fieldMessage)
+        coAuthorInsertion.value = null
         val amend = isAmend.value
         // Fork-only: the commit ends a merge, cherry-pick, revert or squash merge, so the field's source changes before
         // it returns
@@ -849,7 +959,7 @@ class StatusViewModelExtender @AssistedInject constructor(
             // If committing failed and the message was going to be persisted before the commit, restart the
             // persistence task
             if (hadOngoingPersistJob) {
-                persistMessage(message, source)
+                persistMessage(fieldMessage, source)
             }
         }
     }

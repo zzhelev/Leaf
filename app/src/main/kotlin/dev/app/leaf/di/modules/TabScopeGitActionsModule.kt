@@ -576,6 +576,10 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
+    fun bindsAddTrailerGitAction(action: AddTrailerGitAction): IAddTrailerGitAction
+
+    @Binds
+    @TabScope
     fun bindsGetCommitMessageCleanupGitAction(
         action: GetCommitMessageCleanupGitAction,
     ): IGetCommitMessageCleanupGitAction

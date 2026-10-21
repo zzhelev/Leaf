@@ -26,7 +26,12 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isMetaPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.TextFieldValue
@@ -281,6 +286,10 @@ fun StatusPane(
                     modifier = Modifier.height(heights.commitSection.dp),
                     messageCleanup = statusState.messageCleanup,
                     messageHints = statusState.messageHints,
+                    coAuthors = statusState.coAuthors,
+                    onCoAuthorAction = { onAction(StatusAction.CoAuthors(it)) },
+                    isSignOff = statusState.isSignOff,
+                    onToggleSignOff = { onAction(StatusAction.ToggleSignOff) },
                 )
             }
         }
@@ -646,6 +655,12 @@ internal fun CommitField(
     messageCleanup: MessageCleanup = MessageCleanup.DEFAULT,
     /** The subject's count and tint, and the ruler, as the settings say (fork-only). */
     messageHints: CommitMessageHints = CommitMessageHints(),
+    /** Whom to suggest as co-authors, and the line that "Add co-author" added (fork-only). */
+    coAuthors: CoAuthorState = CoAuthorState(),
+    onCoAuthorAction: (CoAuthorAction) -> Unit = {},
+    /** The repository's sign-off setting, which the menu's "Add Signed-off-by" switches (fork-only). */
+    isSignOff: Boolean = false,
+    onToggleSignOff: () -> Unit = {},
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
@@ -653,6 +668,44 @@ internal fun CommitField(
     val messageLayout = remember(commitMessage.text, messageCleanup) {
         commitMessageLayout(commitMessage.text, messageCleanup)
     }.takeUnless { isReadOnlyRebase }
+    // Fork-only: suggestions while the caret is on a Co-authored-by line (CoAuthorSuggestions.kt). Esc hides them, through
+    // the tab, until the text changes.
+    val fieldFocusRequester = remember { FocusRequester() }
+    var isFieldFocused by remember { mutableStateOf(false) }
+    var fieldWidth by remember { mutableStateOf(0) }
+    var dismissedText by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(coAuthors.dismissals) {
+        if (coAuthors.dismissals > 0) {
+            dismissedText = commitMessage.text
+        }
+    }
+
+    val coAuthorSuggestion = remember(commitMessage, coAuthors.candidates) {
+        coAuthorSuggestion(commitMessage, coAuthors.candidates)
+    }.takeIf { !isReadOnlyRebase && isFieldFocused && dismissedText != commitMessage.text }
+    var highlighted by remember(coAuthorSuggestion?.choices, coAuthorSuggestion?.line?.value?.isEmpty()) {
+        mutableStateOf(firstHighlighted(coAuthorSuggestion))
+    }
+    val showsSuggestions = coAuthorSuggestion != null
+
+    DisposableEffect(showsSuggestions) {
+        onCoAuthorAction(CoAuthorAction.SuggestionsShown(showsSuggestions))
+
+        onDispose {
+            if (showsSuggestions) {
+                onCoAuthorAction(CoAuthorAction.SuggestionsShown(false))
+            }
+        }
+    }
+
+    // "Add co-author" came from the menu, which had the focus: the caret waits in the new line
+    LaunchedEffect(coAuthors.insertion?.id) {
+        if (coAuthors.insertion != null) {
+            fieldFocusRequester.requestFocus()
+        }
+    }
+
     // Fork-only: a merge's, cherry-pick's or revert's primary button follows finishBlocker, and the key does what it
     // does. A revert's also waits for the status to load.
     val finishEnabled = finishBlocker == null && !(repositoryState.isReverting && isLoading)
@@ -668,30 +721,84 @@ internal fun CommitField(
     ) {
         // Fork-only (upstream issue 344): a title row like the lists' headers, and a field with a hint, not a label
         CommitMessageTitle(
-            header = commitMessageHeader(repositoryState, isAmenableRebaseInteractive, isAmend, isAmendRebaseInteractive),
+            header = commitMessageHeader(
+                repositoryState,
+                isAmenableRebaseInteractive,
+                isAmend,
+                isAmendRebaseInteractive,
+                isSignOff = isSignOff,
+            ),
             onToggleAmend = {
                 if (repositoryState.isRebasing) onAmendRebaseInteractiveChecked(!isAmendRebaseInteractive) else onAmendChecked(!isAmend)
             },
             subjectCount = messageLayout?.let { subjectCount(it, messageHints) },
+            onAddCoAuthor = { onCoAuthorAction(CoAuthorAction.AddLine) },
+            onToggleSignOff = onToggleSignOff,
         )
 
-        CommitMessageTextField(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(weight = 1f, fill = true)
-                .onPreviewKeyEvent { keyEvent ->
-                    if (keyEvent.matchesBinding(KeybindingOption.TEXT_ACCEPT) && acceptsCommit) {
-                        doCommit()
-                        true
-                    } else
-                        false
-                },
-            value = if (isReadOnlyRebase) TextFieldValue(previousCommitMessage.orEmpty()) else commitMessage,
-            onValueChange = setCommitMessage,
-            enabled = !repositoryState.isRebasing || isAmenableRebaseInteractive,
-            cleanup = messageCleanup,
-            hints = messageHints,
-        )
+                .weight(weight = 1f, fill = true),
+        ) {
+            CommitMessageTextField(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .focusRequester(fieldFocusRequester)
+                    .onFocusChanged { focusState ->
+                        if (isFieldFocused && !focusState.isFocused) {
+                            onCoAuthorAction(CoAuthorAction.FieldLeft)
+                        }
+
+                        isFieldFocused = focusState.isFocused
+                    }
+                    .onGloballyPositioned { fieldWidth = it.size.width }
+                    .onPreviewKeyEvent { keyEvent ->
+                        val suggestion = coAuthorSuggestion
+                        val coAuthorKey = suggestion?.let { coAuthorKey(keyEvent, highlighted, it.choices.size) }
+
+                        when {
+                            coAuthorKey is CoAuthorKey.Highlight -> {
+                                highlighted = coAuthorKey.index
+                                true
+                            }
+
+                            coAuthorKey is CoAuthorKey.Pick -> {
+                                setCommitMessage(commitMessage.withCoAuthor(suggestion, suggestion.choices[coAuthorKey.index]))
+                                true
+                            }
+
+                            // Fork-only: Enter continues or ends a list of co-authors, as an editor's list
+                            isPlainEnter(keyEvent) && commitMessage.afterCoAuthorEnter() != null -> {
+                                setCommitMessage(checkNotNull(commitMessage.afterCoAuthorEnter()))
+                                true
+                            }
+
+                            keyEvent.matchesBinding(KeybindingOption.TEXT_ACCEPT) && acceptsCommit -> {
+                                doCommit()
+                                true
+                            }
+
+                            else -> false
+                        }
+                    },
+                value = if (isReadOnlyRebase) TextFieldValue(previousCommitMessage.orEmpty()) else commitMessage,
+                onValueChange = setCommitMessage,
+                enabled = !repositoryState.isRebasing || isAmenableRebaseInteractive,
+                cleanup = messageCleanup,
+                hints = messageHints,
+            )
+
+            if (coAuthorSuggestion != null) {
+                CoAuthorSuggestionsPopup(
+                    suggestion = coAuthorSuggestion,
+                    highlighted = highlighted,
+                    width = with(LocalDensity.current) { fieldWidth.toDp() },
+                    onHighlight = { highlighted = it },
+                    onPick = { setCommitMessage(commitMessage.withCoAuthor(coAuthorSuggestion, it)) },
+                )
+            }
+        }
 
         // Fork-only: a subject that runs on into the next line, which git log would show as one
         if (messageLayout?.blankLineAt != null) {

@@ -1,5 +1,6 @@
 package dev.app.leaf.domain.usecases
 
+import dev.app.leaf.domain.commitmessage.SignOffChanges
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RepositoryPathNotSetError
@@ -12,9 +13,12 @@ import javax.inject.Inject
 class SaveSignOffConfigUseCase @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
     private val saveLocalRepositoryConfigGitAction: ISaveLocalRepositoryConfigGitAction,
+    private val signOffChanges: SignOffChanges,
 ) {
     suspend operator fun invoke(signOffConfig: SignOffConfig): Either<Unit, GitError> {
         val repositoryPath = repositoryDataRepository.repositoryPath ?: return Either.Err(RepositoryPathNotSetError)
         return saveLocalRepositoryConfigGitAction(repositoryPath, signOffConfig)
+            // Fork-only: the commit message's menu and title row follow the setting
+            .also { signOffChanges.changed() }
     }
 }
