@@ -122,14 +122,44 @@ class GitCliHttpsTest {
 
     @Test
     fun `a user name in the URL is only asked for the password`(): Unit = runBlocking {
-        val remote = remoteWithUrl("http://$USER@127.0.0.1:${server.address.port}/repo.git")
+        val url = "http://$USER@127.0.0.1:${server.address.port}/repo.git"
+        // git 2.55 asks for the user name too, as if the URL had none (found on CI, where it is the newest git);
+        // Leaf asks for what git asks for, so the dialog then has both fields and its answer has to be the user
+        val gitAsksForUser = gitAsksForUserNameOf(url)
+        val remote = remoteWithUrl(url)
 
-        val (result, dialogs) = remote.credentialsStateManager.answeringDialogs({ httpCredentialsAccepted("ignored", PASSWORD) }) {
+        val (result, dialogs) = remote.credentialsStateManager.answeringDialogs({
+            httpCredentialsAccepted(if (gitAsksForUser) USER else "ignored", PASSWORD)
+        }) {
             push(remote)
         }
 
         assertEquals(Either.Ok(Unit), result)
-        assertEquals(listOf(CredentialsRequest.HttpCredentialsRequest(user = USER, askPassword = true)), dialogs)
+        val expectedUser = if (gitAsksForUser) null else USER
+        assertEquals(listOf(CredentialsRequest.HttpCredentialsRequest(user = expectedUser, askPassword = true)), dialogs)
+    }
+
+    /** Whether this git's first question for [url], which has a user name, is for the user name. */
+    private fun gitAsksForUserNameOf(url: String): Boolean {
+        val prompts = File(tempDir, "prompts.txt")
+        val askpass = File(tempDir, "record-prompt.sh").apply {
+            writeText("#!/bin/sh\nprintf '%s\\n' \"$1\" >> '${prompts.path}'\necho x\n")
+            setExecutable(true)
+        }
+        val process = ProcessBuilder("git", "ls-remote", url)
+            .directory(work)
+            .redirectErrorStream(true)
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+        process.environment().apply {
+            put("GIT_CONFIG_GLOBAL", globalConfig.path)
+            put("GIT_CONFIG_NOSYSTEM", "1")
+            put("GIT_ASKPASS", askpass.path)
+            put("GIT_TERMINAL_PROMPT", "0")
+            put("LC_ALL", "C")
+        }
+        process.start().waitFor()
+
+        return prompts.takeIf { it.exists() }?.readLines()?.firstOrNull()?.startsWith("Username") == true
     }
 
     @Test

@@ -242,6 +242,9 @@ class AddGlobalIgnoreRulesGitActionTest {
             "GIT_CONFIG_GLOBAL" to gitConfig.path,
             "GIT_CONFIG_NOSYSTEM" to "1",
             "HOME" to home.path,
+            // An empty XDG_CONFIG_HOME counts as unset, and hides the one the machine has (CI sets it), which
+            // the default file would otherwise be written into, ignoring `*.log` in every test that follows
+            "XDG_CONFIG_HOME" to "",
         ) + env
 
         return IgnoreTargets(GlobalIgnoreFile(testGitCli(variables), LoginShellEnvironment { variables }))
@@ -269,7 +272,8 @@ class AddGlobalIgnoreRulesGitActionTest {
     }
 
     private fun visibleToGit(repository: File, env: Map<String, String> = emptyMap()): Set<String> = git
-        .run(repository, env, "-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard", "-z")
+        // An empty XDG_CONFIG_HOME hides the machine's own, as in targets()
+        .run(repository, mapOf("XDG_CONFIG_HOME" to "") + env, "-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard", "-z")
         .split('\u0000')
         .filter { it.isNotEmpty() }
         .toSet()
