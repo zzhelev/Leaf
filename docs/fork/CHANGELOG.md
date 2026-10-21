@@ -2,6 +2,31 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The diff's View menu: ignore whitespace, show whitespace characters (upstream issues 138, 139, 2026-10-21)
+
+- **Request:** reviewing an agent's diff is half whitespace noise: re-indented files, trailing spaces, tabs for spaces, CRLF
+  for LF. The diff showed every such line as changed, and nothing showed what kind of whitespace a line had.
+- **What it does:** one "View options" button in the diff's header, after the Unified and Split icons, with a menu of
+  three switches: **Ignore whitespace** (lines that only differ in whitespace are equal, as `git diff -w` compares them),
+  **Show whitespace characters** (a dot in each space, an arrow across each tab, a red tint on trailing whitespace, and `CR`
+  where a line ends with CRLF) and **Wrap long lines**, which moved in from its icon. The button is lit while a switch
+  differs from how a diff first looks, and its tooltip says which. All three are one setting for every tab, kept after a
+  restart; an older settings file reads as "show everything, no marks, wrap".
+- **The diff follows it** everywhere a file's diff shows: Unstaged, Staged, a commit, file history (which has the menu in
+  its commit strip) and a worktree's review. Turning it on or off keeps the line that was at the top of the list at the top.
+- **While whitespace is ignored,** a strip under the header says so, with "Show them" to turn it off in one click, and
+  hunks and lines in Staged and Unstaged have no Stage, Unstage or Discard buttons: their patches can't carry the context lines
+  that ignoring leaves, so git would refuse them or apply them to the wrong text. The actions refuse such a hunk too.
+- **A file that only changed whitespace** is still in the Staged and Unstaged lists. Its diff says "Only whitespace changed
+  in this file", with a button to show the changes, where it would have been blank.
+- **Not copied:** the marks are drawn over the text, so selecting and copying a line gives the line.
+- **Chosen with the user:** the menu (B) over three more header icons (A): a laptop's diff pane left the path 50 dp with
+  the icons and 130 dp without. Wrap moves into it; only "ignore all" (`-w`), no `-b` or end-of-line modes; kept after a
+  restart, with no Settings entry for the two new switches.
+- JGit's comparators find the same edits as git's `-w`, `-b` and `--ignore-space-at-eol` on 134 pairs of texts (a test);
+  `--ignore-cr-at-eol` has none. Context lines show the new version's text, as git does.
+- Details: CLAUDE.md, "The diff's View menu".
+
 ## Commit message conventions: subject length, a blank line after it, comment lines, a ruler (2026-10-21)
 
 - **Request:** guidance on how a commit message should look, without enforcing anything. Chosen with the user from

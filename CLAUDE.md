@@ -459,6 +459,8 @@ upstream actions (`StageHunkGitAction`, `DiscardUnstagedHunkLineGitAction`, …)
 - File names are quoted as git quotes them (`patchName`): a tab would end an unquoted name.
 - Without a usable git, the actions fail with `GitCliError` and change nothing. There is no JGit fallback: the old
   JGit code decoded and re-encoded the text as UTF-8, and discarded lines by number without checking them.
+- A hunk of a diff that ignored whitespace (`Hunk.ignoresWhitespace`) is refused before git runs, and has no buttons (see
+  The diff's View menu).
 - **A line's buttons and menu (fork-only, `ui/diff/DiffLineActions.kt`):** the pointer over a changed line shows
   Stage and Discard in Unstaged, Unstage in Staged, and its right-click menu has the same items (`lineActions`).
   Upstream had only the button to stage or unstage, and Discard in the menu. Unstaged's text starts 40 dp after the
@@ -466,10 +468,10 @@ upstream actions (`StageHunkGitAction`, `DiscardUnstagedHunkLineGitAction`, …)
   buttons, neither shows while a merge, rebase, cherry-pick or revert goes on (`isRepositoryInSafeState`).
 
 **Wrapping in the diff pane (fork-only, 2026-10-21, `ui/diff/DiffWrap.kt`):** the diff's lines wrapped always
-(`DiffText`'s `softWrap = true`). A wrap icon after the Unified and Split icons in the diff's header (`WrapLinesButton`,
-shown for any text diff, added and deleted files too) and "Wrap long lines in diffs" in Settings → Layout write one
-global setting (`AppConfig.DiffWrapLines`, `diff_wrap_lines`, on by default), which `RepositoryOpenViewModel.diffWrapLines`
-reads. Chosen with the user: both places, global, sideways scroll.
+(`DiffText`'s `softWrap = true`). "Wrap long lines" in the diff's View menu (below; shown for any text diff, added and deleted
+files too) and in Settings → Layout write one global setting (`AppConfig.DiffWrapLines`, `diff_wrap_lines`, on by
+default), which `RepositoryOpenViewModel.diffWrapLines` reads. Chosen with the user: both places, global, sideways scroll.
+It was an icon of its own in the header until the View menu took it in (2026-10-21).
 - Turned off, the pane makes a `SidewaysScroll` (per file: another file starts at its left edge) and `DiffLines` wraps the
   unified or split list: it provides `LocalSidewaysScroll`, takes Shift with the wheel and sideways swipes
   (`scrollsSideways`) and puts `SidewaysScrollbar` under the lines. `DiffLineText` then lays its text out with
@@ -479,12 +481,89 @@ reads. Chosen with the user: both places, global, sideways scroll.
   at `MAX_DIFF_LINE_CHARACTERS` with its note), measured once per diff, against a side's width less its line numbers
   (two in unified, one per side in split, as wide as the highest number of any hunk, `lineNumberDigits`) and the text's
   start. At the far end it ends 24 dp (`SidewaysEndMargin`) before the edge.
-- `StateIcon` got `togglesOff`: the other icons are pairs, where clicking the toggled one does nothing.
 - Dragging a text selection past the edge doesn't scroll sideways: only the wheel, a swipe and the scrollbar move it.
 - Tests: `DiffWrapTest` (rendered unified and split: wrapped, one row, sideways steps, Shift and the wheel, the line
-  numbers staying, the far end at 24 dp from the edge, back to wrapped; the button both ways; the helpers),
-  `DiffWrapSettingTest`. Three mutations (split's line-number count, the toggled click, the unwrapped text) were each
-  caught by a named test.
+  numbers staying, the far end at 24 dp from the edge, back to wrapped; the helpers), `DiffWrapSettingTest`. Three
+  mutations (split's line-number count, the toggled click, the unwrapped text) were each caught by a named test.
+
+**The diff's View menu: ignore whitespace, show whitespace characters (fork-only, 2026-10-21, upstream issues 138 and 139,
+`ui/diff/DiffViewMenu.kt`, `WhitespaceMarks.kt`, `domain/diff/DiffScrollAnchor.kt`):** one 32 dp "View options" button after
+the Unified and Split icons (the `tune` icon), with a menu (`SortMenuPopup`) of three switches that stay open when one is
+clicked: "Ignore whitespace" (hint "Like git diff -w"), "Show whitespace characters" and "Wrap long lines". Chosen with the
+user from two layouts (2026-10-21): three more icons in the header, or this menu. A laptop's diff pane is about 534 dp at
+a 1100 dp window, where today's header leaves the file's path 130 dp and two more icons left it 50, so the menu keeps the
+header as wide as before. The wrap icon moved into it. The strip below keeps "ignoring" visible, which a lit button alone
+wouldn't.
+- **The button** (`DiffViewMenu`) is lit like a toggled icon while a switch differs from how a diff first looks (ignoring,
+  marking or not wrapping), and its tooltip says which. "Ignore whitespace" is left out for an added or a deleted file
+  (`canIgnoreWhitespace`: no other version to compare with). File history's menu has no wrap row (`onWrapLinesChanged`
+  null): its lines always wrap. The menu is in file history's commit strip too (`FileHistoryCommitStrip.viewMenu`,
+  `WhitespaceViewOptions`), as that view has no header, and `HistoryViewModel` makes the shown commit's diff again when
+  the setting changes, where it was scrolled to.
+- **Ignoring** (`DiffWhitespaceMode`: `SHOW_ALL`, the default, and `IGNORE_ALL`; `AppConfig.DiffWhitespace`, key
+  `diff_whitespace`, stored as the lower-case name, and a name that this version doesn't know reads as the default; no
+  Settings → Layout entry, decided with the user: the menu is the persisted setting): `GetDiffContentGitAction` gives
+  JGit's `DiffFormatter` `RawTextComparator.WS_IGNORE_ALL` (`DiffWhitespaceMode.comparator()`), through
+  `IFormatDiffGitAction`, `IGetDiffContentGitAction` and `GetDiffUseCase`, all with the mode as their last parameter.
+  Everything else runs on the edits that JGit gives, so commit, file history and worktree review diffs follow the setting.
+  - **JGit's comparators** (probed 2026-10-21 with git 2.54 and JGit 7.7, then kept as a test over the 134 pairs of
+    `DiffWhitespaceTest`): `WS_IGNORE_ALL`, `WS_IGNORE_CHANGE` and `WS_IGNORE_TRAILING` find the same edits as `git diff -w`,
+    `-b` and `--ignore-space-at-eol`; `--ignore-cr-at-eol` has no JGit comparator. Only `-w` is offered, which is what GitHub and GitLab call hiding whitespace; `-b` or an end-of-line
+    mode would be one more `DiffWhitespaceMode` and a row each.
+  - **Context lines** (`FormatHunksGitAction`) come from the new version while ignoring, as git prints them: the two
+    versions of a context line differ in whitespace, and the old one showed the indentation from before the change.
+  - **Algorithms differ on repeated lines:** JGit's and git's histogram diff pick different, equally short edit scripts
+    when lines repeat, whitespace or not. `DiffWhitespaceTest`'s random pairs have a number on each line, so that only
+    what counts as equal decides the edits.
+- **Hunk and line actions are off while ignoring.** Their patches take the context from the side that they apply to, and
+  the lines that ignoring leaves as context differ between the two sides: reversed, git would refuse them as stale or
+  apply them to the wrong text. `Hunk.ignoresWhitespace` (set by `FormatHunksGitAction`) says that a hunk was made that way;
+  the diff pane gives no buttons, menu items or line buttons for it (`canUseHunkActions && !hunk.ignoresWhitespace`, in
+  unified and split), and `ApplyHunkGitAction` refuses it before git runs (`WhitespaceIgnoredHunkError`, with a text that
+  points to the menu). The hunk's own flag decides, not the setting, so a diff that is still on screen while another loads
+  keeps working as it was made.
+- **The strip** (`WhitespaceIgnoredStrip`, 24 dp, directly under the header, with a hairline under it) shows while the setting
+  is on and the diff is a text diff of a modified file: "Ignoring whitespace changes." and, in Staged and Unstaged,
+  "Stage and discard are off." or "Unstage is off." (`whitespaceActionsOffText`), with "Show them" turning it off in one
+  click. It also covers commit diffs, where nothing else says that lines are hidden. It replaced a note in each hunk's
+  header, which would have repeated.
+- **A file whose only change is whitespace** still lists as changed, and its diff has no hunks: `DiffResult.TextDiff.onlyWhitespaceChanged`
+  (`FormatDiffGitAction`: ignoring, no hunk, and the two versions' bytes differ) shows
+  `OnlyWhitespaceChanged` ("Only whitespace changed in this file", with "Show whitespace changes"). A change of mode or a
+  plain rename has no hunks and differing bytes don't apply, so they aren't called whitespace. It takes the place of
+  "Renamed from X. The content is unchanged.", which would be wrong for a rename with whitespace edits.
+- **Reloading:** `RepositoryOpenViewModel.diffResult` has the mode in its `combine`, and the settings flows in it are
+  `distinctUntilChanged`: DataStore re-emits every key whenever any is written, so writing the wrap setting used to load
+  the diff again. `domain/diff/DiffScrollAnchor.kt` keeps the place: the line of the new version at the top of the list
+  (`anchorAt`) and the first row of the other diff at or after it (`rowAt`, `rowKeptAcross`), for unified and split. The
+  view model and `HistoryViewModel` set a new `LazyListState` at that row (`newLazyListState(firstVisibleItemIndex)`) when
+  the mode changes for the same file. Another file, or a commit, starts at its top as before. A removed line counts as
+  the new line where its block starts, so a block of removed lines maps to where the block is in the other diff.
+- **Show whitespace characters** (`WhitespaceMarks.kt`; `AppConfig.DiffShowWhitespace`, key `diff_show_whitespace`, off by
+  default, global): `DiffPane` provides `LocalShowWhitespace` (file history provides its own), and `DiffText` draws an overlay
+  over its text from the `TextLayoutResult` (`drawWithContent`; `rememberWhitespaceOverlay`), so the text that is selected
+  and copied is the line, with no mark in it. A dot in each space, an arrow across the four columns of a tab, a red tint
+  on trailing whitespace, and a small outlined `CR` after the end of a line that ends with `\r\n`. `whitespaceMarksOf` works
+  on the pieces of the line that the word diff cut it in, as `formatDiff` draws them: tabs are four spaces there, so the
+  marks come from the source, not from the shown text. The word diff can cut between the `\r` and the `\n`, which leaves a
+  `\r` in the shown text (upstream's quirk, not changed): the CR is looked for in the joined pieces, and not counted as
+  trailing whitespace. Lines are cut at `MAX_DIFF_LINE_CHARACTERS`, so are the marks, and a cut line has no trailing
+  whitespace. The resolver's `LineText` doesn't provide the local and is unchanged. Off, a line has no extra node.
+- **Cost** (2026-10-21, JGit's own timing in a test): a 10,000-line file with every line re-indented and 300 changed
+  gives 20,000 lines to show in 1.0 s, and 2,422 lines in 0.2 s while ignoring. Marks on thirty lines of 10,000 characters
+  (150,000 marks): 143 ms for the first frame against 47 ms without, and 8 ms for the next. Off, a line pays nothing.
+- **Not done:** the Staged and Unstaged lists show a whitespace-only file as changed, and "Stage file" still stages it (the
+  strip and the pane say so); the other `git diff` modes; a diff's lines in the conflict resolver (its own view); showing
+  the marks while the text is edited there.
+- Tests: `DiffWhitespaceTest` (data: 14 fixed and 120 random pairs against `git diff -w` in Unstaged, Staged and a commit,
+  and the same without ignoring as the control, and JGit's `-b` and end-of-line comparators against git's; only-whitespace for each kind of change, and not for a mode change or a
+  plain rename; context from the new side; the six hunk and line actions refusing, changing nothing),
+  `DiffWhitespaceSettingTest` (a restart, an old file, an unknown name), `DiffScrollAnchorTest` and `GetDiffUseCaseTest`
+  (domain), `DiffViewMenuTest` (rows, the lit button and its tooltip, the strip, the pane, no buttons for an ignoring hunk
+  in unified and split), `WhitespaceMarksTest` (the marks, and pixels in `DiffText`), `FileHistoryWhitespaceTest`,
+  `HistoryViewModelTest` (a reload in the mode, keeping the line at the top). 27 mutations were each caught by a named
+  test. The real `DiffPane` ran against a demo repository through the Dagger graph in a temporary harness, in both
+  themes at 760 and 534 dp: every state above, the split view, and wide lines wrapped and not.
 
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
