@@ -1086,12 +1086,14 @@ commands.
 in a worktree row's menu shows, in place of Files changed, what the worktree's branch would bring into the base: the
 commits and the changed files, as `git log base..branch` and `git diff base...branch` show them. It's offered for a
 worktree on a branch other than the base (`branchToReview`, `domain/worktrees/WorktreeReview.kt`).
-- `GetBranchComparisonGitAction` reads it with JGit, as it only reads: the merge base (`RevFilter.MERGE_BASE`, the
-  first one with several), the commits oldest first (the newest `MAX_COMPARED_COMMITS`, 1000, and the count of all),
-  the commits that the base has and the branch doesn't, and the diff from the merge base's tree to the branch's
-  (`diffWithRenames`, as `GetCommitDiffEntriesGitAction` does for a commit: files that the branch moved are renames,
-  see Renames in file lists). Branches without a commit in common have no diff. A file opens in the diff pane as a
-  commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
+- `GetComparisonGitAction` (`data/git/compare/`, since 2026-10-21 shared with comparing any two commits, see
+  `docs/fork/compare.md`) reads it with JGit, as it only reads: the merge base (`RevFilter.MERGE_BASE`, the first one
+  with several), the commits that each side has alone, oldest first (the newest `MAX_COMPARED_COMMITS`, 1000, and the
+  count of all), how the two histories meet (`ComparisonRelation`), and the diff of the mode asked for. The review asks
+  for `ComparisonMode.SINCE_SPLIT`: from the merge base's tree to the branch's (`diffWithRenames`, as
+  `GetCommitDiffEntriesGitAction` does for a commit: files that the branch moved are renames, see Renames in file
+  lists). Branches without a commit in common have no diff then, as git refuses `A...B`. A file opens in the diff pane
+  as a commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
 - **State:** the review sets the selection to `SelectedItem.None` while it's shown, rather than being a `SelectedItem`
   of its own, which upstream's code handles in many places. Selecting anything else closes it; the close button and
   Esc (`CloseableView.WORKTREE_REVIEW`) close it and select again what was selected before.
@@ -1104,7 +1106,7 @@ worktree on a branch other than the base (`branchToReview`, `domain/worktrees/Wo
 **Renames in file lists (fork-only, `data/git/diff/RenameDetection.kt`, the commit and review lists of upstream issue
 347, 2026-10-19):** a commit that git shows as `R old -> new` used to list a deletion and an addition. `git.diff()`
 finds renames only when `diff.renames` is set, as JGit reads the unset key as off, where git's default is on.
-`GetCommitDiffEntriesGitAction` and `GetBranchComparisonGitAction` call `Repository.diffWithRenames` instead, so a
+`GetCommitDiffEntriesGitAction` and `GetComparisonGitAction` call `Repository.diffWithRenames` instead, so a
 commit's list and a worktree review's show a moved file as one `RENAME` entry (`DiffEntry.filePath` is the new path,
 `oldPath` the old one, `score` how much is alike). The Staged and Unstaged lists show none: they come from JGit's status
 and the index, where git's `R  old -> new` needs a rename status type and every stage, unstage, discard and diff action
@@ -1159,7 +1161,7 @@ keyed by path to handle it.
   the history of `old.txt` closed its diff at the commit that moved it, which was a deletion before.
 - Tests: `RenameDetectionTest` (exact, edited, in a folder, half alike against git's `-M`, copies, `diff.renames` false,
   true and `copies`, the limit and `diff.renameLimit`, many files by name, 1,500 exact, no time, out of time half way,
-  cancelled, a blobless partial clone and a commit made in one), `GetBranchComparisonGitActionTest` (the review, and the
+  cancelled, a blobless partial clone and a commit made in one), `GetComparisonGitActionTest` (the review, and the
   diff of a moved file), `RenamedFromTest`, `CommitChangesRenamesTest`, `ChangedFilesListRenamesTest`,
   `RenamedDiffTest`, `HistoryViewModelTest`.
 
@@ -1922,7 +1924,7 @@ when it first needs them. JGit can't: it throws `MissingObjectException`, which 
   so they aren't covered; nor is JGit's pull, the fallback (see Remote operations, Choice).
 - Lists don't read blobs: `GetDiffEntryFromStatusEntryGitAction` and `unmergedDiffEntry` call `git.diff()` with
   `setShowNameAndStatusOnly(true)`. Without it, JGit formats every file's diff into a null stream: selecting a commit
-  read all its changed files, in every repository. `GetCommitDiffEntriesGitAction` and `GetBranchComparisonGitAction`
+  read all its changed files, in every repository. `GetCommitDiffEntriesGitAction` and `GetComparisonGitAction`
   scan with a `DiffFormatter` that formats nothing, and find renames (`diffWithRenames`): exact ones read no blob, and
   the stages that compare content only look at the blobs that the clone has (see Renames in file lists).
 - The diff pane (`ViewDiffResult.Failed`, `DiffLoadFailure`) and file history show a missing object's error in place,

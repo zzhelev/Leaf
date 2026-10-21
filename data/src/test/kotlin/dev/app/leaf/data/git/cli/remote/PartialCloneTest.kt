@@ -11,6 +11,7 @@ import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.branches.MergeBranchGitAction
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.compare.GetComparisonGitAction
 import dev.app.leaf.data.git.diff.CanGenerateTextDiffGitAction
 import dev.app.leaf.data.git.diff.FormatDiffGitAction
 import dev.app.leaf.data.git.diff.FormatHunksGitAction
@@ -29,7 +30,6 @@ import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
-import dev.app.leaf.data.git.worktrees.GetBranchComparisonGitAction
 import dev.app.leaf.data.mappers.JGitBranchMapper
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
@@ -42,6 +42,7 @@ import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.PartialCloneFetchError
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.ComparisonMode
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.Identity
@@ -161,9 +162,9 @@ class PartialCloneTest {
 
     @Test
     fun `a branch's review lists what it changes`(): Unit = runBlocking {
-        val compare = GetBranchComparisonGitAction(jgit, JGitCommitMapper(JGitIdentityMapper()), partialClone)
+        val compare = GetComparisonGitAction(jgit, JGitCommitMapper(JGitIdentityMapper()), partialClone)
 
-        val comparison = compare(gitDir, "main", "origin/other").ok()
+        val comparison = compare(gitDir, "main", "origin/other", ComparisonMode.SINCE_SPLIT).ok()
 
         assertEquals(listOf("a.txt", "d.txt"), comparison.changes.map { it.newPath })
     }

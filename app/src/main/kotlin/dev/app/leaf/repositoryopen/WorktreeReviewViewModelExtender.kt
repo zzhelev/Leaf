@@ -11,7 +11,8 @@ import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.errOrNull
 import dev.app.leaf.domain.errors.okOrNull
-import dev.app.leaf.domain.models.BranchComparison
+import dev.app.leaf.domain.models.Comparison
+import dev.app.leaf.domain.models.ComparisonMode
 import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.Worktree
@@ -24,7 +25,7 @@ import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.buildFileRows
-import dev.app.leaf.domain.usecases.GetBranchComparisonUseCase
+import dev.app.leaf.domain.usecases.GetComparisonUseCase
 import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.name
 import dev.app.leaf.extensions.stateIn
@@ -59,7 +60,7 @@ data class WorktreeReviewState(
     val target: WorktreeReviewTarget,
     val worktreeName: String,
     val isLoading: Boolean,
-    val comparison: BranchComparison?,
+    val comparison: Comparison?,
     val error: AppError?,
     val viewState: FilesViewState,
     /** The visible rows of the changed files, for [viewState]. */
@@ -86,7 +87,7 @@ sealed interface WorktreeReviewAction {
 private data class Comparing(
     val target: WorktreeReviewTarget,
     val isLoading: Boolean,
-    val result: Either<BranchComparison, AppError>?,
+    val result: Either<Comparison, AppError>?,
 )
 
 /**
@@ -97,7 +98,7 @@ private data class Comparing(
  * It reads the comparison again when the branch or the base moves, as an agent keeps committing.
  */
 class WorktreeReviewViewModelExtender @AssistedInject constructor(
-    private val getBranchComparisonUseCase: GetBranchComparisonUseCase,
+    private val getComparisonUseCase: GetComparisonUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
@@ -140,12 +141,12 @@ class WorktreeReviewViewModelExtender @AssistedInject constructor(
         if (target == null) {
             flowOf(null)
         } else {
-            var last: Either<BranchComparison, AppError>? = null
+            var last: Either<Comparison, AppError>? = null
 
             tipsOf(target).transformLatest {
                 emit(Comparing(target, isLoading = true, result = last))
 
-                val result = getBranchComparisonUseCase(target.base, target.branch)
+                val result = getComparisonUseCase(target.base, target.branch, ComparisonMode.SINCE_SPLIT)
                 last = result
 
                 emit(Comparing(target, isLoading = false, result = result))
@@ -243,7 +244,7 @@ class WorktreeReviewViewModelExtender @AssistedInject constructor(
 internal fun worktreeReviewState(
     target: WorktreeReviewTarget,
     isLoading: Boolean,
-    result: Either<BranchComparison, AppError>?,
+    result: Either<Comparison, AppError>?,
     worktrees: WorktreeList?,
     viewState: FilesViewState,
     collapsedDirectories: Set<String>,

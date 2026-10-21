@@ -22,6 +22,7 @@ import dev.app.leaf.data.git.cli.operations.PutBackMergeAutostashGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingMergeBranchGitAction
 import dev.app.leaf.data.git.cli.operations.testGitCliOperations
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
+import dev.app.leaf.data.git.compare.GetComparisonGitAction
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
@@ -70,7 +71,6 @@ import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.data.git.workspace.GetStatusGitAction
 import dev.app.leaf.data.git.worktrees.CopyWorktreeFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
-import dev.app.leaf.data.git.worktrees.GetBranchComparisonGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
 import dev.app.leaf.data.git.worktrees.GetMergedIntoBaseGitAction
@@ -300,7 +300,7 @@ class TestTab(
         repositoryDataRepository = repositoryData,
         getWorktreeStatusGitAction = GetWorktreeStatusGitAction(gitCli),
         getWorktreeActivityGitAction = GetWorktreeActivityGitAction(gitCli),
-        getBranchComparisonGitAction = GetBranchComparisonGitAction(jgit, commitMapper, testPartialCloneFetch(jgit)),
+        getComparisonGitAction = GetComparisonGitAction(jgit, commitMapper, testPartialCloneFetch(jgit)),
         getBranchMergedGitAction = GetBranchMergedGitAction(gitCli),
         runGitCommandGitAction = RunGitCommandGitAction(gitCli),
     )

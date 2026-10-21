@@ -9,11 +9,12 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.okOrNull
-import dev.app.leaf.domain.interfaces.IGetBranchComparisonGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchMergedGitAction
+import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeActivityGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeStatusGitAction
 import dev.app.leaf.domain.interfaces.IRunGitCommandGitAction
+import dev.app.leaf.domain.models.ComparisonMode
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBranchUse
 import dev.app.leaf.domain.models.WorktreeMerge
@@ -35,7 +36,7 @@ class GetWorktreeMergeUseCase @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
     private val getWorktreeStatusGitAction: IGetWorktreeStatusGitAction,
     private val getWorktreeActivityGitAction: IGetWorktreeActivityGitAction,
-    private val getBranchComparisonGitAction: IGetBranchComparisonGitAction,
+    private val getComparisonGitAction: IGetComparisonGitAction,
     private val getBranchMergedGitAction: IGetBranchMergedGitAction,
     private val runGitCommandGitAction: IRunGitCommandGitAction,
 ) {
@@ -61,7 +62,7 @@ class GetWorktreeMergeUseCase @Inject constructor(
                 val use = it.useOf(target)
                 use == WorktreeBranchUse.Rebasing || use == WorktreeBranchUse.Bisecting
             }
-            val comparison = getBranchComparisonGitAction(repositoryPath, target, branch).bind()
+            val comparison = getComparisonGitAction(repositoryPath, target, branch, ComparisonMode.SINCE_SPLIT).bind()
 
             Either.Ok(
                 WorktreeMerge(
@@ -80,8 +81,8 @@ class GetWorktreeMergeUseCase @Inject constructor(
                     } else {
                         null
                     },
-                    commits = comparison.commits,
-                    commitCount = comparison.ahead,
+                    commits = comparison.commitsOnlyInB,
+                    commitCount = comparison.countOnlyInB,
                     branchMerged = getBranchMergedGitAction(repositoryPath, target, branch).okOrNull(),
                 )
             )

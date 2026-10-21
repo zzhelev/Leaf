@@ -9,10 +9,12 @@ import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
-import dev.app.leaf.domain.interfaces.IGetBranchComparisonGitAction
+import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
 import dev.app.leaf.domain.models.Branch
-import dev.app.leaf.domain.models.BranchComparison
 import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.Comparison
+import dev.app.leaf.domain.models.ComparisonMode
+import dev.app.leaf.domain.models.ComparisonRelation
 import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.Identity
@@ -25,7 +27,7 @@ import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.CloseableView
 import dev.app.leaf.domain.sorting.FilesViewState
-import dev.app.leaf.domain.usecases.GetBranchComparisonUseCase
+import dev.app.leaf.domain.usecases.GetComparisonUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,8 +67,19 @@ class WorktreeReviewTest {
     /** Holds back the comparisons after the first until it completes. */
     private val laterComparisons = CompletableDeferred<Unit>().apply { complete(Unit) }.let { MutableStateFlow(it) }
 
-    private val gitAction = object : IGetBranchComparisonGitAction {
-        override suspend fun invoke(repositoryPath: String, base: String, branch: String): Either<BranchComparison, GitError> {
+    private val gitAction = object : IGetComparisonGitAction {
+        override suspend fun invoke(
+            repositoryPath: String,
+            a: String,
+            b: String,
+            mode: ComparisonMode,
+        ): Either<Comparison, GitError> {
+            // The review shows what the branch would bring into the base
+            assertEquals(ComparisonMode.SINCE_SPLIT, mode)
+
+            val base = a
+            val branch = b
+
             if (compared.isNotEmpty()) laterComparisons.value.await()
 
             compared += base to branch
@@ -80,7 +93,7 @@ class WorktreeReviewTest {
     private val closeableViews = Collections.synchronizedList(mutableListOf<CloseableView>())
 
     private val review = WorktreeReviewViewModelExtender(
-        getBranchComparisonUseCase = GetBranchComparisonUseCase(
+        getComparisonUseCase = GetComparisonUseCase(
             gitAction,
             UseCaseExecutor(repositoryData, InMemoryRepositoryStateRepository(), Provider { error("No refresh") }, tabScope),
         ),
@@ -187,7 +200,7 @@ class WorktreeReviewTest {
     @Test
     fun `reads the comparison again when the branch moves, and not on every refresh`(): Unit = runBlocking {
         review.open(agent, "refs/heads/main")
-        assertEquals(listOf("Commit 1"), loaded().comparison!!.commits.map { it.shortMessage })
+        assertEquals(listOf("Commit 1"), loaded().comparison!!.commitsOnlyInB.map { it.shortMessage })
 
         // A refresh that finds the same commits
         setBranches(agent1Hash = "a1")
@@ -199,13 +212,13 @@ class WorktreeReviewTest {
         setBranches(agent1Hash = "a2")
 
         val reloading = withTimeout(5.seconds) { review.reviewState.first { it != null && it.isLoading } }
-        assertEquals(listOf("Commit 1"), reloading!!.comparison!!.commits.map { it.shortMessage })
+        assertEquals(listOf("Commit 1"), reloading!!.comparison!!.commitsOnlyInB.map { it.shortMessage })
         laterComparisons.value.complete(Unit)
 
         val moved = withTimeout(5.seconds) {
-            review.reviewState.first { it != null && !it.isLoading && it.comparison!!.commits.size == 2 }
+            review.reviewState.first { it != null && !it.isLoading && it.comparison!!.commitsOnlyInB.size == 2 }
         }
-        assertEquals(listOf("Commit 1", "Commit 2"), moved!!.comparison!!.commits.map { it.shortMessage })
+        assertEquals(listOf("Commit 1", "Commit 2"), moved!!.comparison!!.commitsOnlyInB.map { it.shortMessage })
     }
 
     @Test
@@ -255,13 +268,16 @@ class WorktreeReviewTest {
         }
     }
 
-    private fun comparison(base: String, branch: String, subjects: List<String>) = BranchComparison(
-        base = base,
-        branch = branch,
+    private fun comparison(base: String, branch: String, subjects: List<String>) = Comparison(
+        a = base,
+        b = branch,
+        mode = ComparisonMode.SINCE_SPLIT,
+        relation = ComparisonRelation.A_IS_ANCESTOR,
         mergeBase = "m0",
-        commits = subjects.mapIndexed { index, subject -> commit(subject, "c${index + 1}") },
-        ahead = subjects.size,
-        behind = 0,
+        commitsOnlyInB = subjects.mapIndexed { index, subject -> commit(subject, "c${index + 1}") },
+        countOnlyInB = subjects.size,
+        commitsOnlyInA = emptyList(),
+        countOnlyInA = 0,
         changes = listOf(addedEntry("retry.txt"), addedEntry("test/retry_test.txt")),
     )
 

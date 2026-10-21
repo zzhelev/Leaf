@@ -78,9 +78,13 @@ three-dot. GitHub Desktop compares branches in a Compare tab.
   a branch: the side is the commit, named by the tag where it has one.
 - **A menu item** takes what it names: the branch or tag it was opened on, and the current branch (or `HEAD` when
   detached).
-- **Which is A:** for ⌘-click and "Compare with selected", the ancestor when one contains the other, and otherwise the
-  older commit by commit date. For "Compare with main (current)", the current branch is A and the item's ref is B,
-  whatever their ages. The order is decided once, when the comparison starts; the swap changes it after that.
+- **Which is A:** the ancestor, when one contains the other, however the comparison started: the changes then read
+  forwards, from the older snapshot to the newer, as "what changed since v1.0" does. Otherwise ⌘-click and "Compare with
+  selected" put the older commit first by commit date (`inPickedOrder`), and "Compare with main (current)" puts the
+  current branch first, so a branch's comparison reads as what merging it into main would bring.
+  - Dates are known before git compares the two, ancestry only after. So a comparison whose B turns out to be A's
+    ancestor (dates set by hand or by a wrong clock, or a menu's current branch that is newer) swaps once, as it starts
+    (`putsAncestorFirst`). After that only the swap button changes the order.
 - **Names:** a branch side shows the branch's short name, a commit side its short hash. Both show the short hash next to
   the name, and the full view adds the subject.
 
@@ -127,8 +131,10 @@ The right pane, in place of the commit's files. Top to bottom:
   "What feat/clone-picker changed since it branched off main at e3c6632. main's 4 newer commits are left out." Only
   when the two have diverged.
 - **Instead of the switch:**
-  - when one contains the other: "B has 3 commits that A lacks, and A has none of its own, so both ways of comparing
-    give the same files." The commits section is then "Commits from A to B", and there is no "Commits only in A";
+  - when A is B's ancestor: "B has 3 commits that A lacks, and A has none of its own, so both ways of comparing give
+    the same files." The commits section is then "Commits from A to B", and there is no "Commits only in A";
+  - when B is A's ancestor, which only a swap leads to: "A has 3 commits that B lacks, and B has none of its own. The
+    files show them as if B had undone them." All differences, as since they split would list nothing;
   - when they share no commit: "main and gh-pages share no commit, so this shows every difference between them." The
     mode is "All differences".
 - **Commits only in B**, open, oldest first, at most `MAX_COMPARED_COMMITS` (1,000) with "N more" past it.
@@ -163,8 +169,12 @@ The right pane, in place of the commit's files. Top to bottom:
   release commits show "1.3.0" removed and "1.2.0" added in `latest.json`.
 - **Default:** "Since they split" when both sides are branches (⌘-click on two branch tips, a branch menu, the review),
   "All differences" otherwise (two commits, a commit or a tag against the current branch).
-- **When it shows:** only for diverged sides. A comparison where one contains the other has one answer, and unrelated
-  histories have no merge base, so "All differences".
+- **When it shows:** only for diverged sides (`showsModeSwitch`). When A is B's ancestor, the merge base is A and both
+  modes list the same files. When B is A's ancestor, or the histories share no commit, "Since they split" would list
+  nothing (git refuses `A...B` without a merge base), so the comparison shows "All differences" (`modeToShow`).
+- **The git action does what it's asked**, as git does: the review asks for "Since they split" and gets nothing for a
+  branch that main already has, which is the review's answer. A comparison's view model asks for the mode it means to
+  show, and asks again in the rare case that the relation it learns calls for the other one.
 - The switch is per comparison: not saved, kept by a swap, reset when a new comparison starts.
 
 ### 3.7 Swap (F6)
@@ -199,14 +209,16 @@ Six steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Each step builds and pass
 ### Step 1: compare any two revisions (data and domain)
 
 - `D/models/BranchComparison.kt` → `D/models/Comparison.kt`: `Comparison(a, b, mode, relation, mergeBase,
-  commitsOnlyInB, onlyInB, commitsOnlyInA, onlyInA, changes)`. `ComparisonMode { SINCE_SPLIT, ALL }`.
-  `Relation { SAME, A_CONTAINS_B, B_CONTAINS_A, DIVERGED, UNRELATED }`.
+  commitsOnlyInB, countOnlyInB, commitsOnlyInA, countOnlyInA, changes)`. `ComparisonMode { SINCE_SPLIT, ALL }`.
+  `ComparisonRelation { SAME, A_IS_ANCESTOR, B_IS_ANCESTOR, DIVERGED, UNRELATED }`.
 - `D/interfaces/IGetComparisonGitAction`: `(repositoryPath, a: String, b: String, mode) -> Either<Comparison,
-  GitError>`, where a side is a full ref or a hash. `DA/git/compare/GetComparisonGitAction`, moved from
-  `DA/git/worktrees/GetBranchComparisonGitAction`: both commit lists, the relation, and the trees by mode. Bound in
-  place of `IGetBranchComparisonGitAction` in `WorktreeGitActionsModule` (or a new `CompareGitActionsModule`).
-- `D/compare/CompareRules.kt` (pure): which side is A (3.1), the default mode (3.6), whether the switch shows, the
-  side's name for a row (`logRefs` order).
+  GitError>`, where a side is a full ref or a commit id. `DA/git/compare/GetComparisonGitAction`, moved from
+  `DA/git/worktrees/GetBranchComparisonGitAction`: both commit lists, the relation, and the trees of the mode asked for.
+  Bound in place of `IGetBranchComparisonGitAction` in `WorktreeGitActionsModule`. `GetComparisonUseCase` replaces
+  `GetBranchComparisonUseCase`. The review and the merge dialog ask for "Since they split".
+- `D/compare/CompareRules.kt` (pure): `CompareSide` (`Branch`, `Commit`), the side for a log row (`compareSideOf`, in
+  `logRefs` order, a detached HEAD left out), `inPickedOrder`, `putsAncestorFirst`, `defaultMode`, `showsModeSwitch`,
+  `modeToShow` and `comparisonRelation`.
 - **Tests:** `GetComparisonGitActionTest` on temp repositories (linear, diverged, criss-cross, unrelated, the same
   commit, a moved file, a branch against a tag, a missing ref), each against git: `git diff --name-status -M50% A B` and
   `A...B`, `git rev-list A..B` and `B..A`, `git merge-base --all`. A partial clone against `PartialCloneTest`'s setup.

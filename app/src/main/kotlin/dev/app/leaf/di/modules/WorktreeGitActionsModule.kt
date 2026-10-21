@@ -5,6 +5,7 @@ package dev.app.leaf.di.modules
 
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.branches.CheckBranchNameGitAction
+import dev.app.leaf.data.git.compare.GetComparisonGitAction
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeBaseBranchGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
@@ -12,7 +13,6 @@ import dev.app.leaf.data.git.workspace.CleanUpAfterCommitGitAction
 import dev.app.leaf.data.git.worktrees.CopyWorktreeFilesGitAction
 import dev.app.leaf.data.git.worktrees.CreateWorktreeIncludeGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
-import dev.app.leaf.data.git.worktrees.GetBranchComparisonGitAction
 import dev.app.leaf.data.git.worktrees.GetBranchMergedGitAction
 import dev.app.leaf.data.git.worktrees.GetCommitTimesGitAction
 import dev.app.leaf.data.git.worktrees.GetCommonGitDirGitAction
@@ -32,10 +32,10 @@ import dev.app.leaf.domain.interfaces.ICleanUpAfterCommitGitAction
 import dev.app.leaf.domain.interfaces.ICopyWorktreeFilesGitAction
 import dev.app.leaf.domain.interfaces.ICreateWorktreeIncludeGitAction
 import dev.app.leaf.domain.interfaces.IGetAheadBehindGitAction
-import dev.app.leaf.domain.interfaces.IGetBranchComparisonGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchMergedGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommonGitDirGitAction
+import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
 import dev.app.leaf.domain.interfaces.IGetMergedIntoBaseGitAction
 import dev.app.leaf.domain.interfaces.IGetOtherWorktreeHeadsGitAction
 import dev.app.leaf.domain.interfaces.IGetPrunableWorktreesGitAction
@@ -138,7 +138,7 @@ interface WorktreeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsGetBranchComparisonGitAction(action: GetBranchComparisonGitAction): IGetBranchComparisonGitAction
+    fun bindsGetComparisonGitAction(action: GetComparisonGitAction): IGetComparisonGitAction
 
     @Binds
     @TabScope

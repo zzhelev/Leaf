@@ -40,8 +40,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.compose.rememberInTab
-import dev.app.leaf.domain.models.BranchComparison
 import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.Comparison
 import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
@@ -123,7 +123,7 @@ internal fun WorktreeReviewView(
                 }
 
                 if (comparison != null) {
-                    SectionHeader(stringResource(Res.string.worktree_review_commits), comparison.ahead)
+                    SectionHeader(stringResource(Res.string.worktree_review_commits), comparison.countOnlyInB)
 
                     CommitsList(
                         comparison = comparison,
@@ -196,13 +196,13 @@ private fun ReviewHeader(state: WorktreeReviewState, onClose: () -> Unit) {
                 stringResource(
                     Res.string.worktree_review_ahead_behind_tooltip,
                     state.branchName,
-                    comparison.ahead,
+                    comparison.countOnlyInB,
                     state.baseName,
-                    comparison.behind,
+                    comparison.countOnlyInA,
                 )
             ) {
                 Text(
-                    text = "↑${comparison.ahead} ↓${comparison.behind}",
+                    text = "↑${comparison.countOnlyInB} ↓${comparison.countOnlyInA}",
                     style = MaterialTheme.typography.body2,
                     color = MaterialTheme.colors.onBackgroundSecondary,
                     maxLines = 1,
@@ -275,18 +275,18 @@ private fun SectionHeader(title: String, count: Int, action: (@Composable () -> 
 /** The commits that the branch has and the base doesn't, oldest first, by subject. */
 @Composable
 private fun CommitsList(
-    comparison: BranchComparison,
+    comparison: Comparison,
     branchName: String,
     baseName: String,
     modifier: Modifier = Modifier,
 ) {
-    if (comparison.commits.isEmpty()) {
+    if (comparison.commitsOnlyInB.isEmpty()) {
         ReviewNote(stringResource(Res.string.worktree_review_no_commits, branchName, baseName))
         return
     }
 
-    val listState = rememberInTab("worktreeReviewCommitsScroll", comparison.branch) { LazyListState() }
-    val older = comparison.ahead - comparison.commits.size
+    val listState = rememberInTab("worktreeReviewCommitsScroll", comparison.b) { LazyListState() }
+    val older = comparison.countOnlyInB - comparison.commitsOnlyInB.size
 
     LazyColumn(state = listState, modifier = modifier.fillMaxWidth()) {
         if (older > 0) {
@@ -295,7 +295,7 @@ private fun CommitsList(
             }
         }
 
-        items(comparison.commits, key = { it.hash }) { commit ->
+        items(comparison.commitsOnlyInB, key = { it.hash }) { commit ->
             CommitRow(commit)
         }
     }

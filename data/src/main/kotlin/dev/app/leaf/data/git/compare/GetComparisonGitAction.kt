@@ -1,19 +1,21 @@
 // SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package dev.app.leaf.data.git.worktrees
+package dev.app.leaf.data.git.compare
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
 import dev.app.leaf.data.git.diff.diffWithRenames
 import dev.app.leaf.data.mappers.JGitCommitMapper
+import dev.app.leaf.domain.compare.comparisonRelation
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.extensions.filePath
-import dev.app.leaf.domain.interfaces.IGetBranchComparisonGitAction
-import dev.app.leaf.domain.models.BranchComparison
+import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
+import dev.app.leaf.domain.models.Comparison
+import dev.app.leaf.domain.models.ComparisonMode
 import dev.app.leaf.domain.models.MAX_COMPARED_COMMITS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,64 +30,74 @@ import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import javax.inject.Inject
 
 /**
- * Compares a branch with the base (fork-only), as `git log base..branch` and `git diff base...branch` do. It only
- * reads, so JGit does it.
+ * Compares two commits or branches (fork-only), as `git log A..B`, `git log B..A` and `git diff A...B` or `git diff A B`
+ * do. It only reads, so JGit does it.
  */
-class GetBranchComparisonGitAction @Inject constructor(
+class GetComparisonGitAction @Inject constructor(
     private val jgit: JGit,
     private val commitMapper: JGitCommitMapper,
     private val partialClone: PartialCloneFetch,
-) : IGetBranchComparisonGitAction {
+) : IGetComparisonGitAction {
     override suspend operator fun invoke(
         repositoryPath: String,
-        base: String,
-        branch: String,
-    ): Either<BranchComparison, GitError> = withContext(Dispatchers.IO) {
-        partialClone.retryingMissing(repositoryPath) { compare(repositoryPath, base, branch) }
+        a: String,
+        b: String,
+        mode: ComparisonMode,
+    ): Either<Comparison, GitError> = withContext(Dispatchers.IO) {
+        partialClone.retryingMissing(repositoryPath) { compare(repositoryPath, a, b, mode) }
     }
 
     private suspend fun compare(
         repositoryPath: String,
-        base: String,
-        branch: String,
-    ): Either<BranchComparison, GitError> = withContext(Dispatchers.IO) {
+        a: String,
+        b: String,
+        mode: ComparisonMode,
+    ): Either<Comparison, GitError> = withContext(Dispatchers.IO) {
         jgit.provide(repositoryPath) { git ->
             val repository = git.repository
-            val baseId = repository.resolveCommit(base).bind()
-            val branchId = repository.resolveCommit(branch).bind()
-            val mergeBase = repository.mergeBase(baseId, branchId)
-            val (commits, ahead) = repository.commitsOnlyIn(branchId, baseId, MAX_COMPARED_COMMITS)
-            val behind = repository.commitsOnlyIn(baseId, branchId, limit = 0).second
+            val aId = repository.resolveCommit(a).bind()
+            val bId = repository.resolveCommit(b).bind()
+            val mergeBase = repository.mergeBase(aId, bId)
+            val (onlyInB, countOnlyInB) = repository.commitsOnlyIn(bId, aId, MAX_COMPARED_COMMITS)
+            val (onlyInA, countOnlyInA) = repository.commitsOnlyIn(aId, bId, MAX_COMPARED_COMMITS)
 
-            val changes = if (mergeBase == null) {
+            val oldTree = when (mode) {
+                ComparisonMode.SINCE_SPLIT -> mergeBase?.tree
+                ComparisonMode.ALL -> repository.treeOf(aId)
+            }
+
+            val changes = if (oldTree == null) {
                 emptyList()
             } else {
                 // The entries alone: formatting each file's diff, which nothing reads, reads all its blobs. Files that
-                // the branch moved are renames, as in a commit's list
+                // moved are renames, as in a commit's list
                 repository.diffWithRenames(
-                    oldTree = repository.treeParser(mergeBase.tree),
-                    newTree = repository.treeParser(RevWalk(repository).use { it.parseCommit(branchId).tree }),
+                    oldTree = repository.treeParser(oldTree),
+                    newTree = repository.treeParser(repository.treeOf(bId)),
                 ).sortedBy { it.filePath }
             }
 
-            BranchComparison(
-                base = base,
-                branch = branch,
+            Comparison(
+                a = a,
+                b = b,
+                mode = mode,
+                relation = comparisonRelation(countOnlyInA, countOnlyInB, hasMergeBase = mergeBase != null),
                 mergeBase = mergeBase?.name,
-                commits = commits.map { commitMapper.toDomain(it) },
-                ahead = ahead,
-                behind = behind,
+                commitsOnlyInB = onlyInB.map { commitMapper.toDomain(it) },
+                countOnlyInB = countOnlyInB,
+                commitsOnlyInA = onlyInA.map { commitMapper.toDomain(it) },
+                countOnlyInA = countOnlyInA,
                 changes = changes,
             )
         }
     }
 }
 
-private fun Repository.resolveCommit(ref: String): Either<ObjectId, GitError> {
-    val id = resolve("$ref^{commit}")
+private fun Repository.resolveCommit(revision: String): Either<ObjectId, GitError> {
+    val id = resolve("$revision^{commit}")
 
     return if (id == null) {
-        Either.Err(GenericError("${Repository.shortenRefName(ref)} doesn't exist."))
+        Either.Err(GenericError("${Repository.shortenRefName(revision)} doesn't exist."))
     } else {
         Either.Ok(id)
     }
@@ -125,6 +137,8 @@ private fun Repository.commitsOnlyIn(tip: ObjectId, other: ObjectId, limit: Int)
 
         newestFirst.asReversed().toList() to count
     }
+
+private fun Repository.treeOf(commit: ObjectId): RevTree = RevWalk(this).use { it.parseCommit(commit).tree }
 
 private fun Repository.treeParser(tree: RevTree) = CanonicalTreeParser().also { parser ->
     newObjectReader().use { reader -> parser.reset(reader, tree.id) }
