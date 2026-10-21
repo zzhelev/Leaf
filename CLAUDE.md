@@ -465,6 +465,27 @@ upstream actions (`StageHunkGitAction`, `DiscardUnstagedHunkLineGitAction`, …)
   line numbers to make room for two buttons (`lineTextStart`, through `DiffText`'s `startPadding`). Like the hunk
   buttons, neither shows while a merge, rebase, cherry-pick or revert goes on (`isRepositoryInSafeState`).
 
+**Wrapping in the diff pane (fork-only, 2026-10-21, `ui/diff/DiffWrap.kt`):** the diff's lines wrapped always
+(`DiffText`'s `softWrap = true`). A wrap icon after the Unified and Split icons in the diff's header (`WrapLinesButton`,
+shown for any text diff, added and deleted files too) and "Wrap long lines in diffs" in Settings → Layout write one
+global setting (`AppConfig.DiffWrapLines`, `diff_wrap_lines`, on by default), which `RepositoryOpenViewModel.diffWrapLines`
+reads. Chosen with the user: both places, global, sideways scroll.
+- Turned off, the pane makes a `SidewaysScroll` (per file: another file starts at its left edge) and `DiffLines` wraps the
+  unified or split list: it provides `LocalSidewaysScroll`, takes Shift with the wheel and sideways swipes
+  (`scrollsSideways`) and puts `SidewaysScrollbar` under the lines. `DiffLineText` then lays its text out with
+  `UnwrappedLine`, the resolver's, after `lineTextStart`, so the line numbers and the line's Stage and Discard buttons stay
+  put. One offset for both sides of a split diff, as in the resolver.
+- How far it scrolls (`FitDiffSideways`): the longest line as `DiffText` draws it (`longestDiffLine`: tabs as spaces, cut
+  at `MAX_DIFF_LINE_CHARACTERS` with its note), measured once per diff, against a side's width less its line numbers
+  (two in unified, one per side in split, as wide as the highest number of any hunk, `lineNumberDigits`) and the text's
+  start. At the far end it ends 24 dp (`SidewaysEndMargin`) before the edge.
+- `StateIcon` got `togglesOff`: the other icons are pairs, where clicking the toggled one does nothing.
+- Dragging a text selection past the edge doesn't scroll sideways: only the wheel, a swipe and the scrollbar move it.
+- Tests: `DiffWrapTest` (rendered unified and split: wrapped, one row, sideways steps, Shift and the wheel, the line
+  numbers staying, the far end at 24 dp from the edge, back to wrapped; the button both ways; the helpers),
+  `DiffWrapSettingTest`. Three mutations (split's line-number count, the toggled click, the unwrapped text) were each
+  caught by a named test.
+
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
 `git diff --ours` shows.
@@ -704,7 +725,8 @@ its lines, with colours while editing (section 11).
   `ColumnShares` in `domain/conflicts/ResolverSizes.kt`), kept in `ConflictResolverSession` until Leaf quits. "Wrap
   lines" in the toolbar turns wrapping off, and writes the setting "Wrap long lines" in Settings → Conflicts
   (`AppConfig.ConflictResolverWrapLines`, `conflict_resolver_wrap_lines`, on by default), which the view model reads.
-  - Without wrapping, `LineText` (`ResolverSideways.kt`) lays each line out on one row through `UnwrappedNode`, which
+  - Without wrapping, `LineText` (`ResolverSideways.kt`) lays each line out on one row through `UnwrappedLine`
+    (`ui/components/SidewaysScroll.kt`, shared with the diff pane since 2026-10-21) and its `UnwrappedNode`, which
     measures it with an unbounded width and places it `SidewaysScroll.offset` to the left, so scrolling only places
     the lines again. It answers intrinsic heights for an unbounded width: the rows' `IntrinsicSize.Min` asks with the
     column's width, and DiffText would report its wrapped height, making each row as tall as wrapped text.

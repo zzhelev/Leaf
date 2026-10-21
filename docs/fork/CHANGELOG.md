@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The diff pane can turn line wrapping off (2026-10-21)
+
+- **Request:** long lines in the diff always wrapped, with no way to turn it off, while the conflict resolver already had
+  a switch.
+- **What it does:** a wrap icon in the diff's header, after the Unified and Split icons, and "Wrap long lines in diffs" in
+  Settings → Layout, which are one setting for every tab, on by default. Turned off, each line stays on one row and the
+  lines scroll sideways together: Shift and the wheel, a sideways swipe, or the scrollbar under the lines. The line
+  numbers and the line's Stage and Discard buttons stay where they are; both sides of a split diff scroll together.
+  Another file starts at its left edge.
+- **Chosen with the user:** the header icon and the setting, global, sideways scroll.
+- The resolver's sideways scrolling moved to `ui/components/SidewaysScroll.kt` for both to use; the resolver is unchanged.
+- Details: CLAUDE.md, "Wrapping in the diff pane".
+
 ## The log's rows take the arrow keys (2026-10-20)
 
 - **Request:** the log was mouse-only: after a click on a commit, the keys did nothing.
