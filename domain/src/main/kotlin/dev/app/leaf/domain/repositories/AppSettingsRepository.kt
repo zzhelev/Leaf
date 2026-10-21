@@ -50,6 +50,7 @@ interface AppSettingsRepository {
     val conflictOpener: Flow<ConflictOpener?>
     val conflictResolverLayout: Flow<ConflictResolverLayout?>
     val conflictResolverWrapLines: Flow<Boolean?>
+    val diffWrapLines: Flow<Boolean?>
 
     // Network
     val cacheCredentialsInMemory: Flow<Boolean?>

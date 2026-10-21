@@ -51,4 +51,7 @@ sealed interface AppConfig {
 
     /** Whether the built-in resolver wraps long lines, or keeps each on one row and scrolls sideways (fork-only). */
     data class ConflictResolverWrapLines(val value: Boolean) : AppConfig
+
+    /** Whether the diff pane wraps long lines, or keeps each on one row and scrolls sideways (fork-only). */
+    data class DiffWrapLines(val value: Boolean) : AppConfig
 }

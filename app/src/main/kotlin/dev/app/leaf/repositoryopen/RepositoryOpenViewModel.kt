@@ -1581,6 +1581,13 @@ class RepositoryOpenViewModel @Inject constructor(
         settings.setConfiguration(AppConfig.DiffDisplayFullFile(isDisplayFullFile))
     }
 
+    /** Whether the diff pane wraps long lines (fork-only). True until the setting is read, as before it existed. */
+    val diffWrapLines: StateFlow<Boolean> = settings.diffWrapLines.stateIn(true)
+
+    fun changeDiffWrapLines(wrap: Boolean) = tabScope.launch {
+        settings.setConfiguration(AppConfig.DiffWrapLines(wrap))
+    }
+
     fun stageHunkLine(entry: DiffEntry, hunk: Hunk, line: Line) = stageHunkLineUseCase(entry, hunk, line)
 
     fun unstageHunkLine(entry: DiffEntry, hunk: Hunk, line: Line) = unstageHunkLineUseCase(entry, hunk, line)

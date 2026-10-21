@@ -526,6 +526,13 @@ private fun Layout(settingsViewState: SettingsViewState, onAction: (SettingsActi
             onAction(SettingsAction.SetConfig(AppConfig.ConfirmHunkAndLineDiscards(value)))
         }
     )
+
+    SettingToggle(
+        title = stringResource(Res.string.settings_layout_diff_wrap_title),
+        subtitle = stringResource(Res.string.settings_layout_diff_wrap_subtitle),
+        value = settingsViewState.diffWrapLines,
+        onValueChanged = { value -> onAction(SettingsAction.SetConfig(AppConfig.DiffWrapLines(value))) },
+    )
 }
 
 @Composable

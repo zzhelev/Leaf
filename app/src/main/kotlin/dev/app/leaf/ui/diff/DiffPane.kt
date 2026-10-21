@@ -48,7 +48,10 @@ import dev.app.leaf.extensions.toStringWithSpaces
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.*
 import dev.app.leaf.ui.components.PrimaryButton
+import dev.app.leaf.ui.components.LocalSidewaysScroll
 import dev.app.leaf.ui.components.ScrollableLazyColumn
+import dev.app.leaf.ui.components.SidewaysScroll
+import dev.app.leaf.ui.components.UnwrappedLine
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
@@ -114,6 +117,7 @@ fun DiffPane(
     val confirmDiscards by viewModel.confirmHunkAndLineDiscards.collectAsState()
     val textDiffType by viewModel.diffTypeFlow.collectAsState(DiffTextViewType.Unified)
     val isDisplayFullFile by viewModel.isDisplayFullFile.collectAsState(false)
+    val wrapLines by viewModel.diffWrapLines.collectAsState()
     val viewDiffResult = diffResultState.value ?: return
     val isRepositoryInSafeState by viewModel.isRepositoryInSafeState.collectAsState(false)
     val conflictSides by viewModel.conflictSides.collectAsState()
@@ -181,6 +185,8 @@ fun DiffPane(
                     onUnstageFile = { viewModel.unstageFile(it) },
                     onChangeDiffType = { viewModel.changeTextDiffType(it) },
                     onDisplayFullFile = { viewModel.changeDisplayFullFile(it) },
+                    wrapLines = wrapLines,
+                    onWrapLinesChanged = { viewModel.changeDiffWrapLines(it) },
                 )
 
                 // Fork-only: a file with conflicts gets a strip with the merge tool, ours and theirs, and what each is
@@ -204,57 +210,63 @@ fun DiffPane(
                 val scrollState by viewModel.lazyListState.collectAsState()
                 // Fork-only: a rename without changes has no hunks, which left the pane blank
                 val renamedWithoutChanges = diffResult.renamedWithoutChanges()
+                // Fork-only: lines that don't wrap scroll sideways together, back to their start in another file
+                val sideways = remember(wrapLines, diffType.filePath) { if (wrapLines) null else SidewaysScroll() }
 
                 if (renamedWithoutChanges != null) {
                     RenamedWithoutChanges(renamedWithoutChanges)
                 } else when (diffResult) {
-                    is DiffResult.TextSplit -> HunkSplitTextDiff(
-                        diffType = diffType,
-                        scrollState = scrollState,
-                        diffResult = diffResult,
-                        canUseHunkActions = isRepositoryInSafeState,
-                        onUnstageHunk = { entry, hunk ->
-                            viewModel.unstageHunk(entry, hunk)
-                        },
-                        onStageHunk = { entry, hunk ->
-                            viewModel.stageHunk(entry, hunk)
-                        },
-                        onResetHunk = ::discardHunk,
-                        onUnStageLine = { entry, hunk, line ->
-                            if (diffType is DiffType.UncommittedDiff) {
-                                if (diffType.entryType == EntryType.STAGED)
-                                    viewModel.unstageHunkLine(entry, hunk, line)
-                                else {
-                                    viewModel.stageHunkLine(entry, hunk, line)
+                    is DiffResult.TextSplit -> DiffLines(sideways, diffResult, lineTextStart(diffType)) {
+                        HunkSplitTextDiff(
+                            diffType = diffType,
+                            scrollState = scrollState,
+                            diffResult = diffResult,
+                            canUseHunkActions = isRepositoryInSafeState,
+                            onUnstageHunk = { entry, hunk ->
+                                viewModel.unstageHunk(entry, hunk)
+                            },
+                            onStageHunk = { entry, hunk ->
+                                viewModel.stageHunk(entry, hunk)
+                            },
+                            onResetHunk = ::discardHunk,
+                            onUnStageLine = { entry, hunk, line ->
+                                if (diffType is DiffType.UncommittedDiff) {
+                                    if (diffType.entryType == EntryType.STAGED)
+                                        viewModel.unstageHunkLine(entry, hunk, line)
+                                    else {
+                                        viewModel.stageHunkLine(entry, hunk, line)
+                                    }
                                 }
-                            }
-                        },
-                        onDiscardLine = ::discardLine,
-                    )
+                            },
+                            onDiscardLine = ::discardLine,
+                        )
+                    }
 
-                    is DiffResult.Text -> HunkUnifiedTextDiff(
-                        diffType = diffType,
-                        scrollState = scrollState,
-                        diffResult = diffResult,
-                        canUseHunkActions = isRepositoryInSafeState,
-                        onUnstageHunk = { entry, hunk ->
-                            viewModel.unstageHunk(entry, hunk)
-                        },
-                        onStageHunk = { entry, hunk ->
-                            viewModel.stageHunk(entry, hunk)
-                        },
-                        onResetHunk = ::discardHunk,
-                        onUnStageLine = { entry, hunk, line ->
-                            if (diffType is DiffType.UncommittedDiff) {
-                                if (diffType.entryType == EntryType.STAGED)
-                                    viewModel.unstageHunkLine(entry, hunk, line)
-                                else {
-                                    viewModel.stageHunkLine(entry, hunk, line)
+                    is DiffResult.Text -> DiffLines(sideways, diffResult, lineTextStart(diffType)) {
+                        HunkUnifiedTextDiff(
+                            diffType = diffType,
+                            scrollState = scrollState,
+                            diffResult = diffResult,
+                            canUseHunkActions = isRepositoryInSafeState,
+                            onUnstageHunk = { entry, hunk ->
+                                viewModel.unstageHunk(entry, hunk)
+                            },
+                            onStageHunk = { entry, hunk ->
+                                viewModel.stageHunk(entry, hunk)
+                            },
+                            onResetHunk = ::discardHunk,
+                            onUnStageLine = { entry, hunk, line ->
+                                if (diffType is DiffType.UncommittedDiff) {
+                                    if (diffType.entryType == EntryType.STAGED)
+                                        viewModel.unstageHunkLine(entry, hunk, line)
+                                    else {
+                                        viewModel.stageHunkLine(entry, hunk, line)
+                                    }
                                 }
-                            }
-                        },
-                        onDiscardLine = ::discardLine,
-                    )
+                            },
+                            onDiscardLine = ::discardLine,
+                        )
+                    }
 
                     is DiffResult.NonText -> {
                         NonTextDiff(
@@ -925,6 +937,8 @@ private fun DiffHeader(
     onUnstageFile: (StatusEntry) -> Unit,
     onChangeDiffType: (DiffTextViewType) -> Unit,
     onDisplayFullFile: (Boolean) -> Unit,
+    wrapLines: Boolean,
+    onWrapLinesChanged: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -993,6 +1007,11 @@ private fun DiffHeader(
                 )
             }
 
+            // Fork-only: added and deleted files' lines can be long too
+            if (isTextDiff) {
+                WrapLinesButton(wrapLines, onWrapLinesChanged)
+            }
+
             if (diffType is DiffType.UncommittedDiff) {
                 UncommittedDiffFileHeaderButtons(
                     diffType,
@@ -1022,6 +1041,8 @@ fun StateIcon(
     icon: DrawableResource,
     tooltip: String,
     isToggled: Boolean,
+    /** Whether a click on the toggled icon runs [onClick] too: a switch, rather than one of a pair (fork-only). */
+    togglesOff: Boolean = false,
     onClick: () -> Unit,
 ) {
     DelayedTooltip(tooltip) {
@@ -1034,7 +1055,7 @@ fun StateIcon(
                     else
                         this
                 }
-                .handMouseClickable { if (!isToggled) onClick() }
+                .handMouseClickable { if (!isToggled || togglesOff) onClick() }
                 .padding(4.dp)
         ) {
             Icon(
@@ -1257,7 +1278,17 @@ fun DiffLineText(line: Line, diffType: DiffType, actions: List<LineAction>, onLi
             LineActionButtons(actions, onLineAction)
         }
 
-        DiffText(text, matchLine, syntaxHighlighter, startPadding = lineTextStart(diffType))
+        val textStart = lineTextStart(diffType)
+        val sideways = LocalSidewaysScroll.current
+
+        // Fork-only: on one row that scrolls sideways while the lines don't wrap, after the buttons' room
+        if (sideways == null) {
+            DiffText(text, matchLine, syntaxHighlighter, startPadding = textStart)
+        } else {
+            UnwrappedLine(sideways, start = textStart) {
+                DiffText(text, matchLine, syntaxHighlighter, startPadding = textStart)
+            }
+        }
     }
 }
 

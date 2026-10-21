@@ -3,6 +3,7 @@
 
 package dev.app.leaf.ui.conflicts
 
+import dev.app.leaf.ui.components.LocalSidewaysScroll
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background

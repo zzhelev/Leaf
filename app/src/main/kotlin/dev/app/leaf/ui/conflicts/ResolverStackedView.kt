@@ -3,6 +3,10 @@
 
 package dev.app.leaf.ui.conflicts
 
+import dev.app.leaf.ui.components.SidewaysScroll
+import dev.app.leaf.ui.components.LocalSidewaysScroll
+import dev.app.leaf.ui.components.scrollsSideways
+import dev.app.leaf.ui.components.SidewaysScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box

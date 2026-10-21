@@ -88,6 +88,10 @@ class AppSettingsService @Inject constructor(
     /** Whether the built-in resolver wraps long lines. */
     val conflictResolverWrapLines: Flow<Boolean>
         get() = appSettingsRepository.conflictResolverWrapLines.defaultIfNull { true }
+
+    /** Whether the diff pane wraps long lines. */
+    val diffWrapLines: Flow<Boolean>
+        get() = appSettingsRepository.diffWrapLines.defaultIfNull { true }
     val cacheCredentialsInMemory: Flow<Boolean> get() = appSettingsRepository.cacheCredentialsInMemory.defaultIfNull { DEFAULT_CACHE_CREDENTIALS_IN_MEMORY }
     val terminalPath: Flow<String?> get() = appSettingsRepository.terminalPath
 

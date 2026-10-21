@@ -842,6 +842,9 @@
     <string name="settings_conflicts_wrap_subtitle">Wrap lines that don't fit their column in the built-in resolver. Turned off, each line stays on one row, and every column scrolls sideways together, as in Meld. The resolver's toolbar has the same switch, Wrap lines.</string>
     <string name="settings_layout_confirm_hunk_and_line_discards_title">Ask before discarding a hunk or a line</string>
     <string name="settings_layout_confirm_hunk_and_line_discards_subtitle">Discarding whole files always asks</string>
+    <string name="diff_wrap_lines_tooltip">Wrap long lines. Turned off, each line stays on one row, and the lines scroll sideways together: swipe sideways, use Shift and the wheel, or drag the scrollbar under the lines.</string>
+    <string name="settings_layout_diff_wrap_title">Wrap long lines in diffs</string>
+    <string name="settings_layout_diff_wrap_subtitle">Turned off, each line of a diff stays on one row, and the lines scroll sideways together. The diff's header has the same switch.</string>
     <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation, which reaches HTTPS remotes but not SSH ones.</string>
 
     <!-- Notifications -->
