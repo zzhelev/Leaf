@@ -48,8 +48,8 @@ import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.icon
 import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
-import dev.app.leaf.repositoryopen.WorktreeReviewAction
-import dev.app.leaf.repositoryopen.WorktreeReviewState
+import dev.app.leaf.repositoryopen.ComparisonAction
+import dev.app.leaf.repositoryopen.ComparisonState
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.TitleWithTrailingAction
@@ -73,7 +73,7 @@ private val COMMIT_ROW_HEIGHT = 28.dp
 @Composable
 fun WorktreeReview(
     viewModel: RepositoryOpenViewModel,
-    reviewState: WorktreeReviewState,
+    reviewState: ComparisonState,
 ) {
     // Remembered: a new flow at each composition started collecting again
     val diffSelected by remember(viewModel) {
@@ -89,16 +89,16 @@ fun WorktreeReview(
 
 @Composable
 internal fun WorktreeReviewView(
-    state: WorktreeReviewState,
+    state: ComparisonState,
     diffSelected: DiffSelected.CommitedChanges?,
-    onAction: (WorktreeReviewAction) -> Unit,
+    onAction: (ComparisonAction) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .padding(end = 8.dp, bottom = 8.dp)
             .fillMaxSize(),
     ) {
-        ReviewHeader(state, onClose = { onAction(WorktreeReviewAction.Close) })
+        ReviewHeader(state, onClose = { onAction(ComparisonAction.End) })
 
         if (state.isLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -127,8 +127,8 @@ internal fun WorktreeReviewView(
 
                     CommitsList(
                         comparison = comparison,
-                        branchName = state.branchName,
-                        baseName = state.baseName,
+                        branchName = state.bName,
+                        baseName = state.aName,
                         modifier = Modifier.heightIn(max = commitsMaxHeight),
                     )
 
@@ -138,14 +138,14 @@ internal fun WorktreeReviewView(
                         action = {
                             FilesSortMenuButton(
                                 viewState = state.viewState,
-                                onViewStateChange = { onAction(WorktreeReviewAction.ViewStateChanged(it)) },
+                                onViewStateChange = { onAction(ComparisonAction.ViewStateChanged(it)) },
                             )
                         },
                     )
 
                     when {
                         comparison.mergeBase == null -> ReviewNote(
-                            stringResource(Res.string.worktree_review_no_merge_base, state.branchName, state.baseName)
+                            stringResource(Res.string.worktree_review_no_merge_base, state.bName, state.aName)
                         )
 
                         comparison.changes.isEmpty() -> ReviewNote(stringResource(Res.string.worktree_review_no_changes))
@@ -155,13 +155,13 @@ internal fun WorktreeReviewView(
             }
         }
 
-        UncommittedChangesLine(state, onShow = { onAction(WorktreeReviewAction.ShowUncommittedChanges) })
+        UncommittedChangesLine(state, onShow = { onAction(ComparisonAction.ShowUncommittedChanges) })
     }
 }
 
 /** "agent1 compared with main", what it shows, the commits that each side has, and the close button. */
 @Composable
-private fun ReviewHeader(state: WorktreeReviewState, onClose: () -> Unit) {
+private fun ReviewHeader(state: ComparisonState, onClose: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -172,7 +172,7 @@ private fun ReviewHeader(state: WorktreeReviewState, onClose: () -> Unit) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(Res.string.worktree_review_title, state.branchName, state.baseName),
+                text = stringResource(Res.string.worktree_review_title, state.bName, state.aName),
                 style = MaterialTheme.typography.body2,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colors.onBackground,
@@ -181,7 +181,7 @@ private fun ReviewHeader(state: WorktreeReviewState, onClose: () -> Unit) {
             )
 
             Text(
-                text = stringResource(Res.string.worktree_review_subtitle, state.branchName, state.baseName),
+                text = stringResource(Res.string.worktree_review_subtitle, state.bName, state.aName),
                 style = MaterialTheme.typography.caption,
                 color = MaterialTheme.colors.onBackgroundSecondary,
                 maxLines = 2,
@@ -195,9 +195,9 @@ private fun ReviewHeader(state: WorktreeReviewState, onClose: () -> Unit) {
             DelayedTooltip(
                 stringResource(
                     Res.string.worktree_review_ahead_behind_tooltip,
-                    state.branchName,
+                    state.bName,
                     comparison.countOnlyInB,
-                    state.baseName,
+                    state.aName,
                     comparison.countOnlyInA,
                 )
             ) {
@@ -350,9 +350,9 @@ private fun CommitMark(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ChangedFiles(
-    state: WorktreeReviewState,
+    state: ComparisonState,
     diffSelected: DiffSelected.CommitedChanges?,
-    onAction: (WorktreeReviewAction) -> Unit,
+    onAction: (ComparisonAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberInTab("worktreeReviewFilesScroll", state.target) { LazyListState() }
@@ -365,9 +365,9 @@ private fun ChangedFiles(
         resetKey = state.target,
         fileIcon = { it.icon },
         fileIconColor = { it.iconColor },
-        onFileClick = { onAction(WorktreeReviewAction.SelectEntry(it)) },
-        onFolderToggle = { onAction(WorktreeReviewAction.TreeDirectoryToggle(it)) },
-        onSplitRatioChange = { onAction(WorktreeReviewAction.ViewStateChanged(state.viewState.copy(splitRatio = it))) },
+        onFileClick = { onAction(ComparisonAction.SelectEntry(it)) },
+        onFolderToggle = { onAction(ComparisonAction.TreeDirectoryToggle(it)) },
+        onSplitRatioChange = { onAction(ComparisonAction.ViewStateChanged(state.viewState.copy(splitRatio = it))) },
         onGenerateContextMenu = { emptyList() },
         modifier = modifier,
     )
@@ -375,12 +375,13 @@ private fun ChangedFiles(
 
 /** The worktree's uncommitted changes, which a merge leaves out, and a link that shows them. */
 @Composable
-private fun UncommittedChangesLine(state: WorktreeReviewState, onShow: () -> Unit) {
-    val count = state.uncommittedChanges ?: return
+private fun UncommittedChangesLine(state: ComparisonState, onShow: () -> Unit) {
+    val review = state.review ?: return
+    val count = review.uncommittedChanges ?: return
 
     if (count == 0) return
 
-    val canShow = state.isTabWorktree || state.canSwitchTo
+    val canShow = review.isTabWorktree || review.canSwitchTo
 
     Row(
         modifier = Modifier
@@ -392,10 +393,10 @@ private fun UncommittedChangesLine(state: WorktreeReviewState, onShow: () -> Uni
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = if (state.isTabWorktree) {
+            text = if (review.isTabWorktree) {
                 pluralStringResource(Res.plurals.worktree_review_uncommitted_here, count, count)
             } else {
-                pluralStringResource(Res.plurals.worktree_review_uncommitted, count, count, state.worktreeName)
+                pluralStringResource(Res.plurals.worktree_review_uncommitted, count, count, review.name)
             },
             style = MaterialTheme.typography.caption,
             color = MaterialTheme.colors.onBackgroundSecondary,
@@ -404,7 +405,7 @@ private fun UncommittedChangesLine(state: WorktreeReviewState, onShow: () -> Uni
 
         if (canShow) {
             Text(
-                text = if (state.isTabWorktree) {
+                text = if (review.isTabWorktree) {
                     stringResource(Res.string.worktree_review_show_uncommitted)
                 } else {
                     stringResource(Res.string.worktree_review_switch_to_worktree)

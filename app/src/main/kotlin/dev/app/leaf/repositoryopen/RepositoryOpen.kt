@@ -505,10 +505,10 @@ fun MainContentView(
                     .fillMaxHeight()
             ) {
                 val commitChangesState = viewModel.commitChangesState.collectAsState().value
-                val worktreeReviewState = viewModel.worktreeReviewState.collectAsState().value
+                val comparisonState = viewModel.comparisonState.collectAsState().value
 
-                if (worktreeReviewState != null) {
-                    WorktreeReview(viewModel = viewModel, reviewState = worktreeReviewState)
+                if (comparisonState != null) {
+                    WorktreeReview(viewModel = viewModel, reviewState = comparisonState)
                 } else if (commitChangesState != null) {
                     CommitChanges(
                         viewModel = viewModel,

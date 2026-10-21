@@ -90,6 +90,14 @@ fun ComparisonRelation.modeToShow(chosen: ComparisonMode): ComparisonMode = when
     ComparisonRelation.B_IS_ANCESTOR, ComparisonRelation.UNRELATED -> ComparisonMode.ALL
 }
 
+/** The relation once A and B change places. */
+val ComparisonRelation.swapped: ComparisonRelation
+    get() = when (this) {
+        ComparisonRelation.A_IS_ANCESTOR -> ComparisonRelation.B_IS_ANCESTOR
+        ComparisonRelation.B_IS_ANCESTOR -> ComparisonRelation.A_IS_ANCESTOR
+        ComparisonRelation.SAME, ComparisonRelation.DIVERGED, ComparisonRelation.UNRELATED -> this
+    }
+
 /**
  * How two commits' histories meet, from the commits that only A has ([countOnlyInA]) and only B has ([countOnlyInB]),
  * and whether they have a merge base.

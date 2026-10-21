@@ -122,6 +122,16 @@ class CompareRulesTest {
     }
 
     @Test
+    fun `a swap turns which side is the ancestor around, and keeps the other relations`() {
+        assertEquals(B_IS_ANCESTOR, A_IS_ANCESTOR.swapped)
+        assertEquals(A_IS_ANCESTOR, B_IS_ANCESTOR.swapped)
+
+        for (relation in listOf(SAME, DIVERGED, UNRELATED)) {
+            assertEquals(relation, relation.swapped)
+        }
+    }
+
+    @Test
     fun `the relation comes from the commits that each side has alone`() {
         assertEquals(SAME, comparisonRelation(countOnlyInA = 0, countOnlyInB = 0, hasMergeBase = true))
         assertEquals(A_IS_ANCESTOR, comparisonRelation(countOnlyInA = 0, countOnlyInB = 3, hasMergeBase = true))

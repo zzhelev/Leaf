@@ -1082,7 +1082,7 @@ commands.
     one (`CreateWorktreeIncludeGitAction`, `WORKTREE_INCLUDE_TEMPLATE`), and it reads the file again when Leaf's
     window gets the focus back.
 
-**Reviewing a worktree (fork-only, Phase 3.3, `WorktreeReview`, `WorktreeReviewViewModelExtender`):** "Review changes"
+**Reviewing a worktree (fork-only, Phase 3.3, `WorktreeReview`, `ComparisonViewModelExtender`):** "Review changes"
 in a worktree row's menu shows, in place of Files changed, what the worktree's branch would bring into the base: the
 commits and the changed files, as `git log base..branch` and `git diff base...branch` show them. It's offered for a
 worktree on a branch other than the base (`branchToReview`, `domain/worktrees/WorktreeReview.kt`).
@@ -1094,9 +1094,11 @@ worktree on a branch other than the base (`branchToReview`, `domain/worktrees/Wo
   `GetCommitDiffEntriesGitAction` does for a commit: files that the branch moved are renames, see Renames in file
   lists). Branches without a commit in common have no diff then, as git refuses `A...B`. A file opens in the diff pane
   as a commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
-- **State:** the review sets the selection to `SelectedItem.None` while it's shown, rather than being a `SelectedItem`
-  of its own, which upstream's code handles in many places. Selecting anything else closes it; the close button and
-  Esc (`CloseableView.WORKTREE_REVIEW`) close it and select again what was selected before.
+- **State:** since 2026-10-21 the review is a comparison (`ComparisonViewModelExtender.openReview`, a
+  `ComparisonTarget` with `reviewedWorktreePath`), the same as comparing any two commits (`docs/fork/compare.md`). It
+  sets the selection to `SelectedItem.None` while it's shown, rather than being a `SelectedItem` of its own, which
+  upstream's code handles in many places. Selecting anything else closes it; the close button and Esc
+  (`CloseableView.COMPARISON`) close it and select again what was selected before.
 - It reads the comparison again when the commit of the branch or the base changes in the tab's branch data, which the
   file watcher refreshes when an agent commits. A refresh that finds the same commits doesn't, and the last
   comparison stays on screen while the next loads.

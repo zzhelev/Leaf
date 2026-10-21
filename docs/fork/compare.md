@@ -226,16 +226,33 @@ Six steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Each step builds and pass
 
 ### Step 2: the comparison's state (view model)
 
-- `A/repositoryopen/WorktreeReviewViewModelExtender` → `ComparisonViewModelExtender`. Targets:
-  `ComparisonTarget.Sides(a: CompareSide, b: CompareSide, origin)` and `ComparisonTarget.WorktreeReview(worktree,
-  base)`. State: the sides, the mode, `showsSwitch`, the result, loading, error, the files' view state, and
-  `isFullView`.
-- Actions: start from ⌘-click, from a menu, from the review; ⌘-click again (replace B, drop a side); swap; set the
-  mode; select a file; open and leave the full view; end; try again.
-- `D/repositories/CloseableView`: `WORKTREE_REVIEW` → `COMPARISON`. The tab's EXIT branch
-  (`RepositoryOpenPage`) leaves the full view first, then ends the comparison.
-- **Tests:** `ComparisonViewModelExtenderTest` with a fake git action: every row of the table in 3.3, the ordering, the
-  default mode, a swap keeping the mode, a branch side that moves, the full view's open and close, Esc twice.
+- `A/repositoryopen/WorktreeReviewViewModelExtender` → `ComparisonViewModelExtender`, which `RepositoryOpenViewModel`
+  creates and exposes as `comparisonState`. `ComparisonTarget(a, b, reviewedWorktreePath)`: two `CompareSide`s, and
+  the worktree for "Review changes" (F7). Started by `comparePicked(PickedSide, PickedSide)` (⌘-click and "Compare with
+  selected"; a `PickedSide` is a side and its commit's date), `compareWithCurrent(current, other)` (the menus) and
+  `openReview(worktree, base)`; `pick(PickedSide)` is ⌘-click while comparing.
+- `ComparisonState`: the target, the mode shown, loading, the comparison (the last one of the same sides and mode
+  stays while it's read again), the error, the commits that A and B are at now (`aCommit`, `bCommit`, where the log
+  draws the badges), the file rows, `isFullView` and the reviewed worktree (`review`). `showsModeSwitch` comes from the
+  comparison's relation.
+- Order and mode (3.1, 3.6): a new comparison's first read settles it. When git says that B is A's ancestor, the sides
+  turn around and are read again; when the relation calls for the other mode (`modeToShow`), that mode is read. That
+  first result never shows. The review keeps its order and asks for "Since they split" whatever the relation. A swap
+  flips the known relation (`ComparisonRelation.swapped`), so it reads the right mode at once.
+- `ComparisonAction`: `SelectEntry`, `OpenFullView(entry)` (the file clicked, else the one shown, else the first),
+  `LeaveFullView`, `SetMode`, `Swap`, `ViewStateChanged`, `TreeDirectoryToggle`, `TryAgain`, `End` and
+  `ShowUncommittedChanges` (the review's link).
+- Ending (3.8): a comparison selects A at the commit it is at now (`selectionFor`, which looks the commit up in the
+  loaded log, a stash as a stash); the review selects again what was selected before it. Selecting anything else, and
+  a switch of the tab's worktree, end it without selecting.
+- `D/repositories/CloseableView`: `WORKTREE_REVIEW` → `COMPARISON`, and `COMPARISON_FULL_VIEW` while the full view
+  shows. Esc closes the last closeable view, so it leaves the full view first, then ends the comparison.
+- The pane is still `WorktreeReview.kt`, reading `ComparisonState`, until step 3. Nothing starts a comparison of two
+  commits yet: the log and the menus come in step 5.
+- **Tests:** `ComparisonViewModelExtenderTest` (24) with a fake git action: the review's cases from before, the
+  ordering, an ancestor turned first (and never shown the wrong way round), the default modes, "Since they split" that
+  would list nothing, the switch, a swap (onto an ancestor too), the current branch first, the same commit twice,
+  ⌘-click on A, on B and elsewhere, ending on a branch side that moved, the full view and Esc twice, Try again.
 
 ### Step 3: the pane (UI)
 

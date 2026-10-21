@@ -185,7 +185,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val setWorktreeBaseBranchUseCase: SetWorktreeBaseBranchUseCase,
     private val runWorktreeStepsUseCase: RunWorktreeStepsUseCase,
     private val followRemovedWorktreeUseCase: FollowRemovedWorktreeUseCase,
-    private val worktreeReviewViewModelExtenderFactory: WorktreeReviewViewModelExtender.Factory,
+    private val comparisonViewModelExtenderFactory: ComparisonViewModelExtender.Factory,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -552,8 +552,9 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun toggleMoreParents() = commitParents.toggleExpanded()
 
-    // Fork-only: the review of a worktree's changes, in place of Files changed
-    private val worktreeReviewViewModelExtender = worktreeReviewViewModelExtenderFactory.create(
+    // Fork-only: a comparison of two commits or branches, and the review of a worktree's changes, in place of Files
+    // changed (docs/fork/compare.md)
+    private val comparisonViewModelExtender = comparisonViewModelExtenderFactory.create(
         viewModelScope,
         filesViewState,
         selectedItem,
@@ -562,9 +563,16 @@ class RepositoryOpenViewModel @Inject constructor(
         onViewStateChanged = ::setFilesChangedView,
         addCloseableView = ::addCloseableView,
         removeCloseableView = ::removeCloseableView,
+        selectionFor = { hash ->
+            val log = logState.value
+
+            log.commitList[hash]?.commit
+                ?.let { SelectedItem.CommitItem(it, isStash = hash in log.stashes, scrollToItem = false) }
+                ?: SelectedItem.UncommittedChanges
+        },
     )
 
-    val worktreeReviewState = worktreeReviewViewModelExtender.reviewState
+    val comparisonState = comparisonViewModelExtender.state
 
     val statusState = statusViewModelExtender.statusState
 
@@ -611,7 +619,8 @@ class RepositoryOpenViewModel @Inject constructor(
 
                 CloseableView.COMMIT_CHANGES_SEARCH -> commitChangesViewModelExtender.searchFilterToggled(false)
 
-                CloseableView.WORKTREE_REVIEW -> worktreeReviewViewModelExtender.close()
+                CloseableView.COMPARISON -> comparisonViewModelExtender.end()
+                CloseableView.COMPARISON_FULL_VIEW -> comparisonViewModelExtender.leaveFullView()
 
                 CloseableView.COMMIT_FIELD_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
 
@@ -651,6 +660,7 @@ class RepositoryOpenViewModel @Inject constructor(
 
             resetBlameState()
             closeHistory()
+            comparisonViewModelExtender.end()
             // Its picks aren't saved: they were made in the other worktree's file
             conflictResolverViewModel?.closeNow()
         }
@@ -792,20 +802,20 @@ class RepositoryOpenViewModel @Inject constructor(
 
     /** Shows what [worktree]'s branch would bring into the base, in place of Files changed (fork-only). */
     fun reviewWorktree(worktree: Worktree) {
-        worktreeReviewViewModelExtender.open(worktree, worktreesState.value.baseBranch)
+        comparisonViewModelExtender.openReview(worktree, worktreesState.value.baseBranch)
     }
 
-    fun onAction(action: WorktreeReviewAction) {
-        val review = worktreeReviewState.value
+    fun onAction(action: ComparisonAction) {
+        val review = comparisonState.value?.review
 
         // Another worktree's uncommitted changes show once the tab has switched to it
-        if (action == WorktreeReviewAction.ShowUncommittedChanges && review != null && !review.isTabWorktree) {
+        if (action == ComparisonAction.ShowUncommittedChanges && review != null && !review.isTabWorktree) {
             if (!review.canSwitchTo) return
 
-            switchWorktreeUseCase(review.target.worktreePath)
+            switchWorktreeUseCase(review.path)
         }
 
-        worktreeReviewViewModelExtender.onAction(action)
+        comparisonViewModelExtender.onAction(action)
     }
 
     /**
