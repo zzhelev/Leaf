@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
@@ -68,7 +69,13 @@ import dev.app.leaf.domain.models.TextMerge.Chunk
 import dev.app.leaf.domain.models.TypedLines
 import dev.app.leaf.domain.models.WorkingFileCheck
 import dev.app.leaf.domain.models.WorkingFileState
+import dev.app.leaf.domain.models.ui.AccentStyle
+import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.theme.darkTheme
+import dev.app.leaf.theme.lightTheme
+import dev.app.leaf.theme.styleColorsFor
+import dev.app.leaf.theme.styled
 import dev.app.leaf.viewmodels.ChoicePick
 import dev.app.leaf.viewmodels.ConflictResolverState
 import dev.app.leaf.viewmodels.LfsDownload
@@ -130,6 +137,44 @@ class ConflictResolverTest {
         StatusType.CONFLICTING,
         conflict = FileConflict(ConflictVersion.FILE, ConflictVersion.FILE),
     )
+
+    @Test
+    fun `the conflict counter is a chip in the style's warning strip, not the conflict amber`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            for (style in AccentStyle.entries) {
+                for ((theme, base) in listOf(Theme.Light to lightTheme, Theme.Dark to darkTheme)) {
+                    val strip = styleColorsFor(style, base.styled(style)).warningStrip
+                    val scene = ImageComposeScene(width = 1400, height = 600, density = Density(1f)) {
+                        AppTheme(selectedTheme = theme, accentStyle = style) {
+                            ConflictResolverContent(state(), ResolverLists(), actions())
+                        }
+                    }
+
+                    try {
+                        scene.render()
+                        val bitmap = Bitmap.makeFromImage(scene.render())
+                        val counter = scene.nodes().first { node ->
+                            node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == "Conflict 1 of 1" }
+                        }.boundsInRoot
+                        // Where the chip's padding is, either side of the text's start
+                        val row = ((counter.left - 6).toInt()..(counter.left + 2).toInt())
+                            .map { x -> bitmap.getColor(x, counter.center.y.toInt()) }
+
+                        fun Int.isClose(color: Color) = listOf(16, 8, 0).all { shift ->
+                            abs(((this shr shift) and 0xFF) - ((color.toArgb() shr shift) and 0xFF)) <= 2
+                        }
+
+                        assertTrue(row.any { it.isClose(strip.background) }, "$style $theme: the chip's fill")
+
+                        if (style != AccentStyle.CLASSIC) {
+                            assertTrue(row.none { it.isClose(base.conflictingFile) }, "$style $theme: the conflict amber")
+                        }
+                    } finally {
+                        scene.close()
+                    }
+                }
+            }
+        }
 
     @Test
     fun `the columns name each side, and the toolbar counts the conflicts`(): Unit = runBlocking(Dispatchers.Swing) {

@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -65,7 +64,9 @@ import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
-import dev.app.leaf.theme.abortButton
+import dev.app.leaf.theme.RoleColors
+import dev.app.leaf.theme.roleBorder
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
@@ -629,7 +630,7 @@ private fun BoxScope.EntryHoverAction(isHovered: Boolean, actionInfo: ActionInfo
         SecondaryButton(
             onClick = onClick,
             text = actionInfo.applyToOneTitle,
-            backgroundButton = actionInfo.color,
+            colors = actionInfo.colors,
             modifier = Modifier
                 .padding(horizontal = 16.dp),
         )
@@ -1091,17 +1092,21 @@ fun RevertingButtons(
 
 @Composable
 fun AbortButton(modifier: Modifier, onClick: () -> Unit) {
+    // Fork-only: the style's destructive button
+    val colors = MaterialTheme.styleColors.destructive
+
     Box(
         modifier = modifier
             .handMouseClickable { onClick() }
             .focusable(false)
             .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colors.abortButton),
+            .background(colors.background)
+            .roleBorder(colors.border, MaterialTheme.shapes.small),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = stringResource(Res.string.uncommited_changes_secondary_button_abort),
-            style = MaterialTheme.typography.body1.copy(color = MaterialTheme.colors.onError),
+            style = MaterialTheme.typography.body1.copy(color = colors.content),
         )
     }
 }
@@ -1115,7 +1120,7 @@ fun ConfirmationButton(
     onClick: () -> Unit,
 ) {
     val (backgroundColor, contentColor) = if (enabled) {
-        (MaterialTheme.colors.primary to MaterialTheme.colors.onPrimary)
+        (MaterialTheme.styleColors.mainAction.background to MaterialTheme.styleColors.mainAction.content)
     } else {
         (MaterialTheme.colors.onSurface.copy(alpha = 0.12f)
             .compositeOver(MaterialTheme.colors.surface) to MaterialTheme.colors.onSurface.copy(alpha = ContentAlpha.disabled))
@@ -1172,23 +1177,21 @@ fun getActionInfo(entryType: EntryType): ActionInfo {
     val applyToAllTitle: String
     val applyToSelectedTitle: String
     val icon: DrawableResource
-    val color: Color
-    val textColor: Color
+    val colors: RoleColors
 
     if (entryType == EntryType.STAGED) {
         applyToOneTitle = stringResource(Res.string.uncommited_changes_staged_item_action)
         applyToAllTitle = stringResource(Res.string.uncommited_changes_staged_all_items_action)
         applyToSelectedTitle = stringResource(Res.string.uncommited_changes_staged_selected_items_action)
         icon = Res.drawable.remove_done
-        color = MaterialTheme.colors.error
-        textColor = MaterialTheme.colors.onError
+        // Fork-only: unstaging loses nothing
+        colors = MaterialTheme.styleColors.neutral
     } else {
         applyToOneTitle = stringResource(Res.string.uncommited_changes_unstaged_item_action)
         applyToAllTitle = stringResource(Res.string.uncommited_changes_unstaged_all_items_action)
         applyToSelectedTitle = stringResource(Res.string.uncommited_changes_unstaged_selected_items_action)
         icon = Res.drawable.done
-        color = MaterialTheme.colors.primary
-        textColor = MaterialTheme.colors.onPrimary
+        colors = MaterialTheme.styleColors.action
     }
 
     return ActionInfo(
@@ -1196,8 +1199,7 @@ fun getActionInfo(entryType: EntryType): ActionInfo {
         applyToAllTitle = applyToAllTitle,
         applyToSelectedTitle = applyToSelectedTitle,
         icon = icon,
-        color = color,
-        textColor = textColor,
+        colors = colors,
     )
 }
 

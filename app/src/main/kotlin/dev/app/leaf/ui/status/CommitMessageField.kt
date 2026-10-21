@@ -79,6 +79,7 @@ import dev.app.leaf.domain.models.STATUS_COMMIT_TITLE_HEIGHT
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.amberText
 import androidx.compose.material.Colors
@@ -529,7 +530,7 @@ internal fun SubjectRunsOnHint(onInsertBlankLine: () -> Unit, modifier: Modifier
         Icon(
             painter = painterResource(Res.drawable.info),
             contentDescription = null,
-            tint = MaterialTheme.colors.conflictFile,
+            tint = MaterialTheme.styleColors.warningIcon,
             modifier = Modifier
                 .padding(top = 1.dp)
                 .size(16.dp),

@@ -15,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
-import dev.app.leaf.theme.conflictFile
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.theme.onBackgroundSecondary
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -37,7 +37,7 @@ fun FinishHint(blocker: FinishBlocker, modifier: Modifier = Modifier) {
         Icon(
             painter = painterResource(Res.drawable.info),
             contentDescription = null,
-            tint = MaterialTheme.colors.conflictFile,
+            tint = MaterialTheme.styleColors.warningIcon,
             modifier = Modifier
                 .padding(top = 1.dp)
                 .size(16.dp),

@@ -942,20 +942,19 @@ fun HunkHeader(
             diffType.statusType == StatusType.MODIFIED
         ) {
             val buttonText: String
-            val color: Color
+            val colors: RoleColors
             if (diffType.entryType == EntryType.STAGED) {
                 buttonText = "Unstage hunk"
-                color = MaterialTheme.colors.error
+                colors = MaterialTheme.styleColors.neutral
             } else {
                 buttonText = "Stage hunk"
-                color = MaterialTheme.colors.primary
+                colors = MaterialTheme.styleColors.action
             }
 
             if (diffType.entryType == EntryType.UNSTAGED) {
                 SecondaryButton(
                     text = "Discard hunk",
-                    backgroundButton = MaterialTheme.colors.error,
-                    textColor = MaterialTheme.colors.onError,
+                    colors = MaterialTheme.styleColors.destructive,
                     onClick = onResetHunk,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
@@ -963,7 +962,7 @@ fun HunkHeader(
 
             SecondaryButton(
                 text = buttonText,
-                backgroundButton = color,
+                colors = colors,
                 modifier = Modifier.padding(horizontal = 16.dp),
                 onClick = {
                     if (diffType.entryType == EntryType.STAGED) {
@@ -1182,19 +1181,19 @@ fun UncommittedDiffFileHeaderButtons(
     onStageFile: (StatusEntry) -> Unit,
 ) {
     val buttonText: String
-    val color: Color
+    val colors: RoleColors
 
     if (diffType.entryType == EntryType.STAGED) {
         buttonText = "Unstage file"
-        color = MaterialTheme.colors.error
+        colors = MaterialTheme.styleColors.neutral
     } else {
         buttonText = "Stage file"
-        color = MaterialTheme.colors.primary
+        colors = MaterialTheme.styleColors.action
     }
 
     SecondaryButton(
         text = buttonText,
-        backgroundButton = color,
+        colors = colors,
         onClick = {
             if (diffType.entryType == EntryType.STAGED) {
                 onUnstageFile(diffType.statusEntry)

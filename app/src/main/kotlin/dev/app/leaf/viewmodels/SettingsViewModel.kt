@@ -18,12 +18,14 @@ import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
+import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenUrlInBrowserUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine as combineFlows
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
@@ -69,9 +71,13 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun settingsState(): Flow<SettingsViewState> {
+        // Fork-only: the theme and the style in one flow, as the combine below takes 30 at most
+        val themeAndStyle: Flow<Pair<Theme, AccentStyle>> =
+            combineFlows(appSettingsService.theme, appSettingsService.accentStyle) { theme, style -> theme to style }
+
         return combine(
             appSettingsService.scaleUi,
-            appSettingsService.theme,
+            themeAndStyle,
             appSettingsService.customTheme,
             appSettingsService.linesHeightType,
             appSettingsService.dateFormatUseDefault,
@@ -100,7 +106,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.gitExecutablePath,
             gitExecutable,
         ) { scaleUi,
-            theme,
+            (theme, accentStyle),
             customTheme,
             linesHeightType,
             dateFormatUseDefault,
@@ -132,6 +138,7 @@ class SettingsViewModel @Inject constructor(
             SettingsViewState(
                 scaleUi,
                 theme,
+                accentStyle,
                 customTheme,
                 linesHeightType,
                 dateFormatUseDefault,
@@ -167,6 +174,7 @@ class SettingsViewModel @Inject constructor(
         return SettingsViewState(
             scaleUi = null,
             theme = Theme.Light,
+            accentStyle = AccentStyle.DEFAULT,
             customTheme = "",
             linesHeightType = LinesHeightType.SPACED,
             dateFormatUseDefault = false,
@@ -202,6 +210,8 @@ class SettingsViewModel @Inject constructor(
 data class SettingsViewState(
     val scaleUi: Float?,
     val theme: Theme,
+    /** How strong the colours of buttons and notices are (fork-only). */
+    val accentStyle: AccentStyle,
     val customTheme: String?,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,

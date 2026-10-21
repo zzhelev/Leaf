@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.models.ui.resolved
@@ -52,17 +53,27 @@ fun AppTheme(
     selectedTheme: Theme = Theme.Dark,
     linesHeightType: LinesHeightType = LinesHeightType.COMPACT,
     customTheme: ColorsScheme? = null,
+    // Fork-only: how strong buttons and notices are in the light and the dark theme. A custom theme keeps its own
+    // colours, laid out as Classic
+    accentStyle: AccentStyle = AccentStyle.DEFAULT,
     // Fork-only: read only when the System theme is selected. Compose polls the operating system's setting, so a
     // change recomposes this, and the colours with it
     systemIsDark: Boolean = selectedTheme == Theme.System && isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val theme = when (selectedTheme.resolved(systemIsDark)) {
+    val resolvedTheme = selectedTheme.resolved(systemIsDark)
+    val baseTheme = when (resolvedTheme) {
         Theme.Light -> lightTheme
         Theme.Dark -> darkTheme
         Theme.Custom -> customTheme ?: defaultAppTheme
         // resolved() never returns it
         Theme.System -> defaultAppTheme
+    }
+    val theme = if (resolvedTheme == Theme.Custom) baseTheme else baseTheme.styled(accentStyle)
+    val styleColors = if (resolvedTheme == Theme.Custom) {
+        classicStyleColors(theme)
+    } else {
+        styleColorsFor(accentStyle, theme)
     }
 
     val lineHeight = when (linesHeightType) {
@@ -74,7 +85,7 @@ fun AppTheme(
     appTheme.value = theme
 
     val composeColors = theme.toComposeColors()
-    val compositionValues = arrayOf(LocalLinesHeight provides lineHeight)
+    val compositionValues = arrayOf(LocalLinesHeight provides lineHeight, LocalStyleColors provides styleColors)
 
     CompositionLocalProvider(values = compositionValues) {
         MaterialTheme(

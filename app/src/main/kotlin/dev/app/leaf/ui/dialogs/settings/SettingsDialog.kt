@@ -10,6 +10,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,6 +31,7 @@ import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
+import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
@@ -709,6 +711,9 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
         )
     }
 
+    // Fork-only: after the custom theme's JSON, which belongs to Theme
+    AccentStyleSetting(settingsViewState.accentStyle, isCustomTheme = currentTheme == Theme.Custom, onAction)
+
     SettingDropDown(
         title = "Lists spacing (Beta)",
         subtitle = "Spacing around lists items",
@@ -776,6 +781,31 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
 }
 
 
+/**
+ * Fork-only: how strong the colours of buttons and notices are. A custom theme has its own, so the row is greyed out
+ * while it's selected, and says why. Internal for its test.
+ */
+@Composable
+internal fun AccentStyleSetting(style: AccentStyle, isCustomTheme: Boolean, onAction: (SettingsAction) -> Unit) {
+    SettingDropDown(
+        title = stringResource(Res.string.settings_style_title),
+        subtitle = stringResource(
+            if (isCustomTheme) Res.string.settings_style_custom_theme else Res.string.settings_style_subtitle
+        ),
+        dropDownOptions = AccentStyle.entries.map { DropDownOption(it, accentStyleName(it)) },
+        currentOption = style,
+        onOptionSelected = { onAction(SettingsAction.SetConfig(AppConfig.AccentStyle(it.value))) },
+        enabled = !isCustomTheme,
+    )
+}
+
+@Composable
+private fun accentStyleName(style: AccentStyle): String = when (style) {
+    AccentStyle.TONAL -> stringResource(Res.string.settings_style_tonal)
+    AccentStyle.CLASSIC -> stringResource(Res.string.settings_style_classic)
+    AccentStyle.QUIET -> stringResource(Res.string.settings_style_quiet)
+}
+
 @Composable
 fun <T> SettingDropDown(
     title: String,
@@ -783,24 +813,29 @@ fun <T> SettingDropDown(
     dropDownOptions: List<DropDownOption<T>>,
     onOptionSelected: (DropDownOption<T>) -> Unit,
     currentOption: T,
+    // Fork-only: false greys the row out and keeps the menu closed
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FieldTitles(title, subtitle, modifier = Modifier.weight(1f))
+        FieldTitles(title, subtitle, enabled, modifier = Modifier.weight(1f))
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        DropDownMenuText(
-            showIcons = false,
-            currentValue = dropDownOptions.first { it.value == currentOption }.optionName,
-            items = {
-                dropDownOptions.map {
-                    ContextMenuElement.ContextTextEntry(it.optionName, onClick = { onOptionSelected(it) })
-                }
-            },
-        )
+        Box(modifier = Modifier.alpha(if (enabled) 1f else 0.6f)) {
+            DropDownMenuText(
+                enabled = enabled,
+                showIcons = false,
+                currentValue = dropDownOptions.first { it.value == currentOption }.optionName,
+                items = {
+                    dropDownOptions.map {
+                        ContextMenuElement.ContextTextEntry(it.optionName, onClick = { onOptionSelected(it) })
+                    }
+                },
+            )
+        }
     }
 }
 

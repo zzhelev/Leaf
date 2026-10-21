@@ -9,8 +9,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.theme.addFile
-import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.modifyFile
+import dev.app.leaf.theme.styleColors
 import org.eclipse.jgit.diff.DiffEntry
 
 val StatusEntry.icon: ImageVector
@@ -52,7 +52,7 @@ val StatusType.iconColor: Color
             StatusType.ADDED -> MaterialTheme.colors.addFile
             StatusType.MODIFIED -> MaterialTheme.colors.modifyFile
             StatusType.REMOVED -> MaterialTheme.colors.error
-            StatusType.CONFLICTING -> MaterialTheme.colors.conflictFile
+            StatusType.CONFLICTING -> MaterialTheme.styleColors.warningIcon
         }
     }
 

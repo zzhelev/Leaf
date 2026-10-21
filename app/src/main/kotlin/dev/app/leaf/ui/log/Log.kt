@@ -948,7 +948,7 @@ fun LogStatusSummary(statusSummary: StatusSummary, modifier: Modifier) {
             SummaryEntry(
                 count = statusSummary.conflictingCount,
                 icon = Icons.Default.Warning,
-                color = MaterialTheme.colors.conflictFile,
+                color = MaterialTheme.styleColors.warningIcon,
             )
         }
     }

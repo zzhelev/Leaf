@@ -13,7 +13,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
@@ -23,6 +23,9 @@ import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.extensions.handMouseClickable
+import dev.app.leaf.theme.RoleColors
+import dev.app.leaf.theme.roleBorder
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import org.jetbrains.compose.resources.DrawableResource
@@ -70,27 +73,35 @@ fun LineActionButtons(actions: List<LineAction>, onAction: (LineAction) -> Unit)
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for (action in actions) {
             val label = stringResource(action.label)
+            val colors = action.colors()
+            val shape = RoundedCornerShape(2.dp)
+            // Opaque, as the button has only its icon: a see-through fill would take the line's tint, on which the
+            // icon of the quiet dark style's Discard holds less than 3 : 1
+            val fill = colors.background.compositeOver(MaterialTheme.colors.background)
 
             DelayedTooltip(label) {
                 Icon(
                     painterResource(action.icon),
                     contentDescription = label,
-                    tint = Color.White,
+                    tint = colors.content,
                     modifier = Modifier
                         .handMouseClickable { onAction(action) }
                         .size(16.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(action.color()),
+                        .clip(shape)
+                        .background(fill)
+                        .roleBorder(colors.border, shape),
                 )
             }
         }
     }
 }
 
+/** The style's colours for what the line's button does: unstaging loses nothing, discarding does. */
 @Composable
-private fun LineAction.color(): Color = when (this) {
-    LineAction.STAGE -> MaterialTheme.colors.primary
-    LineAction.UNSTAGE, LineAction.DISCARD -> MaterialTheme.colors.error
+private fun LineAction.colors(): RoleColors = when (this) {
+    LineAction.STAGE -> MaterialTheme.styleColors.action
+    LineAction.UNSTAGE -> MaterialTheme.styleColors.neutral
+    LineAction.DISCARD -> MaterialTheme.styleColors.destructive
 }
 
 /** The line's menu: the same actions as its buttons. */

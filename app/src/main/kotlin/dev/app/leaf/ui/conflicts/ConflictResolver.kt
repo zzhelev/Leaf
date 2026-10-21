@@ -96,7 +96,9 @@ import dev.app.leaf.theme.addFile
 import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.theme.roleBorder
 import dev.app.leaf.theme.secondarySurface
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.SecondaryButton
@@ -826,7 +828,7 @@ private fun FileMenu(files: List<ResolverFileEntry>, current: String?, onSelect:
                     Icon(
                         painter = painterResource(if (file.resolvedHere) Res.drawable.check else Res.drawable.warning),
                         contentDescription = null,
-                        tint = if (file.resolvedHere) MaterialTheme.colors.addFile else MaterialTheme.colors.conflictFile,
+                        tint = if (file.resolvedHere) MaterialTheme.colors.addFile else MaterialTheme.styleColors.warningIcon,
                         modifier = Modifier.size(14.dp),
                     )
                     Text(
@@ -863,14 +865,19 @@ private fun ConflictNavigation(merge: TextMerge, current: Int, actions: Resolver
         NavigationIcon(rotation = 0f, onClick = actions.onNextConflict)
     }
 
+    // A chip in the style's warning strip. The arrows and the conflicts' cells keep the conflict amber, as data
+    val strip = MaterialTheme.styleColors.warningStrip
+    val chip = RoundedCornerShape(4.dp)
+
     Text(
         text = stringResource(Res.string.conflict_resolver_conflict_counter, current + 1, conflicts),
         style = MaterialTheme.typography.body2,
         fontWeight = FontWeight.SemiBold,
-        color = Color(0xFF1E1E1E),
+        color = strip.content,
         modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colors.conflictFile)
+            .clip(chip)
+            .background(strip.background)
+            .roleBorder(strip.border, chip)
             .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 
@@ -943,7 +950,7 @@ private fun FileList(files: List<ResolverFileEntry>, current: String?, width: Fl
                 Icon(
                     painter = painterResource(if (file.resolvedHere) Res.drawable.check else Res.drawable.warning),
                     contentDescription = null,
-                    tint = if (file.resolvedHere) MaterialTheme.colors.addFile else MaterialTheme.colors.conflictFile,
+                    tint = if (file.resolvedHere) MaterialTheme.colors.addFile else MaterialTheme.styleColors.warningIcon,
                     modifier = Modifier.size(14.dp),
                 )
 

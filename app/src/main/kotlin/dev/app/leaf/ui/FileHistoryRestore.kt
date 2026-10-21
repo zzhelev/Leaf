@@ -15,7 +15,6 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.check
@@ -24,14 +23,12 @@ import dev.app.leaf.app.generated.resources.file_history_restored
 import dev.app.leaf.app.generated.resources.file_history_restored_dismiss
 import dev.app.leaf.app.generated.resources.file_history_restored_show_changes
 import dev.app.leaf.extensions.handOnHover
-import dev.app.leaf.theme.addFile
+import dev.app.leaf.theme.bottomEdge
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.viewmodels.RestoredVersion
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-
-/** Dark text on the added-file green, which is the same in the light and the dark theme. */
-private val OnRestoredColor = Color(0xFF1E1E1E)
 
 /**
  * Under the header of file history, once a version of the file was restored: the status pane, where the file's change
@@ -43,23 +40,26 @@ fun RestoredVersionStrip(
     onShowChanges: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val strip = MaterialTheme.styleColors.successStrip
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colors.addFile)
+            .background(strip.background)
+            .bottomEdge(strip.border)
             .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = painterResource(Res.drawable.check),
             contentDescription = null,
-            tint = OnRestoredColor,
+            tint = strip.icon,
             modifier = Modifier.size(16.dp),
         )
 
         Text(
             text = stringResource(Res.string.file_history_restored, restored.commit.shortHash),
-            color = OnRestoredColor,
+            color = strip.content,
             style = MaterialTheme.typography.body2,
             modifier = Modifier
                 .weight(1f)
@@ -68,8 +68,7 @@ fun RestoredVersionStrip(
 
         SecondaryButton(
             text = stringResource(Res.string.file_history_restored_show_changes),
-            textColor = Color.White,
-            backgroundButton = OnRestoredColor,
+            colors = strip.button,
             onClick = onShowChanges,
         )
 
@@ -82,7 +81,7 @@ fun RestoredVersionStrip(
             Icon(
                 painter = painterResource(Res.drawable.close),
                 contentDescription = stringResource(Res.string.file_history_restored_dismiss),
-                tint = OnRestoredColor,
+                tint = strip.content,
                 modifier = Modifier.size(16.dp),
             )
         }

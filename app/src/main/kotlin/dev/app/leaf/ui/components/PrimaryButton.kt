@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.handMouseClickable
+import dev.app.leaf.theme.styleColors
 
 @Preview
 @Composable
@@ -31,10 +32,11 @@ fun PrimaryButton(
     text: String,
     enabled: Boolean = true,
     focusable: Boolean = true,
-    backgroundColor: Color = MaterialTheme.colors.primary,
-    backgroundDisabled: Color = MaterialTheme.colors.primary.copy(0.5f),
-    textColor: Color = MaterialTheme.colors.onPrimary,
-    disabledTextColor: Color = MaterialTheme.colors.onPrimary.copy(alpha = 0.5f),
+    // Fork-only: the main action's colours, which follow the style
+    backgroundColor: Color = MaterialTheme.styleColors.mainAction.background,
+    backgroundDisabled: Color = MaterialTheme.styleColors.mainAction.background.copy(0.5f),
+    textColor: Color = MaterialTheme.styleColors.mainAction.content,
+    disabledTextColor: Color = MaterialTheme.styleColors.mainAction.content.copy(alpha = 0.5f),
     onClick: () -> Unit,
 ) {
     Box(

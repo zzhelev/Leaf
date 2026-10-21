@@ -41,8 +41,8 @@ import dev.app.leaf.app.generated.resources.warning
 import dev.app.leaf.domain.models.AutostashNotice
 import dev.app.leaf.domain.models.AutostashOperation
 import dev.app.leaf.domain.models.AutostashPutBackAfter
-import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.monoTypography
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import org.jetbrains.compose.resources.painterResource
@@ -89,7 +89,7 @@ fun AutostashNoticeContent(
             Icon(
                 painterResource(Res.drawable.warning),
                 contentDescription = null,
-                tint = MaterialTheme.colors.conflictFile,
+                tint = MaterialTheme.styleColors.warningIcon,
                 modifier = Modifier.size(24.dp),
             )
         }

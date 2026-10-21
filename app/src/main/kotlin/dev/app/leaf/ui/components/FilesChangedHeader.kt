@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
@@ -25,6 +24,7 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.search
 import dev.app.leaf.app.generated.resources.status_header_more_actions
 import dev.app.leaf.ui.components.sort.SortMenuItem
+import dev.app.leaf.theme.RoleColors
 import dev.app.leaf.theme.tertiarySurface
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -36,8 +36,8 @@ data class ActionInfo(
     val applyToAllTitle: String,
     val applyToSelectedTitle: String,
     val icon: DrawableResource,
-    val color: Color,
-    val textColor: Color,
+    /** Fork-only: the style's colours for what the action does. */
+    val colors: RoleColors,
 )
 
 @Composable
@@ -126,8 +126,7 @@ fun FilesChangedHeader(
                     text = if (showActionForSelected) actionInfo.applyToSelectedTitle else actionInfo.applyToAllTitle,
                     icon = actionInfo.icon,
                     isParentHovered = isHeaderHovered,
-                    backgroundButton = actionInfo.color,
-                    onBackgroundColor = actionInfo.textColor,
+                    colors = actionInfo.colors,
                     onClick = { if (allActionEnabled) onAllAction() },
                     modifier = Modifier.padding(start = 4.dp, end = 16.dp).alpha(if (allActionEnabled) 1f else 0.5f),
                 )

@@ -19,10 +19,10 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.refresh.WATCH_LIMIT
 import dev.app.leaf.domain.refresh.WatchUsage
-import dev.app.leaf.theme.conflictFile
+import dev.app.leaf.theme.roleBorder
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltipPosition
-import dev.app.leaf.ui.status.OnConflictColor
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -42,24 +42,27 @@ fun WatchLimitNotice(usage: WatchUsage, modifier: Modifier = Modifier) {
         maxLines = 5,
         modifier = modifier,
     ) {
+        val strip = MaterialTheme.styleColors.warningStrip
+
         Row(
             modifier = Modifier
                 .clip(MaterialTheme.shapes.small)
-                .background(MaterialTheme.colors.conflictFile)
+                .background(strip.background)
+                .roleBorder(strip.border, MaterialTheme.shapes.small)
                 .padding(horizontal = 8.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 painter = painterResource(Res.drawable.warning),
                 contentDescription = null,
-                tint = OnConflictColor,
+                tint = strip.icon,
                 modifier = Modifier.size(14.dp),
             )
 
             Text(
                 text = stringResource(Res.string.bottom_info_bar_watch_limit),
                 style = MaterialTheme.typography.body2,
-                color = OnConflictColor,
+                color = strip.content,
                 maxLines = 1,
                 modifier = Modifier.padding(start = 6.dp),
             )

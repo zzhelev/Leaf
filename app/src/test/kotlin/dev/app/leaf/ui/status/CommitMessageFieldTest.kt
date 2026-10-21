@@ -31,11 +31,13 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.models.RepositoryState
+import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.darkTheme
 import dev.app.leaf.theme.lightTheme
+import dev.app.leaf.theme.styled
 import dev.app.leaf.ui.components.FilesChangedHeader
 import dev.app.leaf.ui.components.sort.SortMenuItem
 import kotlinx.coroutines.Dispatchers
@@ -132,8 +134,15 @@ class CommitMessageFieldTest {
     @Test
     fun `the field has the lists' background, and no underline until it has the focus`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            for ((theme, scheme) in listOf(Theme.Light to lightTheme, Theme.Dark to darkTheme)) {
-                Host(theme = theme).use { host ->
+            val cases = AccentStyle.entries.flatMap { style ->
+                listOf(Triple(style, Theme.Light, lightTheme), Triple(style, Theme.Dark, darkTheme))
+            }
+
+            for ((style, theme, base) in cases) {
+                // The accent follows the style: the muted blue in Tonal and Quiet's light theme
+                val scheme = base.styled(style)
+
+                Host(theme = theme, style = style).use { host ->
                     val field = host.fieldBounds()
                     val x = (field.left + 200f).toInt()
                     val last = (field.bottom - 1f).toInt()
@@ -149,7 +158,7 @@ class CommitMessageFieldTest {
                     assertEquals(
                         scheme.primaryVariant.toArgb(),
                         host.bitmap().getColor(x, last),
-                        "$theme: the focused underline is the accent, as before",
+                        "$style $theme: the focused underline is the accent, as before",
                     )
                 }
             }
@@ -414,6 +423,7 @@ class CommitMessageFieldTest {
         private val enabled: Boolean = true,
         theme: Theme = Theme.Dark,
         custom: ColorsScheme? = null,
+        style: AccentStyle = AccentStyle.DEFAULT,
     ) : AutoCloseable {
         /** What `setCommitMessage` was given, as the draft would be saved. A click that moves the caret gives it too. */
         val changes = mutableListOf<String>()
@@ -422,7 +432,7 @@ class CommitMessageFieldTest {
 
         init {
             scene = ImageComposeScene(width = 400, height = 120, density = Density(1f)) {
-                AppTheme(selectedTheme = theme, customTheme = custom) {
+                AppTheme(selectedTheme = theme, customTheme = custom, accentStyle = style) {
                     Box(Modifier.background(MaterialTheme.colors.surface)) {
                         Column {
                             CommitMessageTextField(

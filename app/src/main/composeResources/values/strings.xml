@@ -959,6 +959,12 @@
     <string name="settings_commits_conventional_automatic">Automatic</string>
     <string name="settings_commits_conventional_always">Always</string>
     <string name="settings_commits_conventional_off">Off</string>
+    <string name="settings_style_title">Style</string>
+    <string name="settings_style_subtitle">How strong the colours of buttons and notices are. Tonal tints them, Classic fills them, Quiet keeps most buttons neutral.</string>
+    <string name="settings_style_custom_theme">Custom themes use their own colours.</string>
+    <string name="settings_style_tonal">Tonal</string>
+    <string name="settings_style_classic">Classic</string>
+    <string name="settings_style_quiet">Quiet</string>
     <string name="settings_commits_ruler_off">Off</string>
     <string name="settings_commits_ruler_column">Column %1$d</string>
     <string name="settings_layout_diff_wrap_subtitle">Turned off, each line of a diff stays on one row, and the lines scroll sideways together. The diff's View menu has the same switch.</string>

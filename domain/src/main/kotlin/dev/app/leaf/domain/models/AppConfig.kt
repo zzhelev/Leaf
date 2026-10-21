@@ -20,6 +20,10 @@ sealed interface AppConfig {
     data class AvatarProvider(val value: AvatarProviderType) : AppConfig
     data class Theme(val value: dev.app.leaf.domain.models.ui.Theme) : AppConfig
     data class CustomTheme(val value: String) : AppConfig
+
+    /** How strong the colours of buttons and notices are (fork-only). A custom theme keeps its own. */
+    data class AccentStyle(val value: dev.app.leaf.domain.models.ui.AccentStyle) : AppConfig
+
     data class SwapStatusPanes(val value: Boolean) : AppConfig
 
     /** Whether discarding a hunk or a line in the diff asks first. Discarding files always asks. */

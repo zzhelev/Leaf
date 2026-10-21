@@ -14,7 +14,6 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -25,17 +24,14 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.ConflictSides
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.StatusType
-import dev.app.leaf.theme.abortButton
-import dev.app.leaf.theme.conflictFile
+import dev.app.leaf.theme.bottomEdge
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.ConfirmableAction.AbortOperation.Operation
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
-
-/** Dark text on the conflict color, which is the same amber in the light and the dark theme. */
-internal val OnConflictColor = Color(0xFF1E1E1E)
 
 /**
  * The operation that the repository is in the middle of, the files that still have conflicts, and what ours and theirs
@@ -114,17 +110,20 @@ fun OperationInProgressBanner(
     /** Opens the conflicts, while files have them: the built-in resolver or the external merge tool. */
     onResolveConflicts: (() -> Unit)? = null,
 ) {
+    val strip = MaterialTheme.styleColors.warningStrip
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colors.conflictFile)
+            .background(strip.background)
+            .bottomEdge(strip.border)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = painterResource(Res.drawable.warning),
             contentDescription = null,
-            tint = OnConflictColor,
+            tint = strip.icon,
             modifier = Modifier.size(20.dp),
         )
 
@@ -142,7 +141,7 @@ fun OperationInProgressBanner(
                 }
             },
             style = MaterialTheme.typography.body1,
-            color = OnConflictColor,
+            color = strip.content,
             // Only as wide as the text, so that the button follows it: on a wide window, a button at the far right is
             // too far from what it's about. When the window is narrow, the text wraps and the button stays.
             modifier = Modifier
@@ -153,8 +152,7 @@ fun OperationInProgressBanner(
         if (onResolveConflicts != null && inProgress.conflicts > 0) {
             SecondaryButton(
                 text = stringResource(Res.string.operation_banner_resolve_conflicts),
-                textColor = Color.White,
-                backgroundButton = OnConflictColor,
+                colors = strip.button,
                 onClick = onResolveConflicts,
                 modifier = Modifier.padding(end = 8.dp),
             )
@@ -162,8 +160,7 @@ fun OperationInProgressBanner(
 
         SecondaryButton(
             text = stringResource(inProgress.operation.abortTitle()),
-            textColor = MaterialTheme.colors.onError,
-            backgroundButton = MaterialTheme.colors.abortButton,
+            colors = MaterialTheme.styleColors.destructive,
             onClick = onAbort,
         )
     }

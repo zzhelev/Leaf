@@ -25,8 +25,9 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.index.conversionSteps
 import dev.app.leaf.domain.worktrees.commandLine
-import dev.app.leaf.theme.conflictFile
+import dev.app.leaf.theme.bottomEdge
 import dev.app.leaf.theme.monoTypography
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.SecondaryButton
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -69,17 +70,20 @@ fun UnsupportedIndexBanner(
     val consequence = index.consequence()
     val monospace = SpanStyle(fontFamily = monoTypography(), background = Color.Black.copy(alpha = 0.1f))
 
+    val strip = MaterialTheme.styleColors.warningStrip
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colors.conflictFile)
+            .background(strip.background)
+            .bottomEdge(strip.border)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = painterResource(Res.drawable.warning),
             contentDescription = null,
-            tint = OnConflictColor,
+            tint = strip.icon,
             modifier = Modifier.size(20.dp),
         )
 
@@ -102,15 +106,14 @@ fun UnsupportedIndexBanner(
                     }
                 },
                 style = MaterialTheme.typography.body1,
-                color = OnConflictColor,
+                color = strip.content,
             )
         }
 
         if (commands.isNotEmpty()) {
             SecondaryButton(
                 text = stringResource(Res.string.unsupported_index_convert),
-                textColor = Color.White,
-                backgroundButton = OnConflictColor,
+                colors = strip.button,
                 onClick = onConvert,
             )
         }

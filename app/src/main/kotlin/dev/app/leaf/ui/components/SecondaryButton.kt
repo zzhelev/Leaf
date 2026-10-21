@@ -23,6 +23,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.extensions.handMouseClickable
+import dev.app.leaf.theme.RoleColors
+import dev.app.leaf.theme.roleBorder
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.theme.tertiarySurface
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -40,15 +43,21 @@ fun SecondaryButtonPreview() {
 fun SecondaryButton(
     modifier: Modifier = Modifier,
     text: String,
-    textColor: Color = MaterialTheme.colors.onPrimary,
-    backgroundButton: Color = MaterialTheme.colors.primary,
+    // Fork-only: what the button does, which sets its colours in the style. The two below default to them
+    colors: RoleColors = MaterialTheme.styleColors.action,
+    textColor: Color = colors.content,
+    backgroundButton: Color = colors.background,
     maxLines: Int = 1,
     onClick: () -> Unit,
 ) {
+    val shape = RoundedCornerShape(4.dp)
+
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(4.dp))
+            .clip(shape)
             .background(backgroundButton)
+            // A fill of the caller's own gets no line of the role's
+            .roleBorder(if (backgroundButton == colors.background) colors.border else Color.Transparent, shape)
             .handMouseClickable { onClick() },
     ) {
         Text(
@@ -66,8 +75,10 @@ fun SecondaryButtonCompactable(
     modifier: Modifier = Modifier,
     icon: DrawableResource,
     text: String,
-    onBackgroundColor: Color = MaterialTheme.colors.onPrimary,
-    backgroundButton: Color,
+    // Fork-only: what the button does, which sets its colours in the style. The two below default to them
+    colors: RoleColors = MaterialTheme.styleColors.action,
+    onBackgroundColor: Color = colors.content,
+    backgroundButton: Color = colors.background,
     maxLines: Int = 1,
     isParentHovered: Boolean,
     onClick: () -> Unit,
@@ -87,16 +98,21 @@ fun SecondaryButtonCompactable(
     val targetBackground: Color
     val iconColor: Color
     val iconPadding: Float
+    val border: Color
 
     if (isExpanded) {
         targetBackground = backgroundButton
         iconColor = onBackgroundColor
         iconPadding = 12f
+        border = if (backgroundButton == colors.background) colors.border else Color.Transparent
     } else {
         targetBackground = MaterialTheme.colors.tertiarySurface
         iconColor = MaterialTheme.colors.onBackground
         iconPadding = 0f
+        border = Color.Transparent
     }
+
+    val shape = RoundedCornerShape(4.dp)
 
     val backgroundColorState by animateColorAsState(targetBackground)
     val iconColorState by animateColorAsState(iconColor)
@@ -104,8 +120,9 @@ fun SecondaryButtonCompactable(
 
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(4.dp))
+            .clip(shape)
             .background(backgroundColorState)
+            .roleBorder(border, shape)
             .hoverable(hoverInteraction)
             .handMouseClickable { onClick() }
             .padding(horizontal = 4.dp),

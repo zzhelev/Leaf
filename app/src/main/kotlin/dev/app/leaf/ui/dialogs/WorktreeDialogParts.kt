@@ -23,7 +23,6 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.IntrinsicMeasurable
 import androidx.compose.ui.layout.IntrinsicMeasureScope
 import androidx.compose.ui.layout.Layout
@@ -38,19 +37,17 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.RECENT_CHANGE_MS
 import dev.app.leaf.domain.worktrees.WorktreeStep
 import dev.app.leaf.domain.worktrees.shellLines
-import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.scrollbarHover
 import dev.app.leaf.theme.scrollbarNormal
+import dev.app.leaf.theme.roleBorder
 import dev.app.leaf.theme.secondarySurface
+import dev.app.leaf.theme.styleColors
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
-
-/** Dark text on the conflict color, which is the same amber in the light and the dark theme. */
-private val OnNoticeColor = Color(0xFF1E1E1E)
 
 /**
  * The commands that a worktree action runs (fork-only), as lines that can be copied into a terminal: `cd` to the
@@ -226,15 +223,19 @@ private const val MAX_FILES_SHOWN = 5
  */
 @Composable
 fun DialogNotice(text: String) {
+    val strip = MaterialTheme.styleColors.warningStrip
+    val shape = RoundedCornerShape(4.dp)
+
     SelectionContainer {
         Text(
             text = text,
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(4.dp))
-                .background(MaterialTheme.colors.conflictFile)
+                .clip(shape)
+                .background(strip.background)
+                .roleBorder(strip.border, shape)
                 .padding(vertical = 4.dp, horizontal = 8.dp),
-            color = OnNoticeColor,
+            color = strip.content,
             style = MaterialTheme.typography.body2,
         )
     }
