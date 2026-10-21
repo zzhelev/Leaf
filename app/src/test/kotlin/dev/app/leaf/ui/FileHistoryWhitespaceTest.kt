@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffType
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.Line
@@ -40,7 +41,7 @@ class FileHistoryWhitespaceTest {
     private val author = Identity("Maya Chen", "maya.chen@example.com")
     private val commits = listOf("a", "b").map { Commit(it.repeat(40), "Commit $it", author, author, 0L, emptyList()) }
 
-    private val ignoreChanges = mutableListOf<Boolean>()
+    private val ignoreChanges = mutableListOf<DiffWhitespaceMode>()
     private val showChanges = mutableListOf<Boolean>()
 
     private var scene: ImageComposeScene? = null
@@ -58,7 +59,7 @@ class FileHistoryWhitespaceTest {
 
     private fun render(
         diff: DiffResult.TextDiff,
-        ignoreWhitespace: Boolean,
+        whitespace: DiffWhitespaceMode,
         showWhitespace: Boolean = false,
         withMenu: Boolean = true,
     ) {
@@ -74,9 +75,9 @@ class FileHistoryWhitespaceTest {
                     onSelectAdjacentCommit = {},
                     whitespace = if (withMenu) {
                         WhitespaceViewOptions(
-                            ignoreWhitespace = ignoreWhitespace,
+                            whitespace = whitespace,
                             showWhitespace = showWhitespace,
-                            onIgnoreWhitespaceChanged = { ignoreChanges += it },
+                            onWhitespaceChanged = { ignoreChanges += it },
                             onShowWhitespaceChanged = { showChanges += it },
                         )
                     } else {
@@ -120,49 +121,63 @@ class FileHistoryWhitespaceTest {
 
     @Test
     fun `the commit strip has the View menu, lit while whitespace is ignored, and no wrap row`() {
-        render(DiffResult.Text(entry, emptyList()), ignoreWhitespace = false)
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.SHOW_ALL)
         assertTrue("View options" in descriptions(), descriptions().toString())
 
-        render(DiffResult.Text(entry, emptyList()), ignoreWhitespace = true)
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.IGNORE_ALL)
         assertTrue("View options (ignoring whitespace)" in descriptions(), descriptions().toString())
+
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.IGNORE_CHANGE)
+        assertTrue("View options (ignoring different amounts of whitespace)" in descriptions(), descriptions().toString())
+    }
+
+    @Test
+    fun `the strip says which way whitespace is ignored`() {
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.IGNORE_CHANGE)
+
+        assertTrue("Ignoring different amounts of whitespace." in texts(), texts().toString())
+        assertTrue("Ignoring whitespace changes." !in texts())
+
+        click("Show them")
+        assertEquals(listOf(DiffWhitespaceMode.SHOW_ALL), ignoreChanges)
     }
 
     @Test
     fun `a strip under the commit says whitespace is ignored, and shows the changes with one click`() {
-        render(DiffResult.Text(entry, emptyList()), ignoreWhitespace = true)
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.IGNORE_ALL)
 
         // There are no buttons to turn off in file history
         assertTrue("Ignoring whitespace changes." in texts(), texts().toString())
 
         click("Show them")
-        assertEquals(listOf(false), ignoreChanges)
+        assertEquals(listOf(DiffWhitespaceMode.SHOW_ALL), ignoreChanges)
     }
 
     @Test
     fun `no strip while whitespace shows, and none without the switches`() {
-        render(DiffResult.Text(entry, emptyList()), ignoreWhitespace = false)
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.SHOW_ALL)
         assertTrue("Show them" !in texts())
 
-        render(DiffResult.Text(entry, emptyList()), ignoreWhitespace = true, withMenu = false)
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.IGNORE_ALL, withMenu = false)
         assertTrue("Show them" !in texts())
         assertTrue(descriptions().none { it.startsWith("View options") })
     }
 
     @Test
     fun `a commit that only changed whitespace in the file says so, and offers the changes`() {
-        render(DiffResult.Text(entry, emptyList(), onlyWhitespaceChanged = true), ignoreWhitespace = true)
+        render(DiffResult.Text(entry, emptyList(), onlyWhitespaceChanged = true), whitespace = DiffWhitespaceMode.IGNORE_ALL)
 
         assertTrue("Only whitespace changed in this file" in texts(), texts().toString())
 
         click("Show whitespace changes")
-        assertEquals(listOf(false), ignoreChanges)
+        assertEquals(listOf(DiffWhitespaceMode.SHOW_ALL), ignoreChanges)
     }
 
     private fun pixelsWithMarks(showWhitespace: Boolean): List<Int> {
         val line = Line("x = a  b \n", 0, 0, LineType.CONTEXT)
         val hunk = Hunk("@@ -1 +1 @@", listOf(line), RawText.EMPTY_TEXT, RawText.EMPTY_TEXT)
 
-        render(DiffResult.Text(entry, listOf(hunk)), ignoreWhitespace = false, showWhitespace = showWhitespace)
+        render(DiffResult.Text(entry, listOf(hunk)), whitespace = DiffWhitespaceMode.SHOW_ALL, showWhitespace = showWhitespace)
         val bitmap = org.jetbrains.skia.Bitmap.makeFromImage(scene!!.render(System.nanoTime()))
 
         // The lines of the diff, under the commit strip, where the View button is lit while whitespace shows
@@ -178,7 +193,7 @@ class FileHistoryWhitespaceTest {
 
     @Test
     fun `a commit with no hunks and nothing hidden shows a blank diff, as before`() {
-        render(DiffResult.Text(entry, emptyList()), ignoreWhitespace = false)
+        render(DiffResult.Text(entry, emptyList()), whitespace = DiffWhitespaceMode.SHOW_ALL)
 
         assertTrue("Only whitespace changed in this file" !in texts())
     }

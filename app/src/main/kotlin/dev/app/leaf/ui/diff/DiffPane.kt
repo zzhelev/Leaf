@@ -204,8 +204,8 @@ private fun DiffPaneContent(
                     viewMenu = {
                         DiffViewMenu(
                             diffType = diffType,
-                            options = DiffViewOptions(whitespaceMode.ignoresWhitespace, showWhitespace, wrapLines),
-                            onIgnoreWhitespaceChanged = { viewModel.changeDiffWhitespace(it.toWhitespaceMode()) },
+                            options = DiffViewOptions(whitespaceMode, showWhitespace, wrapLines),
+                            onWhitespaceChanged = { viewModel.changeDiffWhitespace(it) },
                             onShowWhitespaceChanged = { viewModel.changeDiffShowWhitespace(it) },
                             onWrapLinesChanged = { viewModel.changeDiffWrapLines(it) },
                         )
@@ -217,6 +217,7 @@ private fun DiffPaneContent(
 
                 if (whitespaceMode.ignoresWhitespace && diffResult is DiffResult.TextDiff && canIgnoreWhitespace(diffType)) {
                     WhitespaceIgnoredStrip(
+                        mode = whitespaceMode,
                         actionsOff = whitespaceActionsOffText(diffType),
                         onShowThem = { viewModel.changeDiffWhitespace(DiffWhitespaceMode.SHOW_ALL) },
                     )

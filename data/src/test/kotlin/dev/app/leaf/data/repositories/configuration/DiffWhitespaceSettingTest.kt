@@ -95,6 +95,19 @@ class DiffWhitespaceSettingTest {
     }
 
     @Test
+    fun `ignoring different amounts stays after a restart, and an old value still reads as itself`(): Unit = runBlocking {
+        repository().setConfiguration(AppConfig.DiffWhitespace(DiffWhitespaceMode.IGNORE_CHANGE))
+
+        assertTrue(settingsFile.readText().contains("ignore_change"), settingsFile.readText())
+        assertEquals(DiffWhitespaceMode.IGNORE_CHANGE, service().diffWhitespace.first())
+
+        // What an earlier version stored for ignoring all whitespace is unchanged
+        settingsFile.writeText("""{"diff_whitespace": {"type": "string", "value": "ignore_all"}}""")
+
+        assertEquals(DiffWhitespaceMode.IGNORE_ALL, service().diffWhitespace.first())
+    }
+
+    @Test
     fun `the whitespace marks stay after a restart, and are independent of wrapping`(): Unit = runBlocking {
         repository().setConfiguration(AppConfig.DiffShowWhitespace(true))
         repository().setConfiguration(AppConfig.DiffWrapLines(false))
@@ -124,7 +137,7 @@ class DiffWhitespaceSettingTest {
 
     @Test
     fun `a mode that this version doesn't know reads as the default`(): Unit = runBlocking {
-        for (stored in listOf("ignore_amount", "", "IGNORE_ALL ", "-w")) {
+        for (stored in listOf("ignore_amount", "ignore_eol", "", "IGNORE_ALL ", "-w", "-b")) {
             settingsFile.writeText("""{"diff_whitespace": {"type": "string", "value": "$stored"}}""")
 
             assertEquals(DiffWhitespaceMode.DEFAULT, service().diffWhitespace.first(), "'$stored'")
@@ -145,6 +158,11 @@ class DiffWhitespaceSettingTest {
             assertEquals(mode, DiffWhitespaceMode.fromStored(mode.name.lowercase()))
         }
 
-        assertEquals(listOf(false, true), DiffWhitespaceMode.entries.map { it.ignoresWhitespace })
+        assertEquals(
+            listOf(DiffWhitespaceMode.SHOW_ALL, DiffWhitespaceMode.IGNORE_CHANGE, DiffWhitespaceMode.IGNORE_ALL),
+            DiffWhitespaceMode.entries,
+            "The menu lists them in this order",
+        )
+        assertEquals(listOf(false, true, true), DiffWhitespaceMode.entries.map { it.ignoresWhitespace })
     }
 }

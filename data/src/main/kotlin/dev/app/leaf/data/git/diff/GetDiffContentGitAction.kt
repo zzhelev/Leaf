@@ -65,10 +65,12 @@ class GetDiffContentGitAction @Inject constructor(
 }
 
 /**
- * What JGit compares lines with. [DiffWhitespaceMode.IGNORE_ALL] is `git diff -w`: the edits that JGit finds match
- * git's on every pair that `GetDiffWhitespaceTest` compares.
+ * What JGit compares lines with. [DiffWhitespaceMode.IGNORE_ALL] is `git diff -w` and
+ * [DiffWhitespaceMode.IGNORE_CHANGE] is `git diff -b`: the edits that JGit finds match git's on every pair that
+ * `DiffWhitespaceTest` compares.
  */
 internal fun DiffWhitespaceMode.comparator(): RawTextComparator = when (this) {
     DiffWhitespaceMode.SHOW_ALL -> RawTextComparator.DEFAULT
+    DiffWhitespaceMode.IGNORE_CHANGE -> RawTextComparator.WS_IGNORE_CHANGE
     DiffWhitespaceMode.IGNORE_ALL -> RawTextComparator.WS_IGNORE_ALL
 }

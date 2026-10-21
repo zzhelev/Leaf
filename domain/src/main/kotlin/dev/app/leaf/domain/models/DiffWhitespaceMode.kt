@@ -12,6 +12,13 @@ enum class DiffWhitespaceMode {
     SHOW_ALL,
 
     /**
+     * How much whitespace there is doesn't count, as `git diff -b` compares lines: a run of spaces and tabs equals any
+     * other run, and trailing whitespace and line endings are ignored. Whitespace that appears where there was none, or
+     * goes, still is a change: a block's first indent, or `f(a,b)` against `f(a, b)`.
+     */
+    IGNORE_CHANGE,
+
+    /**
      * Lines that only differ in whitespace are equal, as `git diff -w` compares them: indentation, trailing spaces,
      * tabs against spaces, line endings and the spacing inside a line.
      */

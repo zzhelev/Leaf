@@ -19,9 +19,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffType
@@ -49,7 +51,22 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-private val labels = DiffViewMenuLabels("Ignore", "ignore hint", "Show", "show hint", "Wrap", "wrap hint")
+private val labels = DiffViewMenuLabels(
+    whitespaceTitle = "Whitespace",
+    showAllChanges = "All",
+    ignoreChange = "Amount",
+    ignoreChangeHint = "amount hint",
+    ignoreAll = "Ignore",
+    ignoreAllHint = "ignore hint",
+    show = "Show",
+    showHint = "show hint",
+    wrap = "Wrap",
+    wrapHint = "wrap hint",
+)
+
+private val SHOW = DiffWhitespaceMode.SHOW_ALL
+private val AMOUNT = DiffWhitespaceMode.IGNORE_CHANGE
+private val ALL = DiffWhitespaceMode.IGNORE_ALL
 
 private fun uncommitted(entryType: EntryType, statusType: StatusType = StatusType.MODIFIED) =
     DiffType.UncommittedDiff(StatusEntry("src/Parser.kt", statusType, entryType), entryType)
@@ -69,48 +86,77 @@ private fun SemanticsNode.descriptions() = config.getOrNull(SemanticsProperties.
 /** The diff's View menu, the strip that says whitespace is ignored, and the pane of a file that only changed in it. */
 @OptIn(ExperimentalComposeUiApi::class)
 class DiffViewMenuTest {
-    private val ignored = mutableListOf<Boolean>()
+    private val ignored = mutableListOf<DiffWhitespaceMode>()
     private val marked = mutableListOf<Boolean>()
     private val wrapped = mutableListOf<Boolean>()
 
-    private fun items(
-        options: DiffViewOptions = DiffViewOptions(ignoreWhitespace = false, showWhitespace = false, wrapLines = true),
+    private fun allItems(
+        options: DiffViewOptions = DiffViewOptions(whitespace = SHOW, showWhitespace = false, wrapLines = true),
         showsIgnore: Boolean = true,
         canWrap: Boolean = true,
     ) = diffViewMenuItems(
         showsIgnoreWhitespace = showsIgnore,
         options = options,
         labels = labels,
-        onIgnoreWhitespaceChanged = { ignored += it },
+        onWhitespaceChanged = { ignored += it },
         onShowWhitespaceChanged = { marked += it },
         onWrapLinesChanged = if (canWrap) { wrap -> wrapped += wrap } else null,
-    ).filterIsInstance<SortMenuItem.Option>()
+    )
+
+    private fun items(
+        options: DiffViewOptions = DiffViewOptions(whitespace = SHOW, showWhitespace = false, wrapLines = true),
+        showsIgnore: Boolean = true,
+        canWrap: Boolean = true,
+    ) = allItems(options, showsIgnore, canWrap).filterIsInstance<SortMenuItem.Option>()
 
     @Test
-    fun `the menu has the three switches, set as the options are`() {
-        val rows = items(DiffViewOptions(ignoreWhitespace = true, showWhitespace = false, wrapLines = true))
+    fun `the menu has a row for each way to compare whitespace, then the two switches`() {
+        val rows = allItems(DiffViewOptions(whitespace = ALL, showWhitespace = false, wrapLines = true))
 
-        assertEquals(listOf("Ignore", "Show", "Wrap"), rows.map { it.label })
-        assertEquals(listOf(true, false, true), rows.map { it.isChecked })
-        assertEquals(listOf("ignore hint", "show hint", "wrap hint"), rows.map { it.hint })
+        assertEquals(
+            listOf("Title", "Option", "Option", "Option", "Divider", "Option", "Option"),
+            rows.map { it::class.simpleName },
+            "The three ways, set apart from the two switches",
+        )
+        assertEquals("Whitespace", (rows.first() as SortMenuItem.Title).text)
+
+        val options = rows.filterIsInstance<SortMenuItem.Option>()
+
+        assertEquals(listOf("All", "Amount", "Ignore", "Show", "Wrap"), options.map { it.label })
+        assertEquals(listOf(false, false, true, false, true), options.map { it.isChecked })
+        assertEquals(listOf(null, "amount hint", "ignore hint", "show hint", "wrap hint"), options.map { it.hint })
     }
 
     @Test
-    fun `a row turns its switch the other way, and keeps the menu open`() {
-        val rows = items(DiffViewOptions(ignoreWhitespace = true, showWhitespace = false, wrapLines = true))
+    fun `exactly the mode that is on is checked, for each mode`() {
+        for (mode in DiffWhitespaceMode.entries) {
+            val rows = items(DiffViewOptions(whitespace = mode, showWhitespace = false, wrapLines = true)).take(3)
+
+            assertEquals(DiffWhitespaceMode.entries.map { it == mode }, rows.map { it.isChecked }, "$mode")
+        }
+    }
+
+    @Test
+    fun `a row of a mode sets it, the one that is on does nothing, and a switch turns the other way`() {
+        val rows = items(DiffViewOptions(whitespace = AMOUNT, showWhitespace = false, wrapLines = true))
 
         rows.forEach { it.onClick() }
 
-        assertEquals(listOf(false), ignored)
+        assertEquals(listOf(SHOW, ALL), ignored, "Every mode but the one that is on, in the menu's order")
         assertEquals(listOf(true), marked)
         assertEquals(listOf(false), wrapped)
-        assertEquals(listOf(false, false, false), rows.map { it.closesMenu }, "Two switches can be set in one go")
+        assertEquals(List(5) { false }, rows.map { it.closesMenu }, "Two choices can be made in one go")
     }
 
     @Test
     fun `an added or a deleted file can't ignore whitespace, and file history has no wrap switch`() {
         assertEquals(listOf("Show", "Wrap"), items(showsIgnore = false).map { it.label })
-        assertEquals(listOf("Ignore", "Show"), items(canWrap = false).map { it.label })
+        assertEquals(
+            listOf("Option", "Option"),
+            allItems(showsIgnore = false).map { it::class.simpleName },
+            "No title and no divider without the whitespace rows",
+        )
+        assertEquals(listOf("All", "Amount", "Ignore", "Show"), items(canWrap = false).map { it.label })
 
         assertTrue(canIgnoreWhitespace(uncommitted(EntryType.UNSTAGED)))
         assertTrue(canIgnoreWhitespace(uncommitted(EntryType.STAGED, StatusType.MODIFIED)))
@@ -122,24 +168,19 @@ class DiffViewMenuTest {
         assertTrue(!canIgnoreWhitespace(committed(DiffEntry.ChangeType.DELETE)))
     }
 
-    @Test
-    fun `the switch of the menu stands for ignoring all whitespace`() {
-        assertEquals(DiffWhitespaceMode.IGNORE_ALL, true.toWhitespaceMode())
-        assertEquals(DiffWhitespaceMode.SHOW_ALL, false.toWhitespaceMode())
-    }
-
     // The button
 
     @Test
     fun `the button is plain until a switch differs from how a diff first looks, and its tooltip says which`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            val plain = ViewScene(DiffViewOptions(false, false, true))
+            val plain = ViewScene(DiffViewOptions(SHOW, false, true))
             val expected = mapOf(
-                DiffViewOptions(false, false, true) to "View options",
-                DiffViewOptions(true, false, true) to "View options (ignoring whitespace)",
-                DiffViewOptions(false, true, true) to "View options (showing whitespace characters)",
-                DiffViewOptions(false, false, false) to "View options (lines not wrapped)",
-                DiffViewOptions(true, true, false) to
+                DiffViewOptions(SHOW, false, true) to "View options",
+                DiffViewOptions(ALL, false, true) to "View options (ignoring whitespace)",
+                DiffViewOptions(AMOUNT, false, true) to "View options (ignoring different amounts of whitespace)",
+                DiffViewOptions(SHOW, true, true) to "View options (showing whitespace characters)",
+                DiffViewOptions(SHOW, false, false) to "View options (lines not wrapped)",
+                DiffViewOptions(ALL, true, false) to
                     "View options (ignoring whitespace, showing whitespace characters, lines not wrapped)",
             )
 
@@ -152,7 +193,7 @@ class DiffViewMenuTest {
 
                     assertEquals(tooltip, plain.descriptions().single { it.startsWith("View options") }, "$options")
 
-                    if (options == DiffViewOptions(false, false, true)) {
+                    if (options == DiffViewOptions(SHOW, false, true)) {
                         assertEquals(plainPixels, plain.pixels(), "Not lit")
                     } else {
                         assertNotEquals(plainPixels, plain.pixels(), "Lit: $options")
@@ -166,7 +207,7 @@ class DiffViewMenuTest {
     @Test
     fun `file history's button doesn't count wrapping, as it has no switch for it`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            ViewScene(DiffViewOptions(false, false, wrapLines = false), canWrap = false).use { scene ->
+            ViewScene(DiffViewOptions(SHOW, false, wrapLines = false), canWrap = false).use { scene ->
                 assertEquals("View options", scene.descriptions().single { it.startsWith("View options") })
             }
         }
@@ -174,28 +215,46 @@ class DiffViewMenuTest {
     @Test
     fun `an added file's button doesn't count ignoring whitespace, which it has no row for`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            ViewScene(
-                DiffViewOptions(ignoreWhitespace = true, showWhitespace = false, wrapLines = true),
-                diffType = uncommitted(EntryType.UNSTAGED, StatusType.ADDED),
-            ).use { scene ->
-                assertEquals("View options", scene.descriptions().single { it.startsWith("View options") })
+            for (mode in listOf(ALL, AMOUNT)) {
+                ViewScene(
+                    DiffViewOptions(whitespace = mode, showWhitespace = false, wrapLines = true),
+                    diffType = uncommitted(EntryType.UNSTAGED, StatusType.ADDED),
+                ).use { scene ->
+                    assertEquals("View options", scene.descriptions().single { it.startsWith("View options") }, "$mode")
+                }
             }
         }
 
     @Test
     fun `clicking the button opens the menu, and a row sets its switch`(): Unit = runBlocking(Dispatchers.Swing) {
-        ViewScene(DiffViewOptions(false, false, true)).use { scene ->
+        ViewScene(DiffViewOptions(SHOW, false, true)).use { scene ->
             scene.click(scene.node { it.descriptions().any { d -> d.startsWith("View options") } }.boundsInWindow.center)
 
             val texts = scene.texts()
             assertTrue(
-                texts.containsAll(listOf("Ignore whitespace", "Show whitespace characters", "Wrap long lines")),
+                texts.containsAll(
+                    listOf(
+                        "Whitespace",
+                        "Show all changes",
+                        "Ignore different amounts of whitespace",
+                        "Ignore all whitespace",
+                        "Show whitespace characters",
+                        "Wrap long lines",
+                    )
+                ),
                 texts.toString(),
             )
 
+            // The mode that is on does nothing
+            scene.click(scene.node { "Show all changes" in it.texts() }.boundsInWindow.center)
+            assertEquals(emptyList<DiffWhitespaceMode>(), ignored)
+
+            scene.click(scene.node { "Ignore different amounts of whitespace" in it.texts() }.boundsInWindow.center)
+            assertEquals(listOf(AMOUNT), ignored)
+
             scene.click(scene.node { "Show whitespace characters" in it.texts() }.boundsInWindow.center)
             assertEquals(listOf(true), marked)
-            assertEquals(emptyList<Boolean>(), ignored)
+            assertEquals(listOf(AMOUNT), ignored)
         }
     }
 
@@ -206,17 +265,52 @@ class DiffViewMenuTest {
         runBlocking(Dispatchers.Swing) {
             var shown = 0
 
-            ContentScene { WhitespaceIgnoredStrip(actionsOff = "Stage and discard are off.", onShowThem = { shown++ }) }.use { scene ->
+            ContentScene { WhitespaceIgnoredStrip(ALL, actionsOff = "Stage and discard are off.", onShowThem = { shown++ }) }.use { scene ->
                 assertTrue("Ignoring whitespace changes. Stage and discard are off." in scene.texts(), scene.texts().toString())
 
                 scene.click(scene.node { "Show them" in it.texts() }.boundsInWindow.center)
                 assertEquals(1, shown)
             }
 
-            ContentScene { WhitespaceIgnoredStrip(actionsOff = null, onShowThem = {}) }.use { scene ->
+            ContentScene { WhitespaceIgnoredStrip(ALL, actionsOff = null, onShowThem = {}) }.use { scene ->
                 assertTrue("Ignoring whitespace changes." in scene.texts(), scene.texts().toString())
             }
+
+            // Ignoring the amount says so, as the two modes show different lines
+            ContentScene { WhitespaceIgnoredStrip(AMOUNT, actionsOff = "Unstage is off.", onShowThem = { shown++ }) }.use { scene ->
+                assertTrue("Ignoring different amounts of whitespace. Unstage is off." in scene.texts(), scene.texts().toString())
+
+                scene.click(scene.node { "Show them" in it.texts() }.boundsInWindow.center)
+                assertEquals(2, shown)
+            }
         }
+
+    @Test
+    fun `the longest strip text fits the diff pane of a laptop, 534 dp wide`(): Unit = runBlocking(Dispatchers.Swing) {
+        for ((mode, ignoring) in listOf(AMOUNT to "Ignoring different amounts of whitespace.", ALL to "Ignoring whitespace changes.")) {
+            val message = "$ignoring Stage and discard are off."
+
+            ContentScene(width = 534) { WhitespaceIgnoredStrip(mode, actionsOff = "Stage and discard are off.", onShowThem = {}) }.use { scene ->
+                val results = mutableListOf<TextLayoutResult>()
+                val text = scene.node { message in it.texts() }
+
+                text.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+
+                // Neither hasVisualOverflow (true for any text in this row) nor isLineEllipsized (false when the text
+                // is cut) says it: the text has its natural width, or it was given less
+                val layout = results.single()
+
+                assertTrue(
+                    layout.size.width >= layout.multiParagraph.maxIntrinsicWidth,
+                    "$mode: '$message' is cut, to ${layout.size.width} of ${layout.multiParagraph.maxIntrinsicWidth}",
+                )
+                assertTrue(
+                    scene.node { "Show them" in it.texts() }.boundsInWindow.right <= 534f - 16f,
+                    "$mode: the link stays inside the strip's padding",
+                )
+            }
+        }
+    }
 
     @Test
     fun `the strip names the buttons that are off for each kind of diff`(): Unit = runBlocking(Dispatchers.Swing) {
@@ -371,8 +465,8 @@ class DiffViewMenuTest {
         override fun close() = scene.close()
     }
 
-    private inner class ContentScene(content: @Composable () -> Unit) : Scene() {
-        override val scene = ImageComposeScene(width = 600, height = 200, density = Density(1f)) {
+    private inner class ContentScene(width: Int = 600, content: @Composable () -> Unit) : Scene() {
+        override val scene = ImageComposeScene(width = width, height = 200, density = Density(1f)) {
             AppTheme { Box(Modifier.fillMaxSize()) { content() } }
         }
 
@@ -395,7 +489,7 @@ class DiffViewMenuTest {
                     DiffViewMenu(
                         diffType = diffType,
                         options = this@ViewScene.options,
-                        onIgnoreWhitespaceChanged = { ignored += it },
+                        onWhitespaceChanged = { ignored += it },
                         onShowWhitespaceChanged = { marked += it },
                         onWrapLinesChanged = if (canWrap) { wrap -> wrapped += wrap } else null,
                     )

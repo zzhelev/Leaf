@@ -60,10 +60,10 @@ private data class RefHunk(val header: String, val lines: List<Pair<Char, String
 private val LATIN_1 = Charsets.ISO_8859_1
 
 /**
- * The diff that ignores whitespace ([DiffWhitespaceMode.IGNORE_ALL]) against `git diff -w`, in the three places that
- * Leaf shows a file's diff: Unstaged, Staged and a commit. Fixed pairs for each kind of whitespace change, and 120
- * random ones. The same pairs without ignoring whitespace are the control, so that a difference that isn't about
- * whitespace shows as one.
+ * The diff that ignores whitespace ([DiffWhitespaceMode.IGNORE_ALL] against `git diff -w`, and
+ * [DiffWhitespaceMode.IGNORE_CHANGE] against `git diff -b`), in the three places that Leaf shows a file's diff:
+ * Unstaged, Staged and a commit. Fixed pairs for each kind of whitespace change, and 120 random ones. The same pairs
+ * without ignoring whitespace are the control, so that a difference that isn't about whitespace shows as one.
  */
 class DiffWhitespaceTest {
     @TempDir
@@ -133,7 +133,7 @@ class DiffWhitespaceTest {
     private val allPairs get() = fixedPairs + randomPairs
 
     @Test
-    fun `hunks match git diff -w in Unstaged, Staged and a commit`(): Unit = runBlocking {
+    fun `hunks match git diff -w and -b in Unstaged, Staged and a commit`(): Unit = runBlocking {
         commitAll("Old versions") { it.first }
 
         // Unstaged: the index has the old text, the working tree the new
@@ -192,15 +192,42 @@ class DiffWhitespaceTest {
     }
 
     @Test
-    fun `JGit's other whitespace comparators find the edits of git's -b and --ignore-space-at-eol`(): Unit = runBlocking {
-        // What a later mode of DiffWhitespaceMode would use: the edits, without the diff's hunks around them
+    fun `different amounts of whitespace are hidden, but not whitespace that appears or goes`(): Unit = runBlocking {
+        commitAll("Old versions") { it.first }
+        writeAll { it.second }
+
+        // The amount of whitespace changes, and there was some before and after, or only at the end of the line
+        val amountOnly = listOf("indent.txt", "tabs.txt", "trailing.txt", "crlf.txt", "crlf-back.txt", "inner.txt", "blank.txt", "no-eol.txt")
+        // Whitespace appears where there was none: -w hides these, -b shows them
+        val appearsOrGoes = listOf("joined.txt", "lead.txt")
+
+        for (path in amountOnly) {
+            val ignored = unstaged(path, DiffWhitespaceMode.IGNORE_CHANGE)
+
+            assertTrue(ignored.hunks.isEmpty(), "$path: no hunks while the amount is ignored")
+            assertTrue(ignored.onlyWhitespaceChanged, "$path: says that only whitespace changed")
+        }
+
+        for (path in appearsOrGoes) {
+            val ignored = unstaged(path, DiffWhitespaceMode.IGNORE_CHANGE)
+
+            assertTrue(ignored.hunks.isNotEmpty(), "$path: still a change")
+            assertFalse(ignored.onlyWhitespaceChanged, "$path")
+            assertTrue(unstaged(path, DiffWhitespaceMode.IGNORE_ALL).onlyWhitespaceChanged, "$path: -w hides it")
+        }
+    }
+
+    @Test
+    fun `JGit's whitespace comparators find the edits of git's -w, -b and --ignore-space-at-eol`(): Unit = runBlocking {
+        // The edits, without the diff's hunks around them. The first two are modes of DiffWhitespaceMode, and the
+        // last one is the end-of-line mode that isn't offered (JGit has none for --ignore-cr-at-eol)
         commitAll("Old versions") { it.first }
         writeAll { it.second }
 
         val comparators = listOf(
-            "-b" to RawTextComparator.WS_IGNORE_CHANGE,
+            "-b" to DiffWhitespaceMode.IGNORE_CHANGE.comparator(),
+            "-w" to DiffWhitespaceMode.IGNORE_ALL.comparator(),
             "--ignore-space-at-eol" to RawTextComparator.WS_IGNORE_TRAILING,
-            "-w" to RawTextComparator.WS_IGNORE_ALL,
         )
 
         for ((flag, comparator) in comparators) {
@@ -257,10 +284,12 @@ class DiffWhitespaceTest {
         commitAll("Old versions") { it.first }
         writeAll { it.second }
 
-        val hunk = unstaged("context.txt", DiffWhitespaceMode.IGNORE_ALL).hunks.single()
-        val contexts = hunk.lines.filter { it.lineType == LineType.CONTEXT }.map { it.text }
+        for (mode in listOf(DiffWhitespaceMode.IGNORE_ALL, DiffWhitespaceMode.IGNORE_CHANGE)) {
+            val hunk = unstaged("context.txt", mode).hunks.single()
+            val contexts = hunk.lines.filter { it.lineType == LineType.CONTEXT }.map { it.text }
 
-        assertEquals(listOf("a\n", "    b\n", "d\n"), contexts, "The second line has the new indentation")
+            assertEquals(listOf("a\n", "    b\n", "d\n"), contexts, "$mode: the second line has the new indentation")
+        }
 
         val shown = unstaged("context.txt", DiffWhitespaceMode.SHOW_ALL).hunks.single()
 
@@ -276,12 +305,26 @@ class DiffWhitespaceTest {
         commitAll("Old versions") { it.first }
         writeAll { it.second }
 
-        assertTrue(unstaged("far-apart.txt", DiffWhitespaceMode.IGNORE_ALL).hunks.all { it.ignoresWhitespace })
+        for (mode in listOf(DiffWhitespaceMode.IGNORE_ALL, DiffWhitespaceMode.IGNORE_CHANGE)) {
+            val hunks = unstaged("far-apart.txt", mode).hunks
+
+            assertTrue(hunks.isNotEmpty() && hunks.all { it.ignoresWhitespace }, "$mode")
+        }
+
         assertTrue(unstaged("far-apart.txt", DiffWhitespaceMode.SHOW_ALL).hunks.none { it.ignoresWhitespace })
     }
 
     @Test
-    fun `hunk and line actions refuse a hunk of a diff that ignored whitespace, changing nothing`(): Unit = runBlocking {
+    fun `hunk and line actions refuse a hunk of a diff that ignored all whitespace, changing nothing`(): Unit = runBlocking {
+        refuseHunkActionsOfDiffIgnoring(DiffWhitespaceMode.IGNORE_ALL)
+    }
+
+    @Test
+    fun `hunk and line actions refuse a hunk of a diff that ignored different amounts of whitespace, changing nothing`(): Unit = runBlocking {
+        refuseHunkActionsOfDiffIgnoring(DiffWhitespaceMode.IGNORE_CHANGE)
+    }
+
+    private suspend fun refuseHunkActionsOfDiffIgnoring(ignoring: DiffWhitespaceMode) {
         val gitCli = testGitCli(mapOf("GIT_CONFIG_GLOBAL" to globalConfig.path, "GIT_CONFIG_NOSYSTEM" to "1"))
         val applyHunk = ApplyHunkGitAction(jgit, gitCli)
         val path = "real-and-ws.txt"
@@ -290,7 +333,7 @@ class DiffWhitespaceTest {
         writeAll { it.second }
 
         // Unstaged: stage and discard
-        val unstaged = unstaged(path, DiffWhitespaceMode.IGNORE_ALL)
+        val unstaged = unstaged(path, ignoring)
         val hunk = unstaged.hunks.first()
         val line = hunk.lines.first { it.lineType == LineType.ADDED }
         val before = snapshot(path)
@@ -311,7 +354,7 @@ class DiffWhitespaceTest {
             gitDir(),
             DiffType.UncommittedDiff(StatusEntry(path, StatusType.MODIFIED, EntryType.STAGED), EntryType.STAGED),
             isDisplayFullFile = false,
-            whitespace = DiffWhitespaceMode.IGNORE_ALL,
+            whitespace = ignoring,
         ) as Either.Ok).value as DiffResult.Text
         val stagedHunk = stagedDiff.hunks.first()
         val stagedLine = stagedHunk.lines.first { it.lineType == LineType.ADDED }
@@ -391,10 +434,14 @@ class DiffWhitespaceTest {
 
     // git's side
 
-    /** `git diff` of the repository's files, [-w][DiffWhitespaceMode.IGNORE_ALL] or not, split into each file's hunks. */
+    /** `git diff` of the repository's files, with the flag that [mode] stands for, split into each file's hunks. */
     private fun gitDiff(mode: DiffWhitespaceMode, vararg more: String): Map<String, List<RefHunk>> {
-        val args = listOf("diff", "--no-color", "--no-ext-diff", "-U3", "--diff-algorithm=histogram") +
-            (if (mode.ignoresWhitespace) listOf("-w") else emptyList()) + more
+        val flag = when (mode) {
+            DiffWhitespaceMode.SHOW_ALL -> emptyList()
+            DiffWhitespaceMode.IGNORE_CHANGE -> listOf("-b")
+            DiffWhitespaceMode.IGNORE_ALL -> listOf("-w")
+        }
+        val args = listOf("diff", "--no-color", "--no-ext-diff", "-U3", "--diff-algorithm=histogram") + flag + more
         val output = git.run(repository, *args.toTypedArray())
 
         return parseGitDiff(output)

@@ -33,6 +33,7 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.close
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffResult
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.backgroundSelected
@@ -52,7 +53,6 @@ import dev.app.leaf.ui.diff.OnlyWhitespaceChanged
 import dev.app.leaf.ui.diff.WhitespaceIgnoredStrip
 import dev.app.leaf.ui.diff.WhitespaceViewOptions
 import dev.app.leaf.ui.diff.canIgnoreWhitespace
-import dev.app.leaf.ui.diff.toWhitespaceMode
 import dev.app.leaf.ui.diff.HunkSplitTextDiff
 import dev.app.leaf.ui.diff.HunkUnifiedTextDiff
 import dev.app.leaf.ui.getStyledErrorText
@@ -182,9 +182,9 @@ private fun HistoryContent(
             onSelectAdjacentCommit = onSelectAdjacentCommit,
             onRestoreVersion = onRestoreVersion,
             whitespace = WhitespaceViewOptions(
-                ignoreWhitespace = whitespaceMode.ignoresWhitespace,
+                whitespace = whitespaceMode,
                 showWhitespace = showWhitespace,
-                onIgnoreWhitespaceChanged = { historyViewModel.changeDiffWhitespace(it.toWhitespaceMode()) },
+                onWhitespaceChanged = { historyViewModel.changeDiffWhitespace(it) },
                 onShowWhitespaceChanged = { historyViewModel.changeDiffShowWhitespace(it) },
             ),
         )
@@ -273,8 +273,8 @@ fun HistoryContentLoaded(
                         {
                             DiffViewMenu(
                                 diffType = (viewDiffResult as? ViewDiffResult.Loaded)?.diffType,
-                                options = DiffViewOptions(options.ignoreWhitespace, options.showWhitespace, wrapLines = true),
-                                onIgnoreWhitespaceChanged = options.onIgnoreWhitespaceChanged,
+                                options = DiffViewOptions(options.whitespace, options.showWhitespace, wrapLines = true),
+                                onWhitespaceChanged = options.onWhitespaceChanged,
                                 onShowWhitespaceChanged = options.onShowWhitespaceChanged,
                                 // The lines of file history always wrap
                                 onWrapLinesChanged = null,
@@ -286,12 +286,16 @@ fun HistoryContentLoaded(
 
             // Fork-only: says that lines are hidden
             if (
-                whitespace?.ignoreWhitespace == true &&
+                whitespace?.whitespace?.ignoresWhitespace == true &&
                 viewDiffResult is ViewDiffResult.Loaded &&
                 viewDiffResult.diffResult is DiffResult.TextDiff &&
                 canIgnoreWhitespace(viewDiffResult.diffType)
             ) {
-                WhitespaceIgnoredStrip(actionsOff = null, onShowThem = { whitespace.onIgnoreWhitespaceChanged(false) })
+                WhitespaceIgnoredStrip(
+                    mode = whitespace.whitespace,
+                    actionsOff = null,
+                    onShowThem = { whitespace.onWhitespaceChanged(DiffWhitespaceMode.SHOW_ALL) },
+                )
             }
 
             // Fork-only: says why the diff isn't there, as a file that a partial clone couldn't download
@@ -307,7 +311,7 @@ fun HistoryContentLoaded(
                     when (val diffResult = viewDiffResult.diffResult) {
                         // Fork-only: the diff hides the whitespace changes that are all there is
                         is DiffResult.TextDiff if diffResult.onlyWhitespaceChanged -> OnlyWhitespaceChanged(
-                            onShowChanges = { whitespace?.onIgnoreWhitespaceChanged?.invoke(false) },
+                            onShowChanges = { whitespace?.onWhitespaceChanged?.invoke(DiffWhitespaceMode.SHOW_ALL) },
                         )
 
                         is DiffResult.Text -> {

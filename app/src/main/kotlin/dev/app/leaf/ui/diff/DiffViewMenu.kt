@@ -37,17 +37,23 @@ import dev.app.leaf.app.generated.resources.diff_only_whitespace_body
 import dev.app.leaf.app.generated.resources.diff_only_whitespace_show
 import dev.app.leaf.app.generated.resources.diff_only_whitespace_title
 import dev.app.leaf.app.generated.resources.diff_view_active_ignoring
+import dev.app.leaf.app.generated.resources.diff_view_active_ignoring_amount
 import dev.app.leaf.app.generated.resources.diff_view_active_marking
 import dev.app.leaf.app.generated.resources.diff_view_active_not_wrapping
+import dev.app.leaf.app.generated.resources.diff_view_ignore_change
+import dev.app.leaf.app.generated.resources.diff_view_ignore_change_hint
 import dev.app.leaf.app.generated.resources.diff_view_ignore_whitespace
 import dev.app.leaf.app.generated.resources.diff_view_ignore_whitespace_hint
 import dev.app.leaf.app.generated.resources.diff_view_menu_tooltip
 import dev.app.leaf.app.generated.resources.diff_view_menu_tooltip_active
+import dev.app.leaf.app.generated.resources.diff_view_show_all_changes
 import dev.app.leaf.app.generated.resources.diff_view_show_whitespace
 import dev.app.leaf.app.generated.resources.diff_view_show_whitespace_hint
+import dev.app.leaf.app.generated.resources.diff_view_whitespace_title
 import dev.app.leaf.app.generated.resources.diff_view_wrap_lines
 import dev.app.leaf.app.generated.resources.diff_view_wrap_lines_hint
 import dev.app.leaf.app.generated.resources.diff_whitespace_strip
+import dev.app.leaf.app.generated.resources.diff_whitespace_strip_amount
 import dev.app.leaf.app.generated.resources.diff_whitespace_strip_stage_off
 import dev.app.leaf.app.generated.resources.diff_whitespace_strip_unstage_off
 import dev.app.leaf.app.generated.resources.diff_whitespace_strip_show
@@ -69,25 +75,21 @@ import org.jetbrains.compose.resources.stringResource
 /** A press on the button while the menu is open first dismisses it as an outside click: don't open it again at once. */
 private const val REOPEN_GUARD_MS = 300
 
-/** What the View menu's three switches are set to. */
+/** What the View menu is set to: how whitespace is compared, and its two switches. */
 data class DiffViewOptions(
-    val ignoreWhitespace: Boolean,
+    val whitespace: DiffWhitespaceMode,
     val showWhitespace: Boolean,
     val wrapLines: Boolean,
 )
-
-/** The mode that the menu's "Ignore whitespace" switch stands for. */
-fun Boolean.toWhitespaceMode(): DiffWhitespaceMode =
-    if (this) DiffWhitespaceMode.IGNORE_ALL else DiffWhitespaceMode.SHOW_ALL
 
 /**
  * What a view of a diff without a header of its own, such as file history, shows and sets of the View menu: it has no
  * wrap switch, as its lines always wrap.
  */
 data class WhitespaceViewOptions(
-    val ignoreWhitespace: Boolean,
+    val whitespace: DiffWhitespaceMode,
     val showWhitespace: Boolean,
-    val onIgnoreWhitespaceChanged: (Boolean) -> Unit,
+    val onWhitespaceChanged: (DiffWhitespaceMode) -> Unit,
     val onShowWhitespaceChanged: (Boolean) -> Unit,
 )
 
@@ -99,9 +101,10 @@ fun canIgnoreWhitespace(diffType: DiffType?): Boolean =
     diffType == null || (diffType.statusType != StatusType.ADDED && diffType.statusType != StatusType.REMOVED)
 
 /**
- * The diff header's "View options" button and its menu (fork-only): Ignore whitespace, Show whitespace characters and
- * Wrap long lines, in one 32 dp button, as the header has little room on a laptop. The button is lit while a switch
- * differs from how a diff first looks, and its tooltip says which.
+ * The diff header's "View options" button and its menu (fork-only): how whitespace is compared (show all changes,
+ * ignore different amounts of whitespace, ignore all whitespace), Show whitespace characters and Wrap long lines, in one 32 dp
+ * button, as the header has little room on a laptop. The button is lit while a choice differs from how a diff first
+ * looks, and its tooltip says which.
  *
  * [onWrapLinesChanged] is null where wrapping isn't a choice, such as file history, and the menu then leaves it out.
  */
@@ -109,28 +112,40 @@ fun canIgnoreWhitespace(diffType: DiffType?): Boolean =
 fun DiffViewMenu(
     diffType: DiffType?,
     options: DiffViewOptions,
-    onIgnoreWhitespaceChanged: (Boolean) -> Unit,
+    onWhitespaceChanged: (DiffWhitespaceMode) -> Unit,
     onShowWhitespaceChanged: (Boolean) -> Unit,
     onWrapLinesChanged: ((Boolean) -> Unit)?,
 ) {
-    val ignoreLabel = stringResource(Res.string.diff_view_ignore_whitespace)
-    val ignoreHint = stringResource(Res.string.diff_view_ignore_whitespace_hint)
-    val showLabel = stringResource(Res.string.diff_view_show_whitespace)
-    val showHint = stringResource(Res.string.diff_view_show_whitespace_hint)
-    val wrapLabel = stringResource(Res.string.diff_view_wrap_lines)
-    val wrapHint = stringResource(Res.string.diff_view_wrap_lines_hint)
+    val labels = DiffViewMenuLabels(
+        whitespaceTitle = stringResource(Res.string.diff_view_whitespace_title),
+        showAllChanges = stringResource(Res.string.diff_view_show_all_changes),
+        ignoreChange = stringResource(Res.string.diff_view_ignore_change),
+        ignoreChangeHint = stringResource(Res.string.diff_view_ignore_change_hint),
+        ignoreAll = stringResource(Res.string.diff_view_ignore_whitespace),
+        ignoreAllHint = stringResource(Res.string.diff_view_ignore_whitespace_hint),
+        show = stringResource(Res.string.diff_view_show_whitespace),
+        showHint = stringResource(Res.string.diff_view_show_whitespace_hint),
+        wrap = stringResource(Res.string.diff_view_wrap_lines),
+        wrapHint = stringResource(Res.string.diff_view_wrap_lines_hint),
+    )
 
     val items = diffViewMenuItems(
         showsIgnoreWhitespace = canIgnoreWhitespace(diffType),
         options = options,
-        labels = DiffViewMenuLabels(ignoreLabel, ignoreHint, showLabel, showHint, wrapLabel, wrapHint),
-        onIgnoreWhitespaceChanged = onIgnoreWhitespaceChanged,
+        labels = labels,
+        onWhitespaceChanged = onWhitespaceChanged,
         onShowWhitespaceChanged = onShowWhitespaceChanged,
         onWrapLinesChanged = onWrapLinesChanged,
     )
 
     val active = buildList {
-        if (options.ignoreWhitespace && canIgnoreWhitespace(diffType)) add(stringResource(Res.string.diff_view_active_ignoring))
+        if (canIgnoreWhitespace(diffType)) {
+            when (options.whitespace) {
+                DiffWhitespaceMode.SHOW_ALL -> Unit
+                DiffWhitespaceMode.IGNORE_CHANGE -> add(stringResource(Res.string.diff_view_active_ignoring_amount))
+                DiffWhitespaceMode.IGNORE_ALL -> add(stringResource(Res.string.diff_view_active_ignoring))
+            }
+        }
         if (options.showWhitespace) add(stringResource(Res.string.diff_view_active_marking))
         if (onWrapLinesChanged != null && !options.wrapLines) add(stringResource(Res.string.diff_view_active_not_wrapping))
     }
@@ -144,32 +159,54 @@ fun DiffViewMenu(
 }
 
 internal data class DiffViewMenuLabels(
-    val ignore: String,
-    val ignoreHint: String,
+    val whitespaceTitle: String,
+    val showAllChanges: String,
+    val ignoreChange: String,
+    val ignoreChangeHint: String,
+    val ignoreAll: String,
+    val ignoreAllHint: String,
     val show: String,
     val showHint: String,
     val wrap: String,
     val wrapHint: String,
 )
 
-/** The menu's rows. They stay open when one is chosen, so that a reviewer can set two switches in one go. */
+/**
+ * The menu's rows: the way whitespace is compared, one row for each [DiffWhitespaceMode] with the current one checked,
+ * then the two switches. They stay open when one is chosen, so that a reviewer can set two in one go.
+ */
 internal fun diffViewMenuItems(
     showsIgnoreWhitespace: Boolean,
     options: DiffViewOptions,
     labels: DiffViewMenuLabels,
-    onIgnoreWhitespaceChanged: (Boolean) -> Unit,
+    onWhitespaceChanged: (DiffWhitespaceMode) -> Unit,
     onShowWhitespaceChanged: (Boolean) -> Unit,
     onWrapLinesChanged: ((Boolean) -> Unit)?,
 ): List<SortMenuItem> = buildList {
     if (showsIgnoreWhitespace) {
-        add(
-            SortMenuItem.Option(
-                label = labels.ignore,
-                isChecked = options.ignoreWhitespace,
-                hint = labels.ignoreHint,
-                onClick = { onIgnoreWhitespaceChanged(!options.ignoreWhitespace) },
+        add(SortMenuItem.Title(labels.whitespaceTitle))
+
+        for (mode in DiffWhitespaceMode.entries) {
+            add(
+                SortMenuItem.Option(
+                    label = when (mode) {
+                        DiffWhitespaceMode.SHOW_ALL -> labels.showAllChanges
+                        DiffWhitespaceMode.IGNORE_CHANGE -> labels.ignoreChange
+                        DiffWhitespaceMode.IGNORE_ALL -> labels.ignoreAll
+                    },
+                    isChecked = options.whitespace == mode,
+                    hint = when (mode) {
+                        DiffWhitespaceMode.SHOW_ALL -> null
+                        DiffWhitespaceMode.IGNORE_CHANGE -> labels.ignoreChangeHint
+                        DiffWhitespaceMode.IGNORE_ALL -> labels.ignoreAllHint
+                    },
+                    // The mode that is on stays on
+                    onClick = { if (options.whitespace != mode) onWhitespaceChanged(mode) },
+                )
             )
-        )
+        }
+
+        add(SortMenuItem.Divider)
     }
 
     add(
@@ -244,11 +281,12 @@ fun whitespaceActionsOffText(diffType: DiffType): String? = when (lineActionsOf(
 }
 
 /**
- * The line under the header while the diff ignores whitespace: it says that lines are hidden, and where the buttons
- * of hunks and lines went ([actionsOff], from [whitespaceActionsOffText]), and "Show them" turns it off with one click.
+ * The line under the header while the diff ignores whitespace in [mode]: it says that lines are hidden, and where the
+ * buttons of hunks and lines went ([actionsOff], from [whitespaceActionsOffText]), and "Show them" turns it off with
+ * one click.
  */
 @Composable
-fun WhitespaceIgnoredStrip(actionsOff: String?, onShowThem: () -> Unit) {
+fun WhitespaceIgnoredStrip(mode: DiffWhitespaceMode, actionsOff: String?, onShowThem: () -> Unit) {
     val lineColor = MaterialTheme.colors.onBackground.copy(alpha = 0.15f)
 
     Row(
@@ -276,7 +314,11 @@ fun WhitespaceIgnoredStrip(actionsOff: String?, onShowThem: () -> Unit) {
             modifier = Modifier.size(14.dp),
         )
 
-        val message = stringResource(Res.string.diff_whitespace_strip) + if (actionsOff != null) " $actionsOff" else ""
+        val ignoring = when (mode) {
+            DiffWhitespaceMode.IGNORE_CHANGE -> stringResource(Res.string.diff_whitespace_strip_amount)
+            else -> stringResource(Res.string.diff_whitespace_strip)
+        }
+        val message = ignoring + if (actionsOff != null) " $actionsOff" else ""
 
         Text(
             text = message,

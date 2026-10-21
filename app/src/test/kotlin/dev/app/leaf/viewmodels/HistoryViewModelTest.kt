@@ -329,6 +329,27 @@ class HistoryViewModelTest {
     }
 
     @Test
+    fun `changing from one way of ignoring whitespace to the other makes the diff again`(): Unit = runBlocking {
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+        viewModel.awaitDiffOf(commits[0])
+
+        diffWhitespace.value = DiffWhitespaceMode.IGNORE_ALL
+        withTimeout(5.seconds) { while (askedModes.size < 2) delay(10) }
+
+        // Both hide lines, but not the same ones
+        diffWhitespace.value = DiffWhitespaceMode.IGNORE_CHANGE
+        withTimeout(5.seconds) { while (askedModes.size < 3) delay(10) }
+
+        assertEquals(
+            listOf(DiffWhitespaceMode.SHOW_ALL, DiffWhitespaceMode.IGNORE_ALL, DiffWhitespaceMode.IGNORE_CHANGE),
+            askedModes,
+        )
+
+        viewModel.onClear()
+    }
+
+    @Test
     fun `turning the mode keeps the line at the top of the list, not its row`(): Unit = runBlocking {
         withRows = true
         val viewModel = historyViewModel()
