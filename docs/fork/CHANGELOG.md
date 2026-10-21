@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Wrap body at 72, a ticket key from the branch name, and the commit template (2026-10-21)
+
+- **Request:** the last three items of the commit message mockups, built with the defaults proposed to the user.
+- **Wrap body at 72 columns** (the commit message's ⋯ menu): wraps the body's paragraphs that have a line past 72
+  characters, joining and breaking their lines between words. The subject's paragraph, a trailer block, comment lines,
+  indented and fenced code, and what follows a scissors line stay as they are, and a list item's next lines line up
+  after its marker. A word that would make a line a comment (`#123`), a list item or a fence stays on the line before.
+  Greyed out ("Every line fits") when nothing would change, and Cmd+Z undoes it.
+- **A ticket key from the branch name:** on a branch such as `feature/PROJ-482-login`, the empty field shows
+  `PROJ-482: ` while it has the focus, with "Tab adds PROJ-482 from the branch name" under it, and Tab writes it. The
+  form follows the newest subjects (`[PROJ-482] `, `PROJ-482 `), else `PROJ-482: `. Only uppercase keys: `hotfix-12`
+  would read as one. Where the field suggests Conventional Commits types, the key is the first scope instead.
+- **`commit.template`:** the file it names (from git's config, `includeIf` included; `~/`; a relative path from the
+  working tree's root) shows in the empty field the same way, after the key when there is one, and Tab writes it. Only
+  for a plain commit, as git uses it, not an amend or a merge's message. Committing the template unedited is refused,
+  as git refuses it, and so is the key with nothing after it.
+- Details: CLAUDE.md, "Wrap body, ticket keys and the commit template".
+
 ## Conventional Commits suggestions, and the commitlint config (2026-10-21)
 
 - **Request:** the Conventional Commits completion from the commit message mockups, with a setting, and types and scopes

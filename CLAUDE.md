@@ -1354,9 +1354,8 @@ and a ruler as an option (R1).
   column (`columnRuler`, measured with a `TextMeasurer`, 16 dp in as Material's field pads its text). The text keeps
   wrapping at the pane, so the line shows only while the column fits: about 600 dp for 72 (the pane is 330 dp by
   default). Option R1; R2 (no wrap, sideways scroll) was turned down.
-- Not done, from the same mockups: "Wrap body at 72" in the ⋯ menu, a ticket key from the branch name,
-  `commit.template`. Tags and the interactive rebase's reword still take their messages as typed. Co-authors and
-  Conventional Commits suggestions came next (see Co-authors, and Conventional Commits suggestions).
+- Tags and the interactive rebase's reword still take their messages as typed. The rest of the same mockups came next:
+  Co-authors, Conventional Commits suggestions, and "Wrap body, ticket keys and the commit template".
 - Tests: `CommitMessageLayoutTest` (domain), `CommitMessageCleanupTest` (data: random messages against `git stripspace`
   with `#`, `;` and `//`; every mode with every kind of prefix, and 160 random messages with `auto` and the default,
   against `git commit`; Leaf's real commit against git's in twin repositories; the config, `includeIf` included),
@@ -1479,6 +1478,61 @@ the mockup, chosen with the user.
   `ConventionalCommitsSettingTest` (data), `CommitTypeSuggestionsTest` (app, rendered: Automatic, Always and Off, the
   config's types and scopes, the note, Enter and the caret, scopes, a tap, Esc, no focus). 11 mutations of the rules, the parser and the field were each
   caught by a named test.
+
+**Wrap body, ticket keys and the commit template (fork-only, 2026-10-21, `domain/commitmessage/BodyWrap.kt`,
+`TicketKey.kt`, `MessageStart.kt`, `ui/status/MessageStartHint.kt`):** the last three items of the commit message mockups,
+built with the defaults proposed to the user (the user was away; the proposal and its mockup are in the session).
+- **Wrap body at 72 columns** (`wrapBody`, `BODY_WRAP_COLUMN`; the ⋯ menu's last item, `WrapBodyItem`, after "Add
+  co-author", wherever the field can be edited): a paragraph of the body with a line past 72 characters (code points)
+  has its lines joined and broken again between words (greedy), so no short line is left after each long one.
+  Paragraphs that fit stay as typed.
+  - Left alone: everything up to the end of the subject's paragraph (git tools take a subject that runs on whole), the
+    last paragraph when every line is a trailer (`isTrailerLine`, or a folded line), lines that start with the comment
+    prefix, indented lines, fenced code (```` ``` ```` and `~~~`), and from the scissors line on.
+  - A list item (`- `, `* `, `+ `, `1. `, `1) `) is a paragraph of its own, with its lined-up and its unindented (lazy)
+    lines; its next lines start under its text.
+  - A word that would make a line something else never starts one (`canStartLine`): one that starts with the comment
+    prefix (`Fixes #123` would lose `#123` to git's clean-up), a list marker such as a lone `-`, or a fence. It stays on
+    the line before, past 72. A word longer than 72 (a URL) gets a line of its own and isn't broken.
+  - The item is greyed out with "Every line fits" (`canWrapBody`) when wrapping changes nothing. `SortMenuItem.Option`
+    gained `isEnabled` for it. The selection stays before the same characters (`offsetAfterWrap`: wrapping only changes
+    white space), and Cmd+Z undoes it, as the field's undo keeps the value it is given.
+- **The ticket key** (`ticketKeyIn`): the first `[A-Z][A-Z0-9]+-[1-9][0-9]*` in the current branch's short name, not inside
+  a longer word, as Jira writes keys. Uppercase only: `hotfix-12` or `release-2` would read as keys. A detached HEAD's
+  branch is `HEAD`, which has none. Its form (`ticketKeyStyle`, `TicketKeyStyle`) is the one most of the newest 50
+  subjects that aren't merges start with: `PROJ-1: `, `[PROJ-1] ` or `PROJ-1 `, and `PROJ-1: ` when none does.
+  - Where the field suggests Conventional Commits types (`ConventionalCommitsMode.suggestsIn`, shared with
+    `commitTypeSuggestion`), the key isn't put in front of the subject: it is the first scope instead (`StatusState.scopeKey`,
+    `commitScopeChoices`'s `branchKey`, `ConventionalChoice.isFromBranch`, "From the branch name" in its row), as long as
+    the typing and a commitlint `scope-enum` allow it.
+- **The commit template** (`GetCommitTemplateGitAction`, `IGetCommitTemplateGitAction`, `GetCommitTemplateUseCase`, read
+  again with each status): `commit.template` from the repository's config (`IncludedConfigRepository`, so `includeIf`
+  counts), `~/` in JGit's user home, a relative path from the working tree's root, where git runs (checked against
+  `git commit`'s editor in a linked worktree too), up to 1 MB. A file that can't be read, `~user/` and `%(prefix)/` are
+  logged and offer nothing, where git refuses to commit. A bare repository has none.
+- **The start** (`messageStart`, `MessageStart`; `StatusState.messageStart` from `MessageStartInputs`, which
+  `StatusViewModelExtender` builds from the current branch, the log and the template): the key's prefix, then the
+  template; a template that starts with a comment gets an empty line before it for the subject, and the key goes on the
+  template's first line. The caret goes at the end of the first line. Only for a plain commit (`CommitMessageSource.NORMAL`,
+  not amending), as git uses the template only there.
+  - While the field is empty and has the focus, its hint is the start (the placeholder, dimmed), and
+    `MessageStartHint` under it says what Tab does ("Tab adds PROJ-482 from the branch name", "Tab starts from the commit
+    template", "Tab adds PROJ-482 and the commit template", the template's file in the tooltip). Tab alone writes it
+    (`isPlainTab`). Without the focus, the field keeps its usual hint. Chosen over filling the field automatically, as
+    git's editor does, which would make a field that fills itself.
+  - **Unedited** (`isUneditedStart`, `FinishBlocker.UneditedStart`, `StatusState.isStartUnedited`, which `canCommit`
+    checks): git refuses a message that is its template unedited (`template_untouched`: the cleaned message starts with
+    the template, cleaned with comments stripped only in the strip mode, and has nothing after it but white space and
+    `Signed-off-by:` lines; not in the verbatim mode). Leaf refuses the same, and the key with nothing after it: "Edit
+    the commit template first." or "Write the message after PROJ-482.". A template of comments only is an empty
+    message first.
+- Tests: `BodyWrapTest`, `MessageStartTest` and two in `ConventionalCommitsTest` (domain; the wrap's 2,000 random messages
+  keep their words, wrap once and only to fit), `CommitTemplateTest` (data: the template's path against what `git commit`
+  puts in its editor, absolute, relative in two worktrees and in `~/`; 13 messages over templates in each clean-up mode,
+  where Leaf refuses what git refuses), `MessageStartAndWrapTest` (app, rendered: the state's rules, the ghost, its hint,
+  Tab, Shift+Tab, the scope row, the greyed-out item, wrapping from the menu with the caret, undo). 24 mutations of the
+  wrap, the key, the start, the template's path and the field were each caught by a named test; counting UTF-16 units
+  rather than characters needed the emoji test to have a paragraph that only the right count leaves alone.
 
 **Rebasing a worktree onto the base (fork-only, Phase 3.5, `RebaseWorktreeDialog`, `WorktreeRebaseSteps.kt`):**
 "Rebase onto main…" follows the merge items in a worktree row's menu, for a worktree on a branch that is neither the
