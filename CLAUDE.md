@@ -1350,9 +1350,9 @@ and a ruler as an option (R1).
   column (`columnRuler`, measured with a `TextMeasurer`, 16 dp in as Material's field pads its text). The text keeps
   wrapping at the pane, so the line shows only while the column fits: about 600 dp for 72 (the pane is 330 dp by
   default). Option R1; R2 (no wrap, sideways scroll) was turned down.
-- Not done, from the same mockups: "Wrap body at 72" in the ⋯ menu, Conventional Commits completion, a ticket key from
-  the branch name, `commit.template`. Tags and the interactive rebase's reword still take their messages as typed.
-  Co-authors came next (see Co-authors).
+- Not done, from the same mockups: "Wrap body at 72" in the ⋯ menu, a ticket key from the branch name,
+  `commit.template`. Tags and the interactive rebase's reword still take their messages as typed. Co-authors and
+  Conventional Commits suggestions came next (see Co-authors, and Conventional Commits suggestions).
 - Tests: `CommitMessageLayoutTest` (domain), `CommitMessageCleanupTest` (data: random messages against `git stripspace`
   with `#`, `;` and `//`; every mode with every kind of prefix, and 160 random messages with `auto` and the default,
   against `git commit`; Leaf's real commit against git's in twin repositories; the config, `includeIf` included),
@@ -1377,7 +1377,7 @@ plain text.
   person's avatar and colour, the name, the email (cut first) and the match in bold (`CoAuthorSuggestionsList`).
   - A popup that takes no focus, above the field (`AboveLeftAlignedPositionProvider`), as the field is at the bottom of
     the window, below it when there's no room. The field keeps the focus: ↓ and ↑ move the highlight, Enter picks the
-    highlighted row, Tab the highlighted or the first (`coAuthorKey`), a tap on a row picks it (`detectTapGestures`, as
+    highlighted row, Tab the highlighted or the first (`suggestionKey`), a tap on a row picks it (`detectTapGestures`, as
     Clone's branch list does). Keys with a modifier stay with the field, so Cmd+Enter still commits.
   - Nothing is highlighted on a line that names no one yet (`firstHighlighted`), and the first row once something is
     typed, as a code completion list does: on an empty line Enter isn't a pick but ends the list (below).
@@ -1388,7 +1388,7 @@ plain text.
     version, where a second co-author had to be typed in full or added from the menu again.
   - A pick writes `Co-authored-by: Name <email>` in git's spelling of the key, whatever was typed, with the caret at the
     line's end (`withCoAuthor`).
-  - Esc reaches the tab first (see Keys), so the suggestions are a `CloseableView` (`CO_AUTHOR_SUGGESTIONS`) while they
+  - Esc reaches the tab first (see Keys), so the suggestions are a `CloseableView` (`COMMIT_FIELD_SUGGESTIONS`) while they
     show (`CoAuthorAction.SuggestionsShown`). Closing them counts a dismissal (`CoAuthorState.dismissals`), and the
     field hides them until its text changes.
 - **"Add co-author"** (`commitMessageMenuItems`, `CommitMessageHeader.canAddCoAuthor`): in the ⋯ menu wherever the field
@@ -1427,6 +1427,54 @@ plain text.
   each state, Add Signed-off-by's check and the tag, focus, rows, keys and the highlight rule, Enter continuing and ending the
   list, a tap, above the field, Esc's dismissal, the inserted line's focus, leaving the field, modifiers). The view model's own steps (the insertion through git, its revert, the focus after the menu) have no kept
   test: `StatusViewModelExtender` needs the Dagger graph.
+
+**Conventional Commits suggestions (fork-only, 2026-10-21, `domain/commitmessage/ConventionalCommits.kt`,
+`CommitlintConfig.kt`, `ui/status/CommitTypeSuggestions.kt`):** at the start of the subject, the commit field suggests a
+type (`feat`, `fix`, …), and after `type(` a scope, in the co-authors' list above the field. A pick writes `type: ` or
+`type(scope): ` with the caret after it (`withConventionalChoice`, which keeps the rest of the message). The defaults of
+the mockup, chosen with the user.
+- **Where** (`conventionalQueryAt`): the caret at the end of the message's first line, which is a type being typed
+  (`[A-Za-z][A-Za-z0-9-]*`, the first letter on its own too: an empty subject suggests nothing) or `type(` and a scope
+  being typed. Not past the colon, nor in the body, nor with a selection. The co-authors' list is asked first.
+- **Which repositories** (Settings → Git → Commits → "Conventional Commits suggestions", `AppConfig.ConventionalCommitsSuggestions`,
+  `conventional_commits_suggestions`: `automatic`, the default, `always` or `off`; an unknown value reads as the
+  default): Automatic suggests where at least half of the newest 50 subjects that aren't merges have a type
+  (`ConventionalHistory.usesConventionalCommits`, `CONVENTIONAL_SUBJECT`: `type(scope)!: text`, with a space and some
+  text after the colon), or where the worktree has a commitlint config. It reads into `CommitMessageHints.conventionalCommits`,
+  so `SettingsViewModel` now reads the commit settings as one flow (`commitMessageHints`): its `combine` was at 30.
+- **The history** (`conventionalHistory`, `StatusViewModelExtender`, on `Dispatchers.Default` when the log changes, into
+  `StatusState.conventionalHistory`): every loaded commit but merges counts its type's and its scope's uses (types in
+  lower case); the newest 50 decide whether the repository uses the format. Nothing is fetched.
+- **The choices** (`commitTypeChoices`, `commitScopeChoices`): the 11 usual types (`STANDARD_COMMIT_TYPES`, those of
+  `@commitlint/config-conventional`) and the history's, that start with what was typed (ignoring case), the most used
+  first, then the usual ones in their order. Scopes: the type's own, or every type's summed when the type has none,
+  that start with what was typed, the most used first. The first `MAX_COMMIT_TYPE_CHOICES` (8), then "N more: keep
+  typing". A usual type's row has what it's for ("A new feature"), and every row its uses at the end.
+- **The note under the list** says where it comes from: "Types from commitlint.config.js" (or scopes) when the config
+  lists them; for types, "44 of the last 50 subjects here start with a type", or "commitlint.config.js is set up here";
+  for scopes from the history, "Type ! before the colon for a breaking change". With Always, a list of types that no
+  config lists has no note, as the history may not use the format.
+- **The keys** are the co-authors' (`FieldSuggestions.kt`, shared: `suggestionKey`, `firstHighlighted`,
+  `SuggestionsPopup`, `SuggestionRow`, `SuggestionNote`, `withMatch`): ↓ ↑, Enter on a highlighted row, Tab, a tap;
+  nothing highlighted until a letter is typed, so Enter on an empty subject is a line feed. Esc closes either list
+  (`CloseableView.COMMIT_FIELD_SUGGESTIONS`, which was `CO_AUTHOR_SUGGESTIONS`) until the text changes.
+- **commitlint** (`GetCommitlintRulesGitAction`, `GetCommitlintRulesUseCase`, read again with each status, into
+  `StatusState.commitlintRules`): the first file in the working tree's root, in commitlint's order
+  (`COMMITLINT_CONFIG_FILES`: `package.json` with a `commitlint` key, `.commitlintrc` and its `.json`, `.yaml`, `.yml`,
+  `.js`, `.cjs`, `.mjs`, `.ts`, `.cts`, then `commitlint.config.*`), up to 1 MB. A bare repository has none. Its rules
+  (`CommitlintRules`, `EnumRule`): `type-enum` and `scope-enum` with `always` keep only the values listed and add them,
+  `never` leaves them out. A config without `type-enum` that extends `@commitlint/config-conventional` or
+  `config-angular` gets the preset's types.
+  - **Read, not run** (`parseCommitlintConfig`): commitlint runs JavaScript and TypeScript configs and parses YAML; Leaf
+    has neither, so it finds the rule's literal list (`'type-enum': [2, 'always', ['feat', 'fix']]`, in JSON, JS or
+    YAML's flow style, comments allowed). Bare words count only in the YAML files. A rule at level 0, or one that Leaf
+    can't read (a list that code builds, a variable, YAML's block style), allows every value, even where a preset
+    would narrow them: the config's own rule overrides it. A `package.json` that isn't JSON counts as none.
+  - Leaf suggests, it doesn't check: a subject that commitlint would refuse still commits.
+- Tests: `ConventionalCommitsTest` and `CommitlintConfigTest` (domain), `GetCommitlintRulesGitActionTest` and
+  `ConventionalCommitsSettingTest` (data), `CommitTypeSuggestionsTest` (app, rendered: Automatic, Always and Off, the
+  config's types and scopes, the note, Enter and the caret, scopes, a tap, Esc, no focus). 11 mutations of the rules, the parser and the field were each
+  caught by a named test.
 
 **Rebasing a worktree onto the base (fork-only, Phase 3.5, `RebaseWorktreeDialog`, `WorktreeRebaseSteps.kt`):**
 "Rebase onto main…" follows the merge items in a worktree row's menu, for a worktree on a branch that is neither the

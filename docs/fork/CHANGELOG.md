@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Conventional Commits suggestions, and the commitlint config (2026-10-21)
+
+- **Request:** the Conventional Commits completion from the commit message mockups, with a setting, and types and scopes
+  from the repository's commitlint config. The mockup's defaults, chosen with the user.
+- **What it does:** at the start of the subject the commit field suggests a type (`feat`, `fix`, `docs`, …, and the
+  history's own), the most used first, with what each usual one is for; after `type(` it suggests that type's scopes.
+  A pick writes `type: ` or `type(scope): `. The keys are the co-authors' list's: ↓ ↑, Enter, Tab, a click, Esc.
+- **Where:** Settings → Git → Commits → "Conventional Commits suggestions": Automatic (the default) suggests where at
+  least half of the newest 50 subjects use a type, or a commitlint config is set up; Always; Off. A note under the list
+  says why it shows ("44 of the last 50 subjects here start with a type", "Types from commitlint.config.js").
+- **commitlint:** the first config in commitlint's order (`package.json`'s `commitlint` key, `.commitlintrc*`,
+  `commitlint.config.*`). Its `type-enum` and `scope-enum` lists narrow the suggestions and add their own; a config that
+  only extends `config-conventional` or `config-angular` gets the preset's types. Leaf reads the lists written out in
+  the file, and doesn't run JavaScript: a list that code builds, or YAML's block style, narrows nothing. Leaf suggests,
+  it doesn't refuse a commit.
+- Details: CLAUDE.md, "Conventional Commits suggestions".
+
 ## The diff's View menu: ignore different amounts of whitespace, `git diff -b` (upstream issue 139, 2026-10-21)
 
 - **Request:** "Ignore whitespace" hid every whitespace difference, which is too much in code where the indent carries
