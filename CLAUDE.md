@@ -1121,16 +1121,18 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
   cherry-pick's Commit and a rebase's Continue were disabled by any file in the Unstaged list (`!hasUnstagedFiles`), an
   untracked build output or a merge tool's `.orig` file included, and nothing said why. Agents leave such files in their
   worktrees, so finishing a merge in Leaf was blocked.
-  - **The rules**, each against git 2.54 (the tests below): Merge needs no conflicts, and nothing else: git finishes a
-    merge with unstaged and untracked files around, and with nothing staged (every conflict taken from our side), where
-    the merge commit still has two parents. A cherry-pick's or a revert's Commit needs no conflicts, a message that
-    isn't blank (JGit commits an empty one, which git refuses) and something staged (`DoCommitGitAction` allows an empty
+  - **The rules**, each against git 2.54 (the tests below): Merge needs no conflicts and a message, and nothing else:
+    git finishes a merge with unstaged and untracked files around, and with nothing staged (every conflict taken from our
+    side), where the merge commit still has two parents. A cherry-pick's or a revert's Commit needs no conflicts, a
+    message (JGit commits an empty one, which git refuses) and something staged (`DoCommitGitAction` allows an empty
     commit only for a merge or an amend, so JGit refuses it there, which was an error dialog once the button was
     enabled). A rebase's Continue needs no conflicts and no unstaged changes to tracked files: git refuses those, in both
     backends, and ignores untracked ones (`has_unstaged_changes` in builtin/rebase.c; it ignores submodules, where Leaf's
     status lists a changed one as modified, so Leaf may block where git wouldn't). In the Unstaged list, `MODIFIED` and
     `REMOVED` are tracked changes and `ADDED` is an untracked file. Outside an operation, Commit needs a message, staged
-    files and no conflicts (a squash merge's), and Amend a message and a commit to amend, as before.
+    files and no conflicts (a squash merge's), and Amend a message and a commit to amend, as before. "A message" is one
+    that git's clean-up leaves something of (`CommitMessageLayout.isEmpty`, see Commit message conventions): not blank,
+    and not only comment lines, which says so (`EmptyMessage.commentsOnly`).
   - **JGit's rebase gets git's rule too:** its continue goes on with tracked changes that aren't staged and commits what
     is staged. The status pane doesn't know which tool started the rebase, and a rebase should behave the same whichever
     did, so the rule is git's for both.
@@ -1143,7 +1145,7 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
   - **The hint** is silent outside an operation while the field rests (no message, nothing staged), which is how the
     pane sits most of the time, and says what is missing once the user has staged something or typed a message. During
     a merge, cherry-pick, revert or rebase it is there whenever the button is disabled. When several reasons apply it
-    names the first: conflicts, unstaged tracked changes (rebase), a blank message, nothing staged. A revert's button
+    names the first: conflicts, unstaged tracked changes (rebase), an empty message, nothing staged. A revert's button
     also waits for the status to load (`isLoading`) without saying so.
   - **The key** (Ctrl or Cmd+Enter in the message field) does what the primary button does in a merge, cherry-pick or
     revert (`acceptsCommit`); it needed staged files, whatever the Merge button allowed. Elsewhere it is as before.
@@ -1194,13 +1196,73 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
     the later stops, and after the rebase.
   - **git's conflict comments** (`withoutConflictsHint`, `data/git/workspace/ConflictsHint.kt`): git and JGit add the
     conflicted files to `MERGE_MSG` as comments (`# Conflicts:`, then `#\t<path>` lines, in `core.commentChar`),
-    which `git commit` strips. JGit's commit keeps a message as it is, so a merge committed in Leaf after conflicts kept
+    which `git commit` strips. JGit's commit kept a message as it was, so a merge committed in Leaf after conflicts kept
     them. `GetPersistedCommitMessagesGitAction` leaves them out, and git's scissors line with what follows it
-    (`commit.cleanup=scissors`), so the field shows what its commit will have. The user's own lines stay, even ones that
-    start with `#`, which `git commit` would strip. git adds them at the end, JGit before the message's footers.
+    (`commit.cleanup=scissors`), so the field shows what its commit will have. The user's own `#` lines stay in the
+    field, dimmed, and the commit leaves them out as git does (see Commit message conventions). git adds them at the
+    end, JGit before the message's footers.
 - A plain merge then goes on in Leaf's merge UI: `MERGE_MSG` in the field, the Merge button, the banner.
 - When a merge ends, conflicts or not, the tab selects the uncommitted changes (`worktreeResultsToShow`), where its
   result waits. A selected commit, or the review, would hide it.
+
+**Commit message conventions (fork-only, 2026-10-21, `domain/commitmessage/`, `ui/status/CommitMessageField.kt`):** the
+commit field shows how git will commit its message and guides its form, without blocking anything but an empty message.
+Chosen with the user from mockups: a count with a tint (A + B), the blank-line hint, comment lines as git handles them,
+and a ruler as an option (R1).
+- **The commit is cleaned as git cleans it** (`cleanCommitMessage`, `MessageCleanup.kt`): Leaf commits what
+  `git commit -e -F <message>` commits when the editor changes nothing, as the field is that editor. `commit.cleanup`
+  picks the mode (`strip` by default and for `default`, `whitespace`, `verbatim`, `scissors`; a value git refuses is
+  logged and read as the default), and `core.commentString` or `core.commentChar` the comment prefix (git 2.45 takes any
+  string; `commentString` wins when both are set, as JGit can't tell their order across files). `Config.messageCleanup`
+  (`data/.../workspace/CommitMessageCleanupConfig.kt`) reads them from the repository's config, so `includeIf` files
+  count (`IncludedConfigRepository`).
+  - It follows git's `strbuf_stripspace`: each line loses trailing space, tab, CR and LF (not other Unicode spaces), a
+    line that *starts* with the prefix is dropped (an indented `  #` stays), blank lines at both ends go, runs become
+    one, and every line ends with a line feed. So Leaf's commits now end with `\n`, as git's do; until 2026-10-21 JGit
+    committed the field's text as it was, `#` lines and all. `scissors` cuts at `<prefix> ------------------------ >8
+    ------------------------` followed by a line feed, then cleans whitespace only.
+  - `DoCommitGitAction` cleans the message and gives JGit the result (JGit's `CommitCommand` stays `VERBATIM`). JGit's
+    own clean-up differs: it reads an indented `#` as a comment, takes only the first character of a longer prefix, and
+    strips nothing for `auto`. A message that comes out empty returns an error, as `git commit` refuses it; the field
+    blocks it first. The commit-msg hook gets the cleaned message, where git gives it the editor's file before cleaning,
+    and what a hook adds isn't cleaned.
+  - **`core.commentChar=auto`** (git 2.54 warns it goes in git 3.0) picks a prefix per message (`commentPrefixFor`), as
+    measured on git 2.54: `#` when the cleaned message has none; else the first of `#;@!$%^&|:` that starts no line,
+    counting the message's first character and the lines before its trailing block of `#` comments, empty lines and old
+    `Conflicts:` lists (`ignored_log_message_bytes`, from the scissors line on too; a block that starts at the first line
+    doesn't count). So a trailing `# note` is dropped and the same line higher up stays. When every candidate starts a
+    line, git refuses to commit and Leaf commits with nothing stripped.
+- **The field** (`CommitMessageLayout`, `commitMessageLayout`, worked out from the text on each change):
+  - comment lines, and with scissors everything from the scissors line on, are dimmed (50% of the text colour) and
+    slanted, through the `TextField`'s `VisualTransformation` (`CommitMessageStyling`, which works the layout out from
+    the text it is given, so its spans always fit);
+  - the subject is the first line that git keeps and isn't blank. Past `SUBJECT_SOFT_LIMIT` (50) code points the title
+    row counts it, muted (`SubjectCountText`, tabular digits, a tooltip that explains); past `SUBJECT_LIMIT` (72, where
+    git tools and servers often cut it) it reads "87 / 72" in amber and the characters past 72 get a 34% amber background. The count's amber
+    is `#8A5C00` on light themes (4.9:1 on the title row, where the shared `amberText` holds 4.1:1);
+  - when the next line that git keeps isn't blank, `SubjectRunsOnHint` says "No blank line after the subject." with a
+    link, "Insert one" (`LinkAnnotation.Clickable`), that inserts a line feed at the subject's end (`blankLineAt`,
+    `TextFieldValue.withBlankLineAfterSubject`, which moves the selection with its text), and why in its tooltip. It sits
+    above `FinishHint`, on one line at the pane's default 330 dp: the first wording took two, which left the message one
+    line at the section's minimum height;
+  - none of it at a rebase stop that can't be amended, where the field shows the last commit's message.
+  - The repository's settings reach `StatusState.messageCleanup` through `GetCommitMessageCleanupUseCase`, read again
+    with each status (JGit's cached config). `StatusState.messageLayout` is what the blockers use.
+- **Settings → Git → Commits** (`AppConfig.CommitSubjectLengthHint`, `commit_subject_length_hint`, on by default;
+  `AppConfig.CommitMessageRuler`, `commit_message_ruler`, 0 for off, `CommitMessageRuler.CHOICES` 50, 72, 80, 100),
+  read together as `AppSettingsService.commitMessageHints` into `StatusState.messageHints`. The ruler switches the field
+  to Noto Sans Mono at 13 sp (`monoTypography()`, the diff's) and draws a 1 dp line at 20% of the text colour at the
+  column (`columnRuler`, measured with a `TextMeasurer`, 16 dp in as Material's field pads its text). The text keeps
+  wrapping at the pane, so the line shows only while the column fits: about 600 dp for 72 (the pane is 330 dp by
+  default). Option R1; R2 (no wrap, sideways scroll) was turned down.
+- Not done, from the same mockups: wrap and trailer items in the ⋯ menu, co-author completion, Conventional Commits
+  completion, a ticket key from the branch name, `commit.template`. Tags and the interactive rebase's reword still take
+  their messages as typed.
+- Tests: `CommitMessageLayoutTest` (domain), `CommitMessageCleanupTest` (data: random messages against `git stripspace`
+  with `#`, `;` and `//`; every mode with every kind of prefix, and 160 random messages with `auto` and the default,
+  against `git commit`; Leaf's real commit against git's in twin repositories; the config, `includeIf` included),
+  `CommitMessageConventionsTest` (the count, its colours in both themes, the styles, the dimmed ink, the hint and its
+  link, the selection, the ruler's place and when it hides), `FinishBlockersTest`.
 
 **Rebasing a worktree onto the base (fork-only, Phase 3.5, `RebaseWorktreeDialog`, `WorktreeRebaseSteps.kt`):**
 "Rebase onto main…" follows the merge items in a worktree row's menu, for a worktree on a branch that is neither the

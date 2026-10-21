@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Commit message conventions: subject length, a blank line after it, comment lines, a ruler (2026-10-21)
+
+- **Request:** guidance on how a commit message should look, without enforcing anything. Chosen with the user from
+  mockups: a count with a tint for the subject's length (A + B), a hint for a subject that runs on, git's handling of
+  comment lines, and a column ruler as an option.
+- **Subject length:** past 50 characters the title row counts the subject, muted; past 72 it shows "87 / 72" in amber
+  and the characters past 72 are tinted (git tools and servers often cut subjects there). The subject is the first line git keeps. Nothing
+  is blocked. Settings → Commits → "Subject length hint", on by default.
+- **A subject that runs on** into the next line gets a hint under the field, "No blank line after the subject. Insert
+  one", with the link adding it and the reason in a tooltip.
+- **Comment lines:** Leaf now commits what `git commit` with an editor commits: `commit.cleanup` (strip by default,
+  whitespace, verbatim, scissors) and `core.commentChar` / `core.commentString`, `auto` included. Lines that git leaves
+  out are dimmed and slanted in the field. Until now JGit committed the message as typed, `#` lines and trailing blank
+  lines included. Leaf's commits now end with a line feed, as git's do. A message of only comments counts as empty
+  (Commit and Merge say so).
+- **Why not JGit's own clean-up:** it reads an indented `  # x` as a comment, takes only the first character of a longer
+  comment string, and doesn't strip anything for `auto`. Leaf's follows git's `strbuf_stripspace`, checked byte for byte
+  against `git stripspace` and `git commit`.
+- **Ruler:** Settings → Commits → "Column ruler" (off, 50, 72, 80, 100). It switches the field to the monospace font and
+  draws a line at that column, once the pane is wide enough (about 600 points for 72); the text keeps wrapping at the
+  pane (option R1 of two).
+- Details: CLAUDE.md, "Commit message conventions".
+
 ## The diff pane can turn line wrapping off (2026-10-21)
 
 - **Request:** long lines in the diff always wrapped, with no way to turn it off, while the conflict resolver already had
