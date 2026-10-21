@@ -9,6 +9,8 @@ import dev.app.leaf.app.generated.resources.pull_with_merge_from_specific_branch
 import dev.app.leaf.collectLatestInViewModel
 import dev.app.leaf.common.flows.combine
 import dev.app.leaf.common.flows.invert
+import dev.app.leaf.domain.compare.CompareSide
+import dev.app.leaf.domain.compare.compareSideOf
 import dev.app.leaf.domain.diff.rowKeptAcross
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
@@ -26,6 +28,7 @@ import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
 import dev.app.leaf.domain.log.LogMove
 import dev.app.leaf.domain.log.SearchStep
+import dev.app.leaf.domain.log.logRefs
 import dev.app.leaf.domain.log.movedLogSelection
 import dev.app.leaf.domain.log.steppedSearchIndex
 import dev.app.leaf.domain.index.UnsupportedIndex
@@ -83,6 +86,7 @@ import org.eclipse.jgit.api.RebaseCommand.InteractiveHandler
 import org.eclipse.jgit.blame.BlameResult
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.lib.AbbreviatedObjectId
+import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.RebaseTodoLine
 import org.jetbrains.compose.resources.getString
 import java.io.File
@@ -805,6 +809,88 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
+    // Fork-only: starting a comparison from the log and the menus (docs/fork/compare.md, 3.1 and 3.2)
+
+    /** The side that a log row gives: its first branch, in the order of its chips, or else the commit. */
+    private fun sideOfRow(commit: Commit): CompareSide {
+        val log = logState.value
+        val worktrees = branchWorktrees.value
+        val refs = logRefs(
+            branches = log.branches[commit.hash].orEmpty(),
+            tags = log.tags[commit.hash].orEmpty(),
+            currentBranch = log.currentBranch,
+            isUsedByOtherWorktree = { worktrees.usersOf(it)?.other != null },
+            mergeRemotes = false,
+        )
+
+        return compareSideOf(commit.hash, refs)
+    }
+
+    /** The side of what is selected: a branch picked in the side panel is the branch, a tag its commit. */
+    private fun selectedSide(): PickedSide? = when (val selected = selectedItem.value) {
+        is SelectedItem.BranchItem -> PickedSide(CompareSide.Branch(selected.branch.name, selected.commit.hash), selected.commit.date)
+        is SelectedItem.TagItem -> PickedSide(CompareSide.Commit(selected.commit.hash, tag = selected.tag.name), selected.commit.date)
+        is SelectedItem.CommitItem -> PickedSide(sideOfRow(selected.commit), selected.commit.date)
+        SelectedItem.None, SelectedItem.UncommittedChanges -> null
+    }
+
+    /**
+     * ⌘-click on a log row (Ctrl-click elsewhere): compares it with what is selected. While comparing, the row replaces
+     * B, or drops the side it is. With nothing to compare it with, it selects the row, as a click does.
+     */
+    private fun pickCommit(commit: Commit, isStash: Boolean) {
+        val picked = PickedSide(sideOfRow(commit), commit.date)
+
+        if (comparisonState.value != null) {
+            comparisonViewModelExtender.pick(picked)
+            return
+        }
+
+        val selected = selectedSide()
+
+        if (selected == null || selected.side.commit == commit.hash) {
+            selectCommit(commit, isStash)
+        } else {
+            comparisonViewModelExtender.comparePicked(selected, picked)
+        }
+    }
+
+    private fun compareWithSelected(commit: Commit) {
+        val selected = selectedSide() ?: return
+
+        comparisonViewModelExtender.comparePicked(selected, PickedSide(sideOfRow(commit), commit.date))
+    }
+
+    /** Compares [other] with the tab's current branch, or its detached HEAD, from a menu. */
+    private fun compareWithCurrent(other: CompareSide) {
+        val current = logState.value.currentBranch ?: return
+        val currentSide = if (current.name == Constants.HEAD) {
+            CompareSide.Commit(current.hash)
+        } else {
+            CompareSide.Branch(current.name, current.hash)
+        }
+
+        comparisonViewModelExtender.compareWithCurrent(currentSide, other)
+    }
+
+    /** A branch's "Compare with main (current)", in the side panel and on a log chip. */
+    fun compareBranchWithCurrent(branch: Branch) = compareWithCurrent(CompareSide.Branch(branch.name, branch.hash))
+
+    /** A tag's "Compare with main (current)": the tagged commit, named by the tag. */
+    fun compareTagWithCurrent(tag: Tag) = compareWithCurrent(CompareSide.Commit(tag.commitHash, tag = tag.name))
+
+    /** The short name of the selected commit, which a row's "Compare with selected" names (fork-only). */
+    val selectedForComparison: StateFlow<String?> = selectedItem
+        .map { selected ->
+            when (selected) {
+                is SelectedItem.BranchItem -> selected.branch.simpleName
+                is SelectedItem.TagItem -> selected.tag.simpleName
+                is SelectedItem.CommitItem -> selected.commit.shortHash
+                SelectedItem.None, SelectedItem.UncommittedChanges -> null
+            }
+        }
+        .stateIn(null)
+
     /** Goes back from a comparison's full view to the log, without the diff that the full view showed (fork-only). */
     private fun leaveComparisonFullView() {
         comparisonViewModelExtender.leaveFullView()
@@ -1291,6 +1377,9 @@ class RepositoryOpenViewModel @Inject constructor(
             is LogAction.CheckoutTag -> checkoutTag(action.tag)
             is LogAction.CherryPickCommit -> cherryPickCommit(action.commit)
             is LogAction.CommitSelected -> selectCommit(action.commit, action.isStash)
+            is LogAction.CommitPicked -> pickCommit(action.commit, action.isStash)
+            is LogAction.CompareWithSelected -> compareWithSelected(action.commit)
+            is LogAction.CompareWithCurrent -> compareWithCurrent(sideOfRow(action.commit))
             is LogAction.DeleteRemoteBranch -> deleteRemoteBranch(action.branch)
             is LogAction.DeleteStash -> deleteStash(action.commit)
             is LogAction.Merge -> mergeBranch(action.branch)
@@ -1378,8 +1467,13 @@ class RepositoryOpenViewModel @Inject constructor(
         val commits = log.commitList.values.toList()
         val offset = if (hasUncommittedRow) 1 else 0
 
+        // Fork-only: while comparing, the keys move on from A, and the selection they make ends the comparison
+        val comparedA = comparisonState.value?.aCommit?.let { hash -> commits.firstOrNull { it.hash == hash } }
+        val selected = comparedA?.let { SelectedItem.CommitItem(it.commit, isStash = false, scrollToItem = false) }
+            ?: selectedItem.value
+
         val target = movedLogSelection(
-            selected = selectedItem.value,
+            selected = selected,
             commitHashes = commits.map { it.hash },
             hasUncommittedRow = hasUncommittedRow,
             move = move,

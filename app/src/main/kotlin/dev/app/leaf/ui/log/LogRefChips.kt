@@ -51,6 +51,7 @@ import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -77,6 +78,8 @@ import dev.app.leaf.ui.LocalBranchWorktrees
 import dev.app.leaf.ui.LocalOnChooseWorktreesBase
 import dev.app.leaf.ui.LocalOnSwitchToWorktree
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import dev.app.leaf.ui.context_menu.CompareWithCurrent
+import dev.app.leaf.ui.context_menu.LocalCompareWithCurrent
 import dev.app.leaf.ui.context_menu.sharedChipRemoteItems
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -161,9 +164,11 @@ fun LogRefChips(
     currentBranch: Branch?,
     color: Color,
     actions: LogRefActions,
+    /** The room before the first chip; a comparison's badge takes it (fork-only, `docs/fork/compare.md`). */
+    startPadding: Dp = REF_CHIPS_START_PADDING,
 ) {
     if (branches.isEmpty() && tags.isEmpty()) {
-        Spacer(Modifier.width(REF_CHIPS_START_PADDING))
+        Spacer(Modifier.width(startPadding))
         return
     }
 
@@ -182,7 +187,7 @@ fun LogRefChips(
     var dismissedAt by remember { mutableLongStateOf(0L) }
 
     SubcomposeLayout { constraints ->
-        val start = REF_CHIPS_START_PADDING.roundToPx()
+        val start = startPadding.roundToPx()
         val column = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE / 2
         val messageRoom = MIN_MESSAGE_WIDTH.roundToPx()
         val share = minOf((column * REF_CHIPS_SHARE).toInt(), column - messageRoom) - start
@@ -298,6 +303,7 @@ private fun BranchRefChip(
 ) {
     val branchWorktrees = LocalBranchWorktrees.current
     val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
+    val compareWithCurrent = LocalCompareWithCurrent.current
 
     BranchChip(
         branch = branch,
@@ -325,6 +331,7 @@ private fun BranchRefChip(
                 onCopyBranchNameToClipboard = actions.onCopyBranchNameToClipboard,
                 worktreesBase = branchWorktrees.baseChoice,
                 onChooseWorktreesBase = onChooseWorktreesBase,
+                onCompareWithCurrent = compareWithCurrent?.onBranch,
             )
         },
     )
@@ -423,6 +430,7 @@ private fun AllRefsPopup(
     val popupActions = actions.dismissingFirst(onDismissRequest)
     val onSwitchToWorktree = LocalOnSwitchToWorktree.current
     val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
+    val compareWithCurrent = LocalCompareWithCurrent.current
 
     Popup(
         properties = PopupProperties(focusable = true),
@@ -443,6 +451,13 @@ private fun AllRefsPopup(
             LocalOnChooseWorktreesBase provides { base ->
                 onDismissRequest()
                 onChooseWorktreesBase(base)
+            },
+            LocalCompareWithCurrent provides compareWithCurrent?.let { compare ->
+                CompareWithCurrent(
+                    currentBranch = compare.currentBranch,
+                    onBranch = { onDismissRequest(); compare.onBranch(it) },
+                    onTag = { onDismissRequest(); compare.onTag(it) },
+                )
             },
         ) {
             Column(

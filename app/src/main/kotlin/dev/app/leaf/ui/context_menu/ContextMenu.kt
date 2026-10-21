@@ -352,11 +352,30 @@ fun TextEntry(
             }
         }
 
-        Text(
-            contextTextEntry.composableLabel(),
-            style = MaterialTheme.typography.body2,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        val hint = contextTextEntry.hint
+
+        if (hint == null) {
+            Text(
+                contextTextEntry.composableLabel(),
+                style = MaterialTheme.typography.body2,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            // Fork-only: a hint after the label, such as the click that does the same
+            Text(
+                contextTextEntry.composableLabel(),
+                style = MaterialTheme.typography.body2,
+                modifier = Modifier.weight(1f),
+            )
+
+            Text(
+                hint(),
+                style = MaterialTheme.typography.body2,
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 24.dp),
+            )
+        }
     }
 }
 
@@ -369,16 +388,20 @@ sealed class ContextMenuElement(
         val composableLabel: @Composable (() -> String) = { label },
         val icon: @Composable (() -> Painter)? = null,
         onClick: () -> Unit = {},
+        /** Fork-only: shown after the label, muted, such as "⌘-click" for what a click does too. */
+        val hint: @Composable (() -> String)? = null,
     ) : ContextMenuElement(label, onClick) {
         constructor(
             composableLabel: @Composable (() -> String),
             icon: @Composable (() -> Painter)? = null,
             onClick: () -> Unit = {},
+            hint: @Composable (() -> String)? = null,
         ) : this(
             label = "",
             composableLabel,
             icon,
             onClick,
+            hint,
         )
     }
 
@@ -526,12 +549,14 @@ fun MutableList<ContextMenuElement>.addContextMenu(
     composableLabel: @Composable (() -> String),
     icon: @Composable (() -> Painter)? = null,
     onClick: () -> Unit = {},
+    hint: @Composable (() -> String)? = null,
 ) {
     this.add(
         ContextMenuElement.ContextTextEntry(
             composableLabel = composableLabel,
             icon = icon,
             onClick = onClick,
+            hint = hint,
         )
     )
 }

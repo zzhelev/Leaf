@@ -19,6 +19,8 @@ fun logContextMenu(
     isLastCommit: Boolean,
     showInAmend: Boolean,
     onNewWorktree: (() -> Unit)? = null,
+    // Fork-only: comparing the row with the selected commit or the current branch
+    compare: CompareMenuItems? = null,
 ) = mutableListOf<ContextMenuElement>().apply {
     if (showInAmend) {
         addContextMenu(
@@ -60,6 +62,8 @@ fun logContextMenu(
     )
 
     add(ContextMenuElement.ContextSeparator)
+
+    addCompareItems(compare)
 
     if (!isLastCommit) {
         addContextMenu(

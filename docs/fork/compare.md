@@ -5,7 +5,7 @@
 | Question | How can Leaf show the difference between any two commits or branches, in a way people find without being told? |
 | Verified against | `main` at `04e3f620`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-21 |
-| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Step 1 in progress |
+| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 5 built; step 6 (notes and a demo) left |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -308,15 +308,40 @@ Six steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Each step builds and pass
 
 ### Step 5: the log and the menus (UI)
 
-- `A/ui/log/Log.kt`: `CommitLine`'s click reads the modifiers (`LocalWindowInfo.current.keyboardModifiers`, Meta on
-  macOS, Ctrl elsewhere) and sends ⌘-click to the view model; `CommitsList` highlights both sides and draws the badges
-  with their tooltips. The log's keys end a comparison (3.3).
-- Menus: `LogContextMenu.kt`, `BranchContextMenu.kt` (side panel and chips), `SharedChipRemoteContextMenu.kt`,
-  `TagContextMenu.kt`.
-- `A/ui/WorktreesSection.kt`: "Review changes" opens the comparison.
-- **Tests:** `LogComparisonTest` (rendered rows with badges, both themes; the modifier mapping per OS, as
-  `LogKeyboardTest` does for keys), menu tests for each item's presence and label. The offscreen scene sets the
-  window's modifiers through reflection (see Offscreen UI checks in `CLAUDE.md`).
+- `A/ui/log/LogComparison.kt`: `LogComparison` (A's and B's commits, and the selection's name for "Compare with
+  selected"), which `Log` gives its rows through `LocalLogComparison`, so that upstream's composables in between don't
+  change; `commitRowClick` and `uncommittedRowClick`, what a click on a row does; and `CompareRowBadge`, the badge and
+  its tooltip.
+- `A/ui/log/Log.kt`: `CommitsList` reads the window's modifiers when a row is clicked (`LocalWindowInfo`, read in the
+  click so that pressing a key recomposes nothing) and sends `LogAction.CommitPicked` for ⌘-click, `CommitSelected`
+  otherwise. Both sides' rows are drawn as selected, with their badge. The badge starts 8 dp in, clear of the column's
+  divider, and takes the place of the chips' 16 dp start padding (`LogRefChips`' `startPadding`), so a side's chips
+  move 14 dp. ⌘-click on the uncommitted changes' row does nothing while comparing.
+- `RepositoryOpenViewModel`: `pickCommit` (⌘-click: compares the row with what is selected, or picks it while comparing,
+  or selects it when nothing else is selected), `compareWithSelected`, `compareBranchWithCurrent`,
+  `compareTagWithCurrent`, and `selectedForComparison`, the name in "Compare with selected (…)". A row's side is
+  `compareSideOf` its refs in the chips' order (`sideOfRow`); a branch picked in the side panel is that branch, a tag
+  its commit named by the tag. The log's keys start from A while comparing.
+- Menus (`A/ui/context_menu/CompareContextMenu.kt`, `CompareMenuItems`, `addCompareItems`, `addCompareWithCurrent`):
+  - a commit row (`logContextMenu`'s `compare`): "Compare with selected (5be239a)" with "⌘-click" (Ctrl-click elsewhere)
+    at its right, through a new optional `hint` of the menu's text entries, and "Compare with main (current)", in a
+    group after "Copy commit hash";
+  - a branch (`branchContextMenuItems`' `onCompareWithCurrent`), in the side panel and on a log chip, after Merge and
+    Rebase, not on the current branch; the remote part of a shared chip (`sharedChipRemoteItems`) for each remote
+    branch; a tag (`tagContextMenuItems`), between "Checkout tag's commit" and "Delete tag". The chips get the current
+    branch and the callbacks through `LocalCompareWithCurrent`, which the list behind +N gives again, closing itself
+    first.
+  - With a detached HEAD, "Compare with HEAD (detached)".
+- "Review changes" in a worktree row's menu was wired in step 3.
+- **Tests:** `LogComparisonTest` (5: the letters, both clicks, the badge before the chips in both themes, from its
+  pixels, and how far it moves them, with PNGs under `LEAF_RENDER_DIR`) and `CompareMenusTest` (7: each menu's items,
+  their order, separators and hint, what they call, a detached HEAD, and the click per system). The click's routing is
+  in two functions, so no test sets the window's modifiers. The view model's part was run against a real repository
+  through the Dagger graph in a temporary harness (2026-10-21): ⌘-click with nothing selected and on the selected row,
+  two branch tips ordered by date, a tag's commit before its descendant, a third commit replacing B and B dropped, ↓
+  from A ending the comparison, the menus' comparisons with the current branch for a row, a branch and a tag, "Compare
+  with selected" from a branch picked in the side panel, and a detached HEAD. 16 mutations of the menus, the clicks and
+  the badge were each caught by a named test.
 
 ### Step 6: notes and a demo
 

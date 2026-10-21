@@ -194,6 +194,7 @@ fun SidePanel(
 
             tags(
                 tagsState = tagsState,
+                currentBranch = branchesState.currentBranch,
                 refPanelSettings = refPanelSettings,
                 selectedItem = selectedItem,
                 viewModel = viewModel,
@@ -337,6 +338,7 @@ fun LazyListScope.localBranches(
                         onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                         onSwitchToWorktree = { viewModel.switchToWorktree(it) },
                         onNewWorktree = { onNewWorktree(NewWorktreeStart.LocalBranch(branch)) },
+                        onCompareWithCurrent = { viewModel.compareBranchWithCurrent(branch) },
                         onCopyBranchNameToClipboard = {
                             scope.launch {
                                 clipboard.setClipboardText(it.simpleName)
@@ -452,6 +454,7 @@ fun LazyListScope.remotes(
                                 onMergeRemoteBranch = { viewModel.mergeBranch(it) },
                                 onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                                 onNewWorktree = { onNewWorktree(NewWorktreeStart.RemoteBranch(remoteBranch)) },
+                                onCompareWithCurrent = { viewModel.compareBranchWithCurrent(remoteBranch) },
                                 onCopyBranchNameToClipboard = {
                                     scope.launch {
                                         clipboard.setClipboardText(it.simpleName)
@@ -470,6 +473,8 @@ fun LazyListScope.remotes(
 @OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.tags(
     tagsState: TagsState,
+    // Fork-only: what "Compare with main (current)" names
+    currentBranch: Branch?,
     refPanelSettings: RefPanelSettings,
     viewModel: RepositoryOpenViewModel,
     selectedItem: SelectedItem,
@@ -520,7 +525,9 @@ fun LazyListScope.tags(
                         isSelected = selectedItem is SelectedItem.TagItem && selectedItem.tag == tag,
                         onTagClicked = { viewModel.selectTag(tag) },
                         onCheckoutTag = { viewModel.checkoutTagCommit(tag) },
-                        onDeleteTag = { onDeleteTag(tag) }
+                        onDeleteTag = { onDeleteTag(tag) },
+                        currentBranch = currentBranch,
+                        onCompareWithCurrent = { viewModel.compareTagWithCurrent(tag) },
                     )
                 }
             }
@@ -714,6 +721,7 @@ private fun Branch(
     onChooseWorktreesBase: (branch: String?) -> Unit,
     onSwitchToWorktree: (Worktree) -> Unit,
     onNewWorktree: () -> Unit,
+    onCompareWithCurrent: () -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
@@ -739,6 +747,7 @@ private fun Branch(
                 onChooseWorktreesBase = onChooseWorktreesBase,
                 onSwitchToWorktree = onSwitchToWorktree,
                 onNewWorktree = onNewWorktree,
+                onCompareWithCurrent = onCompareWithCurrent,
             )
         }
     ) {
@@ -815,6 +824,7 @@ private fun RemoteBranches(
     onMergeRemoteBranch: (Branch) -> Unit,
     onChooseWorktreesBase: (branch: String?) -> Unit,
     onNewWorktree: () -> Unit,
+    onCompareWithCurrent: () -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     ContextMenu(
@@ -837,6 +847,7 @@ private fun RemoteBranches(
                 worktreesBase = worktreesBase,
                 onChooseWorktreesBase = onChooseWorktreesBase,
                 onNewWorktree = onNewWorktree,
+                onCompareWithCurrent = onCompareWithCurrent,
             )
         }
     ) {
@@ -863,12 +874,16 @@ private fun Tag(
     onTagClicked: () -> Unit,
     onCheckoutTag: () -> Unit,
     onDeleteTag: () -> Unit,
+    currentBranch: Branch?,
+    onCompareWithCurrent: () -> Unit,
 ) {
     ContextMenu(
         items = {
             tagContextMenuItems(
                 onCheckoutTag = onCheckoutTag,
                 onDeleteTag = onDeleteTag,
+                currentBranch = currentBranch,
+                onCompareWithCurrent = onCompareWithCurrent,
             )
         }
     ) {

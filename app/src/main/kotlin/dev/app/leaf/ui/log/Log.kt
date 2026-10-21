@@ -37,10 +37,13 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isMetaPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -67,6 +70,7 @@ import dev.app.leaf.ui.LocalBranchWorktrees
 import dev.app.leaf.ui.LocalOnChooseWorktreesBase
 import dev.app.leaf.ui.LocalOnNewWorktree
 import dev.app.leaf.ui.LocalOnSwitchToWorktree
+import dev.app.leaf.ui.compare.CompareLetter
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.sort.SortMenuItem
@@ -134,6 +138,13 @@ fun Log(
     val logStatus = logStatusState.value
     val logColumns by viewModel.logColumns.collectAsState()
     val branchWorktrees by viewModel.branchWorktrees.collectAsState()
+    // Fork-only: a comparison's rows, and what the menus compare a row with (docs/fork/compare.md)
+    val comparisonState by viewModel.comparisonState.collectAsState()
+    val selectedForComparison by viewModel.selectedForComparison.collectAsState()
+    val logComparison = LogComparison(comparisonState?.aCommit, comparisonState?.bCommit, selectedForComparison)
+    val compareWithCurrent = remember(viewModel, logStatus.currentBranch) {
+        CompareWithCurrent(logStatus.currentBranch, viewModel::compareBranchWithCurrent, viewModel::compareTagWithCurrent)
+    }
 
     LaunchedEffect(logStatus.verticalScrollState, logStatus.commitList) {
         launch {
@@ -163,6 +174,8 @@ fun Log(
             LocalOnChooseWorktreesBase provides viewModel::chooseWorktreesBase,
             LocalOnSwitchToWorktree provides viewModel::switchToWorktree,
             LocalOnNewWorktree provides onNewWorktree,
+            LocalLogComparison provides logComparison,
+            LocalCompareWithCurrent provides compareWithCurrent,
         ) {
             LogView(
                 logState = logStatus,
@@ -587,6 +600,14 @@ fun CommitsList(
     val clipboard = LocalClipboard.current
     var hasToScrollIfUncommittedChangesAppear by remember { mutableStateOf(false) }
     val headHash = remember(logState.currentBranch) { headCommitHash(logState.currentBranch) }
+    // Fork-only: ⌘-click (Ctrl-click elsewhere) compares a row with the selection, and A and B are marked
+    val comparison = LocalLogComparison.current
+    val windowInfo = LocalWindowInfo.current
+    val isCompareClick = {
+        // Read at the click, so that pressing a modifier recomposes nothing
+        val modifiers = windowInfo.keyboardModifiers
+        isCompareClick(modifiers.isMetaPressed, modifiers.isCtrlPressed)
+    }
 
     val firstCommitKey = commitList.commits.keys.firstOrNull().orEmpty()
     // The first commit when the log was last shown, kept for the tab. Showing the log again, such as after closing a
@@ -669,7 +690,7 @@ fun CommitsList(
                         .fillMaxWidth()
                         .handMouseClickable {
                             listFocusRequester.requestFocus()
-                            onAction(LogAction.UncommittedChangesSelected)
+                            uncommittedRowClick(isCompareClick(), comparison.isComparing)?.let(onAction)
                         }
                 ) {
                     UncommittedChangesGraphNode(
@@ -700,11 +721,17 @@ fun CommitsList(
         )
         { graphNode ->
             val isStash = stashes.contains(graphNode.hash)
+            val compareLetter = comparison.letterOf(graphNode.hash)
             CommitLine(
                 graphWidth = graphWidth,
                 columnsLayout = columnsLayout,
                 graphNode = graphNode,
-                isSelected = selectedCommit?.hash == graphNode.hash,
+                isSelected = selectedCommit?.hash == graphNode.hash || compareLetter != null,
+                compareLetter = compareLetter,
+                compareSelectedName = comparison.selectedName?.takeIf { selectedCommit?.hash != graphNode.hash },
+                compareCurrentBranch = logState.currentBranch?.takeIf { it.hash != graphNode.hash },
+                onCompareWithSelected = { onAction(LogAction.CompareWithSelected(graphNode.commit)) },
+                onCompareWithCurrent = { onAction(LogAction.CompareWithCurrent(graphNode.commit)) },
                 isHead = graphNode.hash == headHash,
                 showInAmend = logState.currentBranch?.hash == graphNode.hash && !hasUncommittedChanges,
                 isStash = isStash,
@@ -732,7 +759,7 @@ fun CommitsList(
                 onRebaseInteractive = { onAction(LogAction.RebaseInteractive(graphNode.commit)) },
                 onRevCommitSelected = {
                     listFocusRequester.requestFocus()
-                    onAction(LogAction.CommitSelected(graphNode.commit, isStash))
+                    onAction(commitRowClick(graphNode.commit, isStash, isCompareClick()))
                 },
                 onChangeDefaultUpstreamBranch = { onChangeUpstreamBranch(it) },
                 onRenameBranch = { onRenameBranch(it) },
@@ -953,6 +980,12 @@ private fun CommitLine(
     columnsLayout: LogColumnsLayout,
     graphNode: GraphCommit,
     isSelected: Boolean,
+    // Fork-only: the side of a comparison that the row is, and what its menu's comparison items name
+    compareLetter: CompareLetter?,
+    compareSelectedName: String?,
+    compareCurrentBranch: Branch?,
+    onCompareWithSelected: () -> Unit,
+    onCompareWithCurrent: () -> Unit,
     isHead: Boolean,
     currentBranch: Branch?,
     isStash: Boolean,
@@ -1014,6 +1047,12 @@ private fun CommitLine(
                     isLastCommit = isLastCommitOfCurrentBranch,
                     showInAmend = showInAmend,
                     onNewWorktree = onNewWorktree?.let { { it(NewWorktreeStart.Commit(graphNode.commit)) } },
+                    compare = CompareMenuItems(
+                        selectedName = compareSelectedName,
+                        onCompareWithSelected = onCompareWithSelected,
+                        currentBranch = compareCurrentBranch,
+                        onCompareWithCurrent = onCompareWithCurrent,
+                    ),
                 )
             }
         },
@@ -1075,6 +1114,7 @@ private fun CommitLine(
                     CommitMessage(
                         graphCommit = graphNode,
                         isHead = isHead,
+                        compareLetter = compareLetter,
                         columnsLayout = columnsLayout,
                         nodeColor = nodeColor,
                         currentBranch = currentBranch,
@@ -1116,6 +1156,8 @@ fun CommitMessage(
     branches: List<Branch>,
     nodeColor: Color,
     isHead: Boolean = false,
+    // Fork-only: the side of a comparison that the row is, which a badge before the chips names
+    compareLetter: CompareLetter? = null,
     onCheckoutBranch: (ref: Branch) -> Unit,
     onMergeBranch: (ref: Branch) -> Unit,
     onDeleteBranch: (ref: Branch) -> Unit,
@@ -1142,10 +1184,19 @@ fun CommitMessage(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Fork-only: the badge of a comparison's side takes the place of the chips' start padding
+            val chipsStart = if (compareLetter != null) {
+                CompareRowBadge(compareLetter)
+                0.dp
+            } else {
+                REF_CHIPS_START_PADDING
+            }
+
             if (isStash) {
-                Spacer(modifier = Modifier.width(REF_CHIPS_START_PADDING))
+                Spacer(modifier = Modifier.width(chipsStart))
             } else {
                 LogRefChips(
+                    startPadding = chipsStart,
                     branches = branches,
                     tags = tags,
                     currentBranch = currentBranch,
@@ -1492,6 +1543,7 @@ fun BranchChip(
     val onChooseWorktreesBase = LocalOnChooseWorktreesBase.current
     val onSwitchToWorktree = LocalOnSwitchToWorktree.current
     val onNewWorktree = LocalOnNewWorktree.current
+    val compareWithCurrent = LocalCompareWithCurrent.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
@@ -1520,6 +1572,7 @@ fun BranchChip(
                     )
                 }
             },
+            onCompareWithCurrent = compareWithCurrent?.let { compare -> { compare.onBranch(branch) } },
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }
@@ -1593,10 +1646,13 @@ fun TagChip(
     onDeleteTag: () -> Unit,
     color: Color,
 ) {
+    val compareWithCurrent = LocalCompareWithCurrent.current
     val contextMenuItemsList = {
         tagContextMenuItems(
             onCheckoutTag = onCheckoutTag,
             onDeleteTag = onDeleteTag,
+            currentBranch = compareWithCurrent?.currentBranch,
+            onCompareWithCurrent = compareWithCurrent?.let { compare -> { compare.onTag(tag) } },
         )
     }
 

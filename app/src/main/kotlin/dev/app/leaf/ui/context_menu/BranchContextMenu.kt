@@ -28,6 +28,8 @@ fun branchContextMenuItems(
     onChooseWorktreesBase: (branch: String?) -> Unit = {},
     onSwitchToWorktree: (Worktree) -> Unit = {},
     onNewWorktree: (() -> Unit)? = null,
+    // Fork-only: compares the branch with the current branch, which isn't offered on the current branch itself
+    onCompareWithCurrent: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -61,6 +63,11 @@ fun branchContextMenuItems(
                     onClick = { onRebaseBranch(branch) }
                 )
 
+                add(ContextMenuElement.ContextSeparator)
+            }
+
+            if (onCompareWithCurrent != null && currentBranch != null) {
+                addCompareWithCurrent(currentBranch, onCompareWithCurrent)
                 add(ContextMenuElement.ContextSeparator)
             }
         }

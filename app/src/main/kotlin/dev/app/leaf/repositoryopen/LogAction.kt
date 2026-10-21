@@ -15,6 +15,15 @@ sealed interface LogAction {
     data class CheckoutBranch(val branch: Branch) : LogAction
     data class RebaseInteractive(val commit: Commit) : LogAction
     data class CommitSelected(val commit: Commit, val isStash: Boolean) : LogAction
+
+    /** Fork-only: ⌘-click on a row (Ctrl-click elsewhere), which compares it with the selection. */
+    data class CommitPicked(val commit: Commit, val isStash: Boolean) : LogAction
+
+    /** Fork-only: a row's "Compare with selected". */
+    data class CompareWithSelected(val commit: Commit) : LogAction
+
+    /** Fork-only: a row's "Compare with main (current)". */
+    data class CompareWithCurrent(val commit: Commit) : LogAction
     data object ShowStatusAmending : LogAction
     data object UncommittedChangesSelected : LogAction
     data class DeleteStash(val commit: Commit) : LogAction

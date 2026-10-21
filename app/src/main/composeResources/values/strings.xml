@@ -635,6 +635,13 @@
     <string name="compare_file_position">%1$d of %2$d</string>
     <string name="compare_previous_file">Previous file (↑)</string>
     <string name="compare_next_file">Next file (↓)</string>
+    <string name="compare_with_selected">Compare with selected (%1$s)</string>
+    <string name="compare_with_current">Compare with %1$s (current)</string>
+    <string name="compare_with_detached_head">Compare with HEAD (detached)</string>
+    <string name="compare_click_mac">⌘-click</string>
+    <string name="compare_click_other">Ctrl-click</string>
+    <string name="compare_badge_a">A, the side the comparison starts from. %1$s the row to leave it out.</string>
+    <string name="compare_badge_b">B, the side compared with A. %1$s the row to leave it out.</string>
     <plurals name="worktree_review_uncommitted">
         <item quantity="one">Plus %1$d uncommitted change in %2$s, which a merge leaves out.</item>
         <item quantity="other">Plus %1$d uncommitted changes in %2$s, which a merge leaves out.</item>
