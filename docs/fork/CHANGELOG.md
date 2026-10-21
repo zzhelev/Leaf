@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The diff's View menu: ignore different amounts of whitespace, `git diff -b` (upstream issue 139, 2026-10-21)
+
+- **Request:** "Ignore whitespace" hid every whitespace difference, which is too much in code where the indent carries
+  meaning (Python, YAML, Makefiles): a block's first indent, or a space that appears or goes, was hidden with the noise.
+- **What it does:** the menu's switch became a "Whitespace" group of three rows with a check on the one that is on: **Show
+  all changes**, **Ignore different amounts of whitespace** (`git diff -b`) and **Ignore all whitespace** (`-w`, as before). `-b` hides a
+  different amount of whitespace (4 spaces to 8, tabs to spaces, trailing whitespace, CRLF to LF) but still shows
+  whitespace that appears where there was none or goes: `f(a,b)` to `f(a, b)`, or an indent where a line had none.
+- **The rest follows the mode:** the strip says "Ignoring different amounts of whitespace.", the button's tooltip says "ignoring
+  different amounts of whitespace", a file with nothing else changed says "Only whitespace changed", hunk and line buttons are
+  off, and file history, commits and worktree review follow, as with `-w`.
+- **Saved settings:** stored as `ignore_change`. A saved "ignore all" is unchanged, and an older Leaf reads the new value as
+  showing all changes.
+- **Chosen with the user:** `-b` yes, a radio group over a second dependent switch; the end-of-line modes no. Trailing-only
+  (`--ignore-space-at-eol`) and CR-only (`--ignore-cr-at-eol`) hide less than `-w` and `-b` already hide, and JGit has no
+  comparator for the second.
+- JGit's `WS_IGNORE_CHANGE` finds the edits of `git diff -b`, and its hunks, context lines included, are equal to git's on
+  the same 134 pairs of texts in Unstaged, Staged and a commit (a test).
+- Details: CLAUDE.md, "The diff's View menu".
+
 ## Co-authors, Add Signed-off-by in the menu, and a sign-off that joins the trailers (2026-10-21)
 
 - **Request:** the co-author trailers from the commit message mockups. Option C, chosen with the user: suggestions while a
@@ -41,8 +61,8 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   in this file", with a button to show the changes, where it would have been blank.
 - **Not copied:** the marks are drawn over the text, so selecting and copying a line gives the line.
 - **Chosen with the user:** the menu (B) over three more header icons (A): a laptop's diff pane left the path 50 dp with
-  the icons and 130 dp without. Wrap moves into it; only "ignore all" (`-w`), no `-b` or end-of-line modes; kept after a
-  restart, with no Settings entry for the two new switches.
+  the icons and 130 dp without. Wrap moves into it; at first only "ignore all" (`-w`), with `-b` added later the same day
+  (the entry above); kept after a restart, with no Settings entry for the two new switches.
 - JGit's comparators find the same edits as git's `-w`, `-b` and `--ignore-space-at-eol` on 134 pairs of texts (a test);
   `--ignore-cr-at-eol` has none. Context lines show the new version's text, as git does.
 - Details: CLAUDE.md, "The diff's View menu".

@@ -488,28 +488,41 @@ It was an icon of its own in the header until the View menu took it in (2026-10-
 
 **The diff's View menu: ignore whitespace, show whitespace characters (fork-only, 2026-10-21, upstream issues 138 and 139,
 `ui/diff/DiffViewMenu.kt`, `WhitespaceMarks.kt`, `domain/diff/DiffScrollAnchor.kt`):** one 32 dp "View options" button after
-the Unified and Split icons (the `tune` icon), with a menu (`SortMenuPopup`) of three switches that stay open when one is
-clicked: "Ignore whitespace" (hint "Like git diff -w"), "Show whitespace characters" and "Wrap long lines". Chosen with the
-user from two layouts (2026-10-21): three more icons in the header, or this menu. A laptop's diff pane is about 534 dp at
-a 1100 dp window, where today's header leaves the file's path 130 dp and two more icons left it 50, so the menu keeps the
-header as wide as before. The wrap icon moved into it. The strip below keeps "ignoring" visible, which a lit button alone
-wouldn't.
-- **The button** (`DiffViewMenu`) is lit like a toggled icon while a switch differs from how a diff first looks (ignoring,
-  marking or not wrapping), and its tooltip says which. "Ignore whitespace" is left out for an added or a deleted file
-  (`canIgnoreWhitespace`: no other version to compare with). File history's menu has no wrap row (`onWrapLinesChanged`
+the Unified and Split icons (the `tune` icon), with a menu (`SortMenuPopup`) that stays open when a row is clicked: a
+"Whitespace" group of three rows with a check on the one that is on ("Show all changes", "Ignore different amounts of whitespace"
+with the hint "Like git diff -b: new or removed spaces still show", "Ignore all whitespace", "Like git diff -w"), a divider, then the
+switches "Show whitespace characters" and "Wrap long lines". Chosen with the user from two layouts (2026-10-21): three more
+icons in the header, or this menu. A laptop's diff pane is about 534 dp at a 1100 dp window, where today's header leaves the
+file's path 130 dp and two more icons left it 50, so the menu keeps the header as wide as before. The wrap icon moved into
+it. The strip below keeps "ignoring" visible, which a lit button alone wouldn't. The group started as one "Ignore
+whitespace" switch, and became a choice of three when `-b` was added (2026-10-21, a radio group chosen over a second,
+dependent switch). git's own words for `-b`, "ignore changes in amount of whitespace", didn't read clearly (a non-native
+speaker couldn't place "in amount"), so the row says "Ignore different amounts of whitespace", chosen with the user.
+- **The button** (`DiffViewMenu`) is lit like a toggled icon while a choice differs from how a diff first looks (ignoring
+  either way, marking or not wrapping), and its tooltip says which ("ignoring whitespace", "ignoring different amounts of
+  whitespace"). The whitespace group, with its title and divider, is left out for an added or a deleted file
+  (`canIgnoreWhitespace`: no other version to compare with). A row for the mode that is on does nothing. File history's menu has no wrap row (`onWrapLinesChanged`
   null): its lines always wrap. The menu is in file history's commit strip too (`FileHistoryCommitStrip.viewMenu`,
   `WhitespaceViewOptions`), as that view has no header, and `HistoryViewModel` makes the shown commit's diff again when
   the setting changes, where it was scrolled to.
-- **Ignoring** (`DiffWhitespaceMode`: `SHOW_ALL`, the default, and `IGNORE_ALL`; `AppConfig.DiffWhitespace`, key
-  `diff_whitespace`, stored as the lower-case name, and a name that this version doesn't know reads as the default; no
-  Settings → Layout entry, decided with the user: the menu is the persisted setting): `GetDiffContentGitAction` gives
-  JGit's `DiffFormatter` `RawTextComparator.WS_IGNORE_ALL` (`DiffWhitespaceMode.comparator()`), through
+- **Ignoring** (`DiffWhitespaceMode`: `SHOW_ALL`, the default, `IGNORE_CHANGE` and `IGNORE_ALL`; `AppConfig.DiffWhitespace`,
+  key `diff_whitespace`, stored as the lower-case name, and a name that this version doesn't know reads as the default, so
+  an older build reads `ignore_change` as showing all; no Settings → Layout entry, decided with the user: the menu is the
+  persisted setting): `GetDiffContentGitAction` gives JGit's `DiffFormatter` the mode's `RawTextComparator`
+  (`DiffWhitespaceMode.comparator()`: `WS_IGNORE_CHANGE` and `WS_IGNORE_ALL`), through
   `IFormatDiffGitAction`, `IGetDiffContentGitAction` and `GetDiffUseCase`, all with the mode as their last parameter.
   Everything else runs on the edits that JGit gives, so commit, file history and worktree review diffs follow the setting.
   - **JGit's comparators** (probed 2026-10-21 with git 2.54 and JGit 7.7, then kept as a test over the 134 pairs of
-    `DiffWhitespaceTest`): `WS_IGNORE_ALL`, `WS_IGNORE_CHANGE` and `WS_IGNORE_TRAILING` find the same edits as `git diff -w`,
-    `-b` and `--ignore-space-at-eol`; `--ignore-cr-at-eol` has no JGit comparator. Only `-w` is offered, which is what GitHub and GitLab call hiding whitespace; `-b` or an end-of-line
-    mode would be one more `DiffWhitespaceMode` and a row each.
+    `DiffWhitespaceTest`, whose hunks, context lines included, are compared with `git diff -w` and `-b` in Unstaged, Staged
+    and a commit): `WS_IGNORE_ALL`, `WS_IGNORE_CHANGE` and `WS_IGNORE_TRAILING` find the same edits as `git diff -w`, `-b`
+    and `--ignore-space-at-eol`; `--ignore-cr-at-eol` has no JGit comparator.
+  - **What each mode hides** (git 2.54): `-w` hides every whitespace difference, `f(a,b)` against `f(a, b)` and
+    `return x` against `returnx` too. `-b` hides a different amount (4 spaces to 8, a tab to spaces, trailing whitespace,
+    CRLF to LF) but not whitespace that appears where there was none or goes: a block's first indent, `f(a,b)` to
+    `f(a, b)`, `returnx` to `return x`. So it fits Python, YAML and Makefiles, where the indent carries meaning.
+  - **`-b` was added with the user (2026-10-21), the end-of-line modes were not:** `--ignore-space-at-eol` hides only
+    trailing whitespace, which `-w` and `-b` hide too, and `--ignore-cr-at-eol` (CRLF against LF alone, which both
+    also hide) needs a comparator of Leaf's own. Either would be one more `DiffWhitespaceMode` and a row.
   - **Context lines** (`FormatHunksGitAction`) come from the new version while ignoring, as git prints them: the two
     versions of a context line differ in whitespace, and the old one showed the indentation from before the change.
   - **Algorithms differ on repeated lines:** JGit's and git's histogram diff pick different, equally short edit scripts
@@ -523,7 +536,8 @@ wouldn't.
   points to the menu). The hunk's own flag decides, not the setting, so a diff that is still on screen while another loads
   keeps working as it was made.
 - **The strip** (`WhitespaceIgnoredStrip`, 24 dp, directly under the header, with a hairline under it) shows while the setting
-  is on and the diff is a text diff of a modified file: "Ignoring whitespace changes." and, in Staged and Unstaged,
+  is on and the diff is a text diff of a modified file: "Ignoring whitespace changes." (`-b`: "Ignoring different amounts of
+  whitespace." Longer wordings, such as "Ignoring changes in amount of whitespace.", were cut at 534 dp with the buttons' text after it) and, in Staged and Unstaged,
   "Stage and discard are off." or "Unstage is off." (`whitespaceActionsOffText`), with "Show them" turning it off in one
   click. It also covers commit diffs, where nothing else says that lines are hidden. It replaced a note in each hunk's
   header, which would have repeated.
@@ -553,14 +567,16 @@ wouldn't.
   gives 20,000 lines to show in 1.0 s, and 2,422 lines in 0.2 s while ignoring. Marks on thirty lines of 10,000 characters
   (150,000 marks): 143 ms for the first frame against 47 ms without, and 8 ms for the next. Off, a line pays nothing.
 - **Not done:** the Staged and Unstaged lists show a whitespace-only file as changed, and "Stage file" still stages it (the
-  strip and the pane say so); the other `git diff` modes; a diff's lines in the conflict resolver (its own view); showing
+  strip and the pane say so); the end-of-line modes; a diff's lines in the conflict resolver (its own view); showing
   the marks while the text is edited there.
-- Tests: `DiffWhitespaceTest` (data: 14 fixed and 120 random pairs against `git diff -w` in Unstaged, Staged and a commit,
-  and the same without ignoring as the control, and JGit's `-b` and end-of-line comparators against git's; only-whitespace for each kind of change, and not for a mode change or a
-  plain rename; context from the new side; the six hunk and line actions refusing, changing nothing),
+- Tests: `DiffWhitespaceTest` (data: 14 fixed and 120 random pairs against `git diff -w` and `-b` in Unstaged, Staged and a
+  commit, and the same without ignoring as the control, and JGit's end-of-line comparator against git's; only-whitespace for
+  each kind of change in each mode, and not for a mode change or a plain rename; context from the new side; the six hunk
+  and line actions refusing, changing nothing, in both modes),
   `DiffWhitespaceSettingTest` (a restart, an old file, an unknown name), `DiffScrollAnchorTest` and `GetDiffUseCaseTest`
-  (domain), `DiffViewMenuTest` (rows, the lit button and its tooltip, the strip, the pane, no buttons for an ignoring hunk
-  in unified and split), `WhitespaceMarksTest` (the marks, and pixels in `DiffText`), `FileHistoryWhitespaceTest`,
+  (domain), `DiffViewMenuTest` (the rows of the group and the switches, the mode that is on checked and doing nothing, the
+  lit button and its tooltip, the strip in both modes and that its longest text fits 534 dp, the pane, no buttons for an
+  ignoring hunk in unified and split), `WhitespaceMarksTest` (the marks, and pixels in `DiffText`), `FileHistoryWhitespaceTest`,
   `HistoryViewModelTest` (a reload in the mode, keeping the line at the top). 27 mutations were each caught by a named
   test. The real `DiffPane` ran against a demo repository through the Dagger graph in a temporary harness, in both
   themes at 760 and 534 dp: every state above, the split view, and wide lines wrapped and not.
