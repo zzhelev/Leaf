@@ -592,19 +592,42 @@
     <string name="clean_up_worktrees_dialog_ignored_files">git deletes their ignored files too, such as build output and .env files.</string>
 
     <!-- New worktree dialog -->
-    <string name="worktree_review_title">%1$s compared with %2$s</string>
-    <string name="worktree_review_subtitle">Changes on %1$s since it branched off %2$s</string>
-    <string name="worktree_review_ahead_behind_tooltip">%1$s has %2$d commits that %3$s doesn't, and %3$s has %4$d that %1$s doesn't</string>
-    <string name="worktree_review_close">Close the review</string>
-    <string name="worktree_review_commits">Commits</string>
-    <string name="worktree_review_files">Files changed</string>
-    <string name="worktree_review_no_commits">%1$s has no commits that %2$s doesn't have.</string>
-    <plurals name="worktree_review_older_commits">
+    <string name="compare_swap">Swap A and B</string>
+    <string name="compare_end">End the comparison (Esc)</string>
+    <string name="compare_mode_since_split">Since they split</string>
+    <string name="compare_mode_all">All differences</string>
+    <plurals name="compare_mode_since_split_line">
+        <item quantity="one">What %1$s changed since it branched off %2$s at %3$s. %2$s's %4$d newer commit is left out.</item>
+        <item quantity="other">What %1$s changed since it branched off %2$s at %3$s. %2$s's %4$d newer commits are left out.</item>
+    </plurals>
+    <plurals name="compare_mode_all_line">
+        <item quantity="one">Every difference between the two snapshots. %1$s's %2$d newer commit shows as if %3$s had undone it.</item>
+        <item quantity="other">Every difference between the two snapshots. %1$s's %2$d newer commits show as if %3$s had undone them.</item>
+    </plurals>
+    <plurals name="compare_note_a_is_ancestor">
+        <item quantity="one">%1$s has %3$d commit that %2$s lacks, and %2$s has none of its own, so both ways of comparing give the same files.</item>
+        <item quantity="other">%1$s has %3$d commits that %2$s lacks, and %2$s has none of its own, so both ways of comparing give the same files.</item>
+    </plurals>
+    <plurals name="compare_note_b_is_ancestor">
+        <item quantity="one">%1$s has %3$d commit that %2$s lacks, and %2$s has none of its own. The files show it as if %2$s had undone it.</item>
+        <item quantity="other">%1$s has %3$d commits that %2$s lacks, and %2$s has none of its own. The files show them as if %2$s had undone them.</item>
+    </plurals>
+    <string name="compare_note_brings_nothing">%1$s has no commits that %2$s lacks, so a merge would bring nothing.</string>
+    <string name="compare_note_unrelated">%1$s and %2$s share no commit, so this shows every difference between them.</string>
+    <string name="compare_note_no_merge_base">%1$s and %2$s have no commit in common, so git has no changes to compare.</string>
+    <string name="compare_note_same">%1$s and %2$s are the same commit, so there is nothing to compare.</string>
+    <string name="compare_commits_only_in_b">Commits only in B</string>
+    <string name="compare_commits_only_in_a">Commits only in A</string>
+    <string name="compare_commits_from_a_to_b">Commits from A to B</string>
+    <string name="compare_files">Files changed</string>
+    <plurals name="compare_older_commits">
         <item quantity="one">%1$d older commit isn't listed.</item>
         <item quantity="other">%1$d older commits aren't listed.</item>
     </plurals>
-    <string name="worktree_review_no_changes">No changes: a merge would change no file.</string>
-    <string name="worktree_review_no_merge_base">%1$s and %2$s have no commit in common, so git has no changes to compare.</string>
+    <string name="compare_no_changes">The two have the same files.</string>
+    <string name="compare_review_no_changes">No changes: a merge would change no file.</string>
+    <string name="compare_reading">Reading the commits and files…</string>
+    <string name="compare_try_again">Try again</string>
     <plurals name="worktree_review_uncommitted">
         <item quantity="one">Plus %1$d uncommitted change in %2$s, which a merge leaves out.</item>
         <item quantity="other">Plus %1$d uncommitted changes in %2$s, which a merge leaves out.</item>

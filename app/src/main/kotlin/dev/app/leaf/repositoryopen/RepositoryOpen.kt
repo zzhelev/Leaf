@@ -30,6 +30,7 @@ import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.ui.*
+import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
 import dev.app.leaf.ui.components.coveringWhatIsBelow
@@ -508,7 +509,7 @@ fun MainContentView(
                 val comparisonState = viewModel.comparisonState.collectAsState().value
 
                 if (comparisonState != null) {
-                    WorktreeReview(viewModel = viewModel, reviewState = comparisonState)
+                    ComparisonPane(viewModel = viewModel, state = comparisonState)
                 } else if (commitChangesState != null) {
                     CommitChanges(
                         viewModel = viewModel,

@@ -1082,7 +1082,7 @@ commands.
     one (`CreateWorktreeIncludeGitAction`, `WORKTREE_INCLUDE_TEMPLATE`), and it reads the file again when Leaf's
     window gets the focus back.
 
-**Reviewing a worktree (fork-only, Phase 3.3, `WorktreeReview`, `ComparisonViewModelExtender`):** "Review changes"
+**Reviewing a worktree (fork-only, Phase 3.3, `ui/compare/ComparisonPane.kt`, `ComparisonViewModelExtender`):** "Review changes"
 in a worktree row's menu shows, in place of Files changed, what the worktree's branch would bring into the base: the
 commits and the changed files, as `git log base..branch` and `git diff base...branch` show them. It's offered for a
 worktree on a branch other than the base (`branchToReview`, `domain/worktrees/WorktreeReview.kt`).

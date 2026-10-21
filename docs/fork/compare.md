@@ -256,15 +256,33 @@ Six steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Each step builds and pass
 
 ### Step 3: the pane (UI)
 
-- `A/ui/WorktreeReview.kt` → `A/ui/compare/ComparisonPane.kt`, with the header, the switch and its line, the notes,
-  the sections, the files, loading, failure, and the review's line.
-- `A/ui/compare/CompareBadges.kt`: the A and B badges, fixed colours as the avatar palette has (amber `#e9c754`, light
-  blue `#9FD1FF`, letter `#0E1621`), not theme colours: `ColorsScheme` is upstream's and serialized for custom themes.
-  The letter holds 4.5 : 1 on both fills. In the light theme, check with renders whether the fills need a 1 dp outline
-  against white.
-- Strings in `strings.xml` (`compare_*`), the review's moved over.
-- **Tests:** `ComparisonPaneTest`, rendered from a state as `ConflictResolverTest` does: each state of F3, the switch
-  and what clicking it sends, a narrow pane (260 dp) where names are cut first, both themes.
+- `A/ui/WorktreeReview.kt` → `A/ui/compare/ComparisonPane.kt` (`ComparisonPane`, and `ComparisonPaneView`, which takes
+  the state, for tests). Top to bottom:
+  - the header: A and B on two lines (`SideLine`: badge, name, and the commit's short id unless the name is it), read
+    as one by screen readers, then swap (`compare_arrows` turned upright) and end;
+  - the switch (`ModeSwitch`, two tabs; the shown one sends nothing) and its line, or the note of 3.4, by relation and
+    mode: the review's own when it asks for "Since they split" of a branch that main has, or of unrelated histories;
+  - "Commits only in B" (or "Commits from A to B") open and "Commits only in A" closed, each opening and closing with
+    its header, a side without commits left out; at most 40% of the pane's height each; a commit's menu is the commit
+    details' parents' (`parentContextMenu`: "Select in the log", "Copy commit hash");
+  - the files (`ChangedFilesList`, with the view and sort button), or "The two have the same files." (the review's
+    "No changes: a merge would change no file.");
+  - loading ("Reading the commits and files…" until a first result), failure (`DialogWarning` and Try again), and the
+    review's line about the worktree's uncommitted changes.
+  - A click on a file still opens its diff over the log, as before. Step 4 turns it into the full view.
+  - The lists' scroll states are `ComparisonListStates`, kept with the tab (`rememberInTab`) by `ComparisonPane`, and
+    passed in, so that tests need no tab.
+- `A/ui/compare/CompareBadges.kt`: `CompareBadge` and `CompareLetter`, fixed colours as the avatar palette has (amber
+  `#E9C754`, light blue `#9FD1FF`, letter `#0E1621`, 11 : 1 on both), not theme colours: `ColorsScheme` is upstream's
+  and serialized for custom themes. Renders showed the fills only 1.2 to 1.6 : 1 on the light theme's white, grey and
+  selected row, so on a light theme a 1 dp outline of the same hue draws the badge (`#8A6D12`, `#2F6FA8`, at least
+  3 : 1 on all three).
+- Strings `compare_*` in `strings.xml`; the review's header, ahead/behind and section strings are gone, its uncommitted
+  line's stay.
+- **Tests:** `ComparisonPaneTest` (16), rendered at 330 px from a state: each state of F3 and the review's, the switch
+  and what it sends, swap and end, a section that opens and closes, a file's click, a commit's menu, the older commits'
+  count, a narrow pane (260 px) with a long branch name, and PNGs of 8 states in both themes with `LEAF_RENDER_DIR`.
+  `CompareBadgeTest`: the fills and the light theme's outline in pixels, and the contrasts.
 
 ### Step 4: the full view (UI)
 
