@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Co-authors, Add Signed-off-by in the menu, and a sign-off that joins the trailers (2026-10-21)
+
+- **Request:** the co-author trailers from the commit message mockups. Option C, chosen with the user: suggestions while a
+  `Co-authored-by` line is typed, and "Add co-author" in the commit message's ⋯ menu, which adds the line where git puts
+  trailers and opens the same suggestions.
+- **Whom it suggests:** authors of the commits that the log has loaded, newest first, and the co-authors their messages
+  name; one per email; not you; committers left out. ↓ ↑ and Enter or Tab pick, or a click; Esc closes the list. The
+  list sits above the field and leaves the focus in it. Someone not in the history is typed as `Name <email>`.
+- **Placement:** `git interpret-trailers` places the line: with the other trailers, before trailing comment lines, or
+  after a blank line, never twice. An empty `Co-authored-by:` line is never committed.
+- **Several co-authors:** Enter at the end of a `Co-authored-by` line starts the next one and opens the list; Enter on an
+  empty one ends the list. Nothing is highlighted until something is typed or ↓ is pressed, so Enter there isn't a pick.
+- **Add Signed-off-by in the ⋯ menu:** a switch for the repository's sign-off setting (the same as the Actions list's
+  "Signoff config"), and a muted "· with Signed-off-by" in the title row while it's on, as the line is only added when
+  committing. Named as git's `--signoff` describes it: "Sign off" read as an action.
+- **Sign-off fix:** Leaf's sign-off was added as a paragraph of its own, which left a `Co-authored-by` line before it out
+  of the trailer block that git hosts read. It now joins the trailers as `git commit -s` puts it, checked against git
+  on eight messages.
+- Details: CLAUDE.md, "Co-authors".
+
 ## The diff's View menu: ignore whitespace, show whitespace characters (upstream issues 138, 139, 2026-10-21)
 
 - **Request:** reviewing an agent's diff is half whitespace noise: re-indented files, trailing spaces, tabs for spaces, CRLF

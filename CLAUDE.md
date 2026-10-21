@@ -1334,14 +1334,83 @@ and a ruler as an option (R1).
   column (`columnRuler`, measured with a `TextMeasurer`, 16 dp in as Material's field pads its text). The text keeps
   wrapping at the pane, so the line shows only while the column fits: about 600 dp for 72 (the pane is 330 dp by
   default). Option R1; R2 (no wrap, sideways scroll) was turned down.
-- Not done, from the same mockups: wrap and trailer items in the ⋯ menu, co-author completion, Conventional Commits
-  completion, a ticket key from the branch name, `commit.template`. Tags and the interactive rebase's reword still take
-  their messages as typed.
+- Not done, from the same mockups: "Wrap body at 72" in the ⋯ menu, Conventional Commits completion, a ticket key from
+  the branch name, `commit.template`. Tags and the interactive rebase's reword still take their messages as typed.
+  Co-authors came next (see Co-authors).
 - Tests: `CommitMessageLayoutTest` (domain), `CommitMessageCleanupTest` (data: random messages against `git stripspace`
   with `#`, `;` and `//`; every mode with every kind of prefix, and 160 random messages with `auto` and the default,
   against `git commit`; Leaf's real commit against git's in twin repositories; the config, `includeIf` included),
   `CommitMessageConventionsTest` (the count, its colours in both themes, the styles, the dimmed ink, the hint and its
   link, the selection, the ruler's place and when it hides), `FinishBlockersTest`.
+
+**Co-authors (fork-only, 2026-10-21, `domain/commitmessage/CoAuthors.kt`, `Trailers.kt`, `ui/status/CoAuthorSuggestions.kt`):**
+the commit field credits co-authors with `Co-authored-by: Name <email>` trailers, which git hosts read. Option C of
+three, chosen with the user from mockups: suggestions while a `Co-authored-by` line is typed (B), and "Add co-author" in
+the title row's ⋯ menu, which adds that line and opens the same suggestions (A was a picker dialog). The message stays
+plain text.
+- **Whom it suggests** (`coAuthorCandidates`): the authors of the commits that the log has loaded, newest first, and the
+  co-authors that their messages name (`coAuthorsIn`); one per email, ignoring case, under its latest name; not the
+  user (`AuthorInfo.identityToUse`), nor anyone without a name or an email. Committers are left out: hosts commit merges
+  made on their websites under an identity of their own. Nothing is fetched. `StatusViewModelExtender.coAuthorCandidates`
+  works it out on `Dispatchers.Default` when the log or the identity changes, into `StatusState.coAuthors`
+  (`CoAuthorState`).
+- **The suggestions** (`coAuthorSuggestion`): while the field has the focus and the caret is on a `Co-authored-by:`
+  line, any case, past its colon (`coAuthorLineAt`), and the line doesn't name someone yet (`isComplete`, ending with
+  `>`). Those who match what follows the colon, by name or email, and whom no other line names (`coAuthorChoices`), the
+  first `MAX_CO_AUTHOR_CHOICES` (8), then "N more: keep typing" or "Someone else? Type Name <email>". Rows have the
+  person's avatar and colour, the name, the email (cut first) and the match in bold (`CoAuthorSuggestionsList`).
+  - A popup that takes no focus, above the field (`AboveLeftAlignedPositionProvider`), as the field is at the bottom of
+    the window, below it when there's no room. The field keeps the focus: ↓ and ↑ move the highlight, Enter picks the
+    highlighted row, Tab the highlighted or the first (`coAuthorKey`), a tap on a row picks it (`detectTapGestures`, as
+    Clone's branch list does). Keys with a modifier stay with the field, so Cmd+Enter still commits.
+  - Nothing is highlighted on a line that names no one yet (`firstHighlighted`), and the first row once something is
+    typed, as a code completion list does: on an empty line Enter isn't a pick but ends the list (below).
+  - **Enter continues the list** (`coAuthorEnter`, `afterCoAuthorEnter`, `isPlainEnter`), as an editor continues a
+    bulleted list: at the end of a line that names someone, Enter starts the next line with `Co-authored-by: ` and the
+    suggestions open; on a line that names no one, Enter takes the key out and leaves the line empty. Elsewhere, in the
+    middle of a line, and with a modifier, Enter is a plain line feed. Chosen with the user after trying the first
+    version, where a second co-author had to be typed in full or added from the menu again.
+  - A pick writes `Co-authored-by: Name <email>` in git's spelling of the key, whatever was typed, with the caret at the
+    line's end (`withCoAuthor`).
+  - Esc reaches the tab first (see Keys), so the suggestions are a `CloseableView` (`CO_AUTHOR_SUGGESTIONS`) while they
+    show (`CoAuthorAction.SuggestionsShown`). Closing them counts a dismissal (`CoAuthorState.dismissals`), and the
+    field hides them until its text changes.
+- **"Add co-author"** (`commitMessageMenuItems`, `CommitMessageHeader.canAddCoAuthor`): in the ⋯ menu wherever the field
+  can be edited, merges, cherry-picks, reverts and amendable rebase stops included, after the switches (Amend, Add Signed-off-by)
+  and a divider; the menu now shows in those states too. It asks git to place `Co-authored-by: LEAF-CO-AUTHOR-CARET`
+  (`MARKED_CO_AUTHOR_TRAILER`) and turns the marker into the caret (`withEmptyCoAuthorLine`), then focuses the field
+  (`CoAuthorState.insertion`), where the suggestions show. Leaving the line as it was, by Esc or by leaving the field,
+  puts the message back (`takeOutUntouchedCoAuthorLine`), and a commit or a rebase's Continue drops any
+  `Co-authored-by:` line that names no one (`withoutEmptyCoAuthorLines`), so no empty trailer is committed.
+- **Placing trailers** (`AddTrailerGitAction`, `IAddTrailerGitAction`): `git --git-dir=<git dir> interpret-trailers
+  --if-exists <mode> --trailer <trailer>`, with the message on stdin. git puts the trailer with the message's trailers
+  when its last paragraph is a trailer block, before its comment lines at the end (in the repository's comment
+  character), or after a blank line, and reads the repository's `trailer.*` settings. `TrailerIfExists`:
+  `addIfDifferent` for a co-author (never twice), `addIfDifferentNeighbor` for the sign-off (as `git commit -s`, which
+  adds it again when another trailer follows it). Without a usable git, `appendTrailer` does the simple cases (no
+  comment lines, `Key: value` trailers only).
+- **"Add Signed-off-by" in the ⋯ menu** (`CommitMessageHeader.signOff`, `SignOffItem`, `StatusAction.ToggleSignOff`):
+  a switch, checked while the repository's sign-off setting is on (`<git dir>/leaf`, per worktree, which the Actions
+  list's "Signoff config" dialog also edits with its format). It keeps the format. While it's on, the title row adds a
+  muted "· with Signed-off-by" after its other tag ("· amending last commit · with Signed-off-by"), as the line is
+  added when committing, out of the field's sight. Where the field can be edited, as Add co-author. Named as git's
+  `--signoff` describes it ("Add a Signed-off-by trailer"): the first label, "Sign off", read as an action and clashed
+  with the dialog's "Signoff" (chosen with the user, 2026-10-21).
+  - `StatusViewModelExtender.isSignOff` reads the setting with each status (a worktree switch changes it) and when it is
+    saved: `SaveSignOffConfigUseCase` (upstream, one line added) counts each save in the tab-scoped `SignOffChanges`, as
+    the dialog refreshes nothing and the file watcher ignores Leaf's `leaf` file.
+- **The sign-off joins the trailers** (upstream's `DoCommitUseCase`, changed 2026-10-21): it used to add
+  `"\n\n" + signature`, a paragraph of its own, which left the trailers before it, a `Co-authored-by` included, out of
+  the message's trailer block, where git hosts look. A signature that is a trailer line (`isTrailerLine`) now goes
+  through `IAddTrailerGitAction` with `addIfDifferentNeighbor`; any other format as before.
+- Tests: `CoAuthorsTest` (domain: candidates, the line, choices, picking, Enter, empty lines, `appendTrailer`),
+  `SaveSignOffConfigUseCaseTest` (domain: each save counts as a change),
+  `CoAuthorTrailersTest` (data: the sign-off of eight messages against `git commit -s -e` in a twin repository; the
+  repository's comment character; the two modes; "Add co-author"'s line against git, where picking someone gives what
+  `interpret-trailers` gives for them; the fallback without git), `CoAuthorSuggestionsTest` (app, rendered: the menu in
+  each state, Add Signed-off-by's check and the tag, focus, rows, keys and the highlight rule, Enter continuing and ending the
+  list, a tap, above the field, Esc's dismissal, the inserted line's focus, leaving the field, modifiers). The view model's own steps (the insertion through git, its revert, the focus after the menu) have no kept
+  test: `StatusViewModelExtender` needs the Dagger graph.
 
 **Rebasing a worktree onto the base (fork-only, Phase 3.5, `RebaseWorktreeDialog`, `WorktreeRebaseSteps.kt`):**
 "Rebase onto main…" follows the merge items in a worktree row's menu, for a worktree on a branch that is neither the
@@ -2204,7 +2273,7 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 before the views inside it and consumes the ones it matches. So a view's own Esc handler there never runs (upstream's
 `FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
 - Fork-only: that branch closes file history, then an expanded blame, then the last closeable view (`CloseableView`:
-  the diff and the searches, in the order they opened).
+  the diff, the searches and the commit field's co-author suggestions, in the order they opened).
 - Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
   while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
   back to the tab (fork-only), as closing the diff does. Selecting a file's diff, which minimizes blame, needs
@@ -2513,7 +2582,8 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     commit", checked while on (`amendMenuItems`). It is the amend switch of the state: `onAmendChecked` outside an
     operation, `onAmendRebaseInteractiveChecked` at an amendable rebase stop (`isAmenableRebaseInteractive`, where Amend is
     on at first, so the tag shows). Nothing to amend during a merge, a cherry-pick, a revert or at the rebase's other
-    stops: no menu. The checkbox under the field is gone (`UncommittedChangesButtons`, `RebasingButtons`), and the button
+    stops: no Amend there (since 2026-10-21 the menu still shows where the field can be edited, for "Add co-author",
+    see Co-authors; at a read-only stop it has none). The checkbox under the field is gone (`UncommittedChangesButtons`, `RebasingButtons`), and the button
     has the 8 dp above it that Merge's and the others have. It costs a click more than the checkbox did. Chosen with
     the user from three mockups (title row only, Amend in the row, Amend in a menu).
   - **The field** (`CommitMessageTextField`) is still Material's `TextField`, so undo, Cmd+Enter, the focus and the draft
