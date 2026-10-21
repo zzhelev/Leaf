@@ -45,6 +45,14 @@ import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.fileHistoryContextMenu
 import dev.app.leaf.ui.diff.DiffLoadFailure
+import dev.app.leaf.ui.diff.DiffViewMenu
+import dev.app.leaf.ui.diff.DiffViewOptions
+import dev.app.leaf.ui.diff.LocalShowWhitespace
+import dev.app.leaf.ui.diff.OnlyWhitespaceChanged
+import dev.app.leaf.ui.diff.WhitespaceIgnoredStrip
+import dev.app.leaf.ui.diff.WhitespaceViewOptions
+import dev.app.leaf.ui.diff.canIgnoreWhitespace
+import dev.app.leaf.ui.diff.toWhitespaceMode
 import dev.app.leaf.ui.diff.HunkSplitTextDiff
 import dev.app.leaf.ui.diff.HunkUnifiedTextDiff
 import dev.app.leaf.ui.getStyledErrorText
@@ -161,6 +169,8 @@ private fun HistoryContent(
     val textScrollState by historyViewModel.lazyListState.collectAsState()
     val viewDiffResult by historyViewModel.viewDiffResult.collectAsState()
     val selectedCommit by historyViewModel.selectedCommit.collectAsState()
+    val whitespaceMode by historyViewModel.diffWhitespace.collectAsState()
+    val showWhitespace by historyViewModel.diffShowWhitespace.collectAsState()
 
     when (historyState) {
         is HistoryState.Loaded -> HistoryContentLoaded(
@@ -171,6 +181,12 @@ private fun HistoryContent(
             onCommitSelected = onCommitSelected,
             onSelectAdjacentCommit = onSelectAdjacentCommit,
             onRestoreVersion = onRestoreVersion,
+            whitespace = WhitespaceViewOptions(
+                ignoreWhitespace = whitespaceMode.ignoresWhitespace,
+                showWhitespace = showWhitespace,
+                onIgnoreWhitespaceChanged = { historyViewModel.changeDiffWhitespace(it.toWhitespaceMode()) },
+                onShowWhitespaceChanged = { historyViewModel.changeDiffShowWhitespace(it) },
+            ),
         )
 
         is HistoryState.Loading -> Box { }
@@ -198,6 +214,8 @@ fun HistoryContentLoaded(
     onCommitSelected: (Commit) -> Unit,
     onSelectAdjacentCommit: (offset: Int) -> Unit,
     onRestoreVersion: ((Commit) -> Unit)? = null,
+    /** The View menu's whitespace switches, in the commit strip (fork-only). Null leaves the strip without it. */
+    whitespace: WhitespaceViewOptions? = null,
 ) {
     // Fork-only: the selected commit's row, kept in view when ↑ and ↓ select another
     val commitsListState = rememberLazyListState()
@@ -251,7 +269,29 @@ fun HistoryContentLoaded(
                     count = historyState.commits.count(),
                     onSelectAdjacentCommit = onSelectAdjacentCommit,
                     onShowInList = { scope.launch { commitsListState.showInMiddle(selectedPosition) } },
+                    viewMenu = whitespace?.let { options ->
+                        {
+                            DiffViewMenu(
+                                diffType = (viewDiffResult as? ViewDiffResult.Loaded)?.diffType,
+                                options = DiffViewOptions(options.ignoreWhitespace, options.showWhitespace, wrapLines = true),
+                                onIgnoreWhitespaceChanged = options.onIgnoreWhitespaceChanged,
+                                onShowWhitespaceChanged = options.onShowWhitespaceChanged,
+                                // The lines of file history always wrap
+                                onWrapLinesChanged = null,
+                            )
+                        }
+                    },
                 )
+            }
+
+            // Fork-only: says that lines are hidden
+            if (
+                whitespace?.ignoreWhitespace == true &&
+                viewDiffResult is ViewDiffResult.Loaded &&
+                viewDiffResult.diffResult is DiffResult.TextDiff &&
+                canIgnoreWhitespace(viewDiffResult.diffType)
+            ) {
+                WhitespaceIgnoredStrip(actionsOff = null, onShowThem = { whitespace.onIgnoreWhitespaceChanged(false) })
             }
 
             // Fork-only: says why the diff isn't there, as a file that a partial clone couldn't download
@@ -263,41 +303,48 @@ fun HistoryContentLoaded(
                 viewDiffResult != null &&
                 viewDiffResult is ViewDiffResult.Loaded
             ) {
-                when (val diffResult = viewDiffResult.diffResult) {
-                    is DiffResult.Text -> {
-                        HunkUnifiedTextDiff(
-                            diffType = viewDiffResult.diffType,
-                            scrollState = scrollState,
-                            diffResult = diffResult,
-                            canUseHunkActions = false,
-                            onUnstageHunk = { _, _ -> },
-                            onStageHunk = { _, _ -> },
-                            onResetHunk = { _, _ -> },
-                            onUnStageLine = { _, _, _ -> },
-                            onDiscardLine = { _, _, _ -> },
+                CompositionLocalProvider(LocalShowWhitespace provides (whitespace?.showWhitespace == true)) {
+                    when (val diffResult = viewDiffResult.diffResult) {
+                        // Fork-only: the diff hides the whitespace changes that are all there is
+                        is DiffResult.TextDiff if diffResult.onlyWhitespaceChanged -> OnlyWhitespaceChanged(
+                            onShowChanges = { whitespace?.onIgnoreWhitespaceChanged?.invoke(false) },
                         )
-                    }
 
-                    is DiffResult.TextSplit -> {
-                        HunkSplitTextDiff(
-                            diffType = viewDiffResult.diffType,
-                            scrollState = scrollState,
-                            diffResult = diffResult,
-                            canUseHunkActions = false,
-                            onUnstageHunk = { _, _ -> },
-                            onStageHunk = { _, _ -> },
-                            onResetHunk = { _, _ -> },
-                            onUnStageLine = { _, _, _ -> },
-                            onDiscardLine = { _, _, _ -> },
-                        )
-                    }
+                        is DiffResult.Text -> {
+                            HunkUnifiedTextDiff(
+                                diffType = viewDiffResult.diffType,
+                                scrollState = scrollState,
+                                diffResult = diffResult,
+                                canUseHunkActions = false,
+                                onUnstageHunk = { _, _ -> },
+                                onStageHunk = { _, _ -> },
+                                onResetHunk = { _, _ -> },
+                                onUnStageLine = { _, _, _ -> },
+                                onDiscardLine = { _, _, _ -> },
+                            )
+                        }
 
-                    else -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colors.background)
-                        )
+                        is DiffResult.TextSplit -> {
+                            HunkSplitTextDiff(
+                                diffType = viewDiffResult.diffType,
+                                scrollState = scrollState,
+                                diffResult = diffResult,
+                                canUseHunkActions = false,
+                                onUnstageHunk = { _, _ -> },
+                                onStageHunk = { _, _ -> },
+                                onResetHunk = { _, _ -> },
+                                onUnStageLine = { _, _, _ -> },
+                                onDiscardLine = { _, _, _ -> },
+                            )
+                        }
+
+                        else -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colors.background)
+                            )
+                        }
                     }
                 }
             } else {

@@ -13,6 +13,7 @@ import dev.app.leaf.domain.interfaces.IGenerateSplitHunkFromDiffResultGitAction
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.DiffType
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.ViewDiffResult
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.services.AppSettingsService
@@ -24,11 +25,16 @@ class GetDiffUseCase @Inject constructor(
     private val generateSplitHunkFromDiffResultGitAction: IGenerateSplitHunkFromDiffResultGitAction,
     private val repositoryDataRepository: RepositoryDataRepository,
 ) {
-    suspend operator fun invoke(diffType: DiffType, diffViewType: DiffTextViewType, isDisplayFullFile: Boolean): ViewDiffResult {
+    suspend operator fun invoke(
+        diffType: DiffType,
+        diffViewType: DiffTextViewType,
+        isDisplayFullFile: Boolean,
+        whitespace: DiffWhitespaceMode = DiffWhitespaceMode.DEFAULT,
+    ): ViewDiffResult {
         val repositoryPath = repositoryDataRepository.repositoryPath ?: return ViewDiffResult.None
 
         return try {
-            val diffFormat = when (val result = formatDiffGitAction(repositoryPath, diffType, isDisplayFullFile)) {
+            val diffFormat = when (val result = formatDiffGitAction(repositoryPath, diffType, isDisplayFullFile, whitespace)) {
                 is Either.Ok -> result.value
                 is Either.Err -> {
                     logDiffError(diffType, result.error)
@@ -51,7 +57,7 @@ class GetDiffUseCase @Inject constructor(
                 val splitHunkList = generateSplitHunkFromDiffResultGitAction(diffFormat)
                 ViewDiffResult.Loaded(
                     diffType,
-                    DiffResult.TextSplit(diffEntry, splitHunkList)
+                    DiffResult.TextSplit(diffEntry, splitHunkList, diffFormat.onlyWhitespaceChanged)
                 )
             } else {
                 ViewDiffResult.Loaded(diffType, diffFormat)

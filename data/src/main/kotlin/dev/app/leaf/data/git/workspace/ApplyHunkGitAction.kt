@@ -10,6 +10,7 @@ import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.HunkAction
 import dev.app.leaf.domain.errors.StaleHunkError
+import dev.app.leaf.domain.errors.WhitespaceIgnoredHunkError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.errors.raiseError
@@ -32,7 +33,8 @@ private val STALE_TARGET_MESSAGES = listOf(
  * Stages, unstages or discards the [selected][invoke] lines of a hunk, as `git add -p`, `git reset -p` and
  * `git checkout -p` do: `git apply` applies their patch ([hunkPatch]) to the index, reversed to the index, or reversed
  * to the working tree. git writes nothing when the index or the file no longer has the lines that the diff showed
- * ([StaleHunkError]).
+ * ([StaleHunkError]). A hunk of a diff that ignored whitespace is refused before git runs
+ * ([WhitespaceIgnoredHunkError]): the lines that it shows as context differ between the two versions.
  */
 class ApplyHunkGitAction @Inject constructor(
     private val jgit: JGit,
@@ -45,6 +47,10 @@ class ApplyHunkGitAction @Inject constructor(
         action: HunkAction,
         selected: (Line) -> Boolean,
     ): Either<Unit, GitError> = either {
+        if (hunk.ignoresWhitespace) {
+            raiseError(WhitespaceIgnoredHunkError(action, diffEntry.filePath))
+        }
+
         val patch = hunkPatch(diffEntry, hunk, reverse = action != HunkAction.Stage, selected)
             ?: return@either Either.Ok(Unit)
 

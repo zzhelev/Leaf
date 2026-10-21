@@ -3,6 +3,7 @@ package dev.app.leaf.domain.repositories
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.StatusSectionSizes
@@ -53,6 +54,9 @@ interface AppSettingsRepository {
     val diffWrapLines: Flow<Boolean?>
     val commitSubjectLengthHint: Flow<Boolean?>
     val commitMessageRuler: Flow<Int?>
+
+    val diffWhitespace: Flow<DiffWhitespaceMode?>
+    val diffShowWhitespace: Flow<Boolean?>
 
     // Network
     val cacheCredentialsInMemory: Flow<Boolean?>

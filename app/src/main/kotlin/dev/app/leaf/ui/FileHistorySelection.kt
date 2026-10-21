@@ -6,6 +6,8 @@ package dev.app.leaf.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -72,6 +74,8 @@ fun FileHistoryCommitStrip(
     count: Int,
     onSelectAdjacentCommit: (offset: Int) -> Unit,
     onShowInList: () -> Unit,
+    /** The diff's View menu (fork-only), as the diff pane's header has it. */
+    viewMenu: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -142,6 +146,11 @@ fun FileHistoryCommitStrip(
             enabled = position < count - 1,
             onClick = { onSelectAdjacentCommit(1) },
         )
+
+        viewMenu?.let {
+            Spacer(Modifier.width(8.dp))
+            it()
+        }
     }
 }
 

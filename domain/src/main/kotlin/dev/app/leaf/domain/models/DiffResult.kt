@@ -5,17 +5,23 @@ import org.eclipse.jgit.diff.DiffEntry
 sealed class DiffResult(
     val diffEntry: DiffEntry,
 ) {
-    sealed class TextDiff(diffEntry: DiffEntry) : DiffResult(diffEntry)
+    /**
+     * @param onlyWhitespaceChanged the diff ignores whitespace and found no other change in a file whose versions
+     * differ, so it has no hunks (fork-only).
+     */
+    sealed class TextDiff(diffEntry: DiffEntry, val onlyWhitespaceChanged: Boolean = false) : DiffResult(diffEntry)
 
     class Text(
         diffEntry: DiffEntry,
         val hunks: List<Hunk>,
-    ) : TextDiff(diffEntry)
+        onlyWhitespaceChanged: Boolean = false,
+    ) : TextDiff(diffEntry, onlyWhitespaceChanged)
 
     class TextSplit(
         diffEntry: DiffEntry,
         val hunks: List<SplitHunk>,
-    ) : TextDiff(diffEntry)
+        onlyWhitespaceChanged: Boolean = false,
+    ) : TextDiff(diffEntry, onlyWhitespaceChanged)
 
     class NonText(
         diffEntry: DiffEntry,

@@ -113,6 +113,9 @@ import dev.app.leaf.app.generated.resources.error_ssh_signing_unsupported
 import dev.app.leaf.app.generated.resources.error_stale_hunk_discard
 import dev.app.leaf.app.generated.resources.error_stale_hunk_stage
 import dev.app.leaf.app.generated.resources.error_stale_hunk_unstage
+import dev.app.leaf.app.generated.resources.error_whitespace_ignored_hunk_discard
+import dev.app.leaf.app.generated.resources.error_whitespace_ignored_hunk_stage
+import dev.app.leaf.app.generated.resources.error_whitespace_ignored_hunk_unstage
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.conflicts.formatFileSize
 import dev.app.leaf.domain.errors.*
@@ -165,6 +168,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
     is SshNeedsGitError -> if (reason == SshNeedsGitError.Reason.LfsPushWithoutGitLfs) listOf("git lfs install") else emptyList()
     is StaleHunkError -> listOf(path)
+    is WhitespaceIgnoredHunkError -> listOf(path)
     is IgnoreError.FileNotWritable -> listOf(path)
     is IgnoreError.GlobalListOverridden -> listOf(path)
     is ConflictError.NotConflicted -> paths
@@ -336,6 +340,12 @@ fun AppError.getErrorText(): String {
             }
 
             listOf(explanation, output).filter { it.isNotBlank() }.joinToString("\n\n")
+        }
+
+        is WhitespaceIgnoredHunkError -> when (action) {
+            HunkAction.Stage -> stringResource(Res.string.error_whitespace_ignored_hunk_stage, path)
+            HunkAction.Unstage -> stringResource(Res.string.error_whitespace_ignored_hunk_unstage, path)
+            HunkAction.Discard -> stringResource(Res.string.error_whitespace_ignored_hunk_discard, path)
         }
 
         is ConflictError -> when (this) {

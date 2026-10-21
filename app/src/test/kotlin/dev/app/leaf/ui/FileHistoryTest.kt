@@ -304,6 +304,8 @@ class FileHistoryTest {
             mockk<AppSettingsRepository> {
                 every { diffTextViewType } returns MutableStateFlow(DiffTextViewType.Unified)
                 every { diffDisplayFullFile } returns MutableStateFlow(false)
+                every { diffWhitespace } returns MutableStateFlow(null)
+                every { diffShowWhitespace } returns MutableStateFlow(null)
             }
         )
         val getWorktreePath = mockk<IGetWorktreePathGitAction> {

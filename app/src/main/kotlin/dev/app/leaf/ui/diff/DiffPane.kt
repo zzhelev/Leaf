@@ -113,11 +113,27 @@ fun DiffPane(
     /** Asks before a discard, which `onConfirm` runs. `onStopAsking` is the dialog's "Don't ask again". */
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit, onStopAsking: () -> Unit) -> Unit,
 ) {
+    // Fork-only: the lines mark their whitespace while the View menu says so
+    val showWhitespace by viewModel.diffShowWhitespace.collectAsState()
+
+    CompositionLocalProvider(LocalShowWhitespace provides showWhitespace) {
+        DiffPaneContent(viewModel, onCloseDiffView, onConfirmAction)
+    }
+}
+
+@Composable
+private fun DiffPaneContent(
+    viewModel: RepositoryOpenViewModel,
+    onCloseDiffView: () -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit, onStopAsking: () -> Unit) -> Unit,
+) {
     val diffResultState = viewModel.diffResult.collectAsState()
     val confirmDiscards by viewModel.confirmHunkAndLineDiscards.collectAsState()
     val textDiffType by viewModel.diffTypeFlow.collectAsState(DiffTextViewType.Unified)
     val isDisplayFullFile by viewModel.isDisplayFullFile.collectAsState(false)
     val wrapLines by viewModel.diffWrapLines.collectAsState()
+    val whitespaceMode by viewModel.diffWhitespace.collectAsState()
+    val showWhitespace by viewModel.diffShowWhitespace.collectAsState()
     val viewDiffResult = diffResultState.value ?: return
     val isRepositoryInSafeState by viewModel.isRepositoryInSafeState.collectAsState(false)
     val conflictSides by viewModel.conflictSides.collectAsState()
@@ -185,9 +201,26 @@ fun DiffPane(
                     onUnstageFile = { viewModel.unstageFile(it) },
                     onChangeDiffType = { viewModel.changeTextDiffType(it) },
                     onDisplayFullFile = { viewModel.changeDisplayFullFile(it) },
-                    wrapLines = wrapLines,
-                    onWrapLinesChanged = { viewModel.changeDiffWrapLines(it) },
+                    viewMenu = {
+                        DiffViewMenu(
+                            diffType = diffType,
+                            options = DiffViewOptions(whitespaceMode.ignoresWhitespace, showWhitespace, wrapLines),
+                            onIgnoreWhitespaceChanged = { viewModel.changeDiffWhitespace(it.toWhitespaceMode()) },
+                            onShowWhitespaceChanged = { viewModel.changeDiffShowWhitespace(it) },
+                            onWrapLinesChanged = { viewModel.changeDiffWrapLines(it) },
+                        )
+                    },
                 )
+
+                // Fork-only: says that lines are hidden, and why the hunks and lines have no buttons
+                val onlyWhitespaceChanged = diffResult is DiffResult.TextDiff && diffResult.onlyWhitespaceChanged
+
+                if (whitespaceMode.ignoresWhitespace && diffResult is DiffResult.TextDiff && canIgnoreWhitespace(diffType)) {
+                    WhitespaceIgnoredStrip(
+                        actionsOff = whitespaceActionsOffText(diffType),
+                        onShowThem = { viewModel.changeDiffWhitespace(DiffWhitespaceMode.SHOW_ALL) },
+                    )
+                }
 
                 // Fork-only: a file with conflicts gets a strip with the merge tool, ours and theirs, and what each is
                 if (diffType is DiffType.UncommittedDiff && diffType.statusEntry.conflict != null) {
@@ -209,11 +242,14 @@ fun DiffPane(
 
                 val scrollState by viewModel.lazyListState.collectAsState()
                 // Fork-only: a rename without changes has no hunks, which left the pane blank
-                val renamedWithoutChanges = diffResult.renamedWithoutChanges()
+                // (and for a diff that hides whitespace changes, it is the whitespace that changed)
+                val renamedWithoutChanges = if (onlyWhitespaceChanged) null else diffResult.renamedWithoutChanges()
                 // Fork-only: lines that don't wrap scroll sideways together, back to their start in another file
                 val sideways = remember(wrapLines, diffType.filePath) { if (wrapLines) null else SidewaysScroll() }
 
-                if (renamedWithoutChanges != null) {
+                if (onlyWhitespaceChanged) {
+                    OnlyWhitespaceChanged(onShowChanges = { viewModel.changeDiffWhitespace(DiffWhitespaceMode.SHOW_ALL) })
+                } else if (renamedWithoutChanges != null) {
                     RenamedWithoutChanges(renamedWithoutChanges)
                 } else when (diffResult) {
                     is DiffResult.TextSplit -> DiffLines(sideways, diffResult, lineTextStart(diffType)) {
@@ -576,7 +612,8 @@ fun HunkUnifiedTextDiff(
                             HunkHeader(
                                 header = hunk.header,
                                 diffType = diffType,
-                                canUseHunkActions = canUseHunkActions,
+                                // Fork-only: a hunk of a diff that ignored whitespace can't be applied as a patch
+                                canUseHunkActions = canUseHunkActions && !hunk.ignoresWhitespace,
                                 onUnstageHunk = { onUnstageHunk(diffResult.diffEntry, hunk) },
                                 onStageHunk = { onStageHunk(diffResult.diffEntry, hunk) },
                                 onResetHunk = { onResetHunk(diffResult.diffEntry, hunk) },
@@ -591,7 +628,7 @@ fun HunkUnifiedTextDiff(
 
                     items(hunk.lines) { line ->
                         // Fork-only: the line's buttons and its menu offer the same actions (DiffLineActions.kt)
-                        val actions = lineActions(line, diffType, canUseHunkActions)
+                        val actions = lineActions(line, diffType, canUseHunkActions && !hunk.ignoresWhitespace)
                         val onLineAction = { action: LineAction ->
                             if (action == LineAction.DISCARD) {
                                 onDiscardLine(diffResult.diffEntry, hunk, line)
@@ -659,7 +696,7 @@ fun HunkSplitTextDiff(
                             HunkHeader(
                                 header = splitHunk.sourceHunk.header,
                                 diffType = diffType,
-                                canUseHunkActions = canUseHunkActions,
+                                canUseHunkActions = canUseHunkActions && !splitHunk.sourceHunk.ignoresWhitespace,
                                 onUnstageHunk = { onUnstageHunk(diffResult.diffEntry, splitHunk.sourceHunk) },
                                 onStageHunk = { onStageHunk(diffResult.diffEntry, splitHunk.sourceHunk) },
                                 onResetHunk = { onResetHunk(diffResult.diffEntry, splitHunk.sourceHunk) },
@@ -680,7 +717,7 @@ fun HunkSplitTextDiff(
                             selectableSide = selectableSide,
                             diffType = diffType,
                             selectedText = selectedText,
-                            canUseLineActions = canUseHunkActions,
+                            canUseLineActions = canUseHunkActions && !splitHunk.sourceHunk.ignoresWhitespace,
                             onLineAction = { line, action ->
                                 if (action == LineAction.DISCARD) {
                                     onDiscardLine(diffResult.diffEntry, splitHunk.sourceHunk, line)
@@ -937,8 +974,8 @@ private fun DiffHeader(
     onUnstageFile: (StatusEntry) -> Unit,
     onChangeDiffType: (DiffTextViewType) -> Unit,
     onDisplayFullFile: (Boolean) -> Unit,
-    wrapLines: Boolean,
-    onWrapLinesChanged: (Boolean) -> Unit,
+    /** The View menu (fork-only), for any text diff: added and deleted files' lines can be long too. */
+    viewMenu: @Composable () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -1007,9 +1044,8 @@ private fun DiffHeader(
                 )
             }
 
-            // Fork-only: added and deleted files' lines can be long too
             if (isTextDiff) {
-                WrapLinesButton(wrapLines, onWrapLinesChanged)
+                viewMenu()
             }
 
             if (diffType is DiffType.UncommittedDiff) {
@@ -1041,8 +1077,6 @@ fun StateIcon(
     icon: DrawableResource,
     tooltip: String,
     isToggled: Boolean,
-    /** Whether a click on the toggled icon runs [onClick] too: a switch, rather than one of a pair (fork-only). */
-    togglesOff: Boolean = false,
     onClick: () -> Unit,
 ) {
     DelayedTooltip(tooltip) {
@@ -1055,7 +1089,7 @@ fun StateIcon(
                     else
                         this
                 }
-                .handMouseClickable { if (!isToggled || togglesOff) onClick() }
+                .handMouseClickable { if (!isToggled) onClick() }
                 .padding(4.dp)
         ) {
             Icon(
@@ -1338,16 +1372,21 @@ fun DiffText(
         )
     }
 
+    // Fork-only: marks of the spaces, tabs and line ending, drawn over the text while the View menu asks for them
+    val whitespace = rememberWhitespaceOverlay(line.diffs.map { it.text })
+
     Text(
         text = annotatedString,
         modifier = Modifier
             .padding(start = startPadding)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .then(whitespace?.modifier ?: Modifier),
         fontFamily = monoTypography(),
         style = MaterialTheme.typography.body2,
         color = MaterialTheme.colors.onBackground,
         overflow = TextOverflow.Visible,
         softWrap = true,
+        onTextLayout = whitespace?.onTextLayout ?: {},
     )
 }
 

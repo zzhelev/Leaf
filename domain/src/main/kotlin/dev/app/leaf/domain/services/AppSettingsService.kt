@@ -6,6 +6,7 @@ import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
@@ -108,6 +109,14 @@ class AppSettingsService @Inject constructor(
         get() = combine(commitSubjectLengthHint, commitMessageRuler) { subjectLength, rulerColumn ->
             CommitMessageHints(subjectLength, rulerColumn)
         }
+
+    /** How the diffs treat whitespace when they compare two versions of a file. */
+    val diffWhitespace: Flow<DiffWhitespaceMode>
+        get() = appSettingsRepository.diffWhitespace.defaultIfNull { DiffWhitespaceMode.DEFAULT }
+
+    /** Whether the diffs mark spaces, tabs and line endings. */
+    val diffShowWhitespace: Flow<Boolean>
+        get() = appSettingsRepository.diffShowWhitespace.defaultIfNull { false }
     val cacheCredentialsInMemory: Flow<Boolean> get() = appSettingsRepository.cacheCredentialsInMemory.defaultIfNull { DEFAULT_CACHE_CREDENTIALS_IN_MEMORY }
     val terminalPath: Flow<String?> get() = appSettingsRepository.terminalPath
 

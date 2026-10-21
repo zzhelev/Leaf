@@ -1,6 +1,7 @@
 package dev.app.leaf.domain.interfaces
 
 import dev.app.leaf.domain.models.DiffContent
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.treewalk.AbstractTreeIterator
@@ -11,5 +12,6 @@ interface IGetDiffContentGitAction {
         diffEntry: DiffEntry,
         oldTreeIterator: AbstractTreeIterator?,
         newTreeIterator: AbstractTreeIterator?,
+        whitespace: DiffWhitespaceMode = DiffWhitespaceMode.DEFAULT,
     ): DiffContent
 }

@@ -1,6 +1,8 @@
 package dev.app.leaf.viewmodels
 
 import dev.app.leaf.TabViewModel
+import dev.app.leaf.domain.diff.rowKeptAcross
+import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.isMissingObject
@@ -25,6 +27,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -79,6 +82,32 @@ class HistoryViewModel @Inject constructor(
                 }
             }
         }
+
+        // Fork-only: ignoring whitespace changes the diff itself, so the shown commit's diff is made again, where it was
+        viewModelScope.launch {
+            settings.diffWhitespace.distinctUntilChanged().collect { mode ->
+                val commit = selectedCommit.value
+
+                if (commit != null && filePath.isNotBlank() && mode != shownWhitespace) {
+                    selectCommit(commit, keepScroll = true)
+                }
+            }
+        }
+    }
+
+    /** The whitespace mode of the diff that was last loaded, which a change of the setting is compared with. */
+    private var shownWhitespace: DiffWhitespaceMode? = null
+
+    /** What the View menu in the commit strip shows and sets (fork-only), as the diff pane's does. */
+    val diffWhitespace: StateFlow<DiffWhitespaceMode> = settings.diffWhitespace.stateIn(DiffWhitespaceMode.DEFAULT)
+    val diffShowWhitespace: StateFlow<Boolean> = settings.diffShowWhitespace.stateIn(false)
+
+    fun changeDiffWhitespace(mode: DiffWhitespaceMode) {
+        viewModelScope.launch { settings.setConfiguration(AppConfig.DiffWhitespace(mode)) }
+    }
+
+    fun changeDiffShowWhitespace(show: Boolean) {
+        viewModelScope.launch { settings.setConfiguration(AppConfig.DiffShowWhitespace(show)) }
     }
 
     private fun updateDiffType(newDiffType: DiffTextViewType) {
@@ -91,14 +120,14 @@ class HistoryViewModel @Inject constructor(
                 val hunksList = generateSplitHunkFromDiffResultGitAction(diffResult)
                 _viewDiffResult.value = ViewDiffResult.Loaded(
                     diffType = viewDiffResult.diffType,
-                    diffResult = DiffResult.TextSplit(diffResult.diffEntry, hunksList)
+                    diffResult = DiffResult.TextSplit(diffResult.diffEntry, hunksList, diffResult.onlyWhitespaceChanged)
                 )
             } else if (diffResult is DiffResult.TextSplit && newDiffType == DiffTextViewType.Unified) { // Current is split and new is unified
                 val hunksList = diffResult.hunks.map { it.sourceHunk }
 
                 _viewDiffResult.value = ViewDiffResult.Loaded(
                     diffType = viewDiffResult.diffType,
-                    diffResult = DiffResult.Text(diffResult.diffEntry, hunksList)
+                    diffResult = DiffResult.Text(diffResult.diffEntry, hunksList, diffResult.onlyWhitespaceChanged)
                 )
             }
         }
@@ -166,7 +195,8 @@ class HistoryViewModel @Inject constructor(
         adjacentCommit(commits, selectedCommit.value, offset)?.let { selectCommit(it) }
     }
 
-    fun selectCommit(commit: Commit) {
+    /** [keepScroll]: the same commit's diff is made again (fork-only), so it stays where it was scrolled to. */
+    fun selectCommit(commit: Commit, keepScroll: Boolean = false) {
         _selectedCommit.value = commit
 
         // Fork-only: the arrow keys select commits faster than their diffs load, and the last one selected must be
@@ -197,11 +227,29 @@ class HistoryViewModel @Inject constructor(
                 }
 
                 val diffType = DiffType.CommitDiff(diffEntry)
-                val diffResult = getDiffUseCase(diffType, settings.diffTextViewType.first(), settings.diffDisplayFullFile.first())
+                val whitespace = settings.diffWhitespace.first()
+                val diffResult = getDiffUseCase(
+                    diffType,
+                    settings.diffTextViewType.first(),
+                    settings.diffDisplayFullFile.first(),
+                    whitespace,
+                )
                 // Fork-only: GetDiffUseCase turns a cancellation into DiffNotFound, which would blank the diff until the
                 // next commit's loads. And another commit's diff starts at its top, as in the diff pane
                 ensureActive()
-                lazyListState.value = newLazyListState()
+                shownWhitespace = whitespace
+
+                if (!keepScroll) {
+                    lazyListState.value = newLazyListState()
+                } else {
+                    // The line at the top of the list stays at the top, though the rows change
+                    val before = (viewDiffResult.value as? ViewDiffResult.Loaded)?.diffResult
+                    val after = (diffResult as? ViewDiffResult.Loaded)?.diffResult
+
+                    rowKeptAcross(before, lazyListState.value.firstVisibleItemIndex, after)
+                        ?.let { row -> lazyListState.value = newLazyListState(row) }
+                }
+
                 _viewDiffResult.value = diffResult
             } catch (ex: Exception) {
                 if (ex is CancellationException) {

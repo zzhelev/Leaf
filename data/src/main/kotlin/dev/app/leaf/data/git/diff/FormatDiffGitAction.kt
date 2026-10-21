@@ -13,6 +13,7 @@ import dev.app.leaf.domain.errors.UnsupportedIndexError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.interfaces.IFormatDiffGitAction
 import dev.app.leaf.domain.models.DiffResult
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.Hunk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
@@ -39,14 +40,16 @@ class FormatDiffGitAction @Inject constructor(
         repositoryPath: String,
         diffType: DiffType,
         isDisplayFullFile: Boolean,
+        whitespace: DiffWhitespaceMode,
     ) = partialClone.retryingMissing(repositoryPath, alsoNeeded = { diffType.blobIds() }) {
-        format(repositoryPath, diffType, isDisplayFullFile)
+        format(repositoryPath, diffType, isDisplayFullFile, whitespace)
     }
 
     private suspend fun format(
         repositoryPath: String,
         diffType: DiffType,
         isDisplayFullFile: Boolean,
+        whitespace: DiffWhitespaceMode,
     ) = jgit.provide(repositoryPath) { git ->
         val repository = git.repository
         // Fork-only: JGit lists submodules from the index, which it can't read when git wrote it split or sparse. A
@@ -74,7 +77,7 @@ class FormatDiffGitAction @Inject constructor(
                 newTree = null
             }
 
-            val diffContent = getDiffContentGitAction(repository, diffEntry, oldTree, newTree)
+            val diffContent = getDiffContentGitAction(repository, diffEntry, oldTree, newTree, whitespace)
             val fileHeader = diffContent.fileHeader
 
             val rawOld = diffContent.rawOld
@@ -89,12 +92,17 @@ class FormatDiffGitAction @Inject constructor(
 
                 // If we can, generate text diff (if one of the files has never been a binary file)
                 val hasGeneratedTextDiff = canGenerateTextDiffGitAction(rawOld, rawNew) { oldRawText, newRawText ->
-                    val hunks = formatHunksGitAction(fileHeader, oldRawText, newRawText, isDisplayFullFile)
+                    val hunks = formatHunksGitAction(fileHeader, oldRawText, newRawText, isDisplayFullFile, whitespace)
                     val hunksDiffed = diffHunksParts(hunks)
+                    // Fork-only: no hunk, though the versions differ: only whitespace changed
+                    val onlyWhitespaceChanged = whitespace.ignoresWhitespace &&
+                            hunks.isEmpty() &&
+                            !oldRawText.rawContent.contentEquals(newRawText.rawContent)
                     diffResult =
                         DiffResult.Text(
                             diffEntry,
                             hunksDiffed,
+                            onlyWhitespaceChanged,
                         )
                 }
 

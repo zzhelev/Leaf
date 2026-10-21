@@ -13,7 +13,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
@@ -114,26 +113,6 @@ class DiffWrapTest {
         runBlocking(Dispatchers.Swing) {
             checkSideways(split)
         }
-
-    @Test
-    fun `the header's button turns wrapping off, and on again`(): Unit = runBlocking(Dispatchers.Swing) {
-        for (wrap in listOf(true, false)) {
-            var changedTo: Boolean? = null
-            val scene = ImageComposeScene(width = 100, height = 100, density = Density(1f)) {
-                AppTheme { WrapLinesButton(wrap, onWrapLinesChanged = { changedTo = it }) }
-            }
-
-            try {
-                scene.render()
-                val button = scene.nodes().single { it.config.getOrNull(SemanticsActions.OnClick) != null }
-                checkNotNull(button.config[SemanticsActions.OnClick].action).invoke()
-
-                assertEquals(!wrap, changedTo, "wrap = $wrap")
-            } finally {
-                scene.close()
-            }
-        }
-    }
 
     private fun checkSideways(diff: DiffResult.TextDiff) {
         var wrap by mutableStateOf(true)

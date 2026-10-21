@@ -60,4 +60,10 @@ sealed interface AppConfig {
 
     /** The column of the commit field's ruler, 0 for none (fork-only). See [dev.app.leaf.domain.commitmessage.CommitMessageRuler]. */
     data class CommitMessageRuler(val column: Int) : AppConfig
+
+    /** Whether the diffs ignore whitespace when they compare two versions of a file (fork-only). */
+    data class DiffWhitespace(val value: DiffWhitespaceMode) : AppConfig
+
+    /** Whether the diffs mark spaces, tabs and line endings (fork-only). */
+    data class DiffShowWhitespace(val value: Boolean) : AppConfig
 }

@@ -2,6 +2,7 @@ package dev.app.leaf.data.git.diff
 
 import dev.app.leaf.domain.extensions.lineAt
 import dev.app.leaf.domain.interfaces.IFormatHunksGitAction
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
@@ -24,9 +25,10 @@ class FormatHunksGitAction @Inject constructor() : IFormatHunksGitAction {
         rawOld: RawText,
         rawNew: RawText,
         isDisplayFullFile: Boolean,
+        whitespace: DiffWhitespaceMode,
     ): List<Hunk> {
         return if (fileHeader.patchType == PatchType.UNIFIED)
-            format(fileHeader.toEditList(), rawOld, rawNew, isDisplayFullFile)
+            format(fileHeader.toEditList(), rawOld, rawNew, isDisplayFullFile, whitespace.ignoresWhitespace)
         else
             emptyList()
     }
@@ -36,6 +38,7 @@ class FormatHunksGitAction @Inject constructor() : IFormatHunksGitAction {
         oldRawText: RawText,
         newRawText: RawText,
         isDisplayFullFile: Boolean,
+        ignoresWhitespace: Boolean,
     ): List<Hunk> {
         var curIdx = 0
         val hunksList = mutableListOf<Hunk>()
@@ -71,7 +74,13 @@ class FormatHunksGitAction @Inject constructor() : IFormatHunksGitAction {
 
             while (oldCurrentLine < oldEndLine || newCurrentLine < newEndLine) {
                 if (oldCurrentLine < curEdit.beginA || endIdx + 1 < curIdx) {
-                    val lineText = oldRawText.lineAt(oldCurrentLine)
+                    // Fork-only: lines that only differ in whitespace are equal, so a context line has two texts. git
+                    // shows the new one, which is the file as it is now.
+                    val lineText = if (ignoresWhitespace) {
+                        newRawText.lineAt(newCurrentLine)
+                    } else {
+                        oldRawText.lineAt(oldCurrentLine)
+                    }
 
                     lines.add(Line(lineText, oldCurrentLine, newCurrentLine, LineType.CONTEXT))
 
@@ -96,7 +105,7 @@ class FormatHunksGitAction @Inject constructor() : IFormatHunksGitAction {
                 }
             }
 
-            hunksList.add(Hunk(headerText, lines, oldRawText, newRawText))
+            hunksList.add(Hunk(headerText, lines, oldRawText, newRawText, ignoresWhitespace))
         }
 
         return hunksList

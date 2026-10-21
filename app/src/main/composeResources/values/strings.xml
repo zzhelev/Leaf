@@ -189,6 +189,24 @@
     <string name="files_changed_renamed_from_similar">Renamed from %1$s (%2$s similar)</string>
     <string name="diff_renamed_unchanged">Renamed from %1$s. The content is unchanged.</string>
     <string name="diff_renamed_similar">%1$s similar</string>
+    <string name="diff_view_menu_tooltip">View options</string>
+    <string name="diff_view_menu_tooltip_active">View options (%1$s)</string>
+    <string name="diff_view_active_ignoring">ignoring whitespace</string>
+    <string name="diff_view_active_marking">showing whitespace characters</string>
+    <string name="diff_view_active_not_wrapping">lines not wrapped</string>
+    <string name="diff_view_ignore_whitespace">Ignore whitespace</string>
+    <string name="diff_view_ignore_whitespace_hint">Like git diff -w</string>
+    <string name="diff_view_show_whitespace">Show whitespace characters</string>
+    <string name="diff_view_show_whitespace_hint">Spaces, tabs and line endings</string>
+    <string name="diff_view_wrap_lines">Wrap long lines</string>
+    <string name="diff_view_wrap_lines_hint">Off: Shift and the wheel scroll sideways</string>
+    <string name="diff_whitespace_strip">Ignoring whitespace changes.</string>
+    <string name="diff_whitespace_strip_stage_off">Stage and discard are off.</string>
+    <string name="diff_whitespace_strip_unstage_off">Unstage is off.</string>
+    <string name="diff_whitespace_strip_show">Show them</string>
+    <string name="diff_only_whitespace_title">Only whitespace changed in this file</string>
+    <string name="diff_only_whitespace_body">The diff is hiding whitespace changes.</string>
+    <string name="diff_only_whitespace_show">Show whitespace changes</string>
 
     <!-- Uncommited changes view -->
     <string name="uncommited_changes_unstaged_title">Unstaged</string>
@@ -851,7 +869,6 @@
     <string name="settings_conflicts_wrap_subtitle">Wrap lines that don't fit their column in the built-in resolver. Turned off, each line stays on one row, and every column scrolls sideways together, as in Meld. The resolver's toolbar has the same switch, Wrap lines.</string>
     <string name="settings_layout_confirm_hunk_and_line_discards_title">Ask before discarding a hunk or a line</string>
     <string name="settings_layout_confirm_hunk_and_line_discards_subtitle">Discarding whole files always asks</string>
-    <string name="diff_wrap_lines_tooltip">Wrap long lines. Turned off, each line stays on one row, and the lines scroll sideways together: swipe sideways, use Shift and the wheel, or drag the scrollbar under the lines.</string>
     <string name="settings_layout_diff_wrap_title">Wrap long lines in diffs</string>
     <string name="settings_commits_subject_length_title">Subject length hint</string>
     <string name="settings_commits_subject_length_subtitle">Count the subject's characters past 50, and tint what goes past 72. Commit still works with a longer subject.</string>
@@ -859,7 +876,7 @@
     <string name="settings_commits_ruler_subtitle">A line at this column in the commit message, which then uses a monospace font. It shows when the pane is wide enough.</string>
     <string name="settings_commits_ruler_off">Off</string>
     <string name="settings_commits_ruler_column">Column %1$d</string>
-    <string name="settings_layout_diff_wrap_subtitle">Turned off, each line of a diff stays on one row, and the lines scroll sideways together. The diff's header has the same switch.</string>
+    <string name="settings_layout_diff_wrap_subtitle">Turned off, each line of a diff stays on one row, and the lines scroll sideways together. The diff's View menu has the same switch.</string>
     <string name="settings_remote_operations_with_git_subtitle">Push, fetch and pull with the git command, which follows your ssh config, credential helpers and hooks like a terminal. Turn it off to use Leaf's built-in implementation, which reaches HTTPS remotes but not SSH ones.</string>
 
     <!-- Notifications -->
@@ -951,6 +968,9 @@
     <string name="error_stale_hunk_stage">The staged version of %1$s changed after the diff was shown, so nothing was staged. The diff now shows the file as it is.</string>
     <string name="error_stale_hunk_unstage">The staged version of %1$s changed after the diff was shown, so nothing was unstaged. The diff now shows the file as it is.</string>
     <string name="error_stale_hunk_discard">%1$s changed after the diff was shown, so nothing was discarded. The diff now shows the file as it is.</string>
+    <string name="error_whitespace_ignored_hunk_stage">Nothing was staged: the diff of %1$s hides whitespace changes, so its hunks and lines can't be staged. Turn off Ignore whitespace in the diff's View menu and try again.</string>
+    <string name="error_whitespace_ignored_hunk_unstage">Nothing was unstaged: the diff of %1$s hides whitespace changes, so its hunks and lines can't be unstaged. Turn off Ignore whitespace in the diff's View menu and try again.</string>
+    <string name="error_whitespace_ignored_hunk_discard">Nothing was discarded: the diff of %1$s hides whitespace changes, so its hunks and lines can't be discarded. Turn off Ignore whitespace in the diff's View menu and try again.</string>
 
     <string name="error_conflict_not_conflicted">These files have no conflicts any more, so nothing was changed:\n\n%1$s</string>
     <string name="error_conflict_cant_discard">These files have conflicts, so nothing was discarded:\n\n%1$s\n\nUse ours or Use theirs resolves a file with one side's version, and the merge tool lets you combine them.</string>

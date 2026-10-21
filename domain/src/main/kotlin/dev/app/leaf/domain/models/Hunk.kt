@@ -5,12 +5,16 @@ import org.eclipse.jgit.diff.RawText
 /**
  * @param oldText the old side of the diff that the hunk is part of, and [newText] its new side. The hunk and line
  * actions take the bytes of their patches from them: [Line.text] is decoded, and can't give the bytes back.
+ * @param ignoresWhitespace the diff was made without the changes that are only whitespace (fork-only). Its context
+ * lines may then differ between the two versions, which a patch that applies to either one can't take: the hunk and
+ * line actions refuse such a hunk.
  */
 data class Hunk(
     val header: String,
     val lines: List<Line>,
     val oldText: RawText,
     val newText: RawText,
+    val ignoresWhitespace: Boolean = false,
 )
 
 data class SplitHunk(val sourceHunk: Hunk, val lines: List<Pair<Line?, Line?>>)

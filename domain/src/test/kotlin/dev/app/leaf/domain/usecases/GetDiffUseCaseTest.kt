@@ -11,6 +11,7 @@ import dev.app.leaf.domain.interfaces.IGenerateSplitHunkFromDiffResultGitAction
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.DiffType
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
@@ -87,6 +88,39 @@ class GetDiffUseCaseTest {
         val result = getDiff(diffType, DiffTextViewType.Unified, false)
 
         assertEquals(ViewDiffResult.Loaded(diffType, text), result)
+    }
+
+    @Test
+    fun `the whitespace mode goes to the format action, and the default shows every change`(): Unit = runBlocking {
+        val ignored = DiffResult.Text(modifiedEntry("src/a.txt"), emptyList(), onlyWhitespaceChanged = true)
+        val shown = DiffResult.Text(modifiedEntry("src/a.txt"), emptyList())
+        coEvery { formatDiff(REPOSITORY_PATH, diffType, false, DiffWhitespaceMode.IGNORE_ALL) } returns Either.Ok(ignored)
+        coEvery { formatDiff(REPOSITORY_PATH, diffType, false, DiffWhitespaceMode.SHOW_ALL) } returns Either.Ok(shown)
+
+        assertEquals(
+            ViewDiffResult.Loaded(diffType, ignored),
+            getDiff(diffType, DiffTextViewType.Unified, false, DiffWhitespaceMode.IGNORE_ALL),
+        )
+        assertEquals(ViewDiffResult.Loaded(diffType, shown), getDiff(diffType, DiffTextViewType.Unified, false))
+    }
+
+    @Test
+    fun `a split diff keeps what the format action said about whitespace`(): Unit = runBlocking {
+        val split = mockk<IGenerateSplitHunkFromDiffResultGitAction> {
+            every { this@mockk(any()) } returns emptyList()
+        }
+        val text = DiffResult.Text(modifiedEntry("src/a.txt"), emptyList(), onlyWhitespaceChanged = true)
+        coEvery { formatDiff(REPOSITORY_PATH, diffType, false, DiffWhitespaceMode.IGNORE_ALL) } returns Either.Ok(text)
+
+        val result = GetDiffUseCase(formatDiff, split, repositoryData)(
+            diffType,
+            DiffTextViewType.Split,
+            false,
+            DiffWhitespaceMode.IGNORE_ALL,
+        )
+
+        val diff = (result as ViewDiffResult.Loaded).diffResult
+        assertEquals(true, (diff as DiffResult.TextSplit).onlyWhitespaceChanged)
     }
 
     private class Output(val stdout: String, val stderr: String) {

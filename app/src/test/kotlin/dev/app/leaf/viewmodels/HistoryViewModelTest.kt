@@ -21,6 +21,10 @@ import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.DiffType
+import dev.app.leaf.domain.models.DiffWhitespaceMode
+import dev.app.leaf.domain.models.Hunk
+import dev.app.leaf.domain.models.Line
+import dev.app.leaf.domain.models.LineType
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.ViewDiffResult
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -48,6 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.eclipse.jgit.diff.DiffEntry
+import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.lib.AbbreviatedObjectId
 import org.eclipse.jgit.lib.ObjectId
 import org.junit.jupiter.api.AfterEach
@@ -62,12 +67,18 @@ private const val FILE = "src/App.kt"
 
 class HistoryViewModelTest {
     private val diffTextViewType = MutableStateFlow<DiffTextViewType?>(DiffTextViewType.Unified)
+    private val diffWhitespace = MutableStateFlow<DiffWhitespaceMode?>(null)
     private val settings = AppSettingsService(
         mockk<AppSettingsRepository> {
             every { diffTextViewType } returns this@HistoryViewModelTest.diffTextViewType
             every { diffDisplayFullFile } returns MutableStateFlow(false)
+            every { diffWhitespace } returns this@HistoryViewModelTest.diffWhitespace
+            every { diffShowWhitespace } returns MutableStateFlow(null)
         }
     )
+
+    /** The whitespace mode that each diff was asked for in. */
+    private val askedModes = mutableListOf<DiffWhitespaceMode>()
 
     /** The tab, which stays open while file histories are opened and closed. */
     private val tabScope = TabCoroutineScope()
@@ -123,12 +134,32 @@ class HistoryViewModelTest {
         }
     }
 
-    private val formatDiff = mockk<IFormatDiffGitAction> {
-        coEvery { this@mockk(any(), any(), any()) } coAnswers {
-            val diffType = secondArg<DiffType.CommitDiff>()
-            formatTimes[diffType.diffEntry.newId.name()]?.let { delay(it) }
+    /** Whether the diffs have rows to scroll to: 100 lines when whitespace shows, 20 from line 40 when it's ignored. */
+    private var withRows = false
 
-            Either.Ok(DiffResult.Text(diffType.diffEntry, emptyList()))
+    private val formatDiff = mockk<IFormatDiffGitAction> {
+        coEvery { this@mockk(any(), any(), any(), any()) } coAnswers {
+            val diffType = secondArg<DiffType.CommitDiff>()
+            val mode = arg<DiffWhitespaceMode>(3)
+            formatTimes[diffType.diffEntry.newId.name()]?.let { delay(it) }
+            askedModes += mode
+
+            val hunks = if (!withRows) {
+                emptyList()
+            } else {
+                val lines = if (mode.ignoresWhitespace) 40 until 60 else 0 until 100
+                listOf(
+                    Hunk(
+                        "@@",
+                        lines.map { Line("line $it\n", it, it, LineType.CONTEXT) },
+                        RawText.EMPTY_TEXT,
+                        RawText.EMPTY_TEXT,
+                        mode.ignoresWhitespace,
+                    )
+                )
+            }
+
+            Either.Ok(DiffResult.Text(diffType.diffEntry, hunks))
         }
     }
 
@@ -262,6 +293,66 @@ class HistoryViewModelTest {
 
         viewModel.onClear()
     }
+
+    @Test
+    fun `ignoring whitespace makes the shown commit's diff again in that mode`(): Unit = runBlocking {
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+        viewModel.awaitDiffOf(commits[0])
+        assertEquals(listOf(DiffWhitespaceMode.SHOW_ALL), askedModes)
+
+        diffWhitespace.value = DiffWhitespaceMode.IGNORE_ALL
+
+        withTimeout(5.seconds) { while (askedModes.size < 2) delay(10) }
+        assertEquals(listOf(DiffWhitespaceMode.SHOW_ALL, DiffWhitespaceMode.IGNORE_ALL), askedModes)
+        assertEquals(commits[0], viewModel.selectedCommit.value)
+
+        // A setting that is written again with the same value doesn't load it again
+        diffWhitespace.value = DiffWhitespaceMode.IGNORE_ALL
+        delay(200)
+        assertEquals(2, askedModes.size)
+
+        // Unset is the default, show everything
+        diffWhitespace.value = null
+        withTimeout(5.seconds) { while (askedModes.size < 3) delay(10) }
+        assertEquals(DiffWhitespaceMode.SHOW_ALL, askedModes.last())
+
+        // The next commit's diff is made in the mode that is set
+        diffWhitespace.value = DiffWhitespaceMode.IGNORE_ALL
+        withTimeout(5.seconds) { while (askedModes.size < 4) delay(10) }
+        viewModel.selectCommit(commits[1])
+        viewModel.awaitDiffOf(commits[1])
+        withTimeout(5.seconds) { while (askedModes.size < 5) delay(10) }
+        assertEquals(DiffWhitespaceMode.IGNORE_ALL, askedModes.last())
+
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `turning the mode keeps the line at the top of the list, not its row`(): Unit = runBlocking {
+        withRows = true
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+        viewModel.awaitDiffOf(commits[0])
+        // Row 51 is line 50 of 100: a header, then a row for each line
+        viewModel.lazyListState.value = LazyListState(firstVisibleItemIndex = 51)
+
+        diffWhitespace.value = DiffWhitespaceMode.IGNORE_ALL
+        withTimeout(5.seconds) { viewModel.viewDiffResult.first { it.hasIgnoredHunks() } }
+
+        // The ignored diff's rows: a header at line 40, then lines 40 to 59, so line 50 is at row 11
+        assertEquals(11, viewModel.lazyListState.value.firstVisibleItemIndex)
+
+        // Another commit starts at its top, as it did
+        viewModel.selectCommit(commits[1])
+        viewModel.awaitDiffOf(commits[1])
+        assertEquals(0, viewModel.lazyListState.value.firstVisibleItemIndex)
+
+        viewModel.onClear()
+    }
+
+    private fun ViewDiffResult.hasIgnoredHunks() =
+        ((this as? ViewDiffResult.Loaded)?.diffResult as? DiffResult.Text)?.hunks?.any { it.ignoresWhitespace } == true
 
     @Test
     fun `the file can be restored where the repository has a working tree`(): Unit = runBlocking {

@@ -7,7 +7,9 @@ import dev.app.leaf.app.generated.resources.merge_automatic_stash_description
 import dev.app.leaf.app.generated.resources.pull_with_merge_automatic_stash_description
 import dev.app.leaf.app.generated.resources.pull_with_merge_from_specific_branch_automatic_stash_description
 import dev.app.leaf.collectLatestInViewModel
+import dev.app.leaf.common.flows.combine
 import dev.app.leaf.common.flows.invert
+import dev.app.leaf.domain.diff.rowKeptAcross
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.AppStateManager
@@ -1508,15 +1510,19 @@ class RepositoryOpenViewModel @Inject constructor(
         diffRetries.tryEmit(Unit)
     }
 
+    // Fork-only: the setting is read again whenever any setting is written, which would load the diff again
+    val diffWhitespace: StateFlow<DiffWhitespaceMode> = settings.diffWhitespace.stateIn(DiffWhitespaceMode.DEFAULT)
+
     val diffResult: StateFlow<ViewDiffResult?> = combine(
         diffSelected,
         refreshDiffFlow,
-        diffTypeFlow,
-        isDisplayFullFile,
+        diffTypeFlow.distinctUntilChanged(),
+        isDisplayFullFile.distinctUntilChanged(),
         diffRefreshTrigger,
-    ) { diffSelected, _, diffType, isDisplayFullFile, _ ->
+        settings.diffWhitespace.distinctUntilChanged(),
+    ) { diffSelected, _, diffType, isDisplayFullFile, _, whitespace ->
         if (diffSelected?.entries?.count() == 1) {
-            val diff = loadDiff(diffSelected.entries.first(), diffType, isDisplayFullFile)
+            val diff = loadDiff(diffSelected.entries.first(), diffType, isDisplayFullFile, whitespace)
 
             // Fork-only: Esc closes a diff that couldn't be loaded too
             if (diff is ViewDiffResult.Failed) {
@@ -1531,7 +1537,14 @@ class RepositoryOpenViewModel @Inject constructor(
                 if (diff.diffType != lazyListStateDiffType) {
                     lazyListStateDiffType = diff.diffType
                     lazyListState.value = newLazyListState()
+                } else if (whitespace != loadedWithWhitespace) {
+                    // Fork-only: ignoring whitespace gives the list other rows, so the line at its top is kept, not its row
+                    rowKeptAcross(lastLoadedDiff?.diffResult, lazyListState.value.firstVisibleItemIndex, diff.diffResult)
+                        ?.let { row -> lazyListState.value = newLazyListState(row) }
                 }
+
+                lastLoadedDiff = diff
+                loadedWithWhitespace = whitespace
             }
 
             diff
@@ -1545,6 +1558,10 @@ class RepositoryOpenViewModel @Inject constructor(
 
     private var diffJob: Job? = null
 
+    /** The diff that is shown, and the whitespace mode that it was made with. */
+    private var lastLoadedDiff: ViewDiffResult.Loaded? = null
+    private var loadedWithWhitespace: DiffWhitespaceMode? = null
+
     // Fork-only: made through newLazyListState, as diffResult replaces it off the UI thread
     val lazyListState = MutableStateFlow(newLazyListState())
 
@@ -1554,9 +1571,10 @@ class RepositoryOpenViewModel @Inject constructor(
     private suspend fun loadDiff(
         diffType: DiffType,
         diffTextType: DiffTextViewType,
-        isDisplayFullFile: Boolean
+        isDisplayFullFile: Boolean,
+        whitespace: DiffWhitespaceMode,
     ): ViewDiffResult {
-        return getDiffUseCase(diffType, diffTextType, isDisplayFullFile)
+        return getDiffUseCase(diffType, diffTextType, isDisplayFullFile, whitespace)
     }
 
     fun stageHunk(diffEntry: DiffEntry, hunk: Hunk) = stageHunkUseCase(diffEntry, hunk)
@@ -1586,6 +1604,17 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun changeDiffWrapLines(wrap: Boolean) = tabScope.launch {
         settings.setConfiguration(AppConfig.DiffWrapLines(wrap))
+    }
+
+    /** Whether the diffs mark spaces, tabs and line endings (fork-only). */
+    val diffShowWhitespace: StateFlow<Boolean> = settings.diffShowWhitespace.stateIn(false)
+
+    fun changeDiffWhitespace(mode: DiffWhitespaceMode) = tabScope.launch {
+        settings.setConfiguration(AppConfig.DiffWhitespace(mode))
+    }
+
+    fun changeDiffShowWhitespace(show: Boolean) = tabScope.launch {
+        settings.setConfiguration(AppConfig.DiffShowWhitespace(show))
     }
 
     fun stageHunkLine(entry: DiffEntry, hunk: Hunk, line: Line) = stageHunkLineUseCase(entry, hunk, line)

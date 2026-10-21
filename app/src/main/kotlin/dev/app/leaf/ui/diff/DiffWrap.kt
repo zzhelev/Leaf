@@ -17,9 +17,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.app.leaf.app.generated.resources.Res
-import dev.app.leaf.app.generated.resources.diff_wrap_lines_tooltip
-import dev.app.leaf.app.generated.resources.wrap_text
 import dev.app.leaf.domain.extensions.removeLineDelimiters
 import dev.app.leaf.domain.extensions.replaceTabs
 import dev.app.leaf.domain.models.DiffResult
@@ -31,7 +28,6 @@ import dev.app.leaf.ui.components.SidewaysEndMargin
 import dev.app.leaf.ui.components.SidewaysScroll
 import dev.app.leaf.ui.components.SidewaysScrollbar
 import dev.app.leaf.ui.components.scrollsSideways
-import org.jetbrains.compose.resources.stringResource
 import kotlin.math.max
 
 /** The room that [LineNumber] adds around its digits: 8 dp before and 4 after. */
@@ -39,18 +35,6 @@ private val LineNumberPadding = 12.dp
 
 /** The gap between the two sides of a split diff, as [SplitDiffLine] lays it out. */
 private val SplitGap = 4.dp
-
-/** The header's switch: wrap long lines, or keep each on one row and scroll them sideways. */
-@Composable
-fun WrapLinesButton(wrapLines: Boolean, onWrapLinesChanged: (Boolean) -> Unit) {
-    StateIcon(
-        icon = Res.drawable.wrap_text,
-        tooltip = stringResource(Res.string.diff_wrap_lines_tooltip),
-        isToggled = wrapLines,
-        togglesOff = true,
-        onClick = { onWrapLinesChanged(!wrapLines) },
-    )
-}
 
 /**
  * The lines of [diffResult]: wrapped while [sideways] is null, or each on one row, scrolled sideways together with Shift

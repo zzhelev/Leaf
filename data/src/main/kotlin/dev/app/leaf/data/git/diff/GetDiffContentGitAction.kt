@@ -5,8 +5,10 @@ import dev.app.leaf.domain.models.EntryContent
 import dev.app.leaf.data.git.RawFileManager
 import dev.app.leaf.domain.interfaces.IGetDiffContentGitAction
 import dev.app.leaf.domain.models.DiffContent
+import dev.app.leaf.domain.models.DiffWhitespaceMode
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.diff.DiffFormatter
+import org.eclipse.jgit.diff.RawTextComparator
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.treewalk.AbstractTreeIterator
 import org.eclipse.jgit.treewalk.filter.PathFilter
@@ -22,12 +24,15 @@ class GetDiffContentGitAction @Inject constructor(
         diffEntry: DiffEntry,
         oldTreeIterator: AbstractTreeIterator?,
         newTreeIterator: AbstractTreeIterator?,
+        whitespace: DiffWhitespaceMode,
     ): DiffContent {
         val outputStream = ByteArrayOutputStream() // Dummy output stream used for the diff formatter
         outputStream.use {
             val diffFormatter = DiffFormatter(outputStream).apply {
                 setRepository(repository)
                 pathFilter = PathFilter.create(diffEntry.filePath)
+                // Fork-only: which lines count as equal, so that the edits leave out the ones that only differ in whitespace
+                setDiffComparator(whitespace.comparator())
             }
 
             if (oldTreeIterator != null && newTreeIterator != null) {
@@ -57,4 +62,13 @@ class GetDiffContentGitAction @Inject constructor(
             return DiffContent(fileHeader, rawOld, rawNew)
         }
     }
+}
+
+/**
+ * What JGit compares lines with. [DiffWhitespaceMode.IGNORE_ALL] is `git diff -w`: the edits that JGit finds match
+ * git's on every pair that `GetDiffWhitespaceTest` compares.
+ */
+internal fun DiffWhitespaceMode.comparator(): RawTextComparator = when (this) {
+    DiffWhitespaceMode.SHOW_ALL -> RawTextComparator.DEFAULT
+    DiffWhitespaceMode.IGNORE_ALL -> RawTextComparator.WS_IGNORE_ALL
 }
