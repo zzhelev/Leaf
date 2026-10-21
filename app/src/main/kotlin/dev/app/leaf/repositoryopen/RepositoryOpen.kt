@@ -30,6 +30,7 @@ import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.ui.*
+import dev.app.leaf.ui.compare.ComparisonFullView
 import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
@@ -48,8 +49,10 @@ import dev.app.leaf.domain.refresh.WatchUsage
 import dev.app.leaf.updates.Update
 import dev.app.leaf.viewmodels.ConflictResolverViewModel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -276,6 +279,16 @@ fun RepositoryOpenPage(
         }
     }
 
+    // Fork-only: so does a comparison's full view, which closes with Esc, its buttons, or the comparison's end
+    LaunchedEffect(repositoryOpenViewModel) {
+        repositoryOpenViewModel.comparisonState
+            .map { it?.isFullView == true }
+            .distinctUntilChanged()
+            .drop(1)
+            .filter { !it }
+            .collect { focusRequester.requestFocus() }
+    }
+
     LaunchedEffect(repositoryOpenViewModel) {
         repositoryOpenViewModel.fastForwardOffers.collect { offer ->
             onNavigate(
@@ -338,10 +351,21 @@ fun RepoContent(
     onNavigate: (Screen) -> Unit,
 ) {
     val conflictResolverViewModel = repositoryOpenViewModel.conflictResolverViewModel
+    val comparisonState by repositoryOpenViewModel.comparisonState.collectAsState()
+    val comparisonFullView = comparisonState?.takeIf { it.isFullView }
 
     if (showConflictResolver && conflictResolverViewModel != null) {
         // Fork-only: the built-in conflict resolver takes the whole tab, as file history does
         ConflictResolver(viewModel = conflictResolverViewModel)
+    } else if (comparisonFullView != null) {
+        // Fork-only: so does a comparison's full view (docs/fork/compare.md)
+        ComparisonFullView(
+            viewModel = repositoryOpenViewModel,
+            state = comparisonFullView,
+            onConfirmAction = { action, onConfirm, onStopAsking ->
+                onNavigate(Screen.ConfirmAction(action, onConfirm, onStopAsking))
+            },
+        )
     } else if (showHistory) {
         val historyViewModel = repositoryOpenViewModel.historyViewModel
 

@@ -620,7 +620,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.COMMIT_CHANGES_SEARCH -> commitChangesViewModelExtender.searchFilterToggled(false)
 
                 CloseableView.COMPARISON -> comparisonViewModelExtender.end()
-                CloseableView.COMPARISON_FULL_VIEW -> comparisonViewModelExtender.leaveFullView()
+                CloseableView.COMPARISON_FULL_VIEW -> leaveComparisonFullView()
 
                 CloseableView.COMMIT_FIELD_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
 
@@ -650,6 +650,11 @@ class RepositoryOpenViewModel @Inject constructor(
             if (state is RepositorySelectionState.Open) {
                 loadRefFolderExpansionUseCase().okOrNull()?.let { refFolderExpansion.value = it }
             }
+        }
+
+        // Fork-only: a comparison that ends takes its file's diff with it, which would stay over the log
+        comparisonState.map { it != null }.distinctUntilChanged().drop(1).filter { !it }.collectLatestInViewModel {
+            clearComparisonDiff()
         }
 
         // Fork-only: closes what showed the files of the worktree that the tab switched away from
@@ -800,12 +805,31 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
+    /** Goes back from a comparison's full view to the log, without the diff that the full view showed (fork-only). */
+    private fun leaveComparisonFullView() {
+        comparisonViewModelExtender.leaveFullView()
+        clearComparisonDiff()
+    }
+
+    /** Closes a comparison's diff, and its place among the views that Esc closes, which an extra Esc would close. */
+    private fun clearComparisonDiff() {
+        if (diffSelected.value is DiffSelected.CommitedChanges) {
+            diffSelected.value = null
+            removeCloseableView(CloseableView.DIFF)
+        }
+    }
+
     /** Shows what [worktree]'s branch would bring into the base, in place of Files changed (fork-only). */
     fun reviewWorktree(worktree: Worktree) {
         comparisonViewModelExtender.openReview(worktree, worktreesState.value.baseBranch)
     }
 
     fun onAction(action: ComparisonAction) {
+        if (action == ComparisonAction.LeaveFullView) {
+            leaveComparisonFullView()
+            return
+        }
+
         val review = comparisonState.value?.review
 
         // Another worktree's uncommitted changes show once the tab has switched to it

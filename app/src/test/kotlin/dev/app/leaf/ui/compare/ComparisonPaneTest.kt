@@ -169,14 +169,15 @@ class ComparisonPaneTest {
     }
 
     @Test
-    fun `swap and end are the header's buttons`() {
+    fun `swap, the full view and end are the header's buttons`() {
         state = state(DIVERGED, SINCE_SPLIT)
         render()
 
         click(described("Swap A and B").center())
+        click(described("Open the full view").center())
         click(described("End the comparison (Esc)").center())
 
-        assertEquals(listOf(ComparisonAction.Swap, ComparisonAction.End), actions)
+        assertEquals(listOf(ComparisonAction.Swap, ComparisonAction.OpenFullView(), ComparisonAction.End), actions)
     }
 
     @Test
@@ -281,13 +282,13 @@ class ComparisonPaneTest {
     }
 
     @Test
-    fun `a file opens its diff, and a commit's menu selects it in the log or copies its hash`() {
+    fun `a file opens the full view at it, and a commit's menu selects it in the log or copies its hash`() {
         state = state(DIVERGED, SINCE_SPLIT)
         render()
 
         click(node("CloneDialog.kt").center())
 
-        assertEquals("app/src/main/kotlin/dev/app/leaf/ui/dialogs/CloneDialog.kt", (actions.single() as ComparisonAction.SelectEntry).entry.newPath)
+        assertEquals("app/src/main/kotlin/dev/app/leaf/ui/dialogs/CloneDialog.kt", (actions.single() as ComparisonAction.OpenFullView).entry!!.newPath)
 
         rightClick(node("List remote refs with git ls-remote").center())
         click(node("Select in the log").center())

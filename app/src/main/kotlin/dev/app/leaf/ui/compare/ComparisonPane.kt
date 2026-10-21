@@ -76,6 +76,7 @@ import dev.app.leaf.ui.dialogs.DialogWarning
 import dev.app.leaf.ui.getErrorText
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
+import org.eclipse.jgit.diff.DiffEntry
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -186,7 +187,14 @@ internal fun ComparisonPaneView(
                     if (comparison.changes.isEmpty()) {
                         PaneNote(noChangesText(state))
                     } else {
-                        ChangedFiles(state, diffSelected, listStates.files, onAction, Modifier.weight(1f))
+                        ChangedFiles(
+                            state = state,
+                            diffSelected = diffSelected,
+                            listState = listStates.files,
+                            onOpen = { onAction(ComparisonAction.OpenFullView(it)) },
+                            onAction = onAction,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
             }
@@ -223,6 +231,12 @@ private fun ComparisonHeader(state: ComparisonState, onAction: (ComparisonAction
         )
 
         HeaderButton(
+            icon = Res.drawable.fullscreen,
+            description = stringResource(Res.string.compare_open_full_view),
+            onClick = { onAction(ComparisonAction.OpenFullView()) },
+        )
+
+        HeaderButton(
             icon = Res.drawable.close,
             description = stringResource(Res.string.compare_end),
             onClick = { onAction(ComparisonAction.End) },
@@ -232,7 +246,7 @@ private fun ComparisonHeader(state: ComparisonState, onAction: (ComparisonAction
 
 /** A side's letter, its name and the commit it's at, which a side named by its commit doesn't repeat. */
 @Composable
-private fun SideLine(letter: CompareLetter, side: CompareSide, commit: String) {
+internal fun SideLine(letter: CompareLetter, side: CompareSide, commit: String) {
     Row(
         // Read as one: "A main 5d5537f"
         modifier = Modifier.semantics(mergeDescendants = true) {},
@@ -265,7 +279,7 @@ private fun SideLine(letter: CompareLetter, side: CompareSide, commit: String) {
 }
 
 @Composable
-private fun HeaderButton(
+internal fun HeaderButton(
     icon: DrawableResource,
     description: String,
     onClick: () -> Unit,
@@ -296,41 +310,50 @@ private fun HeaderButton(
  */
 @Composable
 private fun ModeOrNote(state: ComparisonState, onAction: (ComparisonAction) -> Unit) {
-    val comparison = state.comparison ?: return
+    val line = comparisonLine(state) ?: return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        if (state.showsModeSwitch) {
+            ModeSwitch(state.mode, onSelect = { onAction(ComparisonAction.SetMode(it)) })
+        }
+
+        Text(
+            text = line,
+            style = MaterialTheme.typography.caption,
+            color = MaterialTheme.colors.onBackgroundSecondary,
+        )
+    }
+}
+
+/** What the shown mode leaves out, for sides that diverged, or else how the two histories meet. */
+@Composable
+internal fun comparisonLine(state: ComparisonState): String? {
+    val comparison = state.comparison ?: return null
     val a = state.aName
     val b = state.bName
 
-    if (state.showsModeSwitch) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            ModeSwitch(state.mode, onSelect = { onAction(ComparisonAction.SetMode(it)) })
+    return if (state.showsModeSwitch) {
+        val newer = comparison.countOnlyInA
 
-            val newer = comparison.countOnlyInA
-            val line = when (state.mode) {
-                ComparisonMode.SINCE_SPLIT -> pluralStringResource(
-                    Res.plurals.compare_mode_since_split_line,
-                    newer,
-                    b,
-                    a,
-                    comparison.mergeBase.orEmpty().take(7),
-                    newer,
-                )
-
-                ComparisonMode.ALL -> pluralStringResource(Res.plurals.compare_mode_all_line, newer, a, newer, b)
-            }
-
-            Text(
-                text = line,
-                style = MaterialTheme.typography.caption,
-                color = MaterialTheme.colors.onBackgroundSecondary,
+        when (state.mode) {
+            ComparisonMode.SINCE_SPLIT -> pluralStringResource(
+                Res.plurals.compare_mode_since_split_line,
+                newer,
+                b,
+                a,
+                comparison.mergeBase.orEmpty().take(7),
+                newer,
             )
+
+            ComparisonMode.ALL -> pluralStringResource(Res.plurals.compare_mode_all_line, newer, a, newer, b)
         }
     } else {
-        val note = when (comparison.relation) {
+        when (comparison.relation) {
             ComparisonRelation.SAME -> stringResource(Res.string.compare_note_same, a, b)
             ComparisonRelation.A_IS_ANCESTOR -> pluralStringResource(
                 Res.plurals.compare_note_a_is_ancestor,
@@ -352,23 +375,14 @@ private fun ModeOrNote(state: ComparisonState, onAction: (ComparisonAction) -> U
                 stringResource(Res.string.compare_note_no_merge_base, b, a)
             }
 
-            ComparisonRelation.DIVERGED -> return
+            ComparisonRelation.DIVERGED -> null
         }
-
-        Text(
-            text = note,
-            style = MaterialTheme.typography.caption,
-            color = MaterialTheme.colors.onBackgroundSecondary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        )
     }
 }
 
 /** "Since they split" and "All differences", side by side, the shown one filled. */
 @Composable
-private fun ModeSwitch(mode: ComparisonMode, onSelect: (ComparisonMode) -> Unit) {
+internal fun ModeSwitch(mode: ComparisonMode, onSelect: (ComparisonMode) -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
@@ -400,7 +414,7 @@ private fun ModeSwitch(mode: ComparisonMode, onSelect: (ComparisonMode) -> Unit)
 
 /** The commits that each side has alone, each in a section that opens and closes: B's open, A's closed. */
 @Composable
-private fun CommitsSections(
+internal fun CommitsSections(
     state: ComparisonState,
     listStates: ComparisonListStates,
     onSelectCommit: (Commit) -> Unit,
@@ -456,7 +470,7 @@ private fun CommitsSections(
 }
 
 @Composable
-private fun SectionHeader(
+internal fun SectionHeader(
     title: String,
     count: Int,
     isOpen: Boolean? = null,
@@ -601,11 +615,13 @@ private fun CommitMark(modifier: Modifier = Modifier) {
     }
 }
 
+/** The files: [onOpen] for a click, and the keyboard shows a file's diff as it moves. */
 @Composable
-private fun ChangedFiles(
+internal fun ChangedFiles(
     state: ComparisonState,
     diffSelected: DiffSelected.CommitedChanges?,
     listState: LazyListState,
+    onOpen: (DiffEntry) -> Unit,
     onAction: (ComparisonAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -617,7 +633,8 @@ private fun ChangedFiles(
         resetKey = state.target,
         fileIcon = { it.icon },
         fileIconColor = { it.iconColor },
-        onFileClick = { onAction(ComparisonAction.SelectEntry(it)) },
+        onFileClick = onOpen,
+        onKeyboardSelect = { onAction(ComparisonAction.SelectEntry(it)) },
         onFolderToggle = { onAction(ComparisonAction.TreeDirectoryToggle(it)) },
         onSplitRatioChange = { onAction(ComparisonAction.ViewStateChanged(state.viewState.copy(splitRatio = it))) },
         onGenerateContextMenu = { emptyList() },
@@ -627,7 +644,7 @@ private fun ChangedFiles(
 
 /** What an empty file list says: the review's question is what a merge would change. */
 @Composable
-private fun noChangesText(state: ComparisonState): String = if (state.review != null) {
+internal fun noChangesText(state: ComparisonState): String = if (state.review != null) {
     stringResource(Res.string.compare_review_no_changes)
 } else {
     stringResource(Res.string.compare_no_changes)
@@ -680,7 +697,7 @@ private fun UncommittedChangesLine(state: ComparisonState, onShow: () -> Unit) {
 }
 
 @Composable
-private fun PaneNote(text: String) {
+internal fun PaneNote(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.body2,

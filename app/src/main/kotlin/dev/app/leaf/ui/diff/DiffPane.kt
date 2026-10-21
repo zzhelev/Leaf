@@ -112,12 +112,17 @@ fun DiffPane(
     onCloseDiffView: () -> Unit,
     /** Asks before a discard, which `onConfirm` runs. `onStopAsking` is the dialog's "Don't ask again". */
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit, onStopAsking: () -> Unit) -> Unit,
+    // Fork-only: a comparison's full view shows the diff without a close button, and Esc leaves the view rather than
+    // closing the diff. It adds its buttons for the files to the header, and names the sides above the lines.
+    isClosable: Boolean = true,
+    headerActions: (@Composable () -> Unit)? = null,
+    sideLabels: (@Composable (isSplit: Boolean) -> Unit)? = null,
 ) {
     // Fork-only: the lines mark their whitespace while the View menu says so
     val showWhitespace by viewModel.diffShowWhitespace.collectAsState()
 
     CompositionLocalProvider(LocalShowWhitespace provides showWhitespace) {
-        DiffPaneContent(viewModel, onCloseDiffView, onConfirmAction)
+        DiffPaneContent(viewModel, onCloseDiffView, onConfirmAction, isClosable, headerActions, sideLabels)
     }
 }
 
@@ -126,6 +131,9 @@ private fun DiffPaneContent(
     viewModel: RepositoryOpenViewModel,
     onCloseDiffView: () -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit, onStopAsking: () -> Unit) -> Unit,
+    isClosable: Boolean,
+    headerActions: (@Composable () -> Unit)?,
+    sideLabels: (@Composable (isSplit: Boolean) -> Unit)?,
 ) {
     val diffResultState = viewModel.diffResult.collectAsState()
     val confirmDiscards by viewModel.confirmHunkAndLineDiscards.collectAsState()
@@ -161,7 +169,7 @@ private fun DiffPaneContent(
 
     LaunchedEffect(Unit) {
         viewModel.closeViewFlow.collectLatest {
-            if (it == CloseableView.DIFF) closeDiffView()
+            if (it == CloseableView.DIFF && isClosable) closeDiffView()
         }
     }
 
@@ -172,7 +180,7 @@ private fun DiffPaneContent(
             .focusable(true)
             .focusRequester(focusRequester)
             .onFocusChanged {
-                if (it.isFocused) {
+                if (it.isFocused && isClosable) {
                     viewModel.addToCloseables()
                 }
             }
@@ -193,7 +201,8 @@ private fun DiffPaneContent(
                 DiffHeader(
                     diffType = diffType,
                     diffEntry = diffEntry,
-                    onCloseDiffView = { closeDiffView() },
+                    onCloseDiffView = { closeDiffView() }.takeIf { isClosable },
+                    headerActions = headerActions,
                     textDiffViewType = textDiffType,
                     isTextDiff = diffResult is DiffResult.TextDiff,
                     isDisplayFullFile = isDisplayFullFile,
@@ -239,6 +248,11 @@ private fun DiffPaneContent(
                             onConfirmAction(action, resolve) {}
                         },
                     )
+                }
+
+                // Fork-only: a comparison names its sides, A on the left or removed, B on the right or added
+                if (sideLabels != null && diffResult is DiffResult.TextDiff) {
+                    sideLabels(diffResult is DiffResult.TextSplit)
                 }
 
                 val scrollState by viewModel.lazyListState.collectAsState()
@@ -970,7 +984,10 @@ private fun DiffHeader(
     textDiffViewType: DiffTextViewType,
     isDisplayFullFile: Boolean,
     isTextDiff: Boolean,
-    onCloseDiffView: () -> Unit,
+    /** Null leaves the close button out (fork-only). */
+    onCloseDiffView: (() -> Unit)?,
+    /** Buttons that come before the view's (fork-only): a comparison's files. */
+    headerActions: (@Composable () -> Unit)?,
     onStageFile: (StatusEntry) -> Unit,
     onUnstageFile: (StatusEntry) -> Unit,
     onChangeDiffType: (DiffTextViewType) -> Unit,
@@ -1036,6 +1053,8 @@ private fun DiffHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            headerActions?.invoke()
+
             if (diffType.statusType != StatusType.ADDED && diffType.statusType != StatusType.REMOVED && isTextDiff) {
                 DiffTypeButtons(
                     diffType = textDiffViewType,
@@ -1057,17 +1076,19 @@ private fun DiffHeader(
                 )
             }
 
-            IconButton(
-                onClick = onCloseDiffView,
-                modifier = Modifier
-                    .handOnHover()
-            ) {
-                Icon(
-                    painter = painterResource(Res.drawable.close),
-                    contentDescription = "Close diff",
-                    tint = MaterialTheme.colors.onBackground,
-                    modifier = Modifier.size(24.dp),
-                )
+            if (onCloseDiffView != null) {
+                IconButton(
+                    onClick = onCloseDiffView,
+                    modifier = Modifier
+                        .handOnHover()
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.close),
+                        contentDescription = "Close diff",
+                        tint = MaterialTheme.colors.onBackground,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
         }
     }

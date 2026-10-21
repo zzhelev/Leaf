@@ -628,6 +628,13 @@
     <string name="compare_review_no_changes">No changes: a merge would change no file.</string>
     <string name="compare_reading">Reading the commits and files…</string>
     <string name="compare_try_again">Try again</string>
+    <string name="compare_open_full_view">Open the full view</string>
+    <string name="compare_leave_full_view">Back to the log (Esc)</string>
+    <string name="compare_end_full_view">End the comparison</string>
+    <string name="compare_full_view_pick_file">Select a file to see what changed in it.</string>
+    <string name="compare_file_position">%1$d of %2$d</string>
+    <string name="compare_previous_file">Previous file (↑)</string>
+    <string name="compare_next_file">Next file (↓)</string>
     <plurals name="worktree_review_uncommitted">
         <item quantity="one">Plus %1$d uncommitted change in %2$s, which a merge leaves out.</item>
         <item quantity="other">Plus %1$d uncommitted changes in %2$s, which a merge leaves out.</item>

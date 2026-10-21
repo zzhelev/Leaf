@@ -149,17 +149,20 @@ The right pane, in place of the commit's files. Top to bottom:
 
 ### 3.5 The full view (F4, layout 1c)
 
-- **Opens** with a click on a file in the pane, the full-view button (at the selected file, or the first), or Enter on
-  a file. It takes the whole tab, as file history does: `RepoContent` shows it in place of `MainContentView`.
-- **Header:** A and B with name, short hash and subject, the switch, swap, back to the log (Esc), end the comparison.
-  Under it, the mode's line.
-- **Left column**, the pane's width: the commits sections and the files, the same composables as the pane, without its
-  header.
-- **Right:** `DiffPane`, as it is, without its close button, with one row above the two sides of a split diff:
-  "A main · 5d5537f" and "B feat/clone-picker · 7d03f51". Unified, split and wrapping follow the diff pane's own
-  settings (`AppConfig.DiffWrapLines`, 2026-10-21, applies here too). The header shows "2 of 5" with previous and next.
-- **Keys:** ↑ ↓ move through the files (the view's own `onKeyEvent`, as file history's), Esc or the back button returns
-  to the log with the comparison in the pane, and gives the focus back to the tab.
+- **Opens** with a click on a file in the pane, or the pane's full-view button (at the file shown, else the first). It
+  takes the whole tab, as file history does: `RepoContent` shows it in place of `MainContentView`. The arrow keys in
+  the pane's file list show a file's diff over the log, as a commit's list does; Enter opens nothing (not built).
+- **Header:** A and B with name, short hash and subject (the subjects give way first), then the switch, swap, back to
+  the log (Esc) and end the comparison. Under it, the mode's line or the note.
+- **Left column**, the right pane's width: the commits sections and the files, the same composables as the pane,
+  without its header. A file's click shows its diff.
+- **Right:** `DiffPane`, as it is, without its close button, with "‹ 2 of 5 ›" in its header and one row of A and B
+  above the lines: over the two sides of a split diff, or "A main · 5d5537f → B feat/clone-picker · 7d03f51" for a
+  unified one. Unified, split, wrapping and the View menu's whitespace options follow the diff pane's own settings.
+  Without a file shown: "Select a file to see what changed in it."
+- **Keys:** ↑ ↓ move through the files (the view's own `onKeyEvent`, as file history's; the file list takes them itself
+  while it has the focus). Esc or the back button returns to the log with the comparison in the pane, without the diff,
+  and gives the focus back to the tab.
 
 ### 3.6 The two modes (F5)
 
@@ -286,12 +289,22 @@ Six steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Each step builds and pass
 
 ### Step 4: the full view (UI)
 
-- `A/ui/compare/ComparisonFullView.kt`. `RepoContent` gains a branch for `isFullView`, before file history's.
-- `DiffPane` gains two optional parameters: no close button, and the side labels above a split diff. Its behaviour for
-  a commit is unchanged.
-- `RepositoryOpenPage` gives the focus back to the tab when the full view closes, as for file history.
-- **Tests:** `ComparisonFullViewTest` (the header, the column, the keys, Esc), and a check, rendered as
-  `DiffWrapTest` renders the header, that a commit's diff still has its close button and no labels.
+- `A/ui/compare/ComparisonFullView.kt`: `ComparisonFullView`, and `ComparisonFullViewContent`, which takes the state
+  and a slot for the diff, for tests. It reuses the pane's parts (`SideLine`, `ModeSwitch`, `comparisonLine`,
+  `CommitsSections`, `ChangedFiles`), which became internal. `RepoContent` shows it when `isFullView`, after the
+  conflict resolver's branch and before file history's.
+- `DiffPane` gains three optional parameters, which leave a commit's diff as it was: `isClosable` (false: no close
+  button, and the pane doesn't add itself to the views that Esc closes, so that Esc leaves the full view rather than
+  closing the diff), `headerActions` (before the view's buttons) and `sideLabels` (above the lines of a text diff).
+- `RepositoryOpenViewModel`: leaving the full view, and the end of a comparison, clear the comparison's diff and its
+  `CloseableView.DIFF` (`clearComparisonDiff`), which an extra Esc would otherwise close.
+- `RepositoryOpenPage` gives the focus back to the tab when the full view closes, as for the conflict resolver.
+- The pane's file click sends `OpenFullView`, and its header has the full-view button.
+- **Tests:** `ComparisonFullViewTest` (9), at 1180 × 640 with a stand-in for the diff pane that shows what the view
+  gives it: the header and its buttons, the lists on the left, a file's click, the stepper and its ends, ↑ and ↓, a
+  file found by its paths after a new read, the labels of a split and a unified diff, and PNGs with `LEAF_RENDER_DIR`.
+  `ComparisonPaneTest`: the click and the full-view button. The real diff pane inside the view needs the view model, so
+  it was checked by hand in a dev run (2026-10-21): the diff, its labels, the stepper and the two Escs.
 
 ### Step 5: the log and the menus (UI)
 
