@@ -2,6 +2,27 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Fold the branches pane away: a bottom bar button, Ctrl or Cmd+Shift+B, and the Actions list (upstream issue 136, 2026-10-22)
+
+- **Request:** upstream issue 136 asked for the diff to use more than the middle pane, "usually you don't need to know which
+  branches you have when you examine diffs". With the log above the diff (previous entry), the width left to ask for was the
+  branches pane's.
+- **What it does:** a button at the left of the bottom bar, before the git user, folds the pane away and shows it again. The
+  log, the diff and the rest take its 220 dp: 1102 dp wide in a 1440 dp window instead of 874. The icon is a panel, filled
+  while the pane shows. Ctrl+Shift+B (Cmd+Shift+B on a Mac) does the same, and the Actions list has "Hide branches pane" and "Show
+  branches pane", with the shortcut shown at the end of its row (any Actions entry can show one now).
+- **Kept:** the choice is the same in every tab and survives a restart, and the pane's width and its search text are as they
+  were when it comes back. While it's folded the worktree list stops polling, as it does when the pane is out of sight.
+- **A bug the real tab showed:** folding with the focus in the pane's search field left the tab with no focus, so the next
+  shortcut (New branch, Refresh) did nothing until a click. The tab now takes the focus a frame after a fold when nothing in it
+  has it. Folding with the focus in the log or the diff leaves it there, so the log's arrow keys go on.
+- **Chosen with the user** from five options, drawn at the real size on a Claude Design board: the bottom bar (this), a toolbar
+  button (rejected: the toolbar is for actions on the repository, and each view control makes it busier), a chevron in the filter
+  row, a tab on the divider, and no button at all. The shortcut and the Actions entry came with the choice. Ctrl or Cmd+B is New
+  branch, so Shift keeps them apart.
+- **Not built:** folding by itself while a diff is open (the literal request), and a double-click on the divider.
+- Details: CLAUDE.md, "The branches pane's fold toggle".
+
 ## Compare any two commits, branches or tags (upstream issues 206 and 283, 2026-10-21)
 
 - **Request:** see what differs between two commits or branches, not only a commit against its parent. Upstream issue

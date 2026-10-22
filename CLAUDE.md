@@ -2562,6 +2562,8 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   The diff above the log). Selecting a file's diff, which minimizes blame, needs nothing: the click focuses the file's row.
 - A view that covers others is checked there by what is shown, not added to `CloseableView`: the log search adds
   itself again whenever its results change, and would then come before it.
+- Fork-only: folding the branches pane (Ctrl or Cmd+Shift+B) removes what had the focus when it was in the pane, so the tab takes
+  the focus a frame later if nothing in it has (see The branches pane's fold toggle).
 
 **Identity and persistence:**
 - Tabs are identified by object, not by path. Opening a repository from the Welcome page or the CLI never looks for
@@ -3158,9 +3160,40 @@ both), with a button in the diff's header that gives the diff the whole pane.
   composed again), `FollowedDiffPlaceholderTest` (texts, Esc, the buttons), `DiffKeepsLogSettingTest`. The real tab
   content ran against a clone of this repository and the big repository in a temporary harness (stepping with the arrows,
   every rule, renders in both themes and two window sizes; it found the race above).
-- Not built: the branches pane's own toggle (upstream issue 136's width) waits for a pick of its place; the interactive
-  rebase's list under a diff; following a file across a rename into older commits (only the commit that renamed it shows the
-  move).
+- Not built: the interactive rebase's list under a diff; following a file across a rename into older commits (only the
+  commit that renamed it shows the move). Upstream issue 136's width came with the branches pane's fold toggle (next section).
+
+**The branches pane's fold toggle (fork-only, upstream issue 136, 2026-10-22):** the side panel can be folded away, which
+gives the log and the diff its 220 dp (1102 dp wide in a 1440 dp window instead of 874). Three controls, one state:
+- **The button** (`BranchesPaneToggle`, `ui/components/`): 26 dp, at the bottom bar's left edge, before the git user and a
+  separator, so it sits under the pane it folds and stays in place when the pane is gone. Its icon is a panel on the left,
+  filled while the pane shows (`side_panel_open`) and empty while it's folded (`side_panel`); the tooltip says what a click
+  does and shows the shortcut (`KeybindingHint`, "Ctrl+Shift+B", "⌘+Shift+B" on a Mac).
+- **The shortcut:** `KeybindingOption.BRANCHES_PANE`, Ctrl+Shift+B (Cmd+Shift+B on a Mac, in `keysToReplaceControlWithCommand`),
+  in the tab's `onPreviewKeyEvent` like Settings. Ctrl+B is New branch, which Shift keeps apart (`matchesBinding` compares every
+  modifier).
+- **The Actions list** has "Hide branches pane" or "Show branches pane" (`branchesPaneAction`, `QuickActionType.TOGGLE_BRANCHES_PANE`)
+  with the shortcut at the row's end (`QuickAction.keybinding`, which the list shows for any entry that has one).
+- **State:** `BranchesPaneConfig` (`ui/`, an app singleton like `CenterSplitConfig`), kept as `branchesPaneFolded` in the prefs
+  node, so every tab folds together and the choice survives a restart. `MainContentView` gives `TripleVerticalSplitPanel` a first
+  width of 0 while it is set, as it does while the interactive rebase's list awaits: the pane isn't composed (`SidePanel`'s
+  dispose stops the worktree list's polling), its saved width is kept and comes back when it opens, and its search text stays in
+  the view model.
+- **Focus:** folding removes whatever in the pane had the focus, and the tab's shortcuts reach their handler only while something
+  in the tab has it (see Keys). With the focus in the pane's search field, the next shortcut did nothing until a click (found
+  with the real tab on a scene). A fix in `SidePanel`'s `onDispose` didn't work: the focus is cleared after it. So
+  `RepositoryOpenPage` tracks whether the tab has the focus (`onFocusChanged` before its `focusable`), and one frame after a fold
+  (`LaunchedEffect`, `withFrameNanos`) takes it when nothing in the tab has. A fold with the focus in the log or the diff leaves
+  the focus there, so the log's arrow keys go on.
+- **Chosen with the user** from five options on a Claude Design board ("Leaf branches pane toggle"): the bottom bar (this), a
+  toolbar button (the toolbar's buttons act on the repository, and this changes the view), a chevron in the pane's filter row
+  with a rail when folded, a tab on the divider, and no button at all. Not built: folding by itself while a diff is open, as
+  issue 136 literally asked, and a double-click on the divider.
+- Tests: `BranchesPaneConfigTest`, `BranchesPaneKeybindingTest` (the shortcut on this system's command key, apart from New branch,
+  on no other option's key), `BranchesPaneToggleTest`, `QuickActionsBranchesPaneTest` (the entry's title, its shortcut, the row, the
+  click). The tab itself ran in a temporary harness on a scene with real clicks and keys: the button, the shortcut, the focus
+  after folding from the search field and from the log. The Actions list's click on the entry reaches `viewModel.toggleBranchesPane`
+  in a `when` that no test reaches (`QuickActionsViewModel` can't be built without its use cases).
 
 **File history's selected commit (fork-only, `ui/FileHistorySelection.kt`, `viewmodels/FileHistoryCommits.kt`):**
 `HistoryViewModel.selectedCommit` is the commit whose diff is shown. The list highlights its row
