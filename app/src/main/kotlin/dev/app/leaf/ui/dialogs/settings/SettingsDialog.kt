@@ -34,7 +34,6 @@ import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.models.ui.LinesHeightType
-import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.theme.backgroundSelected
@@ -53,7 +52,6 @@ import dev.app.leaf.ui.getErrorText
 import dev.app.leaf.viewmodels.SettingsAction
 import dev.app.leaf.viewmodels.SettingsViewModel
 import dev.app.leaf.viewmodels.SettingsViewState
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -64,7 +62,6 @@ import org.jetbrains.compose.resources.stringResource
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "SettingsDialog"
 
@@ -671,7 +668,6 @@ private fun DateTime(settingsViewState: SettingsViewState, onAction: (SettingsAc
 @Composable
 private fun Appearance(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
     val currentTheme = settingsViewState.theme
-    val customTheme = settingsViewState.customTheme
     val currentLinesHeightType = settingsViewState.linesHeightType
     val avatarProvider = settingsViewState.avatarProvider
     val (errorToDisplay, setErrorToDisplay) = remember { mutableStateOf<Error?>(null) }
@@ -686,39 +682,8 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
         }
     )
 
-    if (currentTheme == Theme.Custom) {
-        val scope = rememberCoroutineScope()
-        var themeJson by remember { mutableStateOf(customTheme.orEmpty()) }
-        // Remembered, so that each keystroke cancels the save that the one before scheduled
-        var themeJob by remember { mutableStateOf<Job?>(null) }
-
-        SettingTextInput(
-            title = "Custom theme",
-            subtitle = "Add a JSON to load the custom theme",
-            value = themeJson,
-            singleLine = false,
-            onValueChanged = { value ->
-                themeJson = value
-
-                themeJob?.cancel()
-
-                themeJob = scope.launch {
-                    delay(1.seconds)
-                    onAction(SettingsAction.SetConfig(AppConfig.CustomTheme(value)))
-                }
-
-            },
-            fieldHeight = 120.dp
-        )
-    }
-
-    // Fork-only: after the custom theme's JSON, which belongs to Theme
-    StyleSetting(
-        settingsViewState.style,
-        settingsViewState.styles,
-        isCustomTheme = currentTheme == Theme.Custom,
-        onAction,
-    )
+    // Fork-only: the colours of the light and the dark theme
+    StyleSetting(settingsViewState.style, settingsViewState.styles, onAction)
 
     SettingDropDown(
         title = "Lists spacing",
@@ -787,26 +752,19 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
 }
 
 
-/**
- * Fork-only: the style that draws Leaf, from the built-in ones and the user's. A custom theme has its own colours, so
- * the row is greyed out while it's selected, and says why. Internal for its test.
- */
+/** Fork-only: the style that draws Leaf, from the built-in ones and the user's. Internal for its test. */
 @Composable
 internal fun StyleSetting(
     style: StyleDefinition,
     styles: List<StyleDefinition>,
-    isCustomTheme: Boolean,
     onAction: (SettingsAction) -> Unit,
 ) {
     SettingDropDown(
         title = stringResource(Res.string.settings_style_title),
-        subtitle = stringResource(
-            if (isCustomTheme) Res.string.settings_style_custom_theme else Res.string.settings_style_subtitle
-        ),
+        subtitle = stringResource(Res.string.settings_style_subtitle),
         dropDownOptions = styles.map { DropDownOption(it.id, styleName(it)) },
         currentOption = style.id,
         onOptionSelected = { onAction(SettingsAction.SetConfig(AppConfig.Style(it.value))) },
-        enabled = !isCustomTheme,
     )
 }
 

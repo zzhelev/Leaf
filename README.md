@@ -90,49 +90,6 @@ Yes, free in both meanings of the word (in money and freedom).
 
 Leaf does not track data in any way, don't worry.
 
-> I don't like the built-in themes, can I create a custom one?
-
-Leaf includes the option to set custom themes in a JSON format. Keep in mind that themes may break with new releases,
-making the default theme the fallback option.
-
-For the latest stable version, you can use this JSON as an example:
-
-```
-{
-    "primary": "FF456b00",
-    "primaryVariant": "FF456b00",
-    "onPrimary": "FFFFFFFFF",
-    "secondary": "FF9c27b0",
-    "onBackground": "FF141f00",
-    "onBackgroundSecondary": "FF595858",
-    "error": "FFc93838",
-    "onError": "FFFFFFFF",
-    "background": "FFe7f2d3",
-    "backgroundSelected": "C0cee1f2",
-    "surface": "FFc5f078",
-    "secondarySurface": "FFedeef2",
-    "tertiarySurface": "FFF4F6FA",
-    "addFile": "FF32A852",
-    "deletedFile": "FFc93838",
-    "modifiedFile": "FF0070D8",
-    "conflictingFile": "FFFFB638",
-    "dialogOverlay": "AA000000",
-    "normalScrollbar": "FFCCCCCC",
-    "hoverScrollbar": "FF0070D8",
-    "diffLineAdded": "FF0070D8",
-    "diffLineRemoved": "FF0070D8",
-    "onSecondary": "FF000000",
-    "diffContentAdded": "FF000000",
-    "diffContentRemoved": "FF000000",
-    "diffKeyword": "FF000000", 
-    "diffAnnotation": "FF000000",
-    "diffComment": "FF000000",
-    "isLight": true
-}
-```
-
-Colors are in ARGB Hex format.
-
 > Why isn't the Mac version signed?
 
 Leaf isn't distributed as a signed and notarized app yet, because that needs a paid Apple Developer account. A build you

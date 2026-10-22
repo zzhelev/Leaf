@@ -46,7 +46,6 @@ private const val DEFAULT_THIRD_PANE_WIDTH = 330f
 
 private val scaleUiPreference get() = floatPreferencesKey("scale_ui")
 private val themePreference get() = stringPreferencesKey("theme")
-private val customThemePreference get() = stringPreferencesKey("custom_theme")
 private val accentStylePreference get() = stringPreferencesKey("accent_style")
 private val linesHeightPreference get() = stringPreferencesKey("lines_height")
 private val swapStatusPanesPreference get() = booleanPreferencesKey("swap_status_panes")
@@ -119,7 +118,6 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val scaleUi = preferences.data[scaleUiPreference]
 
     override val theme = preferences.data[themePreference].map { themeMapper.toDomain(it) }
-    override val customTheme = preferences.data[customThemePreference]
 
     /** Fork-only: the selected style's id, under the key that held the look's name before styles could be made. */
     override val styleId get() = preferences.data[accentStylePreference]
@@ -236,7 +234,6 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 )
 
                 is AppConfig.Theme -> setValue(themePreference, themeMapper.toData(appConfig.value))
-                is AppConfig.CustomTheme -> setValue(customThemePreference, appConfig.value)
                 is AppConfig.Style -> setValue(accentStylePreference, appConfig.id)
                 is AppConfig.SwapStatusPanes -> setValue(swapStatusPanesPreference, appConfig.value)
                 is AppConfig.ConfirmHunkAndLineDiscards ->

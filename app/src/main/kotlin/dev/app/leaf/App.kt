@@ -53,7 +53,6 @@ import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.lfs.AppLfsFactory
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.theme.AppTheme
-import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.dialogOverlay
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.AppChrome
@@ -71,7 +70,6 @@ import dev.app.leaf.ui.dialogs.QuitDialog
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.serialization.json.Json
 import org.eclipse.jgit.lib.GpgConfig
 import org.eclipse.jgit.lib.Signers
 import org.eclipse.jgit.util.LfsFactory
@@ -171,8 +169,6 @@ class App @Inject constructor(
     private val lfsFactory: AppLfsFactory,
     private val loginShellEnvironment: LoginShellEnvironment,
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
-
     @OptIn(ExperimentalFoundationApi::class)
     suspend fun start(args: Array<String>) {
         logsRepository.initLogging()
@@ -195,7 +191,6 @@ class App @Inject constructor(
             addDirTab(dirToOpen)
 
         val themeInitial = appSettings.theme.first()
-        val customThemeInitial = appSettings.customTheme.firstOrNull()
         val styleInitial = stylesService.selected.first()
         val scaleInitial = appSettings.scaleUi.firstOrNull()
         val linesHeightTypeInitial = appSettings.linesHeightType.first()
@@ -207,23 +202,7 @@ class App @Inject constructor(
 
         application {
             val theme by appSettings.theme.collectAsState(themeInitial)
-            val customThemeRaw by appSettings.customTheme.collectAsState(customThemeInitial)
             val style by stylesService.selected.collectAsState(styleInitial)
-            val customTheme = remember(customThemeRaw) {
-                val customThemeRaw = customThemeRaw
-                if (customThemeRaw != null) {
-                    // TODO move to use case, this is only a temporary solution
-                    // TODO 2: Perhaps serialize in a UI module class as it's related to UI logic and not domain
-                    try {
-                        json.decodeFromString<ColorsScheme>(customThemeRaw)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        null
-                    }
-                } else {
-                    null
-                }
-            }
             val scale = appSettings.scaleUi.collectAsState(scaleInitial).value
             val linesHeightType by appSettings.linesHeightType.collectAsState(linesHeightTypeInitial)
             val avatarProviderType by appSettings.avatarProvider.collectAsState(avatarProviderTypeInitial)
@@ -339,7 +318,6 @@ class App @Inject constructor(
                 ) {
                     AppTheme(
                         selectedTheme = theme,
-                        customTheme = customTheme,
                         style = style,
                         linesHeightType = linesHeightType,
                     ) {

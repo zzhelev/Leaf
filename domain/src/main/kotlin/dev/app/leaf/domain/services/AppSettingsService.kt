@@ -34,7 +34,6 @@ class AppSettingsService @Inject constructor(
 
     val scaleUi: Flow<Float?> get() = appSettingsRepository.scaleUi
     val theme: Flow<Theme> get() = appSettingsRepository.theme.defaultIfNull { DEFAULT_THEME }
-    val customTheme: Flow<String?> get() = appSettingsRepository.customTheme
 
     /** Fork-only: the id of the style that draws Leaf, Tonal's when none was chosen. See `StylesService`. */
     val styleId: Flow<String> get() = appSettingsRepository.styleId.defaultIfNull { BuiltInStyles.DEFAULT_ID }

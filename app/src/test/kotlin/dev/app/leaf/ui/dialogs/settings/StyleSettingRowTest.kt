@@ -25,18 +25,18 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** Settings → Appearance → Style (fork-only): its choices, and the row greyed out for a custom theme. */
+/** Settings → Appearance → Style (fork-only): its choices. */
 class StyleSettingRowTest {
     private val teal = BuiltInStyles.QUIET.copy(id = "teal", name = "Teal")
     private val styles = BuiltInStyles.ALL + teal
 
-    private inner class Row(style: StyleDefinition, isCustomTheme: Boolean) : AutoCloseable {
+    private inner class Row(style: StyleDefinition) : AutoCloseable {
         val actions = mutableListOf<SettingsAction>()
 
         private val scene = ImageComposeScene(width = 700, height = 400, density = Density(1f)) {
             AppTheme {
                 Box(Modifier.width(560.dp)) {
-                    StyleSetting(style, styles, isCustomTheme, onAction = { actions += it })
+                    StyleSetting(style, styles, onAction = { actions += it })
                 }
             }
         }
@@ -78,9 +78,9 @@ class StyleSettingRowTest {
     @Test
     fun `the row is called Style, shows the style chosen and offers every style in order`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            Row(BuiltInStyles.TONAL, isCustomTheme = false).use { row ->
+            Row(BuiltInStyles.TONAL).use { row ->
                 assertTrue("Style" in row.texts(), row.texts().toString())
-                assertTrue(row.texts().any { it.startsWith("How strong the colours of buttons and notices are.") })
+                assertTrue(row.texts().any { it.startsWith("The colours of buttons, notices, backgrounds and text") })
 
                 row.click("Tonal")
 
@@ -101,20 +101,9 @@ class StyleSettingRowTest {
             BuiltInStyles.QUIET to "Quiet",
             teal to "Teal",
         )) {
-            Row(style, isCustomTheme = false).use { row ->
+            Row(style).use { row ->
                 assertEquals(1, row.clickables(name).size, style.id)
             }
         }
     }
-
-    @Test
-    fun `with a custom theme, the row is greyed out, takes no click and says why`(): Unit =
-        runBlocking(Dispatchers.Swing) {
-            Row(BuiltInStyles.CLASSIC, isCustomTheme = true).use { row ->
-                assertTrue("Custom themes use their own colours." in row.texts(), row.texts().toString())
-                assertTrue("Classic" in row.texts(), "It still shows the style chosen")
-                assertEquals(emptyList<SemanticsNode>(), row.clickables("Classic"))
-                assertEquals(emptyList<SettingsAction>(), row.actions)
-            }
-        }
 }

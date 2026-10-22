@@ -61,24 +61,19 @@ val denseLineHeight = LinesHeight(
 fun AppTheme(
     selectedTheme: Theme = Theme.Dark,
     linesHeightType: LinesHeightType = LinesHeightType.COMPACT,
-    customTheme: ColorsScheme? = null,
-    // Fork-only: every colour of the light and the dark theme (docs/fork/custom-styles.md). A custom theme keeps its own
-    // colours, laid out as Classic
+    // Fork-only: every colour of the light and the dark theme (docs/fork/custom-styles.md)
     style: StyleDefinition = BuiltInStyles.DEFAULT,
     // Fork-only: read only when the System theme is selected. Compose polls the operating system's setting, so a
     // change recomposes this, and the colours with it
     systemIsDark: Boolean = selectedTheme == Theme.System && isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val resolvedTheme = selectedTheme.resolved(systemIsDark)
-    val isCustom = resolvedTheme == Theme.Custom
-    val styleSide = remember(style, resolvedTheme) {
-        // resolved() never returns System
-        if (isCustom) null else resolveStyleSide(style, isLight = resolvedTheme == Theme.Light)
-    }
-    val theme = styleSide?.palette?.toColorsScheme() ?: customTheme ?: defaultAppTheme
-    val styleColors = styleSide?.palette?.toStyleColors() ?: classicStyleColors(theme)
-    val lanes = styleSide?.palette?.lanes ?: CLASSIC_LANES
+    // resolved() never returns System
+    val isLight = selectedTheme.resolved(systemIsDark) == Theme.Light
+    val palette = remember(style, isLight) { resolveStyleSide(style, isLight).palette }
+    val theme = palette.toColorsScheme()
+    val styleColors = palette.toStyleColors()
+    val lanes = palette.lanes
 
     val lineHeight = when (linesHeightType) {
         LinesHeightType.SPACED -> spacedLineHeight
@@ -207,5 +202,4 @@ val themeLists = listOf(
     DropDownOption(Theme.Light, "Light"),
     DropDownOption(Theme.Dark, "Dark"),
     DropDownOption(Theme.System, "System"),
-    DropDownOption(Theme.Custom, "Custom"),
 )

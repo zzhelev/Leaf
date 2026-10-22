@@ -55,7 +55,6 @@ sealed interface TaskType {
     data object DeinitSubmodule : TaskType
     data object SyncSubmodule : TaskType
     data object UpdateSubmodule : TaskType
-    data object SaveCustomTheme : TaskType
     data object ResetRepoState : TaskType
     data object ChangesDetection : TaskType
     data object RepositoryOpen : TaskType

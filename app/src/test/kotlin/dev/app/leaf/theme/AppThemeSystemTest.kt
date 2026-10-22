@@ -12,8 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.models.ui.Theme
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** What `AppTheme` draws with the System theme, as the system's light or dark setting changes (fork-only). */
@@ -21,14 +19,13 @@ class AppThemeSystemTest {
     /** What the theme gives inside `AppTheme`: the Material colours and the ones from the app's own palette. */
     private data class Drawn(val isLight: Boolean, val background: Color, val selected: Color, val addFile: Color)
 
-    private class Harness(selected: Theme, systemIsDark: Boolean, custom: ColorsScheme? = null) {
+    private class Harness(selected: Theme, systemIsDark: Boolean) {
         var systemIsDark by mutableStateOf(systemIsDark)
         var selected by mutableStateOf(selected)
         var drawn: Drawn? = null
-        private val custom = custom
 
         val scene = ImageComposeScene(width = 80, height = 40, density = Density(1f)) {
-            AppTheme(selectedTheme = this@Harness.selected, customTheme = custom, systemIsDark = this@Harness.systemIsDark) {
+            AppTheme(selectedTheme = this@Harness.selected, systemIsDark = this@Harness.systemIsDark) {
                 drawn = Drawn(
                     isLight = MaterialTheme.colors.isLight,
                     background = MaterialTheme.colors.background,
@@ -50,8 +47,8 @@ class AppThemeSystemTest {
     private val light = palette(lightTheme)
     private val dark = palette(darkTheme)
 
-    private fun <T> withHarness(selected: Theme, systemIsDark: Boolean, custom: ColorsScheme? = null, test: Harness.() -> T): T {
-        val harness = Harness(selected, systemIsDark, custom)
+    private fun <T> withHarness(selected: Theme, systemIsDark: Boolean, test: Harness.() -> T): T {
+        val harness = Harness(selected, systemIsDark)
 
         try {
             return harness.test()
@@ -98,23 +95,6 @@ class AppThemeSystemTest {
     }
 
     @Test
-    fun `a custom theme ignores it and keeps its own light or dark flag`() {
-        val customLight = lightTheme.copy(background = Color(0xFF123456))
-        val customDark = darkTheme.copy(background = Color(0xFF654321))
-
-        for (systemIsDark in listOf(true, false)) {
-            withHarness(Theme.Custom, systemIsDark, customLight) {
-                assertEquals(palette(customLight), frame())
-                assertTrue(frame().isLight)
-            }
-            withHarness(Theme.Custom, systemIsDark, customDark) {
-                assertEquals(palette(customDark), frame())
-                assertFalse(frame().isLight)
-            }
-        }
-    }
-
-    @Test
     fun `changing the choice to System in the settings takes the system's setting at once`() {
         withHarness(Theme.Light, systemIsDark = true) {
             assertEquals(light, frame())
@@ -128,7 +108,8 @@ class AppThemeSystemTest {
     }
 
     @Test
-    fun `the drop-down offers every theme once, System included`() {
+    fun `the drop-down offers every theme once, System included, and Custom no more`() {
+        assertEquals(listOf(Theme.Light, Theme.Dark, Theme.System), themeLists.map { it.value })
         assertEquals(Theme.entries.toSet(), themeLists.map { it.value }.toSet())
         assertEquals(Theme.entries.size, themeLists.size)
         assertEquals("System", themeLists.single { it.value == Theme.System }.optionName)

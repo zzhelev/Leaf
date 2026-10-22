@@ -11,5 +11,5 @@ package dev.app.leaf.domain.models.ui
  */
 fun Theme.resolved(systemIsDark: Boolean): Theme = when (this) {
     Theme.System -> if (systemIsDark) Theme.Dark else Theme.Light
-    Theme.Light, Theme.Dark, Theme.Custom -> this
+    Theme.Light, Theme.Dark -> this
 }

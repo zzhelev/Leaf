@@ -34,8 +34,10 @@ import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
+import dev.app.leaf.domain.styles.StyleSide
+import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.theme.AppTheme
-import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.darkTheme
 import dev.app.leaf.theme.lightTheme
 import dev.app.leaf.theme.styled
@@ -58,7 +60,7 @@ private const val HINT = "Write your commit message here"
 /**
  * The commit message's field with a hint in place of a label, and its title row (fork-only, upstream issue 344), rendered
  * offscreen: the hint goes when something is typed and comes back, the field and the row look like what is above them,
- * and both follow the theme, a custom one too.
+ * and both follow the theme, and the colours that a style sets by hand.
  */
 class CommitMessageFieldTest {
     private var scene: ImageComposeScene? = null
@@ -143,7 +145,7 @@ class CommitMessageFieldTest {
                 // The accent follows the style: the muted blue in Tonal and Quiet's light theme
                 val scheme = base.styled(style)
 
-                Host(theme = theme, style = style).use { host ->
+                Host(theme = theme, style = BuiltInStyles.ofLook(style)).use { host ->
                     val field = host.fieldBounds()
                     val x = (field.left + 200f).toInt()
                     val last = (field.bottom - 1f).toInt()
@@ -166,20 +168,18 @@ class CommitMessageFieldTest {
         }
 
     @Test
-    fun `a custom theme's colors reach the message, the hint, a message that can't be edited and the underline`(): Unit =
+    fun `a style's colors reach the message, the hint, a message that can't be edited and the underline`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            val green = Color(0xFF00FF00)
-            val red = Color(0xFFFF0000)
-            val custom: ColorsScheme = darkTheme.copy(
-                background = Color.Black,
-                onBackground = green,
-                onBackgroundSecondary = red,
-                primaryVariant = Color(0xFFFF00FF),
+            val custom = darkStyle(
+                StyleSlot.BACKGROUND to Color.Black,
+                StyleSlot.TEXT to Color(0xFF00FF00),
+                StyleSlot.SECONDARY_TEXT to Color(0xFFFF0000),
+                StyleSlot.LINKS to Color(0xFFFF00FF),
             )
 
             fun Int.isGreenish(min: Int) = (this shr 8 and 0xFF) >= min && (this shr 16 and 0xFF) < 40 && (this and 0xFF) < 40
 
-            Host(theme = Theme.Custom, custom = custom).use { host ->
+            Host(style = custom).use { host ->
                 val hint = host.ink(HINT, Color.Black.toArgb())
 
                 // Green at 60%: the green channel is high but not full, red and blue stay out
@@ -189,13 +189,13 @@ class CommitMessageFieldTest {
                 assertEquals(Color(0xFFFF00FF).toArgb(), host.bitmap().getColor((host.fieldBounds().left + 200f).toInt(), (host.fieldBounds().bottom - 1f).toInt()))
             }
 
-            Host(theme = Theme.Custom, custom = custom, message = "Fix the parser").use { host ->
+            Host(style = custom, message = "Fix the parser").use { host ->
                 val typed = host.ink("Fix the parser", Color.Black.toArgb())
 
                 assertTrue(typed.isGreenish(230), "The message's brightest pixel is ${typed.toString(16)}")
             }
 
-            Host(theme = Theme.Custom, custom = custom, message = "Reworded", enabled = false).use { host ->
+            Host(style = custom, message = "Reworded", enabled = false).use { host ->
                 val shown = host.ink("Reworded", Color.Black.toArgb())
 
                 // As before: the typography's own color is the text's, so the disabled color of the scheme never applied
@@ -251,16 +251,16 @@ class CommitMessageFieldTest {
     @Test
     fun `the amending tag has the accent that the checkbox had, and read-only the muted color`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            val custom = darkTheme.copy(
-                tertiarySurface = Color.Black,
-                secondary = Color(0xFFFFFF00),
-                onBackgroundSecondary = Color(0xFFFF0000),
+            val custom = darkStyle(
+                StyleSlot.HEADERS to Color.Black,
+                StyleSlot.HIGHLIGHT to Color(0xFFFFFF00),
+                StyleSlot.SECONDARY_TEXT to Color(0xFFFF0000),
             )
 
             fun inkOfTag(header: CommitMessageHeader): Int {
                 scene?.close()
                 scene = ImageComposeScene(width = 400, height = 40, density = Density(1f)) {
-                    AppTheme(selectedTheme = Theme.Custom, customTheme = custom) {
+                    AppTheme(selectedTheme = Theme.Dark, style = custom) {
                         CommitMessageTitle(header = header, onToggleAmend = {})
                     }
                 }.also { it.render() }
@@ -418,13 +418,21 @@ class CommitMessageFieldTest {
 
     private fun textNode(text: String) = nodes().first { text in it.texts() }
 
+    /** Tonal, with [colors] set by hand on its dark side, which is never moved for contrast. */
+    private fun darkStyle(vararg colors: Pair<StyleSlot, Color>) = BuiltInStyles.TONAL.copy(
+        id = "test",
+        dark = StyleSide(
+            BuiltInStyles.TONAL.dark.seeds,
+            colors.associate { (slot, color) -> slot to color.toArgb() },
+        ),
+    )
+
     /** The message field alone, 400 by 120 dp, on a surface of its own, with a host that keeps what is typed. */
     private inner class Host(
         message: String = "",
         private val enabled: Boolean = true,
         theme: Theme = Theme.Dark,
-        custom: ColorsScheme? = null,
-        style: AccentStyle = AccentStyle.DEFAULT,
+        style: StyleDefinition = BuiltInStyles.DEFAULT,
     ) : AutoCloseable {
         /** What `setCommitMessage` was given, as the draft would be saved. A click that moves the caret gives it too. */
         val changes = mutableListOf<String>()
@@ -433,7 +441,7 @@ class CommitMessageFieldTest {
 
         init {
             scene = ImageComposeScene(width = 400, height = 120, density = Density(1f)) {
-                AppTheme(selectedTheme = theme, customTheme = custom, style = BuiltInStyles.ofLook(style)) {
+                AppTheme(selectedTheme = theme, style = style) {
                     Box(Modifier.background(MaterialTheme.colors.surface)) {
                         Column {
                             CommitMessageTextField(

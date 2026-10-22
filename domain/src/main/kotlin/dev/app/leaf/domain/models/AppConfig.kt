@@ -19,7 +19,6 @@ sealed interface AppConfig {
     data class CacheCredentialsInMemory(val value: Boolean) : AppConfig
     data class AvatarProvider(val value: AvatarProviderType) : AppConfig
     data class Theme(val value: dev.app.leaf.domain.models.ui.Theme) : AppConfig
-    data class CustomTheme(val value: String) : AppConfig
 
     /**
      * The style that draws Leaf (fork-only, `docs/fork/custom-styles.md`): a built-in style's id or the name of a style's

@@ -42,9 +42,8 @@ data class StripColors(
 )
 
 /**
- * What buttons and notices are drawn with, by what they do rather than by colour (fork-only). [AccentStyle] picks the
- * values for the built-in themes; a custom theme gets them from its own colours, laid out as [AccentStyle.CLASSIC]
- * ([classicStyleColors]). Kept out of [ColorsScheme], so that a custom theme's JSON doesn't need them.
+ * What buttons and notices are drawn with, by what they do rather than by colour (fork-only). Each look ([AccentStyle])
+ * has its own values, which a style's colours are worked out from (`docs/fork/custom-styles.md`).
  */
 @Immutable
 data class StyleColors(
@@ -93,7 +92,7 @@ fun styleColorsFor(style: AccentStyle, scheme: ColorsScheme): StyleColors = when
     AccentStyle.QUIET -> if (scheme.isLight) quietLight else quietDark
 }
 
-/** The roles as Leaf drew them before the styles: from the scheme's own colours, which a custom theme sets. */
+/** The roles as Leaf drew them before the styles: from the scheme's own colours. */
 fun classicStyleColors(scheme: ColorsScheme): StyleColors = classicStyleColors(
     primary = scheme.primary,
     onPrimary = scheme.onPrimary,

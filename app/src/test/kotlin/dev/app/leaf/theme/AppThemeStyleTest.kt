@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Test
 
-/** What `AppTheme` gives the app in each style (fork-only): the roles, `primary`, and a custom theme's own colours. */
+/** What `AppTheme` gives the app in each built-in style (fork-only): the roles and `primary`. */
 class AppThemeStyleTest {
     private data class Drawn(
         val roles: StyleColors,
@@ -28,7 +28,7 @@ class AppThemeStyleTest {
         val conflictFile: Color,
     )
 
-    private class Harness(theme: Theme, style: AccentStyle, custom: ColorsScheme? = null, systemIsDark: Boolean = false) {
+    private class Harness(theme: Theme, style: AccentStyle, systemIsDark: Boolean = false) {
         var theme by mutableStateOf(theme)
         var style by mutableStateOf(style)
         var drawn: Drawn? = null
@@ -36,7 +36,6 @@ class AppThemeStyleTest {
         val scene = ImageComposeScene(width = 40, height = 20, density = Density(1f)) {
             AppTheme(
                 selectedTheme = this@Harness.theme,
-                customTheme = custom,
                 style = BuiltInStyles.ofLook(this@Harness.style),
                 systemIsDark = systemIsDark,
             ) {
@@ -59,11 +58,10 @@ class AppThemeStyleTest {
     private fun <T> drawn(
         theme: Theme,
         style: AccentStyle,
-        custom: ColorsScheme? = null,
         systemIsDark: Boolean = false,
         test: Harness.() -> T,
     ): T {
-        val harness = Harness(theme, style, custom, systemIsDark)
+        val harness = Harness(theme, style, systemIsDark)
 
         try {
             return harness.test()
@@ -127,37 +125,6 @@ class AppThemeStyleTest {
         drawn(Theme.Dark, AccentStyle.CLASSIC) {
             assertEquals(darkTheme.primary, frame().primary)
             assertEquals(darkTheme.primaryVariant, frame().primaryVariant)
-        }
-    }
-
-    @Test
-    fun `a custom theme keeps its own colours in every style, laid out as Classic`() {
-        val custom = lightTheme.copy(
-            primary = Color(0xFF00AA00),
-            primaryVariant = Color(0xFF00BB00),
-            error = Color(0xFFAA00AA),
-            conflictingFile = Color(0xFFEEEE00),
-            addFile = Color(0xFF00EEEE),
-        )
-
-        for (style in AccentStyle.entries) {
-            drawn(Theme.Custom, style, custom) {
-                assertEquals(custom.primary, frame().primary, "$style")
-                assertEquals(custom.primaryVariant, frame().primaryVariant, "$style")
-                assertEquals(classicStyleColors(custom), frame().roles, "$style")
-                assertEquals(RoleColors(custom.primary, custom.onPrimary), frame().roles.action, "$style")
-                assertEquals(RoleColors(custom.error, custom.onError), frame().roles.destructive, "$style")
-                assertEquals(custom.conflictingFile, frame().roles.warningStrip.background, "$style")
-                assertEquals(custom.addFile, frame().roles.successStrip.background, "$style")
-            }
-        }
-    }
-
-    @Test
-    fun `Custom without a valid theme falls back to the default theme, unstyled`() {
-        drawn(Theme.Custom, AccentStyle.TONAL, custom = null) {
-            assertEquals(darkTheme.primary, frame().primary)
-            assertEquals(classicStyleColors(darkTheme), frame().roles)
         }
     }
 

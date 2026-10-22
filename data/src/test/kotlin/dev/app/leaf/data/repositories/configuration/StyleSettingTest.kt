@@ -119,11 +119,11 @@ class StyleSettingTest {
 
     @Test
     fun `the style is a setting of its own, apart from the theme`(): Unit = runBlocking {
-        repository().setConfiguration(AppConfig.Theme(Theme.Custom))
+        repository().setConfiguration(AppConfig.Theme(Theme.System))
         repository().setConfiguration(AppConfig.Style("teal"))
 
-        assertEquals(Theme.Custom, service().theme.first())
-        assertEquals("teal", service().styleId.first(), "A custom theme keeps the style chosen")
+        assertEquals(Theme.System, service().theme.first())
+        assertEquals("teal", service().styleId.first(), "The theme keeps the style chosen")
 
         repository().setConfiguration(AppConfig.Theme(Theme.Dark))
 

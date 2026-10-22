@@ -1158,8 +1158,7 @@
     <string name="settings_commits_conventional_always">Always</string>
     <string name="settings_commits_conventional_off">Off</string>
     <string name="settings_style_title">Style</string>
-    <string name="settings_style_subtitle">How strong the colours of buttons and notices are. Tonal tints them, Classic fills them, Quiet keeps most buttons neutral.</string>
-    <string name="settings_style_custom_theme">Custom themes use their own colours.</string>
+    <string name="settings_style_subtitle">The colours of buttons, notices, backgrounds and text, for the light and the dark theme.</string>
     <string name="settings_style_tonal">Tonal</string>
     <string name="settings_style_classic">Classic</string>
     <string name="settings_style_quiet">Quiet</string>

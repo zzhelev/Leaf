@@ -11,7 +11,9 @@ import androidx.datastore.preferences.core.Preferences
  * - the proxy settings, which were never applied (the code that set the JVM's proxy was commented out). The git
  *   commands that Leaf runs use git's own `http.proxy`;
  * - "Do not verify SSL security" (`verify_ssl`), which nothing read; its switch changed the credential cache setting
- *   instead. git's `http.sslVerify` applies.
+ *   instead. git's `http.sslVerify` applies;
+ * - the custom theme's JSON (`custom_theme`), which styles replaced on 2026-10-22 (`docs/fork/custom-styles.md`). It
+ *   isn't moved over: a style is made in the style editor.
  */
 val REMOVED_SETTINGS = setOf(
     "use_proxy",
@@ -22,6 +24,7 @@ val REMOVED_SETTINGS = setOf(
     "proxy_host_user",
     "proxy_host_password",
     "verify_ssl",
+    "custom_theme",
 )
 
 /**

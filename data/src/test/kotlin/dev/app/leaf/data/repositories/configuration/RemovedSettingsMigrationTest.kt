@@ -36,6 +36,7 @@ class RemovedSettingsMigrationTest {
     private val proxyHostPassword = stringPreferencesKey("proxy_host_password")
     private val proxyPort = intPreferencesKey("proxy_port_number")
     private val verifySsl = booleanPreferencesKey("verify_ssl")
+    private val customTheme = stringPreferencesKey("custom_theme")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val jsonFile: Path get() = File(dir, "user_prefs.json").toOkioPath()
@@ -58,6 +59,7 @@ class RemovedSettingsMigrationTest {
                 proxyHostPassword to "proxy-secret",
                 proxyPort to 3128,
                 verifySsl to false,
+                customTheme to """{ "primary": "FF456b00", "isLight": true }""",
             )
         )
 
@@ -73,6 +75,7 @@ class RemovedSettingsMigrationTest {
         val json = FileSystem.SYSTEM.read(jsonFile) { readUtf8() }
         assertFalse(json.contains("proxy"), json)
         assertFalse(json.contains("verify_ssl"), json)
+        assertFalse(json.contains("custom_theme") || json.contains("primary"), json)
         assertTrue(json.contains("\"theme\""), json)
     }
 
@@ -82,5 +85,6 @@ class RemovedSettingsMigrationTest {
 
         assertFalse(migration.shouldMigrate(preferencesOf(theme to "DARK", cacheCredentials to true)))
         assertTrue(migration.shouldMigrate(preferencesOf(theme to "DARK", verifySsl to true)))
+        assertTrue(migration.shouldMigrate(preferencesOf(theme to "custom", customTheme to "{}")))
     }
 }

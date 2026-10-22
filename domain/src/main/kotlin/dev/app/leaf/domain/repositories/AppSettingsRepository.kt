@@ -22,7 +22,6 @@ interface AppSettingsRepository {
     // UI
     val scaleUi: Flow<Float?>
     val theme: Flow<Theme?>
-    val customTheme: Flow<String?>
     val styleId: Flow<String?>
     val linesHeightType: Flow<LinesHeightType?>
     val dateFormatUseDefault: Flow<Boolean?>

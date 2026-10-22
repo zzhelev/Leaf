@@ -241,7 +241,6 @@ fun TaskType.errorTitle(): String {
         TaskType.DeinitSubmodule -> "Deinit submodule failed"
         TaskType.SyncSubmodule -> "Sync submodule failed"
         TaskType.UpdateSubmodule -> "Update submodule failed"
-        TaskType.SaveCustomTheme -> "Failed trying to save the custom theme"
         TaskType.ResetRepoState -> "Could not reset repository state"
         TaskType.ChangesDetection -> "Repository changes detection has stopped working"
         TaskType.RepositoryOpen -> "Could not open the repository"
