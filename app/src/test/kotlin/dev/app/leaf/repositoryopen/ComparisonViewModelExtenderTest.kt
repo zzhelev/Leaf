@@ -11,6 +11,8 @@ import dev.app.leaf.domain.compare.CompareSide
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
+import dev.app.leaf.domain.interfaces.IGetCommitFromHashGitAction
 import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
@@ -35,6 +37,7 @@ import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.CloseableView
 import dev.app.leaf.domain.sorting.FilesViewState
+import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetComparisonUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -48,15 +51,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.eclipse.jgit.diff.DiffEntry
+import org.eclipse.jgit.lib.AbbreviatedObjectId
+import org.eclipse.jgit.lib.ObjectId
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Provider
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -86,6 +95,30 @@ class ComparisonViewModelExtenderTest {
 
     private val failNext = AtomicBoolean(false)
 
+    /** The commits that only B has, for the comparisons read from now on. One more per read unless set. */
+    @Volatile
+    private var commitsOnlyInB: List<Commit>? = null
+
+    /** Each commit's own changes, by hash, and the commits whose changes were read. */
+    private val commitFiles = ConcurrentHashMap<String, List<DiffEntry>>()
+    private val commitReads = Collections.synchronizedList(mutableListOf<String>())
+
+    /** Holds back the reads of a commit's changes until it completes. */
+    private val heldCommitReads = MutableStateFlow(CompletableDeferred<Unit>().apply { complete(Unit) })
+
+    private val failNextCommit = AtomicBoolean(false)
+
+    private val commitDiffAction = object : IGetCommitDiffEntriesGitAction {
+        override suspend fun invoke(repositoryPath: String, commit: Commit): Either<List<DiffEntry>, GitError> {
+            heldCommitReads.value.await()
+            commitReads += commit.hash
+
+            if (failNextCommit.getAndSet(false)) return Either.Err(GenericError("Couldn't read ${commit.hash}."))
+
+            return Either.Ok(commitFiles[commit.hash].orEmpty())
+        }
+    }
+
     private val gitAction = object : IGetComparisonGitAction {
         override suspend fun invoke(
             repositoryPath: String,
@@ -105,19 +138,31 @@ class ComparisonViewModelExtenderTest {
 
     private val selectedItem = MutableStateFlow<SelectedItem>(SelectedItem.UncommittedChanges)
     private val diffSelected = MutableStateFlow<DiffSelected?>(null)
+    private val diffsCleared = AtomicInteger()
     private val closeableViews = Collections.synchronizedList(mutableListOf<CloseableView>())
+    private val useCaseExecutor =
+        UseCaseExecutor(repositoryData, InMemoryRepositoryStateRepository(), Provider { error("No refresh") }, tabScope)
 
     private val extender = ComparisonViewModelExtender(
-        getComparisonUseCase = GetComparisonUseCase(
-            gitAction,
-            UseCaseExecutor(repositoryData, InMemoryRepositoryStateRepository(), Provider { error("No refresh") }, tabScope),
+        getComparisonUseCase = GetComparisonUseCase(gitAction, useCaseExecutor),
+        getCommitDiffEntriesUseCase = GetCommitDiffEntriesUseCase(
+            commitDiffAction,
+            object : IGetCommitFromHashGitAction {
+                override suspend fun invoke(repositoryPath: String, commitHash: String) = error("Not a stash")
+            },
+            useCaseExecutor,
         ),
         repositoryDataRepository = repositoryData,
         viewModelScope = viewModelScope,
         filesViewState = MutableStateFlow(FilesViewState()),
         selectedItem = selectedItem,
         onSelectItem = { selectedItem.value = it },
+        diffSelected = diffSelected,
         onDiffSelected = { diffSelected.value = it },
+        clearDiff = {
+            diffsCleared.incrementAndGet()
+            diffSelected.value = null
+        },
         onViewStateChanged = {},
         addCloseableView = { view -> closeableViews.remove(view); closeableViews += view },
         removeCloseableView = { closeableViews -= it },
@@ -558,6 +603,230 @@ class ComparisonViewModelExtenderTest {
         assertEquals(2, compared.size)
     }
 
+    // A commit's own changes (7.4)
+
+    private val c1 = commit("Read the refs", "c1")
+    private val c2 = commit("List them", "c2")
+    private val c3 = commit("Pick one", "c3")
+
+    @Test
+    fun `a commit's click lists its own changes, and a second click or All changes lists the comparison's again`(): Unit =
+        runBlocking {
+            commitsOnlyInB = listOf(c1, c2, c3)
+            commitFiles["c2"] = listOf(modifiedEntry("src/Parser.kt"))
+            extender.comparePicked(older, newer)
+            val all = loaded().files
+
+            extender.onAction(ComparisonAction.ShowCommit(c2))
+            val shown = commitLoaded("c2")
+
+            assertEquals(2, shown.shownCommit!!.position)
+            assertEquals(3, shown.shownCommit!!.count)
+            assertEquals(commitFiles["c2"], shown.files)
+            assertEquals(listOf("src/Parser.kt"), shown.files.map { it.newPath })
+            assertEquals(1, shown.rows.size)
+            assertEquals(listOf(CloseableView.COMPARISON, CloseableView.COMPARISON_COMMIT), closeableViews.toList())
+
+            // A second click on it
+            extender.onAction(ComparisonAction.ShowCommit(c2))
+            val back = withTimeout(5.seconds) { extender.state.first { it?.shownCommit == null } }!!
+
+            assertEquals(all, back.files)
+            assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
+
+            // All changes
+            extender.onAction(ComparisonAction.ShowCommit(c3))
+            commitLoaded("c3")
+            extender.onAction(ComparisonAction.ShowAllChanges)
+
+            assertEquals(all, withTimeout(5.seconds) { extender.state.first { it?.shownCommit == null } }!!.files)
+            assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
+        }
+
+    @Test
+    fun `the arrows step through the side's commits, oldest to newest, and stop at its ends`(): Unit = runBlocking {
+        commitsOnlyInB = listOf(c1, c2, c3)
+        extender.comparePicked(older, newer)
+        loaded()
+
+        extender.onAction(ComparisonAction.ShowCommit(c1))
+        commitLoaded("c1")
+
+        extender.onAction(ComparisonAction.StepCommit(-1))
+        delay(100.milliseconds)
+        assertEquals("c1", extender.state.value!!.shownCommit!!.commit.hash)
+
+        extender.onAction(ComparisonAction.StepCommit(1))
+        assertEquals(2, commitLoaded("c2").shownCommit!!.position)
+
+        extender.onAction(ComparisonAction.StepCommit(1))
+        assertEquals(3, commitLoaded("c3").shownCommit!!.position)
+
+        extender.onAction(ComparisonAction.StepCommit(1))
+        delay(100.milliseconds)
+        assertEquals("c3", extender.state.value!!.shownCommit!!.commit.hash)
+        assertEquals(listOf("c1", "c2", "c3"), commitReads.toList())
+    }
+
+    @Test
+    fun `while a commit's changes load, the list keeps what it showed`(): Unit = runBlocking {
+        commitsOnlyInB = listOf(c1, c2)
+        commitFiles["c1"] = listOf(modifiedEntry("a.txt"))
+        commitFiles["c2"] = listOf(modifiedEntry("b.txt"))
+        extender.comparePicked(older, newer)
+        val all = loaded().files
+
+        heldCommitReads.value = CompletableDeferred()
+        extender.onAction(ComparisonAction.ShowCommit(c1))
+        val fromAll = withTimeout(5.seconds) { extender.state.first { it?.shownCommit?.isLoading == true } }!!
+
+        assertEquals(all, fromAll.files)
+        assertTrue(fromAll.isLoading)
+
+        heldCommitReads.value.complete(Unit)
+        commitLoaded("c1")
+
+        heldCommitReads.value = CompletableDeferred()
+        extender.onAction(ComparisonAction.StepCommit(1))
+        val fromC1 = withTimeout(5.seconds) {
+            extender.state.first { it?.shownCommit?.commit?.hash == "c2" && it.shownCommit!!.isLoading }
+        }!!
+
+        assertEquals(commitFiles["c1"], fromC1.files)
+
+        heldCommitReads.value.complete(Unit)
+        assertEquals(commitFiles["c2"], commitLoaded("c2").files)
+    }
+
+    @Test
+    fun `the full view's diff follows the list to the commit's version of the file, or else to its first file`(): Unit =
+        runBlocking {
+            commitsOnlyInB = listOf(c1, c2)
+            commitFiles["c1"] = listOf(addedEntry("new.txt"), modifiedEntry("retry.txt", id = 1))
+            commitFiles["c2"] = listOf(addedEntry("other.txt"))
+            extender.comparePicked(older, newer)
+            val all = loaded().files
+
+            extender.onAction(ComparisonAction.OpenFullView(all[0]))
+            assertEquals(all[0], shownDiff())
+
+            extender.onAction(ComparisonAction.ShowCommit(c1))
+            commitLoaded("c1")
+            withTimeout(5.seconds) { while (shownDiff() !== commitFiles["c1"]!![1]) delay(10.milliseconds) }
+
+            extender.onAction(ComparisonAction.ShowCommit(c2))
+            commitLoaded("c2")
+            withTimeout(5.seconds) { while (shownDiff() !== commitFiles["c2"]!![0]) delay(10.milliseconds) }
+
+            // Back to all changes, which don't have other.txt
+            extender.onAction(ComparisonAction.ShowAllChanges)
+            withTimeout(5.seconds) { while (shownDiff() !== all[0]) delay(10.milliseconds) }
+            assertEquals(0, diffsCleared.get())
+        }
+
+    @Test
+    fun `in the pane, a diff of a file that the commit didn't change closes`(): Unit = runBlocking {
+        commitsOnlyInB = listOf(c1)
+        commitFiles["c1"] = listOf(addedEntry("other.txt"))
+        extender.comparePicked(older, newer)
+        val all = loaded().files
+
+        // The keys show a file's diff from the pane's list
+        extender.onAction(ComparisonAction.SelectEntry(all[1]))
+        extender.onAction(ComparisonAction.ShowCommit(c1))
+        commitLoaded("c1")
+
+        withTimeout(5.seconds) { while (diffsCleared.get() == 0) delay(10.milliseconds) }
+        assertNull(diffSelected.value)
+    }
+
+    @Test
+    fun `a diff whose file a new read has in the same versions stays as it is`(): Unit = runBlocking {
+        extender.comparePicked(mainSide, agentSide)
+        val first = loaded().files
+        extender.onAction(ComparisonAction.OpenFullView(first[1]))
+
+        // The agent committed: the comparison is read again, with new entries for the same versions
+        setBranches(agent1Hash = "a2")
+        withTimeout(5.seconds) { extender.state.first { it != null && !it.isLoading && it.bCommit == "a2" && it.files !== first } }
+        delay(200.milliseconds)
+
+        assertSame(first[1], shownDiff())
+    }
+
+    @Test
+    fun `a commit that a new read no longer lists stops being shown`(): Unit = runBlocking {
+        commitsOnlyInB = listOf(c1, c2)
+        extender.comparePicked(mainSide, agentSide)
+        loaded()
+        extender.onAction(ComparisonAction.ShowCommit(c2))
+        commitLoaded("c2")
+
+        // The agent's branch was rebased: c2 is gone
+        commitsOnlyInB = listOf(c1, c3)
+        setBranches(agent1Hash = "a2")
+
+        val after = withTimeout(5.seconds) { extender.state.first { it != null && it.bCommit == "a2" && it.shownCommit == null } }!!
+        assertEquals(listOf("c1", "c3"), after.comparison!!.commitsOnlyInB.map { it.hash })
+        assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
+    }
+
+    @Test
+    fun `Esc leaves a commit's changes before the full view, and the full view before the comparison`(): Unit =
+        runBlocking {
+            commitsOnlyInB = listOf(c1)
+            extender.comparePicked(older, newer)
+            loaded()
+
+            extender.onAction(ComparisonAction.OpenFullView())
+            extender.onAction(ComparisonAction.ShowCommit(c1))
+
+            assertEquals(
+                listOf(CloseableView.COMPARISON, CloseableView.COMPARISON_FULL_VIEW, CloseableView.COMPARISON_COMMIT),
+                closeableViews.toList(),
+            )
+
+            // A new comparison starts with all changes
+            extender.pick(PickedSide(CompareSide.Commit("c9"), date = 500))
+            val next = withTimeout(5.seconds) {
+                extender.state.first { it?.target?.b == CompareSide.Commit("c9") && !it.isLoading }
+            }!!
+
+            assertNull(next.shownCommit)
+            assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
+        }
+
+    @Test
+    fun `a commit's read that failed shows its error until Try again`(): Unit = runBlocking {
+        commitsOnlyInB = listOf(c1)
+        commitFiles["c1"] = listOf(addedEntry("new.txt"))
+        failNextCommit.set(true)
+        extender.comparePicked(older, newer)
+        loaded()
+
+        extender.onAction(ComparisonAction.ShowCommit(c1))
+        val failed = commitLoaded("c1")
+
+        assertEquals(GenericError("Couldn't read c1."), failed.shownCommit!!.error)
+        assertEquals(emptyList<DiffEntry>(), failed.files)
+
+        extender.onAction(ComparisonAction.TryAgain)
+        val read = withTimeout(5.seconds) {
+            extender.state.first { it?.shownCommit?.isLoading == false && it.shownCommit!!.error == null && !it.isLoading }
+        }!!
+
+        assertEquals(commitFiles["c1"], read.files)
+        assertNotNull(read.comparison)
+    }
+
+    private fun shownDiff(): DiffEntry? =
+        (diffSelected.value as? DiffSelected.CommitedChanges)?.items?.singleOrNull()?.diffEntry
+
+    /** The comparison once the changes of [hash] were read. */
+    private suspend fun commitLoaded(hash: String): ComparisonState = withTimeout(5.seconds) {
+        extender.state.first { it?.shownCommit?.commit?.hash == hash && !it.shownCommit!!.isLoading }!!
+    }
+
     /**
      * The review once the comparison loaded and the worktree list is in it. The state can show the comparison first, as
      * the list comes from a flow of its own, which a full test run's load can hold back.
@@ -589,8 +858,8 @@ class ComparisonViewModelExtenderTest {
             mode = mode,
             relation = relation,
             mergeBase = if (relation == UNRELATED) null else "m0",
-            commitsOnlyInB = subjects.mapIndexed { index, subject -> commit(subject, "c${index + 1}") },
-            countOnlyInB = subjects.size,
+            commitsOnlyInB = commitsOnlyInB ?: subjects.mapIndexed { index, subject -> commit(subject, "c${index + 1}") },
+            countOnlyInB = commitsOnlyInB?.size ?: subjects.size,
             commitsOnlyInA = emptyList(),
             countOnlyInA = 0,
             changes = listOf(addedEntry("retry.txt"), addedEntry("test/retry_test.txt")),
@@ -602,6 +871,17 @@ class ComparisonViewModelExtenderTest {
             changeType = ChangeType.ADD
             oldPath = DEV_NULL
             newPath = path
+        }
+    }
+
+    /** A modified file, whose versions' ids are [id] and the next. */
+    private fun modifiedEntry(path: String, id: Int = 0) = object : DiffEntry() {
+        init {
+            changeType = ChangeType.MODIFY
+            oldPath = path
+            newPath = path
+            oldId = AbbreviatedObjectId.fromObjectId(ObjectId.fromString("%040x".format(id)))
+            newId = AbbreviatedObjectId.fromObjectId(ObjectId.fromString("%040x".format(id + 1)))
         }
     }
 

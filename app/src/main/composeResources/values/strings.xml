@@ -644,6 +644,15 @@
     <string name="compare_file_position">%1$d of %2$d</string>
     <string name="compare_previous_file">Previous file (↑)</string>
     <string name="compare_next_file">Next file (↓)</string>
+    <string name="compare_commit_changes_of">Changes of</string>
+    <string name="compare_commit_position">· %1$d of %2$d</string>
+    <string name="compare_older_commit">Older commit</string>
+    <string name="compare_newer_commit">Newer commit</string>
+    <string name="compare_all_changes">All changes</string>
+    <string name="compare_commit_merge_note">A merge commit's changes are shown against its first parent.</string>
+    <string name="compare_commit_no_changes">This commit changes no file.</string>
+    <string name="compare_commit_parent">Parent · %1$s</string>
+    <string name="compare_commit_no_parent">No parent</string>
     <string name="compare_with_selected">Compare with selected (%1$s)</string>
     <string name="compare_with_current">Compare with %1$s (current)</string>
     <string name="compare_with_detached_head">Compare with HEAD (detached)</string>

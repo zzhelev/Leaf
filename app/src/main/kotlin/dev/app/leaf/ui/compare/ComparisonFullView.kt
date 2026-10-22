@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -30,8 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.KeyEventType
@@ -47,7 +43,6 @@ import dev.app.leaf.domain.compare.CompareSide
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.sorting.FileRow
-import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.repositoryopen.ComparisonAction
@@ -57,15 +52,12 @@ import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.PrimaryButton
-import dev.app.leaf.ui.components.sort.FilesSortMenuButton
-import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.DialogWarning
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.getErrorText
 import kotlinx.coroutines.flow.filterIsInstance
 import org.eclipse.jgit.diff.DiffEntry
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /** The commits sections take at most this share of the column's height, so the files keep room. */
@@ -328,31 +320,15 @@ private fun ListsColumn(
             }
 
             if (comparison != null) {
-                CommitsSections(state, listStates, onSelectCommit, commitsMaxHeight)
+                CommitsSections(state, listStates, onSelectCommit, onAction, commitsMaxHeight)
 
-                SectionHeader(
-                    title = stringResource(Res.string.compare_files),
-                    count = comparison.changes.size,
-                    action = {
-                        FilesSortMenuButton(
-                            viewState = state.viewState,
-                            onViewStateChange = { onAction(ComparisonAction.ViewStateChanged(it)) },
-                        )
-                    },
+                FilesSection(
+                    state = state,
+                    diffSelected = diffSelected,
+                    listStates = listStates,
+                    onOpen = { onAction(ComparisonAction.SelectEntry(it)) },
+                    onAction = onAction,
                 )
-
-                if (comparison.changes.isEmpty()) {
-                    PaneNote(noChangesText(state))
-                } else {
-                    ChangedFiles(
-                        state = state,
-                        diffSelected = diffSelected,
-                        listState = listStates.files,
-                        onOpen = { onAction(ComparisonAction.SelectEntry(it)) },
-                        onAction = onAction,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
             }
         }
     }
@@ -384,28 +360,10 @@ private fun FileStepper(position: Int, count: Int, onStep: (Int) -> Unit) {
     }
 }
 
-@Composable
-private fun StepButton(description: String, isEnabled: Boolean, onClick: () -> Unit, rotation: Float = 0f) {
-    DelayedTooltip(description) {
-        IconButton(
-            onClick = onClick,
-            enabled = isEnabled,
-            modifier = Modifier
-                .handOnHover()
-                .size(28.dp)
-                .alpha(if (isEnabled) 1f else 0.35f),
-        ) {
-            Icon(
-                painter = painterResource(Res.drawable.chevron_right),
-                contentDescription = description,
-                tint = MaterialTheme.colors.onBackground,
-                modifier = Modifier.size(18.dp).rotate(rotation),
-            )
-        }
-    }
-}
-
-/** A and B above the diff's lines: over the two sides of a split diff, or on one line for a unified one. */
+/**
+ * A and B above the diff's lines: over the two sides of a split diff, or on one line for a unified one. While a commit's
+ * own changes are listed, its first parent and the commit, which its diffs compare.
+ */
 @Composable
 private fun SideLabels(state: ComparisonState, isSplit: Boolean) {
     Row(
@@ -415,7 +373,25 @@ private fun SideLabels(state: ComparisonState, isSplit: Boolean) {
             .background(MaterialTheme.colors.secondarySurface),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isSplit) {
+        val shownCommit = state.shownCommit?.commit
+
+        if (shownCommit != null) {
+            val parent = shownCommit.parentsHashes.firstOrNull()
+            val parentLabel = if (parent == null) {
+                stringResource(Res.string.compare_commit_no_parent)
+            } else {
+                stringResource(Res.string.compare_commit_parent, parent.take(7))
+            }
+
+            if (isSplit) {
+                CommitLabel(parentLabel, Modifier.weight(1f))
+                CommitLabel(shownCommit.shortHash, Modifier.weight(1f))
+            } else {
+                CommitLabel(parentLabel)
+                Text(text = "→", color = MaterialTheme.colors.onBackgroundSecondary, style = MaterialTheme.typography.body2)
+                CommitLabel(shownCommit.shortHash)
+            }
+        } else if (isSplit) {
             SideLabel(CompareLetter.A, state.aName, state.aCommit, Modifier.weight(1f))
             SideLabel(CompareLetter.B, state.bName, state.bCommit, Modifier.weight(1f))
         } else {
@@ -423,6 +399,27 @@ private fun SideLabels(state: ComparisonState, isSplit: Boolean) {
             Text(text = "→", color = MaterialTheme.colors.onBackgroundSecondary, style = MaterialTheme.typography.body2)
             SideLabel(CompareLetter.B, state.bName, state.bCommit)
         }
+    }
+}
+
+/** A side of a commit's own diff: the commit's mark and [text]. */
+@Composable
+private fun CommitLabel(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        CommitMark()
+
+        Text(
+            text = text,
+            style = MaterialTheme.typography.caption,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colors.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

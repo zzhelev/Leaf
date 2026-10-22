@@ -1223,7 +1223,7 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     `DiffPane`, without its close button, with "‹ 2 of 5 ›" in its header (`FileStepper`) and A and B above its lines
     (`SideLabels`: over the two sides of a split diff, or "A main · 5d5537f → B feat · 7d03f51" for a unified one).
     Without a file: "Select a file to see what changed in it.". ↑ and ↓ step through the files (the view's own
-    `onKeyEvent`), and a comparison read again finds the shown file by its paths.
+    `onKeyEvent`). A diff that the comparison opened follows the list when it changes (`followFiles`, below).
   - `DiffPane` has three optional parameters for it, which leave a commit's diff as it was: `isClosable` (false: no
     close button, and the pane doesn't add itself to the views that Esc closes), `headerActions` and `sideLabels`.
   - **Two Escs:** `CloseableView.COMPARISON` is added when a comparison starts, and `COMPARISON_FULL_VIEW` while the
@@ -1232,6 +1232,24 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     takes out the diff's `CloseableView.DIFF`, that an extra Esc would otherwise close). The second Esc ends the
     comparison. `RepositoryOpenPage` gives the focus back to the tab when the full view closes, as for the conflict
     resolver.
+- **A commit's own changes** (step 7.4, 2026-10-22, option a of `Compare Step 7.dc.html`): a click on a commit in the
+  commits sections lists its own changes, against its first parent (`GetCommitDiffEntriesUseCase`, a merge's too), in
+  place of the comparison's; the row stays highlighted (`backgroundSelected`).
+  - A strip above the files (`ShownCommitStrip`): "Changes of e701c86 · 2 of 5", ‹ › through its side's commits, oldest
+    first, and "All changes". "Changes of" gives way first in a narrow pane; at 330 px all of it fits. Its tooltip is the
+    message, and for a merge says which parent.
+  - Back to all changes: "All changes", a second click on the row, or Esc (`CloseableView.COMPARISON_COMMIT`, added when
+    a commit shows, so Esc leaves views in the order they opened). A commit that a new read no longer lists (a branch
+    side rebased) stops being shown, and a new comparison starts with all changes.
+  - In the full view, the labels above the diff are the parent and the commit ("Parent · 30756d6 → e701c86", "No
+    parent"), not A and B.
+  - While its changes load, the list keeps what it showed (`CommitReading.shownBefore`); a failure shows in place of
+    the files with Try again, which reads both again.
+  - `ComparisonState.files` is what the list shows (the comparison's changes or the commit's); the files' count, the
+    empty note, the stepper and `OpenFullView` read it. `followFiles` moves a diff that the comparison opened (one it
+    shows now, `shownEntry`) when `files` changes: to the same paths, else in the full view to the first file, else it
+    closes (`clearDiff`, the view model's `clearComparisonDiff`). The same paths and blob ids keep the diff as it is,
+    so a comparison read again when an agent commits doesn't reload an unchanged file.
 - **The badges** (`ui/compare/CompareBadges.kt`, `CompareBadge`, `CompareLetter`): a 16 dp square with the letter, A
   amber (`#E9C754`) and B light blue (`#9FD1FF`), the letter near-black (`#0E1621`, 11 : 1 on both), in the log, the
   pane, the full view's header and above the diff.
@@ -1239,9 +1257,9 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     their files.
   - Renders showed the fills only 1.2 to 1.6 : 1 against the light theme's white, grey and selected rows, so on a light
     theme a 1 dp outline of the same hue draws the badge (`#8A6D12`, `#2F6FA8`, at least 3 : 1 on all three).
-- **Not done** (`docs/fork/compare.md` keeps the plans): a "Compare with…" picker for any branch, tag or hash; comparing with
-  the working tree (⌘-click on the uncommitted changes); two versions in file history; a commit's own diff from the
-  commits sections. Enter in the pane's file list opens nothing.
+- **Not done** (`docs/fork/compare.md`, step 7, keeps the plans): two versions in file history (7.3), a "Compare with…"
+  picker for any branch, tag or hash (7.1), comparing with the working tree (7.2). Later: a worktree's review with its
+  uncommitted changes (7.2c), a pinned base in file history (7.3b). Enter in the pane's file list opens nothing.
 - Tests:
   - `CompareRulesTest` (domain): a row's side, the picked order, the ancestor's swap, the default modes, the switch,
     `modeToShow`, `swapped` and the relation.
@@ -1250,12 +1268,13 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     `git diff --name-status` (`A B` and `A...B`), `git rev-list` both ways and `git merge-base`; also a criss-cross
     merge, a remote branch, a missing side, more than 1,000 commits and a moved file's diff. `PartialCloneTest` has one
     for a blobless clone.
-  - `ComparisonViewModelExtenderTest` (24, a fake git action): the review, the order, an ancestor turned first and
+  - `ComparisonViewModelExtenderTest` (33, a fake git action): the review, the order, an ancestor turned first and
     never shown the wrong way round, the default modes, the switch, a swap (onto an ancestor too), the current branch
     first, ⌘-click on A, on B and elsewhere, ending on a branch side that moved, the full view and the two Escs, Try
-    again.
-  - `ComparisonPaneTest` (16, rendered at 330 px from a state: each state of the pane and the review's, the buttons, a
-    narrow pane), `ComparisonFullViewTest` (9, at 1180 × 640, with a stand-in for the diff pane), `CompareBadgeTest`
+    again; a commit's own changes (stepping, the list kept while loading, the diff following, Esc's order).
+  - `ComparisonPaneTest` (21, rendered at 330 px from a state: each state of the pane and the review's, the buttons, a
+    narrow pane, a commit's strip and row), `ComparisonFullViewTest` (10, at 1180 × 640, with a stand-in for the diff
+    pane), `CompareBadgeTest`
     (the fills and the light theme's outline in pixels, and the contrasts), `LogComparisonTest` (the letters, both
     clicks, the badge before the chips in both themes, from its pixels) and `CompareMenusTest` (each menu's items,
     their order, separators and hint, a detached HEAD, the click per system). The pane, the full view and the log's

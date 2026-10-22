@@ -18,10 +18,12 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.NativeClipboard
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.text.TextLayoutResult
 import dev.app.leaf.domain.compare.CompareSide
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.models.Commit
@@ -43,6 +45,7 @@ import dev.app.leaf.repositoryopen.ComparisonAction
 import dev.app.leaf.repositoryopen.ComparisonState
 import dev.app.leaf.repositoryopen.ComparisonTarget
 import dev.app.leaf.repositoryopen.ReviewedWorktree
+import dev.app.leaf.repositoryopen.ShownCommit
 import dev.app.leaf.repositoryopen.toFileItems
 import dev.app.leaf.theme.AppTheme
 import org.eclipse.jgit.diff.DiffEntry
@@ -303,6 +306,97 @@ class ComparisonPaneTest {
     }
 
     @Test
+    fun `a commit's click asks for its own changes, and the commit shown is highlighted and named in a strip`() {
+        state = state(DIVERGED, SINCE_SPLIT)
+        render()
+
+        click(node("List remote refs with git ls-remote").center())
+        assertEquals(listOf<ComparisonAction>(ComparisonAction.ShowCommit(featureCommits[0])), actions)
+        actions.clear()
+
+        state = showing(featureCommits[0], position = 1, files = featureFiles.take(2))
+        settle()
+
+        assertTrue(row("List remote refs with git ls-remote").isSelected())
+        assertFalse(row("Add Choose… to the clone dialog").isSelected())
+        assertEquals(listOf("Changes of", "a41c9e2", "· 1 of 2"), row("Changes of").texts())
+        // The whole strip fits the pane's default width
+        assertFalse(node("Changes of").isCut())
+        assertTrue(listOf("Files changed", "2") in texts().windowed(2), texts().toString())
+        assertTrue("CloneDialog.kt" in texts())
+        assertFalse("RemoteRefs.kt" in texts())
+        assertWithinPane()
+
+        // The oldest has no older one
+        click(described("Older commit").center())
+        click(described("Newer commit").center())
+        click(node("All changes").center())
+        // A second click on the commit shown
+        click(node("List remote refs with git ls-remote").center())
+
+        assertEquals(
+            listOf(
+                ComparisonAction.StepCommit(1),
+                ComparisonAction.ShowAllChanges,
+                ComparisonAction.ShowCommit(featureCommits[0]),
+            ),
+            actions,
+        )
+    }
+
+    @Test
+    fun `the newest commit has no newer one`() {
+        state = showing(featureCommits[1], position = 2, files = featureFiles.take(1))
+        render()
+
+        click(described("Newer commit").center())
+        click(described("Older commit").center())
+
+        assertEquals(listOf<ComparisonAction>(ComparisonAction.StepCommit(-1)), actions)
+    }
+
+    @Test
+    fun `a commit that changes no file says so, and one whose read failed shows the error with Try again`() {
+        state = showing(featureCommits[0], position = 1, files = emptyList())
+        render()
+
+        assertTrue("This commit changes no file." in texts(), texts().toString())
+
+        state = showing(featureCommits[0], position = 1, files = emptyList(), error = GenericError("Couldn't read a41c9e2."))
+        settle()
+
+        assertFalse("This commit changes no file." in texts())
+        assertTrue("Couldn't read a41c9e2." in texts(), texts().toString())
+
+        click(node("Try again").center())
+
+        assertEquals(listOf<ComparisonAction>(ComparisonAction.TryAgain), actions)
+    }
+
+    @Test
+    fun `while a commit's changes load, the list stays and no note says it's empty`() {
+        state = showing(featureCommits[0], position = 1, files = emptyList(), isLoading = true)
+        render()
+
+        assertFalse("This commit changes no file." in texts())
+        assertTrue("Changes of" in texts())
+    }
+
+    @Test
+    fun `in a narrow pane the strip keeps its buttons`() {
+        width = 260
+        state = showing(featureCommits[0].copy(hash = "a41c9e2"), position = 12, count = 345, files = featureFiles)
+        render()
+
+        assertWithinPane()
+        assertTrue(described("Newer commit").boundsInWindow.right <= width)
+        assertTrue(node("All changes").boundsInWindow.right <= width)
+        // "Changes of" gives way, and the commit's id stays whole
+        assertTrue(node("Changes of").isCut())
+        assertFalse(nodes().last { "a41c9e2" in it.texts() }.isCut())
+    }
+
+    @Test
     fun `older commits than the listed ones are counted`() {
         val listed = featureCommits
         state = state(DIVERGED, SINCE_SPLIT).let { it.copy(comparison = it.comparison!!.copy(countOnlyInB = 1_002 + listed.size)) }
@@ -336,6 +430,7 @@ class ComparisonPaneTest {
             "loading" to state(DIVERGED, SINCE_SPLIT).copy(isLoading = true, comparison = null, rows = emptyList()),
             "failed" to state(DIVERGED, SINCE_SPLIT).copy(comparison = null, rows = emptyList(), error = GenericError("Couldn't download what the comparison needs: Could not resolve host: github.com")),
             "review" to state(DIVERGED, SINCE_SPLIT).copy(review = review),
+            "commit" to showing(featureCommits[0], position = 1, files = featureFiles.take(2)),
         )
 
         for (themeUnderTest in listOf(Theme.Dark, Theme.Light)) {
@@ -387,6 +482,21 @@ class ComparisonPaneTest {
             review = null,
         )
     }
+
+    /** Diverged sides, listing [commit]'s own changes, [files]. */
+    private fun showing(
+        commit: Commit,
+        position: Int,
+        files: List<DiffEntry>,
+        count: Int = featureCommits.size,
+        isLoading: Boolean = false,
+        error: GenericError? = null,
+    ): ComparisonState = state(DIVERGED, SINCE_SPLIT).copy(
+        shownCommit = ShownCommit(commit, position, count, isLoading, error),
+        files = files,
+        rows = buildFileRows(files = files.toFileItems(), state = FilesViewState(), isCollapsed = { false }),
+        isLoading = isLoading,
+    )
 
     private fun render() {
         frameTime = 0L
@@ -461,6 +571,15 @@ class ComparisonPaneTest {
     } ?: error("Nothing described as $description")
 
     private fun SemanticsNode.isSelected() = config.getOrNull(SemanticsProperties.Selected) == true
+
+    /** Whether the text got less room than it needs on one line, so that it's cut. */
+    private fun SemanticsNode.isCut(): Boolean {
+        val layouts = mutableListOf<TextLayoutResult>()
+        config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
+        val layout = layouts.single()
+
+        return layout.multiParagraph.intrinsics.maxIntrinsicWidth > layout.size.width + 0.5f
+    }
 
     private fun SemanticsNode.center() = boundsInWindow.center
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,7 @@ import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
@@ -63,7 +66,10 @@ import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.repositoryopen.ComparisonAction
 import dev.app.leaf.repositoryopen.ComparisonState
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
+import dev.app.leaf.repositoryopen.ShownCommit
+import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.PrimaryButton
@@ -73,7 +79,9 @@ import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.parentContextMenu
 import dev.app.leaf.ui.dialogs.DialogWarning
+import dev.app.leaf.ui.forTooltip
 import dev.app.leaf.ui.getErrorText
+import dev.app.leaf.ui.keepInView
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import org.eclipse.jgit.diff.DiffEntry
@@ -171,31 +179,15 @@ internal fun ComparisonPaneView(
                 }
 
                 if (comparison != null) {
-                    CommitsSections(state, listStates, onSelectCommit, commitsMaxHeight)
+                    CommitsSections(state, listStates, onSelectCommit, onAction, commitsMaxHeight)
 
-                    SectionHeader(
-                        title = stringResource(Res.string.compare_files),
-                        count = comparison.changes.size,
-                        action = {
-                            FilesSortMenuButton(
-                                viewState = state.viewState,
-                                onViewStateChange = { onAction(ComparisonAction.ViewStateChanged(it)) },
-                            )
-                        },
+                    FilesSection(
+                        state = state,
+                        diffSelected = diffSelected,
+                        listStates = listStates,
+                        onOpen = { onAction(ComparisonAction.OpenFullView(it)) },
+                        onAction = onAction,
                     )
-
-                    if (comparison.changes.isEmpty()) {
-                        PaneNote(noChangesText(state))
-                    } else {
-                        ChangedFiles(
-                            state = state,
-                            diffSelected = diffSelected,
-                            listState = listStates.files,
-                            onOpen = { onAction(ComparisonAction.OpenFullView(it)) },
-                            onAction = onAction,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
                 }
             }
         }
@@ -412,12 +404,191 @@ internal fun ModeSwitch(mode: ComparisonMode, onSelect: (ComparisonMode) -> Unit
     }
 }
 
-/** The commits that each side has alone, each in a section that opens and closes: B's open, A's closed. */
+/**
+ * The files: the shown commit's strip, the header with its count and the view's button, then the list, or what an
+ * empty list means, or the commit's read that failed. [onOpen] is a file's click.
+ */
+@Composable
+internal fun ColumnScope.FilesSection(
+    state: ComparisonState,
+    diffSelected: DiffSelected.CommitedChanges?,
+    listStates: ComparisonListStates,
+    onOpen: (DiffEntry) -> Unit,
+    onAction: (ComparisonAction) -> Unit,
+) {
+    val shownCommit = state.shownCommit
+
+    if (shownCommit != null) {
+        ShownCommitStrip(shownCommit, onAction)
+    }
+
+    SectionHeader(
+        title = stringResource(Res.string.compare_files),
+        count = state.files.size,
+        action = {
+            FilesSortMenuButton(
+                viewState = state.viewState,
+                onViewStateChange = { onAction(ComparisonAction.ViewStateChanged(it)) },
+            )
+        },
+    )
+
+    val commitError = shownCommit?.error
+
+    when {
+        commitError != null -> Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            DialogWarning(commitError.getErrorText())
+            PrimaryButton(
+                text = stringResource(Res.string.compare_try_again),
+                onClick = { onAction(ComparisonAction.TryAgain) },
+            )
+        }
+
+        state.files.isEmpty() -> if (shownCommit == null || !shownCommit.isLoading) {
+            PaneNote(noChangesText(state))
+        }
+
+        else -> ChangedFiles(
+            state = state,
+            diffSelected = diffSelected,
+            listState = listStates.files,
+            onOpen = onOpen,
+            onAction = onAction,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/**
+ * The commit whose own changes the files are (`docs/fork/compare.md`, 7.4): "Changes of e701c86 · 2 of 5", buttons to
+ * the older and the newer of its side's commits, and "All changes", which lists the comparison's again.
+ */
+@Composable
+internal fun ShownCommitStrip(shown: ShownCommit, onAction: (ComparisonAction) -> Unit) {
+    val commit = shown.commit
+    val mergeNote = stringResource(Res.string.compare_commit_merge_note)
+    // The whole message, and for a merge which of its parents the changes are against
+    val tooltip = remember(commit.message, commit.parentCount, mergeNote) {
+        val message = commit.message.forTooltip()
+
+        if (commit.parentCount > 1) "$message\n\n$mergeNote" else message
+    }
+
+    Row(
+        modifier = Modifier
+            .padding(top = 1.dp)
+            .height(SECTION_HEADER_HEIGHT)
+            .fillMaxWidth()
+            .background(MaterialTheme.colors.secondarySurface)
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // "Changes of" gives way first, the commit's id and place stay, the arrows follow them, and All changes keeps
+        // the end. All of it fits the pane's default 330 px
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            DelayedTooltip(tooltip, modifier = Modifier.weight(1f, fill = false)) {
+                Row(
+                    modifier = Modifier.semantics(mergeDescendants = true) {},
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.compare_commit_changes_of),
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).padding(end = 4.dp),
+                    )
+
+                    Text(
+                        text = commit.shortHash,
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onBackground,
+                        maxLines = 1,
+                    )
+
+                    if (shown.count > 0) {
+                        Text(
+                            text = stringResource(Res.string.compare_commit_position, shown.position, shown.count),
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onBackgroundSecondary,
+                            maxLines = 1,
+                            modifier = Modifier.padding(start = 5.dp),
+                        )
+                    }
+                }
+            }
+
+            StepButton(
+                description = stringResource(Res.string.compare_older_commit),
+                isEnabled = shown.position > 1,
+                rotation = 180f,
+                onClick = { onAction(ComparisonAction.StepCommit(-1)) },
+                size = 24.dp,
+                modifier = Modifier.padding(start = 2.dp),
+            )
+
+            StepButton(
+                description = stringResource(Res.string.compare_newer_commit),
+                isEnabled = shown.position in 1 until shown.count,
+                onClick = { onAction(ComparisonAction.StepCommit(1)) },
+                size = 24.dp,
+            )
+        }
+
+        Text(
+            text = stringResource(Res.string.compare_all_changes),
+            style = MaterialTheme.typography.body2,
+            color = MaterialTheme.colors.primaryVariant,
+            maxLines = 1,
+            modifier = Modifier
+                .padding(start = 6.dp)
+                .handMouseClickable { onAction(ComparisonAction.ShowAllChanges) },
+        )
+    }
+}
+
+@Composable
+internal fun StepButton(
+    description: String,
+    isEnabled: Boolean,
+    onClick: () -> Unit,
+    rotation: Float = 0f,
+    size: Dp = 28.dp,
+    modifier: Modifier = Modifier,
+) {
+    DelayedTooltip(description) {
+        IconButton(
+            onClick = onClick,
+            enabled = isEnabled,
+            modifier = modifier
+                .handOnHover()
+                .size(size)
+                .alpha(if (isEnabled) 1f else 0.35f),
+        ) {
+            Icon(
+                painter = painterResource(Res.drawable.chevron_right),
+                contentDescription = description,
+                tint = MaterialTheme.colors.onBackground,
+                modifier = Modifier.size(18.dp).rotate(rotation),
+            )
+        }
+    }
+}
+
+/**
+ * The commits that each side has alone, each in a section that opens and closes: B's open, A's closed. A click on a
+ * commit lists its own changes in the files (7.4), and a second click lists all of them again.
+ */
 @Composable
 internal fun CommitsSections(
     state: ComparisonState,
     listStates: ComparisonListStates,
     onSelectCommit: (Commit) -> Unit,
+    onAction: (ComparisonAction) -> Unit,
     maxHeight: Dp,
 ) {
     val comparison = state.comparison ?: return
@@ -443,7 +614,9 @@ internal fun CommitsSections(
                 commits = comparison.commitsOnlyInB,
                 count = comparison.countOnlyInB,
                 listState = listStates.commitsB,
+                shownCommit = state.shownCommit?.commit?.hash,
                 onSelectCommit = onSelectCommit,
+                onShowCommit = { onAction(ComparisonAction.ShowCommit(it)) },
                 modifier = Modifier.heightIn(max = maxHeight),
             )
         }
@@ -462,7 +635,9 @@ internal fun CommitsSections(
                 commits = comparison.commitsOnlyInA,
                 count = comparison.countOnlyInA,
                 listState = listStates.commitsA,
+                shownCommit = state.shownCommit?.commit?.hash,
                 onSelectCommit = onSelectCommit,
+                onShowCommit = { onAction(ComparisonAction.ShowCommit(it)) },
                 modifier = Modifier.heightIn(max = maxHeight),
             )
         }
@@ -532,16 +707,28 @@ internal fun SectionHeader(
     }
 }
 
-/** A side's commits, oldest first, by subject, with a note for the older ones that aren't listed. */
+/**
+ * A side's commits, oldest first, by subject, with a note for the older ones that aren't listed. The commit whose
+ * changes the files show ([shownCommit]) is highlighted, and kept in view as ‹ › step through them.
+ */
 @Composable
 private fun CommitsList(
     commits: List<Commit>,
     count: Int,
     listState: LazyListState,
+    shownCommit: String?,
     onSelectCommit: (Commit) -> Unit,
+    onShowCommit: (Commit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val older = count - commits.size
+    val shownIndex = commits.indexOfFirst { it.hash == shownCommit }
+
+    LaunchedEffect(shownCommit, shownIndex) {
+        if (shownIndex >= 0) {
+            listState.keepInView(shownIndex + if (older > 0) 1 else 0)
+        }
+    }
 
     LazyColumn(state = listState, modifier = modifier.fillMaxWidth()) {
         if (older > 0) {
@@ -551,13 +738,18 @@ private fun CommitsList(
         }
 
         items(commits, key = { it.hash }) { commit ->
-            CommitRow(commit, onSelectCommit)
+            CommitRow(commit, isShown = commit.hash == shownCommit, onSelectCommit, onShowCommit)
         }
     }
 }
 
 @Composable
-private fun CommitRow(commit: Commit, onSelectCommit: (Commit) -> Unit) {
+private fun CommitRow(
+    commit: Commit,
+    isShown: Boolean,
+    onSelectCommit: (Commit) -> Unit,
+    onShowCommit: (Commit) -> Unit,
+) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
 
@@ -574,6 +766,9 @@ private fun CommitRow(commit: Commit, onSelectCommit: (Commit) -> Unit) {
                 modifier = Modifier
                     .height(COMMIT_ROW_HEIGHT)
                     .fillMaxWidth()
+                    .semantics(mergeDescendants = true) { selected = isShown }
+                    .background(if (isShown) MaterialTheme.colors.backgroundSelected else Color.Transparent)
+                    .handMouseClickable { onShowCommit(commit) }
                     .padding(start = 16.dp, end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -602,7 +797,7 @@ private fun CommitRow(commit: Commit, onSelectCommit: (Commit) -> Unit) {
 
 /** A commit, drawn as git's commit symbol: a ring on a line. */
 @Composable
-private fun CommitMark(modifier: Modifier = Modifier) {
+internal fun CommitMark(modifier: Modifier = Modifier) {
     val color = MaterialTheme.colors.onBackgroundSecondary
 
     Canvas(modifier = modifier.size(14.dp)) {
@@ -644,10 +839,10 @@ internal fun ChangedFiles(
 
 /** What an empty file list says: the review's question is what a merge would change. */
 @Composable
-internal fun noChangesText(state: ComparisonState): String = if (state.review != null) {
-    stringResource(Res.string.compare_review_no_changes)
-} else {
-    stringResource(Res.string.compare_no_changes)
+internal fun noChangesText(state: ComparisonState): String = when {
+    state.shownCommit != null -> stringResource(Res.string.compare_commit_no_changes)
+    state.review != null -> stringResource(Res.string.compare_review_no_changes)
+    else -> stringResource(Res.string.compare_no_changes)
 }
 
 /** The reviewed worktree's uncommitted changes, which a merge leaves out, and a link that shows them. */

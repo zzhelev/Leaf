@@ -39,6 +39,7 @@ import dev.app.leaf.domain.sorting.buildFileRows
 import dev.app.leaf.repositoryopen.ComparisonAction
 import dev.app.leaf.repositoryopen.ComparisonState
 import dev.app.leaf.repositoryopen.ComparisonTarget
+import dev.app.leaf.repositoryopen.ShownCommit
 import dev.app.leaf.repositoryopen.toFileItems
 import dev.app.leaf.theme.AppTheme
 import org.eclipse.jgit.diff.DiffEntry
@@ -212,6 +213,41 @@ class ComparisonFullViewTest {
 
         assertTrue(node("feat/clone-picker · 7d03f51").boundsInWindow.left < 330 + (WIDTH - 330) / 2)
         assertTrue("→" in texts())
+    }
+
+    @Test
+    fun `while a commit's own changes are listed, its parent and the commit name the diff's sides, and its row and strip show`() {
+        val picked = commit("a41c9e2", "List remote refs with git ls-remote").copy(parentsHashes = listOf("e3c6632f".padEnd(40, '0')))
+        val ownFiles = files.take(1)
+        state = state().copy(
+            shownCommit = ShownCommit(picked, position = 1, count = 2, isLoading = false, error = null),
+            files = ownFiles,
+            rows = buildFileRows(files = ownFiles.toFileItems(), state = FilesViewState(), isCollapsed = { false }),
+        )
+        shown = ownFiles[0]
+        render()
+
+        val parent = node("Parent · e3c6632")
+        // Over the diff, not the commit's row in the list on the left
+        val own = nodes().first { "a41c9e2" in it.texts() && it.boundsInWindow.left > 331 }
+
+        assertTrue(parent.boundsInWindow.left > 331)
+        assertTrue(parent.boundsInWindow.left < own.boundsInWindow.left)
+        assertFalse(texts().any { it == "main · 5d5537f" }, texts().toString())
+        assertTrue("Changes of" in texts())
+        // The stepper counts the commit's files
+        assertTrue("1 of 1" in texts(), texts().toString())
+
+        isSplit = false
+        settle()
+
+        assertTrue("→" in texts())
+
+        // A commit without a parent
+        state = state.copy(shownCommit = state.shownCommit!!.copy(commit = picked.copy(parentsHashes = emptyList())))
+        settle()
+
+        assertTrue("No parent" in texts(), texts().toString())
     }
 
     @Test

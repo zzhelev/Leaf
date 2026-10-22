@@ -19,6 +19,7 @@ import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.errOrNull
 import dev.app.leaf.domain.errors.okOrNull
+import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Comparison
 import dev.app.leaf.domain.models.ComparisonMode
 import dev.app.leaf.domain.models.ComparisonRelation
@@ -34,6 +35,7 @@ import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.buildFileRows
+import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetComparisonUseCase
 import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.name
@@ -45,13 +47,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.eclipse.jgit.diff.DiffEntry
 
 /**
@@ -86,11 +92,28 @@ data class ReviewedWorktree(
 )
 
 /**
+ * One of the comparison's commits, whose own changes the file list shows (`docs/fork/compare.md`, 7.4): against its
+ * first parent, as the log shows a commit's.
+ *
+ * @param position its place among its side's commits, oldest first, from 1, of [count].
+ * @param isLoading while its changes are read. The list keeps what it showed until they come.
+ */
+data class ShownCommit(
+    val commit: Commit,
+    val position: Int,
+    val count: Int,
+    val isLoading: Boolean,
+    val error: AppError?,
+)
+
+/**
  * What the comparison shows (fork-only).
  *
  * @param mode the mode that [comparison]'s changes are in, which the switch shows.
  * @param aCommit the commit that A is at now: a branch side follows its branch. The log marks this row.
  * @param comparison the last comparison read of these sides in this mode, kept while a newer one loads.
+ * @param shownCommit the commit whose own changes the files are, in place of the comparison's.
+ * @param files what the file list shows: the comparison's changes, or [shownCommit]'s.
  * @param review the worktree, for "Review changes" only.
  */
 data class ComparisonState(
@@ -101,8 +124,10 @@ data class ComparisonState(
     val error: AppError?,
     val aCommit: String,
     val bCommit: String,
+    val shownCommit: ShownCommit? = null,
+    val files: List<DiffEntry> = comparison?.changes.orEmpty(),
     val viewState: FilesViewState,
-    /** The visible rows of the changed files, for [viewState]. */
+    /** The visible rows of [files], for [viewState]. */
     val rows: List<FileRow<DiffEntry>>,
     val isFullView: Boolean,
     val review: ReviewedWorktree?,
@@ -131,6 +156,15 @@ sealed interface ComparisonAction {
     data object TryAgain : ComparisonAction
     data object End : ComparisonAction
 
+    /** Lists [commit]'s own changes in place of the comparison's, or all of them again when it's the one shown. */
+    data class ShowCommit(val commit: Commit) : ComparisonAction
+
+    /** Shows the commit [offset] places from the one shown, among its side's commits: 1 is the next newer. */
+    data class StepCommit(val offset: Int) : ComparisonAction
+
+    /** Lists the comparison's changes again, in place of a commit's. */
+    data object ShowAllChanges : ComparisonAction
+
     /** Shows the reviewed worktree's uncommitted changes: the tab's own, or the tab switches to the worktree. */
     data object ShowUncommittedChanges : ComparisonAction
 }
@@ -141,6 +175,7 @@ sealed interface ComparisonAction {
  * @param chosenMode the mode the user chose, or the one the comparison started in.
  * @param relation how the sides' histories meet, once a read told it.
  * @param orderSettled false until the first read: an ancestor that ended up as B goes first then.
+ * @param shownCommit the commit whose own changes the files show.
  */
 private data class Active(
     val target: ComparisonTarget,
@@ -149,6 +184,7 @@ private data class Active(
     val orderSettled: Boolean,
     val isFullView: Boolean,
     val tries: Int,
+    val shownCommit: Commit? = null,
 ) {
     /**
      * The mode to read. The review asks for what the branch would bring, even when that's nothing. A comparison shows
@@ -172,6 +208,17 @@ private data class Reading(
 )
 
 /**
+ * The read of a commit's own changes. While it loads, [shownBefore] are the files that the list showed, the last
+ * commit's, which stay until these come.
+ */
+private data class CommitReading(
+    val commit: Commit,
+    val isLoading: Boolean,
+    val result: Either<List<DiffEntry>, AppError>?,
+    val shownBefore: List<DiffEntry>?,
+)
+
+/**
  * The comparison of two commits or branches, and the review of a worktree's changes (fork-only,
  * `docs/fork/compare.md`, step 2). It's held next to the selection, which it sets to [SelectedItem.None] while it's
  * shown, rather than being a [SelectedItem] of its own, as upstream's code handles those in many places. Selecting
@@ -181,12 +228,17 @@ private data class Reading(
  */
 class ComparisonViewModelExtender @AssistedInject constructor(
     private val getComparisonUseCase: GetComparisonUseCase,
+    private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val selectedItem: StateFlow<SelectedItem>,
     @Assisted("onSelectItem") private val onSelectItem: (SelectedItem) -> Unit,
+    /** The diff that the tab shows, which follows the file list when it changes. */
+    @Assisted private val diffSelected: StateFlow<DiffSelected?>,
     @Assisted private val onDiffSelected: (DiffSelected) -> Unit,
+    /** Closes the comparison's diff. */
+    @Assisted("clearDiff") private val clearDiff: () -> Unit,
     @Assisted private val onViewStateChanged: (FilesViewState) -> Unit,
     @Assisted("addCloseableView") private val addCloseableView: (CloseableView) -> Unit,
     @Assisted("removeCloseableView") private val removeCloseableView: (CloseableView) -> Unit,
@@ -201,7 +253,9 @@ class ComparisonViewModelExtender @AssistedInject constructor(
             filesViewState: StateFlow<FilesViewState>,
             selectedItem: StateFlow<SelectedItem>,
             @Assisted("onSelectItem") onSelectItem: (SelectedItem) -> Unit,
+            diffSelected: StateFlow<DiffSelected?>,
             onDiffSelected: (DiffSelected) -> Unit,
+            @Assisted("clearDiff") clearDiff: () -> Unit,
             onViewStateChanged: (FilesViewState) -> Unit,
             @Assisted("addCloseableView") addCloseableView: (CloseableView) -> Unit,
             @Assisted("removeCloseableView") removeCloseableView: (CloseableView) -> Unit,
@@ -243,6 +297,7 @@ class ComparisonViewModelExtender @AssistedInject constructor(
                     // this result isn't emitted: the state, which combines the comparison and the read as they come,
                     // could show it with the comparison it came from for a moment
                     settle(read, result)
+                    result.okOrNull()?.let { forgetShownCommitIfGone(it) }
 
                     if (active.value?.read == read) {
                         last = result
@@ -252,18 +307,52 @@ class ComparisonViewModelExtender @AssistedInject constructor(
             }
         }
 
+    /** The shown commit's own changes, read again with Try again. The files shown before stay while they load. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val commitReading: Flow<CommitReading?> = flow {
+        var shown: List<DiffEntry>? = null
+
+        val readings = active
+            .map { current -> current?.shownCommit?.let { it to current.tries } }
+            .distinctUntilChanged()
+            .transformLatest { key ->
+                val commit = key?.first
+
+                if (commit == null) {
+                    shown = null
+                    emit(null)
+                } else {
+                    emit(CommitReading(commit, isLoading = true, result = null, shownBefore = shown))
+
+                    val result = getCommitDiffEntriesUseCase(commit)
+                    shown = result.okOrNull()
+                    emit(CommitReading(commit, isLoading = false, result = result, shownBefore = null))
+                }
+            }
+
+        emitAll(readings)
+    }
+
     val state: StateFlow<ComparisonState?> = combine(
         active,
         reading,
+        commitReading,
         selectedItem,
         worktrees,
         filesViewState,
         collapsedDirectories,
-    ) { active, reading, selected, worktrees, viewState, collapsed ->
+    ) { active, reading, commitReading, selected, worktrees, viewState, collapsed ->
         if (active == null || selected != SelectedItem.None) {
             null
         } else {
-            comparisonState(active, reading?.takeIf { it.read == active.read }, worktrees, viewState, collapsed)
+            comparisonState(
+                active = active,
+                reading = reading?.takeIf { it.read == active.read },
+                commitReading = commitReading?.takeIf { it.commit == active.shownCommit },
+                worktrees = worktrees,
+                viewState = viewState,
+                collapsedDirectories = collapsed,
+            )
         }
     }.stateIn(null as ComparisonState?)
 
@@ -273,6 +362,13 @@ class ComparisonViewModelExtender @AssistedInject constructor(
         selectedItem.collectLatestInCoroutineScope {
             if (selectedItem.value != SelectedItem.None && active.value != null) {
                 stop()
+            }
+        }
+
+        // The diff of a file follows the list when it changes, to a commit's changes and back, or read again
+        launch {
+            state.map { it?.files }.distinctUntilChanged().drop(1).collect { files ->
+                if (files != null) followFiles(files)
             }
         }
     }
@@ -369,6 +465,9 @@ class ComparisonViewModelExtender @AssistedInject constructor(
 
             ComparisonAction.TryAgain -> active.update { it?.copy(tries = it.tries + 1) }
             ComparisonAction.End -> end()
+            is ComparisonAction.ShowCommit -> showCommit(action.commit)
+            is ComparisonAction.StepCommit -> stepCommit(action.offset)
+            ComparisonAction.ShowAllChanges -> showAllChanges()
             // The view model switches the tab first, when it's another worktree's
             ComparisonAction.ShowUncommittedChanges -> endForUncommittedChanges()
         }
@@ -387,6 +486,7 @@ class ComparisonViewModelExtender @AssistedInject constructor(
         onSelectItem(SelectedItem.None)
         active.value = Active(target, mode, relation = null, orderSettled, isFullView = false, tries = 0)
         removeCloseableView(CloseableView.COMPARISON_FULL_VIEW)
+        removeCloseableView(CloseableView.COMPARISON_COMMIT)
         addCloseableView(CloseableView.COMPARISON)
     }
 
@@ -417,6 +517,7 @@ class ComparisonViewModelExtender @AssistedInject constructor(
         selectionBefore = null
         shownEntry = null
         removeCloseableView(CloseableView.COMPARISON_FULL_VIEW)
+        removeCloseableView(CloseableView.COMPARISON_COMMIT)
         removeCloseableView(CloseableView.COMPARISON)
     }
 
@@ -427,7 +528,7 @@ class ComparisonViewModelExtender @AssistedInject constructor(
 
     private fun openFullView(entry: DiffEntry?) {
         val shown = state.value ?: return
-        val files = shown.comparison?.changes.orEmpty()
+        val files = shown.files
         val file = entry ?: shownEntry?.takeIf { it in files } ?: files.firstOrNull()
 
         if (file != null) {
@@ -436,6 +537,78 @@ class ComparisonViewModelExtender @AssistedInject constructor(
 
         active.update { it?.copy(isFullView = true) }
         addCloseableView(CloseableView.COMPARISON_FULL_VIEW)
+    }
+
+    /**
+     * Lists [commit]'s own changes, in place of the comparison's. A second click on the commit shown lists all of them
+     * again, as "All changes" does.
+     */
+    fun showCommit(commit: Commit) {
+        val current = active.value ?: return
+
+        if (current.shownCommit?.hash == commit.hash) {
+            showAllChanges()
+            return
+        }
+
+        active.update { it?.copy(shownCommit = commit) }
+        addCloseableView(CloseableView.COMPARISON_COMMIT)
+    }
+
+    /** Lists the comparison's changes again, in place of a commit's. */
+    fun showAllChanges() {
+        if (active.value?.shownCommit == null) return
+
+        active.update { it?.copy(shownCommit = null) }
+        removeCloseableView(CloseableView.COMPARISON_COMMIT)
+    }
+
+    /** Shows the commit [offset] places from the one shown, among its side's commits, oldest first. */
+    private fun stepCommit(offset: Int) {
+        val shown = active.value?.shownCommit ?: return
+        val commits = state.value?.comparison?.commitsOf(shown) ?: return
+        val index = commits.indexOfFirst { it.hash == shown.hash }
+        val next = commits.getOrNull(index + offset)?.takeIf { index >= 0 } ?: return
+
+        active.update { it?.copy(shownCommit = next) }
+    }
+
+    /** A commit that a new read no longer lists, as after a rebase of a branch side, stops being shown. */
+    private fun forgetShownCommitIfGone(comparison: Comparison) {
+        val shown = active.value?.shownCommit ?: return
+
+        if (comparison.commitsOf(shown) == null) {
+            showAllChanges()
+        }
+    }
+
+    /**
+     * Moves the comparison's diff to [files], the list as it is now: to the entry of the same file, or, in the full view,
+     * which always shows one, to the first. A diff whose file isn't listed closes.
+     */
+    private fun followFiles(files: List<DiffEntry>) {
+        val entry = shownEntry ?: return
+        val shownNow = (diffSelected.value as? DiffSelected.CommitedChanges)?.items?.singleOrNull()?.diffEntry
+
+        // Only a diff that the comparison opened
+        if (shownNow !== entry) return
+
+        val next = files.firstOrNull { it.oldPath == entry.oldPath && it.newPath == entry.newPath }
+            ?: files.firstOrNull { it.newPath == entry.newPath && it.newPath != DiffEntry.DEV_NULL }
+            ?: files.firstOrNull { it.oldPath == entry.oldPath && it.oldPath != DiffEntry.DEV_NULL }
+            ?: files.firstOrNull()?.takeIf { active.value?.isFullView == true }
+
+        if (next != null) {
+            // The same versions of the same file keep the diff as it is, where it was scrolled to
+            if (next.oldPath != entry.oldPath || next.newPath != entry.newPath || next.oldId != entry.oldId ||
+                next.newId != entry.newId
+            ) {
+                showEntry(next)
+            }
+        } else {
+            shownEntry = null
+            clearDiff()
+        }
     }
 
     /**
@@ -475,10 +648,18 @@ class ComparisonViewModelExtender @AssistedInject constructor(
     }.distinctUntilChanged()
 }
 
-/** The comparison's state, from the active comparison, its read so far and the worktree list. */
+/** The commits of the side that has [commit], oldest first, or null when neither lists it. */
+private fun Comparison.commitsOf(commit: Commit): List<Commit>? = listOf(commitsOnlyInB, commitsOnlyInA)
+    .firstOrNull { commits -> commits.any { it.hash == commit.hash } }
+
+/**
+ * The comparison's state, from the active comparison, its read so far, the read of the commit shown and the worktree
+ * list.
+ */
 private fun comparisonState(
     active: Active,
     reading: Reading?,
+    commitReading: CommitReading?,
     worktrees: WorktreeList?,
     viewState: FilesViewState,
     collapsedDirectories: Set<String>,
@@ -486,18 +667,37 @@ private fun comparisonState(
     val result = reading?.result
     val comparison = result?.okOrNull()
     val target = active.target
+    val shownCommit = active.shownCommit?.let { commit ->
+        val commits = comparison?.commitsOf(commit)
+
+        ShownCommit(
+            commit = commit,
+            position = (commits?.indexOfFirst { it.hash == commit.hash } ?: -1) + 1,
+            count = commits?.size ?: 0,
+            isLoading = commitReading?.result == null,
+            error = commitReading?.result?.errOrNull(),
+        )
+    }
+    val files = when {
+        shownCommit == null -> comparison?.changes.orEmpty()
+        commitReading?.result != null -> commitReading.result.okOrNull().orEmpty()
+        // While a commit's changes load, the list keeps what it showed
+        else -> commitReading?.shownBefore ?: comparison?.changes.orEmpty()
+    }
 
     return ComparisonState(
         target = target,
         mode = active.modeToRead,
-        isLoading = reading == null || reading.isLoading,
+        isLoading = reading == null || reading.isLoading || shownCommit?.isLoading == true,
         comparison = comparison,
         error = result?.errOrNull(),
         aCommit = reading?.tips?.first ?: target.a.commit,
         bCommit = reading?.tips?.second ?: target.b.commit,
+        shownCommit = shownCommit,
+        files = files,
         viewState = viewState,
         rows = buildFileRows(
-            files = comparison?.changes.orEmpty().toFileItems(),
+            files = files.toFileItems(),
             state = viewState,
             isCollapsed = collapsedDirectories::contains,
         ),

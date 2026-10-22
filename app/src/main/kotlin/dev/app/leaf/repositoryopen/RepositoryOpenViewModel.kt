@@ -607,7 +607,9 @@ class RepositoryOpenViewModel @Inject constructor(
         filesViewState,
         selectedItem,
         onSelectItem = { selectedItem.value = it },
+        diffSelected = diffSelected,
         onDiffSelected = { diffSelected.value = it },
+        clearDiff = ::clearComparisonDiff,
         onViewStateChanged = ::setFilesChangedView,
         addCloseableView = ::addCloseableView,
         removeCloseableView = ::removeCloseableView,
@@ -691,6 +693,7 @@ class RepositoryOpenViewModel @Inject constructor(
 
                 CloseableView.COMPARISON -> comparisonViewModelExtender.end()
                 CloseableView.COMPARISON_FULL_VIEW -> leaveComparisonFullView()
+                CloseableView.COMPARISON_COMMIT -> comparisonViewModelExtender.showAllChanges()
 
                 CloseableView.COMMIT_FIELD_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
 

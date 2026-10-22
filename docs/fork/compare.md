@@ -5,7 +5,7 @@
 | Question | How can Leaf show the difference between any two commits or branches, in a way people find without being told? |
 | Verified against | `main` at `04e3f620`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-21 |
-| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22) |
+| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22). Step 7, the later items, chosen 2026-10-22: 7.4 built |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -65,6 +65,11 @@ three-dot. GitHub Desktop compares branches in a Compare tab.
 3. **Labels:** A and B, not From and To. Approved 2026-10-21.
 4. **Layout:** 1c (summary next to the log, full view for files) over 1a (in place, the diff over the log, 640 px) and
    1b (the whole tab straight from ⌘-click, which hides the picks at once). Approved 2026-10-21.
+5. **The later items (step 7):** option a of each, from `Compare Step 7.dc.html`: 7.1a (change a side in the pane's
+   header, "Compare with…" in the menus, "Compare…" in the Actions list), 7.2a (the working tree as B, untracked files
+   included and tagged), 7.3a (⌘-click a second row in file history), 7.4a (a commit's click lists its own changes).
+   Built in that order from the smallest: 7.4, 7.3, 7.1, 7.2. 7.2c and 7.3b stay later items (section 6). Chosen
+   2026-10-22.
 
 ## 3. Behaviour
 
@@ -207,7 +212,8 @@ nothing on screen, and the last result stays while the next loads.
 
 ## 4. Implementation
 
-Six steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Each step builds and passes its tests.
+Seven steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Step 7 came after the first version shipped. Each step builds
+and passes its tests.
 
 ### Step 1: compare any two revisions (data and domain)
 
@@ -364,6 +370,101 @@ Done 2026-10-22.
   - a linked worktree `repo-agent1` on `agent1`, two commits ahead of `main`, with a changed and an untracked file, for
     "Review changes" and its line.
 
+### Step 7: the later items
+
+Chosen 2026-10-22 (decision 5). The mockups are `Compare Step 7.dc.html` in the same project, one section per item,
+drawn at the right pane's 330 px in the dark theme. Built smallest first, each a commit of its own: 7.4, 7.3, 7.1, 7.2.
+7.3 touches file history only; 7.1, 7.2 and 7.4 all change the extender and the pane.
+
+#### 7.4 A commit's own changes in a comparison (built 2026-10-22)
+
+- **A click on a commit** in "Commits only in B" or "Commits only in A" lists that commit's own changes in place of the
+  comparison's: against its first parent, as the log shows a commit (`GetCommitDiffEntriesUseCase`), a merge's too. The
+  row stays highlighted, as the log's selected row is.
+- **The strip** between the commits and the files names it: "Changes of e701c86 · 2 of 5", ‹ › to the older and newer
+  commit of its side, oldest first as the list is, and "All changes". Its tooltip is the whole message, and for a merge
+  says which parent the changes are against. In a narrow pane "Changes of" gives way first; the id, the place, the
+  arrows and "All changes" stay. At 330 px all of it fits.
+- **Back to all changes:** "All changes", a second click on the row, or Esc (`CloseableView.COMPARISON_COMMIT`). Esc goes
+  back in the order things opened: a commit picked inside the full view first, then the full view, then the comparison.
+  A new comparison starts with all changes.
+- **Its files** open in the full view as the comparison's do. The labels above the diff are then the parent and the
+  commit ("Parent · 30756d6 → e701c86", or "No parent" for a root commit), not A and B.
+- **Loading and failure:** while its changes load, the list keeps what it showed, under the progress bar, as a
+  comparison read again does. A read that fails shows its error in place of the files, with Try again.
+- **The diff follows the list** (`followFiles`) when it changes: to a commit's files and back, and when the comparison is
+  read again. It moves to the entry with the same paths, else, in the full view, to the first file; in the pane, a diff
+  of a file that the list no longer has closes (`clearDiff`). The same versions of a file (paths and blob ids) keep the
+  diff as it is, where it was scrolled to. Before, a comparison read again left the diff on the old entry.
+- **A commit that a new read no longer lists**, as after a rebase of a branch side, stops being shown.
+- **State:** `Active.shownCommit`; `ComparisonState.shownCommit` (`ShownCommit`: the commit, its place and count,
+  loading, error) and `files`, what the list shows, which the files' count, the empty note ("This commit changes no
+  file."), the full view's stepper and `OpenFullView` read. `ComparisonAction.ShowCommit`, `StepCommit` and
+  `ShowAllChanges`. The extender gets `GetCommitDiffEntriesUseCase`, the tab's `diffSelected` and `clearDiff`.
+- **Tests:** `ComparisonViewModelExtenderTest` (+9: the click and a second click, All changes, stepping and its ends,
+  the list kept while loading, the diff following in the full view and closing in the pane, the same versions kept, a
+  commit gone after a read, Esc's order, a failed read and Try again), `ComparisonPaneTest` (+5: the click, the
+  highlight, the strip and its buttons at both ends, an empty commit, a failure, loading, a 260 px pane where "Changes
+  of" gives way and the id stays), `ComparisonFullViewTest` (+1: the parent's and the commit's labels, a root commit).
+  10 mutations of the steps, the toggle, the following, the loading and the labels, each caught by a named test.
+
+#### 7.3 Two versions of a file in file history (plan)
+
+- **⌘-click a second row** (Ctrl-click elsewhere, `isCompareClick`), read when the click happens, as the log does. The
+  older row is A and the newer B, by their place in the list (newest first). Both rows are highlighted, with the A and
+  B badges. The diff is the file between the two versions: one path, as file history doesn't follow renames, so the
+  oldest row can be the commit that added the file, which then shows as added.
+- **The strip** takes the place of the selected commit's strip while two rows are chosen: "A e4f5a6b subject → B
+  920d6ac subject · 3 commits apart", with swap and close, and the diff's View menu as before. The labels over the
+  diff's sides are the full view's (`SideLabels`, made shared).
+- **Ending it:** a plain click, ↑ or ↓ select one commit, as in the log. The close button and Esc go back to the commit
+  selected before the ⌘-click. ⌘-click on A or B drops that side.
+- **The row's menu** gets "Compare with selected (920d6ac)" with the ⌘-click hint, on a row other than the selected one.
+  "Compare with working tree" comes with 7.2's reading.
+- **Data:** an action that gives the file's `DiffEntry` between two commits (a path-filtered `TreeWalk` of both trees,
+  `DiffEntry.scan`), shown as a `DiffType.CommitDiff`.
+- **View model:** `HistoryViewModel` holds the pair next to the selected commit; the whitespace mode's reload and Try
+  again read the pair too.
+- **Tests:** the action against `git diff A B -- <path>` (modified, added, deleted, the same blob); the view model's
+  pair (order, swap, a click ending it, Esc, the whitespace reload); file history rendered (badges, the strip, the
+  menu).
+
+#### 7.1 Compare any two refs (plan)
+
+- **A and B's names in the pane's header are buttons.** A click opens a list under the name: local branches, remote
+  branches and tags, filtered as one types, as the clone dialog's branch list is, and a typed hash or revision
+  (`HEAD~2`) resolved to a commit as a row of its own. A pick reads the comparison again with the other side kept, as on
+  GitHub's compare page, so a comparison started by ⌘-click can change one side without starting over.
+- **"Compare with…"** in a commit's, a branch's and a tag's menu opens the pane with that ref as A and B's list open.
+  **"Compare…"** in the Actions list starts from the current branch. Esc closes the list; a pane opened that way that has
+  no B yet closes too.
+- **Implementation:** the clone dialog's popup shared (`CloneBranchChoices`; a `BranchChoice` gets a full ref and a
+  kind, and any number of groups), filled from the tab's branches, remotes and tags, so nothing asks a remote; a
+  `ResolveCommitGitAction` (`resolve("<revision>^{commit}")`, taken out of `GetComparisonGitAction`); a pending
+  comparison (A and an open list, nothing read); the Actions list reaching the tab's view model.
+- **Tests:** the choices and the resolving (domain and data), the popup rendered in the pane's header, the view model's
+  pending comparison and its picks.
+
+#### 7.2 Compare with the working tree (plan)
+
+- **B can be the working tree:** the files as they are on disk, with what isn't committed yet. ⌘-click the "Uncommitted
+  changes" row while a commit, branch or tag is selected (or a row while the uncommitted changes are), or "Compare with
+  working tree" in the commit, branch and tag menus. The working tree is always B: no swap.
+- **Modes:** its commits are the current branch's, so with A on another branch both apply. Since they split is from the
+  merge base of A and HEAD to the working tree, what the branch and its uncommitted work would bring into A; All
+  differences is `git diff A`. "Commits only in B" are HEAD's, followed by "and the uncommitted changes".
+- **Untracked files** are in the list, as Unstaged lists them, with an "untracked" tag (7.2a); ignored files aren't. The
+  B badge marks the "Uncommitted changes" row, not HEAD's.
+- **It re-reads when files change** (`refreshTriggered` with ALL or STATUS), as Staged and Unstaged do. Its diffs are
+  read-only: no stage or discard buttons.
+- **Implementation:** `CompareSide.WorkingTree` (its commit is HEAD's); the use case and the action take sides, not
+  strings; a `DiffType` for a file between a commit and the working tree; a walk of the commit's tree, the index
+  (`DirCacheIterator`) and the working tree (`FileTreeIterator`), with rename detection that reads the working tree's
+  files; an index that JGit can't read gives `UnsupportedIndexError`, as status does.
+- **Tests:** the action against `git diff A` and `git diff $(git merge-base A HEAD)` plus `git ls-files --others
+  --exclude-standard`, the view model's side (no swap, the refresh), the log's badge on the uncommitted row, the pane's
+  tag.
+
 ## 5. Checks before calling it done
 
 - The suites of the steps, then `./gradlew build`.
@@ -375,10 +476,10 @@ Done 2026-10-22.
 
 ## 6. Later, as their own items
 
-- **"Compare with…" picker:** any branch, tag or hash against any other, from the Actions list and the menus. It needs
-  a ref picker that the clone dialog's branch list could share.
-- **Against the working tree:** ⌘-click the uncommitted changes row. It needs the working tree's side in the diff code
-  (`DiffType.UncommittedDiff` reads it, but against the index or HEAD).
-- **Two versions in file history:** ⌘-click two rows in file history.
-- **A commit's own diff from the comparison:** clicking a commit in the sections could show what that commit changed,
-  as a pull request's Commits tab does.
+The four items that were here are step 7. Left:
+
+- **A worktree's review with its uncommitted work (7.2c):** "Include its uncommitted changes" in "Review changes" on
+  another worktree. It needs the diff code to read another worktree's files, so it comes after 7.2.
+- **Pin a base in file history (7.3b):** "Pin as base" fixes A, then a click, ↑ or ↓ move B, to walk a file's changes
+  from one release on. It could come on top of 7.3.
+- **Enter in the pane's file list** opens nothing yet.
