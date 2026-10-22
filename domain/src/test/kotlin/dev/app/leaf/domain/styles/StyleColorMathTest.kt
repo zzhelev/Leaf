@@ -93,10 +93,10 @@ class StyleColorMathTest {
         val white = hex("#FFFFFF")
         val ratioOnWhite = { argb: Int -> StyleColorMath.contrast(argb, white) }
 
-        assertEquals(hex("#376AAA"), StyleColorMath.movedForContrast(hex("#376AAA"), 4.5, ratioOnWhite))
+        assertEquals(hex("#376AAA"), StyleColorMath.movedForContrast(hex("#376AAA"), 4.5, ratio = ratioOnWhite))
 
         val solarizedBlue = hex("#268BD2")
-        val moved = checkNotNull(StyleColorMath.movedForContrast(solarizedBlue, 4.5, ratioOnWhite))
+        val moved = checkNotNull(StyleColorMath.movedForContrast(solarizedBlue, 4.5, ratio = ratioOnWhite))
         val before = StyleColorMath.toOklch(solarizedBlue)
         val after = StyleColorMath.toOklch(moved)
 
@@ -112,13 +112,33 @@ class StyleColorMathTest {
         // Mid grey: 4.5 : 1 against #777777 takes going to black's side or to white's
         val ratioOnGrey = { argb: Int -> StyleColorMath.contrast(argb, grey) }
 
-        val lightGrey = checkNotNull(StyleColorMath.movedForContrast(hex("#999999"), 3.0, ratioOnGrey))
+        val lightGrey = checkNotNull(StyleColorMath.movedForContrast(hex("#999999"), 3.0, ratio = ratioOnGrey))
         assertTrue(StyleColorMath.relativeLuminance(lightGrey) > StyleColorMath.relativeLuminance(grey))
 
-        val darkGrey = checkNotNull(StyleColorMath.movedForContrast(hex("#666666"), 3.0, ratioOnGrey))
+        val darkGrey = checkNotNull(StyleColorMath.movedForContrast(hex("#666666"), 3.0, ratio = ratioOnGrey))
         assertTrue(StyleColorMath.relativeLuminance(darkGrey) < StyleColorMath.relativeLuminance(grey))
 
-        assertNull(StyleColorMath.movedForContrast(grey, 22.0, ratioOnGrey))
+        assertNull(StyleColorMath.movedForContrast(grey, 22.0, ratio = ratioOnGrey))
+    }
+
+    @Test
+    fun `moving for contrast towards one side stays on it, even when the other is nearer`() {
+        val grey = hex("#777777")
+        val ratioOnGrey = { argb: Int -> StyleColorMath.contrast(argb, grey) }
+        val luminance = StyleColorMath::relativeLuminance
+
+        // #999999 is nearer white's side, but is sent to black's
+        val darker = checkNotNull(StyleColorMath.movedForContrast(hex("#999999"), 3.0, StyleColorMath.DARKER, ratio = ratioOnGrey))
+        assertTrue(luminance(darker) < luminance(grey))
+        assertTrue(ratioOnGrey(darker) >= 3.0)
+
+        val lighter = checkNotNull(StyleColorMath.movedForContrast(hex("#666666"), 3.0, StyleColorMath.LIGHTER, ratio = ratioOnGrey))
+        assertTrue(luminance(lighter) > luminance(grey))
+
+        // White's side can't reach 4.5 : 1 against #808080, so a colour kept to it doesn't move at all
+        val ratioOnMid = { argb: Int -> StyleColorMath.contrast(argb, hex("#808080")) }
+        assertNull(StyleColorMath.movedForContrast(hex("#F8F8F8"), 4.5, StyleColorMath.LIGHTER, ratio = ratioOnMid))
+        assertTrue(StyleColorMath.movedForContrast(hex("#F8F8F8"), 4.5, ratio = ratioOnMid) != null)
     }
 
     @Test
@@ -129,7 +149,7 @@ class StyleColorMathTest {
             val background = random.nextInt() or 0xFF000000.toInt()
             val color = random.nextInt() or 0xFF000000.toInt()
             val ratio = { argb: Int -> StyleColorMath.contrast(argb, background) }
-            val moved = StyleColorMath.movedForContrast(color, 4.5, ratio)
+            val moved = StyleColorMath.movedForContrast(color, 4.5, ratio = ratio)
 
             // Black or white holds 4.5 : 1 on any colour
             checkNotNull(moved)

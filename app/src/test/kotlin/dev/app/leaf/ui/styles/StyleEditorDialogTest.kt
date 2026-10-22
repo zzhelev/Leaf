@@ -131,6 +131,20 @@ class StyleEditorDialogTest {
     }
 
     @Test
+    fun `a colour moved for a check is noted with what it moved to and from, and a line by its row's name`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            show(StyleEditorState.startingFrom(BuiltInStyles.SOLARIZED, "", "Solarized copy", "Solarized"))
+
+            val boxes = dev.app.leaf.theme.styles.resolveStyleSide(BuiltInStyles.SOLARIZED, isLight = true)
+                .adjustments.single { it.slot == StyleSlot.BOXES }
+            val expected = "Light: Hunk headers and boxes moved to ${StyleColorHex.format(boxes.to.toArgb())} " +
+                "from ${StyleColorHex.format(boxes.from.toArgb())}, to hold 4.5:1."
+            assertTrue(expected in texts(), "${texts()}")
+            assertTrue(texts().any { it.startsWith("Light: Added lines moved to #") }, "${texts()}")
+            assertTrue(texts().none { "lines line" in it }, "${texts()}")
+        }
+
+    @Test
     fun `Advanced opens the table of every colour, with a dot where one is set by hand`(): Unit = runBlocking(Dispatchers.Swing) {
         show(StyleEditorState.editing(teal))
         assertFalse("Hunk headers and boxes" in texts())

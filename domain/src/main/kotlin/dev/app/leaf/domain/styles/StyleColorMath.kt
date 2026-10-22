@@ -38,6 +38,10 @@ object StyleColorMath {
     /** How far out of 0..1 a linear channel may be and still count as inside sRGB, for rounding in the conversions. */
     private const val GAMUT_EPSILON = 1e-7
 
+    /** The lightness that [movedForContrast] moves a colour towards: black's side, or white's. */
+    const val DARKER = 0.0
+    const val LIGHTER = 1.0
+
     fun alpha(argb: Int): Int = argb ushr 24
 
     fun withAlpha(argb: Int, alpha: Int): Int = (alpha shl 24) or (argb and 0xFFFFFF)
@@ -134,16 +138,18 @@ object StyleColorMath {
     /**
      * [color] moved in lightness, keeping its hue and alpha and as much chroma as sRGB allows, by as little as makes
      * [ratio] of the result reach [minimum], or null when neither black's side nor white's can. [ratio] gives the
-     * contrast that a candidate makes where it's used, so the colour may be text, an icon or a fill.
+     * contrast that a candidate makes where it's used, so the colour may be text, an icon or a fill. [towards] keeps it
+     * to one side: [LIGHTER] or [DARKER].
      */
-    fun movedForContrast(color: Int, minimum: Double, ratio: (Int) -> Double): Int? {
+    fun movedForContrast(color: Int, minimum: Double, towards: Double? = null, ratio: (Int) -> Double): Int? {
         if (ratio(color) >= minimum) return color
 
         val start = toOklch(color)
         val alpha = alpha(color)
         fun at(l: Double) = fromOklch(start.copy(l = l), alpha)
 
-        val candidates = listOf(0.0, 1.0).mapNotNull { end ->
+        val ends = if (towards == null) listOf(DARKER, LIGHTER) else listOf(towards)
+        val candidates = ends.mapNotNull { end ->
             if (ratio(at(end)) < minimum) return@mapNotNull null
 
             // The lightness nearest the colour's own whose result holds the contrast. Contrast grows towards the end

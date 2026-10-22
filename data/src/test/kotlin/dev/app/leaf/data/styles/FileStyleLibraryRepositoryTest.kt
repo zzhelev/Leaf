@@ -215,6 +215,7 @@ class FileStyleLibraryRepositoryTest {
 
             assertEquals("teal-2", repository.newId("Teal"))
             assertEquals("quiet-2", repository.newId("Quiet"))
-            assertEquals("solarized", repository.newId("Solarized"))
+            assertEquals("solarized-2", repository.newId("Solarized"))
+            assertEquals("nord", repository.newId("Nord"))
         }
 }

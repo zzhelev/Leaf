@@ -12,10 +12,12 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.models.ui.AccentStyle
@@ -86,18 +88,26 @@ class StyleGalleryTest {
         }.also { it.render() }
     }
 
-    private fun state(selectedId: String = "tonal", notice: StyleNotice? = null, unreadable: List<UnreadableStyleFile> = emptyList()) =
-        StyleGalleryState(BuiltInStyles.ALL + teal, selectedId, unreadable, notice)
+    // The looks' three and one of the user's, so that the cards keep their places as built-in styles are added
+    private val looks = listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.QUIET)
+
+    private fun state(
+        selectedId: String = "tonal",
+        notice: StyleNotice? = null,
+        unreadable: List<UnreadableStyleFile> = emptyList(),
+        styles: List<StyleDefinition> = looks + teal,
+    ) = StyleGalleryState(styles, selectedId, unreadable, notice)
 
     @Test
     fun `every style has a card with its name, the built-in ones say so, and Import comes last`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            show(state())
+            show(state(styles = BuiltInStyles.ALL + teal))
 
-            for (name in listOf("Tonal", "Classic", "Quiet", "Teal", "+ New style", "starts from Tonal", "Import style…", "a .json file")) {
+            val names = listOf("Tonal", "Classic", "Quiet", "Solarized", "Teal", "+ New style", "starts from Tonal", "Import style…", "a .json file")
+            for (name in names) {
                 assertTrue(name in texts(), "$name in ${texts()}")
             }
-            assertEquals(3, texts().count { it == "built in" })
+            assertEquals(4, texts().count { it == "built in" })
             assertTrue(boundsOf("Import style…").top > boundsOf("Tonal").top, "Import is on the second row")
             assertTrue(boundsOf("Import style…").left > boundsOf("+ New style").left, "after New")
         }
@@ -136,6 +146,24 @@ class StyleGalleryTest {
             // The strip along the top, and the main action along the bottom
             assertEquals(light[StyleSlot.WARNING_STRIP_FILL].toArgb(), bitmap.getColor((card.left + 20).toInt(), (card.top + 5).toInt()))
             assertEquals(dark[StyleSlot.MAIN_ACTION_FILL].toArgb(), bitmap.getColor((card.center.x + 30).toInt(), (card.top + 83).toInt()))
+        }
+
+    @Test
+    fun `a built-in style's name takes the room left of its tag, so Solarized isn't cut`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            show(state(styles = BuiltInStyles.ALL + teal))
+
+            val name = nodes().first { "Solarized" in it.texts() && SemanticsActions.GetTextLayoutResult in it.config }
+            val layouts = mutableListOf<TextLayoutResult>()
+            name.config[SemanticsActions.GetTextLayoutResult].action!!(layouts)
+            // As wide as the text needs, give or take the rounding of the layout to whole pixels
+            val needs = layouts.single().multiParagraph.intrinsics.maxIntrinsicWidth
+            assertTrue(layouts.single().size.width >= needs - 1f, "Solarized is ${layouts.single().size.width} px wide, needs $needs")
+
+            // Its tag follows it, rather than half the row away
+            val tag = nodes().filter { "built in" in it.texts() }
+                .first { kotlin.math.abs(it.boundsInRoot.center.y - name.boundsInRoot.center.y) < 4 && it.boundsInRoot.left >= name.boundsInRoot.right }
+            assertTrue(tag.boundsInRoot.left - name.boundsInRoot.right < 10, "${name.boundsInRoot} ${tag.boundsInRoot}")
         }
 
     @Test

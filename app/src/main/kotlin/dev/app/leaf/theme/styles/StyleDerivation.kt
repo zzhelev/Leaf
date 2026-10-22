@@ -139,13 +139,18 @@ fun contrastChecks(look: AccentStyle): List<ContrastCheck> = buildList {
     strip(WARNING_STRIP_FILL, WARNING_STRIP_TEXT, WARNING_STRIP_BUTTON_FILL, WARNING_STRIP_BUTTON_TEXT)
     strip(SUCCESS_STRIP_FILL, SUCCESS_STRIP_TEXT, SUCCESS_STRIP_BUTTON_FILL, SUCCESS_STRIP_BUTTON_TEXT)
 
+    // The text moves first; when it can't, as when it was set by hand, the surface under it moves instead (the
+    // background never does)
+    fun text(text: StyleSlot, layers: List<StyleSlot>) =
+        add(ContrastCheck(text, layers, TEXT_CONTRAST, listOf(text, layers.first())))
+
     val surfaces = listOf(listOf(BACKGROUND), listOf(PANELS), listOf(BOXES), listOf(HEADERS), listOf(SELECTED_ROW, BACKGROUND))
     for (layers in surfaces) {
-        add(ContrastCheck(TEXT, layers, TEXT_CONTRAST, listOf(TEXT)))
-        add(ContrastCheck(SECONDARY_TEXT, layers, TEXT_CONTRAST, listOf(SECONDARY_TEXT)))
+        text(TEXT, layers)
+        text(SECONDARY_TEXT, layers)
     }
-    add(ContrastCheck(TEXT, listOf(ADDED_LINE, BACKGROUND), TEXT_CONTRAST, listOf(TEXT)))
-    add(ContrastCheck(TEXT, listOf(REMOVED_LINE, BACKGROUND), TEXT_CONTRAST, listOf(TEXT)))
+    text(TEXT, listOf(ADDED_LINE, BACKGROUND))
+    text(TEXT, listOf(REMOVED_LINE, BACKGROUND))
 
     fun button(fill: StyleSlot, text: StyleSlot, filled: Boolean, on: List<StyleSlot>) {
         val movers = if (filled) listOf(fill, text) else listOf(text, fill)
@@ -226,7 +231,7 @@ fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedSty
 
             for (mover in check.movers.filter(::movable)) {
                 val before = palette[mover].toArgb()
-                val after = StyleColorMath.movedForContrast(before, check.minimum) { candidate ->
+                val after = StyleColorMath.movedForContrast(before, check.minimum, palette.awayFromForeground(check, mover)) { candidate ->
                     palette.contrastOf(check, mover to candidate)
                 } ?: continue
 
@@ -262,6 +267,20 @@ fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedSty
 }
 
 private const val MAX_ROUNDS = 4
+
+/**
+ * Which way [mover] may go for [check]: a fill or a surface under the foreground moves only away from it, so that a light
+ * panel under grey text gets lighter, never dark. The foreground itself may go either way.
+ */
+private fun StylePalette.awayFromForeground(check: ContrastCheck, mover: StyleSlot): Double? {
+    if (mover !in check.layers) return null
+
+    val under = StyleColorMath.composite(check.layers.map { this[it].toArgb() })
+    val over = StyleColorMath.composite(this[check.foreground].toArgb(), under)
+    val isLighter = StyleColorMath.relativeLuminance(under) >= StyleColorMath.relativeLuminance(over)
+
+    return if (isLighter) StyleColorMath.LIGHTER else StyleColorMath.DARKER
+}
 
 /** The surfaces that follow the background, which text is on. */
 private val BACKGROUND_SURFACES = listOf(BACKGROUND, PANELS, BOXES, HEADERS)

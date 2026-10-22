@@ -248,27 +248,28 @@ private fun StyleCard(
             modifier = Modifier.fillMaxWidth().padding(start = 3.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.body2,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colors.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-
-            if (style.isBuiltIn) {
+            // The name takes what the tag leaves, and is cut only past that
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = stringResource(Res.string.settings_style_built_in),
-                    style = MaterialTheme.typography.caption,
-                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    text = name,
+                    style = MaterialTheme.typography.body2,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colors.onBackground,
                     maxLines = 1,
-                    modifier = Modifier.padding(start = 6.dp),
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
-            }
 
-            Spacer(Modifier.weight(1f))
+                if (style.isBuiltIn) {
+                    Text(
+                        text = stringResource(Res.string.settings_style_built_in),
+                        style = MaterialTheme.typography.caption,
+                        color = MaterialTheme.colors.onBackgroundSecondary,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+            }
 
             CardMenuButton(menuItems)
         }

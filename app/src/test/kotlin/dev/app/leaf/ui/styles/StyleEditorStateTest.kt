@@ -85,8 +85,8 @@ class StyleEditorStateTest {
     }
 
     @Test
-    fun `a built-in style's colours need no note`() {
-        for (style in BuiltInStyles.ALL) {
+    fun `Classic's, Tonal's and Quiet's colours need no note`() {
+        for (style in listOf(BuiltInStyles.CLASSIC, BuiltInStyles.TONAL, BuiltInStyles.QUIET)) {
             assertEquals(emptyList<EditorNote>(), ResolvedDraft(style).notes, style.id)
         }
     }

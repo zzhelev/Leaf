@@ -132,12 +132,15 @@ fun rowOf(slot: StyleSlot): Pair<AdvancedRow, SlotPart?> = ADVANCED_GROUPS.asSeq
 fun rowLabel(row: AdvancedRow): String =
     if (row.number != null) stringResource(row.label, row.number) else stringResource(row.label)
 
-/** [slot]'s name: its row's, and its part when the row has more than one ("Action text"). */
+/**
+ * [slot]'s name: its row's, and its part when the row has more than one ("Action text"). A line is its row's thing
+ * itself: "Added lines", not "Added lines line".
+ */
 @Composable
 fun slotLabel(slot: StyleSlot): String {
     val (row, part) = rowOf(slot)
     val label = rowLabel(row)
-    return if (part == null) label else "$label ${stringResource(part.label)}"
+    return if (part == null || part == SlotPart.LINE) label else "$label ${stringResource(part.label)}"
 }
 
 /**

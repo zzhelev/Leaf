@@ -36,6 +36,50 @@ class BuiltInStylesTest {
     }
 
     @Test
+    fun `Solarized comes last, in the Tonal look, with Solarized's seeds and published colours set by hand`() {
+        val solarized = BuiltInStyles.SOLARIZED
+
+        assertEquals(
+            listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.QUIET, solarized),
+            BuiltInStyles.ALL,
+        )
+        assertEquals(solarized, BuiltInStyles.byId("solarized"))
+        assertEquals("Solarized", solarized.name)
+        assertEquals(AccentStyle.TONAL, solarized.look)
+        // Code that only knows a look still gets the look's own style
+        assertEquals(BuiltInStyles.TONAL, BuiltInStyles.ofLook(AccentStyle.TONAL))
+
+        fun hex(slots: Map<StyleSlot, Int>) = slots.map { (slot, argb) -> slot.key to StyleColorHex.format(argb) }.toMap()
+        val seeds = { side: StyleSide -> StyleSeed.entries.associate { it.name to StyleColorHex.format(side.seeds[it]) } }
+
+        assertEquals(
+            mapOf("BACKGROUND" to "#FDF6E3", "ACCENT" to "#268BD2", "DANGER" to "#DC322F", "WARNING" to "#B58900", "SUCCESS" to "#859900"),
+            seeds(solarized.light),
+        )
+        assertEquals("#002B36", StyleColorHex.format(solarized.dark.seeds.background))
+        assertEquals(solarized.light.seeds.copy(background = solarized.dark.seeds.background), solarized.dark.seeds)
+
+        val lanes = mapOf(
+            "lane1" to "#268BD2", "lane2" to "#DC322F", "lane3" to "#2AA198",
+            "lane4" to "#CB4B16", "lane5" to "#859900", "lane6" to "#D33682",
+        )
+        assertEquals(
+            mapOf(
+                "text" to "#586E75", "secondaryText" to "#516770", "comment" to "#657B83",
+                "keyword" to "#268BD2", "annotation" to "#B58900",
+            ) + lanes,
+            hex(solarized.light.setByHand),
+        )
+        assertEquals(
+            mapOf(
+                "panels" to "#073642", "text" to "#93A1A1", "secondaryText" to "#8A9C9E", "comment" to "#839496",
+                "keyword" to "#268BD2", "annotation" to "#B58900",
+            ) + lanes,
+            hex(solarized.dark.setByHand),
+        )
+    }
+
+    @Test
     fun `Classic, Tonal and Quiet set nothing by hand, and their seeds are their look's`() {
         for (style in listOf(BuiltInStyles.CLASSIC, BuiltInStyles.TONAL, BuiltInStyles.QUIET)) {
             for (isLight in listOf(true, false)) {

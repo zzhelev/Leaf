@@ -32,6 +32,8 @@ class StyleDerivationTest {
 
     private fun Color.hex() = StyleColorHex.format(toArgb())
 
+    private fun Color.luminance() = StyleColorMath.relativeLuminance(toArgb())
+
     private fun style(look: AccentStyle, light: StyleSide, dark: StyleSide = light) =
         StyleDefinition("test", "Test", look, light, dark)
 
@@ -39,7 +41,7 @@ class StyleDerivationTest {
 
     @Test
     fun `Classic, Tonal and Quiet give their look's colours exactly, lanes included, and move nothing`() {
-        for (style in BuiltInStyles.ALL) {
+        for (style in listOf(BuiltInStyles.CLASSIC, BuiltInStyles.TONAL, BuiltInStyles.QUIET)) {
             for (isLight in sides) {
                 val resolved = resolveStyleSide(style, isLight)
                 val scheme = (if (isLight) lightTheme else darkTheme).styled(style.look)
@@ -220,6 +222,83 @@ class StyleDerivationTest {
         assertTrue(resolved.adjustments.none { it.slot == StyleSlot.TEXT })
         assertTrue(resolved.shortfalls.isNotEmpty())
         assertTrue(resolved.shortfalls.all { it.check.foreground == StyleSlot.TEXT && it.ratio < it.check.minimum })
+    }
+
+    @Test
+    fun `when text set by hand fails on a surface, the surface moves away from it, lighter or darker`() {
+        // Grey text that holds 4.5 : 1 on white only: Tonal's light panels, boxes and headers get lighter
+        val light = StyleSide(seedsOf(AccentStyle.TONAL, isLight = true), mapOf(StyleSlot.TEXT to hex("#767676")))
+        val lightResolved = resolveStyleSide(style(AccentStyle.TONAL, light), isLight = true)
+
+        assertEquals(emptyList<ContrastShortfall>(), lightResolved.shortfalls)
+        assertEquals("#767676", lightResolved.palette[StyleSlot.TEXT].hex())
+        val lightMoved = lightResolved.adjustments.filter { it.check.foreground == StyleSlot.TEXT }
+        assertTrue(lightMoved.map { it.slot }.containsAll(listOf(StyleSlot.PANELS, StyleSlot.BOXES, StyleSlot.HEADERS)), "$lightMoved")
+        for (adjustment in lightMoved) {
+            assertTrue(adjustment.to.luminance() > adjustment.from.luminance(), "$adjustment")
+            assertTrue(adjustment.ratio >= TEXT_CONTRAST, "$adjustment")
+        }
+
+        // Grey text on Tonal's dark navy headers: they get darker
+        val dark = StyleSide(seedsOf(AccentStyle.TONAL, isLight = false), mapOf(StyleSlot.TEXT to hex("#808080")))
+        val darkResolved = resolveStyleSide(style(AccentStyle.TONAL, dark), isLight = false)
+        val headers = darkResolved.adjustments.single { it.slot == StyleSlot.HEADERS && it.check.foreground == StyleSlot.TEXT }
+
+        assertEquals(emptyList<ContrastShortfall>(), darkResolved.shortfalls)
+        assertTrue(headers.to.luminance() < headers.from.luminance(), "$headers")
+    }
+
+    @Test
+    fun `text that Leaf works out moves itself before the surface under it does`() {
+        // On a light grey background, Tonal's secondary text falls short on the hunk headers and boxes
+        val seeds = seedsOf(AccentStyle.TONAL, isLight = true).with(StyleSeed.BACKGROUND, hex("#D1D5D7"))
+        val resolved = resolveStyleSide(style(AccentStyle.TONAL, StyleSide(seeds)), isLight = true)
+
+        val secondary = resolved.adjustments.single { it.slot == StyleSlot.SECONDARY_TEXT }
+        assertEquals(listOf(StyleSlot.BOXES), secondary.check.layers)
+        assertTrue(resolved.adjustments.none { it.slot in listOf(StyleSlot.PANELS, StyleSlot.BOXES, StyleSlot.HEADERS) }, "${resolved.adjustments}")
+        assertEquals(emptyList<ContrastShortfall>(), resolved.shortfalls)
+    }
+
+    @Test
+    fun `a surface never crosses the text set on it, and when its side can't hold the check falls short`() {
+        // #808080 holds 3.9 : 1 even on white, so the light panels can't hold it; dark panels would, but stay light
+        val side = StyleSide(seedsOf(AccentStyle.TONAL, isLight = true), mapOf(StyleSlot.TEXT to hex("#808080")))
+        val resolved = resolveStyleSide(style(AccentStyle.TONAL, side), isLight = true)
+        val text = resolved.palette[StyleSlot.TEXT].luminance()
+
+        for (surface in listOf(StyleSlot.PANELS, StyleSlot.BOXES, StyleSlot.HEADERS)) {
+            assertTrue(resolved.palette[surface].luminance() > text, "$surface ${resolved.palette[surface].hex()}")
+            assertTrue(resolved.shortfalls.any { it.check.foreground == StyleSlot.TEXT && it.check.layers == listOf(surface) }, "$surface")
+        }
+    }
+
+    @Test
+    fun `Solarized holds every check on both sides, and keeps every colour it sets by hand`() {
+        val solarized = BuiltInStyles.SOLARIZED
+
+        for (isLight in sides) {
+            val resolved = resolveStyleSide(solarized, isLight)
+
+            assertEquals(emptyList<ContrastShortfall>(), resolved.shortfalls, "$isLight")
+            for ((slot, argb) in solarized.side(isLight).setByHand) {
+                assertEquals(StyleColorHex.format(argb), resolved.palette[slot].hex(), "$isLight $slot")
+            }
+            assertHoldsTheSpec(resolved.palette, AccentStyle.TONAL, "Solarized $isLight")
+            assertEquals(solarized.side(isLight).seeds.background, resolved.palette[StyleSlot.BACKGROUND].toArgb())
+
+            // Filled buttons in Tonal's lightness and Solarized's blue, near the board's #196EA9 and #1E689D
+            val main = resolved.palette[StyleSlot.MAIN_ACTION_FILL].toArgb()
+            val board = hex(if (isLight) "#196EA9" else "#1E689D")
+            assertTrue(StyleColorMath.contrast(main, board) < 1.15, "$isLight ${StyleColorHex.format(main)}")
+        }
+
+        // base2 would leave base01 at 4.39 : 1, so the light panels are worked out, between base3 and base2
+        val light = resolveStyleSide(solarized, isLight = true).palette
+        val panels = light[StyleSlot.PANELS]
+        assertNotEquals("#EEE8D5", panels.hex())
+        assertTrue(panels.luminance() < light[StyleSlot.BACKGROUND].luminance())
+        assertTrue(panels.luminance() > hex("#EEE8D5").let { Color(it) }.luminance())
     }
 
     @Test
