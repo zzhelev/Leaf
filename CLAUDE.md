@@ -1082,28 +1082,187 @@ commands.
     one (`CreateWorktreeIncludeGitAction`, `WORKTREE_INCLUDE_TEMPLATE`), and it reads the file again when Leaf's
     window gets the focus back.
 
-**Reviewing a worktree (fork-only, Phase 3.3, `ui/compare/ComparisonPane.kt`, `ComparisonViewModelExtender`):** "Review changes"
-in a worktree row's menu shows, in place of Files changed, what the worktree's branch would bring into the base: the
-commits and the changed files, as `git log base..branch` and `git diff base...branch` show them. It's offered for a
-worktree on a branch other than the base (`branchToReview`, `domain/worktrees/WorktreeReview.kt`).
-- `GetComparisonGitAction` (`data/git/compare/`, since 2026-10-21 shared with comparing any two commits, see
-  `docs/fork/compare.md`) reads it with JGit, as it only reads: the merge base (`RevFilter.MERGE_BASE`, the first one
-  with several), the commits that each side has alone, oldest first (the newest `MAX_COMPARED_COMMITS`, 1000, and the
-  count of all), how the two histories meet (`ComparisonRelation`), and the diff of the mode asked for. The review asks
-  for `ComparisonMode.SINCE_SPLIT`: from the merge base's tree to the branch's (`diffWithRenames`, as
-  `GetCommitDiffEntriesGitAction` does for a commit: files that the branch moved are renames, see Renames in file
-  lists). Branches without a commit in common have no diff then, as git refuses `A...B`. A file opens in the diff pane
-  as a commit's file does (`DiffType.CommitDiff`): both sides are read by blob id.
-- **State:** since 2026-10-21 the review is a comparison (`ComparisonViewModelExtender.openReview`, a
-  `ComparisonTarget` with `reviewedWorktreePath`), the same as comparing any two commits (`docs/fork/compare.md`). It
-  sets the selection to `SelectedItem.None` while it's shown, rather than being a `SelectedItem` of its own, which
-  upstream's code handles in many places. Selecting anything else closes it; the close button and Esc
-  (`CloseableView.COMPARISON`) close it and select again what was selected before.
-- It reads the comparison again when the commit of the branch or the base changes in the tab's branch data, which the
-  file watcher refreshes when an agent commits. A refresh that finds the same commits doesn't, and the last
-  comparison stays on screen while the next loads.
+**Reviewing a worktree (fork-only, Phase 3.3):** "Review changes" in a worktree row's menu shows, in place of Files
+changed, what the worktree's branch would bring into the base: the commits and the changed files, as
+`git log base..branch` and `git diff base...branch` show them. It's offered for a worktree on a branch other than the
+base (`branchToReview`, `domain/worktrees/WorktreeReview.kt`). Since 2026-10-21 it is one kind of comparison
+(`ComparisonViewModelExtender.openReview`, a `ComparisonTarget` with `reviewedWorktreePath`), with A the base and B the
+worktree's branch, so the next section covers it: the pane, the full view, the switch, the swap, the refresh. What is
+its own:
+- It keeps its order, and asks for "Since they split" whatever the relation, which is the review's question: a branch
+  that the base already has says "No changes: a merge would change no file.".
+- Ending it (Esc, the close button) selects again what was selected before it opened, where a comparison selects A.
 - The worktree's uncommitted changes aren't in it, as a merge leaves them out. A line under the files counts them,
-  from the worktree list's status, with a link that switches the tab to the worktree, or shows the tab's own.
+  from the worktree list's status, with a link that switches the tab to the worktree, or shows the tab's own
+  (`ComparisonAction.ShowUncommittedChanges`).
+
+**Comparing two commits or branches (fork-only, upstream issues 206 and 283, 2026-10-21, `docs/fork/compare.md`,
+`domain/compare/CompareRules.kt`, `ui/compare/`):** ⌘-click (Ctrl-click on Windows and Linux) on a second log row, or a
+menu item, compares two commits, branches or tags: the commits that each has and the other lacks, and the files that
+differ. It shows in the right pane next to the log, in place of Files changed, and a file opens in a full view of the
+whole tab. The entry points, the default modes, the A and B labels and the layout (1c, of three) were approved with the
+user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branches").
+- **The git action** (`GetComparisonGitAction`, `data/git/compare/`, through `IGetComparisonGitAction` and
+  `GetComparisonUseCase`; it replaced `GetBranchComparisonGitAction`): JGit, as it only reads, inside
+  `PartialCloneFetch.retryingMissing`. A side is a full ref or a commit id, read as `<side>^{commit}`, so a tag is its
+  commit; a side that doesn't resolve is an error that names it ("feat/x doesn't exist."). It returns a `Comparison`
+  (`domain/models/Comparison.kt`):
+  - the merge base (`RevFilter.MERGE_BASE`; with several, as after a criss-cross merge, the first that JGit finds, as
+    git takes one);
+  - the commits that only B has and that only A has, as `git log A..B` and `B..A` list them, oldest first: the newest
+    `MAX_COMPARED_COMMITS` (1,000) of each, and the count of all;
+  - how the histories meet (`ComparisonRelation`, from `comparisonRelation`): `SAME`, `A_IS_ANCESTOR`,
+    `B_IS_ANCESTOR`, `DIVERGED`, or `UNRELATED` (no commit in common, as with an orphan branch);
+  - the changes of the mode asked for, by path, with moved files as renames (`diffWithRenames`, see Renames in file
+    lists). A file opens in the diff pane as a commit's file does (`DiffType.CommitDiff`): both sides are read by blob
+    id.
+
+  It does what it's asked, as git does: "Since they split" without a merge base lists nothing, as git refuses `A...B`.
+  The worktree merge dialog reads the commits that a branch brings with it too (`GetWorktreeMergeUseCase`).
+- **The two modes** (`ComparisonMode`): `SINCE_SPLIT`, "Since they split", from the merge base's tree to B's
+  (`git diff A...B`, what merging B would bring), and `ALL`, "All differences", from A's tree to B's (`git diff A B`),
+  where what A did since they split shows as if B had undone it.
+  - A comparison starts in "Since they split" when both sides are branches (two branch tips, a branch's menu, the
+    review), and in "All differences" otherwise: two commits, a commit or a tag against the current branch
+    (`defaultMode`).
+  - The switch shows only for sides that diverged (`showsModeSwitch`). When A is B's ancestor, the merge base is A and
+    both modes list the same files. When B is A's ancestor or the histories share no commit, "Since they split" would
+    list nothing, so the comparison shows "All differences" (`modeToShow`). The review is the exception, above.
+  - The mode belongs to the comparison: not saved, kept by a swap, back to the default when another comparison starts.
+- **The sides** (`CompareSide`, in `CompareRules.kt`):
+  - A `Branch` (a full ref) follows its branch: the comparison is read again when the branch's tip moves in the tab's
+    branch data, local or remote, as the review did when an agent committed, and its badge moves to the new tip. A
+    refresh that leaves the tips where they were reads nothing, and the last comparison stays on screen while the next
+    loads.
+  - A `Commit` stays where it is, named by the tag it came from (`tag`) or by its short id.
+  - ⌘-click takes the row's first branch in its chips' order (`compareSideOf` over `logRefs`: the current branch, local
+    branches that another worktree uses, other local branches, then remote ones), leaving out a detached HEAD, or else
+    the commit, named by its first tag. A menu item takes what it names, and the current branch, or the commit of a
+    detached HEAD.
+- **Which is A:** the ancestor, when one contains the other, however the comparison started, so that the changes read
+  forwards, from the older snapshot to the newer.
+  - Before git has compared them, ⌘-click and "Compare with selected" put the older commit first by commit date
+    (`inPickedOrder`; equal dates keep the order picked), and "Compare with main (current)" puts the current branch
+    first, so that a branch's comparison reads as what merging it into main would bring.
+  - A new comparison's first read settles it (`orderSettled` in the view model's `Active`): when B turns out to be A's
+    ancestor (`putsAncestorFirst`: a clock that was wrong, a date set by hand, a current branch that is newer), the
+    sides turn around and are read again, and when the relation calls for the other mode, that mode is read. That first
+    result never shows.
+  - After that only the swap button changes the order. It flips the known relation (`ComparisonRelation.swapped`), so
+    it reads the right mode at once. The review starts settled, with the base first. The same commit twice compares
+    nothing.
+- **State** (`repositoryopen/ComparisonViewModelExtender.kt`, which replaced `WorktreeReviewViewModelExtender`;
+  `RepositoryOpenViewModel.comparisonState`): a `ComparisonTarget(a, b, reviewedWorktreePath)`, started by
+  `comparePicked(PickedSide, PickedSide)` (⌘-click and "Compare with selected"; a `PickedSide` is a side and its
+  commit's date), `compareWithCurrent(current, other)` (the menus) and `openReview`. `pick` is ⌘-click while comparing.
+  - `ComparisonState` has the target, the mode shown, whether it reads, the comparison (the last one of the same sides
+    and mode stays on screen while it's read again), the error, `aCommit` and `bCommit` (where the sides are now, which
+    the log marks), the file rows, `isFullView` and the reviewed worktree. The view sends `ComparisonAction`s
+    (`SelectEntry`, `OpenFullView`, `LeaveFullView`, `SetMode`, `Swap`, `ViewStateChanged`, `TreeDirectoryToggle`,
+    `TryAgain`, `End`, `ShowUncommittedChanges`).
+  - As the review did, it sets the selection to `SelectedItem.None` while it's shown, rather than being a
+    `SelectedItem` of its own, which upstream's code handles in many places. Selecting anything else (a plain click in
+    the log, anything in the side panel) ends it without selecting, and so does a switch of the tab's worktree. Nothing
+    of it is kept across restarts.
+  - Ending it with Esc or its close button selects A, at the commit it is at now (`selectionFor`: the commit in the
+    loaded log, a stash as a stash).
+  - A read that fails, such as a branch side deleted or renamed outside Leaf, shows its error in place, with Try again,
+    until the user acts, not as a toast.
+- **⌘-click in the log** (`ui/log/LogComparison.kt`, `ui/log/Log.kt`): a row's click reads the window's modifiers when
+  it happens (`LocalWindowInfo`, so that pressing a key recomposes nothing). `isCompareClick` is Meta on macOS, where
+  Ctrl-click is the right-click, and Ctrl elsewhere, and `commitRowClick` makes the click `LogAction.CommitPicked`
+  rather than `CommitSelected`.
+  - `RepositoryOpenViewModel.pickCommit` compares the row with what is selected: a commit row, a branch picked in the
+    side panel (the branch), or a tag (its commit, named by the tag). With nothing selected, the uncommitted changes, or
+    the row itself, it selects the row as a click does. While comparing it goes to `pick`: ⌘-click on A or B drops that
+    side and selects the other as one commit, and on another row it replaces B.
+  - A stash row compares like a commit, the snapshot it saved. ⌘-click on the uncommitted changes' row does nothing
+    while comparing (`uncommittedRowClick`): comparing with the working tree comes later.
+  - Both sides' rows are drawn as selected, with a badge before their chips (`CompareRowBadge`), whose tooltip names the
+    side and says that ⌘-click leaves it out. The badge starts 8 dp in, clear of the column's divider, and takes the
+    place of the chips' start padding (`LogRefChips`' `startPadding`), so a side's chips move 14 dp. `Log` gives the
+    rows `LocalLogComparison`, so that upstream's composables in between don't change.
+  - The log scrolls to neither row when the comparison starts, as the user just clicked them. Its keys
+    (`moveLogSelection`) move on from A, and the selection they make ends the comparison.
+- **The menus** (`ui/context_menu/CompareContextMenu.kt`, with the `compare_arrows` icon):
+  - a commit row (`logContextMenu`'s `compare`, `CompareMenuItems`, `addCompareItems`), in a group after "Copy commit
+    hash": "Compare with selected (5be239a)" while a commit, or a branch or tag in the side panel, is selected, and not
+    on the selected row, with "⌘-click" ("Ctrl-click" elsewhere, `compareClickName`) at its right through a new optional
+    `hint` of the menu's text entries (`ContextMenu.kt`), and "Compare with main (current)", not on the current branch's
+    tip;
+  - a branch (`branchContextMenuItems`' `onCompareWithCurrent`), in the side panel and on a log chip, after Merge and
+    Rebase, not on the current branch; the remote part of a shared chip (`sharedChipRemoteItems`) for its remote
+    branch;
+  - a tag (`tagContextMenuItems`), between "Checkout tag's commit" and "Delete tag";
+  - "Compare with HEAD (detached)" when HEAD is detached (`addCompareWithCurrent`).
+
+  The chips get the current branch and the callbacks through `LocalCompareWithCurrent`, which the list behind +N gives
+  again, closing itself first.
+- **The pane** (`ui/compare/ComparisonPane.kt`, which replaced `ui/WorktreeReview.kt`; `ComparisonPaneView` takes the
+  state, for tests), in the right pane, where the two picks in the log stay in sight. Top to bottom:
+  - a header with A and B on two lines (`SideLine`: the badge, the name, and the short hash unless the name is it, read
+    as one by screen readers), then swap (`compare_arrows` turned upright), the full view and end;
+  - the switch (`ModeSwitch`) and a line that says what the mode leaves out, with names ("What feat changed since it
+    branched off main at e3c6632. main's 4 newer commits are left out.", `comparisonLine`), or else a note on how the
+    two meet (`compare_note_*`);
+  - "Commits only in B" ("Commits from A to B" when A is B's ancestor), open, and "Commits only in A", closed, each
+    opening and closing with its header, at most 40% of the pane's height, and "N older commits aren't listed." past
+    the newest 1,000. A commit's menu is the commit details' parents' (`parentContextMenu`: "Select in the log",
+    "Copy commit hash");
+  - the files (`ChangedFilesList`, with its views, sort, split columns and rename hints), or "The two have the same
+    files.". A file's click opens the full view at it;
+  - a progress bar while it reads, and a failure in `DialogWarning` with Try again.
+
+  The lists' scroll states (`ComparisonListStates`) are kept with the tab (`rememberInTab`).
+- **The full view** (`ui/compare/ComparisonFullView.kt`; `ComparisonFullViewContent` takes the state and a slot for
+  the diff, for tests): `RepoContent` shows it in place of the main view while `isFullView`, after the conflict
+  resolver's branch and before file history's, so a file's diff gets about 850 px rather than 640 in a 1180 px window.
+  - Its header has A → B with names, short hashes and subjects (the subjects are cut first), the switch, swap, back to
+    the log and end, and the mode's line under it.
+  - On the left, as wide as the right pane, are the pane's commits and files (the same composables). On the right is
+    `DiffPane`, without its close button, with "‹ 2 of 5 ›" in its header (`FileStepper`) and A and B above its lines
+    (`SideLabels`: over the two sides of a split diff, or "A main · 5d5537f → B feat · 7d03f51" for a unified one).
+    Without a file: "Select a file to see what changed in it.". ↑ and ↓ step through the files (the view's own
+    `onKeyEvent`), and a comparison read again finds the shown file by its paths.
+  - `DiffPane` has three optional parameters for it, which leave a commit's diff as it was: `isClosable` (false: no
+    close button, and the pane doesn't add itself to the views that Esc closes), `headerActions` and `sideLabels`.
+  - **Two Escs:** `CloseableView.COMPARISON` is added when a comparison starts, and `COMPARISON_FULL_VIEW` while the
+    full view shows. Esc closes the last closeable view, so the first Esc leaves the full view: back to the log, with
+    the comparison in the pane and no diff open (`leaveComparisonFullView` and `clearComparisonDiff`, which also
+    takes out the diff's `CloseableView.DIFF`, that an extra Esc would otherwise close). The second Esc ends the
+    comparison. `RepositoryOpenPage` gives the focus back to the tab when the full view closes, as for the conflict
+    resolver.
+- **The badges** (`ui/compare/CompareBadges.kt`, `CompareBadge`, `CompareLetter`): a 16 dp square with the letter, A
+  amber (`#E9C754`) and B light blue (`#9FD1FF`), the letter near-black (`#0E1621`, 11 : 1 on both), in the log, the
+  pane, the full view's header and above the diff.
+  - Fixed colours, as the avatars' are, not the theme's: `ColorsScheme` is upstream's, and custom themes read it from
+    their files.
+  - Renders showed the fills only 1.2 to 1.6 : 1 against the light theme's white, grey and selected rows, so on a light
+    theme a 1 dp outline of the same hue draws the badge (`#8A6D12`, `#2F6FA8`, at least 3 : 1 on all three).
+- **Not done** (`docs/fork/compare.md` keeps the plans): a "Compare with…" picker for any branch, tag or hash; comparing with
+  the working tree (⌘-click on the uncommitted changes); two versions in file history; a commit's own diff from the
+  commits sections. Enter in the pane's file list opens nothing.
+- Tests:
+  - `CompareRulesTest` (domain): a row's side, the picked order, the ancestor's swap, the default modes, the switch,
+    `modeToShow`, `swapped` and the relation.
+  - `GetComparisonGitActionTest` (data, temp repositories): every pair of six sides (two diverged branches, a branch
+    that moves files, an orphan branch, a tag and a commit id), in both modes, which meet in every relation, against
+    `git diff --name-status` (`A B` and `A...B`), `git rev-list` both ways and `git merge-base`; also a criss-cross
+    merge, a remote branch, a missing side, more than 1,000 commits and a moved file's diff. `PartialCloneTest` has one
+    for a blobless clone.
+  - `ComparisonViewModelExtenderTest` (24, a fake git action): the review, the order, an ancestor turned first and
+    never shown the wrong way round, the default modes, the switch, a swap (onto an ancestor too), the current branch
+    first, ⌘-click on A, on B and elsewhere, ending on a branch side that moved, the full view and the two Escs, Try
+    again.
+  - `ComparisonPaneTest` (16, rendered at 330 px from a state: each state of the pane and the review's, the buttons, a
+    narrow pane), `ComparisonFullViewTest` (9, at 1180 × 640, with a stand-in for the diff pane), `CompareBadgeTest`
+    (the fills and the light theme's outline in pixels, and the contrasts), `LogComparisonTest` (the letters, both
+    clicks, the badge before the chips in both themes, from its pixels) and `CompareMenusTest` (each menu's items,
+    their order, separators and hint, a detached HEAD, the click per system). The pane, the full view and the log's
+    badges write PNGs in both themes when `LEAF_RENDER_DIR` is set.
+  - The view model's part with the log and the menus ran against a real repository through the Dagger graph in a
+    temporary harness, and the real diff pane in the full view in a dev run (2026-10-21). 16 mutations of the menus,
+    the clicks and the badge were each caught by a named test.
 
 **Renames in file lists (fork-only, `data/git/diff/RenameDetection.kt`, the commit and review lists of upstream issue
 347, 2026-10-19):** a commit that git shows as `R old -> new` used to list a deletion and an addition. `git.diff()`
@@ -2395,7 +2554,8 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 before the views inside it and consumes the ones it matches. So a view's own Esc handler there never runs (upstream's
 `FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
 - Fork-only: that branch closes file history, then an expanded blame, then the last closeable view (`CloseableView`:
-  the diff, the searches and the commit field's co-author suggestions, in the order they opened).
+  the diff, the searches, the commit field's co-author suggestions, a comparison and its full view, in the order they
+  opened).
 - Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
   while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
   back to the tab (fork-only). Closing the diff gives it to the log's list instead, which stays visible beside it (see
@@ -3486,8 +3646,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     `awaitLoaded`'s predicate (a state other than the one before the task), not for any loaded value, which may still
     be the old one. Two tests did, and failed once the refresh ran `git var` before the repository state.
 - A view model's state that `combine`s several flows can show one of them before another arrives. A test waits for a
-  state that has everything it asserts, not for the first one that has part of it: `WorktreeReviewTest.loaded()` waits
-  for the comparison and for the worktree list's count, which failed once in a full run.
+  state that has everything it asserts, not for the first one that has part of it:
+  `ComparisonViewModelExtenderTest.reviewLoaded()` waits for the comparison and for the worktree list's count, which
+  failed once in a full run (in the review's own test, before it became a comparison).
 - Shared helpers live in `data/src/test/kotlin/dev/app/leaf/data/git/TestGit.kt`:
   - `IsolatedSystemReader` keeps JGit away from the developer's `~/.gitconfig` and JGit config. Install it with
     `SystemReader.setInstance` and restore the original in `@AfterEach`.

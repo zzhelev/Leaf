@@ -2,6 +2,45 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Compare any two commits, branches or tags (upstream issues 206 and 283, 2026-10-21)
+
+- **Request:** see what differs between two commits or branches, not only a commit against its parent. Upstream issue
+  206 asked for it and was closed as a duplicate of 283, "Ctrl-click two commits in the graph". Leaf had one comparison,
+  a worktree row's "Review changes", which only compared the worktree's branch with the base.
+- **Starting one:** ⌘-click (Ctrl-click on Windows and Linux) a second row in the log, as other git clients do. Also
+  right-click items, so it can be found without being told: "Compare with selected (5be239a)" on a commit, with
+  "⌘-click" at its right, and "Compare with main (current)" on commits, branches (in the side panel and on the log's
+  chips) and tags, or "Compare with HEAD (detached)".
+- **A and B:** the two sides get an amber A and a light blue B badge, on their rows in the log (both drawn as
+  selected), in the pane, in the full view and above each side of a file's diff. A is the older side, and the ancestor
+  whenever one contains the other, so the changes read forwards; from a menu, the current branch comes first unless the
+  other side is its ancestor. A branch side follows its branch, so the comparison updates when an agent commits; a
+  commit or a tag stays where it is. ⌘-click on A or B drops it, on another row it replaces B, and the swap button turns
+  them around.
+- **Two modes:** "Since they split" (`git diff A...B`, what merging B would bring) and "All differences"
+  (`git diff A B`). Two branches start in the first, anything else in the second. The switch shows only when the two
+  have diverged; otherwise a line says how they meet ("main and gh-pages share no commit, so this shows every
+  difference between them.").
+- **Where it shows (layout 1c, of three):** in the right pane next to the log, where the two picks stay in sight: A and
+  B, the switch and a line that says what the mode leaves out, the commits only in B and only in A, and the files, as in
+  a commit (views, sort, renames). A file opens a full view of the whole tab, as file history and the conflict resolver
+  do: the commits and files on the left, the diff on the right with "‹ 2 of 5 ›", and ↑ ↓ through the files. The first
+  Esc goes back to the log with the comparison in the pane, the second ends it, selecting A.
+- **The review is one comparison now:** "Review changes" opens the same pane, with A the base and B the worktree's
+  branch, and gains the full view, the swap and the switch. It keeps its own line about the worktree's uncommitted
+  changes, and still asks what a merge would bring.
+- **Chosen with the user, from mockups:** the entry points, the default modes, A and B rather than From and To, and
+  layout 1c over the diff over the log (1a, 640 px for the diff) and the whole tab straight from ⌘-click (1b, which hid
+  the picks at once).
+- **Not yet:** a "Compare with…" picker for any branch, tag or hash; comparing with the working tree (⌘-click on the
+  uncommitted changes, which does nothing while comparing); two versions in file history; a commit's own diff from the
+  commits lists.
+- Tests: every pair of sides of temp repositories in both modes against `git diff`, `git rev-list` and
+  `git merge-base`; the view model's order, modes, swaps, clicks and Escs with a fake git action; the pane, the full
+  view, the badges, the log's rows and the menus rendered in both themes. The log and the menus ran against a real
+  repository through the Dagger graph, and the full view with the real diff pane in a dev run.
+- Details: CLAUDE.md, "Comparing two commits or branches", and `docs/fork/compare.md`.
+
 ## The log stays above an open diff, and the diff follows the selected commit (upstream issues 343, 136 and 128, 2026-10-21)
 
 - **Request:** selecting a file in a commit's list swapped the log for the diff, so checking several commits meant closing

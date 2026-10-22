@@ -5,7 +5,7 @@
 | Question | How can Leaf show the difference between any two commits or branches, in a way people find without being told? |
 | Verified against | `main` at `04e3f620`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-21 |
-| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 5 built; step 6 (notes and a demo) left |
+| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22) |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -345,9 +345,24 @@ Six steps, in order: 2 needs 1, and 3, 4 and 5 need 2. Each step builds and pass
 
 ### Step 6: notes and a demo
 
-- `CLAUDE.md`: a section after "Reviewing a worktree", which shrinks to a pointer. `docs/fork/CHANGELOG.md`.
-- A demo repository in `/tmp` with diverged branches, a tag, a moved file and an orphan branch, and a `:app:run`
-  command for a manual check of hover, ⌘-click and the full view.
+Done 2026-10-22.
+
+- `CLAUDE.md`: "Comparing two commits or branches", after "Reviewing a worktree", which shrank to what is the review's
+  own (its order and mode, what ending it selects, the line about uncommitted changes). The Keys section names the two
+  closeable views, and the lines that named `WorktreeReviewTest` point to its successor. `docs/fork/CHANGELOG.md` has
+  the feature's entry.
+- A demo repository for a manual check of the badges' tooltips, ⌘-click, the menus, the switch, the swap and the full
+  view: `/tmp/leaf-compare-demo/repo`, made by `/tmp/leaf-compare-demo/make-demo.sh` (outside the repository, and gone
+  after a reboot), with a `:app:run` command for it. A commit a day from 2026-10-01, by three authors, so that each case
+  of 3.4 shows:
+  - `main` and `feat/clone-picker`, diverged: the branch moves `src/Parser.kt` to `src/parse/Parser.kt` with an edit
+    (a rename at 78%) and adds a file, and `main` has 4 newer commits, among them "Release 1.3.0", which changes
+    `latest.json`: "All differences" shows it as undone;
+  - an annotated tag `v1.0` on an older `main` commit, an ancestor of both, so a tag against `main` reads forwards;
+  - `fix/typo`, which `main` merged (A is B's ancestor, and B is A's after a swap), `gh-pages`, an orphan branch (no
+    commit in common), and a stash on `main`;
+  - a linked worktree `repo-agent1` on `agent1`, two commits ahead of `main`, with a changed and an untracked file, for
+    "Review changes" and its line.
 
 ## 5. Checks before calling it done
 
