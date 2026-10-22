@@ -654,7 +654,38 @@ fun CommitsList(
     // Fork-only: the list takes the focus when a row is clicked, and the arrow, page, Home and End keys move the
     // selection (the commit pane follows it). Left and Right do nothing. The tab's own shortcuts still reach their
     // handler above, as the arrows aren't theirs.
-    val listFocusRequester = remember { FocusRequester() }
+    val ownFocusRequester = remember { FocusRequester() }
+    val listFocusRequester = LocalLogFocusRequester.current ?: ownFocusRequester
+
+    // Fork-only: a diff opening under the log makes it shorter. The selected row stays in view if it was in view.
+    val selectedRow = remember(selectedCommit?.hash, commitList, showsUncommittedRow, selectedItem is SelectedItem.UncommittedChanges) {
+        val offset = if (showsUncommittedRow) 1 else 0
+
+        when {
+            selectedCommit != null -> commitList.commits.keys.indexOf(selectedCommit.hash).takeIf { it >= 0 }?.plus(offset)
+            selectedItem is SelectedItem.UncommittedChanges && showsUncommittedRow -> 0
+            else -> null
+        }
+    }
+
+    LaunchedEffect(scrollState, selectedRow) {
+        if (selectedRow == null) return@LaunchedEffect
+
+        var before: Pair<Int, Boolean>? = null
+
+        snapshotFlow {
+            val info = scrollState.layoutInfo
+
+            (info.viewportEndOffset - info.viewportStartOffset) to info.visibleItemsInfo.any { it.index == selectedRow }
+        }.collect { now ->
+            val was = before
+            before = now
+
+            if (was != null && was.second && !now.second && now.first < was.first) {
+                scrollState.bringRowIntoView(selectedRow)
+            }
+        }
+    }
 
     ScrollableLazyColumn(
         state = scrollState,

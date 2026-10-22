@@ -124,7 +124,8 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
                     commit = item.commit,
                     showSearch = false,
                     searchFilter = TextFieldValue(""),
-                    changes = lastLoadedCommitsChanges.value
+                    changes = lastLoadedCommitsChanges.value,
+                    showsPreviousChanges = true,
                 )
             )
 

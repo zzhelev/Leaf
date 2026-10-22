@@ -117,12 +117,14 @@ fun DiffPane(
     isClosable: Boolean = true,
     headerActions: (@Composable () -> Unit)? = null,
     sideLabels: (@Composable (isSplit: Boolean) -> Unit)? = null,
+    /** The header's button that hides or shows the log beside the diff (fork-only), where the log is. */
+    logToggle: (@Composable () -> Unit)? = null,
 ) {
     // Fork-only: the lines mark their whitespace while the View menu says so
     val showWhitespace by viewModel.diffShowWhitespace.collectAsState()
 
     CompositionLocalProvider(LocalShowWhitespace provides showWhitespace) {
-        DiffPaneContent(viewModel, onCloseDiffView, onConfirmAction, isClosable, headerActions, sideLabels)
+        DiffPaneContent(viewModel, onCloseDiffView, onConfirmAction, isClosable, headerActions, sideLabels, logToggle)
     }
 }
 
@@ -134,6 +136,7 @@ private fun DiffPaneContent(
     isClosable: Boolean,
     headerActions: (@Composable () -> Unit)?,
     sideLabels: (@Composable (isSplit: Boolean) -> Unit)?,
+    logToggle: (@Composable () -> Unit)?,
 ) {
     val diffResultState = viewModel.diffResult.collectAsState()
     val confirmDiscards by viewModel.confirmHunkAndLineDiscards.collectAsState()
@@ -147,8 +150,10 @@ private fun DiffPaneContent(
     val conflictSides by viewModel.conflictSides.collectAsState()
     val focusRequester = remember { FocusRequester() }
 
-    fun closeDiffView() {
+    fun closeDiffView(forgetFile: Boolean = true) {
         viewModel.clearDiff()
+        // Fork-only: a diff that the user closed is no longer followed from commit to commit
+        if (forgetFile) viewModel.forgetFollowedFile()
         onCloseDiffView()
     }
 
@@ -187,9 +192,10 @@ private fun DiffPaneContent(
     ) {
         when (viewDiffResult) {
             is ViewDiffResult.DiffNotFound -> {
-                // Not during composition, which may run it more than once
+                // Not during composition, which may run it more than once. The file stays followed: the selection can
+                // be cleared on purpose, for a commit that doesn't change it, while this pane is composed for one more frame.
                 LaunchedEffect(viewDiffResult) {
-                    closeDiffView()
+                    closeDiffView(forgetFile = false)
                 }
             }
 
@@ -210,6 +216,7 @@ private fun DiffPaneContent(
                     onUnstageFile = { viewModel.unstageFile(it) },
                     onChangeDiffType = { viewModel.changeTextDiffType(it) },
                     onDisplayFullFile = { viewModel.changeDisplayFullFile(it) },
+                    logToggle = logToggle,
                     viewMenu = {
                         DiffViewMenu(
                             diffType = diffType,
@@ -993,6 +1000,7 @@ private fun DiffHeader(
     onDisplayFullFile: (Boolean) -> Unit,
     /** The View menu (fork-only), for any text diff: added and deleted files' lines can be long too. */
     viewMenu: @Composable () -> Unit,
+    logToggle: (@Composable () -> Unit)?,
 ) {
     Row(
         modifier = Modifier
@@ -1074,6 +1082,8 @@ private fun DiffHeader(
                     onStageFile = onStageFile
                 )
             }
+
+            logToggle?.invoke()
 
             if (onCloseDiffView != null) {
                 IconButton(

@@ -1379,4 +1379,11 @@
     <string name="commit_parents_tooltip_limit_reached">Not found in %1$s more commits. Click to look further.</string>
     <string name="commit_parents_tooltip_unavailable">The log couldn't be loaded. Click to try again.</string>
 
+    <!-- The diff beside the log (fork-only) -->
+    <string name="diff_log_toggle_hide">Hide the log: the diff takes the whole pane</string>
+    <string name="diff_log_toggle_show">Show the log above the diff</string>
+    <string name="diff_followed_missing_title">%1$s has no changes in %2$s</string>
+    <string name="diff_followed_missing_hint">Select a commit that changes it to see its diff here. Esc closes this.</string>
+    <string name="diff_followed_unreadable_title">%1$s can't be shown for %2$s</string>
+    <string name="diff_followed_unreadable_hint">The commit's files couldn't be read.</string>
 </resources>

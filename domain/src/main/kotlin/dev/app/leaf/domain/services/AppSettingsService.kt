@@ -102,6 +102,10 @@ class AppSettingsService @Inject constructor(
     val diffWrapLines: Flow<Boolean>
         get() = appSettingsRepository.diffWrapLines.defaultIfNull { true }
 
+    /** Whether the log stays above an open diff. Off gives the diff the whole centre pane, as it had before. */
+    val diffKeepsLog: Flow<Boolean>
+        get() = appSettingsRepository.diffKeepsLog.defaultIfNull { true }
+
     /** Whether the commit field counts a long subject and tints what goes past 72 characters. */
     val commitSubjectLengthHint: Flow<Boolean>
         get() = appSettingsRepository.commitSubjectLengthHint.defaultIfNull { true }

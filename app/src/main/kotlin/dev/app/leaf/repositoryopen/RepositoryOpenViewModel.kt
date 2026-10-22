@@ -58,6 +58,7 @@ import dev.app.leaf.system.PickerType
 import dev.app.leaf.terminal.OpenRepositoryInTerminalGitAction
 import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.BranchWorktreesState
+import dev.app.leaf.ui.CenterSplitConfig
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
 import dev.app.leaf.ui.WorktreePickerState
@@ -130,6 +131,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val appViewModel: AppViewModel,
     private val tabScope: TabCoroutineScope,
     private val verticalSplitPaneConfig: VerticalSplitPaneConfig,
+    private val centerSplitConfig: CenterSplitConfig,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val increaseLogCountUseCase: IncreaseLogCountUseCase,
     private val loadLogUntilCommitUseCase: LoadLogUntilCommitUseCase,
@@ -529,13 +531,41 @@ class RepositoryOpenViewModel @Inject constructor(
         diffSelected,
         onDiffSelected = {
             diffSelected.value = it
+            // Fork-only: a file opened from the commit's list is the one that the diff follows from commit to commit
+            diffFollow.pin(it)
         },
         onViewStateChanged = ::setFilesChangedView,
         addCloseableView = ::addCloseableView,
         removeCloseableView = ::removeCloseableView,
     )
 
-    val commitChangesState = commitChangesViewModelExtender.commitChangesState
+    val commitChangesState: StateFlow<CommitChangesState?> = commitChangesViewModelExtender.commitChangesState
+
+    // Fork-only: the log stays above an open diff, and the diff follows the selected commit (upstream issues 343, 136, 128)
+    val diffKeepsLog: StateFlow<Boolean> = settings.diffKeepsLog.stateIn(true)
+
+    fun changeDiffKeepsLog(keeps: Boolean) = tabScope.launch {
+        settings.setConfiguration(AppConfig.DiffKeepsLog(keeps))
+    }
+
+    private val diffFollow: DiffFollowController = DiffFollowController(
+        scope = viewModelScope,
+        selectedItem = selectedItem,
+        commitChanges = commitChangesState,
+        diffSelected = diffSelected,
+        keepsLog = diffKeepsLog,
+        select = { diffSelected.value = it },
+    )
+
+    /** The file whose diff was open, when the selected commit doesn't show it: the diff area stands in for the diff. */
+    val missingFollowedFile: StateFlow<MissingFollowedFile?> = diffFollow.missing
+
+    /** The diff was closed by the user: its file isn't followed any more. */
+    fun forgetFollowedFile() = diffFollow.forget()
+
+    val centerSplitSizes: StateFlow<CenterSplitSizes> = centerSplitConfig.sizes
+
+    fun saveCenterSplitSizes(sizes: CenterSplitSizes) = centerSplitConfig.save(sizes)
 
     // Fork-only: the parents in the commit details, and the jump to one of them (upstream issue 270)
     private val commitParents = CommitParentsController(

@@ -13,6 +13,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapp
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.models.AppConfig
+import dev.app.leaf.domain.models.CenterSplitSizes
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
@@ -36,6 +37,7 @@ private const val PREF_WINDOW_PLACEMENT = "windowsPlacement"
 private const val PREF_FIRST_PANE_WIDTH = "firstPaneWidth"
 private const val PREF_THIRD_PANE_WIDTH = "thirdPaneWidth"
 private const val PREF_STATUS_STAGED_SHARE = "statusStagedShare"
+private const val PREF_CENTER_LOG_SHARE = "centerLogShare"
 private const val PREF_STATUS_COMMIT_FIELD_HEIGHT = "statusCommitFieldHeight"
 private const val PREF_COMMIT_MESSAGE_HEIGHT = "commitMessageHeight"
 private const val DEFAULT_FIRST_PANE_WIDTH = 220f
@@ -76,6 +78,7 @@ private val conflictOpenerPreference get() = stringPreferencesKey("conflict_open
 private val conflictResolverLayoutPreference get() = stringPreferencesKey("conflict_resolver_layout")
 private val conflictResolverWrapLinesPreference get() = booleanPreferencesKey("conflict_resolver_wrap_lines")
 private val diffWrapLinesPreference get() = booleanPreferencesKey("diff_wrap_lines")
+private val diffKeepsLogPreference get() = booleanPreferencesKey("diff_keeps_log")
 private val commitSubjectLengthHintPreference get() = booleanPreferencesKey("commit_subject_length_hint")
 private val conventionalCommitsSuggestionsPreference get() = stringPreferencesKey("conventional_commits_suggestions")
 private val commitMessageRulerPreference get() = intPreferencesKey("commit_message_ruler")
@@ -168,6 +171,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
         }
     override val conflictResolverWrapLines get() = preferences.data[conflictResolverWrapLinesPreference]
     override val diffWrapLines get() = preferences.data[diffWrapLinesPreference]
+    override val diffKeepsLog get() = preferences.data[diffKeepsLogPreference]
     override val commitSubjectLengthHint get() = preferences.data[commitSubjectLengthHintPreference]
     override val commitMessageRuler get() = preferences.data[commitMessageRulerPreference]
 
@@ -209,6 +213,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
                     setValue(conflictResolverLayoutPreference, appConfig.value.name.lowercase())
                 is AppConfig.ConflictResolverWrapLines -> setValue(conflictResolverWrapLinesPreference, appConfig.value)
                 is AppConfig.DiffWrapLines -> setValue(diffWrapLinesPreference, appConfig.value)
+                is AppConfig.DiffKeepsLog -> setValue(diffKeepsLogPreference, appConfig.value)
                 is AppConfig.CommitSubjectLengthHint -> setValue(commitSubjectLengthHintPreference, appConfig.value)
                 is AppConfig.CommitMessageRuler -> setValue(commitMessageRulerPreference, appConfig.column)
                 is AppConfig.ConventionalCommitsSuggestions ->
@@ -303,6 +308,14 @@ class DataStoreAppSettingsRepository @Inject constructor(
         set(value) {
             preferencesLegacy.putFloat(PREF_STATUS_STAGED_SHARE, value.stagedShare)
             preferencesLegacy.putFloat(PREF_STATUS_COMMIT_FIELD_HEIGHT, value.commitFieldHeight)
+        }
+
+    override var centerSplitSizes: CenterSplitSizes
+        get() = CenterSplitSizes(
+            logShare = preferencesLegacy.getFloat(PREF_CENTER_LOG_SHARE, CenterSplitSizes().logShare),
+        ).orDefaults()
+        set(value) {
+            preferencesLegacy.putFloat(PREF_CENTER_LOG_SHARE, value.logShare)
         }
 
     override var commitChangesSectionSizes: CommitChangesSectionSizes

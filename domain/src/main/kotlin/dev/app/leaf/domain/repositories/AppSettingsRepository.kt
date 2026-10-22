@@ -6,6 +6,7 @@ import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
+import dev.app.leaf.domain.models.CenterSplitSizes
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
@@ -55,6 +56,7 @@ interface AppSettingsRepository {
     val conflictResolverLayout: Flow<ConflictResolverLayout?>
     val conflictResolverWrapLines: Flow<Boolean?>
     val diffWrapLines: Flow<Boolean?>
+    val diffKeepsLog: Flow<Boolean?>
     val commitSubjectLengthHint: Flow<Boolean?>
     val commitMessageRuler: Flow<Int?>
     val conventionalCommitsSuggestions: Flow<ConventionalCommitsMode?>
@@ -76,5 +78,6 @@ interface AppSettingsRepository {
     var firstPaneWidth: Float
     var thirdPaneWidth: Float
     var statusSectionSizes: StatusSectionSizes
+    var centerSplitSizes: CenterSplitSizes
     var commitChangesSectionSizes: CommitChangesSectionSizes
 }

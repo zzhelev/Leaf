@@ -20,12 +20,14 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.bottom_info_bar_email_not_set
 import dev.app.leaf.app.generated.resources.bottom_info_bar_name_and_email
 import dev.app.leaf.app.generated.resources.bottom_info_bar_name_not_set
+import dev.app.leaf.domain.models.CenterSplitSizes
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.NewWorktreeStart
 import dev.app.leaf.domain.models.PullType
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.ui.SelectedItem
+import dev.app.leaf.domain.repositories.CloseableView
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
@@ -34,11 +36,13 @@ import dev.app.leaf.ui.compare.ComparisonFullView
 import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
-import dev.app.leaf.ui.components.coveringWhatIsBelow
 import dev.app.leaf.ui.conflicts.ConflictResolver
 import dev.app.leaf.ui.dialogs.ConfirmableAction
+import dev.app.leaf.ui.diff.DiffLogToggle
 import dev.app.leaf.ui.diff.DiffPane
+import dev.app.leaf.ui.diff.FollowedDiffPlaceholder
 import dev.app.leaf.ui.log.Log
+import dev.app.leaf.ui.log.LocalLogFocusRequester
 import dev.app.leaf.ui.status.OperationInProgressBanner
 import dev.app.leaf.ui.status.UnsupportedIndexBanner
 import dev.app.leaf.ui.LocalAppChrome
@@ -430,6 +434,13 @@ fun MainContentView(
     var firstWidth by remember(viewModel) { mutableStateOf(viewModel.firstPaneWidth.value) }
     var thirdWidth by remember(viewModel) { mutableStateOf(viewModel.thirdPaneWidth.value) }
 
+    // Fork-only: a local copy follows the divider between the log and the diff while it is dragged, and is saved when it ends
+    var splitSizes by remember(viewModel) { mutableStateOf(viewModel.centerSplitSizes.value) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.centerSplitSizes.collect { splitSizes = it }
+    }
+
     LaunchedEffect(Unit) {
         // Update the pane widths if they have been changed in a different tab
         viewModel.onPanelsWidthPersisted.collectLatest {
@@ -473,45 +484,88 @@ fun MainContentView(
                     )
                 } else {
                     Column {
-                        Box(modifier = Modifier.weight(1f, true)) {
-                            val showDiff = diffSelected?.entries?.count() == 1
+                        val showDiff = diffSelected?.entries?.count() == 1
+                        val tabFocusRequester = LocalTabFocusRequester.current
+                        val logFocusRequester = remember { FocusRequester() }
+                        val keepsLog by viewModel.diffKeepsLog.collectAsState()
+                        val missingFile by viewModel.missingFollowedFile.collectAsState()
 
-                            Log(
-                                modifier = Modifier.focusable(!showDiff),
-                                viewModel = viewModel,
-                                selectedItem = selectedItem,
-                                repositoryState = repositoryState,
-                                // TODO Move nav outside of this? Applies to next lines
-                                onCreateBranch = { onNavigate(Screen.BranchCreate(it)) },
-                                onResetBranch = { onNavigate(Screen.BranchReset(it)) },
-                                onCreateTag = { onNavigate(Screen.TagCreate(it)) },
-                                onChangeUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
-                                onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
-                                onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
-                                onDeleteTag = { onNavigate(Screen.TagDelete(it)) },
-                                onConfirmAction = { action, onConfirm ->
-                                    onNavigate(Screen.ConfirmAction(action, onConfirm))
-                                },
-                                onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
-                            )
+                        // Fork-only: a closed diff gives the focus to the log, which stays visible, so that its keys go on working
+                        val focusAfterClosingDiff: () -> Unit = {
+                            try {
+                                logFocusRequester.requestFocus()
+                            } catch (_: IllegalStateException) {
+                                tabFocusRequester.requestFocus()
+                            }
+                        }
+                        val logToggle: @Composable () -> Unit = {
+                            DiffLogToggle(keepsLog = keepsLog, onKeepsLogChanged = { viewModel.changeDiffKeepsLog(it) })
+                        }
 
-                            if (showDiff) {
-                                val tabFocusRequester = LocalTabFocusRequester.current
-
-                                // Fork-only: the log stays under the diff, which takes the pointer where nothing in it does
-                                Box(modifier = Modifier.coveringWhatIsBelow()) {
+                        // Fork-only: the log stays above the diff (upstream issues 343, 136 and 128). The log is composed
+                        // under the diff as it was, where there is no room for both.
+                        LogAndDiffSplit(
+                            modifier = Modifier.weight(1f, true),
+                            sizes = splitSizes,
+                            // The interactive rebase's list isn't the log: a diff still covers it, as it always did
+                            keepsLog = keepsLog && rebaseInteractiveState !is RebaseInteractiveState.AwaitingInteraction,
+                            isDiffShown = showDiff || missingFile != null,
+                            onSizesChange = { splitSizes = it },
+                            onSizesChangeFinished = { viewModel.saveCenterSplitSizes(splitSizes) },
+                            onResetSizes = {
+                                splitSizes = CenterSplitSizes()
+                                viewModel.saveCenterSplitSizes(splitSizes)
+                            },
+                            log = { logModifier ->
+                                CompositionLocalProvider(LocalLogFocusRequester provides logFocusRequester) {
+                                    Log(
+                                        modifier = logModifier,
+                                        viewModel = viewModel,
+                                        selectedItem = selectedItem,
+                                        repositoryState = repositoryState,
+                                        // TODO Move nav outside of this? Applies to next lines
+                                        onCreateBranch = { onNavigate(Screen.BranchCreate(it)) },
+                                        onResetBranch = { onNavigate(Screen.BranchReset(it)) },
+                                        onCreateTag = { onNavigate(Screen.TagCreate(it)) },
+                                        onChangeUpstreamBranch = { onNavigate(Screen.BranchChangeUpstream(it)) },
+                                        onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
+                                        onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
+                                        onDeleteTag = { onNavigate(Screen.TagDelete(it)) },
+                                        onConfirmAction = { action, onConfirm ->
+                                            onNavigate(Screen.ConfirmAction(action, onConfirm))
+                                        },
+                                        onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
+                                    )
+                                }
+                            },
+                            diff = {
+                                if (showDiff) {
                                     DiffPane(
                                         viewModel = viewModel,
-                                        onCloseDiffView = {
-                                            tabFocusRequester.requestFocus()
-                                        },
+                                        onCloseDiffView = { focusAfterClosingDiff() },
                                         onConfirmAction = { action, onConfirm, onStopAsking ->
                                             onNavigate(Screen.ConfirmAction(action, onConfirm, onStopAsking))
                                         },
+                                        logToggle = logToggle,
                                     )
+                                } else {
+                                    missingFile?.let { missing ->
+                                        FollowedDiffPlaceholder(
+                                            missing = missing,
+                                            closeRequests = remember(viewModel) {
+                                                viewModel.closeViewFlow.filter { it == CloseableView.DIFF }.map { }
+                                            },
+                                            onShown = { viewModel.addToCloseables() },
+                                            onClose = {
+                                                viewModel.forgetFollowedFile()
+                                                focusAfterClosingDiff()
+                                            },
+                                            logToggle = logToggle,
+                                        )
+                                    }
                                 }
-                            }
-                        }
+                            },
+                        )
 
                         if (blameState is BlameState.Loaded) { // BlameState.isMinimized is true here
                             MinimizedBlame(

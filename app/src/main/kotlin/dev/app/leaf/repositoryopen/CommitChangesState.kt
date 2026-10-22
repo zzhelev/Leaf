@@ -19,4 +19,9 @@ data class CommitChangesState(
     /** The visible rows for [viewState], already filtered by the search. */
     val rows: List<FileRow<DiffEntry>> = emptyList(),
     val sectionSizes: CommitChangesSectionSizes = CommitChangesSectionSizes(),
+    /**
+     * [changes] are the ones of the commit selected before this one, shown until this commit's own load ends (fork-only).
+     * Not this commit's files, so nothing may be worked out from them.
+     */
+    val showsPreviousChanges: Boolean = false,
 )

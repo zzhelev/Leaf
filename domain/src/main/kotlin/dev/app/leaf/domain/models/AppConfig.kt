@@ -59,6 +59,9 @@ sealed interface AppConfig {
     /** Whether the diff pane wraps long lines, or keeps each on one row and scrolls sideways (fork-only). */
     data class DiffWrapLines(val value: Boolean) : AppConfig
 
+    /** Whether the log stays above an open diff, or the diff takes the whole centre pane (fork-only). */
+    data class DiffKeepsLog(val value: Boolean) : AppConfig
+
     /** Whether the commit field counts a long subject and tints what goes past 72 characters (fork-only). */
     data class CommitSubjectLengthHint(val value: Boolean) : AppConfig
 
