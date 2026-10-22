@@ -1,5 +1,7 @@
 package dev.app.leaf.domain.repositories
 
+import dev.app.leaf.domain.cherrypick.BranchesAhead
+import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.*
@@ -23,6 +25,12 @@ interface RepositoryDataRepository {
     val author: Flow<DataState<AuthorInfo>>
     val persistedCommitMessage: Flow<DataState<PersistedCommitMessage>>
     val worktrees: Flow<DataState<WorktreeList>>
+
+    /** How many commits each branch has that HEAD lacks, for the branch menus' cherry-pick item (fork-only). */
+    val branchesAhead: Flow<DataState<BranchesAhead>>
+
+    /** The cherry-pick of several commits that git stopped in the worktree, or null (fork-only). */
+    val cherryPickSequence: StateFlow<DataState<CherryPickSequence?>>
     var maxCommitsToLoadLimit: Int
 
     fun setRepositorySelectionState(state: RepositorySelectionState)
@@ -56,6 +64,11 @@ interface RepositoryDataRepository {
         block: suspend () -> Either<PersistedCommitMessage, AppError>,
     )
     suspend fun updateWorktrees(repositoryPath: String, block: suspend () -> Either<WorktreeList, AppError>)
+    suspend fun updateBranchesAhead(repositoryPath: String, block: suspend () -> Either<BranchesAhead, AppError>)
+    suspend fun updateCherryPickSequence(
+        repositoryPath: String,
+        block: suspend () -> Either<CherryPickSequence?, AppError>,
+    )
 }
 
 sealed interface DataState<out T> {

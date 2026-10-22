@@ -41,6 +41,8 @@ class RefreshDataUseCase @Inject constructor(
     private val getTrackingBranchUseCase: GetTrackingBranchUseCase,
     private val getLogUseCase: GetLogUseCase,
     private val getWorktreesInfoUseCase: GetWorktreesInfoUseCase,
+    private val getBranchesAheadGitAction: IGetBranchesAheadGitAction,
+    private val getCherryPickSequenceGitAction: IGetCherryPickSequenceGitAction,
     private val worktreesRefreshRunner: WorktreesRefreshRunner,
     private val dataRefreshRunner: DataRefreshRunner,
     private val scope: TabCoroutineScope,
@@ -106,6 +108,12 @@ class RefreshDataUseCase @Inject constructor(
 
         if (isRefreshAll || refsChanged) {
             refreshRefDates()
+        }
+
+        // Fork-only: the branch menus' cherry-pick item, which counts against HEAD, so a commit changes it too. Only
+        // the menus read it, so it comes last.
+        if (isRefreshAll || refsChanged || dataToRefresh.contains(DataToRefresh.LOG)) {
+            refreshBranchesAhead()
         }
     }
 
@@ -202,10 +210,23 @@ class RefreshDataUseCase @Inject constructor(
         }
     }
 
+    private suspend fun refreshBranchesAhead() {
+        useCaseExecutor.executeWithoutResult { repositoryPath ->
+            repositoryDataRepository.updateBranchesAhead(repositoryPath) {
+                getBranchesAheadGitAction(repositoryPath)
+            }
+        }
+    }
+
     private suspend fun refreshRepositoryState() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
             repositoryDataRepository.updateRepositoryState(repositoryPath) {
                 getRepositoryState(repositoryPath)
+            }
+
+            // Fork-only: git's sequencer, which JGit's repository state doesn't tell
+            repositoryDataRepository.updateCherryPickSequence(repositoryPath) {
+                getCherryPickSequenceGitAction(repositoryPath)
             }
 
             val state = (repositoryDataRepository.repositoryState.value as? DataState.Loaded<RepositoryState>)?.data

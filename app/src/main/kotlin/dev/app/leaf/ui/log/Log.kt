@@ -133,6 +133,8 @@ fun Log(
     onDeleteTag: (Tag) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onNewWorktree: ((NewWorktreeStart) -> Unit)? = null,
+    // Fork-only: opens the dialog that cherry-picks a branch's commits
+    onCherryPickCommits: ((Branch) -> Unit)? = null,
 ) {
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
@@ -159,6 +161,16 @@ fun Log(
             onBranchWithWorkingTree = viewModel::compareBranchWithWorkingTree,
             onTagWithWorkingTree = viewModel::compareTagWithWorkingTree,
         )
+    }
+
+    // Fork-only: the branch chips' cherry-pick item
+    val branchesAhead by viewModel.branchesAhead.collectAsState()
+    val branchCherryPick = remember(viewModel, branchesAhead, logStatus.currentBranch, onCherryPickCommits) {
+        onCherryPickCommits?.let { openDialog ->
+            BranchCherryPick(branchesAhead, logStatus.currentBranch) { branch, item ->
+                viewModel.cherryPickFromBranch(branch, item, openDialog)
+            }
+        }
     }
 
     LaunchedEffect(logStatus.verticalScrollState, logStatus.commitList) {
@@ -191,6 +203,7 @@ fun Log(
             LocalOnNewWorktree provides onNewWorktree,
             LocalLogComparison provides logComparison,
             LocalCompareWithCurrent provides compareWithCurrent,
+            LocalBranchCherryPick provides branchCherryPick,
         ) {
             LogView(
                 logState = logStatus,
@@ -1604,6 +1617,7 @@ fun BranchChip(
     val onSwitchToWorktree = LocalOnSwitchToWorktree.current
     val onNewWorktree = LocalOnNewWorktree.current
     val compareWithCurrent = LocalCompareWithCurrent.current
+    val branchCherryPick = LocalBranchCherryPick.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
@@ -1635,6 +1649,8 @@ fun BranchChip(
             onCompareWithCurrent = compareWithCurrent?.let { compare -> { compare.onBranch(branch) } },
             onCompareWith = compareWithCurrent?.onBranchWith?.let { compare -> { compare(branch) } },
             onCompareWithWorkingTree = compareWithCurrent?.onBranchWithWorkingTree?.let { compare -> { compare(branch) } },
+            cherryPick = branchCherryPick?.itemFor(branch),
+            onCherryPick = { item -> branchCherryPick?.onCherryPick?.invoke(branch, item) },
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }

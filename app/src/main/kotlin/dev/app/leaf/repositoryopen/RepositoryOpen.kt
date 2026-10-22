@@ -612,6 +612,7 @@ fun MainContentView(
                                             onNavigate(Screen.ConfirmAction(action, onConfirm))
                                         },
                                         onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
+                                        onCherryPickCommits = { onNavigate(Screen.CherryPickBranch(it)) },
                                     )
                                 }
                             },

@@ -93,9 +93,12 @@ val StatusState.canAmend: Boolean
  * A message counts as empty when nothing is left of it once git cleans it up (fork-only, [emptyMessage]): blank, or only
  * comment lines.
  *
+ * - Fork-only: Continue of a cherry-pick of several commits that git stopped ([cherryPickSequenceBlocker]).
+ *
  * The first one in the order of the lists above is the one returned.
  */
 fun StatusState.finishBlocker(): FinishBlocker? = when {
+    cherryPickSequence != null -> cherryPickSequenceBlocker()
     repositoryState.isMerging -> conflicts() ?: emptyMessage()
     repositoryState.isRebasing -> rebaseBlocker()
     repositoryState.isCherryPicking || repositoryState.isReverting ->
@@ -103,6 +106,22 @@ fun StatusState.finishBlocker(): FinishBlocker? = when {
 
     else -> commitBlocker()
 }
+
+/**
+ * Whether `git cherry-pick --continue` commits the commit that git stopped at (fork-only): it stopped at its conflicts
+ * (`CHERRY_PICK_HEAD`), and the cherry-pick doesn't stage the commits as one (`--no-commit`). Otherwise Continue only
+ * picks the commits left, as after local changes were in the way.
+ */
+val StatusState.continueCommitsStoppedCommit: Boolean
+    get() = cherryPickSequence?.noCommit == false && repositoryState.isCherryPicking
+
+/**
+ * What stops Continue of a cherry-pick of several commits (fork-only), as git 2.54 refuses it: conflicts, and an empty
+ * message when Continue commits the stopped commit, which git aborts. git goes on with unstaged changes, and stops at a
+ * later commit that changes the same files, changing nothing.
+ */
+private fun StatusState.cherryPickSequenceBlocker(): FinishBlocker? =
+    conflicts() ?: emptyMessage()?.takeIf { continueCommitsStoppedCommit }
 
 /** What stops a rebase's Continue. A Skip button, shown instead when [showsContinue] is false, is never blocked. */
 fun StatusState.rebaseBlocker(): FinishBlocker? = conflicts() ?: unstagedChanges()
@@ -114,9 +133,14 @@ fun StatusState.rebaseBlocker(): FinishBlocker? = conflicts() ?: unstagedChanges
  * (`NOTHING_TO_COMMIT`) and git's apply backend refuses it, and Skip loses no work, as nothing tracked is staged or
  * changed.
  */
-fun StatusState.showsContinue(): Boolean = hasStagedFiles ||
-        rebaseBlocker() != null ||
-        (isAmenableRebaseInteractive && isAmendRebaseInteractive && !messageLayout.isEmpty)
+fun StatusState.showsContinue(): Boolean = when {
+    // Fork-only: a cherry-pick of several commits offers Skip where the stopped commit came out empty, as git then says
+    // "The previous cherry-pick is now empty" and refuses to continue
+    cherryPickSequence != null -> !continueCommitsStoppedCommit || hasStagedFiles || cherryPickSequenceBlocker() != null
+    else -> hasStagedFiles ||
+            rebaseBlocker() != null ||
+            (isAmenableRebaseInteractive && isAmendRebaseInteractive && !messageLayout.isEmpty)
+}
 
 private fun StatusState.commitBlocker(): FinishBlocker? = when {
     canCommit || (isAmend && canAmend) -> null
@@ -132,7 +156,7 @@ private fun StatusState.commitBlocker(): FinishBlocker? = when {
 fun StatusState.finishHint(): FinishBlocker? {
     val blocker = finishBlocker() ?: return null
     val inOperation = repositoryState.isMerging || repositoryState.isRebasing ||
-            repositoryState.isCherryPicking || repositoryState.isReverting
+            repositoryState.isCherryPicking || repositoryState.isReverting || cherryPickSequence != null
     val resting = !isAmend && commitMessage.text.isEmpty() && !hasStagedFiles
 
     return blocker.takeUnless { !inOperation && resting && it !is FinishBlocker.Conflicts }

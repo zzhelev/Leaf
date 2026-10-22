@@ -25,6 +25,8 @@ fun TaskType.conflictsTitle(): String {
         TaskType.Pull -> "Pull stopped at conflicts, fix them to continue"
         TaskType.SquashMergeWorktree -> "Squash merge stopped at conflicts, fix them, then commit"
         TaskType.MergeWorktree -> "Merge stopped at conflicts, fix them, then commit"
+        TaskType.CherryPickCommits, TaskType.CherryPickCommitsAsOne, TaskType.ContinueCherryPick,
+        TaskType.SkipCherryPick -> "Cherry-pick stopped at conflicts, fix them to continue"
         else -> "Stopped at conflicts, fix them to continue"
     }
 }
@@ -88,8 +90,13 @@ fun TaskType.successTitle(): String? {
         TaskType.UnlockWorktree -> "Worktree unlocked"
         TaskType.SquashMergeWorktree -> "Squash merge staged, review it, then commit"
         TaskType.MergeWorktree -> "Merge ready, review it, then commit"
-        TaskType.AbortSquashMerge -> "Squash merge aborted"
+        TaskType.AbortSquashMerge -> "Staged changes undone"
         TaskType.RebaseWorktree -> "Rebase completed"
+        TaskType.CherryPickCommits -> "Commits cherry-picked"
+        TaskType.CherryPickCommitsAsOne -> "Changes staged as one commit, review them, then commit"
+        TaskType.ContinueCherryPick -> "Cherry-pick continued"
+        TaskType.SkipCherryPick -> "Commit skipped"
+        TaskType.AbortCherryPick -> "Cherry-pick aborted"
         TaskType.OpenMergeTool, TaskType.ResolveConflict -> "Conflict resolved"
         TaskType.ConvertIndex -> "Index converted"
         TaskType.ResolveConflictsInMergeTool -> "Conflicts resolved"

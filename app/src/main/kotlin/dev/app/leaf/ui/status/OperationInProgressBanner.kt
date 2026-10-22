@@ -37,7 +37,13 @@ import org.jetbrains.compose.resources.stringResource
  * The operation that the repository is in the middle of, the files that still have conflicts, and what ours and theirs
  * are while there are some.
  */
-data class OperationInProgress(val operation: Operation, val conflicts: Int, val sides: ConflictSides? = null)
+data class OperationInProgress(
+    val operation: Operation,
+    val conflicts: Int,
+    val sides: ConflictSides? = null,
+    /** Fork-only: a cherry-pick of several commits, which Continue finishes, rather than Commit. */
+    val isSequence: Boolean = false,
+)
 
 /**
  * What the banner shows, or null when the repository isn't in the middle of a merge, rebase, cherry-pick or revert.
@@ -51,6 +57,8 @@ fun operationInProgress(statusState: StatusState): OperationInProgress? {
 
     val repositoryState = statusState.repositoryState
     val operation = when {
+        // Fork-only: git's sequencer, also where JGit reads no operation (`--no-commit`, or stopped by local changes)
+        statusState.cherryPickSequence != null -> Operation.CHERRY_PICK
         repositoryState.isMerging -> Operation.MERGE
         repositoryState.isRebasing -> Operation.REBASE
         repositoryState.isCherryPicking -> Operation.CHERRY_PICK
@@ -65,7 +73,12 @@ fun operationInProgress(statusState: StatusState): OperationInProgress? {
         .distinct()
         .count()
 
-    return OperationInProgress(operation, conflicts, statusState.conflictSides.takeIf { conflicts > 0 })
+    return OperationInProgress(
+        operation,
+        conflicts,
+        statusState.conflictSides.takeIf { conflicts > 0 },
+        isSequence = statusState.cherryPickSequence != null,
+    )
 }
 
 /**
@@ -79,6 +92,8 @@ fun abortOperationInProgress(
 ) {
     val repositoryState = statusState.repositoryState
     val operation = when {
+        // Fork-only: git's `cherry-pick --abort`, which takes the commits already picked off the branch too
+        statusState.cherryPickSequence != null -> Operation.CHERRY_PICK_SEQUENCE
         repositoryState.isRebasing -> Operation.REBASE
         repositoryState.isCherryPicking -> Operation.CHERRY_PICK
         repositoryState.isReverting -> Operation.REVERT
@@ -91,6 +106,7 @@ fun abortOperationInProgress(
             when (operation) {
                 Operation.REBASE -> StatusAction.AbortRebase
                 Operation.SQUASH -> StatusAction.AbortSquashMerge
+                Operation.CHERRY_PICK_SEQUENCE -> StatusAction.AbortCherryPick
                 else -> StatusAction.ResetRepositoryState
             }
         )
@@ -167,13 +183,21 @@ fun OperationInProgressBanner(
 }
 
 @Composable
-private fun OperationInProgress.message(): String = if (conflicts > 0) {
+private fun OperationInProgress.message(): String = if (isSequence) {
+    // Fork-only: Continue picks the commits left
+    if (conflicts > 0) {
+        pluralStringResource(Res.plurals.operation_banner_cherry_pick_sequence_conflicts, conflicts, conflicts)
+    } else {
+        stringResource(Res.string.operation_banner_cherry_pick_sequence)
+    }
+} else if (conflicts > 0) {
     val text = when (operation) {
         Operation.MERGE -> Res.plurals.operation_banner_merge_conflicts
         Operation.REBASE -> Res.plurals.operation_banner_rebase_conflicts
         Operation.CHERRY_PICK -> Res.plurals.operation_banner_cherry_pick_conflicts
         Operation.REVERT -> Res.plurals.operation_banner_revert_conflicts
         Operation.SQUASH -> Res.plurals.operation_banner_squash_conflicts
+        Operation.CHERRY_PICK_SEQUENCE -> Res.plurals.operation_banner_cherry_pick_sequence_conflicts
     }
 
     pluralStringResource(text, conflicts, conflicts)
@@ -184,6 +208,7 @@ private fun OperationInProgress.message(): String = if (conflicts > 0) {
         Operation.CHERRY_PICK -> Res.string.operation_banner_cherry_pick
         Operation.REVERT -> Res.string.operation_banner_revert
         Operation.SQUASH -> Res.string.operation_banner_squash
+        Operation.CHERRY_PICK_SEQUENCE -> Res.string.operation_banner_cherry_pick_sequence
     }
 
     stringResource(text)
@@ -195,4 +220,5 @@ private fun Operation.abortTitle() = when (this) {
     Operation.CHERRY_PICK -> Res.string.abort_dialog_title_cherry_pick
     Operation.REVERT -> Res.string.abort_dialog_title_revert
     Operation.SQUASH -> Res.string.abort_dialog_title_squash
+    Operation.CHERRY_PICK_SEQUENCE -> Res.string.abort_dialog_title_cherry_pick
 }

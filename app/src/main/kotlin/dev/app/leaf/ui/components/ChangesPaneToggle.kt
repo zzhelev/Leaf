@@ -112,5 +112,6 @@ private fun operationName(operation: Operation): String = stringResource(
         Operation.CHERRY_PICK -> Res.string.changes_pane_operation_cherry_pick
         Operation.REVERT -> Res.string.changes_pane_operation_revert
         Operation.SQUASH -> Res.string.changes_pane_operation_squash
+        Operation.CHERRY_PICK_SEQUENCE -> Res.string.changes_pane_operation_cherry_pick
     }
 )

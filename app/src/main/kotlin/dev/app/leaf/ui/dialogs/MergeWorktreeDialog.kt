@@ -171,7 +171,7 @@ private fun MergeDetails(
 
 /** The squash commit's message, which the commit field shows afterwards, where the user can still edit it. */
 @Composable
-private fun SquashMessage(message: String) {
+internal fun SquashMessage(message: String) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),

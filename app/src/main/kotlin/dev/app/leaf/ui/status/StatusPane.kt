@@ -39,6 +39,7 @@ import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.compose.rememberInTab
+import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitlintRules
 import dev.app.leaf.domain.commitmessage.ConventionalHistory
@@ -298,6 +299,13 @@ fun StatusPane(
                     conventionalHistory = statusState.conventionalHistory,
                     commitlintRules = statusState.commitlintRules,
                     messageStart = statusState.messageStart,
+                    cherryPickSequence = statusState.cherryPickSequence,
+                    onContinueCherryPick = { onAction(StatusAction.ContinueCherryPick(commitMessage.text)) },
+                    onSkipCherryPick = {
+                        onConfirmAction(ConfirmableAction.SkipCherryPickCommit) {
+                            onAction(StatusAction.SkipCherryPick)
+                        }
+                    },
                     scopeKey = statusState.scopeKey,
                 )
             }
@@ -678,6 +686,10 @@ internal fun CommitField(
     messageStart: MessageStart? = null,
     /** The branch's ticket key as the first scope suggestion, where the key doesn't go in front of the subject (fork-only). */
     scopeKey: String? = null,
+    /** A cherry-pick of several commits that git stopped, whose buttons are Continue or Skip, and Abort (fork-only). */
+    cherryPickSequence: CherryPickSequence? = null,
+    onContinueCherryPick: () -> Unit = {},
+    onSkipCherryPick: () -> Unit = {},
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
@@ -747,7 +759,10 @@ internal fun CommitField(
     // Fork-only: a merge's, cherry-pick's or revert's primary button follows finishBlocker, and the key does what it
     // does. A revert's also waits for the status to load.
     val finishEnabled = finishBlocker == null && !(repositoryState.isReverting && isLoading)
-    val acceptsCommit = if (repositoryState.isMerging || repositoryState.isCherryPicking || repositoryState.isReverting) {
+    val acceptsCommit = if (cherryPickSequence != null) {
+        // Fork-only: the key continues, as the button does
+        showsContinue && finishEnabled
+    } else if (repositoryState.isMerging || repositoryState.isCherryPicking || repositoryState.isReverting) {
         finishEnabled
     } else {
         canCommit || isAmend && canAmend
@@ -820,7 +835,7 @@ internal fun CommitField(
                             }
 
                             keyEvent.matchesBinding(KeybindingOption.TEXT_ACCEPT) && acceptsCommit -> {
-                                doCommit()
+                                if (cherryPickSequence != null) onContinueCherryPick() else doCommit()
                                 true
                             }
 
@@ -874,6 +889,15 @@ internal fun CommitField(
         }
 
         when {
+            // Fork-only: git's sequencer goes on with the commits left, so Continue rather than Commit
+            cherryPickSequence != null -> RebasingButtons(
+                canContinue = showsContinue,
+                continueEnabled = finishEnabled,
+                onAbort = onResetRepoState,
+                onContinue = onContinueCherryPick,
+                onSkip = onSkipCherryPick,
+            )
+
             repositoryState.isMerging -> MergeButtons(
                 enabled = finishEnabled,
                 onAbort = onResetRepoState,

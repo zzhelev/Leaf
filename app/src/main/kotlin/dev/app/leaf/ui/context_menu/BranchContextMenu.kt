@@ -1,6 +1,7 @@
 package dev.app.leaf.ui.context_menu
 
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
 import dev.app.leaf.domain.models.Worktree
@@ -34,6 +35,9 @@ fun branchContextMenuItems(
     onCompareWith: (() -> Unit)? = null,
     // Fork-only: compares the branch with the files on disk
     onCompareWithWorkingTree: (() -> Unit)? = null,
+    // Fork-only: the branch's commits that the current branch lacks, and what picking them does
+    cherryPick: BranchCherryPickItem? = null,
+    onCherryPick: (BranchCherryPickItem) -> Unit = {},
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -66,6 +70,11 @@ fun branchContextMenuItems(
                     composableLabel = { stringResource(Res.string.branch_context_menu_rebase_branch) },
                     onClick = { onRebaseBranch(branch) }
                 )
+
+                // Fork-only: copies the branch's commits that the current branch lacks
+                if (cherryPick != null) {
+                    addBranchCherryPick(cherryPick) { onCherryPick(cherryPick) }
+                }
 
                 add(ContextMenuElement.ContextSeparator)
             }

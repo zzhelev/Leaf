@@ -59,6 +59,7 @@ import dev.app.leaf.ui.components.SideMenuHeader
 import dev.app.leaf.ui.components.SideMenuSubentry
 import dev.app.leaf.ui.components.sort.RefSortMenuButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
 import dev.app.leaf.ui.context_menu.*
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.viewmodels.sidepanel.*
@@ -85,6 +86,11 @@ fun SidePanel(
     val worktreesState by viewModel.worktreesState.collectAsState()
     val branchWorktrees by viewModel.branchWorktrees.collectAsState()
     val refPanelSettings by viewModel.refPanelSettings.collectAsState()
+    val branchesAhead by viewModel.branchesAhead.collectAsState()
+    // Fork-only: the branch menus' cherry-pick item
+    val cherryPick = BranchCherryPick(branchesAhead, branchesState.currentBranch) { branch, item ->
+        viewModel.cherryPickFromBranch(branch, item) { onNavigate(Screen.CherryPickBranch(it)) }
+    }
 
     val searchFocusRequester = remember { FocusRequester() }
     val tabFocusRequester = LocalTabFocusRequester.current
@@ -150,6 +156,7 @@ fun SidePanel(
                 onRenameBranch = { onNavigate(Screen.BranchRename(it)) },
                 onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
                 onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
+                cherryPick = cherryPick,
             )
 
             worktrees(
@@ -190,6 +197,7 @@ fun SidePanel(
                 onShowAddEditRemoteDialog = { onNavigate(Screen.AddEditRemote(it)) },
                 onConfirmAction = onConfirmAction,
                 onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
+                cherryPick = cherryPick,
             )
 
             tags(
@@ -276,6 +284,7 @@ fun LazyListScope.localBranches(
     onRenameBranch: (Branch) -> Unit,
     onDeleteBranch: (Branch) -> Unit,
     onNewWorktree: (NewWorktreeStart) -> Unit = {},
+    cherryPick: BranchCherryPick? = null,
 ) {
     val isExpanded = branchesState.isExpanded
     val branches = branchesState.branches
@@ -341,6 +350,8 @@ fun LazyListScope.localBranches(
                         onCompareWithCurrent = { viewModel.compareBranchWithCurrent(branch) },
                         onCompareWith = { viewModel.compareBranchWith(branch) },
                         onCompareWithWorkingTree = { viewModel.compareBranchWithWorkingTree(branch) },
+                        cherryPickItem = cherryPick?.itemFor(branch),
+                        onCherryPick = { item -> cherryPick?.onCherryPick?.invoke(branch, item) },
                         onCopyBranchNameToClipboard = {
                             scope.launch {
                                 clipboard.setClipboardText(it.simpleName)
@@ -362,6 +373,7 @@ fun LazyListScope.remotes(
     onShowAddEditRemoteDialog: (Remote?) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onNewWorktree: (NewWorktreeStart) -> Unit = {},
+    cherryPick: BranchCherryPick? = null,
 ) {
     val isExpanded = remotesState.isExpanded
     val remotes = remotesState.remotes
@@ -459,6 +471,8 @@ fun LazyListScope.remotes(
                                 onCompareWithCurrent = { viewModel.compareBranchWithCurrent(remoteBranch) },
                                 onCompareWith = { viewModel.compareBranchWith(remoteBranch) },
                                 onCompareWithWorkingTree = { viewModel.compareBranchWithWorkingTree(remoteBranch) },
+                                cherryPickItem = cherryPick?.itemFor(remoteBranch),
+                                onCherryPick = { item -> cherryPick?.onCherryPick?.invoke(remoteBranch, item) },
                                 onCopyBranchNameToClipboard = {
                                     scope.launch {
                                         clipboard.setClipboardText(it.simpleName)
@@ -730,6 +744,8 @@ private fun Branch(
     onCompareWithCurrent: () -> Unit,
     onCompareWith: () -> Unit,
     onCompareWithWorkingTree: () -> Unit,
+    cherryPickItem: BranchCherryPickItem?,
+    onCherryPick: (BranchCherryPickItem) -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
@@ -758,6 +774,8 @@ private fun Branch(
                 onCompareWithCurrent = onCompareWithCurrent,
                 onCompareWith = onCompareWith,
                 onCompareWithWorkingTree = onCompareWithWorkingTree,
+                cherryPick = cherryPickItem,
+                onCherryPick = onCherryPick,
             )
         }
     ) {
@@ -837,6 +855,8 @@ private fun RemoteBranches(
     onCompareWithCurrent: () -> Unit,
     onCompareWith: () -> Unit,
     onCompareWithWorkingTree: () -> Unit,
+    cherryPickItem: BranchCherryPickItem?,
+    onCherryPick: (BranchCherryPickItem) -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     ContextMenu(
@@ -862,6 +882,8 @@ private fun RemoteBranches(
                 onCompareWithCurrent = onCompareWithCurrent,
                 onCompareWith = onCompareWith,
                 onCompareWithWorkingTree = onCompareWithWorkingTree,
+                cherryPick = cherryPickItem,
+                onCherryPick = onCherryPick,
             )
         }
     ) {

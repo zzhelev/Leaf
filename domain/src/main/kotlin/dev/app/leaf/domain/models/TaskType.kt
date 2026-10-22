@@ -92,6 +92,11 @@ sealed interface TaskType {
     data object MergeWorktree : TaskType
     data object AbortSquashMerge : TaskType
     data object RebaseWorktree : TaskType
+    data object CherryPickCommits : TaskType
+    data object CherryPickCommitsAsOne : TaskType
+    data object ContinueCherryPick : TaskType
+    data object SkipCherryPick : TaskType
+    data object AbortCherryPick : TaskType
     data object OpenMergeTool : TaskType
     data object ResolveConflictsInMergeTool : TaskType
     data object ResolveConflict : TaskType

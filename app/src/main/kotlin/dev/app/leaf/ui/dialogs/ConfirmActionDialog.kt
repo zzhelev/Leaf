@@ -67,8 +67,12 @@ sealed interface ConfirmableAction {
 
     /** Aborts [operation]. [changedFiles] files have uncommitted changes, which the abort resets. */
     data class AbortOperation(val operation: Operation, val changedFiles: Int) : ConfirmableAction {
-        enum class Operation { MERGE, REBASE, CHERRY_PICK, REVERT, SQUASH }
+        /** Fork-only: [CHERRY_PICK_SEQUENCE] is a cherry-pick of several commits, which git's abort undoes whole. */
+        enum class Operation { MERGE, REBASE, CHERRY_PICK, REVERT, SQUASH, CHERRY_PICK_SEQUENCE }
     }
+
+    /** Fork-only: leaves out the commit that a cherry-pick of several commits stopped at, and picks the rest. */
+    data object SkipCherryPickCommit : ConfirmableAction
 
     data object SkipRebaseCommit : ConfirmableAction
 
@@ -387,6 +391,9 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
 
                 ConfirmableAction.AbortOperation.Operation.SQUASH ->
                     Res.string.abort_dialog_title_squash to Res.string.abort_dialog_subtitle_squash
+
+                ConfirmableAction.AbortOperation.Operation.CHERRY_PICK_SEQUENCE ->
+                    Res.string.abort_dialog_title_cherry_pick to Res.string.abort_dialog_subtitle_cherry_pick_sequence
             }
 
             ConfirmationTexts(
@@ -396,6 +403,9 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 // Fork-only: `git reset --merge` keeps unstaged changes, unlike the others' hard reset
                 warning = if (operation == ConfirmableAction.AbortOperation.Operation.SQUASH) {
                     stringResource(Res.string.abort_dialog_squash_warning)
+                } else if (operation == ConfirmableAction.AbortOperation.Operation.CHERRY_PICK_SEQUENCE) {
+                    // Fork-only: git's abort is a `reset --merge` too
+                    stringResource(Res.string.abort_dialog_cherry_pick_sequence_warning)
                 } else if (changedFiles > 0) {
                     pluralStringResource(Res.plurals.abort_dialog_changes_discarded, changedFiles, changedFiles)
                 } else {
@@ -404,6 +414,14 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 primaryAction = stringResource(Res.string.abort_dialog_abort),
             )
         }
+
+        ConfirmableAction.SkipCherryPickCommit -> ConfirmationTexts(
+            icon = warning,
+            title = stringResource(Res.string.skip_rebase_dialog_title),
+            subtitle = stringResource(Res.string.skip_cherry_pick_dialog_subtitle),
+            warning = null,
+            primaryAction = stringResource(Res.string.skip_rebase_dialog_skip),
+        )
 
         ConfirmableAction.SkipRebaseCommit -> ConfirmationTexts(
             icon = warning,

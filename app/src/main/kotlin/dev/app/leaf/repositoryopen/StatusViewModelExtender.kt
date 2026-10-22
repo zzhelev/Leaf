@@ -75,6 +75,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val resolveConflictUseCase: ResolveConflictUseCase,
     private val persistSquashMessageUseCase: PersistSquashMessageUseCase,
     private val abortSquashMergeUseCase: AbortSquashMergeUseCase,
+    private val cherryPickSequenceUseCase: CherryPickSequenceUseCase,
     private val getCommitMessageCleanupUseCase: GetCommitMessageCleanupUseCase,
     private val addTrailerUseCase: AddTrailerUseCase,
     private val loadSignOffConfigUseCase: LoadSignOffConfigUseCase,
@@ -419,6 +420,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         conventionalHistory,
         commitlintRules,
         messageStartInputs,
+        repositoryDataRepository.cherryPickSequence.map { it.dataOrNull() }.distinctUntilChanged(),
     )
         .stateIn(StatusState())
 
@@ -572,6 +574,9 @@ class StatusViewModelExtender @AssistedInject constructor(
         is StatusAction.SearchFilterToggledStaged -> searchFilterToggledStaged()
         is StatusAction.SearchFilterToggledUnstaged -> searchFilterToggledUnstaged()
         StatusAction.SkipRebase -> skipRebase()
+        is StatusAction.ContinueCherryPick -> continueCherryPick(action.message)
+        StatusAction.SkipCherryPick -> cherryPickSequenceUseCase.skip()
+        StatusAction.AbortCherryPick -> cherryPickSequenceUseCase.abort()
         is StatusAction.ToggleAmend -> amend(action.toggle)
         is StatusAction.ToggleAmendRebaseInteractive -> amendRebaseInteractive(action.toggle)
         is StatusAction.UpdateCommitMessage -> updateCommitMessage(action.message)
@@ -956,6 +961,18 @@ class StatusViewModelExtender @AssistedInject constructor(
             rebaseInteractiveState = rebaseInteractiveState.value,
             onIdentityRequest = { getIdentity() }
         )
+    }
+
+    /**
+     * Fork-only: git commits the commit that it stopped at, with `MERGE_MSG`, when it stopped at its conflicts
+     * (`CHERRY_PICK_HEAD`) and doesn't stage the commits as one (`--no-commit`). Then the field's message goes there
+     * first.
+     */
+    private fun continueCherryPick(message: String) {
+        val state = statusState.value
+        val commitsStoppedCommit = state.repositoryState.isCherryPicking && state.cherryPickSequence?.noCommit == false
+
+        cherryPickSequenceUseCase.continueSequence(withoutEmptyCoAuthorLines(message), commitsStoppedCommit)
     }
 
     private fun abortRebase() = abortRebaseUseCase()

@@ -9,7 +9,10 @@ import dev.app.leaf.domain.GraphRevWalker
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.WorktreesRefreshRunner
+import dev.app.leaf.domain.cherrypick.BranchesAhead
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.interfaces.IGetBranchesAheadGitAction
+import dev.app.leaf.domain.interfaces.IGetCherryPickSequenceGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
 import dev.app.leaf.domain.interfaces.IGetCurrentBranchGitAction
@@ -78,6 +81,13 @@ fun testRefreshDataUseCase(
         coEvery { this@mockk(any(), any()) } returns Either.Ok(emptyMap())
     }
 
+    val getBranchesAhead = mockk<IGetBranchesAheadGitAction> {
+        coEvery { this@mockk(any()) } returns Either.Ok(BranchesAhead())
+    }
+    val getCherryPickSequence = mockk<IGetCherryPickSequenceGitAction> {
+        coEvery { this@mockk(any()) } returns Either.Ok(null)
+    }
+
     val getRemotesUseCase = GetRemotesUseCase(getRemotes, getRemoteBranches, executor)
 
     return RefreshDataUseCase(
@@ -119,6 +129,8 @@ fun testRefreshDataUseCase(
             mockk(),
             executor,
         ),
+        getBranchesAheadGitAction = getBranchesAhead,
+        getCherryPickSequenceGitAction = getCherryPickSequence,
         worktreesRefreshRunner = WorktreesRefreshRunner(),
         dataRefreshRunner = DataRefreshRunner(),
         scope = scope,

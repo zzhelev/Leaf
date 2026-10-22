@@ -160,11 +160,11 @@ class OperationInProgressBannerTest {
         )
         assertEquals(1, render(OperationInProgress(Operation.MERGE, 1), click = "Abort merge").aborts)
         assertEquals(
-            listOf("Squash merge staged. Review the changes, then commit.", "Abort squash merge"),
+            listOf("Changes staged as one commit. Review them, then commit.", "Undo staged changes"),
             render(OperationInProgress(Operation.SQUASH, 0)).texts,
         )
         assertEquals(
-            listOf("Squash merge stopped at conflicts in 2 files. Resolve them, then commit.", "Abort squash merge"),
+            listOf("Squash merge stopped at conflicts in 2 files. Resolve them, then commit.", "Undo staged changes"),
             render(OperationInProgress(Operation.SQUASH, 2)).texts,
         )
     }

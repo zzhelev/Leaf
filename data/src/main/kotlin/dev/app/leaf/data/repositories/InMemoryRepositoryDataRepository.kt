@@ -2,6 +2,8 @@ package dev.app.leaf.data.repositories
 
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
+import dev.app.leaf.domain.cherrypick.BranchesAhead
+import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
@@ -61,6 +63,12 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
     override val worktrees: Flow<DataState<WorktreeList>>
         field = MutableStateFlow<DataState<WorktreeList>>(DataState.Loading)
 
+    override val branchesAhead: Flow<DataState<BranchesAhead>>
+        field = MutableStateFlow<DataState<BranchesAhead>>(DataState.Loading)
+
+    override val cherryPickSequence: StateFlow<DataState<CherryPickSequence?>>
+        field = MutableStateFlow<DataState<CherryPickSequence?>>(DataState.Loading)
+
     override var maxCommitsToLoadLimit: Int = 0
 
     override val repositoryPath: String?
@@ -85,6 +93,9 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         rebaseInteractiveState.value = DataState.Loading
         persistedCommitMessage.value = DataState.Loading
         submodules.value = DataState.Loading
+        // Fork-only: both follow the worktree's HEAD and git dir
+        branchesAhead.value = DataState.Loading
+        cherryPickSequence.value = DataState.Loading
         repositorySelectionState.value = RepositorySelectionState.Open(gitDir)
     }
 
@@ -98,6 +109,8 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         rebaseInteractiveState.value = DataState.Loading
         submodules.value = DataState.Loading
         worktrees.value = DataState.Loading
+        branchesAhead.value = DataState.Loading
+        cherryPickSequence.value = DataState.Loading
     }
 
     override suspend fun updateStatus(repositoryPath: String, block: suspend () -> Either<Status, AppError>) {
@@ -128,6 +141,20 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         block: suspend () -> Either<List<RemoteInfo>, AppError>,
     ) {
         handleDataState(remotes, repositoryPath, block)
+    }
+
+    override suspend fun updateBranchesAhead(
+        repositoryPath: String,
+        block: suspend () -> Either<BranchesAhead, AppError>,
+    ) {
+        handleDataState(branchesAhead, repositoryPath, block)
+    }
+
+    override suspend fun updateCherryPickSequence(
+        repositoryPath: String,
+        block: suspend () -> Either<CherryPickSequence?, AppError>,
+    ) {
+        handleDataState(cherryPickSequence, repositoryPath, block)
     }
 
     override suspend fun updateRefDates(repositoryPath: String, block: suspend () -> Either<RefDates, AppError>) {

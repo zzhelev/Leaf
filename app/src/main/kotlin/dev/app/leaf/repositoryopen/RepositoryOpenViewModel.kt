@@ -33,6 +33,9 @@ import dev.app.leaf.domain.log.movedLogSelection
 import dev.app.leaf.domain.log.steppedSearchIndex
 import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.index.conversionSteps
+import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
+import dev.app.leaf.domain.cherrypick.BranchesAhead
+import dev.app.leaf.domain.models.emptyIdentity
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WatchRegistrations
@@ -456,6 +459,12 @@ class RepositoryOpenViewModel @Inject constructor(
     }
 
     /** The worktrees that use each local branch, for the branch list and the log. */
+    /** Fork-only: how many commits each branch has that HEAD lacks, for the branch menus' cherry-pick item. */
+    val branchesAhead: StateFlow<BranchesAhead> = repositoryDataRepository.branchesAhead
+        .map { it.dataOrNull() ?: BranchesAhead() }
+        .distinctUntilChanged()
+        .stateIn(BranchesAhead())
+
     val branchWorktrees: StateFlow<BranchWorktreesState> = worktrees
         .map { worktrees ->
             val list = worktrees.data
@@ -1118,6 +1127,27 @@ class RepositoryOpenViewModel @Inject constructor(
     fun updateSubmodule(path: String) = updateSubmoduleUseCase(path)
 
     fun deleteSubmodule(path: String) = deleteSubmoduleUseCase(path)
+
+    /**
+     * Fork-only: a branch menu's cherry-pick item. The branch's only new commit, its tip, is picked at once, as a
+     * commit row's item does; several commits open the dialog, which [onCherryPickCommits] does.
+     */
+    fun cherryPickFromBranch(branch: Branch, item: BranchCherryPickItem, onCherryPickCommits: (Branch) -> Unit) {
+        when (item) {
+            is BranchCherryPickItem.OneCommit -> cherryPickCommitUseCase(
+                Commit(
+                    hash = item.hash,
+                    message = "",
+                    committer = emptyIdentity(),
+                    author = emptyIdentity(),
+                    date = 0,
+                    parentsHashes = emptyList(),
+                )
+            )
+
+            is BranchCherryPickItem.Commits -> onCherryPickCommits(branch)
+        }
+    }
 
     fun mergeBranch(branch: Branch) {
         viewModelScope.launch {

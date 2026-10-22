@@ -137,6 +137,14 @@ import dev.app.leaf.domain.usecases.MergeBranchUseCase
 import dev.app.leaf.domain.usecases.ObserveRepositoryToRefreshUseCase
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.PersistCommitMessageUseCase
+import dev.app.leaf.data.git.cherrypick.GetBranchCherryPickCommitsGitAction
+import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
+import dev.app.leaf.data.git.cherrypick.GetCherryPickSequenceGitAction
+import dev.app.leaf.data.git.cli.operations.GitCliCherryPickCommitsGitAction
+import dev.app.leaf.data.git.cli.operations.GitCliCherryPickSequenceGitAction
+import dev.app.leaf.domain.usecases.CherryPickCommitsUseCase
+import dev.app.leaf.domain.usecases.CherryPickSequenceUseCase
+import dev.app.leaf.domain.usecases.GetBranchCherryPickUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import dev.app.leaf.domain.usecases.ResetRepositoryStateUseCase
 import dev.app.leaf.domain.usecases.RunWorktreeStepsUseCase
@@ -244,6 +252,8 @@ class TestTab(
         getTrackingBranchUseCase = GetTrackingBranchUseCase(GetTrackingBranchGitAction(jgit), useCaseExecutor),
         getLogUseCase = getLog,
         getWorktreesInfoUseCase = getWorktreesInfo,
+        getBranchesAheadGitAction = GetBranchesAheadGitAction(gitCli),
+        getCherryPickSequenceGitAction = GetCherryPickSequenceGitAction(),
         worktreesRefreshRunner = WorktreesRefreshRunner(),
         dataRefreshRunner = dataRefreshRunner,
         scope = scope,
@@ -339,6 +349,29 @@ class TestTab(
     )
 
     private val operations = testGitCliOperations(jgit, gitCli, repositoryState = repositoryState)
+
+    /** Fork-only: a branch's commits cherry-picked from its dialog, and the Continue, Skip and Abort that follow. */
+    val getBranchCherryPick = GetBranchCherryPickUseCase(
+        useCaseExecutor = useCaseExecutor,
+        getCurrentBranchGitAction = getCurrentBranch,
+        getWorktreePathGitAction = GetWorktreePathGitAction(jgit),
+        getBranchCherryPickCommitsGitAction = GetBranchCherryPickCommitsGitAction(gitCli, jgit),
+        getRepositoryStateGitAction = GetRepositoryStateGitAction(jgit, RepositoryStateMapper()),
+        getCherryPickSequenceGitAction = GetCherryPickSequenceGitAction(),
+        getWorktreeStatusGitAction = GetWorktreeStatusGitAction(gitCli),
+    )
+
+    val cherryPickCommits = CherryPickCommitsUseCase(
+        useCaseExecutor = useCaseExecutor,
+        cherryPickCommitsGitAction = GitCliCherryPickCommitsGitAction(operations),
+        persistSquashMessageGitAction = PersistSquashMessageGitAction(jgit),
+    )
+
+    val cherryPickSequence = CherryPickSequenceUseCase(
+        useCaseExecutor = useCaseExecutor,
+        cherryPickSequenceGitAction = GitCliCherryPickSequenceGitAction(operations),
+        persistCommitMessageGitAction = PersistCommitMessageGitAction(jgit, RepositoryStateMapper()),
+    )
 
     /** Merge in the branch menu, with git, and Leaf's backup when [backUpBeforeMerge]. */
     val mergeBranch = MergeBranchUseCase(

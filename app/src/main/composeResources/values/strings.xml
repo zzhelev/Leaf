@@ -363,6 +363,12 @@
     <string name="branch_context_menu_delete_named_remote_branch">Delete remote branch "%1$s"</string>
     <string name="branch_context_menu_compare_worktrees_to_named_branch">Compare worktrees to "%1$s"</string>
     <string name="branch_context_menu_copy_named_branch_name">Copy branch name "%1$s"</string>
+    <string name="branch_context_menu_cherry_pick_commit">Cherry-pick commit %1$s</string>
+    <plurals name="branch_context_menu_cherry_pick_commits">
+        <item quantity="one">Cherry-pick %1$d commit…</item>
+        <item quantity="other">Cherry-pick %1$d commits…</item>
+    </plurals>
+    <string name="branch_context_menu_cherry_pick_uncounted">Cherry-pick commits…</string>
 
     <!-- Committed changes context menu -->
     <string name="committed_changes_context_menu_blame_file">Blame file</string>
@@ -546,6 +552,48 @@
     <string name="merge_worktree_refusal_target_rebasing">%1$s is rebasing "%2$s". Finish or abort the rebase first.</string>
     <string name="merge_worktree_refusal_target_bisecting">%1$s is bisecting from "%2$s". End the bisect first.</string>
     <string name="merge_worktree_refusal_tab_is_branch_worktree">No worktree has "%1$s" checked out, and this tab's worktree has "%2$s". Check out "%1$s" in another worktree first.</string>
+    <string name="cherry_pick_dialog_title_loading">Cherry-pick</string>
+    <string name="cherry_pick_dialog_title">Cherry-pick onto %1$s</string>
+    <string name="cherry_pick_dialog_subtitle_loading">"%1$s" onto "%2$s"</string>
+    <plurals name="cherry_pick_dialog_all_commits">
+        <item quantity="one">the commit</item>
+        <item quantity="other">the %1$d commits</item>
+    </plurals>
+    <plurals name="cherry_pick_dialog_some_commits">
+        <item quantity="one">%1$d of the %2$d commits</item>
+        <item quantity="other">%1$d of the %2$d commits</item>
+    </plurals>
+    <plurals name="cherry_pick_dialog_subtitle">
+        <item quantity="one">Copies %2$s of "%3$s" onto "%4$s" as a new commit.</item>
+        <item quantity="other">Copies %2$s of "%3$s" onto "%4$s", each as a new commit.</item>
+    </plurals>
+    <plurals name="cherry_pick_dialog_subtitle_as_one">
+        <item quantity="one">Stages the changes of %2$s of "%3$s" in "%4$s", for you to commit.</item>
+        <item quantity="other">Stages the changes of %2$s of "%3$s" in "%4$s", for you to commit as one.</item>
+    </plurals>
+    <plurals name="cherry_pick_dialog_confirm">
+        <item quantity="one">Cherry-pick %1$d commit</item>
+        <item quantity="other">Cherry-pick %1$d commits</item>
+    </plurals>
+    <string name="cherry_pick_dialog_checking">Reading the branch’s commits…</string>
+    <string name="cherry_pick_dialog_as_one_commit">As one commit: stage their changes together, for you to commit</string>
+    <plurals name="cherry_pick_dialog_unstaged_changes">
+        <item quantity="one">%1$d file has unstaged changes. git stops before a commit that changes it, and keeps your changes.</item>
+        <item quantity="other">%1$d files have unstaged changes. git stops before a commit that changes one of them, and keeps your changes.</item>
+    </plurals>
+    <string name="cherry_pick_dialog_left_out_merge">Merge commit, left out</string>
+    <string name="cherry_pick_dialog_left_out_applied">Already applied</string>
+    <string name="cherry_pick_refusal_detached">HEAD is detached, so there’s no branch to cherry-pick onto. Check out a branch first.</string>
+    <string name="cherry_pick_refusal_no_commits">"%1$s" has no commits that "%2$s" doesn’t have.</string>
+    <string name="cherry_pick_refusal_nothing_to_pick">Each commit of "%1$s" that "%2$s" lacks is a merge commit, or has changes that "%2$s" already has.</string>
+    <string name="cherry_pick_refusal_too_many">"%1$s" has %2$d commits that "%3$s" doesn’t have, more than %4$d. Merge or rebase it instead.</string>
+    <string name="cherry_pick_refusal_operation">A merge, rebase, cherry-pick or revert waits to be finished here. Finish or abort it first.</string>
+    <plurals name="cherry_pick_refusal_staged">
+        <item quantity="one">%1$d file has staged changes or conflicts. Commit, unstage or resolve it first.</item>
+        <item quantity="other">%1$d files have staged changes or conflicts. Commit, unstage or resolve them first.</item>
+    </plurals>
+    <string name="cherry_pick_refusal_status_unknown">Leaf couldn’t read the changes in this worktree.</string>
+    <string name="cherry_pick_refusal_none_selected">Tick the commits to pick.</string>
     <string name="rebase_worktree_dialog_title">Rebase %1$s onto %2$s</string>
     <string name="rebase_worktree_dialog_subtitle_loading">"%1$s" onto "%2$s"</string>
     <plurals name="rebase_worktree_dialog_subtitle">
@@ -791,11 +839,13 @@
     <string name="abort_dialog_subtitle_rebase">Abort the rebase and put the branch back where it was?</string>
     <string name="abort_dialog_title_cherry_pick">Abort cherry-pick</string>
     <string name="abort_dialog_subtitle_cherry_pick">Abort the cherry-pick in progress?</string>
+    <string name="abort_dialog_subtitle_cherry_pick_sequence">Abort the cherry-pick, and take the commits that it picked so far off the branch?</string>
+    <string name="abort_dialog_cherry_pick_sequence_warning">Its staged changes are undone, resolved conflicts included. Unstaged changes in other files are kept.</string>
     <string name="abort_dialog_title_revert">Abort revert</string>
     <string name="abort_dialog_subtitle_revert">Abort the revert in progress?</string>
-    <string name="abort_dialog_title_squash">Abort squash merge</string>
-    <string name="abort_dialog_subtitle_squash">Undo the squash merge in progress?</string>
-    <string name="abort_dialog_squash_warning">The staged changes are undone, resolved conflicts included. Unstaged changes are kept, but git refuses, changing nothing, while a file that the squash merge changed has some.</string>
+    <string name="abort_dialog_title_squash">Undo staged changes</string>
+    <string name="abort_dialog_subtitle_squash">Undo the changes staged as one commit?</string>
+    <string name="abort_dialog_squash_warning">The staged changes are undone, resolved conflicts included. Unstaged changes are kept, but git refuses, changing nothing, while a file that the staged changes touch has some.</string>
     <plurals name="abort_dialog_changes_discarded">
         <item quantity="one">The uncommitted changes in %1$d file are discarded, including resolved conflicts. They can't be restored.</item>
         <item quantity="other">The uncommitted changes in %1$d files are discarded, including resolved conflicts. They can't be restored.</item>
@@ -823,13 +873,19 @@
         <item quantity="other">Squash merge stopped at conflicts in %1$d files. Resolve them, then commit.</item>
     </plurals>
     <string name="operation_banner_merge">Merge in progress. Commit to finish it.</string>
-    <string name="operation_banner_squash">Squash merge staged. Review the changes, then commit.</string>
+    <string name="operation_banner_squash">Changes staged as one commit. Review them, then commit.</string>
     <string name="operation_banner_rebase">Rebase in progress. Continue it to finish.</string>
     <string name="operation_banner_cherry_pick">Cherry-pick in progress. Commit to finish it.</string>
+    <string name="operation_banner_cherry_pick_sequence">Cherry-pick in progress. Continue it to pick the rest.</string>
+    <plurals name="operation_banner_cherry_pick_sequence_conflicts">
+        <item quantity="one">Cherry-pick stopped at conflicts in %1$d file. Resolve them, then continue it.</item>
+        <item quantity="other">Cherry-pick stopped at conflicts in %1$d files. Resolve them, then continue it.</item>
+    </plurals>
     <string name="operation_banner_revert">Revert in progress. Commit to finish it.</string>
     <string name="skip_rebase_dialog_title">Skip commit</string>
     <string name="skip_rebase_dialog_subtitle">Leave the commit being applied out of the rebased branch?</string>
     <string name="skip_rebase_dialog_skip">Skip</string>
+    <string name="skip_cherry_pick_dialog_subtitle">Leave out the commit being picked, and go on with the rest?</string>
     <string name="drop_stash_dialog_title">Drop stash</string>
     <string name="drop_stash_dialog_subtitle">Drop stash "%1$s"?</string>
     <string name="drop_stash_dialog_warning">Its changes can't be restored.</string>

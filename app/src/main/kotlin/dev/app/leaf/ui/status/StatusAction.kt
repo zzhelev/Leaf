@@ -40,6 +40,11 @@ sealed interface StatusAction {
     data class Commit(val message: String) : StatusAction
     data class ContinueRebase(val message: String) : StatusAction
     data object SkipRebase : StatusAction
+
+    /** Fork-only: a cherry-pick of several commits that git stopped ([StatusState.cherryPickSequence]). */
+    data class ContinueCherryPick(val message: String) : StatusAction
+    data object SkipCherryPick : StatusAction
+    data object AbortCherryPick : StatusAction
     data object AbortRebase : StatusAction
     data object ResetRepositoryState : StatusAction
 

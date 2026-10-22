@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.common.flows.combine
 import dev.app.leaf.common.printLog
+import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitMessageLayout
 import dev.app.leaf.domain.commitmessage.CommitlintRules
@@ -68,6 +69,8 @@ data class StatusState(
     val conflictSides: ConflictSides? = null,
     /** A squash merge waits to be committed (fork-only), which the repository state doesn't tell. */
     val isSquashMergeInProgress: Boolean = false,
+    /** A cherry-pick of several commits that git stopped, which git's sequencer goes on with (fork-only). */
+    val cherryPickSequence: CherryPickSequence? = null,
     /** How git cleans up the message before committing it (fork-only): `commit.cleanup` and the comment prefix. */
     val messageCleanup: MessageCleanup = MessageCleanup.DEFAULT,
     /** The commit field's helpers that the settings turn on (fork-only). */
@@ -200,6 +203,7 @@ fun combineStatusState(
     conventionalHistory: Flow<ConventionalHistory> = flowOf(ConventionalHistory()),
     commitlintRules: Flow<CommitlintRules?> = flowOf(null),
     messageStartInputs: Flow<MessageStartInputs> = flowOf(MessageStartInputs()),
+    cherryPickSequence: Flow<CherryPickSequence?> = flowOf(null),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -271,6 +275,7 @@ fun combineStatusState(
         conventionalHistory,
         commitlintRules,
         messageStartInputs,
+        cherryPickSequence,
     ) {
             lists,
             swapUncommittedChanges,
@@ -294,6 +299,7 @@ fun combineStatusState(
             conventionalHistory,
             commitlintRules,
             messageStartInputs,
+            cherryPickSequence,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -330,6 +336,7 @@ fun combineStatusState(
             conventionalHistory = conventionalHistory,
             commitlintRules = commitlintRules,
             messageStartInputs = messageStartInputs,
+            cherryPickSequence = cherryPickSequence,
         )
     }
 }

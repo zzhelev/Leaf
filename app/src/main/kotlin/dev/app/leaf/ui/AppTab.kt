@@ -473,6 +473,18 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.CherryPickBranch>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            CherryPickBranchDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider
+                                        .cherryPickBranchViewModelFactory()
+                                        .create(entry.branch)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.WorktreeRebaseOntoBase>(
                             metadata = dialogsMetadata
                         ) { entry ->

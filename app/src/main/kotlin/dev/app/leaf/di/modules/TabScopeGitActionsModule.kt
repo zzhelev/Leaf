@@ -3,6 +3,16 @@ package dev.app.leaf.di.modules
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
+import dev.app.leaf.data.git.cherrypick.GetBranchCherryPickCommitsGitAction
+import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
+import dev.app.leaf.data.git.cherrypick.GetCherryPickSequenceGitAction
+import dev.app.leaf.data.git.cli.operations.GitCliCherryPickCommitsGitAction
+import dev.app.leaf.data.git.cli.operations.GitCliCherryPickSequenceGitAction
+import dev.app.leaf.domain.interfaces.ICherryPickCommitsGitAction
+import dev.app.leaf.domain.interfaces.ICherryPickSequenceGitAction
+import dev.app.leaf.domain.interfaces.IGetBranchCherryPickCommitsGitAction
+import dev.app.leaf.domain.interfaces.IGetBranchesAheadGitAction
+import dev.app.leaf.domain.interfaces.IGetCherryPickSequenceGitAction
 import dev.app.leaf.data.git.author.SaveAuthorGitAction
 import dev.app.leaf.data.git.branches.*
 import dev.app.leaf.data.git.cli.operations.AbortSquashMergeGitAction
@@ -595,4 +605,27 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetCommitTemplateGitAction(action: GetCommitTemplateGitAction): IGetCommitTemplateGitAction
+
+    // Fork-only: cherry-picking a branch's commits, and a cherry-pick of several commits that git stopped
+    @Binds
+    @TabScope
+    fun bindsGetBranchesAheadGitAction(action: GetBranchesAheadGitAction): IGetBranchesAheadGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetBranchCherryPickCommitsGitAction(
+        action: GetBranchCherryPickCommitsGitAction,
+    ): IGetBranchCherryPickCommitsGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetCherryPickSequenceGitAction(action: GetCherryPickSequenceGitAction): IGetCherryPickSequenceGitAction
+
+    @Binds
+    @TabScope
+    fun bindsCherryPickCommitsGitAction(action: GitCliCherryPickCommitsGitAction): ICherryPickCommitsGitAction
+
+    @Binds
+    @TabScope
+    fun bindsCherryPickSequenceGitAction(action: GitCliCherryPickSequenceGitAction): ICherryPickSequenceGitAction
 }
