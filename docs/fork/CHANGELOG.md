@@ -2,6 +2,37 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Styles: a library, an editor, and Solarized; the JSON custom theme goes (2026-10-22)
+
+- **Request:** custom colours that cover the whole app, made in Leaf rather than in a JSON field, and Solarized among
+  them. The plan is `docs/fork/custom-styles.md`, from the "Style Library" and "Custom Style" boards in Claude Design.
+- **Theme** is Light, Dark or System. The Custom theme and its JSON field are gone, with no migration: `custom_theme`
+  is deleted from the settings file, and a stored `custom` theme reads as Dark.
+- **Style** is a library. A style has a light and a dark side, and sets every colour Leaf draws with: backgrounds,
+  surfaces, text, file icons, diff and syntax colours, buttons and notices, and the graph's six lanes. Settings →
+  Appearance shows the styles as cards, light half and dark half, with "+ New style" and "Import style…". A card's menu
+  duplicates, exports and, for your own styles, edits and deletes. Deleting the selected style selects Tonal.
+- **Built in:** Tonal (the default), Classic and Quiet, as before, and Solarized. They can be duplicated, not changed.
+- **The editor:** the button look (Classic, Tonal or Quiet), the background as a light and a dark colour, and Accent,
+  Danger, Warning and Success. Leaf works out every other colour from them, keeping each look's lightness, and moves
+  what wouldn't read at 4.5:1, saying what it moved and why. Advanced lists every colour, light and dark; any can be
+  set by hand from a palette of 12 hues by 6 shades or a hex code, which a dot marks, and a chip names a check it leaves
+  short. Live previews of both sides use Leaf's own buttons.
+- **Files:** a style is a JSON file in Leaf's settings folder (`styles/`, next to `user_prefs.json`), with its name, look,
+  seeds and the colours set by hand. Export writes one where you pick (a new save dialog), Import adds one.
+- **Lanes:** Tonal and Quiet draw the graph in muted lanes (row 1g of the "Leaf Colours" board, chosen with the user from
+  renders): about 3:1 on the light background, where Classic's green holds 2.4. Classic keeps Leaf's old lanes.
+- **Solarized:** Tonal's look with Solarized's own seeds, and its published colours set by hand where they hold the checks.
+  The light panels are worked out (#F6EFDC), as base01 text holds 4.39:1 on base2; secondary text is the board's
+  (#516770, and base0 lifted to #8A9C9E on the dark side); comments are base00 and base0. Chosen with the user from
+  renders of the tab, the gallery and the editor.
+- **Unchanged:** Classic, Tonal and Quiet, apart from Tonal's and Quiet's lanes, render byte for byte as before, compared
+  with `main` at each step.
+- Tests: the model and its file format, the colour maths, the working out (every built-in exactly, 2,000 random seed sets
+  per look and side holding every check, colours set by hand), the library on disk, the gallery, the editor and the
+  graph rendered. 115 mutations, each caught by a named test.
+- Details: CLAUDE.md, Settings, "Styles"; `docs/fork/custom-styles.md`.
+
 ## Skip a rebase's commit with conflicts, with guards (2026-10-22)
 
 - **Request:** Skip for a commit that a rebase stopped at with conflicts, as for a cherry-pick. Asked whether it could make a
@@ -39,6 +70,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Not done, decided with the user:** remote branches. Deleting one is a push that affects everyone, so it is planned on its own.
 - Details: CLAUDE.md, "Deleting several branches". Mockups: the side panel with a selection and the dialog in two layouts, picked
   on 2026-10-22 (one list).
+
 
 ## Skip a cherry-picked commit with conflicts, and each stop's own message (2026-10-22)
 

@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Question | How do custom colours work once Theme is only Light, Dark and System? |
-| Verified against | `main` at `15e09df6` |
+| Verified against | `main` at `15e09df6`; built on `feature/custom-styles`, rebased onto `bd772f2c` |
 | Date | 2026-10-22 |
-| Status | Approved 2026-10-22: the plan, questions 1 and 2 as recommended; question 3 at step 7, with renders |
+| Status | Done 2026-10-22: every step of section 6. Section 7 has the decisions, and "As built" notes say where the work differs from the plan |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -22,8 +22,8 @@ editor 3c, with Solarized as the example).
 - **Style** becomes a library of styles. Each style has a light side and a dark side, so System keeps working.
 - **A style sets every colour Leaf draws with:** backgrounds, surfaces, text, file icons, diff and syntax colours, the
   buttons and notices that Style sets today, and the log graph's six lanes.
-- **Built-in styles:** Tonal (the default), Classic, Quiet and Solarized (Solarized Light and Solarized Dark). They can
-  only be duplicated. Tonal, Classic and Quiet look exactly as today.
+- **Built-in styles:** Tonal (the default), Classic, Quiet and Solarized, one style with a light and a dark side. They
+  can only be duplicated. Tonal, Classic and Quiet look exactly as today, apart from Tonal's and Quiet's lanes (step 7).
 - **User styles** are files: create, duplicate, edit, rename, delete, export, import.
 - **Settings** shows the styles as a gallery of cards (3b), light on the left and dark on the right, then "+ New style"
   and "Import style…".
@@ -96,6 +96,13 @@ colours.
 5. **Colours set by hand** are used as given and never moved. When one fails a check, the other colour of the pair
    moves if it is derived; otherwise the editor shows a warning chip. Syntax colours aren't checked (Classic's light
    keyword is 3.9 : 1 on white today).
+
+   **As built:** text moves before the surface under it, and the surface moves when the text can't, as when the text
+   was set by hand. A fill or a surface moves only away from what is drawn on it (`movedForContrast`'s `towards`), so a
+   light panel under grey text gets lighter or stays, never dark; when its side can't hold the check, the check falls
+   short. Before anything moves, a mid-tone background is lightened (light side) or darkened (dark side) until black or
+   white holds 4.5 : 1, with 0.3 to spare, on every surface that follows it (`fittedBackground`): no text colour reads
+   on both a mid-tone background and the darker or lighter surfaces next to it. The editor notes it.
 6. **Built-ins.** Classic, Tonal and Quiet are definitions whose seeds are their template's, with nothing set by hand,
    so resolving them gives today's colours by construction. A test compares every slot with `lightTheme.styled(…)`,
    `darkTheme.styled(…)` and `styleColorsFor`, and renders of the main panes are compared with `main`, pixel for
@@ -108,6 +115,13 @@ colours.
    are derived, with the adjustments that gives: the design's #196EA9 for filled buttons comes out about #1A6EAD.
    Some published pairs fall short of the checks (base01 text on base2 panels is 4.4 : 1, base00 on base3 4.1 : 1);
    there the derived colour of the pair moves, or the colour stays derived. Step 8 shows renders of both sides.
+
+   **As built** (approved with renders of the tab, the gallery and the editor): text base01 and base1, comments base00
+   and base0 (the "Style Library" board's; Solarized's own comment tones, base1 and base01, read at about 2.5 : 1), the
+   dark panels base02, keyword blue, annotation yellow, the lanes. The light panels are worked out, #F6EFDC, as base01
+   holds 4.39 : 1 on base2. Secondary text is the board's, as Leaf's worked-out colour was brighter than Solarized's
+   text on the dark side: #516770, and base0 lifted to #8A9C9E, which holds 4.54 : 1 on base02 (base0 holds 4.11). The
+   filled buttons come out #006EAE and #0068A5. Every check holds on both sides.
 
 ### 2.3 The file format
 
@@ -212,19 +226,23 @@ already does. The previews in `Notification.kt` and `WelcomePage.kt` lose their 
 6. **The editor** (5.2).
 7. **Lanes:** per style; for Tonal and Quiet, today's six or the muted set of row 1g (#5B97D3, #CD7670, #7D97A4,
    #C87D52, #60A56B, #C4759C), decided with renders of the log in both, asked at that step. The editor's Graph lanes rows.
+   Decided: the muted set (about 3 : 1 each on the light background, where today's green holds 2.4).
 8. **Solarized** (2.2, point 7).
 9. **Notes:** CLAUDE.md, `docs/fork/CHANGELOG.md`, this file's status.
 
 Each step leaves Leaf working and `./gradlew test` green. Each step's new logic gets mutations, each caught by a named
 test.
 
-## 7. Open questions
+## 7. Open questions, decided
 
 1. Where the code goes: the model, the file format and the storage in `domain` and `data`, the derivation and the
-   resolving in `app`, next to the templates. Recommended, as the templates are Compose colours in `app`.
+   resolving in `app`, next to the templates. Recommended, as the templates are Compose colours in `app`. **Decided as
+   recommended.**
 2. Solarized: derive its buttons, strips and tints (recommended; they come out near the design, #1A6EAD for #196EA9),
-   or set the design's numbers by hand, which marks about 30 colours with a dot in a copy of it.
-3. Lanes for Tonal and Quiet: today's six or row 1g's muted set. Asked at step 7, with renders.
+   or set the design's numbers by hand, which marks about 30 colours with a dot in a copy of it. **Decided as
+   recommended**; they came out #006EAE and #0068A5.
+3. Lanes for Tonal and Quiet: today's six or row 1g's muted set. Asked at step 7, with renders. **Decided: the muted
+   set.**
 
 ## 8. Limits
 
@@ -232,6 +250,8 @@ test.
 - Only three syntax colours (keyword, annotation, comment), as today.
 - A file edited outside Leaf shows when Settings opens next, not at once.
 - Avatars keep their own palette (decided 2026-10-20).
+- The editor writes one note per colour that Leaf moved: a copy of Solarized shows 13. Grouping them per side is left
+  for later.
 
 ## 9. Checks before calling it done
 

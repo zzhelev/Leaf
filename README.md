@@ -90,6 +90,17 @@ Yes, free in both meanings of the word (in money and freedom).
 
 Leaf does not track data in any way, don't worry.
 
+> Can I change Leaf's colours?
+
+Yes. Settings → Appearance → Style has four built-in styles, Tonal (the default), Classic, Quiet and Solarized, and any
+of your own. "+ New style" opens an editor: pick how buttons are drawn, a background for the light and the dark theme,
+and an accent, danger, warning and success colour, and Leaf works out every other colour, keeping text readable. Under
+Advanced, any colour can be set by hand.
+
+Each of your styles is a JSON file in Leaf's settings folder: `~/Library/Application Support/leaf/styles` on macOS,
+`~/.config/leaf/styles` on Linux and `%APPDATA%\leaf\styles` on Windows. Export and Import share one. The custom theme
+of Leaf 1.3.0 and earlier, a JSON field in Settings, was replaced by styles and isn't read any more.
+
 > Why isn't the Mac version signed?
 
 Leaf isn't distributed as a signed and notarized app yet, because that needs a paid Apple Developer account. A build you
