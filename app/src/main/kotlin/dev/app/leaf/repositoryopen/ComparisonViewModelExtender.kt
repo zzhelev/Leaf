@@ -34,12 +34,15 @@ import dev.app.leaf.domain.models.WorktreeList
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.CloseableView
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
+import dev.app.leaf.domain.repositories.RepositoryStateRepository
+import dev.app.leaf.domain.usecases.DataToRefresh
 import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.buildFileRows
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetComparisonUseCase
+import dev.app.leaf.domain.usecases.GetWorkingTreeComparisonUseCase
 import dev.app.leaf.domain.usecases.ResolveCommitUseCase
 import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.name
@@ -52,6 +55,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
@@ -157,8 +162,11 @@ data class ComparisonState(
     val aName: String get() = target.a.name
     val bName: String get() = target.b.name
 
-    /** The switch between the modes, for sides that diverged. */
-    val showsModeSwitch: Boolean get() = comparison?.relation?.showsModeSwitch == true
+    /** B is the working tree (7.2): the files on disk, which stay B, and which no row of the log is. */
+    val bIsWorkingTree: Boolean get() = target.b is CompareSide.WorkingTree
+
+    /** The switch between the modes, for sides that diverged, and for the working tree on a commit that A is ahead of. */
+    val showsModeSwitch: Boolean get() = comparison?.relation?.showsModeSwitch(bIsWorkingTree) == true
 }
 
 sealed interface ComparisonAction {
@@ -227,7 +235,11 @@ private data class Active(
      * all differences where since they split would list nothing.
      */
     val modeToRead: ComparisonMode
-        get() = if (target.isReview) chosenMode else relation?.modeToShow(chosenMode) ?: chosenMode
+        get() = if (target.isReview) {
+            chosenMode
+        } else {
+            relation?.modeToShow(chosenMode, bIsWorkingTree = target.b is CompareSide.WorkingTree) ?: chosenMode
+        }
 
     val read: Read? get() = if (isPending) null else Read(target, modeToRead, tries)
 }
@@ -244,10 +256,16 @@ private const val RESOLVE_DELAY_MS = 150L
 /** One comparison to read. A change of any part starts a new read, without the last one's result. */
 private data class Read(val target: ComparisonTarget, val mode: ComparisonMode, val tries: Int)
 
+/**
+ * The commits that the sides are at, null for a branch that's gone. [refreshes] counts the status refreshes, after which
+ * a working tree side is read again: its files may have changed with the commit where it was.
+ */
+private data class Tips(val a: String?, val b: String?, val refreshes: Int = 0)
+
 /** A read, while it loads or once it did, at [tips]. */
 private data class Reading(
     val read: Read,
-    val tips: Pair<String?, String?>,
+    val tips: Tips,
     val isLoading: Boolean,
     val result: Either<Comparison, AppError>?,
 )
@@ -273,6 +291,8 @@ private data class CommitReading(
  */
 class ComparisonViewModelExtender @AssistedInject constructor(
     private val getComparisonUseCase: GetComparisonUseCase,
+    private val getWorkingTreeComparisonUseCase: GetWorkingTreeComparisonUseCase,
+    private val repositoryStateRepository: RepositoryStateRepository,
     private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
     private val resolveCommitUseCase: ResolveCommitUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
@@ -336,10 +356,14 @@ class ComparisonViewModelExtender @AssistedInject constructor(
             } else {
                 var last: Either<Comparison, AppError>? = null
 
-                tipsOf(read.target).transformLatest { tips ->
+                tipsOf(read.target).transformLatest { tips: Tips ->
                     emit(Reading(read, tips, isLoading = true, result = last))
 
-                    val result = getComparisonUseCase(read.target.a.revision, read.target.b.revision, read.mode)
+                    val result = if (read.target.b is CompareSide.WorkingTree) {
+                        getWorkingTreeComparisonUseCase(read.target.a.revision, read.mode)
+                    } else {
+                        getComparisonUseCase(read.target.a.revision, read.target.b.revision, read.mode)
+                    }
 
                     // A new comparison may turn its sides around, or show the other mode, which reads it again. Then
                     // this result isn't emitted: the state, which combines the comparison and the read as they come,
@@ -497,13 +521,36 @@ class ComparisonViewModelExtender @AssistedInject constructor(
     fun pick(picked: PickedSide) {
         val current = state.value ?: return
 
-        when (picked.side.commit) {
-            current.aCommit -> end(selecting = current.target.b)
-            current.bCommit -> end(selecting = current.target.a)
+        when {
+            picked.side.commit == current.aCommit -> end(selecting = current.target.b)
+            // The working tree's B is the uncommitted changes' row, not its commit's
+            picked.side.commit == current.bCommit && !current.bIsWorkingTree -> end(selecting = current.target.a)
             else -> {
                 val a = current.target.a
                 start(ComparisonTarget(a, picked.side), defaultMode(a, picked.side), orderSettled = false)
             }
+        }
+    }
+
+    /**
+     * Compares [a] with the working tree (7.2): "Compare with working tree" in a menu, and ⌘-click between a row and the
+     * uncommitted changes. The working tree is always B, and the order needs no settling.
+     */
+    fun compareWithWorkingTree(a: CompareSide, workingTree: CompareSide.WorkingTree) {
+        start(ComparisonTarget(a, workingTree), defaultMode(a, workingTree), orderSettled = true)
+    }
+
+    /**
+     * ⌘-click on the uncommitted changes' row while comparing: the working tree replaces B, or, when it's B already,
+     * drops it, and A stays selected as one commit.
+     */
+    fun pickWorkingTree(workingTree: CompareSide.WorkingTree) {
+        val current = active.value ?: return
+
+        if (current.target.b is CompareSide.WorkingTree) {
+            end(selecting = current.target.a)
+        } else {
+            compareWithWorkingTree(current.target.a, workingTree)
         }
     }
 
@@ -539,8 +586,13 @@ class ComparisonViewModelExtender @AssistedInject constructor(
             is ComparisonAction.OpenFullView -> openFullView(action.entry)
             ComparisonAction.LeaveFullView -> leaveFullView()
             is ComparisonAction.SetMode -> active.update { it?.copy(chosenMode = action.mode) }
+            // The working tree stays B
             ComparisonAction.Swap -> active.update {
-                it?.copy(target = it.target.swapped(), relation = it.relation?.swapped, orderSettled = true)
+                if (it == null || it.target.b is CompareSide.WorkingTree) {
+                    it
+                } else {
+                    it.copy(target = it.target.swapped(), relation = it.relation?.swapped, orderSettled = true)
+                }
             }
 
             is ComparisonAction.ViewStateChanged -> onViewStateChanged(action.viewState)
@@ -633,10 +685,16 @@ class ComparisonViewModelExtender @AssistedInject constructor(
         if (active.value == null) return
 
         val before = selectionBefore ?: SelectedItem.UncommittedChanges
-        val commit = selecting?.let { commitOf(it) }
+        val commit = selecting?.takeIf { it !is CompareSide.WorkingTree }?.let { commitOf(it) }
 
         stop()
-        onSelectItem(commit?.let(selectionFor) ?: before)
+
+        when {
+            // The working tree's own row
+            selecting is CompareSide.WorkingTree -> onSelectItem(SelectedItem.UncommittedChanges)
+            commit != null -> onSelectItem(selectionFor(commit))
+            else -> onSelectItem(before)
+        }
     }
 
     /** The commit that [side] is at now: a branch side follows its branch. */
@@ -664,7 +722,10 @@ class ComparisonViewModelExtender @AssistedInject constructor(
 
     private fun showEntry(entry: DiffEntry) {
         shownEntry = entry
-        onDiffSelected(DiffSelected.CommitedChanges(setOf(DiffType.CommitDiff(entry))))
+        // A commit's own changes are blobs, also in a comparison with the working tree
+        val readsWorkingTree = active.value?.let { it.target.b is CompareSide.WorkingTree && it.shownCommit == null } == true
+
+        onDiffSelected(DiffSelected.CommitedChanges(setOf(DiffType.CommitDiff(entry, readsWorkingTree))))
     }
 
     private fun openFullView(entry: DiffEntry?) {
@@ -772,21 +833,41 @@ class ComparisonViewModelExtender @AssistedInject constructor(
 
     /**
      * The commits that [target]'s sides are at: a branch's tip in the tab's branch data, which a change of reads the
-     * comparison again; a commit's own. A branch that's gone is null.
+     * comparison again; a commit's own; the working tree's HEAD, and each status refresh, as its files change. A branch
+     * that's gone is null.
      */
-    private fun tipsOf(target: ComparisonTarget): Flow<Pair<String?, String?>> = combine(
-        repositoryDataRepository.localBranches.mapNotNull { it.dataOrNull() },
-        repositoryDataRepository.remotes.mapNotNull { it.dataOrNull() },
-    ) { localBranches, remotes ->
-        val branches = localBranches + remotes.flatMap { it.branchesList }
-
-        fun tipOf(side: CompareSide): String? = when (side) {
-            is CompareSide.Branch -> branches.firstOrNull { it.name == side.ref }?.hash
-            is CompareSide.Commit -> side.commit
+    private fun tipsOf(target: ComparisonTarget): Flow<Tips> {
+        val readsWorkingTree = target.b is CompareSide.WorkingTree
+        val refreshes: Flow<Int> = if (readsWorkingTree) {
+            repositoryStateRepository.refreshTriggered
+                .filter { it.contains(DataToRefresh.ALL) || it.contains(DataToRefresh.STATUS) }
+                .runningFold(0) { count, _ -> count + 1 }
+        } else {
+            flowOf(0)
+        }
+        val head: Flow<String?> = if (readsWorkingTree) {
+            repositoryDataRepository.currentBranch.map { it.dataOrNull()?.hash }.onStart { emit(null) }
+        } else {
+            flowOf(null)
         }
 
-        tipOf(target.a) to tipOf(target.b)
-    }.distinctUntilChanged()
+        return combine(
+            repositoryDataRepository.localBranches.mapNotNull { it.dataOrNull() },
+            repositoryDataRepository.remotes.mapNotNull { it.dataOrNull() },
+            head,
+            refreshes,
+        ) { localBranches, remotes, headHash, refreshCount ->
+            val branches = localBranches + remotes.flatMap { it.branchesList }
+
+            fun tipOf(side: CompareSide): String? = when (side) {
+                is CompareSide.Branch -> branches.firstOrNull { it.name == side.ref }?.hash
+                is CompareSide.Commit -> side.commit
+                is CompareSide.WorkingTree -> headHash ?: side.commit
+            }
+
+            Tips(tipOf(target.a), tipOf(target.b), refreshCount)
+        }.distinctUntilChanged()
+    }
 }
 
 /** The commits of the side that has [commit], oldest first, or null when neither lists it. */
@@ -832,13 +913,14 @@ private fun comparisonState(
         isLoading = !active.isPending && (reading == null || reading.isLoading || shownCommit?.isLoading == true),
         comparison = comparison,
         error = result?.errOrNull(),
-        aCommit = reading?.tips?.first ?: target.a.commit,
-        bCommit = reading?.tips?.second ?: target.b.commit,
+        aCommit = reading?.tips?.a ?: target.a.commit,
+        bCommit = reading?.tips?.b ?: target.b.commit,
         shownCommit = shownCommit,
         files = files,
         viewState = viewState,
         rows = buildFileRows(
-            files = files.toFileItems(),
+            // The untracked files are the comparison's, not a commit's own
+            files = files.toFileItems(untracked = if (shownCommit == null) comparison?.untrackedPaths.orEmpty() else emptySet()),
             state = viewState,
             isCollapsed = collapsedDirectories::contains,
         ),

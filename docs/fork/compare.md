@@ -5,7 +5,7 @@
 | Question | How can Leaf show the difference between any two commits or branches, in a way people find without being told? |
 | Verified against | `main` at `04e3f620`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-21 |
-| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22). Step 7, the later items, chosen 2026-10-22: 7.4, 7.3 and 7.1 built |
+| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22). Step 7, the later items, chosen 2026-10-22, built the same day |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -479,25 +479,50 @@ drawn at the right pane's 330 px in the dark theme. Built smallest first, each a
   menu and what it calls). 13 mutations of the rules, the picks, the pending comparison, the pane and the menus, each
   caught by a named test. The tab's Esc and the Actions list's item have no kept test.
 
-#### 7.2 Compare with the working tree (plan)
+#### 7.2 Compare with the working tree (built 2026-10-22)
 
-- **B can be the working tree:** the files as they are on disk, with what isn't committed yet. ⌘-click the "Uncommitted
-  changes" row while a commit, branch or tag is selected (or a row while the uncommitted changes are), or "Compare with
-  working tree" in the commit, branch and tag menus. The working tree is always B: no swap.
-- **Modes:** its commits are the current branch's, so with A on another branch both apply. Since they split is from the
-  merge base of A and HEAD to the working tree, what the branch and its uncommitted work would bring into A; All
-  differences is `git diff A`. "Commits only in B" are HEAD's, followed by "and the uncommitted changes".
-- **Untracked files** are in the list, as Unstaged lists them, with an "untracked" tag (7.2a); ignored files aren't. The
-  B badge marks the "Uncommitted changes" row, not HEAD's.
-- **It re-reads when files change** (`refreshTriggered` with ALL or STATUS), as Staged and Unstaged do. Its diffs are
-  read-only: no stage or discard buttons.
-- **Implementation:** `CompareSide.WorkingTree` (its commit is HEAD's); the use case and the action take sides, not
-  strings; a `DiffType` for a file between a commit and the working tree; a walk of the commit's tree, the index
-  (`DirCacheIterator`) and the working tree (`FileTreeIterator`), with rename detection that reads the working tree's
-  files; an index that JGit can't read gives `UnsupportedIndexError`, as status does.
-- **Tests:** the action against `git diff A` and `git diff $(git merge-base A HEAD)` plus `git ls-files --others
-  --exclude-standard`, the view model's side (no swap, the refresh), the log's badge on the uncommitted row, the pane's
-  tag.
+- **B can be the working tree** (`CompareSide.WorkingTree`: HEAD's commit and the branch checked out): the files as they
+  are on disk, with what isn't committed yet. ⌘-click the "Uncommitted changes" row while a commit, branch or tag is
+  selected, or a row while the uncommitted changes are selected, or "Compare with working tree" after "Compare with…" in
+  the commit, branch, tag and shared chip menus. While comparing, ⌘-click on the row makes the working tree B, and on it
+  again drops it. The working tree is always B: no swap, in the pane or the full view.
+- **Its relation is HEAD's,** with the uncommitted work always B's own (`showsModeSwitch(bIsWorkingTree)`,
+  `modeToShow(chosen, bIsWorkingTree)`): with A ahead of HEAD, since they split is the uncommitted work alone and all
+  differences shows A's newer commits as undone too, so the switch shows; nothing turns around. It starts in since they
+  split when A is a branch (the working tree counts as its branch), all differences otherwise.
+- **The pane:** B reads "Working tree", then "feat/clone-picker, uncommitted", which gives way first. "Commits only in B"
+  are HEAD's, followed by "and the uncommitted changes". The lines say what each mode shows ("What feat/clone-picker and
+  its uncommitted changes would bring into main…"), and the notes how HEAD meets A ("The working tree is on main, so
+  this shows its uncommitted changes."). The labels above the diff name the working tree without a commit.
+- **Untracked files** are in the list, as Unstaged lists them, with an "untracked" tag (7.2a, `FileItem.isUntracked`,
+  `UntrackedTag` in `ChangedFilesList`); ignored files aren't, and an ignored folder that nothing tracks isn't walked
+  into. A tracked file moved and edited on disk without `git add` pairs with its new, untracked name as a rename.
+- **The log:** the "Uncommitted changes" row is highlighted with the B badge (`LogComparison.workingTreeIsB`), and HEAD's
+  row isn't B: ⌘-click on it replaces B with the commit. Dropping A, or ending on B, selects the uncommitted changes.
+- **It reads again when files change:** each status refresh (`refreshTriggered` with ALL or STATUS) and a move of HEAD
+  read the comparison again (`Tips.refreshes`). Its diffs are read-only: no stage or discard buttons.
+- **Data:** `GetWorkingTreeComparisonGitAction` (`IGetWorkingTreeComparisonGitAction`, `GetWorkingTreeComparisonUseCase`):
+  the commits of A and HEAD as `GetComparisonGitAction` lists them (its helpers made internal), and `workingTreeChanges`
+  (`data/git/compare/WorkingTreeChanges.kt`), one `TreeWalk` of the old tree, the index (`DirCacheIterator`) and the
+  disk (`FileTreeIterator`, with `setDirCacheIterator`, git's stat cache, so a file unchanged since it was staged isn't
+  read). `DiffEntry.scan` takes two trees only, so the entries are built by the walk. An untracked path that git ignores
+  stays out (`isEntryIgnored`), folders too. Renames come from `withRenames`, taken out of `diffWithRenames`, whose new
+  `newSource` reads the added files from disk (`ContentSource` of a `FileTreeIterator`), as they have no blobs. An index
+  that JGit can't read gives `UnsupportedIndexError`, as the status does.
+- **A file's diff:** `DiffType.CommitDiff.readsWorkingTree` (a flag, so that `DiffSelected.CommitedChanges`, the full
+  view and the following of 7.4 take it as they are): `FormatDiffGitAction` reads the old side by its blob and the new
+  one from disk, through an `EmptyTreeIterator` and a `FileTreeIterator` given to the formatter. The partial clone's
+  prefetch leaves out the side that is on disk (`blobIds`). A commit's own changes inside such a comparison are blobs.
+- **Not built:** "Compare with working tree" in file history's row menu (the file at a commit against the file on disk),
+  which needs file history's two versions to take the working tree as B.
+- **Tests:** `GetWorkingTreeComparisonGitActionTest` (6, against git on a twin copy, `git add -A` then `git diff --cached
+  -M50% --name-status` from A or the merge base, and `git ls-files --others --exclude-standard`: all differences, since
+  they split, HEAD with a moved and edited file, a mode change, a file's diff from blob and disk, an untracked file's, a
+  split index), `ComparisonViewModelExtenderTest` (+5: the read and the untracked rows, the diff's flag, B staying B with
+  the switch, the refreshes, ⌘-click on the uncommitted changes and HEAD's row, dropping A), `ComparisonPaneTest` (+3:
+  the name, no swap, the uncommitted line, the lines and notes, the tag), `ComparisonFullViewTest` (+1), `LogComparisonTest`
+  (the row's ⌘-click), `CompareMenusTest` (+1). 17 mutations of the walk, the diff, the rules, the view model and the
+  pane, each caught by a named test (one only after its test was made stronger).
 
 ## 5. Checks before calling it done
 
@@ -511,6 +536,9 @@ drawn at the right pane's 330 px in the dark theme. Built smallest first, each a
 ## 6. Later, as their own items
 
 The four items that were here are step 7. Left:
+
+- **Compare with working tree in file history:** the file at a commit against the file on disk, in a row's menu (7.3
+  left it out until 7.2's reading existed).
 
 - **A worktree's review with its uncommitted work (7.2c):** "Include its uncommitted changes" in "Review changes" on
   another worktree. It needs the diff code to read another worktree's files, so it comes after 7.2.

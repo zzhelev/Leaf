@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -58,6 +59,7 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.compare.CompareSide
 import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.Comparison
 import dev.app.leaf.domain.models.ComparisonMode
 import dev.app.leaf.domain.models.ComparisonRelation
 import dev.app.leaf.domain.models.DiffSelected
@@ -272,14 +274,16 @@ private fun ComparisonHeader(state: ComparisonState, onAction: (ComparisonAction
             Side(CompareLetter.B, SideToPick.B, state.target.b, state.bCommit)
         }
 
-        // A comparison with A alone has nothing to swap or show yet
+        // A comparison with A alone has nothing to swap or show yet, and the working tree stays B
         if (!state.isPending) {
-            HeaderButton(
-                icon = Res.drawable.compare_arrows,
-                description = stringResource(Res.string.compare_swap),
-                rotation = 90f,
-                onClick = { onAction(ComparisonAction.Swap) },
-            )
+            if (!state.bIsWorkingTree) {
+                HeaderButton(
+                    icon = Res.drawable.compare_arrows,
+                    description = stringResource(Res.string.compare_swap),
+                    rotation = 90f,
+                    onClick = { onAction(ComparisonAction.Swap) },
+                )
+            }
 
             HeaderButton(
                 icon = Res.drawable.fullscreen,
@@ -321,9 +325,14 @@ internal fun SideLine(letter: CompareLetter, side: CompareSide, commit: String, 
         ) {
             CompareBadge(letter)
 
-            // The chevron hugs the name, which gives way first
-            Row(modifier = Modifier.weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically) {
-                SideName(side.name, Modifier.weight(1f, fill = false))
+            // The chevron hugs the name, which gives way first. The working tree's name is short, and what it's on gives way
+            val isWorkingTree = side is CompareSide.WorkingTree
+
+            Row(
+                modifier = if (isWorkingTree) Modifier else Modifier.weight(1f, fill = false),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SideName(sideName(side), if (isWorkingTree) Modifier else Modifier.weight(1f, fill = false))
 
                 if (onClick != null) {
                     Icon(
@@ -337,7 +346,17 @@ internal fun SideLine(letter: CompareLetter, side: CompareSide, commit: String, 
 
             val shortCommit = commit.take(7)
 
-            if (shortCommit.isNotEmpty() && !side.name.startsWith(shortCommit)) {
+            if (side is CompareSide.WorkingTree) {
+                // What it's on, rather than HEAD's commit, which isn't what it shows
+                Text(
+                    text = stringResource(Res.string.compare_working_tree_on, side.onName),
+                    style = MaterialTheme.typography.body2,
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            } else if (shortCommit.isNotEmpty() && !side.name.startsWith(shortCommit)) {
                 Text(
                     text = shortCommit,
                     style = MaterialTheme.typography.body2,
@@ -356,6 +375,11 @@ internal fun SideLine(letter: CompareLetter, side: CompareSide, commit: String, 
         }
     }
 }
+
+/** How the comparison names [side]: the working tree in the app's words, the others by their refs or commits. */
+@Composable
+internal fun sideName(side: CompareSide): String =
+    if (side is CompareSide.WorkingTree) stringResource(Res.string.compare_working_tree) else side.name
 
 @Composable
 private fun SideName(name: String, modifier: Modifier) {
@@ -428,6 +452,9 @@ internal fun comparisonLine(state: ComparisonState): String? {
     val comparison = state.comparison ?: return null
     val a = state.aName
     val b = state.bName
+    val workingTree = state.target.b as? CompareSide.WorkingTree
+
+    if (workingTree != null) return workingTreeLine(state, comparison, workingTree)
 
     return if (state.showsModeSwitch) {
         val newer = comparison.countOnlyInA
@@ -468,6 +495,38 @@ internal fun comparisonLine(state: ComparisonState): String? {
             }
 
             ComparisonRelation.DIVERGED -> null
+        }
+    }
+}
+
+/**
+ * [comparisonLine] when B is the working tree (7.2), named by what it's on: its relation is HEAD's, and its uncommitted
+ * changes are always B's own.
+ */
+@Composable
+private fun workingTreeLine(state: ComparisonState, comparison: Comparison, workingTree: CompareSide.WorkingTree): String? {
+    val a = state.aName
+    val on = workingTree.onName
+    val newer = comparison.countOnlyInA
+
+    return if (state.showsModeSwitch) {
+        when (state.mode) {
+            ComparisonMode.SINCE_SPLIT -> pluralStringResource(Res.plurals.compare_wt_since_split_line, newer, on, a, newer)
+            ComparisonMode.ALL -> pluralStringResource(Res.plurals.compare_wt_all_line, newer, a, newer)
+        }
+    } else {
+        when (comparison.relation) {
+            ComparisonRelation.SAME -> stringResource(Res.string.compare_wt_note_same, a)
+            ComparisonRelation.A_IS_ANCESTOR -> pluralStringResource(
+                Res.plurals.compare_wt_note_a_is_ancestor,
+                comparison.countOnlyInB,
+                on,
+                a,
+                comparison.countOnlyInB,
+            )
+
+            ComparisonRelation.UNRELATED -> stringResource(Res.string.compare_wt_note_unrelated, a)
+            ComparisonRelation.B_IS_ANCESTOR, ComparisonRelation.DIVERGED -> null
         }
     }
 }
@@ -717,6 +776,7 @@ internal fun CommitsSections(
                 shownCommit = state.shownCommit?.commit?.hash,
                 onSelectCommit = onSelectCommit,
                 onShowCommit = { onAction(ComparisonAction.ShowCommit(it)) },
+                endsWithUncommittedChanges = state.bIsWorkingTree,
                 modifier = Modifier.heightIn(max = maxHeight),
             )
         }
@@ -820,6 +880,8 @@ private fun CommitsList(
     onSelectCommit: (Commit) -> Unit,
     onShowCommit: (Commit) -> Unit,
     modifier: Modifier = Modifier,
+    /** The working tree's commits go on with what isn't committed (7.2). */
+    endsWithUncommittedChanges: Boolean = false,
 ) {
     val older = count - commits.size
     val shownIndex = commits.indexOfFirst { it.hash == shownCommit }
@@ -839,6 +901,21 @@ private fun CommitsList(
 
         items(commits, key = { it.hash }) { commit ->
             CommitRow(commit, isShown = commit.hash == shownCommit, onSelectCommit, onShowCommit)
+        }
+
+        if (endsWithUncommittedChanges) {
+            item(key = "uncommitted") {
+                Text(
+                    text = stringResource(Res.string.compare_and_uncommitted),
+                    style = MaterialTheme.typography.body2,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .height(COMMIT_ROW_HEIGHT)
+                        .padding(start = 38.dp, top = 5.dp),
+                )
+            }
         }
     }
 }

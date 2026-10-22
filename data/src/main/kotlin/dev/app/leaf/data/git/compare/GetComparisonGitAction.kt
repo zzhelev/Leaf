@@ -93,7 +93,7 @@ class GetComparisonGitAction @Inject constructor(
     }
 }
 
-private fun Repository.resolveCommit(revision: String): Either<ObjectId, GitError> {
+internal fun Repository.resolveCommit(revision: String): Either<ObjectId, GitError> {
     val id = resolve("$revision^{commit}")
 
     return if (id == null) {
@@ -107,7 +107,7 @@ private fun Repository.resolveCommit(revision: String): Either<ObjectId, GitErro
  * The merge base that `git diff a...b` compares from, or null when the two have no commit in common. With several (a
  * criss-cross merge), the first that JGit finds, as git takes one too.
  */
-private fun Repository.mergeBase(a: ObjectId, b: ObjectId): RevCommit? = RevWalk(this).use { walk ->
+internal fun Repository.mergeBase(a: ObjectId, b: ObjectId): RevCommit? = RevWalk(this).use { walk ->
     walk.revFilter = RevFilter.MERGE_BASE
     walk.markStart(walk.parseCommit(a))
     walk.markStart(walk.parseCommit(b))
@@ -118,7 +118,7 @@ private fun Repository.mergeBase(a: ObjectId, b: ObjectId): RevCommit? = RevWalk
  * The commits that [tip] has and [other] doesn't, oldest first, as many as [limit] (the newest ones), and how many
  * there are in all.
  */
-private fun Repository.commitsOnlyIn(tip: ObjectId, other: ObjectId, limit: Int): Pair<List<RevCommit>, Int> =
+internal fun Repository.commitsOnlyIn(tip: ObjectId, other: ObjectId, limit: Int): Pair<List<RevCommit>, Int> =
     RevWalk(this).use { walk ->
         walk.sort(RevSort.TOPO)
         walk.markStart(walk.parseCommit(tip))
@@ -138,7 +138,7 @@ private fun Repository.commitsOnlyIn(tip: ObjectId, other: ObjectId, limit: Int)
         newestFirst.asReversed().toList() to count
     }
 
-private fun Repository.treeOf(commit: ObjectId): RevTree = RevWalk(this).use { it.parseCommit(commit).tree }
+internal fun Repository.treeOf(commit: ObjectId): RevTree = RevWalk(this).use { it.parseCommit(commit).tree }
 
 private fun Repository.treeParser(tree: RevTree) = CanonicalTreeParser().also { parser ->
     newObjectReader().use { reader -> parser.reset(reader, tree.id) }

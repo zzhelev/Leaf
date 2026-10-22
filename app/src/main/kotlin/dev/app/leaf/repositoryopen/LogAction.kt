@@ -27,6 +27,12 @@ sealed interface LogAction {
 
     /** Fork-only: a row's "Compare with…", which picks B from a list of refs. */
     data class CompareWith(val commit: Commit) : LogAction
+
+    /** Fork-only: a row's "Compare with working tree". */
+    data class CompareWithWorkingTree(val commit: Commit) : LogAction
+
+    /** Fork-only: ⌘-click on the uncommitted changes' row, which compares the working tree with the selection. */
+    data object UncommittedChangesPicked : LogAction
     data object ShowStatusAmending : LogAction
     data object UncommittedChangesSelected : LogAction
     data class DeleteStash(val commit: Commit) : LogAction

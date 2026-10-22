@@ -27,6 +27,8 @@ class CompareMenuItems(
     val onCompareWithCurrent: () -> Unit,
     /** "Compare with…", which picks the other side from a list of refs (7.1); null leaves it out. */
     val onCompareWith: (() -> Unit)? = null,
+    /** "Compare with working tree" (7.2); null leaves it out. */
+    val onCompareWithWorkingTree: (() -> Unit)? = null,
 )
 
 /**
@@ -40,6 +42,9 @@ class CompareWithCurrent(
     /** "Compare with…" on a branch and a tag (7.1). */
     val onBranchWith: ((Branch) -> Unit)? = null,
     val onTagWith: ((Tag) -> Unit)? = null,
+    /** "Compare with working tree" on a branch and a tag (7.2). */
+    val onBranchWithWorkingTree: ((Branch) -> Unit)? = null,
+    val onTagWithWorkingTree: ((Tag) -> Unit)? = null,
 )
 
 val LocalCompareWithCurrent = staticCompositionLocalOf<CompareWithCurrent?> { null }
@@ -51,8 +56,9 @@ fun MutableList<ContextMenuElement>.addCompareItems(items: CompareMenuItems?) {
     val selectedName = items.selectedName
     val currentBranch = items.currentBranch
     val onCompareWith = items.onCompareWith
+    val onCompareWithWorkingTree = items.onCompareWithWorkingTree
 
-    if (selectedName == null && currentBranch == null && onCompareWith == null) return
+    if (selectedName == null && currentBranch == null && onCompareWith == null && onCompareWithWorkingTree == null) return
 
     if (selectedName != null) {
         addContextMenu(
@@ -71,7 +77,20 @@ fun MutableList<ContextMenuElement>.addCompareItems(items: CompareMenuItems?) {
         addCompareWith(onCompareWith)
     }
 
+    if (onCompareWithWorkingTree != null) {
+        addCompareWithWorkingTree(onCompareWithWorkingTree)
+    }
+
     add(ContextMenuElement.ContextSeparator)
+}
+
+/** "Compare with working tree": the item as A, and the files on disk as B (`docs/fork/compare.md`, 7.2). */
+fun MutableList<ContextMenuElement>.addCompareWithWorkingTree(onClick: () -> Unit) {
+    addContextMenu(
+        composableLabel = { stringResource(Res.string.compare_with_working_tree) },
+        icon = { painterResource(Res.drawable.compare_arrows) },
+        onClick = onClick,
+    )
 }
 
 /** "Compare with…": the item as A, and the other side picked from a list of refs (`docs/fork/compare.md`, 7.1). */

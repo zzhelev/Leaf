@@ -227,7 +227,7 @@ class CommitChangesViewModelExtender @AssistedInject constructor(
 internal fun DiffEntry.matchesSearch(text: String): Boolean =
     filePath.lowercaseContains(text) || renamedFrom?.path?.lowercaseContains(text) == true
 
-internal fun List<DiffEntry>.toFileItems(): List<FileItem<DiffEntry>> {
+internal fun List<DiffEntry>.toFileItems(untracked: Set<String> = emptySet()): List<FileItem<DiffEntry>> {
     val keyCounts = HashMap<String, Int>()
 
     return map { entry ->
@@ -241,6 +241,7 @@ internal fun List<DiffEntry>.toFileItems(): List<FileItem<DiffEntry>> {
             path = path,
             kind = entry.changeKind,
             renamedFrom = entry.renamedFrom,
+            isUntracked = entry.newPath in untracked,
         )
     }
 }

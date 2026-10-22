@@ -27,6 +27,8 @@ data class LogComparison(
     val aCommit: String? = null,
     val bCommit: String? = null,
     val selectedName: String? = null,
+    /** B is the working tree (7.2), which the uncommitted changes' row stands for, rather than a commit's. */
+    val workingTreeIsB: Boolean = false,
 ) {
     val isComparing: Boolean get() = aCommit != null
 
@@ -43,11 +45,11 @@ internal fun commitRowClick(commit: Commit, isStash: Boolean, isCompareClick: Bo
     if (isCompareClick) LogAction.CommitPicked(commit, isStash) else LogAction.CommitSelected(commit, isStash)
 
 /**
- * A click on the uncommitted changes' row. ⌘-click leaves a comparison as it is, as comparing with the working tree
- * comes later; otherwise the row is selected, which ends a comparison.
+ * A click on the uncommitted changes' row: ⌘-click compares the working tree with the selection, or makes it B while
+ * comparing (7.2); a plain click selects the row, which ends a comparison.
  */
-internal fun uncommittedRowClick(isCompareClick: Boolean, isComparing: Boolean): LogAction? =
-    if (isCompareClick && isComparing) null else LogAction.UncommittedChangesSelected
+internal fun uncommittedRowClick(isCompareClick: Boolean): LogAction =
+    if (isCompareClick) LogAction.UncommittedChangesPicked else LogAction.UncommittedChangesSelected
 
 /** Given by `Log`, so that upstream's composables between it and the rows don't change. */
 val LocalLogComparison = compositionLocalOf { LogComparison() }

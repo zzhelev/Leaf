@@ -11,7 +11,11 @@ sealed class DiffType {
     abstract val filePath: String
     abstract val statusType: StatusType
 
-    data class CommitDiff(val diffEntry: DiffEntry) : DiffType() {
+    /**
+     * Two versions read by blob id, as a commit's file. Fork-only: with [readsWorkingTree], the new side is the file on
+     * disk, for a comparison with the working tree (`docs/fork/compare.md`, 7.2), which has no blob for it.
+     */
+    data class CommitDiff(val diffEntry: DiffEntry, val readsWorkingTree: Boolean = false) : DiffType() {
         override val filePath: String
             get() = diffEntry.filePath
 

@@ -916,6 +916,12 @@ class RepositoryOpenViewModel @Inject constructor(
             return
         }
 
+        // Fork-only: the row and the working tree, with the uncommitted changes selected (7.2)
+        if (selectedItem.value == SelectedItem.UncommittedChanges) {
+            compareWithWorkingTree(picked.side)
+            return
+        }
+
         val selected = selectedSide()
 
         if (selected == null || selected.side.commit == commit.hash) {
@@ -937,6 +943,42 @@ class RepositoryOpenViewModel @Inject constructor(
 
         comparisonViewModelExtender.compareWithCurrent(currentSide, other)
     }
+
+    /** The working tree as a comparison's side (7.2): on the current branch, or a detached HEAD's commit. */
+    private fun workingTreeSide(): CompareSide.WorkingTree? {
+        val current = logState.value.currentBranch ?: return null
+
+        return CompareSide.WorkingTree(current.hash, branch = current.name.takeIf { it != Constants.HEAD })
+    }
+
+    /** Compares [side] with the working tree, from a menu or ⌘-click (`docs/fork/compare.md`, 7.2). */
+    private fun compareWithWorkingTree(side: CompareSide) {
+        val workingTree = workingTreeSide() ?: return
+
+        comparisonViewModelExtender.compareWithWorkingTree(side, workingTree)
+    }
+
+    /**
+     * ⌘-click on the uncommitted changes' row: compares the working tree with what is selected, or, while comparing, makes
+     * it B or drops it. With nothing to compare it with, it selects the row, as a click does.
+     */
+    private fun pickUncommittedChanges() {
+        val workingTree = workingTreeSide()
+        val selected = selectedSide()
+
+        when {
+            workingTree == null -> selectUncommittedChanges()
+            comparisonState.value != null -> comparisonViewModelExtender.pickWorkingTree(workingTree)
+            selected != null -> comparisonViewModelExtender.compareWithWorkingTree(selected.side, workingTree)
+            else -> selectUncommittedChanges()
+        }
+    }
+
+    /** A branch's "Compare with working tree". */
+    fun compareBranchWithWorkingTree(branch: Branch) = compareWithWorkingTree(CompareSide.Branch(branch.name, branch.hash))
+
+    /** A tag's "Compare with working tree": the tagged commit, named by the tag. */
+    fun compareTagWithWorkingTree(tag: Tag) = compareWithWorkingTree(CompareSide.Commit(tag.commitHash, tag = tag.name))
 
     /** The tab's current branch as a comparison's side, or its detached HEAD's commit. */
     private fun currentSide(): CompareSide? {
@@ -1494,6 +1536,8 @@ class RepositoryOpenViewModel @Inject constructor(
             is LogAction.RebaseInteractive -> rebaseInteractive(action.commit)
             is LogAction.RevertCommit -> revertCommit(action.commit)
             LogAction.UncommittedChangesSelected -> selectUncommittedChanges()
+            LogAction.UncommittedChangesPicked -> pickUncommittedChanges()
+            is LogAction.CompareWithWorkingTree -> compareWithWorkingTree(sideOfRow(action.commit))
             LogAction.ShowStatusAmending -> selectUncommittedChanges(forceAmend = true)
             is LogAction.SearchValueChange -> onSearchValueChanged(action.filter)
             is LogAction.ToggleColumn -> updateLogColumns { it.toggled(action.column) }

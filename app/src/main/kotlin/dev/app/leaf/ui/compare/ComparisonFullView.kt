@@ -237,7 +237,8 @@ private fun FullViewHeader(
 
             Text(text = "→", color = MaterialTheme.colors.onBackgroundSecondary, style = MaterialTheme.typography.body2)
 
-            FullSide(CompareLetter.B, state.target.b, state.bCommit, subjectOf(state.bCommit))
+            // The working tree has no subject: its line says what it's on
+            FullSide(CompareLetter.B, state.target.b, state.bCommit, subjectOf(state.bCommit).takeIf { !state.bIsWorkingTree })
         }
 
         if (state.showsModeSwitch) {
@@ -245,11 +246,14 @@ private fun FullViewHeader(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            HeaderButton(
-                icon = Res.drawable.compare_arrows,
-                description = stringResource(Res.string.compare_swap),
-                onClick = { onAction(ComparisonAction.Swap) },
-            )
+            // The working tree stays B
+            if (!state.bIsWorkingTree) {
+                HeaderButton(
+                    icon = Res.drawable.compare_arrows,
+                    description = stringResource(Res.string.compare_swap),
+                    onClick = { onAction(ComparisonAction.Swap) },
+                )
+            }
 
             HeaderButton(
                 icon = Res.drawable.fullscreen_exit,
@@ -392,7 +396,14 @@ private fun SideLabels(state: ComparisonState, isSplit: Boolean) {
                 CommitLabel(shownCommit.shortHash)
             }
         } else {
-            SideLabelsContent(state.aName, state.aCommit, state.bName, state.bCommit, isSplit)
+            // The working tree's side is the files on disk, not HEAD's commit
+            SideLabelsContent(
+                aName = state.aName,
+                aCommit = state.aCommit,
+                bName = sideName(state.target.b),
+                bCommit = if (state.bIsWorkingTree) "" else state.bCommit,
+                isSplit = isSplit,
+            )
         }
     }
 }

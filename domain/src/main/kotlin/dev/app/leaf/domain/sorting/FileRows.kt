@@ -47,6 +47,8 @@ data class FileItem<out T>(
     val path: String,
     val kind: FileChangeKind,
     val renamedFrom: RenamedFrom? = null,
+    /** Fork-only: a new file that git doesn't track yet, in a comparison with the working tree. */
+    val isUntracked: Boolean = false,
 ) {
     val fileName: String = path.substringAfterLast('/')
 

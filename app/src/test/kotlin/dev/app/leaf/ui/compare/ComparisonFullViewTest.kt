@@ -251,6 +251,21 @@ class ComparisonFullViewTest {
     }
 
     @Test
+    fun `with the working tree as B, its label names it without HEAD's commit, and there is no swap`() {
+        val workingTree = CompareSide.WorkingTree("7d03f51a", branch = "refs/heads/feat/clone-picker")
+        state = state().copy(target = ComparisonTarget(main, workingTree))
+        shown = files[1]
+        render()
+
+        assertTrue("Working tree" in texts(), texts().toString())
+        assertFalse(texts().any { it.startsWith("Working tree ·") }, texts().toString())
+        assertFalse(nodes().any { "Swap A and B" in it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty() })
+        // Its line says what it's on, with no commit's subject
+        assertTrue("feat/clone-picker, uncommitted" in texts(), texts().toString())
+        assertFalse(nodes().any { "Add Choose… to the clone dialog" in it.texts() && it.boundsInWindow.top < 46f }, "a subject in the header")
+    }
+
+    @Test
     fun `renders the full view in both themes, to look at`() {
         val folder = System.getenv("LEAF_RENDER_DIR")?.let(::File) ?: return
         folder.mkdirs()

@@ -32,6 +32,8 @@ fun branchContextMenuItems(
     onCompareWithCurrent: (() -> Unit)? = null,
     // Fork-only: compares the branch with a branch, tag or commit picked from a list
     onCompareWith: (() -> Unit)? = null,
+    // Fork-only: compares the branch with the files on disk
+    onCompareWithWorkingTree: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -73,13 +75,17 @@ fun branchContextMenuItems(
         // Fork-only: the current branch compares with another too
         val compareWithCurrent = onCompareWithCurrent?.takeIf { !isCurrentBranch && currentBranch != null }
 
-        if (compareWithCurrent != null || onCompareWith != null) {
+        if (compareWithCurrent != null || onCompareWith != null || onCompareWithWorkingTree != null) {
             if (compareWithCurrent != null && currentBranch != null) {
                 addCompareWithCurrent(currentBranch, compareWithCurrent)
             }
 
             if (onCompareWith != null) {
                 addCompareWith(onCompareWith)
+            }
+
+            if (onCompareWithWorkingTree != null) {
+                addCompareWithWorkingTree(onCompareWithWorkingTree)
             }
 
             add(ContextMenuElement.ContextSeparator)

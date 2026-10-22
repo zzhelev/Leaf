@@ -15,6 +15,7 @@ import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitFromHashGitAction
 import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
+import dev.app.leaf.domain.interfaces.IGetWorkingTreeComparisonGitAction
 import dev.app.leaf.domain.interfaces.IResolveCommitGitAction
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
@@ -39,9 +40,12 @@ import dev.app.leaf.domain.models.WorktreeList
 import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.CloseableView
+import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
+import dev.app.leaf.domain.usecases.DataToRefresh
 import dev.app.leaf.domain.usecases.GetComparisonUseCase
+import dev.app.leaf.domain.usecases.GetWorkingTreeComparisonUseCase
 import dev.app.leaf.domain.usecases.ResolveCommitUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -116,6 +120,27 @@ class ComparisonViewModelExtenderTest {
     private val revisions = ConcurrentHashMap<String, Commit>()
     private val resolved = Collections.synchronizedList(mutableListOf<String>())
 
+    /** The working tree comparisons that git was asked for: A and the mode. */
+    private val comparedWithWorkingTree = Collections.synchronizedList(mutableListOf<Pair<String, ComparisonMode>>())
+
+    /** How the working tree's HEAD relates to A, by A's revision. Diverged unless set. */
+    private val workingTreeRelations = ConcurrentHashMap<String, ComparisonRelation>()
+
+    private val workingTreeAction = object : IGetWorkingTreeComparisonGitAction {
+        override suspend fun invoke(repositoryPath: String, a: String, mode: ComparisonMode): Either<Comparison, GitError> {
+            comparedWithWorkingTree += a to mode
+            val relation = workingTreeRelations[a] ?: DIVERGED
+
+            return Either.Ok(
+                comparison(a, "HEAD", mode, subjects = listOf("Feature work")).copy(
+                    relation = relation,
+                    changes = listOf(addedEntry("untracked.txt"), modifiedEntry("a.txt")),
+                    untrackedPaths = setOf("untracked.txt"),
+                )
+            )
+        }
+    }
+
     private val resolveAction = object : IResolveCommitGitAction {
         override suspend fun invoke(repositoryPath: String, revision: String): Either<Commit?, GitError> {
             resolved += revision
@@ -156,11 +181,13 @@ class ComparisonViewModelExtenderTest {
     private val diffSelected = MutableStateFlow<DiffSelected?>(null)
     private val diffsCleared = AtomicInteger()
     private val closeableViews = Collections.synchronizedList(mutableListOf<CloseableView>())
-    private val useCaseExecutor =
-        UseCaseExecutor(repositoryData, InMemoryRepositoryStateRepository(), Provider { error("No refresh") }, tabScope)
+    private val repositoryState = InMemoryRepositoryStateRepository()
+    private val useCaseExecutor = UseCaseExecutor(repositoryData, repositoryState, Provider { error("No refresh") }, tabScope)
 
     private val extender = ComparisonViewModelExtender(
         getComparisonUseCase = GetComparisonUseCase(gitAction, useCaseExecutor),
+        getWorkingTreeComparisonUseCase = GetWorkingTreeComparisonUseCase(workingTreeAction, useCaseExecutor),
+        repositoryStateRepository = repositoryState,
         getCommitDiffEntriesUseCase = GetCommitDiffEntriesUseCase(
             commitDiffAction,
             object : IGetCommitFromHashGitAction {
@@ -198,6 +225,7 @@ class ComparisonViewModelExtenderTest {
         setBranches(agent1Hash = "a1")
         repositoryData.updateRemotes(gitDir) { Either.Ok(emptyList()) }
         repositoryData.updateTags(gitDir) { Either.Ok(listOf(Tag("t1", "t1-object", "refs/tags/v1.0"))) }
+        repositoryData.updateCurrentBranch(gitDir) { Either.Ok(Branch("a1", "refs/heads/agent1", isLocal = true)) }
         repositoryData.updateWorktrees(gitDir) {
             Either.Ok(
                 WorktreeList(
@@ -942,6 +970,102 @@ class ComparisonViewModelExtenderTest {
 
         assertNull(extender.state.value!!.picker)
         assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
+    }
+
+    // The working tree (7.2)
+
+    private val workingTree = CompareSide.WorkingTree("a1", branch = "refs/heads/agent1")
+
+    @Test
+    fun `a branch compared with the working tree reads it as B, since they split, with its untracked files`(): Unit =
+        runBlocking {
+            extender.compareWithWorkingTree(mainSide.side, workingTree)
+            val state = loaded()
+
+            assertEquals(listOf("refs/heads/main" to SINCE_SPLIT), comparedWithWorkingTree.toList())
+            assertEquals(emptyList<Triple<String, String, ComparisonMode>>(), compared.toList())
+            assertTrue(state.bIsWorkingTree)
+            assertEquals("main", state.aName)
+            assertEquals(
+                mapOf("a.txt" to false, "untracked.txt" to true),
+                state.rows.associate { (it as FileRow.File).file.path to it.file.isUntracked },
+            )
+
+            // Its files' diffs read the disk
+            extender.onAction(ComparisonAction.SelectEntry(state.files[0]))
+            assertTrue((diffSelected.value as DiffSelected.CommitedChanges).items.single().readsWorkingTree)
+        }
+
+    @Test
+    fun `the working tree stays B, and with A ahead of HEAD both modes show`(): Unit = runBlocking {
+        workingTreeRelations["refs/heads/main"] = B_IS_ANCESTOR
+        extender.compareWithWorkingTree(mainSide.side, workingTree)
+        val state = loaded()
+        delay(200.milliseconds)
+
+        // No turning around, no second read in the other mode, and the switch
+        assertEquals(listOf("refs/heads/main" to SINCE_SPLIT), comparedWithWorkingTree.toList())
+        assertEquals("main", state.aName)
+        assertTrue(state.showsModeSwitch)
+
+        extender.onAction(ComparisonAction.Swap)
+        delay(200.milliseconds)
+        assertTrue(extender.state.value!!.bIsWorkingTree)
+
+        extender.onAction(ComparisonAction.SetMode(ALL))
+        withTimeout(5.seconds) { extender.state.first { it?.mode == ALL && !it.isLoading } }
+        assertEquals("refs/heads/main" to ALL, comparedWithWorkingTree.last())
+    }
+
+    @Test
+    fun `a status refresh reads the working tree again, and other refreshes don't`(): Unit = runBlocking {
+        extender.compareWithWorkingTree(older.side, workingTree)
+        loaded()
+        assertEquals(1, comparedWithWorkingTree.size)
+
+        repositoryState.refreshTriggered(listOf(DataToRefresh.LOG))
+        delay(200.milliseconds)
+        assertEquals(1, comparedWithWorkingTree.size)
+
+        repositoryState.refreshTriggered(listOf(DataToRefresh.STATUS))
+        withTimeout(5.seconds) { while (comparedWithWorkingTree.size < 2) delay(10.milliseconds) }
+
+        repositoryState.refreshTriggered(listOf(DataToRefresh.ALL))
+        withTimeout(5.seconds) { while (comparedWithWorkingTree.size < 3) delay(10.milliseconds) }
+    }
+
+    @Test
+    fun `cmd-click on the uncommitted changes makes the working tree B, and again drops it`(): Unit = runBlocking {
+        extender.comparePicked(older, newer)
+        loaded()
+
+        extender.pickWorkingTree(workingTree)
+        val withWorkingTree = withTimeout(5.seconds) { extender.state.first { it?.bIsWorkingTree == true && !it.isLoading } }!!
+        assertEquals("c1", withWorkingTree.aCommit)
+
+        // HEAD's row isn't B: cmd-click on it replaces B
+        extender.pick(PickedSide(CompareSide.Commit("a1"), date = 500))
+        withTimeout(5.seconds) { extender.state.first { it?.target?.b == CompareSide.Commit("a1") } }
+
+        extender.pickWorkingTree(workingTree)
+        withTimeout(5.seconds) { extender.state.first { it?.bIsWorkingTree == true } }
+        extender.pickWorkingTree(workingTree)
+
+        withTimeout(5.seconds) { extender.state.first { it == null } }
+        assertEquals(selected("c1"), selectedItem.value)
+    }
+
+    @Test
+    fun `dropping A of a comparison with the working tree selects the uncommitted changes`(): Unit = runBlocking {
+        // Not what was selected before
+        selectedItem.value = selected("c0")
+        extender.compareWithWorkingTree(older.side, workingTree)
+        loaded()
+
+        extender.pick(PickedSide(older.side, older.date))
+
+        withTimeout(5.seconds) { extender.state.first { it == null } }
+        assertEquals(SelectedItem.UncommittedChanges, selectedItem.value)
     }
 
     private fun shownDiff(): DiffEntry? =

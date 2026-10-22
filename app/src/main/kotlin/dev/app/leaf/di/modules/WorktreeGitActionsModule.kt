@@ -6,6 +6,7 @@ package dev.app.leaf.di.modules
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.branches.CheckBranchNameGitAction
 import dev.app.leaf.data.git.compare.GetComparisonGitAction
+import dev.app.leaf.data.git.compare.GetWorkingTreeComparisonGitAction
 import dev.app.leaf.data.git.compare.ResolveCommitGitAction
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeBaseBranchGitAction
@@ -37,6 +38,7 @@ import dev.app.leaf.domain.interfaces.IGetBranchMergedGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommonGitDirGitAction
 import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
+import dev.app.leaf.domain.interfaces.IGetWorkingTreeComparisonGitAction
 import dev.app.leaf.domain.interfaces.IResolveCommitGitAction
 import dev.app.leaf.domain.interfaces.IGetMergedIntoBaseGitAction
 import dev.app.leaf.domain.interfaces.IGetOtherWorktreeHeadsGitAction
@@ -141,6 +143,10 @@ interface WorktreeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetComparisonGitAction(action: GetComparisonGitAction): IGetComparisonGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetWorkingTreeComparisonGitAction(action: GetWorkingTreeComparisonGitAction): IGetWorkingTreeComparisonGitAction
 
     @Binds
     @TabScope

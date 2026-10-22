@@ -72,11 +72,9 @@ class LogComparisonTest {
     }
 
     @Test
-    fun `a compare click on the uncommitted changes leaves a comparison as it is`() {
-        assertNull(uncommittedRowClick(isCompareClick = true, isComparing = true))
-        assertEquals(LogAction.UncommittedChangesSelected, uncommittedRowClick(isCompareClick = false, isComparing = true))
-        assertEquals(LogAction.UncommittedChangesSelected, uncommittedRowClick(isCompareClick = true, isComparing = false))
-        assertEquals(LogAction.UncommittedChangesSelected, uncommittedRowClick(isCompareClick = false, isComparing = false))
+    fun `a compare click on the uncommitted changes picks the working tree, a plain click selects them`() {
+        assertEquals(LogAction.UncommittedChangesPicked, uncommittedRowClick(isCompareClick = true))
+        assertEquals(LogAction.UncommittedChangesSelected, uncommittedRowClick(isCompareClick = false))
     }
 
     @Test

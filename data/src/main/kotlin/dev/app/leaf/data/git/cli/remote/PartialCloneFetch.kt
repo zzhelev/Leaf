@@ -283,7 +283,8 @@ internal fun Throwable.missingObjectError(): MissingObjectError? {
 
 /** Both versions of a commit's file, which its diff reads. Uncommitted files are in the clone. */
 internal fun DiffType.blobIds(): List<ObjectId> = when (this) {
-    is DiffType.CommitDiff -> listOf(diffEntry.oldId, diffEntry.newId)
+    // Fork-only: the new side of a comparison with the working tree is a file on disk, which has no blob
+    is DiffType.CommitDiff -> listOfNotNull(diffEntry.oldId, diffEntry.newId.takeIf { !readsWorkingTree })
         .filter { it.isComplete }
         .map { it.toObjectId() }
         .filter { it != ObjectId.zeroId() }

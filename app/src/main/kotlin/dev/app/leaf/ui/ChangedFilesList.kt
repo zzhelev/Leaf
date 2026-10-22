@@ -4,6 +4,8 @@
 package dev.app.leaf.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -45,6 +47,8 @@ import dev.app.leaf.app.generated.resources.files_changed_column_directory
 import dev.app.leaf.app.generated.resources.files_changed_column_file
 import dev.app.leaf.app.generated.resources.files_changed_renamed_from_similar
 import dev.app.leaf.app.generated.resources.files_changed_renamed_from_unchanged
+import dev.app.leaf.app.generated.resources.files_changed_untracked
+import dev.app.leaf.app.generated.resources.files_changed_untracked_tooltip
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FileSortKey
 import dev.app.leaf.domain.sorting.FilesViewMode
@@ -299,9 +303,17 @@ fun <T> ChangedFilesList(
                         },
                     ) {
                         // Where a renamed file came from, right after its name: the directory, which is long and which
-                        // the pane often can't fit, is what gives way to it
-                        val renamedHint: (@Composable RowScope.() -> Unit)? = row.file.renamedFrom?.let { from ->
-                            { RenamedFromHint(from, row.file.path) }
+                        // the pane often can't fit, is what gives way to it. Fork-only: and that git doesn't track a
+                        // file yet, in a comparison with the working tree
+                        val renamedFrom = row.file.renamedFrom
+                        val isUntracked = row.file.isUntracked
+                        val renamedHint: (@Composable RowScope.() -> Unit)? = if (renamedFrom == null && !isUntracked) {
+                            null
+                        } else {
+                            {
+                                if (renamedFrom != null) RenamedFromHint(renamedFrom, row.file.path)
+                                if (isUntracked) UntrackedTag(Modifier.padding(start = if (renamedFrom != null) 6.dp else 0.dp))
+                            }
                         }
 
                         when (viewState.viewMode) {
@@ -686,6 +698,23 @@ private fun RowScope.RenamedFromHint(renamedFrom: RenamedFrom, path: String) {
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.body2,
             color = MaterialTheme.colors.onBackground.copy(alpha = 0.75f),
+        )
+    }
+}
+
+/** "untracked" after the name of a new file that git doesn't track yet (fork-only, `docs/fork/compare.md`, 7.2). */
+@Composable
+private fun UntrackedTag(modifier: Modifier = Modifier) {
+    DelayedTooltip(text = stringResource(Res.string.files_changed_untracked_tooltip), modifier = modifier) {
+        Text(
+            text = stringResource(Res.string.files_changed_untracked),
+            maxLines = 1,
+            softWrap = false,
+            style = MaterialTheme.typography.caption,
+            color = MaterialTheme.colors.onBackgroundSecondary,
+            modifier = Modifier
+                .border(1.dp, MaterialTheme.colors.onBackground.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                .padding(horizontal = 4.dp),
         )
     }
 }

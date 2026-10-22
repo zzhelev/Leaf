@@ -2,6 +2,35 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## More ways to compare: a commit's own changes, two versions in file history, any ref, the working tree (2026-10-22)
+
+The four "not yet" items of the comparison below, option a of each from mockups (`Compare Step 7.dc.html`), chosen with
+the user.
+
+- **A commit's own changes inside a comparison:** a click on a commit in the comparison's commit lists shows that commit's
+  changes (against its first parent) in place of the comparison's, under a strip "Changes of e701c86 · 2 of 5" with ‹ ›
+  and "All changes". A second click and Esc go back. In the full view, the parent and the commit name the diff's sides.
+  An open diff follows the file list when it changes, and a file whose versions didn't change keeps its diff, scroll
+  included, when the comparison is read again.
+- **Two versions of a file in file history:** ⌘-click a second row, or "Compare with selected" in a row's menu. The older
+  row is A, the newer B, with badges on both rows and a strip above the diff, swap and "Back to one commit". The same
+  version in both says so. A click or the arrows go back to one commit; Esc too, before it closes file history.
+- **Any branch, tag or commit:** A's and B's names in the comparison pane open a list of the tab's branches, tags and
+  remote branches, filtered as you type; a hash or a revision such as `HEAD~2` shows as a commit. "Compare with…" in the
+  commit, branch and tag menus, and "Compare…" in the Actions list, open the pane with that ref, or the current branch, as
+  A and B's list open. Nothing asks a remote.
+- **The working tree:** ⌘-click between a row and "Uncommitted changes", or "Compare with working tree" in the menus,
+  compares with the files on disk, uncommitted changes and untracked files included (tagged "untracked"; ignored files and
+  folders left out). The working tree is always B, its row in the log gets the B badge, and it reads again as files
+  change. Since they split shows what the branch and its uncommitted work would bring into A.
+- **Later:** a worktree's review with its uncommitted changes, a pinned base in file history, and "Compare with working
+  tree" in file history.
+- Tests: the file between two commits, the working tree comparison (on a twin copy with everything added, against
+  `git diff --cached` and `git ls-files --others`) and revisions against git; the view models with fake git actions; the
+  pane, the full view, file history and the menus rendered. 51 mutations, each caught by a named test.
+- Details: CLAUDE.md, "Comparing two commits or branches" and "File history's two versions", and `docs/fork/compare.md`,
+  step 7.
+
 ## Fold the changes pane away: a bottom bar button, Ctrl or Cmd+Shift+C, and the Actions list (2026-10-22)
 
 - **Request:** after the branches pane's fold (next entry), the same for the right-hand panes, "Staged, Unstaged and the commit

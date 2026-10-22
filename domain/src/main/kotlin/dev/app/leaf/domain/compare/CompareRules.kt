@@ -31,6 +31,18 @@ sealed interface CompareSide {
         override val revision: String get() = commit
         override val name: String get() = tag?.let { Repository.shortenRefName(it) } ?: commit.take(7)
     }
+
+    /**
+     * The working tree (7.2): the files on disk, with what isn't committed yet, as `git diff A` compares them. [commit]
+     * is HEAD's, and [branch] the branch checked out (a full ref), or null for a detached HEAD. It's always B.
+     */
+    data class WorkingTree(override val commit: String, val branch: String?) : CompareSide {
+        override val revision: String get() = Constants.HEAD
+        override val name: String get() = "Working tree"
+
+        /** The branch checked out, or the commit of a detached HEAD, which the working tree is on. */
+        val onName: String get() = branch?.let { Repository.shortenRefName(it) } ?: commit.take(7)
+    }
 }
 
 /**
@@ -73,12 +85,26 @@ fun inPickedOrder(
  */
 val ComparisonRelation.putsAncestorFirst: Boolean get() = this == ComparisonRelation.B_IS_ANCESTOR
 
-/** The mode a comparison starts in: since they split when both sides are branches, all differences otherwise. */
+/**
+ * The mode a comparison starts in: since they split when both sides are branches, all differences otherwise. The working
+ * tree counts as its branch: against a branch, since they split is what it and its uncommitted work would bring.
+ */
 fun defaultMode(a: CompareSide, b: CompareSide): ComparisonMode =
-    if (a is CompareSide.Branch && b is CompareSide.Branch) ComparisonMode.SINCE_SPLIT else ComparisonMode.ALL
+    if (a is CompareSide.Branch && (b is CompareSide.Branch || b is CompareSide.WorkingTree)) {
+        ComparisonMode.SINCE_SPLIT
+    } else {
+        ComparisonMode.ALL
+    }
 
 /** The switch between the two modes shows only for sides that diverged: otherwise there is one answer. */
 val ComparisonRelation.showsModeSwitch: Boolean get() = this == ComparisonRelation.DIVERGED
+
+/**
+ * The switch, when B is the working tree (7.2), whose relation is HEAD's: when A has commits that HEAD lacks, since they
+ * split is the uncommitted work alone, and all differences shows A's newer commits as undone too.
+ */
+fun ComparisonRelation.showsModeSwitch(bIsWorkingTree: Boolean): Boolean =
+    showsModeSwitch || (bIsWorkingTree && this == ComparisonRelation.B_IS_ANCESTOR)
 
 /**
  * The mode a comparison of sides in this relation shows, when [chosen] is asked for. Since they split needs history of
@@ -89,6 +115,13 @@ fun ComparisonRelation.modeToShow(chosen: ComparisonMode): ComparisonMode = when
     ComparisonRelation.SAME, ComparisonRelation.A_IS_ANCESTOR, ComparisonRelation.DIVERGED -> chosen
     ComparisonRelation.B_IS_ANCESTOR, ComparisonRelation.UNRELATED -> ComparisonMode.ALL
 }
+
+/**
+ * [modeToShow], when B is the working tree: HEAD being A's ancestor still leaves the uncommitted changes since they
+ * split, so the mode stays the one chosen. Without a merge base, all differences, as for any comparison.
+ */
+fun ComparisonRelation.modeToShow(chosen: ComparisonMode, bIsWorkingTree: Boolean): ComparisonMode =
+    if (bIsWorkingTree && this == ComparisonRelation.B_IS_ANCESTOR) chosen else modeToShow(chosen)
 
 /** The relation once A and B change places. */
 val ComparisonRelation.swapped: ComparisonRelation

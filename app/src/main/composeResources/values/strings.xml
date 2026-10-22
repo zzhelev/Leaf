@@ -186,6 +186,8 @@
     <string name="files_changed_column_file">File</string>
     <string name="files_changed_column_directory">Directory</string>
     <string name="files_changed_renamed_from_unchanged">Renamed from %1$s (content unchanged)</string>
+    <string name="files_changed_untracked">untracked</string>
+    <string name="files_changed_untracked_tooltip">A new file that git doesn't track yet</string>
     <string name="files_changed_renamed_from_similar">Renamed from %1$s (%2$s similar)</string>
     <string name="diff_renamed_unchanged">Renamed from %1$s. The content is unchanged.</string>
     <string name="diff_renamed_similar">%1$s similar</string>
@@ -663,6 +665,24 @@
     <string name="compare_change_side">Compare another branch, tag or commit as %1$s</string>
     <string name="compare_pending">Choose what to compare %1$s with.</string>
     <string name="compare_with_any">Compare with…</string>
+    <string name="compare_with_working_tree">Compare with working tree</string>
+    <string name="compare_working_tree">Working tree</string>
+    <string name="compare_working_tree_on">%1$s, uncommitted</string>
+    <string name="compare_and_uncommitted">and the uncommitted changes</string>
+    <plurals name="compare_wt_since_split_line">
+        <item quantity="one">What %1$s and its uncommitted changes would bring into %2$s. %2$s's %3$d newer commit is left out.</item>
+        <item quantity="other">What %1$s and its uncommitted changes would bring into %2$s. %2$s's %3$d newer commits are left out.</item>
+    </plurals>
+    <plurals name="compare_wt_all_line">
+        <item quantity="one">Every difference between %1$s and the files on disk. %1$s's %2$d newer commit shows as if undone.</item>
+        <item quantity="other">Every difference between %1$s and the files on disk. %1$s's %2$d newer commits show as if undone.</item>
+    </plurals>
+    <string name="compare_wt_note_same">The working tree is on %1$s, so this shows its uncommitted changes.</string>
+    <plurals name="compare_wt_note_a_is_ancestor">
+        <item quantity="one">%1$s has %3$d commit that %2$s lacks, then the uncommitted changes.</item>
+        <item quantity="other">%1$s has %3$d commits that %2$s lacks, then the uncommitted changes.</item>
+    </plurals>
+    <string name="compare_wt_note_unrelated">%1$s and the working tree share no commit, so this shows every difference between them.</string>
     <string name="quick_actions_compare">Compare…</string>
     <plurals name="file_history_versions_apart">
         <item quantity="one">· %1$d commit apart</item>

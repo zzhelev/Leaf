@@ -17,6 +17,8 @@ fun tagContextMenuItems(
     onCompareWithCurrent: (() -> Unit)? = null,
     // Fork-only: compares the tagged commit with a branch, tag or commit picked from a list
     onCompareWith: (() -> Unit)? = null,
+    // Fork-only: compares the tagged commit with the files on disk
+    onCompareWithWorkingTree: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>(
         ContextMenuElement.ContextTextEntry(
@@ -27,7 +29,7 @@ fun tagContextMenuItems(
     ).apply {
         val compareWithCurrent = onCompareWithCurrent?.takeIf { currentBranch != null }
 
-        if (compareWithCurrent != null || onCompareWith != null) {
+        if (compareWithCurrent != null || onCompareWith != null || onCompareWithWorkingTree != null) {
             add(ContextMenuElement.ContextSeparator)
 
             if (compareWithCurrent != null && currentBranch != null) {
@@ -36,6 +38,10 @@ fun tagContextMenuItems(
 
             if (onCompareWith != null) {
                 addCompareWith(onCompareWith)
+            }
+
+            if (onCompareWithWorkingTree != null) {
+                addCompareWithWorkingTree(onCompareWithWorkingTree)
             }
 
             add(ContextMenuElement.ContextSeparator)

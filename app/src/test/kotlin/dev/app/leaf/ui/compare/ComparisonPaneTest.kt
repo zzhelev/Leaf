@@ -509,6 +509,71 @@ class ComparisonPaneTest {
         assertTrue(described("End the comparison (Esc)").boundsInWindow.right <= width)
     }
 
+    // The working tree (7.2)
+
+    private val workingTree = CompareSide.WorkingTree("7d03f51a", branch = "refs/heads/feat/clone-picker")
+
+    @Test
+    fun `the working tree as B is named by what it's on, can't be swapped, and its commits go on with the uncommitted changes`() {
+        state = state(DIVERGED, SINCE_SPLIT, b = workingTree)
+        render()
+
+        assertEquals(listOf("B", "Working tree", "feat/clone-picker, uncommitted"), row("Working tree").texts())
+        assertFalse(nodes().any { "Swap A and B" in it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty() })
+        assertTrue(described("Open the full view").boundsInWindow.right <= width)
+        assertTrue("and the uncommitted changes" in texts(), texts().toString())
+        assertTrue(
+            "What feat/clone-picker and its uncommitted changes would bring into main. main's 4 newer commits are left out." in texts(),
+            texts().toString(),
+        )
+
+        state = state(DIVERGED, ALL, b = workingTree)
+        settle()
+
+        assertTrue(
+            "Every difference between main and the files on disk. main's 4 newer commits show as if undone." in texts(),
+            texts().toString(),
+        )
+    }
+
+    @Test
+    fun `the working tree's notes, by how HEAD meets A`() {
+        state = state(SAME, ALL, onlyInB = emptyList(), onlyInA = emptyList(), b = workingTree)
+        render()
+        assertTrue("The working tree is on main, so this shows its uncommitted changes." in texts(), texts().toString())
+
+        state = state(A_IS_ANCESTOR, SINCE_SPLIT, onlyInA = emptyList(), b = workingTree)
+        settle()
+        assertTrue("feat/clone-picker has 2 commits that main lacks, then the uncommitted changes." in texts(), texts().toString())
+
+        // A ahead of HEAD: since they split is the uncommitted changes alone, and the switch shows
+        state = state(B_IS_ANCESTOR, SINCE_SPLIT, onlyInB = emptyList(), b = workingTree)
+        settle()
+        assertTrue(tab("Since they split").isSelected())
+        assertTrue(
+            "What feat/clone-picker and its uncommitted changes would bring into main. main's 4 newer commits are left out." in texts(),
+            texts().toString(),
+        )
+
+        state = state(UNRELATED, ALL, b = workingTree)
+        settle()
+        assertTrue("main and the working tree share no commit, so this shows every difference between them." in texts(), texts().toString())
+    }
+
+    @Test
+    fun `a new file that git doesn't track yet is tagged untracked`() {
+        val untracked = file("domain/src/test/kotlin/dev/app/leaf/domain/RemoteRefsTest.kt", DiffEntry.ChangeType.ADD)
+        val files = featureFiles + untracked
+        state = state(DIVERGED, SINCE_SPLIT, files = files, b = workingTree).copy(
+            rows = buildFileRows(files = files.toFileItems(untracked = setOf(untracked.newPath)), state = FilesViewState(), isCollapsed = { false }),
+        )
+        render()
+
+        assertEquals(1, texts().count { it == "untracked" }, texts().toString())
+        // On its own row
+        assertTrue(mergedNodes().any { "RemoteRefsTest.kt" in it.texts() && "untracked" in it.texts() }, mergedNodes().map { it.texts() }.toString())
+    }
+
     @Test
     fun `older commits than the listed ones are counted`() {
         val listed = featureCommits
@@ -545,6 +610,9 @@ class ComparisonPaneTest {
             "review" to state(DIVERGED, SINCE_SPLIT).copy(review = review),
             "commit" to showing(featureCommits[0], position = 1, files = featureFiles.take(2)),
             "picker" to picking(SideToPick.B, text = "v1"),
+            "working-tree" to state(DIVERGED, SINCE_SPLIT, b = workingTree, files = featureFiles).let { wt ->
+                wt.copy(rows = buildFileRows(files = featureFiles.toFileItems(untracked = setOf(featureFiles[0].newPath)), state = FilesViewState(), isCollapsed = { false }))
+            },
         )
 
         for (themeUnderTest in listOf(Theme.Dark, Theme.Light)) {

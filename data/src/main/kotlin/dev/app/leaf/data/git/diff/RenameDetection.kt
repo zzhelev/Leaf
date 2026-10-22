@@ -9,6 +9,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import org.eclipse.jgit.api.errors.CanceledException
+import org.eclipse.jgit.diff.ContentSource
 import org.eclipse.jgit.diff.DiffConfig
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.diff.DiffEntry.ChangeType
@@ -72,6 +73,20 @@ suspend fun Repository.diffWithRenames(
         formatter.setDetectRenames(false)
         formatter.scan(oldTree, newTree)
     }
+
+    return withRenames(entries, timeLimit)
+}
+
+/**
+ * [entries], with the added and deleted files that moved paired as renames, as [diffWithRenames] pairs them. Fork-only:
+ * with [newSource], the new side of the added files is read from there, as the files on disk of a comparison with the
+ * working tree, which have no blobs (`docs/fork/compare.md`, 7.2).
+ */
+suspend fun Repository.withRenames(
+    entries: List<DiffEntry>,
+    timeLimit: Duration = MAX_RENAME_DETECTION_TIME,
+    newSource: ContentSource? = null,
+): List<DiffEntry> {
     val diffConfig = config.get(DiffConfig.KEY)
     val renamesDisabled = config.getString(ConfigConstants.CONFIG_DIFF_SECTION, null, "renames") != null &&
             !diffConfig.isRenameDetectionEnabled
@@ -92,7 +107,7 @@ suspend fun Repository.diffWithRenames(
     val progress = TimeAndCancellation(currentCoroutineContext()[Job], timeLimit)
 
     val renamed = newObjectReader().use { reader ->
-        RenameStages(this, reader, diffConfig, limit, progress, added).run(added + deleted)
+        RenameStages(this, reader, diffConfig, limit, progress, added, newSource).run(added + deleted)
     }
 
     // A cancelled call throws, instead of returning what it had
@@ -108,9 +123,11 @@ private class RenameStages(
     private val limit: Int,
     private val progress: ProgressMonitor,
     added: List<DiffEntry>,
+    private val newSource: ContentSource?,
 ) {
     private val addedByPath = added.associateBy { it.newPath }
-    private val hasBlob: (DiffEntry) -> Boolean = readableBlobs(repository)
+    private val hasBlob: (DiffEntry) -> Boolean = readableBlobs(repository, addedOnDisk = newSource != null)
+    private val sources = ContentSource.create(reader).let { blobs -> ContentSource.Pair(blobs, newSource ?: blobs) }
 
     /** [candidates] (the added and deleted files) with the renames that the stages found. */
     fun run(candidates: List<DiffEntry>): List<DiffEntry> {
@@ -168,7 +185,7 @@ private class RenameStages(
         }
 
         return try {
-            detector.compute(reader, monitor)
+            detector.compute(sources, monitor)
         } catch (e: CanceledException) {
             null
         } catch (e: MissingObjectException) {
@@ -197,7 +214,7 @@ private fun List<DiffEntry>.canPair() = any { it.changeType == ChangeType.ADD } 
  * Whether the repository has a file's blob, which the stages that compare content read. Always, but in a partial
  * clone, where a blob that was never checked out is downloaded when it's needed, and a list isn't a reason.
  */
-private fun readableBlobs(repository: Repository): (DiffEntry) -> Boolean {
+private fun readableBlobs(repository: Repository, addedOnDisk: Boolean): (DiffEntry) -> Boolean {
     if (promisorRemotes(repository).isEmpty()) {
         return { true }
     }
@@ -205,7 +222,9 @@ private fun readableBlobs(repository: Repository): (DiffEntry) -> Boolean {
     return { entry ->
         val id = if (entry.changeType == ChangeType.ADD) entry.newId else entry.oldId
 
-        !id.isComplete || repository.objectDatabase.has(id.toObjectId())
+        // A file on disk is there to read
+        (addedOnDisk && entry.changeType == ChangeType.ADD) ||
+                !id.isComplete || repository.objectDatabase.has(id.toObjectId())
     }
 }
 

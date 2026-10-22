@@ -48,6 +48,7 @@ enum class ComparisonRelation {
  * @param commitsOnlyInB oldest first, the newest [MAX_COMPARED_COMMITS] of them. [countOnlyInB] counts them all.
  * @param commitsOnlyInA the same for A.
  * @param changes by path, with moved files as renames. Empty for [ComparisonMode.SINCE_SPLIT] without a merge base.
+ * @param untrackedPaths when B is the working tree: the new files of [changes] that git doesn't track yet.
  */
 data class Comparison(
     val a: String,
@@ -60,4 +61,5 @@ data class Comparison(
     val commitsOnlyInA: List<Commit>,
     val countOnlyInA: Int,
     val changes: List<DiffEntry>,
+    val untrackedPaths: Set<String> = emptySet(),
 )

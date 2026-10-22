@@ -1270,9 +1270,23 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     tag and shared chip menus, and "Compare…" in the Actions list (from the current branch), start a pending comparison
     (`compareWith`, `ComparisonState.isPending`): A alone and B's list open, nothing read, no swap or full view. Closing
     the list ends it, selecting what was selected before.
-- **Not done** (`docs/fork/compare.md`, step 7, keeps the plans): comparing with the working tree (7.2). Later: a
-  worktree's review with its uncommitted changes (7.2c), a pinned base in file history (7.3b). Enter in the pane's file
-  list opens nothing. Two versions in file history (7.3) are under File history's two versions.
+- **The working tree as B** (step 7.2, 2026-10-22): `CompareSide.WorkingTree` (HEAD's commit, the branch), from
+  ⌘-click between a row and the "Uncommitted changes" row (`LogAction.UncommittedChangesPicked`, `pickWorkingTree`) or
+  "Compare with working tree" in the commit, branch, tag and shared chip menus (`addCompareWithWorkingTree`).
+  - Always B: no swap; its relation is HEAD's, with the uncommitted work B's own, so A ahead of HEAD shows the switch
+    (`showsModeSwitch(bIsWorkingTree)`, `modeToShow(chosen, bIsWorkingTree)`). Since they split by default against a
+    branch. The log badges the uncommitted row (`LogComparison.workingTreeIsB`), not HEAD's, which ⌘-click treats as any
+    other row. Ending on it, or dropping A, selects the uncommitted changes.
+  - `GetWorkingTreeComparisonGitAction` lists HEAD's commits and `workingTreeChanges`: one `TreeWalk` of the old tree,
+    the index and the disk (git's stat cache through `setDirCacheIterator`), leaving out ignored untracked paths and
+    folders, with untracked files in `Comparison.untrackedPaths` (an "untracked" tag in the rows, `FileItem.isUntracked`)
+    and renames through `withRenames(newSource = …)`, which reads added files from disk.
+  - Its diffs are `DiffType.CommitDiff(entry, readsWorkingTree = true)`: `FormatDiffGitAction` gives the formatter an
+    `EmptyTreeIterator` and a `FileTreeIterator`, so the old side is read by blob and the new one from disk. Read-only.
+  - It reads again on each status refresh (`refreshTriggered` with ALL or STATUS) and when HEAD moves (`Tips`).
+- **Not done** (`docs/fork/compare.md`, section 6): a worktree's review with its uncommitted changes (7.2c), a pinned base
+  in file history (7.3b), "Compare with working tree" in file history. Enter in the pane's file list opens nothing. Two
+  versions in file history (7.3) are under File history's two versions.
 - Tests:
   - `CompareRulesTest` (domain): a row's side, the picked order, the ancestor's swap, the default modes, the switch,
     `modeToShow`, `swapped` and the relation.
@@ -1281,13 +1295,16 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     `git diff --name-status` (`A B` and `A...B`), `git rev-list` both ways and `git merge-base`; also a criss-cross
     merge, a remote branch, a missing side, more than 1,000 commits and a moved file's diff. `PartialCloneTest` has one
     for a blobless clone.
-  - `ComparisonViewModelExtenderTest` (33, a fake git action): the review, the order, an ancestor turned first and
+  - `GetWorkingTreeComparisonGitActionTest` (data, against git on a twin copy with everything added), `RefChoicesTest`
+    (domain), `ResolveCommitGitActionTest` (data).
+  - `ComparisonViewModelExtenderTest` (43, a fake git action): the review, the order, an ancestor turned first and
     never shown the wrong way round, the default modes, the switch, a swap (onto an ancestor too), the current branch
     first, ⌘-click on A, on B and elsewhere, ending on a branch side that moved, the full view and the two Escs, Try
-    again; a commit's own changes (stepping, the list kept while loading, the diff following, Esc's order).
-  - `ComparisonPaneTest` (21, rendered at 330 px from a state: each state of the pane and the review's, the buttons, a
-    narrow pane, a commit's strip and row), `ComparisonFullViewTest` (10, at 1180 × 640, with a stand-in for the diff
-    pane), `CompareBadgeTest`
+    again; a commit's own changes (stepping, the list kept while loading, the diff following, Esc's order); the list of
+    refs and a pending comparison; the working tree as B.
+  - `ComparisonPaneTest` (29, rendered at 330 px from a state: each state of the pane and the review's, the buttons, a
+    narrow pane, a commit's strip and row, the list of refs, the working tree), `ComparisonFullViewTest` (11, at
+    1180 × 640, with a stand-in for the diff pane), `CompareBadgeTest`
     (the fills and the light theme's outline in pixels, and the contrasts), `LogComparisonTest` (the letters, both
     clicks, the badge before the chips in both themes, from its pixels) and `CompareMenusTest` (each menu's items,
     their order, separators and hint, a detached HEAD, the click per system). The pane, the full view and the log's

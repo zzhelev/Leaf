@@ -141,7 +141,14 @@ fun Log(
     // Fork-only: a comparison's rows, and what the menus compare a row with (docs/fork/compare.md)
     val comparisonState by viewModel.comparisonState.collectAsState()
     val selectedForComparison by viewModel.selectedForComparison.collectAsState()
-    val logComparison = LogComparison(comparisonState?.aCommit, comparisonState?.bCommit, selectedForComparison)
+    // The working tree's B is the uncommitted changes' row, not its commit's
+    val bIsWorkingTree = comparisonState?.bIsWorkingTree == true
+    val logComparison = LogComparison(
+        aCommit = comparisonState?.aCommit,
+        bCommit = comparisonState?.bCommit?.takeIf { !bIsWorkingTree },
+        selectedName = selectedForComparison,
+        workingTreeIsB = bIsWorkingTree,
+    )
     val compareWithCurrent = remember(viewModel, logStatus.currentBranch) {
         CompareWithCurrent(
             currentBranch = logStatus.currentBranch,
@@ -149,6 +156,8 @@ fun Log(
             onTag = viewModel::compareTagWithCurrent,
             onBranchWith = viewModel::compareBranchWith,
             onTagWith = viewModel::compareTagWith,
+            onBranchWithWorkingTree = viewModel::compareBranchWithWorkingTree,
+            onTagWithWorkingTree = viewModel::compareTagWithWorkingTree,
         )
     }
 
@@ -727,20 +736,22 @@ fun CommitsList(
                         .fillMaxWidth()
                         .handMouseClickable {
                             listFocusRequester.requestFocus()
-                            uncommittedRowClick(isCompareClick(), comparison.isComparing)?.let(onAction)
+                            onAction(uncommittedRowClick(isCompareClick()))
                         }
                 ) {
                     UncommittedChangesGraphNode(
                         hasPreviousCommits = commitList.commits.isNotEmpty(),
-                        isSelected = selectedItem is SelectedItem.UncommittedChanges,
+                        // Fork-only: as B of a comparison with the working tree too
+                        isSelected = selectedItem is SelectedItem.UncommittedChanges || comparison.workingTreeIsB,
                         modifier = Modifier.offset { IntOffset(-horizontalScrollState.value, 0) }
                     )
 
                     UncommittedChangesLine(
                         graphWidth = graphWidth,
-                        isSelected = selectedItem == SelectedItem.UncommittedChanges,
+                        isSelected = selectedItem == SelectedItem.UncommittedChanges || comparison.workingTreeIsB,
                         statusSummary = logState.statusSummary,
                         repositoryState = repositoryState,
+                        compareLetter = CompareLetter.B.takeIf { comparison.workingTreeIsB },
                     )
                 }
             }
@@ -770,6 +781,7 @@ fun CommitsList(
                 onCompareWithSelected = { onAction(LogAction.CompareWithSelected(graphNode.commit)) },
                 onCompareWithCurrent = { onAction(LogAction.CompareWithCurrent(graphNode.commit)) },
                 onCompareWith = { onAction(LogAction.CompareWith(graphNode.commit)) },
+                onCompareWithWorkingTree = { onAction(LogAction.CompareWithWorkingTree(graphNode.commit)) },
                 isHead = graphNode.hash == headHash,
                 showInAmend = logState.currentBranch?.hash == graphNode.hash && !hasUncommittedChanges,
                 isStash = isStash,
@@ -918,6 +930,8 @@ fun UncommittedChangesLine(
     isSelected: Boolean,
     repositoryState: RepositoryState,
     statusSummary: StatusSummary,
+    // Fork-only: B, while the comparison's B is the working tree
+    compareLetter: CompareLetter? = null,
 ) {
     Row(
         modifier = Modifier
@@ -935,10 +949,14 @@ fun UncommittedChangesLine(
             else -> "Uncommitted changes"
         }
 
+        if (compareLetter != null) {
+            CompareRowBadge(compareLetter)
+        }
+
         Text(
             text = text,
             fontStyle = FontStyle.Italic,
-            modifier = Modifier.padding(start = 16.dp),
+            modifier = Modifier.padding(start = if (compareLetter != null) 2.dp else 16.dp),
             style = MaterialTheme.typography.body2,
             maxLines = 1,
             color = MaterialTheme.colors.onBackground,
@@ -1025,6 +1043,7 @@ private fun CommitLine(
     onCompareWithSelected: () -> Unit,
     onCompareWithCurrent: () -> Unit,
     onCompareWith: () -> Unit,
+    onCompareWithWorkingTree: () -> Unit,
     isHead: Boolean,
     currentBranch: Branch?,
     isStash: Boolean,
@@ -1092,6 +1111,7 @@ private fun CommitLine(
                         currentBranch = compareCurrentBranch,
                         onCompareWithCurrent = onCompareWithCurrent,
                         onCompareWith = onCompareWith,
+                        onCompareWithWorkingTree = onCompareWithWorkingTree,
                     ),
                 )
             }
@@ -1614,6 +1634,7 @@ fun BranchChip(
             },
             onCompareWithCurrent = compareWithCurrent?.let { compare -> { compare.onBranch(branch) } },
             onCompareWith = compareWithCurrent?.onBranchWith?.let { compare -> { compare(branch) } },
+            onCompareWithWorkingTree = compareWithCurrent?.onBranchWithWorkingTree?.let { compare -> { compare(branch) } },
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }
@@ -1695,6 +1716,7 @@ fun TagChip(
             currentBranch = compareWithCurrent?.currentBranch,
             onCompareWithCurrent = compareWithCurrent?.let { compare -> { compare.onTag(tag) } },
             onCompareWith = compareWithCurrent?.onTagWith?.let { compare -> { compare(tag) } },
+            onCompareWithWorkingTree = compareWithCurrent?.onTagWithWorkingTree?.let { compare -> { compare(tag) } },
         )
     }
 

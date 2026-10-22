@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.dircache.DirCacheIterator
+import org.eclipse.jgit.treewalk.AbstractTreeIterator
+import org.eclipse.jgit.treewalk.EmptyTreeIterator
 import org.eclipse.jgit.treewalk.FileTreeIterator
 import java.io.InvalidObjectException
 import javax.inject.Inject
@@ -66,11 +68,16 @@ class FormatDiffGitAction @Inject constructor(
         if (submoduleStatus != null) {
             diffResult = DiffResult.Submodule(diffEntry, submoduleStatus)
         } else {
-            val oldTree: DirCacheIterator?
+            val oldTree: AbstractTreeIterator?
             val newTree: FileTreeIterator?
 
             if (diffType is DiffType.UncommittedDiff && diffType.entryType == EntryType.UNSTAGED) {
                 oldTree = DirCacheIterator(repository.readDirCache())
+                newTree = FileTreeIterator(repository)
+            } else if (diffType is DiffType.CommitDiff && diffType.readsWorkingTree) {
+                // Fork-only: a comparison with the working tree. The old side is read by its blob id, as for any
+                // commit's file, and the new one from the disk, which these iterators make the formatter read
+                oldTree = EmptyTreeIterator()
                 newTree = FileTreeIterator(repository)
             } else {
                 oldTree = null
