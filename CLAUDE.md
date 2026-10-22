@@ -1404,7 +1404,9 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
   - The commit field shows `SQUASH_MSG` then (`CommitMessageSource`: `MERGE_MSG` during a merge, cherry-pick or
     revert, an edit stop's message during a rebase, then a squash merge's, then the plain draft), and saves edits to it
     (`PersistSquashMessageUseCase`, which never empties it).
-  - `OperationInProgressBanner` says "Squash merge staged…" (`Operation.SQUASH`). Its Abort runs `git reset --merge`
+  - `OperationInProgressBanner` says "Changes staged as one commit…" (`Operation.SQUASH`; "Squash merge staged…" until
+    2026-10-22, when picking a branch's commits as one commit started to end in the same state, see Cherry-picking a
+    branch's commits), and its Abort is "Undo staged changes". It runs `git reset --merge`
     (`AbortSquashMergeUseCase`), which undoes the staged changes and keeps unstaged ones, and refuses, changing nothing,
     while a file that the squash merge changed has unstaged changes. What `merge.autoStash` set aside comes back too
     (see Changes that git sets aside).
@@ -1801,6 +1803,82 @@ does when git can't.
 - Tests: `GitCliOperationsTest` (each operation, conflicts, git's refusals, a renamed file, hooks, an identity from
   `includeIf`, a merge signed with an SSH key whose passphrase Leaf asks for, Continue after git's rebase stopped, and
   JGit without git or the helper).
+
+**Cherry-picking a branch's commits (fork-only, 2026-10-22, `domain/cherrypick/BranchCherryPick.kt`,
+`data/git/cherrypick/`, `ui/dialogs/CherryPickBranchDialog.kt`):** a branch's menu, in the branches pane and on its label in
+the log, offers to copy the branch's commits that the current branch lacks onto the current branch. Cherry-pick was only on a
+commit row's menu, and a label's own menu covers the row's, so right-clicking a branch found none. Options 1b and 2b of the
+Claude Design board "Leaf cherry-pick from a branch" (`Cherry-pick From a Branch.dc.html`), chosen with the user. A plain
+"Cherry-pick" on a branch was turned down: git takes a branch name as its tip commit alone, so a branch of three would lose two
+without a word, and the label's menu offering the commit's own item (1c) would sit next to it copying something else.
+- **The item** (`branchCherryPickItem`, after Merge and Rebase, `addBranchCherryPick` in `CherryPickContextMenu.kt`): one
+  commit is "Cherry-pick commit a4880d1" and runs at once, as the commit row's item does (`CherryPickCommitUseCase`, with the
+  branch's tip, as the only commit that the current branch lacks is the tip); several are "Cherry-pick 3 commits…", which opens
+  the dialog (`Screen.CherryPickBranch`). None on the current branch, on a detached HEAD (as for Merge and Rebase), when there's
+  nothing to pick, or when the only new commit is a merge. Remote branches get it too, the remote part of a shared chip doesn't
+  (its local branch's item is the same commits). The side panel builds a `BranchCherryPick` and the log provides one as
+  `LocalBranchCherryPick`.
+- **The counts** (`GetBranchesAheadGitAction`, `RepositoryDataRepository.branchesAhead`, refreshed after the ref dates with
+  BRANCHES, REMOTES, TAGS and LOG, as a commit moves HEAD): one `git --git-dir=<git dir> for-each-ref
+  --format=%(refname)%00%(ahead-behind:HEAD)%00%(parent) refs/heads refs/remotes` for every branch, HEAD being the worktree's.
+  git before 2.41 doesn't know `%(ahead-behind)`: then `--no-merged=HEAD` says which branches have commits to pick, without a
+  count, and the item is "Cherry-pick commits…" (`BranchAhead.count` null). A repository without commits has none. Without a
+  usable git there are no counts and no item, as the dialog runs git.
+- **The dialog** (`CherryPickBranchViewModel`, `GetBranchCherryPickUseCase`): the commits from `git log --cherry-mark
+  --right-only --topo-order --reverse HEAD...<full ref>` (`GetBranchCherryPickCommitsGitAction`, by full ref, so a tag of the
+  same name doesn't stand in; parents before children, the order git applies them), each with a check box, every one ticked
+  at first. Merge commits (`git cherry-pick` refuses them without `-m`) and commits whose changes the current branch has (`=`
+  marks) show greyed, "Merge commit, left out" and "Already applied", and can't be ticked. A partial clone skips
+  `--cherry-mark`, whose patch ids read both sides' files, which git would download. git sees a copy that the branch itself
+  merged in as one of the branch's own commits, so it isn't marked: picking it comes out empty, and git stops (Skip).
+  - **As one commit** (a check box, off at first): `git cherry-pick --no-commit`, then `SQUASH_MSG` gets the messages
+    (`squashMessage`, as a worktree's squash merge: one commit's own message, or the branch's name and a line per subject),
+    which the commit field then shows. The state is a squash merge's (`isSquashMergeInProgress`), so its banner and Abort
+    were reworded to fit both: "Changes staged as one commit. Review them, then commit." and "Undo staged changes".
+  - **Refused**, with the button disabled (`refusal`, in this order): a detached HEAD, more than `MAX_CHERRY_PICK_COMMITS`
+    (500; merge or rebase instead), nothing to pick, a merge, rebase, cherry-pick or revert in progress (git's sequencer
+    included), a status that can't be read, staged changes or conflicts (git refuses staged changes, and `--no-commit` would
+    mix them in). Nothing ticked is a note. Unstaged changes are a note: git stops before a commit that changes one of those
+    files, and keeps them.
+  - **What runs** (`CherryPickPlan`, `cherryPickArguments`): the commands box shows `plan.steps`, and confirming runs the
+    same plan through `CherryPickCommitsUseCase` → `GitCliCherryPickCommitsGitAction` → `GitCliOperations.run`, not the
+    worktree dialogs' steps runner: cherry-picks make commits, and only `GitCliOperations` has the askpass helper for a signing
+    key's passphrase, and Cancel. Commits by full hash.
+- **A cherry-pick of several commits that git stopped** (`CherryPickSequence`, `GetCherryPickSequenceGitAction`,
+  `RepositoryDataRepository.cherryPickSequence`, refreshed with REPO_STATE): git keeps the commits left in
+  `<git dir>/sequencer/todo` (per worktree) and the options in `opts`. A single cherry-pick has none, and a revert's todo
+  (`revert` lines) isn't read. JGit reads the repository as cherry-picking only while `CHERRY_PICK_HEAD` is there: not with
+  `--no-commit`, nor after local changes stopped a later pick. Leaf's own Commit would have committed the stopped commit and
+  left the rest in the sequencer, which then refuses the next `git cherry-pick`; its Abort would have kept the commits already
+  picked. So while a sequence waits, from Leaf, a terminal or an agent:
+  - the status pane has Abort and Continue or Skip (`RebasingButtons`), and Cmd+Enter continues;
+    `StatusAction.ContinueCherryPick`, `SkipCherryPick`, `AbortCherryPick` → `CherryPickSequenceUseCase` →
+    `GitCliCherryPickSequenceGitAction` (`git cherry-pick --continue|--skip|--abort` through `GitCliOperations.run`);
+  - Continue writes the field's message to `MERGE_MSG` first when git commits the stopped commit
+    (`continueCommitsStoppedCommit`: `CHERRY_PICK_HEAD` and not `--no-commit`), as git takes it from there and cleans it as
+    `git commit` does (comments dropped, probed);
+  - rules probed on git 2.54 (`FinishBlockers.kt`): conflicts block Continue (git: "Committing is not possible"), and an empty
+    message when it commits (git: "Aborting commit due to empty commit message"); unstaged changes don't (git goes on, and
+    stops, changing nothing, at a later pick that touches them). Skip takes Continue's place when nothing is staged where it
+    would commit, as git then says "The previous cherry-pick is now empty". Skip asks first (`SkipCherryPickCommit`);
+  - the banner (`OperationInProgress.isSequence`): "Cherry-pick stopped at conflicts in 2 files. Resolve them, then continue
+    it." or "Cherry-pick in progress. Continue it to pick the rest.", ahead of a squash merge's;
+  - Abort asks (`AbortOperation.Operation.CHERRY_PICK_SEQUENCE`): git puts the branch back where it was, taking the commits
+    already picked off, and keeps unstaged changes in other files (probed). After `--no-commit`, git's abort also removes
+    the `SQUASH_MSG` that Leaf wrote (as `git reset --merge` does), which would make the next staged change look like a
+    squash merge: `CherryPickingBranchTest` checks it, as a mutation that removed Leaf's own deletion found it redundant.
+- After a pick as one commit, and after a cherry-pick of several commits that stopped at conflicts, the tab selects the
+  uncommitted changes (`worktreeResultsToShow`).
+- **Not done:** a revert of several commits that git stopped (the same sequencer, and Leaf's Commit has the same problem);
+  picking another branch's commits onto a branch that isn't checked out.
+- Tests: `BranchCherryPickTest` (domain: the item, refusals, the plan, the todo), `CherryPickGitActionsTest` (data: counts
+  against `git rev-list --count` and the merge parents, a linked worktree, an empty repository, git without
+  `%(ahead-behind)` through a fake git; the commits against `git rev-list --reverse --topo-order`, the marks, the limit, a tag
+  of the same name; the sequence against git's todo, `--no-commit`, a single pick, a revert, a linked worktree),
+  `CherryPickingBranchTest` (a `TestTab`: picking, as one commit, Continue with the field's message, Skip, Abort, the
+  `SQUASH_MSG` removed, the refusal), `CherryPickBranchDialogTest`, `CherryPickMenuTest`, `CherryPickSequenceStatusTest`
+  (rendered and rules). 19 mutations were each caught by a named test; a 20th, Leaf's own removal of `SQUASH_MSG` after an abort, survived because git's abort removes it, and that code went. The dialog was rendered in both themes with a long branch name, which found the
+  "Already on <branch>" reason squeezing the subject to a few letters.
 
 **Changes that git sets aside (fork-only, `data/git/cli/operations/Autostashes.kt`):** Leaf's merges, rebases and
 pulls run git without `--no-autostash`, so the user's `merge.autoStash` and `rebase.autoStash` apply, as in a

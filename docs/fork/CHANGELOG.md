@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Cherry-pick from a branch's menu, and finish a cherry-pick of several commits that git stopped (2026-10-22)
+
+- **Request:** right-clicking a branch in the log or the branches pane offered no cherry-pick, to copy a worktree's fix onto
+  the feature branch checked out in the main worktree. Cherry-pick was only on a commit row's menu, and a branch label's own
+  menu covers the row's.
+- **What it does:** a branch's menu, after Merge and Rebase, has "Cherry-pick commit a4880d1" when the branch has one commit
+  that the current branch lacks, which runs at once as the commit row's item does, and "Cherry-pick 3 commits…" when it has
+  several, which opens a dialog. The dialog lists the commits, oldest first, each ticked, with merge commits and those already
+  applied greyed and left out; "As one commit" stages their changes together with their messages ready in the commit field;
+  the commands it runs show below. It refuses staged changes and an operation in progress, and notes unstaged changes.
+- **Interrupted cherry-picks of several commits:** git keeps the commits left in its sequencer when it stops at a conflict.
+  Leaf's Commit used to finish the stopped commit and leave the rest stuck, and Abort kept the commits already picked. Now the
+  status pane has Continue (or Skip, when the commit came out empty) and Abort, which run git's own `--continue`, `--skip` and
+  `--abort`, and the banner says to continue. This also covers such cherry-picks started in a terminal or by an agent.
+- **Reworded:** the banner and Abort of changes staged as one commit, which a squash merge and a pick as one commit both leave:
+  "Changes staged as one commit. Review them, then commit." and "Undo staged changes" (were "Squash merge staged…" and "Abort
+  squash merge").
+- **Chosen with the user** from a Claude Design board ("Leaf cherry-pick from a branch"): one commit at once and several in a
+  dialog (1b), with check boxes (2b). A plain "Cherry-pick" on a branch was turned down, as git takes a branch as its tip alone.
+- Tests: counts, commits and the sequencer against git's own answers, a tab that picks, continues, skips and aborts with real
+  git, the dialog, the menus and the status pane rendered. 19 mutations, each caught by a named test.
+- Details: CLAUDE.md, "Cherry-picking a branch's commits".
+
 ## More ways to compare: a commit's own changes, two versions in file history, any ref, the working tree (2026-10-22)
 
 The four "not yet" items of the comparison below, option a of each from mockups (`Compare Step 7.dc.html`), chosen with
