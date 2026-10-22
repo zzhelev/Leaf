@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -75,6 +76,7 @@ import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.repositoryopen.ShownCommit
 import dev.app.leaf.repositoryopen.SideToPick
 import dev.app.leaf.theme.backgroundSelected
+import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.theme.tertiarySurface
@@ -102,7 +104,6 @@ import org.jetbrains.compose.resources.stringResource
 private const val COMMITS_MAX_SHARE = 0.4f
 
 private val SECTION_HEADER_HEIGHT = 34.dp
-private val COMMIT_ROW_HEIGHT = 28.dp
 
 /** Where the pane's lists are scrolled to: B's commits, A's commits and the files. */
 class ComparisonListStates {
@@ -905,16 +906,20 @@ private fun CommitsList(
 
         if (endsWithUncommittedChanges) {
             item(key = "uncommitted") {
-                Text(
-                    text = stringResource(Res.string.compare_and_uncommitted),
-                    style = MaterialTheme.typography.body2,
-                    fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colors.onBackgroundSecondary,
-                    maxLines = 1,
+                Box(
                     modifier = Modifier
-                        .height(COMMIT_ROW_HEIGHT)
-                        .padding(start = 38.dp, top = 5.dp),
-                )
+                        .height(MaterialTheme.linesHeight.logCommitHeight)
+                        .padding(start = 38.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.compare_and_uncommitted),
+                        style = MaterialTheme.typography.body2,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colors.onBackgroundSecondary,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
@@ -941,7 +946,8 @@ private fun CommitRow(
         DelayedTooltip(commit.message.trim()) {
             Row(
                 modifier = Modifier
-                    .height(COMMIT_ROW_HEIGHT)
+                    // Follows Settings → Appearance → Lists spacing, as the files below do
+                    .height(MaterialTheme.linesHeight.logCommitHeight)
                     .fillMaxWidth()
                     .semantics(mergeDescendants = true) { selected = isShown }
                     .background(if (isShown) MaterialTheme.colors.backgroundSelected else Color.Transparent)

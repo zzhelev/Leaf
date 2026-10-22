@@ -42,6 +42,7 @@ import dev.app.leaf.domain.models.ComparisonRelation.DIVERGED
 import dev.app.leaf.domain.models.ComparisonRelation.SAME
 import dev.app.leaf.domain.models.ComparisonRelation.UNRELATED
 import dev.app.leaf.domain.models.Identity
+import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.buildFileRows
@@ -57,6 +58,9 @@ import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Tag
 import dev.app.leaf.repositoryopen.toFileItems
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.theme.compactLineHeight
+import dev.app.leaf.theme.denseLineHeight
+import dev.app.leaf.theme.spacedLineHeight
 import org.eclipse.jgit.diff.DiffEntry
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.AfterEach
@@ -121,6 +125,7 @@ class ComparisonPaneTest {
 
     private var state by mutableStateOf<ComparisonState?>(null)
     private var theme = Theme.Dark
+    private var linesHeightType = LinesHeightType.COMPACT
     private val actions = mutableListOf<ComparisonAction>()
     private val selectedCommits = mutableListOf<Commit>()
     private val clipboard = PaneClipboard()
@@ -537,6 +542,31 @@ class ComparisonPaneTest {
     }
 
     @Test
+    fun `the commit rows and the uncommitted changes' line are as tall as Lists spacing makes the log's rows`() {
+        val heights = mapOf(
+            LinesHeightType.SPACED to spacedLineHeight,
+            LinesHeightType.COMPACT to compactLineHeight,
+            LinesHeightType.DENSE to denseLineHeight,
+        )
+
+        for (type in LinesHeightType.entries) {
+            linesHeightType = type
+            state = state(DIVERGED, SINCE_SPLIT, b = workingTree)
+            render()
+            val expected = heights.getValue(type).logCommitHeight.value
+
+            val rows = featureCommits.map { row(it.shortMessage) }
+            for (commitRow in rows) {
+                assertEquals(expected, commitRow.boundsInWindow.height, 0.5f, "$type: ${commitRow.texts()}")
+            }
+            // The line after the last commit takes a row of its own, its text centred in it
+            val line = node("and the uncommitted changes").boundsInWindow
+            assertEquals(rows.last().boundsInWindow.bottom + expected / 2, line.center.y, 1f, "$type")
+            closeScene()
+        }
+    }
+
+    @Test
     fun `the working tree's notes, by how HEAD meets A`() {
         state = state(SAME, ALL, onlyInB = emptyList(), onlyInA = emptyList(), b = workingTree)
         render()
@@ -684,7 +714,7 @@ class ComparisonPaneTest {
         frameTime = 0L
 
         scene = ImageComposeScene(width = width, height = HEIGHT) {
-            AppTheme(theme) {
+            AppTheme(theme, linesHeightType) {
                 CompositionLocalProvider(LocalClipboard provides clipboard) {
                     state?.let { current ->
                         ComparisonPaneView(

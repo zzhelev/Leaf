@@ -715,8 +715,8 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
     AccentStyleSetting(settingsViewState.accentStyle, isCustomTheme = currentTheme == Theme.Custom, onAction)
 
     SettingDropDown(
-        title = "Lists spacing (Beta)",
-        subtitle = "Spacing around lists items",
+        title = "Lists spacing",
+        subtitle = "Row height in the log, the file lists and the branches pane",
         dropDownOptions = linesHeightTypesList,
         currentOption = currentLinesHeightType,
         onOptionSelected = { dropDown ->

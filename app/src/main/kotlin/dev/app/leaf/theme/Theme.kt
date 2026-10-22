@@ -34,10 +34,11 @@ val spacedLineHeight = LinesHeight(
     sidePanelItemHeight = 36.dp
 )
 
+// Fork-only: 32 dp, halfway between Spaced and Dense (34 dp until 2026-10-22, close to Spaced's 38 and 36)
 val compactLineHeight = LinesHeight(
-    fileHeight = 34.dp,
-    logCommitHeight = 34.dp,
-    sidePanelItemHeight = 34.dp
+    fileHeight = 32.dp,
+    logCommitHeight = 32.dp,
+    sidePanelItemHeight = 32.dp
 )
 
 // The hovered file's Stage/Unstage button is 24 dp tall, so rows can't go much lower.

@@ -23,8 +23,9 @@ class LinesHeightMapper @Inject constructor(): DataMapper<LinesHeightType?, Stri
             SPACED -> LinesHeightType.SPACED
             COMPACT -> LinesHeightType.COMPACT
             DENSE -> LinesHeightType.DENSE
-            null -> null
-            else -> throw IllegalStateException("Unhandled linesHeightType $value")
+            // Fork-only: a value from a newer Leaf reads as no choice (the default), where it used to throw
+            // inside the settings flow and stop the app at launch
+            else -> null
         }
     }
 }
