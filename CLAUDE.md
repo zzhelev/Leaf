@@ -1852,12 +1852,12 @@ without a word, and the label's menu offering the commit's own item (1c) would s
   left the rest in the sequencer, which then refuses the next `git cherry-pick`; its Abort would have kept the commits already
   picked. So while a sequence waits, from Leaf, a terminal or an agent:
   - the status pane has Abort and Continue, with Skip between them where git stopped at a commit
-    (`CherryPickSequenceButtons`, `canSkipCherryPick`: `CHERRY_PICK_HEAD`, not `--no-commit`), conflicts open or not, and
+    (`StoppedOperationButtons`, `canSkipCherryPick`: `CHERRY_PICK_HEAD`, not `--no-commit`), conflicts open or not, and
     Cmd+Enter continues. Where nothing is staged (the commit came out empty), Skip takes Continue's place, as before. Not
     after `--no-commit`, where git's skip also drops what the commits before it staged, nor after local changes stopped a
     pick (no `CHERRY_PICK_HEAD`), where it would leave out the next commit, which no one has seen (both probed on git
     2.54). Skip is in the neutral style, as Abort is the red one. It asks first, and says how many files' changes, staged
-    or with conflicts, are lost (`SkipCherryPickCommit.discardedFiles`, `cherryPickSkipDiscards`);
+    or with conflicts, are lost (`SkipCherryPickCommit.discardedFiles`, `skipDiscards`);
     `StatusAction.ContinueCherryPick`, `SkipCherryPick`, `AbortCherryPick` → `CherryPickSequenceUseCase` →
     `GitCliCherryPickSequenceGitAction` (`git cherry-pick --continue|--skip|--abort` through `GitCliOperations.run`);
   - Continue writes the field's message to `MERGE_MSG` first when git commits the stopped commit
@@ -1954,6 +1954,39 @@ when git can't run it) stays with JGit.
 - git signs the commits that it makes during a rebase as `commit.gpgSign` says, with its own gpg or ssh-keygen rather
   than Leaf's signers. ssh-keygen asks for a key's passphrase in Leaf's dialog, through the askpass helper (checked
   with a merge, as above). Until 2026-10-15 Continue and Skip ran without it.
+
+**Skipping a rebase's commit with conflicts (fork-only, 2026-10-22, `domain/rebase/RebaseSkip.kt`,
+`data/git/rebase/GetRebaseStopGitAction.kt`, `ui/dialogs/SkippedCommitsDialog.kt`):** at a commit that a rebase stopped at,
+conflicts open or resolved, the status pane's buttons are Abort, Skip and Continue (`StoppedOperationButtons`, as for a
+cherry-pick of several commits). Skip was offered only where the commit had come out empty. Asked for by the user after the
+cherry-pick's, with the five guards that the discussion proposed:
+- **Only where nothing outside the commit is lost** (`rebaseSkipOtherChanges`): git's `rebase --skip` and JGit's skip reset
+  every tracked file, so an edit to another file, in no commit, went too (both probed: git 2.54, JGit 7.7; untracked files
+  are kept). While such files have unstaged changes, Skip is disabled, and its tooltip says "Stash or discard the changes to
+  2 other files first". A file of the commit, staged or with conflicts, edited again, is the commit's and doesn't block it.
+  `SkippingRebaseCommitsTest` pins both engines' reset, so the block can go if either stops.
+- **The confirmation names the commit** (`ConfirmableAction.SkipRebaseCommit`, now with the commit, subject, branch and
+  files): "Leave a4880d1 "Show the unread bar" out of fix/unread-bar?", and with changes "Its changes in 2 files are
+  discarded, resolved conflicts included. Abort before the rebase ends to bring everything back." The empty commit's Skip
+  gets the same dialog, naming it, without the warning.
+- **The stopped commit** (`RebaseStop`, `RepositoryDataRepository.rebaseStop`, refreshed with REPO_STATE): `REBASE_HEAD`,
+  which git writes at each stop of both backends, or `rebase-merge/stopped-sha`, which JGit writes; `head-name` for the
+  branch; an edit stop (`rebase-merge/amend`) gets no Skip (`canSkipRebaseCommit`), as it already applied the commit. Nor
+  does the interactive rebase's list before it starts.
+- **Both engines:** JGit's skip at a conflict leaves the commit out and goes on, as git's does (probed), so Leaf's own
+  interactive rebases get it too; the guard above applies to both.
+- **A lasting note** (`SkippedRebaseCommits`, tab-scoped, by git dir; `ReportSkippedRebaseCommitsUseCase`): Skip of a commit
+  with changes records it (`SkipRebaseUseCase(skipped)`, `StatusAction.SkipRebase(skipped)`). The refresh of the repository
+  state reports, once the worktree isn't rebasing, the recorded commits that HEAD doesn't contain
+  (`GetCommitsOnHeadGitAction`): an abort put the branch back with them, so it says nothing. They go to
+  `RepositoryStateRepository.skippedCommitsNotices`, which the tab shows in `SkippedCommitsDialog`
+  (`Screen.SkippedCommits`): "Commits left out of fix/unread-bar", the hashes and subjects (selectable), "Cherry-pick them
+  back" (`RepositoryTabViewModel.cherryPickBack`, `CherryPickCommitsUseCase`, oldest first) and OK. However the rebase
+  ended, in Leaf or a terminal. In memory: a restart in the middle of a rebase forgets them; the reflog has them.
+- Tests: `SkippingRebaseCommitsTest` (data, a `TestTab`: the stop that git and JGit leave, an edit stop, Skip with conflicts
+  open and the notice, an abort with none, an empty commit not listed, both engines' reset of other files),
+  `RebaseSkipStatusTest` (the rule, the block, the buttons and the notice rendered), the dialog in
+  `ConfirmActionDialogTest`. 8 mutations, each caught by a named test.
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of

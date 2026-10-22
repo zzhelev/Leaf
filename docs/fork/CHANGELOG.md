@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Skip a rebase's commit with conflicts, with guards (2026-10-22)
+
+- **Request:** Skip for a commit that a rebase stopped at with conflicts, as for a cherry-pick. Asked whether it could make a
+  mess first: git's and JGit's skip reset every tracked file, so an edit to another file, in no commit, would be lost; and
+  the commit leaves the branch itself. Built with the five guards proposed then.
+- **What it does:** the buttons are Abort, Skip and Continue at such a commit, for rebases that git or Leaf started.
+  - Skip is disabled while other tracked files have uncommitted changes, and its tooltip says to stash or discard them.
+  - It asks first, naming the commit and the branch, how many files' changes go, and that Abort before the end brings
+    everything back.
+  - Not at an edit stop, where the commit is already applied.
+- **After the rebase:** when it ends without commits that you skipped, a dialog lists them, hashes and subjects, with
+  "Cherry-pick them back". After an abort it says nothing, as they're back on the branch.
+- Tests: both engines' stops and skips, the notice and the abort in a tab with real git and JGit; the rule, the block, the
+  buttons, the confirmation and the notice rendered. 8 mutations, each caught by a named test.
+- Details: CLAUDE.md, "Skipping a rebase's commit with conflicts".
+
 ## Delete several local branches at once (upstream issue 116, 2026-10-22)
 
 - **Request:** upstream issue 116: "When I have many local branches left from previous work and I want to clean them up, I need
