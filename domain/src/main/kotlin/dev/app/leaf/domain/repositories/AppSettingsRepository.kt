@@ -82,5 +82,8 @@ interface AppSettingsRepository {
 
     /** Whether the branches pane is folded away, for every tab (fork-only). */
     var branchesPaneFolded: Boolean
+
+    /** Whether the changes pane (Files changed, or Staged, Unstaged and the commit box) is folded away, for every tab (fork-only). */
+    var changesPaneFolded: Boolean
     var commitChangesSectionSizes: CommitChangesSectionSizes
 }

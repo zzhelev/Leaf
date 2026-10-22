@@ -1392,4 +1392,17 @@
     <string name="branches_pane_show">Show the branches pane</string>
     <string name="quick_actions_hide_branches_pane">Hide branches pane</string>
     <string name="quick_actions_show_branches_pane">Show branches pane</string>
+
+    <!-- The changes pane's fold toggle (fork-only) -->
+    <string name="changes_pane_hide">Hide the changes pane</string>
+    <string name="changes_pane_show">Show the changes pane</string>
+    <string name="changes_pane_held_operation">Changes pane: shown while a %1$s is in progress</string>
+    <string name="changes_pane_held_comparison">Changes pane: shown while comparing</string>
+    <string name="changes_pane_operation_merge">merge</string>
+    <string name="changes_pane_operation_rebase">rebase</string>
+    <string name="changes_pane_operation_cherry_pick">cherry-pick</string>
+    <string name="changes_pane_operation_revert">revert</string>
+    <string name="changes_pane_operation_squash">squash merge</string>
+    <string name="quick_actions_hide_changes_pane">Hide changes pane</string>
+    <string name="quick_actions_show_changes_pane">Show changes pane</string>
 </resources>

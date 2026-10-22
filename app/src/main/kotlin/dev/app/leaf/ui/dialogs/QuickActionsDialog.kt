@@ -48,9 +48,13 @@ fun QuickActionsDialog(
     val isBranchesPaneFolded by viewModel.isBranchesPaneFolded.collectAsState()
     val hideBranchesPane = stringResource(Res.string.quick_actions_hide_branches_pane)
     val showBranchesPane = stringResource(Res.string.quick_actions_show_branches_pane)
+    val isChangesPaneFolded by viewModel.isChangesPaneFolded.collectAsState()
+    val isChangesPaneHeld by viewModel.isChangesPaneHeld.collectAsState()
+    val hideChangesPane = stringResource(Res.string.quick_actions_hide_changes_pane)
+    val showChangesPane = stringResource(Res.string.quick_actions_show_changes_pane)
 
     // TODO Extract list of actions strings
-    val items = remember(checkForUpdates, cleanUpWorktrees, canCleanUpWorktrees, isBranchesPaneFolded) {
+    val items = remember(checkForUpdates, cleanUpWorktrees, canCleanUpWorktrees, isBranchesPaneFolded, isChangesPaneFolded, isChangesPaneHeld) {
         listOfNotNull(
             QuickAction(Res.drawable.code, "Open repository in file manager", QuickActionType.OPEN_DIR_IN_FILE_MANAGER),
             QuickAction(Res.drawable.download, "Clone new repository", QuickActionType.CLONE),
@@ -60,6 +64,8 @@ fun QuickActionsDialog(
             QuickAction(Res.drawable.delete, cleanUpWorktrees, QuickActionType.CLEAN_UP_WORKTREES)
                 .takeIf { canCleanUpWorktrees },
             branchesPaneAction(isBranchesPaneFolded, hideBranchesPane, showBranchesPane),
+            changesPaneAction(isChangesPaneFolded, hideChangesPane, showChangesPane)
+                .takeIf { !isChangesPaneHeld },
         )
     }
 
@@ -89,6 +95,7 @@ fun QuickActionsDialog(
                 QuickActionType.CHECK_FOR_UPDATES -> onCheckForUpdates()
                 QuickActionType.CLEAN_UP_WORKTREES -> onCleanUpWorktrees()
                 QuickActionType.TOGGLE_BRANCHES_PANE -> viewModel.toggleBranchesPane()
+                QuickActionType.TOGGLE_CHANGES_PANE -> viewModel.toggleChangesPane()
             }
         },
         searchFilter = searchFilter,
@@ -204,6 +211,14 @@ internal fun branchesPaneAction(isFolded: Boolean, hideTitle: String, showTitle:
     KeybindingOption.BRANCHES_PANE.keyBinding,
 )
 
+/** The entry that folds the changes pane away or shows it again, named for what it does now (fork-only). */
+internal fun changesPaneAction(isFolded: Boolean, hideTitle: String, showTitle: String) = QuickAction(
+    Res.drawable.side_panel_right,
+    if (isFolded) showTitle else hideTitle,
+    QuickActionType.TOGGLE_CHANGES_PANE,
+    KeybindingOption.CHANGES_PANE.keyBinding,
+)
+
 enum class QuickActionType {
     OPEN_DIR_IN_FILE_MANAGER,
     CLONE,
@@ -212,4 +227,5 @@ enum class QuickActionType {
     CHECK_FOR_UPDATES,
     CLEAN_UP_WORKTREES,
     TOGGLE_BRANCHES_PANE,
+    TOGGLE_CHANGES_PANE,
 }

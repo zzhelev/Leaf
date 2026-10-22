@@ -85,30 +85,33 @@ fun TripleVerticalSplitPanel(
             second()
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(8.dp)
-                .draggable(
-                    state = rememberDraggableState {
-                        onThirdSizeChange(it)
-                    },
-                    orientation = Orientation.Horizontal,
-                    onDragStarted = {
-                        onThirdSizeDragStarted(thirdWidthLimited)
-                    },
-                    onDragStopped = {
-                        onThirdSizeDragStopped()
-                    },
-                )
-                .pointerHoverIcon(resizePointerIconEast)
-        )
+        // Fork-only: a width of 0 leaves the third pane and its handle out, as it does for the first
+        if (thirdWidth > 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(8.dp)
+                    .draggable(
+                        state = rememberDraggableState {
+                            onThirdSizeChange(it)
+                        },
+                        orientation = Orientation.Horizontal,
+                        onDragStarted = {
+                            onThirdSizeDragStarted(thirdWidthLimited)
+                        },
+                        onDragStopped = {
+                            onThirdSizeDragStopped()
+                        },
+                    )
+                    .pointerHoverIcon(resizePointerIconEast)
+            )
 
-        Box(
-            modifier = Modifier
-                .width(thirdWidth.dp)
-        ) {
-            third()
+            Box(
+                modifier = Modifier
+                    .width(thirdWidth.dp)
+            ) {
+                third()
+            }
         }
     }
 }

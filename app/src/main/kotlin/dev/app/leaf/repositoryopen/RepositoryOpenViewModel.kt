@@ -60,11 +60,16 @@ import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.BranchWorktreesState
 import dev.app.leaf.ui.BranchesPaneConfig
 import dev.app.leaf.ui.CenterSplitConfig
+import dev.app.leaf.ui.ChangesPaneConfig
+import dev.app.leaf.ui.ChangesPaneNeeds
+import dev.app.leaf.ui.ChangesPaneState
+import dev.app.leaf.ui.changesPaneNeed
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
 import dev.app.leaf.ui.WorktreePickerState
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.status.StatusAction
+import dev.app.leaf.ui.status.operationInProgress
 import dev.app.leaf.ui.UiDataState
 import dev.app.leaf.ui.toUiDataState
 import dev.app.leaf.updates.Update
@@ -134,6 +139,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val verticalSplitPaneConfig: VerticalSplitPaneConfig,
     private val centerSplitConfig: CenterSplitConfig,
     private val branchesPaneConfig: BranchesPaneConfig,
+    private val changesPaneConfig: ChangesPaneConfig,
+    private val changesPaneNeeds: ChangesPaneNeeds,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val increaseLogCountUseCase: IncreaseLogCountUseCase,
     private val loadLogUntilCommitUseCase: LoadLogUntilCommitUseCase,
@@ -617,6 +624,19 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val statusState = statusViewModelExtender.statusState
 
+    /**
+     * The changes pane (fork-only): the user's fold, the same for every tab, and what holds the pane open anyway: a merge,
+     * rebase, cherry-pick, revert or squash merge in progress, whose Merge, Continue and Commit are in the pane, and a
+     * comparison or a worktree review, which show only there. The fold is kept while the pane is held.
+     */
+    val changesPane: StateFlow<ChangesPaneState> = combine(changesPaneConfig.isFolded, changesPaneNeeds.need, ::ChangesPaneState)
+        .stateIn(ChangesPaneState(changesPaneConfig.isFolded.value, changesPaneNeeds.need.value))
+
+    /** Folds the changes pane away or shows it again. While something holds it open, it does nothing. */
+    fun toggleChangesPane() {
+        changesPaneNeeds.toggleUnlessHeld(changesPaneConfig)
+    }
+
     /** What ours and theirs are, while files have conflicts (fork-only). */
     val conflictSides = statusViewModelExtender.conflictSides
 
@@ -636,6 +656,15 @@ class RepositoryOpenViewModel @Inject constructor(
     }
 
     init {
+        // Fork-only: what holds the changes pane open, for this view model and for the Actions list
+        viewModelScope.launch {
+            combine(
+                statusState.map { operationInProgress(it)?.operation }.distinctUntilChanged(),
+                comparisonState.map { it != null }.distinctUntilChanged(),
+                ::changesPaneNeed,
+            ).distinctUntilChanged().collect { changesPaneNeeds.set(it) }
+        }
+
         closeViewFlow.collectLatestInViewModel {
             when (it) {
                 CloseableView.SIDE_PANE_SEARCH -> {

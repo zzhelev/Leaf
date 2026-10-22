@@ -107,6 +107,11 @@ enum class KeybindingOption {
      * Used to fold the branches pane away, and to show it again (fork-only)
      */
     BRANCHES_PANE,
+
+    /**
+     * Used to fold the changes pane away, and to show it again (fork-only)
+     */
+    CHANGES_PANE,
 }
 
 
@@ -172,6 +177,9 @@ private fun baseKeybindings() = mapOf(
     KeybindingOption.BRANCHES_PANE to listOf(
         Keybinding(key = Key.B, control = true, shift = true),
     ),
+    KeybindingOption.CHANGES_PANE to listOf(
+        Keybinding(key = Key.C, control = true, shift = true),
+    ),
 )
 
 private fun linuxKeybindings(): Map<KeybindingOption, List<Keybinding>> = baseKeybindings()
@@ -193,6 +201,7 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         KeybindingOption.CLOSE_CURRENT_TAB,
         KeybindingOption.SETTINGS,
         KeybindingOption.BRANCHES_PANE,
+        KeybindingOption.CHANGES_PANE,
     )
 
     for (key in keysToReplaceControlWithCommand) {

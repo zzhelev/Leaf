@@ -23,6 +23,7 @@ fun BottomInfoBar(
     onOpenUrlInBrowser: (String) -> Unit,
     watchWarning: WatchUsage? = null,
     leadingContent: @Composable (() -> Unit)? = null,
+    trailingContent: @Composable (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -57,5 +58,7 @@ fun BottomInfoBar(
                 onOpenUrlInBrowser("https://github.com/zzhelev/Leaf/releases")
             }
         )
+
+        trailingContent?.invoke()
     }
 }

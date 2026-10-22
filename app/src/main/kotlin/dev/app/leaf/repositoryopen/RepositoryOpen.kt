@@ -37,6 +37,8 @@ import dev.app.leaf.ui.compare.ComparisonFullView
 import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.BranchesPaneToggle
+import dev.app.leaf.ui.components.ChangesPaneToggle
+import dev.app.leaf.ui.ChangesPaneState
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
 import dev.app.leaf.ui.conflicts.ConflictResolver
 import dev.app.leaf.ui.dialogs.ConfirmableAction
@@ -89,11 +91,14 @@ fun RepositoryOpenPage(
     // Fork-only: whether the tab, or anything in it, has the focus
     var tabHasFocus by remember { mutableStateOf(false) }
     val isBranchesPaneFolded by repositoryOpenViewModel.branchesPaneFolded.collectAsState()
+    val changesPane by repositoryOpenViewModel.changesPane.collectAsState()
+    val isChangesPaneShown = changesPane.isShown
 
-    // Fork-only: folding the branches pane removes whatever in it had the focus, and the tab's shortcuts need something
-    // in the tab to have it. So one frame after a fold, when the focus is nowhere in the tab, the tab takes it.
-    LaunchedEffect(isBranchesPaneFolded) {
-        if (isBranchesPaneFolded) {
+    // Fork-only: folding the branches pane or the changes pane removes whatever in it had the focus, and the tab's
+    // shortcuts need something in the tab to have it. So one frame after a fold, when the focus is nowhere in the tab, the
+    // tab takes it.
+    LaunchedEffect(isBranchesPaneFolded, isChangesPaneShown) {
+        if (isBranchesPaneFolded || !isChangesPaneShown) {
             withFrameNanos { }
 
             if (!tabHasFocus) {
@@ -180,6 +185,12 @@ fun RepositoryOpenPage(
                     // Fork-only: folds the branches pane away, or shows it again
                     it.matchesBinding(KeybindingOption.BRANCHES_PANE) -> {
                         repositoryOpenViewModel.toggleBranchesPane()
+                        true
+                    }
+
+                    // Fork-only: folds the changes pane away, or shows it again
+                    it.matchesBinding(KeybindingOption.CHANGES_PANE) -> {
+                        repositoryOpenViewModel.toggleChangesPane()
                         true
                     }
 
@@ -296,6 +307,8 @@ fun RepositoryOpenPage(
                 watchWarning,
                 isBranchesPaneFolded = isBranchesPaneFolded,
                 onToggleBranchesPane = { repositoryOpenViewModel.toggleBranchesPane() },
+                changesPane = changesPane,
+                onToggleChangesPane = { repositoryOpenViewModel.toggleChangesPane() },
                 onOpenUrlInBrowser = { repositoryOpenViewModel.openUrlInBrowser(it) },
                 onShowAuthorInfoDialog = { onNavigate(Screen.Author) },
             )
@@ -346,6 +359,8 @@ private fun RepositoryOpenBottomInfoBar(
     watchWarning: WatchUsage?,
     isBranchesPaneFolded: Boolean,
     onToggleBranchesPane: () -> Unit,
+    changesPane: ChangesPaneState,
+    onToggleChangesPane: () -> Unit,
     onOpenUrlInBrowser: (String) -> Unit,
     onShowAuthorInfoDialog: () -> Unit,
 ) {
@@ -384,7 +399,19 @@ private fun RepositoryOpenBottomInfoBar(
                     )
                 }
             }
-        }
+        },
+        trailingContent = {
+            // Fork-only: under the changes pane's column, as the branches pane's is under its own
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 10.dp)
+                    .width(1.dp)
+                    .height(16.dp)
+                    .background(MaterialTheme.colors.onSurface.copy(alpha = 0.18f)),
+            )
+
+            ChangesPaneToggle(state = changesPane, onToggle = onToggleChangesPane)
+        },
     )
 }
 
@@ -471,6 +498,8 @@ fun MainContentView(
     val rebaseInteractiveState by viewModel.rebaseInteractiveState.collectAsState()
     // Fork-only: the pane's width is kept while it is folded, and comes back when it opens
     val branchesPaneFolded by viewModel.branchesPaneFolded.collectAsState()
+    // Fork-only: its width is kept too, and the pane shows anyway while something needs it
+    val changesPane by viewModel.changesPane.collectAsState()
     val density = LocalDensity.current.density
     val scope = rememberCoroutineScope()
 
@@ -498,7 +527,7 @@ fun MainContentView(
     TripleVerticalSplitPanel(
         modifier = Modifier.fillMaxSize(),
         firstWidth = if (rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction || branchesPaneFolded) 0f else firstWidth,
-        thirdWidth = thirdWidth,
+        thirdWidth = if (changesPane.isShown) thirdWidth else 0f,
         first = {
             SidePanel(
                 viewModel = viewModel,

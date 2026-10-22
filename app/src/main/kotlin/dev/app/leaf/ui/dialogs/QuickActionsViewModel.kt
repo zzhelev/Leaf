@@ -10,6 +10,8 @@ import dev.app.leaf.domain.usecases.OpenPathInSystemUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import dev.app.leaf.domain.worktrees.cleanupCount
 import dev.app.leaf.ui.BranchesPaneConfig
+import dev.app.leaf.ui.ChangesPaneConfig
+import dev.app.leaf.ui.ChangesPaneNeeds
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -22,6 +24,8 @@ class QuickActionsViewModel @Inject constructor(
     private val getWorktreeUseCase: GetWorktreeUseCase,
     private val openPathInSystemUseCase: OpenPathInSystemUseCase,
     private val branchesPaneConfig: BranchesPaneConfig,
+    private val changesPaneConfig: ChangesPaneConfig,
+    private val changesPaneNeeds: ChangesPaneNeeds,
     repositoryDataRepository: RepositoryDataRepository,
 ) : TabViewModel() {
     /** Fork-only: whether "Clean up merged worktrees" has something to remove, as the tab's list last read them. */
@@ -33,6 +37,18 @@ class QuickActionsViewModel @Inject constructor(
     val isBranchesPaneFolded: StateFlow<Boolean> = branchesPaneConfig.isFolded
 
     fun toggleBranchesPane() = branchesPaneConfig.toggle()
+
+    /** Fork-only: whether the changes pane is folded, which the entry that folds or shows it says. */
+    val isChangesPaneFolded: StateFlow<Boolean> = changesPaneConfig.isFolded
+
+    /** Fork-only: whether something holds the changes pane open, which leaves the entry out: it would do nothing. */
+    val isChangesPaneHeld: StateFlow<Boolean> = changesPaneNeeds.need
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, changesPaneNeeds.need.value != null)
+
+    fun toggleChangesPane() {
+        changesPaneNeeds.toggleUnlessHeld(changesPaneConfig)
+    }
 
     // TODO Implement bunch of methods
 
