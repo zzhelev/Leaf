@@ -183,6 +183,72 @@ class CompareMenusTest {
         assertEquals(listOf(originFeature, upstream), compared)
     }
 
+    // "Compare with…" (7.1)
+
+    @Test
+    fun `Compare with comes after the other comparisons, in each menu, on the current branch too`() {
+        val calls = mutableListOf<String>()
+
+        val commit = logMenu(CompareMenuItems("5d5537f", {}, main, {}, onCompareWith = { calls += "commit" }))
+        assertEquals(
+            listOf(
+                "Copy commit hash",
+                SEPARATOR,
+                "Compare with selected (5d5537f)",
+                "Compare with main (current)",
+                "Compare with…",
+                SEPARATOR,
+            ),
+            labelsOf(commit).dropWhile { it != "Copy commit hash" }.take(6),
+        )
+        // Alone, where neither of the others applies
+        assertEquals(
+            listOf("Compare with…"),
+            labelsOf(logMenu(CompareMenuItems(null, {}, null, {}, onCompareWith = {}))) - labelsOf(logMenu(null)).toSet(),
+        )
+
+        val branch = branchMenu(feature, isCurrentBranch = false, onCompare = {}, onCompareWith = { calls += "branch" })
+        assertEquals(
+            listOf(SEPARATOR, "Compare with main (current)", "Compare with…", SEPARATOR),
+            labelsOf(branch).drop(3).take(4),
+        )
+
+        // The current branch compares with another
+        val current = branchMenu(main, isCurrentBranch = true, onCompare = {}, onCompareWith = { calls += "current" })
+        assertEquals(listOf("Compare with…"), labelsOf(current).filter { it.startsWith("Compare with") })
+
+        val tagItems = tagContextMenuItems(
+            onCheckoutTag = {},
+            onDeleteTag = {},
+            currentBranch = main,
+            onCompareWithCurrent = {},
+            onCompareWith = { calls += "tag" },
+        )
+        assertEquals(
+            listOf("Checkout tag's commit", SEPARATOR, "Compare with main (current)", "Compare with…", SEPARATOR, "Delete tag"),
+            labelsOf(tagItems),
+        )
+
+        val shared = sharedChipRemoteItems(
+            remotes = listOf(originFeature),
+            currentBranch = main,
+            onPushToRemoteBranch = {},
+            onPullFromRemoteBranch = {},
+            onDeleteRemoteBranch = {},
+            onCopyBranchNameToClipboard = {},
+            worktreesBase = null,
+            onChooseWorktreesBase = {},
+            onCompareWithCurrent = {},
+            onCompareWith = { calls += "remote ${it.simpleNameWithRemote}" },
+        )
+
+        for (items in listOf(commit, branch, current, tagItems, shared)) {
+            items.textEntries().single { it.labelIn() == "Compare with…" }.onClick()
+        }
+
+        assertEquals(listOf("commit", "branch", "current", "tag", "remote origin/feature"), calls)
+    }
+
     private fun logMenu(compare: CompareMenuItems?): List<ContextMenuElement> = logContextMenu(
         onShowStatusAmending = {},
         onCheckoutCommit = {},
@@ -202,6 +268,7 @@ class CompareMenusTest {
         branch: Branch,
         isCurrentBranch: Boolean,
         currentBranch: Branch = main,
+        onCompareWith: (() -> Unit)? = null,
         onCompare: (() -> Unit)?,
     ): List<ContextMenuElement> = branchContextMenuItems(
         branch = branch,
@@ -218,6 +285,7 @@ class CompareMenusTest {
         onRenameBranch = {},
         onCopyBranchNameToClipboard = {},
         onCompareWithCurrent = onCompare,
+        onCompareWith = onCompareWith,
     )
 
     private fun List<ContextMenuElement>.textEntries() = filterIsInstance<ContextMenuElement.ContextTextEntry>()

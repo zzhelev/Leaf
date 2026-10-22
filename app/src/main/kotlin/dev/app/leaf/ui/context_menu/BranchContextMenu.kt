@@ -30,6 +30,8 @@ fun branchContextMenuItems(
     onNewWorktree: (() -> Unit)? = null,
     // Fork-only: compares the branch with the current branch, which isn't offered on the current branch itself
     onCompareWithCurrent: (() -> Unit)? = null,
+    // Fork-only: compares the branch with a branch, tag or commit picked from a list
+    onCompareWith: (() -> Unit)? = null,
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -66,10 +68,21 @@ fun branchContextMenuItems(
                 add(ContextMenuElement.ContextSeparator)
             }
 
-            if (onCompareWithCurrent != null && currentBranch != null) {
-                addCompareWithCurrent(currentBranch, onCompareWithCurrent)
-                add(ContextMenuElement.ContextSeparator)
+        }
+
+        // Fork-only: the current branch compares with another too
+        val compareWithCurrent = onCompareWithCurrent?.takeIf { !isCurrentBranch && currentBranch != null }
+
+        if (compareWithCurrent != null || onCompareWith != null) {
+            if (compareWithCurrent != null && currentBranch != null) {
+                addCompareWithCurrent(currentBranch, compareWithCurrent)
             }
+
+            if (onCompareWith != null) {
+                addCompareWith(onCompareWith)
+            }
+
+            add(ContextMenuElement.ContextSeparator)
         }
         if (!isLocal && currentBranch != null && currentBranch.name != "HEAD") { // TODO currentBranch.name != "HEAD" as function or even extension function?
             addContextMenu(

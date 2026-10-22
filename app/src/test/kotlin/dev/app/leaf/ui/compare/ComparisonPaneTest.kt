@@ -10,6 +10,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
@@ -46,6 +50,11 @@ import dev.app.leaf.repositoryopen.ComparisonState
 import dev.app.leaf.repositoryopen.ComparisonTarget
 import dev.app.leaf.repositoryopen.ReviewedWorktree
 import dev.app.leaf.repositoryopen.ShownCommit
+import dev.app.leaf.repositoryopen.SidePickerState
+import dev.app.leaf.repositoryopen.SideToPick
+import dev.app.leaf.domain.compare.refChoicesFor
+import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.Tag
 import dev.app.leaf.repositoryopen.toFileItems
 import dev.app.leaf.theme.AppTheme
 import org.eclipse.jgit.diff.DiffEntry
@@ -396,6 +405,110 @@ class ComparisonPaneTest {
         assertFalse(nodes().last { "a41c9e2" in it.texts() }.isCut())
     }
 
+    // Any two refs (7.1)
+
+    private val refs = listOf(Branch("5d5537fe", "refs/heads/main", isLocal = true), Branch("7d03f51a", "refs/heads/feat/clone-picker", isLocal = true))
+    private val tags = listOf(Tag("e3c6632f", "t1", "refs/tags/v1.3.0"))
+
+    private fun picking(side: SideToPick, text: String = "", resolved: Commit? = null, base: ComparisonState = state(DIVERGED, SINCE_SPLIT)) =
+        base.copy(picker = SidePickerState(side, text, refChoicesFor(text, refs, emptyList(), tags, resolved)))
+
+    @Test
+    fun `a side's line opens its list, but not in the review`() {
+        state = state(DIVERGED, SINCE_SPLIT)
+        render()
+
+        click(row("feat/clone-picker").center())
+        click(row("main").center())
+
+        assertEquals(
+            listOf<ComparisonAction>(ComparisonAction.OpenSidePicker(SideToPick.B), ComparisonAction.OpenSidePicker(SideToPick.A)),
+            actions,
+        )
+        actions.clear()
+
+        state = state(DIVERGED, SINCE_SPLIT).copy(review = ReviewedWorktree("/dev/leaf-agent1", "leaf-agent1", 0, false, true))
+        settle()
+        click(row("feat/clone-picker").center())
+
+        assertEquals(emptyList<ComparisonAction>(), actions)
+    }
+
+    @Test
+    fun `with the list open, the side is a field and the refs hang under the header, by group, with how many match`() {
+        state = picking(SideToPick.B)
+        render()
+
+        assertTrue("Branch, tag or commit" in texts(), texts().toString())
+        // B's name gave way to the field
+        assertFalse(mergedNodes().any { it.texts().take(2) == listOf("B", "feat/clone-picker") })
+        assertTrue(listOf("BRANCHES", "feat/clone-picker", "main", "TAGS", "v1.3.0").all { it in texts() }, texts().toString())
+        assertTrue("3 of 3 match. A hash or HEAD~2 works too." in texts(), texts().toString())
+
+        // The list is under the header, as wide as it
+        val list = node("BRANCHES").boundsInWindow
+        val aLine = mergedNodes().first { it.texts().take(2) == listOf("A", "main") }.boundsInWindow
+        assertTrue(list.top > aLine.bottom, "$list under $aLine")
+
+        click(node("v1.3.0").center())
+
+        assertEquals(listOf<ComparisonAction>(ComparisonAction.PickSide(CompareSide.Commit("e3c6632f", tag = "refs/tags/v1.3.0"))), actions)
+    }
+
+    @Test
+    fun `the keys move through the list, and Enter picks, starting from the first row once something is typed`() {
+        // Both branches have an a
+        state = picking(SideToPick.A, text = "a")
+        render()
+
+        press(Key.Enter)
+        press(Key.DirectionDown)
+        press(Key.Enter)
+
+        assertEquals(
+            listOf<ComparisonAction>(
+                ComparisonAction.PickSide(CompareSide.Branch("refs/heads/feat/clone-picker", "7d03f51a")),
+                ComparisonAction.PickSide(CompareSide.Branch("refs/heads/main", "5d5537fe")),
+            ),
+            actions,
+        )
+
+        press(Key.Escape)
+        assertEquals(ComparisonAction.CloseSidePicker, actions.last())
+    }
+
+    @Test
+    fun `a revision that git resolves is a commit row with its subject, and nothing matching says what works`() {
+        val commit = commit("a1e4f9a", "Docs: notes and changelog for the diff's View menu")
+        state = picking(SideToPick.B, text = "a1e4f9", resolved = commit)
+        render()
+
+        assertTrue(listOf("COMMIT", "a1e4f9a", "Docs: notes and changelog for the diff's View menu").all { it in texts() }, texts().toString())
+        assertTrue("0 of 3 match. A hash or HEAD~2 works too." in texts(), texts().toString())
+
+        state = picking(SideToPick.B, text = "nothing")
+        settle()
+
+        assertTrue("Nothing matches. A hash or HEAD~2 works too." in texts(), texts().toString())
+    }
+
+    @Test
+    fun `a comparison with A alone asks for B, with nothing to swap or show`() {
+        val pending = state(DIVERGED, SINCE_SPLIT).copy(
+            target = ComparisonTarget(main, main),
+            comparison = null,
+            rows = emptyList(),
+            isPending = true,
+        )
+        state = picking(SideToPick.B, base = pending)
+        render()
+
+        assertTrue("Choose what to compare main with." in texts(), texts().toString())
+        assertFalse(texts().contains("Reading the commits and files…"))
+        assertFalse(nodes().any { "Swap A and B" in it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty() })
+        assertTrue(described("End the comparison (Esc)").boundsInWindow.right <= width)
+    }
+
     @Test
     fun `older commits than the listed ones are counted`() {
         val listed = featureCommits
@@ -431,6 +544,7 @@ class ComparisonPaneTest {
             "failed" to state(DIVERGED, SINCE_SPLIT).copy(comparison = null, rows = emptyList(), error = GenericError("Couldn't download what the comparison needs: Could not resolve host: github.com")),
             "review" to state(DIVERGED, SINCE_SPLIT).copy(review = review),
             "commit" to showing(featureCommits[0], position = 1, files = featureFiles.take(2)),
+            "picker" to picking(SideToPick.B, text = "v1"),
         )
 
         for (themeUnderTest in listOf(Theme.Dark, Theme.Light)) {
@@ -537,6 +651,13 @@ class ComparisonPaneTest {
             button = PointerButton.Primary,
         )
         scene.sendPointerEvent(PointerEventType.Release, position, button = PointerButton.Primary)
+        settle()
+    }
+
+    @OptIn(InternalComposeUiApi::class, ExperimentalComposeUiApi::class)
+    private fun press(key: Key) {
+        scene!!.sendKeyEvent(KeyEvent(key = key, type = KeyEventType.KeyDown))
+        scene!!.sendKeyEvent(KeyEvent(key = key, type = KeyEventType.KeyUp))
         settle()
     }
 

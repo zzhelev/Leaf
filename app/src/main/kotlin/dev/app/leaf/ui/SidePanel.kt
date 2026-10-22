@@ -339,6 +339,7 @@ fun LazyListScope.localBranches(
                         onSwitchToWorktree = { viewModel.switchToWorktree(it) },
                         onNewWorktree = { onNewWorktree(NewWorktreeStart.LocalBranch(branch)) },
                         onCompareWithCurrent = { viewModel.compareBranchWithCurrent(branch) },
+                        onCompareWith = { viewModel.compareBranchWith(branch) },
                         onCopyBranchNameToClipboard = {
                             scope.launch {
                                 clipboard.setClipboardText(it.simpleName)
@@ -455,6 +456,7 @@ fun LazyListScope.remotes(
                                 onChooseWorktreesBase = { viewModel.chooseWorktreesBase(it) },
                                 onNewWorktree = { onNewWorktree(NewWorktreeStart.RemoteBranch(remoteBranch)) },
                                 onCompareWithCurrent = { viewModel.compareBranchWithCurrent(remoteBranch) },
+                                onCompareWith = { viewModel.compareBranchWith(remoteBranch) },
                                 onCopyBranchNameToClipboard = {
                                     scope.launch {
                                         clipboard.setClipboardText(it.simpleName)
@@ -528,6 +530,7 @@ fun LazyListScope.tags(
                         onDeleteTag = { onDeleteTag(tag) },
                         currentBranch = currentBranch,
                         onCompareWithCurrent = { viewModel.compareTagWithCurrent(tag) },
+                        onCompareWith = { viewModel.compareTagWith(tag) },
                     )
                 }
             }
@@ -722,6 +725,7 @@ private fun Branch(
     onSwitchToWorktree: (Worktree) -> Unit,
     onNewWorktree: () -> Unit,
     onCompareWithCurrent: () -> Unit,
+    onCompareWith: () -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
@@ -748,6 +752,7 @@ private fun Branch(
                 onSwitchToWorktree = onSwitchToWorktree,
                 onNewWorktree = onNewWorktree,
                 onCompareWithCurrent = onCompareWithCurrent,
+                onCompareWith = onCompareWith,
             )
         }
     ) {
@@ -825,6 +830,7 @@ private fun RemoteBranches(
     onChooseWorktreesBase: (branch: String?) -> Unit,
     onNewWorktree: () -> Unit,
     onCompareWithCurrent: () -> Unit,
+    onCompareWith: () -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     ContextMenu(
@@ -848,6 +854,7 @@ private fun RemoteBranches(
                 onChooseWorktreesBase = onChooseWorktreesBase,
                 onNewWorktree = onNewWorktree,
                 onCompareWithCurrent = onCompareWithCurrent,
+                onCompareWith = onCompareWith,
             )
         }
     ) {
@@ -876,6 +883,7 @@ private fun Tag(
     onDeleteTag: () -> Unit,
     currentBranch: Branch?,
     onCompareWithCurrent: () -> Unit,
+    onCompareWith: () -> Unit,
 ) {
     ContextMenu(
         items = {
@@ -884,6 +892,7 @@ private fun Tag(
                 onDeleteTag = onDeleteTag,
                 currentBranch = currentBranch,
                 onCompareWithCurrent = onCompareWithCurrent,
+                onCompareWith = onCompareWith,
             )
         }
     ) {

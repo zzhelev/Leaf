@@ -42,7 +42,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.compare.CompareSide
@@ -58,6 +61,7 @@ import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.ComparisonMode
 import dev.app.leaf.domain.models.ComparisonRelation
 import dev.app.leaf.domain.models.DiffSelected
+import dev.app.leaf.domain.repositories.CloseableView
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.icon
@@ -67,6 +71,7 @@ import dev.app.leaf.repositoryopen.ComparisonAction
 import dev.app.leaf.repositoryopen.ComparisonState
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.repositoryopen.ShownCommit
+import dev.app.leaf.repositoryopen.SideToPick
 import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
@@ -82,6 +87,7 @@ import dev.app.leaf.ui.dialogs.DialogWarning
 import dev.app.leaf.ui.forTooltip
 import dev.app.leaf.ui.getErrorText
 import dev.app.leaf.ui.keepInView
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import org.eclipse.jgit.diff.DiffEntry
@@ -120,12 +126,29 @@ fun ComparisonPane(
 
     // Kept with the tab, as a commit's lists are, and started again for other sides
     val listStates = rememberInTab("comparisonLists", state.target) { ComparisonListStates() }
+    val tabFocusRequester = LocalTabFocusRequester.current
+    val focusTab = {
+        try {
+            tabFocusRequester.requestFocus()
+        } catch (_: IllegalStateException) {
+            // Not in a tab
+        }
+    }
+
+    // The side's field had the focus, which the tab's keys need once the list closes with Esc
+    LaunchedEffect(viewModel) {
+        viewModel.closeViewFlow.filter { it == CloseableView.COMPARISON_SIDE_PICKER }.collect { focusTab() }
+    }
 
     ComparisonPaneView(
         state = state,
         diffSelected = diffSelected,
         listStates = listStates,
-        onAction = { viewModel.onAction(it) },
+        onAction = { action ->
+            viewModel.onAction(action)
+
+            if (action is ComparisonAction.PickSide) focusTab()
+        },
         onSelectCommit = { viewModel.selectCommit(it, isStash = false, scrollToItem = true) },
     )
 }
@@ -174,6 +197,8 @@ internal fun ComparisonPaneView(
                             onClick = { onAction(ComparisonAction.TryAgain) },
                         )
                     }
+                } else if (state.isPending) {
+                    PaneNote(stringResource(Res.string.compare_pending, state.aName))
                 } else if (comparison == null) {
                     PaneNote(stringResource(Res.string.compare_reading))
                 }
@@ -196,12 +221,44 @@ internal fun ComparisonPaneView(
     }
 }
 
-/** A and B, each on a line, then swap and end. */
+/**
+ * A and B, each on a line, then swap, the full view and end. A side's name opens the list of refs to change it (7.1),
+ * except in the review, whose sides are the worktree's; while it's open, the name is a field and the list hangs under
+ * the header, as wide as it.
+ */
 @Composable
 private fun ComparisonHeader(state: ComparisonState, onAction: (ComparisonAction) -> Unit) {
+    val picker = state.picker
+    val canChangeSides = state.review == null
+    var headerWidth by remember { mutableStateOf(0) }
+    var highlighted by remember(picker?.choices) { mutableStateOf(if (picker?.text.isNullOrBlank()) -1 else 0) }
+
+    @Composable
+    fun Side(letter: CompareLetter, side: SideToPick, compareSide: CompareSide, commit: String) {
+        if (picker?.side == side) {
+            SidePickerLine(
+                letter = letter,
+                picker = picker,
+                highlighted = highlighted,
+                onHighlight = { highlighted = it },
+                onTextChange = { onAction(ComparisonAction.SidePickerTextChanged(it)) },
+                onPick = { onAction(ComparisonAction.PickSide(it.side)) },
+                onClose = { onAction(ComparisonAction.CloseSidePicker) },
+            )
+        } else {
+            SideLine(
+                letter = letter,
+                side = compareSide,
+                commit = commit,
+                onClick = if (canChangeSides) ({ onAction(ComparisonAction.OpenSidePicker(side)) }) else null,
+            )
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .onSizeChanged { headerWidth = it.width }
             .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
             .background(MaterialTheme.colors.tertiarySurface)
             .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
@@ -211,63 +268,106 @@ private fun ComparisonHeader(state: ComparisonState, onAction: (ComparisonAction
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            SideLine(CompareLetter.A, state.target.a, state.aCommit)
-            SideLine(CompareLetter.B, state.target.b, state.bCommit)
+            Side(CompareLetter.A, SideToPick.A, state.target.a, state.aCommit)
+            Side(CompareLetter.B, SideToPick.B, state.target.b, state.bCommit)
         }
 
-        HeaderButton(
-            icon = Res.drawable.compare_arrows,
-            description = stringResource(Res.string.compare_swap),
-            rotation = 90f,
-            onClick = { onAction(ComparisonAction.Swap) },
-        )
+        // A comparison with A alone has nothing to swap or show yet
+        if (!state.isPending) {
+            HeaderButton(
+                icon = Res.drawable.compare_arrows,
+                description = stringResource(Res.string.compare_swap),
+                rotation = 90f,
+                onClick = { onAction(ComparisonAction.Swap) },
+            )
 
-        HeaderButton(
-            icon = Res.drawable.fullscreen,
-            description = stringResource(Res.string.compare_open_full_view),
-            onClick = { onAction(ComparisonAction.OpenFullView()) },
-        )
+            HeaderButton(
+                icon = Res.drawable.fullscreen,
+                description = stringResource(Res.string.compare_open_full_view),
+                onClick = { onAction(ComparisonAction.OpenFullView()) },
+            )
+        }
 
         HeaderButton(
             icon = Res.drawable.close,
             description = stringResource(Res.string.compare_end),
             onClick = { onAction(ComparisonAction.End) },
         )
-    }
-}
 
-/** A side's letter, its name and the commit it's at, which a side named by its commit doesn't repeat. */
-@Composable
-internal fun SideLine(letter: CompareLetter, side: CompareSide, commit: String) {
-    Row(
-        // Read as one: "A main 5d5537f"
-        modifier = Modifier.semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp),
-    ) {
-        CompareBadge(letter)
-
-        Text(
-            text = side.name,
-            style = MaterialTheme.typography.body2,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colors.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-
-        val shortCommit = commit.take(7)
-
-        if (shortCommit.isNotEmpty() && !side.name.startsWith(shortCommit)) {
-            Text(
-                text = shortCommit,
-                style = MaterialTheme.typography.body2,
-                color = MaterialTheme.colors.onBackgroundSecondary,
-                maxLines = 1,
+        if (picker != null) {
+            RefChoicesPopup(
+                choices = picker.choices,
+                highlighted = highlighted,
+                width = with(LocalDensity.current) { headerWidth.toDp() },
+                onPick = { onAction(ComparisonAction.PickSide(it.side)) },
             )
         }
     }
+}
+
+/**
+ * A side's letter, its name and the commit it's at, which a side named by its commit doesn't repeat. With [onClick],
+ * the line, with a chevron after the name, opens the list that changes the side.
+ */
+@Composable
+internal fun SideLine(letter: CompareLetter, side: CompareSide, commit: String, onClick: (() -> Unit)? = null) {
+    @Composable
+    fun Line(modifier: Modifier) {
+        Row(
+            // Read as one: "A main 5d5537f"
+            modifier = modifier.semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            CompareBadge(letter)
+
+            // The chevron hugs the name, which gives way first
+            Row(modifier = Modifier.weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically) {
+                SideName(side.name, Modifier.weight(1f, fill = false))
+
+                if (onClick != null) {
+                    Icon(
+                        painter = painterResource(Res.drawable.expand_more),
+                        contentDescription = null,
+                        tint = MaterialTheme.colors.onBackgroundSecondary,
+                        modifier = Modifier.size(12.dp),
+                    )
+                }
+            }
+
+            val shortCommit = commit.take(7)
+
+            if (shortCommit.isNotEmpty() && !side.name.startsWith(shortCommit)) {
+                Text(
+                    text = shortCommit,
+                    style = MaterialTheme.typography.body2,
+                    color = MaterialTheme.colors.onBackgroundSecondary,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+
+    if (onClick == null) {
+        Line(Modifier)
+    } else {
+        DelayedTooltip(stringResource(Res.string.compare_change_side, letter.name)) {
+            Line(Modifier.handMouseClickable(onClick = onClick))
+        }
+    }
+}
+
+@Composable
+private fun SideName(name: String, modifier: Modifier) {
+    Text(
+        text = name,
+        style = MaterialTheme.typography.body2,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colors.onBackground,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
 }
 
 @Composable

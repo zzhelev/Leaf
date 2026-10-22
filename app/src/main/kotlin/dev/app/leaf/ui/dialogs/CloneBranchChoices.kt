@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -251,7 +252,7 @@ private fun ColumnScope.Choices(choices: BranchChoices, highlighted: Int, onPick
         modifier = Modifier.weight(1f, fill = false).padding(vertical = 4.dp),
     ) {
         if (choices.branches.isNotEmpty()) {
-            item(key = "branches-header") { GroupHeader(stringResource(Res.string.clone_choose_branch_branches)) }
+            item(key = "branches-header") { ChoiceGroupHeader(stringResource(Res.string.clone_choose_branch_branches)) }
         }
 
         itemsIndexed(choices.branches, key = { _, choice -> "branch " + choice.name }) { index, choice ->
@@ -259,7 +260,7 @@ private fun ColumnScope.Choices(choices: BranchChoices, highlighted: Int, onPick
         }
 
         if (choices.tags.isNotEmpty()) {
-            item(key = "tags-header") { GroupHeader(stringResource(Res.string.clone_choose_branch_tags)) }
+            item(key = "tags-header") { ChoiceGroupHeader(stringResource(Res.string.clone_choose_branch_tags)) }
         }
 
         itemsIndexed(choices.tags, key = { _, choice -> "tag " + choice.name }) { index, choice ->
@@ -281,8 +282,9 @@ private fun ColumnScope.Choices(choices: BranchChoices, highlighted: Int, onPick
     )
 }
 
+/** A group's name over its rows, as the clone dialog's list and the comparison's list of refs show them. */
 @Composable
-private fun GroupHeader(text: String) {
+internal fun ChoiceGroupHeader(text: String) {
     Text(
         text = text.uppercase(),
         style = MaterialTheme.typography.caption,
@@ -292,12 +294,45 @@ private fun GroupHeader(text: String) {
     )
 }
 
-/**
- * A branch or a tag, with what was typed in bold. It's picked by a tap, not a `clickable`, which would take the
- * focus from the Branch field.
- */
+/** A branch or a tag, with what was typed in bold, and the default branch marked. */
 @Composable
 private fun ChoiceRow(choice: BranchChoice, isHighlighted: Boolean, onPick: () -> Unit) {
+    PickRow(
+        name = choice.name,
+        matchStart = choice.matchStart,
+        matchLength = choice.matchLength,
+        isHighlighted = isHighlighted,
+        onPick = onPick,
+    ) {
+        if (choice.isDefault) {
+            Spacer(Modifier.width(8.dp))
+
+            Text(
+                text = stringResource(Res.string.clone_choose_branch_default),
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                maxLines = 1,
+                modifier = Modifier
+                    .border(1.dp, MaterialTheme.colors.onBackground.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                    .padding(horizontal = 4.dp),
+            )
+        }
+    }
+}
+
+/**
+ * A row of a list that a field keeps the focus for, with [name] and what was typed in bold, then [trailing]. It's
+ * picked by a tap, not a `clickable`, which would take the focus from the field.
+ */
+@Composable
+internal fun PickRow(
+    name: String,
+    matchStart: Int,
+    matchLength: Int,
+    isHighlighted: Boolean,
+    onPick: () -> Unit,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val currentOnPick by rememberUpdatedState(onPick)
@@ -316,7 +351,7 @@ private fun ChoiceRow(choice: BranchChoice, isHighlighted: Boolean, onPick: () -
             )
             .hoverable(interactionSource)
             .pointerHoverIcon(PointerIcon.Hand)
-            .pointerInput(choice.name) { detectTapGestures { currentOnPick() } }
+            .pointerInput(name) { detectTapGestures { currentOnPick() } }
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 selected = isHighlighted
@@ -327,10 +362,10 @@ private fun ChoiceRow(choice: BranchChoice, isHighlighted: Boolean, onPick: () -
     ) {
         Text(
             text = buildAnnotatedString {
-                append(choice.name)
+                append(name)
 
-                if (choice.matchLength > 0) {
-                    addStyle(matchStyle, choice.matchStart, choice.matchStart + choice.matchLength)
+                if (matchLength > 0) {
+                    addStyle(matchStyle, matchStart, matchStart + matchLength)
                 }
             },
             style = MaterialTheme.typography.body2,
@@ -340,19 +375,7 @@ private fun ChoiceRow(choice: BranchChoice, isHighlighted: Boolean, onPick: () -
             modifier = Modifier.weight(1f, fill = false),
         )
 
-        if (choice.isDefault) {
-            Spacer(Modifier.width(8.dp))
-
-            Text(
-                text = stringResource(Res.string.clone_choose_branch_default),
-                style = MaterialTheme.typography.caption,
-                color = MaterialTheme.colors.onBackgroundSecondary,
-                maxLines = 1,
-                modifier = Modifier
-                    .border(1.dp, MaterialTheme.colors.onBackground.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
-                    .padding(horizontal = 4.dp),
-            )
-        }
+        trailing()
     }
 }
 

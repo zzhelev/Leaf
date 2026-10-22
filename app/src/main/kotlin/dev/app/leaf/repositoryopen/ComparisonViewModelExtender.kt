@@ -9,10 +9,13 @@ import dagger.assisted.AssistedInject
 import dev.app.leaf.collectLatestInCoroutineScope
 import dev.app.leaf.common.flows.combine
 import dev.app.leaf.domain.compare.CompareSide
+import dev.app.leaf.domain.compare.RefChoices
 import dev.app.leaf.domain.compare.defaultMode
 import dev.app.leaf.domain.compare.inPickedOrder
+import dev.app.leaf.domain.compare.looksLikeRevision
 import dev.app.leaf.domain.compare.modeToShow
 import dev.app.leaf.domain.compare.putsAncestorFirst
+import dev.app.leaf.domain.compare.refChoicesFor
 import dev.app.leaf.domain.compare.showsModeSwitch
 import dev.app.leaf.domain.compare.swapped
 import dev.app.leaf.domain.errors.AppError
@@ -37,11 +40,13 @@ import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.buildFileRows
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetComparisonUseCase
+import dev.app.leaf.domain.usecases.ResolveCommitUseCase
 import dev.app.leaf.domain.worktrees.branchToReview
 import dev.app.leaf.domain.worktrees.name
 import dev.app.leaf.extensions.stateIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -106,6 +111,19 @@ data class ShownCommit(
     val error: AppError?,
 )
 
+/** The side whose list of refs is open in the pane's header (`docs/fork/compare.md`, 7.1). */
+enum class SideToPick { A, B }
+
+/**
+ * The list that picks a side, under the side's name (7.1): what was typed in its place, and the refs that match it, with
+ * a commit row for a typed hash or revision.
+ */
+data class SidePickerState(
+    val side: SideToPick,
+    val text: String,
+    val choices: RefChoices,
+)
+
 /**
  * What the comparison shows (fork-only).
  *
@@ -115,6 +133,8 @@ data class ShownCommit(
  * @param shownCommit the commit whose own changes the files are, in place of the comparison's.
  * @param files what the file list shows: the comparison's changes, or [shownCommit]'s.
  * @param review the worktree, for "Review changes" only.
+ * @param isPending "Compare with…" opened it with A alone: B is still to pick, and nothing is read.
+ * @param picker the list of refs that is open under A's or B's name.
  */
 data class ComparisonState(
     val target: ComparisonTarget,
@@ -131,6 +151,8 @@ data class ComparisonState(
     val rows: List<FileRow<DiffEntry>>,
     val isFullView: Boolean,
     val review: ReviewedWorktree?,
+    val isPending: Boolean = false,
+    val picker: SidePickerState? = null,
 ) {
     val aName: String get() = target.a.name
     val bName: String get() = target.b.name
@@ -165,6 +187,18 @@ sealed interface ComparisonAction {
     /** Lists the comparison's changes again, in place of a commit's. */
     data object ShowAllChanges : ComparisonAction
 
+    /** Opens the list of refs under [side]'s name, to change it. */
+    data class OpenSidePicker(val side: SideToPick) : ComparisonAction
+
+    /** What is typed in place of the side's name, which filters the list. */
+    data class SidePickerTextChanged(val text: String) : ComparisonAction
+
+    /** Takes [side] for the side whose list is open, and reads the comparison again with the other side kept. */
+    data class PickSide(val side: CompareSide) : ComparisonAction
+
+    /** Closes the list. A comparison that "Compare with…" opened, which has no B yet, ends too. */
+    data object CloseSidePicker : ComparisonAction
+
     /** Shows the reviewed worktree's uncommitted changes: the tab's own, or the tab switches to the worktree. */
     data object ShowUncommittedChanges : ComparisonAction
 }
@@ -176,6 +210,7 @@ sealed interface ComparisonAction {
  * @param relation how the sides' histories meet, once a read told it.
  * @param orderSettled false until the first read: an ancestor that ended up as B goes first then.
  * @param shownCommit the commit whose own changes the files show.
+ * @param isPending A alone, from "Compare with…", until B is picked: nothing to read.
  */
 private data class Active(
     val target: ComparisonTarget,
@@ -185,6 +220,7 @@ private data class Active(
     val isFullView: Boolean,
     val tries: Int,
     val shownCommit: Commit? = null,
+    val isPending: Boolean = false,
 ) {
     /**
      * The mode to read. The review asks for what the branch would bring, even when that's nothing. A comparison shows
@@ -193,8 +229,17 @@ private data class Active(
     val modeToRead: ComparisonMode
         get() = if (target.isReview) chosenMode else relation?.modeToShow(chosenMode) ?: chosenMode
 
-    val read: Read get() = Read(target, modeToRead, tries)
+    val read: Read? get() = if (isPending) null else Read(target, modeToRead, tries)
 }
+
+/** The list of refs under a side's name, and what is typed in it. */
+private data class SidePicker(val side: SideToPick, val text: String)
+
+/** What git made of [text] as a revision. */
+private data class ResolvedRevision(val text: String, val commit: Commit?)
+
+/** How long typing pauses before git is asked what the text names. */
+private const val RESOLVE_DELAY_MS = 150L
 
 /** One comparison to read. A change of any part starts a new read, without the last one's result. */
 private data class Read(val target: ComparisonTarget, val mode: ComparisonMode, val tries: Int)
@@ -229,6 +274,7 @@ private data class CommitReading(
 class ComparisonViewModelExtender @AssistedInject constructor(
     private val getComparisonUseCase: GetComparisonUseCase,
     private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
+    private val resolveCommitUseCase: ResolveCommitUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
@@ -264,6 +310,8 @@ class ComparisonViewModelExtender @AssistedInject constructor(
     }
 
     private val active = MutableStateFlow<Active?>(null)
+
+    private val picker = MutableStateFlow<SidePicker?>(null)
 
     /** What was selected when the review opened, which ending it selects again. */
     private var selectionBefore: SelectedItem? = null
@@ -333,6 +381,42 @@ class ComparisonViewModelExtender @AssistedInject constructor(
         emitAll(readings)
     }
 
+    /** What the picker's text names as a revision, asked once typing pauses. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val resolvedRevision: Flow<ResolvedRevision?> = picker
+        .map { it?.text?.trim() }
+        .distinctUntilChanged()
+        .transformLatest<String?, ResolvedRevision?> { text ->
+            if (text != null && looksLikeRevision(text)) {
+                delay(RESOLVE_DELAY_MS)
+                emit(ResolvedRevision(text, resolveCommitUseCase(text).okOrNull()))
+            }
+        }
+        .onStart { emit(null) }
+
+    /** The open list, from the tab's branches, remote branches and tags, which nothing asks a remote for. */
+    private val pickerState: Flow<SidePickerState?> = combine(
+        picker,
+        resolvedRevision,
+        repositoryDataRepository.localBranches.map { it.dataOrNull().orEmpty() }.onStart { emit(emptyList()) },
+        repositoryDataRepository.remotes.map { it.dataOrNull().orEmpty() }.onStart { emit(emptyList()) },
+        repositoryDataRepository.tags.map { it.dataOrNull().orEmpty() }.onStart { emit(emptyList()) },
+    ) { picker, resolved, localBranches, remotes, tags ->
+        picker?.let {
+            SidePickerState(
+                side = it.side,
+                text = it.text,
+                choices = refChoicesFor(
+                    text = it.text,
+                    branches = localBranches,
+                    remoteBranches = remotes.flatMap { remote -> remote.branchesList },
+                    tags = tags,
+                    resolved = resolved?.takeIf { revision -> revision.text == it.text.trim() }?.commit,
+                ),
+            )
+        }
+    }
+
     val state: StateFlow<ComparisonState?> = combine(
         active,
         reading,
@@ -341,7 +425,8 @@ class ComparisonViewModelExtender @AssistedInject constructor(
         worktrees,
         filesViewState,
         collapsedDirectories,
-    ) { active, reading, commitReading, selected, worktrees, viewState, collapsed ->
+        pickerState,
+    ) { active, reading, commitReading, selected, worktrees, viewState, collapsed, picker ->
         if (active == null || selected != SelectedItem.None) {
             null
         } else {
@@ -352,7 +437,7 @@ class ComparisonViewModelExtender @AssistedInject constructor(
                 worktrees = worktrees,
                 viewState = viewState,
                 collapsedDirectories = collapsed,
-            )
+            ).copy(picker = picker)
         }
     }.stateIn(null as ComparisonState?)
 
@@ -468,12 +553,64 @@ class ComparisonViewModelExtender @AssistedInject constructor(
             is ComparisonAction.ShowCommit -> showCommit(action.commit)
             is ComparisonAction.StepCommit -> stepCommit(action.offset)
             ComparisonAction.ShowAllChanges -> showAllChanges()
+            is ComparisonAction.OpenSidePicker -> openSidePicker(action.side)
+            is ComparisonAction.SidePickerTextChanged -> picker.update { it?.copy(text = action.text) }
+            is ComparisonAction.PickSide -> pickSide(action.side)
+            ComparisonAction.CloseSidePicker -> closeSidePicker()
             // The view model switches the tab first, when it's another worktree's
             ComparisonAction.ShowUncommittedChanges -> endForUncommittedChanges()
         }
     }
 
-    private fun start(target: ComparisonTarget, mode: ComparisonMode, orderSettled: Boolean) {
+    /**
+     * "Compare with…" (7.1): [a] as A, and B's list of refs open in the pane's header. Nothing is read until B is picked,
+     * and closing the list ends it.
+     */
+    fun compareWith(a: CompareSide) {
+        start(ComparisonTarget(a, a), defaultMode(a, a), orderSettled = true, isPending = true)
+        openSidePicker(SideToPick.B)
+    }
+
+    /** Opens the list of refs under [side]'s name. The review's sides are the worktree's, so they don't change. */
+    fun openSidePicker(side: SideToPick) {
+        val current = active.value ?: return
+
+        if (current.target.isReview) return
+
+        picker.value = SidePicker(side, text = "")
+        addCloseableView(CloseableView.COMPARISON_SIDE_PICKER)
+    }
+
+    /** Closes the list (Esc). A comparison with A alone ends, selecting again what was selected before it. */
+    fun closeSidePicker() {
+        if (picker.value == null) return
+
+        picker.value = null
+        removeCloseableView(CloseableView.COMPARISON_SIDE_PICKER)
+
+        if (active.value?.isPending == true) {
+            end(selecting = null)
+        }
+    }
+
+    /**
+     * Takes [side] for the side whose list is open, and compares it with the other side, as picked: the order stays
+     * the user's, and the swap button turns it around. The mode is the new pair's default.
+     */
+    private fun pickSide(side: CompareSide) {
+        val current = active.value ?: return
+        val which = picker.value?.side ?: return
+        val target = when (which) {
+            SideToPick.A -> ComparisonTarget(a = side, b = current.target.b)
+            SideToPick.B -> ComparisonTarget(a = current.target.a, b = side)
+        }
+
+        picker.value = null
+        removeCloseableView(CloseableView.COMPARISON_SIDE_PICKER)
+        start(target, defaultMode(target.a, target.b), orderSettled = true)
+    }
+
+    private fun start(target: ComparisonTarget, mode: ComparisonMode, orderSettled: Boolean, isPending: Boolean = false) {
         val current = selectedItem.value
 
         // A comparison that replaces another keeps what was selected before the first
@@ -484,9 +621,11 @@ class ComparisonViewModelExtender @AssistedInject constructor(
         collapsedDirectories.value = emptySet()
         shownEntry = null
         onSelectItem(SelectedItem.None)
-        active.value = Active(target, mode, relation = null, orderSettled, isFullView = false, tries = 0)
+        active.value = Active(target, mode, relation = null, orderSettled, isFullView = false, tries = 0, isPending = isPending)
+        picker.value = null
         removeCloseableView(CloseableView.COMPARISON_FULL_VIEW)
         removeCloseableView(CloseableView.COMPARISON_COMMIT)
+        removeCloseableView(CloseableView.COMPARISON_SIDE_PICKER)
         addCloseableView(CloseableView.COMPARISON)
     }
 
@@ -514,10 +653,12 @@ class ComparisonViewModelExtender @AssistedInject constructor(
     /** Ends the comparison without selecting anything. */
     private fun stop() {
         active.value = null
+        picker.value = null
         selectionBefore = null
         shownEntry = null
         removeCloseableView(CloseableView.COMPARISON_FULL_VIEW)
         removeCloseableView(CloseableView.COMPARISON_COMMIT)
+        removeCloseableView(CloseableView.COMPARISON_SIDE_PICKER)
         removeCloseableView(CloseableView.COMPARISON)
     }
 
@@ -688,7 +829,7 @@ private fun comparisonState(
     return ComparisonState(
         target = target,
         mode = active.modeToRead,
-        isLoading = reading == null || reading.isLoading || shownCommit?.isLoading == true,
+        isLoading = !active.isPending && (reading == null || reading.isLoading || shownCommit?.isLoading == true),
         comparison = comparison,
         error = result?.errOrNull(),
         aCommit = reading?.tips?.first ?: target.a.commit,
@@ -703,6 +844,7 @@ private fun comparisonState(
         ),
         isFullView = active.isFullView,
         review = target.reviewedWorktreePath?.let { reviewedWorktree(it, worktrees) },
+        isPending = active.isPending,
     )
 }
 

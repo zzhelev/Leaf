@@ -653,6 +653,17 @@
     <string name="compare_commit_no_changes">This commit changes no file.</string>
     <string name="compare_commit_parent">Parent · %1$s</string>
     <string name="compare_commit_no_parent">No parent</string>
+    <string name="compare_pick_side_hint">Branch, tag or commit</string>
+    <string name="compare_pick_count">%1$d of %2$d match. A hash or HEAD~2 works too.</string>
+    <string name="compare_pick_none">Nothing matches. A hash or HEAD~2 works too.</string>
+    <string name="compare_pick_group_commit">Commit</string>
+    <string name="compare_pick_group_branches">Branches</string>
+    <string name="compare_pick_group_tags">Tags</string>
+    <string name="compare_pick_group_remote_branches">Remote branches</string>
+    <string name="compare_change_side">Compare another branch, tag or commit as %1$s</string>
+    <string name="compare_pending">Choose what to compare %1$s with.</string>
+    <string name="compare_with_any">Compare with…</string>
+    <string name="quick_actions_compare">Compare…</string>
     <plurals name="file_history_versions_apart">
         <item quantity="one">· %1$d commit apart</item>
         <item quantity="other">· %1$d commits apart</item>

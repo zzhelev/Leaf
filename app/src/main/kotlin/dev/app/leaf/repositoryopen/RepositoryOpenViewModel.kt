@@ -694,6 +694,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.COMPARISON -> comparisonViewModelExtender.end()
                 CloseableView.COMPARISON_FULL_VIEW -> leaveComparisonFullView()
                 CloseableView.COMPARISON_COMMIT -> comparisonViewModelExtender.showAllChanges()
+                CloseableView.COMPARISON_SIDE_PICKER -> comparisonViewModelExtender.closeSidePicker()
 
                 CloseableView.COMMIT_FIELD_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
 
@@ -932,14 +933,31 @@ class RepositoryOpenViewModel @Inject constructor(
 
     /** Compares [other] with the tab's current branch, or its detached HEAD, from a menu. */
     private fun compareWithCurrent(other: CompareSide) {
-        val current = logState.value.currentBranch ?: return
-        val currentSide = if (current.name == Constants.HEAD) {
+        val currentSide = currentSide() ?: return
+
+        comparisonViewModelExtender.compareWithCurrent(currentSide, other)
+    }
+
+    /** The tab's current branch as a comparison's side, or its detached HEAD's commit. */
+    private fun currentSide(): CompareSide? {
+        val current = logState.value.currentBranch ?: return null
+
+        return if (current.name == Constants.HEAD) {
             CompareSide.Commit(current.hash)
         } else {
             CompareSide.Branch(current.name, current.hash)
         }
+    }
 
-        comparisonViewModelExtender.compareWithCurrent(currentSide, other)
+    /** A branch's "Compare with…" (fork-only, `docs/fork/compare.md`, 7.1): the branch as A, and B's list open. */
+    fun compareBranchWith(branch: Branch) = comparisonViewModelExtender.compareWith(CompareSide.Branch(branch.name, branch.hash))
+
+    /** A tag's "Compare with…": the tagged commit, named by the tag, as A. */
+    fun compareTagWith(tag: Tag) = comparisonViewModelExtender.compareWith(CompareSide.Commit(tag.commitHash, tag = tag.name))
+
+    /** The Actions list's "Compare…": the current branch, or a detached HEAD, as A, and B's list open. */
+    fun compareCurrentWithAny() {
+        currentSide()?.let { comparisonViewModelExtender.compareWith(it) }
     }
 
     /** A branch's "Compare with main (current)", in the side panel and on a log chip. */
@@ -1465,6 +1483,7 @@ class RepositoryOpenViewModel @Inject constructor(
             is LogAction.CommitPicked -> pickCommit(action.commit, action.isStash)
             is LogAction.CompareWithSelected -> compareWithSelected(action.commit)
             is LogAction.CompareWithCurrent -> compareWithCurrent(sideOfRow(action.commit))
+            is LogAction.CompareWith -> comparisonViewModelExtender.compareWith(sideOfRow(action.commit))
             is LogAction.DeleteRemoteBranch -> deleteRemoteBranch(action.branch)
             is LogAction.DeleteStash -> deleteStash(action.commit)
             is LogAction.Merge -> mergeBranch(action.branch)

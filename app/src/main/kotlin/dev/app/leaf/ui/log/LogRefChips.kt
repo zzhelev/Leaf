@@ -332,6 +332,7 @@ private fun BranchRefChip(
                 worktreesBase = branchWorktrees.baseChoice,
                 onChooseWorktreesBase = onChooseWorktreesBase,
                 onCompareWithCurrent = compareWithCurrent?.onBranch,
+                onCompareWith = compareWithCurrent?.onBranchWith,
             )
         },
     )
@@ -457,6 +458,8 @@ private fun AllRefsPopup(
                     currentBranch = compare.currentBranch,
                     onBranch = { onDismissRequest(); compare.onBranch(it) },
                     onTag = { onDismissRequest(); compare.onTag(it) },
+                    onBranchWith = compare.onBranchWith?.let { with -> { onDismissRequest(); with(it) } },
+                    onTagWith = compare.onTagWith?.let { with -> { onDismissRequest(); with(it) } },
                 )
             },
         ) {

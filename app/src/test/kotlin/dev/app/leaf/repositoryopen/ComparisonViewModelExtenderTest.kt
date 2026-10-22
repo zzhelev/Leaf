@@ -8,12 +8,14 @@ import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.compare.CompareSide
+import dev.app.leaf.domain.compare.RefKind
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitFromHashGitAction
 import dev.app.leaf.domain.interfaces.IGetComparisonGitAction
+import dev.app.leaf.domain.interfaces.IResolveCommitGitAction
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Comparison
@@ -29,6 +31,7 @@ import dev.app.leaf.domain.models.DiffSelected
 import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.RepositorySelectionState
+import dev.app.leaf.domain.models.Tag
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.models.WorktreeInfo
@@ -39,6 +42,7 @@ import dev.app.leaf.domain.repositories.CloseableView
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetComparisonUseCase
+import dev.app.leaf.domain.usecases.ResolveCommitUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +112,18 @@ class ComparisonViewModelExtenderTest {
 
     private val failNextCommit = AtomicBoolean(false)
 
+    /** The commits that typed revisions name, and the revisions that were asked for. */
+    private val revisions = ConcurrentHashMap<String, Commit>()
+    private val resolved = Collections.synchronizedList(mutableListOf<String>())
+
+    private val resolveAction = object : IResolveCommitGitAction {
+        override suspend fun invoke(repositoryPath: String, revision: String): Either<Commit?, GitError> {
+            resolved += revision
+
+            return Either.Ok(revisions[revision])
+        }
+    }
+
     private val commitDiffAction = object : IGetCommitDiffEntriesGitAction {
         override suspend fun invoke(repositoryPath: String, commit: Commit): Either<List<DiffEntry>, GitError> {
             heldCommitReads.value.await()
@@ -152,6 +168,7 @@ class ComparisonViewModelExtenderTest {
             },
             useCaseExecutor,
         ),
+        resolveCommitUseCase = ResolveCommitUseCase(resolveAction, useCaseExecutor),
         repositoryDataRepository = repositoryData,
         viewModelScope = viewModelScope,
         filesViewState = MutableStateFlow(FilesViewState()),
@@ -180,6 +197,7 @@ class ComparisonViewModelExtenderTest {
         repositoryData.setRepositorySelectionState(RepositorySelectionState.Open(gitDir))
         setBranches(agent1Hash = "a1")
         repositoryData.updateRemotes(gitDir) { Either.Ok(emptyList()) }
+        repositoryData.updateTags(gitDir) { Either.Ok(listOf(Tag("t1", "t1-object", "refs/tags/v1.0"))) }
         repositoryData.updateWorktrees(gitDir) {
             Either.Ok(
                 WorktreeList(
@@ -817,6 +835,113 @@ class ComparisonViewModelExtenderTest {
 
         assertEquals(commitFiles["c1"], read.files)
         assertNotNull(read.comparison)
+    }
+
+    // Any two refs (7.1)
+
+    @Test
+    fun `Compare with opens with A alone and B's list, reads nothing, and closing the list ends it`(): Unit =
+        runBlocking {
+            val before = selected("c0")
+            selectedItem.value = before
+
+            extender.compareWith(CompareSide.Branch("refs/heads/agent1", "a1"))
+            val pending = withTimeout(5.seconds) { extender.state.first { it?.picker != null } }!!
+
+            assertTrue(pending.isPending)
+            assertFalse(pending.isLoading)
+            assertEquals("agent1", pending.aName)
+            assertEquals(SideToPick.B, pending.picker!!.side)
+            assertEquals(SelectedItem.None, selectedItem.value)
+            assertEquals(listOf(CloseableView.COMPARISON, CloseableView.COMPARISON_SIDE_PICKER), closeableViews.toList())
+            delay(200.milliseconds)
+            assertEquals(emptyList<Triple<String, String, ComparisonMode>>(), compared.toList())
+
+            // Esc
+            extender.closeSidePicker()
+
+            withTimeout(5.seconds) { extender.state.first { it == null } }
+            assertEquals(before, selectedItem.value)
+            assertEquals(emptyList<CloseableView>(), closeableViews.toList())
+        }
+
+    @Test
+    fun `a pick from B's list compares it with A, in the order the user put them`(): Unit = runBlocking {
+        extender.compareWith(CompareSide.Branch("refs/heads/agent1", "a1"))
+        withTimeout(5.seconds) { extender.state.first { it?.picker != null } }
+
+        extender.onAction(ComparisonAction.PickSide(CompareSide.Branch("refs/heads/main", "m1")))
+        val state = loaded()
+
+        assertFalse(state.isPending)
+        assertNull(state.picker)
+        assertEquals("agent1", state.aName)
+        assertEquals("main", state.bName)
+        assertEquals(listOf(Triple("refs/heads/agent1", "refs/heads/main", SINCE_SPLIT)), compared.toList())
+        assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
+    }
+
+    @Test
+    fun `a running comparison changes one side from its list, and keeps the other`(): Unit = runBlocking {
+        extender.comparePicked(older, newer)
+        loaded()
+
+        extender.onAction(ComparisonAction.OpenSidePicker(SideToPick.A))
+        withTimeout(5.seconds) { extender.state.first { it?.picker?.side == SideToPick.A } }
+        assertEquals(listOf(CloseableView.COMPARISON, CloseableView.COMPARISON_SIDE_PICKER), closeableViews.toList())
+
+        extender.onAction(ComparisonAction.PickSide(CompareSide.Commit("t1", tag = "refs/tags/v1.0")))
+        val state = withTimeout(5.seconds) { extender.state.first { it != null && !it.isLoading && it.aName == "v1.0" } }!!
+
+        assertEquals("c2", state.bCommit)
+        assertEquals(Triple("t1", "c2", ALL), compared.last())
+
+        // Closing the list of a running comparison leaves it as it is
+        extender.onAction(ComparisonAction.OpenSidePicker(SideToPick.B))
+        extender.onAction(ComparisonAction.CloseSidePicker)
+        val after = withTimeout(5.seconds) { extender.state.first { it != null && it.picker == null } }!!
+
+        assertEquals("v1.0", after.aName)
+        assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
+    }
+
+    @Test
+    fun `the list holds the tab's refs, filtered by what is typed, and a commit for a revision that git resolves`(): Unit =
+        runBlocking {
+            revisions["HEAD~2"] = commit("Older work", "h2".padEnd(40, '0'))
+            extender.comparePicked(older, newer)
+            loaded()
+
+            extender.onAction(ComparisonAction.OpenSidePicker(SideToPick.B))
+            val all = withTimeout(5.seconds) { extender.state.first { it?.picker?.choices?.total == 3 } }!!.picker!!
+
+            assertEquals(listOf("agent1", "main", "v1.0"), all.choices.rows.map { it.name })
+
+            extender.onAction(ComparisonAction.SidePickerTextChanged("ma"))
+            val filtered = withTimeout(5.seconds) { extender.state.first { it?.picker?.text == "ma" } }!!.picker!!
+
+            assertEquals(listOf("main"), filtered.choices.rows.map { it.name })
+
+            extender.onAction(ComparisonAction.SidePickerTextChanged("HEAD~2"))
+            val revision = withTimeout(5.seconds) {
+                extender.state.first { it?.picker?.choices?.groups?.firstOrNull()?.kind == RefKind.COMMIT }
+            }!!.picker!!
+
+            assertEquals("Older work", revision.choices.rows.single().detail)
+            assertEquals(CompareSide.Commit("h2".padEnd(40, '0')), revision.choices.rows.single().side)
+            assertTrue("HEAD~2" in resolved)
+        }
+
+    @Test
+    fun `the review's sides are the worktree's, so they open no list`(): Unit = runBlocking {
+        extender.openReview(agent, "refs/heads/main")
+        reviewLoaded()
+
+        extender.onAction(ComparisonAction.OpenSidePicker(SideToPick.B))
+        delay(200.milliseconds)
+
+        assertNull(extender.state.value!!.picker)
+        assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
     }
 
     private fun shownDiff(): DiffEntry? =

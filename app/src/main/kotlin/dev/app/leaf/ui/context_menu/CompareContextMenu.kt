@@ -25,6 +25,8 @@ class CompareMenuItems(
     /** The tab's current branch, or its detached HEAD; null leaves "Compare with … (current)" out. */
     val currentBranch: Branch?,
     val onCompareWithCurrent: () -> Unit,
+    /** "Compare with…", which picks the other side from a list of refs (7.1); null leaves it out. */
+    val onCompareWith: (() -> Unit)? = null,
 )
 
 /**
@@ -35,6 +37,9 @@ class CompareWithCurrent(
     val currentBranch: Branch?,
     val onBranch: (Branch) -> Unit,
     val onTag: (Tag) -> Unit,
+    /** "Compare with…" on a branch and a tag (7.1). */
+    val onBranchWith: ((Branch) -> Unit)? = null,
+    val onTagWith: ((Tag) -> Unit)? = null,
 )
 
 val LocalCompareWithCurrent = staticCompositionLocalOf<CompareWithCurrent?> { null }
@@ -45,8 +50,9 @@ fun MutableList<ContextMenuElement>.addCompareItems(items: CompareMenuItems?) {
 
     val selectedName = items.selectedName
     val currentBranch = items.currentBranch
+    val onCompareWith = items.onCompareWith
 
-    if (selectedName == null && currentBranch == null) return
+    if (selectedName == null && currentBranch == null && onCompareWith == null) return
 
     if (selectedName != null) {
         addContextMenu(
@@ -61,7 +67,20 @@ fun MutableList<ContextMenuElement>.addCompareItems(items: CompareMenuItems?) {
         addCompareWithCurrent(currentBranch, items.onCompareWithCurrent)
     }
 
+    if (onCompareWith != null) {
+        addCompareWith(onCompareWith)
+    }
+
     add(ContextMenuElement.ContextSeparator)
+}
+
+/** "Compare with…": the item as A, and the other side picked from a list of refs (`docs/fork/compare.md`, 7.1). */
+fun MutableList<ContextMenuElement>.addCompareWith(onClick: () -> Unit) {
+    addContextMenu(
+        composableLabel = { stringResource(Res.string.compare_with_any) },
+        icon = { painterResource(Res.drawable.compare_arrows) },
+        onClick = onClick,
+    )
 }
 
 /** "Compare with main (current)", or with a detached HEAD. */

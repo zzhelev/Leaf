@@ -26,6 +26,7 @@ fun sharedChipRemoteItems(
     worktreesBase: WorktreeBaseBranch?,
     onChooseWorktreesBase: (branch: String?) -> Unit,
     onCompareWithCurrent: ((Branch) -> Unit)? = null,
+    onCompareWith: ((Branch) -> Unit)? = null,
 ): List<ContextMenuElement> {
     val current = currentBranch?.takeIf { it.name != Constants.HEAD }
 
@@ -60,6 +61,10 @@ fun sharedChipRemoteItems(
 
             if (onCompareWithCurrent != null && currentBranch != null) {
                 addCompareWithCurrent(currentBranch, onClick = { onCompareWithCurrent(remote) })
+            }
+
+            if (onCompareWith != null) {
+                addCompareWith(onClick = { onCompareWith(remote) })
             }
 
             addContextMenu(

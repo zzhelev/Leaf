@@ -1257,10 +1257,22 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     their files.
   - Renders showed the fills only 1.2 to 1.6 : 1 against the light theme's white, grey and selected rows, so on a light
     theme a 1 dp outline of the same hue draws the badge (`#8A6D12`, `#2F6FA8`, at least 3 : 1 on all three).
-- **Not done** (`docs/fork/compare.md`, step 7, keeps the plans): a "Compare with…" picker for any branch, tag or hash
-  (7.1), comparing with the working tree (7.2). Later: a worktree's review with its uncommitted changes (7.2c), a pinned
-  base in file history (7.3b). Enter in the pane's file list opens nothing. Two versions in file history (7.3) are under
-  File history's two versions.
+- **Any two refs** (step 7.1, 2026-10-22): A's and B's lines in the pane's header open a list of the tab's refs under
+  the header (`SidePickerLine`, `RefChoicesPopup`, `ui/compare/SidePicker.kt`; `refChoicesFor`, `RefChoices.kt`): a
+  commit row for a typed hash or revision (`ResolveCommitGitAction`, `<revision>^{commit}`, asked 150 ms after typing
+  pauses), then local branches, tags newest version first, and remote branches, filtered as the clone dialog's list is,
+  whose rows, headers and keys it shares (`PickRow`, `ChoiceGroupHeader`, `branchChoicesKeys`). A pick reads again with
+  the other side kept, in the user's order, in the new pair's default mode; not in the review.
+  - The field keeps the focus; the first row is highlighted once something is typed. Esc goes through
+    `CloseableView.COMPARISON_SIDE_PICKER`, after which the pane gives the focus back to the tab
+    (`LocalTabFocusRequester`), and leaving the field closes the list too.
+  - "Compare with…" (`addCompareWith`) after "Compare with main (current)" in the commit, branch (the current one too),
+    tag and shared chip menus, and "Compare…" in the Actions list (from the current branch), start a pending comparison
+    (`compareWith`, `ComparisonState.isPending`): A alone and B's list open, nothing read, no swap or full view. Closing
+    the list ends it, selecting what was selected before.
+- **Not done** (`docs/fork/compare.md`, step 7, keeps the plans): comparing with the working tree (7.2). Later: a
+  worktree's review with its uncommitted changes (7.2c), a pinned base in file history (7.3b). Enter in the pane's file
+  list opens nothing. Two versions in file history (7.3) are under File history's two versions.
 - Tests:
   - `CompareRulesTest` (domain): a row's side, the picked order, the ancestor's swap, the default modes, the switch,
     `modeToShow`, `swapped` and the relation.
@@ -2575,8 +2587,8 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
 `FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
 - Fork-only: that branch leaves file history's two versions (`escapeHistory`) or closes file history, then an expanded
   blame, then the last closeable view (`CloseableView`:
-  the diff, the searches, the commit field's co-author suggestions, a comparison, its full view and a commit's changes in
-  it, in the order they opened).
+  the diff, the searches, the commit field's co-author suggestions, a comparison, its full view, a commit's changes in
+  it and its list of refs, in the order they opened).
 - Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
   while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
   back to the tab (fork-only). Closing the diff gives it to the log's list instead, which stays visible beside it (see

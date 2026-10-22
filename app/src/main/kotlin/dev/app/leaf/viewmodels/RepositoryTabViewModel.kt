@@ -276,6 +276,11 @@ class RepositoryTabViewModel @AssistedInject constructor(
         if (repositoryOpen == null) then() else repositoryOpen.whenConflictResolverLeft(then)
     }
 
+    /** Fork-only: the Actions list's "Compare…", from the tab's current branch (`docs/fork/compare.md`, 7.1). */
+    fun compareFromCurrentBranch() {
+        repositoryOpenViewModel()?.compareCurrentWithAny()
+    }
+
     private fun repositoryOpenViewModel() = viewModelsMap.values.filterIsInstance<RepositoryOpenViewModel>().firstOrNull()
 
     override fun dispose() {

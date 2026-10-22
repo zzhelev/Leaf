@@ -24,6 +24,9 @@ sealed interface LogAction {
 
     /** Fork-only: a row's "Compare with main (current)". */
     data class CompareWithCurrent(val commit: Commit) : LogAction
+
+    /** Fork-only: a row's "Compare with…", which picks B from a list of refs. */
+    data class CompareWith(val commit: Commit) : LogAction
     data object ShowStatusAmending : LogAction
     data object UncommittedChangesSelected : LogAction
     data class DeleteStash(val commit: Commit) : LogAction

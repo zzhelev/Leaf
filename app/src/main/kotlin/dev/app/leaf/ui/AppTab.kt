@@ -565,6 +565,7 @@ fun AppTab(
                                 onShowClone = { backStack.add(Screen.CloneRepository) },
                                 onCheckForUpdates = { backStack.add(Screen.CheckForUpdates) },
                                 onCleanUpWorktrees = { backStack.add(Screen.WorktreesCleanUp) },
+                                onCompare = { repositoryTabViewModel.compareFromCurrentBranch() },
                             )
                         }
                         entry<Screen.Author>(

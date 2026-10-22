@@ -143,7 +143,13 @@ fun Log(
     val selectedForComparison by viewModel.selectedForComparison.collectAsState()
     val logComparison = LogComparison(comparisonState?.aCommit, comparisonState?.bCommit, selectedForComparison)
     val compareWithCurrent = remember(viewModel, logStatus.currentBranch) {
-        CompareWithCurrent(logStatus.currentBranch, viewModel::compareBranchWithCurrent, viewModel::compareTagWithCurrent)
+        CompareWithCurrent(
+            currentBranch = logStatus.currentBranch,
+            onBranch = viewModel::compareBranchWithCurrent,
+            onTag = viewModel::compareTagWithCurrent,
+            onBranchWith = viewModel::compareBranchWith,
+            onTagWith = viewModel::compareTagWith,
+        )
     }
 
     LaunchedEffect(logStatus.verticalScrollState, logStatus.commitList) {
@@ -763,6 +769,7 @@ fun CommitsList(
                 compareCurrentBranch = logState.currentBranch?.takeIf { it.hash != graphNode.hash },
                 onCompareWithSelected = { onAction(LogAction.CompareWithSelected(graphNode.commit)) },
                 onCompareWithCurrent = { onAction(LogAction.CompareWithCurrent(graphNode.commit)) },
+                onCompareWith = { onAction(LogAction.CompareWith(graphNode.commit)) },
                 isHead = graphNode.hash == headHash,
                 showInAmend = logState.currentBranch?.hash == graphNode.hash && !hasUncommittedChanges,
                 isStash = isStash,
@@ -1017,6 +1024,7 @@ private fun CommitLine(
     compareCurrentBranch: Branch?,
     onCompareWithSelected: () -> Unit,
     onCompareWithCurrent: () -> Unit,
+    onCompareWith: () -> Unit,
     isHead: Boolean,
     currentBranch: Branch?,
     isStash: Boolean,
@@ -1083,6 +1091,7 @@ private fun CommitLine(
                         onCompareWithSelected = onCompareWithSelected,
                         currentBranch = compareCurrentBranch,
                         onCompareWithCurrent = onCompareWithCurrent,
+                        onCompareWith = onCompareWith,
                     ),
                 )
             }
@@ -1604,6 +1613,7 @@ fun BranchChip(
                 }
             },
             onCompareWithCurrent = compareWithCurrent?.let { compare -> { compare.onBranch(branch) } },
+            onCompareWith = compareWithCurrent?.onBranchWith?.let { compare -> { compare(branch) } },
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }
@@ -1684,6 +1694,7 @@ fun TagChip(
             onDeleteTag = onDeleteTag,
             currentBranch = compareWithCurrent?.currentBranch,
             onCompareWithCurrent = compareWithCurrent?.let { compare -> { compare.onTag(tag) } },
+            onCompareWith = compareWithCurrent?.onTagWith?.let { compare -> { compare(tag) } },
         )
     }
 

@@ -5,7 +5,7 @@
 | Question | How can Leaf show the difference between any two commits or branches, in a way people find without being told? |
 | Verified against | `main` at `04e3f620`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-21 |
-| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22). Step 7, the later items, chosen 2026-10-22: 7.4 and 7.3 built |
+| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22). Step 7, the later items, chosen 2026-10-22: 7.4, 7.3 and 7.1 built |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -445,21 +445,39 @@ drawn at the right pane's 330 px in the dark theme. Built smallest first, each a
   themes with `LEAF_RENDER_DIR`). 11 mutations of the order, the picks, the reloads, the menu, the badges, Esc and the
   tree walk, each caught by a named test. The tab's Esc branch (`escapeHistory`) has no kept test.
 
-#### 7.1 Compare any two refs (plan)
+#### 7.1 Compare any two refs (built 2026-10-22)
 
-- **A and B's names in the pane's header are buttons.** A click opens a list under the name: local branches, remote
-  branches and tags, filtered as one types, as the clone dialog's branch list is, and a typed hash or revision
-  (`HEAD~2`) resolved to a commit as a row of its own. A pick reads the comparison again with the other side kept, as on
-  GitHub's compare page, so a comparison started by ⌘-click can change one side without starting over.
-- **"Compare with…"** in a commit's, a branch's and a tag's menu opens the pane with that ref as A and B's list open.
-  **"Compare…"** in the Actions list starts from the current branch. Esc closes the list; a pane opened that way that has
-  no B yet closes too.
-- **Implementation:** the clone dialog's popup shared (`CloneBranchChoices`; a `BranchChoice` gets a full ref and a
-  kind, and any number of groups), filled from the tab's branches, remotes and tags, so nothing asks a remote; a
-  `ResolveCommitGitAction` (`resolve("<revision>^{commit}")`, taken out of `GetComparisonGitAction`); a pending
-  comparison (A and an open list, nothing read); the Actions list reaching the tab's view model.
-- **Tests:** the choices and the resolving (domain and data), the popup rendered in the pane's header, the view model's
-  pending comparison and its picks.
+- **A's and B's lines in the pane's header are buttons** (`SideLine`'s `onClick`, a chevron after the name, which hugs
+  it so that the name keeps its room). A click turns the name into a field (`SidePickerLine`) and opens the list of refs
+  under the header, as wide as it (`RefChoicesPopup`, `ui/compare/SidePicker.kt`): a commit row for a typed hash or
+  revision, then local branches, tags (newest version first) and remote branches, filtered as one types, as the clone
+  dialog's branch list is, with "4 of 46 match. A hash or HEAD~2 works too." under it. A pick reads the comparison again
+  with the other side kept, in the order the user put them (the swap button turns it around), in the new pair's default
+  mode. The review's sides are the worktree's, so its lines open nothing.
+- **The field keeps the focus:** what is typed filters the list, ↓ and ↑ move through it, and Enter picks; the first row
+  is highlighted once something is typed, so Enter picks it. Esc closes the list (the tab's handler sees it first,
+  through `CloseableView.COMPARISON_SIDE_PICKER`, and the pane gives the focus back to the tab), and so does leaving the
+  field.
+- **"Compare with…"** after "Compare with main (current)" in a commit row's menu, a branch's (the current branch's too),
+  a tag's and a shared chip's remote part opens the pane with that ref as A and B's list open: a pending comparison
+  (`ComparisonState.isPending`), which reads nothing, has no swap or full view, and says "Choose what to compare main
+  with.". Closing its list ends it, selecting again what was selected before. **"Compare…"** in the Actions list does
+  the same from the current branch, or a detached HEAD (`RepositoryTabViewModel.compareFromCurrentBranch`).
+- **Data:** the list comes from the tab's branches, remotes and tags (`refChoicesFor`, `domain/compare/RefChoices.kt`),
+  so nothing asks a remote. A typed text that could be a revision (`looksLikeRevision`) goes to `ResolveCommitGitAction`
+  (`<revision>^{commit}`, as the comparison resolves a side) 150 ms after typing pauses; what names no commit, an
+  ambiguous part of a hash, or text that isn't a revision is null, not an error. The commit row is left out when the
+  text is a listed ref's name, which has its own row.
+- **Shared with the clone dialog:** its rows and group headers (`PickRow`, `ChoiceGroupHeader`) and its keys
+  (`branchChoicesKeys`). Its popup stays its own, as its states (asking a remote, failing) aren't the comparison's.
+- **Tests:** `RefChoicesTest` (5: the groups and their order, the sides, the filter and its mark, the commit row, what
+  could be a revision), `ResolveCommitGitActionTest` (2, against `git rev-parse <text>^{commit}`: hashes, parts, refs,
+  `HEAD~2`, a tag; a tree, a range and nonsense are null), `ComparisonViewModelExtenderTest` (+5: a pending comparison
+  and its Esc, a pick for B, a pick for A that keeps B, the list's refs and a resolved revision, the review),
+  `ComparisonPaneTest` (+5: the lines' clicks and the review's, the field and the list under the header, the keys and
+  Enter, the commit row and nothing matching, a pending comparison), `CompareMenusTest` (+1: "Compare with…" in each
+  menu and what it calls). 13 mutations of the rules, the picks, the pending comparison, the pane and the menus, each
+  caught by a named test. The tab's Esc and the Actions list's item have no kept test.
 
 #### 7.2 Compare with the working tree (plan)
 

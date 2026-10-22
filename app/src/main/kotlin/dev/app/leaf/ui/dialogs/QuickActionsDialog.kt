@@ -38,6 +38,8 @@ fun QuickActionsDialog(
     onShowClone: () -> Unit,
     onCheckForUpdates: () -> Unit,
     onCleanUpWorktrees: () -> Unit,
+    // Fork-only: compares the current branch with a branch, tag or commit picked in the comparison's list
+    onCompare: () -> Unit = {},
 ) {
     val textFieldFocusRequester = remember { FocusRequester() }
     val checkForUpdates = stringResource(Res.string.quick_actions_check_for_updates)
@@ -52,13 +54,23 @@ fun QuickActionsDialog(
     val isChangesPaneHeld by viewModel.isChangesPaneHeld.collectAsState()
     val hideChangesPane = stringResource(Res.string.quick_actions_hide_changes_pane)
     val showChangesPane = stringResource(Res.string.quick_actions_show_changes_pane)
+    val compare = stringResource(Res.string.quick_actions_compare)
 
     // TODO Extract list of actions strings
-    val items = remember(checkForUpdates, cleanUpWorktrees, canCleanUpWorktrees, isBranchesPaneFolded, isChangesPaneFolded, isChangesPaneHeld) {
+    val items = remember(
+        checkForUpdates,
+        cleanUpWorktrees,
+        canCleanUpWorktrees,
+        isBranchesPaneFolded,
+        isChangesPaneFolded,
+        isChangesPaneHeld,
+        compare,
+    ) {
         listOfNotNull(
             QuickAction(Res.drawable.code, "Open repository in file manager", QuickActionType.OPEN_DIR_IN_FILE_MANAGER),
             QuickAction(Res.drawable.download, "Clone new repository", QuickActionType.CLONE),
             QuickAction(Res.drawable.refresh, "Refresh repository data", QuickActionType.REFRESH),
+            QuickAction(Res.drawable.compare_arrows, compare, QuickActionType.COMPARE),
             QuickAction(Res.drawable.sign, "Signoff config", QuickActionType.SIGN_OFF),
             QuickAction(Res.drawable.update, checkForUpdates, QuickActionType.CHECK_FOR_UPDATES),
             QuickAction(Res.drawable.delete, cleanUpWorktrees, QuickActionType.CLEAN_UP_WORKTREES)
@@ -96,6 +108,7 @@ fun QuickActionsDialog(
                 QuickActionType.CLEAN_UP_WORKTREES -> onCleanUpWorktrees()
                 QuickActionType.TOGGLE_BRANCHES_PANE -> viewModel.toggleBranchesPane()
                 QuickActionType.TOGGLE_CHANGES_PANE -> viewModel.toggleChangesPane()
+                QuickActionType.COMPARE -> onCompare()
             }
         },
         searchFilter = searchFilter,
@@ -228,4 +241,5 @@ enum class QuickActionType {
     CLEAN_UP_WORKTREES,
     TOGGLE_BRANCHES_PANE,
     TOGGLE_CHANGES_PANE,
+    COMPARE, // Fork-only
 }
