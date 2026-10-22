@@ -79,5 +79,8 @@ interface AppSettingsRepository {
     var thirdPaneWidth: Float
     var statusSectionSizes: StatusSectionSizes
     var centerSplitSizes: CenterSplitSizes
+
+    /** Whether the branches pane is folded away, for every tab (fork-only). */
+    var branchesPaneFolded: Boolean
     var commitChangesSectionSizes: CommitChangesSectionSizes
 }

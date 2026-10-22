@@ -1386,4 +1386,10 @@
     <string name="diff_followed_missing_hint">Select a commit that changes it to see its diff here. Esc closes this.</string>
     <string name="diff_followed_unreadable_title">%1$s can't be shown for %2$s</string>
     <string name="diff_followed_unreadable_hint">The commit's files couldn't be read.</string>
+
+    <!-- The branches pane's fold toggle (fork-only) -->
+    <string name="branches_pane_hide">Hide the branches pane</string>
+    <string name="branches_pane_show">Show the branches pane</string>
+    <string name="quick_actions_hide_branches_pane">Hide branches pane</string>
+    <string name="quick_actions_show_branches_pane">Show branches pane</string>
 </resources>

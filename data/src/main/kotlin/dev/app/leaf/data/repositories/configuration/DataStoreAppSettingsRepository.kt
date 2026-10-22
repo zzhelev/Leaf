@@ -38,6 +38,7 @@ private const val PREF_FIRST_PANE_WIDTH = "firstPaneWidth"
 private const val PREF_THIRD_PANE_WIDTH = "thirdPaneWidth"
 private const val PREF_STATUS_STAGED_SHARE = "statusStagedShare"
 private const val PREF_CENTER_LOG_SHARE = "centerLogShare"
+private const val PREF_BRANCHES_PANE_FOLDED = "branchesPaneFolded"
 private const val PREF_STATUS_COMMIT_FIELD_HEIGHT = "statusCommitFieldHeight"
 private const val PREF_COMMIT_MESSAGE_HEIGHT = "commitMessageHeight"
 private const val DEFAULT_FIRST_PANE_WIDTH = 220f
@@ -316,6 +317,12 @@ class DataStoreAppSettingsRepository @Inject constructor(
         ).orDefaults()
         set(value) {
             preferencesLegacy.putFloat(PREF_CENTER_LOG_SHARE, value.logShare)
+        }
+
+    override var branchesPaneFolded: Boolean
+        get() = preferencesLegacy.getBoolean(PREF_BRANCHES_PANE_FOLDED, false)
+        set(value) {
+            preferencesLegacy.putBoolean(PREF_BRANCHES_PANE_FOLDED, value)
         }
 
     override var commitChangesSectionSizes: CommitChangesSectionSizes

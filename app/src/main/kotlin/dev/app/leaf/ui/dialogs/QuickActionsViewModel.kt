@@ -9,6 +9,7 @@ import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.OpenPathInSystemUseCase
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import dev.app.leaf.domain.worktrees.cleanupCount
+import dev.app.leaf.ui.BranchesPaneConfig
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -20,12 +21,18 @@ class QuickActionsViewModel @Inject constructor(
     private val refreshDataUseCase: RefreshDataUseCase,
     private val getWorktreeUseCase: GetWorktreeUseCase,
     private val openPathInSystemUseCase: OpenPathInSystemUseCase,
+    private val branchesPaneConfig: BranchesPaneConfig,
     repositoryDataRepository: RepositoryDataRepository,
 ) : TabViewModel() {
     /** Fork-only: whether "Clean up merged worktrees" has something to remove, as the tab's list last read them. */
     val canCleanUpWorktrees: StateFlow<Boolean> = repositoryDataRepository.worktrees
         .map { (it.dataOrNull()?.cleanupCount() ?: 0) > 0 }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Fork-only: whether the branches pane is folded, which the entry that folds or shows it says. */
+    val isBranchesPaneFolded: StateFlow<Boolean> = branchesPaneConfig.isFolded
+
+    fun toggleBranchesPane() = branchesPaneConfig.toggle()
 
     // TODO Implement bunch of methods
 

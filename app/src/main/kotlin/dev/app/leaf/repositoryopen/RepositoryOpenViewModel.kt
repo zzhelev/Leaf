@@ -58,6 +58,7 @@ import dev.app.leaf.system.PickerType
 import dev.app.leaf.terminal.OpenRepositoryInTerminalGitAction
 import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.BranchWorktreesState
+import dev.app.leaf.ui.BranchesPaneConfig
 import dev.app.leaf.ui.CenterSplitConfig
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
@@ -132,6 +133,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val tabScope: TabCoroutineScope,
     private val verticalSplitPaneConfig: VerticalSplitPaneConfig,
     private val centerSplitConfig: CenterSplitConfig,
+    private val branchesPaneConfig: BranchesPaneConfig,
     private val refreshDataUseCase: RefreshDataUseCase,
     private val increaseLogCountUseCase: IncreaseLogCountUseCase,
     private val loadLogUntilCommitUseCase: LoadLogUntilCommitUseCase,
@@ -566,6 +568,11 @@ class RepositoryOpenViewModel @Inject constructor(
     val centerSplitSizes: StateFlow<CenterSplitSizes> = centerSplitConfig.sizes
 
     fun saveCenterSplitSizes(sizes: CenterSplitSizes) = centerSplitConfig.save(sizes)
+
+    /** Whether the branches pane is folded away (fork-only), the same for every tab. */
+    val branchesPaneFolded: StateFlow<Boolean> = branchesPaneConfig.isFolded
+
+    fun toggleBranchesPane() = branchesPaneConfig.toggle()
 
     // Fork-only: the parents in the commit details, and the jump to one of them (upstream issue 270)
     private val commitParents = CommitParentsController(

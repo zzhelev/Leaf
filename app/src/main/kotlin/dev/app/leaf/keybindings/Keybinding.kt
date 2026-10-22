@@ -102,6 +102,11 @@ enum class KeybindingOption {
      * Used to open the settings screen
      */
     SETTINGS,
+
+    /**
+     * Used to fold the branches pane away, and to show it again (fork-only)
+     */
+    BRANCHES_PANE,
 }
 
 
@@ -164,6 +169,9 @@ private fun baseKeybindings() = mapOf(
     KeybindingOption.SETTINGS to listOf(
         Keybinding(key = Key.S, control = true, alt = true),
     ),
+    KeybindingOption.BRANCHES_PANE to listOf(
+        Keybinding(key = Key.B, control = true, shift = true),
+    ),
 )
 
 private fun linuxKeybindings(): Map<KeybindingOption, List<Keybinding>> = baseKeybindings()
@@ -184,6 +192,7 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         KeybindingOption.OPEN_NEW_TAB,
         KeybindingOption.CLOSE_CURRENT_TAB,
         KeybindingOption.SETTINGS,
+        KeybindingOption.BRANCHES_PANE,
     )
 
     for (key in keysToReplaceControlWithCommand) {

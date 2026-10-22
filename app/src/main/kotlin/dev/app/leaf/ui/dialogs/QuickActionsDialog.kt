@@ -18,8 +18,11 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.handMouseClickable
+import dev.app.leaf.keybindings.Keybinding
 import dev.app.leaf.keybindings.KeybindingOption
+import dev.app.leaf.keybindings.keyBinding
 import dev.app.leaf.keybindings.matchesBinding
+import dev.app.leaf.ui.KeybindingHint
 import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.ui.components.AdjustableOutlinedTextField
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
@@ -41,9 +44,13 @@ fun QuickActionsDialog(
     // Fork-only: offered while the tab's worktree list has merged or missing worktrees
     val cleanUpWorktrees = stringResource(Res.string.quick_actions_clean_up_worktrees)
     val canCleanUpWorktrees by viewModel.canCleanUpWorktrees.collectAsState()
+    // Fork-only: says what the entry does now, and the shortcut that does the same
+    val isBranchesPaneFolded by viewModel.isBranchesPaneFolded.collectAsState()
+    val hideBranchesPane = stringResource(Res.string.quick_actions_hide_branches_pane)
+    val showBranchesPane = stringResource(Res.string.quick_actions_show_branches_pane)
 
     // TODO Extract list of actions strings
-    val items = remember(checkForUpdates, cleanUpWorktrees, canCleanUpWorktrees) {
+    val items = remember(checkForUpdates, cleanUpWorktrees, canCleanUpWorktrees, isBranchesPaneFolded) {
         listOfNotNull(
             QuickAction(Res.drawable.code, "Open repository in file manager", QuickActionType.OPEN_DIR_IN_FILE_MANAGER),
             QuickAction(Res.drawable.download, "Clone new repository", QuickActionType.CLONE),
@@ -52,6 +59,7 @@ fun QuickActionsDialog(
             QuickAction(Res.drawable.update, checkForUpdates, QuickActionType.CHECK_FOR_UPDATES),
             QuickAction(Res.drawable.delete, cleanUpWorktrees, QuickActionType.CLEAN_UP_WORKTREES)
                 .takeIf { canCleanUpWorktrees },
+            branchesPaneAction(isBranchesPaneFolded, hideBranchesPane, showBranchesPane),
         )
     }
 
@@ -80,6 +88,7 @@ fun QuickActionsDialog(
                 QuickActionType.SIGN_OFF -> onShowSignOff()
                 QuickActionType.CHECK_FOR_UPDATES -> onCheckForUpdates()
                 QuickActionType.CLEAN_UP_WORKTREES -> onCleanUpWorktrees()
+                QuickActionType.TOGGLE_BRANCHES_PANE -> viewModel.toggleBranchesPane()
             }
         },
         searchFilter = searchFilter,
@@ -90,7 +99,7 @@ fun QuickActionsDialog(
 }
 
 @Composable
-private fun QuickActionView(
+internal fun QuickActionView(
     onDismiss: () -> Unit,
     selectedIndex: Int,
     filteredItems: List<QuickAction>,
@@ -161,6 +170,13 @@ private fun QuickActionView(
                             color = MaterialTheme.colors.onBackground,
                             style = MaterialTheme.typography.body1,
                         )
+
+                        // Fork-only: the shortcut that does the same
+                        item.keybinding?.let { binding ->
+                            Spacer(Modifier.weight(1f))
+
+                            Box(Modifier.padding(horizontal = 16.dp)) { KeybindingHint(binding) }
+                        }
                     }
                 }
             }
@@ -172,7 +188,21 @@ private fun QuickActionView(
     }
 }
 
-data class QuickAction(val icon: DrawableResource, val title: String, val type: QuickActionType)
+data class QuickAction(
+    val icon: DrawableResource,
+    val title: String,
+    val type: QuickActionType,
+    /** The shortcut that does the same, shown at the end of the row (fork-only). */
+    val keybinding: Keybinding? = null,
+)
+
+/** The entry that folds the branches pane away or shows it again, named for what it does now (fork-only). */
+internal fun branchesPaneAction(isFolded: Boolean, hideTitle: String, showTitle: String) = QuickAction(
+    Res.drawable.side_panel,
+    if (isFolded) showTitle else hideTitle,
+    QuickActionType.TOGGLE_BRANCHES_PANE,
+    KeybindingOption.BRANCHES_PANE.keyBinding,
+)
 
 enum class QuickActionType {
     OPEN_DIR_IN_FILE_MANAGER,
@@ -181,4 +211,5 @@ enum class QuickActionType {
     SIGN_OFF,
     CHECK_FOR_UPDATES,
     CLEAN_UP_WORKTREES,
+    TOGGLE_BRANCHES_PANE,
 }

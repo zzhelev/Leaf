@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
@@ -35,6 +36,7 @@ import dev.app.leaf.ui.*
 import dev.app.leaf.ui.compare.ComparisonFullView
 import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
+import dev.app.leaf.ui.components.BranchesPaneToggle
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
 import dev.app.leaf.ui.conflicts.ConflictResolver
 import dev.app.leaf.ui.dialogs.ConfirmableAction
@@ -84,9 +86,30 @@ fun RepositoryOpenPage(
     val focusRequester = remember { FocusRequester() }
     var showOpenPopup by remember { mutableStateOf(false) }
 
+    // Fork-only: whether the tab, or anything in it, has the focus
+    var tabHasFocus by remember { mutableStateOf(false) }
+    val isBranchesPaneFolded by repositoryOpenViewModel.branchesPaneFolded.collectAsState()
+
+    // Fork-only: folding the branches pane removes whatever in it had the focus, and the tab's shortcuts need something
+    // in the tab to have it. So one frame after a fold, when the focus is nowhere in the tab, the tab takes it.
+    LaunchedEffect(isBranchesPaneFolded) {
+        if (isBranchesPaneFolded) {
+            withFrameNanos { }
+
+            if (!tabHasFocus) {
+                try {
+                    focusRequester.requestFocus()
+                } catch (_: IllegalStateException) {
+                    // The tab is gone
+                }
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .focusRequester(focusRequester)
+            .onFocusChanged { tabHasFocus = it.hasFocus }
             .focusable(true)
             .onPreviewKeyEvent {
                 when {
@@ -151,6 +174,12 @@ fun RepositoryOpenPage(
 
                     it.matchesBinding(KeybindingOption.SETTINGS) -> {
                         onNavigate(Screen.Settings)
+                        true
+                    }
+
+                    // Fork-only: folds the branches pane away, or shows it again
+                    it.matchesBinding(KeybindingOption.BRANCHES_PANE) -> {
+                        repositoryOpenViewModel.toggleBranchesPane()
                         true
                     }
 
@@ -265,6 +294,8 @@ fun RepositoryOpenPage(
                 userInfo,
                 newUpdate,
                 watchWarning,
+                isBranchesPaneFolded = isBranchesPaneFolded,
+                onToggleBranchesPane = { repositoryOpenViewModel.toggleBranchesPane() },
                 onOpenUrlInBrowser = { repositoryOpenViewModel.openUrlInBrowser(it) },
                 onShowAuthorInfoDialog = { onNavigate(Screen.Author) },
             )
@@ -313,6 +344,8 @@ private fun RepositoryOpenBottomInfoBar(
     userInfo: UiDataState<Identity>,
     newUpdate: Update?,
     watchWarning: WatchUsage?,
+    isBranchesPaneFolded: Boolean,
+    onToggleBranchesPane: () -> Unit,
     onOpenUrlInBrowser: (String) -> Unit,
     onShowAuthorInfoDialog: () -> Unit,
 ) {
@@ -321,6 +354,17 @@ private fun RepositoryOpenBottomInfoBar(
         onOpenUrlInBrowser,
         watchWarning = watchWarning,
         leadingContent = {
+            // Fork-only: under the branches pane's column, so that it stays in place when the pane folds
+            BranchesPaneToggle(isFolded = isBranchesPaneFolded, onToggle = onToggleBranchesPane)
+
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 10.dp)
+                    .width(1.dp)
+                    .height(16.dp)
+                    .background(MaterialTheme.colors.onSurface.copy(alpha = 0.18f)),
+            )
+
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -425,6 +469,8 @@ fun MainContentView(
 ) {
     val diffSelected by viewModel.diffSelected.collectAsState()
     val rebaseInteractiveState by viewModel.rebaseInteractiveState.collectAsState()
+    // Fork-only: the pane's width is kept while it is folded, and comes back when it opens
+    val branchesPaneFolded by viewModel.branchesPaneFolded.collectAsState()
     val density = LocalDensity.current.density
     val scope = rememberCoroutineScope()
 
@@ -451,7 +497,7 @@ fun MainContentView(
 
     TripleVerticalSplitPanel(
         modifier = Modifier.fillMaxSize(),
-        firstWidth = if (rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction) 0f else firstWidth,
+        firstWidth = if (rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction || branchesPaneFolded) 0f else firstWidth,
         thirdWidth = thirdWidth,
         first = {
             SidePanel(
