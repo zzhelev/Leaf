@@ -21,7 +21,6 @@ import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.WorktreeLabelRulesCodec
 import dev.app.leaf.domain.models.StatusSectionSizes
-import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.SortSettingsCodec
@@ -122,9 +121,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
     override val theme = preferences.data[themePreference].map { themeMapper.toDomain(it) }
     override val customTheme = preferences.data[customThemePreference]
 
-    /** Fork-only: stored as the style's name in lower case. A name that this version doesn't know reads as the default. */
-    override val accentStyle
-        get() = preferences.data[accentStylePreference].map { stored -> stored?.let(AccentStyle::fromStored) }
+    /** Fork-only: the selected style's id, under the key that held the look's name before styles could be made. */
+    override val styleId get() = preferences.data[accentStylePreference]
 
     override val linesHeightType =
         preferences.data[linesHeightPreference].map { linesHeightMapper.toDomain(it) }
@@ -239,7 +237,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
 
                 is AppConfig.Theme -> setValue(themePreference, themeMapper.toData(appConfig.value))
                 is AppConfig.CustomTheme -> setValue(customThemePreference, appConfig.value)
-                is AppConfig.AccentStyle -> setValue(accentStylePreference, appConfig.value.name.lowercase())
+                is AppConfig.Style -> setValue(accentStylePreference, appConfig.id)
                 is AppConfig.SwapStatusPanes -> setValue(swapStatusPanesPreference, appConfig.value)
                 is AppConfig.ConfirmHunkAndLineDiscards ->
                     setValue(confirmHunkAndLineDiscardsPreference, appConfig.value)

@@ -18,9 +18,11 @@ import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
-import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
+import dev.app.leaf.domain.styles.StylesService
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenUrlInBrowserUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,7 +40,13 @@ class SettingsViewModel @Inject constructor(
     private val logsRepository: LogsRepository,
     private val openUrlInBrowserUseCase: OpenUrlInBrowserUseCase,
     private val gitExecutableLocator: IGitExecutableLocator,
+    private val stylesService: StylesService,
 ) : TabViewModel() {
+    init {
+        // Fork-only: a style file changed outside Leaf shows when Settings opens
+        viewModelScope.launch { stylesService.reload() }
+    }
+
     /** Emits null while git is being located, as running `git --version` takes a moment. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val gitExecutable: Flow<Either<GitExecutable, GitCliError>?> = appSettingsService.gitExecutablePath
@@ -71,13 +79,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun settingsState(): Flow<SettingsViewState> {
-        // Fork-only: the theme and the style in one flow, as the combine below takes 30 at most
-        val themeAndStyle: Flow<Pair<Theme, AccentStyle>> =
-            combineFlows(appSettingsService.theme, appSettingsService.accentStyle) { theme, style -> theme to style }
+        // Fork-only: the theme and the styles in one flow, as the combine below takes 30 at most
+        val appearance: Flow<Appearance> = combineFlows(
+            appSettingsService.theme,
+            stylesService.selected,
+            stylesService.styles,
+        ) { theme, style, styles -> Appearance(theme, style, styles) }
 
         return combine(
             appSettingsService.scaleUi,
-            themeAndStyle,
+            appearance,
             appSettingsService.customTheme,
             appSettingsService.linesHeightType,
             appSettingsService.dateFormatUseDefault,
@@ -106,7 +117,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.gitExecutablePath,
             gitExecutable,
         ) { scaleUi,
-            (theme, accentStyle),
+            appearance,
             customTheme,
             linesHeightType,
             dateFormatUseDefault,
@@ -137,8 +148,9 @@ class SettingsViewModel @Inject constructor(
 
             SettingsViewState(
                 scaleUi,
-                theme,
-                accentStyle,
+                appearance.theme,
+                appearance.style,
+                appearance.styles,
                 customTheme,
                 linesHeightType,
                 dateFormatUseDefault,
@@ -174,7 +186,8 @@ class SettingsViewModel @Inject constructor(
         return SettingsViewState(
             scaleUi = null,
             theme = Theme.Light,
-            accentStyle = AccentStyle.DEFAULT,
+            style = BuiltInStyles.DEFAULT,
+            styles = BuiltInStyles.ALL,
             customTheme = "",
             linesHeightType = LinesHeightType.SPACED,
             dateFormatUseDefault = false,
@@ -210,8 +223,9 @@ class SettingsViewModel @Inject constructor(
 data class SettingsViewState(
     val scaleUi: Float?,
     val theme: Theme,
-    /** How strong the colours of buttons and notices are (fork-only). */
-    val accentStyle: AccentStyle,
+    /** The style that draws Leaf, and every style there is (fork-only). */
+    val style: StyleDefinition,
+    val styles: List<StyleDefinition>,
     val customTheme: String?,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,
@@ -255,3 +269,6 @@ sealed interface SettingsAction {
     data class SetConfig(val configuration: AppConfig) : SettingsAction
     data object OpenLogsFolder : SettingsAction
 }
+
+/** Settings → Appearance's theme and styles, in one flow (fork-only). */
+data class Appearance(val theme: Theme, val style: StyleDefinition, val styles: List<StyleDefinition>)

@@ -47,7 +47,7 @@ import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.DiscardedFiles
-import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StylesService
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.lfs.AppLfsFactory
@@ -161,6 +161,7 @@ sealed interface Screen : NavKey {
 class App @Inject constructor(
     private val appStateManager: AppStateManager,
     private val appSettings: AppSettingsService,
+    private val stylesService: StylesService,
     private val appEnvInfo: AppEnvInfo,
     private val appViewModel: AppViewModel,
     private val tempFilesManager: TempFilesManager,
@@ -195,7 +196,7 @@ class App @Inject constructor(
 
         val themeInitial = appSettings.theme.first()
         val customThemeInitial = appSettings.customTheme.firstOrNull()
-        val accentStyleInitial = appSettings.accentStyle.first()
+        val styleInitial = stylesService.selected.first()
         val scaleInitial = appSettings.scaleUi.firstOrNull()
         val linesHeightTypeInitial = appSettings.linesHeightType.first()
         val avatarProviderTypeInitial = appSettings.avatarProvider.first()
@@ -207,7 +208,7 @@ class App @Inject constructor(
         application {
             val theme by appSettings.theme.collectAsState(themeInitial)
             val customThemeRaw by appSettings.customTheme.collectAsState(customThemeInitial)
-            val accentStyle by appSettings.accentStyle.collectAsState(accentStyleInitial)
+            val style by stylesService.selected.collectAsState(styleInitial)
             val customTheme = remember(customThemeRaw) {
                 val customThemeRaw = customThemeRaw
                 if (customThemeRaw != null) {
@@ -339,7 +340,7 @@ class App @Inject constructor(
                     AppTheme(
                         selectedTheme = theme,
                         customTheme = customTheme,
-                        style = BuiltInStyles.ofLook(accentStyle),
+                        style = style,
                         linesHeightType = linesHeightType,
                     ) {
                         Box(modifier = Modifier.background(MaterialTheme.colors.background)) {

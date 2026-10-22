@@ -15,12 +15,12 @@ import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
-import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.SortSettingsCodec
+import dev.app.leaf.domain.styles.BuiltInStyles
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
@@ -36,8 +36,8 @@ class AppSettingsService @Inject constructor(
     val theme: Flow<Theme> get() = appSettingsRepository.theme.defaultIfNull { DEFAULT_THEME }
     val customTheme: Flow<String?> get() = appSettingsRepository.customTheme
 
-    /** Fork-only: how strong the colours of buttons and notices are, [AccentStyle.DEFAULT] when none was chosen. */
-    val accentStyle: Flow<AccentStyle> get() = appSettingsRepository.accentStyle.defaultIfNull { AccentStyle.DEFAULT }
+    /** Fork-only: the id of the style that draws Leaf, Tonal's when none was chosen. See `StylesService`. */
+    val styleId: Flow<String> get() = appSettingsRepository.styleId.defaultIfNull { BuiltInStyles.DEFAULT_ID }
 
     val linesHeightType: Flow<LinesHeightType> get() = appSettingsRepository.linesHeightType.defaultIfNull { DEFAULT_LINES_HEIGHT }
     val dateFormatUseDefault: Flow<Boolean> get() = appSettingsRepository.dateFormatUseDefault.defaultIfNull { DEFAULT_DATE_USE_DEFAULT }

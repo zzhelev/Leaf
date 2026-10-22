@@ -4,9 +4,10 @@
 package dev.app.leaf.domain.models.ui
 
 /**
- * How strong the colours of buttons and notices are, in the light and the dark theme (Settings → Appearance → Style).
- * A custom theme has its own colours, laid out as [CLASSIC], whatever the style. Stored as the name in lower case; none,
- * or a name that this version doesn't know, reads as [DEFAULT].
+ * A style's look (fork-only): how its buttons and notices are drawn, which the editor calls "Buttons look". Each look
+ * is also a built-in style (`BuiltInStyles`), whose colours the other styles in that look are worked out from. A
+ * custom theme has its own colours, laid out as [CLASSIC], whatever the style. A style's file stores it as the name in
+ * lower case.
  */
 enum class AccentStyle {
     /** Pale tints with dark text, in the family of the diff's tints; only the main action of a pane is filled. */
@@ -20,9 +21,5 @@ enum class AccentStyle {
 
     companion object {
         val DEFAULT = TONAL
-
-        /** The style that a stored [name] means, or [DEFAULT] for none or one that this version doesn't know. */
-        fun fromStored(name: String?): AccentStyle =
-            entries.firstOrNull { it.name.lowercase() == name } ?: DEFAULT
     }
 }

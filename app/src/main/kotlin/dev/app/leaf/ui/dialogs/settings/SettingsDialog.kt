@@ -31,7 +31,8 @@ import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
-import dev.app.leaf.domain.models.ui.AccentStyle
+import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
@@ -712,7 +713,12 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
     }
 
     // Fork-only: after the custom theme's JSON, which belongs to Theme
-    AccentStyleSetting(settingsViewState.accentStyle, isCustomTheme = currentTheme == Theme.Custom, onAction)
+    StyleSetting(
+        settingsViewState.style,
+        settingsViewState.styles,
+        isCustomTheme = currentTheme == Theme.Custom,
+        onAction,
+    )
 
     SettingDropDown(
         title = "Lists spacing",
@@ -782,28 +788,35 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
 
 
 /**
- * Fork-only: how strong the colours of buttons and notices are. A custom theme has its own, so the row is greyed out
- * while it's selected, and says why. Internal for its test.
+ * Fork-only: the style that draws Leaf, from the built-in ones and the user's. A custom theme has its own colours, so
+ * the row is greyed out while it's selected, and says why. Internal for its test.
  */
 @Composable
-internal fun AccentStyleSetting(style: AccentStyle, isCustomTheme: Boolean, onAction: (SettingsAction) -> Unit) {
+internal fun StyleSetting(
+    style: StyleDefinition,
+    styles: List<StyleDefinition>,
+    isCustomTheme: Boolean,
+    onAction: (SettingsAction) -> Unit,
+) {
     SettingDropDown(
         title = stringResource(Res.string.settings_style_title),
         subtitle = stringResource(
             if (isCustomTheme) Res.string.settings_style_custom_theme else Res.string.settings_style_subtitle
         ),
-        dropDownOptions = AccentStyle.entries.map { DropDownOption(it, accentStyleName(it)) },
-        currentOption = style,
-        onOptionSelected = { onAction(SettingsAction.SetConfig(AppConfig.AccentStyle(it.value))) },
+        dropDownOptions = styles.map { DropDownOption(it.id, styleName(it)) },
+        currentOption = style.id,
+        onOptionSelected = { onAction(SettingsAction.SetConfig(AppConfig.Style(it.value))) },
         enabled = !isCustomTheme,
     )
 }
 
+/** A style's name: a built-in one's from the app's strings, the user's as they named it. */
 @Composable
-private fun accentStyleName(style: AccentStyle): String = when (style) {
-    AccentStyle.TONAL -> stringResource(Res.string.settings_style_tonal)
-    AccentStyle.CLASSIC -> stringResource(Res.string.settings_style_classic)
-    AccentStyle.QUIET -> stringResource(Res.string.settings_style_quiet)
+internal fun styleName(style: StyleDefinition): String = when (style.id) {
+    BuiltInStyles.TONAL_ID -> stringResource(Res.string.settings_style_tonal)
+    BuiltInStyles.CLASSIC_ID -> stringResource(Res.string.settings_style_classic)
+    BuiltInStyles.QUIET_ID -> stringResource(Res.string.settings_style_quiet)
+    else -> style.name
 }
 
 @Composable

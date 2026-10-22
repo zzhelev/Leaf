@@ -13,7 +13,6 @@ import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.ui.LinesHeightType
-import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.RefPanelSettings
@@ -24,7 +23,7 @@ interface AppSettingsRepository {
     val scaleUi: Flow<Float?>
     val theme: Flow<Theme?>
     val customTheme: Flow<String?>
-    val accentStyle: Flow<AccentStyle?>
+    val styleId: Flow<String?>
     val linesHeightType: Flow<LinesHeightType?>
     val dateFormatUseDefault: Flow<Boolean?>
     val dateFormatCustomFormat: Flow<String?>

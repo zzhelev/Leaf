@@ -14,7 +14,8 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.models.AppConfig
-import dev.app.leaf.domain.models.ui.AccentStyle
+import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.viewmodels.SettingsAction
 import kotlinx.coroutines.Dispatchers
@@ -25,14 +26,17 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** Settings → Appearance → Style (fork-only): its choices, and the row greyed out for a custom theme. */
-class AccentStyleSettingRowTest {
-    private class Row(style: AccentStyle, isCustomTheme: Boolean) : AutoCloseable {
+class StyleSettingRowTest {
+    private val teal = BuiltInStyles.QUIET.copy(id = "teal", name = "Teal")
+    private val styles = BuiltInStyles.ALL + teal
+
+    private inner class Row(style: StyleDefinition, isCustomTheme: Boolean) : AutoCloseable {
         val actions = mutableListOf<SettingsAction>()
 
         private val scene = ImageComposeScene(width = 700, height = 400, density = Density(1f)) {
             AppTheme {
                 Box(Modifier.width(560.dp)) {
-                    AccentStyleSetting(style, isCustomTheme, onAction = { actions += it })
+                    StyleSetting(style, styles, isCustomTheme, onAction = { actions += it })
                 }
             }
         }
@@ -72,28 +76,33 @@ class AccentStyleSettingRowTest {
     }
 
     @Test
-    fun `the row is called Style, shows the style chosen and offers the three in order`(): Unit =
+    fun `the row is called Style, shows the style chosen and offers every style in order`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            Row(AccentStyle.TONAL, isCustomTheme = false).use { row ->
+            Row(BuiltInStyles.TONAL, isCustomTheme = false).use { row ->
                 assertTrue("Style" in row.texts(), row.texts().toString())
                 assertTrue(row.texts().any { it.startsWith("How strong the colours of buttons and notices are.") })
 
                 row.click("Tonal")
 
-                val choices = row.texts().filter { it in setOf("Tonal", "Classic", "Quiet") }
-                assertEquals(listOf("Tonal", "Tonal", "Classic", "Quiet"), choices, "The row's value, then the menu")
+                val choices = row.texts().filter { it in setOf("Tonal", "Classic", "Quiet", "Teal") }
+                assertEquals(listOf("Tonal", "Tonal", "Classic", "Quiet", "Teal"), choices, "The row's value, then the menu")
 
-                row.click("Quiet")
+                row.click("Teal")
 
-                assertEquals(listOf<SettingsAction>(SettingsAction.SetConfig(AppConfig.AccentStyle(AccentStyle.QUIET))), row.actions)
+                assertEquals(listOf<SettingsAction>(SettingsAction.SetConfig(AppConfig.Style("teal"))), row.actions)
             }
         }
 
     @Test
     fun `each style shows by its name`(): Unit = runBlocking(Dispatchers.Swing) {
-        for ((style, name) in listOf(AccentStyle.TONAL to "Tonal", AccentStyle.CLASSIC to "Classic", AccentStyle.QUIET to "Quiet")) {
+        for ((style, name) in listOf(
+            BuiltInStyles.TONAL to "Tonal",
+            BuiltInStyles.CLASSIC to "Classic",
+            BuiltInStyles.QUIET to "Quiet",
+            teal to "Teal",
+        )) {
             Row(style, isCustomTheme = false).use { row ->
-                assertEquals(1, row.clickables(name).size, "$style")
+                assertEquals(1, row.clickables(name).size, style.id)
             }
         }
     }
@@ -101,7 +110,7 @@ class AccentStyleSettingRowTest {
     @Test
     fun `with a custom theme, the row is greyed out, takes no click and says why`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            Row(AccentStyle.CLASSIC, isCustomTheme = true).use { row ->
+            Row(BuiltInStyles.CLASSIC, isCustomTheme = true).use { row ->
                 assertTrue("Custom themes use their own colours." in row.texts(), row.texts().toString())
                 assertTrue("Classic" in row.texts(), "It still shows the style chosen")
                 assertEquals(emptyList<SemanticsNode>(), row.clickables("Classic"))

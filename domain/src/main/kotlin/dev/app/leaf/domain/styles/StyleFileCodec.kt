@@ -21,6 +21,12 @@ enum class UnreadableStyle {
 
     /** JSON without a `leafStyle` version, such as the custom theme of Leaf before 2026-10-22. */
     NOT_A_STYLE,
+
+    /** A file in the styles folder named after a built-in style, which would hide it. */
+    BUILT_IN_ID,
+
+    /** A file that couldn't be opened. */
+    CANT_READ,
 }
 
 /** What reading a style's file gave. */

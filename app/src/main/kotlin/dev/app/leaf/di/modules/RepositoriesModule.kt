@@ -5,9 +5,11 @@ import dev.app.leaf.data.repositories.InMemoryNotificationsRepository
 import dev.app.leaf.data.repositories.NetworkLfsRepository
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.data.repositories.configuration.DataStoreAppSettingsRepository
+import dev.app.leaf.data.styles.FileStyleLibraryRepository
 import dev.app.leaf.domain.repositories.CredentialsRepository
 import dev.app.leaf.domain.repositories.LfsRepository
 import dev.app.leaf.domain.repositories.NotificationsRepository
+import dev.app.leaf.domain.styles.StyleLibraryRepository
 import dagger.Binds
 import dagger.Module
 import javax.inject.Singleton
@@ -27,4 +29,9 @@ interface RepositoriesModule {
 
     @Binds
     fun lfsRepository(repository: NetworkLfsRepository): LfsRepository
+
+    // Fork-only: the user's styles (docs/fork/custom-styles.md)
+    @Singleton
+    @Binds
+    fun styleLibraryRepository(repository: FileStyleLibraryRepository): StyleLibraryRepository
 }
