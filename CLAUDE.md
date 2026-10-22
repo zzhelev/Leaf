@@ -2835,8 +2835,7 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   local branches in the side panel; "Delete N branches" in the menu of a selected branch opens `DeleteBranchesDialog`,
   and "Delete merged branches…" in the Local branches sort menu opens it with every merged branch checked. Chosen from
   mockups with the user: option A of two (one list, a status line per branch; the other grouped them in three).
-  Remote branches are left out: deleting one is a push that affects everyone, with its own failures (rights, protected
-  branches) and a different warning. It is a separate item.
+  A remote's branches came on 2026-10-23 (below, A remote's branches), as deleting one is a push that affects everyone.
   - **Selection** (`domain/branches/BranchSelection.kt`, pure; `repositoryopen/BranchSelectionController.kt`): a set of
     full names plus an anchor, in `RepositoryOpenViewModel.branchSelection`. An empty set means no multi-selection, and
     the branch that the log has selected is the one highlighted, as before.
@@ -2901,6 +2900,65 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
     accents and a leading `-`, packed refs, 150 branches, the config and reflog against `git branch -D`),
     `DeletingBranchesTest` (a `TestTab`), `DeleteBranchesDialogTest` and `BranchSelectionRowsTest` (app, offscreen, with
     PNGs of every state in both themes when `LEAF_RENDER_DIR` is set).
+  - **A remote's branches (2026-10-23):** the same selection, menu and dialog in the Remotes section, deleting on the
+    server. Planned with the user from a mockup, as recommended: no typed confirmation (the lease, unmerged ones
+    unchecked, the red button that names the remote and the count, and the result's hashes are the safety), no "remove
+    only my remote-tracking copies" (the next fetch brings them back, and Fetch prunes the ones the server lost), "Delete
+    merged branches on origin…" in the remote row's menu, names that look long-lived start unchecked, and one remote per
+    selection. No "Fetch now" in the dialog, only when it was last fetched.
+    - **Selection groups** (`selectionGroupOf`, `remoteOfSelectionGroup`): a selection holds the local branches or one
+      remote's (`refs/remotes/origin/`). A toggle, a range or a folder in another group starts over, and the log's
+      branch counts only when it's of the clicked group. Remote rows highlight like local ones (upstream never
+      highlighted them), take the same keys (`rememberClickNow`, shared with `Branch`), and their folders have "Select
+      its N branches". The Remotes header shows the chip while one remote's are selected, the Local header for local
+      ones. The controller gets every remote's branches (`remoteBranches`) for the request and the refresh's `pruned`.
+    - **What the dialog reads** (`GetRemoteBranchDeletionInfoGitAction`, from the remote-tracking branches as last fetched;
+      the server is asked nothing): merged means merged into the remote's default branch, the target of
+      `refs/remotes/<remote>/HEAD`, with the same ancestry and `merge-tree` check (`GitCli.mergedIntoBase`, now shared
+      with the local action). Without that `HEAD`, into the worktrees' base, and the remote's branch of the base's name
+      stands for its default branch. Refused: the remote's `HEAD` (`BranchKept.RemoteHead`) and its default branch
+      (`RemoteDefaultBranch`, `isNamedByRemote` false for the base's copy), which servers refuse to delete anyway. Each
+      branch also has who made its tip and when (`TipCommit`), the remote its URL (redacted) and when it was last
+      fetched (`lastFetchedMillis`: `FETCH_HEAD`'s time when it names the remote's URL as git writes it there,
+      `fetchHeadUrl`: without the user, trailing slashes and `.git`; Leaf fetches one remote at a time, so a later fetch
+      of another hides it). "Delete merged branches on origin…" leaves out the HEAD and default branch, and doesn't
+      count the commits of the branches it won't show (`onlyMerged`): each count walks every ref, which takes long on a
+      remote with thousands of branches.
+    - **Checked at first** (`BranchDeletionPlan.isCheckedAtFirst`, also "Check: safe"): only merged branches. One whose
+      commits are on other branches (`OnOtherRefs`) starts unchecked, as those may be the user's own local branch while
+      the server's copy has a pull request open, and checking it brings up the warning. Names that look long-lived
+      (`looksLongLived`: `main`, `develop`, `staging`, `production`, `release/…`, `hotfix/…` and similar) start
+      unchecked even when merged, with "looks long-lived" in their line. Both can still be checked. Local branches keep
+      the old rule.
+    - **The delete** (`DeleteRemoteBranchesGitAction`): `git push --porcelain --progress
+      --force-with-lease=<branch>:<tip>… <remote> --delete <branch>…` through `GitCliRemoteCommand` (Leaf's credential
+      dialogs, the user's ssh and helpers), 100 branches and 24,000 characters a push at most (Windows' command line),
+      each branch by its name on the server as the remote's fetch refspec maps it. Probed with git 2.54: the lease
+      refuses a branch whose commit on the server isn't the one shown, also when it's gone (`stale info`, which is
+      `ChangedOnRemote`); `-` lines are deleted; `[remote rejected] (<reason>)` is `RefusedByRemote` (an `update` hook
+      refuses one branch, a `pre-receive` hook all of a push's, the server's default branch is "deletion of the current
+      branch prohibited"); the exit code is 1 whenever one failed. A remote-tracking branch that moved or went since the
+      dialog read it stays before git runs (`Moved`, `NoLongerExists`). git's `remote:` lines are kept
+      (`BranchesDeletion.remoteMessage`). A remote with several push URLs reports each branch once for each, and a
+      branch counts as deleted only when every one deleted it. A push that doesn't reach the server is an error when
+      nothing was deleted yet (the dialog shows it, and the list stays), else the branches left say why.
+      Remote-tracking branches that git leaves (a single-branch clone's) are removed with the expected old value; a
+      failure there is logged, and the result still says what the server deleted. Without a usable git, the dialog says
+      so (`RemoteBranchesNeedGitError`) and nothing can be deleted: the entries still show, so that the reason is found.
+    - **The dialog** (`DeleteBranchesDialogContent` with `request.remote`): "Delete branches on origin", the URL and "Last
+      fetched 4 min ago" under the subtitle (`formatTimeAgo`), the tip's author and age in each line, the lease's
+      sentence under the list, and while an unmerged branch is checked that a server can close its open pull requests.
+      The main button is the style's destructive one (`IconBasedDialog`'s new `primaryActionColors`) and says "Delete 3
+      on origin". While git runs, Cancel is Stop (`stopDeleting` cancels the job, which kills git), and after a stop the
+      dialog says some may already be gone, and only closes. The result says where (`Deleted 2 of 3 on origin`), how to
+      push one back, and what the server said.
+    - Tests: `RemoteBranchSelectionTest` and `RemoteBranchDeletionPlanTest` (domain), `GetRemoteBranchDeletionInfoGitActionTest`
+      and `DeleteRemoteBranchesGitActionTest` (data: a bare repository on disk with `update` and `pre-receive` hooks; a
+      push from another clone, a delete on the server, a fetch meanwhile, the default branch, two push URLs, a
+      single-branch clone, a mapped refspec, unusual names, 150 branches in two pushes, an unreachable remote, git off,
+      Cancel with a hook that sleeps), `DeletingRemoteBranchesTest` (a `TestTab`), the remote cases of `DeleteBranchesDialogTest` and
+      `DeleteBranchesStateTest`, and `RemoteBranchSelectionRowsTest`. 46 mutations were each caught by a named test,
+      but one: a filter in the use case that couldn't change anything, which went.
 - **Worktree badges and menus (fork-only, `ui/BranchWorktreeBadge.kt`):** a local branch that another worktree uses
   gets a folder icon, plus the worktree's folder name unless it repeats the branch's last part, or the branch is
   `worktree-<name>` (`nameNextTo`), as agents' folders do. Its tooltip says how the worktree uses the branch and what

@@ -2,6 +2,31 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Delete several of a remote's branches at once (follows upstream issue 116, 2026-10-23)
+
+- **Request:** the remote part of upstream issue 116, left out of the local one on 2026-10-22 and planned with the user
+  on 2026-10-23. Agents push branches that pile up on the server after their pull requests are merged.
+- **Selecting:** the same keys as for local branches, in the Remotes section: Cmd-click (Ctrl-click on Windows and Linux),
+  Shift-click and a folder's "Select its N branches". A selection holds one remote's branches; a click among the local
+  ones or another remote's starts over. The chip shows in the Remotes header. Remote branch rows now show as selected.
+- **Deleting:** right-click a selected branch → "Delete 4 branches on origin", or the remote's own menu → "Delete merged
+  branches on origin…". The dialog shows the remote's URL and when it was last fetched, and for each branch who made its
+  tip and when, and what deleting loses, as for local branches: merged into the remote's default branch (squash merges
+  too), on other branches, or commits only there. The remote's default branch and its HEAD are refused. Only merged
+  branches start checked, and names that look long-lived (`develop`, `staging`, `release/…`, `hotfix/…`) start unchecked
+  even when merged. The button is red and says "Delete 3 on origin". With an unmerged branch checked, it warns that a
+  server can close its open pull requests.
+- **Safe on the server:** each branch is deleted only if the server still has the commit the dialog showed
+  (`--force-with-lease`), so a branch someone pushed to since the last fetch stays. A branch the server refuses, such as a
+  protected one, never stops the others, and what the server said is shown. Cancel stops git while it deletes, and the
+  dialog then says some may already be gone.
+- **The result stays**, with each deleted branch's commit and the command that pushes it back:
+  `git push origin <commit>:refs/heads/<name>`.
+- **Decided with the user:** no typed confirmation, no "remove only my remote-tracking copies" (the next fetch brings them
+  back), one remote at a time, no Fetch button in the dialog. Without a usable git the dialog says what to turn on, as only
+  git deletes them.
+- Details: CLAUDE.md, "Deleting several branches", "A remote's branches".
+
 ## Delete several local branches at once (upstream issue 116, 2026-10-22)
 
 - **Request:** upstream issue 116: "When I have many local branches left from previous work and I want to clean them up, I need
