@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Lists spacing out of beta, Compact at 32 dp, and the comparison's commit rows follow it (2026-10-22)
+
+- **Request:** drop "(Beta)" from Settings → Appearance → "Lists spacing", and see whether another value would help.
+- **No new value** (decided with the user): rows can't go below Dense's 26 dp, where a hovered file's 24 dp Stage button
+  still fits, and Scale (75–300%) already makes everything bigger.
+- **Compact is 32 dp** (was 34): it was 4 dp from Spaced's 38 (2 dp in the branches pane) and 8 dp from Dense's 26, so it
+  looked like Spaced. The steps are now 38, 32 and 26. Chosen with the user from renders of the tab at both heights.
+- **The subtitle** says what the setting does: "Row height in the log, the file lists and the branches pane" (was
+  "Spacing around lists items").
+- **An unknown value no longer stops Leaf at launch:** a `lines_height` that this version doesn't know reads as the
+  default, as the theme does since 2026-10-20. 1.3.0 and earlier still throw on one.
+- **The comparison pane's commit rows** follow the setting, as its file rows do. They were 28 dp at every spacing, so at
+  Spaced, the default, they grow to 38 dp.
+- Tests: `LinesHeightSettingTest`, and the row heights in `ComparisonPaneTest`. Putting back the old behaviour failed
+  each.
+- Details: CLAUDE.md, Settings, "Lists spacing".
+
 ## Cherry-pick from a branch's menu, and finish a cherry-pick of several commits that git stopped (2026-10-22)
 
 - **Request:** right-clicking a branch in the log or the branches pane offered no cherry-pick, to copy a worktree's fix onto

@@ -3807,6 +3807,18 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     counter in `ConflictResolverTest`. 32 mutations were each caught by a named test. Not covered by a kept test:
     `App.kt` passing the setting to `AppTheme`, and `SettingsViewModel`'s state; the real panes were rendered through the
     Dagger graph in each style and theme in a temporary harness.
+- **Lists spacing (fork changes, 2026-10-22):** Settings → Appearance → "Lists spacing" (no longer "(Beta)"), "Row height
+  in the log, the file lists and the branches pane". `LinesHeight` (`theme/Theme.kt`): Spaced 38 dp (36 in the branches
+  pane), the default; Compact 32 (34 until 2026-10-22, which looked like Spaced); Dense 26, the lowest that a hovered
+  file's 24 dp Stage button fits. Stored as `lines_height`: `spaced`, `compact`, `dense`.
+  - No fourth value (decided with the user): Dense is the floor, and Scale makes everything bigger.
+  - An unknown value reads as no choice, so the default (`LinesHeightMapper`, as `ThemeMapper`). It threw inside the
+    settings flow, which stopped Leaf at launch; 1.3.0 and earlier still do, so a value added later stops them after a
+    downgrade.
+  - The comparison pane's commit rows and its "and the uncommitted changes" line follow it (`logCommitHeight`), as its
+    file rows do; they were a fixed 28 dp. File history's rows (two lines and a 40 dp avatar, 72 dp) don't.
+  - Tests: `LinesHeightSettingTest` (data), the row heights in `ComparisonPaneTest`. Putting back the throw and the
+    28 dp each failed a named test.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
