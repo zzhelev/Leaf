@@ -1851,12 +1851,22 @@ without a word, and the label's menu offering the commit's own item (1c) would s
   `--no-commit`, nor after local changes stopped a later pick. Leaf's own Commit would have committed the stopped commit and
   left the rest in the sequencer, which then refuses the next `git cherry-pick`; its Abort would have kept the commits already
   picked. So while a sequence waits, from Leaf, a terminal or an agent:
-  - the status pane has Abort and Continue or Skip (`RebasingButtons`), and Cmd+Enter continues;
+  - the status pane has Abort and Continue, with Skip between them where git stopped at a commit
+    (`CherryPickSequenceButtons`, `canSkipCherryPick`: `CHERRY_PICK_HEAD`, not `--no-commit`), conflicts open or not, and
+    Cmd+Enter continues. Where nothing is staged (the commit came out empty), Skip takes Continue's place, as before. Not
+    after `--no-commit`, where git's skip also drops what the commits before it staged, nor after local changes stopped a
+    pick (no `CHERRY_PICK_HEAD`), where it would leave out the next commit, which no one has seen (both probed on git
+    2.54). Skip is in the neutral style, as Abort is the red one. It asks first, and says how many files' changes, staged
+    or with conflicts, are lost (`SkipCherryPickCommit.discardedFiles`, `cherryPickSkipDiscards`);
     `StatusAction.ContinueCherryPick`, `SkipCherryPick`, `AbortCherryPick` → `CherryPickSequenceUseCase` →
     `GitCliCherryPickSequenceGitAction` (`git cherry-pick --continue|--skip|--abort` through `GitCliOperations.run`);
   - Continue writes the field's message to `MERGE_MSG` first when git commits the stopped commit
     (`continueCommitsStoppedCommit`: `CHERRY_PICK_HEAD` and not `--no-commit`), as git takes it from there and cleans it as
     `git commit` does (comments dropped, probed);
+  - each stop has its own message: `PersistedCommitMessage.mergeMessageStop` is `CHERRY_PICK_HEAD` (or `REVERT_HEAD`), the
+    key of the field's `MERGE_MSG` flow, so the field starts over with the next commit's message when git stops again, as
+    at a rebase's edit stops. In the first version, the field only filled while blank, so it kept the first stop's
+    message, which Continue then committed for the next one;
   - rules probed on git 2.54 (`FinishBlockers.kt`): conflicts block Continue (git: "Committing is not possible"), and an empty
     message when it commits (git: "Aborting commit due to empty commit message"); unstaged changes don't (git goes on, and
     stops, changing nothing, at a later pick that touches them). Skip takes Continue's place when nothing is staged where it
@@ -1875,9 +1885,9 @@ without a word, and the label's menu offering the commit's own item (1c) would s
   against `git rev-list --count` and the merge parents, a linked worktree, an empty repository, git without
   `%(ahead-behind)` through a fake git; the commits against `git rev-list --reverse --topo-order`, the marks, the limit, a tag
   of the same name; the sequence against git's todo, `--no-commit`, a single pick, a revert, a linked worktree),
-  `CherryPickingBranchTest` (a `TestTab`: picking, as one commit, Continue with the field's message, Skip, Abort, the
-  `SQUASH_MSG` removed, the refusal), `CherryPickBranchDialogTest`, `CherryPickMenuTest`, `CherryPickSequenceStatusTest`
-  (rendered and rules). 19 mutations were each caught by a named test; a 20th, Leaf's own removal of `SQUASH_MSG` after an abort, survived because git's abort removes it, and that code went. The dialog was rendered in both themes with a long branch name, which found the
+  `CherryPickingBranchTest` (a `TestTab`: picking, as one commit, Continue with the field's message, Skip of an empty
+  commit and of one with its conflicts open, each stop's own message, Abort, the `SQUASH_MSG` removed, the refusal), `CherryPickBranchDialogTest`, `CherryPickMenuTest`, `CherryPickSequenceStatusTest`
+  (rendered and rules). 19 mutations were each caught by a named test; a 20th, Leaf's own removal of `SQUASH_MSG` after an abort, survived because git's abort removes it, and that code went. Skip with conflicts and each stop's message: 6 more, each caught. The dialog was rendered in both themes with a long branch name, which found the
   "Already on <branch>" reason squeezing the subject to a few letters.
 
 **Changes that git sets aside (fork-only, `data/git/cli/operations/Autostashes.kt`):** Leaf's merges, rebases and

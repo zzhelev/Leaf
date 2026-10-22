@@ -2,6 +2,20 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Skip a cherry-picked commit with conflicts, and each stop's own message (2026-10-22)
+
+- **Request:** Skip for a commit that a cherry-pick of several commits stopped at with conflicts. It was only offered once
+  the commit had come out empty, so leaving out a conflicted commit meant taking your side for its files first, or aborting.
+- **What it does:** the status pane's buttons are Abort, Skip and Continue while git waits at such a commit, conflicts open
+  or resolved. Skip asks first and says how many files' changes are lost, then leaves the commit out and picks the rest.
+  Not offered for a pick as one commit, where git's skip would also drop the changes staged from the commits before it,
+  nor after local changes stopped a pick, where it would leave out a commit you haven't seen.
+- **Fixed:** when git stopped a second time, at a later commit's conflicts, the commit field kept the first stopped commit's
+  message, and Continue committed the later commit with it. The field now starts over with each stopped commit's message.
+- Tests: Skip with the conflicts open and each stop's message in a tab with real git; the rule, the buttons and the
+  warning rendered. 6 mutations, each caught by a named test.
+- Details: CLAUDE.md, "Cherry-picking a branch's commits".
+
 ## Lists spacing out of beta, Compact at 32 dp, and the comparison's commit rows follow it (2026-10-22)
 
 - **Request:** drop "(Beta)" from Settings → Appearance → "Lists spacing", and see whether another value would help.
