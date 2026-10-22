@@ -2398,8 +2398,8 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   the diff, the searches and the commit field's co-author suggestions, in the order they opened).
 - Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
   while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
-  back to the tab (fork-only), as closing the diff does. Selecting a file's diff, which minimizes blame, needs
-  nothing: the click focuses the file's row.
+  back to the tab (fork-only). Closing the diff gives it to the log's list instead, which stays visible beside it (see
+  The diff above the log). Selecting a file's diff, which minimizes blame, needs nothing: the click focuses the file's row.
 - A view that covers others is checked there by what is shown, not added to `CloseableView`: the log search adds
   itself again whenever its results change, and would then come before it.
 
@@ -2925,7 +2925,8 @@ there, the tab on `main`: two rows). A detached worktree at an older, reachable 
   events), one real-watcher test in `RefreshingOnChangesTest`.
 
 **The log under the diff pane (upstream's b2f9188f):** `MainContentView` keeps the log composed while the diff pane
-shows over it (`Modifier.focusable(!showDiff)`), so closing a diff doesn't compose the log again.
+shows over it, so closing a diff doesn't compose the log again. Since 2026-10-21 that is the fallback layout (the log
+hidden, or no room for both), `LogAndDiffSplit`'s overlay (see The diff above the log).
 - Compose hit-tests the sibling below where nothing in the top one takes the pointer. So the diff pane is wrapped in
   `Modifier.coveringWhatIsBelow()` (fork-only, `ui/components/`): the diff's header has a background and no pointer
   input, so without it a click on its empty parts would select a log row under it, and hovering would show that row's
@@ -2935,6 +2936,71 @@ shows over it (`Modifier.focusable(!showDiff)`), so closing a diff doesn't compo
   doesn't scroll it. `LogAction.CommitSelected` says whether the commit is a stash, which the side panel highlights.
 - `scrollToCommit` doesn't scroll when the commit's line is already on screen. A line's key starts with its commit's
   hash (fork-only fix: upstream looked for the commit's message, which no key has).
+
+**The diff above the log (fork-only, upstream issues 343, 136 and 128, 2026-10-21):** opening a file no longer replaces the
+log. `MainContentView` puts the centre pane's log and diff in `LogAndDiffSplit` (`ui/`): the log above, a `SectionDivider`,
+the diff below; the branches pane and the file list stay where they are. Chosen with the user from three mockups (A: this;
+B: the branches pane folds and the log goes left of the diff, which is narrower than today in every window; C: a setting for
+both), with a button in the diff's header that gives the diff the whole pane.
+- **Sizes** (`CenterSplitSizes`, domain, tested like `StatusSectionSizes`): the log's share of the pane's height, 40% by
+  default, kept as a share (`centerLogShare` in the prefs node, with the pane widths; global; written when a drag ends;
+  `CenterSplitConfig`, an app singleton) so it fits any window height. Minimums: the log 150 dp (its header and four
+  rows), the diff 160 dp. `fitTo` gives null for a pane under 318 dp: no split, the diff takes the whole pane. A drag
+  starts from the fitted heights, and a double-click on the divider resets the share. `LogAndDiffSplit` keeps a drag's
+  moves in its own `dragged` sizes, as several come before the next composition.
+- **Hide log / Show log** (`DiffLogToggle`, the header's button before the X, `fullscreen` and `fullscreen_exit`; the
+  placeholder's header has it too): `AppConfig.DiffKeepsLog` (`diff_keeps_log`, on by default,
+  `RepositoryOpenViewModel.diffKeepsLog`), kept after a restart. Off, or in a pane too short for both, the diff is drawn
+  over the log as before (`coveringWhatIsBelow`), the log composed under it. The log is at the same place in the tree in
+  both layouts, so switching doesn't compose it again, and `Modifier.focusable` goes on it only while it shows. There is
+  no row in Settings: the settings dialog's state `combine` is at the 30 flows that `common` has overloads for.
+- **The diff follows the selection** (`DiffFollowController`, `repositoryopen/`, made by `RepositoryOpenViewModel` like
+  `CommitParentsController`; `followedEntry`, domain). A file that the user opens from a commit's list (`pin`, from
+  `CommitChangesViewModelExtender`'s `onDiffSelected`) is followed from commit to commit by path: the entry with that
+  path, else the one that renamed the file from it (a copy isn't a move), selected in one step. A commit that doesn't
+  change it leaves `missingFollowedFile` instead, `FollowedDiffPlaceholder` in the diff's place: the file's path in the
+  diff's header and "Log.kt has no changes in a4fefd8", so the log above doesn't jump while the user steps. It keeps the
+  path, so the next commit that changes the file shows its diff again. A commit whose files couldn't be read says that.
+  - **The commit pane sends the previous commit's files first** (`CommitChangesState.showsPreviousChanges`, fork-only
+    flag), to keep its list from flickering, with `isLoading = false`. They are not the new commit's: the controller waits
+    for a state of the selected commit that is neither loading nor carried over. It follows once per commit
+    (`handledCommit`): a refresh gives the same commit new entries, which would load the same diff again.
+  - **The diff belongs to the list it was opened from.** The uncommitted changes close a commit's diff and forget the file;
+    a commit closes an uncommitted file's diff (the Staged and Unstaged lists are gone); the worktree review has no
+    selected item, so a diff opened from it isn't pinned and closes when a commit or the uncommitted changes are selected
+    again. A worktree switch is as before (the uncommitted diff closes; a commit's diff stays, the commit being selected
+    still). Expanded blame, file history and the conflict resolver replace the centre or the tab, as before. The
+    interactive rebase's list is still covered by a diff.
+  - **Closing:** the X, Esc (`CloseableView.DIFF`: the placeholder joins it when it shows, `onShown`, and closes on
+    `closeRequests`) and the hide button's other state close the diff, and `forgetFollowedFile` ends the following. The
+    pane's "diff not found" path doesn't forget: `LogAndDiffSplit` is a `BoxWithConstraints`, a `SubcomposeLayout`, so its
+    `diff` slot recomposes before the parent's new content reaches it at measure time. For one frame the diff pane was
+    composed with a null selection, saw "not found" and closed itself, forgetting the file: the first fast run on the big
+    repository ended with neither diff nor placeholder. With the log hidden a commit that doesn't change the file closes the
+    diff and shows no placeholder (nothing would be left to step with), and so does hiding the log with one up.
+- **Keys:** the focus is where the user clicked last. A log row: Up, Down, Page Up, Page Down, Home and End step commits and
+  the diff follows. A row of the commit's file list: Up and Down step files (`onKeyboardSelect`, as before). The diff pane has no
+  keys. Esc closes the most recently touched closeable view (the diff first, as before) and gives the focus to the log's
+  list (`LocalLogFocusRequester`, `ui/log/LogFocus.kt`, which `CommitsList` uses in place of its own requester when it is
+  provided; the tab's before, where the log was covered), so the arrows go on. The tab's shortcuts work from all three, as
+  they are inside its handler.
+- **The log keeps its selected row in view** when a diff opens under it (`CommitsList`): a viewport that gets shorter
+  while the selected row was in view brings the row back with `bringRowIntoView`. A row the user had scrolled away from
+  isn't pulled back.
+- **Cost** (offscreen, 5,000 commits, a 10,000-line file with 300 changed lines per version): the first load of the diff 67
+  ms; 60 steps down the log 33 ms apart, each followed by the diff or the placeholder: 9.3 ms per step (selection and frame),
+  p95 31 ms; every pending load but the last is cancelled by the commit pane's `flatMapLatest`, so 12 diffs and 48
+  placeholders were shown after the 60 steps and the last one settled. Scrolling the diff in the split 4.8 ms a frame
+  (p95 8), the log 3.4 ms. The log was composed under the diff before already, so this adds no composition.
+- Tests: `CenterSplitSizesTest` and `DiffFollowTest` (domain), `DiffFollowControllerTest` (27: every rule above, the
+  carried-over list, stale states, stepping past a commit, reloads, 50 rounds of missing and back),
+  `LogAndDiffSplitTest` (heights, the fallbacks, the divider drag and its limits, the double-click, the focus, the log not
+  composed again), `FollowedDiffPlaceholderTest` (texts, Esc, the buttons), `DiffKeepsLogSettingTest`. The real tab
+  content ran against a clone of this repository and the big repository in a temporary harness (stepping with the arrows,
+  every rule, renders in both themes and two window sizes; it found the race above).
+- Not built: the branches pane's own toggle (upstream issue 136's width) waits for a pick of its place; the interactive
+  rebase's list under a diff; following a file across a rename into older commits (only the commit that renamed it shows the
+  move).
 
 **File history's selected commit (fork-only, `ui/FileHistorySelection.kt`, `viewmodels/FileHistoryCommits.kt`):**
 `HistoryViewModel.selectedCommit` is the commit whose diff is shown. The list highlights its row

@@ -2,6 +2,36 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The log stays above an open diff, and the diff follows the selected commit (upstream issues 343, 136 and 128, 2026-10-21)
+
+- **Request:** selecting a file in a commit's list swapped the log for the diff, so checking several commits meant closing
+  the diff, picking the next commit, and opening the file again. Upstream issue 343 asked for the file changes in a panel of
+  their own, 136 for the diff to use more than the middle pane, and 128 for the history to stay visible beside the diff.
+- **What it does:** the centre pane splits, the log above and the diff below. The branches pane and the file list stay
+  where they are. A divider between them drags (double-click resets), and the log's share of the height is kept after a
+  restart. A button in the diff's header, before the X, gives the diff the whole pane, as before, and brings the log back.
+  A pane too short for both (under 318 dp) shows the diff over the log, as before.
+- **The diff follows the selection.** With the log's arrow, page, Home and End keys, or a click, the next commit shows the
+  same file's diff, or the move that renamed it. A commit that doesn't change the file keeps the diff area, with the file's
+  path and "Log.kt has no changes in a4fefd8", so the log doesn't jump while stepping, and the next commit that changes it
+  shows its diff again. Esc, the X or the button closes it. The commit's file list keeps its own arrows, so two axes are on
+  the keyboard: the log steps commits, the file list steps files.
+- **Closing the diff gives the focus to the log**, so the arrow keys go on working. The log keeps its selected row in
+  view when the diff opens under it.
+- **A diff belongs to the list it was opened from.** The uncommitted changes close a commit's diff, and selecting a commit
+  closes an uncommitted file's diff (the Staged and Unstaged lists are gone). A diff opened from a worktree's review doesn't
+  follow, and closes with the review. With the log hidden, a commit without the file closes the diff and shows no placeholder.
+- **Chosen with the user** from three mockups at the real size: A (this), B (the branches pane folds and the log moves
+  left of the diff, which is narrower than today in every window, and wraps nearly every line in a 1100 dp one) and C (a
+  setting for both, 1.6 times the work). The placeholder was picked over closing the diff. No row in Settings.
+- **Cost:** on a repository of 5,000 commits with a 10,000-line file, 60 steps 33 ms apart took 9.3 ms each, and scrolling the
+  diff in the split 4.8 ms a frame. The log was composed under the diff before too, so nothing new is composed.
+- **A race, found by that run:** the diff's slot recomposes before its parent's new content at measure time, so for one
+  frame the diff pane saw "no selection", closed itself, and forgot the file. Its "not found" path no longer forgets.
+- **Not built:** the branches pane's own toggle (upstream issue 136's width, three places were mocked up), the interactive
+  rebase's list above a diff, and following a file across a rename into older commits.
+- Details: CLAUDE.md, "The diff above the log".
+
 ## Style: Tonal, Classic and Quiet colours for buttons and notices (2026-10-21)
 
 - **Request:** the button blue (#0070D8) and red (#C93838) felt too bright next to the diff tints. Reviewed with the user
