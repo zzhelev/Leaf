@@ -2,6 +2,28 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Delete several local branches at once (upstream issue 116, 2026-10-22)
+
+- **Request:** upstream issue 116: "When I have many local branches left from previous work and I want to clean them up, I need
+  to right-click every single branch and select Delete branch." Agents leave many branches behind, so this is a clean-up flow.
+- **Selecting:** Cmd-click (Ctrl-click on Windows and Linux) adds a branch to the selection or takes it out, Shift-click adds
+  the branches shown between the last one clicked and this one, and a folder row's menu has "Select its N branches". A
+  "4 selected ✕" chip in the Local branches header shows the count. Esc, the chip's ✕ and a plain click on a branch clear it.
+  Releasing the key, or clicking in the log, keeps it. A collapsed folder's branches are never selected unseen.
+- **Deleting:** right-click a selected branch → "Delete 4 branches". The dialog lists each branch with a checkbox and what
+  deleting it loses: merged into the base (also squash-merged), not merged but all its commits on other branches or tags, not
+  merged with N commits only here, or can't be deleted (the current branch, a branch a worktree uses, with that worktree's
+  folder). The branches that lose nothing start checked. "Check: all, safe, none".
+- **The result stays:** after Delete the dialog lists what it deleted with the commit each branch pointed to (`was a1b2c3d`,
+  "Copy list" copies the whole hashes), and what it left and why. One branch that stays never stops the others. A branch that
+  moved since the dialog opened, or is gone, is left, and a different commit is never deleted: the delete carries the commit
+  it expects.
+- **Delete merged branches…** in the Local branches sort menu opens the same dialog with every branch merged into the base
+  checked, the branch-side twin of "Clean up merged worktrees". Branches that a worktree uses are listed dimmed.
+- **Not done, decided with the user:** remote branches. Deleting one is a push that affects everyone, so it is planned on its own.
+- Details: CLAUDE.md, "Deleting several branches". Mockups: the side panel with a selection and the dialog in two layouts, picked
+  on 2026-10-22 (one list).
+
 ## Skip a cherry-picked commit with conflicts, and each stop's own message (2026-10-22)
 
 - **Request:** Skip for a commit that a cherry-pick of several commits stopped at with conflicts. It was only offered once

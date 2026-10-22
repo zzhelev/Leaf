@@ -2560,6 +2560,8 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   - Deleting a branch or a tag goes through `DeleteRefDialog`: without force first, then "Delete anyway" once git
     refuses. A branch that a worktree uses is refused even with force (`DeleteBranchError`, see Delete and rename
     guard), and the dialog then disables Delete.
+  - Deleting several branches has its own `DeleteBranchesDialog` (see Deleting several branches): a list with a
+    checkbox and what deleting loses for each branch, and a result that stays on screen.
   - The others go through `Screen.ConfirmAction(action, onConfirm, onStopAsking)` and `ConfirmActionDialog`.
     `ConfirmableAction` says what the dialog shows, and `onConfirm` is what the button used to run, so the action's
     own code is unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote
@@ -2827,6 +2829,78 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
     JGit 7.7 would write it to the main worktree's `logs/HEAD` (`architecture-notes.md` §6). A HEAD it can't move is
     reported as `WorktreeHeadNotMoved`, with the branch renamed, as git leaves it.
   - `RenameBranchDialog` shows errors under the field, and disables Rename branch after a `RenameBranchError`.
+  - The batch delete (below) applies the same rule to each branch (`worktreesUsing`, which sees a worktree that rebases
+    the branch or bisects from it, and a missing folder), but doesn't go through `DeleteBranchGitAction`.
+- **Deleting several branches (fork-only, upstream issue 116, 2026-10-22):** Cmd or Ctrl-click, and Shift-click, select
+  local branches in the side panel; "Delete N branches" in the menu of a selected branch opens `DeleteBranchesDialog`,
+  and "Delete merged branches…" in the Local branches sort menu opens it with every merged branch checked. Chosen from
+  mockups with the user: option A of two (one list, a status line per branch; the other grouped them in three).
+  Remote branches are left out: deleting one is a push that affects everyone, with its own failures (rights, protected
+  branches) and a different warning. It is a separate item.
+  - **Selection** (`domain/branches/BranchSelection.kt`, pure; `repositoryopen/BranchSelectionController.kt`): a set of
+    full names plus an anchor, in `RepositoryOpenViewModel.branchSelection`. An empty set means no multi-selection, and
+    the branch that the log has selected is the one highlighted, as before.
+    - A plain click (`BranchClick.Plain`) empties the set and selects the branch's commit in the log, as it always did.
+      Cmd on macOS or Ctrl elsewhere toggles a branch (`Toggle`), Shift takes the branches between the anchor and the
+      click (`Range`, Shift wins over Ctrl). The first modifier click starts from the branch that the log has selected,
+      so "click a, Ctrl-click b" is two. A modifier click doesn't select in the log. Ctrl-click is a right-click on
+      macOS, which opens the menu.
+    - A range covers the branches the list shows (`branchesState.rows`): a collapsed folder's branches and the ones the
+      search hides aren't in it. Without an anchor in the list it takes only the branch clicked. A folder row's menu has
+      "Select its N branches" (the branches the search shows with that prefix, `branchesInFolder`), which adds them. The
+      current branch kept on top is outside its folder, so the count doesn't have it and it isn't selected with it.
+    - It survives clicks in the log and in the other sections (the user may look at commits to decide), and releasing
+      the key. It ends with Esc (`CloseableView.BRANCH_SELECTION`, added while the set isn't empty), a plain click on a
+      branch, the chip's ✕ and "Clear selection". A refresh drops the branches that no longer exist (`pruned`), and
+      keeps the others whatever their tips did.
+    - The Local branches header shows a "4 selected ✕" chip (`BranchSelectionChip`) while two or more are selected.
+      The rows use the selection fill, and say `selected` in their semantics (`SideMenuSubentry`).
+    - The key is read when the click happens (`LocalWindowInfo.keyboardModifiers`, in `Branch`), not when the row was
+      composed. A double-click checks the branch out only with no modifier held.
+    - The menu on a selected branch of two or more is "Delete N branches" and "Clear selection"
+      (`selectedBranchesContextMenuItems`) in place of the branch's own items. On a branch that isn't selected it is the
+      branch's usual menu, with the selection untouched, as the status lists do. The request is built from the tab's
+      whole branch list (`BranchSelectionController.deletionRequest`), not the search's, so a selected branch that a
+      search hides is still in the dialog.
+  - **What the dialog reads** (`GetBranchDeletionPlanUseCase` → `GetBranchDeletionInfoGitAction`, a query, no refresh):
+    for each branch its tip as it is now, the worktree that uses it (`worktreeHeads().useOf`, read once; the tab's own
+    is `isHere`), how it got into the base, and `commitsOnlyHere`.
+    - **Merged into the base:** by ancestry with JGit in this process (`RevWalk.isMergedInto`), else by changes with
+      `git merge-tree --write-tree` (`mergeChangesNothing`, 4 at a time), so a squash-merged branch counts. The base is
+      `WorktreeBaseBranch.effective`, the same as the worktrees'. A branch of commits that change nothing counts as
+      merged by changes, as in "Clean up merged worktrees".
+    - **`commitsOnlyHere`** is counted against the refs outside the deletable branches (`countCommitsOnlyOn(name,
+      alsoIgnoring)`), so two selected branches at one commit don't both look safe, and a branch below another selected
+      one counts its commits. Branches that a worktree uses stay, so they count as refs. A branch merged by ancestry
+      skips the walk.
+    - **The kinds** (`BranchDeletionPlan.kindOf`): `Refused`, `Merged` (by commits, or by changes with the commits that go
+      on no branch), `OnOtherRefs` (not merged, every commit on another branch or tag), `Unmerged`. The first three
+      lose nothing, so they are checked at first (`checkedAtFirst`); Unmerged isn't. When the base's own branch can be
+      deleted too, nothing counts as merged into it (`baseIsSelected`); a base that a worktree uses, the current branch
+      included, stays, and what is merged into it is still merged. Without a base nothing is merged.
+    - **Delete merged branches** (`BranchesDeletionRequest.mergedOnly`): the request has every local branch, the use
+      case leaves out the base's local branch (`mergeTarget`), and the dialog lists the merged ones, with those a
+      worktree uses dimmed, so the user sees why they stay.
+  - **The delete** (`DeleteBranchesGitAction`, `DeleteBranchesUseCase`, one call, one refresh, no processing screen or
+    toast): each branch in turn, never stopping the rest. Refused: a worktree that uses it (`UsedByWorktree`), gone
+    (`NoLongerExists`), moved since the dialog read it (`Moved`, with the commit it is at now), or git's refusal
+    (`Failed`). The delete is a forced `RefUpdate` with the expected old value (`setExpectedOldObjectId`), as JGit's
+    `DeleteBranchCommand` does the ref (it also removes the reflog), so a branch that moves between the check and the
+    delete gets `LOCK_FAILURE` and is re-read: never a different commit. The `branch.<name>` config sections of the ones
+    that went are removed once (`removeSection`, as the command does), and the result is only an error when the
+    repository couldn't be opened.
+  - **The dialog** (`DeleteBranchesViewModel`, `DeleteBranchesDialogContent`): a checkbox, the name and one line per
+    branch (green when merged, amber when commits would be on no branch, dimmed for a refused one), ending with the tip's
+    short hash. "Check: all, safe, none". After Delete it stays and shows the result: the deleted ones with `was <hash>`
+    and a hint that `git branch <name> <commit>` brings one back, the ones left with why, and "Copy list" (name and whole
+    hash per line). Leaving is refused while it deletes, as that would stop it between two branches. A toast would be
+    gone before it was read.
+  - Tests: `BranchSelectionTest` and `BranchDeletionPlanTest` (domain), `DeleteBranchesGitActionTest` and
+    `GetBranchDeletionInfoGitActionTest` (data: merged, unmerged, squash-merged, pushed, used by a linked worktree,
+    rebasing and bisecting, the current branch, deleted or moved meanwhile, names with `/`, `#`, `@`, `+`, `%`, `'`,
+    accents and a leading `-`, packed refs, 150 branches, the config and reflog against `git branch -D`),
+    `DeletingBranchesTest` (a `TestTab`), `DeleteBranchesDialogTest` and `BranchSelectionRowsTest` (app, offscreen, with
+    PNGs of every state in both themes when `LEAF_RENDER_DIR` is set).
 - **Worktree badges and menus (fork-only, `ui/BranchWorktreeBadge.kt`):** a local branch that another worktree uses
   gets a folder icon, plus the worktree's folder name unless it repeats the branch's last part, or the branch is
   `worktree-<name>` (`nameNextTo`), as agents' folders do. Its tooltip says how the worktree uses the branch and what
@@ -3052,6 +3126,10 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   - `Log` renders with just the tab's `repositoryOpenViewModel()`, its `selectedItem` and `repositoryState`, inside
     `AppTheme`. Settings it changes go to the dev `user_prefs.json`; copy that file first and put it back.
   - Hover tooltips (`InstantTooltip`) don't show offscreen, not even the graph node's, so check them in a dev run.
+  - A highlight that is taken away (a row's background modifier removed) was not always gone from the pixels of the next
+    frames, in 3 runs of 4 (2026-10-22, the branch selection), though the state was right. Read what a test needs from
+    semantics instead: `SideMenuSubentry` says `selected`, so `BranchSelectionRowsTest` asks for that. Pixels are only for
+    the PNGs.
   - `ImageComposeScene.render()` has a fixed clock by default (`nanoTime = 0`), so animations never advance: a state
     change shows in the semantics at once, but the screenshot keeps the old pixels of an `AnimatedVisibility` or a
     check box. Pass `System.nanoTime()` and let a dozen frames run with a `delay` between them before encoding the
