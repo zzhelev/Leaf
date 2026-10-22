@@ -4,11 +4,15 @@
 package dev.app.leaf.domain.styles
 
 import dev.app.leaf.common.printLog
+import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.services.AppSettingsService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.io.File
 import java.util.Collections
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -37,6 +41,34 @@ class StylesService @Inject constructor(
 
     /** Reads the styles folder again, for files changed outside Leaf. */
     suspend fun reload() = libraryRepository.reload()
+
+    suspend fun select(id: String) = appSettingsService.setConfiguration(AppConfig.Style(id))
+
+    /** A copy of [style] named [name], as a style of the user's with an id of its own. */
+    suspend fun duplicate(style: StyleDefinition, name: String): Either<StyleDefinition, StyleLibraryError> =
+        libraryRepository.save(style.copy(id = libraryRepository.newId(name), name = name))
+
+    /** Writes [style], new or changed, to its file. */
+    suspend fun save(style: StyleDefinition): Either<StyleDefinition, StyleLibraryError> = libraryRepository.save(style)
+
+    /** Deletes [style]'s file. When it was the selected style, Tonal is selected, so that nothing is left pointing at it. */
+    suspend fun delete(style: StyleDefinition): Either<Unit, StyleLibraryError> {
+        val result = libraryRepository.delete(style.id)
+
+        if (result is Either.Ok && appSettingsService.styleId.first() == style.id) {
+            select(BuiltInStyles.DEFAULT_ID)
+        }
+
+        return result
+    }
+
+    suspend fun import(file: File): Either<StyleDefinition, StyleLibraryError> = libraryRepository.import(file)
+
+    suspend fun export(style: StyleDefinition, file: File): Either<Unit, StyleLibraryError> =
+        libraryRepository.export(style, file)
+
+    /** A free id for a new style named [name]. */
+    fun newId(name: String): String = libraryRepository.newId(name)
 
     fun allStyles(library: StyleLibrary): List<StyleDefinition> =
         BuiltInStyles.ALL + library.styles.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })

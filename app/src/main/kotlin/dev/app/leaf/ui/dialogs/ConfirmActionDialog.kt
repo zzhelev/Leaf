@@ -96,6 +96,9 @@ sealed interface ConfirmableAction {
 
     data class DeleteRemote(val remoteName: String) : ConfirmableAction
 
+    /** Deletes the file of the user's style named [styleName] (Settings → Appearance → Style). */
+    data class DeleteStyle(val styleName: String) : ConfirmableAction
+
     /** Discards the unstaged [hunk] of [filePath]. */
     data class DiscardHunk(val filePath: String, val hunk: Hunk) : ConfirmableAction
 
@@ -482,6 +485,14 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             subtitle = stringResource(Res.string.force_push_dialog_subtitle, branchName),
             warning = stringResource(Res.string.force_push_dialog_warning, branchName),
             primaryAction = stringResource(Res.string.force_push_dialog_push),
+        )
+
+        is ConfirmableAction.DeleteStyle -> ConfirmationTexts(
+            icon = delete,
+            title = stringResource(Res.string.delete_style_dialog_title),
+            subtitle = stringResource(Res.string.delete_style_dialog_subtitle, styleName),
+            warning = stringResource(Res.string.delete_style_dialog_warning),
+            primaryAction = stringResource(Res.string.delete_style_dialog_delete),
         )
 
         is ConfirmableAction.DeleteRemote -> ConfirmationTexts(

@@ -199,6 +199,7 @@ fun AppTab(
                             SettingsDialog(
                                 settingsViewModel = viewModel,
                                 onDismiss = { backStack.removeLastOrNull() },
+                                onNavigate = { backStack.add(it) },
                             )
                         }
                         entry<Screen.CloneRepository>(

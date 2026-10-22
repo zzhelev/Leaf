@@ -46,6 +46,8 @@ import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableColumn
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.DropDownMenuText
+import dev.app.leaf.Screen
+import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import dev.app.leaf.ui.dropdowns.DropDownOption
 import dev.app.leaf.ui.getErrorText
@@ -147,6 +149,8 @@ val linesHeightTypesList = listOf(
 fun SettingsDialog(
     settingsViewModel: SettingsViewModel,
     onDismiss: () -> Unit,
+    // Fork-only: opens a dialog over Settings, such as the one that confirms deleting a style
+    onNavigate: (Screen) -> Unit = {},
 ) {
     var selectedCategory by remember {
         mutableStateOf(
@@ -155,6 +159,16 @@ fun SettingsDialog(
     }
 
     val settingsViewState by settingsViewModel.settingsViewState.collectAsState()
+    val exportTitle = stringResource(Res.string.settings_style_export_title)
+    val styleGalleryHost = remember(settingsViewModel, onNavigate) {
+        StyleGalleryHost(
+            pickExportPath = { fileName -> settingsViewModel.pickExportPath(exportTitle, fileName) },
+            pickImportPath = { settingsViewModel.pickImportPath() },
+            confirmDelete = { style, onConfirm ->
+                onNavigate(Screen.ConfirmAction(ConfirmableAction.DeleteStyle(style.name), onConfirm = onConfirm))
+            },
+        )
+    }
 
     MaterialDialog(
         background = MaterialTheme.colors.surface,
@@ -220,8 +234,10 @@ fun SettingsDialog(
                         .weight(1f, true)
                         .padding(start = 16.dp, top = 64.dp, end = 16.dp)
                 ) {
-                    selectedCategory.content(settingsViewState) { action ->
-                        settingsViewModel.onAction(action)
+                    CompositionLocalProvider(LocalStyleGalleryHost provides styleGalleryHost) {
+                        selectedCategory.content(settingsViewState) { action ->
+                            settingsViewModel.onAction(action)
+                        }
                     }
                 }
 
@@ -667,6 +683,16 @@ private fun DateTime(settingsViewState: SettingsViewState, onAction: (SettingsAc
 
 @Composable
 private fun Appearance(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+    // Fork-only: the style gallery can make the page taller than the dialog. The rows keep clear of the scrollbar
+    ScrollableColumn(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.padding(end = 14.dp)) {
+            AppearanceRows(settingsViewState, onAction)
+        }
+    }
+}
+
+@Composable
+private fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
     val currentTheme = settingsViewState.theme
     val currentLinesHeightType = settingsViewState.linesHeightType
     val avatarProvider = settingsViewState.avatarProvider
@@ -683,7 +709,16 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
     )
 
     // Fork-only: the colours of the light and the dark theme
-    StyleSetting(settingsViewState.style, settingsViewState.styles, onAction)
+    StyleGallery(
+        state = StyleGalleryState(
+            styles = settingsViewState.styles,
+            selectedId = settingsViewState.style.id,
+            unreadable = settingsViewState.unreadableStyles,
+            notice = settingsViewState.styleNotice,
+        ),
+        host = LocalStyleGalleryHost.current,
+        onAction = { onAction(SettingsAction.Styles(it)) },
+    )
 
     SettingDropDown(
         title = "Lists spacing",
@@ -752,20 +787,9 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
 }
 
 
-/** Fork-only: the style that draws Leaf, from the built-in ones and the user's. Internal for its test. */
-@Composable
-internal fun StyleSetting(
-    style: StyleDefinition,
-    styles: List<StyleDefinition>,
-    onAction: (SettingsAction) -> Unit,
-) {
-    SettingDropDown(
-        title = stringResource(Res.string.settings_style_title),
-        subtitle = stringResource(Res.string.settings_style_subtitle),
-        dropDownOptions = styles.map { DropDownOption(it.id, styleName(it)) },
-        currentOption = style.id,
-        onOptionSelected = { onAction(SettingsAction.SetConfig(AppConfig.Style(it.value))) },
-    )
+/** Fork-only: the gallery's pickers and dialogs, which the dialog provides to the Appearance category. */
+private val LocalStyleGalleryHost = staticCompositionLocalOf {
+    StyleGalleryHost(pickExportPath = { null }, pickImportPath = { null }, confirmDelete = { _, _ -> })
 }
 
 /** A style's name: a built-in one's from the app's strings, the user's as they named it. */

@@ -7,6 +7,8 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.models.AppConfig
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,16 +24,32 @@ class StylesServiceTest {
     private val storedId = MutableStateFlow<String?>(null)
     private val library = MutableStateFlow(StyleLibrary())
 
-    private val settings = mockk<AppSettingsRepository> { every { styleId } returns storedId }
+    private val settings = mockk<AppSettingsRepository> {
+        every { styleId } returns storedId
+        coEvery { setConfiguration(any()) } answers {
+            (firstArg<AppConfig>() as? AppConfig.Style)?.let { storedId.value = it.id }
+        }
+    }
+
+    private val saved = mutableListOf<StyleDefinition>()
+    private val deleted = mutableListOf<String>()
 
     private val repository = object : StyleLibraryRepository {
         override val library = this@StylesServiceTest.library
         override suspend fun reload() = Unit
-        override suspend fun save(definition: StyleDefinition) = Either.Ok(definition)
-        override suspend fun delete(id: String) = Either.Ok(Unit)
+        override suspend fun save(definition: StyleDefinition): Either<StyleDefinition, StyleLibraryError> {
+            saved += definition
+            library.value = StyleLibrary(library.value.styles.filter { it.id != definition.id } + definition)
+            return Either.Ok(definition)
+        }
+        override suspend fun delete(id: String): Either<Unit, StyleLibraryError> {
+            deleted += id
+            library.value = StyleLibrary(library.value.styles.filter { it.id != id })
+            return Either.Ok(Unit)
+        }
         override suspend fun import(file: File): Either<StyleDefinition, StyleLibraryError> = error("not used")
         override suspend fun export(definition: StyleDefinition, file: File) = Either.Ok(Unit)
-        override fun newId(name: String) = name
+        override fun newId(name: String) = StyleIds.unique(StyleIds.fromName(name), library.value.styles.map { it.id }.toSet())
     }
 
     private val service = StylesService(AppSettingsService(settings), repository)
@@ -92,6 +110,40 @@ class StylesServiceTest {
         library.value = StyleLibrary(listOf(teal, amber))
 
         assertEquals(BuiltInStyles.ALL + listOf(amber, teal), service.styles.first())
+    }
+
+    @Test
+    fun `a duplicate is a style of the user's, with the name given and an id of its own`(): Unit = runBlocking {
+        val copy = (service.duplicate(BuiltInStyles.TONAL, "Tonal copy") as Either.Ok).value
+
+        assertEquals(BuiltInStyles.TONAL.copy(id = "tonal-copy", name = "Tonal copy"), copy)
+        assertEquals(listOf(copy), saved)
+
+        val second = (service.duplicate(copy, "Tonal copy") as Either.Ok).value
+        assertEquals("tonal-copy-2", second.id)
+        assertEquals(copy.light, second.light)
+    }
+
+    @Test
+    fun `deleting the selected style selects Tonal, and deleting another leaves the choice`(): Unit = runBlocking {
+        library.value = StyleLibrary(listOf(teal, amber))
+        storedId.value = "teal"
+
+        service.delete(amber)
+        assertEquals("teal", storedId.value)
+
+        service.delete(teal)
+        assertEquals(BuiltInStyles.TONAL_ID, storedId.value)
+        assertEquals(listOf("amber", "teal"), deleted)
+        assertEquals(BuiltInStyles.TONAL, service.selected.first())
+    }
+
+    @Test
+    fun `selecting a style stores its id`(): Unit = runBlocking {
+        service.select("classic")
+
+        assertEquals("classic", storedId.value)
+        assertEquals(BuiltInStyles.CLASSIC, service.selected.first())
     }
 
     private inline fun capturingOutput(block: () -> Unit): String {
