@@ -300,9 +300,10 @@ fun StatusPane(
                     commitlintRules = statusState.commitlintRules,
                     messageStart = statusState.messageStart,
                     cherryPickSequence = statusState.cherryPickSequence,
+                    canSkipCherryPick = statusState.canSkipCherryPick,
                     onContinueCherryPick = { onAction(StatusAction.ContinueCherryPick(commitMessage.text)) },
                     onSkipCherryPick = {
-                        onConfirmAction(ConfirmableAction.SkipCherryPickCommit) {
+                        onConfirmAction(ConfirmableAction.SkipCherryPickCommit(statusState.cherryPickSkipDiscards)) {
                             onAction(StatusAction.SkipCherryPick)
                         }
                     },
@@ -688,6 +689,8 @@ internal fun CommitField(
     scopeKey: String? = null,
     /** A cherry-pick of several commits that git stopped, whose buttons are Continue or Skip, and Abort (fork-only). */
     cherryPickSequence: CherryPickSequence? = null,
+    /** Skip next to Continue, for a commit that git stopped at with conflicts (fork-only). */
+    canSkipCherryPick: Boolean = false,
     onContinueCherryPick: () -> Unit = {},
     onSkipCherryPick: () -> Unit = {},
 ) {
@@ -890,9 +893,10 @@ internal fun CommitField(
 
         when {
             // Fork-only: git's sequencer goes on with the commits left, so Continue rather than Commit
-            cherryPickSequence != null -> RebasingButtons(
-                canContinue = showsContinue,
+            cherryPickSequence != null -> CherryPickSequenceButtons(
+                showsContinue = showsContinue,
                 continueEnabled = finishEnabled,
+                canSkip = canSkipCherryPick,
                 onAbort = onResetRepoState,
                 onContinue = onContinueCherryPick,
                 onSkip = onSkipCherryPick,
@@ -1114,11 +1118,76 @@ fun RevertingButtons(
     }
 }
 
+/**
+ * A cherry-pick of several commits that git stopped (fork-only): Abort, then Continue, or Skip where the stopped commit
+ * came out empty. Where git stopped at a commit's conflicts ([canSkip]), Skip comes between them too, to leave that
+ * commit out without resolving it.
+ */
+@Composable
+fun CherryPickSequenceButtons(
+    showsContinue: Boolean,
+    continueEnabled: Boolean,
+    canSkip: Boolean,
+    onAbort: () -> Unit,
+    onContinue: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .height(36.dp)
+    ) {
+        AbortButton(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 4.dp)
+                .fillMaxHeight(),
+            onClick = onAbort
+        )
+
+        if (showsContinue && canSkip) {
+            RoleButton(
+                text = stringResource(Res.string.uncommited_changes_primary_button_skip),
+                colors = MaterialTheme.styleColors.neutral,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 4.dp)
+                    .fillMaxHeight(),
+                onClick = onSkip,
+            )
+        }
+
+        ConfirmationButton(
+            text = if (showsContinue) {
+                stringResource(Res.string.uncommited_changes_primary_button_continue)
+            } else {
+                stringResource(Res.string.uncommited_changes_primary_button_skip)
+            },
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp)
+                .fillMaxHeight(),
+            enabled = !showsContinue || continueEnabled,
+            onClick = if (showsContinue) onContinue else onSkip,
+        )
+    }
+}
+
 @Composable
 fun AbortButton(modifier: Modifier, onClick: () -> Unit) {
     // Fork-only: the style's destructive button
-    val colors = MaterialTheme.styleColors.destructive
+    RoleButton(
+        text = stringResource(Res.string.uncommited_changes_secondary_button_abort),
+        colors = MaterialTheme.styleColors.destructive,
+        modifier = modifier,
+        onClick = onClick,
+    )
+}
 
+/** A status pane button in a style's role: Abort's destructive one, Skip's neutral one (fork-only). */
+@Composable
+private fun RoleButton(text: String, colors: RoleColors, modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier = modifier
             .handMouseClickable { onClick() }
@@ -1129,7 +1198,7 @@ fun AbortButton(modifier: Modifier, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(Res.string.uncommited_changes_secondary_button_abort),
+            text = text,
             style = MaterialTheme.typography.body1.copy(color = colors.content),
         )
     }

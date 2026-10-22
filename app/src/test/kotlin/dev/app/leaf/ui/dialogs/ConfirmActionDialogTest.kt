@@ -239,6 +239,23 @@ class ConfirmActionDialogTest {
     }
 
     @Test
+    fun `skipping a cherry-picked commit says what of it is lost, and nothing when nothing is`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            DialogScene(ConfirmableAction.SkipCherryPickCommit(discardedFiles = 2)).use { dialog ->
+                assertTrue("Leave out the commit being picked, and go on with the rest?" in dialog.texts())
+                assertTrue(
+                    "Its changes in 2 files are discarded, resolved conflicts included. They can’t be restored." in
+                        dialog.texts(),
+                    dialog.texts().toString(),
+                )
+            }
+
+            DialogScene(ConfirmableAction.SkipCherryPickCommit(discardedFiles = 0)).use { dialog ->
+                assertFalse(dialog.texts().any { it.contains("can’t be restored") }, dialog.texts().toString())
+            }
+        }
+
+    @Test
     fun `using one side names both, and what is lost`(): Unit = runBlocking(Dispatchers.Swing) {
         val sides = ConflictSides(
             ConflictOperation.MERGE,

@@ -4,6 +4,7 @@
 package dev.app.leaf.ui.status
 
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -90,6 +91,44 @@ class CherryPickSequenceStatusTest {
     }
 
     @Test
+    fun `Skip is offered for a commit that git stopped at, with its conflicts open or resolved`() {
+        assertTrue(state(unstaged = listOf(conflicting)).canSkipCherryPick)
+        assertTrue(state(staged = listOf(staged)).canSkipCherryPick)
+        // --no-commit: git's skip would drop what the commits before staged too
+        assertFalse(state(sequence = noCommit, repositoryState = RepositoryState.SAFE).canSkipCherryPick)
+        assertFalse(state(sequence = noCommit, unstaged = listOf(conflicting)).canSkipCherryPick)
+        // Local changes stopped a pick: git's skip would leave out the next commit, which no one has seen
+        assertFalse(state(repositoryState = RepositoryState.SAFE).canSkipCherryPick)
+    }
+
+    @Test
+    fun `Skip discards the stopped commit's staged files and conflicts, not other changes`() {
+        val alsoConflicting = StatusEntry("b.txt", StatusType.CONFLICTING)
+
+        assertEquals(
+            2,
+            state(staged = listOf(staged), unstaged = listOf(conflicting, alsoConflicting, untracked)).cherryPickSkipDiscards,
+            "a.txt staged and conflicting counts once",
+        )
+        assertEquals(0, state(unstaged = listOf(unstaged, untracked)).cherryPickSkipDiscards)
+    }
+
+    @Test
+    fun `the buttons are Abort, Skip and Continue at a commit that git stopped at`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val calls = mutableListOf<String>()
+
+            assertEquals(
+                listOf("Abort", "Skip", "Continue"),
+                buttons(showsContinue = true, canSkip = true, calls, click = "Skip"),
+            )
+            assertEquals(listOf("skip"), calls)
+
+            assertEquals(listOf("Abort", "Skip"), buttons(showsContinue = false, canSkip = true, calls))
+            assertEquals(listOf("Abort", "Continue"), buttons(showsContinue = true, canSkip = false, calls))
+        }
+
+    @Test
     fun `the hint says why, as in any operation`() {
         assertEquals(FinishBlocker.Conflicts(1), state(unstaged = listOf(conflicting), message = "").finishHint())
         assertEquals(
@@ -145,6 +184,52 @@ class CherryPickSequenceStatusTest {
             listOf("Cherry-pick in progress. Continue it to pick the rest.", "Abort cherry-pick"),
             bannerTexts(OperationInProgress(Operation.CHERRY_PICK, 0, isSequence = true)),
         )
+    }
+
+    /** The buttons' texts, left to right, and a click on the one whose text is [click]. */
+    private fun buttons(
+        showsContinue: Boolean,
+        canSkip: Boolean,
+        calls: MutableList<String>,
+        click: String? = null,
+    ): List<String> {
+        val scene = ImageComposeScene(width = 330, height = 60, density = Density(1f)) {
+            AppTheme {
+                CherryPickSequenceButtons(
+                    showsContinue = showsContinue,
+                    continueEnabled = true,
+                    canSkip = canSkip,
+                    onAbort = { calls += "abort" },
+                    onContinue = { calls += "continue" },
+                    onSkip = { calls += "skip" },
+                )
+            }
+        }
+
+        try {
+            scene.render()
+
+            val nodes = mutableListOf<SemanticsNode>()
+            fun visit(node: SemanticsNode) {
+                nodes += node
+                node.children.forEach(::visit)
+            }
+            scene.semanticsOwners.forEach { visit(it.rootSemanticsNode) }
+
+            val clickable = nodes
+                .filter { it.config.getOrNull(SemanticsActions.OnClick) != null }
+                .filter { it.config.getOrNull(SemanticsProperties.Text).orEmpty().isNotEmpty() }
+                .sortedBy { it.boundsInRoot.left }
+
+            if (click != null) {
+                val button = clickable.single { node -> node.config[SemanticsProperties.Text].any { it.text == click } }
+                checkNotNull(button.config[SemanticsActions.OnClick].action).invoke()
+            }
+
+            return clickable.map { node -> node.config[SemanticsProperties.Text].joinToString { it.text } }
+        } finally {
+            scene.close()
+        }
     }
 
     private fun bannerTexts(inProgress: OperationInProgress): List<String> {

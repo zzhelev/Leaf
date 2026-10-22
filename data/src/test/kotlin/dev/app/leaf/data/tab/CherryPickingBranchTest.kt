@@ -185,6 +185,24 @@ class CherryPickingBranchTest {
     }
 
     @Test
+    fun `Skip leaves out a commit with its conflicts still open, and picks the rest`(): Unit = runBlocking {
+        commit("main: a", "a.txt" to "a main\n")
+        File(repository, "notes.txt").writeText("untracked, kept\n")
+        val pick = open()
+
+        tab.cherryPickCommits(checkNotNull(pick.cherryPickPlan(pick.firstTwo, asOneCommit = false))).join()
+        tab.awaitLoaded(tab.repositoryData.cherryPickSequence) { it != null }
+        assertEquals("UU a.txt", git.run(repository, "status", "--porcelain", "--untracked-files=no").trim())
+
+        tab.cherryPickSequence.skip()
+        tab.awaitLoaded(tab.repositoryData.cherryPickSequence) { it == null }
+
+        assertEquals(listOf("fix: two", "main: a"), subjects(2))
+        assertEquals("a main\n", File(repository, "a.txt").readText())
+        assertEquals("?? notes.txt", git.run(repository, "status", "--porcelain").trim())
+    }
+
+    @Test
     fun `each commit that git stops at has its own message, keyed by that commit`(): Unit = runBlocking {
         commit("main: a and b", "a.txt" to "a main\n", "b.txt" to "b main\n")
         val pick = open()

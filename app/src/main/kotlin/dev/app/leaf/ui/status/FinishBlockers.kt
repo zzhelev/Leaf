@@ -116,6 +116,26 @@ val StatusState.continueCommitsStoppedCommit: Boolean
     get() = cherryPickSequence?.noCommit == false && repositoryState.isCherryPicking
 
 /**
+ * Whether Skip can leave out the commit that a cherry-pick of several commits stopped at (fork-only): git stopped at it
+ * (`CHERRY_PICK_HEAD`), with its conflicts open or resolved, and the commits aren't staged as one. With `--no-commit`,
+ * `git cherry-pick --skip` also drops the changes that the commits before it staged, and after local changes stopped a
+ * pick, it would leave out the next commit, which no one has seen yet (git 2.54).
+ */
+val StatusState.canSkipCherryPick: Boolean
+    get() = continueCommitsStoppedCommit
+
+/**
+ * The files whose changes Skip discards (fork-only): the stopped commit's, staged or with conflicts. git keeps unstaged
+ * changes in other files.
+ */
+val StatusState.cherryPickSkipDiscards: Int
+    get() {
+        val conflicted = unstaged.filter { it.statusType == StatusType.CONFLICTING }
+
+        return (staged + conflicted).map { it.filePath }.distinct().size
+    }
+
+/**
  * What stops Continue of a cherry-pick of several commits (fork-only), as git 2.54 refuses it: conflicts, and an empty
  * message when Continue commits the stopped commit, which git aborts. git goes on with unstaged changes, and stops at a
  * later commit that changes the same files, changing nothing.

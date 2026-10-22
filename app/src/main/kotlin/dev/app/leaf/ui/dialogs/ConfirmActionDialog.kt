@@ -71,8 +71,11 @@ sealed interface ConfirmableAction {
         enum class Operation { MERGE, REBASE, CHERRY_PICK, REVERT, SQUASH, CHERRY_PICK_SEQUENCE }
     }
 
-    /** Fork-only: leaves out the commit that a cherry-pick of several commits stopped at, and picks the rest. */
-    data object SkipCherryPickCommit : ConfirmableAction
+    /**
+     * Fork-only: leaves out the commit that a cherry-pick of several commits stopped at, and picks the rest. Its changes
+     * in [discardedFiles] files, staged or with conflicts, are lost.
+     */
+    data class SkipCherryPickCommit(val discardedFiles: Int) : ConfirmableAction
 
     data object SkipRebaseCommit : ConfirmableAction
 
@@ -415,11 +418,15 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             )
         }
 
-        ConfirmableAction.SkipCherryPickCommit -> ConfirmationTexts(
+        is ConfirmableAction.SkipCherryPickCommit -> ConfirmationTexts(
             icon = warning,
             title = stringResource(Res.string.skip_rebase_dialog_title),
             subtitle = stringResource(Res.string.skip_cherry_pick_dialog_subtitle),
-            warning = null,
+            warning = if (discardedFiles > 0) {
+                pluralStringResource(Res.plurals.skip_cherry_pick_dialog_warning, discardedFiles, discardedFiles)
+            } else {
+                null
+            },
             primaryAction = stringResource(Res.string.skip_rebase_dialog_skip),
         )
 
