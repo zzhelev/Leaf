@@ -33,9 +33,9 @@ class StyleIdsTest {
 
     @Test
     fun `a taken id gets the first free number, and a built-in style's is always taken`() {
-        assertEquals("teal", StyleIds.unique("teal", emptySet()))
-        assertEquals("teal-2", StyleIds.unique("teal", setOf("teal")))
-        assertEquals("teal-3", StyleIds.unique("teal", setOf("teal", "teal-2")))
+        assertEquals("lagoon", StyleIds.unique("lagoon", emptySet()))
+        assertEquals("lagoon-2", StyleIds.unique("lagoon", setOf("lagoon")))
+        assertEquals("lagoon-3", StyleIds.unique("lagoon", setOf("lagoon", "lagoon-2")))
 
         for (builtIn in BuiltInStyles.ALL) {
             assertEquals("${builtIn.id}-2", StyleIds.unique(builtIn.id, emptySet()))

@@ -56,7 +56,7 @@ class StylesServiceTest {
 
     private fun style(id: String, name: String) = BuiltInStyles.QUIET.copy(id = id, name = name, look = AccentStyle.QUIET)
 
-    private val teal = style("teal", "Teal")
+    private val lagoon = style("lagoon", "Lagoon")
     private val amber = style("amber", "amber")
 
     @Test
@@ -66,24 +66,24 @@ class StylesServiceTest {
 
     @Test
     fun `a built-in style's id draws it, and a user style's id draws theirs`(): Unit = runBlocking {
-        library.value = StyleLibrary(listOf(teal))
+        library.value = StyleLibrary(listOf(lagoon))
 
         for (builtIn in BuiltInStyles.ALL) {
             storedId.value = builtIn.id
             assertEquals(builtIn, service.selected.first())
         }
 
-        storedId.value = "teal"
-        assertEquals(teal, service.selected.first())
+        storedId.value = "lagoon"
+        assertEquals(lagoon, service.selected.first())
     }
 
     @Test
     fun `a style deleted, unreadable or unknown draws Tonal, and is logged once`(): Unit = runBlocking {
         val unreadable = StyleLibrary(unreadable = listOf(UnreadableStyleFile("broken.json", UnreadableStyle.NOT_JSON, "x")))
         val logged = capturingOutput {
-            library.value = StyleLibrary(listOf(teal))
-            storedId.value = "teal"
-            assertEquals(teal, service.selected.first())
+            library.value = StyleLibrary(listOf(lagoon))
+            storedId.value = "lagoon"
+            assertEquals(lagoon, service.selected.first())
 
             // Its file deleted, outside Leaf or in another window
             library.value = StyleLibrary()
@@ -100,29 +100,29 @@ class StylesServiceTest {
 
         val lines = logged.lines().filter { "StylesService" in it }
         assertEquals(3, lines.size, logged)
-        assertEquals(1, lines.count { "\"teal\"" in it && "no style has that id" in it }, logged)
+        assertEquals(1, lines.count { "\"lagoon\"" in it && "no style has that id" in it }, logged)
         assertEquals(1, lines.count { "\"broken\"" in it && "can't be read" in it && "NOT_JSON" in it }, logged)
         assertEquals(1, lines.count { "\"vivid\"" in it }, logged)
     }
 
     @Test
     fun `every style is listed, the built-in ones first, then the user's by name`(): Unit = runBlocking {
-        library.value = StyleLibrary(listOf(teal, amber))
+        library.value = StyleLibrary(listOf(lagoon, amber))
 
-        assertEquals(BuiltInStyles.ALL + listOf(amber, teal), service.styles.first())
+        assertEquals(BuiltInStyles.ALL + listOf(amber, lagoon), service.styles.first())
     }
 
     @Test
     fun `deleting the selected style selects Tonal, and deleting another leaves the choice`(): Unit = runBlocking {
-        library.value = StyleLibrary(listOf(teal, amber))
-        storedId.value = "teal"
+        library.value = StyleLibrary(listOf(lagoon, amber))
+        storedId.value = "lagoon"
 
         service.delete(amber)
-        assertEquals("teal", storedId.value)
+        assertEquals("lagoon", storedId.value)
 
-        service.delete(teal)
+        service.delete(lagoon)
         assertEquals(BuiltInStyles.TONAL_ID, storedId.value)
-        assertEquals(listOf("amber", "teal"), deleted)
+        assertEquals(listOf("amber", "lagoon"), deleted)
         assertEquals(BuiltInStyles.TONAL, service.selected.first())
     }
 

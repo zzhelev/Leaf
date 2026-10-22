@@ -71,7 +71,7 @@ class StyleEditorViewModelTest {
 
     private fun <T> StateFlow<T>.await(predicate: (T) -> Boolean): T = runBlocking { withTimeout(5_000) { first(predicate) } }
 
-    private val teal = BuiltInStyles.QUIET.copy(id = "teal", name = "Teal", look = AccentStyle.QUIET)
+    private val lagoon = BuiltInStyles.QUIET.copy(id = "lagoon", name = "Lagoon", look = AccentStyle.QUIET)
 
     @Test
     fun `a new style is saved under an id from its name, and drawn with`() {
@@ -91,21 +91,21 @@ class StyleEditorViewModelTest {
 
     @Test
     fun `an edited style is saved over its file, and the selection stays`() {
-        library.value = StyleLibrary(listOf(teal))
+        library.value = StyleLibrary(listOf(lagoon))
         storedId.value = "classic"
-        val viewModel = viewModel(StyleEditorStart.Edit(teal))
+        val viewModel = viewModel(StyleEditorStart.Edit(lagoon))
 
         viewModel.onAction(StyleEditorAction.SetLook(AccentStyle.TONAL))
         viewModel.onAction(StyleEditorAction.Save)
         viewModel.isDone.await { it }
 
-        assertEquals(listOf(teal.copy(look = AccentStyle.TONAL)), library.value.styles)
+        assertEquals(listOf(lagoon.copy(look = AccentStyle.TONAL)), library.value.styles)
         assertEquals("classic", storedId.value)
     }
 
     @Test
     fun `a style without a name isn't saved`() {
-        val viewModel = viewModel(StyleEditorStart.Edit(teal))
+        val viewModel = viewModel(StyleEditorStart.Edit(lagoon))
 
         viewModel.onAction(StyleEditorAction.Rename("   "))
         viewModel.onAction(StyleEditorAction.Save)
@@ -118,13 +118,13 @@ class StyleEditorViewModelTest {
     @Test
     fun `a save that fails says why, and the editor stays open`() {
         failSaving = true
-        val viewModel = viewModel(StyleEditorStart.Edit(teal))
+        val viewModel = viewModel(StyleEditorStart.Edit(lagoon))
 
-        viewModel.onAction(StyleEditorAction.Rename("Teal 2"))
+        viewModel.onAction(StyleEditorAction.Rename("Lagoon 2"))
         viewModel.onAction(StyleEditorAction.Save)
 
         val message = viewModel.message.await { it != null }
-        assertEquals(StyleEditorMessage.Failed(StyleLibraryError.CantWrite("/styles/teal.json", "Disk full")), message)
+        assertEquals(StyleEditorMessage.Failed(StyleLibraryError.CantWrite("/styles/lagoon.json", "Disk full")), message)
         assertFalse(viewModel.isDone.value)
 
         viewModel.onAction(StyleEditorAction.DismissMessage)
@@ -133,21 +133,21 @@ class StyleEditorViewModelTest {
 
     @Test
     fun `export writes the style as the editor shows it, unsaved changes included`() {
-        val viewModel = viewModel(StyleEditorStart.Edit(teal))
+        val viewModel = viewModel(StyleEditorStart.Edit(lagoon))
 
         viewModel.onAction(StyleEditorAction.SetSeed(StyleSeed.DANGER, 0xFFB4405A.toInt()))
-        viewModel.onAction(StyleEditorAction.Export("/tmp/Teal.json"))
+        viewModel.onAction(StyleEditorAction.Export("/tmp/Lagoon.json"))
 
-        assertEquals(StyleEditorMessage.Exported(File("/tmp/Teal.json").absolutePath), viewModel.message.await { it != null })
+        assertEquals(StyleEditorMessage.Exported(File("/tmp/Lagoon.json").absolutePath), viewModel.message.await { it != null })
         assertEquals(0xFFB4405A.toInt(), exported.single().first.light.seeds.danger)
         assertEquals(emptyList<StyleDefinition>(), library.value.styles, "Exporting doesn't save")
     }
 
     @Test
     fun `deleting the selected style closes the editor and selects Tonal`() {
-        library.value = StyleLibrary(listOf(teal))
-        storedId.value = "teal"
-        val viewModel = viewModel(StyleEditorStart.Edit(teal))
+        library.value = StyleLibrary(listOf(lagoon))
+        storedId.value = "lagoon"
+        val viewModel = viewModel(StyleEditorStart.Edit(lagoon))
 
         viewModel.onAction(StyleEditorAction.Delete)
         viewModel.isDone.await { it }
@@ -158,13 +158,13 @@ class StyleEditorViewModelTest {
 
     @Test
     fun `a new style that was never saved can't be deleted`() {
-        val viewModel = viewModel(StyleEditorStart.From(teal, "Teal copy", "Teal"))
-        library.value = StyleLibrary(listOf(teal))
+        val viewModel = viewModel(StyleEditorStart.From(lagoon, "Lagoon copy", "Lagoon"))
+        library.value = StyleLibrary(listOf(lagoon))
 
         viewModel.onAction(StyleEditorAction.Delete)
         Thread.sleep(300)
 
-        assertEquals(listOf(teal), library.value.styles)
+        assertEquals(listOf(lagoon), library.value.styles)
         assertFalse(viewModel.isDone.value)
     }
 }

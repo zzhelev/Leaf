@@ -11,13 +11,14 @@ import dev.app.leaf.domain.models.ui.AccentStyle
  *
  * Classic, Tonal and Quiet set nothing by hand: their seeds are the ones their look's colours are built around, so
  * Leaf's working out gives the look's colours exactly, and a copy whose Accent changes moves every colour that follows
- * it. Solarized is worked out in the Tonal look from its own seeds, with some of its published colours set by hand.
+ * it. Solarized and Teal are worked out in the Tonal look from their own seeds, with some colours set by hand.
  */
 object BuiltInStyles {
     const val TONAL_ID = "tonal"
     const val CLASSIC_ID = "classic"
     const val QUIET_ID = "quiet"
     const val SOLARIZED_ID = "solarized"
+    const val TEAL_ID = "teal"
 
     /** The style for no choice, and for a choice that can't be read. */
     const val DEFAULT_ID = TONAL_ID
@@ -60,6 +61,18 @@ object BuiltInStyles {
 
     private val SOLARIZED_DARK_SEEDS = SOLARIZED_LIGHT_SEEDS.copy(background = 0xFF002B36.toInt())
 
+    // Teal: the looks' white and near-black backgrounds, a teal accent, a raspberry danger, an amber warning and a green
+    // success
+    private val TEAL_LIGHT_SEEDS = StyleSeeds(
+        background = 0xFFFFFFFF.toInt(),
+        accent = 0xFF007475.toInt(),
+        danger = 0xFFB4405A.toInt(),
+        warning = 0xFFE0A03A.toInt(),
+        success = 0xFF3F8F52.toInt(),
+    )
+
+    private val TEAL_DARK_SEEDS = TEAL_LIGHT_SEEDS.copy(background = 0xFF0F0F0F.toInt())
+
     /**
      * Solarized's own values where they say what a colour is and hold Leaf's checks: its emphasised content tone as
      * text (base01, base1), its body tone for comments (base00, base0), and its accents for the keyword, annotations
@@ -87,6 +100,25 @@ object BuiltInStyles {
         StyleSlot.LANES.zip(lanes).forEach { (slot, argb) -> put(slot, argb.toInt()) }
     }
 
+    /**
+     * Teal's colours set by hand: a text tinted with its hue on the light side, and on the dark side the headers and
+     * boxes, which follow no seed and would stay Tonal's navy. They're Tonal's turned to Teal's hue: #0A335C at the most
+     * chroma sRGB has at its lightness, and #1A2B3D. Lanes 2 to 6 are set apart from lane 1's teal and from each other:
+     * following the seeds, lane 2 would be a rose next to lane 6's pink.
+     */
+    private fun tealByHand(isLight: Boolean): Map<StyleSlot, Int> = buildMap {
+        if (isLight) {
+            put(StyleSlot.TEXT, 0xFF1D2B2B.toInt())
+        } else {
+            put(StyleSlot.HEADERS, 0xFF003B3A.toInt())
+            put(StyleSlot.BOXES, 0xFF152F2D.toInt())
+        }
+
+        // Orange, blue, pink, green and violet, in the lightness of Tonal's lanes
+        val lanes = listOf(0xFFC87D52, 0xFF5B97D3, 0xFFC4759C, 0xFF60A56B, 0xFF9D82CC)
+        StyleSlot.LANES.drop(1).zip(lanes).forEach { (slot, argb) -> put(slot, argb.toInt()) }
+    }
+
     /** The seeds that [look]'s light or dark colours are built around. */
     fun templateSeeds(look: AccentStyle, isLight: Boolean): StyleSeeds = when (look) {
         AccentStyle.CLASSIC -> if (isLight) CLASSIC_LIGHT_SEEDS else CLASSIC_DARK_SEEDS
@@ -106,8 +138,17 @@ object BuiltInStyles {
         dark = StyleSide(SOLARIZED_DARK_SEEDS, solarizedByHand(isLight = false)),
     )
 
+    /** Teal in the Tonal look: its seeds, a teal-tinted text, and its dark headers and lanes set by hand. */
+    val TEAL = StyleDefinition(
+        id = TEAL_ID,
+        name = "Teal",
+        look = AccentStyle.TONAL,
+        light = StyleSide(TEAL_LIGHT_SEEDS, tealByHand(isLight = true)),
+        dark = StyleSide(TEAL_DARK_SEEDS, tealByHand(isLight = false)),
+    )
+
     /** In the order Settings lists them. */
-    val ALL: List<StyleDefinition> = listOf(TONAL, CLASSIC, QUIET, SOLARIZED)
+    val ALL: List<StyleDefinition> = listOf(TONAL, CLASSIC, QUIET, SOLARIZED, TEAL)
 
     val DEFAULT: StyleDefinition get() = TONAL
 

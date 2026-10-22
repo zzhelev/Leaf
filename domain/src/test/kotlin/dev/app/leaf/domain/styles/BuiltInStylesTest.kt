@@ -11,6 +11,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class BuiltInStylesTest {
+    private fun hex(slots: Map<StyleSlot, Int>) = slots.map { (slot, argb) -> slot.key to StyleColorHex.format(argb) }.toMap()
+
+    private fun seeds(side: StyleSide) = StyleSeed.entries.associate { it.name to StyleColorHex.format(side.seeds[it]) }
+
     @Test
     fun `the built-in styles' ids are what the setting stored before styles could be made`() {
         // accent_style held the look's name in lower case from 2026-10-21
@@ -30,27 +34,24 @@ class BuiltInStylesTest {
         assertEquals(BuiltInStyles.ALL.size, BuiltInStyles.ALL.map { it.id }.toSet().size)
         BuiltInStyles.ALL.forEach { assertTrue(it.isBuiltIn, it.id) }
 
-        assertFalse(BuiltInStyles.isBuiltIn("teal"))
-        assertNull(BuiltInStyles.byId("teal"))
+        assertFalse(BuiltInStyles.isBuiltIn("lagoon"))
+        assertNull(BuiltInStyles.byId("lagoon"))
         assertNull(BuiltInStyles.byId(null))
     }
 
     @Test
-    fun `Solarized comes last, in the Tonal look, with Solarized's seeds and published colours set by hand`() {
+    fun `Solarized follows the looks, in the Tonal look, with Solarized's seeds and published colours set by hand`() {
         val solarized = BuiltInStyles.SOLARIZED
 
         assertEquals(
             listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.QUIET, solarized),
-            BuiltInStyles.ALL,
+            BuiltInStyles.ALL.take(4),
         )
         assertEquals(solarized, BuiltInStyles.byId("solarized"))
         assertEquals("Solarized", solarized.name)
         assertEquals(AccentStyle.TONAL, solarized.look)
         // Code that only knows a look still gets the look's own style
         assertEquals(BuiltInStyles.TONAL, BuiltInStyles.ofLook(AccentStyle.TONAL))
-
-        fun hex(slots: Map<StyleSlot, Int>) = slots.map { (slot, argb) -> slot.key to StyleColorHex.format(argb) }.toMap()
-        val seeds = { side: StyleSide -> StyleSeed.entries.associate { it.name to StyleColorHex.format(side.seeds[it]) } }
 
         assertEquals(
             mapOf("BACKGROUND" to "#FDF6E3", "ACCENT" to "#268BD2", "DANGER" to "#DC322F", "WARNING" to "#B58900", "SUCCESS" to "#859900"),
@@ -77,6 +78,30 @@ class BuiltInStylesTest {
             ) + lanes,
             hex(solarized.dark.setByHand),
         )
+    }
+
+    @Test
+    fun `Teal comes last, in the Tonal look, with its seeds, and its text, dark headers and lanes set by hand`() {
+        val teal = BuiltInStyles.TEAL
+
+        assertEquals(
+            listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.QUIET, BuiltInStyles.SOLARIZED, teal),
+            BuiltInStyles.ALL,
+        )
+        assertEquals(teal, BuiltInStyles.byId("teal"))
+        assertEquals("Teal", teal.name)
+        assertEquals(AccentStyle.TONAL, teal.look)
+
+        assertEquals(
+            mapOf("BACKGROUND" to "#FFFFFF", "ACCENT" to "#007475", "DANGER" to "#B4405A", "WARNING" to "#E0A03A", "SUCCESS" to "#3F8F52"),
+            seeds(teal.light),
+        )
+        assertEquals(teal.light.seeds.copy(background = 0xFF0F0F0F.toInt()), teal.dark.seeds)
+
+        // Lane 1 follows the accent
+        val lanes = mapOf("lane2" to "#C87D52", "lane3" to "#5B97D3", "lane4" to "#C4759C", "lane5" to "#60A56B", "lane6" to "#9D82CC")
+        assertEquals(mapOf("text" to "#1D2B2B") + lanes, hex(teal.light.setByHand))
+        assertEquals(mapOf("headers" to "#003B3A", "boxes" to "#152F2D") + lanes, hex(teal.dark.setByHand))
     }
 
     @Test

@@ -48,14 +48,14 @@ class StyleGalleryTest {
     private var scene: ImageComposeScene? = null
     private val actions = mutableListOf<StyleGalleryAction>()
     private val exportAsked = mutableListOf<String>()
-    private var exportPath: String? = "/tmp/out/Teal.json"
+    private var exportPath: String? = "/tmp/out/Lagoon.json"
     private var importPath: String? = "/tmp/in/Solarized.json"
     private var pendingDelete: Pair<StyleDefinition, () -> Unit>? = null
     private val opened = mutableListOf<StyleEditorStart>()
 
-    private val teal = StyleDefinition(
-        id = "teal",
-        name = "Teal",
+    private val lagoon = StyleDefinition(
+        id = "lagoon",
+        name = "Lagoon",
         look = AccentStyle.TONAL,
         light = StyleSide(
             BuiltInStyles.TONAL.light.seeds
@@ -95,19 +95,19 @@ class StyleGalleryTest {
         selectedId: String = "tonal",
         notice: StyleNotice? = null,
         unreadable: List<UnreadableStyleFile> = emptyList(),
-        styles: List<StyleDefinition> = looks + teal,
+        styles: List<StyleDefinition> = looks + lagoon,
     ) = StyleGalleryState(styles, selectedId, unreadable, notice)
 
     @Test
     fun `every style has a card with its name, the built-in ones say so, and Import comes last`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            show(state(styles = BuiltInStyles.ALL + teal))
+            show(state(styles = BuiltInStyles.ALL + lagoon))
 
-            val names = listOf("Tonal", "Classic", "Quiet", "Solarized", "Teal", "+ New style", "starts from Tonal", "Import style…", "a .json file")
+            val names = listOf("Tonal", "Classic", "Quiet", "Solarized", "Teal", "Lagoon", "+ New style", "starts from Tonal", "Import style…", "a .json file")
             for (name in names) {
                 assertTrue(name in texts(), "$name in ${texts()}")
             }
-            assertEquals(4, texts().count { it == "built in" })
+            assertEquals(5, texts().count { it == "built in" })
             assertTrue(boundsOf("Import style…").top > boundsOf("Tonal").top, "Import is on the second row")
             assertTrue(boundsOf("Import style…").left > boundsOf("+ New style").left, "after New")
         }
@@ -115,14 +115,14 @@ class StyleGalleryTest {
     @Test
     fun `the selected style's card is the one marked selected, and a click selects another`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            show(state(selectedId = "teal"))
+            show(state(selectedId = "lagoon"))
 
             val selected = nodes().filter { it.config.getOrNull(SemanticsProperties.Selected) == true }
             val notSelected = nodes().filter { it.config.getOrNull(SemanticsProperties.Selected) == false }
             assertEquals(1, selected.size)
             assertEquals(3, notSelected.size)
 
-            // The preview of the fourth card, Teal's, is the selected one
+            // The preview of the fourth card, Lagoon's, is the selected one
             assertTrue(selected.single().boundsInRoot.left > boundsOf("Quiet").right, "${selected.single().boundsInRoot}")
 
             click(notSelected.first())
@@ -135,8 +135,8 @@ class StyleGalleryTest {
             show(state())
             val card = nodes().filter { it.config.getOrNull(SemanticsProperties.Selected) != null }[3].boundsInRoot
             val bitmap = Bitmap.makeFromImage(scene!!.render())
-            val light = resolveStyleSide(teal, isLight = true).palette
-            val dark = resolveStyleSide(teal, isLight = false).palette
+            val light = resolveStyleSide(lagoon, isLight = true).palette
+            val dark = resolveStyleSide(lagoon, isLight = false).palette
 
             // The card's bounds are the preview's, inside the ring. Below the text lines, inside the margin: the background
             val y = (card.top + 55).toInt()
@@ -151,7 +151,7 @@ class StyleGalleryTest {
     @Test
     fun `a built-in style's name takes the room left of its tag, so Solarized isn't cut`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            show(state(styles = BuiltInStyles.ALL + teal))
+            show(state(styles = BuiltInStyles.ALL + lagoon))
 
             val name = nodes().first { "Solarized" in it.texts() && SemanticsActions.GetTextLayoutResult in it.config }
             val layouts = mutableListOf<TextLayoutResult>()
@@ -193,7 +193,7 @@ class StyleGalleryTest {
             assertTrue("starts from Classic" in texts(), "${texts()}")
 
             assertEquals(
-                listOf(StyleEditorStart.Edit(teal), StyleEditorStart.From(BuiltInStyles.CLASSIC, "New style", "Classic")),
+                listOf(StyleEditorStart.Edit(lagoon), StyleEditorStart.From(BuiltInStyles.CLASSIC, "New style", "Classic")),
                 opened,
             )
         }
@@ -205,8 +205,8 @@ class StyleGalleryTest {
 
             openMenu(3)
             clickText("Export…")
-            assertEquals(listOf("Teal.json"), exportAsked)
-            assertEquals(listOf<StyleGalleryAction>(StyleGalleryAction.Export(teal, "/tmp/out/Teal.json")), actions)
+            assertEquals(listOf("Lagoon.json"), exportAsked)
+            assertEquals(listOf<StyleGalleryAction>(StyleGalleryAction.Export(lagoon, "/tmp/out/Lagoon.json")), actions)
 
             exportPath = null
             openMenu(3)
@@ -221,11 +221,11 @@ class StyleGalleryTest {
         openMenu(3)
         clickText("Delete…")
 
-        assertEquals(teal, pendingDelete?.first)
+        assertEquals(lagoon, pendingDelete?.first)
         assertEquals(emptyList<StyleGalleryAction>(), actions, "Nothing before the confirmation")
 
         pendingDelete!!.second()
-        assertEquals(listOf<StyleGalleryAction>(StyleGalleryAction.Delete(teal)), actions)
+        assertEquals(listOf<StyleGalleryAction>(StyleGalleryAction.Delete(lagoon)), actions)
     }
 
     @Test
@@ -255,11 +255,11 @@ class StyleGalleryTest {
         val home = System.getProperty("user.home")
         val cases = listOf(
             StyleNotice.Imported("Solarized") to "Imported Solarized.",
-            StyleNotice.Exported("Teal", "$home/Desktop/Teal.json") to "Exported Teal to ~/Desktop/Teal.json",
+            StyleNotice.Exported("Lagoon", "$home/Desktop/Lagoon.json") to "Exported Lagoon to ~/Desktop/Lagoon.json",
             StyleNotice.Failed(StyleLibraryError.NotAStyle("theme.json", UnreadableStyle.NOT_A_STYLE, "x")) to
                 "Not imported: theme.json isn't a Leaf style.",
-            StyleNotice.Failed(StyleLibraryError.CantWrite("/tmp/x/Teal.json", "Permission denied")) to
-                "Couldn't write /tmp/x/Teal.json: Permission denied",
+            StyleNotice.Failed(StyleLibraryError.CantWrite("/tmp/x/Lagoon.json", "Permission denied")) to
+                "Couldn't write /tmp/x/Lagoon.json: Permission denied",
         )
 
         for ((notice, text) in cases) {
@@ -274,7 +274,7 @@ class StyleGalleryTest {
 
     @Test
     fun `an exported file is named after the style, without what file systems refuse`() {
-        assertEquals("Teal.json", exportFileName("Teal"))
+        assertEquals("Lagoon.json", exportFileName("Lagoon"))
         assertEquals("Solarized Dark.json", exportFileName("Solarized Dark"))
         assertEquals("a-b-c.json", exportFileName("a/b:c"))
         assertEquals("style.json", exportFileName(" / "))

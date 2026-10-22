@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.hypot
 import kotlin.random.Random
 
 class StyleDerivationTest {
@@ -299,6 +300,58 @@ class StyleDerivationTest {
         assertNotEquals("#EEE8D5", panels.hex())
         assertTrue(panels.luminance() < light[StyleSlot.BACKGROUND].luminance())
         assertTrue(panels.luminance() > hex("#EEE8D5").let { Color(it) }.luminance())
+    }
+
+    @Test
+    fun `Teal holds every check on both sides with nothing moved, and keeps every colour it sets by hand`() {
+        val teal = BuiltInStyles.TEAL
+
+        for (isLight in sides) {
+            val resolved = resolveStyleSide(teal, isLight)
+
+            assertEquals(emptyList<StyleAdjustment>(), resolved.adjustments, "$isLight")
+            assertEquals(emptyList<ContrastShortfall>(), resolved.shortfalls, "$isLight")
+            for ((slot, argb) in teal.side(isLight).setByHand) {
+                assertEquals(StyleColorHex.format(argb), resolved.palette[slot].hex(), "$isLight $slot")
+            }
+            assertHoldsTheSpec(resolved.palette, AccentStyle.TONAL, "Teal $isLight")
+        }
+    }
+
+    @Test
+    fun `Teal's dark headers and boxes are Tonal's navy turned as far as its accent turned`() {
+        fun hue(argb: Int) = StyleColorMath.toOklch(argb).h
+        val turn = hue(BuiltInStyles.TEAL.dark.seeds.accent) - hue(BuiltInStyles.TONAL.dark.seeds.accent)
+        val teal = resolveStyleSide(BuiltInStyles.TEAL, isLight = false).palette
+        val tonal = resolveStyleSide(BuiltInStyles.TONAL, isLight = false).palette
+
+        // About 59° from blue to teal; hex rounding moves a colour this grey by a few degrees
+        for (slot in listOf(StyleSlot.HEADERS, StyleSlot.BOXES)) {
+            val own = StyleColorMath.toOklch(teal[slot].toArgb())
+            val tonals = StyleColorMath.toOklch(tonal[slot].toArgb())
+
+            assertEquals(tonals.h + turn, own.h, 4.0, "$slot ${teal[slot].hex()}, Tonal's ${tonal[slot].hex()}")
+            assertEquals(tonals.l, own.l, 0.005, "$slot keeps Tonal's lightness")
+        }
+    }
+
+    @Test
+    fun `Teal's lanes are further apart than Tonal's`() {
+        fun distance(first: Color, second: Color): Double {
+            val a = StyleColorMath.toOklab(first.toArgb())
+            val b = StyleColorMath.toOklab(second.toArgb())
+            return hypot(hypot(a.l - b.l, a.a - b.a), a.b - b.b)
+        }
+        fun closest(lanes: List<Color>) = lanes.indices.flatMap { i -> (i + 1 until lanes.size).map { distance(lanes[i], lanes[it]) } }.min()
+
+        for (isLight in sides) {
+            val teal = closest(resolveStyleSide(BuiltInStyles.TEAL, isLight).palette.lanes)
+            val tonal = closest(resolveStyleSide(BuiltInStyles.TONAL, isLight).palette.lanes)
+
+            // Following its seeds, Teal's closest pair, a rose and a pink, was 0.039 apart; Tonal's is 0.048
+            assertTrue(teal > 0.07, "$isLight $teal")
+            assertTrue(teal > tonal, "$isLight $teal, Tonal $tonal")
+        }
     }
 
     @Test

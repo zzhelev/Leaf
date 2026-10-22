@@ -19,12 +19,12 @@ class StyleEditorStateTest {
 
     @Test
     fun `a style of the user's opens unchanged, and a new one counts as a change until saved`() {
-        val teal = BuiltInStyles.QUIET.copy(id = "teal", name = "Teal")
-        val editing = StyleEditorState.editing(teal)
+        val lagoon = BuiltInStyles.QUIET.copy(id = "lagoon", name = "Lagoon")
+        val editing = StyleEditorState.editing(lagoon)
 
         assertFalse(editing.hasChanges)
         assertFalse(editing.isNew)
-        assertTrue(editing.renamed("Deep teal").hasChanges)
+        assertTrue(editing.renamed("Deep lagoon").hasChanges)
 
         assertTrue(tonalCopy.isNew)
         assertTrue(tonalCopy.hasChanges)
@@ -69,8 +69,8 @@ class StyleEditorStateTest {
 
     @Test
     fun `revert goes back to the style as saved, and closes the picker`() {
-        val teal = BuiltInStyles.QUIET.copy(id = "teal", name = "Teal")
-        val changed = StyleEditorState.editing(teal)
+        val lagoon = BuiltInStyles.QUIET.copy(id = "lagoon", name = "Lagoon")
+        val changed = StyleEditorState.editing(lagoon)
             .renamed("Other")
             .withLook(AccentStyle.CLASSIC)
             .withSeed(StyleSeed.DANGER, 0xFF00FF00.toInt())
@@ -78,7 +78,7 @@ class StyleEditorStateTest {
 
         val reverted = changed.reverted()
 
-        assertEquals(teal, reverted.draft)
+        assertEquals(lagoon, reverted.draft)
         assertEquals(null, reverted.picker)
         assertFalse(reverted.hasChanges)
     }

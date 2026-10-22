@@ -43,7 +43,7 @@ class FileStyleLibraryRepositoryTest {
         dark = StyleSide(BuiltInStyles.templateSeeds(AccentStyle.QUIET, false)),
     )
 
-    private val teal = style("teal", "Teal")
+    private val lagoon = style("lagoon", "Lagoon")
 
     private fun files() = stylesDir.list().orEmpty().sorted()
 
@@ -62,23 +62,23 @@ class FileStyleLibraryRepositoryTest {
     fun `a saved style is its file, which reads back as it was, with no temporary file left`(): Unit = runBlocking {
         val repository = repository()
 
-        assertEquals(teal, ok(repository.save(teal)))
-        assertEquals(listOf("teal.json"), files())
-        assertEquals(StyleFileCodec.encode(teal), File(stylesDir, "teal.json").readText())
-        assertEquals(listOf(teal), repository.library.value.styles)
+        assertEquals(lagoon, ok(repository.save(lagoon)))
+        assertEquals(listOf("lagoon.json"), files())
+        assertEquals(StyleFileCodec.encode(lagoon), File(stylesDir, "lagoon.json").readText())
+        assertEquals(listOf(lagoon), repository.library.value.styles)
 
         // A new start reads it from the folder
-        assertEquals(listOf(teal), repository().library.value.styles)
+        assertEquals(listOf(lagoon), repository().library.value.styles)
     }
 
     @Test
     fun `saving again replaces the file, and a rename keeps the id`(): Unit = runBlocking {
         val repository = repository()
-        repository.save(teal)
-        repository.save(teal.copy(name = "Deep teal"))
+        repository.save(lagoon)
+        repository.save(lagoon.copy(name = "Deep lagoon"))
 
-        assertEquals(listOf("teal.json"), files())
-        assertEquals(listOf(teal.copy(name = "Deep teal")), repository.library.value.styles)
+        assertEquals(listOf("lagoon.json"), files())
+        assertEquals(listOf(lagoon.copy(name = "Deep lagoon")), repository.library.value.styles)
     }
 
     @Test
@@ -93,17 +93,17 @@ class FileStyleLibraryRepositoryTest {
     @Test
     fun `files that can't be read are left out and listed, and the others still read`(): Unit = runBlocking {
         stylesDir.mkdirs()
-        File(stylesDir, "teal.json").writeText(StyleFileCodec.encode(teal))
+        File(stylesDir, "lagoon.json").writeText(StyleFileCodec.encode(lagoon))
         File(stylesDir, "broken.json").writeText("{ \"leafStyle\": 1, ")
         File(stylesDir, "old-theme.json").writeText("""{ "primary": "FF456b00", "isLight": true }""")
-        File(stylesDir, "tonal.json").writeText(StyleFileCodec.encode(teal.copy(id = "tonal")))
+        File(stylesDir, "tonal.json").writeText(StyleFileCodec.encode(lagoon.copy(id = "tonal")))
         File(stylesDir, "huge.json").writeText(" ".repeat(1024 * 1024 + 1))
         File(stylesDir, "notes.txt").writeText("not a style, and not a .json file")
         File(stylesDir, "folder.json").mkdirs()
 
         val library = repository().library.value
 
-        assertEquals(listOf(teal), library.styles)
+        assertEquals(listOf(lagoon), library.styles)
         assertEquals(
             listOf(
                 "broken.json" to UnreadableStyle.NOT_JSON,
@@ -119,37 +119,37 @@ class FileStyleLibraryRepositoryTest {
     fun `a file changed outside Leaf shows after a reload`(): Unit = runBlocking {
         val repository = repository()
         stylesDir.mkdirs()
-        File(stylesDir, "teal.json").writeText(StyleFileCodec.encode(teal))
+        File(stylesDir, "lagoon.json").writeText(StyleFileCodec.encode(lagoon))
 
         assertEquals(StyleLibrary(), repository.library.value)
 
         repository.reload()
 
-        assertEquals(listOf(teal), repository.library.value.styles)
+        assertEquals(listOf(lagoon), repository.library.value.styles)
     }
 
     @Test
     fun `deleting a style removes its file, and deleting one that's gone is fine`(): Unit = runBlocking {
         val repository = repository()
-        repository.save(teal)
+        repository.save(lagoon)
 
-        ok(repository.delete("teal"))
+        ok(repository.delete("lagoon"))
         assertEquals(emptyList<String>(), files())
         assertEquals(StyleLibrary(), repository.library.value)
 
-        ok(repository.delete("teal"))
+        ok(repository.delete("lagoon"))
     }
 
     @Test
     fun `an import is copied as it is, under an id from its file's name`(): Unit = runBlocking {
         val repository = repository()
         // A key that this version doesn't know stays in the copy, for a newer Leaf
-        val text = StyleFileCodec.encode(teal).replace("\"name\": \"Teal\"", "\"name\": \"Teal\",\n  \"author\": \"Maya\"")
+        val text = StyleFileCodec.encode(lagoon).replace("\"name\": \"Lagoon\"", "\"name\": \"Lagoon\",\n  \"author\": \"Maya\"")
         val source = File(dir, "Solarized Dark.json").apply { writeText(text) }
 
         val imported = ok(repository.import(source))
 
-        assertEquals(teal.copy(id = "solarized-dark"), imported)
+        assertEquals(lagoon.copy(id = "solarized-dark"), imported)
         assertEquals(listOf("solarized-dark.json"), files())
         assertEquals(text, File(stylesDir, "solarized-dark.json").readText())
         assertEquals(listOf(imported), repository.library.value.styles)
@@ -159,15 +159,15 @@ class FileStyleLibraryRepositoryTest {
     @Test
     fun `an import whose id is taken gets a new one, a built-in style's included`(): Unit = runBlocking {
         val repository = repository()
-        repository.save(teal)
-        val tealFile = File(dir, "teal.json").apply { writeText(StyleFileCodec.encode(teal.copy(name = "Other teal"))) }
-        val tonalFile = File(dir, "tonal.json").apply { writeText(StyleFileCodec.encode(teal.copy(name = "My tonal"))) }
+        repository.save(lagoon)
+        val lagoonFile = File(dir, "lagoon.json").apply { writeText(StyleFileCodec.encode(lagoon.copy(name = "Other lagoon"))) }
+        val tonalFile = File(dir, "tonal.json").apply { writeText(StyleFileCodec.encode(lagoon.copy(name = "My tonal"))) }
 
-        assertEquals("teal-2", ok(repository.import(tealFile)).id)
-        assertEquals("teal-3", ok(repository.import(tealFile)).id)
+        assertEquals("lagoon-2", ok(repository.import(lagoonFile)).id)
+        assertEquals("lagoon-3", ok(repository.import(lagoonFile)).id)
         assertEquals("tonal-2", ok(repository.import(tonalFile)).id)
-        assertEquals(listOf("teal-2.json", "teal-3.json", "teal.json", "tonal-2.json"), files())
-        assertEquals("Teal", repository.library.value.styles.single { it.id == "teal" }.name, "The first is untouched")
+        assertEquals(listOf("lagoon-2.json", "lagoon-3.json", "lagoon.json", "tonal-2.json"), files())
+        assertEquals("Lagoon", repository.library.value.styles.single { it.id == "lagoon" }.name, "The first is untouched")
     }
 
     @Test
@@ -186,36 +186,37 @@ class FileStyleLibraryRepositoryTest {
     @Test
     fun `an export is the style's file, wherever it's written, and imports back`(): Unit = runBlocking {
         val repository = repository()
-        val target = File(dir, "exports/Teal.json").apply { parentFile.mkdirs() }
+        val target = File(dir, "exports/Lagoon.json").apply { parentFile.mkdirs() }
 
-        ok(repository.export(teal, target))
+        ok(repository.export(lagoon, target))
 
-        assertEquals(StyleFileCodec.encode(teal), target.readText())
-        val read = assertInstanceOf(StyleFileRead.Read::class.java, StyleFileCodec.decode(target.readText(), "teal"))
-        assertEquals(teal, read.definition)
+        assertEquals(StyleFileCodec.encode(lagoon), target.readText())
+        val read = assertInstanceOf(StyleFileRead.Read::class.java, StyleFileCodec.decode(target.readText(), "lagoon"))
+        assertEquals(lagoon, read.definition)
         assertEquals(emptyList<String>(), files(), "Exporting doesn't add it to the library")
-        assertEquals(teal.copy(id = "teal"), ok(repository.import(target)))
+        assertEquals(lagoon.copy(id = "lagoon"), ok(repository.import(target)))
     }
 
     @Test
     fun `an export that can't be written says where`(): Unit = runBlocking {
         val blocked = File(dir, "a-file").apply { writeText("") }
-        val error = err(repository().export(teal, File(blocked, "Teal.json")))
+        val error = err(repository().export(lagoon, File(blocked, "Lagoon.json")))
 
         assertInstanceOf(StyleLibraryError.CantWrite::class.java, error)
-        assertTrue((error as StyleLibraryError.CantWrite).path.endsWith("a-file/Teal.json"), error.path)
+        assertTrue((error as StyleLibraryError.CantWrite).path.endsWith("a-file/Lagoon.json"), error.path)
     }
 
     @Test
     fun `a new style's id is free of every file in the folder, readable or not, and of the built-in ids`(): Unit =
         runBlocking {
             stylesDir.mkdirs()
-            File(stylesDir, "teal.json").writeText("not JSON")
+            File(stylesDir, "lagoon.json").writeText("not JSON")
             val repository = repository()
 
-            assertEquals("teal-2", repository.newId("Teal"))
+            assertEquals("lagoon-2", repository.newId("Lagoon"))
             assertEquals("quiet-2", repository.newId("Quiet"))
             assertEquals("solarized-2", repository.newId("Solarized"))
+            assertEquals("teal-2", repository.newId("Teal"))
             assertEquals("nord", repository.newId("Nord"))
         }
 }

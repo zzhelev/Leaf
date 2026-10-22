@@ -48,7 +48,7 @@ class StyleEditorDialogTest {
     )
 
     private val solarizedBlue = 0xFF268BD2.toInt()
-    private val teal = BuiltInStyles.TONAL.copy(id = "teal", name = "Teal")
+    private val lagoon = BuiltInStyles.TONAL.copy(id = "lagoon", name = "Lagoon")
 
     @AfterEach
     fun close() {
@@ -69,9 +69,9 @@ class StyleEditorDialogTest {
 
     @Test
     fun `a style of the user's shows its name, its look and its seeds`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.editing(teal))
+        show(StyleEditorState.editing(lagoon))
 
-        assertTrue("Teal" in editableTexts(), "${editableTexts()}")
+        assertTrue("Lagoon" in editableTexts(), "${editableTexts()}")
         for (text in listOf("A style of yours", "BUTTONS LOOK", "COLOURS", "Background", "Accent", "Danger", "Warning", "Success", "Advanced", "PREVIEW")) {
             assertTrue(text in texts(), "$text in ${texts()}")
         }
@@ -89,7 +89,7 @@ class StyleEditorDialogTest {
 
     @Test
     fun `the look switch picks a look`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.editing(teal))
+        show(StyleEditorState.editing(lagoon))
 
         click(mergedNodes().first { it.config.getOrNull(SemanticsProperties.Selected) == false && "Quiet" in it.texts() })
         assertEquals(listOf<StyleEditorAction>(StyleEditorAction.SetLook(AccentStyle.QUIET)), actions)
@@ -97,13 +97,13 @@ class StyleEditorDialogTest {
 
     @Test
     fun `a seed's swatch opens the palette, and a colour picked in it sets the seed`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.editing(teal))
+        show(StyleEditorState.editing(lagoon))
 
         click(described("Accent"))
         assertEquals(listOf<StyleEditorAction>(StyleEditorAction.OpenPicker(ColourTarget.Seed(StyleSeed.ACCENT))), actions)
 
         actions.clear()
-        show(StyleEditorState.editing(teal).withPicker(ColourTarget.Seed(StyleSeed.ACCENT)))
+        show(StyleEditorState.editing(lagoon).withPicker(ColourTarget.Seed(StyleSeed.ACCENT)))
 
         assertTrue("Hex" in texts(), "${texts()}")
 
@@ -114,7 +114,7 @@ class StyleEditorDialogTest {
 
     @Test
     fun `each background swatch opens its own side's palette`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.editing(teal))
+        show(StyleEditorState.editing(lagoon))
 
         click(described("Background · Dark"))
         assertEquals(listOf<StyleEditorAction>(StyleEditorAction.OpenPicker(ColourTarget.Seed(StyleSeed.BACKGROUND, isLight = false))), actions)
@@ -140,13 +140,13 @@ class StyleEditorDialogTest {
 
     @Test
     fun `Advanced opens the table of every colour, with a dot where one is set by hand`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.editing(teal))
+        show(StyleEditorState.editing(lagoon))
         assertFalse("Hunk headers and boxes" in texts())
 
         clickText("Advanced")
         assertEquals(listOf<StyleEditorAction>(StyleEditorAction.SetAdvancedOpen(true)), actions)
 
-        val byHand = StyleEditorState.editing(teal)
+        val byHand = StyleEditorState.editing(lagoon)
             .withAdvancedOpen(true)
             .withColourSetByHand(StyleSlot.TEXT, isLight = true, 0xFFCCCCCC.toInt())
         show(byHand)
@@ -165,7 +165,7 @@ class StyleEditorDialogTest {
     @Test
     fun `a colour set by hand can be worked out again from its palette`(): Unit = runBlocking(Dispatchers.Swing) {
         show(
-            StyleEditorState.editing(teal)
+            StyleEditorState.editing(lagoon)
                 .withAdvancedOpen(true)
                 .withColourSetByHand(StyleSlot.TEXT, isLight = true, 0xFFCCCCCC.toInt())
                 .withPicker(ColourTarget.Slot(StyleSlot.TEXT, isLight = true))
@@ -178,57 +178,57 @@ class StyleEditorDialogTest {
     @Test
     fun `Save is offered once something changed and the style has a name, and Revert once it differs`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            show(StyleEditorState.editing(teal))
+            show(StyleEditorState.editing(lagoon))
             clickText("Save")
             clickText("Revert changes")
             assertEquals(emptyList<StyleEditorAction>(), actions, "Nothing to save or revert")
 
-            show(StyleEditorState.editing(teal).renamed("Deep teal"))
+            show(StyleEditorState.editing(lagoon).renamed("Deep lagoon"))
             clickText("Revert changes")
             clickText("Save")
             assertEquals(listOf(StyleEditorAction.Revert, StyleEditorAction.Save), actions)
 
             actions.clear()
-            show(StyleEditorState.editing(teal).renamed("  "))
+            show(StyleEditorState.editing(lagoon).renamed("  "))
             clickText("Save")
             assertEquals(emptyList<StyleEditorAction>(), actions, "No name")
 
             // A new style can be saved as it is
-            show(StyleEditorState.startingFrom(teal, "", "Teal copy", "Teal"))
+            show(StyleEditorState.startingFrom(lagoon, "", "Lagoon copy", "Lagoon"))
             clickText("Save")
             assertEquals(listOf<StyleEditorAction>(StyleEditorAction.Save), actions)
         }
 
     @Test
     fun `Cancel closes at once without changes, and asks first with them`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.editing(teal))
+        show(StyleEditorState.editing(lagoon))
         clickText("Cancel")
         assertEquals(1, closed)
 
-        show(StyleEditorState.editing(teal).withSeed(StyleSeed.WARNING, 0xFFE0A03A.toInt()))
+        show(StyleEditorState.editing(lagoon).withSeed(StyleSeed.WARNING, 0xFFE0A03A.toInt()))
         clickText("Cancel")
         assertEquals(1, closed)
-        assertEquals("Teal", discardAsked)
+        assertEquals("Lagoon", discardAsked)
     }
 
     @Test
     fun `the menu duplicates the style as the editor shows it, exports it, and deletes it once confirmed`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            val changed = StyleEditorState.editing(teal).withSeed(StyleSeed.ACCENT, solarizedBlue)
+            val changed = StyleEditorState.editing(lagoon).withSeed(StyleSeed.ACCENT, solarizedBlue)
             show(changed)
 
             click(described("Style actions"))
             clickText("Duplicate")
-            assertEquals(listOf<StyleEditorStart>(StyleEditorStart.From(changed.draft, "Teal copy", "Teal")), replaced)
+            assertEquals(listOf<StyleEditorStart>(StyleEditorStart.From(changed.draft, "Lagoon copy", "Lagoon")), replaced)
 
             click(described("Style actions"))
             clickText("Export…")
-            assertEquals(listOf<StyleEditorAction>(StyleEditorAction.Export("/tmp/Teal.json")), actions)
+            assertEquals(listOf<StyleEditorAction>(StyleEditorAction.Export("/tmp/Lagoon.json")), actions)
 
             actions.clear()
             click(described("Style actions"))
             clickText("Delete style…")
-            assertEquals("Teal", deleteAsked?.first)
+            assertEquals("Lagoon", deleteAsked?.first)
             assertEquals(emptyList<StyleEditorAction>(), actions)
             deleteAsked!!.second()
             assertEquals(listOf<StyleEditorAction>(StyleEditorAction.Delete), actions)
@@ -236,7 +236,7 @@ class StyleEditorDialogTest {
 
     @Test
     fun `a new style's menu has no Delete`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.startingFrom(teal, "", "Teal copy", "Teal"))
+        show(StyleEditorState.startingFrom(lagoon, "", "Lagoon copy", "Lagoon"))
 
         click(described("Style actions"))
         assertTrue("Duplicate" in texts())
@@ -245,7 +245,7 @@ class StyleEditorDialogTest {
 
     @Test
     fun `the previews are drawn in the draft's light and dark colours`(): Unit = runBlocking(Dispatchers.Swing) {
-        val state = StyleEditorState.editing(teal)
+        val state = StyleEditorState.editing(lagoon)
             .withSeed(StyleSeed.BACKGROUND, 0xFFFDF6E3.toInt(), isLight = true)
             .withSeed(StyleSeed.BACKGROUND, 0xFF002B36.toInt(), isLight = false)
         show(state)
@@ -265,9 +265,9 @@ class StyleEditorDialogTest {
     @Test
     fun `an export's outcome stays in the footer until dismissed`(): Unit = runBlocking(Dispatchers.Swing) {
         val home = System.getProperty("user.home")
-        show(StyleEditorState.editing(teal), StyleEditorMessage.Exported("$home/Teal.json"))
+        show(StyleEditorState.editing(lagoon), StyleEditorMessage.Exported("$home/Lagoon.json"))
 
-        assertTrue("Exported Teal to ~/Teal.json" in texts(), "${texts()}")
+        assertTrue("Exported Lagoon to ~/Lagoon.json" in texts(), "${texts()}")
         clickText("Dismiss")
         assertEquals(listOf<StyleEditorAction>(StyleEditorAction.DismissMessage), actions)
     }
