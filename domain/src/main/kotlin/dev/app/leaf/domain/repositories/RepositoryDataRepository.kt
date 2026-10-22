@@ -5,6 +5,7 @@ import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.rebase.RebaseStop
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -31,6 +32,9 @@ interface RepositoryDataRepository {
 
     /** The cherry-pick of several commits that git stopped in the worktree, or null (fork-only). */
     val cherryPickSequence: StateFlow<DataState<CherryPickSequence?>>
+
+    /** The commit that a rebase stopped at, or null (fork-only). */
+    val rebaseStop: StateFlow<DataState<RebaseStop?>>
     var maxCommitsToLoadLimit: Int
 
     fun setRepositorySelectionState(state: RepositorySelectionState)
@@ -69,6 +73,7 @@ interface RepositoryDataRepository {
         repositoryPath: String,
         block: suspend () -> Either<CherryPickSequence?, AppError>,
     )
+    suspend fun updateRebaseStop(repositoryPath: String, block: suspend () -> Either<RebaseStop?, AppError>)
 }
 
 sealed interface DataState<out T> {

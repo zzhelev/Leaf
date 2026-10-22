@@ -15,6 +15,7 @@ import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.commitmessage.isUneditedStart
 import dev.app.leaf.domain.commitmessage.messageStart
 import dev.app.leaf.domain.extensions.lowercaseContains
+import dev.app.leaf.domain.rebase.RebaseStop
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.sorting.CollapsedFolders
 import dev.app.leaf.domain.sorting.FileRow
@@ -71,6 +72,8 @@ data class StatusState(
     val isSquashMergeInProgress: Boolean = false,
     /** A cherry-pick of several commits that git stopped, which git's sequencer goes on with (fork-only). */
     val cherryPickSequence: CherryPickSequence? = null,
+    /** The commit that a rebase stopped at, which its Skip names (fork-only). */
+    val rebaseStop: RebaseStop? = null,
     /** How git cleans up the message before committing it (fork-only): `commit.cleanup` and the comment prefix. */
     val messageCleanup: MessageCleanup = MessageCleanup.DEFAULT,
     /** The commit field's helpers that the settings turn on (fork-only). */
@@ -204,6 +207,7 @@ fun combineStatusState(
     commitlintRules: Flow<CommitlintRules?> = flowOf(null),
     messageStartInputs: Flow<MessageStartInputs> = flowOf(MessageStartInputs()),
     cherryPickSequence: Flow<CherryPickSequence?> = flowOf(null),
+    rebaseStop: Flow<RebaseStop?> = flowOf(null),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -276,6 +280,7 @@ fun combineStatusState(
         commitlintRules,
         messageStartInputs,
         cherryPickSequence,
+        rebaseStop,
     ) {
             lists,
             swapUncommittedChanges,
@@ -300,6 +305,7 @@ fun combineStatusState(
             commitlintRules,
             messageStartInputs,
             cherryPickSequence,
+            rebaseStop,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -337,6 +343,7 @@ fun combineStatusState(
             commitlintRules = commitlintRules,
             messageStartInputs = messageStartInputs,
             cherryPickSequence = cherryPickSequence,
+            rebaseStop = rebaseStop,
         )
     }
 }

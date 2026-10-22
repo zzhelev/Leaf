@@ -13,6 +13,9 @@ import dev.app.leaf.domain.cherrypick.BranchesAhead
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.IGetBranchesAheadGitAction
 import dev.app.leaf.domain.interfaces.IGetCherryPickSequenceGitAction
+import dev.app.leaf.domain.interfaces.IGetRebaseStopGitAction
+import dev.app.leaf.domain.rebase.SkippedRebaseCommits
+import dev.app.leaf.domain.usecases.ReportSkippedRebaseCommitsUseCase
 import dev.app.leaf.domain.interfaces.IGetBranchesGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitTimesGitAction
 import dev.app.leaf.domain.interfaces.IGetCurrentBranchGitAction
@@ -131,6 +134,12 @@ fun testRefreshDataUseCase(
         ),
         getBranchesAheadGitAction = getBranchesAhead,
         getCherryPickSequenceGitAction = getCherryPickSequence,
+        getRebaseStopGitAction = mockk<IGetRebaseStopGitAction> { coEvery { this@mockk(any()) } returns Either.Ok(null) },
+        reportSkippedRebaseCommitsUseCase = ReportSkippedRebaseCommitsUseCase(
+            SkippedRebaseCommits(),
+            mockk(),
+            stateRepository,
+        ),
         worktreesRefreshRunner = WorktreesRefreshRunner(),
         dataRefreshRunner = DataRefreshRunner(),
         scope = scope,

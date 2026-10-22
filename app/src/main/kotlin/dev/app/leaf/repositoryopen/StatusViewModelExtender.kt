@@ -425,6 +425,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         commitlintRules,
         messageStartInputs,
         repositoryDataRepository.cherryPickSequence.map { it.dataOrNull() }.distinctUntilChanged(),
+        repositoryDataRepository.rebaseStop.map { it.dataOrNull() }.distinctUntilChanged(),
     )
         .stateIn(StatusState())
 
@@ -577,7 +578,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         StatusAction.AbortSquashMerge -> abortSquashMergeUseCase()
         is StatusAction.SearchFilterToggledStaged -> searchFilterToggledStaged()
         is StatusAction.SearchFilterToggledUnstaged -> searchFilterToggledUnstaged()
-        StatusAction.SkipRebase -> skipRebase()
+        is StatusAction.SkipRebase -> skipRebaseUseCase(action.skipped)
         is StatusAction.ContinueCherryPick -> continueCherryPick(action.message)
         StatusAction.SkipCherryPick -> cherryPickSequenceUseCase.skip()
         StatusAction.AbortCherryPick -> cherryPickSequenceUseCase.abort()
@@ -980,7 +981,6 @@ class StatusViewModelExtender @AssistedInject constructor(
     }
 
     private fun abortRebase() = abortRebaseUseCase()
-    private fun skipRebase() = skipRebaseUseCase()
     private fun resetRepoState() = resetRepositoryStateUseCase()
 
     private fun deleteFile(statusEntry: StatusEntry) = deleteFileUseCase(statusEntry.filePath)

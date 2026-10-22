@@ -256,6 +256,28 @@ class ConfirmActionDialogTest {
         }
 
     @Test
+    fun `skipping a rebase's commit names it and its branch, and says how to bring it back`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            DialogScene(ConfirmableAction.SkipRebaseCommit("a4880d1", "Show the unread bar", "fix/unread-bar", 2)).use { dialog ->
+                assertTrue("Leave a4880d1 \"Show the unread bar\" out of fix/unread-bar?" in dialog.texts(), dialog.texts().toString())
+                assertTrue(
+                    "Its changes in 2 files are discarded, resolved conflicts included. Abort before the rebase ends to bring everything back." in
+                        dialog.texts(),
+                    dialog.texts().toString(),
+                )
+            }
+
+            DialogScene(ConfirmableAction.SkipRebaseCommit("a4880d1", "Show the unread bar", null, 0)).use { dialog ->
+                assertTrue("Leave a4880d1 \"Show the unread bar\" out of the rebased branch?" in dialog.texts())
+                assertFalse(dialog.texts().any { it.contains("Abort before") }, dialog.texts().toString())
+            }
+
+            DialogScene(ConfirmableAction.SkipRebaseCommit()).use { dialog ->
+                assertTrue("Leave the commit being applied out of the rebased branch?" in dialog.texts())
+            }
+        }
+
+    @Test
     fun `using one side names both, and what is lost`(): Unit = runBlocking(Dispatchers.Swing) {
         val sides = ConflictSides(
             ConflictOperation.MERGE,

@@ -6,6 +6,8 @@ import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchCherryPickCommitsGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
 import dev.app.leaf.data.git.cherrypick.GetCherryPickSequenceGitAction
+import dev.app.leaf.domain.interfaces.IGetCommitsOnHeadGitAction
+import dev.app.leaf.domain.interfaces.IGetRebaseStopGitAction
 import dev.app.leaf.data.git.cli.operations.GitCliCherryPickCommitsGitAction
 import dev.app.leaf.data.git.cli.operations.GitCliCherryPickSequenceGitAction
 import dev.app.leaf.domain.interfaces.ICherryPickCommitsGitAction
@@ -638,4 +640,13 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsCherryPickSequenceGitAction(action: GitCliCherryPickSequenceGitAction): ICherryPickSequenceGitAction
+
+    // Fork-only: the commit that a rebase stopped at, and the commits that Skip left out of one
+    @Binds
+    @TabScope
+    fun bindsGetRebaseStopGitAction(action: GetRebaseStopGitAction): IGetRebaseStopGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetCommitsOnHeadGitAction(action: GetCommitsOnHeadGitAction): IGetCommitsOnHeadGitAction
 }

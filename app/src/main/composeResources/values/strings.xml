@@ -956,7 +956,27 @@
     <string name="operation_banner_revert">Revert in progress. Commit to finish it.</string>
     <string name="skip_rebase_dialog_title">Skip commit</string>
     <string name="skip_rebase_dialog_subtitle">Leave the commit being applied out of the rebased branch?</string>
+    <string name="skip_rebase_dialog_subtitle_commit">Leave %1$s "%2$s" out of the rebased branch?</string>
+    <string name="skip_rebase_dialog_subtitle_commit_branch">Leave %1$s "%2$s" out of %3$s?</string>
+    <plurals name="skip_rebase_dialog_warning">
+        <item quantity="one">Its changes in %1$d file are discarded, resolved conflicts included. Abort before the rebase ends to bring everything back.</item>
+        <item quantity="other">Its changes in %1$d files are discarded, resolved conflicts included. Abort before the rebase ends to bring everything back.</item>
+    </plurals>
+    <plurals name="skip_blocked_other_changes">
+        <item quantity="one">Stash or discard the changes to %1$d other file first: skipping would discard them too.</item>
+        <item quantity="other">Stash or discard the changes to %1$d other files first: skipping would discard them too.</item>
+    </plurals>
     <string name="skip_rebase_dialog_skip">Skip</string>
+    <string name="skipped_commits_title">Commits left out of the rebase</string>
+    <string name="skipped_commits_title_branch">Commits left out of %1$s</string>
+    <plurals name="skipped_commits_text">
+        <item quantity="one">The rebase ended without the commit that you skipped. It's no longer on the branch, but still in the repository:</item>
+        <item quantity="other">The rebase ended without the %1$d commits that you skipped. They're no longer on the branch, but still in the repository:</item>
+    </plurals>
+    <plurals name="skipped_commits_cherry_pick_back">
+        <item quantity="one">Cherry-pick it back</item>
+        <item quantity="other">Cherry-pick them back</item>
+    </plurals>
     <string name="skip_cherry_pick_dialog_subtitle">Leave out the commit being picked, and go on with the rest?</string>
     <plurals name="skip_cherry_pick_dialog_warning">
         <item quantity="one">Its changes in %1$d file are discarded, resolved conflicts included. They can’t be restored.</item>

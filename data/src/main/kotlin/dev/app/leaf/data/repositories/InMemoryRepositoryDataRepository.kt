@@ -8,6 +8,7 @@ import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.rebase.RebaseStop
 import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import kotlinx.coroutines.currentCoroutineContext
@@ -69,6 +70,9 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
     override val cherryPickSequence: StateFlow<DataState<CherryPickSequence?>>
         field = MutableStateFlow<DataState<CherryPickSequence?>>(DataState.Loading)
 
+    override val rebaseStop: StateFlow<DataState<RebaseStop?>>
+        field = MutableStateFlow<DataState<RebaseStop?>>(DataState.Loading)
+
     override var maxCommitsToLoadLimit: Int = 0
 
     override val repositoryPath: String?
@@ -96,6 +100,7 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         // Fork-only: both follow the worktree's HEAD and git dir
         branchesAhead.value = DataState.Loading
         cherryPickSequence.value = DataState.Loading
+        rebaseStop.value = DataState.Loading
         repositorySelectionState.value = RepositorySelectionState.Open(gitDir)
     }
 
@@ -111,6 +116,7 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         worktrees.value = DataState.Loading
         branchesAhead.value = DataState.Loading
         cherryPickSequence.value = DataState.Loading
+        rebaseStop.value = DataState.Loading
     }
 
     override suspend fun updateStatus(repositoryPath: String, block: suspend () -> Either<Status, AppError>) {
@@ -155,6 +161,10 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         block: suspend () -> Either<CherryPickSequence?, AppError>,
     ) {
         handleDataState(cherryPickSequence, repositoryPath, block)
+    }
+
+    override suspend fun updateRebaseStop(repositoryPath: String, block: suspend () -> Either<RebaseStop?, AppError>) {
+        handleDataState(rebaseStop, repositoryPath, block)
     }
 
     override suspend fun updateRefDates(repositoryPath: String, block: suspend () -> Either<RefDates, AppError>) {

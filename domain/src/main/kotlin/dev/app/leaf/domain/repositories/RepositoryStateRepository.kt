@@ -1,5 +1,6 @@
 package dev.app.leaf.domain.repositories
 
+import dev.app.leaf.domain.rebase.SkippedCommitsNotice
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.models.AutostashNotice
 import dev.app.leaf.domain.models.TaskProgress
@@ -36,6 +37,11 @@ interface RepositoryStateRepository {
     val autostashNotices: StateFlow<List<AutostashNotice>>
     fun addAutostashNotice(notice: AutostashNotice)
     fun autostashNoticeShown(notice: AutostashNotice)
+
+    /** The commits that Skip left out of a rebase that has ended, which the tab shows until dismissed (fork-only). */
+    val skippedCommitsNotices: StateFlow<List<SkippedCommitsNotice>>
+    fun addSkippedCommitsNotice(notice: SkippedCommitsNotice)
+    fun skippedCommitsNoticeShown(notice: SkippedCommitsNotice)
 }
 
 sealed interface CompletedTask {

@@ -63,6 +63,7 @@ import dev.app.leaf.ui.LocalWindowMinimized
 import dev.app.leaf.ui.components.TabsRow
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.context_menu.AppPopupMenu
+import dev.app.leaf.domain.rebase.SkippedCommitsNotice
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.dialogs.QuitDialog
@@ -106,6 +107,8 @@ sealed interface Screen : NavKey {
     data class Error(val error: CompletedTask.Failure) : Screen
     /** git couldn't put back the changes that it set aside, which are in the stash list (fork-only). */
     data class ChangesInStash(val notice: AutostashNotice) : Screen
+    /** The commits that Skip left out of a rebase that has ended (fork-only). */
+    data class SkippedCommits(val notice: SkippedCommitsNotice) : Screen
     data object SubmoduleAdd : Screen
     data class HttpCredentials(val credentialsRequest: CredentialsRequest.HttpCredentialsRequest) : Screen
     data class SshCredentials(val credentialsRequest: CredentialsRequest.SshCredentialsRequest) : Screen

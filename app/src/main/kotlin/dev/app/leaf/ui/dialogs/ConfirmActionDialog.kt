@@ -77,7 +77,16 @@ sealed interface ConfirmableAction {
      */
     data class SkipCherryPickCommit(val discardedFiles: Int) : ConfirmableAction
 
-    data object SkipRebaseCommit : ConfirmableAction
+    /**
+     * Leaves out the commit that a rebase stopped at. Fork-only: [commit] (short), [subject] and [branch] name it when
+     * known, and its changes in [discardedFiles] files, staged or with conflicts, are lost.
+     */
+    data class SkipRebaseCommit(
+        val commit: String? = null,
+        val subject: String? = null,
+        val branch: String? = null,
+        val discardedFiles: Int = 0,
+    ) : ConfirmableAction
 
     data class DropStash(val stash: Commit) : ConfirmableAction
 
@@ -430,11 +439,20 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             primaryAction = stringResource(Res.string.skip_rebase_dialog_skip),
         )
 
-        ConfirmableAction.SkipRebaseCommit -> ConfirmationTexts(
+        is ConfirmableAction.SkipRebaseCommit -> ConfirmationTexts(
             icon = warning,
             title = stringResource(Res.string.skip_rebase_dialog_title),
-            subtitle = stringResource(Res.string.skip_rebase_dialog_subtitle),
-            warning = null,
+            // Fork-only: names the commit and the branch it's left out of
+            subtitle = when {
+                commit == null || subject == null -> stringResource(Res.string.skip_rebase_dialog_subtitle)
+                branch == null -> stringResource(Res.string.skip_rebase_dialog_subtitle_commit, commit, subject)
+                else -> stringResource(Res.string.skip_rebase_dialog_subtitle_commit_branch, commit, subject, branch)
+            },
+            warning = if (discardedFiles > 0) {
+                pluralStringResource(Res.plurals.skip_rebase_dialog_warning, discardedFiles, discardedFiles)
+            } else {
+                null
+            },
             primaryAction = stringResource(Res.string.skip_rebase_dialog_skip),
         )
 

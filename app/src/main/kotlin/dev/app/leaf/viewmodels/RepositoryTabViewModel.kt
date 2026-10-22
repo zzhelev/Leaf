@@ -6,6 +6,9 @@ import dev.app.leaf.Screen
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.common.printLog
 import dev.app.leaf.di.TabComponent
+import dev.app.leaf.domain.cherrypick.CherryPickPlan
+import dev.app.leaf.domain.rebase.SkippedCommitsNotice
+import dev.app.leaf.domain.usecases.CherryPickCommitsUseCase
 import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.credentials.CredentialsState
@@ -72,6 +75,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val switchWorktreeUseCase: SwitchWorktreeUseCase,
     private val tabComponent: TabComponent,
     private val appViewModel: AppViewModel,
+    private val cherryPickCommitsUseCase: CherryPickCommitsUseCase,
     @Assisted val initialPath: String?,
     updatesRepository: UpdatesRepository,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
@@ -190,6 +194,9 @@ class RepositoryTabViewModel @AssistedInject constructor(
     /** Changes that git set aside and couldn't put back, shown one after another until dismissed (fork-only). */
     val autostashNotices: StateFlow<List<AutostashNotice>> = repositoryStateRepository.autostashNotices
 
+    /** The commits that Skip left out of a rebase that has ended, shown one notice after another (fork-only). */
+    val skippedCommitsNotices: StateFlow<List<SkippedCommitsNotice>> = repositoryStateRepository.skippedCommitsNotices
+
     val credentialsState: StateFlow<CredentialsState> = credentialsStateManager.credentialsState
 
 
@@ -215,6 +222,19 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
     fun autostashNoticeShown(notice: AutostashNotice) {
         repositoryStateRepository.autostashNoticeShown(notice)
+    }
+
+    fun skippedCommitsNoticeShown(notice: SkippedCommitsNotice) {
+        repositoryStateRepository.skippedCommitsNoticeShown(notice)
+    }
+
+    /**
+     * Fork-only: cherry-picks the commits that Skip left out back onto the current branch, oldest first, as the rebase
+     * met them. They stop at conflicts as any cherry-pick of several commits does.
+     */
+    fun cherryPickBack(notice: SkippedCommitsNotice) {
+        repositoryStateRepository.skippedCommitsNoticeShown(notice)
+        cherryPickCommitsUseCase(CherryPickPlan(workingTree = "", notice.commits.map { it.commit }, squashMessage = null))
     }
 
     fun completedTaskAlreadyShown(task: CompletedTask) {

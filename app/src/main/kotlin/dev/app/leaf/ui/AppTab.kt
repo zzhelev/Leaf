@@ -59,6 +59,7 @@ fun AppTab(
     val errors by repositoryTabViewModel.severeErrors.collectAsState()
     val lastError = errors.firstOrNull()
     val autostashNotice = repositoryTabViewModel.autostashNotices.collectAsState().value.firstOrNull()
+    val skippedCommitsNotice = repositoryTabViewModel.skippedCommitsNotices.collectAsState().value.firstOrNull()
 
     val tasks = repositoryTabViewModel.notifications.collectAsState().value
         .toList()
@@ -92,6 +93,17 @@ fun AppTab(
     LaunchedEffect(autostashNotice) {
         autostashNotice?.let {
             val screen = Screen.ChangesInStash(it)
+
+            if (!backStack.contains(screen)) {
+                backStack.add(screen)
+            }
+        }
+    }
+
+    // Fork-only
+    LaunchedEffect(skippedCommitsNotice) {
+        skippedCommitsNotice?.let {
+            val screen = Screen.SkippedCommits(it)
 
             if (!backStack.contains(screen)) {
                 backStack.add(screen)
@@ -274,6 +286,21 @@ fun AppTab(
                                 onAccept = {
                                     backStack.remove(it)
                                     repositoryTabViewModel.autostashNoticeShown(it.notice)
+                                },
+                            )
+                        }
+                        entry<Screen.SkippedCommits>(
+                            metadata = dialogsMetadata
+                        ) {
+                            SkippedCommitsDialog(
+                                notice = it.notice,
+                                onCherryPickBack = {
+                                    backStack.remove(it)
+                                    repositoryTabViewModel.cherryPickBack(it.notice)
+                                },
+                                onAccept = {
+                                    backStack.remove(it)
+                                    repositoryTabViewModel.skippedCommitsNoticeShown(it.notice)
                                 },
                             )
                         }

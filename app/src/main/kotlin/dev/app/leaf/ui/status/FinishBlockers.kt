@@ -124,15 +124,40 @@ val StatusState.continueCommitsStoppedCommit: Boolean
 val StatusState.canSkipCherryPick: Boolean
     get() = continueCommitsStoppedCommit
 
-/**
- * The files whose changes Skip discards (fork-only): the stopped commit's, staged or with conflicts. git keeps unstaged
- * changes in other files.
- */
-val StatusState.cherryPickSkipDiscards: Int
-    get() {
-        val conflicted = unstaged.filter { it.statusType == StatusType.CONFLICTING }
+/** The files of the commit that a cherry-pick or a rebase stopped at: staged, or with conflicts (fork-only). */
+private val StatusState.stoppedCommitFiles: Set<String>
+    get() = (staged + unstaged.filter { it.statusType == StatusType.CONFLICTING }).map { it.filePath }.toSet()
 
-        return (staged + conflicted).map { it.filePath }.distinct().size
+/**
+ * The files whose changes Skip discards (fork-only): the stopped commit's, staged or with conflicts. A cherry-pick's
+ * skip keeps unstaged changes in other files, a rebase's doesn't, which [rebaseSkipOtherChanges] blocks.
+ */
+val StatusState.skipDiscards: Int
+    get() = stoppedCommitFiles.size
+
+/**
+ * Whether Skip can leave out the commit that a rebase stopped at to apply (fork-only): a stopped commit is known
+ * ([StatusState.rebaseStop], so the confirmation names it), and the rebase didn't stop there to edit it, which it
+ * already applied. git's skip and JGit's leave the commit out and go on, conflicts open or resolved (git 2.54, JGit 7.7).
+ */
+val StatusState.canSkipRebaseCommit: Boolean
+    get() = repositoryState.isRebasing &&
+        rebaseInteractiveState !is RebaseInteractiveState.AwaitingInteraction &&
+        rebaseStop?.isEditStop == false
+
+/**
+ * The tracked files with unstaged changes that aren't the stopped commit's (fork-only), which block a rebase's Skip:
+ * git's `rebase --skip` and JGit's reset every tracked file, so it would lose them too, and they're in no commit.
+ * Untracked files are kept.
+ */
+val StatusState.rebaseSkipOtherChanges: Int
+    get() {
+        val commitFiles = stoppedCommitFiles
+
+        return unstaged.count { entry ->
+            (entry.statusType == StatusType.MODIFIED || entry.statusType == StatusType.REMOVED) &&
+                entry.filePath !in commitFiles
+        }
     }
 
 /**

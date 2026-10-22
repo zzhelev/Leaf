@@ -14,6 +14,7 @@ import dev.app.leaf.domain.interfaces.*
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.repositories.DataState
+import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import kotlinx.coroutines.launch
@@ -43,6 +44,8 @@ class RefreshDataUseCase @Inject constructor(
     private val getWorktreesInfoUseCase: GetWorktreesInfoUseCase,
     private val getBranchesAheadGitAction: IGetBranchesAheadGitAction,
     private val getCherryPickSequenceGitAction: IGetCherryPickSequenceGitAction,
+    private val getRebaseStopGitAction: IGetRebaseStopGitAction,
+    private val reportSkippedRebaseCommitsUseCase: ReportSkippedRebaseCommitsUseCase,
     private val worktreesRefreshRunner: WorktreesRefreshRunner,
     private val dataRefreshRunner: DataRefreshRunner,
     private val scope: TabCoroutineScope,
@@ -227,6 +230,18 @@ class RefreshDataUseCase @Inject constructor(
             // Fork-only: git's sequencer, which JGit's repository state doesn't tell
             repositoryDataRepository.updateCherryPickSequence(repositoryPath) {
                 getCherryPickSequenceGitAction(repositoryPath)
+            }
+
+            // Fork-only: the commit that a rebase stopped at, which its Skip names, and the commits that Skip left out of
+            // one that has ended
+            repositoryDataRepository.updateRebaseStop(repositoryPath) {
+                getRebaseStopGitAction(repositoryPath)
+            }
+
+            val repositoryState = repositoryDataRepository.repositoryState.value.dataOrNull()
+
+            if (repositoryState != null && !repositoryState.isRebasing) {
+                reportSkippedRebaseCommitsUseCase(repositoryPath)
             }
 
             val state = (repositoryDataRepository.repositoryState.value as? DataState.Loaded<RepositoryState>)?.data

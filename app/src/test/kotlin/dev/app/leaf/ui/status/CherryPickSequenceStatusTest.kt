@@ -107,10 +107,10 @@ class CherryPickSequenceStatusTest {
 
         assertEquals(
             2,
-            state(staged = listOf(staged), unstaged = listOf(conflicting, alsoConflicting, untracked)).cherryPickSkipDiscards,
+            state(staged = listOf(staged), unstaged = listOf(conflicting, alsoConflicting, untracked)).skipDiscards,
             "a.txt staged and conflicting counts once",
         )
-        assertEquals(0, state(unstaged = listOf(unstaged, untracked)).cherryPickSkipDiscards)
+        assertEquals(0, state(unstaged = listOf(unstaged, untracked)).skipDiscards)
     }
 
     @Test
@@ -195,7 +195,7 @@ class CherryPickSequenceStatusTest {
     ): List<String> {
         val scene = ImageComposeScene(width = 330, height = 60, density = Density(1f)) {
             AppTheme {
-                CherryPickSequenceButtons(
+                StoppedOperationButtons(
                     showsContinue = showsContinue,
                     continueEnabled = true,
                     canSkip = canSkip,

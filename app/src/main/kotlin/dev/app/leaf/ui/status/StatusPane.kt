@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
@@ -40,6 +41,7 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.cherrypick.CherryPickSequence
+import dev.app.leaf.domain.rebase.SkippedRebaseCommit
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitlintRules
 import dev.app.leaf.domain.commitmessage.ConventionalHistory
@@ -71,6 +73,7 @@ import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
+import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.ui.context_menu.ConflictMenuActions
 import dev.app.leaf.ui.context_menu.ContextMenuElement
@@ -82,6 +85,7 @@ import dev.app.leaf.ui.dialogs.CommitAuthorDialog
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -279,7 +283,18 @@ fun StatusPane(
                     },
                     onContinueRebase = { onAction(StatusAction.ContinueRebase(commitMessage.text)) },
                     onSkipRebase = {
-                        onConfirmAction(ConfirmableAction.SkipRebaseCommit) { onAction(StatusAction.SkipRebase) }
+                        // Fork-only: names the commit; one with changes is listed once the rebase ends
+                        val stop = statusState.rebaseStop
+                        val discards = statusState.skipDiscards
+                        val skipped = stop
+                            ?.takeIf { discards > 0 }
+                            ?.let { SkippedRebaseCommit(it.commit, it.subject, it.branch) }
+
+                        onConfirmAction(
+                            ConfirmableAction.SkipRebaseCommit(stop?.shortHash, stop?.subject, stop?.branch, discards)
+                        ) {
+                            onAction(StatusAction.SkipRebase(skipped))
+                        }
                     },
                     onAmendRebaseInteractiveChecked = { amend ->
                         if (amend && commitMessage.text.isEmpty()) {
@@ -301,9 +316,11 @@ fun StatusPane(
                     messageStart = statusState.messageStart,
                     cherryPickSequence = statusState.cherryPickSequence,
                     canSkipCherryPick = statusState.canSkipCherryPick,
+                    canSkipRebaseCommit = statusState.canSkipRebaseCommit,
+                    rebaseSkipOtherChanges = statusState.rebaseSkipOtherChanges,
                     onContinueCherryPick = { onAction(StatusAction.ContinueCherryPick(commitMessage.text)) },
                     onSkipCherryPick = {
-                        onConfirmAction(ConfirmableAction.SkipCherryPickCommit(statusState.cherryPickSkipDiscards)) {
+                        onConfirmAction(ConfirmableAction.SkipCherryPickCommit(statusState.skipDiscards)) {
                             onAction(StatusAction.SkipCherryPick)
                         }
                     },
@@ -691,6 +708,9 @@ internal fun CommitField(
     cherryPickSequence: CherryPickSequence? = null,
     /** Skip next to Continue, for a commit that git stopped at with conflicts (fork-only). */
     canSkipCherryPick: Boolean = false,
+    /** The same for a rebase, blocked while [rebaseSkipOtherChanges] files outside the commit have changes (fork-only). */
+    canSkipRebaseCommit: Boolean = false,
+    rebaseSkipOtherChanges: Int = 0,
     onContinueCherryPick: () -> Unit = {},
     onSkipCherryPick: () -> Unit = {},
 ) {
@@ -893,7 +913,7 @@ internal fun CommitField(
 
         when {
             // Fork-only: git's sequencer goes on with the commits left, so Continue rather than Commit
-            cherryPickSequence != null -> CherryPickSequenceButtons(
+            cherryPickSequence != null -> StoppedOperationButtons(
                 showsContinue = showsContinue,
                 continueEnabled = finishEnabled,
                 canSkip = canSkipCherryPick,
@@ -908,9 +928,12 @@ internal fun CommitField(
                 onMerge = { doCommit() }
             )
 
-            repositoryState.isRebasing -> RebasingButtons(
-                canContinue = showsContinue,
+            // Fork-only: Skip next to Continue too, as for a cherry-pick, but never over other files' changes
+            repositoryState.isRebasing -> StoppedOperationButtons(
+                showsContinue = showsContinue,
                 continueEnabled = finishEnabled,
+                canSkip = canSkipRebaseCommit,
+                skipBlockedBy = rebaseSkipOtherChanges,
                 onAbort = onAbortRebase,
                 onContinue = onContinueRebase,
                 onSkip = onSkipRebase,
@@ -1040,54 +1063,6 @@ fun CherryPickingButtons(
 }
 
 @Composable
-fun RebasingButtons(
-    canContinue: Boolean,
-    continueEnabled: Boolean,
-    onAbort: () -> Unit,
-    onContinue: () -> Unit,
-    onSkip: () -> Unit,
-) {
-    // Fork-only: the amend switch of an amendable stop is in the commit message's title row (upstream issue 344)
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .height(36.dp)
-        ) {
-            AbortButton(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 4.dp)
-                    .fillMaxHeight(),
-                onClick = onAbort
-            )
-
-            if (canContinue) {
-                ConfirmationButton(
-                    text = stringResource(Res.string.uncommited_changes_primary_button_continue),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 4.dp)
-                        .fillMaxHeight(),
-                    enabled = continueEnabled,
-                    onClick = onContinue,
-                )
-            } else {
-                ConfirmationButton(
-                    text = stringResource(Res.string.uncommited_changes_primary_button_skip),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 4.dp)
-                        .fillMaxHeight(),
-                    onClick = onSkip,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 fun RevertingButtons(
     enabled: Boolean,
     onAbort: () -> Unit,
@@ -1119,18 +1094,20 @@ fun RevertingButtons(
 }
 
 /**
- * A cherry-pick of several commits that git stopped (fork-only): Abort, then Continue, or Skip where the stopped commit
- * came out empty. Where git stopped at a commit's conflicts ([canSkip]), Skip comes between them too, to leave that
- * commit out without resolving it.
+ * A rebase, or a cherry-pick of several commits, that git stopped at a commit (fork-only): Abort, then Continue, or Skip
+ * where the stopped commit came out empty. Where Skip can leave the commit out whatever its conflicts ([canSkip]), it
+ * comes between them too. [skipBlockedBy] files outside the commit have changes that Skip would lose: it's disabled then,
+ * and its tooltip says why.
  */
 @Composable
-fun CherryPickSequenceButtons(
+fun StoppedOperationButtons(
     showsContinue: Boolean,
     continueEnabled: Boolean,
     canSkip: Boolean,
     onAbort: () -> Unit,
     onContinue: () -> Unit,
     onSkip: () -> Unit,
+    skipBlockedBy: Int = 0,
 ) {
     Row(
         modifier = Modifier
@@ -1147,15 +1124,27 @@ fun CherryPickSequenceButtons(
         )
 
         if (showsContinue && canSkip) {
-            RoleButton(
-                text = stringResource(Res.string.uncommited_changes_primary_button_skip),
-                colors = MaterialTheme.styleColors.neutral,
+            val blockedReason = if (skipBlockedBy > 0) {
+                pluralStringResource(Res.plurals.skip_blocked_other_changes, skipBlockedBy, skipBlockedBy)
+            } else {
+                null
+            }
+
+            DelayedTooltip(
+                text = blockedReason,
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 4.dp)
                     .fillMaxHeight(),
-                onClick = onSkip,
-            )
+            ) {
+                RoleButton(
+                    text = stringResource(Res.string.uncommited_changes_primary_button_skip),
+                    colors = MaterialTheme.styleColors.neutral,
+                    modifier = Modifier.fillMaxSize(),
+                    onClick = onSkip,
+                    enabled = blockedReason == null,
+                )
+            }
         }
 
         ConfirmationButton(
@@ -1187,10 +1176,16 @@ fun AbortButton(modifier: Modifier, onClick: () -> Unit) {
 
 /** A status pane button in a style's role: Abort's destructive one, Skip's neutral one (fork-only). */
 @Composable
-private fun RoleButton(text: String, colors: RoleColors, modifier: Modifier, onClick: () -> Unit) {
+private fun RoleButton(
+    text: String,
+    colors: RoleColors,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
     Box(
         modifier = modifier
-            .handMouseClickable { onClick() }
+            .then(if (enabled) Modifier.handMouseClickable { onClick() } else Modifier.alpha(DISABLED_BUTTON_ALPHA))
             .focusable(false)
             .clip(MaterialTheme.shapes.small)
             .background(colors.background)
@@ -1315,3 +1310,6 @@ internal suspend fun copyEntriesPath(
 
     clipboard.setClipboardText(pathsToCopy)
 }
+
+/** A role button that can't be clicked, as Material's disabled buttons look (fork-only). */
+private const val DISABLED_BUTTON_ALPHA = 0.38f
