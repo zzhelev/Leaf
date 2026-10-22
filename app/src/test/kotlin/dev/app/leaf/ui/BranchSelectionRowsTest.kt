@@ -69,6 +69,7 @@ class BranchSelectionRowsTest {
     private val main = branches[3]
 
     private val localBranches = MutableStateFlow(branches)
+    private val remoteBranches = MutableStateFlow(emptyList<Branch>())
     private val calls = mutableListOf<String>()
     private val closeable = mutableListOf<String>()
     private var logged by mutableStateOf<String?>(null)
@@ -77,6 +78,7 @@ class BranchSelectionRowsTest {
     private val controller = BranchSelectionController(
         scope = CoroutineScope(Dispatchers.Unconfined),
         localBranches = localBranches,
+        remoteBranches = remoteBranches,
         loggedBranch = { logged },
         addCloseableView = { closeable += "add $it" },
         removeCloseableView = { closeable += "remove $it" },

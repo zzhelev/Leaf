@@ -17,7 +17,11 @@ import dev.app.leaf.domain.branches.BranchKept
 import dev.app.leaf.domain.branches.BranchToDelete
 import dev.app.leaf.domain.branches.BranchesDeletion
 import dev.app.leaf.domain.branches.BranchesDeletionRequest
+import dev.app.leaf.domain.branches.DeletionRemote
+import dev.app.leaf.domain.branches.TipCommit
 import dev.app.leaf.domain.errors.GenericError
+import dev.app.leaf.domain.errors.RemoteBranchesNeedGitError
+import dev.app.leaf.domain.errors.SshNeedsGitError
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.MergedIntoBase
 import dev.app.leaf.domain.models.WorktreeBranchUse
@@ -311,6 +315,234 @@ class DeleteBranchesDialogTest {
         }
     }
 
+
+    // A remote's branches (follows upstream issue 116)
+
+    private val minute = 60_000L
+    private val now = System.currentTimeMillis()
+    private val origin = DeletionRemote("origin", "git@example.com:team/app.git", lastFetchedMillis = now - 4 * minute - 30_000)
+
+    private fun remoteInfo(
+        name: String,
+        tip: String,
+        merged: MergedIntoBase? = null,
+        only: Int = 0,
+        refusal: BranchKept? = null,
+        author: String = "Alex Doe",
+        daysAgo: Long = 2,
+    ) = BranchDeletionInfo(
+        branch = BranchToDelete("refs/remotes/origin/$name", tip.padEnd(40, '0')),
+        refusal = refusal,
+        merged = merged,
+        commitsOnlyHere = only,
+        lastCommit = TipCommit(author, now - daysAgo * 24 * 60 * minute),
+    )
+
+    private val remoteSquashed = remoteInfo("claude/silly-wiles", tip = "92d81d1", merged = MergedIntoBase.CHANGES)
+    private val remotePushed = remoteInfo("feature/rebase-skip", tip = "bd772f2")
+    private val remoteUnmerged = remoteInfo("dependabot/compose", tip = "c41e07a", only = 3, author = "dependabot", daysAgo = 1)
+    private val remoteRelease = remoteInfo("release/1.0", tip = "e3c6632", merged = MergedIntoBase.COMMITS, daysAgo = 90)
+    private val remoteMain = remoteInfo(
+        "main",
+        tip = "1a2b3c4",
+        merged = MergedIntoBase.COMMITS,
+        refusal = BranchKept.RemoteDefaultBranch(isNamedByRemote = true),
+        daysAgo = 0,
+    )
+    private val remoteHead = remoteInfo(
+        "HEAD",
+        tip = "1a2b3c4",
+        merged = MergedIntoBase.COMMITS,
+        refusal = BranchKept.RemoteHead,
+        daysAgo = 0,
+    )
+    private val remotePlan = BranchDeletionPlan(
+        base = "refs/remotes/origin/main",
+        infos = listOf(remoteSquashed, remotePushed, remoteUnmerged, remoteRelease, remoteMain, remoteHead),
+        remote = origin,
+    )
+    private val remoteRequest = BranchesDeletionRequest(
+        remotePlan.infos.map { Branch("", it.branch.name, isLocal = false) },
+        remote = "origin",
+    )
+    private val remoteReady = DeleteBranchesState(remoteRequest, plan = remotePlan, checked = remotePlan.checkedAtFirst())
+
+    @Test
+    fun `a remote's branches say who made them, the remote's URL and last fetch, and the button names the remote`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            DialogScene(remoteReady).use { dialog ->
+                val texts = dialog.texts()
+
+                for (text in listOf(
+                    "Delete branches on origin",
+                    "Delete the 6 selected branches?",
+                    "git@example.com:team/app.git · Last fetched 4 min ago",
+                    "1 of 6 will be deleted",
+                    "claude/silly-wiles", "Squash-merged into origin/main · 92d81d1 · Alex Doe, 2d ago",
+                    "feature/rebase-skip", "Not merged, but all its commits are on other branches or tags · bd772f2 · Alex Doe, 2d ago",
+                    "dependabot/compose", "Not merged: 3 commits are only on this branch · c41e07a · dependabot, 1d ago",
+                    "release/1.0", "Merged into origin/main, looks long-lived · e3c6632 · Alex Doe, 3mo ago",
+                    "main", "The default branch on origin · 1a2b3c4 · Alex Doe, just now",
+                    "HEAD", "Names the default branch of origin, it isn't a branch · 1a2b3c4 · Alex Doe, just now",
+                    "Each branch is deleted only if it still points to the commit shown, so a branch someone pushed to since you fetched stays.",
+                )) {
+                    assertTrue(text in texts, "$text in $texts")
+                }
+
+                // The squash-merged one: release/1.0 looks long-lived, the others aren't merged
+                assertEquals(listOf(true, false, false, false), dialog.checkboxStates())
+                assertTrue(dialog.isEnabled("Delete 1 on origin"), texts.toString())
+                assertFalse(texts.any { it.contains("pull requests") }, "Nothing unmerged is checked")
+            }
+        }
+
+    @Test
+    fun `checking a branch that isn't merged warns that its pull requests may close`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val checked = remoteReady.withChecked(remoteUnmerged.branch.name, true)
+
+            DialogScene(checked).use { dialog ->
+                assertTrue(
+                    "Some checked branches aren't merged. A server can close the open pull requests of a deleted branch." in
+                        dialog.texts(),
+                    dialog.texts().toString(),
+                )
+                assertTrue(dialog.isEnabled("Delete 2 on origin"))
+            }
+
+            // Its commits are on other branches, maybe the user's own, but the server's copy may have a pull request
+            DialogScene(remoteReady.withChecked(remotePushed.branch.name, true)).use { dialog ->
+                assertTrue(dialog.texts().any { it.startsWith("Some checked branches aren't merged.") }, dialog.texts().toString())
+            }
+        }
+
+    @Test
+    fun `while it deletes a remote's, Cancel stops git, and Delete waits`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(remoteReady.copy(isDeleting = true)).use { dialog ->
+            assertTrue("Deleting on origin…" in dialog.texts(), dialog.texts().toString())
+            assertFalse(dialog.hasButton("Cancel"))
+
+            dialog.click("Stop")
+
+            assertEquals(listOf("stop"), dialog.calls)
+            assertFalse(dialog.isEnabled("Delete 1 on origin"))
+        }
+    }
+
+    @Test
+    fun `after a stop the dialog says some may be gone, and only closes`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(remoteReady.copy(wasStopped = true)).use { dialog ->
+            assertTrue(
+                "Stopped. Some branches may already be gone on origin: fetch to see which." in dialog.texts(),
+                dialog.texts().toString(),
+            )
+            assertFalse(dialog.hasButton("Cancel"))
+            assertEquals(0, dialog.checkboxStates().size, "The list is gone, as it may no longer be true")
+
+            dialog.click("Close")
+
+            assertEquals(listOf("dismiss"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `a remote's result names the remote, how to push one back, and what the server said`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val result = BranchesDeletion(
+                listOf(
+                    BranchDeletionOutcome.Deleted(remoteSquashed.branch),
+                    BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.ChangedOnRemote),
+                    BranchDeletionOutcome.Kept(remoteRelease.branch, BranchKept.RefusedByRemote("hook declined")),
+                ),
+                remoteMessage = "error: release/1.0 is protected",
+            )
+
+            DialogScene(remoteReady.copy(result = result)).use { dialog ->
+                val texts = dialog.texts()
+
+                for (text in listOf(
+                    "Deleted 1 of 3 on origin",
+                    "2 branches were left as they are.",
+                    "claude/silly-wiles", "was 92d81d1",
+                    "feature/rebase-skip", "Someone pushed to it or deleted it on origin since you fetched. Nothing was deleted.",
+                    "release/1.0", "origin refused: hook declined",
+                    "To bring one back, push its commit: git push origin <commit>:refs/heads/<name>",
+                    "origin said:", "error: release/1.0 is protected",
+                )) {
+                    assertTrue(text in texts, "$text in $texts")
+                }
+
+                assertTrue(dialog.isEnabled("Copy list"))
+            }
+
+            val all = BranchesDeletion(listOf(BranchDeletionOutcome.Deleted(remoteSquashed.branch)))
+
+            DialogScene(remoteReady.copy(result = all)).use { dialog ->
+                assertTrue("Deleted 1 branch on origin" in dialog.texts(), dialog.texts().toString())
+                assertFalse(dialog.texts().any { it.endsWith("said:") }, "The server said nothing")
+            }
+
+            val none = BranchesDeletion(listOf(BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.ChangedOnRemote)))
+
+            DialogScene(remoteReady.copy(result = none)).use { dialog ->
+                assertTrue("No branch was deleted on origin" in dialog.texts(), dialog.texts().toString())
+            }
+        }
+
+    @Test
+    fun `merged ones on a remote, and a remote without a default branch`(): Unit = runBlocking(Dispatchers.Swing) {
+        val merged = BranchDeletionPlan(remotePlan.base, listOf(remoteSquashed, remoteRelease), mergedOnly = true, remote = origin)
+
+        DialogScene(DeleteBranchesState(remoteRequest.copy(mergedOnly = true), plan = merged, checked = merged.checkedAtFirst()))
+            .use { dialog ->
+                val texts = dialog.texts()
+
+                assertTrue("Delete merged branches on origin" in texts, texts.toString())
+                assertTrue("Branches merged into origin/main" in texts)
+                assertTrue("1 of 2 will be deleted" in texts)
+                assertTrue(dialog.isEnabled("Delete 1 on origin"))
+            }
+
+        val noBase = BranchDeletionPlan(null, listOf(remoteUnmerged), mergedOnly = true, remote = origin)
+
+        DialogScene(DeleteBranchesState(remoteRequest.copy(mergedOnly = true), plan = noBase)).use { dialog ->
+            assertTrue(
+                "origin has no default branch that Leaf knows of, and there's no base branch, so none counts as merged. " +
+                    "git remote set-head origin --auto sets it." in dialog.texts(),
+                dialog.texts().toString(),
+            )
+        }
+    }
+
+    @Test
+    fun `a remote without a URL or fetch time has no line for them`(): Unit = runBlocking(Dispatchers.Swing) {
+        val plain = remotePlan.copy(remote = DeletionRemote("origin", url = null, lastFetchedMillis = null))
+
+        DialogScene(remoteReady.copy(plan = plain)).use { dialog ->
+            assertFalse(dialog.texts().any { "Last fetched" in it || "example.com" in it }, dialog.texts().toString())
+        }
+
+        val urlOnly = remotePlan.copy(remote = origin.copy(lastFetchedMillis = null))
+
+        DialogScene(remoteReady.copy(plan = urlOnly)).use { dialog ->
+            assertTrue("git@example.com:team/app.git" in dialog.texts(), dialog.texts().toString())
+        }
+    }
+
+    @Test
+    fun `without git, the dialog says what to turn on, and nothing can be deleted`(): Unit = runBlocking(Dispatchers.Swing) {
+        val error = RemoteBranchesNeedGitError(SshNeedsGitError.Reason.SettingOff)
+
+        DialogScene(DeleteBranchesState(remoteRequest, error = error)).use { dialog ->
+            assertTrue(
+                dialog.texts().any { it.startsWith("Leaf deletes several of a remote's branches with git, and \"Use git for remote operations\" is off.") },
+                dialog.texts().toString(),
+            )
+            assertTrue("Delete branches on origin" in dialog.texts())
+            assertFalse(dialog.isEnabled("Delete"))
+        }
+    }
+
     @Test
     fun `renders every state in both themes, to look at`() {
         val folder = System.getenv("LEAF_RENDER_DIR")?.let(::File) ?: return
@@ -337,6 +569,25 @@ class DeleteBranchesDialogTest {
                 ),
             ),
             "error" to DeleteBranchesState(request, error = GenericError("The repository can't be read")),
+            "remote-ready" to remoteReady,
+            "remote-unmerged-checked" to remoteReady.withChecked(remoteUnmerged.branch.name, true),
+            "remote-deleting" to remoteReady.copy(isDeleting = true),
+            "remote-stopped" to remoteReady.copy(wasStopped = true),
+            "remote-result" to remoteReady.copy(
+                result = BranchesDeletion(
+                    listOf(
+                        BranchDeletionOutcome.Deleted(remoteSquashed.branch),
+                        BranchDeletionOutcome.Deleted(remotePushed.branch),
+                        BranchDeletionOutcome.Kept(remoteUnmerged.branch, BranchKept.ChangedOnRemote),
+                        BranchDeletionOutcome.Kept(remoteRelease.branch, BranchKept.RefusedByRemote("hook declined")),
+                    ),
+                    remoteMessage = "error: release/1.0 is protected",
+                ),
+            ),
+            "remote-needs-git" to DeleteBranchesState(
+                remoteRequest,
+                error = RemoteBranchesNeedGitError(SshNeedsGitError.Reason.SettingOff),
+            ),
         )
 
         for (themeUnderTest in listOf(Theme.Dark, Theme.Light)) {
@@ -378,6 +629,7 @@ class DeleteBranchesDialogTest {
                     onConfirm = { calls += "confirm" },
                     onCopyList = { calls += "copy" },
                     onDismiss = { calls += "dismiss" },
+                    onStop = { calls += "stop" },
                 )
             }
         }

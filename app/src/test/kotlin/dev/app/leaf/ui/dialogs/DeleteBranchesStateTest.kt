@@ -10,6 +10,7 @@ import dev.app.leaf.domain.branches.BranchKept
 import dev.app.leaf.domain.branches.BranchToDelete
 import dev.app.leaf.domain.branches.BranchesDeletion
 import dev.app.leaf.domain.branches.BranchesDeletionRequest
+import dev.app.leaf.domain.branches.DeletionRemote
 import dev.app.leaf.domain.models.MergedIntoBase
 import dev.app.leaf.domain.models.WorktreeBranchUse
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -111,5 +112,53 @@ class DeleteBranchesStateTest {
         val state = ready.copy(result = BranchesDeletion(listOf(outcome)))
 
         assertEquals(listOf(outcome), state.result?.outcomes)
+    }
+
+    // A remote's branches (follows upstream issue 116)
+
+    private fun remoteInfo(name: String, merged: MergedIntoBase? = null, only: Int = 0) =
+        BranchDeletionInfo(BranchToDelete("refs/remotes/origin/$name", name.padEnd(40, '0')), null, merged, only)
+
+    private val remotePlan = BranchDeletionPlan(
+        base = "refs/remotes/origin/main",
+        infos = listOf(
+            remoteInfo("done", merged = MergedIntoBase.COMMITS),
+            remoteInfo("develop", merged = MergedIntoBase.COMMITS),
+            remoteInfo("wip", only = 2),
+            remoteInfo("pushed"),
+        ),
+        remote = DeletionRemote("origin", url = null, lastFetchedMillis = null),
+    )
+    private val remoteReady = DeleteBranchesState(
+        BranchesDeletionRequest(emptyList(), remote = "origin"),
+        plan = remotePlan,
+        checked = remotePlan.checkedAtFirst(),
+    )
+
+    @Test
+    fun `safe leaves a remote's branches that look long-lived unchecked, as the dialog starts`() {
+        assertEquals(setOf("refs/remotes/origin/done"), remoteReady.checked)
+
+        val all = remoteReady.withAllChecked()
+
+        assertEquals(4, all.checked.size)
+        assertEquals(setOf("refs/remotes/origin/done"), all.withSafeChecked().checked)
+    }
+
+    @Test
+    fun `it knows when an unmerged branch is checked`() {
+        assertFalse(remoteReady.checksUnmerged)
+        assertTrue(remoteReady.withChecked("refs/remotes/origin/wip", true).checksUnmerged)
+        assertFalse(remoteReady.withChecked("refs/remotes/origin/develop", true).checksUnmerged, "Merged, only long-lived")
+        assertTrue(remoteReady.withChecked("refs/remotes/origin/pushed", true).checksUnmerged, "Its commits are elsewhere")
+    }
+
+    @Test
+    fun `after a stop, nothing can be checked or deleted`() {
+        val stopped = remoteReady.copy(wasStopped = true)
+
+        assertFalse(stopped.canConfirm)
+        assertSame(stopped, stopped.withChecked("refs/remotes/origin/wip", true))
+        assertSame(stopped, stopped.withNoneChecked())
     }
 }

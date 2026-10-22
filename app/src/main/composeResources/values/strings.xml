@@ -869,6 +869,38 @@
     <string name="delete_branches_dialog_result_restore">To bring one back, run git branch followed by its name and commit.</string>
     <string name="delete_branches_dialog_result_copy">Copy list</string>
     <string name="delete_branches_dialog_result_close">Close</string>
+    <string name="delete_remote_branches_dialog_title">Delete branches on %1$s</string>
+    <string name="delete_remote_branches_dialog_title_merged">Delete merged branches on %1$s</string>
+    <plurals name="delete_remote_branches_dialog_delete">
+        <item quantity="one">Delete %1$d on %2$s</item>
+        <item quantity="other">Delete %1$d on %2$s</item>
+    </plurals>
+    <string name="delete_remote_branches_dialog_last_fetched">Last fetched %1$s</string>
+    <string name="delete_remote_branches_dialog_lease">Each branch is deleted only if it still points to the commit shown, so a branch someone pushed to since you fetched stays.</string>
+    <string name="delete_remote_branches_dialog_unmerged_warning">Some checked branches aren't merged. A server can close the open pull requests of a deleted branch.</string>
+    <string name="delete_remote_branches_dialog_long_lived">%1$s, looks long-lived</string>
+    <string name="delete_remote_branches_dialog_head">Names the default branch of %1$s, it isn't a branch</string>
+    <string name="delete_remote_branches_dialog_default_branch">The default branch on %1$s</string>
+    <string name="delete_remote_branches_dialog_base_copy">The base branch's copy on %1$s, which the others are compared with</string>
+    <string name="delete_remote_branches_dialog_no_base">%1$s has no default branch that Leaf knows of, and there's no base branch, so none counts as merged. git remote set-head %1$s --auto sets it.</string>
+    <string name="delete_remote_branches_dialog_deleting">Deleting on %1$s…</string>
+    <string name="delete_remote_branches_dialog_stop">Stop</string>
+    <string name="delete_remote_branches_dialog_stopped">Stopped. Some branches may already be gone on %1$s: fetch to see which.</string>
+    <string name="delete_remote_branches_dialog_result_none">No branch was deleted on %1$s</string>
+    <plurals name="delete_remote_branches_dialog_result_title">
+        <item quantity="one">Deleted %1$d branch on %2$s</item>
+        <item quantity="other">Deleted %1$d branches on %2$s</item>
+    </plurals>
+    <string name="delete_remote_branches_dialog_result_title_partial">Deleted %1$d of %2$d on %3$s</string>
+    <string name="delete_remote_branches_dialog_result_changed">Someone pushed to it or deleted it on %1$s since you fetched. Nothing was deleted.</string>
+    <string name="delete_remote_branches_dialog_result_refused">%1$s refused: %2$s</string>
+    <string name="delete_remote_branches_dialog_result_restore">To bring one back, push its commit: git push %1$s &lt;commit&gt;:refs/heads/&lt;name&gt;</string>
+    <string name="delete_remote_branches_dialog_result_server_said">%1$s said:</string>
+    <plurals name="branch_context_menu_delete_selected_on_remote">
+        <item quantity="one">Delete %1$d branch on %2$s</item>
+        <item quantity="other">Delete %1$d branches on %2$s</item>
+    </plurals>
+    <string name="remote_context_menu_delete_merged">Delete merged branches on %1$s…</string>
 
     <!-- Checking out a remote branch whose local branch is behind it -->
     <string name="fast_forward_dialog_title_checkout">Check out branch</string>
@@ -1463,6 +1495,9 @@
     <string name="error_ssh_needs_git_not_found">Leaf reaches SSH remotes with git, which it couldn't find, or which is older than 2.36. Install git, or set its path in Settings, then try again.</string>
     <string name="error_ssh_needs_git_helper_missing">Leaf reaches SSH remotes with git, which needs Leaf's askpass helper, and this build of Leaf doesn't have it.</string>
     <string name="error_ssh_needs_git_lfs">Leaf pushes to SSH remotes with git, but git wouldn't upload this repository's LFS files: git-lfs isn't installed, or the repository's pre-push hook doesn't run it. Install git-lfs, or if it's installed, run git lfs install in the repository, then push again.</string>
+    <string name="error_remote_branches_need_git_setting_off">Leaf deletes several of a remote's branches with git, and "Use git for remote operations" is off. Turn it on in Settings, then try again.</string>
+    <string name="error_remote_branches_need_git_not_found">Leaf deletes several of a remote's branches with git, which it couldn't find, or which is older than 2.36. Install git, or set its path in Settings, then try again.</string>
+    <string name="error_remote_branches_need_git_helper_missing">Leaf deletes several of a remote's branches with git, which needs Leaf's askpass helper, and this build of Leaf doesn't have it.</string>
     <string name="error_ssh_signing_no_key">Could not sign: no SSH signing key. Set user.signingKey to the path of your key, or to key:: followed by its public key when ssh-agent has the key</string>
     <string name="error_ssh_signing_program_not_found">Could not sign: "%1$s" was not found. Install OpenSSH, or set gpg.ssh.program to the path of ssh-keygen</string>
     <string name="error_ssh_signing_start_failed">Could not sign: "%1$s" could not be started: %2$s</string>

@@ -2,6 +2,7 @@ package dev.app.leaf.ui.dialogs.base
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -21,6 +22,9 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.generic_button_cancel
 import dev.app.leaf.app.generated.resources.tag
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.theme.RoleColors
+import dev.app.leaf.theme.roleBorder
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.PrimaryButton
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -62,9 +66,12 @@ fun IconBasedDialog(
     afterActionsFocusRequester: FocusRequester?,
     onDismiss: () -> Unit,
     onPrimaryActionClicked: () -> Unit,
+    // Fork-only: the primary button in a role of the style, such as the destructive one, instead of the main action's
+    primaryActionColors: RoleColors? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val cancelButtonFocusRequester = remember { FocusRequester() }
+    val primaryColors = primaryActionColors ?: MaterialTheme.styleColors.mainAction
 
     MaterialDialog(onCloseRequested = onDismiss) {
         Column(
@@ -142,6 +149,13 @@ fun IconBasedDialog(
                 PrimaryButton(
                     modifier = Modifier
                         .run {
+                            if (primaryActionColors != null) {
+                                roleBorder(primaryActionColors.border, RoundedCornerShape(4.dp))
+                            } else {
+                                this
+                            }
+                        }
+                        .run {
                             if (
                                 actionsFocusRequester != null &&
                                 beforeActionsFocusRequester != null
@@ -157,7 +171,11 @@ fun IconBasedDialog(
                         },
                     enabled = isPrimaryActionEnabled,
                     onClick = { onPrimaryActionClicked() },
-                    text = primaryActionText
+                    text = primaryActionText,
+                    backgroundColor = primaryColors.background,
+                    backgroundDisabled = primaryColors.background.copy(0.5f),
+                    textColor = primaryColors.content,
+                    disabledTextColor = primaryColors.content.copy(alpha = 0.5f),
                 )
             }
         }

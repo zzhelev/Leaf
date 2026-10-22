@@ -9,16 +9,23 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The menu on a branch that is one of [count] selected (fork-only, upstream issue 116): deleting them, and clearing the
- * selection. It replaces the branch's own menu, whose items are for one branch.
+ * The menu on a branch that is one of [count] selected (fork-only, upstream issue 116): deleting them, on [remote] when
+ * they're its branches, and clearing the selection. It replaces the branch's own menu, whose items are for one branch.
  */
 fun selectedBranchesContextMenuItems(
     count: Int,
     onDelete: () -> Unit,
     onClearSelection: () -> Unit,
+    remote: String? = null,
 ): List<ContextMenuElement> = buildList {
     addContextMenu(
-        composableLabel = { pluralStringResource(Res.plurals.branch_context_menu_delete_selected, count, count) },
+        composableLabel = {
+            if (remote != null) {
+                pluralStringResource(Res.plurals.branch_context_menu_delete_selected_on_remote, count, count, remote)
+            } else {
+                pluralStringResource(Res.plurals.branch_context_menu_delete_selected, count, count)
+            }
+        },
         icon = { painterResource(Res.drawable.delete) },
         onClick = onDelete,
     )
@@ -31,7 +38,7 @@ fun selectedBranchesContextMenuItems(
     )
 }
 
-/** The menu on a folder of local branches: selecting the [count] branches in it (fork-only, upstream issue 116). */
+/** The menu on a folder of branches: selecting the [count] branches in it (fork-only, upstream issue 116). */
 fun branchFolderContextMenuItems(count: Int, onSelectBranches: () -> Unit): List<ContextMenuElement> = buildList {
     addContextMenu(
         composableLabel = { pluralStringResource(Res.plurals.branch_context_menu_select_folder_branches, count, count) },

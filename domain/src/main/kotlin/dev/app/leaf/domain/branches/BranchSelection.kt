@@ -7,8 +7,9 @@ import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.sorting.refFolderOf
 
 /**
- * The local branches that the side panel has selected for deleting several at once (fork-only, upstream issue 116),
- * as full names (`refs/heads/x`).
+ * The branches that the side panel has selected for deleting several at once (fork-only, upstream issue 116), as full
+ * names (`refs/heads/x`, `refs/remotes/origin/x`). They're all of one group ([selectionGroupOf]): the local branches,
+ * or the branches of one remote, as deleting them is a different thing. A click in another group starts over.
  *
  * An empty [selected] means no multi-selection: the branch that the log has selected is the only one highlighted, as
  * it always was. A click with a modifier starts from that branch, so "click a, Ctrl-click b" is two branches.
@@ -29,9 +30,12 @@ data class BranchSelection(
     /** A plain click: just that branch, selected in the log as before, so nothing is kept here. */
     fun afterPlainClick(branch: String): BranchSelection = BranchSelection(emptySet(), anchor = branch)
 
+    /** The group of the selected branches, null when none is selected. */
+    val group: String? get() = selected.firstOrNull()?.let(::selectionGroupOf)
+
     /** Ctrl-click, or Cmd-click on macOS: [branch] is added, or taken out when it was selected. */
     fun afterToggle(branch: String, current: String?): BranchSelection {
-        val base = startingFrom(current)
+        val base = startingFrom(current, groupOf = branch)
         val toggled = if (branch in base) base - branch else base + branch
 
         return BranchSelection(toggled, anchor = branch)
@@ -43,7 +47,7 @@ data class BranchSelection(
      * The anchor stays, so that the next Shift-click ranges from the same place.
      */
     fun afterRange(branch: String, shown: List<String>, current: String?): BranchSelection {
-        val base = startingFrom(current)
+        val base = startingFrom(current, groupOf = branch)
         val start = (anchor ?: current)?.let(shown::indexOf) ?: -1
         val end = shown.indexOf(branch)
 
@@ -56,9 +60,12 @@ data class BranchSelection(
         return BranchSelection(base + range, anchor = anchor ?: current)
     }
 
-    /** "Select its branches" on a folder: [branches] are added. */
-    fun afterAdding(branches: Collection<String>, current: String?): BranchSelection =
-        BranchSelection(startingFrom(current) + branches, anchor = branches.lastOrNull() ?: anchor)
+    /** "Select its branches" on a folder: [branches], all of one group, are added. */
+    fun afterAdding(branches: Collection<String>, current: String?): BranchSelection {
+        val first = branches.firstOrNull() ?: return this
+
+        return BranchSelection(startingFrom(current, groupOf = first) + branches, anchor = branches.last())
+    }
 
     /** What a refresh leaves: the selected branches that still exist, as git has them. A moved tip doesn't matter. */
     fun pruned(existing: Collection<String>): BranchSelection {
@@ -69,9 +76,34 @@ data class BranchSelection(
         return BranchSelection(remaining, anchor = anchor?.takeIf { it in existing })
     }
 
-    /** The selection a modifier click changes: this one, or just the log's branch while nothing is selected here. */
-    private fun startingFrom(current: String?): Set<String> = selected.ifEmpty { setOfNotNull(current) }
+    /**
+     * The selection a modifier click on a branch of [groupOf]'s group changes: this one, or just the log's branch while
+     * nothing is selected here. A selection or a log's branch of another group is left behind.
+     */
+    private fun startingFrom(current: String?, groupOf: String): Set<String> {
+        val group = selectionGroupOf(groupOf)
+
+        return selected.ifEmpty { setOfNotNull(current) }.filterTo(mutableSetOf()) { selectionGroupOf(it) == group }
+    }
 }
+
+private const val LOCAL_BRANCHES = "refs/heads/"
+private const val REMOTE_BRANCHES = "refs/remotes/"
+
+/**
+ * Which branches a selection with [name] in it can hold: `refs/heads/` for a local branch, `refs/remotes/origin/` for a
+ * branch of the remote `origin`. A remote is named by the first part of the name, as [Branch.remoteName] does.
+ */
+fun selectionGroupOf(name: String): String =
+    if (name.startsWith(REMOTE_BRANCHES)) {
+        REMOTE_BRANCHES + name.removePrefix(REMOTE_BRANCHES).substringBefore('/') + "/"
+    } else {
+        LOCAL_BRANCHES
+    }
+
+/** The remote that a selection's [group] is of, null for the local branches. */
+fun remoteOfSelectionGroup(group: String): String? =
+    if (group.startsWith(REMOTE_BRANCHES)) group.removePrefix(REMOTE_BRANCHES).removeSuffix("/") else null
 
 /**
  * Whether a click with these keys toggles a branch in the selection: Cmd on macOS, Ctrl elsewhere. Ctrl-click on macOS is

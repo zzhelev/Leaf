@@ -40,6 +40,8 @@ import dev.app.leaf.domain.branches.BranchSelection
 import dev.app.leaf.domain.branches.BranchesDeletionRequest
 import dev.app.leaf.domain.branches.branchClickOf
 import dev.app.leaf.domain.branches.branchesInFolder
+import dev.app.leaf.domain.branches.remoteOfSelectionGroup
+import dev.app.leaf.domain.branches.selectionGroupOf
 import dev.app.leaf.domain.extensions.isValid
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
@@ -210,6 +212,9 @@ fun SidePanel(
                 onConfirmAction = onConfirmAction,
                 onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
                 cherryPick = cherryPick,
+                selectedItem = selectedItem,
+                branchSelection = branchSelection,
+                onDeleteBranches = { onNavigate(Screen.BranchesDelete(it)) },
             )
 
             tags(
@@ -320,7 +325,7 @@ fun LazyListScope.localBranches(
                     onExpand = { viewModel.onExpandBranches() },
                     sortAction = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (branchSelection.selected.size >= 2) {
+                            if (branchSelection.selected.size >= 2 && branchSelection.group == LOCAL_SELECTION_GROUP) {
                                 BranchSelectionChip(
                                     count = branchSelection.selected.size,
                                     onClear = { viewModel.clearBranchSelection() },
@@ -424,9 +429,15 @@ fun LazyListScope.remotes(
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onNewWorktree: (NewWorktreeStart) -> Unit = {},
     cherryPick: BranchCherryPick? = null,
+    // Fork-only: one remote's branches selected for deleting several at once on the server (follows upstream issue 116)
+    selectedItem: SelectedItem? = null,
+    branchSelection: BranchSelection = BranchSelection(),
+    onDeleteBranches: (BranchesDeletionRequest) -> Unit = {},
 ) {
     val isExpanded = remotesState.isExpanded
     val remotes = remotesState.remotes
+    val loggedBranch = (selectedItem as? SelectedItem.BranchItem)?.branch?.takeIf { it.isRemote }?.name
+    val selectedRemote = branchSelection.group?.let(::remoteOfSelectionGroup)
 
     stickyHeader(key = "header:remotes") {
         SectionHeaderBackground {
@@ -454,14 +465,24 @@ fun LazyListScope.remotes(
                 isExpanded = isExpanded,
                 onExpand = { viewModel.onExpandRemotes() },
                 sortAction = {
-                    RefSortMenuButton(
-                        section = RefSection.Remote,
-                        sortState = remotesState.sortState,
-                        settings = refPanelSettings,
-                        onSortChange = { viewModel.onRefSortChanged(RefSection.Remote, it) },
-                        onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
-                        onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (branchSelection.selected.size >= 2 && selectedRemote != null) {
+                            BranchSelectionChip(
+                                count = branchSelection.selected.size,
+                                onClear = { viewModel.clearBranchSelection() },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+
+                        RefSortMenuButton(
+                            section = RefSection.Remote,
+                            sortState = remotesState.sortState,
+                            settings = refPanelSettings,
+                            onSortChange = { viewModel.onRefSortChanged(RefSection.Remote, it) },
+                            onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
+                            onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
+                        )
+                    }
                 },
             )
         }
@@ -483,16 +504,25 @@ fun LazyListScope.remotes(
                     },
                     onRemoteClicked = { viewModel.onRemoteClicked(remote) },
                     onFetchBranches = { viewModel.onFetchRemoteBranches(remote) },
+                    onDeleteMergedBranches = {
+                        onDeleteBranches(viewModel.mergedRemoteBranchesDeletionRequest(remote.remoteInfo.remote.name))
+                    },
                 )
             }
 
             if (remote.isExpanded) {
+                val remoteName = remote.remoteInfo.remote.name
+
                 items(remote.rows, key = { it.key }) { row ->
                     when (row) {
                         is RefRow.Folder -> RefFolder(
                             row,
                             extraPadding = REMOTE_BRANCH_PADDING,
                             onClick = { viewModel.onRefFolderToggled(row.key) },
+                            // Fork-only: the folder's branches, as the search shows them
+                            onSelectBranches = {
+                                viewModel.selectBranches(branchesInFolder(remote.remoteInfo.branchesList, row.label, null))
+                            },
                         )
                         is RefRow.Item -> {
                             val remoteBranch = row.entry.item
@@ -505,7 +535,21 @@ fun LazyListScope.remotes(
                                 ageLabel = row.ageLabel,
                                 currentBranch = remotesState.currentBranch,
                                 worktreesBase = worktreesBase,
-                                onBranchClicked = { viewModel.selectBranch(remoteBranch) },
+                                isSelectedItem = branchSelection.isHighlighted(remoteBranch.name, loggedBranch),
+                                // Fork-only: a click with Ctrl, Cmd or Shift changes the selection
+                                onBranchClicked = { click ->
+                                    viewModel.onBranchClicked(remoteBranch, click) {
+                                        remote.rows.filterIsInstance<RefRow.Item<Branch>>().map { it.entry.item.name }
+                                    }
+                                },
+                                selectedCount = if (branchSelection.isMultiSelectionOf(remoteBranch.name)) {
+                                    branchSelection.selected.size
+                                } else {
+                                    0
+                                },
+                                remoteName = remoteName,
+                                onDeleteSelected = { onDeleteBranches(viewModel.selectedBranchesDeletionRequest()) },
+                                onClearSelection = { viewModel.clearBranchSelection() },
                                 onCheckoutBranch = { viewModel.checkoutRemoteBranch(it) },
                                 onDeleteBranch = {
                                     onConfirmAction(ConfirmableAction.DeleteRemoteBranch(it)) {
@@ -714,6 +758,9 @@ fun LazyListScope.submodules(
     }
 }
 
+/** The selection group of the local branches, as [selectionGroupOf] names it. */
+private val LOCAL_SELECTION_GROUP = selectionGroupOf("refs/heads/")
+
 /** Left padding of remote branches, which sit under their remote's row. */
 private val REMOTE_BRANCH_PADDING = 24.dp
 
@@ -733,7 +780,7 @@ private fun RefFolder(
     folder: RefRow.Folder,
     extraPadding: Dp = 0.dp,
     onClick: () -> Unit,
-    // Fork-only: "Select its N branches", for the local branches (upstream issue 116)
+    // Fork-only: "Select its N branches", for the local branches and a remote's (upstream issue 116)
     onSelectBranches: (() -> Unit)? = null,
 ) {
     ContextMenu(
@@ -811,19 +858,7 @@ internal fun Branch(
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
-    val windowInfo = LocalWindowInfo.current
-
-    // What a click does by the keys held when it happens, not when the row was last composed
-    fun clickNow(): BranchClick {
-        val modifiers = windowInfo.keyboardModifiers
-
-        return branchClickOf(
-            isShiftPressed = modifiers.isShiftPressed,
-            isCtrlPressed = modifiers.isCtrlPressed,
-            isMetaPressed = modifiers.isMetaPressed,
-            isMac = currentOs.isMac(),
-        )
-    }
+    val clickNow = rememberClickNow()
 
     ContextMenu(
         items = {
@@ -888,6 +923,26 @@ internal fun Branch(
 }
 
 
+/**
+ * What a click on a branch does, read from the keys held when it happens, not when the row was last composed
+ * (fork-only, upstream issue 116).
+ */
+@Composable
+private fun rememberClickNow(): () -> BranchClick {
+    val windowInfo = LocalWindowInfo.current
+
+    return {
+        val modifiers = windowInfo.keyboardModifiers
+
+        branchClickOf(
+            isShiftPressed = modifiers.isShiftPressed,
+            isCtrlPressed = modifiers.isCtrlPressed,
+            isMetaPressed = modifiers.isMetaPressed,
+            isMac = currentOs.isMac(),
+        )
+    }
+}
+
 @Composable
 private fun Remote(
     remote: RemoteView,
@@ -895,6 +950,7 @@ private fun Remote(
     onDeleteRemote: () -> Unit,
     onFetchBranches: () -> Unit,
     onRemoteClicked: () -> Unit,
+    onDeleteMergedBranches: () -> Unit,
 ) {
     ContextMenu(
         items = {
@@ -902,6 +958,8 @@ private fun Remote(
                 onEdit = onEditRemote,
                 onDelete = onDeleteRemote,
                 onFetch = onFetchBranches,
+                remoteName = remote.remoteInfo.remote.name,
+                onDeleteMergedBranches = onDeleteMergedBranches,
             )
         }
     ) {
@@ -915,15 +973,22 @@ private fun Remote(
 }
 
 
+/** `internal` for its test, which renders rows with a selection (fork-only, follows upstream issue 116). */
 @Composable
-private fun RemoteBranches(
+internal fun RemoteBranches(
     remoteBranch: Branch,
     displayName: String,
     depth: Int,
     ageLabel: String?,
     currentBranch: Branch?,
     worktreesBase: WorktreeBaseBranch?,
-    onBranchClicked: () -> Unit,
+    isSelectedItem: Boolean,
+    onBranchClicked: (BranchClick) -> Unit,
+    // Fork-only: how many of the remote's branches are selected when this one is among two or more, else 0
+    selectedCount: Int,
+    remoteName: String,
+    onDeleteSelected: () -> Unit,
+    onClearSelection: () -> Unit,
     onCheckoutBranch: (Branch) -> Unit,
     onDeleteBranch: (Branch) -> Unit,
     onPushRemoteBranch: (Branch) -> Unit,
@@ -939,8 +1004,19 @@ private fun RemoteBranches(
     onCherryPick: (BranchCherryPickItem) -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
+    val clickNow = rememberClickNow()
+
     ContextMenu(
         items = {
+            if (selectedCount >= 2) {
+                return@ContextMenu selectedBranchesContextMenuItems(
+                    count = selectedCount,
+                    onDelete = onDeleteSelected,
+                    onClearSelection = onClearSelection,
+                    remote = remoteName,
+                )
+            }
+
             branchContextMenuItems(
                 branch = remoteBranch,
                 currentBranch = currentBranch,
@@ -970,10 +1046,11 @@ private fun RemoteBranches(
         SideMenuSubentry(
             text = displayName,
             extraPadding = REMOTE_BRANCH_PADDING + FOLDER_DEPTH_PADDING * depth,
-            isSelected = false,
+            isSelected = isSelectedItem,
             iconResourcePath = Res.drawable.branch,
-            onClick = onBranchClicked,
-            onDoubleClick = { onCheckoutBranch(remoteBranch) },
+            onClick = { onBranchClicked(clickNow()) },
+            // Checking a branch out takes a plain double-click: with Ctrl, Cmd or Shift it's two selecting clicks
+            onDoubleClick = { if (clickNow() == BranchClick.Plain) onCheckoutBranch(remoteBranch) },
         ) {
             RefTrailingLabel(ageLabel, isCurrentBranch = false)
         }

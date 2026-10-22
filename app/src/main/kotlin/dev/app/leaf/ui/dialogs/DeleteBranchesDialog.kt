@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Checkbox
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -39,13 +40,16 @@ import dev.app.leaf.domain.branches.BranchDeletionOutcome
 import dev.app.leaf.domain.branches.BranchDeletionPlan
 import dev.app.leaf.domain.branches.BranchKept
 import dev.app.leaf.domain.branches.BranchesDeletion
+import dev.app.leaf.domain.branches.DeletionRemote
 import dev.app.leaf.domain.models.MergedIntoBase
 import dev.app.leaf.domain.models.WorktreeBranchUse
+import dev.app.leaf.domain.sorting.formatTimeAgo
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.theme.addFile
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.amberText
 import dev.app.leaf.ui.baseBranchName
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
@@ -71,6 +75,10 @@ private val CHECKBOX_ROOM = 28.dp
  * "Delete branches" and "Delete merged branches" (fork-only, upstream issue 116): every branch with a checkbox and what
  * deleting it loses, the ones that lose nothing checked at first. Delete runs one task, and the dialog stays open to
  * show what happened to each branch, which a toast would not keep on screen.
+ *
+ * For a remote's branches, it deletes them on the server: the remote's URL and when it was last fetched head the list,
+ * each branch says who made its tip and when, the ones whose names look long-lived start unchecked, and the button is
+ * the style's destructive one. While git runs, Cancel stops it.
  */
 @Composable
 fun DeleteBranchesDialog(
@@ -90,6 +98,7 @@ fun DeleteBranchesDialog(
         onConfirm = viewModel::delete,
         onCopyList = { scope.launch { clipboard.setClipboardText(state.result?.deletedList().orEmpty()) } },
         onDismiss = onDismiss,
+        onStop = viewModel::stopDeleting,
     )
 }
 
@@ -103,17 +112,22 @@ fun DeleteBranchesDialogContent(
     onConfirm: () -> Unit,
     onCopyList: () -> Unit,
     onDismiss: () -> Unit,
+    onStop: () -> Unit = {},
 ) {
     val plan = state.plan
     val result = state.result
     val mergedOnly = state.request.mergedOnly
+    val remote = state.request.remote
     val base = plan?.base?.let { baseBranchName(it) }
     val count = state.toDelete.size
+    val isDone = result != null || state.wasStopped
 
     IconBasedDialog(
         icon = painterResource(Res.drawable.delete),
         title = when {
-            result != null -> resultTitle(result)
+            result != null -> resultTitle(result, remote)
+            remote != null && mergedOnly -> stringResource(Res.string.delete_remote_branches_dialog_title_merged, remote)
+            remote != null -> stringResource(Res.string.delete_remote_branches_dialog_title, remote)
             mergedOnly -> stringResource(Res.string.delete_branches_dialog_title_merged)
             else -> stringResource(Res.string.delete_branches_dialog_title)
         },
@@ -124,24 +138,40 @@ fun DeleteBranchesDialogContent(
             else -> pluralStringResource(Res.plurals.delete_branches_dialog_subtitle, plan.rows.size, plan.rows.size)
         },
         primaryActionText = when {
-            result != null -> stringResource(Res.string.delete_branches_dialog_result_close)
+            isDone -> stringResource(Res.string.delete_branches_dialog_result_close)
+            remote != null && count > 0 ->
+                pluralStringResource(Res.plurals.delete_remote_branches_dialog_delete, count, count, remote)
+
             count > 0 -> pluralStringResource(Res.plurals.delete_branches_dialog_delete, count, count)
             else -> stringResource(Res.string.delete_branches_dialog_delete_none)
         },
-        isPrimaryActionEnabled = result != null || state.canConfirm,
-        showCancelAction = result == null,
+        isPrimaryActionEnabled = isDone || state.canConfirm,
+        showCancelAction = !isDone,
+        // Stopping git while it deletes on the server: what it deleted by then is deleted
+        cancelActionText = if (state.isDeleting && remote != null) {
+            stringResource(Res.string.delete_remote_branches_dialog_stop)
+        } else {
+            stringResource(Res.string.generic_button_cancel)
+        },
         secondaryActionText = if (result != null && result.deleted.isNotEmpty()) {
             stringResource(Res.string.delete_branches_dialog_result_copy)
         } else {
             null
         },
         onSecondaryActionClicked = onCopyList,
-        // Leaving half way would stop the deleting between two branches, with nothing to show for it
-        onDismiss = { if (!state.isDeleting) onDismiss() },
-        onPrimaryActionClicked = { if (result != null) onDismiss() else onConfirm() },
+        // Leaving half way would stop the deleting between two branches, with nothing to show for it. A remote's
+        // stop instead, and the dialog says that some may be gone
+        onDismiss = {
+            when {
+                state.isDeleting && remote != null -> onStop()
+                !state.isDeleting -> onDismiss()
+            }
+        },
+        onPrimaryActionClicked = { if (isDone) onDismiss() else onConfirm() },
         beforeActionsFocusRequester = null,
         actionsFocusRequester = null,
         afterActionsFocusRequester = null,
+        primaryActionColors = if (remote != null && !isDone) MaterialTheme.styleColors.destructive else null,
     ) {
         // The dialog is as wide as its content, so this keeps long reasons on fewer lines
         Column(
@@ -150,12 +180,19 @@ fun DeleteBranchesDialogContent(
         ) {
             val error = state.error
 
+            plan?.remote?.let { RemoteLine(it) }
+
             when {
-                result != null -> ResultDetails(result)
+                result != null -> ResultDetails(result, remote)
+                state.wasStopped -> DialogWarning(stringResource(Res.string.delete_remote_branches_dialog_stopped, remote.orEmpty()))
                 plan == null && error == null -> DialogNote(stringResource(Res.string.delete_branches_dialog_checking))
                 plan == null -> {}
-                plan.rows.isEmpty() -> DialogNote(emptyText(mergedOnly, base))
+                plan.rows.isEmpty() -> DialogNote(emptyText(mergedOnly, base, remote))
                 else -> PlanDetails(state, plan, base, onCheckedChange, onCheckAll, onCheckSafe, onCheckNone)
+            }
+
+            if (state.isDeleting && remote != null) {
+                DeletingNote(remote)
             }
 
             if (error != null) {
@@ -166,21 +203,78 @@ fun DeleteBranchesDialogContent(
 }
 
 @Composable
-private fun emptyText(mergedOnly: Boolean, base: String?): String = when {
+private fun emptyText(mergedOnly: Boolean, base: String?, remote: String?): String = when {
     !mergedOnly -> stringResource(Res.string.delete_branches_dialog_none_found)
-    base == null -> stringResource(Res.string.delete_branches_dialog_no_base)
+    base == null -> noBaseText(remote)
     else -> stringResource(Res.string.delete_branches_dialog_nothing_merged, base)
 }
 
 @Composable
-private fun resultTitle(result: BranchesDeletion): String {
+private fun noBaseText(remote: String?): String = if (remote != null) {
+    stringResource(Res.string.delete_remote_branches_dialog_no_base, remote)
+} else {
+    stringResource(Res.string.delete_branches_dialog_no_base)
+}
+
+@Composable
+private fun resultTitle(result: BranchesDeletion, remote: String?): String {
     val deleted = result.deleted.size
     val total = result.outcomes.size
 
     return when {
+        remote != null && deleted == 0 -> stringResource(Res.string.delete_remote_branches_dialog_result_none, remote)
+        remote != null && deleted == total ->
+            pluralStringResource(Res.plurals.delete_remote_branches_dialog_result_title, deleted, deleted, remote)
+
+        remote != null -> stringResource(Res.string.delete_remote_branches_dialog_result_title_partial, deleted, total, remote)
         deleted == 0 -> stringResource(Res.string.delete_branches_dialog_result_none)
         deleted == total -> pluralStringResource(Res.plurals.delete_branches_dialog_result_title, deleted, deleted)
         else -> stringResource(Res.string.delete_branches_dialog_result_title_partial, deleted, total)
+    }
+}
+
+/** The remote's URL, and when it was last fetched, which says how old what the list shows is. */
+@Composable
+private fun RemoteLine(remote: DeletionRemote) {
+    val fetched = remote.lastFetchedMillis?.let {
+        stringResource(Res.string.delete_remote_branches_dialog_last_fetched, formatTimeAgo(it, System.currentTimeMillis()))
+    }
+
+    if (remote.url == null && fetched == null) return
+
+    Text(
+        text = buildAnnotatedString {
+            if (remote.url != null) {
+                withStyle(SpanStyle(fontFamily = monoTypography())) { append(remote.url) }
+            }
+
+            if (remote.url != null && fetched != null) append(" · ")
+            if (fetched != null) append(fetched)
+        },
+        style = MaterialTheme.typography.caption,
+        color = MaterialTheme.colors.onBackgroundSecondary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(start = 8.dp),
+    )
+}
+
+/** While git deletes on the server: Cancel, now Stop, kills it. */
+@Composable
+private fun DeletingNote(remote: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 2.dp,
+            color = MaterialTheme.colors.primaryVariant,
+        )
+
+        Text(
+            text = stringResource(Res.string.delete_remote_branches_dialog_deleting, remote),
+            style = MaterialTheme.typography.caption,
+            color = MaterialTheme.colors.onBackgroundSecondary,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
@@ -231,6 +325,8 @@ private fun PlanDetails(
                 kind = plan.kindOf(info),
                 isChecked = info.branch.name in state.checked,
                 base = base,
+                remote = state.request.remote,
+                looksLongLived = plan.looksLongLived(info),
                 isEnabled = !state.isDeleting,
                 onCheckedChange = { onCheckedChange(info.branch.name, it) },
             )
@@ -238,17 +334,25 @@ private fun PlanDetails(
     }
 
     if (base == null) {
-        ListNote(stringResource(Res.string.delete_branches_dialog_no_base))
+        ListNote(noBaseText(state.request.remote))
+    }
+
+    if (state.request.remote != null) {
+        ListNote(stringResource(Res.string.delete_remote_branches_dialog_lease))
+
+        if (state.checksUnmerged) {
+            ListNote(stringResource(Res.string.delete_remote_branches_dialog_unmerged_warning), MaterialTheme.colors.amberText)
+        }
     }
 }
 
 /** A note under a list, in line with the list's rows. */
 @Composable
-private fun ListNote(text: String) {
+private fun ListNote(text: String, color: Color = MaterialTheme.colors.onBackgroundSecondary) {
     Text(
         text = text,
         style = MaterialTheme.typography.caption,
-        color = MaterialTheme.colors.onBackgroundSecondary,
+        color = color,
         modifier = Modifier.padding(start = 8.dp),
     )
 }
@@ -268,7 +372,8 @@ private fun CheckLink(text: String, onClick: () -> Unit) {
 /**
  * A branch: its checkbox, its name, then what deleting it loses, in green when nothing is lost, in amber when commits
  * would be left on no branch, and why it can't be deleted otherwise, dimmed. The commit it points to ends the line,
- * which `git branch <name> <commit>` brings back.
+ * which `git branch <name> <commit>` brings back, and for a remote's, who made it and when. A remote's branch that
+ * [looksLongLived] says so, muted, as it starts unchecked.
  */
 @Composable
 private fun BranchRow(
@@ -276,6 +381,8 @@ private fun BranchRow(
     kind: BranchDeletionKind,
     isChecked: Boolean,
     base: String?,
+    remote: String?,
+    looksLongLived: Boolean,
     isEnabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -320,10 +427,17 @@ private fun BranchRow(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            val (text, color) = statusLine(kind, base)
+            val (status, statusColor) = statusLine(kind, base, remote, info.branch.shortTip)
+            val (text, color) = if (looksLongLived && kind !is BranchDeletionKind.Refused) {
+                stringResource(Res.string.delete_remote_branches_dialog_long_lived, status) to
+                    MaterialTheme.colors.onBackgroundSecondary
+            } else {
+                status to statusColor
+            }
+            val byline = info.lastCommit?.let { "${it.author}, ${formatTimeAgo(it.timeMillis, System.currentTimeMillis())}" }
 
             Text(
-                text = withCommit(text, info.branch.shortTip),
+                text = withCommit(text, info.branch.shortTip, byline),
                 style = MaterialTheme.typography.caption,
                 color = color,
             )
@@ -333,14 +447,14 @@ private fun BranchRow(
 
 /** What deleting a branch with this [kind] does, and the color that says how much to look at it. */
 @Composable
-private fun statusLine(kind: BranchDeletionKind, base: String?): Pair<String, Color> {
+private fun statusLine(kind: BranchDeletionKind, base: String?, remote: String?, shortTip: String): Pair<String, Color> {
     val secondary = MaterialTheme.colors.onBackgroundSecondary
     val amber = MaterialTheme.colors.amberText
     val green = MaterialTheme.colors.addFile
     val baseName = base.orEmpty()
 
     return when (kind) {
-        is BranchDeletionKind.Refused -> usedByText(kind.reason) to secondary
+        is BranchDeletionKind.Refused -> refusalText(kind.reason, remote, shortTip) to secondary
 
         is BranchDeletionKind.Merged -> when {
             kind.into == MergedIntoBase.COMMITS -> stringResource(Res.string.delete_branches_dialog_merged, baseName)
@@ -360,6 +474,30 @@ private fun statusLine(kind: BranchDeletionKind, base: String?): Pair<String, Co
             kind.commitsOnlyHere,
             kind.commitsOnlyHere,
         ) to amber
+    }
+}
+
+/** Why a branch whose tip was [shortTip] stays, for a refused row of the list and for the result. */
+@Composable
+private fun refusalText(reason: BranchKept, remote: String?, shortTip: String): String {
+    val remoteName = remote.orEmpty()
+
+    return when (reason) {
+        is BranchKept.UsedByWorktree -> usedByText(reason)
+        BranchKept.RemoteHead -> stringResource(Res.string.delete_remote_branches_dialog_head, remoteName)
+        is BranchKept.RemoteDefaultBranch -> if (reason.isNamedByRemote) {
+            stringResource(Res.string.delete_remote_branches_dialog_default_branch, remoteName)
+        } else {
+            stringResource(Res.string.delete_remote_branches_dialog_base_copy, remoteName)
+        }
+
+        BranchKept.NoLongerExists -> stringResource(Res.string.delete_branches_dialog_result_gone)
+        is BranchKept.Moved -> stringResource(Res.string.delete_branches_dialog_result_moved, shortTip, reason.shortNow)
+        BranchKept.ChangedOnRemote -> stringResource(Res.string.delete_remote_branches_dialog_result_changed, remoteName)
+        is BranchKept.RefusedByRemote ->
+            stringResource(Res.string.delete_remote_branches_dialog_result_refused, remoteName, reason.reason)
+
+        is BranchKept.Failed -> stringResource(Res.string.delete_branches_dialog_result_failed, reason.message)
     }
 }
 
@@ -392,15 +530,23 @@ private fun usedByText(reason: BranchKept.UsedByWorktree): String {
     }
 }
 
-/** [text] and the short commit hash, in a monospace font, after a dot. */
+/** [text] and the short commit hash, in a monospace font, after a dot, then who made it and when, muted. */
 @Composable
-private fun withCommit(text: String, shortHash: String): AnnotatedString {
+private fun withCommit(text: String, shortHash: String, byline: String? = null): AnnotatedString {
     val mono = SpanStyle(fontFamily = monoTypography())
+    val muted = SpanStyle(color = MaterialTheme.colors.onBackgroundSecondary)
 
     return buildAnnotatedString {
         append(text)
         append(" · ")
         withStyle(mono) { append(shortHash) }
+
+        if (byline != null) {
+            withStyle(muted) {
+                append(" · ")
+                append(byline)
+            }
+        }
     }
 }
 
@@ -409,7 +555,7 @@ private fun withCommit(text: String, shortHash: String): AnnotatedString {
  * The list stays until the user closes the dialog.
  */
 @Composable
-private fun ResultDetails(result: BranchesDeletion) {
+private fun ResultDetails(result: BranchesDeletion, remote: String?) {
     ScrollingBox(maxHeight = MAX_LIST_HEIGHT, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (result.deleted.isNotEmpty()) {
             ResultHeader(stringResource(Res.string.delete_branches_dialog_result_deleted))
@@ -434,7 +580,7 @@ private fun ResultDetails(result: BranchesDeletion) {
                     icon = Res.drawable.warning,
                     iconTint = MaterialTheme.colors.amberText,
                     name = kept.branch.simpleName,
-                    detail = keptText(kept),
+                    detail = keptText(kept, remote),
                     commit = null,
                     detailColor = MaterialTheme.colors.amberText,
                 )
@@ -443,22 +589,33 @@ private fun ResultDetails(result: BranchesDeletion) {
     }
 
     if (result.deleted.isNotEmpty()) {
-        ListNote(stringResource(Res.string.delete_branches_dialog_result_restore))
+        ListNote(
+            if (remote != null) {
+                stringResource(Res.string.delete_remote_branches_dialog_result_restore, remote)
+            } else {
+                stringResource(Res.string.delete_branches_dialog_result_restore)
+            }
+        )
+    }
+
+    val remoteMessage = result.remoteMessage
+
+    if (remote != null && remoteMessage != null) {
+        ListNote(stringResource(Res.string.delete_remote_branches_dialog_result_server_said, remote))
+
+        Text(
+            text = remoteMessage,
+            style = MaterialTheme.typography.caption,
+            fontFamily = monoTypography(),
+            color = MaterialTheme.colors.onBackgroundSecondary,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
 @Composable
-private fun keptText(kept: BranchDeletionOutcome.Kept): String = when (val reason = kept.reason) {
-    is BranchKept.UsedByWorktree -> usedByText(reason)
-    BranchKept.NoLongerExists -> stringResource(Res.string.delete_branches_dialog_result_gone)
-    is BranchKept.Moved -> stringResource(
-        Res.string.delete_branches_dialog_result_moved,
-        kept.branch.shortTip,
-        reason.shortNow,
-    )
-
-    is BranchKept.Failed -> stringResource(Res.string.delete_branches_dialog_result_failed, reason.message)
-}
+private fun keptText(kept: BranchDeletionOutcome.Kept, remote: String?): String =
+    refusalText(kept.reason, remote, kept.branch.shortTip)
 
 @Composable
 private fun ResultHeader(text: String) {

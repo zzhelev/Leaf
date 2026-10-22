@@ -42,6 +42,9 @@ import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_branch_checked_out_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_file_linked_worktree
+import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_helper_missing
+import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_not_found
+import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_setting_off
 import dev.app.leaf.app.generated.resources.error_restore_file_no_work_tree
 import dev.app.leaf.app.generated.resources.error_restore_file_not_in_commit
 import dev.app.leaf.app.generated.resources.error_restore_file_conflicted
@@ -393,6 +396,14 @@ fun AppError.getErrorText(): String {
             SshNeedsGitError.Reason.GitNotFound -> stringResource(Res.string.error_ssh_needs_git_not_found)
             SshNeedsGitError.Reason.HelperMissing -> stringResource(Res.string.error_ssh_needs_git_helper_missing)
             SshNeedsGitError.Reason.LfsPushWithoutGitLfs -> stringResource(Res.string.error_ssh_needs_git_lfs)
+        }
+
+        is RemoteBranchesNeedGitError -> when (reason) {
+            SshNeedsGitError.Reason.SettingOff -> stringResource(Res.string.error_remote_branches_need_git_setting_off)
+            SshNeedsGitError.Reason.HelperMissing -> stringResource(Res.string.error_remote_branches_need_git_helper_missing)
+            // Only a push of LFS objects gives that reason, and deleting branches pushes none
+            SshNeedsGitError.Reason.GitNotFound, SshNeedsGitError.Reason.LfsPushWithoutGitLfs ->
+                stringResource(Res.string.error_remote_branches_need_git_not_found)
         }
 
         is SshSigningError -> when (this) {

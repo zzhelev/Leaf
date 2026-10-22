@@ -8,27 +8,43 @@ import dev.app.leaf.domain.models.MergedIntoBase
 import dev.app.leaf.domain.models.WorktreeBranchUse
 
 /**
- * Which local branches the "Delete branches" dialog is about (fork-only, upstream issue 116).
+ * Which branches the "Delete branches" dialog is about (fork-only, upstream issue 116): local branches, or the branches
+ * of one remote, which it deletes on the server.
  *
  * @param branches the branches as the side panel lists them. Their tips aren't used: the dialog reads them again.
- * @param mergedOnly "Delete merged branches": [branches] are every local branch, and the dialog lists the ones merged
- * into the base, with those that can't be deleted dimmed, and not the others.
+ * @param mergedOnly "Delete merged branches": [branches] are every local branch, or every branch of [remote], and the
+ * dialog lists the ones merged into the base, with those that can't be deleted dimmed, and not the others.
+ * @param remote the remote whose branches [branches] are (`refs/remotes/<remote>/x`), null for local branches.
  */
 data class BranchesDeletionRequest(
     val branches: List<Branch>,
     val mergedOnly: Boolean = false,
+    val remote: String? = null,
 )
 
-/** A local branch and the commit it pointed to when the dialog read it. Deleting it checks that it still does. */
+/**
+ * A branch and the commit it pointed to when the dialog read it. Deleting it checks that it still does: a local branch
+ * here, a remote's branch on the server, which then refuses when someone pushed to it.
+ */
 data class BranchToDelete(
-    /** The full name, `refs/heads/x`. */
+    /** The full name, `refs/heads/x`, or the remote-tracking branch `refs/remotes/origin/x` of a remote's branch. */
     val name: String,
     /** The commit's full hash. */
     val tip: String,
 ) {
-    val simpleName: String get() = name.removePrefix("refs/heads/")
+    /** The name without `refs/heads/`, or without `refs/remotes/<remote>/`: the branch's name on its remote. */
+    val simpleName: String
+        get() = if (name.startsWith(REMOTE_BRANCHES)) {
+            name.removePrefix(REMOTE_BRANCHES).substringAfter('/')
+        } else {
+            name.removePrefix(LOCAL_BRANCHES)
+        }
+
     val shortTip: String get() = tip.take(SHORT_HASH_LENGTH)
 }
+
+private const val LOCAL_BRANCHES = "refs/heads/"
+private const val REMOTE_BRANCHES = "refs/remotes/"
 
 private const val SHORT_HASH_LENGTH = 7
 
@@ -50,6 +66,24 @@ sealed interface BranchKept {
 
     /** Git or the file system refused. */
     data class Failed(val message: String) : BranchKept
+
+    /** A remote's `HEAD`, which only names the remote's default branch: there's no such branch to delete. */
+    data object RemoteHead : BranchKept
+
+    /**
+     * The remote's default branch, the one its `HEAD` names, which servers refuse to delete. When the remote has no
+     * `HEAD` ([isNamedByRemote] false), the branch with the base branch's name, which the others are compared to.
+     */
+    data class RemoteDefaultBranch(val isNamedByRemote: Boolean) : BranchKept
+
+    /**
+     * The server has another commit for the branch than the one the dialog showed, or doesn't have the branch any more:
+     * someone pushed to it or deleted it since the last fetch. The lease refused it, so nothing was deleted.
+     */
+    data object ChangedOnRemote : BranchKept
+
+    /** The server refused to delete the branch, with git's [reason], such as `protected branch hook declined`. */
+    data class RefusedByRemote(val reason: String) : BranchKept
 }
 
 /** What deleting one branch did. */
@@ -61,38 +95,61 @@ sealed interface BranchDeletionOutcome {
     data class Kept(override val branch: BranchToDelete, val reason: BranchKept) : BranchDeletionOutcome
 }
 
-/** What deleting several branches did, in the order they were given. A branch that stays never stops the others. */
-data class BranchesDeletion(val outcomes: List<BranchDeletionOutcome>) {
+/**
+ * What deleting several branches did, in the order they were given. A branch that stays never stops the others.
+ *
+ * @param remoteMessage what the server said while deleting a remote's branches, git's `remote:` lines, such as why a
+ * hook refused. Null when it said nothing, and for local branches.
+ */
+data class BranchesDeletion(
+    val outcomes: List<BranchDeletionOutcome>,
+    val remoteMessage: String? = null,
+) {
     val deleted: List<BranchToDelete>
         get() = outcomes.filterIsInstance<BranchDeletionOutcome.Deleted>().map { it.branch }
 
     val kept: List<BranchDeletionOutcome.Kept>
         get() = outcomes.filterIsInstance<BranchDeletionOutcome.Kept>()
 
-    /** One line for each deleted branch with its tip, `git branch <name> <tip>` brings it back. */
+    /**
+     * One line for each deleted branch with its tip: `git branch <name> <tip>` brings a local one back, and
+     * `git push <remote> <tip>:refs/heads/<name>` a remote's.
+     */
     fun deletedList(): String = deleted.joinToString("\n") { "${it.simpleName} ${it.tip}" }
 }
 
 /**
- * What the dialog read about one local branch.
+ * What the dialog read about one branch.
  *
- * @param refusal why the branch can't be deleted, null when it can: a worktree uses it.
+ * @param refusal why the branch can't be deleted, null when it can: a worktree uses a local branch
+ * ([BranchKept.UsedByWorktree]); a remote's is its `HEAD` or its default branch.
  * @param merged how the branch got into the base, null when it didn't, or there's no base.
  * @param commitsOnlyHere the commits that no ref outside the selected branches has, which deleting the branch leaves
  * on no branch or tag. Counted against the refs outside the whole selection, so that two selected branches at one
  * commit don't both look safe.
+ * @param lastCommit who made the branch's tip and when, read for a remote's branches, which others push too.
  */
 data class BranchDeletionInfo(
     val branch: BranchToDelete,
-    val refusal: BranchKept.UsedByWorktree?,
+    val refusal: BranchKept?,
     val merged: MergedIntoBase?,
     val commitsOnlyHere: Int,
+    val lastCommit: TipCommit? = null,
 )
+
+/** The author of a branch's tip commit, and its commit time in milliseconds since the epoch. */
+data class TipCommit(val author: String, val timeMillis: Long)
+
+/**
+ * The remote whose branches a plan is about: its [name], the [url] it fetches from (null when it has none), and when
+ * it was last fetched from ([lastFetchedMillis], null when Leaf can't tell), which says how old what the dialog shows is.
+ */
+data class DeletionRemote(val name: String, val url: String?, val lastFetchedMillis: Long?)
 
 /** What the dialog says about a branch, which also decides whether it's checked at first. */
 sealed interface BranchDeletionKind {
     /** Can't be deleted. */
-    data class Refused(val reason: BranchKept.UsedByWorktree) : BranchDeletionKind
+    data class Refused(val reason: BranchKept) : BranchDeletionKind
 
     /** Its commits are in the base, or its changes are (a squash merge, whose [commitsOnlyHere] end up on no branch). */
     data class Merged(val into: MergedIntoBase, val commitsOnlyHere: Int) : BranchDeletionKind
@@ -108,13 +165,15 @@ sealed interface BranchDeletionKind {
 }
 
 /**
- * What the dialog read: the branches' [infos], and [base], the full name of the branch that worktrees are compared to
- * and "merged" means merged into (null when there is none).
+ * What the dialog read: the branches' [infos], and [base], the full name of the branch that "merged" means merged into
+ * (null when there is none): the one worktrees are compared to, or for a [remote]'s branches the remote's default
+ * branch (`refs/remotes/origin/main`).
  */
 data class BranchDeletionPlan(
     val base: String?,
     val infos: List<BranchDeletionInfo>,
     val mergedOnly: Boolean = false,
+    val remote: DeletionRemote? = null,
 ) {
     /**
      * The base's own branch is among the branches that can be deleted: the others can't count as merged into it, as it
@@ -142,9 +201,23 @@ data class BranchDeletionPlan(
     val rows: List<BranchDeletionInfo> =
         if (mergedOnly) infos.filter { it.merged != null && !baseIsSelected } else infos
 
-    /** The branches that are checked when the dialog opens: the ones that lose nothing. */
+    /**
+     * Whether [info]'s branch is checked when the dialog opens, and by "Check: safe": it loses nothing. A remote's
+     * must be merged, as one whose commits are only on other branches, the user's own included, may have a pull
+     * request open, and not [looksLongLived], as it may be merged and still in use.
+     */
+    fun isCheckedAtFirst(info: BranchDeletionInfo): Boolean {
+        val kind = kindOf(info)
+
+        return if (remote != null) kind is BranchDeletionKind.Merged && !looksLongLived(info) else kind.isSafe
+    }
+
+    /** A remote's branch whose name says that it's kept for good, such as `develop` or `release/2.0`. */
+    fun looksLongLived(info: BranchDeletionInfo): Boolean = remote != null && looksLongLived(info.branch.simpleName)
+
+    /** The branches that are checked when the dialog opens. */
     fun checkedAtFirst(): Set<String> =
-        rows.filter { kindOf(it).isSafe }.map { it.branch.name }.toSet()
+        rows.filter { isCheckedAtFirst(it) }.map { it.branch.name }.toSet()
 
     /** Whether the user can check [info]'s branch. */
     fun canCheck(info: BranchDeletionInfo): Boolean = info.refusal == null
@@ -153,3 +226,22 @@ data class BranchDeletionPlan(
 /** The branches to delete from what the user checked, in the dialog's order. Branches that can't be deleted are left out. */
 fun BranchDeletionPlan.toDelete(checked: Set<String>): List<BranchToDelete> =
     rows.filter { it.branch.name in checked && canCheck(it) }.map { it.branch }
+
+/** Names that teams keep for good, compared without case: a branch merged into the base may still be in use. */
+private val LONG_LIVED_NAMES = setOf(
+    "main", "master", "trunk", "develop", "development", "dev", "next", "stable",
+    "staging", "stage", "production", "prod", "live", "qa", "uat", "gh-pages",
+)
+
+/** Prefixes of names that teams keep for good, such as `release/2.0`, compared without case. */
+private val LONG_LIVED_PREFIXES = listOf("release/", "releases/", "release-", "hotfix/", "support/", "maintenance/")
+
+/**
+ * Whether a branch's [name] (without `refs/heads/` or the remote) looks like one that's kept for good. Only what's
+ * checked when the dialog opens depends on it: such a branch can still be checked.
+ */
+fun looksLongLived(name: String): Boolean {
+    val lower = name.lowercase()
+
+    return lower in LONG_LIVED_NAMES || LONG_LIVED_PREFIXES.any { lower.startsWith(it) }
+}

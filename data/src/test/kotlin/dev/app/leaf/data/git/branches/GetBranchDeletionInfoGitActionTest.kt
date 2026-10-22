@@ -206,12 +206,12 @@ class GetBranchDeletionInfoGitActionTest {
 
         assertEquals(
             BranchKept.UsedByWorktree(worktree.canonicalPath, WorktreeBranchUse.CheckedOut, isHere = false),
-            infos[0].refusal?.copy(path = File(infos[0].refusal!!.path).canonicalPath),
+            (infos[0].refusal as BranchKept.UsedByWorktree).let { it.copy(path = File(it.path).canonicalPath) },
         )
         assertNull(infos[1].refusal)
         assertEquals(
             BranchKept.UsedByWorktree(repository.canonicalPath, WorktreeBranchUse.CheckedOut, isHere = true),
-            infos[2].refusal?.copy(path = File(infos[2].refusal!!.path).canonicalPath),
+            (infos[2].refusal as BranchKept.UsedByWorktree).let { it.copy(path = File(it.path).canonicalPath) },
         )
     }
 

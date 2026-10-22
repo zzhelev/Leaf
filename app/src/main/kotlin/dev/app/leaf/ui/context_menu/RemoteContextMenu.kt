@@ -12,7 +12,10 @@ fun remoteContextMenu(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onFetch: () -> Unit,
-): List<ContextMenuElement> = listOf(
+    // Fork-only: "Delete merged branches on <remote>…", which deletes them on the server
+    remoteName: String = "",
+    onDeleteMergedBranches: (() -> Unit)? = null,
+): List<ContextMenuElement> = listOfNotNull(
     ContextMenuElement.ContextTextEntry(
         composableLabel = { stringResource(Res.string.remote_context_menu_edit) },
         icon = { painterResource(Res.drawable.edit) },
@@ -29,4 +32,11 @@ fun remoteContextMenu(
         icon = null,
         onClick = onFetch
     ),
+    onDeleteMergedBranches?.let {
+        ContextMenuElement.ContextTextEntry(
+            composableLabel = { stringResource(Res.string.remote_context_menu_delete_merged, remoteName) },
+            icon = null,
+            onClick = it,
+        )
+    },
 )

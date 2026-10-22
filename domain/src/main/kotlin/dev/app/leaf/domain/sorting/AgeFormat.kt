@@ -21,3 +21,22 @@ fun formatAge(timeMillis: Long, nowMillis: Long): String {
         else -> "${(days / 30.0).roundToLong()}mo"
     }
 }
+
+private const val MINUTE_IN_MS = 60 * 1000L
+private const val HOUR_IN_MS = 60 * MINUTE_IN_MS
+
+/**
+ * How long ago [timeMillis] was, for a sentence such as "Last fetched 4 min ago" (fork-only, follows upstream issue
+ * 116): `just now` (under a minute), `<n> min ago`, `<n> h ago` (under a day), then [formatAge]'s days, weeks and
+ * months with ` ago`. Times in the future count as `just now`.
+ */
+fun formatTimeAgo(timeMillis: Long, nowMillis: Long): String {
+    val elapsed = (nowMillis - timeMillis).coerceAtLeast(0)
+
+    return when {
+        elapsed < MINUTE_IN_MS -> "just now"
+        elapsed < HOUR_IN_MS -> "${elapsed / MINUTE_IN_MS} min ago"
+        elapsed < DAY_IN_MS -> "${elapsed / HOUR_IN_MS} h ago"
+        else -> "${formatAge(timeMillis, nowMillis)} ago"
+    }
+}

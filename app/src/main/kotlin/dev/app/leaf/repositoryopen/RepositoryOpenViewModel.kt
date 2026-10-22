@@ -372,11 +372,13 @@ class RepositoryOpenViewModel @Inject constructor(
         combineBranchesState(branches, currentBranch, isExpandedBranches, filter, refRowsContext)
             .stateIn(BranchesState(isLoading = true, emptyList(), isExpandedBranches.value, null))
 
-    // Fork-only: the local branches selected in the side panel for deleting several at once (upstream issue 116)
+    // Fork-only: the branches selected in the side panel for deleting several at once, local ones or one remote's
+    // (upstream issue 116)
     private val branchSelectionController = BranchSelectionController(
         scope = viewModelScope,
         localBranches = branches.map { it.data.orEmpty() }.stateIn(emptyList()),
-        loggedBranch = { (selectedItem.value as? SelectedItem.BranchItem)?.branch?.takeIf { it.isLocal }?.name },
+        remoteBranches = remotes.map { remotes -> remotes.data.orEmpty().flatMap { it.branchesList } }.stateIn(emptyList()),
+        loggedBranch = { (selectedItem.value as? SelectedItem.BranchItem)?.branch?.name },
         addCloseableView = ::addCloseableView,
         removeCloseableView = ::removeCloseableView,
     )
@@ -384,8 +386,9 @@ class RepositoryOpenViewModel @Inject constructor(
     val branchSelection: StateFlow<BranchSelection> = branchSelectionController.selection
 
     /**
-     * A click on the local branch [branch]. A plain one selects its commit in the log, as it always did; one with a
-     * modifier changes the selection for "Delete N branches" instead. [shown] are the local branches that the list shows.
+     * A click on the branch [branch], local or a remote's. A plain one selects its commit in the log, as it always did;
+     * one with a modifier changes the selection for "Delete N branches" instead. [shown] are the branches of its group
+     * that the list shows: the local ones, or its remote's.
      */
     fun onBranchClicked(branch: Branch, click: BranchClick, shown: () -> List<String>) {
         if (branchSelectionController.onClick(branch.name, click, shown)) {
@@ -393,7 +396,7 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    /** "Select its branches" on a folder of the local branches. */
+    /** "Select its branches" on a folder of the local branches, or of a remote's. */
     fun selectBranches(names: List<String>) = branchSelectionController.add(names)
 
     fun clearBranchSelection() = branchSelectionController.clear()
@@ -401,6 +404,8 @@ class RepositoryOpenViewModel @Inject constructor(
     fun selectedBranchesDeletionRequest() = branchSelectionController.deletionRequest()
 
     fun mergedBranchesDeletionRequest() = branchSelectionController.mergedDeletionRequest()
+
+    fun mergedRemoteBranchesDeletionRequest(remote: String) = branchSelectionController.mergedDeletionRequest(remote)
 
     private val remotesContracted = MutableStateFlow<Set<Remote>>(emptySet())
     val remoteState: StateFlow<RemotesState> =

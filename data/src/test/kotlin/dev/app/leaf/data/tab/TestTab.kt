@@ -3,6 +3,9 @@
 
 package dev.app.leaf.data.tab
 
+import dev.app.leaf.data.git.cli.remote.testRemoteOperationsBackend
+import dev.app.leaf.data.git.cli.remote.DeleteRemoteBranchesGitAction
+import dev.app.leaf.data.git.branches.GetRemoteBranchDeletionInfoGitAction
 import dev.app.leaf.data.git.FileChangesWatcher
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.JGit
@@ -477,13 +480,30 @@ class TestTab(
         getWorktreeCreationSettingsGitAction = GetWorktreeCreationSettingsGitAction(jgit),
     )
 
-    /** Fork-only (upstream issue 116): what the "Delete branches" dialog reads, and its delete. */
+    /**
+     * Fork-only (upstream issue 116): what the "Delete branches" dialog reads, and its delete, of local branches and
+     * of a remote's, which git deletes through the built askpass helper.
+     */
+    private val remoteBackend = testRemoteOperationsBackend(jgit, gitCli, builtAskpassHelper())
+    private val remoteCommand = GitCliRemoteCommand(
+        gitCli = gitCli,
+        askpassHelper = AskpassHelper { builtAskpassHelper() },
+        credentialsStateManager = CredentialsStateManager(),
+        credentialsRepository = CredentialsCacheRepository(),
+        appSettingsService = testAppSettings(),
+        repositoryStateRepository = repositoryState,
+    )
     val getBranchDeletionPlan = GetBranchDeletionPlanUseCase(
         useCaseExecutor = useCaseExecutor,
         getWorktreeBaseBranchGitAction = GetWorktreeBaseBranchGitAction(jgit),
         getBranchDeletionInfoGitAction = GetBranchDeletionInfoGitAction(jgit, gitCli),
+        getRemoteBranchDeletionInfoGitAction = GetRemoteBranchDeletionInfoGitAction(jgit, gitCli, remoteBackend),
     )
-    val deleteBranches = DeleteBranchesUseCase(DeleteBranchesGitAction(jgit), useCaseExecutor)
+    val deleteBranches = DeleteBranchesUseCase(
+        DeleteBranchesGitAction(jgit),
+        DeleteRemoteBranchesGitAction(jgit, remoteBackend, remoteCommand),
+        useCaseExecutor,
+    )
 
     /** Waits until [flow] has loaded data that passes [predicate]. */
     suspend fun <T> awaitLoaded(flow: Flow<DataState<T>>, predicate: (T) -> Boolean = { true }): T {

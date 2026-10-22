@@ -309,7 +309,11 @@ class DeleteBranchesGitActionTest {
             "The same branch settings are left as git leaves",
         )
         assertEquals(listOf("branch.other.remote=origin"), git.run(repository, "config", "--local", "--list").lines().filter { it.startsWith("branch.") })
-        assertEquals(git.run(twin, "for-each-ref"), git.run(repository, "for-each-ref").replace(repository.name, twin.name))
+        // The names only: the two repositories' commits can be made in different seconds, which gives other hashes
+        assertEquals(
+            git.run(twin, "for-each-ref", "--format=%(refname)"),
+            git.run(repository, "for-each-ref", "--format=%(refname)"),
+        )
     }
 
     @Test

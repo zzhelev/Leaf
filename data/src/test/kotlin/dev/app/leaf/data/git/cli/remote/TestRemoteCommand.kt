@@ -4,6 +4,9 @@
 package dev.app.leaf.data.git.cli.remote
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.GitExecutableLocator
+import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
@@ -87,3 +90,25 @@ fun pathWithoutGitLfs(folder: File): String {
  */
 fun testPartialCloneFetch(jgit: JGit, globalConfig: File = File("build/no-global.gitconfig")): PartialCloneFetch =
     TestRemoteCommand(File("../app/src/main/resources", ASKPASS_HELPER_NAME), globalConfig, jgit = jgit).partialClone
+
+/**
+ * A [RemoteOperationsBackend] for tests, around [gitCli] and [jgit]: the git CLI runs remote operations when
+ * [remoteOperationsWithGit] is on and [helper] is there, as in the app with its default settings.
+ */
+fun testRemoteOperationsBackend(
+    jgit: JGit,
+    gitCli: GitCli,
+    helper: File?,
+    remoteOperationsWithGit: Boolean = true,
+): RemoteOperationsBackend = RemoteOperationsBackend(
+    appSettingsService = AppSettingsService(
+        mockk<AppSettingsRepository> {
+            every { this@mockk.remoteOperationsWithGit } returns flowOf(remoteOperationsWithGit)
+            every { gitExecutablePath } returns flowOf(null)
+        }
+    ),
+    gitExecutableLocator = GitExecutableLocator(ProcessRunner()),
+    askpassHelper = AskpassHelper { helper },
+    gitCli = gitCli,
+    jgit = jgit,
+)

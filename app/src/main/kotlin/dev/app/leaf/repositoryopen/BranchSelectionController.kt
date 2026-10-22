@@ -6,29 +6,34 @@ package dev.app.leaf.repositoryopen
 import dev.app.leaf.domain.branches.BranchClick
 import dev.app.leaf.domain.branches.BranchSelection
 import dev.app.leaf.domain.branches.BranchesDeletionRequest
+import dev.app.leaf.domain.branches.remoteOfSelectionGroup
+import dev.app.leaf.domain.branches.selectionGroupOf
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.repositories.CloseableView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * The local branches selected in the side panel for deleting several at once (fork-only, upstream issue 116). The
- * rules are in [BranchSelection].
+ * The branches selected in the side panel for deleting several at once (fork-only, upstream issue 116): local ones, or
+ * one remote's. The rules are in [BranchSelection].
  *
  * It outlives clicks in the log and in the other sections, and ends with Esc, a plain click on a branch, or its own
  * clear. A refresh drops the branches that are gone and leaves the rest, whatever their tips did meanwhile.
  *
  * @param localBranches every local branch, as the tab has them, not the ones a search shows.
- * @param loggedBranch the local branch that the log has selected, which a click with a modifier starts from.
+ * @param remoteBranches every remote-tracking branch, of every remote, as the tab has them.
+ * @param loggedBranch the branch that the log has selected, which a click with a modifier starts from.
  */
 class BranchSelectionController(
     scope: CoroutineScope,
     private val localBranches: StateFlow<List<Branch>>,
+    private val remoteBranches: StateFlow<List<Branch>>,
     private val loggedBranch: () -> String?,
     private val addCloseableView: (CloseableView) -> Unit,
     private val removeCloseableView: (CloseableView) -> Unit,
@@ -38,8 +43,7 @@ class BranchSelectionController(
 
     init {
         scope.launch {
-            localBranches
-                .map { branches -> branches.map { it.name } }
+            combine(localBranches, remoteBranches) { local, remote -> (local + remote).map { it.name } }
                 .distinctUntilChanged()
                 .collect { names -> selection.update { it.pruned(names) } }
         }
@@ -83,14 +87,34 @@ class BranchSelectionController(
         selection.update { BranchSelection() }
     }
 
-    /** What the "Delete N branches" dialog is about: the selected branches, as the tab has them. */
+    /**
+     * What the "Delete N branches" dialog is about: the selected branches, as the tab has them, local ones or one
+     * remote's.
+     */
     fun deletionRequest(): BranchesDeletionRequest {
-        val selected = selection.value.selected
+        val current = selection.value
+        val selected = current.selected
+        val remote = current.group?.let(::remoteOfSelectionGroup)
 
-        return BranchesDeletionRequest(localBranches.value.filter { it.isLocal && it.name in selected })
+        return if (remote != null) {
+            BranchesDeletionRequest(remoteBranches.value.filter { it.isRemote && it.name in selected }, remote = remote)
+        } else {
+            BranchesDeletionRequest(localBranches.value.filter { it.isLocal && it.name in selected })
+        }
     }
 
     /** What "Delete merged branches" is about: every local branch, of which the dialog lists the merged ones. */
     fun mergedDeletionRequest(): BranchesDeletionRequest =
         BranchesDeletionRequest(localBranches.value.filter { it.isLocal }, mergedOnly = true)
+
+    /** What "Delete merged branches on [remote]" is about: every branch of [remote], as the tab has them. */
+    fun mergedDeletionRequest(remote: String): BranchesDeletionRequest {
+        val group = selectionGroupOf("refs/remotes/$remote/")
+
+        return BranchesDeletionRequest(
+            remoteBranches.value.filter { it.isRemote && selectionGroupOf(it.name) == group },
+            mergedOnly = true,
+            remote = remote,
+        )
+    }
 }

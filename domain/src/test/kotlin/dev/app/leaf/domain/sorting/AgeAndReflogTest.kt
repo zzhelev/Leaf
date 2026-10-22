@@ -56,4 +56,21 @@ class AgeAndReflogTest {
 
         assertEquals(emptyMap<String, Long>(), lastCheckoutTimes(entries))
     }
+
+    @Test
+    fun `time ago in minutes, hours, then the compact age`() {
+        val minute = 60 * 1000L
+        val hour = 60 * minute
+
+        assertEquals("just now", formatTimeAgo(NOW, NOW))
+        assertEquals("just now", formatTimeAgo(NOW - minute + 1, NOW))
+        assertEquals("just now", formatTimeAgo(NOW + DAY, NOW), "A time in the future")
+        assertEquals("1 min ago", formatTimeAgo(NOW - minute, NOW))
+        assertEquals("59 min ago", formatTimeAgo(NOW - hour + 1, NOW))
+        assertEquals("1 h ago", formatTimeAgo(NOW - hour, NOW))
+        assertEquals("23 h ago", formatTimeAgo(NOW - DAY + 1, NOW))
+        assertEquals("1d ago", formatTimeAgo(NOW - DAY, NOW))
+        assertEquals("2w ago", formatTimeAgo(NOW - 14 * DAY, NOW))
+        assertEquals("3mo ago", formatTimeAgo(NOW - 90 * DAY, NOW))
+    }
 }
