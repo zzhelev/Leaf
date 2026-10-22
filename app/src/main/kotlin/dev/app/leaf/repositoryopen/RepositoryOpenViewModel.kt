@@ -1279,6 +1279,22 @@ class RepositoryOpenViewModel @Inject constructor(
         historyViewModel = null
     }
 
+    /**
+     * Fork-only: Esc in file history. Two versions compared go back to one commit first (`docs/fork/compare.md`, 7.3);
+     * otherwise file history closes. Whether it closed.
+     */
+    fun escapeHistory(): Boolean {
+        val history = historyViewModel
+
+        return if (history != null && history.versions.value != null) {
+            history.endVersions()
+            false
+        } else {
+            closeHistory()
+            true
+        }
+    }
+
     /** Fork-only: the built-in conflict resolver, which takes the whole tab, as file history does. */
     val showConflictResolver: StateFlow<Boolean>
         field = MutableStateFlow(false)

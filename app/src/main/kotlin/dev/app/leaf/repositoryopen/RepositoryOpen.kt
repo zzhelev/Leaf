@@ -156,8 +156,10 @@ fun RepositoryOpenPage(
                         if (showConflictResolver) {
                             repositoryOpenViewModel.escapeConflictResolver()
                         } else if (showHistory) {
-                            repositoryOpenViewModel.closeHistory()
-                            focusRequester.requestFocus()
+                            // Two versions of the file go back to one commit first, and file history keeps the focus
+                            if (repositoryOpenViewModel.escapeHistory()) {
+                                focusRequester.requestFocus()
+                            }
                         } else if (blame is BlameState.Loaded && !blame.isMinimized) {
                             repositoryOpenViewModel.resetBlameState()
                             focusRequester.requestFocus()

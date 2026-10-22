@@ -5,7 +5,7 @@
 | Question | How can Leaf show the difference between any two commits or branches, in a way people find without being told? |
 | Verified against | `main` at `04e3f620`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-21 |
-| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22). Step 7, the later items, chosen 2026-10-22: 7.4 built |
+| Status | Approved 2026-10-21: entry points, default modes, the A/B labels and layout 1c. Steps 1 to 6 done (2026-10-22). Step 7, the later items, chosen 2026-10-22: 7.4 and 7.3 built |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -408,26 +408,42 @@ drawn at the right pane's 330 px in the dark theme. Built smallest first, each a
   of" gives way and the id stays), `ComparisonFullViewTest` (+1: the parent's and the commit's labels, a root commit).
   10 mutations of the steps, the toggle, the following, the loading and the labels, each caught by a named test.
 
-#### 7.3 Two versions of a file in file history (plan)
+#### 7.3 Two versions of a file in file history (built 2026-10-22)
 
-- **⌘-click a second row** (Ctrl-click elsewhere, `isCompareClick`), read when the click happens, as the log does. The
-  older row is A and the newer B, by their place in the list (newest first). Both rows are highlighted, with the A and
-  B badges. The diff is the file between the two versions: one path, as file history doesn't follow renames, so the
-  oldest row can be the commit that added the file, which then shows as added.
-- **The strip** takes the place of the selected commit's strip while two rows are chosen: "A e4f5a6b subject → B
-  920d6ac subject · 3 commits apart", with swap and close, and the diff's View menu as before. The labels over the
-  diff's sides are the full view's (`SideLabels`, made shared).
-- **Ending it:** a plain click, ↑ or ↓ select one commit, as in the log. The close button and Esc go back to the commit
-  selected before the ⌘-click. ⌘-click on A or B drops that side.
-- **The row's menu** gets "Compare with selected (920d6ac)" with the ⌘-click hint, on a row other than the selected one.
-  "Compare with working tree" comes with 7.2's reading.
-- **Data:** an action that gives the file's `DiffEntry` between two commits (a path-filtered `TreeWalk` of both trees,
-  `DiffEntry.scan`), shown as a `DiffType.CommitDiff`.
-- **View model:** `HistoryViewModel` holds the pair next to the selected commit; the whitespace mode's reload and Try
-  again read the pair too.
-- **Tests:** the action against `git diff A B -- <path>` (modified, added, deleted, the same blob); the view model's
-  pair (order, swap, a click ending it, Esc, the whitespace reload); file history rendered (badges, the strip, the
-  menu).
+- **⌘-click a second row** (Ctrl-click elsewhere, `isCompareClick`, read when the click happens, as the log does), or
+  "Compare with selected (0101010)" in a row's menu, with the ⌘-click hint, on a row other than the selected one and
+  only while one commit is shown. The older row is A and the newer B, by their place in the list, which is newest first
+  (`versionPick`, `inListOrder` in `viewmodels/FileHistoryCommits.kt`). Both rows are highlighted, with the A and B
+  badges at their ends (`VersionRowBadge`). The diff is the file from A's version to B's: one path, as file history
+  doesn't follow renames. A row that deleted the file, or the commit that moved it away in the old name's history, shows
+  as a deletion, as `git diff A B -- <path>` does.
+- **The strip** (`FileVersionsStrip`, `ui/FileHistoryVersions.kt`) takes the place of the selected commit's strip: "A
+  e4f5a6b subject → B 920d6ac subject · 4 commits apart" (the subjects are cut first, the whole message is a tooltip),
+  the diff's View menu, swap and "Back to one commit (Esc)". The labels over the diff's sides are the full view's
+  (`SideLabelsRow`, shared). Two rows with the same version of the file (a change and its revert) say "The file is the
+  same in both versions." (`SameVersionsNote`) in place of the diff.
+- **Ending it:** a plain click, ↑ or ↓ select one commit, as in the log; the arrows go on from A. The close button and
+  Esc go back to the commit selected before the comparison (`FileVersions.before`). Esc reaches the tab's handler first,
+  which now asks `RepositoryOpenViewModel.escapeHistory`: two versions go back to one commit, and only then does Esc
+  close file history. ⌘-click on A or B drops that side; elsewhere the row replaces B, with the older first again.
+- **The menu's item** gives the focus back to file history, which the menu took, so Esc and the arrows work after it.
+- **Data:** `GetFileDiffBetweenCommitsGitAction` (`IGetFileDiffBetweenCommitsGitAction`, `GetFileDiffBetweenCommitsUseCase`):
+  a `TreeWalk` of both commits' trees with a `PathFilter`, and `DiffEntry.scan`; the path's own entry, as a folder in its
+  place lists its files too. Null when both have the same version. It reads no blob; the diff pane reads them by id, as
+  for any commit's file.
+- **View model:** `HistoryViewModel.versions` (`FileVersions`: A, B and the commit selected before), `pickCommit`,
+  `swapVersions`, `endVersions`, and `reloadDiff` (Try again). The selected commit stays what it was. The whitespace
+  mode's reload makes the two versions' diff again where it was scrolled to. `selectCommit`'s formatting is
+  `showDiff`, shared.
+- **Not built:** "Compare with working tree" in the row's menu, which needs 7.2's reading.
+- **Tests:** `GetFileDiffBetweenCommitsGitActionTest` (6: modified either way, added, deleted, the same version, a folder
+  in the file's place, a mode change, a missing commit, each against `git diff --name-status A B -- <path>` and git's
+  blob ids), `FileHistoryCommitsTest` (+4: the order, a ⌘-click with nothing to compare, dropping and replacing a
+  side, the distance), `HistoryViewModelTest` (+4: compare and Esc back, a click and the arrows from A, swap and the
+  same version, the whitespace reload and Try again), `FileHistoryTest` (+3, rendered with the real view model: the
+  menu's item and hint, the badges and the highlight, the strip, the note, swap, close and Esc, and PNGs in both
+  themes with `LEAF_RENDER_DIR`). 11 mutations of the order, the picks, the reloads, the menu, the badges, Esc and the
+  tree walk, each caught by a named test. The tab's Esc branch (`escapeHistory`) has no kept test.
 
 #### 7.1 Compare any two refs (plan)
 

@@ -19,9 +19,11 @@ import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetDiffUseCase
 import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
+import dev.app.leaf.domain.usecases.GetFileDiffBetweenCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.ensureActive
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.eclipse.jgit.diff.DiffEntry
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -44,6 +47,8 @@ class HistoryViewModel @Inject constructor(
     private val getFileRestorePlanUseCase: GetFileRestorePlanUseCase,
     private val restoreFileVersionUseCase: RestoreFileVersionUseCase,
     private val repositoryStateRepository: RepositoryStateRepository,
+    // Fork-only: two versions of the file, compared
+    private val getFileDiffBetweenCommitsUseCase: GetFileDiffBetweenCommitsUseCase,
 ) : TabViewModel() {
     private val _historyState = MutableStateFlow<HistoryState>(HistoryState.Loading(""))
     val historyState: StateFlow<HistoryState> = _historyState
@@ -56,6 +61,11 @@ class HistoryViewModel @Inject constructor(
     val selectedCommit: StateFlow<Commit?> = _selectedCommit
 
     private var selectCommitJob: Job? = null
+
+    // Fork-only: two versions of the file that ⌘-click compares (docs/fork/compare.md, 7.3), in place of one commit's
+    // change. The selected commit stays what it was, which ending the comparison selects again
+    private val _versions = MutableStateFlow<FileVersions?>(null)
+    val versions: StateFlow<FileVersions?> = _versions
 
     // Fork-only: whether the repository has a working tree to restore the file into. A bare one hasn't, and the rows'
     // menu then has no item for it.
@@ -87,8 +97,13 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             settings.diffWhitespace.distinctUntilChanged().collect { mode ->
                 val commit = selectedCommit.value
+                val versions = versions.value
 
-                if (commit != null && filePath.isNotBlank() && mode != shownWhitespace) {
+                if (filePath.isBlank() || mode == shownWhitespace) {
+                    // Nothing to make again
+                } else if (versions != null) {
+                    compareVersions(versions, keepScroll = true)
+                } else if (commit != null) {
                     selectCommit(commit, keepScroll = true)
                 }
             }
@@ -188,16 +203,89 @@ class HistoryViewModel @Inject constructor(
         _restored.value = null
     }
 
-    /** Fork-only: selects the commit [offset] rows below the selected one, newer when negative (↑ and ↓). */
+    /**
+     * Fork-only: selects the commit [offset] rows below the selected one, newer when negative (↑ and ↓). While two
+     * versions are compared, from A, as the log's keys go on from A.
+     */
     fun selectAdjacentCommit(offset: Int) {
         val commits = (historyState.value as? HistoryState.Loaded)?.commits ?: return
 
-        adjacentCommit(commits, selectedCommit.value, offset)?.let { selectCommit(it) }
+        adjacentCommit(commits, versions.value?.a ?: selectedCommit.value, offset)?.let { selectCommit(it) }
+    }
+
+    /**
+     * Fork-only: ⌘-click on a row (Ctrl-click elsewhere), and the row menu's "Compare with selected": compares the file
+     * at the row with the file at the selected commit, the older first. While comparing, it drops a side or replaces B.
+     */
+    fun pickCommit(commit: Commit) {
+        val commits = (historyState.value as? HistoryState.Loaded)?.commits ?: return
+
+        when (val pick = versionPick(commits, versions.value, selectedCommit.value, commit)) {
+            is VersionPick.Select -> selectCommit(pick.commit)
+            is VersionPick.Compare -> compareVersions(pick.versions)
+        }
+    }
+
+    /** Fork-only: the file from B to A instead. */
+    fun swapVersions() {
+        val versions = versions.value ?: return
+
+        compareVersions(versions.copy(a = versions.b, b = versions.a))
+    }
+
+    /** Fork-only: ends the comparison of two versions, back to the commit that was selected before it (Esc). */
+    fun endVersions() {
+        versions.value?.let { selectCommit(it.before) }
+    }
+
+    /** Fork-only: loads the shown diff again after it failed, the two versions' or the selected commit's. */
+    fun reloadDiff() {
+        val versions = versions.value
+        val commit = selectedCommit.value
+
+        if (versions != null) {
+            compareVersions(versions)
+        } else if (commit != null) {
+            selectCommit(commit)
+        }
+    }
+
+    /** Fork-only: shows the file from [versions]' A to its B. Both the same shows no diff. */
+    private fun compareVersions(versions: FileVersions, keepScroll: Boolean = false) {
+        _versions.value = versions
+
+        val previousJob = selectCommitJob
+        selectCommitJob = viewModelScope.launch {
+            previousJob?.cancelAndJoin()
+
+            try {
+                when (val result = getFileDiffBetweenCommitsUseCase(filePath, versions.a, versions.b)) {
+                    is Either.Err -> {
+                        ensureActive()
+                        _viewDiffResult.value = ViewDiffResult.Failed(null, result.error)
+                    }
+
+                    is Either.Ok -> {
+                        val diffEntry = result.value
+
+                        if (diffEntry == null) {
+                            ensureActive()
+                            _viewDiffResult.value = ViewDiffResult.DiffNotFound(null)
+                        } else {
+                            showDiff(diffEntry, keepScroll)
+                        }
+                    }
+                }
+            } catch (ex: MissingDiffEntryException) {
+                _viewDiffResult.value = ViewDiffResult.DiffNotFound(null)
+            }
+        }
     }
 
     /** [keepScroll]: the same commit's diff is made again (fork-only), so it stays where it was scrolled to. */
     fun selectCommit(commit: Commit, keepScroll: Boolean = false) {
         _selectedCommit.value = commit
+        _versions.value = null
 
         // Fork-only: the arrow keys select commits faster than their diffs load, and the last one selected must be
         // the diff shown, so each load waits for the one before it to stop
@@ -226,31 +314,7 @@ class HistoryViewModel @Inject constructor(
                     return@launch
                 }
 
-                val diffType = DiffType.CommitDiff(diffEntry)
-                val whitespace = settings.diffWhitespace.first()
-                val diffResult = getDiffUseCase(
-                    diffType,
-                    settings.diffTextViewType.first(),
-                    settings.diffDisplayFullFile.first(),
-                    whitespace,
-                )
-                // Fork-only: GetDiffUseCase turns a cancellation into DiffNotFound, which would blank the diff until the
-                // next commit's loads. And another commit's diff starts at its top, as in the diff pane
-                ensureActive()
-                shownWhitespace = whitespace
-
-                if (!keepScroll) {
-                    lazyListState.value = newLazyListState()
-                } else {
-                    // The line at the top of the list stays at the top, though the rows change
-                    val before = (viewDiffResult.value as? ViewDiffResult.Loaded)?.diffResult
-                    val after = (diffResult as? ViewDiffResult.Loaded)?.diffResult
-
-                    rowKeptAcross(before, lazyListState.value.firstVisibleItemIndex, after)
-                        ?.let { row -> lazyListState.value = newLazyListState(row) }
-                }
-
-                _viewDiffResult.value = diffResult
+                showDiff(diffEntry, keepScroll)
             } catch (ex: Exception) {
                 if (ex is CancellationException) {
                     throw ex
@@ -261,6 +325,35 @@ class HistoryViewModel @Inject constructor(
                     ex.printStackTrace()
             }
         }
+    }
+
+    /** Shows [diffEntry]'s diff, the selected commit's or two versions' (fork-only, taken out of [selectCommit]). */
+    private suspend fun CoroutineScope.showDiff(diffEntry: DiffEntry, keepScroll: Boolean) {
+        val diffType = DiffType.CommitDiff(diffEntry)
+        val whitespace = settings.diffWhitespace.first()
+        val diffResult = getDiffUseCase(
+            diffType,
+            settings.diffTextViewType.first(),
+            settings.diffDisplayFullFile.first(),
+            whitespace,
+        )
+        // Fork-only: GetDiffUseCase turns a cancellation into DiffNotFound, which would blank the diff until the next
+        // commit's loads. And another commit's diff starts at its top, as in the diff pane
+        ensureActive()
+        shownWhitespace = whitespace
+
+        if (!keepScroll) {
+            lazyListState.value = newLazyListState()
+        } else {
+            // The line at the top of the list stays at the top, though the rows change
+            val before = (viewDiffResult.value as? ViewDiffResult.Loaded)?.diffResult
+            val after = (diffResult as? ViewDiffResult.Loaded)?.diffResult
+
+            rowKeptAcross(before, lazyListState.value.firstVisibleItemIndex, after)
+                ?.let { row -> lazyListState.value = newLazyListState(row) }
+        }
+
+        _viewDiffResult.value = diffResult
     }
 }
 

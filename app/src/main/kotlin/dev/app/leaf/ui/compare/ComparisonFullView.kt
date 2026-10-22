@@ -391,14 +391,38 @@ private fun SideLabels(state: ComparisonState, isSplit: Boolean) {
                 Text(text = "→", color = MaterialTheme.colors.onBackgroundSecondary, style = MaterialTheme.typography.body2)
                 CommitLabel(shownCommit.shortHash)
             }
-        } else if (isSplit) {
-            SideLabel(CompareLetter.A, state.aName, state.aCommit, Modifier.weight(1f))
-            SideLabel(CompareLetter.B, state.bName, state.bCommit, Modifier.weight(1f))
         } else {
-            SideLabel(CompareLetter.A, state.aName, state.aCommit)
-            Text(text = "→", color = MaterialTheme.colors.onBackgroundSecondary, style = MaterialTheme.typography.body2)
-            SideLabel(CompareLetter.B, state.bName, state.bCommit)
+            SideLabelsContent(state.aName, state.aCommit, state.bName, state.bCommit, isSplit)
         }
+    }
+}
+
+/**
+ * A and B above a diff's lines, as the full view and file history's two versions show them: over the two sides of a
+ * split diff, or on one line for a unified one.
+ */
+@Composable
+internal fun SideLabelsRow(aName: String, aCommit: String, bName: String, bCommit: String, isSplit: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(26.dp)
+            .background(MaterialTheme.colors.secondarySurface),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SideLabelsContent(aName, aCommit, bName, bCommit, isSplit)
+    }
+}
+
+@Composable
+private fun RowScope.SideLabelsContent(aName: String, aCommit: String, bName: String, bCommit: String, isSplit: Boolean) {
+    if (isSplit) {
+        SideLabel(CompareLetter.A, aName, aCommit, Modifier.weight(1f))
+        SideLabel(CompareLetter.B, bName, bCommit, Modifier.weight(1f))
+    } else {
+        SideLabel(CompareLetter.A, aName, aCommit)
+        Text(text = "→", color = MaterialTheme.colors.onBackgroundSecondary, style = MaterialTheme.typography.body2)
+        SideLabel(CompareLetter.B, bName, bCommit)
     }
 }
 

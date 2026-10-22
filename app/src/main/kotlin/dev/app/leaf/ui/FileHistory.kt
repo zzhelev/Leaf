@@ -23,6 +23,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isMetaPressed
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.handMouseClickable
@@ -45,6 +48,10 @@ import dev.app.leaf.ui.components.TooltipText
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.fileHistoryContextMenu
+import dev.app.leaf.ui.context_menu.isCompareClick
+import dev.app.leaf.ui.compare.CompareLetter
+import dev.app.leaf.ui.compare.SideLabelsRow
+import dev.app.leaf.viewmodels.distanceIn
 import dev.app.leaf.ui.diff.DiffLoadFailure
 import dev.app.leaf.ui.diff.DiffViewMenu
 import dev.app.leaf.ui.diff.DiffViewOptions
@@ -75,6 +82,8 @@ fun FileHistory(
     val historyState by historyViewModel.historyState.collectAsState()
     val canRestore by historyViewModel.canRestore.collectAsState()
     val restored by historyViewModel.restored.collectAsState()
+    // Fork-only: two versions of the file, compared (docs/fork/compare.md, 7.3)
+    val versions by historyViewModel.versions.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
 
@@ -89,7 +98,8 @@ fun FileHistory(
             .focusable()
             .onKeyEvent { keyEvent ->
                 if (keyEvent.matchesBinding(KeybindingOption.EXIT) && keyEvent.type == KeyEventType.KeyDown) {
-                    onClose()
+                    // Fork-only: Esc leaves two versions for one commit first
+                    if (versions != null) historyViewModel.endVersions() else onClose()
                     true
                 } else if (keyEvent.matchesBinding(KeybindingOption.UP) && keyEvent.type == KeyEventType.KeyDown) {
                     // Fork-only: steps through the commits
@@ -118,6 +128,16 @@ fun FileHistory(
             onCommitSelected = { historyViewModel.selectCommit(it) },
             onSelectAdjacentCommit = { historyViewModel.selectAdjacentCommit(it) },
             onRestoreVersion = onRestoreVersion.takeIf { canRestore },
+            versionsActions = FileVersionsActions(
+                versions = versions,
+                onPick = {
+                    historyViewModel.pickCommit(it)
+                    // A menu took the focus, which Esc and the arrows need here
+                    focusRequester.requestFocus()
+                },
+                onSwap = { historyViewModel.swapVersions() },
+                onEnd = { historyViewModel.endVersions() },
+            ),
         )
     }
 }
@@ -165,6 +185,7 @@ private fun HistoryContent(
     onCommitSelected: (Commit) -> Unit,
     onSelectAdjacentCommit: (offset: Int) -> Unit,
     onRestoreVersion: ((Commit) -> Unit)?,
+    versionsActions: FileVersionsActions,
 ) {
     val textScrollState by historyViewModel.lazyListState.collectAsState()
     val viewDiffResult by historyViewModel.viewDiffResult.collectAsState()
@@ -181,6 +202,8 @@ private fun HistoryContent(
             onCommitSelected = onCommitSelected,
             onSelectAdjacentCommit = onSelectAdjacentCommit,
             onRestoreVersion = onRestoreVersion,
+            versionsActions = versionsActions,
+            onTryAgain = { historyViewModel.reloadDiff() },
             whitespace = WhitespaceViewOptions(
                 whitespace = whitespaceMode,
                 showWhitespace = showWhitespace,
@@ -216,12 +239,23 @@ fun HistoryContentLoaded(
     onRestoreVersion: ((Commit) -> Unit)? = null,
     /** The View menu's whitespace switches, in the commit strip (fork-only). Null leaves the strip without it. */
     whitespace: WhitespaceViewOptions? = null,
+    /** Two versions of the file, compared (fork-only). Null leaves ⌘-click a plain click. */
+    versionsActions: FileVersionsActions? = null,
+    /** Loads the diff again after it failed (fork-only). */
+    onTryAgain: () -> Unit = { selectedCommit?.let(onCommitSelected) },
 ) {
     // Fork-only: the selected commit's row, kept in view when ↑ and ↓ select another
     val commitsListState = rememberLazyListState()
     val selectedPosition = positionOf(historyState.commits, selectedCommit)
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
+    // Fork-only: ⌘-click (Ctrl-click elsewhere) compares two versions, read at the click as the log does
+    val versions = versionsActions?.versions
+    val windowInfo = LocalWindowInfo.current
+    val isCompareClick = {
+        val modifiers = windowInfo.keyboardModifiers
+        isCompareClick(modifiers.isMetaPressed, modifiers.isCtrlPressed)
+    }
 
     LaunchedEffect(selectedPosition) {
         commitsListState.keepInView(selectedPosition)
@@ -246,13 +280,30 @@ fun HistoryContentLoaded(
                             onRestoreVersion = onRestoreVersion?.let { restore -> { restore(commit) } },
                             onCopyCommitHash = { scope.launch { clipboard.setClipboardText(commit.hash) } },
                             onCopyCommitMessage = { scope.launch { clipboard.setClipboardText(commit.message.trim()) } },
+                            // Fork-only: another row than the selected one, while one commit is shown
+                            selectedName = selectedCommit?.shortHash
+                                ?.takeIf { versions == null && index != selectedPosition },
+                            onCompareWithSelected = versionsActions?.let { actions -> { actions.onPick(commit) } },
                         )
                     }
                 ) {
+                    val letter = when (commit.hash) {
+                        versions?.a?.hash -> CompareLetter.A
+                        versions?.b?.hash -> CompareLetter.B
+                        else -> null
+                    }
+
                     HistoryCommit(
                         commit = commit,
-                        isSelected = index == selectedPosition,
-                        onCommitSelected = { onCommitSelected(commit) }
+                        isSelected = if (versions != null) letter != null else index == selectedPosition,
+                        onCommitSelected = {
+                            if (versionsActions != null && isCompareClick()) {
+                                versionsActions.onPick(commit)
+                            } else {
+                                onCommitSelected(commit)
+                            }
+                        },
+                        compareLetter = letter,
                     )
                 }
             }
@@ -262,25 +313,36 @@ fun HistoryContentLoaded(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            if (selectedCommit != null && selectedPosition >= 0) {
+            val viewMenu: (@Composable () -> Unit)? = whitespace?.let { options ->
+                {
+                    DiffViewMenu(
+                        diffType = (viewDiffResult as? ViewDiffResult.Loaded)?.diffType,
+                        options = DiffViewOptions(options.whitespace, options.showWhitespace, wrapLines = true),
+                        onWhitespaceChanged = options.onWhitespaceChanged,
+                        onShowWhitespaceChanged = options.onShowWhitespaceChanged,
+                        // The lines of file history always wrap
+                        onWrapLinesChanged = null,
+                    )
+                }
+            }
+
+            if (versions != null && versionsActions != null) {
+                // Fork-only: two versions in place of one commit
+                FileVersionsStrip(
+                    versions = versions,
+                    distance = versions.distanceIn(historyState.commits),
+                    onSwap = versionsActions.onSwap,
+                    onEnd = versionsActions.onEnd,
+                    viewMenu = viewMenu,
+                )
+            } else if (selectedCommit != null && selectedPosition >= 0) {
                 FileHistoryCommitStrip(
                     commit = selectedCommit,
                     position = selectedPosition,
                     count = historyState.commits.count(),
                     onSelectAdjacentCommit = onSelectAdjacentCommit,
                     onShowInList = { scope.launch { commitsListState.showInMiddle(selectedPosition) } },
-                    viewMenu = whitespace?.let { options ->
-                        {
-                            DiffViewMenu(
-                                diffType = (viewDiffResult as? ViewDiffResult.Loaded)?.diffType,
-                                options = DiffViewOptions(options.whitespace, options.showWhitespace, wrapLines = true),
-                                onWhitespaceChanged = options.onWhitespaceChanged,
-                                onShowWhitespaceChanged = options.onShowWhitespaceChanged,
-                                // The lines of file history always wrap
-                                onWrapLinesChanged = null,
-                            )
-                        }
-                    },
+                    viewMenu = viewMenu,
                 )
             }
 
@@ -300,7 +362,18 @@ fun HistoryContentLoaded(
 
             // Fork-only: says why the diff isn't there, as a file that a partial clone couldn't download
             if (viewDiffResult is ViewDiffResult.Failed) {
-                DiffLoadFailure(viewDiffResult.error, onTryAgain = { selectedCommit?.let(onCommitSelected) })
+                DiffLoadFailure(viewDiffResult.error, onTryAgain = onTryAgain)
+            }
+
+            // Fork-only: A and B over the two versions' lines
+            if (versions != null && viewDiffResult is ViewDiffResult.Loaded && viewDiffResult.diffResult is DiffResult.TextDiff) {
+                SideLabelsRow(
+                    aName = versions.a.shortHash,
+                    aCommit = versions.a.hash,
+                    bName = versions.b.shortHash,
+                    bCommit = versions.b.hash,
+                    isSplit = viewDiffResult.diffResult is DiffResult.TextSplit,
+                )
             }
 
             if (
@@ -351,6 +424,8 @@ fun HistoryContentLoaded(
                         }
                     }
                 }
+            } else if (versions != null && viewDiffResult is ViewDiffResult.DiffNotFound) {
+                SameVersionsNote()
             } else {
                 Box(
                     modifier = Modifier
@@ -367,6 +442,8 @@ fun HistoryCommit(
     commit: Commit,
     isSelected: Boolean,
     onCommitSelected: () -> Unit,
+    /** Fork-only: A or B while two versions are compared, as a badge at the row's end. */
+    compareLetter: CompareLetter? = null,
 ) {
     Row(
         modifier = Modifier
@@ -383,7 +460,7 @@ fun HistoryCommit(
             personIdent = commit.author,
         )
 
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             // Fork-only: the whole message, as the row has only its subject
             DelayedTooltip(text = remember(commit.message) { commit.message.forTooltip().ifBlank { null } }) {
                 Text(
@@ -413,6 +490,10 @@ fun HistoryCommit(
                     tooltipTitle = date
                 )
             }
+        }
+
+        if (compareLetter != null) {
+            VersionRowBadge(compareLetter, modifier = Modifier.padding(end = 12.dp))
         }
     }
 }

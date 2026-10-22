@@ -14,6 +14,7 @@ import dev.app.leaf.domain.errors.RestoreFileError
 import dev.app.leaf.domain.interfaces.IFormatDiffGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
 import dev.app.leaf.domain.interfaces.IGetFileCommitsAction
+import dev.app.leaf.domain.interfaces.IGetFileDiffBetweenCommitsGitAction
 import dev.app.leaf.domain.interfaces.IGetFileRestorePlanGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreePathGitAction
 import dev.app.leaf.domain.models.Commit
@@ -37,6 +38,7 @@ import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetDiffUseCase
 import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
+import dev.app.leaf.domain.usecases.GetFileDiffBetweenCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
@@ -58,6 +60,7 @@ import org.eclipse.jgit.lib.ObjectId
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import javax.inject.Provider
@@ -134,6 +137,25 @@ class HistoryViewModelTest {
         }
     }
 
+    /** The two versions that the file was compared in, A and B, and the pairs that have the same version of it. */
+    private val comparedVersions = mutableListOf<Pair<String, String>>()
+    private val sameVersions = mutableSetOf<Pair<String, String>>()
+    private var failNextVersions = false
+
+    private val getFileDiffBetween = mockk<IGetFileDiffBetweenCommitsGitAction> {
+        coEvery { this@mockk(any(), FILE, any(), any()) } coAnswers {
+            val a = thirdArg<String>()
+            val b = arg<String>(3)
+            comparedVersions += a to b
+
+            when {
+                failNextVersions -> Either.Err<GitError>(GenericError("Couldn't download it")).also { failNextVersions = false }
+                a to b in sameVersions -> Either.Ok(null)
+                else -> Either.Ok(versionsEntry(a, b))
+            }
+        }
+    }
+
     /** Whether the diffs have rows to scroll to: 100 lines when whitespace shows, 20 from line 40 when it's ignored. */
     private var withRows = false
 
@@ -173,6 +195,7 @@ class HistoryViewModelTest {
         GetFileRestorePlanUseCase(getFileRestorePlan, useCaseExecutor),
         RestoreFileVersionUseCase(useCaseExecutor, mockk()),
         stateRepository,
+        GetFileDiffBetweenCommitsUseCase(getFileDiffBetween, useCaseExecutor),
     )
 
     @AfterEach
@@ -424,6 +447,118 @@ class HistoryViewModelTest {
         assertEquals(GenericError("git isn't there"), failed.reason)
         assertEquals(FailureSeverity.HIGH, failed.severity)
         viewModel.onClear()
+    }
+
+    // Two versions, compared (docs/fork/compare.md, 7.3)
+
+    @Test
+    fun `cmd-click compares the file at two commits, the older first, and Esc goes back to the commit selected before`(): Unit =
+        runBlocking {
+            val viewModel = historyViewModel()
+            viewModel.fileHistory(FILE)
+            viewModel.awaitDiffOf(commits[0])
+
+            viewModel.pickCommit(commits[2])
+
+            assertEquals(FileVersions(a = commits[2], b = commits[0], before = commits[0]), viewModel.versions.value)
+            viewModel.awaitVersions(commits[2], commits[0])
+            assertEquals(listOf(hash("c") to hash("a")), comparedVersions)
+
+            viewModel.endVersions()
+
+            assertNull(viewModel.versions.value)
+            assertEquals(commits[0], viewModel.selectedCommit.value)
+            viewModel.awaitDiffOf(commits[0])
+
+            viewModel.onClear()
+        }
+
+    @Test
+    fun `a plain click and the arrows leave the two versions for one commit, the arrows from A`(): Unit = runBlocking {
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+        viewModel.awaitDiffOf(commits[0])
+
+        viewModel.pickCommit(commits[2])
+        viewModel.selectAdjacentCommit(-1)
+
+        assertNull(viewModel.versions.value)
+        assertEquals(commits[1], viewModel.selectedCommit.value)
+        viewModel.awaitDiffOf(commits[1])
+
+        viewModel.pickCommit(commits[0])
+        viewModel.selectCommit(commits[2])
+
+        assertNull(viewModel.versions.value)
+        viewModel.awaitDiffOf(commits[2])
+
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `swap shows the file from B to A, and the same version in both shows no diff`(): Unit = runBlocking {
+        sameVersions += hash("b") to hash("a")
+        val viewModel = historyViewModel()
+        viewModel.fileHistory(FILE)
+        viewModel.awaitDiffOf(commits[0])
+
+        viewModel.pickCommit(commits[2])
+        viewModel.awaitVersions(commits[2], commits[0])
+
+        viewModel.swapVersions()
+
+        assertEquals(FileVersions(a = commits[0], b = commits[2], before = commits[0]), viewModel.versions.value)
+        viewModel.awaitVersions(commits[0], commits[2])
+
+        // A cmd-click on the other row replaces B: a and b have the same version
+        viewModel.pickCommit(commits[1])
+        withTimeout(5.seconds) { viewModel.viewDiffResult.first { it is ViewDiffResult.DiffNotFound } }
+        assertEquals(FileVersions(a = commits[1], b = commits[0], before = commits[0]), viewModel.versions.value)
+
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `ignoring whitespace makes the two versions' diff again, and Try again loads them after a failure`(): Unit =
+        runBlocking {
+            val viewModel = historyViewModel()
+            viewModel.fileHistory(FILE)
+            viewModel.awaitDiffOf(commits[0])
+            viewModel.pickCommit(commits[2])
+            viewModel.awaitVersions(commits[2], commits[0])
+
+            diffWhitespace.value = DiffWhitespaceMode.IGNORE_ALL
+
+            withTimeout(5.seconds) { while (askedModes.last() != DiffWhitespaceMode.IGNORE_ALL) delay(10) }
+            assertEquals(listOf(hash("c") to hash("a"), hash("c") to hash("a")), comparedVersions)
+            viewModel.awaitVersions(commits[2], commits[0])
+
+            failNextVersions = true
+            viewModel.swapVersions()
+            assertInstanceOf(
+                ViewDiffResult.Failed::class.java,
+                withTimeout(5.seconds) { viewModel.viewDiffResult.first { it is ViewDiffResult.Failed } },
+            )
+
+            viewModel.reloadDiff()
+            viewModel.awaitVersions(commits[0], commits[2])
+
+            viewModel.onClear()
+        }
+
+    private suspend fun HistoryViewModel.awaitVersions(a: Commit, b: Commit) {
+        withTimeout(5.seconds) { viewDiffResult.first { it.shownId() == versionsId(a.hash, b.hash) } }
+    }
+
+    /** The id of the file's diff from [a] to [b]: half of each, so it's neither commit's own. */
+    private fun versionsId(a: String, b: String) = a.take(20) + b.take(20)
+
+    private fun versionsEntry(a: String, b: String) = mockk<DiffEntry> {
+        every { changeType } returns DiffEntry.ChangeType.MODIFY
+        every { oldPath } returns FILE
+        every { newPath } returns FILE
+        every { score } returns 100
+        every { newId } returns AbbreviatedObjectId.fromObjectId(ObjectId.fromString(versionsId(a, b)))
     }
 
     private suspend fun HistoryViewModel.awaitDiffOf(commit: Commit) {

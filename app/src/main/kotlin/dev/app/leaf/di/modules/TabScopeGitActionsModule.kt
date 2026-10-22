@@ -237,6 +237,10 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
+    fun bindsGetFileDiffBetweenCommitsGitAction(action: GetFileDiffBetweenCommitsGitAction): IGetFileDiffBetweenCommitsGitAction
+
+    @Binds
+    @TabScope
     fun bindsGetCommitFromHashGitAction(action: GetCommitFromHashGitAction): IGetCommitFromHashGitAction
 
     @Binds

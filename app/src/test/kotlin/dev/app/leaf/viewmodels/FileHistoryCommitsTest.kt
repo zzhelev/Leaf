@@ -49,4 +49,50 @@ class FileHistoryCommitsTest {
         date = 1_760_000_000,
         parentsHashes = emptyList(),
     )
+
+    // Two versions, compared (docs/fork/compare.md, 7.3)
+
+    @Test
+    fun `a cmd-click compares the row with the selected commit, the older first, and remembers what was selected`() {
+        assertEquals(
+            VersionPick.Compare(FileVersions(a = oldest, b = newest, before = newest)),
+            versionPick(commits, versions = null, selected = newest, picked = oldest),
+        )
+        assertEquals(
+            VersionPick.Compare(FileVersions(a = oldest, b = newest, before = oldest)),
+            versionPick(commits, versions = null, selected = oldest, picked = newest),
+        )
+    }
+
+    @Test
+    fun `with nothing else selected, or on the selected row, a cmd-click selects the row`() {
+        assertEquals(VersionPick.Select(middle), versionPick(commits, versions = null, selected = null, picked = middle))
+        assertEquals(VersionPick.Select(middle), versionPick(commits, versions = null, selected = middle, picked = middle))
+    }
+
+    @Test
+    fun `while comparing, a cmd-click on A or B drops that side, and elsewhere it replaces B`() {
+        val versions = FileVersions(a = oldest, b = middle, before = middle)
+
+        assertEquals(VersionPick.Select(middle), versionPick(commits, versions, selected = middle, picked = oldest))
+        assertEquals(VersionPick.Select(oldest), versionPick(commits, versions, selected = middle, picked = middle))
+        assertEquals(
+            VersionPick.Compare(FileVersions(a = oldest, b = newest, before = middle)),
+            versionPick(commits, versions, selected = middle, picked = newest),
+        )
+
+        // A row older than A takes A's place: the older is A
+        val newer = FileVersions(a = middle, b = newest, before = newest)
+        assertEquals(
+            VersionPick.Compare(FileVersions(a = oldest, b = middle, before = newest)),
+            versionPick(commits, newer, selected = newest, picked = oldest),
+        )
+    }
+
+    @Test
+    fun `two versions are as many commits apart as their rows`() {
+        assertEquals(2, FileVersions(oldest, newest, newest).distanceIn(commits))
+        assertEquals(2, FileVersions(newest, oldest, newest).distanceIn(commits))
+        assertEquals(1, FileVersions(middle, newest, newest).distanceIn(commits))
+    }
 }

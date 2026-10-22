@@ -1257,9 +1257,10 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
     their files.
   - Renders showed the fills only 1.2 to 1.6 : 1 against the light theme's white, grey and selected rows, so on a light
     theme a 1 dp outline of the same hue draws the badge (`#8A6D12`, `#2F6FA8`, at least 3 : 1 on all three).
-- **Not done** (`docs/fork/compare.md`, step 7, keeps the plans): two versions in file history (7.3), a "Compare with…"
-  picker for any branch, tag or hash (7.1), comparing with the working tree (7.2). Later: a worktree's review with its
-  uncommitted changes (7.2c), a pinned base in file history (7.3b). Enter in the pane's file list opens nothing.
+- **Not done** (`docs/fork/compare.md`, step 7, keeps the plans): a "Compare with…" picker for any branch, tag or hash
+  (7.1), comparing with the working tree (7.2). Later: a worktree's review with its uncommitted changes (7.2c), a pinned
+  base in file history (7.3b). Enter in the pane's file list opens nothing. Two versions in file history (7.3) are under
+  File history's two versions.
 - Tests:
   - `CompareRulesTest` (domain): a row's side, the picked order, the ancestor's swap, the default modes, the switch,
     `modeToShow`, `swapped` and the relation.
@@ -2572,9 +2573,10 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 **Keys:** the tab's shortcuts are an `onPreviewKeyEvent` on `RepositoryOpenPage`'s column, which sees every key
 before the views inside it and consumes the ones it matches. So a view's own Esc handler there never runs (upstream's
 `FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
-- Fork-only: that branch closes file history, then an expanded blame, then the last closeable view (`CloseableView`:
-  the diff, the searches, the commit field's co-author suggestions, a comparison and its full view, in the order they
-  opened).
+- Fork-only: that branch leaves file history's two versions (`escapeHistory`) or closes file history, then an expanded
+  blame, then the last closeable view (`CloseableView`:
+  the diff, the searches, the commit field's co-author suggestions, a comparison, its full view and a commit's changes in
+  it, in the order they opened).
 - Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
   while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
   back to the tab (fork-only). Closing the diff gives it to the log's list instead, which stays visible beside it (see
@@ -3332,6 +3334,24 @@ a mockup; "Copy file path" was left out, as it is the same for every row.
   `FileHistoryTest` (the menu, the copies, the strip's hash), `HistoryViewModelTest`, and the dialog in
   `ConfirmActionDialogTest`. The view model's restore, with `restored`, ran on the real Dagger graph in a temporary
   harness (the `UseCaseExecutor` of a unit test can't refresh, and `RefreshDataUseCase` can't be mocked).
+
+**File history's two versions (fork-only, step 7.3 of `docs/fork/compare.md`, 2026-10-22, `ui/FileHistoryVersions.kt`,
+`viewmodels/FileHistoryCommits.kt`):** ⌘-click a second row (Ctrl-click elsewhere, read at the click as the log does), or
+"Compare with selected (0101010)" in a row's menu, compares the file at two commits: the older row is A, the newer B.
+- Both rows are highlighted, with an A or B badge at the end (`VersionRowBadge`). `FileVersionsStrip` replaces the commit
+  strip ("A e4f5a6b subject → B 920d6ac subject · 4 commits apart", the View menu, swap, "Back to one commit (Esc)"), and
+  `SideLabelsRow` (the comparison's full view's) names the diff's sides. The same version in both: "The file is the same
+  in both versions."
+- `HistoryViewModel.versions` holds `FileVersions` (A, B, and `before`, the commit selected when it started) next to the
+  selected commit, which stays. `pickCommit` follows `versionPick`: with another commit selected, the two compare; on A
+  or B, that side drops and the other is selected; elsewhere the row replaces B. `selectCommit` (a plain click) and the
+  arrows (from A) end it; `endVersions` (close, Esc) selects `before`. The whitespace reload and `reloadDiff` (Try again)
+  read the pair.
+- Esc: the tab's handler sees it first (see Keys), so its file history branch calls `escapeHistory`, which leaves the two
+  versions before it closes file history. The menu's item gives the focus back to file history afterwards.
+- `GetFileDiffBetweenCommitsGitAction`: the path in both commits' trees (`TreeWalk`, `PathFilter`, `DiffEntry.scan`), as
+  `git diff A B -- <path>`; null for the same version. Reads no blob.
+- Tests: `GetFileDiffBetweenCommitsGitActionTest`, `FileHistoryCommitsTest`, `HistoryViewModelTest`, `FileHistoryTest`.
 
 **Log keyboard (fork-only, 2026-10-20, `ui/log/LogKeyboard.kt`, `domain/log/LogNavigation.kt`):** the log's rows take
 Up, Down, Page Up, Page Down, Home and End. Left and Right do nothing (decided with the user).

@@ -34,6 +34,7 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
 import dev.app.leaf.domain.errors.RestoreFileError
 import dev.app.leaf.domain.interfaces.IGetFileCommitsAction
+import dev.app.leaf.domain.interfaces.IGetFileDiffBetweenCommitsGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreePathGitAction
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffTextViewType
@@ -44,10 +45,14 @@ import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.GetCommitDiffEntriesUseCase
 import dev.app.leaf.domain.usecases.GetDiffUseCase
 import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
+import dev.app.leaf.domain.usecases.GetFileDiffBetweenCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
+import dev.app.leaf.domain.models.ViewDiffResult
+import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.viewmodels.FileVersions
 import dev.app.leaf.viewmodels.HistoryState
 import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.viewmodels.adjacentCommit
@@ -60,14 +65,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Provider
 import kotlin.time.Duration.Companion.seconds
@@ -107,6 +115,7 @@ class FileHistoryTest {
     @AfterEach
     fun closeScene() {
         scene?.close()
+        scene = null
         tabScope.cancel()
     }
 
@@ -287,6 +296,104 @@ class FileHistoryTest {
         assertEquals((1..20).joinToString("\n") { "line $it" } + "\n…", (1..25).joinToString("\n") { "line $it" }.forTooltip())
     }
 
+    // Two versions, compared (docs/fork/compare.md, 7.3)
+
+    @Test
+    fun `a row's Compare with selected compares two versions, with badges on their rows and a strip that names them`() {
+        val viewModel = renderFileHistory()
+
+        // Not on the selected row
+        rightClick(listRow("Commit 01").center)
+        assertFalse(nodes().any { node -> node.texts().any { it.startsWith("Compare with selected") } })
+        press(Key.Escape)
+
+        rightClick(listRow("Commit 05").center)
+        assertTrue("⌘-click" in nodes().flatMap { it.texts() } || "Ctrl-click" in nodes().flatMap { it.texts() })
+        click(menuItem("Compare with selected (0101010)").center)
+
+        assertEventually { viewModel.versions.value != null }
+        assertEquals(commits[4], viewModel.versions.value!!.a)
+        assertEquals(commits[0], viewModel.versions.value!!.b)
+
+        // Both rows show as selected, with their letters
+        assertTrue("A" in listRowTexts("Commit 05"), listRowTexts("Commit 05").toString())
+        assertTrue("B" in listRowTexts("Commit 01"), listRowTexts("Commit 01").toString())
+        assertFalse("A" in listRowTexts("Commit 03") || "B" in listRowTexts("Commit 03"))
+        assertEquals(rowColor("Commit 05"), rowColor("Commit 01"))
+        assertNotEquals(rowColor("Commit 03"), rowColor("Commit 01"))
+
+        assertEventually { "The file is the same in both versions." in stripTexts() }
+        assertTrue(listOf("A", "0505050", "Commit 05", "→", "B", "0101010", "Commit 01", "· 4 commits apart").all { it in stripTexts() }, stripTexts().toString())
+        // The one commit's strip is gone
+        assertFalse("1 of 40" in stripTexts())
+
+        // No Compare with selected while two are compared
+        rightClick(listRow("Commit 04").center)
+        assertFalse(nodes().any { node -> node.texts().any { it.startsWith("Compare with selected") } })
+        press(Key.Escape)
+
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `swap turns the two around, and close and Esc go back to the commit selected before`() {
+        val viewModel = renderFileHistory()
+        rightClick(listRow("Commit 05").center)
+        click(menuItem("Compare with selected (0101010)").center)
+        assertEventually { viewModel.versions.value != null }
+
+        click(button("Swap A and B").center)
+        assertEventually { viewModel.versions.value?.a == commits[0] }
+        assertTrue("A" in listRowTexts("Commit 01"))
+
+        click(button("Back to one commit (Esc)").center)
+        assertEventually { viewModel.versions.value == null }
+        assertEquals(commits[0], viewModel.selectedCommit.value)
+        assertTrue("1 of 40" in stripTexts(), stripTexts().toString())
+
+        rightClick(listRow("Commit 05").center)
+        click(menuItem("Compare with selected (0101010)").center)
+        assertEventually { viewModel.versions.value != null }
+
+        press(Key.Escape)
+        assertEventually { viewModel.versions.value == null }
+        assertEquals(commits[0], viewModel.selectedCommit.value)
+
+        viewModel.onClear()
+    }
+
+    @Test
+    fun `renders two versions in both themes, to look at`() {
+        val folder = System.getenv("LEAF_RENDER_DIR")?.let(::File) ?: return
+        folder.mkdirs()
+        val versions = FileVersions(a = commits[4], b = commits[0], before = commits[0])
+
+        for (theme in listOf(Theme.Dark, Theme.Light)) {
+            scene = ImageComposeScene(width = WIDTH, height = HEIGHT) {
+                AppTheme(theme) {
+                    HistoryContentLoaded(
+                        historyState = HistoryState.Loaded("src/App.kt", commits),
+                        viewDiffResult = ViewDiffResult.DiffNotFound(null),
+                        scrollState = LazyListState(),
+                        selectedCommit = commits[0],
+                        onCommitSelected = {},
+                        onSelectAdjacentCommit = {},
+                        versionsActions = FileVersionsActions(versions, onPick = {}, onSwap = {}, onEnd = {}),
+                    )
+                }
+            }
+            settle()
+            File(folder, "file-history-versions-${theme.name.lowercase()}.png")
+                .writeBytes(scene!!.render(frameTime).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            scene!!.close()
+            scene = null
+        }
+    }
+
+    private fun listRowTexts(message: String): List<String> = mergedNodes()
+        .first { it.boundsInWindow.left < LIST_WIDTH && message in it.texts() }
+        .texts()
+
     /** All of file history, with its view model around git actions that list [commits] and find no diffs. */
     private fun renderFileHistory(): HistoryViewModel {
         val repositoryDataRepository = mockk<RepositoryDataRepository> { every { repositoryPath } returns "/repo/.git" }
@@ -314,6 +421,10 @@ class FileHistoryTest {
                 if (hasWorkTree) Either.Ok("/repo") else Either.Err(RestoreFileError.NoWorkTree)
             }
         }
+        // Every two versions have the same file, so the view says so where the diff would be
+        val getFileDiffBetween = mockk<IGetFileDiffBetweenCommitsGitAction> {
+            coEvery { this@mockk(any(), any(), any(), any()) } returns Either.Ok(null)
+        }
         val viewModel = HistoryViewModel(
             GetCommitDiffEntriesUseCase(getCommitDiffEntries, mockk(), useCaseExecutor),
             mockk(),
@@ -324,6 +435,7 @@ class FileHistoryTest {
             GetFileRestorePlanUseCase(mockk(), useCaseExecutor),
             RestoreFileVersionUseCase(useCaseExecutor, mockk()),
             InMemoryRepositoryStateRepository(),
+            GetFileDiffBetweenCommitsUseCase(getFileDiffBetween, useCaseExecutor),
         )
 
         viewModel.fileHistory("src/App.kt")
