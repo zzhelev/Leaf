@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
+import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.darkTheme
@@ -432,7 +433,7 @@ class CommitMessageFieldTest {
 
         init {
             scene = ImageComposeScene(width = 400, height = 120, density = Density(1f)) {
-                AppTheme(selectedTheme = theme, customTheme = custom, accentStyle = style) {
+                AppTheme(selectedTheme = theme, customTheme = custom, style = BuiltInStyles.ofLook(style)) {
                     Box(Modifier.background(MaterialTheme.colors.surface)) {
                         Column {
                             CommitMessageTextField(

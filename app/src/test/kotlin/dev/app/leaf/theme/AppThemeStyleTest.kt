@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
+import dev.app.leaf.domain.styles.BuiltInStyles
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Test
@@ -36,7 +37,7 @@ class AppThemeStyleTest {
             AppTheme(
                 selectedTheme = this@Harness.theme,
                 customTheme = custom,
-                accentStyle = this@Harness.style,
+                style = BuiltInStyles.ofLook(this@Harness.style),
                 systemIsDark = systemIsDark,
             ) {
                 drawn = Drawn(

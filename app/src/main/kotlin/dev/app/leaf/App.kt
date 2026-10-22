@@ -47,6 +47,7 @@ import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.DiscardedFiles
+import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.lfs.AppLfsFactory
@@ -338,7 +339,7 @@ class App @Inject constructor(
                     AppTheme(
                         selectedTheme = theme,
                         customTheme = customTheme,
-                        accentStyle = accentStyle,
+                        style = BuiltInStyles.ofLook(accentStyle),
                         linesHeightType = linesHeightType,
                     ) {
                         Box(modifier = Modifier.background(MaterialTheme.colors.background)) {

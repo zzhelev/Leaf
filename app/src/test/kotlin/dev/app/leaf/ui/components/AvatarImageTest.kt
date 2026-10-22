@@ -20,6 +20,7 @@ import dev.app.leaf.domain.avatars.avatarPaletteIndex
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
+import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.darkTheme
 import dev.app.leaf.theme.lightTheme
@@ -50,7 +51,7 @@ class AvatarImageTest {
     ): Int {
         scene?.close()
         scene = ImageComposeScene(width = SIZE, height = SIZE, density = Density(1f)) {
-            AppTheme(theme, accentStyle = style) {
+            AppTheme(theme, style = BuiltInStyles.ofLook(style)) {
                 Box(Modifier.size(SIZE.dp)) {
                     // The default avatar provider is None: no picture is asked for, so the fallback is what shows
                     AvatarImage(Modifier.fillMaxSize(), person, shape = RectangleShape, color = color)

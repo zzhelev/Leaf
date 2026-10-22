@@ -34,6 +34,7 @@ import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.refresh.WatchUsage
+import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.ui.RestoredVersionStrip
 import dev.app.leaf.ui.components.FilesChangedHeader
@@ -106,7 +107,7 @@ class StyleRenderTest {
 
     private fun draw(case: Case, width: Int = 900, height: Int = 200, content: @Composable () -> Unit): Drawn {
         val scene = ImageComposeScene(width = width, height = height, density = Density(1f)) {
-            AppTheme(selectedTheme = case.theme, accentStyle = case.style) {
+            AppTheme(selectedTheme = case.theme, style = BuiltInStyles.ofLook(case.style)) {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colors.background)) { content() }
             }
         }
