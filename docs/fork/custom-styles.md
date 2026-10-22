@@ -24,6 +24,7 @@ editor 3c, with Solarized as the example).
   buttons and notices that Style sets today, and the log graph's six lanes.
 - **Built-in styles:** Tonal (the default), Classic, Quiet and Solarized, one style with a light and a dark side. They
   can only be duplicated. Tonal, Classic and Quiet look exactly as today, apart from Tonal's and Quiet's lanes (step 7).
+  Teal joined them on 2026-10-23 (`docs/fork/CHANGELOG.md`).
 - **User styles** are files: create, duplicate, edit, rename, delete, export, import.
 - **Settings** shows the styles as a gallery of cards (3b), light on the left and dark on the right, then "+ New style"
   and "Import style…".

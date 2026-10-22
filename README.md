@@ -92,8 +92,8 @@ Leaf does not track data in any way, don't worry.
 
 > Can I change Leaf's colours?
 
-Yes. Settings → Appearance → Style has four built-in styles, Tonal (the default), Classic, Quiet and Solarized, and any
-of your own. "+ New style" opens an editor: pick how buttons are drawn, a background for the light and the dark theme,
+Yes. Settings → Appearance → Style has five built-in styles, Tonal (the default), Classic, Quiet, Solarized and Teal,
+and any of your own. "+ New style" opens an editor: pick how buttons are drawn, a background for the light and the dark theme,
 and an accent, danger, warning and success colour, and Leaf works out every other colour, keeping text readable. Under
 Advanced, any colour can be set by hand.
 

@@ -3883,18 +3883,18 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 - **Styles (fork-only, 2026-10-22, `docs/fork/custom-styles.md`, `domain/styles/`, `theme/styles/`, `ui/styles/`):**
   Settings → Appearance → Style is a library of styles, under Theme. A style has a light and a dark side and sets every
   colour Leaf draws with: the scheme, the roles below and the graph's six lanes. Built in: Tonal (the default, a new
-  install's too), Classic (Leaf's look until 2026-10-21), Quiet and Solarized, which can be duplicated, not changed. The
-  user's own are JSON files. It replaced the JSON custom theme (Theme's Custom, removed 2026-10-22, with no migration:
-  `custom_theme` is in `REMOVED_SETTINGS`, and a stored `custom` theme reads as Dark). Chosen with the user on the
-  Claude Design project `5fe7f140-cd30-47ab-a95a-1994cadae8d9`: the "Leaf Colours" board (turn 1: Classic 1a, Tonal 1d,
-  Quiet 1f, muted lanes 1g; chosen on 2026-10-21 as Classic's button blue #0070D8 and red #C93838, OKLCH chroma 0.18,
-  were too bright next to the diff tints, 0.02 to 0.03), "Custom Style" (turn 2: 2a with 2b's table, the palette) and
-  "Style Library" (turn 3: gallery 3b, editor 3c, Solarized).
+  install's too), Classic (Leaf's look until 2026-10-21), Quiet, Solarized and Teal, which can be duplicated, not
+  changed. The user's own are JSON files. It replaced the JSON custom theme (Theme's Custom, removed 2026-10-22, with no
+  migration: `custom_theme` is in `REMOVED_SETTINGS`, and a stored `custom` theme reads as Dark). Chosen with the user
+  on the Claude Design project `5fe7f140-cd30-47ab-a95a-1994cadae8d9`: the "Leaf Colours" board (turn 1: Classic 1a,
+  Tonal 1d, Quiet 1f, muted lanes 1g; chosen on 2026-10-21 as Classic's button blue #0070D8 and red #C93838, OKLCH
+  chroma 0.18, were too bright next to the diff tints, 0.02 to 0.03), "Custom Style" (turn 2: 2a with 2b's table, the
+  palette) and "Style Library" (turn 3: gallery 3b, editor 3c, Solarized).
   - **The model** (`domain/styles/`): `StyleDefinition(id, name, look: AccentStyle, light, dark)`, a side being
     `StyleSide(seeds: StyleSeeds, setByHand: Map<StyleSlot, Int>)` and the seeds Background, Accent, Danger, Warning and
     Success (ARGB ints, so domain needs no Compose). `StyleSlot` has 58 colours with stable file keys (`background`,
     `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary` and `onPrimary` are Main action's), the roles' 26 and
-    six lanes. `BuiltInStyles` holds the four, in Settings' order; their ids (`tonal`, `classic`, `quiet`) are what
+    six lanes. `BuiltInStyles` holds the five, in Settings' order; the looks' ids (`tonal`, `classic`, `quiet`) are what
     `accent_style` held before, so an old choice still reads.
   - **Working a side out** (`resolveStyleSide`, `theme/styles/StyleDerivation.kt`, into a `StylePalette` that gives the
     `ColorsScheme`, the `StyleColors` and the lanes): each colour not set by hand starts as its look's
@@ -3935,6 +3935,14 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     are worked out (#F6EFDC): base01 holds 4.39 : 1 on base2. Buttons, strips, headers and the diff's tints are worked
     out; the filled buttons come out #006EAE and #0068A5, near the board's #196EA9. Every check holds on both sides.
     Chosen with the user from renders of the tab, the gallery and the editor.
+  - **Teal** (`BuiltInStyles.TEAL`, 2026-10-23): the Tonal look with a teal accent (#007475), a raspberry danger
+    (#B4405A), amber (#E0A03A) and green (#3F8F52), on the looks' white and #0F0F0F. First a style in the styles demo,
+    which the user asked to have built in; refined from renders. Set by hand are the light text (#1D2B2B); the dark
+    headers and boxes, which follow no seed and stayed Tonal's navy next to teal buttons, as Tonal's turned to Teal's
+    hue (#003B3A, at the most chroma sRGB has at that lightness, and #152F2D); and lanes 2 to 6 (orange, blue, pink,
+    green, violet, in the muted lanes' lightness), as following the seeds made lane 2 a rose 0.039 from lane 6's pink
+    in OKLab, closer than any pair of Tonal's (0.048). The closest pair is now 0.074. Lane 1 follows the accent. Every
+    check holds on both sides with nothing moved.
   - **Files and storage:** one JSON file per user style, `<id>.json`, in `<app data>/styles/`
     (`AppStorage.STYLES_FOLDER_NAME`; `leaf-dev/styles/` for dev runs): `leafStyle` (the format's version), `name`,
     `look`, and per side `seeds` and `setByHand`, colours as `#RRGGBB` or `#RRGGBBAA` (`StyleFileCodec`). The id is the
@@ -4006,7 +4014,7 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     (domain); `FileStyleLibraryRepositoryTest`, `StyleSettingTest`, `ThemeSettingTest` and
     `RemovedSettingsMigrationTest` (data); `StyleDerivationTest` (every built-in look's colours exactly, every look's
     checks, 2,000 random seed sets per look and side holding every check, colours set by hand, surfaces moving away from
-    their text, Solarized), `AppThemeStylesTest`, `GraphLanesTest` (pixels), `StyleGalleryTest`, `StyleEditorStateTest`,
+    their text, Solarized, Teal), `AppThemeStylesTest`, `GraphLanesTest` (pixels), `StyleGalleryTest`, `StyleEditorStateTest`,
     `StyleEditorViewModelTest`, `StyleEditorDialogTest`, and the role tests from 2026-10-21: `StyleColorsContrastTest`,
     `StyleRenderTest`, `AppThemeStyleTest`. 115 mutations across the work were each caught by a named test. Not covered
     by a kept test: `App.kt` passing the selected style to `AppTheme`, and `SettingsViewModel`'s state; the real panes,

@@ -2,6 +2,20 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Teal, a built-in style (2026-10-23)
+
+- **Request:** the Teal style from the styles demo, built in, previewed first.
+- **Teal:** Tonal's look with a teal accent, a raspberry danger, an amber warning and a green success, on white and
+  #0F0F0F, listed after Solarized. Refined from renders of the tab, the graph and the gallery, as the demo's file had
+  two flaws: in dark, the section headers, the log's header and the diff toolbar stayed Tonal's navy next to teal
+  buttons, so they're set by hand in Teal's hue (#003B3A, #152F2D); and lane 2, which follows the danger colour, came out
+  a rose next to lane 6's pink, so lanes 2 to 6 are set by hand to orange, blue, pink, green and violet. Every check holds
+  on both sides.
+- **The id `teal`** is the built-in's: a file of one's own named Teal now gets `teal-2`, as Solarized's does.
+- Tests: Teal's definition, its checks on both sides, its dark headers' hue and its lanes' spacing. The tests that used
+  "Teal" as a user's style use "Lagoon".
+- Details: CLAUDE.md, Settings, "Styles".
+
 ## Styles: a library, an editor, and Solarized; the JSON custom theme goes (2026-10-22)
 
 - **Request:** custom colours that cover the whole app, made in Leaf rather than in a JSON field, and Solarized among
