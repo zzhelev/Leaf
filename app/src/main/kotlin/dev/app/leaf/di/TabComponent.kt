@@ -42,6 +42,7 @@ interface TabComponent {
     fun createBranchViewModelFactory(): CreateBranchViewModel.Factory
     fun createTagViewModelFactory(): CreateTagViewModel.Factory
     fun deleteBranchViewModelFactory(): DeleteBranchViewModel.Factory
+    fun deleteBranchesViewModelFactory(): DeleteBranchesViewModel.Factory
     fun deleteTagViewModelFactory(): DeleteTagViewModel.Factory
     fun resetBranchViewModelFactory(): ResetBranchViewModel.Factory
     fun discardChangesViewModelFactory(): DiscardChangesViewModel.Factory

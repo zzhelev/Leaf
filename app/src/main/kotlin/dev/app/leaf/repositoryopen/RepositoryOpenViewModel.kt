@@ -16,6 +16,8 @@ import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.domain.TabCoroutineScope
+import dev.app.leaf.domain.branches.BranchClick
+import dev.app.leaf.domain.branches.BranchSelection
 import dev.app.leaf.domain.conflicts.ConflictsToOpen
 import dev.app.leaf.domain.conflicts.conflictsToOpen
 import dev.app.leaf.domain.errors.Either
@@ -370,6 +372,36 @@ class RepositoryOpenViewModel @Inject constructor(
         combineBranchesState(branches, currentBranch, isExpandedBranches, filter, refRowsContext)
             .stateIn(BranchesState(isLoading = true, emptyList(), isExpandedBranches.value, null))
 
+    // Fork-only: the local branches selected in the side panel for deleting several at once (upstream issue 116)
+    private val branchSelectionController = BranchSelectionController(
+        scope = viewModelScope,
+        localBranches = branches.map { it.data.orEmpty() }.stateIn(emptyList()),
+        loggedBranch = { (selectedItem.value as? SelectedItem.BranchItem)?.branch?.takeIf { it.isLocal }?.name },
+        addCloseableView = ::addCloseableView,
+        removeCloseableView = ::removeCloseableView,
+    )
+
+    val branchSelection: StateFlow<BranchSelection> = branchSelectionController.selection
+
+    /**
+     * A click on the local branch [branch]. A plain one selects its commit in the log, as it always did; one with a
+     * modifier changes the selection for "Delete N branches" instead. [shown] are the local branches that the list shows.
+     */
+    fun onBranchClicked(branch: Branch, click: BranchClick, shown: () -> List<String>) {
+        if (branchSelectionController.onClick(branch.name, click, shown)) {
+            selectBranch(branch)
+        }
+    }
+
+    /** "Select its branches" on a folder of the local branches. */
+    fun selectBranches(names: List<String>) = branchSelectionController.add(names)
+
+    fun clearBranchSelection() = branchSelectionController.clear()
+
+    fun selectedBranchesDeletionRequest() = branchSelectionController.deletionRequest()
+
+    fun mergedBranchesDeletionRequest() = branchSelectionController.mergedDeletionRequest()
+
     private val remotesContracted = MutableStateFlow<Set<Remote>>(emptySet())
     val remoteState: StateFlow<RemotesState> =
         combineRemotesState(
@@ -706,6 +738,8 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.COMPARISON_SIDE_PICKER -> comparisonViewModelExtender.closeSidePicker()
 
                 CloseableView.COMMIT_FIELD_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
+
+                CloseableView.BRANCH_SELECTION -> branchSelectionController.clear()
 
             }
         }

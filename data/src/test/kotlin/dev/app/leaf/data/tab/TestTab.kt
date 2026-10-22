@@ -8,6 +8,8 @@ import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
+import dev.app.leaf.data.git.branches.DeleteBranchesGitAction
+import dev.app.leaf.data.git.branches.GetBranchDeletionInfoGitAction
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.MergeBranchGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
@@ -115,7 +117,9 @@ import dev.app.leaf.data.git.workspace.StageAllGitAction
 import dev.app.leaf.domain.usecases.AbortSquashMergeUseCase
 import dev.app.leaf.domain.usecases.ContinueRebaseUseCase
 import dev.app.leaf.domain.usecases.CreateWorktreeUseCase
+import dev.app.leaf.domain.usecases.DeleteBranchesUseCase
 import dev.app.leaf.domain.usecases.DoCommitUseCase
+import dev.app.leaf.domain.usecases.GetBranchDeletionPlanUseCase
 import dev.app.leaf.domain.usecases.FollowRemovedWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetAuthorUseCase
 import dev.app.leaf.domain.usecases.GetLogUseCase
@@ -472,6 +476,14 @@ class TestTab(
         repositoryDataRepository = repositoryData,
         getWorktreeCreationSettingsGitAction = GetWorktreeCreationSettingsGitAction(jgit),
     )
+
+    /** Fork-only (upstream issue 116): what the "Delete branches" dialog reads, and its delete. */
+    val getBranchDeletionPlan = GetBranchDeletionPlanUseCase(
+        useCaseExecutor = useCaseExecutor,
+        getWorktreeBaseBranchGitAction = GetWorktreeBaseBranchGitAction(jgit),
+        getBranchDeletionInfoGitAction = GetBranchDeletionInfoGitAction(jgit, gitCli),
+    )
+    val deleteBranches = DeleteBranchesUseCase(DeleteBranchesGitAction(jgit), useCaseExecutor)
 
     /** Waits until [flow] has loaded data that passes [predicate]. */
     suspend fun <T> awaitLoaded(flow: Flow<DataState<T>>, predicate: (T) -> Boolean = { true }): T {

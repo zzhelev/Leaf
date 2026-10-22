@@ -797,6 +797,78 @@
     <string name="delete_ref_dialog_no_commits_lost">Its commits are on other branches or tags too, so none will be lost.</string>
     <string name="delete_ref_dialog_delete">Delete</string>
     <string name="delete_ref_dialog_delete_anyway">Delete anyway</string>
+    <string name="side_pane_branches_selected">%1$d selected</string>
+    <string name="side_pane_branches_clear_selection">Clear selection</string>
+    <string name="side_pane_branches_clear_selection_tooltip">Clear the selection (Esc)</string>
+    <plurals name="branch_context_menu_delete_selected">
+        <item quantity="one">Delete %1$d branch</item>
+        <item quantity="other">Delete %1$d branches</item>
+    </plurals>
+    <plurals name="branch_context_menu_select_folder_branches">
+        <item quantity="one">Select its %1$d branch</item>
+        <item quantity="other">Select its %1$d branches</item>
+    </plurals>
+    <string name="sort_delete_merged_branches">Delete merged branches…</string>
+    <string name="sort_delete_merged_branches_hint">Lists the branches merged into the base</string>
+    <string name="delete_branches_dialog_title">Delete branches</string>
+    <string name="delete_branches_dialog_title_merged">Delete merged branches</string>
+    <plurals name="delete_branches_dialog_subtitle">
+        <item quantity="one">Delete the selected branch?</item>
+        <item quantity="other">Delete the %1$d selected branches?</item>
+    </plurals>
+    <string name="delete_branches_dialog_subtitle_merged">Branches merged into %1$s</string>
+    <string name="delete_branches_dialog_subtitle_loading">Checking what deleting them would do</string>
+    <string name="delete_branches_dialog_checking">Checking the branches…</string>
+    <string name="delete_branches_dialog_count">%1$d of %2$d will be deleted</string>
+    <string name="delete_branches_dialog_check">Check:</string>
+    <string name="delete_branches_dialog_check_all">all</string>
+    <string name="delete_branches_dialog_check_safe">safe</string>
+    <string name="delete_branches_dialog_check_none">none</string>
+    <plurals name="delete_branches_dialog_delete">
+        <item quantity="one">Delete %1$d branch</item>
+        <item quantity="other">Delete %1$d branches</item>
+    </plurals>
+    <string name="delete_branches_dialog_delete_none">Delete</string>
+    <string name="delete_branches_dialog_nothing_merged">No branch is merged into %1$s.</string>
+    <string name="delete_branches_dialog_no_base">There's no base branch to compare with, so none counts as merged. Choose one in the Worktrees menu or a branch's menu.</string>
+    <string name="delete_branches_dialog_none_found">None of the selected branches exist any more.</string>
+    <string name="delete_branches_dialog_merged">Merged into %1$s</string>
+    <string name="delete_branches_dialog_squash_merged">Squash-merged into %1$s</string>
+    <plurals name="delete_branches_dialog_squash_merged_commits">
+        <item quantity="one">Squash-merged into %2$s. Its %1$d commit will be on no branch.</item>
+        <item quantity="other">Squash-merged into %2$s. Its %1$d commits will be on no branch.</item>
+    </plurals>
+    <string name="delete_branches_dialog_on_other_refs">Not merged, but all its commits are on other branches or tags</string>
+    <plurals name="delete_branches_dialog_unmerged">
+        <item quantity="one">Not merged: %1$d commit is only on this branch</item>
+        <item quantity="other">Not merged: %1$d commits are only on this branch</item>
+    </plurals>
+    <string name="delete_branches_dialog_used_here">Checked out in this worktree</string>
+    <string name="delete_branches_dialog_rebased_here">Being rebased in this worktree</string>
+    <string name="delete_branches_dialog_bisected_here">A bisect in this worktree started from it</string>
+    <string name="delete_branches_dialog_used_by">Checked out in the worktree %1$s</string>
+    <string name="delete_branches_dialog_rebased_by">Being rebased in the worktree %1$s</string>
+    <string name="delete_branches_dialog_bisected_by">A bisect in the worktree %1$s started from it</string>
+    <string name="delete_branches_dialog_result_none">No branch was deleted</string>
+    <plurals name="delete_branches_dialog_result_title">
+        <item quantity="one">Deleted %1$d branch</item>
+        <item quantity="other">Deleted %1$d branches</item>
+    </plurals>
+    <string name="delete_branches_dialog_result_title_partial">Deleted %1$d of %2$d branches</string>
+    <plurals name="delete_branches_dialog_result_kept">
+        <item quantity="one">%1$d branch was left as it is.</item>
+        <item quantity="other">%1$d branches were left as they are.</item>
+    </plurals>
+    <string name="delete_branches_dialog_result_all_gone">Each one's commit is below, to bring it back.</string>
+    <string name="delete_branches_dialog_result_deleted">Deleted</string>
+    <string name="delete_branches_dialog_result_not_deleted">Not deleted</string>
+    <string name="delete_branches_dialog_result_was">was</string>
+    <string name="delete_branches_dialog_result_gone">It no longer exists.</string>
+    <string name="delete_branches_dialog_result_moved">It moved since you opened this: it was %1$s and is now %2$s. Nothing was deleted.</string>
+    <string name="delete_branches_dialog_result_failed">Git couldn't delete it: %1$s</string>
+    <string name="delete_branches_dialog_result_restore">To bring one back, run git branch followed by its name and commit.</string>
+    <string name="delete_branches_dialog_result_copy">Copy list</string>
+    <string name="delete_branches_dialog_result_close">Close</string>
 
     <!-- Checking out a remote branch whose local branch is behind it -->
     <string name="fast_forward_dialog_title_checkout">Check out branch</string>

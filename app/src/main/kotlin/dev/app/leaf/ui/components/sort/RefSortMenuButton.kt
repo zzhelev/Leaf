@@ -20,6 +20,8 @@ fun RefSortMenuButton(
     onSortChange: (RefSortState) -> Unit,
     onKeepHeadOnTopToggle: () -> Unit,
     onGroupByPrefixToggle: () -> Unit,
+    // Fork-only: "Delete merged branches…", in the local branches' menu (upstream issue 116)
+    onDeleteMergedBranches: (() -> Unit)? = null,
 ) {
     val title = stringResource(
         when (section) {
@@ -73,6 +75,20 @@ fun RefSortMenuButton(
                 onClick = onGroupByPrefixToggle,
             )
         )
+
+        if (section == RefSection.Local && onDeleteMergedBranches != null) {
+            add(SortMenuItem.Divider)
+            add(
+                SortMenuItem.Option(
+                    label = stringResource(Res.string.sort_delete_merged_branches),
+                    hint = stringResource(Res.string.sort_delete_merged_branches_hint),
+                    isChecked = false,
+                    closesMenu = true,
+                    icon = Res.drawable.delete,
+                    onClick = onDeleteMergedBranches,
+                )
+            )
+        }
     }
 
     SortMenuButton(

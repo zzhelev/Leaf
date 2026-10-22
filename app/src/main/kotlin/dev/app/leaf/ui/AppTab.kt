@@ -232,6 +232,16 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.BranchesDelete>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            DeleteBranchesDialog(
+                                viewModel = tabViewModel(entry) { viewModelsProvider ->
+                                    viewModelsProvider.deleteBranchesViewModelFactory().create(entry.request)
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.BranchChangeUpstream>(
                             metadata = dialogsMetadata
                         ) { entry ->

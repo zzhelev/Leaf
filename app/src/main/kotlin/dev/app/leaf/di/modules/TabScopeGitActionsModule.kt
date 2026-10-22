@@ -157,6 +157,16 @@ interface TabScopeGitActionsModule {
     @TabScope
     fun bindsDeleteBranchGitAction(action: DeleteBranchGitAction): IDeleteBranchGitAction
 
+    // Fork-only: several branches at once (upstream issue 116)
+    @Binds
+    @TabScope
+    fun bindsDeleteBranchesGitAction(action: DeleteBranchesGitAction): IDeleteBranchesGitAction
+
+    // Fork-only: what the "Delete branches" dialog shows about each branch
+    @Binds
+    @TabScope
+    fun bindsGetBranchDeletionInfoGitAction(action: GetBranchDeletionInfoGitAction): IGetBranchDeletionInfoGitAction
+
     @Binds
     @TabScope
     fun bindsDeleteFileGitAction(action: DeleteFileGitAction): IDeleteFileGitAction

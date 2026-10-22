@@ -38,6 +38,7 @@ import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.data.git.signers.GpgProgramSigner
 import dev.app.leaf.data.git.signers.SshProgramSigner
 import dev.app.leaf.data.shell.LoginShellEnvironment
+import dev.app.leaf.domain.branches.BranchesDeletionRequest
 import dev.app.leaf.domain.TempFilesManager
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.index.UnsupportedIndex
@@ -94,6 +95,10 @@ sealed interface Screen : NavKey {
     data class BranchChangeUpstream(val ref: Branch) : Screen
     data class BranchCreate(val targetCommit: Commit?) : Screen
     data class BranchDelete(val branch: Branch) : Screen
+
+    /** "Delete N branches" and "Delete merged branches" (fork-only, upstream issue 116). */
+    data class BranchesDelete(val request: BranchesDeletionRequest) : Screen
+
     data class TagCreate(val targetCommit: Commit) : Screen
     data class TagDelete(val tag: Tag) : Screen
     data class BranchReset(val targetCommit: Commit) : Screen

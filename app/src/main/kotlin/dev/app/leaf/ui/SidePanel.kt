@@ -22,6 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isMetaPressed
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -31,6 +34,12 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.Screen
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.common.currentOs
+import dev.app.leaf.domain.branches.BranchClick
+import dev.app.leaf.domain.branches.BranchSelection
+import dev.app.leaf.domain.branches.BranchesDeletionRequest
+import dev.app.leaf.domain.branches.branchClickOf
+import dev.app.leaf.domain.branches.branchesInFolder
 import dev.app.leaf.domain.extensions.isValid
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.BranchWorktreeUsers
@@ -87,6 +96,7 @@ fun SidePanel(
     val branchWorktrees by viewModel.branchWorktrees.collectAsState()
     val refPanelSettings by viewModel.refPanelSettings.collectAsState()
     val branchesAhead by viewModel.branchesAhead.collectAsState()
+    val branchSelection by viewModel.branchSelection.collectAsState()
     // Fork-only: the branch menus' cherry-pick item
     val cherryPick = BranchCherryPick(branchesAhead, branchesState.currentBranch) { branch, item ->
         viewModel.cherryPickFromBranch(branch, item) { onNavigate(Screen.CherryPickBranch(it)) }
@@ -157,6 +167,8 @@ fun SidePanel(
                 onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
                 onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
                 cherryPick = cherryPick,
+                branchSelection = branchSelection,
+                onDeleteBranches = { onNavigate(Screen.BranchesDelete(it)) },
             )
 
             worktrees(
@@ -285,10 +297,14 @@ fun LazyListScope.localBranches(
     onDeleteBranch: (Branch) -> Unit,
     onNewWorktree: (NewWorktreeStart) -> Unit = {},
     cherryPick: BranchCherryPick? = null,
+    // Fork-only: the branches selected for deleting several at once (upstream issue 116)
+    branchSelection: BranchSelection = BranchSelection(),
+    onDeleteBranches: (BranchesDeletionRequest) -> Unit = {},
 ) {
     val isExpanded = branchesState.isExpanded
     val branches = branchesState.branches
     val currentBranch = branchesState.currentBranch
+    val loggedBranch = (selectedItem as? SelectedItem.BranchItem)?.branch?.takeIf { it.isLocal }?.name
 
     stickyHeader(key = "header:local") {
         SectionHeaderBackground {
@@ -303,14 +319,27 @@ fun LazyListScope.localBranches(
                     isExpanded = isExpanded,
                     onExpand = { viewModel.onExpandBranches() },
                     sortAction = {
-                        RefSortMenuButton(
-                            section = RefSection.Local,
-                            sortState = branchesState.sortState,
-                            settings = refPanelSettings,
-                            onSortChange = { viewModel.onRefSortChanged(RefSection.Local, it) },
-                            onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
-                            onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (branchSelection.selected.size >= 2) {
+                                BranchSelectionChip(
+                                    count = branchSelection.selected.size,
+                                    onClear = { viewModel.clearBranchSelection() },
+                                    modifier = Modifier.padding(end = 4.dp),
+                                )
+                            }
+
+                            RefSortMenuButton(
+                                section = RefSection.Local,
+                                sortState = branchesState.sortState,
+                                settings = refPanelSettings,
+                                onSortChange = { viewModel.onRefSortChanged(RefSection.Local, it) },
+                                onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
+                                onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
+                                onDeleteMergedBranches = {
+                                    onDeleteBranches(viewModel.mergedBranchesDeletionRequest())
+                                },
+                            )
+                        }
                     },
                 )
             }
@@ -320,7 +349,16 @@ fun LazyListScope.localBranches(
     if (isExpanded) {
         items(branchesState.rows, key = { it.key }) { row ->
             when (row) {
-                is RefRow.Folder -> RefFolder(row, onClick = { viewModel.onRefFolderToggled(row.key) })
+                is RefRow.Folder -> RefFolder(
+                    row,
+                    onClick = { viewModel.onRefFolderToggled(row.key) },
+                    // Fork-only: the folder's branches, as the search shows them
+                    onSelectBranches = {
+                        val pinned = currentBranch.takeIf { refPanelSettings.keepHeadOnTop }
+
+                        viewModel.selectBranches(branchesInFolder(branches, row.label, pinned))
+                    },
+                )
                 is RefRow.Item -> {
                     val branch = row.entry.item
                     val scope = rememberCoroutineScope()
@@ -331,13 +369,25 @@ fun LazyListScope.localBranches(
                         displayName = row.displayName,
                         depth = row.depth,
                         ageLabel = row.ageLabel,
-                        isSelectedItem = selectedItem is SelectedItem.BranchItem && selectedItem.branch == branch,
+                        isSelectedItem = branchSelection.isHighlighted(branch.name, loggedBranch),
                         currentBranch = currentBranch,
                         worktreeUsers = branchWorktrees.usersOf(branch),
                         worktreesBaseBranch = branchWorktrees.baseBranch,
                         worktreesBase = branchWorktrees.baseChoice,
-                        onBranchClicked = { viewModel.selectBranch(branch) },
+                        // Fork-only: a click with Ctrl, Cmd or Shift changes the selection (upstream issue 116)
+                        onBranchClicked = { click ->
+                            viewModel.onBranchClicked(branch, click) {
+                                branchesState.rows.filterIsInstance<RefRow.Item<Branch>>().map { it.entry.item.name }
+                            }
+                        },
                         onBranchDoubleClicked = { viewModel.checkoutBranch(branch) },
+                        selectedCount = if (branchSelection.isMultiSelectionOf(branch.name)) {
+                            branchSelection.selected.size
+                        } else {
+                            0
+                        },
+                        onDeleteSelected = { onDeleteBranches(viewModel.selectedBranchesDeletionRequest()) },
+                        onClearSelection = { viewModel.clearBranchSelection() },
                         onCheckoutBranch = { viewModel.checkoutBranch(it) },
                         onMergeBranch = { viewModel.mergeBranch(it) },
                         onRebaseBranch = { viewModel.rebaseBranch(it) },
@@ -683,20 +733,27 @@ private fun RefFolder(
     folder: RefRow.Folder,
     extraPadding: Dp = 0.dp,
     onClick: () -> Unit,
+    // Fork-only: "Select its N branches", for the local branches (upstream issue 116)
+    onSelectBranches: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = Modifier
-            .height(MaterialTheme.linesHeight.sidePanelItemHeight)
-            .fillMaxWidth()
-            .handMouseClickable { onClick() },
-        verticalAlignment = Alignment.CenterVertically,
+    ContextMenu(
+        enabled = onSelectBranches != null,
+        items = { branchFolderContextMenuItems(folder.count, onSelectBranches ?: {}) },
     ) {
-        FolderEntryContent(
-            label = folder.label,
-            count = folder.count,
-            isExpanded = folder.isExpanded,
-            startPadding = 14.dp + extraPadding,
-        )
+        Row(
+            modifier = Modifier
+                .height(MaterialTheme.linesHeight.sidePanelItemHeight)
+                .fillMaxWidth()
+                .handMouseClickable { onClick() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FolderEntryContent(
+                label = folder.label,
+                count = folder.count,
+                isExpanded = folder.isExpanded,
+                startPadding = 14.dp + extraPadding,
+            )
+        }
     }
 }
 
@@ -719,8 +776,9 @@ private fun RefTrailingLabel(ageLabel: String?, isCurrentBranch: Boolean) {
     )
 }
 
+/** `internal` for its test, which renders rows with a selection (fork-only, upstream issue 116). */
 @Composable
-private fun Branch(
+internal fun Branch(
     branch: Branch,
     displayName: String,
     depth: Int,
@@ -730,8 +788,12 @@ private fun Branch(
     worktreesBaseBranch: String?,
     worktreesBase: WorktreeBaseBranch?,
     isSelectedItem: Boolean,
-    onBranchClicked: () -> Unit,
+    onBranchClicked: (BranchClick) -> Unit,
     onBranchDoubleClicked: () -> Unit,
+    // Fork-only: how many branches are selected when this one is among two or more, else 0 (upstream issue 116)
+    selectedCount: Int,
+    onDeleteSelected: () -> Unit,
+    onClearSelection: () -> Unit,
     onCheckoutBranch: (Branch) -> Unit,
     onMergeBranch: (Branch) -> Unit,
     onRebaseBranch: (Branch) -> Unit,
@@ -749,9 +811,26 @@ private fun Branch(
     onCopyBranchNameToClipboard: (Branch) -> Unit,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
+    val windowInfo = LocalWindowInfo.current
+
+    // What a click does by the keys held when it happens, not when the row was last composed
+    fun clickNow(): BranchClick {
+        val modifiers = windowInfo.keyboardModifiers
+
+        return branchClickOf(
+            isShiftPressed = modifiers.isShiftPressed,
+            isCtrlPressed = modifiers.isCtrlPressed,
+            isMetaPressed = modifiers.isMetaPressed,
+            isMac = currentOs.isMac(),
+        )
+    }
 
     ContextMenu(
         items = {
+            if (selectedCount >= 2) {
+                return@ContextMenu selectedBranchesContextMenuItems(selectedCount, onDeleteSelected, onClearSelection)
+            }
+
             branchContextMenuItems(
                 branch = branch,
                 currentBranch = currentBranch,
@@ -787,8 +866,9 @@ private fun Branch(
             iconResourcePath = Res.drawable.branch,
             isSelected = isSelectedItem,
             extraPadding = FOLDER_DEPTH_PADDING * depth,
-            onClick = onBranchClicked,
-            onDoubleClick = onBranchDoubleClicked,
+            onClick = { onBranchClicked(clickNow()) },
+            // Checking a branch out takes a plain double-click: with Ctrl, Cmd or Shift it's two selecting clicks
+            onDoubleClick = { if (clickNow() == BranchClick.Plain) onBranchDoubleClicked() },
             textContent = {
                 // The branch name first, then the worktree that uses it (fork-only)
                 BranchNameWithWorktree(

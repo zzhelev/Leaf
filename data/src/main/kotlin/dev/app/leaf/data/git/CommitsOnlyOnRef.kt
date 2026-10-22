@@ -14,8 +14,11 @@ import org.eclipse.jgit.revwalk.RevWalk
  * Counts the commits that [refName] reaches and that no other ref or HEAD reaches: the commits that deleting it would
  * leave on no branch or tag. Refs to annotated tags count by their commit. Symbolic refs to [refName], refs that don't
  * point at a commit, and refs to missing objects reach nothing.
+ *
+ * Deleting several refs at once leaves what none of the remaining refs reach, so the refs in [alsoIgnoring], which go
+ * too, count as no ref (fork-only, upstream issue 116).
  */
-fun Repository.countCommitsOnlyOn(refName: String): Int {
+fun Repository.countCommitsOnlyOn(refName: String, alsoIgnoring: Set<String> = emptySet()): Int {
     val ref = exactRef(refName) ?: return 0
 
     RevWalk(this).use { walk ->
@@ -25,7 +28,7 @@ fun Repository.countCommitsOnlyOn(refName: String): Int {
         val otherRefs = refDatabase.refs + listOfNotNull(exactRef(Constants.HEAD))
 
         for (other in otherRefs) {
-            if (other.leaf.name == refName) continue
+            if (other.leaf.name == refName || other.leaf.name in alsoIgnoring) continue
 
             walk.commitOrNull(other.objectId)?.let { walk.markUninteresting(it) }
         }

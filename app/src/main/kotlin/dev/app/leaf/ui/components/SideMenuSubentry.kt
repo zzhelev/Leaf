@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,6 +44,8 @@ fun SideMenuSubentry(
         modifier = Modifier
             .height(MaterialTheme.linesHeight.sidePanelItemHeight)
             .fillMaxWidth()
+            // Fork-only: what the highlight says, for tests and screen readers
+            .semantics { selected = isSelected }
             .clickable { onClick() }
             .run {
                 if (onDoubleClick != null)
