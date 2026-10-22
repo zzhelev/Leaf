@@ -48,6 +48,9 @@ data class AppStorage(
          */
         const val REBASE_EDIT_MESSAGE_FILE_PREFIX = "leaf-amend-message-"
 
+        /** The folder of the user's styles, in the app's folder: one `<id>.json` file per style. */
+        const val STYLES_FOLDER_NAME = "styles"
+
         val current: AppStorage by lazy {
             val loadedFrom = AppStorage::class.java.protectionDomain?.codeSource?.location
                 ?.let { runCatching { File(it.toURI()) }.getOrNull() }

@@ -13,9 +13,9 @@ import dev.app.leaf.data.repositories.configuration.mappers.LinesHeightMapper
 import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapper
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.models.AppConfig
-import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.styles.BuiltInStyles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,8 +34,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-/** Settings → Appearance → Style, through a real settings file (fork-only). */
-class AccentStyleSettingTest {
+/** Settings → Appearance → Style, through a real settings file (fork-only): the selected style's id. */
+class StyleSettingTest {
     @TempDir
     lateinit var dir: File
 
@@ -79,73 +79,65 @@ class AccentStyleSettingTest {
 
     @Test
     fun `a new install, without a settings file, is tonal`(): Unit = runBlocking {
-        assertNull(repository().accentStyle.first())
-        assertEquals(AccentStyle.TONAL, service().accentStyle.first())
+        assertNull(repository().styleId.first())
+        assertEquals(BuiltInStyles.TONAL_ID, service().styleId.first())
     }
 
     @Test
     fun `a settings file from before the styles, without the key, is tonal and keeps its theme`(): Unit = runBlocking {
         settingsFile.writeText("""{"theme": {"type": "string", "value": "light"}}""")
 
-        assertNull(repository().accentStyle.first())
-        assertEquals(AccentStyle.TONAL, service().accentStyle.first())
+        assertNull(repository().styleId.first())
+        assertEquals(BuiltInStyles.TONAL_ID, service().styleId.first())
         assertEquals(Theme.Light, service().theme.first())
     }
 
     @Test
-    fun `each style stays after a restart, under its lower-case name`(): Unit = runBlocking {
-        for (style in listOf(AccentStyle.CLASSIC, AccentStyle.QUIET, AccentStyle.TONAL)) {
-            repository().setConfiguration(AppConfig.AccentStyle(style))
+    fun `the looks chosen before styles could be made are the built-in styles' ids`(): Unit = runBlocking {
+        // accent_style held the look's name in lower case from 2026-10-21
+        for (stored in listOf("tonal", "classic", "quiet")) {
+            storeRaw(stored)
+
+            assertEquals(stored, service().styleId.first())
+            assertEquals(stored, BuiltInStyles.byId(stored)?.id)
+        }
+    }
+
+    @Test
+    fun `each style stays after a restart, under its id`(): Unit = runBlocking {
+        // A file put in the folder by hand keeps its name as the id, capitals and spaces included
+        for (id in listOf("classic", "teal", "solarized-dark-2", "My Style", "quiet", "tonal")) {
+            repository().setConfiguration(AppConfig.Style(id))
 
             assertTrue(
-                settingsFile.readText().contains(""""accent_style"""") &&
-                    settingsFile.readText().contains(""""${style.name.lowercase()}""""),
+                settingsFile.readText().contains(""""accent_style"""") && settingsFile.readText().contains(""""$id""""),
                 settingsFile.readText(),
             )
-            assertEquals(style, service().accentStyle.first(), "$style after a restart")
+            assertEquals(id, service().styleId.first(), "$id after a restart")
         }
     }
 
     @Test
     fun `the style is a setting of its own, apart from the theme`(): Unit = runBlocking {
-        repository().setConfiguration(AppConfig.Theme(Theme.Custom))
-        repository().setConfiguration(AppConfig.AccentStyle(AccentStyle.QUIET))
+        repository().setConfiguration(AppConfig.Theme(Theme.System))
+        repository().setConfiguration(AppConfig.Style("teal"))
 
-        assertEquals(Theme.Custom, service().theme.first())
-        assertEquals(AccentStyle.QUIET, service().accentStyle.first(), "A custom theme keeps the style chosen")
+        assertEquals(Theme.System, service().theme.first())
+        assertEquals("teal", service().styleId.first(), "The theme keeps the style chosen")
 
         repository().setConfiguration(AppConfig.Theme(Theme.Dark))
 
-        assertEquals(AccentStyle.QUIET, service().accentStyle.first(), "Changing the theme leaves the style")
+        assertEquals("teal", service().styleId.first(), "Changing the theme leaves the style")
     }
 
     @Test
-    fun `a value that this version doesn't know reads as tonal, and never throws`(): Unit = runBlocking {
-        for (stored in listOf("vivid", "", "TONAL", "Classic", " quiet", "quiet ", "system", "1d")) {
+    fun `any stored id reads as it is, and never stops the other settings from reading`(): Unit = runBlocking {
+        // Which style an unknown id draws is the styles service's to say (Tonal)
+        for (stored in listOf("vivid", "", "TONAL", " quiet", "system", "1d")) {
             storeRaw(stored)
 
-            assertEquals(AccentStyle.TONAL, service().accentStyle.first(), "'$stored'")
-            // The other settings still read
+            assertEquals(stored, service().styleId.first(), "'$stored'")
             assertEquals(AppSettingsService.DEFAULT_THEME, service().theme.first(), "'$stored': theme")
         }
-
-        storeRaw("classic")
-
-        assertEquals(AccentStyle.CLASSIC, service().accentStyle.first())
-    }
-
-    @Test
-    fun `every style has a name of its own, and Tonal comes first in the menu`() {
-        val names = AccentStyle.entries.map { it.name.lowercase() }
-
-        assertEquals(names.size, names.toSet().size)
-        assertEquals(listOf(AccentStyle.TONAL, AccentStyle.CLASSIC, AccentStyle.QUIET), AccentStyle.entries)
-        assertEquals(AccentStyle.TONAL, AccentStyle.DEFAULT)
-
-        for (style in AccentStyle.entries) {
-            assertEquals(style, AccentStyle.fromStored(style.name.lowercase()))
-        }
-
-        assertEquals(AccentStyle.DEFAULT, AccentStyle.fromStored(null))
     }
 }

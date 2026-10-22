@@ -9,15 +9,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.models.ui.resolved
+import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
+import dev.app.leaf.theme.styles.CLASSIC_LANES
+import dev.app.leaf.theme.styles.resolveStyleSide
 import dev.app.leaf.ui.dropdowns.DropDownOption
-import kotlinx.coroutines.flow.MutableStateFlow
 
 private val defaultAppTheme: ColorsScheme = darkTheme
-private var appTheme: MutableStateFlow<ColorsScheme> = MutableStateFlow(defaultAppTheme)
+
+// Fork-only: provided by AppTheme rather than kept in a global flow, so that an AppTheme inside another one (the style
+// editor's previews) colours only what it holds
+internal val LocalColorsScheme = staticCompositionLocalOf { defaultAppTheme }
+
+/** The log graph's lanes, which the style sets (fork-only). */
+internal val LocalGraphLanes = staticCompositionLocalOf { CLASSIC_LANES }
 internal val LocalLinesHeight = compositionLocalOf { spacedLineHeight }
 
 class LinesHeight internal constructor(
@@ -53,29 +61,19 @@ val denseLineHeight = LinesHeight(
 fun AppTheme(
     selectedTheme: Theme = Theme.Dark,
     linesHeightType: LinesHeightType = LinesHeightType.COMPACT,
-    customTheme: ColorsScheme? = null,
-    // Fork-only: how strong buttons and notices are in the light and the dark theme. A custom theme keeps its own
-    // colours, laid out as Classic
-    accentStyle: AccentStyle = AccentStyle.DEFAULT,
+    // Fork-only: every colour of the light and the dark theme (docs/fork/custom-styles.md)
+    style: StyleDefinition = BuiltInStyles.DEFAULT,
     // Fork-only: read only when the System theme is selected. Compose polls the operating system's setting, so a
     // change recomposes this, and the colours with it
     systemIsDark: Boolean = selectedTheme == Theme.System && isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val resolvedTheme = selectedTheme.resolved(systemIsDark)
-    val baseTheme = when (resolvedTheme) {
-        Theme.Light -> lightTheme
-        Theme.Dark -> darkTheme
-        Theme.Custom -> customTheme ?: defaultAppTheme
-        // resolved() never returns it
-        Theme.System -> defaultAppTheme
-    }
-    val theme = if (resolvedTheme == Theme.Custom) baseTheme else baseTheme.styled(accentStyle)
-    val styleColors = if (resolvedTheme == Theme.Custom) {
-        classicStyleColors(theme)
-    } else {
-        styleColorsFor(accentStyle, theme)
-    }
+    // resolved() never returns System
+    val isLight = selectedTheme.resolved(systemIsDark) == Theme.Light
+    val palette = remember(style, isLight) { resolveStyleSide(style, isLight).palette }
+    val theme = palette.toColorsScheme()
+    val styleColors = palette.toStyleColors()
+    val lanes = palette.lanes
 
     val lineHeight = when (linesHeightType) {
         LinesHeightType.SPACED -> spacedLineHeight
@@ -83,10 +81,13 @@ fun AppTheme(
         LinesHeightType.DENSE -> denseLineHeight
     }
 
-    appTheme.value = theme
-
     val composeColors = theme.toComposeColors()
-    val compositionValues = arrayOf(LocalLinesHeight provides lineHeight, LocalStyleColors provides styleColors)
+    val compositionValues = arrayOf(
+        LocalLinesHeight provides lineHeight,
+        LocalStyleColors provides styleColors,
+        LocalColorsScheme provides theme,
+        LocalGraphLanes provides lanes,
+    )
 
     CompositionLocalProvider(values = compositionValues) {
         MaterialTheme(
@@ -106,7 +107,14 @@ val MaterialTheme.linesHeight: LinesHeight
 
 private val theme: ColorsScheme
     @Composable
-    get() = appTheme.collectAsState().value
+    @ReadOnlyComposable
+    get() = LocalColorsScheme.current
+
+/** The log graph's six lanes, in the order the log uses them (fork-only). */
+val MaterialTheme.graphLanes: List<Color>
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalGraphLanes.current
 
 val Colors.backgroundSelected: Color
     @Composable
@@ -194,5 +202,4 @@ val themeLists = listOf(
     DropDownOption(Theme.Light, "Light"),
     DropDownOption(Theme.Dark, "Dark"),
     DropDownOption(Theme.System, "System"),
-    DropDownOption(Theme.Custom, "Custom"),
 )

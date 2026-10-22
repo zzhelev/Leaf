@@ -148,10 +148,19 @@ class ThemeSettingTest {
 
     @Test
     fun `the files that earlier Leaf versions wrote still read`(): Unit = runBlocking {
-        for ((stored, theme) in listOf("light" to Theme.Light, "dark" to Theme.Dark, "custom" to Theme.Custom)) {
+        for ((stored, theme) in listOf("light" to Theme.Light, "dark" to Theme.Dark, "system" to Theme.System)) {
             writeTheme(stored)
 
             assertEquals(theme, AppSettingsService(repository()).theme.first(), stored)
         }
+    }
+
+    @Test
+    fun `the custom theme, which styles replaced, reads as no choice, and never throws`(): Unit = runBlocking {
+        writeTheme("custom")
+
+        assertNull(repository().theme.first())
+        assertEquals(AppSettingsService.DEFAULT_THEME, AppSettingsService(repository()).theme.first())
+        assertNull(ThemeMapper().toDomain("custom"))
     }
 }

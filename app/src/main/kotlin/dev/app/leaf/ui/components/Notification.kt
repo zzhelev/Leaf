@@ -27,7 +27,7 @@ import org.jetbrains.compose.resources.painterResource
 @Preview
 @Composable
 fun NotificationSuccessPreview() {
-    AppTheme(customTheme = null) {
+    AppTheme {
         Notification(
             NotificationData(NotificationType.Positive, "Hello world!")
         )

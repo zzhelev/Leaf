@@ -21,7 +21,6 @@ class ThemeResolutionTest {
         for (systemIsDark in listOf(true, false)) {
             assertEquals(Theme.Light, Theme.Light.resolved(systemIsDark))
             assertEquals(Theme.Dark, Theme.Dark.resolved(systemIsDark))
-            assertEquals(Theme.Custom, Theme.Custom.resolved(systemIsDark))
         }
     }
 
@@ -35,7 +34,7 @@ class ThemeResolutionTest {
     }
 
     @Test
-    fun `the values keep their order, so that System comes last`() {
-        assertEquals(listOf(Theme.Light, Theme.Dark, Theme.Custom, Theme.System), Theme.entries)
+    fun `the themes are Light, Dark and System, as Custom gave way to styles`() {
+        assertEquals(listOf(Theme.Light, Theme.Dark, Theme.System), Theme.entries)
     }
 }

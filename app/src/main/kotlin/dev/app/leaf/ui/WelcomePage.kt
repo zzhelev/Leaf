@@ -95,9 +95,7 @@ fun WelcomePage(
 @Preview
 @Composable
 fun WelcomeViewPreview() {
-    AppTheme(
-        customTheme = null
-    ) {
+    AppTheme {
         val recentRepositories = (0..10).map {
             "/home/user/sample$it"
         }

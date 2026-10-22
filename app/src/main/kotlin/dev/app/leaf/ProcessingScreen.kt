@@ -175,7 +175,6 @@ fun getTitle(taskType: TaskType): String {
         TaskType.ResetToCommit -> "Resetting to commit"
         TaskType.RevertCommit -> "Reverting commit"
         TaskType.SaveAuthor -> "Saving author"
-        TaskType.SaveCustomTheme -> "Saving custom theme"
         TaskType.SkipRebase -> "Skipping rebase"
         TaskType.StageAllFiles -> "Staging all files"
         TaskType.StageDir -> "Staging directory"

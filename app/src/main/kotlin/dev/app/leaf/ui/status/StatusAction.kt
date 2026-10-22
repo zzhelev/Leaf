@@ -1,5 +1,6 @@
 package dev.app.leaf.ui.status
 
+import dev.app.leaf.domain.rebase.SkippedRebaseCommit
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.domain.models.AuthorInfo
 import dev.app.leaf.domain.models.ConflictSide
@@ -39,7 +40,8 @@ sealed interface StatusAction {
     data class SearchFilterChanged(val filter: TextFieldValue, val entryType: EntryType) : StatusAction
     data class Commit(val message: String) : StatusAction
     data class ContinueRebase(val message: String) : StatusAction
-    data object SkipRebase : StatusAction
+    /** Fork-only: [skipped] is the commit left out with its changes, which the tab lists once the rebase ends. */
+    data class SkipRebase(val skipped: SkippedRebaseCommit? = null) : StatusAction
 
     /** Fork-only: a cherry-pick of several commits that git stopped ([StatusState.cherryPickSequence]). */
     data class ContinueCherryPick(val message: String) : StatusAction

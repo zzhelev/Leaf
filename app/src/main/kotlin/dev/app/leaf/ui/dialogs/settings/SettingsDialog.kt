@@ -31,9 +31,9 @@ import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
-import dev.app.leaf.domain.models.ui.AccentStyle
+import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.models.ui.LinesHeightType
-import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.theme.backgroundSelected
@@ -46,13 +46,14 @@ import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableColumn
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.DropDownMenuText
+import dev.app.leaf.Screen
+import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import dev.app.leaf.ui.dropdowns.DropDownOption
 import dev.app.leaf.ui.getErrorText
 import dev.app.leaf.viewmodels.SettingsAction
 import dev.app.leaf.viewmodels.SettingsViewModel
 import dev.app.leaf.viewmodels.SettingsViewState
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -63,7 +64,6 @@ import org.jetbrains.compose.resources.stringResource
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "SettingsDialog"
 
@@ -149,6 +149,8 @@ val linesHeightTypesList = listOf(
 fun SettingsDialog(
     settingsViewModel: SettingsViewModel,
     onDismiss: () -> Unit,
+    // Fork-only: opens a dialog over Settings, such as the one that confirms deleting a style
+    onNavigate: (Screen) -> Unit = {},
 ) {
     var selectedCategory by remember {
         mutableStateOf(
@@ -157,6 +159,17 @@ fun SettingsDialog(
     }
 
     val settingsViewState by settingsViewModel.settingsViewState.collectAsState()
+    val exportTitle = stringResource(Res.string.settings_style_export_title)
+    val styleGalleryHost = remember(settingsViewModel, onNavigate) {
+        StyleGalleryHost(
+            pickExportPath = { fileName -> settingsViewModel.pickExportPath(exportTitle, fileName) },
+            pickImportPath = { settingsViewModel.pickImportPath() },
+            confirmDelete = { style, onConfirm ->
+                onNavigate(Screen.ConfirmAction(ConfirmableAction.DeleteStyle(style.name), onConfirm = onConfirm))
+            },
+            openEditor = { start -> onNavigate(Screen.StyleEditor(start)) },
+        )
+    }
 
     MaterialDialog(
         background = MaterialTheme.colors.surface,
@@ -222,8 +235,10 @@ fun SettingsDialog(
                         .weight(1f, true)
                         .padding(start = 16.dp, top = 64.dp, end = 16.dp)
                 ) {
-                    selectedCategory.content(settingsViewState) { action ->
-                        settingsViewModel.onAction(action)
+                    CompositionLocalProvider(LocalStyleGalleryHost provides styleGalleryHost) {
+                        selectedCategory.content(settingsViewState) { action ->
+                            settingsViewModel.onAction(action)
+                        }
                     }
                 }
 
@@ -669,8 +684,17 @@ private fun DateTime(settingsViewState: SettingsViewState, onAction: (SettingsAc
 
 @Composable
 private fun Appearance(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+    // Fork-only: the style gallery can make the page taller than the dialog. The rows keep clear of the scrollbar
+    ScrollableColumn(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.padding(end = 14.dp)) {
+            AppearanceRows(settingsViewState, onAction)
+        }
+    }
+}
+
+@Composable
+private fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
     val currentTheme = settingsViewState.theme
-    val customTheme = settingsViewState.customTheme
     val currentLinesHeightType = settingsViewState.linesHeightType
     val avatarProvider = settingsViewState.avatarProvider
     val (errorToDisplay, setErrorToDisplay) = remember { mutableStateOf<Error?>(null) }
@@ -685,34 +709,17 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
         }
     )
 
-    if (currentTheme == Theme.Custom) {
-        val scope = rememberCoroutineScope()
-        var themeJson by remember { mutableStateOf(customTheme.orEmpty()) }
-        // Remembered, so that each keystroke cancels the save that the one before scheduled
-        var themeJob by remember { mutableStateOf<Job?>(null) }
-
-        SettingTextInput(
-            title = "Custom theme",
-            subtitle = "Add a JSON to load the custom theme",
-            value = themeJson,
-            singleLine = false,
-            onValueChanged = { value ->
-                themeJson = value
-
-                themeJob?.cancel()
-
-                themeJob = scope.launch {
-                    delay(1.seconds)
-                    onAction(SettingsAction.SetConfig(AppConfig.CustomTheme(value)))
-                }
-
-            },
-            fieldHeight = 120.dp
-        )
-    }
-
-    // Fork-only: after the custom theme's JSON, which belongs to Theme
-    AccentStyleSetting(settingsViewState.accentStyle, isCustomTheme = currentTheme == Theme.Custom, onAction)
+    // Fork-only: the colours of the light and the dark theme
+    StyleGallery(
+        state = StyleGalleryState(
+            styles = settingsViewState.styles,
+            selectedId = settingsViewState.style.id,
+            unreadable = settingsViewState.unreadableStyles,
+            notice = settingsViewState.styleNotice,
+        ),
+        host = LocalStyleGalleryHost.current,
+        onAction = { onAction(SettingsAction.Styles(it)) },
+    )
 
     SettingDropDown(
         title = "Lists spacing",
@@ -781,29 +788,18 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
 }
 
 
-/**
- * Fork-only: how strong the colours of buttons and notices are. A custom theme has its own, so the row is greyed out
- * while it's selected, and says why. Internal for its test.
- */
-@Composable
-internal fun AccentStyleSetting(style: AccentStyle, isCustomTheme: Boolean, onAction: (SettingsAction) -> Unit) {
-    SettingDropDown(
-        title = stringResource(Res.string.settings_style_title),
-        subtitle = stringResource(
-            if (isCustomTheme) Res.string.settings_style_custom_theme else Res.string.settings_style_subtitle
-        ),
-        dropDownOptions = AccentStyle.entries.map { DropDownOption(it, accentStyleName(it)) },
-        currentOption = style,
-        onOptionSelected = { onAction(SettingsAction.SetConfig(AppConfig.AccentStyle(it.value))) },
-        enabled = !isCustomTheme,
-    )
+/** Fork-only: the gallery's pickers and dialogs, which the dialog provides to the Appearance category. */
+private val LocalStyleGalleryHost = staticCompositionLocalOf {
+    StyleGalleryHost(pickExportPath = { null }, pickImportPath = { null }, confirmDelete = { _, _ -> }, openEditor = {})
 }
 
+/** A style's name: a built-in one's from the app's strings, the user's as they named it. */
 @Composable
-private fun accentStyleName(style: AccentStyle): String = when (style) {
-    AccentStyle.TONAL -> stringResource(Res.string.settings_style_tonal)
-    AccentStyle.CLASSIC -> stringResource(Res.string.settings_style_classic)
-    AccentStyle.QUIET -> stringResource(Res.string.settings_style_quiet)
+internal fun styleName(style: StyleDefinition): String = when (style.id) {
+    BuiltInStyles.TONAL_ID -> stringResource(Res.string.settings_style_tonal)
+    BuiltInStyles.CLASSIC_ID -> stringResource(Res.string.settings_style_classic)
+    BuiltInStyles.QUIET_ID -> stringResource(Res.string.settings_style_quiet)
+    else -> style.name
 }
 
 @Composable

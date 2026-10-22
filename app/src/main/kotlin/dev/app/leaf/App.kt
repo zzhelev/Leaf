@@ -47,12 +47,12 @@ import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.DiscardedFiles
+import dev.app.leaf.domain.styles.StylesService
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.lfs.AppLfsFactory
 import dev.app.leaf.domain.AppStateManager
 import dev.app.leaf.theme.AppTheme
-import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.dialogOverlay
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.AppChrome
@@ -63,13 +63,14 @@ import dev.app.leaf.ui.LocalWindowMinimized
 import dev.app.leaf.ui.components.TabsRow
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.context_menu.AppPopupMenu
+import dev.app.leaf.domain.rebase.SkippedCommitsNotice
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.dialogs.QuitDialog
+import dev.app.leaf.ui.styles.StyleEditorStart
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.serialization.json.Json
 import org.eclipse.jgit.lib.GpgConfig
 import org.eclipse.jgit.lib.Signers
 import org.eclipse.jgit.util.LfsFactory
@@ -106,6 +107,8 @@ sealed interface Screen : NavKey {
     data class Error(val error: CompletedTask.Failure) : Screen
     /** git couldn't put back the changes that it set aside, which are in the stash list (fork-only). */
     data class ChangesInStash(val notice: AutostashNotice) : Screen
+    /** The commits that Skip left out of a rebase that has ended (fork-only). */
+    data class SkippedCommits(val notice: SkippedCommitsNotice) : Screen
     data object SubmoduleAdd : Screen
     data class HttpCredentials(val credentialsRequest: CredentialsRequest.HttpCredentialsRequest) : Screen
     data class SshCredentials(val credentialsRequest: CredentialsRequest.SshCredentialsRequest) : Screen
@@ -118,6 +121,8 @@ sealed interface Screen : NavKey {
     data object Author : Screen
     data object StashWithMessage : Screen
     data object CheckForUpdates : Screen
+    /** The style editor (fork-only, docs/fork/custom-styles.md), over Settings. */
+    data class StyleEditor(val start: StyleEditorStart) : Screen
     /**
      * Asks before [action], which [onConfirm] runs. With [onStopAsking], the dialog offers "Don't ask again", and
      * calls it before [onConfirm] when that's checked. Pass [onConfirm] in the parentheses: a trailing lambda would be
@@ -157,6 +162,7 @@ sealed interface Screen : NavKey {
 class App @Inject constructor(
     private val appStateManager: AppStateManager,
     private val appSettings: AppSettingsService,
+    private val stylesService: StylesService,
     private val appEnvInfo: AppEnvInfo,
     private val appViewModel: AppViewModel,
     private val tempFilesManager: TempFilesManager,
@@ -166,8 +172,6 @@ class App @Inject constructor(
     private val lfsFactory: AppLfsFactory,
     private val loginShellEnvironment: LoginShellEnvironment,
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
-
     @OptIn(ExperimentalFoundationApi::class)
     suspend fun start(args: Array<String>) {
         logsRepository.initLogging()
@@ -190,8 +194,7 @@ class App @Inject constructor(
             addDirTab(dirToOpen)
 
         val themeInitial = appSettings.theme.first()
-        val customThemeInitial = appSettings.customTheme.firstOrNull()
-        val accentStyleInitial = appSettings.accentStyle.first()
+        val styleInitial = stylesService.selected.first()
         val scaleInitial = appSettings.scaleUi.firstOrNull()
         val linesHeightTypeInitial = appSettings.linesHeightType.first()
         val avatarProviderTypeInitial = appSettings.avatarProvider.first()
@@ -202,23 +205,7 @@ class App @Inject constructor(
 
         application {
             val theme by appSettings.theme.collectAsState(themeInitial)
-            val customThemeRaw by appSettings.customTheme.collectAsState(customThemeInitial)
-            val accentStyle by appSettings.accentStyle.collectAsState(accentStyleInitial)
-            val customTheme = remember(customThemeRaw) {
-                val customThemeRaw = customThemeRaw
-                if (customThemeRaw != null) {
-                    // TODO move to use case, this is only a temporary solution
-                    // TODO 2: Perhaps serialize in a UI module class as it's related to UI logic and not domain
-                    try {
-                        json.decodeFromString<ColorsScheme>(customThemeRaw)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        null
-                    }
-                } else {
-                    null
-                }
-            }
+            val style by stylesService.selected.collectAsState(styleInitial)
             val scale = appSettings.scaleUi.collectAsState(scaleInitial).value
             val linesHeightType by appSettings.linesHeightType.collectAsState(linesHeightTypeInitial)
             val avatarProviderType by appSettings.avatarProvider.collectAsState(avatarProviderTypeInitial)
@@ -334,8 +321,7 @@ class App @Inject constructor(
                 ) {
                     AppTheme(
                         selectedTheme = theme,
-                        customTheme = customTheme,
-                        accentStyle = accentStyle,
+                        style = style,
                         linesHeightType = linesHeightType,
                     ) {
                         Box(modifier = Modifier.background(MaterialTheme.colors.background)) {

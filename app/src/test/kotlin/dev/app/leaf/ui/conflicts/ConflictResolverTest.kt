@@ -71,6 +71,7 @@ import dev.app.leaf.domain.models.WorkingFileCheck
 import dev.app.leaf.domain.models.WorkingFileState
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
+import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.darkTheme
 import dev.app.leaf.theme.lightTheme
@@ -145,7 +146,7 @@ class ConflictResolverTest {
                 for ((theme, base) in listOf(Theme.Light to lightTheme, Theme.Dark to darkTheme)) {
                     val strip = styleColorsFor(style, base.styled(style)).warningStrip
                     val scene = ImageComposeScene(width = 1400, height = 600, density = Density(1f)) {
-                        AppTheme(selectedTheme = theme, accentStyle = style) {
+                        AppTheme(selectedTheme = theme, style = BuiltInStyles.ofLook(style)) {
                             ConflictResolverContent(state(), ResolverLists(), actions())
                         }
                     }

@@ -86,15 +86,6 @@ import org.eclipse.jgit.lib.Constants
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
-private val colors = listOf(
-    Color(0xFF42a5f5),
-    Color(0xFFef5350),
-    Color(0xFFe78909c),
-    Color(0xFFff7043),
-    Color(0xFF66bb6a),
-    Color(0xFFec407a),
-)
-
 private const val MIN_GRAPH_LANES = 2
 
 private const val HORIZONTAL_SCROLL_PIXELS_MULTIPLIER = 10
@@ -1135,6 +1126,8 @@ private fun CommitLine(
                 .height(MaterialTheme.linesHeight.logCommitHeight)
                 .handMouseClickable { onRevCommitSelected() }
         ) {
+            // Fork-only: the lanes come from the style
+            val colors = MaterialTheme.graphLanes
             val nodeColor = colors[graphNode.lane % colors.size]
 
             Box {
@@ -1348,6 +1341,7 @@ fun CommitsGraph(
     isSelected: Boolean,
     isHead: Boolean = false,
 ) {
+    val colors = MaterialTheme.graphLanes
     val passingLanes = plotCommit.passingLanes
     val forkingOffLanes = plotCommit.forkingOffLanes
     val mergingLanes = plotCommit.mergingLanes
@@ -1400,7 +1394,7 @@ fun CommitsGraph(
 
                     val arcRect = Rect(x2, y2, x3, y1)
 
-                    graphArc(x1, y1, x2, arcRect, startAngle, sweepAngleDegrees, x3, y3, plotLane, density)
+                    graphArc(x1, y1, x2, arcRect, startAngle, sweepAngleDegrees, x3, y3, plotLane, density, colors)
                 }
 
                 mergingLanes.forEach { plotLane ->
@@ -1426,7 +1420,7 @@ fun CommitsGraph(
                         Rect(x2, y1, x3, y2)
                     }
 
-                    graphArc(x1, y1, x2, arcRect, startAngle, sweepAngleDegrees, x3, y3, plotLane, density)
+                    graphArc(x1, y1, x2, arcRect, startAngle, sweepAngleDegrees, x3, y3, plotLane, density, colors)
                 }
 
                 if (plotCommit.commit.parentCount > 0) {
@@ -1474,7 +1468,8 @@ private fun DrawScope.graphArc(
     x3: Float,
     y3: Float,
     plotLane: Int,
-    density: Float
+    density: Float,
+    colors: List<Color>,
 ) {
     val path = Path().apply {
         moveTo(x1, y1)
@@ -1560,6 +1555,7 @@ fun UncommittedChangesGraphNode(
     isSelected: Boolean,
 ) {
     val density = LocalDensity.current.density
+    val colors = MaterialTheme.graphLanes
 
     val laneWidthWithDensity = remember(density) {
         LANE_WIDTH * density

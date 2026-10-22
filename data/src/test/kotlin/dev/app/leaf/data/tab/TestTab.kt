@@ -152,7 +152,11 @@ import dev.app.leaf.data.git.cli.operations.GitCliCherryPickSequenceGitAction
 import dev.app.leaf.domain.usecases.CherryPickCommitsUseCase
 import dev.app.leaf.domain.usecases.CherryPickSequenceUseCase
 import dev.app.leaf.domain.usecases.GetBranchCherryPickUseCase
+import dev.app.leaf.data.git.rebase.GetCommitsOnHeadGitAction
+import dev.app.leaf.data.git.rebase.GetRebaseStopGitAction
+import dev.app.leaf.domain.rebase.SkippedRebaseCommits
 import dev.app.leaf.domain.usecases.RefreshDataUseCase
+import dev.app.leaf.domain.usecases.ReportSkippedRebaseCommitsUseCase
 import dev.app.leaf.domain.usecases.ResetRepositoryStateUseCase
 import dev.app.leaf.domain.usecases.RunWorktreeStepsUseCase
 import dev.app.leaf.domain.usecases.SkipRebaseUseCase
@@ -194,6 +198,9 @@ class TestTab(
     val watchers: MutableList<RecordingFileChangesWatcher> = CopyOnWriteArrayList()
 
     private lateinit var refresh: RefreshDataUseCase
+
+    /** Fork-only: the commits that Skip left out of a rebase, which the refresh reports once it ends. */
+    val skippedRebaseCommits = SkippedRebaseCommits()
 
     val useCaseExecutor = UseCaseExecutor(repositoryData, repositoryState, Provider { refresh }, scope)
 
@@ -261,6 +268,12 @@ class TestTab(
         getWorktreesInfoUseCase = getWorktreesInfo,
         getBranchesAheadGitAction = GetBranchesAheadGitAction(gitCli),
         getCherryPickSequenceGitAction = GetCherryPickSequenceGitAction(),
+        getRebaseStopGitAction = GetRebaseStopGitAction(jgit),
+        reportSkippedRebaseCommitsUseCase = ReportSkippedRebaseCommitsUseCase(
+            skippedRebaseCommits,
+            GetCommitsOnHeadGitAction(jgit),
+            repositoryState,
+        ),
         worktreesRefreshRunner = WorktreesRefreshRunner(),
         dataRefreshRunner = dataRefreshRunner,
         scope = scope,
@@ -421,6 +434,7 @@ class TestTab(
     val skipRebase = SkipRebaseUseCase(
         useCaseExecutor = useCaseExecutor,
         skipRebaseGitAction = SelectingSkipRebaseGitAction(gitCliRebase, SkipRebaseGitAction(jgit)),
+        skippedRebaseCommits = skippedRebaseCommits,
     )
 
     val abortRebase = AbortRebaseUseCase(

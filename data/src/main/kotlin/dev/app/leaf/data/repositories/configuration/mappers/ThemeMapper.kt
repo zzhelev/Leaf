@@ -6,7 +6,6 @@ import javax.inject.Inject
 
 private const val DARK = "dark"
 private const val LIGHT = "light"
-private const val CUSTOM = "custom"
 private const val SYSTEM = "system"
 
 class ThemeMapper @Inject constructor() : DataMapper<Theme?, String?> {
@@ -14,7 +13,6 @@ class ThemeMapper @Inject constructor() : DataMapper<Theme?, String?> {
         return when (value) {
             Theme.Light -> LIGHT
             Theme.Dark -> DARK
-            Theme.Custom -> CUSTOM
             Theme.System -> SYSTEM
             null -> null
         }
@@ -25,10 +23,10 @@ class ThemeMapper @Inject constructor() : DataMapper<Theme?, String?> {
         return when (value) {
             LIGHT -> Theme.Light
             DARK -> Theme.Dark
-            CUSTOM -> Theme.Custom
             SYSTEM -> Theme.System
             // Fork-only: a value from a newer Leaf reads as no choice (the default), where it used to throw
-            // inside the settings flow and stop the app at launch
+            // inside the settings flow and stop the app at launch. So does "custom", the JSON theme that styles
+            // replaced on 2026-10-22
             else -> null
         }
     }

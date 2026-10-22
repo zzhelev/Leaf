@@ -18,9 +18,20 @@ import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
-import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
+import dev.app.leaf.domain.styles.StylesService
+import dev.app.leaf.domain.styles.UnreadableStyleFile
+import dev.app.leaf.domain.errors.onErr
+import dev.app.leaf.system.OpenFilePickerUseCase
+import dev.app.leaf.system.PickerType
+import dev.app.leaf.system.SaveFilePickerUseCase
+import dev.app.leaf.ui.dialogs.settings.StyleGalleryAction
+import dev.app.leaf.ui.dialogs.settings.StyleNotice
+import kotlinx.coroutines.flow.MutableStateFlow
+import java.io.File
 import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenUrlInBrowserUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,7 +49,18 @@ class SettingsViewModel @Inject constructor(
     private val logsRepository: LogsRepository,
     private val openUrlInBrowserUseCase: OpenUrlInBrowserUseCase,
     private val gitExecutableLocator: IGitExecutableLocator,
+    private val stylesService: StylesService,
+    private val openFilePickerUseCase: OpenFilePickerUseCase,
+    private val saveFilePickerUseCase: SaveFilePickerUseCase,
 ) : TabViewModel() {
+    /** What the last import or export of a style gave, until dismissed (fork-only). */
+    private val styleNotice = MutableStateFlow<StyleNotice?>(null)
+
+    init {
+        // Fork-only: a style file changed outside Leaf shows when Settings opens
+        viewModelScope.launch { stylesService.reload() }
+    }
+
     /** Emits null while git is being located, as running `git --version` takes a moment. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val gitExecutable: Flow<Either<GitExecutable, GitCliError>?> = appSettingsService.gitExecutablePath
@@ -55,11 +77,35 @@ class SettingsViewModel @Inject constructor(
         when (action) {
             is SettingsAction.SetConfig -> setAppConfiguration(action.configuration)
             SettingsAction.OpenLogsFolder -> openLogsFolderInFileExplorer()
+            is SettingsAction.Styles -> onStyleAction(action.action)
         }
     }
 
     private fun setAppConfiguration(appConfig: AppConfig) = viewModelScope.launch {
         appSettingsService.setConfiguration(appConfig)
+    }
+
+    /** Fork-only: asks where to export a style, on the thread that clicked, as the pickers are modal. */
+    fun pickExportPath(title: String, fileName: String): String? = saveFilePickerUseCase(title, fileName)
+
+    fun pickImportPath(): String? = openFilePickerUseCase(PickerType.FILES, null)
+
+    private fun onStyleAction(action: StyleGalleryAction) = viewModelScope.launch {
+        when (action) {
+            is StyleGalleryAction.Select -> stylesService.select(action.style.id)
+            is StyleGalleryAction.Delete -> stylesService.delete(action.style).onErr {
+                styleNotice.value = StyleNotice.Failed(it)
+            }
+            is StyleGalleryAction.Export -> styleNotice.value = when (val result = stylesService.export(action.style, File(action.path))) {
+                is Either.Ok -> StyleNotice.Exported(action.style.name, action.path)
+                is Either.Err -> StyleNotice.Failed(result.error)
+            }
+            is StyleGalleryAction.Import -> styleNotice.value = when (val result = stylesService.import(File(action.path))) {
+                is Either.Ok -> StyleNotice.Imported(result.value.name)
+                is Either.Err -> StyleNotice.Failed(result.error)
+            }
+            StyleGalleryAction.DismissNotice -> styleNotice.value = null
+        }
     }
 
     fun openLogsFolderInFileExplorer() {
@@ -71,14 +117,18 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun settingsState(): Flow<SettingsViewState> {
-        // Fork-only: the theme and the style in one flow, as the combine below takes 30 at most
-        val themeAndStyle: Flow<Pair<Theme, AccentStyle>> =
-            combineFlows(appSettingsService.theme, appSettingsService.accentStyle) { theme, style -> theme to style }
+        // Fork-only: the theme and the styles in one flow, as the combine below takes 30 at most
+        val appearance: Flow<Appearance> = combineFlows(
+            appSettingsService.theme,
+            stylesService.selected,
+            stylesService.styles,
+            stylesService.library,
+            styleNotice,
+        ) { theme, style, styles, library, notice -> Appearance(theme, style, styles, library.unreadable, notice) }
 
         return combine(
             appSettingsService.scaleUi,
-            themeAndStyle,
-            appSettingsService.customTheme,
+            appearance,
             appSettingsService.linesHeightType,
             appSettingsService.dateFormatUseDefault,
             appSettingsService.dateFormatCustomFormat,
@@ -106,8 +156,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.gitExecutablePath,
             gitExecutable,
         ) { scaleUi,
-            (theme, accentStyle),
-            customTheme,
+            appearance,
             linesHeightType,
             dateFormatUseDefault,
             dateFormatCustomFormat,
@@ -137,9 +186,11 @@ class SettingsViewModel @Inject constructor(
 
             SettingsViewState(
                 scaleUi,
-                theme,
-                accentStyle,
-                customTheme,
+                appearance.theme,
+                appearance.style,
+                appearance.styles,
+                appearance.unreadableStyles,
+                appearance.styleNotice,
                 linesHeightType,
                 dateFormatUseDefault,
                 dateFormatCustomFormat,
@@ -174,8 +225,10 @@ class SettingsViewModel @Inject constructor(
         return SettingsViewState(
             scaleUi = null,
             theme = Theme.Light,
-            accentStyle = AccentStyle.DEFAULT,
-            customTheme = "",
+            style = BuiltInStyles.DEFAULT,
+            styles = BuiltInStyles.ALL,
+            unreadableStyles = emptyList(),
+            styleNotice = null,
             linesHeightType = LinesHeightType.SPACED,
             dateFormatUseDefault = false,
             dateFormatCustomFormat = "",
@@ -210,9 +263,12 @@ class SettingsViewModel @Inject constructor(
 data class SettingsViewState(
     val scaleUi: Float?,
     val theme: Theme,
-    /** How strong the colours of buttons and notices are (fork-only). */
-    val accentStyle: AccentStyle,
-    val customTheme: String?,
+    /** The style that draws Leaf, and every style there is (fork-only). */
+    val style: StyleDefinition,
+    val styles: List<StyleDefinition>,
+    /** Files in the styles folder that couldn't be read, and what the last import or export gave. */
+    val unreadableStyles: List<UnreadableStyleFile>,
+    val styleNotice: StyleNotice?,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,
     val dateFormatCustomFormat: String,
@@ -254,4 +310,16 @@ data class SettingsViewState(
 sealed interface SettingsAction {
     data class SetConfig(val configuration: AppConfig) : SettingsAction
     data object OpenLogsFolder : SettingsAction
+
+    /** Fork-only: the style gallery's. */
+    data class Styles(val action: StyleGalleryAction) : SettingsAction
 }
+
+/** Settings → Appearance's theme and styles, in one flow (fork-only). */
+data class Appearance(
+    val theme: Theme,
+    val style: StyleDefinition,
+    val styles: List<StyleDefinition>,
+    val unreadableStyles: List<UnreadableStyleFile>,
+    val styleNotice: StyleNotice?,
+)

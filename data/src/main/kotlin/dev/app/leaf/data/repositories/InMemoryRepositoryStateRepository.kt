@@ -9,6 +9,7 @@ import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.usecases.DataToRefresh
+import dev.app.leaf.domain.rebase.SkippedCommitsNotice
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.*
@@ -95,6 +96,17 @@ class InMemoryRepositoryStateRepository @Inject constructor() : RepositoryStateR
 
     override fun autostashNoticeShown(notice: AutostashNotice) {
         autostashNotices.update { it - notice }
+    }
+
+    override val skippedCommitsNotices: StateFlow<List<SkippedCommitsNotice>>
+        field = MutableStateFlow<List<SkippedCommitsNotice>>(emptyList())
+
+    override fun addSkippedCommitsNotice(notice: SkippedCommitsNotice) {
+        skippedCommitsNotices.update { it + notice }
+    }
+
+    override fun skippedCommitsNoticeShown(notice: SkippedCommitsNotice) {
+        skippedCommitsNotices.update { it - notice }
     }
 
     private fun addCompletedTask(completedTask: CompletedTask) {

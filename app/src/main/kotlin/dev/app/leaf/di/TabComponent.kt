@@ -5,6 +5,7 @@ import dev.app.leaf.di.modules.FileWatcherModule
 import dev.app.leaf.di.modules.TabModule
 import dev.app.leaf.di.modules.TabRepositoriesModule
 import dev.app.leaf.di.modules.TabScopeGitActionsModule
+import dev.app.leaf.ui.styles.StyleEditorViewModel
 import dev.app.leaf.di.modules.WorktreeGitActionsModule
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.ui.dialogs.*
@@ -30,6 +31,7 @@ interface TabComponent {
 
     fun cloneViewModel(): CloneViewModel
     fun settingsViewModel(): SettingsViewModel
+    fun styleEditorViewModelFactory(): StyleEditorViewModel.Factory
     fun repositoryTabViewModelFactory(): RepositoryTabViewModel.Factory
     fun repositoryOpenViewModel(): RepositoryOpenViewModel
     fun historyViewModel(): HistoryViewModel

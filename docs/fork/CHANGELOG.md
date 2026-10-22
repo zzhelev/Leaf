@@ -27,6 +27,68 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   git deletes them.
 - Details: CLAUDE.md, "Deleting several branches", "A remote's branches".
 
+## Teal, a built-in style (2026-10-23)
+
+- **Request:** the Teal style from the styles demo, built in, previewed first.
+- **Teal:** Tonal's look with a teal accent, a raspberry danger, an amber warning and a green success, on white and
+  #0F0F0F, listed after Solarized. Refined from renders of the tab, the graph and the gallery, as the demo's file had
+  two flaws: in dark, the section headers, the log's header and the diff toolbar stayed Tonal's navy next to teal
+  buttons, so they're set by hand in Teal's hue (#003B3A, #152F2D); and lane 2, which follows the danger colour, came out
+  a rose next to lane 6's pink, so lanes 2 to 6 are set by hand to orange, blue, pink, green and violet. Every check holds
+  on both sides.
+- **The id `teal`** is the built-in's: a file of one's own named Teal now gets `teal-2`, as Solarized's does.
+- Tests: Teal's definition, its checks on both sides, its dark headers' hue and its lanes' spacing. The tests that used
+  "Teal" as a user's style use "Lagoon".
+- Details: CLAUDE.md, Settings, "Styles".
+
+## Styles: a library, an editor, and Solarized; the JSON custom theme goes (2026-10-22)
+
+- **Request:** custom colours that cover the whole app, made in Leaf rather than in a JSON field, and Solarized among
+  them. The plan is `docs/fork/custom-styles.md`, from the "Style Library" and "Custom Style" boards in Claude Design.
+- **Theme** is Light, Dark or System. The Custom theme and its JSON field are gone, with no migration: `custom_theme`
+  is deleted from the settings file, and a stored `custom` theme reads as Dark.
+- **Style** is a library. A style has a light and a dark side, and sets every colour Leaf draws with: backgrounds,
+  surfaces, text, file icons, diff and syntax colours, buttons and notices, and the graph's six lanes. Settings →
+  Appearance shows the styles as cards, light half and dark half, with "+ New style" and "Import style…". A card's menu
+  duplicates, exports and, for your own styles, edits and deletes. Deleting the selected style selects Tonal.
+- **Built in:** Tonal (the default), Classic and Quiet, as before, and Solarized. They can be duplicated, not changed.
+- **The editor:** the button look (Classic, Tonal or Quiet), the background as a light and a dark colour, and Accent,
+  Danger, Warning and Success. Leaf works out every other colour from them, keeping each look's lightness, and moves
+  what wouldn't read at 4.5:1. Advanced lists every colour, light and dark; any can be set by hand from a palette of 12
+  hues by 6 shades or a hex code, which a dot marks. Live previews of both sides use Leaf's own buttons. The editor
+  doesn't explain what it moved or warn about colours set by hand: the previews show it (decided with the user, after
+  notes, warnings and contrast ratios turned out to be noise).
+- **Files:** a style is a JSON file in Leaf's settings folder (`styles/`, next to `user_prefs.json`), with its name, look,
+  seeds and the colours set by hand. Export writes one where you pick (a new save dialog), Import adds one.
+- **Lanes:** Tonal and Quiet draw the graph in muted lanes (row 1g of the "Leaf Colours" board, chosen with the user from
+  renders): about 3:1 on the light background, where Classic's green holds 2.4. Classic keeps Leaf's old lanes.
+- **Solarized:** Tonal's look with Solarized's own seeds, and its published colours set by hand where they hold the checks.
+  The light panels are worked out (#F6EFDC), as base01 text holds 4.39:1 on base2; secondary text is the board's
+  (#516770, and base0 lifted to #8A9C9E on the dark side); comments are base00 and base0. Chosen with the user from
+  renders of the tab, the gallery and the editor.
+- **Unchanged:** Classic, Tonal and Quiet, apart from Tonal's and Quiet's lanes, render byte for byte as before, compared
+  with `main` at each step.
+- Tests: the model and its file format, the colour maths, the working out (every built-in exactly, 2,000 random seed sets
+  per look and side holding every check, colours set by hand), the library on disk, the gallery, the editor and the
+  graph rendered. 115 mutations, each caught by a named test.
+- Details: CLAUDE.md, Settings, "Styles"; `docs/fork/custom-styles.md`.
+
+## Skip a rebase's commit with conflicts, with guards (2026-10-22)
+
+- **Request:** Skip for a commit that a rebase stopped at with conflicts, as for a cherry-pick. Asked whether it could make a
+  mess first: git's and JGit's skip reset every tracked file, so an edit to another file, in no commit, would be lost; and
+  the commit leaves the branch itself. Built with the five guards proposed then.
+- **What it does:** the buttons are Abort, Skip and Continue at such a commit, for rebases that git or Leaf started.
+  - Skip is disabled while other tracked files have uncommitted changes, and its tooltip says to stash or discard them.
+  - It asks first, naming the commit and the branch, how many files' changes go, and that Abort before the end brings
+    everything back.
+  - Not at an edit stop, where the commit is already applied.
+- **After the rebase:** when it ends without commits that you skipped, a dialog lists them, hashes and subjects, with
+  "Cherry-pick them back". After an abort it says nothing, as they're back on the branch.
+- Tests: both engines' stops and skips, the notice and the abort in a tab with real git and JGit; the rule, the block, the
+  buttons, the confirmation and the notice rendered. 8 mutations, each caught by a named test.
+- Details: CLAUDE.md, "Skipping a rebase's commit with conflicts".
+
 ## Delete several local branches at once (upstream issue 116, 2026-10-22)
 
 - **Request:** upstream issue 116: "When I have many local branches left from previous work and I want to clean them up, I need
@@ -48,6 +110,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Not done, decided with the user:** remote branches. Deleting one is a push that affects everyone, so it is planned on its own.
 - Details: CLAUDE.md, "Deleting several branches". Mockups: the side panel with a selection and the dialog in two layouts, picked
   on 2026-10-22 (one list).
+
 
 ## Skip a cherry-picked commit with conflicts, and each stop's own message (2026-10-22)
 

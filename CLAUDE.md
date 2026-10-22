@@ -22,7 +22,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
 - **Own storage:** every storage name comes from the fork-only `AppStorage` (`common/.../common/storage/`), so Leaf
   never reads or writes the original app's data. On macOS, a packaged Leaf uses:
   - the `java.util.prefs` node `LeafConfig` (tabs, recent repos, pane widths);
-  - `~/Library/Application Support/leaf/` (the settings file `user_prefs.json`, and `tmp/`);
+  - `~/Library/Application Support/leaf/` (the settings file `user_prefs.json`, the user's styles in `styles/`, and
+    `tmp/`);
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
   - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
     state, the worktrees' base branch, and where new worktrees go, shared by the worktrees). They are the same file in
@@ -1253,8 +1254,7 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
 - **The badges** (`ui/compare/CompareBadges.kt`, `CompareBadge`, `CompareLetter`): a 16 dp square with the letter, A
   amber (`#E9C754`) and B light blue (`#9FD1FF`), the letter near-black (`#0E1621`, 11 : 1 on both), in the log, the
   pane, the full view's header and above the diff.
-  - Fixed colours, as the avatars' are, not the theme's: `ColorsScheme` is upstream's, and custom themes read it from
-    their files.
+  - Fixed colours, as the avatars' are, not the style's: a style doesn't set them (see Styles, Not set by a style).
   - Renders showed the fills only 1.2 to 1.6 : 1 against the light theme's white, grey and selected rows, so on a light
     theme a 1 dp outline of the same hue draws the badge (`#8A6D12`, `#2F6FA8`, at least 3 : 1 on all three).
 - **Any two refs** (step 7.1, 2026-10-22): A's and B's lines in the pane's header open a list of the tab's refs under
@@ -1852,12 +1852,12 @@ without a word, and the label's menu offering the commit's own item (1c) would s
   left the rest in the sequencer, which then refuses the next `git cherry-pick`; its Abort would have kept the commits already
   picked. So while a sequence waits, from Leaf, a terminal or an agent:
   - the status pane has Abort and Continue, with Skip between them where git stopped at a commit
-    (`CherryPickSequenceButtons`, `canSkipCherryPick`: `CHERRY_PICK_HEAD`, not `--no-commit`), conflicts open or not, and
+    (`StoppedOperationButtons`, `canSkipCherryPick`: `CHERRY_PICK_HEAD`, not `--no-commit`), conflicts open or not, and
     Cmd+Enter continues. Where nothing is staged (the commit came out empty), Skip takes Continue's place, as before. Not
     after `--no-commit`, where git's skip also drops what the commits before it staged, nor after local changes stopped a
     pick (no `CHERRY_PICK_HEAD`), where it would leave out the next commit, which no one has seen (both probed on git
     2.54). Skip is in the neutral style, as Abort is the red one. It asks first, and says how many files' changes, staged
-    or with conflicts, are lost (`SkipCherryPickCommit.discardedFiles`, `cherryPickSkipDiscards`);
+    or with conflicts, are lost (`SkipCherryPickCommit.discardedFiles`, `skipDiscards`);
     `StatusAction.ContinueCherryPick`, `SkipCherryPick`, `AbortCherryPick` → `CherryPickSequenceUseCase` →
     `GitCliCherryPickSequenceGitAction` (`git cherry-pick --continue|--skip|--abort` through `GitCliOperations.run`);
   - Continue writes the field's message to `MERGE_MSG` first when git commits the stopped commit
@@ -1954,6 +1954,39 @@ when git can't run it) stays with JGit.
 - git signs the commits that it makes during a rebase as `commit.gpgSign` says, with its own gpg or ssh-keygen rather
   than Leaf's signers. ssh-keygen asks for a key's passphrase in Leaf's dialog, through the askpass helper (checked
   with a merge, as above). Until 2026-10-15 Continue and Skip ran without it.
+
+**Skipping a rebase's commit with conflicts (fork-only, 2026-10-22, `domain/rebase/RebaseSkip.kt`,
+`data/git/rebase/GetRebaseStopGitAction.kt`, `ui/dialogs/SkippedCommitsDialog.kt`):** at a commit that a rebase stopped at,
+conflicts open or resolved, the status pane's buttons are Abort, Skip and Continue (`StoppedOperationButtons`, as for a
+cherry-pick of several commits). Skip was offered only where the commit had come out empty. Asked for by the user after the
+cherry-pick's, with the five guards that the discussion proposed:
+- **Only where nothing outside the commit is lost** (`rebaseSkipOtherChanges`): git's `rebase --skip` and JGit's skip reset
+  every tracked file, so an edit to another file, in no commit, went too (both probed: git 2.54, JGit 7.7; untracked files
+  are kept). While such files have unstaged changes, Skip is disabled, and its tooltip says "Stash or discard the changes to
+  2 other files first". A file of the commit, staged or with conflicts, edited again, is the commit's and doesn't block it.
+  `SkippingRebaseCommitsTest` pins both engines' reset, so the block can go if either stops.
+- **The confirmation names the commit** (`ConfirmableAction.SkipRebaseCommit`, now with the commit, subject, branch and
+  files): "Leave a4880d1 "Show the unread bar" out of fix/unread-bar?", and with changes "Its changes in 2 files are
+  discarded, resolved conflicts included. Abort before the rebase ends to bring everything back." The empty commit's Skip
+  gets the same dialog, naming it, without the warning.
+- **The stopped commit** (`RebaseStop`, `RepositoryDataRepository.rebaseStop`, refreshed with REPO_STATE): `REBASE_HEAD`,
+  which git writes at each stop of both backends, or `rebase-merge/stopped-sha`, which JGit writes; `head-name` for the
+  branch; an edit stop (`rebase-merge/amend`) gets no Skip (`canSkipRebaseCommit`), as it already applied the commit. Nor
+  does the interactive rebase's list before it starts.
+- **Both engines:** JGit's skip at a conflict leaves the commit out and goes on, as git's does (probed), so Leaf's own
+  interactive rebases get it too; the guard above applies to both.
+- **A lasting note** (`SkippedRebaseCommits`, tab-scoped, by git dir; `ReportSkippedRebaseCommitsUseCase`): Skip of a commit
+  with changes records it (`SkipRebaseUseCase(skipped)`, `StatusAction.SkipRebase(skipped)`). The refresh of the repository
+  state reports, once the worktree isn't rebasing, the recorded commits that HEAD doesn't contain
+  (`GetCommitsOnHeadGitAction`): an abort put the branch back with them, so it says nothing. They go to
+  `RepositoryStateRepository.skippedCommitsNotices`, which the tab shows in `SkippedCommitsDialog`
+  (`Screen.SkippedCommits`): "Commits left out of fix/unread-bar", the hashes and subjects (selectable), "Cherry-pick them
+  back" (`RepositoryTabViewModel.cherryPickBack`, `CherryPickCommitsUseCase`, oldest first) and OK. However the rebase
+  ended, in Leaf or a terminal. In memory: a restart in the middle of a rebase forgets them; the reflog has them.
+- Tests: `SkippingRebaseCommitsTest` (data, a `TestTab`: the stop that git and JGit leave, an edit stop, Skip with conflicts
+  open and the notice, an abort with none, an empty commit not listed, both engines' reset of other files),
+  `RebaseSkipStatusTest` (the rule, the block, the buttons and the notice rendered), the dialog in
+  `ConfirmActionDialogTest`. 8 mutations, each caught by a named test.
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
@@ -2567,7 +2600,8 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     own code is unchanged. Callers get an `onConfirmAction` lambda. Used for deleting a submodule, a file, a remote
     branch or a remote, dropping a stash, aborting a merge, rebase, cherry-pick or revert, skipping a rebase commit,
     force push, discarding a file or a selection (the Staged and Unstaged menus), a hunk or a line (the diff),
-    resolving conflicts with ours or theirs, and restoring a file's version from file history.
+    resolving conflicts with ours or theirs, restoring a file's version from file history, deleting a style, and
+    closing the style editor with changes that aren't saved.
     Discarding a folder has its own `DiscardChangesDialog`. The reset dialog warns when Hard would discard
     uncommitted changes.
   - Discards show what is lost: a hunk's header, the line. A file or a selection in the Staged list loses its unstaged
@@ -3149,8 +3183,8 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     message, also when it can't be edited, is drawn in `onBackground` (the scheme's disabled color never applied, as
     before; the "read-only" tag says it). The hint fades in over 83 ms when the field empties. The field has the lists'
     background and no underline until it has the focus.
-  - Tests: `StatusSectionSizesTest`, `CommitMessageFieldTest` (the hint and typing, its colours in both themes and a custom
-    one, the underline, the row against `FilesChangedHeader`, the tag's colours, a narrow row, `commitMessageHeader` for
+  - Tests: `StatusSectionSizesTest`, `CommitMessageFieldTest` (the hint and typing, its colours in both themes and a style's
+    own, the underline, the row against `FilesChangedHeader`, the tag's colours, a narrow row, `commitMessageHeader` for
     every state, the menu item) and `CommitFieldTest` (the title per state, the menu and what picking does, the layout).
     22 of 24 mutations were caught by a named test; the other two are an equivalent one (`textColor`, above) and
     `heights.commitSection` in `StatusPane`, which needs a tab and was checked in the real Dagger graph instead, on a
@@ -3286,8 +3320,8 @@ graph node's tooltip.
   `nodeColor`.
 - **The bar** (`AvatarPaletteTest`): the white initial holds 4.5 : 1 on every fill (WCAG's text threshold; the lowest is
   4.60), each fill holds 3 : 1 against the plain row of the light and the dark theme (3.05), and no two fills are closer
-  than 18 in CIELAB (the closest pair, red and orange, is 18.8). A custom theme can't break the first, as the fill
-  doesn't depend on the theme, and can't be promised the second, as its background is its own.
+  than 18 in CIELAB (the closest pair, red and orange, is 18.8). A style can't break the first, as the fill
+  doesn't depend on the style, and can't be promised the second, as a style's background is its own.
 - **Chosen from** the graph's six lane colours, each darkened until white holds 4.5 (only six colours, so five authors
   share one 90% of the time, and an avatar shares a colour with an unrelated graph line; 12 gives 62%), and the twelve.
   The theme's colours were out: the dark theme's secondary is yellow (1.65 : 1 with white), and green, red and amber
@@ -3876,13 +3910,14 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `verify_ssl`. git's own `http.proxy` and `http.sslVerify` apply to the git commands Leaf runs.
   `RemovedSettingsMigration` deletes their keys from `user_prefs.json`, the plain-text proxy password included. A
   setting removed later goes into `REMOVED_SETTINGS`.
-- **The System theme (fork-only, upstream issue 309, 2026-10-20):** Settings → Appearance → Theme is Light, Dark, System or
-  Custom. System follows the operating system's light or dark setting and changes with it while Leaf is open.
+- **The System theme (fork-only, upstream issue 309, 2026-10-20):** Settings → Appearance → Theme is Light, Dark or
+  System (Custom, a JSON custom theme, was removed on 2026-10-22: see Styles). System follows the operating system's
+  light or dark setting and changes with it while Leaf is open.
   - `AppTheme` is the only place that turns the choice into colours. `Theme.resolved(systemIsDark)`
     (`domain/models/ui/ThemeResolution.kt`) makes System Dark or Light, and the other themes stay as they are. AppTheme
     reads `isSystemInDarkTheme()` only while System is selected, as its `systemIsDark` parameter, which tests pass.
     Everything else asks `MaterialTheme.colors.isLight` / `isDark` or the `appTheme` flow, so it follows without
-    knowing about System. A custom theme's JSON has its own `isLight` and ignores the system.
+    knowing about System.
   - **How it follows (Compose Desktop 1.12.1, read from the jars):** `isSystemInDarkTheme()` changes only because
     Compose asks skiko for the setting once a second (`DesktopComposeUiFlags.pollSystemTheme`, an experimental flag).
     Compose ships it on for macOS and Windows and off for Linux, where the setting is read once at startup.
@@ -3894,65 +3929,154 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     System theme done there.
   - The macOS title bar follows the system whatever the choice (`-Dapple.awt.application.appearance=system` in the
     packaged app, and the default in a dev run), so Light or Dark can differ from it. System makes them agree.
-  - Stored as `theme`: `light`, `dark`, `custom` or `system`. **An unknown value reads as no choice** (fork-only,
-    `ThemeMapper`), so `DEFAULT_THEME` applies. It used to throw inside the settings flow, which `App.start` reads at
-    launch, so a Leaf from before 2026-10-20 doesn't start on a file that says `system`: after a downgrade, delete the
-    `theme` key from `user_prefs.json`.
+  - Stored as `theme`: `light`, `dark` or `system` (`custom` reads as no choice since 2026-10-22). **An unknown value
+    reads as no choice** (fork-only, `ThemeMapper`), so `DEFAULT_THEME` applies. It used to throw inside the settings
+    flow, which `App.start` reads at launch, so a Leaf from before 2026-10-20 doesn't start on a file that says
+    `system`: after a downgrade, delete the `theme` key from `user_prefs.json`.
   - The default is still Dark, for a new install too. Someone who never chose has no `theme` key, like a new install,
     so making System the default would turn their Dark into whatever their system says.
   - Tests: `ThemeResolutionTest`, `ThemeSettingTest` (the mapper and a real settings file: a restart, an unknown value),
     `AppThemeSystemTest` (a flipping system setting in `AppTheme`, and that every theme is in the drop-down),
     `SystemThemePollingTest`.
-- **The Style setting (fork-only, 2026-10-21, `theme/StyleColors.kt`, `domain/models/ui/AccentStyle.kt`):** Settings →
-  Appearance → Style, under Theme: Tonal (the default, a new install's too), Classic (Leaf's look until 2026-10-21) and
-  Quiet, for the built-in themes. Chosen with the user on the "Leaf Colours" board in Claude Design (project
-  `5fe7f140-cd30-47ab-a95a-1994cadae8d9`; options 1a Classic, 1d Tonal, 1f Quiet, whose values are in the code): the
-  button blue #0070D8 and red #C93838 (OKLCH chroma 0.18) were too bright next to the diff tints (0.02 to 0.03).
-  - **Roles, not colours** (`StyleColors`, provided by `AppTheme` as `LocalStyleColors`, read as
-    `MaterialTheme.styleColors`): `mainAction` (Commit, Merge, Continue, `PrimaryButton`, `ConfirmationButton`; filled
-    in every style), `action` (Stage file, hunk, line and all; `SecondaryButton`'s default), `neutral` (Unstage file,
-    hunk, line and all; red in Classic, as before), `destructive` (Discard hunk and line, Abort, `AbortButton`),
-    `warningStrip` (the operation banner, `UnsupportedIndexBanner`, `WatchLimitNotice`, `DialogNotice`, the resolver's
-    counter, and their `button`: Resolve conflicts, Convert index…), `successStrip` (file history's restored strip and
-    its Show changes) and `warningIcon` (a conflicted file's icon in the lists, the log's summary and the resolver's file
-    list, and the icons of `FinishHint`, the subject hint and `AutostashNoticeDialog`). A `RoleColors` is a fill, a
-    content colour and a 1 dp line inside the edge (`roleBorder`); a full-width strip draws its line along the bottom
-    (`bottomEdge`). They're kept out of `ColorsScheme`, so a custom theme's JSON needs nothing new.
+- **Styles (fork-only, 2026-10-22, `docs/fork/custom-styles.md`, `domain/styles/`, `theme/styles/`, `ui/styles/`):**
+  Settings → Appearance → Style is a library of styles, under Theme. A style has a light and a dark side and sets every
+  colour Leaf draws with: the scheme, the roles below and the graph's six lanes. Built in: Tonal (the default, a new
+  install's too), Classic (Leaf's look until 2026-10-21), Quiet, Solarized and Teal, which can be duplicated, not
+  changed. The user's own are JSON files. It replaced the JSON custom theme (Theme's Custom, removed 2026-10-22, with no
+  migration: `custom_theme` is in `REMOVED_SETTINGS`, and a stored `custom` theme reads as Dark). Chosen with the user
+  on the Claude Design project `5fe7f140-cd30-47ab-a95a-1994cadae8d9`: the "Leaf Colours" board (turn 1: Classic 1a,
+  Tonal 1d, Quiet 1f, muted lanes 1g; chosen on 2026-10-21 as Classic's button blue #0070D8 and red #C93838, OKLCH
+  chroma 0.18, were too bright next to the diff tints, 0.02 to 0.03), "Custom Style" (turn 2: 2a with 2b's table, the
+  palette) and "Style Library" (turn 3: gallery 3b, editor 3c, Solarized).
+  - **The model** (`domain/styles/`): `StyleDefinition(id, name, look: AccentStyle, light, dark)`, a side being
+    `StyleSide(seeds: StyleSeeds, setByHand: Map<StyleSlot, Int>)` and the seeds Background, Accent, Danger, Warning and
+    Success (ARGB ints, so domain needs no Compose). `StyleSlot` has 58 colours with stable file keys (`background`,
+    `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary` and `onPrimary` are Main action's), the roles' 26 and
+    six lanes. `BuiltInStyles` holds the five, in Settings' order; the looks' ids (`tonal`, `classic`, `quiet`) are what
+    `accent_style` held before, so an old choice still reads.
+  - **Working a side out** (`resolveStyleSide`, `theme/styles/StyleDerivation.kt`, into a `StylePalette` that gives the
+    `ColorsScheme`, the `StyleColors` and the lanes): each colour not set by hand starts as its look's
+    (`StylePalette.template(look, isLight)`: `lightTheme.styled(look)` or `darkTheme`'s, `styleColorsFor` and
+    `lanesOf(look)`) and follows one seed or none (`slotRule`, `Follow`): Background moves surfaces in OKLab (text keeps
+    its lightness and half the tint); Accent, Danger, Warning and Success keep the look's lightness and take the seed's
+    hue and chroma (`StyleShifts` in `domain/styles/StyleColorMath.kt`, with the OKLab, OKLCH, gamut and WCAG maths). A
+    colour whose seed is the look's own keeps the look's value exactly, so Classic, Tonal and Quiet give their colours
+    by construction (a test compares every colour), and a copy of one whose Accent changes moves everything that follows
+    Accent.
+    - A mid-tone background is first lightened (light side) or darkened (dark side) until black or white holds 4.5 : 1,
+      plus 0.3, on every surface that follows it (`fittedBackground`).
+    - Then `contrastChecks(look)`: the strips' text and buttons, text and secondary text on every surface and on the
+      diff's lines, each button's label on every surface it sits on, links, and the warning icon (3 : 1, not in
+      Classic). A check that fails moves its first mover that isn't set by hand (never the background) by as little
+      lightness as holds it (`StyleColorMath.movedForContrast`), round after round until nothing moves (`MAX_ROUNDS`).
+      Text moves before the surface under it; the surface moves when the text can't, as when it was set by hand. A fill
+      or a surface moves only away from what's on it (`towards`), so a light panel under grey text gets lighter, never
+      dark. What moved is a `StyleAdjustment`, and a check that colours set by hand leave short is a
+      `ContrastShortfall`.
+    - Syntax colours aren't checked. Classic's warning icon keeps its 1.75 : 1 amber.
+  - **`AppTheme(selectedTheme, linesHeightType, style)`** (`theme/Theme.kt`) resolves the side (`remember(style,
+    isLight)`) and provides `LocalColorsScheme` (a `CompositionLocal`, where upstream kept the scheme in a global flow,
+    so an `AppTheme` inside another colours only what it holds: the editor's previews), `LocalStyleColors` and
+    `LocalGraphLanes` (`MaterialTheme.graphLanes`, which the log reads). Outside any `AppTheme` the lanes are
+    `CLASSIC_LANES`, and `styleColors` falls back to Classic's from `MaterialTheme.colors`. `style` defaults to Tonal,
+    so a test that renders `AppTheme(theme)` gets Tonal.
+  - **Lanes:** Classic keeps Leaf's old six (`CLASSIC_LANES`, the grey written `0xFFe78909c`, which Compose reads as
+    `#78909C` at alpha 0xFE); Tonal and Quiet have `MUTED_LANES` (#5B97D3, #CD7670, #7D97A4, #C87D52, #60A56B, #C4759C,
+    chosen with the user from renders of the log): about 3 : 1 each on the light background, where Classic's green holds
+    2.4. Lanes 1, 2, 4 and 5 follow Accent, Danger, Warning and Success; 3 and 6 are fixed. The chips take their lane's
+    colour.
+  - **Solarized** (`BuiltInStyles.SOLARIZED`): the Tonal look with Solarized's seeds (base3 #FDF6E3 and base03 #002B36,
+    blue, red, yellow, green). Set by hand, where they hold the checks: text base01 and base1, comments base00 and
+    base0, the dark panels base02, keyword blue, annotation yellow, and the lanes blue, red, cyan, orange, green and
+    magenta. Secondary text is the "Style Library" board's: #516770, and on the dark side base0 lifted to #8A9C9E, which
+    holds 4.54 : 1 on base02 (base0 holds 4.11, and the worked-out colour was brighter than the text). The light panels
+    are worked out (#F6EFDC): base01 holds 4.39 : 1 on base2. Buttons, strips, headers and the diff's tints are worked
+    out; the filled buttons come out #006EAE and #0068A5, near the board's #196EA9. Every check holds on both sides.
+    Chosen with the user from renders of the tab, the gallery and the editor.
+  - **Teal** (`BuiltInStyles.TEAL`, 2026-10-23): the Tonal look with a teal accent (#007475), a raspberry danger
+    (#B4405A), amber (#E0A03A) and green (#3F8F52), on the looks' white and #0F0F0F. First a style in the styles demo,
+    which the user asked to have built in; refined from renders. Set by hand are the light text (#1D2B2B); the dark
+    headers and boxes, which follow no seed and stayed Tonal's navy next to teal buttons, as Tonal's turned to Teal's
+    hue (#003B3A, at the most chroma sRGB has at that lightness, and #152F2D); and lanes 2 to 6 (orange, blue, pink,
+    green, violet, in the muted lanes' lightness), as following the seeds made lane 2 a rose 0.039 from lane 6's pink
+    in OKLab, closer than any pair of Tonal's (0.048). The closest pair is now 0.074. Lane 1 follows the accent. Every
+    check holds on both sides with nothing moved.
+  - **Files and storage:** one JSON file per user style, `<id>.json`, in `<app data>/styles/`
+    (`AppStorage.STYLES_FOLDER_NAME`; `leaf-dev/styles/` for dev runs): `leafStyle` (the format's version), `name`,
+    `look`, and per side `seeds` and `setByHand`, colours as `#RRGGBB` or `#RRGGBBAA` (`StyleFileCodec`). The id is the
+    file's name, never written in it. Reading is lenient where it can be (an unknown look reads as Tonal, a missing seed
+    as the look's, a bad key or colour is left out and logged); a file that isn't JSON, has no `leafStyle` (an old
+    custom theme), would hide a built-in's id or can't be opened is unreadable (`UnreadableStyle`), and is named under
+    the gallery with its reason.
+    - `FileStyleLibraryRepository` (`data/styles/`, behind `StyleLibraryRepository`) keeps the list, reads files up to 1
+      MB, writes through a temporary file moved into place, and reads the folder again whenever Settings opens
+      (`StylesService.reload`), so a file edited outside Leaf shows then. Ids come from names (`StyleIds`: lower case,
+      `a-z`, `0-9` and `-`, at most 40 characters, `-2`, `-3`… when a file or a built-in has it); renaming keeps the id.
+      Import copies a file in as it is, under an id from its file name (`tonal.json` imports as `tonal-2`); Export
+      writes the style where the user picks, through `SaveFilePickerUseCase` (fork-only: AWT's dialog on macOS, zenity's
+      on Linux when installed, Swing's otherwise).
+    - `StylesService` (app singleton): every style (the built-in ones, then the user's by name), the selected one
+      (`accent_style` holds its id, `AppConfig.Style`), and save, delete, import, export. An id that is missing,
+      unknown, deleted or unreadable draws Tonal, logged once per id, and never throws. Deleting the selected style
+      selects Tonal. `App.kt` passes the selected style to `AppTheme`.
+  - **The gallery** (`ui/dialogs/settings/StyleGallery.kt`, option 3b): a card per style, four a row, the light side on
+    the left and the dark side on the right, drawn from the resolved colours (the warning strip, a destructive and an
+    action button, two lines of text, the main action), its name (which takes the room its "built in" tag leaves) and a
+    ⋯ menu: Edit… and Delete… for the user's (Delete asks, `ConfirmableAction.DeleteStyle`), Duplicate and Export… for
+    all. The selected card has a ring; a click selects. "+ New style" starts from the selected style, "Import style…"
+    picks a file. An import's or export's outcome stays in a strip under the gallery until dismissed. The Appearance
+    page scrolls, as the gallery made it taller than the dialog. `SettingsDialog` provides the dialogs it needs as
+    `LocalStyleGalleryHost`.
+  - **The editor** (`ui/styles/`, `Screen.StyleEditor(StyleEditorStart)`, a dialog over Settings, option 3c):
+    `StyleEditorState` is a plain reducer (the saved style, the draft, the open picker), `StyleEditorViewModel` saves,
+    exports and deletes. On the left: the name, the button look, Background as a light and a dark swatch, Accent,
+    Danger, Warning and Success (each sets both sides), then Advanced, folded: every colour for light and dark
+    (`ADVANCED_GROUPS`: Surfaces, Text, Files, Diff, Graph lanes, Buttons and notices), with a dot on those set by hand.
+    A swatch opens `ColourPicker`: 12 hues by 6 shades in OKLCH and a row of greys, a hex field, and "Use the worked-out
+    colour" for one set by hand. On the right, `StyleEditorPreview`: a slice of Leaf in the draft's light and dark
+    colours, each in an `AppTheme` of its own, so Leaf's own buttons draw it. Save writes the file (a new style gets an
+    id from its name and is selected); Revert changes goes back to the style as saved; Cancel or Esc with changes asks
+    (`ConfirmableAction.DiscardStyleChanges`).
+    - **It explains nothing** (decided with the user, 2026-10-23): no notes on what Leaf moved, no warnings on colours
+      set by hand that leave text hard to read, no contrast ratios in the palette. The previews show the result, and
+      the Advanced table the colours used. The first version had all three, which read as noise once in use (a copy of
+      Solarized listed 13 colours moved). The working out still records `StyleAdjustment`s and `ContrastShortfall`s,
+      which its tests check.
+  - **Roles, not colours** (`StyleColors`, provided as `LocalStyleColors`, read as `MaterialTheme.styleColors`):
+    `mainAction` (Commit, Merge, Continue, `PrimaryButton`, `ConfirmationButton`; filled in every look), `action` (Stage
+    file, hunk, line and all; `SecondaryButton`'s default), `neutral` (Unstage file, hunk, line and all; red in
+    Classic), `destructive` (Discard hunk and line, Abort, `AbortButton`), `warningStrip` (the operation banner,
+    `UnsupportedIndexBanner`, `WatchLimitNotice`, `DialogNotice`, the resolver's counter, and their `button`: Resolve
+    conflicts, Convert index…), `successStrip` (file history's restored strip and its Show changes) and `warningIcon` (a
+    conflicted file's icon in the lists, the log's summary and the resolver's file list, and the icons of `FinishHint`,
+    the subject hint and `AutostashNoticeDialog`). A `RoleColors` is a fill, a content colour and a 1 dp line inside the
+    edge (`roleBorder`); a full-width strip draws its line along the bottom (`bottomEdge`).
   - **Buttons take a role:** `SecondaryButton(colors = …)`, `SecondaryButtonCompactable` and `ActionInfo.colors`.
     `textColor` and `backgroundButton` default to the role's, and a caller that gives a fill of its own (the
-    `secondarySurface` of Use ours or the resolver's strip buttons) gets no line. Only the call sites that passed raw
-    accent colours changed.
-  - **`primary`** (`ColorsScheme.styled`): in Tonal and Quiet it's the muted blue, #376AAA in light and #3464A0 in dark,
-    everywhere (toasts, switches, the tab's progress, the update button), and so is the light theme's `primaryVariant`
-    (links, the tab underline, focused fields), which was the same blue. The dark theme's `primaryVariant` (#9FD1FF)
-    stays: the muted blue holds 3.2 : 1 on the dark background. Decided with the user. The resolver's "ours" cells and
-    legend use `primary`, so they take the muted blue too.
-  - **Unchanged in every style** (decided with the user): the resolver's filled amber arrows and its conflict cells, the
-    diff tints, `error` (error boxes and toasts) and the board's undecided rows 1g to 1m: the log lanes, the file status
-    icons, the light theme's purple `secondary`, the dark navy headers, the dark background and the scrollbar.
-  - **Custom themes:** the style doesn't apply (`AppTheme` checks the resolved theme). `classicStyleColors(scheme)` lays
-    the theme's own `primary`, `error`, `conflictingFile` and `addFile` out as Classic, and `primary` stays the theme's.
-    The Style row (after the custom theme's JSON, which belongs to Theme) is greyed out while Theme is Custom, and says
-    "Custom themes use their own colours." Outside `AppTheme`
-    (previews, some tests), `styleColors` falls back to Classic from `MaterialTheme.colors`.
-  - **A line's buttons are opaque** (`LineActionButtons`): their fill is laid on the theme's background. Quiet's 8% white
-    took the line's tint, on which dark Quiet's Discard icon held 2.9 : 1.
-  - **Stored** as `accent_style` in `user_prefs.json`, the lower-case name (`AppConfig.AccentStyle`,
-    `AccentStyle.fromStored`): none and an unknown value read as Tonal, and never throw. `SettingsViewModel` reads the
-    theme and the style as one flow, as its `combine` is near 30. `AppTheme(accentStyle = …)` defaults to Tonal, so a test
-    that renders `AppTheme(theme)` gets Tonal.
-  - **Classic is the old look:** every component with a role rendered byte for byte as on the commit before, in both
-    themes (a temporary harness, 2026-10-21).
+    `secondarySurface` of Use ours or the resolver's strip buttons) gets no line.
+  - **The looks' `primary`** (`ColorsScheme.styled`): in Tonal and Quiet it's the muted blue, #376AAA in light and
+    #3464A0 in dark, everywhere (toasts, switches, the tab's progress, the update button), and so is the light theme's
+    `primaryVariant` (links, the tab underline, focused fields). The dark theme's `primaryVariant` (#9FD1FF) stays: the
+    muted blue holds 3.2 : 1 on the dark background. The resolver's "ours" cells and legend use `primary` too.
+  - **A line's buttons are opaque** (`LineActionButtons`): their fill is laid on the theme's background. Quiet's 8%
+    white took the line's tint, on which dark Quiet's Discard icon held 2.9 : 1.
+  - **Not set by a style** (`docs/fork/custom-styles.md`, Limits): about 20 colours written in the UI code (the light
+    themes' amber text #8A5C00, the resolver's purple for theirs, the compare badges, the avatars' palette), and syntax
+    colours beyond keyword, annotation and comment.
   - **Not met:** the warning icon (#C68128) holds 3 : 1 on the light background, but 2.6 on a selected row and 2.7 on
     `secondarySurface`; the strips' icons hold 2.8 on the tonal light strip, where the text says the same.
-  - Tests: `StyleColorsContrastTest` (each style, theme and role: labels 4.5 : 1 on every surface the button is on, the
-    strips' text and buttons 4.5, a line's icon 3, the warning icon 3 on the background in Tonal and Quiet, while
-    Classic keeps its 1.75 : 1 amber), `StyleRenderTest` (fills and lines read off rendered buttons, the hunk header,
-    line buttons, the lists' headers, the banner, the strips, notices and the hint icon), `AppThemeStyleTest` (roles,
-    `primary`, custom themes, the board's values), `AccentStyleSettingTest` (data), `AccentStyleSettingRowTest`, and the
-    counter in `ConflictResolverTest`. 32 mutations were each caught by a named test. Not covered by a kept test:
-    `App.kt` passing the setting to `AppTheme`, and `SettingsViewModel`'s state; the real panes were rendered through the
-    Dagger graph in each style and theme in a temporary harness.
+  - **Checking built-ins:** renders of the whole tab in Classic, Tonal and Quiet, light and dark, were compared with
+    `main`'s at each step of the work (through the Dagger graph in a temporary harness): byte for byte, apart from
+    Tonal's and Quiet's lanes from the step that changed them.
+  - Tests: `StyleColorMathTest`, `StyleFileCodecTest`, `StyleIdsTest`, `BuiltInStylesTest` and `StylesServiceTest`
+    (domain); `FileStyleLibraryRepositoryTest`, `StyleSettingTest`, `ThemeSettingTest` and
+    `RemovedSettingsMigrationTest` (data); `StyleDerivationTest` (every built-in look's colours exactly, every look's
+    checks, 2,000 random seed sets per look and side holding every check, colours set by hand, surfaces moving away from
+    their text, Solarized, Teal), `AppThemeStylesTest`, `GraphLanesTest` (pixels), `StyleGalleryTest`, `StyleEditorStateTest`,
+    `StyleEditorViewModelTest`, `StyleEditorDialogTest`, and the role tests from 2026-10-21: `StyleColorsContrastTest`,
+    `StyleRenderTest`, `AppThemeStyleTest`. 115 mutations across the work were each caught by a named test. Not covered
+    by a kept test: `App.kt` passing the selected style to `AppTheme`, and `SettingsViewModel`'s state; the real panes,
+    the gallery and the editor were rendered through the Dagger graph in a temporary harness.
 - **Lists spacing (fork changes, 2026-10-22):** Settings → Appearance → "Lists spacing" (no longer "(Beta)"), "Row height
   in the log, the file lists and the branches pane". `LinesHeight` (`theme/Theme.kt`): Spaced 38 dp (36 in the branches
   pane), the default; Compact 32 (34 until 2026-10-22, which looked like Spaced); Dense 26, the lowest that a hovered
