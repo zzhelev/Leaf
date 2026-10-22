@@ -1,0 +1,79 @@
+// SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package dev.app.leaf.domain.styles
+
+import dev.app.leaf.domain.models.ui.AccentStyle
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+class BuiltInStylesTest {
+    @Test
+    fun `the built-in styles' ids are what the setting stored before styles could be made`() {
+        // accent_style held the look's name in lower case from 2026-10-21
+        for (look in AccentStyle.entries) {
+            val style = BuiltInStyles.byId(look.name.lowercase())
+
+            assertEquals(look, style?.look)
+            assertEquals(style, BuiltInStyles.ofLook(look))
+        }
+        assertEquals("tonal", BuiltInStyles.DEFAULT_ID)
+        assertEquals(BuiltInStyles.TONAL, BuiltInStyles.DEFAULT)
+    }
+
+    @Test
+    fun `each built-in style is listed once, Tonal first, and is built in`() {
+        assertEquals(BuiltInStyles.TONAL, BuiltInStyles.ALL.first())
+        assertEquals(BuiltInStyles.ALL.size, BuiltInStyles.ALL.map { it.id }.toSet().size)
+        BuiltInStyles.ALL.forEach { assertTrue(it.isBuiltIn, it.id) }
+
+        assertFalse(BuiltInStyles.isBuiltIn("teal"))
+        assertNull(BuiltInStyles.byId("teal"))
+        assertNull(BuiltInStyles.byId(null))
+    }
+
+    @Test
+    fun `Classic, Tonal and Quiet set nothing by hand, and their seeds are their look's`() {
+        for (style in listOf(BuiltInStyles.CLASSIC, BuiltInStyles.TONAL, BuiltInStyles.QUIET)) {
+            for (isLight in listOf(true, false)) {
+                val side = style.side(isLight)
+
+                assertEquals(emptyMap<StyleSlot, Int>(), side.setByHand, "${style.id} $isLight")
+                assertEquals(BuiltInStyles.templateSeeds(style.look, isLight), side.seeds, "${style.id} $isLight")
+            }
+        }
+    }
+
+    @Test
+    fun `the looks' seeds are the colours their buttons and notices are built around`() {
+        val classicLight = BuiltInStyles.templateSeeds(AccentStyle.CLASSIC, isLight = true)
+        val tonalDark = BuiltInStyles.templateSeeds(AccentStyle.TONAL, isLight = false)
+
+        assertEquals(0xFFFFFFFF.toInt(), classicLight.background)
+        assertEquals(0xFF0070D8.toInt(), classicLight.accent)
+        assertEquals(0xFFFFB638.toInt(), classicLight.warning)
+        assertEquals(0xFF0F0F0F.toInt(), tonalDark.background)
+        assertEquals(0xFF3464A0.toInt(), tonalDark.accent)
+        assertEquals(0xFFE6B463.toInt(), tonalDark.warning)
+        assertEquals(
+            BuiltInStyles.templateSeeds(AccentStyle.TONAL, isLight = true),
+            BuiltInStyles.templateSeeds(AccentStyle.QUIET, isLight = true),
+        )
+    }
+
+    @Test
+    fun `a seed is read and replaced by its key`() {
+        val seeds = BuiltInStyles.TONAL.light.seeds
+
+        for (seed in StyleSeed.entries) {
+            val changed = seeds.with(seed, 0x12345678)
+
+            assertEquals(0x12345678, changed[seed])
+            StyleSeed.entries.filter { it != seed }.forEach { assertEquals(seeds[it], changed[it], "$seed → $it") }
+            assertEquals(seed, StyleSeed.fromKey(seed.key))
+        }
+    }
+}
