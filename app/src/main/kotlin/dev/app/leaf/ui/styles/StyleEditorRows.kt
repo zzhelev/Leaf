@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.domain.styles.StyleSlot.*
-import dev.app.leaf.theme.styles.ContrastCheck
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -142,16 +141,3 @@ fun slotLabel(slot: StyleSlot): String {
     val label = rowLabel(row)
     return if (part == null || part == SlotPart.LINE) label else "$label ${stringResource(part.label)}"
 }
-
-/**
- * What [check] is drawn on, named: "Headers", or "Action on Headers" for a button's label. A fill or a line is named
- * by its row, as it's the thing itself.
- */
-@Composable
-fun groundLabel(check: ContrastCheck): String = check.layers
-    .filter { it != BACKGROUND || check.layers.size == 1 }
-    .map { slot ->
-        val (row, part) = rowOf(slot)
-        if (part == SlotPart.FILL || part == SlotPart.LINE) rowLabel(row) else slotLabel(slot)
-    }
-    .joinToString(" on ")

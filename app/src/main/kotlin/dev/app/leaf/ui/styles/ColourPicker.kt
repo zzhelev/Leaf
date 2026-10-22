@@ -58,19 +58,15 @@ val PALETTE: List<List<Int>> = PALETTE_SHADES.map { (l, c) ->
     PALETTE_HUES.map { h -> StyleColorMath.fromOklch(Oklch(l, c, h)) }
 } + listOf((0 until 12).map { i -> StyleColorMath.fromOklch(Oklch(1.0 - i * 0.08, 0.0, 0.0)) })
 
-/** What the picker shows under the colours: a check that the colour takes part in, and whether it holds. */
-class PickerCheck(val text: String, val holds: Boolean)
-
 /**
- * A popover by a swatch (fork-only): the palette, a hex field, a check that the colour takes part in, and, for a colour
- * set by hand, a link that lets Leaf work it out again. A pick applies at once, so the previews follow it.
+ * A popover by a swatch (fork-only): the palette, a hex field and, for a colour set by hand, a link that lets Leaf work
+ * it out again. A pick applies at once, so the previews follow it.
  */
 @Composable
 fun ColourPicker(
     title: String,
     use: String?,
     color: Int,
-    check: PickerCheck?,
     onPick: (Int) -> Unit,
     onUseWorkedOut: (() -> Unit)?,
     onDismiss: () -> Unit,
@@ -110,14 +106,6 @@ fun ColourPicker(
             }
 
             HexField(color, onPick)
-
-            if (check != null) {
-                Text(
-                    text = check.text,
-                    style = MaterialTheme.typography.caption,
-                    color = if (check.holds) MaterialTheme.colors.onBackground else MaterialTheme.colors.error,
-                )
-            }
 
             if (onUseWorkedOut != null) {
                 Text(

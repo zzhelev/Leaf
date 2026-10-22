@@ -3,7 +3,6 @@
 
 package dev.app.leaf.ui.styles
 
-import androidx.compose.ui.graphics.toArgb
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleColorMath
@@ -85,55 +84,6 @@ class StyleEditorStateTest {
     }
 
     @Test
-    fun `Classic's, Tonal's and Quiet's colours need no note`() {
-        for (style in listOf(BuiltInStyles.CLASSIC, BuiltInStyles.TONAL, BuiltInStyles.QUIET)) {
-            assertEquals(emptyList<EditorNote>(), ResolvedDraft(style).notes, style.id)
-        }
-    }
-
-    @Test
-    fun `an accent white text can't read on says what filled buttons use instead, on each side`() {
-        val draft = tonalCopy.withSeed(StyleSeed.ACCENT, solarizedBlue).draft
-        val notes = ResolvedDraft(draft).notes.filterIsInstance<EditorNote.FilledButtons>()
-
-        assertEquals(listOf(true, false), notes.map { it.isLight })
-        for (note in notes) {
-            assertEquals(solarizedBlue, note.seed)
-            assertEquals(3.68, note.seedRatio, 0.01)
-            assertTrue(note.usedRatio >= 4.5, "$note")
-            assertEquals(ResolvedDraft(draft).side(note.isLight).palette[StyleSlot.MAIN_ACTION_FILL].toArgb(), note.used)
-        }
-    }
-
-    @Test
-    fun `an accent white text reads on needs no note, nor a main action set by hand`() {
-        val readable = tonalCopy.withSeed(StyleSeed.ACCENT, 0xFF005487.toInt()).draft
-        assertTrue(ResolvedDraft(readable).notes.none { it is EditorNote.FilledButtons })
-
-        val byHand = tonalCopy.withSeed(StyleSeed.ACCENT, solarizedBlue)
-            .withColourSetByHand(StyleSlot.MAIN_ACTION_FILL, isLight = true, solarizedBlue)
-            .withColourSetByHand(StyleSlot.MAIN_ACTION_FILL, isLight = false, solarizedBlue)
-            .draft
-        assertTrue(ResolvedDraft(byHand).notes.none { it is EditorNote.FilledButtons })
-    }
-
-    @Test
-    fun `a mid-tone background says it was lightened, and a colour moved for a check says so`() {
-        val mid = tonalCopy.withSeed(StyleSeed.BACKGROUND, 0xFF6E833C.toInt(), isLight = true).draft
-        val fitted = ResolvedDraft(mid).notes.filterIsInstance<EditorNote.BackgroundFitted>().single()
-
-        assertTrue(fitted.isLight)
-        assertEquals(0xFF6E833C.toInt(), fitted.from)
-        assertTrue(StyleColorMath.relativeLuminance(fitted.to) > StyleColorMath.relativeLuminance(fitted.from))
-
-        // A dark action fill set by hand: the action's text moves, and the note names it
-        val dark = tonalCopy.withColourSetByHand(StyleSlot.ACTION_FILL, isLight = true, 0xFF203040.toInt()).draft
-        val moved = ResolvedDraft(dark).notes.filterIsInstance<EditorNote.Moved>().single()
-        assertEquals(StyleSlot.ACTION_TEXT, moved.adjustment.slot)
-        assertTrue(moved.isLight)
-    }
-
-    @Test
     fun `the Advanced table has every colour once`() {
         val slots = ADVANCED_GROUPS.flatMap { group -> group.rows.flatMap { row -> row.slots.map { it.first } } }
 
@@ -144,18 +94,6 @@ class StyleEditorStateTest {
         for (row in ADVANCED_GROUPS.flatMap { it.rows }) {
             if (row.slots.size == 1) assertEquals(null, row.slots.single().second) else assertTrue(row.slots.all { it.second != null })
         }
-    }
-
-    @Test
-    fun `a ratio is written with one decimal, never rounded up onto a threshold`() {
-        assertEquals("4.4", ratioText(4.4999))
-        assertEquals("4.4", ratioText(4.46))
-        assertEquals("4.5", ratioText(4.5))
-        assertEquals("4.6", ratioText(4.55))
-        assertEquals("2.9", ratioText(2.97))
-        assertEquals("3.7", ratioText(3.68))
-        assertEquals("21", ratioText(21.0))
-        assertEquals("5", ratioText(5.04))
     }
 
     @Test

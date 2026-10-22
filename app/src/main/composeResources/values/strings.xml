@@ -1216,17 +1216,8 @@
     <string name="style_editor_save">Save</string>
     <string name="style_editor_delete">Delete style…</string>
     <string name="style_editor_set_by_hand">Set by hand</string>
-    <string name="style_editor_note_filled">%1$s: white text on %2$s is %3$s:1, so filled buttons use %4$s (%5$s:1). Set Main action in Advanced to override it.</string>
-    <string name="style_editor_note_background">%1$s: no text reads on every surface of %2$s, so the background is %3$s.</string>
-    <string name="style_editor_note_moved">%1$s: %2$s moved to %3$s from %4$s, to hold %5$s:1.</string>
-    <string name="style_editor_shortfall">%1$s on %2$s is %3$s:1, below %4$s:1.</string>
-    <plurals name="style_editor_shortfall_more">
-        <item quantity="one">And %1$d more.</item>
-        <item quantity="other">And %1$d more.</item>
-    </plurals>
     <string name="style_editor_picker_hex">Hex</string>
     <string name="style_editor_picker_worked_out">Use the worked-out colour</string>
-    <string name="style_editor_picker_check">%1$s on %2$s: %3$s:1</string>
     <string name="style_editor_group_surfaces">Surfaces</string>
     <string name="style_editor_group_text">Text</string>
     <string name="style_editor_group_files">Files</string>

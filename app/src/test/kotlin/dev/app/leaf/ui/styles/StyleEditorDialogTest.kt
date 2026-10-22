@@ -106,7 +106,6 @@ class StyleEditorDialogTest {
         show(StyleEditorState.editing(teal).withPicker(ColourTarget.Seed(StyleSeed.ACCENT)))
 
         assertTrue("Hex" in texts(), "${texts()}")
-        assertTrue(texts().any { it.startsWith("Main action text on Main action: ") }, "${texts()}")
 
         val pick = PALETTE[4][9]
         click(described(StyleColorHex.format(pick)))
@@ -122,26 +121,21 @@ class StyleEditorDialogTest {
     }
 
     @Test
-    fun `an accent white text can't read on is explained above Advanced`(): Unit = runBlocking(Dispatchers.Swing) {
-        show(StyleEditorState.editing(teal).withSeed(StyleSeed.ACCENT, solarizedBlue))
-
-        val note = texts().firstOrNull { it.startsWith("Light: white text on #268BD2 is 3.7:1, so filled buttons use ") }
-        assertTrue(note != null && note.endsWith("Set Main action in Advanced to override it."), "${texts()}")
-        assertTrue(texts().any { it.startsWith("Dark: white text on #268BD2") }, "${texts()}")
-    }
-
-    @Test
-    fun `a colour moved for a check is noted with what it moved to and from, and a line by its row's name`(): Unit =
+    fun `the editor explains nothing, with no notes on what Leaf moved, no warnings and no contrast in the palette`(): Unit =
         runBlocking(Dispatchers.Swing) {
-            show(StyleEditorState.startingFrom(BuiltInStyles.SOLARIZED, "", "Solarized copy", "Solarized"))
+            // A copy of Solarized, where Leaf moves colours on both sides and fills buttons darker than the accent, with
+            // pale text set by hand, which reads on nothing, and its palette open
+            show(
+                StyleEditorState.startingFrom(BuiltInStyles.SOLARIZED, "", "Solarized copy", "Solarized")
+                    .withSeed(StyleSeed.ACCENT, solarizedBlue)
+                    .withAdvancedOpen(true)
+                    .withColourSetByHand(StyleSlot.TEXT, isLight = true, 0xFFCCCCCC.toInt())
+                    .withPicker(ColourTarget.Slot(StyleSlot.TEXT, isLight = true))
+            )
 
-            val boxes = dev.app.leaf.theme.styles.resolveStyleSide(BuiltInStyles.SOLARIZED, isLight = true)
-                .adjustments.single { it.slot == StyleSlot.BOXES }
-            val expected = "Light: Hunk headers and boxes moved to ${StyleColorHex.format(boxes.to.toArgb())} " +
-                "from ${StyleColorHex.format(boxes.from.toArgb())}, to hold 4.5:1."
-            assertTrue(expected in texts(), "${texts()}")
-            assertTrue(texts().any { it.startsWith("Light: Added lines moved to #") }, "${texts()}")
-            assertTrue(texts().none { "lines line" in it }, "${texts()}")
+            assertTrue("Use the worked-out colour" in texts(), "${texts()}")
+            assertTrue(texts().none { ":1" in it }, "${texts().filter { ":1" in it }}")
+            assertTrue(texts().none { it.startsWith("Light:") || it.startsWith("Dark:") }, "${texts()}")
         }
 
     @Test
@@ -161,11 +155,6 @@ class StyleEditorDialogTest {
             assertTrue(text in texts(), "$text in ${texts()}")
         }
         assertEquals(1, nodes().count { it.config.getOrNull(SemanticsProperties.ContentDescription)?.contains("Set by hand") == true })
-        // Pale text set by hand on white: its checks fall short, the worst first, in one chip under its row
-        val chip = texts().filter { it.startsWith("Light: Text on ") }
-        assertEquals(1, chip.size, "${texts()}")
-        assertTrue(chip.single().contains("is 1.3:1, below 4.5:1. And ") && chip.single().endsWith(" more."), chip.single())
-        assertTrue(texts().none { it.startsWith("Dark: Text on ") }, "The dark side's text isn't set by hand")
 
         // A row near the top of the table, which the column shows without scrolling
         actions.clear()

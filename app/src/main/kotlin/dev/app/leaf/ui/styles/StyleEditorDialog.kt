@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -45,14 +44,10 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.styles.StyleColorHex
 import dev.app.leaf.domain.styles.StyleSeed
-import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
-import dev.app.leaf.theme.styles.ContrastCheck
-import dev.app.leaf.theme.styles.TEXT_CONTRAST
-import dev.app.leaf.theme.styles.contrastOf
 import dev.app.leaf.ui.components.AdjustableOutlinedTextField
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.sort.SortMenuItem
@@ -128,8 +123,7 @@ internal fun StyleEditorContent(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     LookSwitch(state.draft.look, onAction)
-                    SeedRows(state, resolved, onAction)
-                    Notes(resolved.notes)
+                    SeedRows(state, onAction)
                     Advanced(state, resolved, onAction)
                 }
 
@@ -287,32 +281,18 @@ private fun lookName(look: AccentStyle) = when (look) {
     AccentStyle.QUIET -> Res.string.settings_style_quiet
 }
 
-/** A seed's row: what the colour is for, and what it's checked by in the palette. */
-private class SeedRow(
-    val seed: StyleSeed,
-    val title: StringResource,
-    val use: StringResource,
-    /** The check that the seed's main colour takes part in, on the light side. */
-    val check: (AccentStyle) -> ContrastCheck,
-)
+/** A seed's row: the colour, and what it's for. */
+private class SeedRow(val seed: StyleSeed, val title: StringResource, val use: StringResource)
 
 private val SEED_ROWS = listOf(
-    SeedRow(StyleSeed.ACCENT, Res.string.style_editor_accent, Res.string.style_editor_accent_use) {
-        ContrastCheck(StyleSlot.MAIN_ACTION_TEXT, listOf(StyleSlot.MAIN_ACTION_FILL, StyleSlot.BACKGROUND), TEXT_CONTRAST, emptyList())
-    },
-    SeedRow(StyleSeed.DANGER, Res.string.style_editor_danger, Res.string.style_editor_danger_use) {
-        ContrastCheck(StyleSlot.DESTRUCTIVE_TEXT, listOf(StyleSlot.DESTRUCTIVE_FILL, StyleSlot.PANELS), TEXT_CONTRAST, emptyList())
-    },
-    SeedRow(StyleSeed.WARNING, Res.string.style_editor_warning, Res.string.style_editor_warning_use) {
-        ContrastCheck(StyleSlot.WARNING_STRIP_TEXT, listOf(StyleSlot.WARNING_STRIP_FILL), TEXT_CONTRAST, emptyList())
-    },
-    SeedRow(StyleSeed.SUCCESS, Res.string.style_editor_success, Res.string.style_editor_success_use) {
-        ContrastCheck(StyleSlot.SUCCESS_STRIP_TEXT, listOf(StyleSlot.SUCCESS_STRIP_FILL), TEXT_CONTRAST, emptyList())
-    },
+    SeedRow(StyleSeed.ACCENT, Res.string.style_editor_accent, Res.string.style_editor_accent_use),
+    SeedRow(StyleSeed.DANGER, Res.string.style_editor_danger, Res.string.style_editor_danger_use),
+    SeedRow(StyleSeed.WARNING, Res.string.style_editor_warning, Res.string.style_editor_warning_use),
+    SeedRow(StyleSeed.SUCCESS, Res.string.style_editor_success, Res.string.style_editor_success_use),
 )
 
 @Composable
-private fun SeedRows(state: StyleEditorState, resolved: ResolvedDraft, onAction: (StyleEditorAction) -> Unit) {
+private fun SeedRows(state: StyleEditorState, onAction: (StyleEditorAction) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         SectionTitle(stringResource(Res.string.style_editor_colours))
 
@@ -331,7 +311,6 @@ private fun SeedRows(state: StyleEditorState, resolved: ResolvedDraft, onAction:
                     title = stringResource(Res.string.style_editor_background) + " · " +
                         stringResource(if (isLight) Res.string.style_editor_light else Res.string.style_editor_dark),
                     use = null,
-                    check = backgroundCheck(isLight, resolved),
                     state = state,
                     onPick = { onAction(StyleEditorAction.SetSeed(StyleSeed.BACKGROUND, it, isLight)) },
                     onAction = onAction,
@@ -344,8 +323,6 @@ private fun SeedRows(state: StyleEditorState, resolved: ResolvedDraft, onAction:
             val darkSeed = state.draft.dark.seeds[row.seed]
             val title = stringResource(row.title)
             val use = stringResource(row.use)
-            val check = row.check(state.draft.look)
-            val ratio = resolved.light.palette.contrastOf(check)
 
             SeedLine(title = title, use = use, hex = StyleColorHex.format(lightSeed)) {
                 SeedSwatch(
@@ -354,10 +331,6 @@ private fun SeedRows(state: StyleEditorState, resolved: ResolvedDraft, onAction:
                     colors = if (lightSeed == darkSeed) listOf(lightSeed) else listOf(lightSeed, darkSeed),
                     title = title,
                     use = use,
-                    check = PickerCheck(
-                        stringResource(Res.string.style_editor_picker_check, slotLabel(check.foreground), groundLabel(check), ratioText(ratio)),
-                        holds = ratio >= check.minimum,
-                    ),
                     state = state,
                     onPick = { onAction(StyleEditorAction.SetSeed(row.seed, it)) },
                     onAction = onAction,
@@ -365,17 +338,6 @@ private fun SeedRows(state: StyleEditorState, resolved: ResolvedDraft, onAction:
             }
         }
     }
-}
-
-@Composable
-private fun backgroundCheck(isLight: Boolean, resolved: ResolvedDraft): PickerCheck {
-    val check = ContrastCheck(StyleSlot.TEXT, listOf(StyleSlot.BACKGROUND), TEXT_CONTRAST, emptyList())
-    val ratio = resolved.side(isLight).palette.contrastOf(check)
-
-    return PickerCheck(
-        stringResource(Res.string.style_editor_picker_check, slotLabel(StyleSlot.TEXT), slotLabel(StyleSlot.BACKGROUND), ratioText(ratio)),
-        holds = ratio >= check.minimum,
-    )
 }
 
 @Composable
@@ -406,7 +368,6 @@ private fun SeedSwatch(
     colors: List<Int>,
     title: String,
     use: String?,
-    check: PickerCheck,
     state: StyleEditorState,
     onPick: (Int) -> Unit,
     onAction: (StyleEditorAction) -> Unit,
@@ -430,70 +391,11 @@ private fun SeedSwatch(
                 title = title,
                 use = use,
                 color = colors.first(),
-                check = check,
                 onPick = onPick,
                 onUseWorkedOut = null,
                 onDismiss = { onAction(StyleEditorAction.OpenPicker(null)) },
             )
         }
-    }
-}
-
-@Composable
-private fun Notes(notes: List<EditorNote>) {
-    if (notes.isEmpty()) return
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colors.backgroundSelected)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        for (note in notes) {
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Icon(
-                    painterResource(Res.drawable.info),
-                    contentDescription = null,
-                    tint = MaterialTheme.colors.primaryVariant,
-                    modifier = Modifier.size(15.dp).padding(top = 1.dp),
-                )
-                Text(noteText(note), style = MaterialTheme.typography.body2, color = MaterialTheme.colors.onBackground)
-            }
-        }
-    }
-}
-
-@Composable
-internal fun noteText(note: EditorNote): String {
-    val side = stringResource(if (note.isLight) Res.string.style_editor_light else Res.string.style_editor_dark)
-
-    return when (note) {
-        is EditorNote.FilledButtons -> stringResource(
-            Res.string.style_editor_note_filled,
-            side,
-            StyleColorHex.format(note.seed),
-            ratioText(note.seedRatio),
-            StyleColorHex.format(note.used),
-            ratioText(note.usedRatio),
-        )
-
-        is EditorNote.BackgroundFitted -> stringResource(
-            Res.string.style_editor_note_background,
-            side,
-            StyleColorHex.format(note.from),
-            StyleColorHex.format(note.to),
-        )
-
-        is EditorNote.Moved -> stringResource(
-            Res.string.style_editor_note_moved,
-            side,
-            slotLabel(note.adjustment.slot),
-            StyleColorHex.format(note.adjustment.to.toArgb()),
-            StyleColorHex.format(note.adjustment.from.toArgb()),
-            ratioText(note.adjustment.ratio),
-        )
     }
 }
 

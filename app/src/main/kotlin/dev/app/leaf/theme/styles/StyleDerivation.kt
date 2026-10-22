@@ -172,7 +172,7 @@ fun contrastChecks(look: AccentStyle): List<ContrastCheck> = buildList {
 @Immutable
 data class StyleAdjustment(val slot: StyleSlot, val from: Color, val to: Color, val check: ContrastCheck, val ratio: Double)
 
-/** A check that doesn't hold, which only colours set by hand leave: the editor warns of it. */
+/** A check that doesn't hold, which only colours set by hand leave. */
 @Immutable
 data class ContrastShortfall(val check: ContrastCheck, val ratio: Double)
 
