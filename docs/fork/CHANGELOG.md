@@ -15,9 +15,10 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Built in:** Tonal (the default), Classic and Quiet, as before, and Solarized. They can be duplicated, not changed.
 - **The editor:** the button look (Classic, Tonal or Quiet), the background as a light and a dark colour, and Accent,
   Danger, Warning and Success. Leaf works out every other colour from them, keeping each look's lightness, and moves
-  what wouldn't read at 4.5:1, saying what it moved and why. Advanced lists every colour, light and dark; any can be
-  set by hand from a palette of 12 hues by 6 shades or a hex code, which a dot marks, and a chip names a check it leaves
-  short. Live previews of both sides use Leaf's own buttons.
+  what wouldn't read at 4.5:1. Advanced lists every colour, light and dark; any can be set by hand from a palette of 12
+  hues by 6 shades or a hex code, which a dot marks. Live previews of both sides use Leaf's own buttons. The editor
+  doesn't explain what it moved or warn about colours set by hand: the previews show it (decided with the user, after
+  notes, warnings and contrast ratios turned out to be noise).
 - **Files:** a style is a JSON file in Leaf's settings folder (`styles/`, next to `user_prefs.json`), with its name, look,
   seeds and the colours set by hand. Export writes one where you pick (a new save dialog), Import adds one.
 - **Lanes:** Tonal and Quiet draw the graph in muted lanes (row 1g of the "Leaf Colours" board, chosen with the user from

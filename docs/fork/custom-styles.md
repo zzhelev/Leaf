@@ -102,7 +102,8 @@ colours.
    light panel under grey text gets lighter or stays, never dark; when its side can't hold the check, the check falls
    short. Before anything moves, a mid-tone background is lightened (light side) or darkened (dark side) until black or
    white holds 4.5 : 1, with 0.3 to spare, on every surface that follows it (`fittedBackground`): no text colour reads
-   on both a mid-tone background and the darker or lighter surfaces next to it. The editor notes it.
+   on both a mid-tone background and the darker or lighter surfaces next to it. The editor says nothing of what moved
+   or falls short (section 5.2).
 6. **Built-ins.** Classic, Tonal and Quiet are definitions whose seeds are their template's, with nothing set by hand,
    so resolving them gives today's colours by construction. A test compares every slot with `lightTheme.styled(…)`,
    `darkTheme.styled(…)` and `styleColorsFor`, and renders of the main panes are compared with `main`, pixel for
@@ -202,6 +203,9 @@ already does. The previews in `Notification.kt` and `WelcomePage.kt` lose their 
 - **The palette** is a popover by the swatch clicked: 12 hues by 6 shades (the design's OKLCH grid), a hex field, the
   check the colour takes part in ("White text on Commit 5.5:1"), and, for a colour set by hand, "Use the worked-out
   colour", which takes the dot away.
+- **As built, then changed (2026-10-23):** the info lines, the chips and the palette's check were built, then removed
+  with the user, who found them noise in use: a copy of Solarized listed 13 colours moved, each with two hex codes and
+  a ratio. The editor explains nothing; the previews show the result, and the Advanced table the colours used.
 - **Right column:** the previews, light above dark: the operation banner with its buttons, a diff header with Stage
   file, a hunk header with Discard and Stage hunk, three diff lines with syntax colours, the Unstaged header with
   Unstage all, two file rows, one selected, Commit, the restored strip, and a strip of the six lanes. Each preview sits
@@ -250,8 +254,6 @@ test.
 - Only three syntax colours (keyword, annotation, comment), as today.
 - A file edited outside Leaf shows when Settings opens next, not at once.
 - Avatars keep their own palette (decided 2026-10-20).
-- The editor writes one note per colour that Leaf moved: a copy of Solarized shows 13. Grouping them per side is left
-  for later.
 
 ## 9. Checks before calling it done
 

@@ -3964,16 +3964,18 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - **The editor** (`ui/styles/`, `Screen.StyleEditor(StyleEditorStart)`, a dialog over Settings, option 3c):
     `StyleEditorState` is a plain reducer (the saved style, the draft, the open picker), `StyleEditorViewModel` saves,
     exports and deletes. On the left: the name, the button look, Background as a light and a dark swatch, Accent,
-    Danger, Warning and Success (each sets both sides), then notes for what Leaf moved (`ResolvedDraft.notes`: "Light:
-    white text on #268BD2 is 3.7:1, so filled buttons use #006EAE (5.5:1)…", "Light: Hunk headers and boxes moved to
-    #EFEBDB from #E7E3D4, to hold 4.5:1."), then Advanced, folded: every colour for light and dark (`ADVANCED_GROUPS`:
-    Surfaces, Text, Files, Diff, Graph lanes, Buttons and notices), a dot on those set by hand and a chip per side
-    naming the checks they leave short. A swatch opens `ColourPicker`: 12 hues by 6 shades in OKLCH and a row of greys,
-    a hex field, the contrast of the check the colour takes part in, and "Use the worked-out colour" for one set by
-    hand. On the right, `StyleEditorPreview`: a slice of Leaf in the draft's light and dark colours, each in an
-    `AppTheme` of its own, so Leaf's own buttons draw it. Save writes the file (a new style gets an id from its name and
-    is selected); Revert changes goes back to the style as saved; Cancel or Esc with changes asks
-    (`ConfirmableAction.DiscardStyleChanges`). A copy of Solarized shows one note per colour Leaf moved, 13 in all.
+    Danger, Warning and Success (each sets both sides), then Advanced, folded: every colour for light and dark
+    (`ADVANCED_GROUPS`: Surfaces, Text, Files, Diff, Graph lanes, Buttons and notices), with a dot on those set by hand.
+    A swatch opens `ColourPicker`: 12 hues by 6 shades in OKLCH and a row of greys, a hex field, and "Use the worked-out
+    colour" for one set by hand. On the right, `StyleEditorPreview`: a slice of Leaf in the draft's light and dark
+    colours, each in an `AppTheme` of its own, so Leaf's own buttons draw it. Save writes the file (a new style gets an
+    id from its name and is selected); Revert changes goes back to the style as saved; Cancel or Esc with changes asks
+    (`ConfirmableAction.DiscardStyleChanges`).
+    - **It explains nothing** (decided with the user, 2026-10-23): no notes on what Leaf moved, no warnings on colours
+      set by hand that leave text hard to read, no contrast ratios in the palette. The previews show the result, and
+      the Advanced table the colours used. The first version had all three, which read as noise once in use (a copy of
+      Solarized listed 13 colours moved). The working out still records `StyleAdjustment`s and `ContrastShortfall`s,
+      which its tests check.
   - **Roles, not colours** (`StyleColors`, provided as `LocalStyleColors`, read as `MaterialTheme.styleColors`):
     `mainAction` (Commit, Merge, Continue, `PrimaryButton`, `ConfirmationButton`; filled in every look), `action` (Stage
     file, hunk, line and all; `SecondaryButton`'s default), `neutral` (Unstage file, hunk, line and all; red in
