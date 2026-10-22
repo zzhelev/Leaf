@@ -38,6 +38,8 @@ import dev.app.leaf.ui.dialogs.*
 import dev.app.leaf.ui.dialogs.base.UserPasswordDialog
 import dev.app.leaf.ui.dialogs.errors.ErrorDialog
 import dev.app.leaf.ui.dialogs.settings.SettingsDialog
+import dev.app.leaf.ui.styles.StyleEditorDialog
+import dev.app.leaf.ui.styles.StyleEditorHost
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
@@ -578,6 +580,27 @@ fun AppTab(
                                 index = entry.index,
                                 onConvert = entry.onConvert,
                                 onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
+                        // Fork-only: the style editor, over Settings
+                        entry<Screen.StyleEditor>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            StyleEditorDialog(
+                                viewModel = tabViewModel(entry) { it.styleEditorViewModelFactory().create(entry.start) },
+                                host = StyleEditorHost(
+                                    close = { backStack.remove(entry) },
+                                    replaceWith = { start ->
+                                        backStack.remove(entry)
+                                        backStack.add(Screen.StyleEditor(start))
+                                    },
+                                    confirmDelete = { name, onConfirm ->
+                                        backStack.add(Screen.ConfirmAction(ConfirmableAction.DeleteStyle(name), onConfirm = onConfirm))
+                                    },
+                                    confirmDiscard = { name, onConfirm ->
+                                        backStack.add(Screen.ConfirmAction(ConfirmableAction.DiscardStyleChanges(name), onConfirm = onConfirm))
+                                    },
+                                ),
                             )
                         }
                         entry<Screen.ConfirmAction>(

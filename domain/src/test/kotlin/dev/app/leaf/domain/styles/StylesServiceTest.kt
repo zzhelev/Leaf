@@ -113,18 +113,6 @@ class StylesServiceTest {
     }
 
     @Test
-    fun `a duplicate is a style of the user's, with the name given and an id of its own`(): Unit = runBlocking {
-        val copy = (service.duplicate(BuiltInStyles.TONAL, "Tonal copy") as Either.Ok).value
-
-        assertEquals(BuiltInStyles.TONAL.copy(id = "tonal-copy", name = "Tonal copy"), copy)
-        assertEquals(listOf(copy), saved)
-
-        val second = (service.duplicate(copy, "Tonal copy") as Either.Ok).value
-        assertEquals("tonal-copy-2", second.id)
-        assertEquals(copy.light, second.light)
-    }
-
-    @Test
     fun `deleting the selected style selects Tonal, and deleting another leaves the choice`(): Unit = runBlocking {
         library.value = StyleLibrary(listOf(teal, amber))
         storedId.value = "teal"

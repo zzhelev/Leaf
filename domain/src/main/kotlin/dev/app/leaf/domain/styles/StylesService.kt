@@ -44,10 +44,6 @@ class StylesService @Inject constructor(
 
     suspend fun select(id: String) = appSettingsService.setConfiguration(AppConfig.Style(id))
 
-    /** A copy of [style] named [name], as a style of the user's with an id of its own. */
-    suspend fun duplicate(style: StyleDefinition, name: String): Either<StyleDefinition, StyleLibraryError> =
-        libraryRepository.save(style.copy(id = libraryRepository.newId(name), name = name))
-
     /** Writes [style], new or changed, to its file. */
     suspend fun save(style: StyleDefinition): Either<StyleDefinition, StyleLibraryError> = libraryRepository.save(style)
 

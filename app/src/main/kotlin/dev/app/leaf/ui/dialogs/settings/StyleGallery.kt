@@ -61,6 +61,7 @@ import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.ui.components.sort.SortMenuPopup
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.dialogs.abbreviateHome
+import dev.app.leaf.ui.styles.StyleEditorStart
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -86,8 +87,6 @@ sealed interface StyleNotice {
 sealed interface StyleGalleryAction {
     data class Select(val style: StyleDefinition) : StyleGalleryAction
 
-    data class Duplicate(val style: StyleDefinition, val name: String) : StyleGalleryAction
-
     data class Export(val style: StyleDefinition, val path: String) : StyleGalleryAction
 
     /** After the user confirmed it. */
@@ -106,17 +105,19 @@ data class StyleGalleryState(
     val notice: StyleNotice? = null,
 )
 
-/** What the gallery asks the dialog around it to do: pick files, and confirm a deletion. */
+/** What the gallery asks the dialog around it to do: pick files, confirm a deletion, open the editor. */
 class StyleGalleryHost(
     val pickExportPath: (fileName: String) -> String?,
     val pickImportPath: () -> String?,
     val confirmDelete: (style: StyleDefinition, onConfirm: () -> Unit) -> Unit,
+    val openEditor: (StyleEditorStart) -> Unit,
 )
 
 /**
  * Settings → Appearance → Style (fork-only, option 3b of the "Style Library" board): a card per style, its light side
- * on the left and its dark side on the right, drawn in the style's own worked-out colours, then Import. A click on a
- * card selects its style; its ⋯ menu duplicates, exports or deletes it. Internal for its test.
+ * on the left and its dark side on the right, drawn in the style's own worked-out colours, then "+ New style" and
+ * Import. A click on a card selects its style; its ⋯ menu edits (a style of the user's), duplicates, exports or deletes
+ * it. Editing, duplicating and a new style open the editor. Internal for its test.
  */
 @Composable
 internal fun StyleGallery(state: StyleGalleryState, host: StyleGalleryHost, onAction: (StyleGalleryAction) -> Unit) {
@@ -135,8 +136,13 @@ internal fun StyleGallery(state: StyleGalleryState, host: StyleGalleryHost, onAc
                 val name = styleName(style)
                 val copyName = stringResource(Res.string.settings_style_copy_name, name)
                 val menuItems = buildList {
+                    if (!style.isBuiltIn) {
+                        add(menuOption(stringResource(Res.string.settings_style_edit)) {
+                            host.openEditor(StyleEditorStart.Edit(style))
+                        })
+                    }
                     add(menuOption(stringResource(Res.string.settings_style_duplicate)) {
-                        onAction(StyleGalleryAction.Duplicate(style, copyName))
+                        host.openEditor(StyleEditorStart.From(style, copyName, name))
                     })
                     add(menuOption(stringResource(Res.string.settings_style_export)) {
                         host.pickExportPath(exportFileName(name))?.let { onAction(StyleGalleryAction.Export(style, it)) }
@@ -158,8 +164,24 @@ internal fun StyleGallery(state: StyleGalleryState, host: StyleGalleryHost, onAc
                 )
             }
 
+            item(key = "new") {
+                val selected = state.styles.firstOrNull { it.id == state.selectedId } ?: state.styles.first()
+                val selectedName = styleName(selected)
+                val newName = stringResource(Res.string.settings_style_new_name)
+
+                DashedCard(
+                    label = stringResource(Res.string.settings_style_new),
+                    hint = stringResource(Res.string.settings_style_new_hint, selectedName),
+                    onClick = { host.openEditor(StyleEditorStart.From(selected, newName, selectedName)) },
+                )
+            }
+
             item(key = "import") {
-                ImportCard(onClick = { host.pickImportPath()?.let { onAction(StyleGalleryAction.Import(it)) } })
+                DashedCard(
+                    label = stringResource(Res.string.settings_style_import),
+                    hint = stringResource(Res.string.settings_style_import_hint),
+                    onClick = { host.pickImportPath()?.let { onAction(StyleGalleryAction.Import(it)) } },
+                )
             }
         }
 
@@ -331,7 +353,7 @@ private fun CardMenuButton(items: List<SortMenuItem>) {
 }
 
 @Composable
-private fun ImportCard(onClick: () -> Unit) {
+private fun DashedCard(label: String, hint: String, onClick: () -> Unit) {
     val dash = MaterialTheme.colors.onBackground.copy(alpha = 0.3f)
 
     Box(
@@ -352,13 +374,13 @@ private fun ImportCard(onClick: () -> Unit) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = stringResource(Res.string.settings_style_import),
+                text = label,
                 style = MaterialTheme.typography.body2,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colors.primaryVariant,
             )
             Text(
-                text = stringResource(Res.string.settings_style_import_hint),
+                text = hint,
                 style = MaterialTheme.typography.caption,
                 color = MaterialTheme.colors.onBackgroundSecondary,
             )

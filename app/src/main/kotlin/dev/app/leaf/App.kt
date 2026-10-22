@@ -67,6 +67,7 @@ import dev.app.leaf.domain.rebase.SkippedCommitsNotice
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.dialogs.QuitDialog
+import dev.app.leaf.ui.styles.StyleEditorStart
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -120,6 +121,8 @@ sealed interface Screen : NavKey {
     data object Author : Screen
     data object StashWithMessage : Screen
     data object CheckForUpdates : Screen
+    /** The style editor (fork-only, docs/fork/custom-styles.md), over Settings. */
+    data class StyleEditor(val start: StyleEditorStart) : Screen
     /**
      * Asks before [action], which [onConfirm] runs. With [onStopAsking], the dialog offers "Don't ask again", and
      * calls it before [onConfirm] when that's checked. Pass [onConfirm] in the parentheses: a trailing lambda would be

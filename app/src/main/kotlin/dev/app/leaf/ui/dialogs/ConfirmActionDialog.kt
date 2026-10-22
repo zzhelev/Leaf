@@ -99,6 +99,9 @@ sealed interface ConfirmableAction {
     /** Deletes the file of the user's style named [styleName] (Settings → Appearance → Style). */
     data class DeleteStyle(val styleName: String) : ConfirmableAction
 
+    /** Closes the style editor without saving the changes to [styleName]. */
+    data class DiscardStyleChanges(val styleName: String) : ConfirmableAction
+
     /** Discards the unstaged [hunk] of [filePath]. */
     data class DiscardHunk(val filePath: String, val hunk: Hunk) : ConfirmableAction
 
@@ -493,6 +496,14 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             subtitle = stringResource(Res.string.delete_style_dialog_subtitle, styleName),
             warning = stringResource(Res.string.delete_style_dialog_warning),
             primaryAction = stringResource(Res.string.delete_style_dialog_delete),
+        )
+
+        is ConfirmableAction.DiscardStyleChanges -> ConfirmationTexts(
+            icon = warning,
+            title = stringResource(Res.string.discard_style_changes_dialog_title),
+            subtitle = stringResource(Res.string.discard_style_changes_dialog_subtitle, styleName),
+            warning = null,
+            primaryAction = stringResource(Res.string.discard_style_changes_dialog_discard),
         )
 
         is ConfirmableAction.DeleteRemote -> ConfirmationTexts(

@@ -167,6 +167,7 @@ fun SettingsDialog(
             confirmDelete = { style, onConfirm ->
                 onNavigate(Screen.ConfirmAction(ConfirmableAction.DeleteStyle(style.name), onConfirm = onConfirm))
             },
+            openEditor = { start -> onNavigate(Screen.StyleEditor(start)) },
         )
     }
 
@@ -789,7 +790,7 @@ private fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (Sett
 
 /** Fork-only: the gallery's pickers and dialogs, which the dialog provides to the Appearance category. */
 private val LocalStyleGalleryHost = staticCompositionLocalOf {
-    StyleGalleryHost(pickExportPath = { null }, pickImportPath = { null }, confirmDelete = { _, _ -> })
+    StyleGalleryHost(pickExportPath = { null }, pickImportPath = { null }, confirmDelete = { _, _ -> }, openEditor = {})
 }
 
 /** A style's name: a built-in one's from the app's strings, the user's as they named it. */

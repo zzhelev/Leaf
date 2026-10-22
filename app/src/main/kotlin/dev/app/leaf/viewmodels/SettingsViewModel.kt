@@ -93,9 +93,6 @@ class SettingsViewModel @Inject constructor(
     private fun onStyleAction(action: StyleGalleryAction) = viewModelScope.launch {
         when (action) {
             is StyleGalleryAction.Select -> stylesService.select(action.style.id)
-            is StyleGalleryAction.Duplicate -> stylesService.duplicate(action.style, action.name).onErr {
-                styleNotice.value = StyleNotice.Failed(it)
-            }
             is StyleGalleryAction.Delete -> stylesService.delete(action.style).onErr {
                 styleNotice.value = StyleNotice.Failed(it)
             }

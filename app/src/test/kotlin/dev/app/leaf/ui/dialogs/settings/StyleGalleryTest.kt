@@ -30,6 +30,7 @@ import dev.app.leaf.domain.styles.UnreadableStyle
 import dev.app.leaf.domain.styles.UnreadableStyleFile
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.styles.resolveStyleSide
+import dev.app.leaf.ui.styles.StyleEditorStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.swing.Swing
@@ -48,6 +49,7 @@ class StyleGalleryTest {
     private var exportPath: String? = "/tmp/out/Teal.json"
     private var importPath: String? = "/tmp/in/Solarized.json"
     private var pendingDelete: Pair<StyleDefinition, () -> Unit>? = null
+    private val opened = mutableListOf<StyleEditorStart>()
 
     private val teal = StyleDefinition(
         id = "teal",
@@ -65,6 +67,7 @@ class StyleGalleryTest {
         pickExportPath = { name -> exportAsked += name; exportPath },
         pickImportPath = { importPath },
         confirmDelete = { style, onConfirm -> pendingDelete = style to onConfirm },
+        openEditor = { opened += it },
     )
 
     @AfterEach
@@ -91,11 +94,12 @@ class StyleGalleryTest {
         runBlocking(Dispatchers.Swing) {
             show(state())
 
-            for (name in listOf("Tonal", "Classic", "Quiet", "Teal", "Import style…", "a .json file")) {
+            for (name in listOf("Tonal", "Classic", "Quiet", "Teal", "+ New style", "starts from Tonal", "Import style…", "a .json file")) {
                 assertTrue(name in texts(), "$name in ${texts()}")
             }
             assertEquals(3, texts().count { it == "built in" })
             assertTrue(boundsOf("Import style…").top > boundsOf("Tonal").top, "Import is on the second row")
+            assertTrue(boundsOf("Import style…").left > boundsOf("+ New style").left, "after New")
         }
 
     @Test
@@ -135,16 +139,36 @@ class StyleGalleryTest {
         }
 
     @Test
-    fun `a built-in style's menu duplicates and exports it, and has no Delete`(): Unit = runBlocking(Dispatchers.Swing) {
+    fun `a built-in style's menu duplicates and exports it, and has no Edit or Delete`(): Unit = runBlocking(Dispatchers.Swing) {
         show(state())
 
         openMenu(0)
         assertTrue("Duplicate" in texts() && "Export…" in texts(), "${texts()}")
         assertFalse("Delete…" in texts())
+        assertFalse("Edit…" in texts())
 
         clickText("Duplicate")
-        assertEquals(listOf<StyleGalleryAction>(StyleGalleryAction.Duplicate(BuiltInStyles.TONAL, "Tonal copy")), actions)
+        assertEquals(listOf<StyleEditorStart>(StyleEditorStart.From(BuiltInStyles.TONAL, "Tonal copy", "Tonal")), opened)
+        assertEquals(emptyList<StyleGalleryAction>(), actions, "Nothing is saved until the editor saves it")
     }
+
+    @Test
+    fun `a user's style is edited from its menu, and a new style starts from the selected one`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            show(state(selectedId = "classic"))
+
+            openMenu(3)
+            assertEquals("Edit…", nodes().last { "Edit…" in it.texts() }.texts().single())
+            clickText("Edit…")
+
+            clickText("+ New style")
+            assertTrue("starts from Classic" in texts(), "${texts()}")
+
+            assertEquals(
+                listOf(StyleEditorStart.Edit(teal), StyleEditorStart.From(BuiltInStyles.CLASSIC, "New style", "Classic")),
+                opened,
+            )
+        }
 
     @Test
     fun `Export asks where, with the style's name, and does nothing when that's cancelled`(): Unit =
