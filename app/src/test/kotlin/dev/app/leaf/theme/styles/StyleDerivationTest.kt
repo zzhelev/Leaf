@@ -46,7 +46,8 @@ class StyleDerivationTest {
 
                 assertEquals(scheme, resolved.palette.toColorsScheme(), "${style.id} $isLight")
                 assertEquals(styleColorsFor(style.look, scheme), resolved.palette.toStyleColors(), "${style.id} $isLight")
-                assertEquals(CLASSIC_LANES, resolved.palette.lanes, "${style.id} $isLight")
+                val lanes = if (style.look == AccentStyle.CLASSIC) CLASSIC_LANES else MUTED_LANES
+                assertEquals(lanes, resolved.palette.lanes, "${style.id} $isLight")
                 assertEquals(emptyList<StyleAdjustment>(), resolved.adjustments, "${style.id} $isLight")
                 assertEquals(emptyList<ContrastShortfall>(), resolved.shortfalls, "${style.id} $isLight")
             }
@@ -56,6 +57,17 @@ class StyleDerivationTest {
     @Test
     fun `the grey lane stays the nine-digit value Leaf has drawn it with`() {
         assertEquals(Color(0xFE78909C), CLASSIC_LANES[2])
+    }
+
+    @Test
+    fun `Tonal and Quiet have the board's muted lanes, Classic Leaf's old ones`() {
+        assertEquals(
+            listOf(0xFF5B97D3, 0xFFCD7670, 0xFF7D97A4, 0xFFC87D52, 0xFF60A56B, 0xFFC4759C).map { Color(it) },
+            MUTED_LANES,
+        )
+        assertEquals(MUTED_LANES, lanesOf(AccentStyle.TONAL))
+        assertEquals(MUTED_LANES, lanesOf(AccentStyle.QUIET))
+        assertEquals(CLASSIC_LANES, lanesOf(AccentStyle.CLASSIC))
     }
 
     @Test
@@ -301,11 +313,11 @@ class StyleDerivationTest {
             for (isLight in sides) {
                 val scheme = (if (isLight) lightTheme else darkTheme).styled(look)
                 val roles = styleColorsFor(look, scheme)
-                val palette = StylePalette.of(scheme, roles, CLASSIC_LANES)
+                val palette = StylePalette.of(scheme, roles, lanesOf(look))
 
                 assertEquals(scheme, palette.toColorsScheme())
                 assertEquals(roles, palette.toStyleColors())
-                assertEquals(CLASSIC_LANES, palette.lanes)
+                assertEquals(lanesOf(look), palette.lanes)
                 assertEquals(palette, StylePalette.template(look, isLight))
             }
         }

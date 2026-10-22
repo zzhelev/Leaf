@@ -76,7 +76,7 @@ class AppThemeStylesTest {
         )
         assertEquals(resolved.palette.toStyleColors(), roles)
         assertEquals(Color(0xFFFF00FF), lanes.first())
-        assertEquals(CLASSIC_LANES.drop(1), lanes.drop(1))
+        assertEquals(MUTED_LANES.drop(1), lanes.drop(1))
     }
 
     @Test

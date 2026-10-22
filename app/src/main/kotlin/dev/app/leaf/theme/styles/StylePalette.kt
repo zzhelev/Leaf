@@ -29,6 +29,26 @@ val CLASSIC_LANES: List<Color> = listOf(
     Color(0xFFec407a),
 )
 
+/**
+ * The muted lanes of Tonal and Quiet (row 1g of the "Leaf Colours" board, chosen with the user on 2026-10-22): the same
+ * six hues, softer, in step with those looks' muted buttons. Each holds about 3 : 1 on the light background, where
+ * Classic's green holds 2.4, and 5.7 to 6.3 on the dark one.
+ */
+val MUTED_LANES: List<Color> = listOf(
+    Color(0xFF5B97D3),
+    Color(0xFFCD7670),
+    Color(0xFF7D97A4),
+    Color(0xFFC87D52),
+    Color(0xFF60A56B),
+    Color(0xFFC4759C),
+)
+
+/** [look]'s own lanes: Classic keeps Leaf's old ones, Tonal and Quiet have the muted ones. */
+fun lanesOf(look: AccentStyle): List<Color> = when (look) {
+    AccentStyle.CLASSIC -> CLASSIC_LANES
+    AccentStyle.TONAL, AccentStyle.QUIET -> MUTED_LANES
+}
+
 /** Every colour of one side of a style, by slot (fork-only). */
 @Immutable
 class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Color>) {
@@ -181,7 +201,7 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
         fun template(look: AccentStyle, isLight: Boolean): StylePalette {
             val scheme = (if (isLight) lightTheme else darkTheme).styled(look)
 
-            return of(scheme, styleColorsFor(look, scheme), CLASSIC_LANES)
+            return of(scheme, styleColorsFor(look, scheme), lanesOf(look))
         }
     }
 }

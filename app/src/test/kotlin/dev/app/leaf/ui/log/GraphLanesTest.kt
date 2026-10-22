@@ -26,6 +26,7 @@ import dev.app.leaf.domain.styles.StyleSide
 import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.styles.CLASSIC_LANES
+import dev.app.leaf.theme.styles.MUTED_LANES
 import org.jetbrains.skia.Bitmap
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -102,11 +103,14 @@ class GraphLanesTest {
     }
 
     @Test
-    fun `a built-in style draws Leaf's own lanes`() {
-        val bitmap = graph(BuiltInStyles.TONAL)
+    fun `Tonal draws its muted lanes, and Classic Leaf's old ones`() {
+        val tonal = graph(BuiltInStyles.TONAL)
+        assertEquals(MUTED_LANES[0].toArgb(), tonal.pixel(13, 2))
+        assertEquals(MUTED_LANES[1].toArgb(), tonal.pixel(27, 2))
 
-        assertEquals(CLASSIC_LANES[0].toArgb(), bitmap.pixel(13, 2))
-        assertEquals(CLASSIC_LANES[1].toArgb(), bitmap.pixel(27, 2))
+        val classic = graph(BuiltInStyles.CLASSIC)
+        assertEquals(CLASSIC_LANES[0].toArgb(), classic.pixel(13, 2))
+        assertEquals(CLASSIC_LANES[1].toArgb(), classic.pixel(27, 2))
     }
 
     @Test
