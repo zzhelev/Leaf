@@ -185,6 +185,30 @@ class CherryPickingBranchTest {
     }
 
     @Test
+    fun `each commit that git stops at has its own message, keyed by that commit`(): Unit = runBlocking {
+        commit("main: a and b", "a.txt" to "a main\n", "b.txt" to "b main\n")
+        val pick = open()
+        val (one, two) = pick.pickable.take(2)
+
+        tab.cherryPickCommits(checkNotNull(pick.cherryPickPlan(pick.firstTwo, asOneCommit = false))).join()
+        val atOne = tab.awaitLoaded(tab.repositoryData.persistedCommitMessage) { it.mergeMessageStop == one.hash }
+        assertEquals("fix: one", atOne.mergeMessage?.trim())
+
+        File(repository, "a.txt").writeText("a resolved\n")
+        git.run(repository, "add", "a.txt")
+        tab.cherryPickSequence.continueSequence("fix: one, resolved", true)
+
+        // git went on and stopped at the next commit's conflicts, with that commit's message
+        val atTwo = tab.awaitLoaded(tab.repositoryData.persistedCommitMessage) { it.mergeMessageStop == two.hash }
+        assertEquals("fix: two", atTwo.mergeMessage?.trim())
+        assertEquals("fix: one, resolved", subjects(1).single())
+
+        tab.cherryPickSequence.abort()
+        val after = tab.awaitLoaded(tab.repositoryData.persistedCommitMessage) { it.mergeMessageStop == null }
+        assertEquals(null, after.mergeMessage)
+    }
+
+    @Test
     fun `Abort takes the commits that it picked so far off the branch`(): Unit = runBlocking {
         commit("main: b", "b.txt" to "b main\n")
         start = head()

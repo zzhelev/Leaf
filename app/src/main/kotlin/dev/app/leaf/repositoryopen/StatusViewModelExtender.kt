@@ -131,7 +131,11 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     private val normalCommitMessage = persistedCommitMessageFlow { it.commitMessage }
 
-    private val mergeCommitMessage = persistedCommitMessageFlow { it.mergeMessage }
+    /**
+     * Fork-only: a cherry-pick or revert of several commits stops at each commit with conflicts, and the field starts
+     * over with that commit's message. Without the key, it kept the first one's, which Continue then committed.
+     */
+    private val mergeCommitMessage = persistedCommitMessageFlow(key = { it.mergeMessageStop }) { it.mergeMessage }
 
     private val squashCommitMessage = persistedCommitMessageFlow { it.squashMessage }
 

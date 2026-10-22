@@ -14,4 +14,10 @@ data class PersistedCommitMessage(
      * else the commit's own.
      */
     val rebaseEditMessage: String? = null,
+    /**
+     * Fork-only: the commit that a cherry-pick or revert stopped at (`CHERRY_PICK_HEAD`, `REVERT_HEAD`), which
+     * [mergeMessage] is for. git writes the next commit's message there when it goes on with several commits and stops
+     * again, so the field starts over with it, as at a rebase's next stop.
+     */
+    val mergeMessageStop: String? = null,
 )

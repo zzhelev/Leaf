@@ -28,7 +28,17 @@ class GetPersistedCommitMessagesGitAction @Inject constructor(
                 git.repository.readRebaseEditMessage(it) ?: git.repository.headCommitMessage()
             }
 
-            PersistedCommitMessage(commitMessage, mergeMessage, squashMessage, rebaseEditStop, rebaseEditMessage)
+            // Fork-only: a cherry-pick or revert of several commits stops at each one that has conflicts
+            val mergeMessageStop = (git.repository.readCherryPickHead() ?: git.repository.readRevertHead())?.name
+
+            PersistedCommitMessage(
+                commitMessage,
+                mergeMessage,
+                squashMessage,
+                rebaseEditStop,
+                rebaseEditMessage,
+                mergeMessageStop,
+            )
         }
     }
 }
