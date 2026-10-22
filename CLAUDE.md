@@ -2562,8 +2562,9 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   The diff above the log). Selecting a file's diff, which minimizes blame, needs nothing: the click focuses the file's row.
 - A view that covers others is checked there by what is shown, not added to `CloseableView`: the log search adds
   itself again whenever its results change, and would then come before it.
-- Fork-only: folding the branches pane (Ctrl or Cmd+Shift+B) removes what had the focus when it was in the pane, so the tab takes
-  the focus a frame later if nothing in it has (see The branches pane's fold toggle).
+- Fork-only: folding the branches pane (Ctrl or Cmd+Shift+B) or the changes pane (Ctrl or Cmd+Shift+C) removes what had the focus
+  when it was in the pane, so the tab takes the focus a frame later if nothing in it has (see The branches pane's fold toggle
+  and The changes pane's fold toggle).
 
 **Identity and persistence:**
 - Tabs are identified by object, not by path. Opening a repository from the Welcome page or the CLI never looks for
@@ -3194,6 +3195,56 @@ gives the log and the diff its 220 dp (1102 dp wide in a 1440 dp window instead 
   click). The tab itself ran in a temporary harness on a scene with real clicks and keys: the button, the shortcut, the focus
   after folding from the search field and from the log. The Actions list's click on the entry reaches `viewModel.toggleBranchesPane`
   in a `when` that no test reaches (`QuickActionsViewModel` can't be built without its use cases).
+
+**The changes pane's fold toggle (fork-only, 2026-10-22):** the right-hand pane can be folded away too: Files changed for a
+commit, Staged, Unstaged and the commit box for the uncommitted changes, or a comparison. The log and the diff take its 330 dp
+(about 1212 dp wide in a 1440 dp window instead of 874, and the whole 1440 with the branches pane folded as well). It works as
+the branches pane's does (previous section), with one difference: some things can't be done without the pane.
+- **The button** (`ChangesPaneToggle`, `ui/components/`): 26 dp, at the bottom bar's right end after the version, with a
+  separator before it (`BottomInfoBar`'s new `trailingContent`), so it sits under the pane it folds and stays in place when the
+  pane is gone. The update button and the file-watching notice are to its left. Its icon is a panel on the right
+  (`side_panel_right_open` while the pane shows, `side_panel_right` while it is folded), and its tooltip says what a click does,
+  with the shortcut.
+- **The shortcut:** `KeybindingOption.CHANGES_PANE`, Ctrl+Shift+C (Cmd+Shift+C on a Mac), the branches pane's Ctrl+Shift+B with
+  the pane's initial, so that the two are learned together. Nothing else used it. **The Actions list** has "Hide changes pane" or
+  "Show changes pane" (`changesPaneAction`) with the shortcut at the row's end.
+- **State:** `ChangesPaneConfig` (`ui/`, an app singleton), kept as `changesPaneFolded` in the prefs node, so every tab folds
+  together and the choice survives a restart. `MainContentView` gives `TripleVerticalSplitPanel` a third width of 0 while the pane
+  isn't shown, and the panel then leaves the third pane and its 8 dp handle out, as it does for a first width of 0 (a change to
+  that shared component: `TripleVerticalSplitPanelTest`). The pane's width is kept and comes back. `CommitChanges`, `StatusPane`
+  and `ComparisonPane` aren't composed while it is out, and nothing is lost: their state is in the view models, so a diff still
+  follows the log's selection from commit to commit with both side panes folded (checked in the real tab, see The diff above the
+  log), and the commit message's draft is saved as before.
+- **Held open** (`ChangesPaneNeed`, `ChangesPaneState`, `changesPaneNeed`, `ui/ChangesPane.kt`): the pane shows whatever the
+  user chose while it can't be done without. `ChangesPaneState.isShown` is `!isFolded || need != null`, and the saved fold is
+  never changed by a need, so the pane folds again when it ends. Chosen with the user ("when critical to the workflow"):
+  - a merge, rebase, cherry-pick, revert or squash merge in progress (`operationInProgress(statusState)`, the banner's own
+    test): Merge, Continue and Commit are in the commit box and the conflicted files in Unstaged;
+  - a comparison or a worktree review (`comparisonState != null`), which show only in this pane. A ⌘-click on a second commit
+    with the pane folded would otherwise show nothing.
+
+  An operation comes before a comparison. Selecting the uncommitted changes while folded doesn't unfold it: the point of folding
+  is to see the log and the diff, and the log's row shows the selection.
+- **While held**, the icon shows as open with an amber dot (`styleColors.warningIcon`, in a ring of the bar's colour), its tooltip
+  says why ("Changes pane: shown while a merge is in progress", "…while comparing"), and a click, the shortcut and the Actions
+  entry do nothing: `ChangesPaneNeeds.toggleUnlessHeld`. `ChangesPaneNeeds` is a tab-scoped holder that
+  `RepositoryOpenViewModel` writes (a collector started in its `init`) and `QuickActionsViewModel` reads, as the Actions list is
+  a view model of its own and leaves the entry out while the pane is held. `RepositoryOpenViewModel.changesPane` is the state
+  that the screen reads.
+- **Focus:** folding removes whatever in the pane had the focus, the commit message field's included, so `RepositoryOpenPage`'s
+  effect that gives the focus back to the tab a frame later runs for this pane too. Checked in the real tab: folded with the
+  focus in the commit message field, the next shortcut (New branch) still reaches the tab.
+- **Chosen with the user** on the Claude Design board "Leaf branches pane toggle" (`Right Pane Toggle.dc.html`): the bar's right
+  end (2a), against both icons together at its left edge (2b); the name "changes pane", over "files pane" and "right pane"; and
+  the shortcut was left to Leaf, as "similar to the branches pane's".
+- **Not built:** folding by itself, and a double-click on the divider. While the interactive rebase's list awaits, the pane is
+  empty as before.
+- Tests: `ChangesPaneConfigTest`, `ChangesPaneStateTest` (the rules, the need's order, and the toggle's guard),
+  `ChangesPaneKeybindingTest`, `ChangesPaneToggleTest` (the name and icon of each state, the dot, the click that does nothing
+  while held), `QuickActionsChangesPaneTest`, `TripleVerticalSplitPanelTest`. The tab itself ran in a temporary harness on a
+  scene with real clicks and keys against a demo repository: the button, the shortcut, the two panes folded apart and together,
+  the focus after folding from the commit message field, a diff followed through the log with both folded, a merge that stopped
+  at conflicts (held, then folded again after `git merge --abort`), and a comparison (held, then folded again).
 
 **File history's selected commit (fork-only, `ui/FileHistorySelection.kt`, `viewmodels/FileHistoryCommits.kt`):**
 `HistoryViewModel.selectedCommit` is the commit whose diff is shown. The list highlights its row

@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Fold the changes pane away: a bottom bar button, Ctrl or Cmd+Shift+C, and the Actions list (2026-10-22)
+
+- **Request:** after the branches pane's fold (next entry), the same for the right-hand panes, "Staged, Unstaged and the commit
+  area". With both folded the log and the diff have the whole window to step through commits, the diff following.
+- **What it does:** a button at the right end of the bottom bar, after the version, folds the pane away and shows it again. The
+  log and the diff take its 330 dp: about 1212 dp wide in a 1440 dp window instead of 874, and all 1440 with the branches pane
+  folded too. Its icon is a panel on the right, filled while the pane shows. Ctrl+Shift+C (Cmd+Shift+C on a Mac) does the same, as
+  the branches pane's Ctrl+Shift+B does for the left, and the Actions list has "Hide changes pane" and "Show changes pane".
+- **Kept:** as for the branches pane, the choice is the same in every tab, survives a restart, and the pane's width is as it was
+  when it comes back.
+- **Held open:** the pane can't stay folded while a merge, rebase, cherry-pick, revert or squash merge waits for the user, as
+  Merge, Continue and Commit are in its commit box and the conflicted files in its Unstaged list. It shows until the operation
+  ends, then folds again. A comparison or a worktree review, which show only in this pane, hold it the same way. The icon shows
+  an amber dot then, its tooltip says why ("Changes pane: shown while a merge is in progress"), and a click, the shortcut and the
+  Actions entry do nothing. Selecting the uncommitted changes while it is folded leaves it folded.
+- **Chosen with the user** from two placements on a Claude Design board: the bar's right end, as the left icon is at its left
+  end, under the pane it folds (this), and both icons together at the left edge. The name "changes pane" and the rules for
+  holding the pane open were chosen there too, and the shortcut was left to Leaf: the branches pane's with the pane's initial.
+- **Checked in the real tab,** with real clicks and keys on a scene, against a demo repository: both panes folded and a diff
+  followed from commit to commit, the focus after folding from the commit message field, a merge stopped at conflicts, and a
+  comparison.
+- Details: CLAUDE.md, "The changes pane's fold toggle".
+
 ## Fold the branches pane away: a bottom bar button, Ctrl or Cmd+Shift+B, and the Actions list (upstream issue 136, 2026-10-22)
 
 - **Request:** upstream issue 136 asked for the diff to use more than the middle pane, "usually you don't need to know which
