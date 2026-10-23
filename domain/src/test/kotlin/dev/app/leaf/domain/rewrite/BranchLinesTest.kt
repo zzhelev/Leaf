@@ -123,6 +123,56 @@ class BranchLinesTest {
         assertEquals(listOf(RewriteGroup(listOf("b"), "New")), reword.rewrite("New").groups)
     }
 
+    private fun Either<RebasePlan, RewriteRefusal>.rows() = ok().rows.map { it.commit.hash to it.action }
+
+    @Test
+    fun `the editor opens on a branch's own commits, oldest first, all picked`() {
+        assertEquals(listOf("a", "b", "c", "d").map { it to PlanAction.PICK }, lines.editorChoice("refs/heads/stacked", idle)!!.rows())
+        assertEquals("d", lines.editorChoice("refs/heads/stacked", idle)!!.ok().expectedTip)
+        assertNull(lines.editorChoice("refs/heads/main", idle))
+        assertNull(lines.editorChoice("refs/heads/other", idle))
+
+        // One commit of its own is enough to reword, edit or drop it.
+        val one = BranchLines(lines = mapOf("refs/heads/x" to BranchLine("refs/heads/x", null, listOf(a))))
+        assertEquals(listOf("a" to PlanAction.PICK), one.editorChoice("refs/heads/x", idle)!!.rows())
+    }
+
+    @Test
+    fun `the editor is refused for a branch that a worktree is busy with, or that has more commits than Leaf reads`() {
+        val busy: (String) -> BranchOperation? = { if (it == "refs/heads/stacked") BranchOperation.REBASE else null }
+        val cut = BranchLines(lines = mapOf("refs/heads/long" to BranchLine("refs/heads/long", null, listOf(c, b), isTruncated = true)))
+
+        assertEquals(Either.Err(RewriteRefusal.Busy(BranchOperation.REBASE)), lines.editorChoice("refs/heads/stacked", busy))
+        assertEquals(Either.Err(RewriteRefusal.Busy(BranchOperation.REBASE)), lines.editorFrom("d", null, busy))
+        assertEquals(Either.Err(RewriteRefusal.TooManyCommits), cut.editorChoice("refs/heads/long", idle))
+        // From a commit that Leaf read, the editor opens.
+        assertEquals(listOf("b", "c"), cut.editorFrom("b", null, idle).rows().map { it.first })
+    }
+
+    @Test
+    fun `from a commit, the editor has it and the commits after it on its line`() {
+        assertEquals(listOf("b", "c", "d"), lines.editorFrom("b", "refs/heads/stacked", idle).rows().map { it.first })
+        assertEquals(listOf("b", "c"), lines.editorFrom("b", "refs/heads/feat", idle).rows().map { it.first })
+        assertEquals(Either.Err(RewriteRefusal.OnSeveralBranches(2)), lines.editorFrom("b", null, idle))
+        assertEquals(Either.Err(RewriteRefusal.OnBase("main")), lines.editorFrom("m", null, idle))
+    }
+
+    @Test
+    fun `from a range, the editor starts at its oldest commit, whatever order they were picked in`() {
+        assertEquals(listOf("c", "d"), lines.editorForRange(listOf("d", "c"), null, idle).rows().map { it.first })
+        assertEquals(listOf("b", "c", "d"), lines.editorForRange(listOf("d", "b"), null, idle).rows().map { it.first })
+        assertEquals(Either.Err(RewriteRefusal.OnBase("main")), lines.editorForRange(listOf("a", "m"), null, idle))
+    }
+
+    @Test
+    fun `dropping a commit is the plan from it, with it dropped`() {
+        assertEquals(
+            listOf("c" to PlanAction.DROP, "d" to PlanAction.PICK),
+            lines.dropChoice("c", "refs/heads/stacked", idle).rows(),
+        )
+        assertEquals(Either.Err(RewriteRefusal.OnBase("main")), lines.dropChoice("m", null, idle))
+    }
+
     @Test
     fun `only squashing the whole branch goes on the latest base`() {
         val onto = OntoBase("refs/heads/main", "n".repeat(40))

@@ -5,6 +5,7 @@ package dev.app.leaf.domain.rewrite
 
 import dev.app.leaf.domain.errors.BranchOperation
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.mapOk
 
 /** The most commits of its own that Leaf reads for a branch, and of its base, for the menus. */
 const val MAX_LINE_COMMITS = 2_000
@@ -80,6 +81,58 @@ data class BranchLines(
         val line = lines[branch]?.takeIf { it.commits.isNotEmpty() } ?: return null
 
         return busy(branch)?.let { Either.Err(RewriteRefusal.Busy(it)) } ?: line.allCommits()
+    }
+
+    /**
+     * What "Edit branch commits…" opens for the local branch [branch]: a plan of all its own commits, or null when it has
+     * none to offer it for, as for [branchChoice].
+     */
+    fun editorChoice(branch: String, busy: (branch: String) -> BranchOperation?): Either<RebasePlan, RewriteRefusal>? {
+        val line = lines[branch]?.takeIf { it.commits.isNotEmpty() } ?: return null
+
+        busy(branch)?.let { return Either.Err(RewriteRefusal.Busy(it)) }
+
+        return if (line.isTruncated) {
+            Either.Err(RewriteRefusal.TooManyCommits)
+        } else {
+            Either.Ok(RebasePlan.of(line, line.commits.reversed()))
+        }
+    }
+
+    /** What "Interactive rebase from here…" opens for [commit]: a plan of it and the commits after it on its line. */
+    fun editorFrom(
+        commit: String,
+        currentBranch: String?,
+        busy: (branch: String) -> BranchOperation?,
+    ): Either<RebasePlan, RewriteRefusal> = editorFromOldestOf(listOf(commit), currentBranch, busy)
+
+    /** What "Edit these in the rebase editor…" opens for [commits], selected in the log: the line from the oldest. */
+    fun editorForRange(
+        commits: Collection<String>,
+        currentBranch: String?,
+        busy: (branch: String) -> BranchOperation?,
+    ): Either<RebasePlan, RewriteRefusal> = editorFromOldestOf(commits, currentBranch, busy)
+
+    /** What "Drop commit…" does with [commit]: the plan from it, with it dropped. */
+    fun dropChoice(
+        commit: String,
+        currentBranch: String?,
+        busy: (branch: String) -> BranchOperation?,
+    ): Either<RebasePlan, RewriteRefusal> =
+        editorFrom(commit, currentBranch, busy).mapOk { it.withAction(commit, PlanAction.DROP) }
+
+    private fun editorFromOldestOf(
+        commits: Collection<String>,
+        currentBranch: String?,
+        busy: (branch: String) -> BranchOperation?,
+    ): Either<RebasePlan, RewriteRefusal> {
+        val line = when (val holding = usableLine(commits, currentBranch, busy)) {
+            is Either.Err -> return holding
+            is Either.Ok -> holding.value
+        }
+        val oldest = line.commits.indexOfLast { it.hash in commits }
+
+        return Either.Ok(RebasePlan.of(line, line.commits.subList(0, oldest + 1).reversed()))
     }
 
     private fun usableLine(
