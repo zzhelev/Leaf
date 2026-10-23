@@ -21,6 +21,7 @@ import dev.app.leaf.app.generated.resources.error_rewrite_plan_may_stop
 import dev.app.leaf.app.generated.resources.error_rewrite_plan_stops
 import dev.app.leaf.app.generated.resources.error_rewrite_plan_stops_to_edit
 import dev.app.leaf.app.generated.resources.error_rewrite_replays_merge
+import dev.app.leaf.app.generated.resources.error_rewrite_no_working_tree
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_merging
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_cherry_picking
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_reverting
@@ -300,6 +301,7 @@ fun AppError.getErrorText(): String {
             }
 
             is RewriteBranchError.ReplaysMerge -> stringResource(Res.string.error_rewrite_replays_merge, merge.take(7))
+            is RewriteBranchError.NoWorkingTree -> stringResource(Res.string.error_rewrite_no_working_tree, branch)
 
             is RewriteBranchError.BranchBusy -> {
                 val text = when (operation) {

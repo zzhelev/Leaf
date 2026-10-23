@@ -92,11 +92,13 @@ class GitCliOperations @Inject constructor(
      * nonetheless, and the tab shows a notice ([Autostashes.noticeIfKept]).
      *
      * @param failure the error for a failure, by default [GitCliError.CommandFailed] with git's message.
+     * @param environment variables for git besides its editor, such as the commit editor's `GIT_SEQUENCE_EDITOR`.
      */
     suspend fun run(
         repositoryPath: String,
         args: List<String>,
         mayStop: Boolean = true,
+        environment: Map<String, String> = emptyMap(),
         failure: (GitCliOutput) -> GitError = { output ->
             GitCliError.CommandFailed("git " + args.joinToString(" "), output.exitCode, failureMessage(output))
         },
@@ -104,7 +106,7 @@ class GitCliOperations @Inject constructor(
         val workTree = workTree(repositoryPath).bind()
         val autostashOperation = autostashOperation(args)
         val stashBefore = autostashOperation?.let { autostashes.newestStash(workTree) }
-        val output = remoteCommand.run(workTree, args, environment = NO_EDITOR).bind()
+        val output = remoteCommand.run(workTree, args, environment = NO_EDITOR + environment).bind()
 
         if (autostashOperation != null && output.exitCode == 0) {
             val after = if ("--abort" in args) AutostashPutBackAfter.ABORT else AutostashPutBackAfter.OPERATION

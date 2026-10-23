@@ -1511,6 +1511,7 @@
     <string name="error_rewrite_plan_stops_to_edit">The plan for "%1$s" stops at %2$s for it to be edited, which needs a rebase in a worktree. Nothing was changed.</string>
     <string name="error_rewrite_plan_may_stop">Leaf can't tell whether the plan for "%1$s" stops, so it can't run it without a rebase in a worktree. Nothing was changed.</string>
     <string name="error_rewrite_replays_merge">%1$s is a merge, and the plan changes the commits before it, so it would have to be merged again. Nothing was changed.</string>
+    <string name="error_rewrite_no_working_tree">The plan for "%1$s" stops, so it has to run in a working tree, which this repository hasn't. Nothing was changed.</string>
     <string name="error_rewrite_empty_message">The message is empty once git leaves out its comment lines and blank lines. Nothing was changed.</string>
     <string name="error_rewrite_branch_merging">The commits of "%1$s" can't be rewritten, as a merge is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
     <string name="error_rewrite_branch_cherry_picking">The commits of "%1$s" can't be rewritten, as a cherry-pick is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>

@@ -38,13 +38,19 @@ private val FILES_IN_THE_WAY = listOf(
  * Where git runs for a local branch that is rewritten (fork-only): in the worktree that has it checked out, as a
  * terminal there would, so that its HEAD's reflog says that HEAD moved, or in the tab's when none has. [gitArgs] name
  * the git dir when the worktree's folder is gone, or the repository is bare. [hasBranchCheckedOut] says that the
- * branch is checked out in [workingDirectory], whose files follow it.
+ * branch is checked out in [workingDirectory], whose files follow it. [gitDir] is that worktree's git dir, null in a
+ * test's place.
  */
 internal class BranchPlace(
     val workingDirectory: File,
     val gitArgs: List<String>,
     val hasBranchCheckedOut: Boolean = false,
-)
+    val gitDir: File? = null,
+) {
+    /** Whether git runs in a working tree, which a rebase needs: not when the folder is gone, or the repository is bare. */
+    val hasWorkingTree: Boolean
+        get() = gitArgs.isEmpty()
+}
 
 /**
  * The [BranchPlace] of [branch] (`refs/heads/x`). Refused while a worktree rebases the branch or bisects from it, or
@@ -80,9 +86,9 @@ internal fun EitherContext<GitError>.branchPlace(repository: Repository, branch:
 
 private fun placeOf(gitDir: File, workTree: File?, isCheckedOut: Boolean): BranchPlace {
     return if (workTree != null && workTree.isDirectory) {
-        BranchPlace(workTree, emptyList(), hasBranchCheckedOut = isCheckedOut)
+        BranchPlace(workTree, emptyList(), hasBranchCheckedOut = isCheckedOut, gitDir = gitDir)
     } else {
-        BranchPlace(gitDir, listOf("--git-dir=${gitDir.absolutePath}"))
+        BranchPlace(gitDir, listOf("--git-dir=${gitDir.absolutePath}"), gitDir = gitDir)
     }
 }
 

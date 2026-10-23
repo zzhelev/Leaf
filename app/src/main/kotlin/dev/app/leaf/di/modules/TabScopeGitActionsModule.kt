@@ -8,12 +8,16 @@ import dev.app.leaf.data.git.rewrite.CheckRebasePlanGitAction
 import dev.app.leaf.data.git.rewrite.GetBranchLinesGitAction
 import dev.app.leaf.data.git.rewrite.GetOntoBaseCheckGitAction
 import dev.app.leaf.data.git.rewrite.RewriteBranchGitAction
+import dev.app.leaf.data.git.rewrite.GetPlanRecordGitAction
 import dev.app.leaf.data.git.rewrite.RunRebasePlanGitAction
+import dev.app.leaf.data.git.rewrite.StartRebasePlanGitAction
 import dev.app.leaf.data.git.rewrite.UndoBranchRewriteGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchLinesGitAction
 import dev.app.leaf.domain.interfaces.ICheckRebasePlanGitAction
 import dev.app.leaf.domain.interfaces.IGetOntoBaseCheckGitAction
+import dev.app.leaf.domain.interfaces.IGetPlanRecordGitAction
 import dev.app.leaf.domain.interfaces.IRunRebasePlanGitAction
+import dev.app.leaf.domain.interfaces.IStartRebasePlanGitAction
 import dev.app.leaf.domain.interfaces.IRewriteBranchGitAction
 import dev.app.leaf.domain.interfaces.IUndoBranchRewriteGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
@@ -703,4 +707,12 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsRunRebasePlanGitAction(action: RunRebasePlanGitAction): IRunRebasePlanGitAction
+
+    @Binds
+    @TabScope
+    fun bindsStartRebasePlanGitAction(action: StartRebasePlanGitAction): IStartRebasePlanGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetPlanRecordGitAction(action: GetPlanRecordGitAction): IGetPlanRecordGitAction
 }

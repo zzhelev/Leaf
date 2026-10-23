@@ -63,6 +63,9 @@ sealed interface RewriteBranchError : GitError {
 
     /** The plan changes the commits below [merge], which would have to be merged again. */
     data class ReplaysMerge(val merge: String) : RewriteBranchError
+
+    /** A plan for [branch] that stops needs a working tree to rebase in, which a bare repository hasn't. */
+    data class NoWorkingTree(val branch: String) : RewriteBranchError
 }
 
 /** What a worktree does with a branch that stops a rewrite of it. */

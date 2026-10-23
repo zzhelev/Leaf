@@ -10,6 +10,8 @@ import dev.app.leaf.domain.rewrite.BranchRewrite
 import dev.app.leaf.domain.rewrite.BranchRewriteResult
 import dev.app.leaf.domain.rewrite.OntoBaseCheck
 import dev.app.leaf.domain.rewrite.PlanCheck
+import dev.app.leaf.domain.rewrite.PlanRebaseOutcome
+import dev.app.leaf.domain.rewrite.PlanRecord
 import dev.app.leaf.domain.rewrite.RebasePlan
 
 /** Joins and rewords a local branch's commits, keeping every commit's tree (fork-only). See [BranchRewrite]. */
@@ -38,4 +40,21 @@ interface ICheckRebasePlanGitAction {
 /** Runs [plan], which doesn't stop, without a working tree, as part A's rewrites run. Undone as they are. */
 interface IRunRebasePlanGitAction {
     suspend operator fun invoke(repositoryPath: String, plan: RebasePlan): Either<BranchRewriteResult, GitError>
+}
+
+/**
+ * Starts [plan], which stops, as `git rebase -i` in the worktree that has the branch, or in the tab's after checking
+ * it out there, setting uncommitted changes aside there when [autostash] says so.
+ */
+interface IStartRebasePlanGitAction {
+    suspend operator fun invoke(
+        repositoryPath: String,
+        plan: RebasePlan,
+        autostash: Boolean,
+    ): Either<PlanRebaseOutcome, GitError>
+}
+
+/** The record of the commit editor's plan that the rebase in [repositoryPath]'s worktree waits in, or null. */
+interface IGetPlanRecordGitAction {
+    suspend operator fun invoke(repositoryPath: String): Either<PlanRecord?, GitError>
 }
