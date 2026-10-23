@@ -5,7 +5,7 @@
 | Question | How does Leaf replace upstream's interactive rebase list with an editor that plans first, says before Start what will happen, and only touches a worktree when it has to? |
 | Verified against | `main` at `1edc1471`; git 2.54 (probes on 2026-10-23, section 2) |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain) and B2 (the check) done. Next: B3 |
+| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check) and B3 (the run without stops, main's unpushed commits) done. Next: B4 |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -167,6 +167,22 @@ As round 2, with these changes (round 3 of the mockup):
   worked out again at run time against the expected tip and base. One `update-ref` that expects the old tip;
   `moveBranchWithFiles` when the branch is checked out and its last tree changed, refused when files are in the way;
   `post-rewrite` with git's list for the same todo. Undo as in part A.
+  - Built in B3 (`RunRebasePlanGitAction`, `IRunRebasePlanGitAction`, `RewriteKind.REBASE`): part A's helpers for
+    making commits moved to `DA/git/rewrite/RewriteCommits.kt` (`NewCommit`, `commitTree`, `signsCommits`,
+    `runPostRewrite`), shared by both. The runner asks the check again (the tab's merges are remembered, so it's quick)
+    and refuses a plan that stops after all (`RewriteBranchError.PlanStops`), replays a merge (`ReplaysMerge`), or would
+    bring changed commits in again through a merge (`MergedAgain`). The reflog says `rebase: <subject>`, or
+    `rebase onto main: <subject>`. `UndoBranchRewriteGitAction` undoes it unchanged: it moves the files back when the
+    tree changed.
+  - Tested against `git rebase -i` (`RunRebasePlanGitActionTest`): plans that reorder, drop, reword, join and move onto
+    main give `git log --format=raw` byte for byte what git gives for the same todo in a copy, with the same committer
+    date, and `post-rewrite` the same list. Also the files of a branch checked out here or in another worktree,
+    uncommitted changes kept or in the way, merges, the group whose first commit comes out empty, and Undo.
+- **main's unpushed commits (decision 5, B3):** when the base is a local branch with an upstream, its own line is the
+  commits that the upstream lacks (`GetBranchLinesGitAction`), and its `BranchLine.base` is the upstream. So part A's
+  items and the editor work on them, a commit that the upstream has says "On origin/main" (`BranchLines.lineHolding`),
+  and "On top of the latest…" in A's dialog and the editor's Onto mean the latest `origin/main`: for `main`, that is a
+  pull with rebase, done without a working tree. A remote base already gave its local branch this line.
 - **A stop (B4):** in the worktree that has the branch (choice 2 when none has it), through `GitCliOperations.run`
   (askpass for signing, Cancel):
   1. twins for the groups with new messages;
