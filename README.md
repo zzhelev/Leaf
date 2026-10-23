@@ -145,13 +145,16 @@ Example for windows (you may want to edit `C:\Program Files\Git\etc\gitconfig`):
 ## License
 
 Leaf is a modified version of [Gitnuro](https://github.com/JetpackDuba/Gitnuro), forked from its 2.0 development branch
-in October 2026. It combines code under two licenses:
+in October 2026. It combines code under three licenses:
 
 - **Files that come from Gitnuro** are licensed under the [GNU General Public License v3.0](LICENSE)
   (GPL-3.0-only).
 - **Files written for Leaf** are licensed under the
   [GNU Affero General Public License v3.0](LICENSES/AGPL-3.0-only.txt) (AGPL-3.0-only). They start with an
   `SPDX-License-Identifier: AGPL-3.0-only` header.
+- **The `textmate` module** is a copy of [kotlin-textmate](https://github.com/ivan-magda/kotlin-textmate)'s engine,
+  a port of Microsoft's vscode-textmate, and stays under their [MIT License](textmate/LICENSE), with the notices in
+  [textmate/THIRD-PARTY-NOTICES.md](textmate/THIRD-PARTY-NOTICES.md). Leaf's changes to it are under the same license.
 
 As section 13 of the GPL v3 allows, Leaf as a whole is distributed as a combined work, and the network interaction
 requirements of section 13 of the AGPL v3 apply to that combination. In short, if you modify Leaf and let other people
