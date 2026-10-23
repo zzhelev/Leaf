@@ -22,6 +22,9 @@ import dev.app.leaf.domain.branches.toDelete
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AppConfig
+import dev.app.leaf.domain.remote.CHECK_AGAIN_EVERY
+import dev.app.leaf.domain.remote.CHECK_ROUNDS
+import dev.app.leaf.domain.remote.STOP_WAITING_AFTER
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.DeleteBranchesUseCase
 import dev.app.leaf.domain.usecases.GetBranchDeletionPlanUseCase
@@ -35,7 +38,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * State of the "Delete branches" dialog (fork-only, upstream issue 116).
@@ -132,13 +134,6 @@ data class DeleteBranchesState(
         }
     }
 }
-
-/** How long git deletes on a server before the dialog offers to stop waiting for it. */
-internal val STOP_WAITING_AFTER = 10.seconds
-
-/** How often, and how many times, the server is asked what a stopped delete left there. */
-private val CHECK_INTERVAL = 2.seconds
-private const val CHECK_ROUNDS = 15
 
 /** Whether the server still had a branch, or a copy, that a stopped delete was deleting. */
 private val BranchesDeletion.hasStillOnRemote: Boolean
@@ -321,7 +316,7 @@ class DeleteBranchesViewModel @AssistedInject constructor(
      * Asks the server what a stopped delete left there: for a remote's branches, which [branches] it still has; for
      * [copies], which of those whose [local] branch went. [local] is also the result that was shown before, when
      * deleting anyway, which the answer updates. The dialog shows it as a result at once, and while the server still has
-     * some, asks again every [CHECK_INTERVAL], [CHECK_ROUNDS] times at most: a server that was running a hook when git
+     * some, asks again every [CHECK_AGAIN_EVERY], [CHECK_ROUNDS] times at most: a server that was running a hook when git
      * stopped goes on, and deletes them a moment later. When the server can't be asked at first, the dialog says that
      * some may be gone.
      */
@@ -334,7 +329,7 @@ class DeleteBranchesViewModel @AssistedInject constructor(
         checking = viewModelScope.launch {
             try {
                 for (round in 1..CHECK_ROUNDS) {
-                    if (round > 1) delay(CHECK_INTERVAL)
+                    if (round > 1) delay(CHECK_AGAIN_EVERY)
 
                     val (result, error) = checkOnce(remote, branches, local, copies)
 

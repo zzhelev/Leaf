@@ -38,6 +38,7 @@ import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.BranchesPaneToggle
 import dev.app.leaf.ui.components.ChangesPaneToggle
+import dev.app.leaf.ui.StoppedWaitingStrip
 import dev.app.leaf.ui.ChangesPaneState
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
 import dev.app.leaf.ui.conflicts.ConflictResolver
@@ -274,6 +275,21 @@ fun RepositoryOpenPage(
                                     Screen.ConvertIndex(index, onConvert = { repositoryOpenViewModel.convertIndex(index) })
                                 )
                             },
+                        )
+                    }
+                }
+
+                // Fork-only: what a server did with a push or a delete that the user stopped waiting for
+                val stoppedWaiting by repositoryOpenViewModel.stoppedWaiting.collectAsState()
+
+                stoppedWaiting?.let { state ->
+                    if (!resolverFocused) {
+                        StoppedWaitingStrip(
+                            state = state,
+                            onStopChecking = { repositoryOpenViewModel.stopCheckingStoppedPush() },
+                            onFetch = { repositoryOpenViewModel.fetchAfterStoppedPush() },
+                            onTryAgain = { repositoryOpenViewModel.checkStoppedPushAgain() },
+                            onDismiss = { repositoryOpenViewModel.dismissStoppedPush() },
                         )
                     }
                 }

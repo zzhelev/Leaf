@@ -12,6 +12,7 @@ import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.ServerHandOff
 import dev.app.leaf.domain.models.TrackingBranch
 import org.eclipse.jgit.lib.Constants
 import java.io.File
@@ -75,10 +76,27 @@ class GitCliPushBranchGitAction @Inject constructor(
                 }
             }
 
-            PushCommand(repository.commandDirectory(), args)
+            val remote = tracking?.remote ?: Constants.DEFAULT_REMOTE_NAME
+            val serverRef = if (tracking == null) fullBranch else "${Constants.R_HEADS}${tracking.branch}"
+            val trackingRef = repository.trackingRefOf(remote, serverRef)
+            val handOff = ServerHandOff(
+                remote = remote,
+                serverRef = serverRef,
+                trackingRef = trackingRef,
+                pushed = repository.exactRef(fullBranch)?.objectId?.name,
+                before = trackingRef?.let { repository.exactRef(it)?.objectId?.name },
+                upstreamOf = fullBranch.takeIf { tracking == null },
+            )
+
+            PushCommand(repository.commandDirectory(), args, handOff)
         }.bind()
 
-        val output = remoteCommand.run(push.directory, push.args, authenticated = ::pushReachedRemote).bind()
+        val output = remoteCommand.run(
+            push.directory,
+            push.args,
+            authenticated = ::pushReachedRemote,
+            handOff = push.handOff.takeIf { it.pushed != null },
+        ).bind()
 
         if (output.exitCode != 0) {
             raiseError(pushFailure(output))
@@ -87,7 +105,7 @@ class GitCliPushBranchGitAction @Inject constructor(
         Either.Ok(Unit)
     }
 
-    private class PushCommand(val directory: File, val args: List<String>)
+    private class PushCommand(val directory: File, val args: List<String>, val handOff: ServerHandOff)
 }
 
 /** Where git commands for this repository run: its working tree, or the git dir of a bare repository. */

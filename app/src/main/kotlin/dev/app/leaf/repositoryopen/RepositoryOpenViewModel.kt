@@ -43,6 +43,8 @@ import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WatchRegistrations
 import dev.app.leaf.domain.refresh.WatchUsage
 import dev.app.leaf.domain.refresh.WorktreesVisibility
+import dev.app.leaf.domain.remote.StoppedWaitingCheck
+import dev.app.leaf.domain.remote.StoppedWaitingState
 import dev.app.leaf.domain.repositories.*
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -206,6 +208,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val runWorktreeStepsUseCase: RunWorktreeStepsUseCase,
     private val followRemovedWorktreeUseCase: FollowRemovedWorktreeUseCase,
     private val comparisonViewModelExtenderFactory: ComparisonViewModelExtender.Factory,
+    private val stoppedWaitingCheck: StoppedWaitingCheck,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -697,6 +700,21 @@ class RepositoryOpenViewModel @Inject constructor(
         .map { ((it as? DataState.Error)?.error as? UnsupportedIndexError)?.index }
         .distinctUntilChanged()
         .stateIn(null)
+
+    /** What the server did with a push or a delete that the user stopped waiting for (fork-only), until dismissed. */
+    val stoppedWaiting: StateFlow<StoppedWaitingState?> = stoppedWaitingCheck.state
+
+    fun stopCheckingStoppedPush() = stoppedWaitingCheck.stopChecking()
+
+    fun checkStoppedPushAgain() = stoppedWaitingCheck.tryAgain()
+
+    fun dismissStoppedPush() = stoppedWaitingCheck.dismiss()
+
+    /** Fetches, which shows what the server has, in place of the strip that couldn't tell. */
+    fun fetchAfterStoppedPush() {
+        stoppedWaitingCheck.dismiss()
+        fetchAll()
+    }
 
     /** Converts the worktree's index with the commands the strip's dialog showed (fork-only). */
     fun convertIndex(index: UnsupportedIndex) {

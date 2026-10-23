@@ -7,7 +7,9 @@ import dev.app.leaf.domain.errors.RejectReason
 import dev.app.leaf.domain.errors.RejectedRef
 import dev.app.leaf.domain.errors.RemoteOperationError
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** git's output as git 2.54 (and git-lfs 3.8) wrote it, captured from pushes to local and SSH remotes. */
@@ -26,11 +28,36 @@ class GitOutputParsersTest {
             listOf(
                 GitProgress("Counting objects", 33),
                 GitProgress("Counting objects", 100),
-                GitProgress("Compressing objects", 50),
+                GitProgress("Compressing objects", 50, fromServer = true),
                 GitProgress("Writing objects", 100),
             ),
             progress,
         )
+    }
+
+    /**
+     * Fork-only: the line after which the server has a push, from git 2.54's stderr: a push with new objects, one with
+     * none, and the lines before them, which mustn't count, the server's own included.
+     */
+    @Test
+    fun `the hand-off is git's last object written, or its Total line`() {
+        val lines = mutableListOf<String>()
+        GitProgressParser(onLine = { lines += it }) {}.accept(
+            "Enumerating objects: 4, done.\nCounting objects: 100% (4/4)\rCounting objects: 100% (4/4), done.\n" +
+                "Writing objects:  75% (3/4), 262.29 MiB | 524.46 MiB/s\rWriting objects: 100% (4/4), 262.29 MiB | 524.46 MiB/s\r" +
+                "Writing objects: 100% (4/4), 286.19 MiB | 59.11 MiB/s, done.\n" +
+                "Total 4 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)\n"
+        )
+
+        assertEquals(
+            listOf(false, false, false, false, true, true, true),
+            lines.map { isHandOffLine(it) },
+        )
+        assertTrue(isHandOffLine("Total 0 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)"))
+        assertFalse(isHandOffLine("remote: Total 3 (delta 1), reused 0 (delta 0)"))
+        assertFalse(isHandOffLine("remote: Writing objects: 100% (3/3)"))
+        assertFalse(isHandOffLine("Uploading LFS objects: 100% (1/1), 30 KB | 0 B/s"))
+        assertFalse(isHandOffLine("Writing objects:  99% (99/100)"))
     }
 
     @Test

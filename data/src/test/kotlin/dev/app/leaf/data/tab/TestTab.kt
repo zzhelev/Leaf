@@ -184,6 +184,16 @@ import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Provider
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import dev.app.leaf.data.git.branches.DeleteBranchGitAction
+import dev.app.leaf.data.git.cli.remote.CheckHandOffGitAction
+import dev.app.leaf.data.git.cli.remote.GitCliDeleteRemoteBranchGitAction
+import dev.app.leaf.data.git.cli.remote.GitCliPushBranchGitAction
+import dev.app.leaf.domain.interfaces.IDeleteRemoteBranchGitAction
+import dev.app.leaf.domain.interfaces.IPushBranchGitAction
+import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.remote.StoppedWaitingCheck
+import dev.app.leaf.domain.usecases.DeleteRemoteBranchUseCase
+import dev.app.leaf.domain.usecases.PushBranchUseCase
 
 /**
  * A tab's repositories and use cases, built as Dagger builds them for each tab, with the real git actions. Each watch
@@ -535,6 +545,34 @@ class TestTab(
         },
         useCaseExecutor,
     )
+
+    /** Fork-only: the toolbar's Push, with git, and a remote branch's Delete, which hand the server what it does alone. */
+    val push = PushBranchUseCase(
+        object : IPushBranchGitAction {
+            private val push = GitCliPushBranchGitAction(jgit, GetTrackingBranchGitAction(jgit), remoteCommand)
+
+            override suspend fun invoke(
+                repositoryPath: String,
+                force: Boolean,
+                pushTags: Boolean,
+                pushWithLease: Boolean,
+                specificBranch: Branch?,
+            ) = push(repositoryPath, force, pushTags, pushWithLease, specificBranch)
+        },
+        AppSettingsService(mockk<AppSettingsRepository> { every { pushWithLease } returns flowOf(true) }),
+        useCaseExecutor,
+    )
+    val deleteRemoteBranch = DeleteRemoteBranchUseCase(
+        object : IDeleteRemoteBranchGitAction {
+            private val delete = GitCliDeleteRemoteBranchGitAction(jgit, DeleteBranchGitAction(jgit), remoteCommand)
+
+            override suspend fun invoke(repositoryPath: String, ref: Branch) = delete(repositoryPath, ref)
+        },
+        useCaseExecutor,
+    )
+
+    /** What the processing screen's Stop waiting starts: asking the server what it did. */
+    val stoppedWaitingCheck = StoppedWaitingCheck(CheckHandOffGitAction(jgit, remoteCommand), useCaseExecutor, Provider { refreshData }, scope)
 
     /** Waits until [flow] has loaded data that passes [predicate]. */
     suspend fun <T> awaitLoaded(flow: Flow<DataState<T>>, predicate: (T) -> Boolean = { true }): T {

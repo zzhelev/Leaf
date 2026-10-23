@@ -8,29 +8,54 @@ import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.generic_button_cancel
+import dev.app.leaf.app.generated.resources.processing_stop_waiting
+import dev.app.leaf.app.generated.resources.processing_waiting_for_server
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
+import dev.app.leaf.domain.remote.ProcessingButton
+import dev.app.leaf.domain.remote.STOP_WAITING_AFTER
+import dev.app.leaf.domain.remote.processingButton
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.SecondaryButton
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
+
+/** As tall as the button, which a task that can't be stopped for now leaves out. */
+private val BUTTON_PLACE_HEIGHT = 24.dp
 
 /**
  * Covers the tab while a foreground task runs. A task that reports [progress] (the git CLI's) shows git's current stage
- * and can be cancelled.
+ * and can be cancelled. Fork-only: once git has handed a server what it carries out on its own, Cancel would promise
+ * too much, so the button goes, and comes back as Stop waiting ([processingButton]).
  */
 @Composable
 fun ProcessingScreen(
     processingTask: TaskType,
     progress: TaskProgress?,
     onCancelOnGoingTask: () -> Unit,
+    clock: () -> Long = System::currentTimeMillis,
 ) {
+    val handedOverAt = progress?.handedOverAt
+    var now by remember { mutableLongStateOf(clock()) }
+
+    LaunchedEffect(handedOverAt) {
+        if (handedOverAt != null) {
+            delay(handedOverAt + STOP_WAITING_AFTER.inWholeMilliseconds - clock())
+            now = clock()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -63,10 +88,11 @@ fun ProcessingScreen(
 //            }
 
             val stage = progress?.stage
+                ?: progress?.handOff?.let { stringResource(Res.string.processing_waiting_for_server, it.remote) }
 
             if (stage != null) {
                 Text(
-                    text = if (progress.percent != null) "$stage ${progress.percent}%" else stage,
+                    text = if (progress?.percent != null) "$stage ${progress.percent}%" else stage,
                     style = MaterialTheme.typography.body1,
                     color = MaterialTheme.colors.onBackgroundSecondary,
                     modifier = Modifier.padding(bottom = 16.dp),
@@ -90,11 +116,19 @@ fun ProcessingScreen(
                 )
             }
 
-            if (progress != null) {
-                SecondaryButton(
+            when (processingButton(progress, now)) {
+                ProcessingButton.CANCEL -> SecondaryButton(
                     text = stringResource(Res.string.generic_button_cancel),
                     onClick = onCancelOnGoingTask,
                 )
+
+                ProcessingButton.STOP_WAITING -> SecondaryButton(
+                    text = stringResource(Res.string.processing_stop_waiting),
+                    onClick = onCancelOnGoingTask,
+                )
+
+                // Keeps the progress where it was
+                null -> if (progress != null) Spacer(Modifier.height(BUTTON_PLACE_HEIGHT))
             }
         }
     }
