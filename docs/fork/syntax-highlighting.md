@@ -263,6 +263,27 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
   licence. `T/tools/` has the script that copies them and writes that file.
 - `D/highlighting/Languages.kt` (pure): file name and first line to a grammar's scope name, and the list of grammars.
   `LanguagesTest`: names, extensions, the longest extension first, shebangs, case, unknown files.
+- **Done (2026-10-23)**, as above, with these differences and additions:
+  - 82 grammars: the 59 languages of section 4.1 and the 23 they embed (Markdown's code blocks, Vue's and Svelte's
+    style languages, C++'s macros, Vue's injections). 5.2 MB of JSON, 0.56 MB compressed in the jar: more than the
+    plan's estimate, as C++'s grammar and its macros are 1.2 MB. `T/tools/grammars/copy.mjs` copies them, writes
+    `index.json` (scopes, embeds, injections) and `NOTICE` (each grammar's licence, which goes into the jar), and
+    refuses a grammar whose licence is neither permissive nor checked.
+  - Licences checked: YAML's, TOML's and ABAP's are TextMate's bundle licence ("Permission to copy, use, modify, sell
+    and distribute this software is granted"), Elixir's Apache-2.0, Sass's MIT. Left out: gnuplot (GPL-3.0, embedded
+    by LaTeX) and GLSL (no licence stated, embedded by C++).
+  - `ShippedGrammars` (`T/`, `dev.app.leaf.textmate`) loads them, and adds the grammars that inject into one, as VS
+    Code does by their `injectTo`. Step 3 builds on it.
+  - `Languages.kt` names 74 languages: the 59, and 15 embedded grammars with files of their own (CoffeeScript, F#,
+    Handlebars, Haml, Pug, Raku, reStructuredText, VB, Sass, Stylus, PostCSS, logs, ABAP, BibTeX, XSLT). `.h` is C++,
+    as in VS Code.
+  - Conformance: a sample per language in `T/src/test/resources/conformance/samples/`, whose tokens
+    `ShippedGrammarsConformanceTest` compares with vscode-textmate's (`T/tools/conformance/`). 54 of 59 match; the
+    rest are listed in `textmate/README.md`. shiki's own samples of 57 languages, measured but not kept (they come
+    from many projects), match but for three lines of Ruby and Svelte.
+  - One more engine change: `\N`, which Oniguruma 6.9 reads as any character but a newline and Joni as the letter,
+    is rewritten (`EscapeRewrite`). Python's regular expressions then match VS Code.
+  - Step 1's shell, CSS and Rust goldens moved to the shipped grammars, with their test copies of those grammars gone.
 
 ### Step 3: the tokenizing service
 
