@@ -2004,6 +2004,10 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     commit as the lease (`RepositoryTabViewModel.deleteRemoteBranch`), so a further push still stops it. Leaf doesn't
     overrule an explicit choice: it says what changed, and the user decides. The branch's name on the server comes from
     the fetch refspec (`serverRefOf`, shared with the batch delete); it used to be `refs/heads/` plus the tracking name.
+    `serverTips` asks the server that the remote pushes to (`git remote get-url --push --all`): `git ls-remote <remote>`
+    asks its fetch URL, a fork or a mirror when `pushurl` points elsewhere. It asks by the remote's name when both are
+    the same, so that the remote's own settings apply, and a remote with several push URLs gets `SeveralPushUrlsError`;
+    the single delete then reports git's refusal.
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
   one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
   dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
@@ -2268,6 +2272,40 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   started, and `UseCaseExecutor` records nothing for a cancelled task, even if its code turned the cancellation into
   an error. `CredentialsStateManager` goes back to `None` when the coroutine waiting for a dialog is cancelled, and
   `AppTab` then closes the dialog.
+- **Stop waiting, for a push or a remote branch's delete (fork-only, 2026-10-23, `domain/remote/`):** killing git
+  doesn't stop a server that has what git handed it. Probed with git 2.54 against `git daemon` (a server outside git's
+  process tree, as ssh and https servers are; a remote on disk dies with git): a push killed while it wrote its objects,
+  or in the pre-push hook where git-lfs uploads, left the server as it was, as a server takes a push only with its whole
+  pack; one killed after git's `Total` line, while the server's pre-receive hook ran, was taken. git, killed, then left
+  `origin/<branch>` where it was and set no upstream.
+  - **The hand-off:** `GitCliPushBranchGitAction` and `GitCliDeleteRemoteBranchGitAction` pass `GitCliRemoteCommand.run`
+    a `ServerHandOff` (the remote, the branch on the server, the remote-tracking branch from the fetch refspec,
+    `trackingRefOf`, the commit pushed or none for a delete, the commit before, and the branch whose upstream `-u`
+    sets). The run reports it in `TaskProgress.handOff` and `handedOverAt` at stderr's first `Writing objects: 100%` or
+    `Total N` line (`isHandOffLine`; `Total 0` for a push with no new objects), or at once for a delete, which sends
+    only its command and doesn't say when. After it, only the server's progress (`remote: …`, `GitProgress.fromServer`)
+    shows, and the screen says "Waiting for origin". A push over HTTPS may print `Total` before git has sent all of it;
+    the check below then says what happened.
+  - **The button** (`processingButton`): Cancel until the hand-off, none for `STOP_WAITING_AFTER` (10 s, shared with the
+    batch delete dialog), then Stop waiting. The screen keeps the button's place meanwhile (`BUTTON_PLACE_HEIGHT`).
+  - **After Stop waiting:** `cancelCurrentTask` returns the hand-off, and `RepositoryTabViewModel.cancelOngoingTask`
+    starts the tab-scoped `StoppedWaitingCheck`, which runs in the tab's scope, as the task was cancelled.
+    `CheckHandOffGitAction` asks the server (`serverTips`), every `CHECK_AGAIN_EVERY` (2 s) while it hasn't done it,
+    `CHECK_ROUNDS` (15) times at most. Once it has, it does what git would have: moves the remote-tracking branch to
+    the pushed commit while it's still at the one before (a fetch since keeps its own), sets the upstream unless the
+    branch has one by then, or removes a deleted branch's remote-tracking branch, then refreshes the remote branches,
+    the branches and the log.
+  - **The strip** (`StoppedWaitingStrip`, under the toolbar after the unsupported index banner, until closed):
+    "Stopped waiting. Asking origin whether it took the push of main…" with Stop checking; "origin took the push: main
+    is at 7b6ee23." (success); "origin hasn't taken the push of main: it's still at 8180de8." with Fetch; Fetch when
+    nothing tells (several push URLs, or checking stopped before an answer); "Couldn't ask origin about main: …" with
+    Try again. A first answer that fails is the last; a later one leaves the answer before it. A real Cancel shows
+    nothing, as nothing changed. Pushed tags aren't checked: pushing them changes no local ref.
+  - Tests: `PushHandOffTest` (the hand-off line for each kind of push and a delete, a Cancel before it, a stop after it
+    over `git daemon` taken or refused by the server's hook, what the check sets and keeps, the push URL),
+    `StoppingPushesTest` (a `TestTab` through the use cases), `StopWaitingTest` and `StoppedWaitingCheckTest` (domain),
+    `ProcessingScreenTest` and `StoppedWaitingStripTest` (rendered). The view models' two lines ran through the Dagger
+    graph in a temporary harness against the notes folder's `push-cancel-demo.sh`.
 
 **Index formats that JGit can't read (fork-only, `data/git/repository/IndexExtensions.kt`,
 `domain/index/UnsupportedIndex.kt`):** git writes the index split (`git update-index --split-index`,

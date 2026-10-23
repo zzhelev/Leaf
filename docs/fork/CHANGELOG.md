@@ -2,6 +2,29 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Cancel during a push, and Stop waiting (2026-10-23)
+
+- **Request:** the follow-up left from deleting a remote's branches: the processing screen's Cancel during a push or a
+  remote branch's delete stopped git, not the server. Planned with the user, from a probe and a mockup, and built as
+  recommended.
+- **What a probe showed** (git 2.54, `git daemon`): a push stopped while git still uploads, or while git-lfs uploads in
+  the pre-push hook, leaves the server as it was. One stopped after git's last upload line (`Writing objects: 100%`,
+  `Total N`) is taken anyway while the server's hook runs, and Leaf then said nothing, showed the branch as not pushed
+  and set no upstream.
+- **Cancel until then:** the button stays Cancel while git uploads, and now does what it says. Once git has sent
+  everything, the screen says "Waiting for origin", the button goes, and after 10 s it comes back as "Stop waiting", as
+  in the dialog that deletes several branches. A remote branch's delete is only a command, so it gets Stop waiting
+  after 10 s from the start.
+- **After Stop waiting,** a strip under the toolbar asks origin whether it took the push (or deleted the branch), again
+  every 2 s for up to 30 s, and then says so: "origin took the push: main is at 7b6ee23.", "origin hasn't taken the push
+  of main: it's still at 8180de8." with Fetch, or that it couldn't ask, with Try again. When origin took it, Leaf does
+  what git would have: `origin/main` moves to the pushed commit and a new branch gets its upstream. A real Cancel shows
+  nothing, as nothing changed.
+- **Asking the push URL** (found while planning): checking a remote branch after a refused delete, or after a stop,
+  asked the remote's fetch URL, which is another server when `pushurl` points at a fork or a mirror. It now asks the
+  push URL; with several, it says it can't tell, and the single delete shows git's refusal.
+- Details: CLAUDE.md, "Remote operations", "Stop waiting, for a push or a remote branch's delete".
+
 ## Deleting branches: their copies on origin, after a Stop, and without git (follows upstream issue 116, 2026-10-23)
 
 - **Request:** the three follow-ups left after deleting a remote's branches, explored with the user and built as
