@@ -8,7 +8,9 @@ import dev.app.leaf.common.printLog
 import dev.app.leaf.di.TabComponent
 import dev.app.leaf.domain.cherrypick.CherryPickPlan
 import dev.app.leaf.domain.rebase.SkippedCommitsNotice
+import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.usecases.CherryPickCommitsUseCase
+import dev.app.leaf.domain.usecases.DeleteRemoteBranchUseCase
 import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.credentials.CredentialsState
@@ -76,6 +78,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val tabComponent: TabComponent,
     private val appViewModel: AppViewModel,
     private val cherryPickCommitsUseCase: CherryPickCommitsUseCase,
+    private val deleteRemoteBranchUseCase: DeleteRemoteBranchUseCase,
     @Assisted val initialPath: String?,
     updatesRepository: UpdatesRepository,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
@@ -235,6 +238,11 @@ class RepositoryTabViewModel @AssistedInject constructor(
     fun cherryPickBack(notice: SkippedCommitsNotice) {
         repositoryStateRepository.skippedCommitsNoticeShown(notice)
         cherryPickCommitsUseCase(CherryPickPlan(workingTree = "", notice.commits.map { it.commit }, squashMessage = null))
+    }
+
+    /** Deletes a remote branch that someone pushed to, from the error dialog that said so, with its new commit as the lease. */
+    fun deleteRemoteBranch(branch: Branch) {
+        deleteRemoteBranchUseCase(branch)
     }
 
     fun completedTaskAlreadyShown(task: CompletedTask) {

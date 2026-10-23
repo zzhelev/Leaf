@@ -10,6 +10,7 @@ import dev.app.leaf.data.git.credentials.HttpCredentialsFactory
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
+import dev.app.leaf.domain.errors.RemoteBranchChangedError
 import dev.app.leaf.domain.models.Branch
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
@@ -74,6 +75,32 @@ class DeleteRemoteBranchGitActionTest {
         assertTrue(result is Either.Err && result.error is GenericError, "$result")
         assertEquals("  feature\n", git.run(origin, "branch", "--list", "feature"))
         assertEquals(TRACKING_REF, git.run(work, "for-each-ref", "--format=%(refname)", TRACKING_REF).trim())
+    }
+
+    @Test
+    fun `a branch that someone pushed to since the fetch stays`(): Unit = runBlocking {
+        val other = File(tempDir, "other")
+        git.run(tempDir, "clone", "-q", "-b", "feature", origin.path, other.path)
+        File(other, "theirs.txt").writeText("theirs\n")
+        git.run(other, "add", ".")
+        git.run(other, "commit", "-q", "-m", "Their work")
+        git.run(other, "push", "-q", "origin", "feature")
+        val theirs = git.run(other, "rev-parse", "HEAD").trim()
+
+        val was = git.run(work, "rev-parse", TRACKING_REF).trim()
+
+        assertEquals(Either.Err(RemoteBranchChangedError("origin/feature", TRACKING_REF, now = theirs, was = was)), delete())
+
+        assertEquals(theirs, git.run(origin, "rev-parse", "feature").trim())
+        assertEquals(TRACKING_REF, git.run(work, "for-each-ref", "--format=%(refname)", TRACKING_REF).trim())
+    }
+
+    @Test
+    fun `a branch that is already gone from the remote loses its remote-tracking branch`(): Unit = runBlocking {
+        git.run(origin, "branch", "-D", "feature")
+
+        assertEquals(Either.Ok(Unit), delete())
+        assertEquals("", git.run(work, "for-each-ref", TRACKING_REF))
     }
 
     private suspend fun delete(): Either<Unit, *> {

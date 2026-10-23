@@ -255,6 +255,10 @@ fun AppTab(
                                     viewModelsProvider.deleteBranchesViewModelFactory().create(entry.request)
                                 },
                                 onDismiss = { backStack.removeLastOrNull() },
+                                onOpenSettings = {
+                                    backStack.removeLastOrNull()
+                                    backStack.add(Screen.Settings)
+                                },
                             )
                         }
                         entry<Screen.BranchChangeUpstream>(
@@ -279,6 +283,7 @@ fun AppTab(
                                     repositoryTabViewModel.completedTaskAlreadyShown(it.error)
                                 },
                                 onSwitchToWorktree = { path -> repositoryTabViewModel.switchToWorktree(path) },
+                                onDeleteRemoteBranchAnyway = { branch -> repositoryTabViewModel.deleteRemoteBranch(branch) },
                             )
                         }
                         entry<Screen.ChangesInStash>(

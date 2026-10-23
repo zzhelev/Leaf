@@ -3,6 +3,7 @@
 
 package dev.app.leaf.domain.branches
 
+import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.MergedIntoBase
 import dev.app.leaf.domain.models.WorktreeBranchUse
@@ -31,7 +32,15 @@ data class BranchToDelete(
     val name: String,
     /** The commit's full hash. */
     val tip: String,
+    /**
+     * For a remote's branch deleted anyway after someone pushed to it: the commit the server said it has, which the
+     * lease then names, while [tip] stays what the remote-tracking branch points to.
+     */
+    val serverTip: String? = null,
 ) {
+    /** The commit the server must still have for the delete to go through. */
+    val leaseTip: String get() = serverTip ?: tip
+
     /** The name without `refs/heads/`, or without `refs/remotes/<remote>/`: the branch's name on its remote. */
     val simpleName: String
         get() = if (name.startsWith(REMOTE_BRANCHES)) {
@@ -77,13 +86,19 @@ sealed interface BranchKept {
     data class RemoteDefaultBranch(val isNamedByRemote: Boolean) : BranchKept
 
     /**
-     * The server has another commit for the branch than the one the dialog showed, or doesn't have the branch any more:
-     * someone pushed to it or deleted it since the last fetch. The lease refused it, so nothing was deleted.
+     * The server has another commit for the branch than the one the dialog showed, [now] (null when Leaf couldn't ask):
+     * someone pushed to it since the last fetch. The lease refused it, so nothing was deleted, and the user can delete
+     * it anyway, that commit then being the lease. A branch that was gone already counts as deleted.
      */
-    data object ChangedOnRemote : BranchKept
+    data class ChangedOnRemote(val now: String?) : BranchKept {
+        val shortNow: String? get() = now?.take(SHORT_HASH_LENGTH)
+    }
 
     /** The server refused to delete the branch, with git's [reason], such as `protected branch hook declined`. */
     data class RefusedByRemote(val reason: String) : BranchKept
+
+    /** The user stopped git before the server deleted the branch: asked afterwards, the server still has it. */
+    data object StillOnRemote : BranchKept
 }
 
 /** What deleting one branch did. */
@@ -98,12 +113,20 @@ sealed interface BranchDeletionOutcome {
 /**
  * What deleting several branches did, in the order they were given. A branch that stays never stops the others.
  *
- * @param remoteMessage what the server said while deleting a remote's branches, git's `remote:` lines, such as why a
- * hook refused. Null when it said nothing, and for local branches.
+ * @param remoteMessage what the server said while deleting a remote's branches, or local branches' copies on theirs,
+ * git's `remote:` lines, such as why a hook refused. Null when it said nothing.
+ * @param copies what happened to the copies of the local branches that were deleted on their remotes too
+ * ([BranchCopy]), by the local branch's full name.
+ * @param copyErrors why the copies on a remote couldn't be deleted at all, such as a server out of reach, by remote.
+ * @param wasStopped the user stopped git while it deleted on a server. The server was asked afterwards what it still
+ * had, which [outcomes] (a remote's branches) or [copies] say.
  */
 data class BranchesDeletion(
     val outcomes: List<BranchDeletionOutcome>,
     val remoteMessage: String? = null,
+    val copies: Map<String, BranchDeletionOutcome> = emptyMap(),
+    val copyErrors: Map<String, AppError> = emptyMap(),
+    val wasStopped: Boolean = false,
 ) {
     val deleted: List<BranchToDelete>
         get() = outcomes.filterIsInstance<BranchDeletionOutcome.Deleted>().map { it.branch }
@@ -112,11 +135,50 @@ data class BranchesDeletion(
         get() = outcomes.filterIsInstance<BranchDeletionOutcome.Kept>()
 
     /**
-     * One line for each deleted branch with its tip: `git branch <name> <tip>` brings a local one back, and
-     * `git push <remote> <tip>:refs/heads/<name>` a remote's.
+     * A remote's branches that someone pushed to since the last fetch, each with the commit the server has now, which
+     * deleting them anyway takes as its lease.
      */
-    fun deletedList(): String = deleted.joinToString("\n") { "${it.simpleName} ${it.tip}" }
+    val changedOnRemote: List<BranchToDelete>
+        get() = kept.mapNotNull { it.changedTo() }
+
+    /** The same for the copies, by local branch: each copy's remote, and the copy with the server's commit. */
+    val changedCopies: Map<String, Pair<String, BranchToDelete>>
+        get() = copies.mapNotNull { (local, outcome) ->
+            val changed = (outcome as? BranchDeletionOutcome.Kept)?.changedTo() ?: return@mapNotNull null
+
+            local to (changed.name.removePrefix(REMOTE_BRANCHES).substringBefore('/') to changed)
+        }.toMap()
+
+    /** This result with [updated] in place of the outcomes of the same branches, and the server's [message] added. */
+    fun withOutcomes(updated: List<BranchDeletionOutcome>, message: String? = null): BranchesDeletion {
+        val byName = updated.associateBy { it.branch.name }
+
+        return copy(
+            outcomes = outcomes.map { byName[it.branch.name] ?: it },
+            remoteMessage = listOfNotNull(remoteMessage, message).joinToString("\n").ifBlank { null },
+        )
+    }
+
+    /** The copies that their remotes deleted, each once. */
+    val deletedCopies: List<BranchToDelete>
+        get() = copies.values.filterIsInstance<BranchDeletionOutcome.Deleted>().map { it.branch }.distinct()
+
+    /**
+     * One line for each deleted branch with its tip: `git branch <name> <tip>` brings a local one back, and
+     * `git push <remote> <tip>:refs/heads/<name>` a remote's. Copies come after, named with their remote, `origin/x`.
+     */
+    fun deletedList(): String =
+        (deleted.map { "${it.simpleName} ${it.tip}" } + deletedCopies.map { "${it.remoteAndName} ${it.tip}" })
+            .joinToString("\n")
 }
+
+/** The branch with the commit its server has now as its lease, when someone pushed to it since the fetch. */
+private fun BranchDeletionOutcome.Kept.changedTo(): BranchToDelete? =
+    (reason as? BranchKept.ChangedOnRemote)?.now?.let { branch.copy(serverTip = it) }
+
+/** A remote-tracking branch's remote and name, `origin/x`. */
+val BranchToDelete.remoteAndName: String
+    get() = name.removePrefix(REMOTE_BRANCHES)
 
 /**
  * What the dialog read about one branch.
@@ -128,6 +190,7 @@ data class BranchesDeletion(
  * on no branch or tag. Counted against the refs outside the whole selection, so that two selected branches at one
  * commit don't both look safe.
  * @param lastCommit who made the branch's tip and when, read for a remote's branches, which others push too.
+ * @param upstream a local branch's upstream, when its remote-tracking branch exists: its copy on the remote.
  */
 data class BranchDeletionInfo(
     val branch: BranchToDelete,
@@ -135,7 +198,29 @@ data class BranchDeletionInfo(
     val merged: MergedIntoBase?,
     val commitsOnlyHere: Int,
     val lastCommit: TipCommit? = null,
+    val upstream: BranchUpstream? = null,
 )
+
+/** A local branch's upstream: [remote]'s remote-tracking branch [trackingBranch] (`refs/remotes/origin/x`). */
+data class BranchUpstream(val remote: String, val trackingBranch: String)
+
+/**
+ * A local branch's copy on its remote, its upstream as last fetched, which the dialog can delete on the server with the
+ * branch. [info] is the remote-tracking branch's, read as the remote's own dialog reads it, and [kind] what that dialog
+ * would say. It [goes] with its branch when the user asks for copies, unless it's the remote's `HEAD` or default branch,
+ * which servers refuse to delete: Leaf marks the risky ones ([isRisky]) and leaves the choice to the user, who can
+ * protect a branch on the server.
+ */
+data class BranchCopy(
+    val remote: String,
+    val info: BranchDeletionInfo,
+    val kind: BranchDeletionKind,
+    val looksLongLived: Boolean,
+    val goes: Boolean,
+) {
+    /** Not merged into the remote's default branch, where a server can close its pull requests, or named like one kept for good. */
+    val isRisky: Boolean get() = goes && (kind !is BranchDeletionKind.Merged || looksLongLived)
+}
 
 /** The author of a branch's tip commit, and its commit time in milliseconds since the epoch. */
 data class TipCommit(val author: String, val timeMillis: Long)
@@ -167,13 +252,15 @@ sealed interface BranchDeletionKind {
 /**
  * What the dialog read: the branches' [infos], and [base], the full name of the branch that "merged" means merged into
  * (null when there is none): the one worktrees are compared to, or for a [remote]'s branches the remote's default
- * branch (`refs/remotes/origin/main`).
+ * branch (`refs/remotes/origin/main`). Local branches' [copies] on their remotes, by the local branch's full name,
+ * which git couldn't read when it can't run.
  */
 data class BranchDeletionPlan(
     val base: String?,
     val infos: List<BranchDeletionInfo>,
     val mergedOnly: Boolean = false,
     val remote: DeletionRemote? = null,
+    val copies: Map<String, BranchCopy> = emptyMap(),
 ) {
     /**
      * The base's own branch is among the branches that can be deleted: the others can't count as merged into it, as it
@@ -226,6 +313,29 @@ data class BranchDeletionPlan(
 /** The branches to delete from what the user checked, in the dialog's order. Branches that can't be deleted are left out. */
 fun BranchDeletionPlan.toDelete(checked: Set<String>): List<BranchToDelete> =
     rows.filter { it.branch.name in checked && canCheck(it) }.map { it.branch }
+
+/** The copies that go with the [checked] branches, by the local branch's full name, in the dialog's order. */
+fun BranchDeletionPlan.copiesToDelete(checked: Set<String>): Map<String, BranchCopy> =
+    toDelete(checked).mapNotNull { branch -> copies[branch.name]?.takeIf { it.goes }?.let { branch.name to it } }.toMap()
+
+/** Whether a branch that can be deleted has a copy that can go with it: the dialog then offers to delete copies. */
+val BranchDeletionPlan.offersCopies: Boolean
+    get() = rows.any { canCheck(it) && copies[it.branch.name]?.goes == true }
+
+/**
+ * The copies that this plan, read for a remote's remote-tracking branches, says about the local branches whose
+ * upstreams they are ([upstreams]: local branch to remote-tracking branch, full names).
+ */
+fun BranchDeletionPlan.copiesFor(upstreams: Map<String, String>): Map<String, BranchCopy> {
+    val remoteName = remote?.name ?: return emptyMap()
+    val byName = infos.associateBy { it.branch.name }
+
+    return upstreams.mapNotNull { (local, tracking) ->
+        val info = byName[tracking] ?: return@mapNotNull null
+
+        local to BranchCopy(remoteName, info, kindOf(info), looksLongLived(info), goes = canCheck(info))
+    }.toMap()
+}
 
 /** Names that teams keep for good, compared without case: a branch merged into the base may still be in use. */
 private val LONG_LIVED_NAMES = setOf(

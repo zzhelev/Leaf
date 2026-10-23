@@ -13,6 +13,7 @@ import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.errors.RemoteBranchChangedError
 import dev.app.leaf.domain.errors.RejectReason
 import dev.app.leaf.domain.errors.RejectedRef
 import dev.app.leaf.domain.errors.RemoteOperationError
@@ -251,6 +252,45 @@ class GitCliPushBranchGitActionTest {
         assertNull(localRef("refs/remotes/origin/feature"))
     }
 
+    @Test
+    fun `a remote branch that someone pushed to since the fetch is kept`(): Unit = runBlocking {
+        git.run(work, "push", "origin", "main:feature")
+        git.run(work, "fetch", "origin")
+        val other = File(tempDir, "other")
+        git.run(tempDir, "clone", "-b", "feature", bare.absolutePath, other.absolutePath)
+        File(other, "theirs.txt").writeText("theirs\n")
+        git.run(other, "add", ".")
+        git.run(other, "commit", "-m", "Their work")
+        git.run(other, "push", "origin", "feature")
+        val theirs = git.run(other, "rev-parse", "HEAD").trim()
+
+        assertEquals(
+            Either.Err(RemoteBranchChangedError("origin/feature", "refs/remotes/origin/feature", now = theirs, was = head())),
+            deleteRemoteBranch("refs/remotes/origin/feature"),
+        )
+
+        assertEquals(theirs, remoteRef("refs/heads/feature"))
+        assertEquals(head(), localRef("refs/remotes/origin/feature"))
+
+        // Deleting it anyway, with the commit the error named as the lease, deletes it
+        assertEquals(Either.Ok(Unit), deleteRemoteBranch("refs/remotes/origin/feature", tip = theirs))
+        assertNull(remoteRef("refs/heads/feature"))
+        assertNull(localRef("refs/remotes/origin/feature"))
+    }
+
+    @Test
+    fun `a remote branch whose fetch refspec maps it elsewhere is deleted under its name on the server`(): Unit = runBlocking {
+        git.run(work, "push", "origin", "main:feature")
+        git.run(work, "config", "--replace-all", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/team/*")
+        git.run(work, "fetch", "origin")
+
+        assertEquals(Either.Ok(Unit), deleteRemoteBranch("refs/remotes/origin/team/feature"))
+
+        assertNull(remoteRef("refs/heads/feature"))
+        assertNull(remoteRef("refs/heads/team/feature"))
+        assertNull(localRef("refs/remotes/origin/team/feature"))
+    }
+
     private suspend fun push(
         force: Boolean = false,
         pushTags: Boolean = false,
@@ -269,8 +309,8 @@ class GitCliPushBranchGitActionTest {
         return (result as Either.Err).error
     }
 
-    private suspend fun deleteRemoteBranch(name: String): Either<Unit, GitError> {
-        val ref = Branch(hash = head(), name = name, isLocal = false)
+    private suspend fun deleteRemoteBranch(name: String, tip: String = head()): Either<Unit, GitError> {
+        val ref = Branch(hash = tip, name = name, isLocal = false)
 
         return GitCliDeleteRemoteBranchGitAction(jgit, DeleteBranchGitAction(jgit), remote.command)(gitDir, ref)
     }

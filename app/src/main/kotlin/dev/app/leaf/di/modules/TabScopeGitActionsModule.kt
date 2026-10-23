@@ -23,6 +23,7 @@ import dev.app.leaf.data.git.cli.operations.SelectingCherryPickCommitGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingMergeBranchGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingRebaseBranchGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingRevertCommitGitAction
+import dev.app.leaf.data.git.cli.remote.CheckRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.remote.DeleteRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingAddSubmoduleGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingCloneRepositoryGitAction
@@ -174,6 +175,10 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsDeleteRemoteBranchesGitAction(action: DeleteRemoteBranchesGitAction): IDeleteRemoteBranchesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsCheckRemoteBranchesGitAction(action: CheckRemoteBranchesGitAction): ICheckRemoteBranchesGitAction
 
     @Binds
     @TabScope

@@ -22,7 +22,6 @@ import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.ObjectId
 import org.eclipse.jgit.lib.RefUpdate
 import org.eclipse.jgit.lib.Repository
-import org.eclipse.jgit.transport.RemoteConfig
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -45,7 +44,9 @@ private const val MAX_ARGUMENT_CHARS = 24_000
  *
  * Each branch goes with `--force-with-lease=<branch>:<tip>`, the commit that the dialog showed, so the server deletes
  * it only if it still has that commit: one that someone pushed to, or deleted, since the last fetch comes back as
- * `stale info`, and stays. git reports each branch on its own line, so one that the server refuses, such as a
+ * `stale info`, and stays. The server is then asked once what it has ([serverTips]): a branch that's gone counts as
+ * deleted, and one that someone pushed to says its new commit, which deleting it anyway takes as its lease. git reports
+ * each branch on its own line, so one that the server refuses, such as a
  * protected branch, never stops the others. A server's `pre-receive` hook sees all of a push's branches at once, and
  * refusing one refuses them all.
  *
@@ -72,6 +73,8 @@ class DeleteRemoteBranchesGitAction @Inject constructor(
         outcomes.putAll(prepared.kept.associateBy { it.branch.name })
 
         val remoteMessages = mutableListOf<String>()
+        // How many push URLs reported each branch: git ls-remote asks only the fetch URL
+        val reports = mutableMapOf<String, Int>()
         var reachedServer = false
         var failure: String? = null
 
@@ -125,6 +128,29 @@ class DeleteRemoteBranchesGitAction @Inject constructor(
 
             for (pushed in chunk) {
                 outcomes[pushed.branch.name] = outcomeOf(pushed.branch, refs[pushed.serverRef].orEmpty())
+                reports[pushed.branch.name] = refs[pushed.serverRef].orEmpty().size
+            }
+        }
+
+        // The lease refused them: already gone, or someone pushed to them, which the server says. A remote with several
+        // push URLs keeps them as they are, as the server asked would be only one of them
+        val stale = prepared.toPush.filter {
+            reports[it.branch.name] == 1 &&
+                (outcomes[it.branch.name] as? BranchDeletionOutcome.Kept)?.reason is BranchKept.ChangedOnRemote
+        }
+
+        if (stale.isNotEmpty()) {
+            when (val tips = remoteCommand.serverTips(prepared.directory, remote, stale.map { it.serverRef }, onProgress = {})) {
+                is Either.Err -> printError(TAG, "Could not ask $remote what it has now: ${tips.error}")
+                is Either.Ok -> for (pushed in stale) {
+                    val now = tips.value[pushed.serverRef]
+
+                    outcomes[pushed.branch.name] = if (now == null) {
+                        BranchDeletionOutcome.Deleted(pushed.branch)
+                    } else {
+                        kept(pushed.branch, BranchKept.ChangedOnRemote(now))
+                    }
+                }
             }
         }
 
@@ -145,7 +171,6 @@ class DeleteRemoteBranchesGitAction @Inject constructor(
     /** The branches that can go to the server, with their names there, and those that stay before git runs. */
     private fun prepare(repository: Repository, remote: String, branches: List<BranchToDelete>): Prepared {
         val prefix = "${Constants.R_REMOTES}$remote/"
-        val fetchSpecs = RemoteConfig(repository.config, remote).fetchRefSpecs
         val toPush = mutableListOf<PushedBranch>()
         val stay = mutableListOf<BranchDeletionOutcome.Kept>()
 
@@ -160,16 +185,7 @@ class DeleteRemoteBranchesGitAction @Inject constructor(
                 ref.isSymbolic -> stay += kept(branch, BranchKept.RemoteHead)
                 ref.objectId?.name != branch.tip -> stay += kept(branch, BranchKept.Moved(ref.objectId?.name.orEmpty()))
 
-                else -> {
-                    // Its name on the server, as the remote's fetch refspec maps it, or else the usual one
-                    val serverRef = fetchSpecs
-                        .firstOrNull { !it.isNegative && it.source != null && it.matchDestination(branch.name) }
-                        ?.expandFromDestination(branch.name)
-                        ?.source
-                        ?: (Constants.R_HEADS + branch.name.removePrefix(prefix))
-
-                    toPush += PushedBranch(branch, serverRef)
-                }
+                else -> toPush += PushedBranch(branch, repository.serverRefOf(remote, branch.name))
             }
         }
 
@@ -183,38 +199,9 @@ class DeleteRemoteBranchesGitAction @Inject constructor(
         return when {
             refs.isEmpty() -> kept(branch, BranchKept.Failed("git didn't report this branch."))
             ref == null -> BranchDeletionOutcome.Deleted(branch)
-            ref.reason == "stale info" -> kept(branch, BranchKept.ChangedOnRemote)
+            ref.reason == "stale info" -> kept(branch, BranchKept.ChangedOnRemote(now = null))
             ref.isRejected -> kept(branch, BranchKept.RefusedByRemote(ref.reason ?: ref.summary.trim('[', ']')))
             else -> kept(branch, BranchKept.Failed(ref.summary))
-        }
-    }
-
-    /**
-     * Removes the remote-tracking branches that git left of the [deleted] branches, each only while it still points to
-     * the commit that was deleted.
-     */
-    private fun removeTrackingBranches(repository: Repository, deleted: List<BranchToDelete>) {
-        for (branch in deleted) {
-            val ref = repository.exactRef(branch.name) ?: continue
-            val tip = ObjectId.fromString(branch.tip)
-
-            if (ref.objectId != tip) continue
-
-            try {
-                val update = repository.updateRef(branch.name)
-
-                update.setExpectedOldObjectId(tip)
-                update.isForceUpdate = true
-
-                val result = update.delete()
-
-                if (result != RefUpdate.Result.FORCED && result != RefUpdate.Result.NO_CHANGE) {
-                    printError(TAG, "Could not remove ${branch.name}: $result")
-                }
-            } catch (e: IOException) {
-                // The branch is gone from the server, which is what matters; the next fetch with prune removes it
-                printError(TAG, "Could not remove ${branch.name}: ${e.message}")
-            }
         }
     }
 
@@ -227,13 +214,42 @@ class DeleteRemoteBranchesGitAction @Inject constructor(
     )
 }
 
+/**
+ * Removes the remote-tracking branches that git left of the [deleted] branches, each only while it still points to the
+ * commit that was deleted.
+ */
+internal fun removeTrackingBranches(repository: Repository, deleted: List<BranchToDelete>) {
+    for (branch in deleted) {
+        val ref = repository.exactRef(branch.name) ?: continue
+        val tip = ObjectId.fromString(branch.tip)
+
+        if (ref.objectId != tip) continue
+
+        try {
+            val update = repository.updateRef(branch.name)
+
+            update.setExpectedOldObjectId(tip)
+            update.isForceUpdate = true
+
+            val result = update.delete()
+
+            if (result != RefUpdate.Result.FORCED && result != RefUpdate.Result.NO_CHANGE) {
+                printError(TAG, "Could not remove ${branch.name}: $result")
+            }
+        } catch (e: IOException) {
+            // The branch is gone from the server, which is what matters; the next fetch with prune removes it
+            printError(TAG, "Could not remove ${branch.name}: ${e.message}")
+        }
+    }
+}
+
 /** A branch to delete and its full name on the server, `refs/heads/x`. */
 internal class PushedBranch(val branch: BranchToDelete, val serverRef: String)
 
 /** `git push`'s arguments for deleting [branches] on [remote], each with its lease. */
 internal fun pushArguments(remote: String, branches: List<PushedBranch>): List<String> = buildList {
     addAll(listOf("push", "--porcelain", "--progress"))
-    branches.forEach { add("--force-with-lease=${it.serverRef}:${it.branch.tip}") }
+    branches.forEach { add("--force-with-lease=${it.serverRef}:${it.branch.leaseTip}") }
     addAll(listOf(remote, "--delete"))
     branches.forEach { add(it.serverRef) }
 }
@@ -246,7 +262,7 @@ internal fun chunked(branches: List<PushedBranch>): List<List<PushedBranch>> {
 
     for (branch in branches) {
         // The lease names the branch and its tip, then the branch is named again
-        val size = branch.serverRef.length * 2 + branch.branch.tip.length + 24
+        val size = branch.serverRef.length * 2 + branch.branch.leaseTip.length + 24
 
         if (current.isNotEmpty() && (current.size >= MAX_BRANCHES_PER_PUSH || chars + size > MAX_ARGUMENT_CHARS)) {
             chunks += current

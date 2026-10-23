@@ -10,11 +10,14 @@ import dev.app.leaf.data.git.worktrees.worktreeHeads
 import dev.app.leaf.domain.branches.BranchDeletionInfo
 import dev.app.leaf.domain.branches.BranchKept
 import dev.app.leaf.domain.branches.BranchToDelete
+import dev.app.leaf.domain.branches.BranchUpstream
 import dev.app.leaf.domain.interfaces.IGetBranchDeletionInfoGitAction
 import dev.app.leaf.domain.models.MergedIntoBase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.eclipse.jgit.lib.BranchConfig
 import org.eclipse.jgit.lib.Constants
+import org.eclipse.jgit.lib.Repository
 import java.io.File
 import javax.inject.Inject
 
@@ -60,8 +63,22 @@ class GetBranchDeletionInfoGitAction @Inject constructor(
                     refusal = refusals.getValue(name),
                     merged = merged[name],
                     commitsOnlyHere = commitsOnlyHere,
+                    upstream = repository.upstreamOf(name),
                 )
             }
         }
     }
+}
+
+/**
+ * The local branch [name]'s upstream on a remote (`branch.<name>.remote` and `.merge`, through the remote's fetch
+ * refspec), when its remote-tracking branch exists. A local upstream (remote `.`) is none: JGit gives it no
+ * remote-tracking branch.
+ */
+private fun Repository.upstreamOf(name: String): BranchUpstream? {
+    val branchConfig = BranchConfig(config, Repository.shortenRefName(name))
+    val tracking = branchConfig.remoteTrackingBranch ?: return null
+    val remote = branchConfig.remote ?: return null
+
+    return BranchUpstream(remote, tracking).takeIf { exactRef(tracking) != null }
 }

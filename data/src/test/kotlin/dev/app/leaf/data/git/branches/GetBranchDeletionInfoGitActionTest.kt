@@ -8,6 +8,7 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.isolatedGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.branches.BranchDeletionInfo
+import dev.app.leaf.domain.branches.BranchUpstream
 import dev.app.leaf.domain.branches.BranchKept
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.MergedIntoBase
@@ -267,6 +268,37 @@ class GetBranchDeletionInfoGitActionTest {
         assertEquals(60, infos.count { it.merged == MergedIntoBase.COMMITS })
         assertEquals(60, infos.count { it.merged == null && it.commitsOnlyHere == 1 })
         assertTrue(seconds < 30, "Reading 120 branches took $seconds s")
+    }
+
+    @Test
+    fun `a branch's upstream is its remote-tracking branch, as the fetch refspec maps it, while that exists`(): Unit = runBlocking {
+        val origin = File(tempDir, "origin.git")
+        git.run(tempDir, "init", "--bare", origin.path)
+        val repository = git.initRepository(File(tempDir, "repo"))
+        git.run(repository, "remote", "add", "origin", origin.path)
+        git.run(repository, "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/team/*")
+        createBranchWithCommits(repository, "pushed", commits = 1)
+        createBranchWithCommits(repository, "gone", commits = 1)
+        createBranchWithCommits(repository, "here", commits = 1)
+        createBranchWithCommits(repository, "never", commits = 1)
+        git.run(repository, "push", "-u", "origin", "pushed", "gone")
+        git.run(origin, "branch", "-D", "gone")
+        git.run(repository, "fetch", "--prune", "origin")
+        // An upstream that is a local branch
+        git.run(repository, "branch", "--set-upstream-to=main", "here")
+
+        val upstreams = read(repository, "refs/heads/main", "pushed", "gone", "here", "never")
+            .associate { it.branch.simpleName to it.upstream }
+
+        assertEquals(
+            mapOf(
+                "pushed" to BranchUpstream("origin", "refs/remotes/origin/team/pushed"),
+                "gone" to null,
+                "here" to null,
+                "never" to null,
+            ),
+            upstreams,
+        )
     }
 
     private suspend fun read(repository: File, base: String?, vararg names: String): List<BranchDeletionInfo> =

@@ -42,6 +42,8 @@ import dev.app.leaf.app.generated.resources.error_create_branch_name_not_allowed
 import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_branch_checked_out_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_file_linked_worktree
+import dev.app.leaf.app.generated.resources.error_remote_branch_changed
+import dev.app.leaf.app.generated.resources.error_remote_branch_changed_now
 import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_helper_missing
 import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_not_found
 import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_setting_off
@@ -396,6 +398,17 @@ fun AppError.getErrorText(): String {
             SshNeedsGitError.Reason.GitNotFound -> stringResource(Res.string.error_ssh_needs_git_not_found)
             SshNeedsGitError.Reason.HelperMissing -> stringResource(Res.string.error_ssh_needs_git_helper_missing)
             SshNeedsGitError.Reason.LfsPushWithoutGitLfs -> stringResource(Res.string.error_ssh_needs_git_lfs)
+        }
+
+        is RemoteBranchChangedError -> {
+            val now = now
+            val was = was
+
+            if (now != null && was != null) {
+                stringResource(Res.string.error_remote_branch_changed_now, branch, now.take(7), was.take(7))
+            } else {
+                stringResource(Res.string.error_remote_branch_changed, branch)
+            }
         }
 
         is RemoteBranchesNeedGitError -> when (reason) {

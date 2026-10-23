@@ -311,10 +311,13 @@ fun LazyListScope.localBranches(
     val currentBranch = branchesState.currentBranch
     val loggedBranch = (selectedItem as? SelectedItem.BranchItem)?.branch?.takeIf { it.isLocal }?.name
 
+    // Fork-only: the section's own actions, in its ⋯ menu and on a right-click of its header (upstream issue 116)
+    val onDeleteMergedBranches = { onDeleteBranches(viewModel.mergedBranchesDeletionRequest()) }
+
     stickyHeader(key = "header:local") {
         SectionHeaderBackground {
             ContextMenu(
-                items = { emptyList() }
+                items = { localBranchesContextMenu(onDeleteMergedBranches) }
             ) {
                 SideMenuHeader(
                     text = stringResource(Res.string.side_pane_local_branches_title),
@@ -340,10 +343,9 @@ fun LazyListScope.localBranches(
                                 onSortChange = { viewModel.onRefSortChanged(RefSection.Local, it) },
                                 onKeepHeadOnTopToggle = { viewModel.onKeepHeadOnTopToggled() },
                                 onGroupByPrefixToggle = { viewModel.onGroupByPrefixToggled() },
-                                onDeleteMergedBranches = {
-                                    onDeleteBranches(viewModel.mergedBranchesDeletionRequest())
-                                },
                             )
+
+                            LocalBranchesMenuButton(onDeleteMergedBranches)
                         }
                     },
                 )

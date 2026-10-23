@@ -149,11 +149,12 @@ class DeletingRemoteBranchesTest {
         git.run(other, "add", ".")
         git.run(other, "commit", "-m", "More")
         git.run(other, "push", "origin", "merged")
+        val theirs = git.run(other, "rev-parse", "HEAD").trim()
 
         val result = delete(plan, plan.checkedAtFirst())
 
         assertEquals(
-            BranchKept.ChangedOnRemote,
+            BranchKept.ChangedOnRemote(theirs),
             (result.outcomes.single { it.branch.simpleName == "merged" } as BranchDeletionOutcome.Kept).reason,
         )
         assertEquals(1, result.deleted.size)

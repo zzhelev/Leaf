@@ -19,14 +19,20 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.copy
 import dev.app.leaf.app.generated.resources.error
 import dev.app.leaf.app.generated.resources.error_dialog_copy_button_tooltip
+import dev.app.leaf.app.generated.resources.error_dialog_delete_anyway
+import dev.app.leaf.app.generated.resources.error_dialog_delete_anyway_title
 import dev.app.leaf.app.generated.resources.error_dialog_switch_to_worktree
+import dev.app.leaf.app.generated.resources.generic_button_cancel
 import dev.app.leaf.app.generated.resources.generic_button_ok
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.CheckoutBranchError
 import dev.app.leaf.domain.errors.GenericError
+import dev.app.leaf.domain.errors.RemoteBranchChangedError
+import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.theme.secondarySurface
+import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
@@ -40,6 +46,8 @@ fun ErrorDialog(
     error: CompletedTask.Failure,
     onAccept: () -> Unit,
     onSwitchToWorktree: ((path: String) -> Unit)? = null,
+    // Fork-only: a remote branch that someone pushed to since the fetch, which the dialog then offers to delete anyway
+    onDeleteRemoteBranchAnyway: ((Branch) -> Unit)? = null,
 ) {
     val horizontalScroll = rememberScrollState()
     val verticalScroll = rememberScrollState()
@@ -51,6 +59,7 @@ fun ErrorDialog(
     }
     var showStackTrace by remember { mutableStateOf(false) }
     val worktreeToSwitchTo = remember(error) { worktreeToSwitchTo(error.reason) }
+    val changedBranch = (error.reason as? RemoteBranchChangedError)?.takeIf { it.now != null && onDeleteRemoteBranchAnyway != null }
 
     MaterialDialog(
         onCloseRequested = onAccept,
@@ -61,7 +70,11 @@ fun ErrorDialog(
         ) {
             Row {
                 Text(
-                    text = error.taskType.errorTitle(),
+                    text = if (changedBranch != null) {
+                        stringResource(Res.string.error_dialog_delete_anyway_title, changedBranch.branch)
+                    } else {
+                        error.taskType.errorTitle()
+                    },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colors.onBackground,
@@ -69,15 +82,18 @@ fun ErrorDialog(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                Icon(
-                    painterResource(Res.drawable.error),
-                    contentDescription = null,
-                    tint = MaterialTheme.colors.error,
-                    modifier = Modifier.size(24.dp)
-                        .onDoubleClick {
-                            showStackTrace = !showStackTrace
-                        }
-                )
+                // A question, not an error, for a branch that can be deleted anyway
+                if (changedBranch == null) {
+                    Icon(
+                        painterResource(Res.drawable.error),
+                        contentDescription = null,
+                        tint = MaterialTheme.colors.error,
+                        modifier = Modifier.size(24.dp)
+                            .onDoubleClick {
+                                showStackTrace = !showStackTrace
+                            }
+                    )
+                }
             }
 
             SelectionContainer {
@@ -168,10 +184,33 @@ fun ErrorDialog(
                     )
                 }
 
-                PrimaryButton(
-                    text = stringResource(Res.string.generic_button_ok),
-                    onClick = onAccept
-                )
+                if (changedBranch != null && onDeleteRemoteBranchAnyway != null) {
+                    // A question rather than an error: delete what the server has now, or leave it
+                    PrimaryButton(
+                        text = stringResource(Res.string.generic_button_cancel),
+                        modifier = Modifier.padding(end = 8.dp),
+                        onClick = onAccept,
+                        backgroundColor = Color.Transparent,
+                        textColor = MaterialTheme.colors.onBackground,
+                    )
+
+                    PrimaryButton(
+                        text = stringResource(Res.string.error_dialog_delete_anyway),
+                        onClick = {
+                            onAccept()
+                            onDeleteRemoteBranchAnyway(
+                                Branch(changedBranch.now.orEmpty(), changedBranch.trackingBranch, isLocal = false)
+                            )
+                        },
+                        backgroundColor = MaterialTheme.styleColors.destructive.background,
+                        textColor = MaterialTheme.styleColors.destructive.content,
+                    )
+                } else {
+                    PrimaryButton(
+                        text = stringResource(Res.string.generic_button_ok),
+                        onClick = onAccept
+                    )
+                }
             }
         }
     }

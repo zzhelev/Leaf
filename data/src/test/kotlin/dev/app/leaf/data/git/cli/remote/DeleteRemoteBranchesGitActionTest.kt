@@ -105,7 +105,7 @@ class DeleteRemoteBranchesGitActionTest {
 
         assertEquals(
             listOf(
-                BranchDeletionOutcome.Kept(targets[0], BranchKept.ChangedOnRemote),
+                BranchDeletionOutcome.Kept(targets[0], BranchKept.ChangedOnRemote(now)),
                 BranchDeletionOutcome.Deleted(targets[1]),
             ),
             result.outcomes,
@@ -115,17 +115,45 @@ class DeleteRemoteBranchesGitActionTest {
     }
 
     @Test
-    fun `a branch someone deleted on the server since the fetch stays, as the lease names a commit it doesn't have`(): Unit =
+    fun `a branch someone deleted on the server since the fetch counts as deleted, and loses its remote-tracking branch`(): Unit =
         runBlocking {
             pushBranches("gone")
             val target = target("gone")
             git.run(cloneOf("other"), "push", "origin", "--delete", "gone")
 
-            assertEquals(
-                listOf(BranchDeletionOutcome.Kept(target, BranchKept.ChangedOnRemote)),
-                delete(listOf(target)).outcomes,
-            )
+            assertEquals(listOf(BranchDeletionOutcome.Deleted(target)), delete(listOf(target)).outcomes)
+            assertFalse("origin/gone" in trackingBranches())
         }
+
+    @Test
+    fun `deleting anyway, at the commit the server said, deletes what someone pushed`(): Unit = runBlocking {
+        pushBranches("pushed-to")
+        val target = target("pushed-to")
+        val now = pushFromAnotherClone("pushed-to")
+
+        val refused = delete(listOf(target))
+        val anyway = refused.changedOnRemote
+
+        assertEquals(listOf(BranchToDelete(target.name, target.tip, serverTip = now)), anyway)
+        assertEquals(listOf(BranchDeletionOutcome.Deleted(anyway.single())), delete(anyway).outcomes)
+        assertFalse("refs/heads/pushed-to" in serverBranches())
+        assertFalse("origin/pushed-to" in trackingBranches())
+    }
+
+    @Test
+    fun `deleting anyway still stops at another push`(): Unit = runBlocking {
+        pushBranches("pushed-to")
+        val target = target("pushed-to")
+        pushFromAnotherClone("pushed-to")
+        val anyway = delete(listOf(target)).changedOnRemote
+        val third = pushFromAnotherClone("pushed-to")
+
+        assertEquals(
+            listOf(BranchDeletionOutcome.Kept(anyway.single(), BranchKept.ChangedOnRemote(third))),
+            delete(anyway).outcomes,
+        )
+        assertEquals(third, serverRef("refs/heads/pushed-to"))
+    }
 
     @Test
     fun `a remote-tracking branch that a fetch moved since the dialog read it stays, and nothing is pushed for it`(): Unit =
@@ -216,7 +244,8 @@ class DeleteRemoteBranchesGitActionTest {
         assertEquals(
             listOf(
                 BranchDeletionOutcome.Deleted(targets[0]),
-                BranchDeletionOutcome.Kept(targets[1], BranchKept.ChangedOnRemote),
+                // The mirror didn't have it: with several push URLs, the lease's refusal stays as git reported it
+                BranchDeletionOutcome.Kept(targets[1], BranchKept.ChangedOnRemote(now = null)),
             ),
             result.outcomes,
         )
@@ -433,9 +462,10 @@ class DeleteRemoteBranchesGitActionTest {
 
     /** Someone else pushes a commit to [branch], and the commit's hash. */
     private fun pushFromAnotherClone(branch: String): String {
-        val clone = cloneOf("other-$branch")
-        git.run(clone, "switch", branch)
-        File(clone, "other.txt").writeText("someone else\n")
+        val existing = File(tempDir, "other-$branch").takeIf { it.isDirectory }
+        val clone = existing ?: cloneOf("other-$branch")
+        if (existing == null) git.run(clone, "switch", branch)
+        File(clone, "other.txt").appendText("someone else\n")
         git.run(clone, "add", ".")
         git.run(clone, "commit", "-m", "Someone else's work")
         git.run(clone, "push", "origin", branch)

@@ -10,7 +10,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Density
+import dev.app.leaf.domain.branches.BranchCopy
 import dev.app.leaf.domain.branches.BranchDeletionInfo
+import dev.app.leaf.domain.branches.BranchDeletionKind
 import dev.app.leaf.domain.branches.BranchDeletionOutcome
 import dev.app.leaf.domain.branches.BranchDeletionPlan
 import dev.app.leaf.domain.branches.BranchKept
@@ -417,12 +419,20 @@ class DeleteBranchesDialogTest {
         }
 
     @Test
-    fun `while it deletes a remote's, Cancel stops git, and Delete waits`(): Unit = runBlocking(Dispatchers.Swing) {
-        DialogScene(remoteReady.copy(isDeleting = true)).use { dialog ->
-            assertTrue("Deleting on origin…" in dialog.texts(), dialog.texts().toString())
-            assertFalse(dialog.hasButton("Cancel"))
+    fun `while it deletes a remote's, nothing can stop it at first, as the server carries out what it was asked`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            DialogScene(remoteReady.copy(isDeleting = true, deletingOn = "origin")).use { dialog ->
+                assertTrue("Deleting on origin…" in dialog.texts(), dialog.texts().toString())
+                assertFalse(dialog.hasButton("Cancel"))
+                assertFalse(dialog.hasButton("Stop waiting"))
+                assertFalse(dialog.isEnabled("Delete 1 on origin"))
+            }
+        }
 
-            dialog.click("Stop")
+    @Test
+    fun `after a while, it offers to stop waiting`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(remoteReady.copy(isDeleting = true, deletingOn = "origin", canStopWaiting = true)).use { dialog ->
+            dialog.click("Stop waiting")
 
             assertEquals(listOf("stop"), dialog.calls)
             assertFalse(dialog.isEnabled("Delete 1 on origin"))
@@ -433,7 +443,7 @@ class DeleteBranchesDialogTest {
     fun `after a stop the dialog says some may be gone, and only closes`(): Unit = runBlocking(Dispatchers.Swing) {
         DialogScene(remoteReady.copy(wasStopped = true)).use { dialog ->
             assertTrue(
-                "Stopped. Some branches may already be gone on origin: fetch to see which." in dialog.texts(),
+                "Stopped waiting. Some branches may already be gone on origin: fetch to see which." in dialog.texts(),
                 dialog.texts().toString(),
             )
             assertFalse(dialog.hasButton("Cancel"))
@@ -451,7 +461,7 @@ class DeleteBranchesDialogTest {
             val result = BranchesDeletion(
                 listOf(
                     BranchDeletionOutcome.Deleted(remoteSquashed.branch),
-                    BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.ChangedOnRemote),
+                    BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.ChangedOnRemote("7c1d2e3".padEnd(40, '0'))),
                     BranchDeletionOutcome.Kept(remoteRelease.branch, BranchKept.RefusedByRemote("hook declined")),
                 ),
                 remoteMessage = "error: release/1.0 is protected",
@@ -464,7 +474,7 @@ class DeleteBranchesDialogTest {
                     "Deleted 1 of 3 on origin",
                     "2 branches were left as they are.",
                     "claude/silly-wiles", "was 92d81d1",
-                    "feature/rebase-skip", "Someone pushed to it or deleted it on origin since you fetched. Nothing was deleted.",
+                    "feature/rebase-skip", "Someone pushed to it on origin since you fetched: it's now 7c1d2e3.",
                     "release/1.0", "origin refused: hook declined",
                     "To bring one back, push its commit: git push origin <commit>:refs/heads/<name>",
                     "origin said:", "error: release/1.0 is protected",
@@ -473,6 +483,9 @@ class DeleteBranchesDialogTest {
                 }
 
                 assertTrue(dialog.isEnabled("Copy list"))
+
+                dialog.click("Delete it anyway")
+                assertEquals(listOf("anyway"), dialog.calls)
             }
 
             val all = BranchesDeletion(listOf(BranchDeletionOutcome.Deleted(remoteSquashed.branch)))
@@ -482,10 +495,12 @@ class DeleteBranchesDialogTest {
                 assertFalse(dialog.texts().any { it.endsWith("said:") }, "The server said nothing")
             }
 
-            val none = BranchesDeletion(listOf(BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.ChangedOnRemote)))
+            val none = BranchesDeletion(listOf(BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.ChangedOnRemote(now = null))))
 
             DialogScene(remoteReady.copy(result = none)).use { dialog ->
                 assertTrue("No branch was deleted on origin" in dialog.texts(), dialog.texts().toString())
+                // Without the server's commit there's no lease to delete it anyway with
+                assertFalse(dialog.texts().any { it.endsWith("anyway") }, dialog.texts().toString())
             }
         }
 
@@ -530,16 +545,261 @@ class DeleteBranchesDialogTest {
     }
 
     @Test
-    fun `without git, the dialog says what to turn on, and nothing can be deleted`(): Unit = runBlocking(Dispatchers.Swing) {
+    fun `with git turned off, the button turns it on`(): Unit = runBlocking(Dispatchers.Swing) {
         val error = RemoteBranchesNeedGitError(SshNeedsGitError.Reason.SettingOff)
 
         DialogScene(DeleteBranchesState(remoteRequest, error = error)).use { dialog ->
             assertTrue(
-                dialog.texts().any { it.startsWith("Leaf deletes several of a remote's branches with git, and \"Use git for remote operations\" is off.") },
+                "Leaf deletes several of a remote's branches with git, and \"Use git for remote operations\" is off." in dialog.texts(),
                 dialog.texts().toString(),
             )
             assertTrue("Delete branches on origin" in dialog.texts())
+
+            dialog.click("Turn it on")
+            assertEquals(listOf("use git"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `when it finds no git, the button opens Settings`(): Unit = runBlocking(Dispatchers.Swing) {
+        val error = RemoteBranchesNeedGitError(SshNeedsGitError.Reason.GitNotFound)
+
+        DialogScene(DeleteBranchesState(remoteRequest, error = error)).use { dialog ->
+            dialog.click("Open Settings")
+            assertEquals(listOf("settings"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `without the askpass helper, nothing can be done`(): Unit = runBlocking(Dispatchers.Swing) {
+        val error = RemoteBranchesNeedGitError(SshNeedsGitError.Reason.HelperMissing)
+
+        DialogScene(DeleteBranchesState(remoteRequest, error = error)).use { dialog ->
+            assertFalse(dialog.hasButton("Turn it on"))
+            assertFalse(dialog.hasButton("Open Settings"))
             assertFalse(dialog.isEnabled("Delete"))
+        }
+    }
+
+    @Test
+    fun `git turned off after the list was read still offers the fix, with the list`(): Unit = runBlocking(Dispatchers.Swing) {
+        val error = RemoteBranchesNeedGitError(SshNeedsGitError.Reason.SettingOff)
+
+        DialogScene(remoteReady.copy(error = error)).use { dialog ->
+            assertTrue(remoteSquashed.branch.simpleName in dialog.texts(), dialog.texts().toString())
+            dialog.click("Turn it on")
+            assertEquals(listOf("use git"), dialog.calls)
+        }
+    }
+
+    private fun copyOf(info: BranchDeletionInfo, goes: Boolean, kind: BranchDeletionKind, longLived: Boolean = false) = BranchCopy(
+        remote = "origin",
+        info = BranchDeletionInfo(
+            BranchToDelete("refs/remotes/origin/${info.branch.simpleName}", info.branch.tip),
+            refusal = null,
+            merged = null,
+            commitsOnlyHere = 0,
+        ),
+        kind = kind,
+        looksLongLived = longLived,
+        goes = goes,
+    )
+
+    private val copiesPlan = plan.copy(
+        copies = mapOf(
+            inBase.branch.name to copyOf(inBase, goes = true, BranchDeletionKind.Merged(MergedIntoBase.COMMITS, 0)),
+            squashed.branch.name to copyOf(squashed, goes = true, BranchDeletionKind.OnOtherRefs),
+        ),
+    )
+    private val copiesReady = ready.copy(plan = copiesPlan)
+    private val copiesAsked = copiesReady.withDeletesCopies(true)
+
+    @Test
+    fun `offers the merged copies on origin, without saying more until asked`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(copiesReady).use { dialog ->
+            assertTrue("Also delete their copies on origin (2)" in dialog.texts(), dialog.texts().toString())
+            assertFalse(dialog.texts().any { it.startsWith("origin/") })
+            assertTrue(dialog.hasButton("Delete 3 branches"))
+
+            dialog.clickRow("Also delete their copies on origin (2)")
+            assertEquals(listOf("copies true"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `asked for, each row says what happens to its copy, and the button names origin`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(copiesAsked).use { dialog ->
+            assertTrue("origin/claude/eager-ride-4f2a goes too" in dialog.texts(), dialog.texts().toString())
+            assertTrue(
+                "origin/claude/jolly-fox-91c0 goes too: not merged, a server can close its pull requests" in dialog.texts(),
+                dialog.texts().toString(),
+            )
+            assertTrue(dialog.isEnabled("Delete 3, and 2 on origin"))
+            assertTrue(dialog.texts().any { it.startsWith("Each branch is deleted only if it still points to the commit shown") })
+            // pushed/topic isn't merged, but only merged copies go, so the remote's warning doesn't apply
+            assertFalse(dialog.texts().any { it.startsWith("Some checked branches aren't merged") }, dialog.texts().toString())
+        }
+    }
+
+    @Test
+    fun `a copy whose name looks long-lived goes too, marked`(): Unit = runBlocking(Dispatchers.Swing) {
+        val develop = info("develop", tip = "ff53e83", merged = MergedIntoBase.COMMITS)
+        val longLived = copyOf(develop, goes = true, BranchDeletionKind.Merged(MergedIntoBase.COMMITS, 0), longLived = true)
+        val developPlan = BranchDeletionPlan("refs/heads/main", listOf(develop), copies = mapOf(develop.branch.name to longLived))
+        val state = DeleteBranchesState(request, plan = developPlan, checked = developPlan.checkedAtFirst()).withDeletesCopies(true)
+
+        DialogScene(state).use { dialog ->
+            assertTrue("origin/develop goes too: its name looks long-lived" in dialog.texts(), dialog.texts().toString())
+            assertTrue(dialog.isEnabled("Delete 1, and 1 on origin"))
+        }
+    }
+
+    @Test
+    fun `no copy that can go, no switch`(): Unit = runBlocking(Dispatchers.Swing) {
+        val refused = BranchDeletionKind.Refused(BranchKept.RemoteDefaultBranch(isNamedByRemote = true))
+        val none = ready.copy(
+            plan = plan.copy(copies = mapOf(squashed.branch.name to copyOf(squashed, goes = false, refused))),
+        )
+
+        DialogScene(none).use { dialog ->
+            assertFalse(dialog.texts().any { it.startsWith("Also delete their merged copies") })
+        }
+    }
+
+    @Test
+    fun `while it deletes the copies, it can stop waiting after a while`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(copiesAsked.copy(isDeleting = true, deletingOn = "origin")).use { dialog ->
+            assertTrue("Deleting on origin…" in dialog.texts(), dialog.texts().toString())
+            assertFalse(dialog.hasButton("Stop waiting"))
+        }
+
+        DialogScene(copiesAsked.copy(isDeleting = true, deletingOn = "origin", canStopWaiting = true)).use { dialog ->
+            dialog.click("Stop waiting")
+            assertEquals(listOf("stop"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `the result says what happened to each copy, and how to bring one back`(): Unit = runBlocking(Dispatchers.Swing) {
+        val copy = copiesPlan.copies.getValue(inBase.branch.name).info.branch
+        val result = BranchesDeletion(
+            outcomes = listOf(BranchDeletionOutcome.Deleted(inBase.branch), BranchDeletionOutcome.Deleted(squashed.branch)),
+            copies = mapOf(inBase.branch.name to BranchDeletionOutcome.Deleted(copy)),
+        )
+
+        DialogScene(copiesAsked.copy(result = result)).use { dialog ->
+            assertTrue("origin/claude/eager-ride-4f2a deleted too" in dialog.texts(), dialog.texts().toString())
+            assertTrue(
+                "To bring one back, push its commit: git push origin <commit>:refs/heads/<name>" in dialog.texts(),
+                dialog.texts().toString(),
+            )
+        }
+    }
+
+    @Test
+    fun `a copy that origin kept says why`(): Unit = runBlocking(Dispatchers.Swing) {
+        val copy = copiesPlan.copies.getValue(inBase.branch.name).info.branch
+        val result = BranchesDeletion(
+            outcomes = listOf(BranchDeletionOutcome.Deleted(inBase.branch)),
+            copies = mapOf(inBase.branch.name to BranchDeletionOutcome.Kept(copy, BranchKept.ChangedOnRemote("7c1d2e3".padEnd(40, '0')))),
+        )
+
+        DialogScene(copiesAsked.copy(result = result)).use { dialog ->
+            assertTrue(
+                "origin/claude/eager-ride-4f2a stays: Someone pushed to it on origin since you fetched: it's now 7c1d2e3." in dialog.texts(),
+                dialog.texts().toString(),
+            )
+
+            dialog.click("Delete it anyway")
+            assertEquals(listOf("anyway"), dialog.calls)
+        }
+
+        // While it deletes anyway, the button is gone, and after a while it can stop waiting
+        DialogScene(copiesAsked.copy(result = result, isDeleting = true, deletingOn = "origin", canStopWaiting = true)).use { dialog ->
+            assertFalse(dialog.hasButton("Delete it anyway"))
+            assertFalse(dialog.isEnabled("Close"))
+            dialog.click("Stop waiting")
+            assertEquals(listOf("stop"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `copies that origin couldn't be asked to delete show why`(): Unit = runBlocking(Dispatchers.Swing) {
+        val result = BranchesDeletion(
+            outcomes = listOf(BranchDeletionOutcome.Deleted(inBase.branch)),
+            copyErrors = mapOf("origin" to GenericError("Could not resolve host")),
+        )
+
+        DialogScene(copiesAsked.copy(result = result)).use { dialog ->
+            assertTrue("origin/claude/eager-ride-4f2a wasn't deleted" in dialog.texts(), dialog.texts().toString())
+            assertTrue("Their copies on origin weren't deleted:" in dialog.texts())
+            assertTrue(dialog.texts().any { "Could not resolve host" in it }, dialog.texts().toString())
+        }
+    }
+
+    @Test
+    fun `stopped while deleting copies, and origin couldn't be asked, it says some may be gone`(): Unit = runBlocking(Dispatchers.Swing) {
+        val result = BranchesDeletion(outcomes = listOf(BranchDeletionOutcome.Deleted(inBase.branch)), wasStopped = true)
+
+        DialogScene(copiesAsked.copy(result = result, wasStopped = true)).use { dialog ->
+            assertTrue("origin/claude/eager-ride-4f2a may already be gone" in dialog.texts(), dialog.texts().toString())
+            assertTrue(
+                "Stopped waiting. Some of their copies may already be gone on origin: fetch to see which." in dialog.texts(),
+                dialog.texts().toString(),
+            )
+        }
+    }
+
+    @Test
+    fun `after a stop, it asks origin what it still has, which Stop checking stops`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(remoteReady.copy(wasStopped = true, isChecking = true)).use { dialog ->
+            assertTrue("Stopped waiting. Asking origin what it still has…" in dialog.texts(), dialog.texts().toString())
+            dialog.click("Stop checking")
+            assertEquals(listOf("stop checking"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `after a stop, the result says what origin deleted and what it still has`(): Unit = runBlocking(Dispatchers.Swing) {
+        val result = BranchesDeletion(
+            listOf(
+                BranchDeletionOutcome.Deleted(remoteSquashed.branch),
+                BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.StillOnRemote),
+            ),
+            wasStopped = true,
+        )
+
+        DialogScene(remoteReady.copy(wasStopped = true, result = result)).use { dialog ->
+            assertTrue("Stopped waiting: origin deleted 1 of 2" in dialog.texts(), dialog.texts().toString())
+            assertTrue("Still on origin." in dialog.texts(), dialog.texts().toString())
+            assertTrue(dialog.isEnabled("Close"))
+        }
+    }
+
+    @Test
+    fun `while it asks origin again, the result shows, and Stop checking stops it`(): Unit = runBlocking(Dispatchers.Swing) {
+        val result = BranchesDeletion(
+            listOf(BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.StillOnRemote)),
+            wasStopped = true,
+        )
+
+        DialogScene(remoteReady.copy(wasStopped = true, result = result, isRechecking = true)).use { dialog ->
+            assertTrue("Asking origin again, in case it's still deleting…" in dialog.texts(), dialog.texts().toString())
+            assertTrue("Still on origin." in dialog.texts())
+            dialog.click("Stop checking")
+            assertEquals(listOf("stop checking"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `after a stop before origin deleted any, the title says so`(): Unit = runBlocking(Dispatchers.Swing) {
+        val result = BranchesDeletion(
+            listOf(BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.StillOnRemote)),
+            wasStopped = true,
+        )
+
+        DialogScene(remoteReady.copy(wasStopped = true, result = result)).use { dialog ->
+            assertTrue("Stopped waiting: origin deleted none" in dialog.texts(), dialog.texts().toString())
         }
     }
 
@@ -571,17 +831,51 @@ class DeleteBranchesDialogTest {
             "error" to DeleteBranchesState(request, error = GenericError("The repository can't be read")),
             "remote-ready" to remoteReady,
             "remote-unmerged-checked" to remoteReady.withChecked(remoteUnmerged.branch.name, true),
-            "remote-deleting" to remoteReady.copy(isDeleting = true),
+            "remote-deleting" to remoteReady.copy(isDeleting = true, deletingOn = "origin"),
+            "remote-deleting-long" to remoteReady.copy(isDeleting = true, deletingOn = "origin", canStopWaiting = true),
             "remote-stopped" to remoteReady.copy(wasStopped = true),
             "remote-result" to remoteReady.copy(
                 result = BranchesDeletion(
                     listOf(
                         BranchDeletionOutcome.Deleted(remoteSquashed.branch),
                         BranchDeletionOutcome.Deleted(remotePushed.branch),
-                        BranchDeletionOutcome.Kept(remoteUnmerged.branch, BranchKept.ChangedOnRemote),
+                        BranchDeletionOutcome.Kept(remoteUnmerged.branch, BranchKept.ChangedOnRemote("7c1d2e3".padEnd(40, '0'))),
                         BranchDeletionOutcome.Kept(remoteRelease.branch, BranchKept.RefusedByRemote("hook declined")),
                     ),
                     remoteMessage = "error: release/1.0 is protected",
+                ),
+            ),
+            "copies-offered" to copiesReady,
+            "copies-asked" to copiesAsked,
+            "copies-result" to copiesAsked.copy(
+                result = BranchesDeletion(
+                    outcomes = listOf(BranchDeletionOutcome.Deleted(inBase.branch), BranchDeletionOutcome.Deleted(squashed.branch)),
+                    copies = mapOf(
+                        inBase.branch.name to BranchDeletionOutcome.Deleted(copiesPlan.copies.getValue(inBase.branch.name).info.branch),
+                    ),
+                ),
+            ),
+            "copies-changed" to copiesAsked.copy(
+                result = BranchesDeletion(
+                    outcomes = listOf(BranchDeletionOutcome.Deleted(inBase.branch), BranchDeletionOutcome.Deleted(squashed.branch)),
+                    copies = mapOf(
+                        inBase.branch.name to BranchDeletionOutcome.Kept(
+                            copiesPlan.copies.getValue(inBase.branch.name).info.branch,
+                            BranchKept.ChangedOnRemote("7c1d2e3".padEnd(40, '0')),
+                        ),
+                        squashed.branch.name to BranchDeletionOutcome.Deleted(copiesPlan.copies.getValue(squashed.branch.name).info.branch),
+                    ),
+                ),
+            ),
+            "remote-checking" to remoteReady.copy(wasStopped = true, isChecking = true),
+            "remote-stopped-result" to remoteReady.copy(
+                wasStopped = true,
+                result = BranchesDeletion(
+                    listOf(
+                        BranchDeletionOutcome.Deleted(remoteSquashed.branch),
+                        BranchDeletionOutcome.Kept(remotePushed.branch, BranchKept.StillOnRemote),
+                    ),
+                    wasStopped = true,
                 ),
             ),
             "remote-needs-git" to DeleteBranchesState(
@@ -630,6 +924,11 @@ class DeleteBranchesDialogTest {
                     onCopyList = { calls += "copy" },
                     onDismiss = { calls += "dismiss" },
                     onStop = { calls += "stop" },
+                    onStopChecking = { calls += "stop checking" },
+                    onDeletesCopiesChange = { calls += "copies $it" },
+                    onDeleteAnyway = { calls += "anyway" },
+                    onUseGit = { calls += "use git" },
+                    onOpenSettings = { calls += "settings" },
                 )
             }
         }

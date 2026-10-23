@@ -4,7 +4,11 @@
 package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.domain.UseCaseExecutor
+import dev.app.leaf.common.printLog
+import dev.app.leaf.domain.branches.BranchCopy
+import dev.app.leaf.domain.branches.BranchDeletionInfo
 import dev.app.leaf.domain.branches.BranchDeletionPlan
+import dev.app.leaf.domain.branches.copiesFor
 import dev.app.leaf.domain.branches.BranchesDeletionRequest
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
@@ -13,6 +17,8 @@ import dev.app.leaf.domain.interfaces.IGetRemoteBranchDeletionInfoGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreeBaseBranchGitAction
 import dev.app.leaf.domain.worktrees.mergeTarget
 import javax.inject.Inject
+
+private const val TAG = "GetBranchDeletionPlanUseCase"
 
 /**
  * Reads what the "Delete branches" dialog shows (fork-only, upstream issue 116): for each branch whether a worktree
@@ -62,7 +68,42 @@ class GetBranchDeletionPlanUseCase @Inject constructor(
 
             when (val result = getBranchDeletionInfoGitAction(repositoryPath, base, offered)) {
                 is Either.Err -> Either.Err(result.error)
-                is Either.Ok -> Either.Ok(BranchDeletionPlan(base, result.value, request.mergedOnly))
+                is Either.Ok -> Either.Ok(
+                    BranchDeletionPlan(
+                        base,
+                        result.value,
+                        request.mergedOnly,
+                        copies = readCopies(repositoryPath, base, result.value),
+                    )
+                )
             }
         }
+
+    /**
+     * The local branches' copies on their remotes, their upstreams, read as that remote's own dialog reads them. The
+     * commits of those that aren't merged aren't counted: the dialog only says that they aren't. A remote that can't be
+     * read has none: its copies can't be deleted, and the local branches still can.
+     */
+    private suspend fun readCopies(
+        repositoryPath: String,
+        base: String?,
+        infos: List<BranchDeletionInfo>,
+    ): Map<String, BranchCopy> = infos
+        .mapNotNull { info -> info.upstream?.let { info.branch.name to it } }
+        .groupBy({ it.second.remote }, { it.first to it.second.trackingBranch })
+        .flatMap { (remote, upstreams) ->
+            val tracking = upstreams.map { it.second }.distinct()
+
+            when (val read = getRemoteBranchDeletionInfoGitAction(repositoryPath, remote, base, tracking, onlyMerged = true)) {
+                is Either.Err -> {
+                    printLog(TAG, "No copies on $remote: ${read.error}")
+                    emptyList()
+                }
+
+                is Either.Ok -> BranchDeletionPlan(read.value.base, read.value.infos, remote = read.value.remote)
+                    .copiesFor(upstreams.toMap())
+                    .toList()
+            }
+        }
+        .toMap()
 }

@@ -3,7 +3,9 @@
 
 package dev.app.leaf.ui.dialogs
 
+import dev.app.leaf.domain.branches.BranchCopy
 import dev.app.leaf.domain.branches.BranchDeletionInfo
+import dev.app.leaf.domain.branches.BranchDeletionKind
 import dev.app.leaf.domain.branches.BranchDeletionOutcome
 import dev.app.leaf.domain.branches.BranchDeletionPlan
 import dev.app.leaf.domain.branches.BranchKept
@@ -160,5 +162,50 @@ class DeleteBranchesStateTest {
         assertFalse(stopped.canConfirm)
         assertSame(stopped, stopped.withChecked("refs/remotes/origin/wip", true))
         assertSame(stopped, stopped.withNoneChecked())
+    }
+
+    private fun copy(name: String, goes: Boolean) = BranchCopy(
+        remote = "origin",
+        info = BranchDeletionInfo(BranchToDelete("refs/remotes/origin/$name", name.padEnd(40, '1')), null, null, 0),
+        kind = if (goes) BranchDeletionKind.Merged(MergedIntoBase.COMMITS, 0) else BranchDeletionKind.OnOtherRefs,
+        looksLongLived = false,
+        goes = goes,
+    )
+
+    private val withCopies = ready.copy(
+        plan = plan.copy(
+            copies = mapOf(
+                "refs/heads/merged" to copy("merged", goes = true),
+                "refs/heads/pushed" to copy("pushed", goes = false),
+                "refs/heads/used" to copy("used", goes = true),
+            ),
+        ),
+    )
+
+    @Test
+    fun `copies go only once asked for, and only those of the checked branches that can go`() {
+        assertTrue(withCopies.copiesToDelete.isEmpty())
+        assertEquals(listOf("refs/heads/merged"), withCopies.copiesOffered.keys.toList())
+
+        val asked = withCopies.withDeletesCopies(true)
+
+        assertTrue(asked.deletesCopies)
+        assertEquals(listOf("refs/heads/merged"), asked.copiesToDelete.keys.toList())
+        assertTrue(asked.withChecked("refs/heads/merged", false).copiesToDelete.isEmpty())
+        assertFalse(asked.withDeletesCopies(false).deletesCopies)
+    }
+
+    @Test
+    fun `copies can't be asked for when none can go, nor while it deletes or once it's done`() {
+        assertSame(ready, ready.withDeletesCopies(true))
+
+        val deleting = withCopies.copy(isDeleting = true)
+        assertSame(deleting, deleting.withDeletesCopies(true))
+
+        val checking = withCopies.copy(isChecking = true, wasStopped = true)
+        assertSame(checking, checking.withDeletesCopies(true))
+
+        val done = withCopies.copy(result = BranchesDeletion(emptyList()))
+        assertSame(done, done.withDeletesCopies(true))
     }
 }

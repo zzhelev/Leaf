@@ -4,6 +4,7 @@
 package dev.app.leaf.data.tab
 
 import dev.app.leaf.data.git.cli.remote.testRemoteOperationsBackend
+import dev.app.leaf.data.git.cli.remote.CheckRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.remote.DeleteRemoteBranchesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchDeletionInfoGitAction
 import dev.app.leaf.data.git.FileChangesWatcher
@@ -516,6 +517,7 @@ class TestTab(
     val deleteBranches = DeleteBranchesUseCase(
         DeleteBranchesGitAction(jgit),
         DeleteRemoteBranchesGitAction(jgit, remoteBackend, remoteCommand),
+        CheckRemoteBranchesGitAction(jgit, remoteBackend, remoteCommand),
         useCaseExecutor,
     )
 

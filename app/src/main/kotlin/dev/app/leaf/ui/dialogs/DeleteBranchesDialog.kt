@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.branches.BranchCopy
 import dev.app.leaf.domain.branches.BranchDeletionInfo
 import dev.app.leaf.domain.branches.BranchDeletionKind
 import dev.app.leaf.domain.branches.BranchDeletionOutcome
@@ -41,6 +43,10 @@ import dev.app.leaf.domain.branches.BranchDeletionPlan
 import dev.app.leaf.domain.branches.BranchKept
 import dev.app.leaf.domain.branches.BranchesDeletion
 import dev.app.leaf.domain.branches.DeletionRemote
+import dev.app.leaf.domain.branches.offersCopies
+import dev.app.leaf.domain.branches.remoteAndName
+import dev.app.leaf.domain.errors.RemoteBranchesNeedGitError
+import dev.app.leaf.domain.errors.SshNeedsGitError
 import dev.app.leaf.domain.models.MergedIntoBase
 import dev.app.leaf.domain.models.WorktreeBranchUse
 import dev.app.leaf.domain.sorting.formatTimeAgo
@@ -53,6 +59,7 @@ import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.amberText
 import dev.app.leaf.ui.baseBranchName
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
+import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.ui.getStyledErrorText
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -84,6 +91,7 @@ private val CHECKBOX_ROOM = 28.dp
 fun DeleteBranchesDialog(
     viewModel: DeleteBranchesViewModel,
     onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     val clipboard = LocalClipboard.current
@@ -99,6 +107,11 @@ fun DeleteBranchesDialog(
         onCopyList = { scope.launch { clipboard.setClipboardText(state.result?.deletedList().orEmpty()) } },
         onDismiss = onDismiss,
         onStop = viewModel::stopDeleting,
+        onStopChecking = viewModel::stopChecking,
+        onDeletesCopiesChange = viewModel::setDeletesCopies,
+        onDeleteAnyway = viewModel::deleteAnyway,
+        onUseGit = viewModel::useGitForRemoteOperations,
+        onOpenSettings = onOpenSettings,
     )
 }
 
@@ -113,6 +126,11 @@ fun DeleteBranchesDialogContent(
     onCopyList: () -> Unit,
     onDismiss: () -> Unit,
     onStop: () -> Unit = {},
+    onStopChecking: () -> Unit = {},
+    onDeletesCopiesChange: (Boolean) -> Unit = {},
+    onDeleteAnyway: () -> Unit = {},
+    onUseGit: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     val plan = state.plan
     val result = state.result
@@ -120,7 +138,11 @@ fun DeleteBranchesDialogContent(
     val remote = state.request.remote
     val base = plan?.base?.let { baseBranchName(it) }
     val count = state.toDelete.size
+    val copies = state.copiesToDelete
+    val copyRemotes = copiesRemoteName(copies.values.map { it.remote })
     val isDone = result != null || state.wasStopped
+    // Deleting a remote's branches needs git: the button does what the error asks for, where it can
+    val gitFix = (state.error as? RemoteBranchesNeedGitError)?.reason?.let { gitFixFor(it) }.takeUnless { isDone }
 
     IconBasedDialog(
         icon = painterResource(Res.drawable.delete),
@@ -139,21 +161,31 @@ fun DeleteBranchesDialogContent(
         },
         primaryActionText = when {
             isDone -> stringResource(Res.string.delete_branches_dialog_result_close)
+            gitFix == GitFix.USE_GIT -> stringResource(Res.string.delete_remote_branches_dialog_use_git)
+            gitFix == GitFix.OPEN_SETTINGS -> stringResource(Res.string.delete_remote_branches_dialog_open_settings)
+            copies.isNotEmpty() && count > 0 ->
+                stringResource(Res.string.delete_branches_dialog_delete_with_copies, count, copies.size, copyRemotes)
+
             remote != null && count > 0 ->
                 pluralStringResource(Res.plurals.delete_remote_branches_dialog_delete, count, count, remote)
 
             count > 0 -> pluralStringResource(Res.plurals.delete_branches_dialog_delete, count, count)
             else -> stringResource(Res.string.delete_branches_dialog_delete_none)
         },
-        isPrimaryActionEnabled = isDone || state.canConfirm,
-        showCancelAction = !isDone,
-        // Stopping git while it deletes on the server: what it deleted by then is deleted
-        cancelActionText = if (state.isDeleting && remote != null) {
-            stringResource(Res.string.delete_remote_branches_dialog_stop)
+        // Deleting anyway runs with the result on screen, and Stop stops it
+        isPrimaryActionEnabled = (isDone && !state.isDeleting) || gitFix != null || state.canConfirm,
+        // While git deletes on a server, only "Stop waiting", after a while: the server carries out what it was asked
+        showCancelAction = if (state.deletingOn != null) {
+            state.canStopWaiting
         } else {
-            stringResource(Res.string.generic_button_cancel)
+            !isDone || state.isChecking || state.isRechecking
         },
-        secondaryActionText = if (result != null && result.deleted.isNotEmpty()) {
+        cancelActionText = when {
+            state.deletingOn != null -> stringResource(Res.string.delete_remote_branches_dialog_stop)
+            state.isChecking || state.isRechecking -> stringResource(Res.string.delete_remote_branches_dialog_stop_checking)
+            else -> stringResource(Res.string.generic_button_cancel)
+        },
+        secondaryActionText = if (result != null && (result.deleted.isNotEmpty() || result.deletedCopies.isNotEmpty())) {
             stringResource(Res.string.delete_branches_dialog_result_copy)
         } else {
             null
@@ -163,15 +195,27 @@ fun DeleteBranchesDialogContent(
         // stop instead, and the dialog says that some may be gone
         onDismiss = {
             when {
-                state.isDeleting && remote != null -> onStop()
+                state.deletingOn != null -> if (state.canStopWaiting) onStop()
+                state.isChecking || state.isRechecking -> onStopChecking()
                 !state.isDeleting -> onDismiss()
             }
         },
-        onPrimaryActionClicked = { if (isDone) onDismiss() else onConfirm() },
+        onPrimaryActionClicked = {
+            when {
+                isDone -> onDismiss()
+                gitFix == GitFix.USE_GIT -> onUseGit()
+                gitFix == GitFix.OPEN_SETTINGS -> onOpenSettings()
+                else -> onConfirm()
+            }
+        },
         beforeActionsFocusRequester = null,
         actionsFocusRequester = null,
         afterActionsFocusRequester = null,
-        primaryActionColors = if (remote != null && !isDone) MaterialTheme.styleColors.destructive else null,
+        primaryActionColors = if ((remote != null || copies.isNotEmpty()) && !isDone && gitFix == null) {
+            MaterialTheme.styleColors.destructive
+        } else {
+            null
+        },
     ) {
         // The dialog is as wide as its content, so this keeps long reasons on fewer lines
         Column(
@@ -183,16 +227,32 @@ fun DeleteBranchesDialogContent(
             plan?.remote?.let { RemoteLine(it) }
 
             when {
-                result != null -> ResultDetails(result, remote)
+                state.isChecking -> ProgressNote(
+                    stringResource(Res.string.delete_remote_branches_dialog_checking, remote ?: copyRemotes)
+                )
+
+                result != null -> ResultDetails(
+                    result = result,
+                    remote = remote,
+                    copiesAsked = state.copiesToDelete,
+                    canDeleteAnyway = !state.isDeleting && !state.isChecking && !state.isRechecking,
+                    onDeleteAnyway = onDeleteAnyway,
+                )
                 state.wasStopped -> DialogWarning(stringResource(Res.string.delete_remote_branches_dialog_stopped, remote.orEmpty()))
                 plan == null && error == null -> DialogNote(stringResource(Res.string.delete_branches_dialog_checking))
                 plan == null -> {}
                 plan.rows.isEmpty() -> DialogNote(emptyText(mergedOnly, base, remote))
-                else -> PlanDetails(state, plan, base, onCheckedChange, onCheckAll, onCheckSafe, onCheckNone)
+                else -> PlanDetails(
+                    state, plan, base, onCheckedChange, onCheckAll, onCheckSafe, onCheckNone, onDeletesCopiesChange,
+                )
             }
 
-            if (state.isDeleting && remote != null) {
-                DeletingNote(remote)
+            state.deletingOn?.let { on ->
+                ProgressNote(stringResource(Res.string.delete_remote_branches_dialog_deleting, on))
+            }
+
+            if (state.isRechecking) {
+                ProgressNote(stringResource(Res.string.delete_remote_branches_dialog_rechecking, remote ?: copyRemotes))
             }
 
             if (error != null) {
@@ -200,6 +260,24 @@ fun DeleteBranchesDialogContent(
             }
         }
     }
+}
+
+/** The remote that copies go to, or "their remotes" when they go to several. */
+@Composable
+private fun copiesRemoteName(remotes: List<String>): String {
+    val distinct = remotes.distinct()
+
+    return distinct.singleOrNull() ?: stringResource(Res.string.delete_branches_dialog_copies_their_remotes)
+}
+
+/** What the dialog's button can do about git not running: turn the setting on, or open Settings to set git's path. */
+private enum class GitFix { USE_GIT, OPEN_SETTINGS }
+
+private fun gitFixFor(reason: SshNeedsGitError.Reason): GitFix? = when (reason) {
+    SshNeedsGitError.Reason.SettingOff -> GitFix.USE_GIT
+    SshNeedsGitError.Reason.GitNotFound -> GitFix.OPEN_SETTINGS
+    // A build without it can't be fixed from here; deleting branches pushes no LFS objects
+    SshNeedsGitError.Reason.HelperMissing, SshNeedsGitError.Reason.LfsPushWithoutGitLfs -> null
 }
 
 @Composable
@@ -222,6 +300,12 @@ private fun resultTitle(result: BranchesDeletion, remote: String?): String {
     val total = result.outcomes.size
 
     return when {
+        remote != null && result.wasStopped && deleted == 0 ->
+            stringResource(Res.string.delete_remote_branches_dialog_result_stopped_none, remote)
+
+        remote != null && result.wasStopped ->
+            stringResource(Res.string.delete_remote_branches_dialog_result_stopped, deleted, total, remote)
+
         remote != null && deleted == 0 -> stringResource(Res.string.delete_remote_branches_dialog_result_none, remote)
         remote != null && deleted == total ->
             pluralStringResource(Res.plurals.delete_remote_branches_dialog_result_title, deleted, deleted, remote)
@@ -259,9 +343,9 @@ private fun RemoteLine(remote: DeletionRemote) {
     )
 }
 
-/** While git deletes on the server: Cancel, now Stop, kills it. */
+/** While git deletes on the server, where Cancel is Stop, and while the server is asked what a stop left there. */
 @Composable
-private fun DeletingNote(remote: String) {
+private fun ProgressNote(text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
         CircularProgressIndicator(
             modifier = Modifier.size(14.dp),
@@ -270,7 +354,7 @@ private fun DeletingNote(remote: String) {
         )
 
         Text(
-            text = stringResource(Res.string.delete_remote_branches_dialog_deleting, remote),
+            text = text,
             style = MaterialTheme.typography.caption,
             color = MaterialTheme.colors.onBackgroundSecondary,
             modifier = Modifier.padding(start = 8.dp),
@@ -298,6 +382,7 @@ private fun PlanDetails(
     onCheckAll: () -> Unit,
     onCheckSafe: () -> Unit,
     onCheckNone: () -> Unit,
+    onDeletesCopiesChange: (Boolean) -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
         Text(
@@ -328,22 +413,98 @@ private fun PlanDetails(
                 remote = state.request.remote,
                 looksLongLived = plan.looksLongLived(info),
                 isEnabled = !state.isDeleting,
+                copy = plan.copies[info.branch.name].takeIf { state.deletesCopies },
                 onCheckedChange = { onCheckedChange(info.branch.name, it) },
             )
         }
+    }
+
+    if (plan.offersCopies) {
+        CopiesSwitch(state, onDeletesCopiesChange)
     }
 
     if (base == null) {
         ListNote(noBaseText(state.request.remote))
     }
 
-    if (state.request.remote != null) {
+    if (state.request.remote != null || state.copiesToDelete.isNotEmpty()) {
         ListNote(stringResource(Res.string.delete_remote_branches_dialog_lease))
 
-        if (state.checksUnmerged) {
+        // Only merged copies go, so this is about a remote's own branches
+        if (state.request.remote != null && state.checksUnmerged) {
             ListNote(stringResource(Res.string.delete_remote_branches_dialog_unmerged_warning), MaterialTheme.colors.amberText)
         }
     }
+}
+
+/**
+ * "Also delete their copies on origin (2)": the checked branches' upstreams go too, but the remote's `HEAD` and default
+ * branch. Off each time the dialog opens, as deleting on a server affects everyone.
+ */
+@Composable
+private fun CopiesSwitch(state: DeleteBranchesState, onChange: (Boolean) -> Unit) {
+    val offered = state.copiesOffered
+    val isEnabled = !state.isDeleting
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.handMouseClickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = { if (isEnabled) onChange(!state.deletesCopies) },
+        ),
+    ) {
+        Checkbox(
+            checked = state.deletesCopies,
+            onCheckedChange = onChange,
+            enabled = isEnabled,
+            modifier = Modifier
+                .padding(all = 8.dp)
+                .size(12.dp),
+        )
+
+        Text(
+            text = stringResource(
+                Res.string.delete_branches_dialog_copies_switch,
+                copiesRemoteName(state.plan?.copies?.values?.filter { it.goes }?.map { it.remote }.orEmpty()),
+                offered.size,
+            ),
+            style = MaterialTheme.typography.body2,
+            color = MaterialTheme.colors.onBackground,
+        )
+    }
+}
+
+/**
+ * What happens to a branch's [copy] on its remote, while its copies are asked to go too: it goes, in amber when it isn't
+ * merged or its name looks long-lived, or it stays when the server would refuse it.
+ */
+@Composable
+private fun copyLine(copy: BranchCopy): Pair<String, Color> {
+    val name = copy.info.branch.remoteAndName
+    val kind = copy.kind
+
+    return when {
+        kind is BranchDeletionKind.Refused -> stringResource(
+            Res.string.delete_branches_dialog_copy_stays,
+            name,
+            refusalText(kind.reason, copy.remote, copy.info.branch.shortTip),
+        ) to MaterialTheme.colors.onBackgroundSecondary
+
+        !copy.isRisky -> stringResource(Res.string.delete_branches_dialog_copy_goes, name) to
+            MaterialTheme.colors.onBackgroundSecondary
+
+        else -> stringResource(Res.string.delete_branches_dialog_copy_goes_risky, name, copyRisk(copy)) to
+            MaterialTheme.colors.amberText
+    }
+}
+
+/** Why deleting [copy] needs a look: not merged, where a server can close its pull requests, or a long-lived name. */
+@Composable
+internal fun copyRisk(copy: BranchCopy): String = if (copy.kind !is BranchDeletionKind.Merged) {
+    stringResource(Res.string.delete_branches_dialog_copy_not_merged)
+} else {
+    stringResource(Res.string.delete_branches_dialog_copy_long_lived)
 }
 
 /** A note under a list, in line with the list's rows. */
@@ -384,6 +545,7 @@ private fun BranchRow(
     remote: String?,
     looksLongLived: Boolean,
     isEnabled: Boolean,
+    copy: BranchCopy?,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val canCheck = kind !is BranchDeletionKind.Refused && isEnabled
@@ -441,6 +603,12 @@ private fun BranchRow(
                 style = MaterialTheme.typography.caption,
                 color = color,
             )
+
+            if (copy != null && kind !is BranchDeletionKind.Refused) {
+                val (copyText, copyColor) = copyLine(copy)
+
+                Text(text = copyText, style = MaterialTheme.typography.caption, color = copyColor)
+            }
         }
     }
 }
@@ -493,9 +661,13 @@ private fun refusalText(reason: BranchKept, remote: String?, shortTip: String): 
 
         BranchKept.NoLongerExists -> stringResource(Res.string.delete_branches_dialog_result_gone)
         is BranchKept.Moved -> stringResource(Res.string.delete_branches_dialog_result_moved, shortTip, reason.shortNow)
-        BranchKept.ChangedOnRemote -> stringResource(Res.string.delete_remote_branches_dialog_result_changed, remoteName)
+        is BranchKept.ChangedOnRemote -> reason.shortNow?.let {
+            stringResource(Res.string.delete_remote_branches_dialog_result_changed_now, remoteName, it)
+        } ?: stringResource(Res.string.delete_remote_branches_dialog_result_changed, remoteName)
         is BranchKept.RefusedByRemote ->
             stringResource(Res.string.delete_remote_branches_dialog_result_refused, remoteName, reason.reason)
+
+        BranchKept.StillOnRemote -> stringResource(Res.string.delete_remote_branches_dialog_result_still_there, remoteName)
 
         is BranchKept.Failed -> stringResource(Res.string.delete_branches_dialog_result_failed, reason.message)
     }
@@ -555,7 +727,13 @@ private fun withCommit(text: String, shortHash: String, byline: String? = null):
  * The list stays until the user closes the dialog.
  */
 @Composable
-private fun ResultDetails(result: BranchesDeletion, remote: String?) {
+private fun ResultDetails(
+    result: BranchesDeletion,
+    remote: String?,
+    copiesAsked: Map<String, BranchCopy>,
+    canDeleteAnyway: Boolean,
+    onDeleteAnyway: () -> Unit,
+) {
     ScrollingBox(maxHeight = MAX_LIST_HEIGHT, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (result.deleted.isNotEmpty()) {
             ResultHeader(stringResource(Res.string.delete_branches_dialog_result_deleted))
@@ -568,6 +746,7 @@ private fun ResultDetails(result: BranchesDeletion, remote: String?) {
                     detail = stringResource(Res.string.delete_branches_dialog_result_was),
                     commit = branch.shortTip,
                     detailColor = MaterialTheme.colors.onBackgroundSecondary,
+                    extra = copiesAsked[branch.name]?.let { copyResultLine(it, result.copies[branch.name], result) },
                 )
             }
         }
@@ -588,6 +767,21 @@ private fun ResultDetails(result: BranchesDeletion, remote: String?) {
         }
     }
 
+    CopiesNotes(result, copiesAsked)
+
+    // Someone pushed to some since the fetch: the user decides, now that the result says what the server has
+    val anyway = (if (remote != null) result.changedOnRemote.size else 0) + result.changedCopies.size
+
+    if (anyway > 0 && canDeleteAnyway) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            SecondaryButton(
+                text = pluralStringResource(Res.plurals.delete_branches_dialog_delete_anyway, anyway, anyway),
+                colors = MaterialTheme.styleColors.destructive,
+                onClick = onDeleteAnyway,
+            )
+        }
+    }
+
     if (result.deleted.isNotEmpty()) {
         ListNote(
             if (remote != null) {
@@ -598,10 +792,18 @@ private fun ResultDetails(result: BranchesDeletion, remote: String?) {
         )
     }
 
+    // And a copy, on its remote
+    for (copyRemote in result.deletedCopies.map { it.remoteAndName.substringBefore('/') }.distinct()) {
+        ListNote(stringResource(Res.string.delete_remote_branches_dialog_result_restore, copyRemote))
+    }
+
     val remoteMessage = result.remoteMessage
 
-    if (remote != null && remoteMessage != null) {
-        ListNote(stringResource(Res.string.delete_remote_branches_dialog_result_server_said, remote))
+    // What the server said: a remote's, or the one that their copies went to
+    val saidBy = remote ?: copiesAsked.values.map { it.remote }.distinct().singleOrNull()
+
+    if (saidBy != null && remoteMessage != null) {
+        ListNote(stringResource(Res.string.delete_remote_branches_dialog_result_server_said, saidBy))
 
         Text(
             text = remoteMessage,
@@ -611,6 +813,55 @@ private fun ResultDetails(result: BranchesDeletion, remote: String?) {
             modifier = Modifier.padding(start = 8.dp),
         )
     }
+}
+
+/** What happened to a deleted branch's [copy]: its [outcome] on its remote, or why it's not known. */
+@Composable
+private fun copyResultLine(copy: BranchCopy, outcome: BranchDeletionOutcome?, result: BranchesDeletion): Pair<String, Color> {
+    val name = copy.info.branch.remoteAndName
+    val amber = MaterialTheme.colors.amberText
+
+    return when (outcome) {
+        is BranchDeletionOutcome.Deleted -> stringResource(Res.string.delete_branches_dialog_result_copy_deleted, name) to
+            MaterialTheme.colors.onBackgroundSecondary
+
+        is BranchDeletionOutcome.Kept -> stringResource(
+            Res.string.delete_branches_dialog_copy_stays,
+            name,
+            refusalText(outcome.reason, copy.remote, copy.info.branch.shortTip),
+        ) to amber
+
+        null -> if (result.wasStopped) {
+            stringResource(Res.string.delete_branches_dialog_result_copy_unknown, name) to amber
+        } else {
+            stringResource(Res.string.delete_branches_dialog_result_copy_not_deleted, name) to amber
+        }
+    }
+}
+
+/**
+ * Under the result: why a remote's copies weren't deleted at all, or for a stop that the server couldn't be asked
+ * about, that some may be gone.
+ */
+@Composable
+private fun CopiesNotes(result: BranchesDeletion, copiesAsked: Map<String, BranchCopy>) {
+    val deleted = result.deleted.map { it.name }.toSet()
+    val unknown = copiesAsked.filterKeys { it in deleted && it !in result.copies }.values.map { it.remote }.distinct()
+
+    for (remote in unknown) {
+        val error = result.copyErrors[remote]
+
+        if (result.wasStopped) {
+            DialogWarning(stringResource(Res.string.delete_branches_dialog_result_copies_stopped, remote))
+        } else {
+            ListNote(stringResource(Res.string.delete_branches_dialog_result_copies_failed, remote), MaterialTheme.colors.amberText)
+        }
+
+        if (error != null) {
+            DialogWarning(error.getStyledErrorText())
+        }
+    }
+
 }
 
 @Composable
@@ -636,6 +887,7 @@ private fun ResultRow(
     detail: String,
     commit: String?,
     detailColor: Color,
+    extra: Pair<String, Color>? = null,
 ) {
     Row(verticalAlignment = Alignment.Top) {
         Icon(
@@ -670,6 +922,10 @@ private fun ResultRow(
                 style = MaterialTheme.typography.caption,
                 color = detailColor,
             )
+
+            if (extra != null) {
+                Text(text = extra.first, style = MaterialTheme.typography.caption, color = extra.second)
+            }
         }
     }
 }

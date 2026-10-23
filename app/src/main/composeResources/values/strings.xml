@@ -135,6 +135,9 @@
     <string name="side_pane_worktree_tooltip_made_by_folder">Made by %1$s: its folder matches %2$s</string>
     <string name="side_pane_worktree_tooltip_labelled">Labelled %1$s: its folder matches %2$s</string>
     <string name="side_pane_worktree_tooltip_prunable">The folder is missing: %1$s.\ngit worktree prune would remove this worktree.</string>
+    <string name="side_pane_local_branches_menu_tooltip">Delete merged branches</string>
+    <string name="side_pane_local_branches_delete_merged">Delete merged branches…</string>
+    <string name="side_pane_local_branches_delete_merged_hint">Lists the branches merged into the base</string>
     <string name="side_pane_worktrees_menu_tooltip">Compare worktrees to a branch, clean up merged worktrees</string>
     <string name="side_pane_worktrees_base_title">Compare worktrees to</string>
     <string name="side_pane_worktrees_base_automatic">Automatic</string>
@@ -808,8 +811,6 @@
         <item quantity="one">Select its %1$d branch</item>
         <item quantity="other">Select its %1$d branches</item>
     </plurals>
-    <string name="sort_delete_merged_branches">Delete merged branches…</string>
-    <string name="sort_delete_merged_branches_hint">Lists the branches merged into the base</string>
     <string name="delete_branches_dialog_title">Delete branches</string>
     <string name="delete_branches_dialog_title_merged">Delete merged branches</string>
     <plurals name="delete_branches_dialog_subtitle">
@@ -849,6 +850,25 @@
     <string name="delete_branches_dialog_used_by">Checked out in the worktree %1$s</string>
     <string name="delete_branches_dialog_rebased_by">Being rebased in the worktree %1$s</string>
     <string name="delete_branches_dialog_bisected_by">A bisect in the worktree %1$s started from it</string>
+    <string name="delete_branch_dialog_also_copy">Also delete %1$s on %2$s</string>
+    <string name="delete_branch_dialog_delete_with_copy">Delete here and on %1$s</string>
+    <plurals name="delete_branches_dialog_delete_anyway">
+        <item quantity="one">Delete it anyway</item>
+        <item quantity="other">Delete the %1$d anyway</item>
+    </plurals>
+    <string name="delete_branches_dialog_delete_with_copies">Delete %1$d, and %2$d on %3$s</string>
+    <string name="delete_branches_dialog_copies_switch">Also delete their copies on %1$s (%2$d)</string>
+    <string name="delete_branches_dialog_copies_their_remotes">their remotes</string>
+    <string name="delete_branches_dialog_copy_goes">%1$s goes too</string>
+    <string name="delete_branches_dialog_copy_goes_risky">%1$s goes too: %2$s</string>
+    <string name="delete_branches_dialog_copy_stays">%1$s stays: %2$s</string>
+    <string name="delete_branches_dialog_copy_not_merged">not merged, a server can close its pull requests</string>
+    <string name="delete_branches_dialog_copy_long_lived">its name looks long-lived</string>
+    <string name="delete_branches_dialog_result_copy_deleted">%1$s deleted too</string>
+    <string name="delete_branches_dialog_result_copy_not_deleted">%1$s wasn't deleted</string>
+    <string name="delete_branches_dialog_result_copy_unknown">%1$s may already be gone</string>
+    <string name="delete_branches_dialog_result_copies_failed">Their copies on %1$s weren't deleted:</string>
+    <string name="delete_branches_dialog_result_copies_stopped">Stopped waiting. Some of their copies may already be gone on %1$s: fetch to see which.</string>
     <string name="delete_branches_dialog_result_none">No branch was deleted</string>
     <plurals name="delete_branches_dialog_result_title">
         <item quantity="one">Deleted %1$d branch</item>
@@ -884,15 +904,24 @@
     <string name="delete_remote_branches_dialog_base_copy">The base branch's copy on %1$s, which the others are compared with</string>
     <string name="delete_remote_branches_dialog_no_base">%1$s has no default branch that Leaf knows of, and there's no base branch, so none counts as merged. git remote set-head %1$s --auto sets it.</string>
     <string name="delete_remote_branches_dialog_deleting">Deleting on %1$s…</string>
-    <string name="delete_remote_branches_dialog_stop">Stop</string>
-    <string name="delete_remote_branches_dialog_stopped">Stopped. Some branches may already be gone on %1$s: fetch to see which.</string>
+    <string name="delete_remote_branches_dialog_stop">Stop waiting</string>
+    <string name="delete_remote_branches_dialog_use_git">Turn it on</string>
+    <string name="delete_remote_branches_dialog_open_settings">Open Settings</string>
+    <string name="delete_remote_branches_dialog_stop_checking">Stop checking</string>
+    <string name="delete_remote_branches_dialog_checking">Stopped waiting. Asking %1$s what it still has…</string>
+    <string name="delete_remote_branches_dialog_result_stopped">Stopped waiting: %3$s deleted %1$d of %2$d</string>
+    <string name="delete_remote_branches_dialog_result_stopped_none">Stopped waiting: %1$s deleted none</string>
+    <string name="delete_remote_branches_dialog_result_still_there">Still on %1$s.</string>
+    <string name="delete_remote_branches_dialog_rechecking">Asking %1$s again, in case it's still deleting…</string>
+    <string name="delete_remote_branches_dialog_stopped">Stopped waiting. Some branches may already be gone on %1$s: fetch to see which.</string>
     <string name="delete_remote_branches_dialog_result_none">No branch was deleted on %1$s</string>
     <plurals name="delete_remote_branches_dialog_result_title">
         <item quantity="one">Deleted %1$d branch on %2$s</item>
         <item quantity="other">Deleted %1$d branches on %2$s</item>
     </plurals>
     <string name="delete_remote_branches_dialog_result_title_partial">Deleted %1$d of %2$d on %3$s</string>
-    <string name="delete_remote_branches_dialog_result_changed">Someone pushed to it or deleted it on %1$s since you fetched. Nothing was deleted.</string>
+    <string name="delete_remote_branches_dialog_result_changed">Someone pushed to it on %1$s since you fetched. Nothing was deleted.</string>
+    <string name="delete_remote_branches_dialog_result_changed_now">Someone pushed to it on %1$s since you fetched: it's now %2$s.</string>
     <string name="delete_remote_branches_dialog_result_refused">%1$s refused: %2$s</string>
     <string name="delete_remote_branches_dialog_result_restore">To bring one back, push its commit: git push %1$s &lt;commit&gt;:refs/heads/&lt;name&gt;</string>
     <string name="delete_remote_branches_dialog_result_server_said">%1$s said:</string>
@@ -1322,6 +1351,8 @@
 
     <!-- Error dialog -->
     <string name="error_dialog_copy_button_tooltip">Copy error</string>
+    <string name="error_dialog_delete_anyway_title">Delete %1$s anyway?</string>
+    <string name="error_dialog_delete_anyway">Delete anyway</string>
     <string name="error_dialog_switch_to_worktree">Switch to worktree</string>
     <string name="autostash_notice_title">Your changes are in the stash</string>
     <string name="autostash_notice_set_aside_merge">git set your uncommitted changes aside before the merge (merge.autoStash).</string>
@@ -1632,9 +1663,11 @@
     <string name="error_ssh_needs_git_not_found">Leaf reaches SSH remotes with git, which it couldn't find, or which is older than 2.36. Install git, or set its path in Settings, then try again.</string>
     <string name="error_ssh_needs_git_helper_missing">Leaf reaches SSH remotes with git, which needs Leaf's askpass helper, and this build of Leaf doesn't have it.</string>
     <string name="error_ssh_needs_git_lfs">Leaf pushes to SSH remotes with git, but git wouldn't upload this repository's LFS files: git-lfs isn't installed, or the repository's pre-push hook doesn't run it. Install git-lfs, or if it's installed, run git lfs install in the repository, then push again.</string>
-    <string name="error_remote_branches_need_git_setting_off">Leaf deletes several of a remote's branches with git, and "Use git for remote operations" is off. Turn it on in Settings, then try again.</string>
-    <string name="error_remote_branches_need_git_not_found">Leaf deletes several of a remote's branches with git, which it couldn't find, or which is older than 2.36. Install git, or set its path in Settings, then try again.</string>
+    <string name="error_remote_branches_need_git_setting_off">Leaf deletes several of a remote's branches with git, and "Use git for remote operations" is off.</string>
+    <string name="error_remote_branches_need_git_not_found">Leaf deletes several of a remote's branches with git, which it couldn't find, or which is older than 2.36. Install git, or set its path in Settings.</string>
     <string name="error_remote_branches_need_git_helper_missing">Leaf deletes several of a remote's branches with git, which needs Leaf's askpass helper, and this build of Leaf doesn't have it.</string>
+    <string name="error_remote_branch_changed">%1$s wasn't deleted: someone pushed to it since you last fetched. Fetch, and look at the new commits first.</string>
+    <string name="error_remote_branch_changed_now">%1$s wasn't deleted: someone pushed to it since you last fetched. On the server it's now %2$s, not %3$s.</string>
     <string name="error_ssh_signing_no_key">Could not sign: no SSH signing key. Set user.signingKey to the path of your key, or to key:: followed by its public key when ssh-agent has the key</string>
     <string name="error_ssh_signing_program_not_found">Could not sign: "%1$s" was not found. Install OpenSSH, or set gpg.ssh.program to the path of ssh-keygen</string>
     <string name="error_ssh_signing_start_failed">Could not sign: "%1$s" could not be started: %2$s</string>
