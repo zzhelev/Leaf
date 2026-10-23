@@ -170,6 +170,31 @@ class GetBranchLinesGitActionTest {
     }
 
     @Test
+    fun `the local base's own line is the commits its upstream lacks, its unpushed ones`(): Unit = runBlocking {
+        val pushed = commit("Pushed")
+        git.run(work, "remote", "add", "origin", File(root, "nowhere.git").path)
+        git.run(work, "update-ref", "refs/remotes/origin/main", pushed)
+        git.run(work, "config", "branch.main.remote", "origin")
+        git.run(work, "config", "branch.main.merge", "refs/heads/main")
+        val first = commit("Not pushed yet")
+        val second = commit("Not pushed either")
+
+        val lines = lines()
+        val main = lines.of("main")
+
+        assertEquals("refs/heads/main", lines.base)
+        assertEquals(listOf(second, first), main.commits.map { it.hash })
+        assertEquals(gitLine("main", base = "origin/main"), main.commits.map { it.hash })
+        assertEquals("refs/remotes/origin/main", main.base)
+        assertEquals(emptySet<String>(), main.pushed)
+
+        // Without an upstream, the local base has no line of its own, as before
+        git.run(work, "config", "--unset", "branch.main.remote")
+        git.run(work, "config", "--unset", "branch.main.merge")
+        assertEquals(emptyList<String>(), lines().of("main").commits)
+    }
+
+    @Test
     fun `without a base, a line goes down to the first commit`(): Unit = runBlocking {
         git.run(work, "branch", "-m", "main", "trunk")
         commit("Two")

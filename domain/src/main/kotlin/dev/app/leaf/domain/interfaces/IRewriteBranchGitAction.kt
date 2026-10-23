@@ -34,3 +34,8 @@ interface IGetOntoBaseCheckGitAction {
 interface ICheckRebasePlanGitAction {
     suspend operator fun invoke(repositoryPath: String, plan: RebasePlan): Either<PlanCheck, GitError>
 }
+
+/** Runs [plan], which doesn't stop, without a working tree, as part A's rewrites run. Undone as they are. */
+interface IRunRebasePlanGitAction {
+    suspend operator fun invoke(repositoryPath: String, plan: RebasePlan): Either<BranchRewriteResult, GitError>
+}

@@ -54,6 +54,22 @@ class BranchLinesTest {
     }
 
     @Test
+    fun `the base's unpushed commits are its own, and the pushed ones are on its upstream`() {
+        val pushed = commit("p", "m")
+        val unpushed = commit("u", "p")
+        val mainLine = BranchLine("refs/heads/main", "refs/remotes/origin/main", listOf(unpushed), "refs/remotes/origin/main")
+        val withUnpushed = BranchLines(
+            base = "refs/heads/main",
+            lines = mapOf(mainLine.branch to mainLine, feat.branch to feat),
+            baseCommits = setOf("m", "p", "u"),
+        )
+
+        assertEquals(mainLine, withUnpushed.lineHolding(listOf("u"), currentBranch = null).ok())
+        assertEquals(Either.Err(RewriteRefusal.OnBase("origin/main")), withUnpushed.lineHolding(listOf(pushed.hash), null))
+        assertEquals(listOf("u" to PlanAction.PICK), withUnpushed.editorChoice("refs/heads/main", idle)!!.rows())
+    }
+
+    @Test
     fun `a commit row's items reword it and join it with its parent, on its branch`() {
         val choices = lines.commitChoices("d", currentBranch = null, busy = idle)
 

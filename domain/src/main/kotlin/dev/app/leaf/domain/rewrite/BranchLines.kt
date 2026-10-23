@@ -36,7 +36,9 @@ data class BranchLines(
             holding.size > 1 -> holding.firstOrNull { it.branch == currentBranch }?.let { Either.Ok(it) }
                 ?: Either.Err(RewriteRefusal.OnSeveralBranches(holding.size))
 
-            base != null && commits.any { it in baseCommits } -> Either.Err(RewriteRefusal.OnBase(shortName(base)))
+            base != null && commits.any { it in baseCommits } ->
+                Either.Err(RewriteRefusal.OnBase(shortName(sharedBase(base))))
+
             else -> Either.Err(RewriteRefusal.NotOnLocalBranch)
         }
     }
@@ -134,6 +136,12 @@ data class BranchLines(
 
         return Either.Ok(RebasePlan.of(line, line.commits.subList(0, oldest + 1).reversed()))
     }
+
+    /**
+     * Where the base's commits are shared: its upstream, when the base's own line is its unpushed commits
+     * ([BranchLine.base] is the upstream then), else the base itself.
+     */
+    private fun sharedBase(base: String): String = lines[base]?.base?.takeIf { it != base } ?: base
 
     private fun usableLine(
         commits: Collection<String>,

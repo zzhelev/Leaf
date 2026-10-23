@@ -484,6 +484,7 @@
     </plurals>
     <string name="rewrite_strip_fixed_up">Fixed up %1$s into its parent on %2$s.</string>
     <string name="rewrite_strip_reworded">Changed the message of %1$s on %2$s.</string>
+    <string name="rewrite_strip_rebased">Rewrote the commits of %1$s.</string>
     <string name="rewrite_strip_pushed">%1$s still has the old commits: push with force to replace them.</string>
     <string name="rewrite_strip_push">Push with force…</string>
     <string name="rewrite_strip_undo">Undo</string>
@@ -1506,6 +1507,10 @@
     <string name="error_rewrite_merged_again">%2$s merges a branch that started on "%1$s", so it would bring the old commits back next to the new ones. Nothing was changed.</string>
     <string name="error_rewrite_conflicts_with_base">"%1$s" can't go on top of the latest %2$s: they conflict in\n\n%3$s\n\nNothing was changed.</string>
     <string name="error_rewrite_changes_in_the_way">Uncommitted changes in the worktree at\n\n%1$s\n\nare in the way of the files that "%2$s" changes:\n\n%3$s\n\nCommit, stash or move them first. Nothing was changed.</string>
+    <string name="error_rewrite_plan_stops">The plan for "%1$s" now stops at %2$s, with conflicts in\n\n%3$s\n\nThe branch or its base changed since the plan was checked. Nothing was changed.</string>
+    <string name="error_rewrite_plan_stops_to_edit">The plan for "%1$s" stops at %2$s for it to be edited, which needs a rebase in a worktree. Nothing was changed.</string>
+    <string name="error_rewrite_plan_may_stop">Leaf can't tell whether the plan for "%1$s" stops, so it can't run it without a rebase in a worktree. Nothing was changed.</string>
+    <string name="error_rewrite_replays_merge">%1$s is a merge, and the plan changes the commits before it, so it would have to be merged again. Nothing was changed.</string>
     <string name="error_rewrite_empty_message">The message is empty once git leaves out its comment lines and blank lines. Nothing was changed.</string>
     <string name="error_rewrite_branch_merging">The commits of "%1$s" can't be rewritten, as a merge is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
     <string name="error_rewrite_branch_cherry_picking">The commits of "%1$s" can't be rewritten, as a cherry-pick is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>

@@ -133,5 +133,6 @@ internal fun rewriteStripText(notice: RewriteNotice): String {
         }
         RewriteKind.FIXUP -> stringResource(Res.string.rewrite_strip_fixed_up, notice.commit, branch)
         RewriteKind.REWORD -> stringResource(Res.string.rewrite_strip_reworded, notice.commit, branch)
+        RewriteKind.REBASE -> stringResource(Res.string.rewrite_strip_rebased, branch)
     }
 }

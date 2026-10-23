@@ -47,6 +47,9 @@ enum class RewriteKind(val reflogName: String) {
     SQUASH("squash"),
     FIXUP("fixup"),
     REWORD("reword"),
+
+    /** A commit editor's plan, run without a working tree (step B3 of `docs/fork/commit-editor.md`). */
+    REBASE("rebase"),
 }
 
 /**

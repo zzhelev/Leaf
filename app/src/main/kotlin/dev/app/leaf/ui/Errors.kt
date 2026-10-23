@@ -17,6 +17,10 @@ import dev.app.leaf.app.generated.resources.error_rewrite_merged_again
 import dev.app.leaf.app.generated.resources.error_rewrite_empty_message
 import dev.app.leaf.app.generated.resources.error_rewrite_conflicts_with_base
 import dev.app.leaf.app.generated.resources.error_rewrite_changes_in_the_way
+import dev.app.leaf.app.generated.resources.error_rewrite_plan_may_stop
+import dev.app.leaf.app.generated.resources.error_rewrite_plan_stops
+import dev.app.leaf.app.generated.resources.error_rewrite_plan_stops_to_edit
+import dev.app.leaf.app.generated.resources.error_rewrite_replays_merge
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_merging
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_cherry_picking
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_reverting
@@ -189,6 +193,8 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RewriteBranchError.BranchBusy -> listOf(worktreePath)
     is RewriteBranchError.ConflictsWithBase -> files
     is RewriteBranchError.ChangesInTheWay -> listOf(worktreePath) + files
+    is RewriteBranchError.PlanStops -> listOfNotNull(commit?.take(7)) + files
+    is RewriteBranchError.ReplaysMerge -> listOf(merge.take(7))
     is RenameBranchError.BranchRebasedInWorktree -> listOf(worktreePath)
     is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
@@ -277,6 +283,23 @@ fun AppError.getErrorText(): String {
                 branch,
                 files.joinToString("\n").ifEmpty { gitOutput },
             )
+
+            is RewriteBranchError.PlanStops -> {
+                val stoppedAt = commit
+
+                when {
+                    stoppedAt == null -> stringResource(Res.string.error_rewrite_plan_may_stop, branch)
+                    files.isEmpty() -> stringResource(Res.string.error_rewrite_plan_stops_to_edit, branch, stoppedAt.take(7))
+                    else -> stringResource(
+                        Res.string.error_rewrite_plan_stops,
+                        branch,
+                        stoppedAt.take(7),
+                        files.joinToString("\n"),
+                    )
+                }
+            }
+
+            is RewriteBranchError.ReplaysMerge -> stringResource(Res.string.error_rewrite_replays_merge, merge.take(7))
 
             is RewriteBranchError.BranchBusy -> {
                 val text = when (operation) {

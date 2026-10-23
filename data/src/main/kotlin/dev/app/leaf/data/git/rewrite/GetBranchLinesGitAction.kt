@@ -30,7 +30,8 @@ private const val MAX_OWN_COMMITS = MAX_LINE_COMMITS * 5
  * Reads every local branch's own line (fork-only, step A3 of `docs/fork/squash-and-rebase.md`), as
  * `git rev-list --first-parent <branch> ^<base>` lists it: the first-parent commits from its tip that the base, the
  * worktrees' base branch, doesn't have. The base's whole history counts, not only its first parents, so a commit that
- * the base merged in isn't the branch's own.
+ * the base merged in isn't the branch's own. The base's own line is the commits that its upstream lacks, when it has one
+ * (step B3 of `docs/fork/commit-editor.md`): its unpushed commits, which are its own until they're pushed.
  *
  * Each branch's upstream says which of its commits are pushed. JGit, in this process, as the menus need it after every
  * commit and only read.
@@ -54,8 +55,14 @@ class GetBranchLinesGitAction @Inject constructor(
                         runCatching {
                             val tip = walk.parseCommit(ref.objectId)
                             val upstream = upstreamOf(walk, repository, ref.name)
+                            // The base's own commits are those its upstream lacks, its unpushed ones (B, decision 5)
+                            val (lineBase, lineBaseTip) = if (ref.name == base && upstream != null) {
+                                upstream.first to upstream.second
+                            } else {
+                                base to baseTip
+                            }
 
-                            ref.name to lineOf(walk, ref.name, tip, baseTip, base, upstream)
+                            ref.name to lineOf(walk, ref.name, tip, lineBaseTip, lineBase, upstream)
                         }.getOrNull()
                     }.toMap()
 

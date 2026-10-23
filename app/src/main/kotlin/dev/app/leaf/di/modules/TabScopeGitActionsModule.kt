@@ -8,10 +8,12 @@ import dev.app.leaf.data.git.rewrite.CheckRebasePlanGitAction
 import dev.app.leaf.data.git.rewrite.GetBranchLinesGitAction
 import dev.app.leaf.data.git.rewrite.GetOntoBaseCheckGitAction
 import dev.app.leaf.data.git.rewrite.RewriteBranchGitAction
+import dev.app.leaf.data.git.rewrite.RunRebasePlanGitAction
 import dev.app.leaf.data.git.rewrite.UndoBranchRewriteGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchLinesGitAction
 import dev.app.leaf.domain.interfaces.ICheckRebasePlanGitAction
 import dev.app.leaf.domain.interfaces.IGetOntoBaseCheckGitAction
+import dev.app.leaf.domain.interfaces.IRunRebasePlanGitAction
 import dev.app.leaf.domain.interfaces.IRewriteBranchGitAction
 import dev.app.leaf.domain.interfaces.IUndoBranchRewriteGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
@@ -697,4 +699,8 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsCheckRebasePlanGitAction(action: CheckRebasePlanGitAction): ICheckRebasePlanGitAction
+
+    @Binds
+    @TabScope
+    fun bindsRunRebasePlanGitAction(action: RunRebasePlanGitAction): IRunRebasePlanGitAction
 }

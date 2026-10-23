@@ -50,6 +50,19 @@ sealed interface RewriteBranchError : GitError {
         val files: List<String>,
         val gitOutput: String,
     ) : RewriteBranchError
+
+    /**
+     * The commit editor's plan for [branch] stops at [commit], with conflicts in [files] (none for an edit), or may stop
+     * where Leaf can't tell ([commit] is null), so it can't run without a working tree.
+     */
+    data class PlanStops(
+        val branch: String,
+        val commit: String?,
+        val files: List<String>,
+    ) : RewriteBranchError
+
+    /** The plan changes the commits below [merge], which would have to be merged again. */
+    data class ReplaysMerge(val merge: String) : RewriteBranchError
 }
 
 /** What a worktree does with a branch that stops a rewrite of it. */
