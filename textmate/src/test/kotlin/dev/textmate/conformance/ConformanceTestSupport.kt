@@ -1,39 +1,43 @@
 package dev.textmate.conformance
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import dev.textmate.grammar.Grammar
 import dev.textmate.grammar.Token
 import dev.textmate.grammar.raw.GrammarReader
 import dev.textmate.grammar.raw.RawGrammar
 import dev.textmate.grammar.tokenize.StateStack
 import dev.textmate.regex.JoniOnigLib
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
-import java.io.InputStreamReader
 
 // --- Data models ---
 
+@Serializable
 data class ExpectedToken(val value: String, val scopes: List<String>)
 
+@Serializable
 data class ExpectedLine(val line: String, val tokens: List<ExpectedToken>)
 
+@Serializable
 data class FirstMateTestCase(
     val desc: String,
-    val grammarPath: String?,
-    val grammarScopeName: String?,
+    val grammarPath: String? = null,
+    val grammarScopeName: String? = null,
     val grammars: List<String>,
-    val grammarInjections: List<String>?,
+    val grammarInjections: List<String>? = null,
     val lines: List<ExpectedLine>
 )
 
+@Serializable
 data class GoldenSnapshot(
     val grammar: String,
-    val generatedWith: String?,
+    val generatedWith: String? = null,
     val files: List<GoldenFile>
 )
 
+@Serializable
 data class GoldenFile(
     val source: String,
     val lines: List<ExpectedLine>
@@ -43,32 +47,20 @@ data class GoldenFile(
 
 object ConformanceTestSupport {
 
-    private val gson = Gson()
+    private val json = Json { ignoreUnknownKeys = true }
 
     // --- Loading ---
 
     fun loadFirstMateTests(resourcePath: String): List<FirstMateTestCase> {
         val stream = javaClass.classLoader.getResourceAsStream(resourcePath)
             ?: error("Resource not found: $resourcePath")
-        return stream.use { s ->
-            InputStreamReader(s, Charsets.UTF_8).use { reader ->
-                gson.fromJson<List<FirstMateTestCase>>(
-                    reader,
-                    object : TypeToken<List<FirstMateTestCase>>() {}.type
-                ) ?: error("Failed to parse: $resourcePath")
-            }
-        }
+        return stream.use { json.decodeFromString<List<FirstMateTestCase>>(it.readBytes().decodeToString()) }
     }
 
     fun loadGoldenSnapshot(resourcePath: String): GoldenSnapshot {
         val stream = javaClass.classLoader.getResourceAsStream(resourcePath)
             ?: error("Resource not found: $resourcePath")
-        return stream.use { s ->
-            InputStreamReader(s, Charsets.UTF_8).use { reader ->
-                gson.fromJson(reader, GoldenSnapshot::class.java)
-                    ?: error("Failed to parse: $resourcePath")
-            }
-        }
+        return stream.use { json.decodeFromString<GoldenSnapshot>(it.readBytes().decodeToString()) }
     }
 
     fun loadRawGrammar(resourcePath: String): RawGrammar {

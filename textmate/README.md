@@ -28,7 +28,11 @@ in Leaf:
 
 Each change after that is a commit of its own:
 
-- the theme package (`dev.textmate.theme`) is left out, with its tests and themes: Leaf maps scopes to its own colours.
+- the theme package (`dev.textmate.theme`) is left out, with its tests and themes: Leaf maps scopes to its own colours;
+- grammars are read with kotlinx.serialization, which Leaf already uses, in place of Gson, and as leniently as
+  vscode-textmate reads them: an entry of the wrong type is left out, where Gson refused the whole grammar. Five of
+  shiki's grammars have such entries (XML's captures have strings among the rules), and 33 failed to load with the
+  grammars that embed them.
 
 ## Taking a later fix from kotlin-textmate
 

@@ -2,6 +2,8 @@ package dev.textmate.grammar.raw
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -178,5 +180,75 @@ class GrammarReaderTest {
         assertEquals(fromStream.scopeName, fromString.scopeName)
         assertEquals(fromStream.patterns!!.size, fromString.patterns!!.size)
         assertEquals(fromStream.repository!!.keys, fromString.repository!!.keys)
+    }
+
+    // ── Lenient reading, as vscode-textmate's ────────────────────────
+
+    @Test
+    fun `a capture that isn't a rule is left out`() {
+        // As in shiki's XML grammar, whose captures have strings among the rules.
+        val grammar = GrammarReader.readGrammar(
+            """{"scopeName": "source.t", "patterns": [{"match": "(a)(b)(c)",
+                "captures": {"1": {"name": "one"}, "2": "two", "3": null}}]}"""
+        )
+        val captures = grammar.patterns!!.single().captures!!
+        assertEquals(setOf("1"), captures.keys)
+        assertEquals("one", captures.getValue("1").name)
+    }
+
+    @Test
+    fun `captures given as an array are indexed by capture number`() {
+        val grammar = GrammarReader.readGrammar(
+            """{"scopeName": "source.t", "patterns": [{"begin": "(a)(b)", "end": "c",
+                "beginCaptures": [{"name": "whole"}, "one", {"name": "two"}], "endCaptures": []}]}"""
+        )
+        val rule = grammar.patterns!!.single()
+        assertEquals(mapOf("0" to "whole", "2" to "two"), rule.beginCaptures!!.mapValues { it.value.name })
+        assertEquals(emptyMap<String, RawRule>(), rule.endCaptures)
+    }
+
+    @Test
+    fun `entries of the wrong type read as missing`() {
+        val grammar = GrammarReader.readGrammar(
+            """{"scopeName": "source.t", "name": 3, "fileTypes": ["t", 1, null], "repository": {"a": [], "b": {}},
+                "patterns": ["text", 1, {"include": "#b", "contentName": null, "match": false}]}"""
+        )
+        assertNull(grammar.name)
+        assertEquals(listOf("t"), grammar.fileTypes)
+        assertEquals(setOf("b"), grammar.repository!!.keys)
+        val rule = grammar.patterns!!.single()
+        assertEquals("#b", rule.include)
+        assertNull(rule.contentName)
+        assertNull(rule.match)
+    }
+
+    @Test
+    fun `applyEndPatternLast reads from a boolean or a number`() {
+        fun applyEndPatternLast(value: String): Int? = GrammarReader.readGrammar(
+            """{"scopeName": "source.t", "patterns": [{"begin": "a", "end": "b", "applyEndPatternLast": $value}]}"""
+        ).patterns!!.single().applyEndPatternLast
+
+        assertEquals(1, applyEndPatternLast("true"))
+        assertEquals(0, applyEndPatternLast("false"))
+        assertEquals(1, applyEndPatternLast("1"))
+        assertEquals(0, applyEndPatternLast("0"))
+        assertNull(applyEndPatternLast("\"1\""))
+        assertNull(applyEndPatternLast("null"))
+    }
+
+    @Test
+    fun `the while key reads into whilePattern`() {
+        val grammar = GrammarReader.readGrammar(
+            """{"scopeName": "source.t", "patterns": [{"begin": "^>", "while": "^>", "whileCaptures": {"0": {}}}]}"""
+        )
+        assertEquals("^>", grammar.patterns!!.single().whilePattern)
+    }
+
+    @Test
+    fun `a grammar that isn't an object, has no scopeName or isn't JSON is refused`() {
+        assertThrows(IllegalArgumentException::class.java) { GrammarReader.readGrammar("[]") }
+        assertThrows(IllegalArgumentException::class.java) { GrammarReader.readGrammar("""{"name": "x"}""") }
+        assertThrows(IllegalArgumentException::class.java) { GrammarReader.readGrammar("""{"scopeName": 1}""") }
+        assertThrows(IllegalArgumentException::class.java) { GrammarReader.readGrammar("""{"scopeName": "s",""") }
     }
 }
