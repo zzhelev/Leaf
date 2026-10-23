@@ -2,6 +2,41 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Deleting branches: their copies on origin, after a Stop, and without git (follows upstream issue 116, 2026-10-23)
+
+- **Request:** the three follow-ups left after deleting a remote's branches, explored with the user and built as
+  recommended, with a fourth found on the way.
+- **A local branch and its copy on origin together:** "Delete branches" and "Delete merged branches" get a switch, "Also
+  delete their copies on origin (2)", off each time the dialog opens. A copy is the branch's upstream, and it goes with
+  its branch, but origin's HEAD and default branch, which servers refuse. One that isn't merged into origin's default
+  branch, or named like `develop` or `release/…`, is marked in amber: Leaf points out the risk and leaves the choice to
+  you (a first version kept them, which overruled an explicit choice). With the switch on, each row says what happens to
+  its copy, the button is red and says "Delete 3, and 2 on origin", the local branches go first, and a copy goes only
+  when its local branch did, with the lease. The result says what happened to each copy. The single Delete branch dialog
+  gets "Also delete origin/x on origin", unchecked, marked when risky.
+- **"Delete merged branches…" moved** out of the Local branches sort menu, which is about how they're listed, into the
+  header's own ⋯ menu, as Worktrees has, and onto a right-click of the header.
+- **Delete anyway:** a branch, or copy, that someone pushed to since the fetch says the commit origin has now, and the
+  result offers "Delete it anyway", which deletes that commit (it's the new lease, so a further push still stops it). A
+  branch already gone counts as deleted. The single remote delete's refusal is a question: "Delete origin/x anyway?",
+  Cancel or Delete anyway.
+- **Stop is now "Stop waiting", after 10 s:** stopping git doesn't stop a server that already has the request, which git
+  sends within a second of connecting. Probed with git 2.54 against a `git daemon`: the server deleted the branches,
+  Leaf kept its copies of them, and nothing changed locally for the file watcher to see, so the side panel showed them
+  until the next fetch. So while git deletes on a server, there's no button at first, and after 10 s "Stop waiting",
+  for a slow or hung connection. After it, the dialog asks the server (`git ls-remote`) and shows what happened:
+  "Stopped waiting: origin deleted 2 of 3", each one's commit, and "Still on origin." for the others. A server still in its hook deletes them a moment later, so while it still has some, the dialog
+  asks again every 2 s for up to 30 s, and the rows follow ("Stop checking" ends it). Leaf's copies of the deleted ones
+  go.
+- **Without git:** no JGit fallback, which would only help on HTTPS with the setting off. The dialog's button fixes the
+  cause instead: "Turn it on" for "Use git for remote operations", "Open Settings" when git isn't found.
+- **The single remote delete gets the lease** (found while exploring): right-click `origin/x` → Delete pushed without
+  one, so a commit someone pushed since the last fetch was deleted without a word. Now it's refused with
+  "origin/x wasn't deleted: someone pushed to it since you last fetched", which then offers to delete it anyway. A branch
+  already gone still only loses Leaf's copy, as before. It also deletes a branch under its name on the server when the fetch refspec maps it elsewhere, where
+  it deleted a branch of the wrong name.
+- Details: CLAUDE.md, "Deleting several branches", "A remote's branches".
+
 ## Delete several of a remote's branches at once (follows upstream issue 116, 2026-10-23)
 
 - **Request:** the remote part of upstream issue 116, left out of the local one on 2026-10-22 and planned with the user
@@ -105,7 +140,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   "Copy list" copies the whole hashes), and what it left and why. One branch that stays never stops the others. A branch that
   moved since the dialog opened, or is gone, is left, and a different commit is never deleted: the delete carries the commit
   it expects.
-- **Delete merged branches…** in the Local branches sort menu opens the same dialog with every branch merged into the base
+- **Delete merged branches…** in the Local branches sort menu (since 2026-10-23 its header's ⋯ menu) opens the same dialog with every branch merged into the base
   checked, the branch-side twin of "Clean up merged worktrees". Branches that a worktree uses are listed dimmed.
 - **Not done, decided with the user:** remote branches. Deleting one is a push that affects everyone, so it is planned on its own.
 - Details: CLAUDE.md, "Deleting several branches". Mockups: the side panel with a selection and the dialog in two layouts, picked

@@ -1994,6 +1994,16 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
 - Push and remote branch deletion run `git push --porcelain --progress` (`GitCliPushBranchGitAction`,
   `GitCliDeleteRemoteBranchGitAction`). JGit's deletion, the fallback, returns the push's failure and keeps the
   remote-tracking branch; it used to delete that branch and report success.
+  - Since 2026-10-23 a remote branch is deleted with `--force-with-lease=<branch>:<commit>`, the commit Leaf showed
+    (JGit: `RefLeaseSpec`), so one that someone pushed to since the last fetch stays (`RemoteBranchChangedError`). git
+    refuses an already deleted branch the same way (`stale info`), so the server is asked then (`serverTips`,
+    `ServerBranches.kt`, one `git ls-remote`): a branch it doesn't have only loses its remote-tracking branch, as before.
+    JGit reports that case as `NON_EXISTING`, not a refusal. The error carries the server's commit (`now`, from
+    `ls-remote`, or JGit's advertised ref) and the one shown (`was`), and `ErrorDialog` then asks instead of only saying
+    it ("Delete origin/x anyway?", Cancel or Delete anyway, `onDeleteRemoteBranchAnyway`): "anyway" deletes with that
+    commit as the lease (`RepositoryTabViewModel.deleteRemoteBranch`), so a further push still stops it. Leaf doesn't
+    overrule an explicit choice: it says what changed, and the user decides. The branch's name on the server comes from the fetch
+    refspec (`serverRefOf`, shared with the batch delete); it used to be `refs/heads/` plus the tracking name.
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
   one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
   dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
@@ -2867,7 +2877,10 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
     the branch or bisects from it, and a missing folder), but doesn't go through `DeleteBranchGitAction`.
 - **Deleting several branches (fork-only, upstream issue 116, 2026-10-22):** Cmd or Ctrl-click, and Shift-click, select
   local branches in the side panel; "Delete N branches" in the menu of a selected branch opens `DeleteBranchesDialog`,
-  and "Delete merged branches…" in the Local branches sort menu opens it with every merged branch checked. Chosen from
+  and "Delete merged branches…" opens it with every merged branch checked: in the Local branches header's own ⋯ menu
+  (`LocalBranchesMenuButton`, as the Worktrees header has one) and on a right-click of that header
+  (`localBranchesContextMenu`), since 2026-10-23; it was in the sort button's menu, which is about how branches are
+  listed (moved at the user's request, option A of three). Chosen from
   mockups with the user: option A of two (one list, a status line per branch; the other grouped them in three).
   A remote's branches came on 2026-10-23 (below, A remote's branches), as deleting one is a push that affects everyone.
   - **Selection** (`domain/branches/BranchSelection.kt`, pure; `repositoryopen/BranchSelectionController.kt`): a set of
@@ -2993,6 +3006,72 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
       Cancel with a hook that sleeps), `DeletingRemoteBranchesTest` (a `TestTab`), the remote cases of `DeleteBranchesDialogTest` and
       `DeleteBranchesStateTest`, and `RemoteBranchSelectionRowsTest`. 46 mutations were each caught by a named test,
       but one: a filter in the use case that couldn't change anything, which went.
+  - **Their copies on origin (2026-10-23, follow-up, option 2a of three):** a local branch's copy is its upstream
+    (`BranchDeletionInfo.upstream`: `branch.<name>.remote` and `.merge` through the fetch refspec, while that
+    remote-tracking branch exists; JGit gives a local upstream none). `GetBranchDeletionPlanUseCase` reads the copies of
+    a local plan with the remote action (`onlyMerged`, so unmerged ones' commits aren't counted), one call per remote,
+    into `BranchDeletionPlan.copies` (`copiesFor`). A copy `goes` with its branch unless it's the remote's `HEAD` or
+    default branch, which servers refuse; one that isn't merged into the remote's default branch, or whose name looks
+    long-lived, is `isRisky`, and the dialog marks it in amber rather than keeping it (decided with the user,
+    2026-10-23: Leaf points out the risk, and protecting a branch is the server's job; the first version kept them). A
+    remote that can't be read, git off included, has no copies, and the local branches are offered as before.
+    - The dialog offers "Also delete their copies on origin (N)" while a branch that can be deleted has a copy that goes
+      (`offersCopies`), off each time it opens (`DeleteBranchesState.deletesCopies`). On, each row adds its copy's line
+      ("goes too", in amber "goes too: not merged, a server can close its pull requests" or "goes too: its name looks
+      long-lived", or "stays: the default branch on origin"), the button is red and says "Delete 3, and 1 on origin",
+      and the lease note shows.
+    - `DeleteBranchesUseCase.withCopies` deletes the local branches, hands their result to the dialog (`onLocalDeleted`,
+      kept for a Stop), then the copies of the ones deleted, one push per remote with the lease. A remote's failure is
+      `BranchesDeletion.copyErrors`; each copy's outcome is in `copies`, by local branch. The result adds a line per copy
+      and the push command to bring one back.
+    - The single Delete branch dialog (`DeleteRefDialogContent`) offers "Also delete origin/x on origin" for a copy that
+      goes, unchecked, with the amber reason under it for a risky one; the button then says "Delete here and on origin",
+      red. Once the branch is deleted, the copy goes
+      through `DeleteRemoteBranchUseCase`, a task with the lease, whose failure opens `ErrorDialog`.
+  - **Delete anyway (2026-10-23, at the user's request):** a branch or copy that the lease kept says the commit the
+    server has now (`BranchKept.ChangedOnRemote(now)`: after the push, `DeleteRemoteBranchesGitAction` asks the server
+    once about those, through `serverTips`; one already gone counts as deleted and loses its remote-tracking branch; with
+    several push URLs it stays as git reported it, as `ls-remote` would ask only one). The result then has "Delete it
+    anyway" ("Delete the 3 anyway"), which deletes them with that commit as the lease (`BranchToDelete.serverTip`, the
+    lease's `leaseTip`, while `tip` stays the remote-tracking branch's commit for the check before git runs and for
+    removing it after), and their new outcomes take the old ones' place (`withOutcomes`, `changedOnRemote`,
+    `changedCopies`, `DeleteBranchesViewModel.deleteAnyway`). Stop and the check after it work as for a first delete.
+  - **Stop waiting (2026-10-23, follow-up, option 1 of three):** stopping kills git, not the server: a server that has
+    the push's commands goes on (probed with git 2.54 and `git daemon`: the branches were deleted, the remote-tracking
+    branches stayed, and the file watcher saw nothing). git sends them within a second of connecting, so a "Stop" would
+    promise what it can't do (the user's finding). While git deletes on a server (`deletingOn`), the dialog has no
+    button at first; after `STOP_WAITING_AFTER` (10 s, `canStopWaiting`, from a collector of `deletingOn` in the view
+    model) it offers "Stop waiting", which frees it from a slow or hung connection (git has no time limit) and stops the
+    pushes not yet started. Esc does the same then, and nothing before. After it, the dialog asks the server right away
+    (`isChecking`, "Stop checking"; `DeleteBranchesUseCase.afterStop` → `CheckRemoteBranchesGitAction`, one
+    `git ls-remote`, refreshing even when it fails): gone counts as deleted and loses its remote-tracking branch while
+    that still points to the commit, still at the commit is `BranchKept.StillOnRemote`, at another `ChangedOnRemote`.
+    The result says "Stopped waiting: origin deleted 2 of 3" (`BranchesDeletion.wasStopped`), and a branch still there
+    "Still on origin.", which doesn't say that the stop saved it. For copies, the local result stays and the copies are
+    checked the same way. A first check that fails or is stopped says "some may already be gone". Never between two
+    local branches: `deletingOn` is set only while git runs on a server.
+    - **Asked again:** the first check can come while the server still runs its hook, and says "still on origin" for
+      branches that it deletes a moment later (the real-graph harness, with a server that took 25 s: 60 ms after Stop
+      waiting all three were there, 15 s later all three were gone). So the result shows at once, and while the server still has some
+      (`hasStillOnRemote`), the dialog asks again every 2 s, 15 times at most (`isRechecking`, "Asking origin again, in
+      case it's still deleting…", Stop checking), and the rows follow. A later check that fails leaves the last answer.
+    - A test of a stop needs a server outside git's process tree: with a local remote, killing git kills
+      `receive-pack` too, so nothing is deleted. `CheckRemoteBranchesGitActionTest` runs `git daemon`.
+  - **Without git (2026-10-23, follow-up):** no JGit fallback (JGit has no SSH in Leaf, so it would only help on HTTPS
+    with the setting off). The dialog's primary button fixes the cause instead: "Turn it on" writes
+    `AppConfig.RemoteOperationsWithGit` and reads the list again; "Open Settings" when git isn't found replaces the
+    dialog with Settings. Without the askpass helper there's nothing to offer.
+  - Tests: `BranchCopiesTest` (domain), `CheckRemoteBranchesGitActionTest` (data: a real Stop over `git daemon`, where
+    the server deleted after git was gone; moved, gone, more than 20 branches, a mapped refspec, an unreachable server,
+    git off), `DeletingBranchesWithCopiesTest` (a `TestTab`: the copies read as origin's dialog would, deleted with the
+    local branches, the lease, a local branch that stays, an unreachable server), the upstreams in
+    `GetBranchDeletionInfoGitActionTest`, the lease in `GitCliPushBranchGitActionTest` and
+    `DeleteRemoteBranchGitActionTest`, and in the app `DeleteBranchesDialogTest`, `DeleteBranchesStateTest` and
+    `DeleteRefDialogTest`, `ErrorDialogDeleteAnywayTest` and `LocalBranchesMenuTest`. The view models have no kept test,
+    as they need the Dagger graph: they ran through it in a
+    temporary harness against the `git daemon` demo (25 checks, the Stop's race included). 33 mutations: 32 caught by a
+    named test; the survivor is the early return in `removeTrackingBranches`, as the update's expected old value refuses
+    a moved ref too.
 - **Worktree badges and menus (fork-only, `ui/BranchWorktreeBadge.kt`):** a local branch that another worktree uses
   gets a folder icon, plus the worktree's folder name unless it repeats the branch's last part, or the branch is
   `worktree-<name>` (`nameNextTo`), as agents' folders do. Its tooltip says how the worktree uses the branch and what
