@@ -26,7 +26,9 @@ in Leaf:
   file records the version;
 - the golden script (`tools/generate-golden/`) finds the grammars and writes the goldens in this module's folders.
 
-Each change after that is a commit of its own.
+Each change after that is a commit of its own:
+
+- the theme package (`dev.textmate.theme`) is left out, with its tests and themes: Leaf maps scopes to its own colours.
 
 ## Taking a later fix from kotlin-textmate
 

@@ -31,14 +31,6 @@ MIT-licensed.
 The fixtures in `src/test/resources/conformance/first-mate/` come from
 [atom/first-mate](https://github.com/atom/first-mate), MIT-licensed, © GitHub Inc., through vscode-textmate's tests.
 
-## Themes used by the tests (`src/test/resources/themes/`)
-
-VS Code default color themes, redistributed with JSONC trailing commas stripped. Sourced from
-[microsoft/vscode](https://github.com/microsoft/vscode) (`extensions/theme-defaults/themes/`), MIT-licensed,
-© Microsoft Corporation.
-
-- `dark_vs.json`, `dark_plus.json`, `light_vs.json`, `light_plus.json`
-
 ---
 
 The MIT License text for all of the above is identical to the one in [LICENSE](LICENSE); only the copyright holders

@@ -4,7 +4,7 @@ package dev.textmate.grammar.tokenize
  * Linked list of scope names with token attributes.
  * Port of `AttributedScopeStack` from vscode-textmate `grammar.ts`.
  *
- * Tracks scope names only — theme resolution is done externally via [dev.textmate.theme.Theme.match].
+ * Tracks scope names only — theme resolution is done externally, by the caller.
  */
 public class AttributedScopeStack private constructor(
     public val parent: AttributedScopeStack?,
