@@ -2001,6 +2001,15 @@ Shift-click for a range, newest first, onto the latest main, and every new messa
   - An item that can't be used stays in the menu, faded, with why at its right (`rewriteRefusalText`): "On main", "Its
     parent is on main", "Includes a merge", "Not one after another", "On 2 branches", "In a rebase". A small change to
     upstream's `ContextMenu.kt`: `ContextTextEntry.isEnabled`, which `TextEntry` fades (45%) and doesn't click.
+  - "Fixup into parent" is faded with "Names “Add the parser”" (cut after a word within 24 characters) on a commit
+    whose subject is `fixup! X`, `squash! X` or `amend! X` and names another of the line's commits than its parent
+    (`BranchLine.commitToFixUp`, `RewriteRefusal.NamesAnotherCommit`): the fix would go into the wrong commit, and
+    moving it is part B's. The commit named is the one that `git rebase --autosquash` puts it under (`autosquashTarget`,
+    `SquashMessage.kt`): past the prefixes, repeated too, the oldest commit with that subject (git's `%s`: the first
+    paragraph's lines joined), else the one whose hash starts with it (4 hex digits on), else the oldest whose subject
+    starts with it. A parent with that subject counts as named though an older commit has it too, and a subject that
+    names nothing on the line fixes up into the parent. "Squash into parent…" stays: its dialog shows both messages.
+    Chosen with the user on 2026-10-23, after a demo with a `fixup!` commit above another commit, keeping git's name.
 - **What the menus read** (`BranchLines`, `BranchLine`, `domain/rewrite/`; `GetBranchLinesGitAction`): every local
   branch's own commits, refreshed with the branch counts (`RepositoryDataRepository.branchLines`, after ALL, a ref change
   or LOG). One `RevWalk`: a branch's own commits are those that its base (`WorktreeBaseBranch.effective`) doesn't reach,
@@ -2055,14 +2064,17 @@ Shift-click for a range, newest first, onto the latest main, and every new messa
     and it may be a local `.env`. Refusals at run time are `ConflictsWithBase` and `ChangesInTheWay`, in `ErrorDialog`.
 - **Not done** (part B): dropping, moving and editing commits, which replay with `git rebase -i` and can stop; the
   interactive rebase list is still upstream's.
-- Tests: `BranchLineTest`, `BranchLinesTest`, `SquashMessageTest` (domain); `RewriteBranchGitActionTest` (a squash, a fixup
+- Tests: `BranchLineTest`, `BranchLinesTest`, `SquashMessageTest`, `FixupTargetTest` (domain); `AutosquashTargetTest`
+  (the commit each `fixup!`, `squash!` and `amend!` subject names, against the todo of `git rebase -i --autosquash`,
+  read by a sequence editor that exits 1, which leaves the branch as it was); `RewriteBranchGitActionTest` (a squash, a fixup
   and a reword give commit for commit what `git rebase -i` gives for the same todo with the same committer date, in a
   twin repository; `post-rewrite`, the three places a branch can be, the refusals, merges after the range, signing, a
   message's bytes, Undo), `SquashOntoBaseTest` (the tree that `git rebase main` ends with, local changes kept or in the
   way, an ignored file, conflicts, another worktree, Undo, the check), `GetBranchLinesGitActionTest`,
   `RewritingBranchesTest` (a `TestTab`); `RewriteMenusTest`, `RewriteCommitsDialogTest`, `RewriteStripTest` (app). 47
   mutations across A1 to A4 were each caught by a named test; one more survived, as the code it changed (a special case
-  for HEAD) wasn't needed, and that code went. The menus, the dialogs, the strip and Undo ran in the real
+  for HEAD) wasn't needed, and that code went. Six of the fixup rule were each caught too, one after a test was added
+  (a subject read as its first line only). The menus, the dialogs, the strip and Undo ran in the real
   tab through the Dagger graph in a temporary harness, in both themes, against a branch pushed to a bare `origin`.
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and

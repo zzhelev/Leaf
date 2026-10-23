@@ -5,7 +5,7 @@
 | Question | How can Leaf tidy a feature branch's commits (squash, fixup, reword, move onto the latest main) without the user finding the fork point or fearing a rebase? |
 | Verified against | `main` at `6b8e8eec`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine), A2 (the log's range), A3 (menus, dialog, strip, Undo), A4 (onto the latest main) and A5 (CLAUDE.md, the changelog, a demo) done: part A is built |
+| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine), A2 (the log's range), A3 (menus, dialog, strip, Undo), A4 (onto the latest main) and A5 (CLAUDE.md, the changelog, a demo) done: part A is built. After the manual run, "Fixup into parent" refuses a `fixup!` commit that names another commit than its parent |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.

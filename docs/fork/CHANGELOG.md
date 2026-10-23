@@ -13,7 +13,9 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **The items:** a commit's menu has "Edit message…", "Squash into parent…" and "Fixup into parent"; a range's menu
   "Squash N commits…"; a local branch's, in the side panel, on its log label and in a worktree's menu, "Squash branch
   into one commit…". An item that can't be used is there, faded, with why: "On main", "Its parent is on main", "Includes
-  a merge", "Not one after another", "In a rebase".
+  a merge", "Not one after another", "In a rebase". "Fixup into parent" on a `fixup!` commit whose title names another
+  commit than its parent says "Names “Add the parser”": the fix would go into the wrong commit. Leaf finds the commit
+  named as `git rebase --autosquash` does.
 - **Nothing is replayed:** Leaf makes the new commits from the trees the branch already has, with git (identity, signing,
   `post-rewrite` as after `git rebase`), so it never stops at conflicts, and the working tree and uncommitted changes
   stay as they are. A branch checked out in an agent's worktree can be tidied from any tab. A branch that moved meanwhile
