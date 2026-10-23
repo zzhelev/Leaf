@@ -20,6 +20,7 @@ import dev.app.leaf.domain.branches.BranchClick
 import dev.app.leaf.domain.branches.BranchSelection
 import dev.app.leaf.domain.conflicts.ConflictsToOpen
 import dev.app.leaf.domain.conflicts.conflictsToOpen
+import dev.app.leaf.domain.errors.BranchOperation
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.UnsupportedIndexError
 import dev.app.leaf.domain.errors.okOrNull
@@ -39,6 +40,13 @@ import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
 import dev.app.leaf.domain.cherrypick.BranchesAhead
 import dev.app.leaf.domain.models.emptyIdentity
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.rewrite.BranchLine
+import dev.app.leaf.domain.rewrite.BranchLines
+import dev.app.leaf.domain.rewrite.BranchRewrite
+import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.OntoBase
+import dev.app.leaf.domain.rewrite.OntoBaseCheck
+import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WatchRegistrations
 import dev.app.leaf.domain.refresh.WatchUsage
@@ -94,6 +102,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.eclipse.jgit.api.RebaseCommand.InteractiveHandler
@@ -127,6 +136,9 @@ private const val NONE_MATCHING_INDEX = 0
 private const val FIRST_INDEX = 1
 
 private const val TAG = "TabViewModel"
+
+/** How long a rewrite's new commit is waited for in the log, to select it (fork-only). */
+private const val REWRITE_SELECT_TIMEOUT = 10_000L
 
 /**
  * Contains all the information related to a tab and its subcomponents (smaller composables like the log, branches,
@@ -208,6 +220,9 @@ class RepositoryOpenViewModel @Inject constructor(
     private val runWorktreeStepsUseCase: RunWorktreeStepsUseCase,
     private val followRemovedWorktreeUseCase: FollowRemovedWorktreeUseCase,
     private val comparisonViewModelExtenderFactory: ComparisonViewModelExtender.Factory,
+    private val rewriteBranchUseCase: RewriteBranchUseCase,
+    private val undoBranchRewriteUseCase: UndoBranchRewriteUseCase,
+    private val getOntoBaseCheckUseCase: GetOntoBaseCheckUseCase,
     private val stoppedWaitingCheck: StoppedWaitingCheck,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
@@ -505,6 +520,85 @@ class RepositoryOpenViewModel @Inject constructor(
         .distinctUntilChanged()
         .stateIn(BranchesAhead())
 
+    /** Fork-only: every local branch's own commits, for the menus that squash and reword them (A3). */
+    val branchLines: StateFlow<BranchLines> = repositoryDataRepository.branchLines
+        .map { it.dataOrNull() ?: BranchLines() }
+        .distinctUntilChanged()
+        .stateIn(BranchLines())
+
+    /**
+     * What a worktree is in the middle of with the local branch [branch], which stops rewriting it (fork-only): one that
+     * rebases it or bisects from it, or the tab's own while it has the branch checked out in a merge, a rebase, a
+     * cherry-pick or a revert. As the menus last read it; the rewrite checks again.
+     */
+    fun rewriteBusyWith(branch: String): BranchOperation? {
+        val users = branchWorktrees.value.usersByBranch[branch]?.users.orEmpty()
+
+        users.firstOrNull { it.use == WorktreeBranchUse.Rebasing }?.let { return BranchOperation.REBASE }
+        users.firstOrNull { it.use == WorktreeBranchUse.Bisecting }?.let { return BranchOperation.BISECT }
+
+        if (logState.value.currentBranch?.name != branch) return null
+
+        val state = repositoryState.value
+
+        return when {
+            state.isMerging -> BranchOperation.MERGE
+            state.isRebasing -> BranchOperation.REBASE
+            state.isCherryPicking -> BranchOperation.CHERRY_PICK
+            state.isReverting -> BranchOperation.REVERT
+            state == RepositoryState.APPLY -> BranchOperation.APPLY_PATCHES
+            state == RepositoryState.BISECTING -> BranchOperation.BISECT
+            else -> null
+        }
+    }
+
+    /** Fork-only: what the strip under the toolbar says after a rewrite, until it's closed or the next one. */
+    val rewriteNotice: StateFlow<RewriteNotice?>
+        field = MutableStateFlow<RewriteNotice?>(null)
+
+    /** The dialog's rewrite of [request]'s commits with [message], on [onto] when its box is checked. */
+    fun rewriteBranch(request: RewriteRequest, message: String, onto: OntoBase? = null) =
+        startRewrite(request.rewrite(message, onto), request.range)
+
+    /** What putting [line]'s branch on the latest base would do, for its dialog; null when there's nothing to offer. */
+    suspend fun checkOntoBase(line: BranchLine): OntoBaseCheck? = (getOntoBaseCheckUseCase(line) as? Either.Ok)?.value
+
+    /** "Fixup into parent", which runs at once: it keeps the parent's message. */
+    fun fixupIntoParent(range: LineRange) = startRewrite(range.fixup(), range)
+
+    private fun startRewrite(rewrite: BranchRewrite, range: LineRange) = viewModelScope.launch {
+        rewriteNotice.value = null
+
+        // A failure is the task's, which shows it
+        val result = (rewriteBranchUseCase(rewrite).await() as? Either.Ok)?.value ?: return@launch
+
+        rewriteNotice.value = RewriteNotice.of(result, range, logState.value.currentBranch?.name)
+        selectOnceLogged(result.rewritten.firstOrNull()?.second ?: result.newTip)
+    }
+
+    /** The strip's Undo: the branch goes back to where the rewrite found it. */
+    fun undoRewrite() = viewModelScope.launch {
+        val notice = rewriteNotice.value?.takeIf { !it.isUndone } ?: return@launch
+
+        if (undoBranchRewriteUseCase(notice.result).await() is Either.Ok) {
+            rewriteNotice.value = notice.copy(isUndone = true)
+            selectOnceLogged(notice.result.oldTip)
+        }
+    }
+
+    fun dismissRewriteNotice() {
+        rewriteNotice.value = null
+    }
+
+    /** Selects [hash] in the log once the refresh after a rewrite has it, as the commit to look at. */
+    private suspend fun selectOnceLogged(hash: String) {
+        val log = withTimeoutOrNull(REWRITE_SELECT_TIMEOUT) { logState.first { it.commitList[hash] != null } } ?: return
+        val commit = log.commitList[hash]?.commit ?: return
+
+        logSelectionController.clear()
+        applyCommitSelection(commit, isStash = false, scrollToItem = true)
+    }
+
     val branchWorktrees: StateFlow<BranchWorktreesState> = worktrees
         .map { worktrees ->
             val list = worktrees.data
@@ -620,6 +714,44 @@ class RepositoryOpenViewModel @Inject constructor(
 
     /** The diff was closed by the user: its file isn't followed any more. */
     fun forgetFollowedFile() = diffFollow.forget()
+
+    // Fork-only: a range of commits selected in the log with Shift (docs/fork/squash-and-rebase.md, A2)
+    private val logSelectionController = LogSelectionController(
+        scope = viewModelScope,
+        logRows = logState.map { it.commitList.commits.keys.toList() }.distinctUntilChanged().stateIn(emptyList()),
+        selectedItem = selectedItem,
+        selectAnchor = { hash ->
+            val log = logState.value
+
+            log.commitList[hash]?.commit?.let { applyCommitSelection(it, isStash = hash in log.stashes, scrollToItem = false) }
+        },
+        onRangeStarted = {
+            // The commit's list, which its diff was opened from, gives way to the range
+            clearComparisonDiff()
+            diffFollow.forget()
+        },
+        addCloseableView = ::addCloseableView,
+        removeCloseableView = ::removeCloseableView,
+    )
+
+    /** The commits selected in the log with Shift, newest first, or null while there's no range. */
+    val selectedCommits: StateFlow<SelectedCommits?> = combine(logSelectionController.selection, logState) { selection, log ->
+        selection.commitsIn(log.commitList.commits.keys.toList())
+            .mapNotNull { log.commitList[it]?.commit }
+            .takeIf { it.size >= 2 }
+            ?.let(::SelectedCommits)
+    }
+        .distinctUntilChanged()
+        .stateIn(null)
+
+    fun clearLogSelection() = logSelectionController.clear()
+
+    /**
+     * Shift+↑ ([step] -1) or Shift+↓ (1) in the log: moves the range's lead. Returns the row to bring into view, counted
+     * as [moveLogSelection] counts them, or null when nothing moved.
+     */
+    fun extendLogSelection(step: Int, hasUncommittedRow: Boolean): Int? =
+        logSelectionController.step(step)?.plus(if (hasUncommittedRow) 1 else 0)
 
     val centerSplitSizes: StateFlow<CenterSplitSizes> = centerSplitConfig.sizes
 
@@ -763,6 +895,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.COMMIT_FIELD_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
 
                 CloseableView.BRANCH_SELECTION -> branchSelectionController.clear()
+                CloseableView.LOG_SELECTION -> logSelectionController.clear()
 
             }
         }
@@ -1608,7 +1741,19 @@ class RepositoryOpenViewModel @Inject constructor(
             is LogAction.CheckoutRemoteBranch -> checkoutRemoteBranch(action.branch)
             is LogAction.CheckoutTag -> checkoutTag(action.tag)
             is LogAction.CherryPickCommit -> cherryPickCommit(action.commit)
-            is LogAction.CommitSelected -> selectCommit(action.commit, action.isStash)
+            is LogAction.CommitSelected -> {
+                // Fork-only: a plain click ends a range, also on its anchor, which stays the selected commit
+                logSelectionController.clear()
+                selectCommit(action.commit, action.isStash)
+            }
+
+            is LogAction.CommitRangeExtended -> {
+                if (!logSelectionController.extendTo(action.commit.hash)) {
+                    selectCommit(action.commit, action.isStash)
+                }
+            }
+
+            LogAction.LogSelectionCleared -> logSelectionController.clear()
             is LogAction.CommitPicked -> pickCommit(action.commit, action.isStash)
             is LogAction.CompareWithSelected -> compareWithSelected(action.commit)
             is LogAction.CompareWithCurrent -> compareWithCurrent(sideOfRow(action.commit))
@@ -1702,9 +1847,11 @@ class RepositoryOpenViewModel @Inject constructor(
         val commits = log.commitList.values.toList()
         val offset = if (hasUncommittedRow) 1 else 0
 
-        // Fork-only: while comparing, the keys move on from A, and the selection they make ends the comparison
-        val comparedA = comparisonState.value?.aCommit?.let { hash -> commits.firstOrNull { it.hash == hash } }
-        val selected = comparedA?.let { SelectedItem.CommitItem(it.commit, isStash = false, scrollToItem = false) }
+        // Fork-only: while comparing, the keys move on from A, and the selection they make ends the comparison. After a
+        // range selected with Shift, they move on from its lead, and the selection they make ends the range.
+        val from = comparisonState.value?.aCommit ?: logSelectionController.lead
+        val fromCommit = from?.let { hash -> commits.firstOrNull { it.hash == hash } }
+        val selected = fromCommit?.let { SelectedItem.CommitItem(it.commit, isStash = false, scrollToItem = false) }
             ?: selectedItem.value
 
         val target = movedLogSelection(
@@ -1714,6 +1861,8 @@ class RepositoryOpenViewModel @Inject constructor(
             move = move,
             pageSize = pageSize,
         ) ?: return null
+
+        logSelectionController.clear()
 
         if (target < offset) {
             applyUncommittedChangesSelection()

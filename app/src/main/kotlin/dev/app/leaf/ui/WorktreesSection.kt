@@ -152,6 +152,8 @@ data class WorktreeActions(
     val onMerge: (Worktree, WorktreeMergeKind) -> Unit = { _, _ -> },
     val onRebase: (Worktree) -> Unit = {},
     val onCleanUp: () -> Unit = {},
+    /** "Squash branch into one commit…" for a worktree's branch (`refs/heads/x`), null when it has none to offer. */
+    val squashBranch: (branch: String) -> ContextMenuElement? = { null },
 )
 
 /** The header's button that creates a worktree from the base branch, shown while the header is hovered. */
@@ -397,6 +399,8 @@ internal fun worktreeContextMenuItems(
             onClick = { actions.onRebase(worktree) },
         )
     }
+
+    worktree.branch?.let(actions.squashBranch)?.let(::add)
 
     if (worktree.canSwitchTo) {
         addContextMenu(

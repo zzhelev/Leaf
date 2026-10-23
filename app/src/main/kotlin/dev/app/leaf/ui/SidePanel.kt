@@ -103,6 +103,10 @@ fun SidePanel(
     val cherryPick = BranchCherryPick(branchesAhead, branchesState.currentBranch) { branch, item ->
         viewModel.cherryPickFromBranch(branch, item) { onNavigate(Screen.CherryPickBranch(it)) }
     }
+    // Fork-only: the local branches' "Squash branch into one commit…"
+    val commitRewrite = rememberCommitRewrite(viewModel, branchesState.currentBranch) { request ->
+        onNavigate(rewriteCommitsScreen(viewModel, request))
+    }
 
     val searchFocusRequester = remember { FocusRequester() }
     val tabFocusRequester = LocalTabFocusRequester.current
@@ -169,6 +173,7 @@ fun SidePanel(
                 onDeleteBranch = { onNavigate(Screen.BranchDelete(it)) },
                 onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
                 cherryPick = cherryPick,
+                commitRewrite = commitRewrite,
                 branchSelection = branchSelection,
                 onDeleteBranches = { onNavigate(Screen.BranchesDelete(it)) },
             )
@@ -200,6 +205,7 @@ fun SidePanel(
                             onNavigate(Screen.WorktreeRebaseOntoBase(worktree, base))
                         }
                     },
+                    squashBranch = { branch -> commitRewrite?.branchItem(branch) },
                 ),
             )
 
@@ -302,6 +308,7 @@ fun LazyListScope.localBranches(
     onDeleteBranch: (Branch) -> Unit,
     onNewWorktree: (NewWorktreeStart) -> Unit = {},
     cherryPick: BranchCherryPick? = null,
+    commitRewrite: CommitRewrite? = null,
     // Fork-only: the branches selected for deleting several at once (upstream issue 116)
     branchSelection: BranchSelection = BranchSelection(),
     onDeleteBranches: (BranchesDeletionRequest) -> Unit = {},
@@ -414,6 +421,7 @@ fun LazyListScope.localBranches(
                                 clipboard.setClipboardText(it.simpleName)
                             }
                         },
+                        commitRewrite = commitRewrite,
                     )
                 }
             }
@@ -858,6 +866,8 @@ internal fun Branch(
     cherryPickItem: BranchCherryPickItem?,
     onCherryPick: (BranchCherryPickItem) -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
+    // Fork-only: "Squash branch into one commit…"
+    commitRewrite: CommitRewrite? = null,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
     val clickNow = rememberClickNow()
@@ -892,6 +902,7 @@ internal fun Branch(
                 onCompareWithWorkingTree = onCompareWithWorkingTree,
                 cherryPick = cherryPickItem,
                 onCherryPick = onCherryPick,
+                squashBranch = commitRewrite?.branchItem(branch.name),
             )
         }
     ) {

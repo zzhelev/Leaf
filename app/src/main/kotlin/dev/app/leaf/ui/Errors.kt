@@ -10,6 +10,21 @@ import dev.app.leaf.domain.worktrees.shellLines
 import dev.app.leaf.ui.status.consequence
 import dev.app.leaf.ui.status.summary
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.error_rewrite_branch_moved
+import dev.app.leaf.app.generated.resources.error_rewrite_not_on_line
+import dev.app.leaf.app.generated.resources.error_rewrite_joins_merge
+import dev.app.leaf.app.generated.resources.error_rewrite_merged_again
+import dev.app.leaf.app.generated.resources.error_rewrite_empty_message
+import dev.app.leaf.app.generated.resources.error_rewrite_conflicts_with_base
+import dev.app.leaf.app.generated.resources.error_rewrite_changes_in_the_way
+import dev.app.leaf.app.generated.resources.error_rewrite_branch_merging
+import dev.app.leaf.app.generated.resources.error_rewrite_branch_cherry_picking
+import dev.app.leaf.app.generated.resources.error_rewrite_branch_reverting
+import dev.app.leaf.app.generated.resources.error_rewrite_branch_rebasing
+import dev.app.leaf.app.generated.resources.error_rewrite_branch_bisecting
+import dev.app.leaf.app.generated.resources.error_rewrite_branch_applying_patches
+import dev.app.leaf.domain.errors.BranchOperation
+import dev.app.leaf.domain.errors.RewriteBranchError
 import dev.app.leaf.app.generated.resources.error_ignore_global_overridden
 import dev.app.leaf.app.generated.resources.error_ignore_not_a_file
 import dev.app.leaf.app.generated.resources.error_ignore_not_absolute
@@ -169,6 +184,12 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RestoreFileError.FolderInPlace -> listOf(path)
     is RestoreFileError.ParentNotFolder -> listOf(path, parent)
     is RestoreFileError.GitFailed -> listOfNotNull(path, keptAt)
+    is RewriteBranchError.NotOnLine -> listOf(commit.take(7))
+    is RewriteBranchError.JoinsMerge -> listOf(merge.take(7))
+    is RewriteBranchError.MergedAgain -> listOf(merge.take(7))
+    is RewriteBranchError.BranchBusy -> listOf(worktreePath)
+    is RewriteBranchError.ConflictsWithBase -> files
+    is RewriteBranchError.ChangesInTheWay -> listOf(worktreePath) + files
     is RenameBranchError.BranchRebasedInWorktree -> listOf(worktreePath)
     is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
@@ -236,6 +257,40 @@ fun AppError.getErrorText(): String {
                 stringResource(Res.string.error_restore_file_git_failed, path, output)
             } else {
                 stringResource(Res.string.error_restore_file_git_failed_kept, path, output, keptAt!!)
+            }
+        }
+
+        is RewriteBranchError -> when (this) {
+            is RewriteBranchError.BranchMoved -> stringResource(Res.string.error_rewrite_branch_moved, branch)
+            is RewriteBranchError.NotOnLine ->
+                stringResource(Res.string.error_rewrite_not_on_line, branch, commit.take(7))
+
+            is RewriteBranchError.JoinsMerge -> stringResource(Res.string.error_rewrite_joins_merge, merge.take(7))
+            is RewriteBranchError.MergedAgain ->
+                stringResource(Res.string.error_rewrite_merged_again, branch, merge.take(7))
+
+            RewriteBranchError.EmptyMessage -> stringResource(Res.string.error_rewrite_empty_message)
+            is RewriteBranchError.ConflictsWithBase ->
+                stringResource(Res.string.error_rewrite_conflicts_with_base, branch, base, files.joinToString("\n"))
+
+            is RewriteBranchError.ChangesInTheWay -> stringResource(
+                Res.string.error_rewrite_changes_in_the_way,
+                worktreePath,
+                branch,
+                files.joinToString("\n").ifEmpty { gitOutput },
+            )
+
+            is RewriteBranchError.BranchBusy -> {
+                val text = when (operation) {
+                    BranchOperation.MERGE -> Res.string.error_rewrite_branch_merging
+                    BranchOperation.CHERRY_PICK -> Res.string.error_rewrite_branch_cherry_picking
+                    BranchOperation.REVERT -> Res.string.error_rewrite_branch_reverting
+                    BranchOperation.REBASE -> Res.string.error_rewrite_branch_rebasing
+                    BranchOperation.BISECT -> Res.string.error_rewrite_branch_bisecting
+                    BranchOperation.APPLY_PATCHES -> Res.string.error_rewrite_branch_applying_patches
+                }
+
+                stringResource(text, branch, worktreePath)
             }
         }
 

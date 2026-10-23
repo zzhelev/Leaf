@@ -43,6 +43,7 @@ class RefreshDataUseCase @Inject constructor(
     private val getLogUseCase: GetLogUseCase,
     private val getWorktreesInfoUseCase: GetWorktreesInfoUseCase,
     private val getBranchesAheadGitAction: IGetBranchesAheadGitAction,
+    private val getBranchLinesGitAction: IGetBranchLinesGitAction,
     private val getCherryPickSequenceGitAction: IGetCherryPickSequenceGitAction,
     private val getRebaseStopGitAction: IGetRebaseStopGitAction,
     private val reportSkippedRebaseCommitsUseCase: ReportSkippedRebaseCommitsUseCase,
@@ -117,6 +118,7 @@ class RefreshDataUseCase @Inject constructor(
         // the menus read it, so it comes last.
         if (isRefreshAll || refsChanged || dataToRefresh.contains(DataToRefresh.LOG)) {
             refreshBranchesAhead()
+            refreshBranchLines()
         }
     }
 
@@ -217,6 +219,15 @@ class RefreshDataUseCase @Inject constructor(
         useCaseExecutor.executeWithoutResult { repositoryPath ->
             repositoryDataRepository.updateBranchesAhead(repositoryPath) {
                 getBranchesAheadGitAction(repositoryPath)
+            }
+        }
+    }
+
+    /** Fork-only: every local branch's own commits, which the menus that squash and reword them read. */
+    private suspend fun refreshBranchLines() {
+        useCaseExecutor.executeWithoutResult { repositoryPath ->
+            repositoryDataRepository.updateBranchLines(repositoryPath) {
+                getBranchLinesGitAction(repositoryPath)
             }
         }
     }

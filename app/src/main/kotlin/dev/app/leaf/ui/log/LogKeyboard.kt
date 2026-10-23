@@ -20,8 +20,8 @@ import dev.app.leaf.keybindings.matchesBinding
 
 /**
  * The selection move that a key press asks for in the log (fork-only), or null for any other key. Only the bare keys
- * count: with Ctrl, Cmd, Alt or Shift they are other shortcuts (Alt+arrows change the tab), or, with Shift, a range
- * selection that the log doesn't have. Left and Right do nothing: a row has nothing to step into.
+ * count: with Ctrl, Cmd or Alt they are other shortcuts (Alt+arrows change the tab), and Shift and the arrows move a
+ * range's end ([logSelectionStep]). Left and Right do nothing: a row has nothing to step into.
  */
 fun KeyEvent.logMove(): LogMove? {
     if (type != KeyEventType.KeyDown) return null

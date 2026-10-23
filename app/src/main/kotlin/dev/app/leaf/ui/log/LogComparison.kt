@@ -40,9 +40,20 @@ data class LogComparison(
     }
 }
 
-/** A click on a commit row: ⌘-click (Ctrl-click elsewhere) compares it, a plain click selects it. */
-internal fun commitRowClick(commit: Commit, isStash: Boolean, isCompareClick: Boolean): LogAction =
-    if (isCompareClick) LogAction.CommitPicked(commit, isStash) else LogAction.CommitSelected(commit, isStash)
+/**
+ * A click on a commit row: Shift-click selects the rows from the selected commit to it, ⌘-click (Ctrl-click elsewhere)
+ * compares it, a plain click selects it. Shift wins, as in the side panel's branches.
+ */
+internal fun commitRowClick(
+    commit: Commit,
+    isStash: Boolean,
+    isCompareClick: Boolean,
+    isRangeClick: Boolean = false,
+): LogAction = when {
+    isRangeClick -> LogAction.CommitRangeExtended(commit, isStash)
+    isCompareClick -> LogAction.CommitPicked(commit, isStash)
+    else -> LogAction.CommitSelected(commit, isStash)
+}
 
 /**
  * A click on the uncommitted changes' row: ⌘-click compares the working tree with the selection, or makes it B while

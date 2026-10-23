@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.shadow
@@ -327,11 +328,13 @@ fun TextEntry(
 
     Row(
         modifier = Modifier
-            .clickable {
+            .clickable(enabled = contextTextEntry.isEnabled) {
                 onDismissRequest()
                 contextTextEntry.onClick()
             }
             .pointerHoverIcon(PointerIcon.Default)
+            // Fork-only: an entry that can't be used is shown, faded, with why as its hint
+            .alpha(if (contextTextEntry.isEnabled) 1f else DISABLED_ENTRY_ALPHA)
             .padding(horizontal = if (showIcons) 8.dp else 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -390,18 +393,22 @@ sealed class ContextMenuElement(
         onClick: () -> Unit = {},
         /** Fork-only: shown after the label, muted, such as "⌘-click" for what a click does too. */
         val hint: @Composable (() -> String)? = null,
+        /** Fork-only: false for an entry that can't be used now, whose [hint] says why. */
+        val isEnabled: Boolean = true,
     ) : ContextMenuElement(label, onClick) {
         constructor(
             composableLabel: @Composable (() -> String),
             icon: @Composable (() -> Painter)? = null,
             onClick: () -> Unit = {},
             hint: @Composable (() -> String)? = null,
+            isEnabled: Boolean = true,
         ) : this(
             label = "",
             composableLabel,
             icon,
             onClick,
             hint,
+            isEnabled,
         )
     }
 
@@ -550,6 +557,7 @@ fun MutableList<ContextMenuElement>.addContextMenu(
     icon: @Composable (() -> Painter)? = null,
     onClick: () -> Unit = {},
     hint: @Composable (() -> String)? = null,
+    isEnabled: Boolean = true,
 ) {
     this.add(
         ContextMenuElement.ContextTextEntry(
@@ -557,6 +565,10 @@ fun MutableList<ContextMenuElement>.addContextMenu(
             icon = icon,
             onClick = onClick,
             hint = hint,
+            isEnabled = isEnabled,
         )
     )
 }
+
+/** How faded a menu entry that can't be used is (fork-only). */
+private const val DISABLED_ENTRY_ALPHA = 0.45f

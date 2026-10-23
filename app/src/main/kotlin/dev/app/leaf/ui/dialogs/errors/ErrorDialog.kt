@@ -297,6 +297,8 @@ fun TaskType.errorTitle(): String {
         TaskType.AbortSquashMerge -> "Could not abort the squash merge"
         TaskType.RebaseWorktree -> "Rebase failed"
         TaskType.CherryPickCommits, TaskType.CherryPickCommitsAsOne -> "Cherry-pick failed"
+        TaskType.RewriteBranch -> "Could not rewrite the commits"
+        TaskType.UndoBranchRewrite -> "Could not undo"
         TaskType.ContinueCherryPick -> "Could not continue the cherry-pick"
         TaskType.SkipCherryPick -> "Could not skip the commit"
         TaskType.AbortCherryPick -> "Could not abort the cherry-pick"

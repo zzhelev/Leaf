@@ -38,6 +38,8 @@ fun branchContextMenuItems(
     // Fork-only: the branch's commits that the current branch lacks, and what picking them does
     cherryPick: BranchCherryPickItem? = null,
     onCherryPick: (BranchCherryPickItem) -> Unit = {},
+    // Fork-only: squashes the branch's own commits into one
+    squashBranch: ContextMenuElement? = null,
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -79,6 +81,12 @@ fun branchContextMenuItems(
                 add(ContextMenuElement.ContextSeparator)
             }
 
+        }
+
+        // Fork-only: the current branch too
+        if (squashBranch != null) {
+            add(squashBranch)
+            add(ContextMenuElement.ContextSeparator)
         }
 
         // Fork-only: the current branch compares with another too

@@ -199,6 +199,8 @@ fun getTitle(taskType: TaskType): String {
         TaskType.AbortSquashMerge -> "Aborting squash merge"
         TaskType.RebaseWorktree -> "Rebasing branch"
         TaskType.CherryPickCommits, TaskType.CherryPickCommitsAsOne -> "Cherry-picking commits"
+        TaskType.RewriteBranch -> "Rewriting commits"
+        TaskType.UndoBranchRewrite -> "Undoing"
         TaskType.ContinueCherryPick -> "Continuing cherry-pick"
         TaskType.SkipCherryPick -> "Skipping commit"
         TaskType.AbortCherryPick -> "Aborting cherry-pick"

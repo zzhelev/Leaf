@@ -402,6 +402,93 @@
     <string name="log_context_menu_cherry_pick_commit">Cherry-pick commit</string>
     <string name="log_context_menu_reset_current_branch_to_commit">Reset current branch to this commit</string>
     <string name="log_context_menu_copy_commit_hash">Copy commit hash</string>
+    <plurals name="log_context_menu_copy_selected_hashes">
+        <item quantity="one">Copy %1$d commit hash</item>
+        <item quantity="other">Copy %1$d commit hashes</item>
+    </plurals>
+    <plurals name="log_selected_commits_title">
+        <item quantity="one">%1$d commit selected</item>
+        <item quantity="other">%1$d commits selected</item>
+    </plurals>
+    <string name="log_selected_commits_clear">Clear selection</string>
+    <string name="log_selected_commits_clear_tooltip">Clear the selection (Esc)</string>
+    <string name="rewrite_menu_edit_message">Edit message…</string>
+    <string name="rewrite_menu_squash_into_parent">Squash into parent…</string>
+    <string name="rewrite_menu_fixup_into_parent">Fixup into parent</string>
+    <plurals name="rewrite_menu_squash_selected">
+        <item quantity="one">Squash %1$d commit…</item>
+        <item quantity="other">Squash %1$d commits…</item>
+    </plurals>
+    <string name="rewrite_menu_squash_branch">Squash branch into one commit…</string>
+    <string name="rewrite_refused_on_base">On %1$s</string>
+    <string name="rewrite_refused_range_on_base">Includes commits on %1$s</string>
+    <string name="rewrite_refused_not_on_local_branch">Not on a local branch</string>
+    <string name="rewrite_refused_range_not_on_one_branch">Not on one branch</string>
+    <string name="rewrite_refused_on_branches">On %1$d branches</string>
+    <string name="rewrite_refused_parent_on_base">Its parent is on %1$s</string>
+    <string name="rewrite_refused_first_commit">The first commit</string>
+    <string name="rewrite_refused_not_consecutive">Not one after another</string>
+    <string name="rewrite_refused_joins_merge">Includes a merge</string>
+    <string name="rewrite_refused_one_commit">One commit already</string>
+    <string name="rewrite_refused_too_many">Too many commits</string>
+    <string name="rewrite_refused_names_another_commit">Names “%1$s”</string>
+    <string name="rewrite_refused_merging">In a merge</string>
+    <string name="rewrite_refused_cherry_picking">In a cherry-pick</string>
+    <string name="rewrite_refused_reverting">In a revert</string>
+    <string name="rewrite_refused_rebasing">In a rebase</string>
+    <string name="rewrite_refused_bisecting">In a bisect</string>
+    <string name="rewrite_refused_applying_patches">Applying patches</string>
+    <plurals name="rewrite_dialog_squash_title">
+        <item quantity="one">Squash %1$d commit into one</item>
+        <item quantity="other">Squash %1$d commits into one</item>
+    </plurals>
+    <string name="rewrite_dialog_squash_branch_title">Squash %1$s into one commit</string>
+    <string name="rewrite_dialog_reword_title">Edit the message of %1$s</string>
+    <string name="rewrite_dialog_on_branch">On %1$s.</string>
+    <plurals name="rewrite_dialog_since_base">
+        <item quantity="one">The %1$d commit since the branch left %2$s at %3$s.</item>
+        <item quantity="other">All %1$d commits since the branch left %2$s at %3$s.</item>
+    </plurals>
+    <string name="rewrite_dialog_message">Message</string>
+    <string name="rewrite_dialog_start_from">Start from</string>
+    <string name="rewrite_dialog_start_subjects">Subjects as a list</string>
+    <string name="rewrite_dialog_start_all">All messages</string>
+    <string name="rewrite_dialog_start_oldest">Oldest message</string>
+    <plurals name="rewrite_dialog_pushed">
+        <item quantity="one">%1$d commit that this rewrites is on %2$s. Afterwards, push with force to replace it.</item>
+        <item quantity="other">%1$d commits that this rewrites are on %2$s. Afterwards, push with force to replace them.</item>
+    </plurals>
+    <plurals name="rewrite_dialog_squash_button">
+        <item quantity="one">Squash %1$d commit</item>
+        <item quantity="other">Squash %1$d commits</item>
+    </plurals>
+    <string name="rewrite_dialog_save_message">Save message</string>
+    <string name="rewrite_dialog_onto">On top of the latest %1$s</string>
+    <plurals name="rewrite_dialog_onto_new_commits">
+        <item quantity="one">%1$s, %2$d new commit</item>
+        <item quantity="other">%1$s, %2$d new commits</item>
+    </plurals>
+    <string name="rewrite_dialog_onto_conflicts">Conflicts with %1$s in %2$s</string>
+    <string name="rewrite_dialog_onto_in_the_way">Your changes to %1$s are in the way</string>
+    <plurals name="rewrite_dialog_and_more_files">
+        <item quantity="one">%1$s and %2$d more</item>
+        <item quantity="other">%1$s and %2$d more</item>
+    </plurals>
+    <plurals name="rewrite_strip_squashed">
+        <item quantity="one">Squashed %1$d commit into one on %2$s.</item>
+        <item quantity="other">Squashed %1$d commits into one on %2$s.</item>
+    </plurals>
+    <plurals name="rewrite_strip_squashed_onto">
+        <item quantity="one">Squashed %1$d commit into one on %2$s, on top of %3$s.</item>
+        <item quantity="other">Squashed %1$d commits into one on %2$s, on top of %3$s.</item>
+    </plurals>
+    <string name="rewrite_strip_fixed_up">Fixed up %1$s into its parent on %2$s.</string>
+    <string name="rewrite_strip_reworded">Changed the message of %1$s on %2$s.</string>
+    <string name="rewrite_strip_pushed">%1$s still has the old commits: push with force to replace them.</string>
+    <string name="rewrite_strip_push">Push with force…</string>
+    <string name="rewrite_strip_undo">Undo</string>
+    <string name="rewrite_strip_undone">Undone: %1$s is back at %2$s.</string>
+    <string name="rewrite_strip_dismiss">Close</string>
 
     <!-- Log columns -->
     <string name="log_column_author">Author</string>
@@ -1431,6 +1518,19 @@
     <string name="error_rename_branch_rebased_in_worktree">"%1$s" can't be renamed, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
     <string name="error_rename_branch_bisected_in_worktree">"%1$s" can't be renamed, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
     <string name="error_rename_branch_worktree_head_not_moved">"%1$s" was renamed to "%2$s", but another program was using the worktree at\n\n%3$s\n\nThat worktree is still on "%1$s", which no longer exists. To move it, run this there:\n\ngit switch %2$s</string>
+    <string name="error_rewrite_branch_moved">"%1$s" has changed since: something committed to it, reset it or rebased it. Nothing was changed.</string>
+    <string name="error_rewrite_not_on_line">%2$s isn't where "%1$s" had it, one of its own commits. Nothing was changed.</string>
+    <string name="error_rewrite_joins_merge">%1$s is a merge. Joining it with another commit would lose its other parents. Nothing was changed.</string>
+    <string name="error_rewrite_merged_again">%2$s merges a branch that started on "%1$s", so it would bring the old commits back next to the new ones. Nothing was changed.</string>
+    <string name="error_rewrite_conflicts_with_base">"%1$s" can't go on top of the latest %2$s: they conflict in\n\n%3$s\n\nNothing was changed.</string>
+    <string name="error_rewrite_changes_in_the_way">Uncommitted changes in the worktree at\n\n%1$s\n\nare in the way of the files that "%2$s" changes:\n\n%3$s\n\nCommit, stash or move them first. Nothing was changed.</string>
+    <string name="error_rewrite_empty_message">The message is empty once git leaves out its comment lines and blank lines. Nothing was changed.</string>
+    <string name="error_rewrite_branch_merging">The commits of "%1$s" can't be rewritten, as a merge is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_cherry_picking">The commits of "%1$s" can't be rewritten, as a cherry-pick is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_reverting">The commits of "%1$s" can't be rewritten, as a revert is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_rebasing">The commits of "%1$s" can't be rewritten, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_bisecting">The commits of "%1$s" can't be rewritten, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_rewrite_branch_applying_patches">The commits of "%1$s" can't be rewritten, as git am is applying patches in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 

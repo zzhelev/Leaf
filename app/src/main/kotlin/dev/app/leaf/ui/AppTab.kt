@@ -530,6 +530,17 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.RewriteCommits>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            RewriteCommitsDialog(
+                                request = entry.request,
+                                cleanup = entry.cleanup,
+                                checkOnto = entry.checkOnto,
+                                onConfirm = entry.onConfirm,
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.WorktreeRebaseOntoBase>(
                             metadata = dialogsMetadata
                         ) { entry ->

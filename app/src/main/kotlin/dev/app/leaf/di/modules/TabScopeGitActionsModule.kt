@@ -4,6 +4,14 @@ import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchCherryPickCommitsGitAction
+import dev.app.leaf.data.git.rewrite.GetBranchLinesGitAction
+import dev.app.leaf.data.git.rewrite.GetOntoBaseCheckGitAction
+import dev.app.leaf.data.git.rewrite.RewriteBranchGitAction
+import dev.app.leaf.data.git.rewrite.UndoBranchRewriteGitAction
+import dev.app.leaf.domain.interfaces.IGetBranchLinesGitAction
+import dev.app.leaf.domain.interfaces.IGetOntoBaseCheckGitAction
+import dev.app.leaf.domain.interfaces.IRewriteBranchGitAction
+import dev.app.leaf.domain.interfaces.IUndoBranchRewriteGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
 import dev.app.leaf.data.git.cherrypick.GetCherryPickSequenceGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitsOnHeadGitAction
@@ -671,4 +679,21 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetCommitsOnHeadGitAction(action: GetCommitsOnHeadGitAction): IGetCommitsOnHeadGitAction
+
+    // Fork-only: squashing, fixing up and rewording a branch's commits, and undoing it
+    @Binds
+    @TabScope
+    fun bindsRewriteBranchGitAction(action: RewriteBranchGitAction): IRewriteBranchGitAction
+
+    @Binds
+    @TabScope
+    fun bindsUndoBranchRewriteGitAction(action: UndoBranchRewriteGitAction): IUndoBranchRewriteGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetBranchLinesGitAction(action: GetBranchLinesGitAction): IGetBranchLinesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetOntoBaseCheckGitAction(action: GetOntoBaseCheckGitAction): IGetOntoBaseCheckGitAction
 }

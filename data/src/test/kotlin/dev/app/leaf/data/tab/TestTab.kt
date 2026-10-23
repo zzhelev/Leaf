@@ -92,6 +92,13 @@ import dev.app.leaf.data.git.worktrees.PersistSquashMessageGitAction
 import dev.app.leaf.data.git.worktrees.RunGitCommandGitAction
 import dev.app.leaf.data.mappers.JGitBranchMapper
 import dev.app.leaf.data.mappers.JGitCommitMapper
+import dev.app.leaf.data.git.rewrite.GetBranchLinesGitAction
+import dev.app.leaf.data.git.rewrite.RewriteBranchGitAction
+import dev.app.leaf.data.git.rewrite.GetOntoBaseCheckGitAction
+import dev.app.leaf.data.git.rewrite.UndoBranchRewriteGitAction
+import dev.app.leaf.domain.usecases.RewriteBranchUseCase
+import dev.app.leaf.domain.usecases.GetOntoBaseCheckUseCase
+import dev.app.leaf.domain.usecases.UndoBranchRewriteUseCase
 import dev.app.leaf.data.mappers.JGitIdentityMapper
 import dev.app.leaf.data.mappers.JGitRebaseTodoLineMapper
 import dev.app.leaf.data.mappers.JGitSubmoduleMapper
@@ -282,6 +289,7 @@ class TestTab(
         getLogUseCase = getLog,
         getWorktreesInfoUseCase = getWorktreesInfo,
         getBranchesAheadGitAction = GetBranchesAheadGitAction(gitCli),
+        getBranchLinesGitAction = GetBranchLinesGitAction(jgit, GetWorktreeBaseBranchGitAction(jgit), commitMapper),
         getCherryPickSequenceGitAction = GetCherryPickSequenceGitAction(),
         getRebaseStopGitAction = GetRebaseStopGitAction(jgit),
         reportSkippedRebaseCommitsUseCase = ReportSkippedRebaseCommitsUseCase(
@@ -573,6 +581,14 @@ class TestTab(
 
     /** What the processing screen's Stop waiting starts: asking the server what it did. */
     val stoppedWaitingCheck = StoppedWaitingCheck(CheckHandOffGitAction(jgit, remoteCommand), useCaseExecutor, Provider { refreshData }, scope)
+
+    /** Fork-only: squashing, fixing up and rewording a branch's commits, and undoing it. */
+    val rewriteBranch = RewriteBranchUseCase(
+        useCaseExecutor,
+        RewriteBranchGitAction(jgit, gitCli, remoteCommand, repositoryState),
+    )
+    val undoBranchRewrite = UndoBranchRewriteUseCase(useCaseExecutor, UndoBranchRewriteGitAction(jgit, gitCli))
+    val checkOntoBase = GetOntoBaseCheckUseCase(useCaseExecutor, GetOntoBaseCheckGitAction(jgit, gitCli))
 
     /** Waits until [flow] has loaded data that passes [predicate]. */
     suspend fun <T> awaitLoaded(flow: Flow<DataState<T>>, predicate: (T) -> Boolean = { true }): T {

@@ -21,6 +21,8 @@ fun logContextMenu(
     onNewWorktree: (() -> Unit)? = null,
     // Fork-only: comparing the row with the selected commit or the current branch
     compare: CompareMenuItems? = null,
+    // Fork-only: rewording the commit, and squashing or fixing it up into its parent
+    rewriteItems: List<ContextMenuElement> = emptyList(),
 ) = mutableListOf<ContextMenuElement>().apply {
     if (showInAmend) {
         addContextMenu(
@@ -29,6 +31,11 @@ fun logContextMenu(
             onClick = onShowStatusAmending
         )
 
+        add(ContextMenuElement.ContextSeparator)
+    }
+
+    if (rewriteItems.isNotEmpty()) {
+        addAll(rewriteItems)
         add(ContextMenuElement.ContextSeparator)
     }
 
