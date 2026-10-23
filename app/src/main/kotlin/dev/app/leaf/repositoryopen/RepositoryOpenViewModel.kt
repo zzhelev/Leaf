@@ -618,6 +618,44 @@ class RepositoryOpenViewModel @Inject constructor(
     /** The diff was closed by the user: its file isn't followed any more. */
     fun forgetFollowedFile() = diffFollow.forget()
 
+    // Fork-only: a range of commits selected in the log with Shift (docs/fork/squash-and-rebase.md, A2)
+    private val logSelectionController = LogSelectionController(
+        scope = viewModelScope,
+        logRows = logState.map { it.commitList.commits.keys.toList() }.distinctUntilChanged().stateIn(emptyList()),
+        selectedItem = selectedItem,
+        selectAnchor = { hash ->
+            val log = logState.value
+
+            log.commitList[hash]?.commit?.let { applyCommitSelection(it, isStash = hash in log.stashes, scrollToItem = false) }
+        },
+        onRangeStarted = {
+            // The commit's list, which its diff was opened from, gives way to the range
+            clearComparisonDiff()
+            diffFollow.forget()
+        },
+        addCloseableView = ::addCloseableView,
+        removeCloseableView = ::removeCloseableView,
+    )
+
+    /** The commits selected in the log with Shift, newest first, or null while there's no range. */
+    val selectedCommits: StateFlow<SelectedCommits?> = combine(logSelectionController.selection, logState) { selection, log ->
+        selection.commitsIn(log.commitList.commits.keys.toList())
+            .mapNotNull { log.commitList[it]?.commit }
+            .takeIf { it.size >= 2 }
+            ?.let(::SelectedCommits)
+    }
+        .distinctUntilChanged()
+        .stateIn(null)
+
+    fun clearLogSelection() = logSelectionController.clear()
+
+    /**
+     * Shift+↑ ([step] -1) or Shift+↓ (1) in the log: moves the range's lead. Returns the row to bring into view, counted
+     * as [moveLogSelection] counts them, or null when nothing moved.
+     */
+    fun extendLogSelection(step: Int, hasUncommittedRow: Boolean): Int? =
+        logSelectionController.step(step)?.plus(if (hasUncommittedRow) 1 else 0)
+
     val centerSplitSizes: StateFlow<CenterSplitSizes> = centerSplitConfig.sizes
 
     fun saveCenterSplitSizes(sizes: CenterSplitSizes) = centerSplitConfig.save(sizes)
@@ -745,6 +783,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.COMMIT_FIELD_SUGGESTIONS -> statusViewModelExtender.dismissCoAuthorSuggestions()
 
                 CloseableView.BRANCH_SELECTION -> branchSelectionController.clear()
+                CloseableView.LOG_SELECTION -> logSelectionController.clear()
 
             }
         }
@@ -1590,7 +1629,19 @@ class RepositoryOpenViewModel @Inject constructor(
             is LogAction.CheckoutRemoteBranch -> checkoutRemoteBranch(action.branch)
             is LogAction.CheckoutTag -> checkoutTag(action.tag)
             is LogAction.CherryPickCommit -> cherryPickCommit(action.commit)
-            is LogAction.CommitSelected -> selectCommit(action.commit, action.isStash)
+            is LogAction.CommitSelected -> {
+                // Fork-only: a plain click ends a range, also on its anchor, which stays the selected commit
+                logSelectionController.clear()
+                selectCommit(action.commit, action.isStash)
+            }
+
+            is LogAction.CommitRangeExtended -> {
+                if (!logSelectionController.extendTo(action.commit.hash)) {
+                    selectCommit(action.commit, action.isStash)
+                }
+            }
+
+            LogAction.LogSelectionCleared -> logSelectionController.clear()
             is LogAction.CommitPicked -> pickCommit(action.commit, action.isStash)
             is LogAction.CompareWithSelected -> compareWithSelected(action.commit)
             is LogAction.CompareWithCurrent -> compareWithCurrent(sideOfRow(action.commit))
@@ -1684,9 +1735,11 @@ class RepositoryOpenViewModel @Inject constructor(
         val commits = log.commitList.values.toList()
         val offset = if (hasUncommittedRow) 1 else 0
 
-        // Fork-only: while comparing, the keys move on from A, and the selection they make ends the comparison
-        val comparedA = comparisonState.value?.aCommit?.let { hash -> commits.firstOrNull { it.hash == hash } }
-        val selected = comparedA?.let { SelectedItem.CommitItem(it.commit, isStash = false, scrollToItem = false) }
+        // Fork-only: while comparing, the keys move on from A, and the selection they make ends the comparison. After a
+        // range selected with Shift, they move on from its lead, and the selection they make ends the range.
+        val from = comparisonState.value?.aCommit ?: logSelectionController.lead
+        val fromCommit = from?.let { hash -> commits.firstOrNull { it.hash == hash } }
+        val selected = fromCommit?.let { SelectedItem.CommitItem(it.commit, isStash = false, scrollToItem = false) }
             ?: selectedItem.value
 
         val target = movedLogSelection(
@@ -1696,6 +1749,8 @@ class RepositoryOpenViewModel @Inject constructor(
             move = move,
             pageSize = pageSize,
         ) ?: return null
+
+        logSelectionController.clear()
 
         if (target < offset) {
             applyUncommittedChangesSelection()

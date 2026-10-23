@@ -19,6 +19,12 @@ sealed interface LogAction {
     /** Fork-only: ⌘-click on a row (Ctrl-click elsewhere), which compares it with the selection. */
     data class CommitPicked(val commit: Commit, val isStash: Boolean) : LogAction
 
+    /** Fork-only: Shift-click on a row, which selects the rows from the selected commit to it. */
+    data class CommitRangeExtended(val commit: Commit, val isStash: Boolean) : LogAction
+
+    /** Fork-only: the range of commits selected with Shift ends, and the commit it started from stays selected. */
+    data object LogSelectionCleared : LogAction
+
     /** Fork-only: a row's "Compare with selected". */
     data class CompareWithSelected(val commit: Commit) : LogAction
 

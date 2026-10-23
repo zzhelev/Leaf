@@ -5,7 +5,7 @@
 | Question | How can Leaf tidy a feature branch's commits (squash, fixup, reword, move onto the latest main) without the user finding the fork point or fearing a rebase? |
 | Verified against | `main` at `6b8e8eec`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine) done |
+| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine) and A2 (the log's range) done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -99,6 +99,12 @@ Proposed with the plan, approved 2026-10-23:
   (`CloseableView.LOG_SELECTION`) ends it. The rows are drawn selected; the right pane shows "4 commits selected" and
   their subjects; the menu on a selected row is the range's ("Squash 4 commits…", "Copy commit hashes").
 - Which commits make a valid range is decided when the menu opens (`D/rewrite/`), so the selection itself takes any rows.
+- Built in A2: `LogSelection` (`D/log/`) holds the anchor and the lead, and the rows between them come from the log as
+  it is. While there's a range, the log's selection is the anchor, as a commit: a range from a branch or a tag picked in
+  the side panel starts from its commit, and anything else selected (a click, the side panel, ⌘-click, the uncommitted
+  changes) ends it, as do a refresh that loses either end and the pane's ×. The arrows without Shift move on from the
+  lead. A range closes the commit's diff, as the list it was opened from gives way to the range's pane. The menu on a
+  selected row has "Copy N commit hashes" (newest first) and "Clear selection"; A3 adds the squash.
 
 ### 3.3 The dialog (A3)
 

@@ -663,9 +663,13 @@ fun MainContentView(
             ) {
                 val commitChangesState = viewModel.commitChangesState.collectAsState().value
                 val comparisonState = viewModel.comparisonState.collectAsState().value
+                // Fork-only: the commits selected in the log with Shift (docs/fork/squash-and-rebase.md, A2)
+                val selectedCommits = viewModel.selectedCommits.collectAsState().value
 
                 if (comparisonState != null) {
                     ComparisonPane(viewModel = viewModel, state = comparisonState)
+                } else if (selectedCommits != null) {
+                    SelectedCommitsPane(selected = selectedCommits, onClear = viewModel::clearLogSelection)
                 } else if (commitChangesState != null) {
                     CommitChanges(
                         viewModel = viewModel,

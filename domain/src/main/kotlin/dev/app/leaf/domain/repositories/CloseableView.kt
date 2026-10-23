@@ -14,4 +14,5 @@ enum class CloseableView {
     COMPARISON_SIDE_PICKER, // Fork-only: the list of refs under a side's name
     COMMIT_FIELD_SUGGESTIONS, // Fork-only
     BRANCH_SELECTION, // Fork-only: the branches selected in the side panel for deleting several at once
+    LOG_SELECTION, // Fork-only: a range of commits selected in the log with Shift
 }
