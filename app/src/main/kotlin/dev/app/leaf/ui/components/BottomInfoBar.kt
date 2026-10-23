@@ -42,10 +42,10 @@ fun BottomInfoBar(
         }
 
         if (newUpdate != null) {
+            // Fork-only: the action role's fill and text. A fill of primary under that text was blue on blue
             SecondaryButton(
                 text = stringResource(Res.string.bottom_info_bar_update_available, newUpdate.appVersion),
                 onClick = { onOpenUrlInBrowser(newUpdate.downloadUrl) },
-                backgroundButton = MaterialTheme.colors.primary,
                 modifier = Modifier.padding(end = 16.dp)
             )
         }

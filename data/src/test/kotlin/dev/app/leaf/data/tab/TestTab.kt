@@ -6,6 +6,7 @@ package dev.app.leaf.data.tab
 import dev.app.leaf.data.git.cli.remote.testRemoteOperationsBackend
 import dev.app.leaf.data.git.cli.remote.CheckRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.remote.DeleteRemoteBranchesGitAction
+import dev.app.leaf.data.git.cli.remote.GitCliFetchAllRemotesGitAction
 import dev.app.leaf.data.git.branches.GetRemoteBranchDeletionInfoGitAction
 import dev.app.leaf.data.git.FileChangesWatcher
 import dev.app.leaf.data.git.GetWorktreePathGitAction
@@ -107,7 +108,9 @@ import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.WorktreesRefreshRunner
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.interfaces.IFetchAllRemotesGitAction
 import dev.app.leaf.domain.interfaces.IFileChangesWatcher
+import dev.app.leaf.domain.models.Remote
 import dev.app.leaf.domain.interfaces.IGetStatusGitAction
 import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.WatcherEvent
@@ -123,6 +126,7 @@ import dev.app.leaf.domain.usecases.ContinueRebaseUseCase
 import dev.app.leaf.domain.usecases.CreateWorktreeUseCase
 import dev.app.leaf.domain.usecases.DeleteBranchesUseCase
 import dev.app.leaf.domain.usecases.DoCommitUseCase
+import dev.app.leaf.domain.usecases.FetchAllBranchUseCase
 import dev.app.leaf.domain.usecases.GetBranchDeletionPlanUseCase
 import dev.app.leaf.domain.usecases.FollowRemovedWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetAuthorUseCase
@@ -518,6 +522,17 @@ class TestTab(
         DeleteBranchesGitAction(jgit),
         DeleteRemoteBranchesGitAction(jgit, remoteBackend, remoteCommand),
         CheckRemoteBranchesGitAction(jgit, remoteBackend, remoteCommand),
+        useCaseExecutor,
+    )
+
+    /** Fetch all in the toolbar's Pull menu, with git. */
+    val fetchAll = FetchAllBranchUseCase(
+        object : IFetchAllRemotesGitAction {
+            private val fetch = GitCliFetchAllRemotesGitAction(jgit, remoteCommand)
+
+            override suspend fun invoke(repositoryPath: String, specificRemote: Remote?) =
+                fetch(repositoryPath, specificRemote)
+        },
         useCaseExecutor,
     )
 

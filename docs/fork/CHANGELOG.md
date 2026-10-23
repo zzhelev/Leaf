@@ -25,17 +25,45 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   Leaf kept its copies of them, and nothing changed locally for the file watcher to see, so the side panel showed them
   until the next fetch. So while git deletes on a server, there's no button at first, and after 10 s "Stop waiting",
   for a slow or hung connection. After it, the dialog asks the server (`git ls-remote`) and shows what happened:
-  "Stopped waiting: origin deleted 2 of 3", each one's commit, and "Still on origin." for the others. A server still in its hook deletes them a moment later, so while it still has some, the dialog
-  asks again every 2 s for up to 30 s, and the rows follow ("Stop checking" ends it). Leaf's copies of the deleted ones
-  go.
+  "Stopped waiting: origin deleted 2 of 3", each one's commit, and "Still on origin." for the others. A server still in
+  its hook deletes them a moment later, so while it still has some, the dialog asks again every 2 s for up to 30 s, and
+  the rows follow ("Stop checking" ends it). Leaf's copies of the deleted ones go.
 - **Without git:** no JGit fallback, which would only help on HTTPS with the setting off. The dialog's button fixes the
   cause instead: "Turn it on" for "Use git for remote operations", "Open Settings" when git isn't found.
 - **The single remote delete gets the lease** (found while exploring): right-click `origin/x` → Delete pushed without
   one, so a commit someone pushed since the last fetch was deleted without a word. Now it's refused with
-  "origin/x wasn't deleted: someone pushed to it since you last fetched", which then offers to delete it anyway. A branch
-  already gone still only loses Leaf's copy, as before. It also deletes a branch under its name on the server when the fetch refspec maps it elsewhere, where
-  it deleted a branch of the wrong name.
+  "origin/x wasn't deleted: someone pushed to it since you last fetched", which then offers to delete it anyway. A
+  branch already gone still only loses Leaf's copy, as before. It also deletes a branch under its name on the server
+  when the fetch refspec maps it elsewhere, where it deleted a branch of the wrong name.
 - Details: CLAUDE.md, "Deleting several branches", "A remote's branches".
+
+## Fetch all shows where the remote's branches are now (2026-10-23)
+
+- **Request:** a screenshot of the log after a pull request was merged on Bitbucket and Fetch all ran twice: the merge
+  commit was in the log, but `origin/develop`'s label was still on the commit before it, and the merged branch kept its
+  cloud mark, though the fetch had pruned its remote branch.
+- **Cause:** Fetch all, in the toolbar's Pull menu, refreshed only the log (upstream's code since its refresh rework of
+  2026-07-06, still on its `main`). The log walks from the refs on disk, so the new commit showed, but its labels and the
+  side panel's Remotes come from the remote branches, which nothing read again. The file watcher saw the refs change,
+  but it ignores changes during a task and for 1.5 s after, and the second fetch changed nothing. Fetch in a remote's own
+  menu refreshes everything, and showed them right.
+- **Fix:** Fetch all also refreshes the remote branches and the tags, as a fetch brings new tags too.
+- Tests: `FetchingAllRemotesTest` runs Fetch all in a tab whose remote merged a branch, deleted it and tagged the merge,
+  and compares the tab's remote branches with `git for-each-ref`, also when another remote fails to fetch. Putting the
+  log-only refresh back failed both.
+
+## The update button can be read again (2026-10-23)
+
+- **Request:** a screenshot of the bottom bar, where "Update 1.4.0 available" couldn't be read.
+- **Cause:** since the Style setting (2026-10-22), a `SecondaryButton`'s text takes its role's colour, and the bar still
+  gave the button a fill of `primary`: the action role's dark blue on the muted blue, 1.35 : 1 in Tonal's light theme,
+  and under 4.5 : 1 in seven of the built-in styles' ten themes. Classic drew it as before, and Quiet's dark theme
+  white on blue.
+- **Fix:** the action role's tint and text, as Stage's buttons, 6 to 15 : 1. Classic is unchanged, and Quiet draws it as
+  a plain button, as it draws every button but the main action. Option B of three, chosen with the user from renders of
+  the bar in every style; the others were the main action's fill, a second filled button under Commit, and a link.
+- Tests: `BottomInfoBarTest` renders the bar in every built-in style and theme, and checks the button's fill and that
+  its text holds 4.5 : 1. Putting the fill of `primary` back, or giving the text the fill's colour, each failed it.
 
 ## Delete several of a remote's branches at once (follows upstream issue 116, 2026-10-23)
 

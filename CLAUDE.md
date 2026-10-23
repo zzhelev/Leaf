@@ -1997,16 +1997,21 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   - Since 2026-10-23 a remote branch is deleted with `--force-with-lease=<branch>:<commit>`, the commit Leaf showed
     (JGit: `RefLeaseSpec`), so one that someone pushed to since the last fetch stays (`RemoteBranchChangedError`). git
     refuses an already deleted branch the same way (`stale info`), so the server is asked then (`serverTips`,
-    `ServerBranches.kt`, one `git ls-remote`): a branch it doesn't have only loses its remote-tracking branch, as before.
-    JGit reports that case as `NON_EXISTING`, not a refusal. The error carries the server's commit (`now`, from
+    `ServerBranches.kt`, one `git ls-remote`): a branch it doesn't have only loses its remote-tracking branch, as
+    before. JGit reports that case as `NON_EXISTING`, not a refusal. The error carries the server's commit (`now`, from
     `ls-remote`, or JGit's advertised ref) and the one shown (`was`), and `ErrorDialog` then asks instead of only saying
     it ("Delete origin/x anyway?", Cancel or Delete anyway, `onDeleteRemoteBranchAnyway`): "anyway" deletes with that
     commit as the lease (`RepositoryTabViewModel.deleteRemoteBranch`), so a further push still stops it. Leaf doesn't
-    overrule an explicit choice: it says what changed, and the user decides. The branch's name on the server comes from the fetch
-    refspec (`serverRefOf`, shared with the batch delete); it used to be `refs/heads/` plus the tracking name.
+    overrule an explicit choice: it says what changed, and the user decides. The branch's name on the server comes from
+    the fetch refspec (`serverRefOf`, shared with the batch delete); it used to be `refs/heads/` plus the tracking name.
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
   one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
   dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
+  - Fetch all (the toolbar's Pull menu, `FetchAllBranchUseCase`) refreshes the remote branches, the tags and the log
+    (fork-only, 2026-10-23). Upstream's refreshes only the log, which walks from the refs on disk, so new commits
+    showed while their labels and the side panel's Remotes, which come from the remote branches, stayed where the
+    branches were before. The file watcher can't make up for it: it ignores changes during a task and for 1.5 s after.
+    Test: `FetchingAllRemotesTest`.
 - Pull runs `git pull` (`GitPullGitAction`) through `GitCliOperations.run`, as Merge runs `git merge`: git fetches,
   then merges or rebases with its own engine (ort, which follows renames), its messages (`Merge branch 'main' of
   <url>`, and ` into feat` off `main` and `master`), its hooks and git-lfs's filter. A rebase starts from the fork
@@ -3022,18 +3027,18 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
       and the lease note shows.
     - `DeleteBranchesUseCase.withCopies` deletes the local branches, hands their result to the dialog (`onLocalDeleted`,
       kept for a Stop), then the copies of the ones deleted, one push per remote with the lease. A remote's failure is
-      `BranchesDeletion.copyErrors`; each copy's outcome is in `copies`, by local branch. The result adds a line per copy
-      and the push command to bring one back.
+      `BranchesDeletion.copyErrors`; each copy's outcome is in `copies`, by local branch. The result adds a line per
+      copy and the push command to bring one back.
     - The single Delete branch dialog (`DeleteRefDialogContent`) offers "Also delete origin/x on origin" for a copy that
       goes, unchecked, with the amber reason under it for a risky one; the button then says "Delete here and on origin",
-      red. Once the branch is deleted, the copy goes
-      through `DeleteRemoteBranchUseCase`, a task with the lease, whose failure opens `ErrorDialog`.
+      red. Once the branch is deleted, the copy goes through `DeleteRemoteBranchUseCase`, a task with the lease, whose
+      refusal asks whether to delete it anyway.
   - **Delete anyway (2026-10-23, at the user's request):** a branch or copy that the lease kept says the commit the
     server has now (`BranchKept.ChangedOnRemote(now)`: after the push, `DeleteRemoteBranchesGitAction` asks the server
-    once about those, through `serverTips`; one already gone counts as deleted and loses its remote-tracking branch; with
-    several push URLs it stays as git reported it, as `ls-remote` would ask only one). The result then has "Delete it
-    anyway" ("Delete the 3 anyway"), which deletes them with that commit as the lease (`BranchToDelete.serverTip`, the
-    lease's `leaseTip`, while `tip` stays the remote-tracking branch's commit for the check before git runs and for
+    once about those, through `serverTips`; one already gone counts as deleted and loses its remote-tracking branch;
+    with several push URLs it stays as git reported it, as `ls-remote` would ask only one). The result then has "Delete
+    it anyway" ("Delete the 3 anyway"), which deletes them with that commit as the lease (`BranchToDelete.serverTip`,
+    the lease's `leaseTip`, while `tip` stays the remote-tracking branch's commit for the check before git runs and for
     removing it after), and their new outcomes take the old ones' place (`withOutcomes`, `changedOnRemote`,
     `changedCopies`, `DeleteBranchesViewModel.deleteAnyway`). Stop and the check after it work as for a first delete.
   - **Stop waiting (2026-10-23, follow-up, option 1 of three):** stopping kills git, not the server: a server that has
@@ -3052,9 +3057,10 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
     local branches: `deletingOn` is set only while git runs on a server.
     - **Asked again:** the first check can come while the server still runs its hook, and says "still on origin" for
       branches that it deletes a moment later (the real-graph harness, with a server that took 25 s: 60 ms after Stop
-      waiting all three were there, 15 s later all three were gone). So the result shows at once, and while the server still has some
-      (`hasStillOnRemote`), the dialog asks again every 2 s, 15 times at most (`isRechecking`, "Asking origin again, in
-      case it's still deleting…", Stop checking), and the rows follow. A later check that fails leaves the last answer.
+      waiting all three were there, 15 s later all three were gone). So the result shows at once, and while the server
+      still has some (`hasStillOnRemote`), the dialog asks again every 2 s, 15 times at most (`isRechecking`, "Asking
+      origin again, in case it's still deleting…", Stop checking), and the rows follow. A later check that fails leaves
+      the last answer.
     - A test of a stop needs a server outside git's process tree: with a local remote, killing git kills
       `receive-pack` too, so nothing is deleted. `CheckRemoteBranchesGitActionTest` runs `git daemon`.
   - **Without git (2026-10-23, follow-up):** no JGit fallback (JGit has no SSH in Leaf, so it would only help on HTTPS
@@ -4123,20 +4129,23 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
       which its tests check.
   - **Roles, not colours** (`StyleColors`, provided as `LocalStyleColors`, read as `MaterialTheme.styleColors`):
     `mainAction` (Commit, Merge, Continue, `PrimaryButton`, `ConfirmationButton`; filled in every look), `action` (Stage
-    file, hunk, line and all; `SecondaryButton`'s default), `neutral` (Unstage file, hunk, line and all; red in
-    Classic), `destructive` (Discard hunk and line, Abort, `AbortButton`), `warningStrip` (the operation banner,
-    `UnsupportedIndexBanner`, `WatchLimitNotice`, `DialogNotice`, the resolver's counter, and their `button`: Resolve
-    conflicts, Convert index…), `successStrip` (file history's restored strip and its Show changes) and `warningIcon` (a
-    conflicted file's icon in the lists, the log's summary and the resolver's file list, and the icons of `FinishHint`,
-    the subject hint and `AutostashNoticeDialog`). A `RoleColors` is a fill, a content colour and a 1 dp line inside the
-    edge (`roleBorder`); a full-width strip draws its line along the bottom (`bottomEdge`).
+    file, hunk, line and all, the bottom bar's update button; `SecondaryButton`'s default), `neutral` (Unstage file,
+    hunk, line and all; red in Classic), `destructive` (Discard hunk and line, Abort, `AbortButton`), `warningStrip`
+    (the operation banner, `UnsupportedIndexBanner`, `WatchLimitNotice`, `DialogNotice`, the resolver's counter, and
+    their `button`: Resolve conflicts, Convert index…), `successStrip` (file history's restored strip and its Show
+    changes) and `warningIcon` (a conflicted file's icon in the lists, the log's summary and the resolver's file list,
+    and the icons of `FinishHint`, the subject hint and `AutostashNoticeDialog`). A `RoleColors` is a fill, a content
+    colour and a 1 dp line inside the edge (`roleBorder`); a full-width strip draws its line along the bottom
+    (`bottomEdge`).
   - **Buttons take a role:** `SecondaryButton(colors = …)`, `SecondaryButtonCompactable` and `ActionInfo.colors`.
     `textColor` and `backgroundButton` default to the role's, and a caller that gives a fill of its own (the
-    `secondarySurface` of Use ours or the resolver's strip buttons) gets no line.
+    `secondarySurface` of Use ours or the resolver's strip buttons) gets no line. Such a caller gives the text colour
+    too: the bottom bar's update button gave only a fill of `primary`, under the action role's dark blue text, 1.35 : 1
+    in Tonal's light theme, until 2026-10-23 (`BottomInfoBarTest`).
   - **The looks' `primary`** (`ColorsScheme.styled`): in Tonal and Quiet it's the muted blue, #376AAA in light and
-    #3464A0 in dark, everywhere (toasts, switches, the tab's progress, the update button), and so is the light theme's
-    `primaryVariant` (links, the tab underline, focused fields). The dark theme's `primaryVariant` (#9FD1FF) stays: the
-    muted blue holds 3.2 : 1 on the dark background. The resolver's "ours" cells and legend use `primary` too.
+    #3464A0 in dark, everywhere (toasts, switches, the tab's progress), and so is the light theme's `primaryVariant`
+    (links, the tab underline, focused fields). The dark theme's `primaryVariant` (#9FD1FF) stays: the muted blue holds
+    3.2 : 1 on the dark background. The resolver's "ours" cells and legend use `primary` too.
   - **A line's buttons are opaque** (`LineActionButtons`): their fill is laid on the theme's background. Quiet's 8%
     white took the line's tint, on which dark Quiet's Discard icon held 2.9 : 1.
   - **Not set by a style** (`docs/fork/custom-styles.md`, Limits): about 20 colours written in the UI code (the light
