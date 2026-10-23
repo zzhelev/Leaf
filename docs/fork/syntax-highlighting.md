@@ -5,7 +5,7 @@
 | Question | How can Leaf colour code by file type (Kotlin, Java, JSON, XML, YAML, …) in as many formats as possible? |
 | Verified against | `main` at `03e4d1e5`; kotlin-textmate 0.3.0 (`a500bc7a`); vscode-textmate 9.3.2; shiki's `tm-grammars` 1.32.22; Joni 2.2.7 |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: the engine (TextMate grammars, a copy of kotlin-textmate kept in Leaf), palette 1a, and a Code colours setting with Leaf, VS Code and IntelliJ. Decisions 6 to 8 (section 3) are recommendations not yet confirmed |
+| Status | Decided 2026-10-23 (section 3): the engine (TextMate grammars, a copy of kotlin-textmate kept in Leaf), palette 1a, a Code colours setting with Leaf, VS Code and IntelliJ, tag and attribute colours of their own, the grammar list, and no choice that turns colours off |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`, `T/` = the new module `textmate/` (step 1).
@@ -105,9 +105,6 @@ Made on 2026-10-23:
 5. **A Code colours setting** (section 4.5): Leaf, VS Code and IntelliJ, under Style. VS Code and IntelliJ apply in
    every style, in place of the style's own code colours, and are adjusted to 4.5:1 like any colour. As published,
    both fall to 2 or 3:1 on Leaf's diff tints (VS Code's dark keyword 3.0, IntelliJ's dark comment 2.1).
-
-Recommended, not yet confirmed:
-
 6. **Tags and attributes have colours of their own,** set by default to the keyword's and the type's, so a style can
    tell them apart.
 7. **The grammars:** the list in section 4.1. Licences MIT, Apache-2.0, BSD and MPL-2.0. YAML's and TOML's come from
@@ -247,6 +244,17 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
 - **Tests:** its own (conformance against first-mate's fixtures, its goldens), and a conformance test of Leaf's: for
   each shipped grammar, sample files (`T/src/test/resources/conformance/`) whose tokens must equal goldens made by
   vscode-textmate. A node script in `T/tools/` regenerates the goldens; CI only compares.
+- **Done (2026-10-23)**, as above, with these differences:
+  - The tests run on JUnit 5, as Leaf's do.
+  - The shell gap was fixed in the engine, and more with it: one look-behind in shell's rule for a command had a group
+    of alternatives of different lengths, which Joni (an older Oniguruma) refuses. `LookbehindRewrite` spreads such a
+    look-behind into top-level alternatives, which match the same text. That fixes 173 of the 351 patterns Joni
+    refused in shiki's grammars: also CSS's selectors, Rust's paths, JavaScript's and TypeScript's imports, C's and
+    C++'s line continuations. The probe's files, shell included, now give VS Code's tokens, but one in Python.
+  - The goldens are kotlin-textmate's (JSON, Kotlin, Markdown, JavaScript) and Leaf's (shell, CSS, Rust), the grammars
+    in `T/src/test/resources/grammars/`; step 2 adds one for each shipped grammar.
+  - The differences that remain are in `textmate/README.md`: look-behinds with an unbounded repeat (C#'s `await`,
+    Julia's `as`, Ruby's block parameters, `await using`) and C++'s backwards interval `\s+{1,0}`.
 
 ### Step 2: grammars and languages
 

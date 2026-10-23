@@ -141,7 +141,7 @@ Run everything from the repo root, with `JAVA_HOME` set as above.
 
 ```bash
 ./gradlew build                          # full build + tests; ~5 min (a cold Rust build adds ~2 s)
-./gradlew test                           # all tests (:app, :common, :data, :domain)
+./gradlew test                           # all tests (:app, :common, :data, :domain, :textmate)
 ./gradlew :data:test                     # ~25 s when the build is warm
 ./gradlew :app:run                       # launch the app
 ./gradlew :app:run --args="/path/to/repo"  # launch and open a repo/dir in a new tab (App.getDirToOpen)
@@ -254,6 +254,11 @@ asking.
     certificates against the JVM's trust store. An LFS request skips the check only when `http.sslVerify` is false
     for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
+- `textmate` (fork-only, 2026-10-23): the engine that will colour code, a copy of kotlin-textmate's (MIT, a Kotlin port
+  of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings. Nothing uses it yet (step 1 of
+  `docs/fork/syntax-highlighting.md`). `textmate/README.md` says what Leaf changed in the copy, each a commit of its
+  own, which differences from VS Code remain, and how to take a later fix from kotlin-textmate. Its goldens come from
+  vscode-textmate, through a Node script in `textmate/tools/generate-golden/`.
 - `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
   helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
   extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
