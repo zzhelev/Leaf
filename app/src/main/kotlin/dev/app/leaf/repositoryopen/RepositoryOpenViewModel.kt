@@ -40,9 +40,12 @@ import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
 import dev.app.leaf.domain.cherrypick.BranchesAhead
 import dev.app.leaf.domain.models.emptyIdentity
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.rewrite.BranchLine
 import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.rewrite.BranchRewrite
 import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.OntoBase
+import dev.app.leaf.domain.rewrite.OntoBaseCheck
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WatchRegistrations
@@ -217,6 +220,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val comparisonViewModelExtenderFactory: ComparisonViewModelExtender.Factory,
     private val rewriteBranchUseCase: RewriteBranchUseCase,
     private val undoBranchRewriteUseCase: UndoBranchRewriteUseCase,
+    private val getOntoBaseCheckUseCase: GetOntoBaseCheckUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -549,8 +553,12 @@ class RepositoryOpenViewModel @Inject constructor(
     val rewriteNotice: StateFlow<RewriteNotice?>
         field = MutableStateFlow<RewriteNotice?>(null)
 
-    /** The dialog's rewrite of [request]'s commits with [message]. */
-    fun rewriteBranch(request: RewriteRequest, message: String) = startRewrite(request.rewrite(message), request.range)
+    /** The dialog's rewrite of [request]'s commits with [message], on [onto] when its box is checked. */
+    fun rewriteBranch(request: RewriteRequest, message: String, onto: OntoBase? = null) =
+        startRewrite(request.rewrite(message, onto), request.range)
+
+    /** What putting [line]'s branch on the latest base would do, for its dialog; null when there's nothing to offer. */
+    suspend fun checkOntoBase(line: BranchLine): OntoBaseCheck? = (getOntoBaseCheckUseCase(line) as? Either.Ok)?.value
 
     /** "Fixup into parent", which runs at once: it keeps the parent's message. */
     fun fixupIntoParent(range: LineRange) = startRewrite(range.fixup(), range)

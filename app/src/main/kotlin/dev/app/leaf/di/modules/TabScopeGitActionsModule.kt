@@ -5,9 +5,11 @@ import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchCherryPickCommitsGitAction
 import dev.app.leaf.data.git.rewrite.GetBranchLinesGitAction
+import dev.app.leaf.data.git.rewrite.GetOntoBaseCheckGitAction
 import dev.app.leaf.data.git.rewrite.RewriteBranchGitAction
 import dev.app.leaf.data.git.rewrite.UndoBranchRewriteGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchLinesGitAction
+import dev.app.leaf.domain.interfaces.IGetOntoBaseCheckGitAction
 import dev.app.leaf.domain.interfaces.IRewriteBranchGitAction
 import dev.app.leaf.domain.interfaces.IUndoBranchRewriteGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
@@ -685,4 +687,8 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetBranchLinesGitAction(action: GetBranchLinesGitAction): IGetBranchLinesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetOntoBaseCheckGitAction(action: GetOntoBaseCheckGitAction): IGetOntoBaseCheckGitAction
 }

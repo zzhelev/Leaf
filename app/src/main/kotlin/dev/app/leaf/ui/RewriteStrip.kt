@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.rewrite.RewriteKind
+import dev.app.leaf.domain.rewrite.shortName
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.repositoryopen.RewriteNotice
 import dev.app.leaf.theme.bottomEdge
@@ -120,7 +121,16 @@ internal fun rewriteStripText(notice: RewriteNotice): String {
     }
 
     return when (notice.result.kind) {
-        RewriteKind.SQUASH -> pluralStringResource(Res.plurals.rewrite_strip_squashed, notice.joined, notice.joined, branch)
+        RewriteKind.SQUASH -> when (val onto = notice.result.onto) {
+            null -> pluralStringResource(Res.plurals.rewrite_strip_squashed, notice.joined, notice.joined, branch)
+            else -> pluralStringResource(
+                Res.plurals.rewrite_strip_squashed_onto,
+                notice.joined,
+                notice.joined,
+                branch,
+                shortName(onto.base),
+            )
+        }
         RewriteKind.FIXUP -> stringResource(Res.string.rewrite_strip_fixed_up, notice.commit, branch)
         RewriteKind.REWORD -> stringResource(Res.string.rewrite_strip_reworded, notice.commit, branch)
     }

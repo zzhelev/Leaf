@@ -14,6 +14,7 @@ import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.OntoBaseCheck
 import dev.app.leaf.domain.rewrite.RewriteDialogKind
 import dev.app.leaf.domain.rewrite.RewriteRefusal
 import dev.app.leaf.domain.rewrite.RewriteRequest
@@ -24,6 +25,7 @@ import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -145,5 +147,34 @@ class RewritingBranchesTest {
         val task = lastTask()
         assertEquals(TaskType.RewriteBranch, task.taskType)
         assertInstanceOf(CompletedTask.Failure::class.java, task)
+    }
+
+    @Test
+    fun `squashing the branch onto the latest main, as the dialog checks it, then Undo`(): Unit = runBlocking {
+        git.run(repository, "switch", "-q", "main")
+        commit("Fix the release notes", "notes.txt")
+        git.run(repository, "switch", "-q", "feat")
+        val tip = git.run(repository, "rev-parse", "feat").trim()
+        val lines = open()
+        val range = lines.branchChoice("refs/heads/feat") { null }!!.ok()
+
+        val check = (tab.checkOntoBase(range.line) as Either.Ok).value
+
+        assertInstanceOf(OntoBaseCheck.Clean::class.java, check)
+        assertEquals(1, check!!.newCommits)
+
+        val request = RewriteRequest(RewriteDialogKind.SQUASH_BRANCH, range)
+        val result = (tab.rewriteBranch(request.rewrite("Add a parser with a cache", check.onto)).await() as Either.Ok).value
+
+        assertEquals(git.run(repository, "rev-parse", "main").trim(), git.run(repository, "rev-parse", "feat~1").trim())
+        assertEquals("Fix the release notes\n", File(repository, "notes.txt").readText())
+        assertEquals(check.onto, result.onto)
+        tab.awaitLoaded(tab.repositoryData.branchLines) { it.lines["refs/heads/feat"]?.commits?.size == 1 }
+
+        assertEquals(Either.Ok(Unit), tab.undoBranchRewrite(result).await())
+
+        assertEquals(tip, git.run(repository, "rev-parse", "feat").trim())
+        assertTrue(!File(repository, "notes.txt").exists())
+        tab.awaitLoaded(tab.repositoryData.branchLines) { it.lines["refs/heads/feat"]?.commits?.size == 3 }
     }
 }

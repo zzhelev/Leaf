@@ -117,10 +117,11 @@ data class RewriteRequest(
         RewriteDialogKind.SQUASH, RewriteDialogKind.SQUASH_BRANCH -> squashMessageStart(range.commits, start)
     }
 
-    /** The rewrite with [message], the dialog's. */
-    fun rewrite(message: String): BranchRewrite = when (kind) {
+    /** The rewrite with [message], the dialog's, on [onto] for the whole branch when the dialog's box is checked. */
+    fun rewrite(message: String, onto: OntoBase? = null): BranchRewrite = when (kind) {
         RewriteDialogKind.REWORD -> range.reword(message)
-        RewriteDialogKind.SQUASH, RewriteDialogKind.SQUASH_BRANCH -> range.squash(message)
+        RewriteDialogKind.SQUASH -> range.squash(message)
+        RewriteDialogKind.SQUASH_BRANCH -> range.squash(message, onto)
     }
 }
 

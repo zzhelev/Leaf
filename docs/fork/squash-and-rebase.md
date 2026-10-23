@@ -5,7 +5,7 @@
 | Question | How can Leaf tidy a feature branch's commits (squash, fixup, reword, move onto the latest main) without the user finding the fork point or fearing a rebase? |
 | Verified against | `main` at `6b8e8eec`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine), A2 (the log's range) and A3 (menus, dialog, strip, Undo) done |
+| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine), A2 (the log's range), A3 (menus, dialog, strip, Undo) and A4 (onto the latest main) done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -173,6 +173,26 @@ Proposed with the plan, approved 2026-10-23:
   when they do; the dialog says so before ("Your changes to Log.kt are in the way").
 - **Undo:** the ref back with the new value expected (`update-ref <old> <new>`, or `reset --keep <old>` after a move onto
   main), refused when the branch moved since. The reflog keeps the old tip either way.
+- Built in A4:
+  - **`read-tree -m -u` and `update-ref`, not `reset --keep`** (probed on git 2.54): both refuse, changing nothing, when an
+    uncommitted change is in a file that the move changes, or an untracked file is where it adds one, but `reset --keep`
+    unstages every staged change, also in the files it doesn't touch. So a checked-out branch moves with
+    `git read-tree -m -u <old> <new>` (the two-tree merge that `git checkout` makes), which keeps them staged, then the
+    `update-ref` that expects the old tip; when that's refused, the files go back the same way
+    (`moveBranchWithFiles`, `DA/git/rewrite/BranchPlace.kt`). Undo moves back the same way. The reflog says
+    `squash onto main: <subject>`.
+  - **An ignored file is in the way too:** `read-tree` overwrites an ignored file where the move adds one without a word, as
+    git counts ignored files as expendable, and that may be a local `.env`. `filesInTheWay` (`DA/git/rewrite/OntoBase.kt`)
+    lists tracked files that the move changes and that have uncommitted changes (`git status`), and anything on disk
+    where it adds a file or a folder (`git diff-tree --name-status`); the move checks it again just before it runs.
+  - **The check** (`GetOntoBaseCheckGitAction`, `OntoBaseCheck`, when the dialog opens): null when there's no base, the
+    branch has the base's tip, or git is older than 2.38; else the base's commit, how many of its commits the branch lacks,
+    and `Clean`, `Conflicts` (`merge-tree --name-only`) or `ChangesInTheWay`, the last only where the branch is checked
+    out. The squash goes on that commit, whatever the base did since.
+  - **The dialog:** "On top of the latest main · 001cd3e, 1 new commit" after Start from, checked when clean, off and
+    disabled with "Conflicts with main in parser.kt" or "Your changes to NOTES.md are in the way" (three names, then "and
+    N more"), not there when there's nothing to offer. Squash waits for the check. The strip says "…, on top of main.";
+    a refusal at run time (`ConflictsWithBase`, `ChangesInTheWay`) is `ErrorDialog`'s, with the files.
 
 ### 3.5 Tests
 

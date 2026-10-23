@@ -32,6 +32,24 @@ sealed interface RewriteBranchError : GitError {
 
     /** A new message is empty once git's clean-up has run. */
     data object EmptyMessage : RewriteBranchError
+
+    /** Putting [branch] on [base] (both short names) would conflict in [files]. */
+    data class ConflictsWithBase(
+        val branch: String,
+        val base: String,
+        val files: List<String>,
+    ) : RewriteBranchError
+
+    /**
+     * Uncommitted changes in the worktree at [worktreePath], which has [branch] checked out, are in the way of the new
+     * commit's files: changes to [files], or untracked files where it has some. [gitOutput] is what git said.
+     */
+    data class ChangesInTheWay(
+        val branch: String,
+        val worktreePath: String,
+        val files: List<String>,
+        val gitOutput: String,
+    ) : RewriteBranchError
 }
 
 /** What a worktree does with a branch that stops a rewrite of it. */

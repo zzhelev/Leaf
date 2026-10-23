@@ -3,6 +3,8 @@
 package dev.app.leaf
 
 import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.rewrite.OntoBase
+import dev.app.leaf.domain.rewrite.OntoBaseCheck
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -157,7 +159,8 @@ sealed interface Screen : NavKey {
     data class RewriteCommits(
         val request: RewriteRequest,
         val cleanup: MessageCleanup,
-        val onConfirm: (String) -> Unit,
+        val checkOnto: (suspend () -> OntoBaseCheck?)? = null,
+        val onConfirm: (message: String, onto: OntoBase?) -> Unit,
     ) : Screen
     /** Rebases [worktree]'s branch onto [base], the base branch (fork-only). */
     data class WorktreeRebaseOntoBase(val worktree: Worktree, val base: String) : Screen

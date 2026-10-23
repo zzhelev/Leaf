@@ -19,7 +19,8 @@ import javax.inject.Inject
 /**
  * Undoes a [RewriteBranchGitAction] (fork-only): the branch goes back to its old tip with one `git update-ref` that
  * expects the new one, so a branch that moved since is refused and stays. Both tips have the same tree, so the working
- * tree and the index stay as they are, as after the rewrite. The new commits stay in the reflog, as the old ones did.
+ * tree and the index stay as they are, as after the rewrite, but after a squash onto the base, where a checked-out
+ * branch's files go back with it ([moveBranchWithFiles]). The new commits stay in the reflog, as the old ones did.
  */
 class UndoBranchRewriteGitAction @Inject constructor(
     private val jgit: JGit,
@@ -36,14 +37,20 @@ class UndoBranchRewriteGitAction @Inject constructor(
             raiseError(RewriteBranchError.BranchMoved(Repository.shortenRefName(rewrite.branch)))
         }
 
-        RevWalk(repository).use { walk ->
+        val treeChanges = RevWalk(repository).use { walk ->
             val oldTree = walk.parseCommit(ObjectId.fromString(rewrite.oldTip)).tree
             val newTree = walk.parseCommit(ObjectId.fromString(rewrite.newTip)).tree
 
-            check(oldTree == newTree) { "A rewrite that changed the branch's tree can't be undone by moving the branch" }
+            oldTree != newTree
         }
 
         val message = "undo ${rewrite.kind.reflogName}: back to ${rewrite.oldTip.take(7)}"
-        moveBranch(gitCli, place, rewrite.branch, rewrite.newTip, rewrite.oldTip, message)
+
+        // After a squash onto the base, the files go back too
+        if (treeChanges) {
+            moveBranchWithFiles(gitCli, place, rewrite.branch, rewrite.newTip, rewrite.oldTip, message)
+        } else {
+            moveBranch(gitCli, place, rewrite.branch, rewrite.newTip, rewrite.oldTip, message)
+        }
     }
 }

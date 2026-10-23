@@ -536,6 +536,7 @@ fun AppTab(
                             RewriteCommitsDialog(
                                 request = entry.request,
                                 cleanup = entry.cleanup,
+                                checkOnto = entry.checkOnto,
                                 onConfirm = entry.onConfirm,
                                 onDismiss = { backStack.removeLastOrNull() },
                             )

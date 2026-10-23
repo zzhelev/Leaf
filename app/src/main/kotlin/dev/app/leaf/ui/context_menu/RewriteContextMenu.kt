@@ -174,9 +174,17 @@ fun rewriteRefusalText(refusal: RewriteRefusal, base: String?, isRange: Boolean)
     )
 }
 
-/** The dialog of [request], whose Squash or Save rewrites the commits in [viewModel]'s tab (fork-only). */
+/**
+ * The dialog of [request], whose Squash or Save rewrites the commits in [viewModel]'s tab (fork-only). Squashing the
+ * whole branch checks, as it opens, whether it can go on the latest base.
+ */
 fun rewriteCommitsScreen(viewModel: RepositoryOpenViewModel, request: RewriteRequest) = Screen.RewriteCommits(
     request = request,
     cleanup = viewModel.statusState.value.messageCleanup,
-    onConfirm = { message -> viewModel.rewriteBranch(request, message) },
+    checkOnto = if (request.kind == RewriteDialogKind.SQUASH_BRANCH) {
+        { viewModel.checkOntoBase(request.range.line) }
+    } else {
+        null
+    },
+    onConfirm = { message, onto -> viewModel.rewriteBranch(request, message, onto) },
 )

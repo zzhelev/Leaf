@@ -122,4 +122,16 @@ class BranchLinesTest {
         assertEquals(RewriteKind.REWORD, reword.rewrite("New").kind)
         assertEquals(listOf(RewriteGroup(listOf("b"), "New")), reword.rewrite("New").groups)
     }
+
+    @Test
+    fun `only squashing the whole branch goes on the latest base`() {
+        val onto = OntoBase("refs/heads/main", "n".repeat(40))
+        val whole = lines.branchChoice("refs/heads/feat", idle)!!.ok()
+        val part = lines.rangeChoice(listOf("b", "c"), "refs/heads/feat", idle).ok()
+
+        assertEquals(onto, RewriteRequest(RewriteDialogKind.SQUASH_BRANCH, whole).rewrite("All of it", onto).onto)
+        assertEquals(listOf("a", "b", "c"), RewriteRequest(RewriteDialogKind.SQUASH_BRANCH, whole).rewrite("All", onto).groups.single().commits)
+        assertNull(RewriteRequest(RewriteDialogKind.SQUASH, part).rewrite("Part", onto).onto)
+        assertNull(RewriteRequest(RewriteDialogKind.SQUASH_BRANCH, whole).rewrite("All of it").onto)
+    }
 }

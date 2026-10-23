@@ -462,9 +462,24 @@
         <item quantity="other">Squash %1$d commits</item>
     </plurals>
     <string name="rewrite_dialog_save_message">Save message</string>
+    <string name="rewrite_dialog_onto">On top of the latest %1$s</string>
+    <plurals name="rewrite_dialog_onto_new_commits">
+        <item quantity="one">%1$s, %2$d new commit</item>
+        <item quantity="other">%1$s, %2$d new commits</item>
+    </plurals>
+    <string name="rewrite_dialog_onto_conflicts">Conflicts with %1$s in %2$s</string>
+    <string name="rewrite_dialog_onto_in_the_way">Your changes to %1$s are in the way</string>
+    <plurals name="rewrite_dialog_and_more_files">
+        <item quantity="one">%1$s and %2$d more</item>
+        <item quantity="other">%1$s and %2$d more</item>
+    </plurals>
     <plurals name="rewrite_strip_squashed">
         <item quantity="one">Squashed %1$d commit into one on %2$s.</item>
         <item quantity="other">Squashed %1$d commits into one on %2$s.</item>
+    </plurals>
+    <plurals name="rewrite_strip_squashed_onto">
+        <item quantity="one">Squashed %1$d commit into one on %2$s, on top of %3$s.</item>
+        <item quantity="other">Squashed %1$d commits into one on %2$s, on top of %3$s.</item>
     </plurals>
     <string name="rewrite_strip_fixed_up">Fixed up %1$s into its parent on %2$s.</string>
     <string name="rewrite_strip_reworded">Changed the message of %1$s on %2$s.</string>
@@ -1488,6 +1503,8 @@
     <string name="error_rewrite_not_on_line">%2$s isn't where "%1$s" had it, one of its own commits. Nothing was changed.</string>
     <string name="error_rewrite_joins_merge">%1$s is a merge. Joining it with another commit would lose its other parents. Nothing was changed.</string>
     <string name="error_rewrite_merged_again">%2$s merges a branch that started on "%1$s", so it would bring the old commits back next to the new ones. Nothing was changed.</string>
+    <string name="error_rewrite_conflicts_with_base">"%1$s" can't go on top of the latest %2$s: they conflict in\n\n%3$s\n\nNothing was changed.</string>
+    <string name="error_rewrite_changes_in_the_way">Uncommitted changes in the worktree at\n\n%1$s\n\nare in the way of the files that "%2$s" changes:\n\n%3$s\n\nCommit, stash or move them first. Nothing was changed.</string>
     <string name="error_rewrite_empty_message">The message is empty once git leaves out its comment lines and blank lines. Nothing was changed.</string>
     <string name="error_rewrite_branch_merging">The commits of "%1$s" can't be rewritten, as a merge is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
     <string name="error_rewrite_branch_cherry_picking">The commits of "%1$s" can't be rewritten, as a cherry-pick is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>

@@ -11,6 +11,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.rewrite.BranchRewriteResult
 import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.OntoBase
 import dev.app.leaf.domain.rewrite.RewriteKind
 import dev.app.leaf.repositoryopen.RewriteNotice
 import dev.app.leaf.theme.AppTheme
@@ -61,6 +62,20 @@ class RewriteStripTest {
             strip.clickClose()
 
             assertEquals(listOf("push", "undo", "dismiss"), strip.calls)
+        }
+    }
+
+    @Test
+    fun `a squash onto the latest main says on top of which`(): Unit = runBlocking(Dispatchers.Swing) {
+        val range = LineRange(RewriteFixtures.line(), listOf(add, wip, cache))
+        val onto = OntoBase("refs/heads/main", "5".repeat(40))
+        val notice = RewriteNotice.of(result(RewriteKind.SQUASH).copy(onto = onto), range, BRANCH)
+
+        StripScene(notice).use { strip ->
+            assertEquals(
+                listOf("Squashed 3 commits into one on claude/parser-cache, on top of main."),
+                strip.texts().filterNot { it in BUTTONS },
+            )
         }
     }
 

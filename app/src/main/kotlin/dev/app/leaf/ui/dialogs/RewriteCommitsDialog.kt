@@ -14,9 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -44,11 +47,14 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.cleanCommitMessage
+import dev.app.leaf.domain.rewrite.OntoBase
+import dev.app.leaf.domain.rewrite.OntoBaseCheck
 import dev.app.leaf.domain.rewrite.RewriteDialogKind
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.domain.rewrite.SquashMessageStart
 import dev.app.leaf.domain.rewrite.shortName
 import dev.app.leaf.extensions.handMouseClickable
+import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.monoTypography
@@ -66,6 +72,9 @@ private val MAX_COMMITS_HEIGHT = 168.dp
 
 private val COMMIT_ROW_HEIGHT = 24.dp
 
+/** The files that conflict or are in the way are named up to this many. */
+private const val MAX_FILES_NAMED = 3
+
 private val MESSAGE_MIN_HEIGHT = 120.dp
 
 /** The message scrolls past this. */
@@ -77,12 +86,17 @@ private val MESSAGE_MAX_HEIGHT = 260.dp
  * subject, "Start from" for a squash, and the pushed commits that a force push has to replace. ⌘⏎ confirms, as in the
  * commit field. A message that git's clean-up ([cleanup]) leaves empty can't be confirmed, nor a reword's message that
  * it leaves as the commit's own.
+ *
+ * Squashing the whole branch also offers "On top of the latest main" (step A4), which [checkOnto] checks as the dialog
+ * opens: checked when the merge is clean, off and disabled, with the files, when it conflicts or uncommitted changes
+ * are in the way, and not there when the branch has main's tip. Squash waits for the check.
  */
 @Composable
 fun RewriteCommitsDialog(
     request: RewriteRequest,
     cleanup: MessageCleanup,
-    onConfirm: (String) -> Unit,
+    checkOnto: (suspend () -> OntoBaseCheck?)? = null,
+    onConfirm: (message: String, onto: OntoBase?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val range = request.range
@@ -95,11 +109,22 @@ fun RewriteCommitsDialog(
     val cleaned = cleanCommitMessage(message.text, cleanup)
     // A reword that keeps the message would only make new commits, which a pushed branch then has to replace
     val isUnchanged = !isSquash && cleaned == cleanCommitMessage(range.commits.single().message, cleanup)
-    val canConfirm = cleaned.isNotBlank() && !isUnchanged
+    var ontoCheck by remember { mutableStateOf<OntoCheckState>(if (checkOnto == null) OntoCheckState.None else OntoCheckState.Checking) }
+    var isOnto by remember { mutableStateOf(false) }
+    val canConfirm = cleaned.isNotBlank() && !isUnchanged && ontoCheck != OntoCheckState.Checking
     val confirm = {
         if (canConfirm) {
-            onConfirm(message.text)
+            val onto = (ontoCheck as? OntoCheckState.Checked)?.check?.takeIf { isOnto && it is OntoBaseCheck.Clean }?.onto
+            onConfirm(message.text, onto)
             onDismiss()
+        }
+    }
+
+    if (checkOnto != null) {
+        LaunchedEffect(Unit) {
+            val check = checkOnto()
+            isOnto = check is OntoBaseCheck.Clean
+            ontoCheck = if (check == null) OntoCheckState.None else OntoCheckState.Checked(check)
         }
     }
 
@@ -163,6 +188,10 @@ fun RewriteCommitsDialog(
                         message = textWithCaretAfterSubject(request.messageStart(picked))
                     }
                 }
+            }
+
+            (ontoCheck as? OntoCheckState.Checked)?.let { checked ->
+                OntoRow(checked.check, isChecked = isOnto, onCheckedChange = { isOnto = it })
             }
 
             val pushed = range.rewrittenPushed
@@ -278,6 +307,88 @@ private fun Label(text: String, modifier: Modifier = Modifier) {
         maxLines = 1,
         modifier = modifier,
     )
+}
+
+/** Where the dialog's check of "On top of the latest main" is. */
+private sealed interface OntoCheckState {
+    /** Not offered: a squash of part of the branch, a reword, or nothing to put it on. */
+    data object None : OntoCheckState
+
+    data object Checking : OntoCheckState
+
+    data class Checked(val check: OntoBaseCheck) : OntoCheckState
+}
+
+/**
+ * "On top of the latest main · 55991ae, 2 new commits", and under it, when it can't be checked, the files that
+ * conflict with main or that uncommitted changes have.
+ */
+@Composable
+private fun OntoRow(check: OntoBaseCheck, isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val base = shortName(check.onto.base)
+    val isPossible = check is OntoBaseCheck.Clean
+
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .toggleable(value = isChecked, enabled = isPossible, role = Role.Checkbox, onValueChange = onCheckedChange)
+                .then(if (isPossible) Modifier.handOnHover() else Modifier),
+        ) {
+            Checkbox(
+                checked = isChecked,
+                onCheckedChange = null,
+                enabled = isPossible,
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .size(12.dp),
+            )
+
+            Text(
+                text = stringResource(Res.string.rewrite_dialog_onto, base),
+                style = MaterialTheme.typography.body2,
+                color = if (isPossible) MaterialTheme.colors.onBackground else MaterialTheme.colors.onBackgroundSecondary,
+                maxLines = 1,
+            )
+
+            Text(
+                text = " · " + pluralStringResource(
+                    Res.plurals.rewrite_dialog_onto_new_commits,
+                    check.newCommits,
+                    check.onto.commit.take(7),
+                    check.newCommits,
+                ),
+                style = MaterialTheme.typography.body2,
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        val why = when (check) {
+            is OntoBaseCheck.Clean -> null
+            is OntoBaseCheck.Conflicts -> stringResource(Res.string.rewrite_dialog_onto_conflicts, base, fileNames(check.files))
+            is OntoBaseCheck.ChangesInTheWay -> stringResource(Res.string.rewrite_dialog_onto_in_the_way, fileNames(check.files))
+        }
+
+        if (why != null) {
+            Text(
+                text = why,
+                style = MaterialTheme.typography.body2,
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                modifier = Modifier.padding(start = 20.dp, top = 2.dp),
+            )
+        }
+    }
+}
+
+/** The files' names, the first [MAX_FILES_NAMED], then how many more. */
+@Composable
+private fun fileNames(files: List<String>): String {
+    val names = files.take(MAX_FILES_NAMED).joinToString(", ") { it.substringAfterLast('/') }
+    val more = files.size - MAX_FILES_NAMED
+
+    return if (more > 0) pluralStringResource(Res.plurals.rewrite_dialog_and_more_files, more, names, more) else names
 }
 
 /** "Start from": the subjects as a list, all the messages, or the oldest one's. */

@@ -81,8 +81,8 @@ data class LineRange(
             return line.commits.take(oldest + 1).count { it.hash in line.pushed }
         }
 
-    /** Joins the commits into one with [message]. */
-    fun squash(message: String) = rewrite(RewriteKind.SQUASH, message)
+    /** Joins the commits into one with [message], on [onto] when it's given: then the range is the whole branch. */
+    fun squash(message: String, onto: OntoBase? = null) = rewrite(RewriteKind.SQUASH, message, onto)
 
     /** Joins the commits into one with the oldest one's message. */
     fun fixup() = rewrite(RewriteKind.FIXUP, message = null)
@@ -90,11 +90,12 @@ data class LineRange(
     /** Gives the commit [message]. */
     fun reword(message: String) = rewrite(RewriteKind.REWORD, message)
 
-    private fun rewrite(kind: RewriteKind, message: String?) = BranchRewrite(
+    private fun rewrite(kind: RewriteKind, message: String?, onto: OntoBase? = null) = BranchRewrite(
         branch = line.branch,
         expectedTip = line.commits.first().hash,
         groups = listOf(RewriteGroup(commits.map { it.hash }, message)),
         kind = kind,
+        onto = onto,
     )
 }
 

@@ -22,6 +22,7 @@ import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.rewrite.BranchRewrite
 import dev.app.leaf.domain.rewrite.BranchRewriteResult
+import dev.app.leaf.domain.rewrite.OntoBase
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -62,6 +63,10 @@ private class NewCommit(
  * index stay as they are. One `git update-ref` that expects the old tip then moves the branch, and `post-rewrite` runs
  * with what changed, as after `git rebase`.
  *
+ * A squash of the whole branch onto the latest base ([BranchRewrite.onto]) is the one exception: its tree is the merge
+ * of the base and the branch, and a checked-out branch's working tree takes the base's changes with it
+ * ([moveBranchWithFiles]), refused while uncommitted changes are in their way.
+ *
  * git runs in the worktree that has the branch checked out ([branchPlace]), or in the tab's. Each `commit-tree` goes
  * through [GitCliRemoteCommand], as ssh-keygen may ask for the passphrase of a key that signs commits. Cancelling before
  * the branch moves leaves only commits that nothing points to.
@@ -89,16 +94,24 @@ class RewriteBranchGitAction @Inject constructor(
         val newCommits = newCommits(repository, rewrite, line, branchName)
         refuseIfMergedAgain(repository, line, newCommits, branchName)
 
+        val onto = rewrite.onto
+        // On the latest base: one commit, of the whole branch, with the merge's tree
+        val ontoTree = onto?.let {
+            requireWholeBranch(repository, line, newCommits, it)
+            ontoBaseTree(gitCli, place, it, rewrite.branch, oldTip)
+        }
+
+
         val sign = signsCommits(place)
         val rewritten = mutableListOf<Pair<String, String>>()
-        var parent = line.first().parents.firstOrNull()?.name
+        var parent = onto?.commit ?: line.first().parents.firstOrNull()?.name
 
         try {
             for ((index, newCommit) in newCommits.withIndex()) {
                 currentCoroutineContext().ensureActive()
                 repositoryStateRepository.updateTaskProgress(TaskProgress(null, index * 100 / newCommits.size))
 
-                val id = commitTree(place, newCommit, listOfNotNull(parent) + newCommit.otherParents, sign)
+                val id = commitTree(place, newCommit, listOfNotNull(parent) + newCommit.otherParents, sign, ontoTree)
                 newCommit.sources.forEach { source -> rewritten.add(source.name to id) }
                 parent = id
             }
@@ -108,16 +121,44 @@ class RewriteBranchGitAction @Inject constructor(
 
         val newTip = checkNotNull(parent)
         val subject = subjectOf(newCommits.first())
+        val action = onto?.let { "${rewrite.kind.reflogName} onto ${Repository.shortenRefName(it.base)}" }
+            ?: rewrite.kind.reflogName
 
         currentCoroutineContext().ensureActive()
 
         // Once the branch moves, the rewrite is done: what follows isn't cancelled
         withContext(NonCancellable) {
-            moveBranch(gitCli, place, rewrite.branch, oldTip, newTip, "${rewrite.kind.reflogName}: $subject")
+            if (ontoTree == null) {
+                moveBranch(gitCli, place, rewrite.branch, oldTip, newTip, "$action: $subject")
+            } else {
+                moveBranchWithFiles(gitCli, place, rewrite.branch, oldTip, newTip, "$action: $subject")
+            }
+
             runPostRewrite(place, rewritten)
         }
 
-        BranchRewriteResult(rewrite.branch, rewrite.kind, oldTip, newTip, rewritten)
+        BranchRewriteResult(rewrite.branch, rewrite.kind, oldTip, newTip, rewritten, onto)
+    }
+
+    /**
+     * A squash onto the base is of the whole branch: one new commit, whose oldest source's parent is where the branch
+     * left the base, which [onto] has. Anything else would take commits off the branch that the merge still has.
+     */
+    private fun requireWholeBranch(
+        repository: Repository,
+        line: List<RevCommit>,
+        newCommits: List<NewCommit>,
+        onto: OntoBase,
+    ) {
+        require(newCommits.size == 1) { "A squash onto the base makes one commit of the whole branch" }
+
+        val forkPoint = line.first().parents.firstOrNull()
+
+        RevWalk(repository).use { walk ->
+            require(forkPoint != null && walk.isMergedInto(walk.parseCommit(forkPoint), walk.parseCommit(ObjectId.fromString(onto.commit)))) {
+                "The branch didn't leave the base at its oldest commit's parent"
+            }
+        }
     }
 
     /**
@@ -254,15 +295,18 @@ class RewriteBranchGitAction @Inject constructor(
         }
     }
 
+    /** `git commit-tree` of [newCommit], with the tree of its newest source, or [tree] in its place. */
     private suspend fun EitherContext<GitError>.commitTree(
         place: BranchPlace,
         newCommit: NewCommit,
         parents: List<String>,
         sign: Boolean,
+        tree: String? = null,
     ): String {
         val author = newCommit.sources.first().authorIdent
+        val treeId = tree ?: newCommit.sources.last().tree.name
         val args = place.gitArgs +
-            listOf("-c", "i18n.commitEncoding=${newCommit.encoding}", "commit-tree", newCommit.sources.last().tree.name) +
+            listOf("-c", "i18n.commitEncoding=${newCommit.encoding}", "commit-tree", treeId) +
             parents.flatMap { listOf("-p", it) } +
             (if (sign) listOf("-S") else emptyList()) +
             listOf("-F", "-")

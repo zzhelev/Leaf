@@ -14,10 +14,13 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.OntoBase
+import dev.app.leaf.domain.rewrite.OntoBaseCheck
 import dev.app.leaf.domain.rewrite.RewriteDialogKind
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.theme.AppTheme
@@ -25,6 +28,7 @@ import dev.app.leaf.ui.RewriteFixtures
 import dev.app.leaf.ui.RewriteFixtures.add
 import dev.app.leaf.ui.RewriteFixtures.cache
 import dev.app.leaf.ui.RewriteFixtures.wip
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.swing.Swing
@@ -157,6 +161,78 @@ class RewriteCommitsDialogTest {
             }
         }
 
+    private val onto = OntoBase("refs/heads/main", "55991ae".padEnd(40, '0'))
+
+    @Test
+    fun `squashing the branch offers it on top of the latest main, checked when it's clean`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            DialogScene(squashBranch, checkOnto = { OntoBaseCheck.Clean(onto, newCommits = 2) }).use { dialog ->
+                assertTrue("On top of the latest main" in dialog.texts(), dialog.texts().toString())
+                assertTrue(" · 55991ae, 2 new commits" in dialog.texts(), dialog.texts().toString())
+                assertEquals(ToggleableState.On, dialog.ontoBox())
+
+                dialog.click("Squash 3 commits")
+
+                assertEquals(listOf("confirm Add the parser\n\n- Cache the parsed files onto refs/heads/main@55991ae", "dismiss"), dialog.calls)
+            }
+        }
+
+    @Test
+    fun `unchecked, the branch stays where it left main`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(squashBranch, checkOnto = { OntoBaseCheck.Clean(onto, newCommits = 1) }).use { dialog ->
+            assertTrue(" · 55991ae, 1 new commit" in dialog.texts(), dialog.texts().toString())
+
+            dialog.clickOnto()
+            assertEquals(ToggleableState.Off, dialog.ontoBox())
+
+            dialog.click("Squash 3 commits")
+            assertEquals(listOf("confirm Add the parser\n\n- Cache the parsed files", "dismiss"), dialog.calls)
+        }
+    }
+
+    @Test
+    fun `conflicts and changes in the way leave it off and disabled, with the files`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val files = listOf("src/Parser.kt", "src/Cache.kt", "README.md", "a/b.txt", "c.txt")
+
+            DialogScene(squashBranch, checkOnto = { OntoBaseCheck.Conflicts(onto, 2, files) }).use { dialog ->
+                assertEquals(ToggleableState.Off, dialog.ontoBox())
+                assertFalse(dialog.isOntoClickable())
+                assertTrue(
+                    "Conflicts with main in Parser.kt, Cache.kt, README.md and 2 more" in dialog.texts(),
+                    dialog.texts().toString(),
+                )
+
+                dialog.click("Squash 3 commits")
+                assertEquals(listOf("confirm Add the parser\n\n- Cache the parsed files", "dismiss"), dialog.calls)
+            }
+
+            DialogScene(
+                squashBranch,
+                checkOnto = { OntoBaseCheck.ChangesInTheWay(onto, 2, "/repo", listOf("app/Log.kt")) },
+            ).use { dialog ->
+                assertEquals(ToggleableState.Off, dialog.ontoBox())
+                assertTrue("Your changes to Log.kt are in the way" in dialog.texts(), dialog.texts().toString())
+            }
+        }
+
+    @Test
+    fun `nothing to put it on, no row, and Squash waits for the check`(): Unit = runBlocking(Dispatchers.Swing) {
+        DialogScene(squashBranch, checkOnto = { null }).use { dialog ->
+            assertEquals(null, dialog.ontoBox())
+            assertTrue(dialog.isClickable("Squash 3 commits"))
+        }
+
+        val never = CompletableDeferred<OntoBaseCheck?>()
+
+        DialogScene(squashBranch, checkOnto = { never.await() }).use { dialog ->
+            assertEquals(null, dialog.ontoBox())
+            assertFalse(dialog.isClickable("Squash 3 commits"))
+            dialog.pressAccept()
+            assertEquals(emptyList<String>(), dialog.calls)
+        }
+    }
+
     @Test
     fun `verbatim keeps a comment line as the message`(): Unit = runBlocking(Dispatchers.Swing) {
         val verbatim = MessageCleanup(dev.app.leaf.domain.commitmessage.CleanupMode.VERBATIM, "#")
@@ -168,7 +244,11 @@ class RewriteCommitsDialogTest {
         }
     }
 
-    private class DialogScene(request: RewriteRequest, cleanup: MessageCleanup = MessageCleanup.DEFAULT) : AutoCloseable {
+    private class DialogScene(
+        request: RewriteRequest,
+        cleanup: MessageCleanup = MessageCleanup.DEFAULT,
+        checkOnto: (suspend () -> OntoBaseCheck?)? = null,
+    ) : AutoCloseable {
         val calls = mutableListOf<String>()
 
         private val scene = ImageComposeScene(width = 900, height = 900, density = Density(1f)) {
@@ -176,7 +256,10 @@ class RewriteCommitsDialogTest {
                 RewriteCommitsDialog(
                     request = request,
                     cleanup = cleanup,
-                    onConfirm = { calls += "confirm $it" },
+                    checkOnto = checkOnto,
+                    onConfirm = { message, onto ->
+                        calls += "confirm $message" + (onto?.let { " onto ${it.base}@${it.commit.take(7)}" } ?: "")
+                    },
                     onDismiss = { calls += "dismiss" },
                 )
             }
@@ -200,6 +283,25 @@ class RewriteCommitsDialogTest {
         fun setMessage(text: String) {
             checkNotNull(field().config[SemanticsActions.SetText].action).invoke(AnnotatedString(text))
             scene.render()
+        }
+
+        /** The "On top of the latest main" row's checkbox state, or null without the row. */
+        fun ontoBox(): ToggleableState? = nodes().firstOrNull { node ->
+            node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text.startsWith("On top of the latest") }
+        }?.config?.getOrNull(SemanticsProperties.ToggleableState)
+
+        fun clickOnto() {
+            val row = nodes().single { node ->
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text.startsWith("On top of the latest") }
+            }
+            checkNotNull(row.config[SemanticsActions.OnClick].action).invoke()
+            scene.render()
+        }
+
+        fun isOntoClickable() = nodes().any { node ->
+            node.config.getOrNull(SemanticsActions.OnClick) != null &&
+                node.config.getOrNull(SemanticsProperties.Disabled) == null &&
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text.startsWith("On top of the latest") }
         }
 
         /** Whether the element with the text [text] takes a click: a disabled button doesn't. */

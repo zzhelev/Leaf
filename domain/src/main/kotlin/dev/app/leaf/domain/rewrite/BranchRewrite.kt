@@ -13,12 +13,23 @@ package dev.app.leaf.domain.rewrite
  * @param expectedTip the commit the branch was at when the rewrite was planned. A branch that moved since is refused.
  * @param groups oldest first, each a run of commits one after the other on the branch's first-parent line.
  * @param kind what the reflog says the rewrite did.
+ * @param onto for a squash of the whole branch into one commit, the base's commit to put it on, in place of where the
+ * branch left the base (step A4 of `docs/fork/squash-and-rebase.md`). The commit's tree is then the merge of the base and
+ * the branch, as `git merge-tree` makes it, so the branch's tree changes, and a checked-out branch's working tree takes
+ * the base's changes.
  */
 data class BranchRewrite(
     val branch: String,
     val expectedTip: String,
     val groups: List<RewriteGroup>,
     val kind: RewriteKind,
+    val onto: OntoBase? = null,
+)
+
+/** The commit of the base branch [base] (`refs/heads/main`, or a remote one) that a squashed branch goes on. */
+data class OntoBase(
+    val base: String,
+    val commit: String,
 )
 
 /**
@@ -41,7 +52,7 @@ enum class RewriteKind(val reflogName: String) {
 /**
  * What a rewrite changed: the branch's tip before ([oldTip]) and after ([newTip]), and the new commit of each old one
  * from the first that changed, oldest first, as `post-rewrite` gets them. A squash's commits all map to the commit they
- * became.
+ * became. [onto] is the base the commit went on, for a squash onto the latest base.
  */
 data class BranchRewriteResult(
     val branch: String,
@@ -49,4 +60,5 @@ data class BranchRewriteResult(
     val oldTip: String,
     val newTip: String,
     val rewritten: List<Pair<String, String>>,
+    val onto: OntoBase? = null,
 )

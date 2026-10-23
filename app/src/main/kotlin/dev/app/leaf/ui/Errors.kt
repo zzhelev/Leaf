@@ -15,6 +15,8 @@ import dev.app.leaf.app.generated.resources.error_rewrite_not_on_line
 import dev.app.leaf.app.generated.resources.error_rewrite_joins_merge
 import dev.app.leaf.app.generated.resources.error_rewrite_merged_again
 import dev.app.leaf.app.generated.resources.error_rewrite_empty_message
+import dev.app.leaf.app.generated.resources.error_rewrite_conflicts_with_base
+import dev.app.leaf.app.generated.resources.error_rewrite_changes_in_the_way
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_merging
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_cherry_picking
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_reverting
@@ -185,6 +187,8 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is RewriteBranchError.JoinsMerge -> listOf(merge.take(7))
     is RewriteBranchError.MergedAgain -> listOf(merge.take(7))
     is RewriteBranchError.BranchBusy -> listOf(worktreePath)
+    is RewriteBranchError.ConflictsWithBase -> files
+    is RewriteBranchError.ChangesInTheWay -> listOf(worktreePath) + files
     is RenameBranchError.BranchRebasedInWorktree -> listOf(worktreePath)
     is RenameBranchError.BranchBisectedInWorktree -> listOf(worktreePath)
     is RenameBranchError.WorktreeHeadNotMoved -> listOf(worktreePath, "git switch $newBranch")
@@ -264,6 +268,16 @@ fun AppError.getErrorText(): String {
                 stringResource(Res.string.error_rewrite_merged_again, branch, merge.take(7))
 
             RewriteBranchError.EmptyMessage -> stringResource(Res.string.error_rewrite_empty_message)
+            is RewriteBranchError.ConflictsWithBase ->
+                stringResource(Res.string.error_rewrite_conflicts_with_base, branch, base, files.joinToString("\n"))
+
+            is RewriteBranchError.ChangesInTheWay -> stringResource(
+                Res.string.error_rewrite_changes_in_the_way,
+                worktreePath,
+                branch,
+                files.joinToString("\n").ifEmpty { gitOutput },
+            )
+
             is RewriteBranchError.BranchBusy -> {
                 val text = when (operation) {
                     BranchOperation.MERGE -> Res.string.error_rewrite_branch_merging
