@@ -1988,6 +1988,83 @@ cherry-pick's, with the five guards that the discussion proposed:
   `RebaseSkipStatusTest` (the rule, the block, the buttons and the notice rendered), the dialog in
   `ConfirmActionDialogTest`. 8 mutations, each caught by a named test.
 
+**Squashing, fixing up and rewording a branch's commits (fork-only, upstream issue 73, 2026-10-23,
+`docs/fork/squash-and-rebase.md`, `domain/rewrite/`, `data/git/rewrite/`):** part A of the plan, quick actions that
+rebuild a branch's commits from git's own trees, so nothing is replayed, nothing stops at conflicts, and the working
+tree stays as it is. Part B, a plan-first editor that replaces upstream's interactive rebase list, has its own plan to
+come. Chosen with the user from a working mockup (Claude Design, "Leaf squash and interactive rebase"): A then B,
+Shift-click for a range, newest first, onto the latest main, and every new message edited before anything is applied.
+- **The items** (`ui/context_menu/RewriteContextMenu.kt`, `CommitRewrite`, given to the log as `LocalCommitRewrite`): a
+  commit row has "Edit message…", "Squash into parent…" and "Fixup into parent" before Checkout; a Shift range's menu
+  (`SelectedCommitsMenu`) "Squash N commits…" first; a local branch's (side panel, log chip, worktree row) "Squash branch
+  into one commit…" in a group of its own. "Fixup into parent" runs at once, keeping the parent's message, with Undo.
+  - An item that can't be used stays in the menu, faded, with why at its right (`rewriteRefusalText`): "On main", "Its
+    parent is on main", "Includes a merge", "Not one after another", "On 2 branches", "In a rebase". A small change to
+    upstream's `ContextMenu.kt`: `ContextTextEntry.isEnabled`, which `TextEntry` fades (45%) and doesn't click.
+- **What the menus read** (`BranchLines`, `BranchLine`, `domain/rewrite/`; `GetBranchLinesGitAction`): every local
+  branch's own commits, refreshed with the branch counts (`RepositoryDataRepository.branchLines`, after ALL, a ref change
+  or LOG). One `RevWalk`: a branch's own commits are those that its base (`WorktreeBaseBranch.effective`) doesn't reach,
+  and its line is the first-parent chain among them, newest first, up to `MAX_LINE_COMMITS` (2,000; past it the line's
+  oldest commits can't be joined, `TooManyCommits`). `pushed` is the line's commits that its upstream has. A commit on
+  several lines is the current branch's (a branch made at another's commit shares its line), or refused. A worktree in
+  the middle of a merge, rebase, cherry-pick, revert, bisect or `git am` with the branch disables them
+  (`RepositoryOpenViewModel.rewriteBusyWith`), and the engine refuses it too (`branchPlace`).
+- **The engine** (`RewriteBranchGitAction`, `BranchRewrite`, `RewriteGroup`, `BranchRewriteResult`): each new commit is
+  `git commit-tree <tree of the group's newest commit> -p <new parent> -F -`, with the author, email and date of the
+  group's oldest commit (`GIT_AUTHOR_*`), git's committer and `-S` when `commit.gpgSign` says so (`commit-tree` ignores
+  it), through `GitCliRemoteCommand` (ssh-keygen's passphrase dialog, Cancel). The commits after the groups are made again
+  with their own trees, messages, authors and other parents. A commit made again keeps its message's bytes and its
+  `encoding` header (`-c i18n.commitEncoding`), where `git rebase` makes UTF-8 of them. A new message is cleaned as
+  `git commit` cleans an edited one (`cleanCommitMessage`).
+  - Then one `git update-ref -m "squash: <subject>" <branch> <new> <old>`, which refuses a branch that moved
+    (`BranchMoved`), run in the worktree that has the branch checked out (`BranchPlace`), or in the tab's: git then writes
+    that worktree's HEAD reflog too, as after `git rebase`. Then `git hook run --ignore-missing --to-stdin=<list>
+    post-rewrite -- rebase`, with what `git rebase -i` gives for the same todo.
+  - Refused before anything moves: a commit not on the branch's line (`NotOnLine`), a group that joins a merge
+    (`JoinsMerge`), a merge after the rewritten commits whose other parent has them, from a branch that started on this
+    one, which would bring the old commits back (`MergedAgain`), an empty message.
+- **The dialog** (`ui/dialogs/RewriteCommitsDialog.kt`, `Screen.RewriteCommits`): the commits newest first, the message
+  focused with the caret after its subject, "Start from" for a squash (`SquashMessageStart`: "Subjects as a list", the
+  default, starts from the first subject that says something, not `wip`, `fixup!` or `squash!`, with a list of the
+  others; "All messages"; "Oldest message"), and the pushed commits that a force push has to replace ("3 commits that
+  this rewrites are on origin/x…", the range's and every commit after it). ⌘↵ confirms. Disabled while git's clean-up
+  leaves the message empty, and while a reword's message, as the clean-up reads it, is the commit's own: it would only
+  make new commits.
+  - The message field is the dialog's own (`MessageField`), with the outlined fields' look: the shared
+    `AdjustableOutlinedTextField` centres one line in its border. Its request for the focus comes after the field, inside
+    the dialog: one before `IconBasedDialog` lost to `MaterialDialog`'s own.
+- **The strip and Undo** (`ui/RewriteStrip.kt`, `repositoryopen/RewriteNotice.kt`; `TaskType.RewriteBranch` and
+  `UndoBranchRewrite`, no toast): "Squashed 2 commits into one on claude/parser-cache." in the `successStrip` style under
+  the toolbar, with "origin/x still has the old commits…" and "Push with force…" (the force push's confirmation, for the
+  tab's own branch) when pushed commits changed, Undo and ×. It stays until closed or the next rewrite. The log selects
+  the commit that the rewrite made once the refresh has it (`selectOnceLogged`), and after Undo the old tip. Undo
+  (`UndoBranchRewriteGitAction`) is the `update-ref` back, expecting the new tip; then "Undone: x is back at 223cba0.".
+- **On top of the latest main** (A4; `OntoBase`, `OntoBaseCheck`, `GetOntoBaseCheckGitAction`, `data/git/rewrite/OntoBase.kt`):
+  "Squash branch into one commit…" has "On top of the latest main · 001cd3e, 1 new commit", checked when the dialog opens
+  with `git merge-tree --write-tree --name-only --no-messages <base tip> <branch>` (git 2.38 and later): checked when
+  clean, off and disabled with "Conflicts with main in parser.kt" or "Your changes to NOTES.md are in the way" (three
+  names, then "and N more"), not there when the branch has the base's tip, there's no base, or git is older. Squash waits
+  for the check. The one commit has the merge's tree and the checked base commit as its parent.
+  - A checked-out branch's files move with `git read-tree -m -u <old> <new>`, then the `update-ref`; when that's refused
+    the files go back the same way (`moveBranchWithFiles`). Probed on git 2.54: `reset --keep`, the plan's first choice,
+    refuses in the same cases but unstages every staged change, where `read-tree` keeps them staged. Undo moves back the
+    same way. The reflog says `squash onto main: <subject>`.
+  - **In the way** (`filesInTheWay`, in the dialog's check and again just before the move): tracked files that the move
+    changes and that have uncommitted changes, and anything on disk where it adds a file or a folder, untracked or
+    ignored. `read-tree` overwrites an ignored file there without a word, as git counts ignored files as expendable,
+    and it may be a local `.env`. Refusals at run time are `ConflictsWithBase` and `ChangesInTheWay`, in `ErrorDialog`.
+- **Not done** (part B): dropping, moving and editing commits, which replay with `git rebase -i` and can stop; the
+  interactive rebase list is still upstream's.
+- Tests: `BranchLineTest`, `BranchLinesTest`, `SquashMessageTest` (domain); `RewriteBranchGitActionTest` (a squash, a fixup
+  and a reword give commit for commit what `git rebase -i` gives for the same todo with the same committer date, in a
+  twin repository; `post-rewrite`, the three places a branch can be, the refusals, merges after the range, signing, a
+  message's bytes, Undo), `SquashOntoBaseTest` (the tree that `git rebase main` ends with, local changes kept or in the
+  way, an ignored file, conflicts, another worktree, Undo, the check), `GetBranchLinesGitActionTest`,
+  `RewritingBranchesTest` (a `TestTab`); `RewriteMenusTest`, `RewriteCommitsDialogTest`, `RewriteStripTest` (app). 47
+  mutations across A1 to A4 were each caught by a named test; one more survived, as the code it changed (a special case
+  for HEAD) wasn't needed, and that code went. The menus, the dialogs, the strip and Undo ran in the real
+  tab through the Dagger graph in a temporary harness, in both themes, against a branch pushed to a bare `origin`.
+
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
 `docs/fork/remote-operations.md`).
@@ -3307,6 +3384,10 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     frames, in 3 runs of 4 (2026-10-22, the branch selection), though the state was right. Read what a test needs from
     semantics instead: `SideMenuSubentry` says `selected`, so `BranchSelectionRowsTest` asks for that. Pixels are only for
     the PNGs.
+  - An offscreen scene runs effects inline, so the log's scroll to a selected commit (upstream's `scrollToCommit`, a
+    `LaunchedEffect` that calls `scrollToItem`) throws "pending composition has not been applied" and freezes the scene
+    while its state goes on (found 2026-10-23). Give the scene a real dispatcher: `ImageComposeScene(…,
+    coroutineContext = Dispatchers.Swing)`.
   - `ImageComposeScene.render()` has a fixed clock by default (`nanoTime = 0`), so animations never advance: a state
     change shows in the semantics at once, but the screenshot keeps the old pixels of an `AnimatedVisibility` or a
     check box. Pass `System.nanoTime()` and let a dozen frames run with a `delay` between them before encoding the
@@ -3724,6 +3805,23 @@ a mockup; "Copy file path" was left out, as it is the same for every row.
 - `GetFileDiffBetweenCommitsGitAction`: the path in both commits' trees (`TreeWalk`, `PathFilter`, `DiffEntry.scan`), as
   `git diff A B -- <path>`; null for the same version. Reads no blob.
 - Tests: `GetFileDiffBetweenCommitsGitActionTest`, `FileHistoryCommitsTest`, `HistoryViewModelTest`, `FileHistoryTest`.
+
+**A range of commits in the log (fork-only, 2026-10-23, step A2 of `docs/fork/squash-and-rebase.md`,
+`domain/log/LogSelection.kt`, `repositoryopen/LogSelectionController.kt`, `ui/SelectedCommitsPane.kt`):** Shift-click
+takes the rows between the selected commit and the click, and Shift+↑↓ moves the far end (the lead). ⌘-click
+(Ctrl-click) stays the comparison's; with both keys held, Shift wins.
+- `LogSelection` holds the anchor and the lead; the rows between come from the log as it is, so any rows can be in it,
+  and which of them a rewrite can join is decided when the menu opens. While there's a range, the log's selection is the
+  anchor, as a commit; a range from a branch or tag picked in the side panel starts from its commit.
+- Anything else selected (a plain click, the side panel, ⌘-click, the uncommitted changes) ends it, as do Esc
+  (`CloseableView.LOG_SELECTION`), the pane's ×, and a refresh that loses either end. The arrows without Shift move on
+  from the lead. Shift-click from the uncommitted changes, or with nothing selected, is a click.
+- The rows are drawn selected (`LocalSelectedCommits`). The right pane shows `SelectedCommitsPane` ("4 commits selected",
+  their subjects and hashes), which closes the commit's diff. The menu on a selected row is the range's: "Squash N
+  commits…", "Copy N commit hashes" (newest first) and "Clear selection".
+- The controller's collectors read the log's current rows and selection, not the ones they were given: a value that a
+  `StateFlow` conflated left a stale range (found by a 200-round stress test, `LogSelectionControllerTest`).
+- Tests: `LogSelectionTest` (domain), `LogSelectionControllerTest`, `LogSelectionRowsTest`, `SelectedCommitsPaneTest`.
 
 **Log keyboard (fork-only, 2026-10-20, `ui/log/LogKeyboard.kt`, `domain/log/LogNavigation.kt`):** the log's rows take
 Up, Down, Page Up, Page Down, Home and End. Left and Right do nothing (decided with the user).

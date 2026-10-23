@@ -2,6 +2,34 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Squash, fix up and reword a branch's commits, also onto the latest main (upstream issue 73, 2026-10-23)
+
+- **Request:** tidy a feature branch's commits in Leaf, such as an agent's branch of small `wip` commits, without
+  finding where it left main or fearing a rebase. Leaf had only upstream's interactive rebase, which starts before its
+  list is edited. Planned with the user from a working mockup (Claude Design, "Leaf squash and interactive rebase"): part
+  A of `docs/fork/squash-and-rebase.md`. Part B, an editor that plans first, comes next.
+- **A range in the log:** Shift-click a second row, or Shift+↑↓, selects the rows between. The right pane lists them,
+  and their menu copies their hashes. ⌘-click (Ctrl-click) still compares.
+- **The items:** a commit's menu has "Edit message…", "Squash into parent…" and "Fixup into parent"; a range's menu
+  "Squash N commits…"; a local branch's, in the side panel, on its log label and in a worktree's menu, "Squash branch
+  into one commit…". An item that can't be used is there, faded, with why: "On main", "Its parent is on main", "Includes
+  a merge", "Not one after another", "In a rebase".
+- **Nothing is replayed:** Leaf makes the new commits from the trees the branch already has, with git (identity, signing,
+  `post-rewrite` as after `git rebase`), so it never stops at conflicts, and the working tree and uncommitted changes
+  stay as they are. A branch checked out in an agent's worktree can be tidied from any tab. A branch that moved meanwhile
+  is refused, changing nothing.
+- **The message first:** squashing and rewording open a dialog with the commits and the message, focused after its
+  subject. A squash starts from the first subject that says something (not `wip` or `fixup!`) with a list of the
+  others; "Start from" switches to all the messages or the oldest one. It says how many pushed commits a force push will
+  have to replace. Fixup into parent runs at once, with the parent's message.
+- **On top of the latest main:** "Squash branch into one commit…" can put the one commit on main's newest commit. Leaf
+  checks the merge when the dialog opens: the box is checked when it's clean, and off with the files when they conflict
+  or uncommitted changes are in their way, an ignored file included (git would overwrite it). A checked-out branch's
+  files take main's changes and keep every other uncommitted change, staged ones staged.
+- **Undo:** a strip under the toolbar says what was done, with Undo, which puts the branch (and its files) back, and
+  "Push with force…" when pushed commits changed. It stays until closed.
+- Details: CLAUDE.md, "Squashing, fixing up and rewording a branch's commits" and "A range of commits in the log".
+
 ## Deleting branches: their copies on origin, after a Stop, and without git (follows upstream issue 116, 2026-10-23)
 
 - **Request:** the three follow-ups left after deleting a remote's branches, explored with the user and built as
