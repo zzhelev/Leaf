@@ -51,4 +51,43 @@ fun saysNothing(subject: String): Boolean {
     return text.isEmpty() || text.equals("wip", ignoreCase = true) || AUTOSQUASH_PREFIXES.any { text.startsWith(it) }
 }
 
+/**
+ * The commit of [older] (oldest first) that [commit]'s subject names, as `git rebase --autosquash` finds it (the
+ * sequencer's `todo_list_rearrange_squash`), or null when it names none of them or isn't such a subject. Past `fixup! `,
+ * `squash! ` and `amend! `, repeated too, it is the oldest commit with that subject, else the commit whose hash starts
+ * with it, else the oldest whose subject starts with it.
+ */
+fun autosquashTarget(commit: Commit, older: List<Commit>): Commit? {
+    val named = namedSubject(gitSubject(commit.message)) ?: return null
+
+    return older.firstOrNull { gitSubject(it.message) == named }
+        ?: older.firstOrNull { isHashPrefix(named) && it.hash.startsWith(named, ignoreCase = true) }
+        ?: older.firstOrNull { gitSubject(it.message).startsWith(named) }
+}
+
+/** Whether [commit]'s subject names [candidate] by its whole subject, the first way `git rebase --autosquash` matches. */
+fun namesBySubject(commit: Commit, candidate: Commit): Boolean =
+    namedSubject(gitSubject(commit.message)) == gitSubject(candidate.message)
+
+/** What follows the autosquash prefixes of [subject], or null when it has none. */
+private fun namedSubject(subject: String): String? {
+    var rest = subject.takeIf { s -> AUTOSQUASH_PREFIXES.any { s.startsWith(it) } } ?: return null
+
+    while (true) {
+        rest = rest.trimStart()
+        rest = AUTOSQUASH_PREFIXES.firstOrNull { rest.startsWith(it) }?.let { rest.removePrefix(it) } ?: return rest
+    }
+}
+
+/** Whether [text] can be an abbreviated hash, which git reads from 4 hex digits on. */
+private fun isHashPrefix(text: String) = text.length in 4..64 && text.all { it in '0'..'9' || it.lowercaseChar() in 'a'..'f' }
+
+/** A message's subject as git's `%s` gives it: the first paragraph's lines, without their trailing white space, joined. */
+private fun gitSubject(message: String): String = message.replace("\r\n", "\n")
+    .trimStart('\n')
+    .lineSequence()
+    .map { it.trimEnd() }
+    .takeWhile { it.isNotEmpty() }
+    .joinToString(" ")
+
 private fun messageOf(commit: Commit) = commit.message.replace("\r\n", "\n").trim()

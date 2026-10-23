@@ -63,6 +63,12 @@ sealed interface RewriteRefusal {
 
     /** The branch has more commits of its own than Leaf reads. */
     data object TooManyCommits : RewriteRefusal
+
+    /**
+     * The commit's subject (`fixup! …`) names [named], another commit than its parent: a fixup into the parent would put
+     * the fix in the wrong commit.
+     */
+    data class NamesAnotherCommit(val named: Commit) : RewriteRefusal
 }
 
 /** Commits of a branch's line that one action joins or rewords, oldest first. */
@@ -106,7 +112,7 @@ fun BranchLine.commitToReword(hash: String): Either<LineRange, RewriteRefusal> {
     return Either.Ok(LineRange(this, listOf(commit)))
 }
 
-/** The commit [hash] and its parent, to squash it or fix it up into the parent. */
+/** The commit [hash] and its parent, to squash it into the parent. */
 fun BranchLine.commitWithParent(hash: String): Either<LineRange, RewriteRefusal> {
     val index = commits.indexOfFirst { it.hash == hash }
 
@@ -114,6 +120,25 @@ fun BranchLine.commitWithParent(hash: String): Either<LineRange, RewriteRefusal>
         -1 -> Either.Err(RewriteRefusal.NotOnLine(hash))
         commits.lastIndex -> Either.Err(if (isTruncated) RewriteRefusal.TooManyCommits else RewriteRefusal.FirstCommit)
         else -> joined(listOf(commits[index + 1], commits[index]))
+    }
+}
+
+/**
+ * The commit [hash] and its parent, to fix it up into the parent. Refused when [hash]'s subject is one that
+ * `git commit --fixup` makes and names another of the line's commits than the parent ([autosquashTarget]): Leaf doesn't
+ * move commits, so the fix would go into the wrong one. A parent with the subject named is named, even where an older
+ * commit has it too.
+ */
+fun BranchLine.commitToFixUp(hash: String): Either<LineRange, RewriteRefusal> {
+    val range = commitWithParent(hash)
+    val (parent, commit) = (range as? Either.Ok)?.value?.commits ?: return range
+    val older = commits.subList(commits.indexOf(commit) + 1, commits.size).reversed()
+    val named = autosquashTarget(commit, older)
+
+    return if (named == null || named.hash == parent.hash || namesBySubject(commit, parent)) {
+        range
+    } else {
+        Either.Err(RewriteRefusal.NamesAnotherCommit(named))
     }
 }
 

@@ -431,6 +431,7 @@
     <string name="rewrite_refused_joins_merge">Includes a merge</string>
     <string name="rewrite_refused_one_commit">One commit already</string>
     <string name="rewrite_refused_too_many">Too many commits</string>
+    <string name="rewrite_refused_names_another_commit">Names “%1$s”</string>
     <string name="rewrite_refused_merging">In a merge</string>
     <string name="rewrite_refused_cherry_picking">In a cherry-pick</string>
     <string name="rewrite_refused_reverting">In a revert</string>

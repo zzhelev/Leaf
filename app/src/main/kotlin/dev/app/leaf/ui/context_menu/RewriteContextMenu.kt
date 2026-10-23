@@ -51,7 +51,7 @@ class CommitRewrite(
         addChoice({ stringResource(Res.string.rewrite_menu_squash_into_parent) }, Res.drawable.align_top, choices.intoParent) {
             onOpen(RewriteRequest(RewriteDialogKind.SQUASH, it))
         }
-        addChoice({ stringResource(Res.string.rewrite_menu_fixup_into_parent) }, Res.drawable.align_top, choices.intoParent) {
+        addChoice({ stringResource(Res.string.rewrite_menu_fixup_into_parent) }, Res.drawable.align_top, choices.fixup) {
             onFixup(it)
         }
     }
@@ -162,6 +162,9 @@ fun rewriteRefusalText(refusal: RewriteRefusal, base: String?, isRange: Boolean)
     is RewriteRefusal.JoinsMerge -> stringResource(Res.string.rewrite_refused_joins_merge)
     RewriteRefusal.OneCommit -> stringResource(Res.string.rewrite_refused_one_commit)
     RewriteRefusal.TooManyCommits -> stringResource(Res.string.rewrite_refused_too_many)
+    is RewriteRefusal.NamesAnotherCommit ->
+        stringResource(Res.string.rewrite_refused_names_another_commit, namedSubject(refusal.named.shortMessage))
+
     is RewriteRefusal.Busy -> stringResource(
         when (refusal.operation) {
             BranchOperation.MERGE -> Res.string.rewrite_refused_merging
@@ -172,6 +175,23 @@ fun rewriteRefusalText(refusal: RewriteRefusal, base: String?, isRange: Boolean)
             BranchOperation.APPLY_PATCHES -> Res.string.rewrite_refused_applying_patches
         }
     )
+}
+
+/** How much of a commit's subject a reason shows, as the menu is narrow. */
+private const val NAMED_SUBJECT_LENGTH = 24
+
+/** [subject], cut after its last whole word within [NAMED_SUBJECT_LENGTH] characters when it's longer. */
+private fun namedSubject(subject: String): String {
+    val text = subject.trim()
+
+    if (text.length <= NAMED_SUBJECT_LENGTH) {
+        return text
+    }
+
+    val cut = text.take(NAMED_SUBJECT_LENGTH)
+    val wordEnd = cut.lastIndexOf(' ').takeIf { it >= NAMED_SUBJECT_LENGTH / 2 } ?: cut.length
+
+    return cut.take(wordEnd).trimEnd() + "…"
 }
 
 /**

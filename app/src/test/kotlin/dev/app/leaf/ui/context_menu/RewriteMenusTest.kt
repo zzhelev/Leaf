@@ -13,6 +13,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.errors.BranchOperation
+import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.rewrite.LineRange
 import dev.app.leaf.domain.rewrite.RewriteDialogKind
 import dev.app.leaf.domain.rewrite.RewriteRequest
@@ -95,6 +97,30 @@ class RewriteMenusTest {
             assertEquals(3, shown.size, why)
             assertTrue(shown.all { !it.isEnabled && it.hint == why }, shown.toString())
         }
+    }
+
+    @Test
+    fun `a fixup! commit that names another commit than its parent can be squashed, not fixed up`() {
+        fun itemsOn(named: Commit): List<Item> {
+            val fix = RewriteFixtures.commit("f1x0000", "fixup! ${named.shortMessage}", parent = cache.hash)
+            val line = RewriteFixtures.line().let { it.copy(commits = listOf(fix) + it.commits.map { c -> if (c == add) named else c }) }
+            val lines = BranchLines(base = MAIN, lines = mapOf(BRANCH to line), baseCommits = setOf(onMain.hash))
+
+            return items(CommitRewrite(lines, BRANCH, { null }, { opened += it }, { fixedUp += it }).commitItems(fix.hash))
+        }
+
+        assertEquals(
+            listOf(
+                Item("Edit message…", null, true),
+                Item("Squash into parent…", null, true),
+                Item("Fixup into parent", "Names “Add the parser”", false),
+            ),
+            itemsOn(add),
+        )
+        assertEquals(
+            Item("Fixup into parent", "Names “Add the parser for the…”", false),
+            itemsOn(add.copy(message = "Add the parser for the release notes")).last(),
+        )
     }
 
     @Test

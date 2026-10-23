@@ -70,7 +70,7 @@ class BranchLinesTest {
         val busy: (String) -> BranchOperation? = { if (it == "refs/heads/stacked") BranchOperation.REBASE else null }
         val refused = Either.Err(RewriteRefusal.Busy(BranchOperation.REBASE))
 
-        assertEquals(CommitRewriteChoices(refused, refused), lines.commitChoices("d", null, busy))
+        assertEquals(CommitRewriteChoices(refused, refused, refused), lines.commitChoices("d", null, busy))
         assertEquals(refused, lines.rangeChoice(listOf("d", "c"), null, busy))
         assertEquals(refused, lines.branchChoice("refs/heads/stacked", busy))
         assertEquals(listOf("a", "b", "c"), lines.branchChoice("refs/heads/feat", busy)?.ok()?.commits?.map { it.hash })

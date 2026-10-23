@@ -41,9 +41,9 @@ data class BranchLines(
     }
 
     /**
-     * What a commit row's items do with [commit]: "Edit message…" ([CommitRewriteChoices.reword]), and "Squash into
-     * parent…" and "Fixup into parent" ([CommitRewriteChoices.intoParent]). [busy] says what a worktree is in the
-     * middle of with a branch, which stops a rewrite of it.
+     * What a commit row's items do with [commit]: "Edit message…" ([CommitRewriteChoices.reword]), "Squash into
+     * parent…" ([CommitRewriteChoices.intoParent]) and "Fixup into parent" ([CommitRewriteChoices.fixup]). [busy] says
+     * what a worktree is in the middle of with a branch, which stops a rewrite of it.
      */
     fun commitChoices(
         commit: String,
@@ -51,11 +51,15 @@ data class BranchLines(
         busy: (branch: String) -> BranchOperation?,
     ): CommitRewriteChoices {
         val line = when (val holding = usableLine(listOf(commit), currentBranch, busy)) {
-            is Either.Err -> return CommitRewriteChoices(holding, holding)
+            is Either.Err -> return CommitRewriteChoices(holding, holding, holding)
             is Either.Ok -> holding.value
         }
 
-        return CommitRewriteChoices(reword = line.commitToReword(commit), intoParent = line.commitWithParent(commit))
+        return CommitRewriteChoices(
+            reword = line.commitToReword(commit),
+            intoParent = line.commitWithParent(commit),
+            fixup = line.commitToFixUp(commit),
+        )
     }
 
     /** What "Squash N commits…" does with [commits], selected in the log. */
@@ -88,10 +92,14 @@ data class BranchLines(
     }
 }
 
-/** What a commit row's rewrite items do: give it another message, and join it with its parent. */
+/**
+ * What a commit row's rewrite items do: give it another message, and join it with its parent, as a squash or as a fixup,
+ * which a `fixup!` subject that names another commit refuses.
+ */
 data class CommitRewriteChoices(
     val reword: Either<LineRange, RewriteRefusal>,
     val intoParent: Either<LineRange, RewriteRefusal>,
+    val fixup: Either<LineRange, RewriteRefusal>,
 )
 
 /** What the dialog of a rewrite does with its commits. */

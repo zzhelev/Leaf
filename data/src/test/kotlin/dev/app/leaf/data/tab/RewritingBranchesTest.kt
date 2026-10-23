@@ -123,7 +123,7 @@ class RewritingBranchesTest {
     fun `Undo puts the branch back, and the lines with it`(): Unit = runBlocking {
         val lines = open()
         val tip = git.run(repository, "rev-parse", "feat").trim()
-        val range = lines.commitChoices(tip, "refs/heads/feat") { null }.intoParent.ok()
+        val range = lines.commitChoices(tip, "refs/heads/feat") { null }.fixup.ok()
         val result = (tab.rewriteBranch(range.fixup()).await() as Either.Ok).value
 
         tab.awaitLoaded(tab.repositoryData.branchLines) { it.lines["refs/heads/feat"]?.commits?.size == 2 }
