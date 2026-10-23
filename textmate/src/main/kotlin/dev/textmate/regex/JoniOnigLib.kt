@@ -82,21 +82,34 @@ internal class JoniOnigScanner(
     }
 
     private fun compilePattern(pattern: String): Regex {
-        val patternBytes = pattern.toByteArray(Charsets.UTF_8)
         return try {
-            Regex(
-                patternBytes,
-                0,
-                patternBytes.size,
-                Option.CAPTURE_GROUP,
-                UTF8Encoding.INSTANCE,
-                Syntax.DEFAULT,
-                WarnCallback.NONE
-            )
+            compile(pattern)
         } catch (_: JOniException) {
-            onSentinel?.invoke(pattern)
-            NEVER_MATCH_REGEX
+            // Joni takes fewer look-behinds than the Oniguruma that grammars are written for: try them spread out.
+            val rewritten = LookbehindRewrite.rewrite(pattern) { compileOrNull(it) != null }?.let { compileOrNull(it) }
+            if (rewritten == null) onSentinel?.invoke(pattern)
+            rewritten ?: NEVER_MATCH_REGEX
         }
+    }
+
+    private fun compileOrNull(pattern: String): Regex? =
+        try {
+            compile(pattern)
+        } catch (_: JOniException) {
+            null
+        }
+
+    private fun compile(pattern: String): Regex {
+        val patternBytes = pattern.toByteArray(Charsets.UTF_8)
+        return Regex(
+            patternBytes,
+            0,
+            patternBytes.size,
+            Option.CAPTURE_GROUP,
+            UTF8Encoding.INSTANCE,
+            Syntax.DEFAULT,
+            WarnCallback.NONE
+        )
     }
 
     companion object {

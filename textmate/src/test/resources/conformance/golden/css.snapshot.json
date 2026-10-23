@@ -1,0 +1,1566 @@
+{
+  "grammar": "grammars/css.tmLanguage.json",
+  "generatedWith": "vscode-textmate@9.3.2",
+  "files": [
+    {
+      "source": "css/selectors.css",
+      "lines": [
+        {
+          "line": "/* Leaf's diff pane, as CSS */",
+          "tokens": [
+            {
+              "value": "/*",
+              "scopes": [
+                "source.css",
+                "comment.block.css",
+                "punctuation.definition.comment.begin.css"
+              ]
+            },
+            {
+              "value": " Leaf's diff pane, as CSS ",
+              "scopes": [
+                "source.css",
+                "comment.block.css"
+              ]
+            },
+            {
+              "value": "*/",
+              "scopes": [
+                "source.css",
+                "comment.block.css",
+                "punctuation.definition.comment.end.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": ":root { --accent: #1a69b5; --gap: 8px; }",
+          "tokens": [
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "root",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.begin.bracket.curly.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "--accent",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "variable.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "#",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.other.color.rgb-value.hex.css",
+                "punctuation.definition.constant.css"
+              ]
+            },
+            {
+              "value": "1a69b5",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.other.color.rgb-value.hex.css"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.terminator.rule.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "--gap",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "variable.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "8",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": "px",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css",
+                "keyword.other.unit.px.css"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.terminator.rule.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "}",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.end.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": ".diff-pane > .line.added, .line[data-kind=\"added\"]::before {",
+          "tokens": [
+            {
+              "value": ".",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "diff-pane",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": ">",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "keyword.operator.combinator.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "line",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "added",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "line",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css"
+              ]
+            },
+            {
+              "value": "[",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "meta.attribute-selector.css",
+                "punctuation.definition.entity.begin.bracket.square.css"
+              ]
+            },
+            {
+              "value": "data-kind",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "meta.attribute-selector.css",
+                "entity.other.attribute-name.css"
+              ]
+            },
+            {
+              "value": "=",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "meta.attribute-selector.css",
+                "keyword.operator.pattern.css"
+              ]
+            },
+            {
+              "value": "\"",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "meta.attribute-selector.css",
+                "string.quoted.double.css",
+                "punctuation.definition.string.begin.css"
+              ]
+            },
+            {
+              "value": "added",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "meta.attribute-selector.css",
+                "string.quoted.double.css"
+              ]
+            },
+            {
+              "value": "\"",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "meta.attribute-selector.css",
+                "string.quoted.double.css",
+                "punctuation.definition.string.end.css"
+              ]
+            },
+            {
+              "value": "]",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "meta.attribute-selector.css",
+                "punctuation.definition.entity.end.bracket.square.css"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-element.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "before",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-element.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.begin.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "  color: var(--accent);",
+          "tokens": [
+            {
+              "value": "  ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "color",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-name.css",
+                "support.type.property-name.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "var",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.variable.css",
+                "support.function.misc.css"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.variable.css",
+                "punctuation.section.function.begin.bracket.round.css"
+              ]
+            },
+            {
+              "value": "--accent",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.variable.css",
+                "variable.argument.css"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.variable.css",
+                "punctuation.section.function.end.bracket.round.css"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.terminator.rule.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "  margin: 0 calc(var(--gap) * 2);",
+          "tokens": [
+            {
+              "value": "  ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "margin",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-name.css",
+                "support.type.property-name.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "0",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css"
+              ]
+            },
+            {
+              "value": "calc",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "support.function.calc.css"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "punctuation.section.function.begin.bracket.round.css"
+              ]
+            },
+            {
+              "value": "var",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "meta.function.variable.css",
+                "support.function.misc.css"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "meta.function.variable.css",
+                "punctuation.section.function.begin.bracket.round.css"
+              ]
+            },
+            {
+              "value": "--gap",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "meta.function.variable.css",
+                "variable.argument.css"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "meta.function.variable.css",
+                "punctuation.section.function.end.bracket.round.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css"
+              ]
+            },
+            {
+              "value": "*",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "keyword.operator.arithmetic.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css"
+              ]
+            },
+            {
+              "value": "2",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.calc.css",
+                "punctuation.section.function.end.bracket.round.css"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.terminator.rule.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "}",
+          "tokens": [
+            {
+              "value": "}",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.end.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "@media (prefers-color-scheme: dark) {",
+          "tokens": [
+            {
+              "value": "@",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css",
+                "keyword.control.at-rule.media.css",
+                "punctuation.definition.keyword.css"
+              ]
+            },
+            {
+              "value": "media",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css",
+                "keyword.control.at-rule.media.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css",
+                "punctuation.definition.parameters.begin.bracket.round.css"
+              ]
+            },
+            {
+              "value": "prefers-color-scheme",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " dark",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.header.css",
+                "punctuation.definition.parameters.end.bracket.round.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "punctuation.section.media.begin.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "  body a:hover, nav ul li:first-child { background: rgba(0, 0, 0, 0.5) !important; }",
+          "tokens": [
+            {
+              "value": "  ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css"
+              ]
+            },
+            {
+              "value": "body",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": "a",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "hover",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": "nav",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": "ul",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": "li",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "first-child",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.begin.bracket.curly.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "background",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-name.css",
+                "support.type.property-name.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "rgba",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "support.function.misc.css"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "punctuation.section.function.begin.bracket.round.css"
+              ]
+            },
+            {
+              "value": "0",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css"
+              ]
+            },
+            {
+              "value": "0",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css"
+              ]
+            },
+            {
+              "value": "0",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css"
+              ]
+            },
+            {
+              "value": "0.5",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "meta.function.color.css",
+                "punctuation.section.function.end.bracket.round.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css"
+              ]
+            },
+            {
+              "value": "!important",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "keyword.other.important.css"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "punctuation.terminator.rule.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "}",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.end.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "}",
+          "tokens": [
+            {
+              "value": "}",
+              "scopes": [
+                "source.css",
+                "meta.at-rule.media.body.css",
+                "punctuation.section.media.end.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "header, image, label, span.title { font: 12px/1.5 \"Noto Sans\", sans-serif; }",
+          "tokens": [
+            {
+              "value": "header",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": "image",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": "label",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.selector.css"
+              ]
+            },
+            {
+              "value": "span",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "title",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.class.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.begin.bracket.curly.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "font",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-name.css",
+                "support.type.property-name.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "12",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": "px",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css",
+                "keyword.other.unit.px.css"
+              ]
+            },
+            {
+              "value": "/",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css"
+              ]
+            },
+            {
+              "value": "1.5",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css"
+              ]
+            },
+            {
+              "value": "\"",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "string.quoted.double.css",
+                "punctuation.definition.string.begin.css"
+              ]
+            },
+            {
+              "value": "Noto Sans",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "string.quoted.double.css"
+              ]
+            },
+            {
+              "value": "\"",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "string.quoted.double.css",
+                "punctuation.definition.string.end.css"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "punctuation.separator.list.comma.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css"
+              ]
+            },
+            {
+              "value": "sans-serif",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "support.constant.font-name.css"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.terminator.rule.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "}",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.end.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "input:focus-visible { outline: 2px solid red }",
+          "tokens": [
+            {
+              "value": "input",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.name.tag.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css",
+                "punctuation.definition.entity.css"
+              ]
+            },
+            {
+              "value": "focus-visible",
+              "scopes": [
+                "source.css",
+                "meta.selector.css",
+                "entity.other.attribute-name.pseudo-class.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.begin.bracket.curly.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "outline",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-name.css",
+                "support.type.property-name.css"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.separator.key-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "2",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css"
+              ]
+            },
+            {
+              "value": "px",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "constant.numeric.css",
+                "keyword.other.unit.px.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css"
+              ]
+            },
+            {
+              "value": "solid",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "support.constant.property-value.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css"
+              ]
+            },
+            {
+              "value": "red",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "meta.property-value.css",
+                "support.constant.color.w3c-standard-color-name.css"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css"
+              ]
+            },
+            {
+              "value": "}",
+              "scopes": [
+                "source.css",
+                "meta.property-list.css",
+                "punctuation.section.property-list.end.bracket.curly.css"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "",
+          "tokens": [
+            {
+              "value": "",
+              "scopes": [
+                "source.css"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

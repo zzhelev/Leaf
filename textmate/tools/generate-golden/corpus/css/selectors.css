@@ -1,0 +1,11 @@
+/* Leaf's diff pane, as CSS */
+:root { --accent: #1a69b5; --gap: 8px; }
+.diff-pane > .line.added, .line[data-kind="added"]::before {
+  color: var(--accent);
+  margin: 0 calc(var(--gap) * 2);
+}
+@media (prefers-color-scheme: dark) {
+  body a:hover, nav ul li:first-child { background: rgba(0, 0, 0, 0.5) !important; }
+}
+header, image, label, span.title { font: 12px/1.5 "Noto Sans", sans-serif; }
+input:focus-visible { outline: 2px solid red }

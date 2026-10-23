@@ -27,6 +27,11 @@ MIT-licensed.
 | `JavaScript.tmLanguage.json` | [microsoft/vscode](https://github.com/microsoft/vscode) (TypeScript-TmLanguage) | © Microsoft Corporation |
 | `markdown.tmLanguage.json` | [microsoft/vscode-markdown-tm-grammar](https://github.com/microsoft/vscode-markdown-tm-grammar) | © Microsoft Corporation |
 | `kotlin.tmLanguage.json` | [mathiasfrohlich/vscode-kotlin](https://github.com/mathiasfrohlich/vscode-kotlin) | © Mathias Fröhlich |
+| `shell-unix-bash.tmLanguage.json` | [microsoft/vscode](https://github.com/microsoft/vscode) (`extensions/shellscript/syntaxes/`, `9473445f`) | © Microsoft Corporation |
+| `css.tmLanguage.json` | [microsoft/vscode](https://github.com/microsoft/vscode) (`extensions/css/syntaxes/`, `af600487`) | © Microsoft Corporation |
+| `rust.tmLanguage.json` | [microsoft/vscode](https://github.com/microsoft/vscode) (`extensions/rust/syntaxes/`, `af600487`) | © Microsoft Corporation |
+
+The last three are as shiki's `tm-grammars` 1.32.22 publishes them.
 
 The fixtures in `src/test/resources/conformance/first-mate/` come from
 [atom/first-mate](https://github.com/atom/first-mate), MIT-licensed, © GitHub Inc., through vscode-textmate's tests.

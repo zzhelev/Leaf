@@ -1,0 +1,1359 @@
+{
+  "grammar": "grammars/rust.tmLanguage.json",
+  "generatedWith": "vscode-textmate@9.3.2",
+  "files": [
+    {
+      "source": "rust/paths.rs",
+      "lines": [
+        {
+          "line": "use std::collections::HashMap;",
+          "tokens": [
+            {
+              "value": "use",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust"
+              ]
+            },
+            {
+              "value": "std",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "entity.name.namespace.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "collections",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "entity.name.namespace.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "HashMap",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "use super::config::{self, Config};",
+          "tokens": [
+            {
+              "value": "use",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust"
+              ]
+            },
+            {
+              "value": "super",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "variable.language.super.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "config",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "entity.name.namespace.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            },
+            {
+              "value": "self",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "variable.language.self.rust"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "punctuation.comma.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust"
+              ]
+            },
+            {
+              "value": "Config",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": "}",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "use self::inner::Helper;",
+          "tokens": [
+            {
+              "value": "use",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust"
+              ]
+            },
+            {
+              "value": "self",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "variable.language.self.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "inner",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "entity.name.namespace.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "Helper",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "meta.use.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "",
+          "tokens": [
+            {
+              "value": "",
+              "scopes": [
+                "source.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "mod inner {",
+          "tokens": [
+            {
+              "value": "mod",
+              "scopes": [
+                "source.rust",
+                "storage.type.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "inner",
+              "scopes": [
+                "source.rust",
+                "entity.name.module.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "    pub struct Helper;",
+          "tokens": [
+            {
+              "value": "    ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "pub",
+              "scopes": [
+                "source.rust",
+                "storage.modifier.visibility.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "struct",
+              "scopes": [
+                "source.rust",
+                "keyword.declaration.struct.rust",
+                "storage.type.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "Helper",
+              "scopes": [
+                "source.rust",
+                "entity.name.type.struct.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "}",
+          "tokens": [
+            {
+              "value": "}",
+              "scopes": [
+                "source.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "",
+          "tokens": [
+            {
+              "value": "",
+              "scopes": [
+                "source.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "pub fn load(path: &str) -> Result<HashMap<String, u32>, std::io::Error> {",
+          "tokens": [
+            {
+              "value": "pub",
+              "scopes": [
+                "source.rust",
+                "storage.modifier.visibility.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "fn",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "keyword.other.fn.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust"
+              ]
+            },
+            {
+              "value": "load",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": "path",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": ":",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "keyword.operator.key-value.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust"
+              ]
+            },
+            {
+              "value": "&",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "keyword.operator.borrow.and.rust"
+              ]
+            },
+            {
+              "value": "str",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "entity.name.type.primitive.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust"
+              ]
+            },
+            {
+              "value": "->",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "keyword.operator.arrow.skinny.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust"
+              ]
+            },
+            {
+              "value": "Result",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": "<",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.brackets.angle.rust"
+              ]
+            },
+            {
+              "value": "HashMap",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": "<",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.brackets.angle.rust"
+              ]
+            },
+            {
+              "value": "String",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.comma.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust"
+              ]
+            },
+            {
+              "value": "u32",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "entity.name.type.numeric.rust"
+              ]
+            },
+            {
+              "value": ">",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.brackets.angle.rust"
+              ]
+            },
+            {
+              "value": ",",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.comma.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust"
+              ]
+            },
+            {
+              "value": "std",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "io",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "Error",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": ">",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.brackets.angle.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.rust",
+                "meta.function.definition.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "    let text = std::fs::read_to_string(path)?;",
+          "tokens": [
+            {
+              "value": "    ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "let",
+              "scopes": [
+                "source.rust",
+                "keyword.other.rust",
+                "storage.type.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "text",
+              "scopes": [
+                "source.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "=",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.assignment.equal.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "std",
+              "scopes": [
+                "source.rust",
+                "entity.name.namespace.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "fs",
+              "scopes": [
+                "source.rust",
+                "entity.name.namespace.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "read_to_string",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": "path",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": "?",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.question.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "    let mut counts = HashMap::new();",
+          "tokens": [
+            {
+              "value": "    ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "let",
+              "scopes": [
+                "source.rust",
+                "keyword.other.rust",
+                "storage.type.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "mut",
+              "scopes": [
+                "source.rust",
+                "storage.modifier.mut.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "counts",
+              "scopes": [
+                "source.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "=",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.assignment.equal.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "HashMap",
+              "scopes": [
+                "source.rust",
+                "entity.name.type.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "new",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "    for word in text.split_whitespace() {",
+          "tokens": [
+            {
+              "value": "    ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "for",
+              "scopes": [
+                "source.rust",
+                "keyword.control.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "word",
+              "scopes": [
+                "source.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "in",
+              "scopes": [
+                "source.rust",
+                "keyword.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "text",
+              "scopes": [
+                "source.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.access.dot.rust"
+              ]
+            },
+            {
+              "value": "split_whitespace",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "{",
+              "scopes": [
+                "source.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "        *counts.entry(word.to_string()).or_insert(0) += 1;",
+          "tokens": [
+            {
+              "value": "        ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "*",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.dereference.rust"
+              ]
+            },
+            {
+              "value": "counts",
+              "scopes": [
+                "source.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.access.dot.rust"
+              ]
+            },
+            {
+              "value": "entry",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": "word",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "keyword.operator.access.dot.rust"
+              ]
+            },
+            {
+              "value": "to_string",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "meta.function.call.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": ".",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.access.dot.rust"
+              ]
+            },
+            {
+              "value": "or_insert",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": "0",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "constant.numeric.decimal.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "+=",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.assignment.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "1",
+              "scopes": [
+                "source.rust",
+                "constant.numeric.decimal.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "    }",
+          "tokens": [
+            {
+              "value": "    ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "}",
+              "scopes": [
+                "source.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "    let _ = super::helper(&config::DEFAULT);",
+          "tokens": [
+            {
+              "value": "    ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "let",
+              "scopes": [
+                "source.rust",
+                "keyword.other.rust",
+                "storage.type.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "_",
+              "scopes": [
+                "source.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "=",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.assignment.equal.rust"
+              ]
+            },
+            {
+              "value": " ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "super",
+              "scopes": [
+                "source.rust",
+                "variable.language.super.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "helper",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "entity.name.function.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": "&",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "keyword.operator.borrow.and.rust"
+              ]
+            },
+            {
+              "value": "config",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "entity.name.namespace.rust"
+              ]
+            },
+            {
+              "value": "::",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "keyword.operator.namespace.rust"
+              ]
+            },
+            {
+              "value": "DEFAULT",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "constant.other.caps.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "meta.function.call.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": ";",
+              "scopes": [
+                "source.rust",
+                "punctuation.semi.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "    Ok(counts)",
+          "tokens": [
+            {
+              "value": "    ",
+              "scopes": [
+                "source.rust"
+              ]
+            },
+            {
+              "value": "Ok",
+              "scopes": [
+                "source.rust",
+                "entity.name.type.result.rust"
+              ]
+            },
+            {
+              "value": "(",
+              "scopes": [
+                "source.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            },
+            {
+              "value": "counts",
+              "scopes": [
+                "source.rust",
+                "variable.other.rust"
+              ]
+            },
+            {
+              "value": ")",
+              "scopes": [
+                "source.rust",
+                "punctuation.brackets.round.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "}",
+          "tokens": [
+            {
+              "value": "}",
+              "scopes": [
+                "source.rust",
+                "punctuation.brackets.curly.rust"
+              ]
+            }
+          ]
+        },
+        {
+          "line": "",
+          "tokens": [
+            {
+              "value": "",
+              "scopes": [
+                "source.rust"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
