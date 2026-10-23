@@ -155,6 +155,8 @@ in October 2026. It combines code under three licenses:
 - **The `textmate` module** is a copy of [kotlin-textmate](https://github.com/ivan-magda/kotlin-textmate)'s engine,
   a port of Microsoft's vscode-textmate, and stays under their [MIT License](textmate/LICENSE), with the notices in
   [textmate/THIRD-PARTY-NOTICES.md](textmate/THIRD-PARTY-NOTICES.md). Leaf's changes to it are under the same license.
+  The TextMate grammars that it ships keep their own licenses (MIT, Apache-2.0, BSD-3-Clause, MPL-2.0 and TextMate's
+  bundle license), listed in [textmate/GRAMMARS.md](textmate/GRAMMARS.md).
 
 As section 13 of the GPL v3 allows, Leaf as a whole is distributed as a combined work, and the network interaction
 requirements of section 13 of the AGPL v3 apply to that combination. In short, if you modify Leaf and let other people

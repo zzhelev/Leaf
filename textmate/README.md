@@ -7,6 +7,10 @@ each line into tokens with their scopes. It is a copy of the `core` module of
 expressions run on Joni, the Java port of Oniguruma, so there is no native code. Why this engine is in
 `docs/fork/syntax-highlighting.md`.
 
+The module also ships the grammars that Leaf colours with, 82 of shiki's, in `src/main/resources/grammars/`
+([GRAMMARS.md](GRAMMARS.md) lists them and their licences), and Leaf's `ShippedGrammars` (`dev.app.leaf.textmate`)
+loads them, with the grammars that inject into them.
+
 | | |
 |---|---|
 | Copied from | kotlin-textmate 0.3.0, commit `a500bc7a`, `core/src/` |

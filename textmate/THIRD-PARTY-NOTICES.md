@@ -16,6 +16,11 @@ translations of the original TypeScript.
 >
 > Licensed under the MIT License.
 
+## Grammars that Leaf ships (`src/main/resources/grammars/`)
+
+Their licences are in that folder's `NOTICE`, which goes into the jar with them. [GRAMMARS.md](GRAMMARS.md) lists
+each grammar's source, commit and licence.
+
 ## Grammars used by the tests (`src/test/resources/grammars/`)
 
 These TextMate grammar files are redistributed unmodified except for JSONC-to-JSON normalization. All are
