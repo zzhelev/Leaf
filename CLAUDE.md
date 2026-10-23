@@ -4044,20 +4044,23 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
       which its tests check.
   - **Roles, not colours** (`StyleColors`, provided as `LocalStyleColors`, read as `MaterialTheme.styleColors`):
     `mainAction` (Commit, Merge, Continue, `PrimaryButton`, `ConfirmationButton`; filled in every look), `action` (Stage
-    file, hunk, line and all; `SecondaryButton`'s default), `neutral` (Unstage file, hunk, line and all; red in
-    Classic), `destructive` (Discard hunk and line, Abort, `AbortButton`), `warningStrip` (the operation banner,
-    `UnsupportedIndexBanner`, `WatchLimitNotice`, `DialogNotice`, the resolver's counter, and their `button`: Resolve
-    conflicts, Convert index…), `successStrip` (file history's restored strip and its Show changes) and `warningIcon` (a
-    conflicted file's icon in the lists, the log's summary and the resolver's file list, and the icons of `FinishHint`,
-    the subject hint and `AutostashNoticeDialog`). A `RoleColors` is a fill, a content colour and a 1 dp line inside the
-    edge (`roleBorder`); a full-width strip draws its line along the bottom (`bottomEdge`).
+    file, hunk, line and all, the bottom bar's update button; `SecondaryButton`'s default), `neutral` (Unstage file,
+    hunk, line and all; red in Classic), `destructive` (Discard hunk and line, Abort, `AbortButton`), `warningStrip`
+    (the operation banner, `UnsupportedIndexBanner`, `WatchLimitNotice`, `DialogNotice`, the resolver's counter, and
+    their `button`: Resolve conflicts, Convert index…), `successStrip` (file history's restored strip and its Show
+    changes) and `warningIcon` (a conflicted file's icon in the lists, the log's summary and the resolver's file list,
+    and the icons of `FinishHint`, the subject hint and `AutostashNoticeDialog`). A `RoleColors` is a fill, a content
+    colour and a 1 dp line inside the edge (`roleBorder`); a full-width strip draws its line along the bottom
+    (`bottomEdge`).
   - **Buttons take a role:** `SecondaryButton(colors = …)`, `SecondaryButtonCompactable` and `ActionInfo.colors`.
     `textColor` and `backgroundButton` default to the role's, and a caller that gives a fill of its own (the
-    `secondarySurface` of Use ours or the resolver's strip buttons) gets no line.
+    `secondarySurface` of Use ours or the resolver's strip buttons) gets no line. Such a caller gives the text colour
+    too: the bottom bar's update button gave only a fill of `primary`, under the action role's dark blue text, 1.35 : 1
+    in Tonal's light theme, until 2026-10-23 (`BottomInfoBarTest`).
   - **The looks' `primary`** (`ColorsScheme.styled`): in Tonal and Quiet it's the muted blue, #376AAA in light and
-    #3464A0 in dark, everywhere (toasts, switches, the tab's progress, the update button), and so is the light theme's
-    `primaryVariant` (links, the tab underline, focused fields). The dark theme's `primaryVariant` (#9FD1FF) stays: the
-    muted blue holds 3.2 : 1 on the dark background. The resolver's "ours" cells and legend use `primary` too.
+    #3464A0 in dark, everywhere (toasts, switches, the tab's progress), and so is the light theme's `primaryVariant`
+    (links, the tab underline, focused fields). The dark theme's `primaryVariant` (#9FD1FF) stays: the muted blue holds
+    3.2 : 1 on the dark background. The resolver's "ours" cells and legend use `primary` too.
   - **A line's buttons are opaque** (`LineActionButtons`): their fill is laid on the theme's background. Quiet's 8%
     white took the line's tint, on which dark Quiet's Discard icon held 2.9 : 1.
   - **Not set by a style** (`docs/fork/custom-styles.md`, Limits): about 20 colours written in the UI code (the light

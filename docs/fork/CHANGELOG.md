@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The update button can be read again (2026-10-23)
+
+- **Request:** a screenshot of the bottom bar, where "Update 1.4.0 available" couldn't be read.
+- **Cause:** since the Style setting (2026-10-22), a `SecondaryButton`'s text takes its role's colour, and the bar still
+  gave the button a fill of `primary`: the action role's dark blue on the muted blue, 1.35 : 1 in Tonal's light theme,
+  and under 4.5 : 1 in seven of the built-in styles' ten themes. Classic drew it as before, and Quiet's dark theme
+  white on blue.
+- **Fix:** the action role's tint and text, as Stage's buttons, 6 to 15 : 1. Classic is unchanged, and Quiet draws it as
+  a plain button, as it draws every button but the main action. Option B of three, chosen with the user from renders of
+  the bar in every style; the others were the main action's fill, a second filled button under Commit, and a link.
+- Tests: `BottomInfoBarTest` renders the bar in every built-in style and theme, and checks the button's fill and that
+  its text holds 4.5 : 1. Putting the fill of `primary` back, or giving the text the fill's colour, each failed it.
+
 ## Delete several of a remote's branches at once (follows upstream issue 116, 2026-10-23)
 
 - **Request:** the remote part of upstream issue 116, left out of the local one on 2026-10-22 and planned with the user
