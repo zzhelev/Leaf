@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Fetch all shows where the remote's branches are now (2026-10-23)
+
+- **Request:** a screenshot of the log after a pull request was merged on Bitbucket and Fetch all ran twice: the merge
+  commit was in the log, but `origin/develop`'s label was still on the commit before it, and the merged branch kept its
+  cloud mark, though the fetch had pruned its remote branch.
+- **Cause:** Fetch all, in the toolbar's Pull menu, refreshed only the log (upstream's code since its refresh rework of
+  2026-07-06, still on its `main`). The log walks from the refs on disk, so the new commit showed, but its labels and the
+  side panel's Remotes come from the remote branches, which nothing read again. The file watcher saw the refs change,
+  but it ignores changes during a task and for 1.5 s after, and the second fetch changed nothing. Fetch in a remote's own
+  menu refreshes everything, and showed them right.
+- **Fix:** Fetch all also refreshes the remote branches and the tags, as a fetch brings new tags too.
+- Tests: `FetchingAllRemotesTest` runs Fetch all in a tab whose remote merged a branch, deleted it and tagged the merge,
+  and compares the tab's remote branches with `git for-each-ref`, also when another remote fails to fetch. Putting the
+  log-only refresh back failed both.
+
 ## The update button can be read again (2026-10-23)
 
 - **Request:** a screenshot of the bottom bar, where "Update 1.4.0 available" couldn't be read.

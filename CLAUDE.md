@@ -1997,6 +1997,11 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
   one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
   dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
+  - Fetch all (the toolbar's Pull menu, `FetchAllBranchUseCase`) refreshes the remote branches, the tags and the log
+    (fork-only, 2026-10-23). Upstream's refreshes only the log, which walks from the refs on disk, so new commits
+    showed while their labels and the side panel's Remotes, which come from the remote branches, stayed where the
+    branches were before. The file watcher can't make up for it: it ignores changes during a task and for 1.5 s after.
+    Test: `FetchingAllRemotesTest`.
 - Pull runs `git pull` (`GitPullGitAction`) through `GitCliOperations.run`, as Merge runs `git merge`: git fetches,
   then merges or rebases with its own engine (ort, which follows renames), its messages (`Merge branch 'main' of
   <url>`, and ` into feat` off `main` and `master`), its hooks and git-lfs's filter. A rebase starts from the fork
