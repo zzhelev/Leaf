@@ -5,7 +5,7 @@
 | Question | How does Leaf replace upstream's interactive rebase list with an editor that plans first, says before Start what will happen, and only touches a worktree when it has to? |
 | Verified against | `main` at `1edc1471`; git 2.54 (probes on 2026-10-23, section 2) |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check) and B3 (the run without stops, main's unpushed commits) done. Next: B4 |
+| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check), B3 (the run without stops, main's unpushed commits) and B4 (the run with stops) done. Next: B5 |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -72,8 +72,8 @@ for uncommitted changes, and for each choice in section 3.
 5. **Hooks.** `git rebase -i` runs `pre-rebase`, then `prepare-commit-msg` and `post-commit` for each pick, and
    `post-rewrite` at the end; not `pre-commit` or `commit-msg`. Part A's engine runs only `post-rewrite`.
 6. **The user's rebase config.** `rebase.missingCommitsCheck=error` refuses a todo that leaves a commit out, and accepts
-   `drop` lines. `rebase.updateRefs=true` would add `update-ref` lines for other branches; `--no-update-refs` keeps
-   them out. `GIT_SEQUENCE_EDITOR="cp '<Leaf's todo>'"` replaces git's todo.
+   `drop` lines. `rebase.updateRefs=true` adds `update-ref` lines for other branches to git's todo, which Leaf's
+   replaces (B4: no flag is needed). `GIT_SEQUENCE_EDITOR="cp '<Leaf's todo>'"` replaces git's todo.
 7. **`--autosquash` and the messages.** `fixup!` becomes `fixup`, `squash!` becomes `squash` and `amend!` becomes
    `fixup -C`, each after the commit it names and the rows already joining it. `fixup -C` replaces the message with the
    `amend!` commit's, without its first paragraph; a `squash!` commit adds its message without its first paragraph.
@@ -187,15 +187,38 @@ As round 2, with these changes (round 3 of the mockup):
   (askpass for signing, Cancel):
   1. twins for the groups with new messages;
   2. the todo, full hashes: `pick`, `fixup`, `edit`, `drop` lines, from the commit after the last unchanged one;
-  3. `git rebase -i --empty=drop --reapply-cherry-picks --no-autosquash --no-update-refs --force-rebase [--autostash]
-     [--onto <base commit>] <upstream>`, with `GIT_SEQUENCE_EDITOR` copying the todo and `GIT_EDITOR=:`.
+  3. `git rebase -i --empty=drop --force-rebase --autostash|--no-autostash --onto <onto> <upstream> <branch>`, with
+     `GIT_SEQUENCE_EDITOR` copying the todo and `GIT_EDITOR=:`.
      `--force-rebase` makes every replayed commit again, so it's signed as git's config says (a twin isn't);
   4. `rebase-merge/leaf-plan`: the plan and each twin's original, so the banner, the resolver's labels and the Skip
      dialog name the commits that the user knows, and "Back to the plan" works after a restart.
   - The tab goes to that worktree when it stops there. Continue, Skip and Abort are today's; "Back to the plan" aborts
     and opens the editor with the plan.
-  - To decide in B4: twins are unreferenced while a rebase waits, so `git gc --prune=now` would delete them; a ref under
-    `refs/leaf/` while it runs would keep them.
+  - Twins are unreferenced while a rebase waits, so `git gc --prune=now` would delete them. Decided in B4: no ref to
+    keep them, as Leaf never runs gc and git's own prunes only objects older than two weeks.
+  - Built in B4 (`D/rewrite/RebaseTodo.kt`, `PlanRecord.kt`; `StartRebasePlanGitAction`, `GetPlanRecordGitAction`):
+    - **The todo** (`rebaseTodo`) lists every commit of the plan, as `rebase.missingCommitsCheck=error` asks: a commit
+      that a twin stands for is a `drop` line before the twin's `pick`. Every row that joins a group is `fixup`, as the
+      twin has the group's message. A group that the check found empty whole is dropped; one whose first commit came
+      out empty starts from the next with a twin of the group's message and author (finding 8). Groups after the stop
+      are written as the plan has them, and `--empty=drop` leaves out what comes out empty there.
+    - **`--no-autostash`** unless the dialog's box asks, so `rebase.autoStash` doesn't set an agent's work aside. Not
+      `--no-autosquash`, `--no-update-refs` or `--reapply-cherry-picks`, as planned: Leaf's todo replaces git's whole, so
+      what `rebase.autoSquash` and `rebase.updateRefs` add to git's, and the cherry-picks it leaves out, never reach the
+      rebase. Their mutations survived, and the test with both settings on still holds without them.
+    - **Where:** the worktree that has the branch, or the tab's, where git checks it out first (`<branch>` given). A bare
+      repository has none (`RewriteBranchError.NoWorkingTree`). `GitCliOperations.run` takes `GIT_SEQUENCE_EDITOR` now.
+    - **The outcome** (`PlanRebaseOutcome`): `Stopped` with the worktree's git dir, at a conflict (exit 1) or an edit
+      (exit 0, `rebase-merge` there), or `Done` with the old and new tips for the strip and Undo.
+    - **The record** (`rebase-merge/leaf-plan`, line by line, messages in base64): the branch, its tip, the onto, the
+      rows, the messages and the twins; `planOn` gives the plan back on the line once an abort put the branch back.
+    - Tested (`StartRebasePlanGitActionTest`, against git 2.54): a conflict stops at its commit and the record gives
+      the plan back after `--abort`; the plan's messages survive a Continue, Leaf's or a terminal's, also at a reworded
+      commit that conflicts itself, whose record names it; an edit; `missingCommitsCheck`, `updateRefs`, `autoSquash`
+      and `autoStash` set; a branch checked out nowhere, here and in another worktree; autostash; a group whose first
+      commit came out empty; a commit that comes out empty after the stop.
+    - Left for B5: the use cases (the tab goes to the worktree where it stopped), Back to the plan in the banner, and
+      the strip when a stopped rebase ends.
 - **Not as `git rebase -i`:** a plan that doesn't stop runs no `pre-rebase`, `prepare-commit-msg` or `post-commit`, as part
   A's rewrites don't; a stopping plan's `post-rewrite` list names twins.
 
