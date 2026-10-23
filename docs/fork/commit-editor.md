@@ -5,7 +5,7 @@
 | Question | How does Leaf replace upstream's interactive rebase list with an editor that plans first, says before Start what will happen, and only touches a worktree when it has to? |
 | Verified against | `main` at `1edc1471`; git 2.54 (probes on 2026-10-23, section 2) |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). Next: B1 |
+| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain) and B2 (the check) done. Next: B3 |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -74,6 +74,14 @@ for uncommitted changes, and for each choice in section 3.
 6. **The user's rebase config.** `rebase.missingCommitsCheck=error` refuses a todo that leaves a commit out, and accepts
    `drop` lines. `rebase.updateRefs=true` would add `update-ref` lines for other branches; `--no-update-refs` keeps
    them out. `GIT_SEQUENCE_EDITOR="cp '<Leaf's todo>'"` replaces git's todo.
+7. **`--autosquash` and the messages.** `fixup!` becomes `fixup`, `squash!` becomes `squash` and `amend!` becomes
+   `fixup -C`, each after the commit it names and the rows already joining it. `fixup -C` replaces the message with the
+   `amend!` commit's, without its first paragraph; a `squash!` commit adds its message without its first paragraph.
+8. **A group whose first commit comes out empty** (onto a main that has its change): `--empty=drop` drops it, and the
+   `fixup` after it then joins the commit before it, which wasn't in the group. Leaf keeps the group instead: its other
+   commits' changes, with its message. B4's todo starts such a group from its first commit that isn't empty.
+9. **A partial clone with `GIT_NO_LAZY_FETCH=1`:** merge-tree exits with 128, "could not fetch <id> from promisor
+   remote", and downloads nothing.
 
 ## 3. Decisions (2026-10-23)
 
@@ -138,6 +146,13 @@ As round 2, with these changes (round 3 of the mockup):
   `c^`'s tree (nothing before it changed, part A's case), else `P = merge-tree(c^, P, c)`. The result per group: a tree,
   empty (left out), a conflict with its files (the plan stops there), or an edit stop. One rule for both parts: a plan
   that only joins and rewords never merges.
+  - Built in B2 (`PlanCheck`, `CheckedGroup`, `PlanStop` in `D/rewrite/PlanCheck.kt`): a commit that leaves the tree as
+    it was is empty, unless it started empty, which git keeps; a group is left out only when all of its commits are
+    empty (finding 8). An edit stops after its group's first commit, before the rows that join it, as git does. A
+    branch from the repository's first commit starts from the empty tree.
+  - Tested against `git rebase -i` with the same todo (`CheckRebasePlanGitActionTest`): 40 random plans that reorder,
+    drop, join and move onto main, on a branch of 7 commits that change 6 files; git stopped in 12, at the commit and
+    with the files that the check gave, and ran through in 28, each commit with the check's tree.
   - It runs off the UI thread, 150 ms after the last change, and the next change cancels it. Results are kept by
     (parent tree, commit), so a change late in the plan only checks the rows after it.
   - A partial clone checks with `GIT_NO_LAZY_FETCH=1` (git 2.44+), so editing downloads nothing. A blob it lacks makes
