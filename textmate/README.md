@@ -32,7 +32,10 @@ Each change after that is a commit of its own:
 - grammars are read with kotlinx.serialization, which Leaf already uses, in place of Gson, and as leniently as
   vscode-textmate reads them: an entry of the wrong type is left out, where Gson refused the whole grammar. Five of
   shiki's grammars have such entries (XML's captures have strings among the rules), and 33 failed to load with the
-  grammars that embed them.
+  grammars that embed them;
+- `Grammar.tokenizeLine` takes vscode-textmate's `timeLimit`, in milliseconds, and says when a line went past it
+  (`TokenizeLineResult.stoppedEarly`). Like vscode-textmate, it checks the time before each match, so one regular
+  expression that takes long isn't stopped.
 
 ## Taking a later fix from kotlin-textmate
 

@@ -172,7 +172,14 @@ public class Grammar(
         return newRootId to newRepo
     }
 
-    public fun tokenizeLine(lineText: String, prevState: StateStack? = null): TokenizeLineResult {
+    /**
+     * Tokenizes one line, starting from the state that the previous line ended in ([prevState], or none for the first).
+     *
+     * @param timeLimit how many milliseconds the line may take, 0 for no limit, as in vscode-textmate. Past it, the
+     *   result is [TokenizeLineResult.stoppedEarly]: its tokens end where the tokenizer stopped, and so does its state.
+     *   VS Code starts the next line from the state that the stopped line started in.
+     */
+    public fun tokenizeLine(lineText: String, prevState: StateStack? = null, timeLimit: Int = 0): TokenizeLineResult {
         val (rootId, _) = ensureCompiled()
 
         val isFirstLine: Boolean
@@ -207,18 +214,19 @@ public class Grammar(
         val lineLength = onigLineText.content.length
 
         val lineTokens = LineTokens()
-        val resultStack = tokenizeString(
+        val result = tokenizeString(
             grammar = this,
             lineText = onigLineText,
             isFirstLine = isFirstLine,
             linePos = 0,
             stack = state,
             lineTokens = lineTokens,
-            checkWhile = true
+            checkWhile = true,
+            timeLimit = timeLimit
         )
 
-        val tokens = lineTokens.getResult(resultStack, lineLength)
+        val tokens = lineTokens.getResult(result.stack, lineLength)
 
-        return TokenizeLineResult(tokens = tokens, ruleStack = resultStack)
+        return TokenizeLineResult(tokens = tokens, ruleStack = result.stack, stoppedEarly = result.stoppedEarly)
     }
 }

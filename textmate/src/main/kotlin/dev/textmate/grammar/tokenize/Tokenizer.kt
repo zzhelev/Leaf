@@ -22,9 +22,19 @@ internal data class MatchRuleResult(
     val matchedRuleId: RuleId
 )
 
+/** Port of `TokenizeStringResult` from vscode-textmate `tokenizeString.ts`. */
+internal data class TokenizeStringResult(
+    val stack: StateStackImpl,
+    val stoppedEarly: Boolean
+)
+
 /**
  * Core tokenization loop — port of `_tokenizeString` from vscode-textmate `tokenizeString.ts`.
- * Injection grammars supported via [matchRuleOrInjections]. Pending: time limits.
+ * Injection grammars supported via [matchRuleOrInjections].
+ *
+ * @param timeLimit milliseconds, 0 for none. Checked before each match, as vscode-textmate checks it: past it, the
+ *   loop stops where it is, without a token for the rest of the line. A single regular expression search isn't
+ *   interrupted.
  */
 internal fun tokenizeString(
     grammar: Grammar,
@@ -33,8 +43,9 @@ internal fun tokenizeString(
     linePos: Int,
     stack: StateStackImpl,
     lineTokens: LineTokens,
-    checkWhile: Boolean = false
-): StateStackImpl {
+    checkWhile: Boolean = false,
+    timeLimit: Int = 0
+): TokenizeStringResult {
     val lineLength = lineText.content.length
 
     var currentStack = stack
@@ -50,7 +61,15 @@ internal fun tokenizeString(
         anchorPosition = r.anchorPosition
     }
 
+    val startTime = System.nanoTime()
     while (true) {
+        if (timeLimit != 0) {
+            val elapsedMillis = (System.nanoTime() - startTime) / NANOS_PER_MILLI
+            if (elapsedMillis > timeLimit) {
+                return TokenizeStringResult(currentStack, stoppedEarly = true)
+            }
+        }
+
         val r =
             matchRuleOrInjections(grammar, lineText, currentIsFirstLine, currentLinePos, currentStack, anchorPosition)
 
@@ -108,7 +127,7 @@ internal fun tokenizeString(
             val rule = grammar.getRule(matchedRuleId) ?: run {
                 // Should not happen, but be safe
                 lineTokens.produce(currentStack, lineLength)
-                return@tokenizeString currentStack
+                return@tokenizeString TokenizeStringResult(currentStack, stoppedEarly = false)
             }
 
             lineTokens.produce(currentStack, captureIndices[0].start)
@@ -230,8 +249,10 @@ internal fun tokenizeString(
         }
     }
 
-    return currentStack
+    return TokenizeStringResult(currentStack, stoppedEarly = false)
 }
+
+private const val NANOS_PER_MILLI = 1_000_000L
 
 /**
  * Match the current rule against the line at `linePos`.
