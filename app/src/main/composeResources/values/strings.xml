@@ -1413,6 +1413,17 @@
     <string name="error_rename_branch_rebased_in_worktree">"%1$s" can't be renamed, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
     <string name="error_rename_branch_bisected_in_worktree">"%1$s" can't be renamed, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
     <string name="error_rename_branch_worktree_head_not_moved">"%1$s" was renamed to "%2$s", but another program was using the worktree at\n\n%3$s\n\nThat worktree is still on "%1$s", which no longer exists. To move it, run this there:\n\ngit switch %2$s</string>
+    <string name="error_rewrite_branch_moved">"%1$s" has changed since: something committed to it, reset it or rebased it. Nothing was changed.</string>
+    <string name="error_rewrite_not_on_line">%2$s isn't where "%1$s" had it, one of its own commits. Nothing was changed.</string>
+    <string name="error_rewrite_joins_merge">%1$s is a merge. Joining it with another commit would lose its other parents. Nothing was changed.</string>
+    <string name="error_rewrite_merged_again">%2$s merges a branch that started on "%1$s", so it would bring the old commits back next to the new ones. Nothing was changed.</string>
+    <string name="error_rewrite_empty_message">The message is empty once git leaves out its comment lines and blank lines. Nothing was changed.</string>
+    <string name="error_rewrite_branch_merging">The commits of "%1$s" can't be rewritten, as a merge is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_cherry_picking">The commits of "%1$s" can't be rewritten, as a cherry-pick is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_reverting">The commits of "%1$s" can't be rewritten, as a revert is in progress in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_rebasing">The commits of "%1$s" can't be rewritten, as it's being rebased in the worktree at\n\n%2$s\n\nFinish or abort the rebase there first. Nothing was changed.</string>
+    <string name="error_rewrite_branch_bisecting">The commits of "%1$s" can't be rewritten, as a bisect started from it in the worktree at\n\n%2$s\n\nEnd the bisect there first, with git bisect reset. Nothing was changed.</string>
+    <string name="error_rewrite_branch_applying_patches">The commits of "%1$s" can't be rewritten, as git am is applying patches in the worktree at\n\n%2$s\n\nFinish or abort it there first. Nothing was changed.</string>
 
     <string name="error_hook_rejection">Commit rejected by hook: "%1$s"</string>
 

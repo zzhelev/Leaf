@@ -1,0 +1,122 @@
+// SPDX-FileCopyrightText: 2026 Zhelyazko Zhelev
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package dev.app.leaf.domain.rewrite
+
+import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.models.Commit
+
+/**
+ * A local branch's own commits (fork-only): its first-parent line from the tip down to the first commit that its base
+ * has, newest first as the log shows them, as `git rev-list --first-parent <branch> ^<base>` lists them. A merge of the
+ * base into the branch is on the line, and the base's commits that it brings aren't.
+ *
+ * @param branch the branch's full name (`refs/heads/x`).
+ * @param base the branch it's compared to (`refs/heads/main`), or null when there's none: the line then goes down to
+ * the first commit.
+ */
+data class BranchLine(
+    val branch: String,
+    val base: String?,
+    val commits: List<Commit>,
+)
+
+/** Why commits of a branch can't be rewritten as asked, which the menus show at the item's right. */
+sealed interface RewriteRefusal {
+    /** [commit] isn't one of the branch's own commits: its base has it, or it's on another line. */
+    data class NotOnLine(val commit: String) : RewriteRefusal
+
+    /** The commits aren't one after the other on the branch's line. */
+    data object NotConsecutive : RewriteRefusal
+
+    /** Joining them would join [merge], whose other parents would be lost. */
+    data class JoinsMerge(val merge: String) : RewriteRefusal
+
+    /** The branch's first commit has no parent to join: its parent is the base's. */
+    data object FirstCommit : RewriteRefusal
+
+    /** There's only one commit to join. */
+    data object OneCommit : RewriteRefusal
+}
+
+/** Commits of a branch's line that one action joins or rewords, oldest first. */
+data class LineRange(
+    val line: BranchLine,
+    val commits: List<Commit>,
+) {
+    /** Joins the commits into one with [message]. */
+    fun squash(message: String) = rewrite(RewriteKind.SQUASH, message)
+
+    /** Joins the commits into one with the oldest one's message. */
+    fun fixup() = rewrite(RewriteKind.FIXUP, message = null)
+
+    /** Gives the commit [message]. */
+    fun reword(message: String) = rewrite(RewriteKind.REWORD, message)
+
+    private fun rewrite(kind: RewriteKind, message: String?) = BranchRewrite(
+        branch = line.branch,
+        expectedTip = line.commits.first().hash,
+        groups = listOf(RewriteGroup(commits.map { it.hash }, message)),
+        kind = kind,
+    )
+}
+
+/** The commit [hash] alone, to give it another message. A merge can have one: it keeps its parents. */
+fun BranchLine.commitToReword(hash: String): Either<LineRange, RewriteRefusal> {
+    val commit = commits.firstOrNull { it.hash == hash } ?: return Either.Err(RewriteRefusal.NotOnLine(hash))
+
+    return Either.Ok(LineRange(this, listOf(commit)))
+}
+
+/** The commit [hash] and its parent, to squash it or fix it up into the parent. */
+fun BranchLine.commitWithParent(hash: String): Either<LineRange, RewriteRefusal> {
+    val index = commits.indexOfFirst { it.hash == hash }
+
+    return when (index) {
+        -1 -> Either.Err(RewriteRefusal.NotOnLine(hash))
+        commits.lastIndex -> Either.Err(RewriteRefusal.FirstCommit)
+        else -> joined(listOf(commits[index + 1], commits[index]))
+    }
+}
+
+/** The commits [hashes], two or more one after the other on the line, to squash into one. */
+fun BranchLine.commitsToJoin(hashes: Collection<String>): Either<LineRange, RewriteRefusal> {
+    val wanted = hashes.toSet()
+    val missing = wanted.firstOrNull { hash -> commits.none { it.hash == hash } }
+
+    if (missing != null) {
+        return Either.Err(RewriteRefusal.NotOnLine(missing))
+    }
+
+    if (wanted.size < 2) {
+        return Either.Err(RewriteRefusal.OneCommit)
+    }
+
+    val indices = commits.indices.filter { commits[it].hash in wanted }
+
+    if (indices.last() - indices.first() + 1 != indices.size) {
+        return Either.Err(RewriteRefusal.NotConsecutive)
+    }
+
+    return joined(indices.reversed().map { commits[it] })
+}
+
+/** Every commit of the line, to squash the branch into one commit. */
+fun BranchLine.allCommits(): Either<LineRange, RewriteRefusal> {
+    if (commits.size < 2) {
+        return Either.Err(RewriteRefusal.OneCommit)
+    }
+
+    return joined(commits.reversed())
+}
+
+/** [oldestFirst] as one range to join, unless one of them is a merge: the new commit would have only one parent. */
+private fun BranchLine.joined(oldestFirst: List<Commit>): Either<LineRange, RewriteRefusal> {
+    val merge = oldestFirst.firstOrNull { it.parentCount > 1 }
+
+    if (merge != null) {
+        return Either.Err(RewriteRefusal.JoinsMerge(merge.hash))
+    }
+
+    return Either.Ok(LineRange(this, oldestFirst))
+}
