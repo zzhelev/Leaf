@@ -9,6 +9,8 @@ import dev.app.leaf.domain.rewrite.BranchLine
 import dev.app.leaf.domain.rewrite.BranchRewrite
 import dev.app.leaf.domain.rewrite.BranchRewriteResult
 import dev.app.leaf.domain.rewrite.OntoBaseCheck
+import dev.app.leaf.domain.rewrite.PlanCheck
+import dev.app.leaf.domain.rewrite.RebasePlan
 
 /** Joins and rewords a local branch's commits, keeping every commit's tree (fork-only). See [BranchRewrite]. */
 interface IRewriteBranchGitAction {
@@ -26,4 +28,9 @@ interface IUndoBranchRewriteGitAction {
  */
 interface IGetOntoBaseCheckGitAction {
     suspend operator fun invoke(repositoryPath: String, line: BranchLine): Either<OntoBaseCheck?, GitError>
+}
+
+/** Replays [plan] without a working tree, to tell whether it stops and where, and what each commit's tree is. */
+interface ICheckRebasePlanGitAction {
+    suspend operator fun invoke(repositoryPath: String, plan: RebasePlan): Either<PlanCheck, GitError>
 }
