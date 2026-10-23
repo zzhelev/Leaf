@@ -45,6 +45,7 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffLogToggle
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.diff.FollowedDiffPlaceholder
+import dev.app.leaf.ui.context_menu.rewriteCommitsScreen
 import dev.app.leaf.ui.log.Log
 import dev.app.leaf.ui.log.LocalLogFocusRequester
 import dev.app.leaf.ui.status.OperationInProgressBanner
@@ -264,6 +265,27 @@ fun RepositoryOpenPage(
 
                 // Fork-only: stays while JGit can't read the worktree's index, whoever wrote or converts it
                 val unsupportedIndex by repositoryOpenViewModel.unsupportedIndex.collectAsState()
+
+                // Fork-only: what a squash or a reword did, with Undo, until it's closed (A3)
+                val rewriteNotice by repositoryOpenViewModel.rewriteNotice.collectAsState()
+
+                rewriteNotice?.let { notice ->
+                    if (!resolverFocused) {
+                        RewriteStrip(
+                            notice = notice,
+                            onPushWithForce = {
+                                onNavigate(
+                                    Screen.ConfirmAction(
+                                        action = ConfirmableAction.ForcePush(notice.branchName),
+                                        onConfirm = { repositoryOpenViewModel.push(force = true, pushTags = false) },
+                                    )
+                                )
+                            },
+                            onUndo = { repositoryOpenViewModel.undoRewrite() },
+                            onDismiss = { repositoryOpenViewModel.dismissRewriteNotice() },
+                        )
+                    }
+                }
 
                 unsupportedIndex?.let { index ->
                     if (!resolverFocused) {
@@ -613,6 +635,7 @@ fun MainContentView(
                                         },
                                         onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
                                         onCherryPickCommits = { onNavigate(Screen.CherryPickBranch(it)) },
+                                        onRewrite = { request -> onNavigate(rewriteCommitsScreen(viewModel, request)) },
                                     )
                                 }
                             },

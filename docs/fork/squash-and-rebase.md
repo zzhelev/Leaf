@@ -5,7 +5,7 @@
 | Question | How can Leaf tidy a feature branch's commits (squash, fixup, reword, move onto the latest main) without the user finding the fork point or fearing a rebase? |
 | Verified against | `main` at `6b8e8eec`; JGit 7.7.0; git 2.54 |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine) and A2 (the log's range) done |
+| Status | Decided 2026-10-23: A, then B; Shift-click; newest first; onto the latest main; messages edited before anything is applied. Decisions 6 to 8 and the plan for A (section 3) approved the same day. A1 (the engine), A2 (the log's range) and A3 (menus, dialog, strip, Undo) done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -116,6 +116,35 @@ Proposed with the plan, approved 2026-10-23:
   disables the button.
 - After it: a strip under the toolbar, "Squashed 4 commits into one on claude/parser-cache.", with "Push with force…"
   when pushed commits changed, Undo and ×. It stays until closed or the next rewrite (not a toast).
+- Built in A3, without "On top of the latest main" (A4):
+  - **What the menus read:** `BranchLines` (`D/rewrite/`), every local branch's line, refreshed with the branch counts
+    (`GetBranchLinesGitAction`, one `RevWalk`: a branch's own commits are those that its base doesn't reach, and its line
+    is the first-parent chain among them, up to 2,000; the upstream's own commits give `pushed`). The menus ask it, when
+    they open, what each item does or why it can't (`commitChoices`, `rangeChoice`, `branchChoice`), and a worktree in the
+    middle of a merge, rebase, cherry-pick, revert, bisect or `git am` with the branch disables them (`rewriteBusyWith`).
+  - **The menus:** a disabled item stays in the menu, faded, with why at its right (`ContextTextEntry.isEnabled`, a
+    small change to upstream's `ContextMenu.kt`). A commit row's three items come before Checkout; the range's "Squash N
+    commits…" first; a branch's "Squash branch into one commit…" in its own group, in the side panel, on a log chip and
+    in a worktree row's menu. "Fixup into parent" runs at once, as planned.
+  - **The dialog** (`RewriteCommitsDialog`, `Screen.RewriteCommits`): the title says what it does ("Squash 2 commits into
+    one", "Squash claude/parser-cache into one commit", "Edit the message of b1c2d3e"), the subtitle where ("On
+    claude/parser-cache.", or for the whole branch "All 4 commits since the branch left main at a867b0c."). A commit
+    whose subject says nothing (`wip`, `fixup! …`) isn't the lead of "Subjects as a list". "Start from" replaces the
+    message. ⌘↵ (Ctrl+Enter) confirms. Save is disabled while a reword's message, as git's clean-up reads it, is the
+    commit's own: it would only make new commits, which a pushed branch then has to replace (found in the real-tab
+    run). The message field is the dialog's own, with the outlined fields' look: the shared one centres a single line
+    in its border. Found by its test: the field's request for the focus has to come after the dialog's own, or the
+    dialog's wins.
+  - **Checked in the real tab** (the Dagger graph, in a temporary harness, both themes, a branch pushed to a bare
+    `origin`): each menu's items and reasons, squash into parent, a range of three, the whole branch, a reword, a
+    fixup, each with Undo, the files unchanged after each, the selection, the strip's texts and buttons. An offscreen
+    scene runs the log's scroll to the selected commit (`scrollToCommit`, upstream's) inline and throws "pending
+    composition has not been applied", so the harness gives its scene the Swing dispatcher.
+  - **The run** (`TaskType.RewriteBranch`, no toast): the processing screen, then the strip, and the log selects the
+    commit that the squash, fixup or reword made, once the refresh has it; after Undo, the branch's tip again. A refusal
+    (the branch moved, a merge after it) is `ErrorDialog`'s. Undo (`TaskType.UndoBranchRewrite`) turns the strip into
+    "Undone: claude/parser-cache is back at 223cba0." with only ×. "Push with force…" is offered for the tab's own
+    branch, through the force push's confirmation.
 
 ### 3.4 The engine (A1, A4)
 

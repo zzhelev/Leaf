@@ -1,6 +1,7 @@
 package dev.app.leaf.domain.repositories
 
 import dev.app.leaf.domain.cherrypick.BranchesAhead
+import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
@@ -29,6 +30,9 @@ interface RepositoryDataRepository {
 
     /** How many commits each branch has that HEAD lacks, for the branch menus' cherry-pick item (fork-only). */
     val branchesAhead: Flow<DataState<BranchesAhead>>
+
+    /** Every local branch's own commits, for the menus that squash and reword them (fork-only). */
+    val branchLines: Flow<DataState<BranchLines>>
 
     /** The cherry-pick of several commits that git stopped in the worktree, or null (fork-only). */
     val cherryPickSequence: StateFlow<DataState<CherryPickSequence?>>
@@ -69,6 +73,7 @@ interface RepositoryDataRepository {
     )
     suspend fun updateWorktrees(repositoryPath: String, block: suspend () -> Either<WorktreeList, AppError>)
     suspend fun updateBranchesAhead(repositoryPath: String, block: suspend () -> Either<BranchesAhead, AppError>)
+    suspend fun updateBranchLines(repositoryPath: String, block: suspend () -> Either<BranchLines, AppError>)
     suspend fun updateCherryPickSequence(
         repositoryPath: String,
         block: suspend () -> Either<CherryPickSequence?, AppError>,

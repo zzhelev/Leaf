@@ -20,6 +20,7 @@ import dev.app.leaf.domain.branches.BranchClick
 import dev.app.leaf.domain.branches.BranchSelection
 import dev.app.leaf.domain.conflicts.ConflictsToOpen
 import dev.app.leaf.domain.conflicts.conflictsToOpen
+import dev.app.leaf.domain.errors.BranchOperation
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.UnsupportedIndexError
 import dev.app.leaf.domain.errors.okOrNull
@@ -39,6 +40,10 @@ import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
 import dev.app.leaf.domain.cherrypick.BranchesAhead
 import dev.app.leaf.domain.models.emptyIdentity
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.rewrite.BranchLines
+import dev.app.leaf.domain.rewrite.BranchRewrite
+import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WatchRegistrations
 import dev.app.leaf.domain.refresh.WatchUsage
@@ -92,6 +97,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.eclipse.jgit.api.RebaseCommand.InteractiveHandler
@@ -125,6 +131,9 @@ private const val NONE_MATCHING_INDEX = 0
 private const val FIRST_INDEX = 1
 
 private const val TAG = "TabViewModel"
+
+/** How long a rewrite's new commit is waited for in the log, to select it (fork-only). */
+private const val REWRITE_SELECT_TIMEOUT = 10_000L
 
 /**
  * Contains all the information related to a tab and its subcomponents (smaller composables like the log, branches,
@@ -206,6 +215,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val runWorktreeStepsUseCase: RunWorktreeStepsUseCase,
     private val followRemovedWorktreeUseCase: FollowRemovedWorktreeUseCase,
     private val comparisonViewModelExtenderFactory: ComparisonViewModelExtender.Factory,
+    private val rewriteBranchUseCase: RewriteBranchUseCase,
+    private val undoBranchRewriteUseCase: UndoBranchRewriteUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -501,6 +512,81 @@ class RepositoryOpenViewModel @Inject constructor(
         .map { it.dataOrNull() ?: BranchesAhead() }
         .distinctUntilChanged()
         .stateIn(BranchesAhead())
+
+    /** Fork-only: every local branch's own commits, for the menus that squash and reword them (A3). */
+    val branchLines: StateFlow<BranchLines> = repositoryDataRepository.branchLines
+        .map { it.dataOrNull() ?: BranchLines() }
+        .distinctUntilChanged()
+        .stateIn(BranchLines())
+
+    /**
+     * What a worktree is in the middle of with the local branch [branch], which stops rewriting it (fork-only): one that
+     * rebases it or bisects from it, or the tab's own while it has the branch checked out in a merge, a rebase, a
+     * cherry-pick or a revert. As the menus last read it; the rewrite checks again.
+     */
+    fun rewriteBusyWith(branch: String): BranchOperation? {
+        val users = branchWorktrees.value.usersByBranch[branch]?.users.orEmpty()
+
+        users.firstOrNull { it.use == WorktreeBranchUse.Rebasing }?.let { return BranchOperation.REBASE }
+        users.firstOrNull { it.use == WorktreeBranchUse.Bisecting }?.let { return BranchOperation.BISECT }
+
+        if (logState.value.currentBranch?.name != branch) return null
+
+        val state = repositoryState.value
+
+        return when {
+            state.isMerging -> BranchOperation.MERGE
+            state.isRebasing -> BranchOperation.REBASE
+            state.isCherryPicking -> BranchOperation.CHERRY_PICK
+            state.isReverting -> BranchOperation.REVERT
+            state == RepositoryState.APPLY -> BranchOperation.APPLY_PATCHES
+            state == RepositoryState.BISECTING -> BranchOperation.BISECT
+            else -> null
+        }
+    }
+
+    /** Fork-only: what the strip under the toolbar says after a rewrite, until it's closed or the next one. */
+    val rewriteNotice: StateFlow<RewriteNotice?>
+        field = MutableStateFlow<RewriteNotice?>(null)
+
+    /** The dialog's rewrite of [request]'s commits with [message]. */
+    fun rewriteBranch(request: RewriteRequest, message: String) = startRewrite(request.rewrite(message), request.range)
+
+    /** "Fixup into parent", which runs at once: it keeps the parent's message. */
+    fun fixupIntoParent(range: LineRange) = startRewrite(range.fixup(), range)
+
+    private fun startRewrite(rewrite: BranchRewrite, range: LineRange) = viewModelScope.launch {
+        rewriteNotice.value = null
+
+        // A failure is the task's, which shows it
+        val result = (rewriteBranchUseCase(rewrite).await() as? Either.Ok)?.value ?: return@launch
+
+        rewriteNotice.value = RewriteNotice.of(result, range, logState.value.currentBranch?.name)
+        selectOnceLogged(result.rewritten.firstOrNull()?.second ?: result.newTip)
+    }
+
+    /** The strip's Undo: the branch goes back to where the rewrite found it. */
+    fun undoRewrite() = viewModelScope.launch {
+        val notice = rewriteNotice.value?.takeIf { !it.isUndone } ?: return@launch
+
+        if (undoBranchRewriteUseCase(notice.result).await() is Either.Ok) {
+            rewriteNotice.value = notice.copy(isUndone = true)
+            selectOnceLogged(notice.result.oldTip)
+        }
+    }
+
+    fun dismissRewriteNotice() {
+        rewriteNotice.value = null
+    }
+
+    /** Selects [hash] in the log once the refresh after a rewrite has it, as the commit to look at. */
+    private suspend fun selectOnceLogged(hash: String) {
+        val log = withTimeoutOrNull(REWRITE_SELECT_TIMEOUT) { logState.first { it.commitList[hash] != null } } ?: return
+        val commit = log.commitList[hash]?.commit ?: return
+
+        logSelectionController.clear()
+        applyCommitSelection(commit, isStash = false, scrollToItem = true)
+    }
 
     val branchWorktrees: StateFlow<BranchWorktreesState> = worktrees
         .map { worktrees ->

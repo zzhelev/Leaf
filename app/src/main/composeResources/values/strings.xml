@@ -412,6 +412,67 @@
     </plurals>
     <string name="log_selected_commits_clear">Clear selection</string>
     <string name="log_selected_commits_clear_tooltip">Clear the selection (Esc)</string>
+    <string name="rewrite_menu_edit_message">Edit message…</string>
+    <string name="rewrite_menu_squash_into_parent">Squash into parent…</string>
+    <string name="rewrite_menu_fixup_into_parent">Fixup into parent</string>
+    <plurals name="rewrite_menu_squash_selected">
+        <item quantity="one">Squash %1$d commit…</item>
+        <item quantity="other">Squash %1$d commits…</item>
+    </plurals>
+    <string name="rewrite_menu_squash_branch">Squash branch into one commit…</string>
+    <string name="rewrite_refused_on_base">On %1$s</string>
+    <string name="rewrite_refused_range_on_base">Includes commits on %1$s</string>
+    <string name="rewrite_refused_not_on_local_branch">Not on a local branch</string>
+    <string name="rewrite_refused_range_not_on_one_branch">Not on one branch</string>
+    <string name="rewrite_refused_on_branches">On %1$d branches</string>
+    <string name="rewrite_refused_parent_on_base">Its parent is on %1$s</string>
+    <string name="rewrite_refused_first_commit">The first commit</string>
+    <string name="rewrite_refused_not_consecutive">Not one after another</string>
+    <string name="rewrite_refused_joins_merge">Includes a merge</string>
+    <string name="rewrite_refused_one_commit">One commit already</string>
+    <string name="rewrite_refused_too_many">Too many commits</string>
+    <string name="rewrite_refused_merging">In a merge</string>
+    <string name="rewrite_refused_cherry_picking">In a cherry-pick</string>
+    <string name="rewrite_refused_reverting">In a revert</string>
+    <string name="rewrite_refused_rebasing">In a rebase</string>
+    <string name="rewrite_refused_bisecting">In a bisect</string>
+    <string name="rewrite_refused_applying_patches">Applying patches</string>
+    <plurals name="rewrite_dialog_squash_title">
+        <item quantity="one">Squash %1$d commit into one</item>
+        <item quantity="other">Squash %1$d commits into one</item>
+    </plurals>
+    <string name="rewrite_dialog_squash_branch_title">Squash %1$s into one commit</string>
+    <string name="rewrite_dialog_reword_title">Edit the message of %1$s</string>
+    <string name="rewrite_dialog_on_branch">On %1$s.</string>
+    <plurals name="rewrite_dialog_since_base">
+        <item quantity="one">The %1$d commit since the branch left %2$s at %3$s.</item>
+        <item quantity="other">All %1$d commits since the branch left %2$s at %3$s.</item>
+    </plurals>
+    <string name="rewrite_dialog_message">Message</string>
+    <string name="rewrite_dialog_start_from">Start from</string>
+    <string name="rewrite_dialog_start_subjects">Subjects as a list</string>
+    <string name="rewrite_dialog_start_all">All messages</string>
+    <string name="rewrite_dialog_start_oldest">Oldest message</string>
+    <plurals name="rewrite_dialog_pushed">
+        <item quantity="one">%1$d commit that this rewrites is on %2$s. Afterwards, push with force to replace it.</item>
+        <item quantity="other">%1$d commits that this rewrites are on %2$s. Afterwards, push with force to replace them.</item>
+    </plurals>
+    <plurals name="rewrite_dialog_squash_button">
+        <item quantity="one">Squash %1$d commit</item>
+        <item quantity="other">Squash %1$d commits</item>
+    </plurals>
+    <string name="rewrite_dialog_save_message">Save message</string>
+    <plurals name="rewrite_strip_squashed">
+        <item quantity="one">Squashed %1$d commit into one on %2$s.</item>
+        <item quantity="other">Squashed %1$d commits into one on %2$s.</item>
+    </plurals>
+    <string name="rewrite_strip_fixed_up">Fixed up %1$s into its parent on %2$s.</string>
+    <string name="rewrite_strip_reworded">Changed the message of %1$s on %2$s.</string>
+    <string name="rewrite_strip_pushed">%1$s still has the old commits: push with force to replace them.</string>
+    <string name="rewrite_strip_push">Push with force…</string>
+    <string name="rewrite_strip_undo">Undo</string>
+    <string name="rewrite_strip_undone">Undone: %1$s is back at %2$s.</string>
+    <string name="rewrite_strip_dismiss">Close</string>
 
     <!-- Log columns -->
     <string name="log_column_author">Author</string>

@@ -2,6 +2,8 @@
 
 package dev.app.leaf
 
+import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.rewrite.RewriteRequest
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -148,6 +150,15 @@ sealed interface Screen : NavKey {
     data class WorktreeMergeIntoBase(val worktree: Worktree, val kind: WorktreeMergeKind, val target: String) : Screen
     /** Cherry-picks the commits of [branch] that the current branch lacks (fork-only). */
     data class CherryPickBranch(val branch: Branch) : Screen
+    /**
+     * Asks the message of [request]'s squash or reword (fork-only), cleaned as [cleanup] says, then [onConfirm] rewrites
+     * the commits with it.
+     */
+    data class RewriteCommits(
+        val request: RewriteRequest,
+        val cleanup: MessageCleanup,
+        val onConfirm: (String) -> Unit,
+    ) : Screen
     /** Rebases [worktree]'s branch onto [base], the base branch (fork-only). */
     data class WorktreeRebaseOntoBase(val worktree: Worktree, val base: String) : Screen
     /** Creates a worktree (fork-only) from [start]: the base branch, a branch or a commit. */

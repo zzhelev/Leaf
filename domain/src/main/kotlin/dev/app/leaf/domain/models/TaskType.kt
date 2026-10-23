@@ -93,6 +93,11 @@ sealed interface TaskType {
     data object RebaseWorktree : TaskType
     data object CherryPickCommits : TaskType
     data object CherryPickCommitsAsOne : TaskType
+
+    // Fork-only: squashing, fixing up and rewording a branch's commits, and undoing it. The strip under the toolbar
+    // says what was done, so neither has a toast.
+    data object RewriteBranch : TaskType
+    data object UndoBranchRewrite : TaskType
     data object ContinueCherryPick : TaskType
     data object SkipCherryPick : TaskType
     data object AbortCherryPick : TaskType

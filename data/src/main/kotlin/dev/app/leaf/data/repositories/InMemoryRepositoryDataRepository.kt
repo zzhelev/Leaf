@@ -3,6 +3,7 @@ package dev.app.leaf.data.repositories
 import dev.app.leaf.common.extensions.TAG
 import dev.app.leaf.common.printError
 import dev.app.leaf.domain.cherrypick.BranchesAhead
+import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
@@ -67,6 +68,9 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
     override val branchesAhead: Flow<DataState<BranchesAhead>>
         field = MutableStateFlow<DataState<BranchesAhead>>(DataState.Loading)
 
+    override val branchLines: Flow<DataState<BranchLines>>
+        field = MutableStateFlow<DataState<BranchLines>>(DataState.Loading)
+
     override val cherryPickSequence: StateFlow<DataState<CherryPickSequence?>>
         field = MutableStateFlow<DataState<CherryPickSequence?>>(DataState.Loading)
 
@@ -115,6 +119,7 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         submodules.value = DataState.Loading
         worktrees.value = DataState.Loading
         branchesAhead.value = DataState.Loading
+        branchLines.value = DataState.Loading
         cherryPickSequence.value = DataState.Loading
         rebaseStop.value = DataState.Loading
     }
@@ -154,6 +159,13 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         block: suspend () -> Either<BranchesAhead, AppError>,
     ) {
         handleDataState(branchesAhead, repositoryPath, block)
+    }
+
+    override suspend fun updateBranchLines(
+        repositoryPath: String,
+        block: suspend () -> Either<BranchLines, AppError>,
+    ) {
+        handleDataState(branchLines, repositoryPath, block)
     }
 
     override suspend fun updateCherryPickSequence(

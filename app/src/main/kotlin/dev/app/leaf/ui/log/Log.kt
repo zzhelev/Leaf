@@ -55,6 +55,7 @@ import dev.app.leaf.common.printLog
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.BranchesConstants.LOCAL_PREFIX_LENGTH
 import dev.app.leaf.domain.log.LogMove
+import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.domain.log.headCommitHash
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.SelectedItem
@@ -127,6 +128,8 @@ fun Log(
     onNewWorktree: ((NewWorktreeStart) -> Unit)? = null,
     // Fork-only: opens the dialog that cherry-picks a branch's commits
     onCherryPickCommits: ((Branch) -> Unit)? = null,
+    // Fork-only: opens the dialog that squashes or rewords commits (docs/fork/squash-and-rebase.md, A3)
+    onRewrite: ((RewriteRequest) -> Unit)? = null,
 ) {
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
@@ -157,6 +160,9 @@ fun Log(
 
     // Fork-only: the commits selected with Shift (docs/fork/squash-and-rebase.md, A2)
     val selectedCommits by viewModel.selectedCommits.collectAsState()
+
+    // Fork-only: the menus' squash and reword items (A3)
+    val commitRewrite = rememberCommitRewrite(viewModel, logStatus.currentBranch, onRewrite)
 
     // Fork-only: the branch chips' cherry-pick item
     val branchesAhead by viewModel.branchesAhead.collectAsState()
@@ -200,6 +206,7 @@ fun Log(
             LocalCompareWithCurrent provides compareWithCurrent,
             LocalBranchCherryPick provides branchCherryPick,
             LocalSelectedCommits provides selectedCommits?.hashes.orEmpty(),
+            LocalCommitRewrite provides commitRewrite,
         ) {
             LogView(
                 logState = logStatus,
@@ -638,6 +645,7 @@ fun CommitsList(
     }
     // Fork-only: Shift-click and Shift+arrows select a range of rows (docs/fork/squash-and-rebase.md, A2)
     val selectedCommits = LocalSelectedCommits.current
+    val commitRewrite = LocalCommitRewrite.current
     val isRangeClick = { windowInfo.keyboardModifiers.isShiftPressed }
 
     val firstCommitKey = commitList.commits.keys.firstOrNull().orEmpty()
@@ -811,10 +819,12 @@ fun CommitsList(
                             scope.launch { clipboard.setClipboardText(hashes.joinToString("\n")) }
                         },
                         onClearSelection = { onAction(LogAction.LogSelectionCleared) },
+                        squash = commitRewrite?.let { rewrite -> { rewrite.rangeItem(selectedCommits) } },
                     )
                 } else {
                     null
                 },
+                rewriteItems = { commitRewrite?.commitItems(graphNode.hash).orEmpty() },
                 compareLetter = compareLetter,
                 compareSelectedName = comparison.selectedName?.takeIf { selectedCommit?.hash != graphNode.hash },
                 compareCurrentBranch = logState.currentBranch?.takeIf { it.hash != graphNode.hash },
@@ -1078,6 +1088,8 @@ private fun CommitLine(
     isSelected: Boolean,
     // Fork-only: the menu of the commits selected with Shift, when the row is one of them
     selectedCommitsMenu: SelectedCommitsMenu?,
+    // Fork-only: rewording the commit, and squashing or fixing it up into its parent
+    rewriteItems: () -> List<ContextMenuElement>,
     // Fork-only: the side of a comparison that the row is, and what its menu's comparison items name
     compareLetter: CompareLetter?,
     compareSelectedName: String?,
@@ -1132,6 +1144,7 @@ private fun CommitLine(
                     count = selectedCommitsMenu.count,
                     onCopyHashes = selectedCommitsMenu.onCopyHashes,
                     onClearSelection = selectedCommitsMenu.onClearSelection,
+                    squash = selectedCommitsMenu.squash?.invoke(),
                 )
             } else if (isStash) {
                 stashesContextMenuItems(
@@ -1161,6 +1174,7 @@ private fun CommitLine(
                         onCompareWith = onCompareWith,
                         onCompareWithWorkingTree = onCompareWithWorkingTree,
                     ),
+                    rewriteItems = rewriteItems(),
                 )
             }
         },
@@ -1658,6 +1672,7 @@ fun BranchChip(
     val onNewWorktree = LocalOnNewWorktree.current
     val compareWithCurrent = LocalCompareWithCurrent.current
     val branchCherryPick = LocalBranchCherryPick.current
+    val commitRewrite = LocalCommitRewrite.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
@@ -1691,6 +1706,7 @@ fun BranchChip(
             onCompareWithWorkingTree = compareWithCurrent?.onBranchWithWorkingTree?.let { compare -> { compare(branch) } },
             cherryPick = branchCherryPick?.itemFor(branch),
             onCherryPick = { item -> branchCherryPick?.onCherryPick?.invoke(branch, item) },
+            squashBranch = commitRewrite?.takeIf { branch.isLocal }?.branchItem(branch.name),
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }
@@ -1858,4 +1874,5 @@ private class SelectedCommitsMenu(
     val count: Int,
     val onCopyHashes: () -> Unit,
     val onClearSelection: () -> Unit,
+    val squash: (() -> ContextMenuElement)? = null,
 )

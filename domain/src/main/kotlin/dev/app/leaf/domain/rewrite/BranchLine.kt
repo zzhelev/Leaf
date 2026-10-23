@@ -3,6 +3,7 @@
 
 package dev.app.leaf.domain.rewrite
 
+import dev.app.leaf.domain.errors.BranchOperation
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.Commit
 
@@ -14,12 +15,22 @@ import dev.app.leaf.domain.models.Commit
  * @param branch the branch's full name (`refs/heads/x`).
  * @param base the branch it's compared to (`refs/heads/main`), or null when there's none: the line then goes down to
  * the first commit.
+ * @param upstream the branch that [branch] tracks (`refs/remotes/origin/x`), null without one.
+ * @param pushed the commits of the line that [upstream] has, which a rewrite replaces there only with a force push.
+ * @param isTruncated whether the line goes on past [commits], which Leaf reads only so far.
  */
 data class BranchLine(
     val branch: String,
     val base: String?,
     val commits: List<Commit>,
-)
+    val upstream: String? = null,
+    val pushed: Set<String> = emptySet(),
+    val isTruncated: Boolean = false,
+) {
+    private val hashes: Set<String> by lazy { commits.mapTo(mutableSetOf()) { it.hash } }
+
+    fun has(commit: String): Boolean = commit in hashes
+}
 
 /** Why commits of a branch can't be rewritten as asked, which the menus show at the item's right. */
 sealed interface RewriteRefusal {
@@ -37,6 +48,21 @@ sealed interface RewriteRefusal {
 
     /** There's only one commit to join. */
     data object OneCommit : RewriteRefusal
+
+    /** The base branch, which other branches share, has the commits ([base] is its short name, such as `main`). */
+    data class OnBase(val base: String) : RewriteRefusal
+
+    /** No local branch has the commits as its own: they're a remote branch's, a tag's or a stash's. */
+    data object NotOnLocalBranch : RewriteRefusal
+
+    /** [count] branches have the commits as their own, none of them the current one: which to rewrite isn't clear. */
+    data class OnSeveralBranches(val count: Int) : RewriteRefusal
+
+    /** A worktree has the branch in the middle of [operation]. */
+    data class Busy(val operation: BranchOperation) : RewriteRefusal
+
+    /** The branch has more commits of its own than Leaf reads. */
+    data object TooManyCommits : RewriteRefusal
 }
 
 /** Commits of a branch's line that one action joins or rewords, oldest first. */
@@ -44,6 +70,17 @@ data class LineRange(
     val line: BranchLine,
     val commits: List<Commit>,
 ) {
+    /**
+     * How many of the commits that a rewrite of the range changes, the range's and all after it, the upstream has: they
+     * stay there until a force push replaces them.
+     */
+    val rewrittenPushed: Int
+        get() {
+            val oldest = line.commits.indexOfFirst { it.hash == commits.first().hash }
+
+            return line.commits.take(oldest + 1).count { it.hash in line.pushed }
+        }
+
     /** Joins the commits into one with [message]. */
     fun squash(message: String) = rewrite(RewriteKind.SQUASH, message)
 
@@ -74,7 +111,7 @@ fun BranchLine.commitWithParent(hash: String): Either<LineRange, RewriteRefusal>
 
     return when (index) {
         -1 -> Either.Err(RewriteRefusal.NotOnLine(hash))
-        commits.lastIndex -> Either.Err(RewriteRefusal.FirstCommit)
+        commits.lastIndex -> Either.Err(if (isTruncated) RewriteRefusal.TooManyCommits else RewriteRefusal.FirstCommit)
         else -> joined(listOf(commits[index + 1], commits[index]))
     }
 }
@@ -103,6 +140,10 @@ fun BranchLine.commitsToJoin(hashes: Collection<String>): Either<LineRange, Rewr
 
 /** Every commit of the line, to squash the branch into one commit. */
 fun BranchLine.allCommits(): Either<LineRange, RewriteRefusal> {
+    if (isTruncated) {
+        return Either.Err(RewriteRefusal.TooManyCommits)
+    }
+
     if (commits.size < 2) {
         return Either.Err(RewriteRefusal.OneCommit)
     }
