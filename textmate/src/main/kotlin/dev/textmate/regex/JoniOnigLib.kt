@@ -82,11 +82,13 @@ internal class JoniOnigScanner(
     }
 
     private fun compilePattern(pattern: String): Regex {
+        // Escapes that Joni reads differently from the Oniguruma that grammars are written for.
+        val readable = EscapeRewrite.rewrite(pattern)
         return try {
-            compile(pattern)
+            compile(readable)
         } catch (_: JOniException) {
-            // Joni takes fewer look-behinds than the Oniguruma that grammars are written for: try them spread out.
-            val rewritten = LookbehindRewrite.rewrite(pattern) { compileOrNull(it) != null }?.let { compileOrNull(it) }
+            // Joni takes fewer look-behinds than that Oniguruma: try them spread out.
+            val rewritten = LookbehindRewrite.rewrite(readable) { compileOrNull(it) != null }?.let { compileOrNull(it) }
             if (rewritten == null) onSentinel?.invoke(pattern)
             rewritten ?: NEVER_MATCH_REGEX
         }

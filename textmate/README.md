@@ -42,15 +42,18 @@ Each change after that is a commit of its own:
   a look-behind never matched: shell's rule for a command, so that most lines of a script stayed plain, CSS's
   selectors, Rust's paths, what follows `import` in JavaScript and TypeScript, line continuations in C and C++. It
   fixes 173 of the 351 patterns that Joni refused in shiki's 260 grammars, and the files compared below now match
-  VS Code token for token.
+  VS Code token for token;
+- `\N` and `\O`, which Oniguruma 6.9 reads as any character but a newline and as any character, and Joni as the
+  letters, are rewritten into what Joni reads the same way (`regex/EscapeRewrite.kt`). Python's, Less's and Stylus's
+  grammars mark each character of a regular expression's set with `\N`.
 
 ## Differences from VS Code that remain
 
 Measured on 2026-10-23 against vscode-textmate 9.3.2, the engine VS Code runs, with shiki's grammars 1.32.22, on a
 Dockerfile, a Rust file, 28,502 lines of JSON, 3,705 lines of Kotlin, the 4,222 lines of Leaf's `CLAUDE.md`, a TOML
 file, a minified JavaScript file, Java, a shell script, a workflow's YAML, 1,906 lines of Python, 1,758 lines of XML
-and a CSS file: every token the same, but one in Python, in a regular expression's character set. In the grammars of
-the languages Leaf colours, these patterns still never match, where VS Code matches them:
+and a CSS file: every token the same. In the grammars of the languages Leaf colours, these patterns still never
+match, where VS Code matches them:
 
 - a look-behind with an unbounded repeat, which no rewrite can spread: C#'s `await` after `.` (`(?<!\.\s*)`), Julia's
   `as`, Ruby's block parameters after `{ ` or `do `, and `await using` in JavaScript and TypeScript;
