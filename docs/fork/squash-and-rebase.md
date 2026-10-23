@@ -217,6 +217,9 @@ Each step is its own commit (or two, code then docs), shown to you before it's m
 
 ## 4. B: the editor (outline; its own plan after A)
 
+Planned in `docs/fork/commit-editor.md` (2026-10-23), which changes this outline: a plan that doesn't stop, drops and
+moves included, runs in memory as A does, and only a plan that stops replays with `git rebase -i`.
+
 - The editor of the mockup in the centre pane, from "Edit branch commits…" (the branch and worktree menus) and
   "Interactive rebase from here…" (a commit row, including that commit, as IntelliJ does). Nothing runs until Start.
 - The plan in domain: rows newest first, P R S F E D, ⌥↑↓ and drag, the joined rows under their target, the first kept
@@ -234,4 +237,4 @@ Each step is its own commit (or two, code then docs), shown to you before it's m
 - C, drag and drop in the log.
 - A merge inside the commits joined (a squash would lose its second parent).
 - Branches stacked on the rewritten one (git's `--update-refs`); they keep the old commits, as with `git rebase`.
-- The base branch's own commits.
+- The base branch's own commits: in B, its unpushed ones (decision 5 of `docs/fork/commit-editor.md`).
