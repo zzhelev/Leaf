@@ -14,7 +14,8 @@ class FetchAllBranchUseCase @Inject constructor(
         useCaseExecutor.executeLaunch(
             taskType = TaskType.Fetch,
             refreshEvenIfFailed = true,
-            dataToRefresh = arrayOf(DataToRefresh.LOG),
+            // Fork-only: a fetch moves remote branches and brings tags, which the log's labels and the side panel show
+            dataToRefresh = arrayOf(DataToRefresh.REMOTES, DataToRefresh.TAGS, DataToRefresh.LOG),
         ) { repositoryPath ->
             fetchAllGitAction(repositoryPath, specificRemote)
         }
