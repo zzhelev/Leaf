@@ -1,0 +1,251 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-2 source.shell comment.line.number-sign.shell meta.shebang.shell punctuation.definition.comment.shebang.shell
+0:2-19 source.shell comment.line.number-sign.shell meta.shebang.shell
+1:0-1 source.shell comment.line.number-sign.shell punctuation.definition.comment.shell
+1:1-70 source.shell comment.line.number-sign.shell
+2:0-3 source.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell support.function.builtin.shell
+2:3-4 source.shell meta.statement.shell meta.statement.command.shell
+2:4-5 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument.shell constant.other.option.dash.shell
+2:5-8 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument constant.other.option
+2:8-9 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+2:9-17 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+3:0-0 source.shell
+4:0-4 source.shell meta.expression.assignment.shell variable.other.assignment.shell
+4:4-5 source.shell meta.expression.assignment.shell keyword.operator.assignment.shell
+4:5-6 source.shell meta.expression.assignment.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+4:6-7 source.shell meta.expression.assignment.shell string.quoted.double.shell punctuation.definition.variable.shell variable.parameter.positional.shell
+4:7-8 source.shell meta.expression.assignment.shell string.quoted.double.shell punctuation.section.bracket.curly.variable.begin.shell punctuation.definition.variable.shell variable.parameter.positional.shell
+4:8-9 source.shell meta.expression.assignment.shell string.quoted.double.shell meta.parameter-expansion variable.parameter.positional.shell
+4:9-11 source.shell meta.expression.assignment.shell string.quoted.double.shell meta.parameter-expansion keyword.operator.expansion.shell
+4:11-16 source.shell meta.expression.assignment.shell string.quoted.double.shell meta.parameter-expansion variable.other.normal.shell
+4:16-17 source.shell meta.expression.assignment.shell string.quoted.double.shell punctuation.section.bracket.curly.variable.end.shell punctuation.definition.variable.shell variable.parameter.positional.shell
+4:17-18 source.shell meta.expression.assignment.shell string.quoted.double.shell punctuation.definition.string.end.shell
+5:0-2 source.shell meta.scope.if-block.shell keyword.control.if.shell
+5:2-3 source.shell meta.scope.if-block.shell
+5:3-4 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell punctuation.definition.logical-expression.shell
+5:4-5 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell
+5:5-7 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell keyword.operator.logical.shell
+5:7-8 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell
+5:8-9 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+5:9-10 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell string.quoted.double.shell punctuation.definition.variable.shell variable.other.normal.shell
+5:10-14 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell string.quoted.double.shell variable.other.normal.shell
+5:14-15 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell string.quoted.double.shell punctuation.definition.string.end.shell
+5:15-16 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell
+5:16-17 source.shell meta.scope.if-block.shell meta.scope.logical-expression.shell punctuation.definition.logical-expression.shell
+5:17-18 source.shell meta.scope.if-block.shell punctuation.terminator.statement.semicolon.shell
+5:18-19 source.shell meta.scope.if-block.shell
+5:19-23 source.shell meta.scope.if-block.shell keyword.control.then.shell
+5:23-24 source.shell meta.scope.if-block.shell
+5:24-28 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell support.function.builtin.shell
+5:28-29 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+5:29-30 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+5:30-37 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell
+5:37-38 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.variable.shell variable.other.normal.shell
+5:38-42 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell variable.other.normal.shell
+5:42-43 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.end.shell
+5:43-44 source.shell meta.scope.if-block.shell punctuation.terminator.statement.semicolon.shell
+5:44-45 source.shell meta.scope.if-block.shell
+5:45-47 source.shell meta.scope.if-block.shell keyword.control.fi.shell
+6:0-0 source.shell
+7:0-3 source.shell meta.for.in.shell keyword.control.for.shell
+7:3-4 source.shell meta.for.in.shell
+7:4-8 source.shell meta.for.in.shell variable.other.for.shell
+7:8-9 source.shell meta.for.in.shell
+7:9-11 source.shell meta.for.in.shell keyword.control.in.shell
+7:11-12 source.shell meta.for.in.shell
+7:12-13 source.shell meta.for.in.shell string.unquoted.shell
+7:13-14 source.shell meta.for.in.shell string.unquoted.shell
+7:14-15 source.shell meta.for.in.shell string.unquoted.shell
+7:15-16 source.shell meta.for.in.shell string.unquoted.shell
+7:16-17 source.shell meta.for.in.shell string.unquoted.shell
+7:17-18 source.shell punctuation.terminator.statement.semicolon.shell
+7:18-19 source.shell
+7:19-21 source.shell keyword.control.do.shell
+8:0-2 source.shell meta.statement.shell
+8:2-4 source.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+8:4-5 source.shell meta.statement.shell meta.statement.command.shell
+8:5-6 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument.shell constant.other.option.dash.shell
+8:6-7 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument constant.other.option
+8:7-8 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+8:8-9 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+8:9-10 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.variable.shell variable.other.normal.shell
+8:10-14 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell variable.other.normal.shell
+8:14-15 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.end.shell
+8:15-16 source.shell meta.statement.shell meta.statement.command.shell
+8:16-17 source.shell keyword.operator.pipe.shell
+8:17-18 source.shell meta.statement.shell
+8:18-22 source.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+8:22-23 source.shell meta.statement.shell meta.statement.command.shell
+8:23-24 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument.shell constant.other.option.dash.shell
+8:24-25 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument constant.other.option
+9:0-4 source.shell keyword.control.done.shell
+10:0-0 source.shell
+11:0-5 source.shell meta.expression.assignment.shell variable.other.assignment.shell
+11:5-6 source.shell meta.expression.assignment.shell keyword.operator.assignment.shell
+11:6-7 source.shell meta.expression.assignment.shell string.unquoted.shell
+12:0-5 source.shell meta.scope.while-loop.shell keyword.control.shell
+12:5-6 source.shell meta.scope.while-loop.shell
+12:6-10 source.shell meta.scope.while-loop.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell support.function.builtin.shell
+12:10-11 source.shell meta.scope.while-loop.shell meta.statement.shell meta.statement.command.shell
+12:11-12 source.shell meta.scope.while-loop.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument.shell constant.other.option.dash.shell
+12:12-13 source.shell meta.scope.while-loop.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument constant.other.option
+12:13-14 source.shell meta.scope.while-loop.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+12:14-18 source.shell meta.scope.while-loop.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+12:18-19 source.shell meta.scope.while-loop.shell punctuation.terminator.statement.semicolon.shell
+12:19-20 source.shell meta.scope.while-loop.shell
+12:20-22 source.shell meta.scope.while-loop.shell keyword.control.do.shell
+13:0-2 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell
+13:2-7 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell variable.other.assignment.shell
+13:7-8 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell keyword.operator.assignment.shell
+13:8-10 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell punctuation.definition.subshell.single.shell
+13:10-11 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell punctuation.section.parenthese.shell
+13:11-16 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+13:16-17 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+13:17-18 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+13:18-19 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+13:19-20 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell constant.numeric.shell constant.numeric.integer.shell
+13:20-21 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell punctuation.section.parenthese.shell
+13:21-22 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell punctuation.definition.subshell.single.shell
+14:0-4 source.shell meta.scope.while-loop.shell keyword.control.shell
+14:4-5 source.shell
+14:5-6 source.shell keyword.operator.redirect.shell
+14:6-16 source.shell
+15:0-0 source.shell
+16:0-5 source.shell meta.scope.while-loop.shell keyword.control.shell
+16:5-6 source.shell meta.scope.while-loop.shell
+16:6-8 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell punctuation.definition.logical-expression.shell
+16:8-9 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell
+16:9-10 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell punctuation.definition.variable.shell variable.other.normal.shell
+16:10-15 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell variable.other.normal.shell
+16:15-16 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell
+16:16-19 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell keyword.operator.logical.shell
+16:19-20 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell
+16:20-21 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell constant.numeric.shell constant.numeric.integer.shell
+16:21-22 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell
+16:22-24 source.shell meta.scope.while-loop.shell meta.scope.logical-expression.shell punctuation.definition.logical-expression.shell
+16:24-25 source.shell meta.scope.while-loop.shell punctuation.terminator.statement.semicolon.shell
+16:25-26 source.shell meta.scope.while-loop.shell
+16:26-28 source.shell meta.scope.while-loop.shell keyword.control.do.shell
+16:28-29 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell
+16:29-34 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell variable.other.assignment.shell
+16:34-35 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell keyword.operator.assignment.shell
+16:35-37 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell punctuation.definition.subshell.single.shell
+16:37-38 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell punctuation.section.parenthese.shell
+16:38-43 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+16:43-44 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+16:44-45 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+16:45-46 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+16:46-47 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell constant.numeric.shell constant.numeric.integer.shell
+16:47-48 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell meta.parenthese.group.shell punctuation.section.parenthese.shell
+16:48-49 source.shell meta.scope.while-loop.shell meta.expression.assignment.shell meta.scope.subshell punctuation.definition.subshell.single.shell
+16:49-50 source.shell meta.scope.while-loop.shell punctuation.terminator.statement.semicolon.shell
+16:50-51 source.shell meta.scope.while-loop.shell
+16:51-55 source.shell meta.scope.while-loop.shell keyword.control.shell
+17:0-0 source.shell
+18:0-2 source.shell meta.scope.if-block.shell keyword.control.if.shell
+18:2-3 source.shell meta.scope.if-block.shell
+18:3-7 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+18:7-8 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell
+18:8-9 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument.shell constant.other.option.dash.shell
+18:9-10 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument constant.other.option
+18:10-11 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+18:11-15 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+18:15-16 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+18:16-19 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell meta.herestring.shell keyword.operator.herestring.shell
+18:19-20 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell meta.herestring.shell
+18:20-21 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell meta.herestring.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+18:21-22 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell meta.herestring.shell string.quoted.double.shell punctuation.definition.variable.shell variable.other.normal.shell
+18:22-30 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell meta.herestring.shell string.quoted.double.shell variable.other.normal.shell
+18:30-31 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell meta.herestring.shell string.quoted.double.shell punctuation.definition.string.end.shell
+18:31-32 source.shell meta.scope.if-block.shell punctuation.terminator.statement.semicolon.shell
+18:32-33 source.shell meta.scope.if-block.shell
+18:33-37 source.shell meta.scope.if-block.shell keyword.control.then.shell
+19:0-2 source.shell meta.scope.if-block.shell meta.statement.shell
+19:2-5 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+19:5-6 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+19:6-12 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+19:12-13 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+19:13-17 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+20:0-4 source.shell meta.scope.if-block.shell keyword.control.elif.shell
+20:4-5 source.shell meta.scope.if-block.shell
+20:5-8 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+20:8-9 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+20:9-18 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+20:18-19 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell
+20:19-20 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument.shell constant.other.option.dash.shell
+20:20-27 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument constant.other.option
+20:27-28 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+20:28-35 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+20:35-36 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+20:36-37 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell keyword.operator.redirect.shell
+20:37-46 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+20:46-47 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+20:47-48 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell keyword.operator.redirect.stderr.shell
+20:48-51 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell keyword.operator.redirect.shell
+20:51-52 source.shell meta.scope.if-block.shell punctuation.terminator.statement.semicolon.shell
+20:52-53 source.shell meta.scope.if-block.shell
+20:53-57 source.shell meta.scope.if-block.shell keyword.control.then.shell
+21:0-2 source.shell meta.scope.if-block.shell meta.statement.shell
+21:2-5 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+21:5-6 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+21:6-12 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+21:12-13 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+21:13-20 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell
+22:0-4 source.shell meta.scope.if-block.shell keyword.control.else.shell
+23:0-2 source.shell meta.scope.if-block.shell meta.statement.shell
+23:2-8 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell support.function.builtin.shell
+23:8-9 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+23:9-10 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.single.shell punctuation.definition.string.begin.shell
+23:10-14 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.single.shell
+23:14-15 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.single.shell punctuation.definition.string.end.shell
+23:15-16 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+23:16-17 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+23:17-26 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell
+23:26-27 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.end.shell
+23:27-28 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+23:28-31 source.shell meta.scope.if-block.shell meta.statement.shell meta.statement.command.shell meta.argument.shell keyword.operator.redirect.shell
+24:0-2 source.shell meta.scope.if-block.shell keyword.control.fi.shell
+25:0-0 source.shell
+26:0-5 source.shell meta.function.shell entity.name.function.shell
+26:5-6 source.shell meta.function.shell punctuation.definition.arguments.shell
+26:6-7 source.shell meta.function.shell punctuation.definition.arguments.shell
+26:7-8 source.shell meta.function.shell
+26:8-9 source.shell meta.function.shell meta.function.body.shell punctuation.definition.group.shell punctuation.section.function.definition.shell
+27:0-2 source.shell meta.function.shell meta.function.body.shell meta.statement.shell
+27:2-7 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.shell meta.expression.assignment.modified.shell storage.modifier.local.shell
+27:7-8 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.shell meta.expression.assignment.modified.shell
+27:8-11 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.shell meta.expression.assignment.modified.shell variable.other.assignment.shell
+27:11-12 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.shell meta.expression.assignment.modified.shell keyword.operator.assignment.shell
+27:12-13 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.shell meta.expression.assignment.modified.shell punctuation.definition.variable.shell variable.parameter.positional.shell
+27:13-14 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.shell meta.expression.assignment.modified.shell variable.parameter.positional.shell
+28:0-2 source.shell meta.function.shell meta.function.body.shell meta.statement.shell
+28:2-6 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell support.function.builtin.shell
+28:6-7 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+28:7-8 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+28:8-11 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell
+28:11-12 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.variable.shell variable.other.normal.shell
+28:12-15 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell variable.other.normal.shell
+28:15-16 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.end.shell
+28:16-17 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell
+28:17-19 source.shell meta.function.shell meta.function.body.shell punctuation.separator.statement.and.shell
+28:19-20 source.shell meta.function.shell meta.function.body.shell meta.statement.shell
+28:20-26 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell keyword.control.return.shell
+28:26-27 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+28:27-28 source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell constant.numeric.shell constant.numeric.integer.shell
+29:0-1 source.shell meta.function.shell meta.function.body.shell punctuation.definition.group.shell punctuation.section.function.definition.shell
+30:0-5 source.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+30:5-6 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+30:6-7 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+30:7-9 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell meta.scope.subshell punctuation.definition.subshell.single.shell
+30:9-15 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell meta.scope.subshell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+30:15-16 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell meta.scope.subshell punctuation.definition.subshell.single.shell
+30:16-17 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.quoted.double.shell punctuation.definition.string.end.shell
+30:17-18 source.shell meta.statement.shell meta.statement.command.shell
+30:18-19 source.shell keyword.operator.pipe.shell
+30:19-20 source.shell meta.statement.shell
+30:20-23 source.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell
+30:23-24 source.shell meta.statement.shell meta.statement.command.shell
+30:24-25 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument.shell constant.other.option.dash.shell
+30:25-26 source.shell meta.statement.shell meta.statement.command.shell string.unquoted.argument constant.other.option
+30:26-27 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell
+30:27-34 source.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell

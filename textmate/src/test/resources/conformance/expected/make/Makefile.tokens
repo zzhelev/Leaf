@@ -1,0 +1,96 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.makefile comment.line.number-sign.makefile punctuation.definition.comment.makefile
+0:1-27 source.makefile comment.line.number-sign.makefile
+1:0-9 source.makefile variable.other.makefile
+1:9-10 source.makefile
+1:10-12 source.makefile punctuation.separator.key-value.makefile
+1:12-13 source.makefile
+1:13-15 source.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+1:15-19 source.makefile string.interpolated.makefile variable.other.makefile
+1:19-20 source.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+1:20-27 source.makefile
+2:0-6 source.makefile variable.other.makefile
+2:6-7 source.makefile
+2:7-9 source.makefile punctuation.separator.key-value.makefile
+2:9-31 source.makefile
+3:0-7 source.makefile variable.other.makefile
+3:7-8 source.makefile
+3:8-9 source.makefile punctuation.separator.key-value.makefile
+3:9-10 source.makefile
+3:10-12 source.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+3:12-20 source.makefile string.interpolated.makefile meta.scope.function-call.makefile support.function.wildcard.makefile
+3:20-21 source.makefile string.interpolated.makefile meta.scope.function-call.makefile
+3:21-29 source.makefile string.interpolated.makefile meta.scope.function-call.makefile
+3:29-30 source.makefile string.interpolated.makefile meta.scope.function-call.makefile constant.other.placeholder.makefile
+3:30-31 source.makefile string.interpolated.makefile meta.scope.function-call.makefile constant.other.placeholder.makefile
+3:31-32 source.makefile string.interpolated.makefile meta.scope.function-call.makefile
+3:32-33 source.makefile string.interpolated.makefile meta.scope.function-call.makefile constant.other.placeholder.makefile
+3:33-36 source.makefile string.interpolated.makefile meta.scope.function-call.makefile
+3:36-37 source.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+4:0-0 source.makefile
+5:0-6 source.makefile meta.scope.target.makefile support.function.target.PHONY.makefile
+5:6-7 source.makefile meta.scope.target.makefile punctuation.separator.key-value.makefile
+5:7-28 source.makefile meta.scope.target.makefile meta.scope.prerequisites.makefile
+6:0-0 source.makefile
+7:0-3 source.makefile meta.scope.target.makefile entity.name.function.target.makefile
+7:3-4 source.makefile meta.scope.target.makefile punctuation.separator.key-value.makefile
+7:4-10 source.makefile meta.scope.target.makefile meta.scope.prerequisites.makefile
+8:0-0 source.makefile
+9:0-5 source.makefile meta.scope.target.makefile entity.name.function.target.makefile
+9:5-6 source.makefile meta.scope.target.makefile punctuation.separator.key-value.makefile
+9:6-7 source.makefile meta.scope.target.makefile meta.scope.prerequisites.makefile
+9:7-9 source.makefile meta.scope.target.makefile meta.scope.prerequisites.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+9:9-16 source.makefile meta.scope.target.makefile meta.scope.prerequisites.makefile string.interpolated.makefile variable.other.makefile
+9:16-17 source.makefile meta.scope.target.makefile meta.scope.prerequisites.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+10:0-1 source.makefile meta.scope.recipe.makefile
+10:1-2 source.makefile meta.scope.recipe.makefile keyword.control.@.makefile
+10:2-22 source.makefile meta.scope.recipe.makefile
+10:22-24 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+10:24-33 source.makefile meta.scope.recipe.makefile string.interpolated.makefile variable.other.makefile
+10:33-34 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+10:34-35 source.makefile meta.scope.recipe.makefile
+11:0-1 source.makefile meta.scope.recipe.makefile
+11:1-3 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+11:3-9 source.makefile meta.scope.recipe.makefile string.interpolated.makefile variable.other.makefile
+11:9-10 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+11:10-15 source.makefile meta.scope.recipe.makefile
+11:15-16 source.makefile meta.scope.recipe.makefile
+12:0-0 source.makefile
+13:0-4 source.makefile meta.scope.target.makefile entity.name.function.target.makefile
+13:4-5 source.makefile meta.scope.target.makefile punctuation.separator.key-value.makefile
+14:0-1 source.makefile meta.scope.recipe.makefile
+14:1-11 source.makefile meta.scope.recipe.makefile
+14:11-13 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+14:13-22 source.makefile meta.scope.recipe.makefile string.interpolated.makefile variable.other.makefile
+14:22-23 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+14:23-24 source.makefile meta.scope.recipe.makefile
+14:24-26 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+14:26-32 source.makefile meta.scope.recipe.makefile string.interpolated.makefile variable.other.makefile
+14:32-33 source.makefile meta.scope.recipe.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+14:33-70 source.makefile meta.scope.recipe.makefile
+14:70-71 source.makefile meta.scope.recipe.makefile
+15:0-0 source.makefile
+16:0-5 source.makefile meta.scope.target.makefile entity.name.function.target.makefile
+16:5-6 source.makefile meta.scope.target.makefile punctuation.separator.key-value.makefile
+17:0-1 source.makefile meta.scope.recipe.makefile
+17:1-22 source.makefile meta.scope.recipe.makefile
+17:22-23 source.makefile meta.scope.recipe.makefile
+18:0-0 source.makefile
+19:0-4 source.makefile meta.scope.conditional.makefile keyword.control.ifeq.makefile
+19:4-6 source.makefile meta.scope.conditional.makefile meta.scope.condition.makefile
+19:6-8 source.makefile meta.scope.conditional.makefile meta.scope.condition.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+19:8-10 source.makefile meta.scope.conditional.makefile meta.scope.condition.makefile string.interpolated.makefile variable.other.makefile
+19:10-11 source.makefile meta.scope.conditional.makefile meta.scope.condition.makefile string.interpolated.makefile punctuation.definition.variable.makefile
+19:11-12 source.makefile meta.scope.conditional.makefile meta.scope.condition.makefile punctuation.separator.delimeter.comma.makefile
+19:12-23 source.makefile meta.scope.conditional.makefile meta.scope.condition.makefile
+20:0-2 source.makefile meta.scope.conditional.makefile
+20:2-5 source.makefile meta.scope.conditional.makefile variable.other.makefile
+20:5-6 source.makefile meta.scope.conditional.makefile
+20:6-8 source.makefile meta.scope.conditional.makefile punctuation.separator.key-value.makefile
+20:8-13 source.makefile meta.scope.conditional.makefile
+21:0-4 source.makefile meta.scope.conditional.makefile keyword.control.else.makefile
+22:0-2 source.makefile meta.scope.conditional.makefile
+22:2-5 source.makefile meta.scope.conditional.makefile variable.other.makefile
+22:5-6 source.makefile meta.scope.conditional.makefile
+22:6-8 source.makefile meta.scope.conditional.makefile punctuation.separator.key-value.makefile
+23:0-5 source.makefile meta.scope.conditional.makefile keyword.control.endif.makefile

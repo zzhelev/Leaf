@@ -1,0 +1,39 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-46 source.diff meta.diff.header.git
+1:0-29 source.diff meta.diff.index.git
+2:0-3 source.diff meta.diff.header.from-file punctuation.definition.from-file.diff
+2:3-21 source.diff meta.diff.header.from-file
+3:0-3 source.diff meta.diff.header.to-file punctuation.definition.to-file.diff
+3:3-21 source.diff meta.diff.header.to-file
+4:0-2 source.diff meta.diff.range.unified punctuation.definition.range.diff
+4:2-3 source.diff meta.diff.range.unified
+4:3-12 source.diff meta.diff.range.unified meta.toc-list.line-number.diff
+4:12-13 source.diff meta.diff.range.unified
+4:13-15 source.diff meta.diff.range.unified punctuation.definition.range.diff
+5:0-20 source.diff
+6:0-1 source.diff
+7:0-1 source.diff markup.deleted.diff punctuation.definition.deleted.diff
+7:1-13 source.diff markup.deleted.diff
+8:0-1 source.diff markup.deleted.diff punctuation.definition.deleted.diff
+8:1-21 source.diff markup.deleted.diff
+9:0-1 source.diff markup.inserted.diff punctuation.definition.inserted.diff
+9:1-32 source.diff markup.inserted.diff
+10:0-1 source.diff markup.inserted.diff punctuation.definition.inserted.diff
+10:1-44 source.diff markup.inserted.diff
+11:0-1 source.diff markup.inserted.diff punctuation.definition.inserted.diff
+11:1-28 source.diff markup.inserted.diff
+12:0-2 source.diff
+13:0-27 source.diff
+14:0-34 source.diff meta.diff.header.git
+15:0-20 source.diff
+16:0-3 source.diff meta.diff.header.from-file punctuation.definition.from-file.diff
+16:3-13 source.diff meta.diff.header.from-file
+17:0-3 source.diff meta.diff.header.to-file punctuation.definition.to-file.diff
+17:3-15 source.diff meta.diff.header.to-file
+18:0-2 source.diff meta.diff.range.unified punctuation.definition.range.diff
+18:2-3 source.diff meta.diff.range.unified
+18:3-10 source.diff meta.diff.range.unified meta.toc-list.line-number.diff
+18:10-11 source.diff meta.diff.range.unified
+18:11-13 source.diff meta.diff.range.unified punctuation.definition.range.diff
+19:0-1 source.diff markup.inserted.diff punctuation.definition.inserted.diff
+19:1-7 source.diff markup.inserted.diff

@@ -1,0 +1,62 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-22 source.cmake keyword.cmake
+0:22-23 source.cmake
+0:23-30 source.cmake entity.source.cmake
+0:30-36 source.cmake
+1:0-7 source.cmake keyword.cmake
+1:7-21 source.cmake
+1:21-28 source.cmake entity.source.cmake
+1:28-47 source.cmake
+2:0-0 source.cmake
+3:0-21 source.cmake comment.source.cmake
+4:0-6 source.cmake keyword.cmake
+4:6-19 source.cmake
+4:19-20 source.cmake string.source.cmake
+4:20-35 source.cmake string.source.cmake
+4:35-36 source.cmake string.source.cmake
+4:36-37 source.cmake
+4:37-40 source.cmake keyword.cmake
+4:40-41 source.cmake
+5:0-3 source.cmake keyword.cmake
+5:3-24 source.cmake
+6:0-0 source.cmake
+7:0-14 source.cmake keyword.cmake
+7:14-42 source.cmake
+8:0-26 source.cmake keyword.cmake
+8:26-40 source.cmake
+8:40-47 source.cmake entity.source.cmake
+8:47-48 source.cmake
+8:48-55 source.cmake entity.source.cmake
+8:55-56 source.cmake
+8:56-57 source.cmake string.source.cmake
+8:57-75 source.cmake string.source.cmake
+8:75-76 source.cmake string.source.cmake
+8:76-77 source.cmake
+9:0-0 source.cmake
+10:0-2 source.cmake keyword.cmake
+10:2-15 source.cmake
+10:15-18 source.cmake keyword.cmake
+10:18-19 source.cmake
+10:19-22 source.cmake keyword.cmake
+10:22-23 source.cmake
+10:23-28 source.cmake constant.source.cmake
+10:28-29 source.cmake
+11:0-35 source.cmake
+11:35-42 source.cmake entity.source.cmake
+11:42-51 source.cmake
+12:0-5 source.cmake keyword.cmake
+12:5-7 source.cmake
+13:0-0 source.cmake
+14:0-7 source.cmake keyword.cmake
+14:7-33 source.cmake
+15:0-9 source.cmake keyword.cmake
+15:9-17 source.cmake
+15:17-18 source.cmake string.source.cmake
+15:18-67 source.cmake string.source.cmake
+15:67-68 source.cmake string.source.cmake
+15:68-69 source.cmake
+16:0-10 source.cmake keyword.cmake
+16:10-12 source.cmake
+17:0-0 source.cmake
+18:0-7 source.cmake keyword.cmake
+18:7-45 source.cmake

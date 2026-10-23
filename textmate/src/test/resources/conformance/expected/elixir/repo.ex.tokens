@@ -1,0 +1,234 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-9 source.elixir meta.module.elixir keyword.control.module.elixir
+0:9-10 source.elixir meta.module.elixir
+0:10-17 source.elixir meta.module.elixir entity.other.inherited-class.elixir
+0:17-18 source.elixir meta.module.elixir
+0:18-22 source.elixir meta.module.elixir entity.name.type.class.elixir
+0:22-23 source.elixir meta.module.elixir
+0:23-25 source.elixir meta.module.elixir keyword.control.module.elixir
+1:0-2 source.elixir
+1:2-16 source.elixir comment.block.documentation.heredoc
+2:0-27 source.elixir comment.block.documentation.heredoc
+3:0-5 source.elixir comment.block.documentation.heredoc
+4:0-0 source.elixir
+5:0-2 source.elixir
+5:2-3 source.elixir variable.other.readwrite.module.elixir punctuation.definition.variable.elixir
+5:3-10 source.elixir variable.other.readwrite.module.elixir
+5:10-11 source.elixir
+5:11-17 source.elixir constant.numeric.integer.elixir
+6:0-0 source.elixir
+7:0-2 source.elixir
+7:2-11 source.elixir keyword.control.elixir
+7:11-12 source.elixir
+7:12-13 source.elixir punctuation.section.array.elixir
+7:13-14 source.elixir constant.other.symbol.elixir punctuation.definition.constant.elixir
+7:14-18 source.elixir constant.other.symbol.elixir
+7:18-19 source.elixir punctuation.separator.object.elixir
+7:19-20 source.elixir
+7:20-26 source.elixir constant.other.keywords.elixir
+7:26-27 source.elixir constant.other.keywords.elixir punctuation.definition.constant.elixir
+7:27-28 source.elixir
+7:28-29 source.elixir string.quoted.double.elixir punctuation.definition.string.begin.elixir
+7:29-33 source.elixir string.quoted.double.elixir
+7:33-34 source.elixir string.quoted.double.elixir punctuation.definition.string.end.elixir
+7:34-35 source.elixir punctuation.section.array.elixir
+8:0-0 source.elixir
+9:0-2 source.elixir
+9:2-8 source.elixir comment.block.documentation.string
+9:8-27 source.elixir comment.block.documentation.string
+9:27-28 source.elixir comment.block.documentation.string
+10:0-2 source.elixir
+10:2-3 source.elixir variable.other.readwrite.module.elixir punctuation.definition.variable.elixir
+10:3-7 source.elixir variable.other.readwrite.module.elixir
+10:7-8 source.elixir
+10:8-16 source.elixir entity.name.function.elixir
+10:16-17 source.elixir punctuation.section.function.elixir
+10:17-18 source.elixir
+10:18-28 source.elixir variable.language.elixir
+10:28-29 source.elixir punctuation.section.scope.elixir
+10:29-30 source.elixir punctuation.section.scope.elixir
+10:30-31 source.elixir punctuation.section.function.elixir
+10:31-32 source.elixir
+10:32-34 source.elixir keyword.operator.other.elixir
+10:34-35 source.elixir
+10:35-36 source.elixir punctuation.section.scope.elixir
+10:36-37 source.elixir constant.other.symbol.elixir punctuation.definition.constant.elixir
+10:37-39 source.elixir constant.other.symbol.elixir
+10:39-40 source.elixir punctuation.separator.object.elixir
+10:40-41 source.elixir
+10:41-42 source.elixir punctuation.section.array.elixir
+10:42-48 source.elixir entity.name.type.class.elixir
+10:48-49 source.elixir punctuation.separator.method.elixir
+10:49-50 source.elixir entity.name.function.elixir
+10:50-51 source.elixir punctuation.section.function.elixir
+10:51-52 source.elixir punctuation.section.function.elixir
+10:52-53 source.elixir punctuation.section.array.elixir
+10:53-54 source.elixir punctuation.section.scope.elixir
+10:54-55 source.elixir
+10:55-56 source.elixir keyword.operator.other.elixir
+10:56-57 source.elixir
+10:57-58 source.elixir punctuation.section.scope.elixir
+10:58-59 source.elixir constant.other.symbol.elixir punctuation.definition.constant.elixir
+10:59-64 source.elixir constant.other.symbol.elixir
+10:64-65 source.elixir punctuation.separator.object.elixir
+10:65-66 source.elixir
+10:66-70 source.elixir entity.name.function.elixir
+10:70-71 source.elixir punctuation.section.function.elixir
+10:71-72 source.elixir punctuation.section.function.elixir
+10:72-73 source.elixir punctuation.section.scope.elixir
+11:0-2 source.elixir meta.function.public.elixir
+11:2-5 source.elixir meta.function.public.elixir keyword.control.module.elixir
+11:5-6 source.elixir meta.function.public.elixir
+11:6-14 source.elixir meta.function.public.elixir entity.name.function.public.elixir
+11:14-15 source.elixir meta.function.public.elixir punctuation.section.function.elixir
+11:15-16 source.elixir meta.function.public.elixir
+11:16-26 source.elixir meta.function.public.elixir variable.language.elixir
+11:26-27 source.elixir meta.function.public.elixir punctuation.section.scope.elixir
+11:27-31 source.elixir meta.function.public.elixir constant.other.keywords.elixir
+11:31-32 source.elixir meta.function.public.elixir constant.other.keywords.elixir punctuation.definition.constant.elixir
+11:32-37 source.elixir meta.function.public.elixir
+11:37-38 source.elixir meta.function.public.elixir punctuation.section.scope.elixir
+11:38-39 source.elixir meta.function.public.elixir punctuation.section.function.elixir
+11:39-40 source.elixir meta.function.public.elixir
+11:40-42 source.elixir meta.function.public.elixir keyword.control.module.elixir
+12:0-4 source.elixir
+12:4-8 source.elixir keyword.control.elixir
+12:8-9 source.elixir
+12:9-15 source.elixir entity.name.type.class.elixir
+12:15-16 source.elixir punctuation.separator.method.elixir
+12:16-19 source.elixir entity.name.function.elixir
+12:19-20 source.elixir punctuation.section.function.elixir
+12:20-21 source.elixir string.quoted.double.elixir punctuation.definition.string.begin.elixir
+12:21-24 source.elixir string.quoted.double.elixir
+12:24-25 source.elixir string.quoted.double.elixir punctuation.definition.string.end.elixir
+12:25-26 source.elixir punctuation.separator.object.elixir
+12:26-27 source.elixir
+12:27-28 source.elixir punctuation.section.array.elixir
+12:28-29 source.elixir string.quoted.double.elixir punctuation.definition.string.begin.elixir
+12:29-35 source.elixir string.quoted.double.elixir
+12:35-36 source.elixir string.quoted.double.elixir punctuation.definition.string.end.elixir
+12:36-37 source.elixir punctuation.separator.object.elixir
+12:37-38 source.elixir
+12:38-39 source.elixir string.quoted.double.elixir punctuation.definition.string.begin.elixir
+12:39-64 source.elixir string.quoted.double.elixir
+12:64-65 source.elixir string.quoted.double.elixir punctuation.definition.string.end.elixir
+12:65-66 source.elixir punctuation.section.array.elixir
+12:66-67 source.elixir punctuation.separator.object.elixir
+12:67-68 source.elixir
+12:68-70 source.elixir constant.other.keywords.elixir
+12:70-71 source.elixir constant.other.keywords.elixir punctuation.definition.constant.elixir
+12:71-76 source.elixir
+12:76-77 source.elixir punctuation.section.function.elixir
+12:77-78 source.elixir
+12:78-80 source.elixir keyword.control.elixir
+13:0-6 source.elixir
+13:6-7 source.elixir punctuation.section.scope.elixir
+13:7-10 source.elixir
+13:10-11 source.elixir punctuation.separator.object.elixir
+13:11-12 source.elixir
+13:12-13 source.elixir constant.numeric.integer.elixir
+13:13-14 source.elixir punctuation.section.scope.elixir
+13:14-15 source.elixir
+13:15-17 source.elixir keyword.operator.other.elixir
+13:17-18 source.elixir
+13:18-19 source.elixir punctuation.section.scope.elixir
+13:19-20 source.elixir constant.other.symbol.elixir punctuation.definition.constant.elixir
+13:20-22 source.elixir constant.other.symbol.elixir
+13:22-23 source.elixir punctuation.separator.object.elixir
+13:23-24 source.elixir
+13:24-30 source.elixir entity.name.type.class.elixir
+13:30-31 source.elixir punctuation.separator.method.elixir
+13:31-36 source.elixir entity.name.function.elixir
+13:36-37 source.elixir punctuation.section.function.elixir
+13:37-40 source.elixir
+13:40-41 source.elixir punctuation.separator.object.elixir
+13:41-42 source.elixir
+13:42-43 source.elixir string.quoted.double.elixir punctuation.definition.string.begin.elixir
+13:43-45 source.elixir string.quoted.double.elixir constant.character.escaped.elixir
+13:45-46 source.elixir string.quoted.double.elixir punctuation.definition.string.end.elixir
+13:46-47 source.elixir punctuation.separator.object.elixir
+13:47-48 source.elixir
+13:48-52 source.elixir constant.other.keywords.elixir
+13:52-53 source.elixir constant.other.keywords.elixir punctuation.definition.constant.elixir
+13:53-54 source.elixir
+13:54-58 source.elixir constant.language.elixir
+13:58-59 source.elixir punctuation.section.function.elixir
+13:59-60 source.elixir punctuation.section.scope.elixir
+14:0-6 source.elixir
+14:6-7 source.elixir punctuation.section.scope.elixir
+14:7-10 source.elixir
+14:10-11 source.elixir punctuation.separator.object.elixir
+14:11-16 source.elixir
+14:16-17 source.elixir punctuation.section.scope.elixir
+14:17-18 source.elixir
+14:18-22 source.elixir keyword.control.elixir
+14:22-28 source.elixir
+14:28-29 source.elixir keyword.operator.comparison.elixir
+14:29-30 source.elixir
+14:30-31 source.elixir constant.numeric.integer.elixir
+14:31-32 source.elixir
+14:32-33 source.elixir keyword.operator.arithmetic.elixir
+14:33-34 source.elixir keyword.operator.comparison.elixir
+14:34-35 source.elixir
+14:35-36 source.elixir punctuation.section.scope.elixir
+14:36-37 source.elixir constant.other.symbol.elixir punctuation.definition.constant.elixir
+14:37-42 source.elixir constant.other.symbol.elixir
+14:42-43 source.elixir punctuation.separator.object.elixir
+14:43-44 source.elixir
+14:44-45 source.elixir punctuation.section.scope.elixir
+14:45-49 source.elixir
+14:49-50 source.elixir punctuation.separator.object.elixir
+14:50-54 source.elixir
+14:54-55 source.elixir punctuation.section.scope.elixir
+14:55-56 source.elixir punctuation.section.scope.elixir
+15:0-4 source.elixir
+15:4-7 source.elixir keyword.control.elixir
+16:0-2 source.elixir
+16:2-5 source.elixir keyword.control.elixir
+17:0-0 source.elixir
+18:0-2 source.elixir meta.function.public.elixir
+18:2-5 source.elixir meta.function.public.elixir keyword.control.module.elixir
+18:5-6 source.elixir meta.function.public.elixir
+18:6-14 source.elixir meta.function.public.elixir entity.name.function.public.elixir
+18:14-15 source.elixir meta.function.public.elixir punctuation.section.function.elixir
+18:15-16 source.elixir meta.function.public.elixir
+18:16-26 source.elixir meta.function.public.elixir variable.language.elixir
+18:26-27 source.elixir meta.function.public.elixir punctuation.section.scope.elixir
+18:27-33 source.elixir meta.function.public.elixir constant.other.keywords.elixir
+18:33-34 source.elixir meta.function.public.elixir constant.other.keywords.elixir punctuation.definition.constant.elixir
+18:34-36 source.elixir meta.function.public.elixir
+18:36-37 source.elixir meta.function.public.elixir punctuation.section.scope.elixir
+18:37-38 source.elixir meta.function.public.elixir punctuation.separator.object.elixir
+18:38-43 source.elixir meta.function.public.elixir
+18:43-44 source.elixir meta.function.public.elixir punctuation.section.function.elixir
+18:44-45 source.elixir meta.function.public.elixir punctuation.separator.object.elixir
+18:45-46 source.elixir meta.function.public.elixir
+18:46-49 source.elixir meta.function.public.elixir constant.other.keywords.elixir
+18:49-52 source.elixir
+18:52-54 source.elixir keyword.operator.comparison.elixir
+18:54-60 source.elixir
+18:60-61 source.elixir comment.line.number-sign.elixir punctuation.definition.comment.elixir
+18:61-68 source.elixir comment.line.number-sign.elixir
+19:0-2 source.elixir meta.function.public.elixir
+19:2-5 source.elixir meta.function.public.elixir keyword.control.module.elixir
+19:5-6 source.elixir meta.function.public.elixir
+19:6-11 source.elixir meta.function.public.elixir entity.name.function.public.elixir
+19:11-12 source.elixir meta.function.public.elixir punctuation.separator.object.elixir
+19:12-13 source.elixir meta.function.public.elixir
+19:13-16 source.elixir meta.function.public.elixir constant.other.keywords.elixir
+19:16-17 source.elixir
+19:17-20 source.elixir string.quoted.other.sigil.elixir punctuation.definition.string.begin.elixir
+19:20-25 source.elixir string.quoted.other.sigil.elixir
+19:25-27 source.elixir string.quoted.other.sigil.elixir constant.character.escaped.elixir
+19:27-32 source.elixir string.quoted.other.sigil.elixir
+19:32-34 source.elixir string.quoted.other.sigil.elixir constant.character.escaped.elixir
+19:34-35 source.elixir string.quoted.other.sigil.elixir punctuation.definition.string.end.elixir
+19:35-36 source.elixir
+19:36-38 source.elixir keyword.operator.sigils_1.elixir
+19:38-39 source.elixir
+19:39-44 source.elixir entity.name.type.class.elixir
+19:44-45 source.elixir punctuation.separator.method.elixir
+19:45-51 source.elixir entity.name.function.elixir
+19:51-52 source.elixir punctuation.section.function.elixir
+19:52-53 source.elixir punctuation.section.function.elixir
+20:0-3 source.elixir keyword.control.elixir

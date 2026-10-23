@@ -1,0 +1,205 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-9 source.hcl.terraform meta.block.hcl entity.name.type.terraform
+0:9-10 source.hcl.terraform meta.block.hcl
+0:10-11 source.hcl.terraform meta.block.hcl punctuation.section.block.begin.hcl
+1:0-2 source.hcl.terraform meta.block.hcl
+1:2-18 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+1:18-19 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+1:19-20 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+1:20-21 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+1:21-22 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+1:22-28 source.hcl.terraform meta.block.hcl string.quoted.double.hcl
+1:28-29 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+2:0-2 source.hcl.terraform meta.block.hcl
+2:2-20 source.hcl.terraform meta.block.hcl meta.block.hcl entity.name.type.hcl
+2:20-21 source.hcl.terraform meta.block.hcl meta.block.hcl
+2:21-22 source.hcl.terraform meta.block.hcl meta.block.hcl punctuation.section.block.begin.hcl
+3:0-4 source.hcl.terraform meta.block.hcl meta.block.hcl
+3:4-10 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+3:10-11 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl
+3:11-12 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+3:12-13 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl
+3:13-14 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl punctuation.section.braces.begin.hcl
+4:0-6 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl
+4:6-12 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl meta.mapping.key.hcl variable.other.readwrite.hcl
+4:12-14 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl
+4:14-15 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl keyword.operator.assignment.hcl
+4:15-16 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl
+4:16-17 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+4:17-36 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl string.quoted.double.hcl
+4:36-37 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+5:0-6 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl
+5:6-13 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl meta.mapping.key.hcl variable.other.readwrite.hcl
+5:13-14 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl
+5:14-15 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl keyword.operator.assignment.hcl
+5:15-16 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl
+5:16-17 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+5:17-23 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl string.quoted.double.hcl
+5:23-24 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+6:0-4 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl
+6:4-5 source.hcl.terraform meta.block.hcl meta.block.hcl meta.braces.hcl punctuation.section.braces.end.hcl
+7:0-2 source.hcl.terraform meta.block.hcl meta.block.hcl
+7:2-3 source.hcl.terraform meta.block.hcl meta.block.hcl punctuation.section.block.end.hcl
+8:0-1 source.hcl.terraform meta.block.hcl punctuation.section.block.end.hcl
+9:0-0 source.hcl.terraform
+10:0-8 source.hcl.terraform meta.block.hcl entity.name.type.terraform
+10:8-9 source.hcl.terraform meta.block.hcl
+10:9-21 source.hcl.terraform meta.block.hcl variable.other.enummember.hcl
+10:21-22 source.hcl.terraform meta.block.hcl
+10:22-23 source.hcl.terraform meta.block.hcl punctuation.section.block.begin.hcl
+11:0-2 source.hcl.terraform meta.block.hcl
+11:2-6 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+11:6-14 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+11:14-15 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+11:15-16 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+11:16-22 source.hcl.terraform meta.block.hcl storage.type.hcl
+12:0-2 source.hcl.terraform meta.block.hcl
+12:2-13 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+12:13-14 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+12:14-15 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+12:15-16 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+12:16-17 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+12:17-39 source.hcl.terraform meta.block.hcl string.quoted.double.hcl
+12:39-40 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+13:0-2 source.hcl.terraform meta.block.hcl
+13:2-9 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+13:9-14 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+13:14-15 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+13:15-16 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+13:16-17 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+13:17-21 source.hcl.terraform meta.block.hcl string.quoted.double.hcl
+13:21-22 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+14:0-1 source.hcl.terraform meta.block.hcl punctuation.section.block.end.hcl
+15:0-0 source.hcl.terraform
+16:0-1 source.hcl.terraform comment.line.number-sign.hcl punctuation.definition.comment.hcl
+16:1-27 source.hcl.terraform comment.line.number-sign.hcl
+17:0-8 source.hcl.terraform meta.block.hcl entity.name.type.terraform
+17:8-9 source.hcl.terraform meta.block.hcl
+17:9-35 source.hcl.terraform meta.block.hcl variable.other.enummember.hcl
+17:35-36 source.hcl.terraform meta.block.hcl
+17:36-42 source.hcl.terraform meta.block.hcl variable.other.enummember.hcl
+17:42-43 source.hcl.terraform meta.block.hcl
+17:43-44 source.hcl.terraform meta.block.hcl punctuation.section.block.begin.hcl
+18:0-2 source.hcl.terraform meta.block.hcl
+18:2-15 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+18:15-16 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+18:16-17 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+18:17-18 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+18:18-22 source.hcl.terraform meta.block.hcl variable.other.readwrite.terraform
+18:22-23 source.hcl.terraform meta.block.hcl keyword.operator.accessor.hcl
+18:23-40 source.hcl.terraform meta.block.hcl variable.other.member.hcl
+18:40-41 source.hcl.terraform meta.block.hcl keyword.operator.accessor.hcl
+18:41-45 source.hcl.terraform meta.block.hcl variable.other.member.hcl
+18:45-46 source.hcl.terraform meta.block.hcl keyword.operator.accessor.hcl
+18:46-53 source.hcl.terraform meta.block.hcl variable.other.member.hcl
+19:0-2 source.hcl.terraform meta.block.hcl
+19:2-9 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+19:9-16 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+19:16-17 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+19:17-18 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+19:18-19 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+19:19-23 source.hcl.terraform meta.block.hcl string.quoted.double.hcl
+19:23-24 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+20:0-2 source.hcl.terraform meta.block.hcl
+20:2-16 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+20:16-17 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+20:17-18 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+20:18-19 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+20:19-24 source.hcl.terraform meta.block.hcl constant.language.hcl
+21:0-0 source.hcl.terraform meta.block.hcl
+22:0-2 source.hcl.terraform meta.block.hcl
+22:2-24 source.hcl.terraform meta.block.hcl meta.block.hcl entity.name.type.hcl
+22:24-25 source.hcl.terraform meta.block.hcl meta.block.hcl
+22:25-26 source.hcl.terraform meta.block.hcl meta.block.hcl punctuation.section.block.begin.hcl
+23:0-4 source.hcl.terraform meta.block.hcl meta.block.hcl
+23:4-10 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+23:10-13 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl
+23:13-14 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+23:14-15 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl
+23:15-19 source.hcl.terraform meta.block.hcl meta.block.hcl constant.language.hcl
+24:0-4 source.hcl.terraform meta.block.hcl meta.block.hcl
+24:4-12 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+24:12-13 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl
+24:13-14 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+24:14-15 source.hcl.terraform meta.block.hcl meta.block.hcl variable.declaration.hcl
+24:15-16 source.hcl.terraform meta.block.hcl meta.block.hcl punctuation.section.brackets.begin.hcl
+24:16-19 source.hcl.terraform meta.block.hcl meta.block.hcl keyword.control.hcl
+24:19-20 source.hcl.terraform meta.block.hcl meta.block.hcl
+24:20-25 source.hcl.terraform meta.block.hcl meta.block.hcl variable.other.readwrite.hcl
+24:25-26 source.hcl.terraform meta.block.hcl meta.block.hcl
+24:26-28 source.hcl.terraform meta.block.hcl meta.block.hcl keyword.operator.word.hcl
+24:28-29 source.hcl.terraform meta.block.hcl meta.block.hcl
+24:29-34 source.hcl.terraform meta.block.hcl meta.block.hcl variable.other.readwrite.terraform
+24:34-35 source.hcl.terraform meta.block.hcl meta.block.hcl keyword.operator.accessor.hcl
+24:35-41 source.hcl.terraform meta.block.hcl meta.block.hcl variable.other.member.hcl
+24:41-42 source.hcl.terraform meta.block.hcl meta.block.hcl
+24:42-43 source.hcl.terraform meta.block.hcl meta.block.hcl keyword.operator.hcl
+24:43-44 source.hcl.terraform meta.block.hcl meta.block.hcl
+24:44-45 source.hcl.terraform meta.block.hcl meta.block.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+24:45-48 source.hcl.terraform meta.block.hcl meta.block.hcl string.quoted.double.hcl
+24:48-50 source.hcl.terraform meta.block.hcl meta.block.hcl string.quoted.double.hcl meta.interpolation.hcl keyword.other.interpolation.begin.hcl
+24:50-55 source.hcl.terraform meta.block.hcl meta.block.hcl string.quoted.double.hcl meta.interpolation.hcl variable.other.readwrite.hcl
+24:55-56 source.hcl.terraform meta.block.hcl meta.block.hcl string.quoted.double.hcl meta.interpolation.hcl keyword.other.interpolation.end.hcl
+24:56-57 source.hcl.terraform meta.block.hcl meta.block.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+24:57-58 source.hcl.terraform meta.block.hcl meta.block.hcl punctuation.section.brackets.end.hcl
+25:0-2 source.hcl.terraform meta.block.hcl meta.block.hcl
+25:2-3 source.hcl.terraform meta.block.hcl meta.block.hcl punctuation.section.block.end.hcl
+26:0-1 source.hcl.terraform meta.block.hcl punctuation.section.block.end.hcl
+27:0-0 source.hcl.terraform
+28:0-6 source.hcl.terraform meta.block.hcl entity.name.type.terraform
+28:6-7 source.hcl.terraform meta.block.hcl
+28:7-8 source.hcl.terraform meta.block.hcl punctuation.section.block.begin.hcl
+29:0-2 source.hcl.terraform meta.block.hcl
+29:2-8 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+29:8-9 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+29:9-10 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+29:10-11 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+29:11-16 source.hcl.terraform meta.block.hcl meta.function-call.hcl support.function.builtin.terraform
+29:16-17 source.hcl.terraform meta.block.hcl meta.function-call.hcl punctuation.section.parens.begin.hcl
+29:17-18 source.hcl.terraform meta.block.hcl meta.function-call.hcl punctuation.section.brackets.begin.hcl
+29:18-19 source.hcl.terraform meta.block.hcl meta.function-call.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+29:19-24 source.hcl.terraform meta.block.hcl meta.function-call.hcl string.quoted.double.hcl
+29:24-25 source.hcl.terraform meta.block.hcl meta.function-call.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+29:25-26 source.hcl.terraform meta.block.hcl meta.function-call.hcl punctuation.separator.hcl
+29:26-27 source.hcl.terraform meta.block.hcl meta.function-call.hcl
+29:27-28 source.hcl.terraform meta.block.hcl meta.function-call.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+29:28-32 source.hcl.terraform meta.block.hcl meta.function-call.hcl string.quoted.double.hcl
+29:32-33 source.hcl.terraform meta.block.hcl meta.function-call.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+29:33-34 source.hcl.terraform meta.block.hcl meta.function-call.hcl punctuation.section.brackets.end.hcl
+29:34-35 source.hcl.terraform meta.block.hcl meta.function-call.hcl punctuation.section.parens.end.hcl
+30:0-1 source.hcl.terraform meta.block.hcl punctuation.section.block.end.hcl
+31:0-0 source.hcl.terraform
+32:0-6 source.hcl.terraform meta.block.hcl entity.name.type.terraform
+32:6-7 source.hcl.terraform meta.block.hcl
+32:7-18 source.hcl.terraform meta.block.hcl variable.other.enummember.hcl
+32:18-19 source.hcl.terraform meta.block.hcl
+32:19-20 source.hcl.terraform meta.block.hcl punctuation.section.block.begin.hcl
+32:20-21 source.hcl.terraform meta.block.hcl
+32:21-26 source.hcl.terraform meta.block.hcl variable.declaration.hcl variable.other.readwrite.hcl
+32:26-27 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+32:27-28 source.hcl.terraform meta.block.hcl variable.declaration.hcl keyword.operator.assignment.hcl
+32:28-29 source.hcl.terraform meta.block.hcl variable.declaration.hcl
+32:29-35 source.hcl.terraform meta.block.hcl meta.function-call.hcl support.function.builtin.terraform
+32:35-36 source.hcl.terraform meta.block.hcl meta.function-call.hcl punctuation.section.parens.begin.hcl
+32:36-41 source.hcl.terraform meta.block.hcl meta.function-call.hcl variable.other.readwrite.terraform
+32:41-42 source.hcl.terraform meta.block.hcl meta.function-call.hcl keyword.operator.accessor.hcl
+32:42-48 source.hcl.terraform meta.block.hcl meta.function-call.hcl variable.other.member.hcl
+32:48-49 source.hcl.terraform meta.block.hcl meta.function-call.hcl punctuation.section.parens.end.hcl
+32:49-50 source.hcl.terraform meta.block.hcl
+32:50-51 source.hcl.terraform meta.block.hcl keyword.operator.hcl
+32:51-52 source.hcl.terraform meta.block.hcl
+32:52-53 source.hcl.terraform meta.block.hcl constant.numeric.integer.hcl
+32:53-54 source.hcl.terraform meta.block.hcl
+32:54-55 source.hcl.terraform meta.block.hcl keyword.operator.hcl
+32:55-56 source.hcl.terraform meta.block.hcl
+32:56-57 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+32:57-60 source.hcl.terraform meta.block.hcl string.quoted.double.hcl
+32:60-61 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+32:61-62 source.hcl.terraform meta.block.hcl
+32:62-63 source.hcl.terraform meta.block.hcl keyword.operator.hcl
+32:63-64 source.hcl.terraform meta.block.hcl
+32:64-65 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.begin.hcl
+32:65-67 source.hcl.terraform meta.block.hcl string.quoted.double.hcl
+32:67-68 source.hcl.terraform meta.block.hcl string.quoted.double.hcl punctuation.definition.string.end.hcl
+32:68-69 source.hcl.terraform meta.block.hcl
+32:69-70 source.hcl.terraform meta.block.hcl punctuation.section.block.end.hcl

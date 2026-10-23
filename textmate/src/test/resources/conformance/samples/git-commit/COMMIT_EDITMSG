@@ -1,0 +1,14 @@
+Squash a branch into one commit on top of the latest main
+
+The squash dialog offers to move the branch onto the base's tip. Files
+move with git read-tree, so staged changes stay staged.
+
+Co-authored-by: Ana Author <ana@example.com>
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch claude/squash
+# Changes to be committed:
+#	modified:   app/src/main/kotlin/Squash.kt
+#	new file:   docs/squash.md
+#

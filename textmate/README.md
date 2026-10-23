@@ -45,24 +45,28 @@ Each change after that is a commit of its own:
   lengths only at a look-behind's top level: `(?<=(?:^|[^\\])\n)` becomes `(?<=^\n|[^\\]\n)`. Before, a rule with such
   a look-behind never matched: shell's rule for a command, so that most lines of a script stayed plain, CSS's
   selectors, Rust's paths, what follows `import` in JavaScript and TypeScript, line continuations in C and C++. It
-  fixes 173 of the 351 patterns that Joni refused in shiki's 260 grammars, and the files compared below now match
-  VS Code token for token;
+  fixes 173 of the 351 patterns that Joni refused in shiki's 260 grammars;
 - `\N` and `\O`, which Oniguruma 6.9 reads as any character but a newline and as any character, and Joni as the
   letters, are rewritten into what Joni reads the same way (`regex/EscapeRewrite.kt`). Python's, Less's and Stylus's
   grammars mark each character of a regular expression's set with `\N`.
 
 ## Differences from VS Code that remain
 
-Measured on 2026-10-23 against vscode-textmate 9.3.2, the engine VS Code runs, with shiki's grammars 1.32.22, on a
-Dockerfile, a Rust file, 28,502 lines of JSON, 3,705 lines of Kotlin, the 4,222 lines of Leaf's `CLAUDE.md`, a TOML
-file, a minified JavaScript file, Java, a shell script, a workflow's YAML, 1,906 lines of Python, 1,758 lines of XML
-and a CSS file: every token the same. In the grammars of the languages Leaf colours, these patterns still never
-match, where VS Code matches them:
+Measured on 2026-10-23 against vscode-textmate 9.3.2, the engine VS Code runs, with the shipped grammars:
+
+- about 41,000 lines of files from Leaf and elsewhere (JSON, Kotlin, Leaf's `CLAUDE.md`, Python, XML, YAML, TOML,
+  Java, Rust, shell, a Dockerfile, a minified JavaScript file), and shiki's own sample of each of 57 languages: every
+  token the same, but on three lines of Ruby and Svelte;
+- Leaf's samples (see Tests): 54 of 59 the same, and the rest only as below.
+
+These patterns still never match, where VS Code matches them:
 
 - a look-behind with an unbounded repeat, which no rewrite can spread: C#'s `await` after `.` (`(?<!\.\s*)`), Julia's
-  `as`, Ruby's block parameters after `{ ` or `do `, and `await using` in JavaScript and TypeScript;
+  `as`, Ruby's block parameters after `{ ` or `do `, `await using` in JavaScript and TypeScript, and the expressions
+  of Svelte's `{#if …}` and `{#each …}` (`(?<=(if|each|…).*?)\G`);
+- a back-reference in a look-behind: Markdown's `~~struck~~` text;
 - an interval written backwards, `\s+{1,0}`, which Oniguruma 6.9 reads as a possessive `{0,1}` and Joni refuses: the
-  start of a C or C++ documentation comment (`///`, `/**`) after spaces.
+  start of a C or C++ documentation comment (`///`, `/**`), which stays a comment.
 
 ## Taking a later fix from kotlin-textmate
 
@@ -77,10 +81,19 @@ already has. Then update the table above.
 ```
 
 - `FirstMateConformanceTest` runs first-mate's fixtures, which vscode-textmate tests itself against.
-- `GoldenSnapshotTest` compares the tokens of the files in `tools/generate-golden/corpus/` with goldens that
-  vscode-textmate made: kotlin-textmate's (JSON, Kotlin, Markdown, JavaScript) and Leaf's (shell, CSS and Rust,
-  which need the look-behind rewrite). To make them again (Node.js 21.2 or newer):
+- `GoldenSnapshotTest` compares the tokens of kotlin-textmate's files in `tools/generate-golden/corpus/` (JSON,
+  Kotlin, Markdown, JavaScript, with their own grammars) with goldens that vscode-textmate made. To make them again
+  (Node.js 21.2 or newer):
 
   ```bash
   cd textmate/tools/generate-golden && npm install && npm run generate
   ```
+- `ShippedGrammarsConformanceTest` tokenizes a sample of each language that Leaf colours
+  (`src/test/resources/conformance/samples/<grammar>/`), and compares the tokens with vscode-textmate's for the same
+  grammars (`expected/`). Only the lines that the differences above affect may differ, and they must, so that a fix
+  shows. To make them again, after a change to the grammars or the samples:
+
+  ```bash
+  cd textmate/tools/conformance && npm ci && npm run generate
+  ```
+- `ShippedGrammarsTest` checks the index: each grammar's scope, what it embeds, its injections and its licence.

@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package example.git.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+
+// A linked worktree.
+message Worktree {
+  string path = 1;
+  optional string branch = 2;
+  bool locked = 3 [deprecated = true];
+  repeated string tags = 4;
+  map<string, int64> counts = 5;
+  google.protobuf.Timestamp changed = 6;
+
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    CLEAN = 1;
+  }
+}
+
+service Worktrees {
+  rpc List(ListRequest) returns (stream Worktree);
+}
+
+message ListRequest { string repository = 1; }

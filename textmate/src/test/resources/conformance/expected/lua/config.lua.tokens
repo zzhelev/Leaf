@@ -1,0 +1,155 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-2 source.lua comment.line.double-dash.lua punctuation.definition.comment.lua
+0:2-27 source.lua comment.line.double-dash.lua
+1:0-5 source.lua keyword.local.lua
+1:5-6 source.lua
+1:6-7 source.lua variable.other.lua
+1:7-8 source.lua
+1:8-9 source.lua keyword.operator.lua
+1:9-12 source.lua
+2:0-0 source.lua
+3:0-1 source.lua variable.other.lua
+3:1-2 source.lua
+3:2-10 source.lua entity.other.attribute.lua
+3:10-11 source.lua
+3:11-12 source.lua keyword.operator.lua
+3:12-14 source.lua
+4:0-2 source.lua
+4:2-7 source.lua variable.other.lua
+4:7-8 source.lua
+4:8-9 source.lua keyword.operator.lua
+4:9-10 source.lua
+4:10-12 source.lua constant.numeric.float.lua
+4:12-13 source.lua
+5:0-2 source.lua
+5:2-13 source.lua variable.other.lua
+5:13-14 source.lua
+5:14-15 source.lua keyword.operator.lua
+5:15-16 source.lua
+5:16-21 source.lua constant.language.lua
+5:21-22 source.lua
+6:0-2 source.lua
+6:2-8 source.lua variable.other.lua
+6:8-9 source.lua
+6:9-10 source.lua keyword.operator.lua
+6:10-13 source.lua
+6:13-14 source.lua string.quoted.double.lua punctuation.definition.string.begin.lua
+6:14-20 source.lua string.quoted.double.lua
+6:20-21 source.lua string.quoted.double.lua punctuation.definition.string.end.lua
+6:21-23 source.lua
+6:23-24 source.lua string.quoted.double.lua punctuation.definition.string.begin.lua
+6:24-36 source.lua string.quoted.double.lua
+6:36-38 source.lua string.quoted.double.lua punctuation.definition.string.end.lua
+6:38-40 source.lua
+7:0-1 source.lua
+8:0-0 source.lua
+9:0-4 source.lua comment.block.lua punctuation.definition.comment.begin.lua
+10:0-40 source.lua comment.block.lua
+11:0-2 source.lua comment.block.lua punctuation.definition.comment.end.lua
+12:0-8 source.lua meta.function.lua keyword.control.lua
+12:8-9 source.lua meta.function.lua
+12:9-10 source.lua meta.function.lua entity.name.function.lua
+12:10-11 source.lua meta.function.lua
+12:11-16 source.lua meta.function.lua entity.name.function.lua
+12:16-17 source.lua meta.function.lua meta.parameter.lua punctuation.definition.parameters.begin.lua
+12:17-21 source.lua meta.function.lua meta.parameter.lua variable.parameter.function.lua
+12:21-22 source.lua meta.function.lua meta.parameter.lua punctuation.definition.parameters.finish.lua
+13:0-2 source.lua
+13:2-6 source.lua variable.other.lua
+13:6-7 source.lua
+13:7-8 source.lua keyword.operator.lua
+13:8-9 source.lua
+13:9-13 source.lua variable.other.lua
+13:13-14 source.lua
+13:14-16 source.lua keyword.operator.logical.lua
+13:16-19 source.lua
+14:0-2 source.lua
+14:2-5 source.lua keyword.control.lua
+14:5-6 source.lua
+14:6-9 source.lua variable.other.lua
+14:9-11 source.lua
+14:11-16 source.lua variable.other.lua
+14:16-17 source.lua
+14:17-19 source.lua keyword.control.lua
+14:19-20 source.lua
+14:20-25 source.lua support.function.lua
+14:25-26 source.lua
+14:26-27 source.lua variable.other.lua
+14:27-28 source.lua
+14:28-36 source.lua entity.other.attribute.lua
+14:36-38 source.lua
+14:38-40 source.lua keyword.control.lua
+15:0-4 source.lua
+15:4-6 source.lua keyword.control.lua
+15:6-7 source.lua
+15:7-11 source.lua variable.other.lua
+15:11-12 source.lua
+15:12-15 source.lua variable.other.lua
+15:15-17 source.lua
+15:17-19 source.lua keyword.operator.lua
+15:19-20 source.lua
+15:20-23 source.lua constant.language.lua
+15:23-24 source.lua
+15:24-28 source.lua keyword.control.lua
+16:0-6 source.lua
+16:6-10 source.lua variable.other.lua
+16:10-11 source.lua
+16:11-14 source.lua variable.other.lua
+16:14-16 source.lua
+16:16-17 source.lua keyword.operator.lua
+16:17-18 source.lua
+16:18-23 source.lua variable.other.lua
+17:0-4 source.lua
+17:4-7 source.lua keyword.control.lua
+18:0-2 source.lua
+18:2-5 source.lua keyword.control.lua
+19:0-2 source.lua
+19:2-8 source.lua keyword.control.lua
+19:8-9 source.lua
+19:9-21 source.lua support.function.lua
+19:21-22 source.lua
+19:22-26 source.lua variable.other.lua
+19:26-30 source.lua
+19:30-37 source.lua variable.other.lua
+19:37-38 source.lua
+19:38-39 source.lua keyword.operator.lua
+19:39-40 source.lua
+19:40-41 source.lua variable.other.lua
+19:41-42 source.lua
+19:42-50 source.lua entity.other.attribute.lua
+19:50-53 source.lua
+20:0-3 source.lua keyword.control.lua
+21:0-0 source.lua
+22:0-5 source.lua keyword.local.lua
+22:5-6 source.lua
+22:6-11 source.lua variable.other.lua
+22:11-12 source.lua
+22:12-13 source.lua keyword.operator.lua
+22:13-14 source.lua
+22:14-15 source.lua keyword.operator.lua
+22:15-16 source.lua variable.other.lua
+22:16-17 source.lua
+22:17-25 source.lua entity.other.attribute.lua
+22:25-26 source.lua
+22:26-32 source.lua entity.other.attribute.lua
+22:32-33 source.lua
+22:33-34 source.lua keyword.operator.lua
+22:34-35 source.lua
+22:35-39 source.lua constant.numeric.float.hexadecimal.lua
+23:0-5 source.lua support.function.lua
+23:5-6 source.lua
+23:6-19 source.lua support.function.library.lua
+23:19-20 source.lua
+23:20-21 source.lua string.quoted.double.lua punctuation.definition.string.begin.lua
+23:21-32 source.lua string.quoted.double.lua
+23:32-33 source.lua string.quoted.double.lua punctuation.definition.string.end.lua
+23:33-35 source.lua
+23:35-40 source.lua variable.other.lua
+23:40-43 source.lua
+23:43-45 source.lua string.quoted.other.multiline.lua punctuation.definition.string.begin.lua
+23:45-56 source.lua string.quoted.other.multiline.lua
+23:56-58 source.lua string.quoted.other.multiline.lua punctuation.definition.string.end.lua
+23:58-59 source.lua
+24:0-6 source.lua keyword.control.lua
+24:6-7 source.lua
+24:7-8 source.lua variable.other.lua

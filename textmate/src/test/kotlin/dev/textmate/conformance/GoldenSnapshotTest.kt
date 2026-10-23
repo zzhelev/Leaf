@@ -15,9 +15,6 @@ class GoldenSnapshotTest {
             Arguments.of(
                 "JavaScript", "grammars/JavaScript.tmLanguage.json", "conformance/golden/javascript.snapshot.json"
             ),
-            Arguments.of("Shell", "grammars/shell-unix-bash.tmLanguage.json", "conformance/golden/shell.snapshot.json"),
-            Arguments.of("CSS", "grammars/css.tmLanguage.json", "conformance/golden/css.snapshot.json"),
-            Arguments.of("Rust", "grammars/rust.tmLanguage.json", "conformance/golden/rust.snapshot.json"),
         )
     }
 

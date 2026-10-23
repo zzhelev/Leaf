@@ -1,0 +1,130 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-28 source.json5 comment.single.json5
+1:0-1 source.json5 meta.structure.dictionary.json5 punctuation.definition.dictionary.begin.json5
+2:0-2 source.json5 meta.structure.dictionary.json5
+2:2-3 source.json5 meta.structure.dictionary.json5 string.key.json5
+2:3-4 source.json5 meta.structure.dictionary.json5 string.key.json5
+2:4-5 source.json5 meta.structure.dictionary.json5 string.key.json5
+2:5-6 source.json5 meta.structure.dictionary.json5 string.key.json5
+2:6-7 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+2:7-8 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+2:8-9 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5 punctuation.definition.string.begin.json5
+2:9-18 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5
+2:18-19 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5 punctuation.definition.string.end.json5
+2:19-20 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+3:0-2 source.json5 meta.structure.dictionary.json5
+3:2-3 source.json5 meta.structure.dictionary.json5 string.key.json5
+3:3-4 source.json5 meta.structure.dictionary.json5 string.key.json5
+3:4-5 source.json5 meta.structure.dictionary.json5 string.key.json5
+3:5-6 source.json5 meta.structure.dictionary.json5 string.key.json5
+3:6-7 source.json5 meta.structure.dictionary.json5 string.key.json5
+3:7-8 source.json5 meta.structure.dictionary.json5 string.key.json5
+3:8-9 source.json5 meta.structure.dictionary.json5 string.key.json5
+3:9-10 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+3:10-11 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+3:11-12 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 constant.dec.numeric.json5
+3:12-13 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+4:0-2 source.json5 meta.structure.dictionary.json5
+4:2-3 source.json5 meta.structure.dictionary.json5 string.key.json5
+4:3-4 source.json5 meta.structure.dictionary.json5 string.key.json5
+4:4-5 source.json5 meta.structure.dictionary.json5 string.key.json5
+4:5-6 source.json5 meta.structure.dictionary.json5 string.key.json5
+4:6-7 source.json5 meta.structure.dictionary.json5 string.key.json5
+4:7-8 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+4:8-9 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+4:9-11 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 constant.dec.numeric.json5
+4:11-12 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+5:0-2 source.json5 meta.structure.dictionary.json5
+5:2-3 source.json5 meta.structure.dictionary.json5 string.key.json5
+5:3-4 source.json5 meta.structure.dictionary.json5 string.key.json5
+5:4-5 source.json5 meta.structure.dictionary.json5 string.key.json5
+5:5-6 source.json5 meta.structure.dictionary.json5 string.key.json5
+5:6-7 source.json5 meta.structure.dictionary.json5 string.key.json5
+5:7-8 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+5:8-9 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+5:9-10 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 invalid.illegal.expected-dictionary-separator.json5
+5:10-18 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 constant.language.json5
+5:18-19 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+6:0-2 source.json5 meta.structure.dictionary.json5
+6:2-3 source.json5 meta.structure.dictionary.json5 string.key.json5
+6:3-4 source.json5 meta.structure.dictionary.json5 string.key.json5
+6:4-5 source.json5 meta.structure.dictionary.json5 string.key.json5
+6:5-6 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+6:6-7 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+6:7-11 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 constant.hex.numeric.json5
+6:11-12 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+7:0-2 source.json5 meta.structure.dictionary.json5
+7:2-4 source.json5 meta.structure.dictionary.json5 comment.block.json5 punctuation.definition.comment.json5
+7:4-15 source.json5 meta.structure.dictionary.json5 comment.block.json5
+8:0-13 source.json5 meta.structure.dictionary.json5 comment.block.json5
+8:13-15 source.json5 meta.structure.dictionary.json5 comment.block.json5 punctuation.definition.comment.json5
+9:0-2 source.json5 meta.structure.dictionary.json5
+9:2-3 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:3-4 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:4-5 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:5-6 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:6-7 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:7-8 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:8-9 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:9-10 source.json5 meta.structure.dictionary.json5 string.key.json5
+9:10-11 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+9:11-12 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+9:12-13 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 punctuation.definition.array.begin.json5
+9:13-14 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 string.quoted.json5 punctuation.definition.string.begin.json5
+9:14-18 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 string.quoted.json5
+9:18-19 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 string.quoted.json5 punctuation.definition.string.end.json5
+9:19-20 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 punctuation.separator.array.json5
+9:20-21 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5
+9:21-22 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 string.quoted.json5 punctuation.definition.string.begin.json5
+9:22-29 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 string.quoted.json5
+9:29-30 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 string.quoted.json5 punctuation.definition.string.end.json5
+9:30-31 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 punctuation.separator.array.json5
+9:31-32 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.array.json5 punctuation.definition.array.end.json5
+9:32-33 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+10:0-2 source.json5 meta.structure.dictionary.json5
+10:2-3 source.json5 meta.structure.dictionary.json5 string.key.json5
+10:3-4 source.json5 meta.structure.dictionary.json5 string.key.json5
+10:4-5 source.json5 meta.structure.dictionary.json5 string.key.json5
+10:5-6 source.json5 meta.structure.dictionary.json5 string.key.json5
+10:6-7 source.json5 meta.structure.dictionary.json5 string.key.json5
+10:7-8 source.json5 meta.structure.dictionary.json5 string.key.json5
+10:8-9 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+10:9-10 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+10:10-11 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 punctuation.definition.dictionary.begin.json5
+10:11-12 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5
+10:12-13 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:13-14 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:14-15 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:15-16 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:16-17 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:17-18 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:18-19 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+10:19-20 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+10:20-21 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5 punctuation.definition.string.begin.json5
+10:21-23 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5
+10:23-25 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5 constant.character.escape.json5
+10:25-26 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5
+10:26-28 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5 constant.character.escape.json5
+10:28-29 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 string.quoted.json5 punctuation.definition.string.end.json5
+10:29-30 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+10:30-31 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5
+10:31-32 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:32-33 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:33-34 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:34-35 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:35-36 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:36-37 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:37-38 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:38-39 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:39-40 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:40-41 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:41-42 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:42-43 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 string.key.json5
+10:43-44 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.key-value.json5
+10:44-45 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5
+10:45-49 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 constant.language.json5
+10:49-50 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+10:50-51 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5
+10:51-52 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 meta.structure.dictionary.json5 punctuation.definition.dictionary.end.json5
+10:52-53 source.json5 meta.structure.dictionary.json5 meta.structure.dictionary.value.json5 punctuation.separator.dictionary.pair.json5
+11:0-1 source.json5 meta.structure.dictionary.json5 punctuation.definition.dictionary.end.json5

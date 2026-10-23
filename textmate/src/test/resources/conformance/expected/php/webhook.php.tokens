@@ -1,0 +1,206 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.php keyword.operator.comparison.php
+0:1-2 source.php keyword.operator.ternary.php
+0:2-5 source.php constant.other.php
+1:0-7 source.php keyword.control.declare.php
+1:7-8 source.php punctuation.definition.begin.bracket.round.php
+1:8-20 source.php constant.other.php
+1:20-21 source.php keyword.operator.assignment.php
+1:21-22 source.php constant.numeric.decimal.php
+1:22-23 source.php punctuation.definition.end.bracket.round.php
+1:23-24 source.php punctuation.terminator.expression.php
+2:0-0 source.php
+3:0-9 source.php meta.namespace.php keyword.other.namespace.php
+3:9-10 source.php meta.namespace.php
+3:10-13 source.php meta.namespace.php entity.name.type.namespace.php
+3:13-14 source.php meta.namespace.php entity.name.type.namespace.php punctuation.separator.inheritance.php
+3:14-22 source.php meta.namespace.php entity.name.type.namespace.php
+3:22-23 source.php punctuation.terminator.expression.php
+4:0-0 source.php
+5:0-3 source.php comment.block.documentation.phpdoc.php punctuation.definition.comment.php
+6:0-24 source.php comment.block.documentation.phpdoc.php
+7:0-1 source.php comment.block.documentation.phpdoc.php
+7:1-3 source.php comment.block.documentation.phpdoc.php punctuation.definition.comment.php
+8:0-5 source.php meta.class.php storage.modifier.php storage.modifier.inheritance.final.php
+8:5-6 source.php meta.class.php
+8:6-11 source.php meta.class.php storage.type.class.php
+8:11-12 source.php meta.class.php
+8:12-23 source.php meta.class.php entity.name.type.class.php
+9:0-1 source.php meta.class.php punctuation.definition.class.begin.bracket.curly.php
+10:0-4 source.php meta.class.php meta.class.body.php
+10:4-11 source.php meta.class.php meta.class.body.php storage.modifier.php storage.modifier.visibility.private.php
+10:11-12 source.php meta.class.php meta.class.body.php
+10:12-17 source.php meta.class.php meta.class.body.php storage.type.const.php
+10:17-18 source.php meta.class.php meta.class.body.php
+10:18-29 source.php meta.class.php meta.class.body.php constant.other.php
+10:29-30 source.php meta.class.php meta.class.body.php
+10:30-31 source.php meta.class.php meta.class.body.php keyword.operator.assignment.php
+10:31-32 source.php meta.class.php meta.class.body.php
+10:32-34 source.php meta.class.php meta.class.body.php constant.numeric.decimal.php
+10:34-35 source.php meta.class.php meta.class.body.php punctuation.terminator.expression.php
+11:0-0 source.php meta.class.php meta.class.body.php
+12:0-4 source.php meta.class.php meta.class.body.php
+12:4-10 source.php meta.class.php meta.class.body.php meta.function.php storage.modifier.php storage.modifier.visibility.public.php
+12:10-11 source.php meta.class.php meta.class.body.php meta.function.php
+12:11-19 source.php meta.class.php meta.class.body.php meta.function.php storage.type.function.php
+12:19-20 source.php meta.class.php meta.class.body.php meta.function.php
+12:20-31 source.php meta.class.php meta.class.body.php meta.function.php support.function.constructor.php
+12:31-32 source.php meta.class.php meta.class.body.php meta.function.php punctuation.definition.parameters.begin.bracket.round.php
+12:32-39 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php storage.modifier.php storage.modifier.visibility.private.php
+12:39-40 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php
+12:40-48 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php storage.modifier.php storage.modifier.readonly.php
+12:48-49 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php
+12:49-55 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php keyword.other.type.php
+12:55-56 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php
+12:56-57 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php variable.other.php punctuation.definition.variable.php
+12:57-63 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.promoted-property.php variable.other.php
+12:63-64 source.php meta.class.php meta.class.body.php meta.function.php punctuation.definition.parameters.end.bracket.round.php
+12:64-65 source.php meta.class.php meta.class.body.php meta.function.php
+12:65-66 source.php meta.class.php meta.class.body.php punctuation.definition.begin.bracket.curly.php
+12:66-67 source.php meta.class.php meta.class.body.php punctuation.definition.end.bracket.curly.php
+13:0-0 source.php meta.class.php meta.class.body.php
+14:0-4 source.php meta.class.php meta.class.body.php
+14:4-10 source.php meta.class.php meta.class.body.php meta.function.php storage.modifier.php storage.modifier.visibility.public.php
+14:10-11 source.php meta.class.php meta.class.body.php meta.function.php
+14:11-19 source.php meta.class.php meta.class.body.php meta.function.php storage.type.function.php
+14:19-20 source.php meta.class.php meta.class.body.php meta.function.php
+14:20-26 source.php meta.class.php meta.class.body.php meta.function.php entity.name.function.php
+14:26-27 source.php meta.class.php meta.class.body.php meta.function.php punctuation.definition.parameters.begin.bracket.round.php
+14:27-32 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.typehinted.php keyword.other.type.php
+14:32-33 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.typehinted.php
+14:33-34 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.typehinted.php variable.other.php punctuation.definition.variable.php
+14:34-41 source.php meta.class.php meta.class.body.php meta.function.php meta.function.parameters.php meta.function.parameter.typehinted.php variable.other.php
+14:41-42 source.php meta.class.php meta.class.body.php meta.function.php punctuation.definition.parameters.end.bracket.round.php
+14:42-43 source.php meta.class.php meta.class.body.php meta.function.php keyword.operator.return-value.php
+14:43-44 source.php meta.class.php meta.class.body.php meta.function.php
+14:44-50 source.php meta.class.php meta.class.body.php meta.function.php keyword.other.type.php
+15:0-4 source.php meta.class.php meta.class.body.php
+15:4-5 source.php meta.class.php meta.class.body.php punctuation.definition.begin.bracket.curly.php
+16:0-8 source.php meta.class.php meta.class.body.php
+16:8-9 source.php meta.class.php meta.class.body.php variable.other.php punctuation.definition.variable.php
+16:9-15 source.php meta.class.php meta.class.body.php variable.other.php
+16:15-16 source.php meta.class.php meta.class.body.php
+16:16-17 source.php meta.class.php meta.class.body.php keyword.operator.assignment.php
+16:17-18 source.php meta.class.php meta.class.body.php
+16:18-19 source.php meta.class.php meta.class.body.php variable.other.php punctuation.definition.variable.php
+16:19-26 source.php meta.class.php meta.class.body.php variable.other.php
+16:26-27 source.php meta.class.php meta.class.body.php punctuation.section.array.begin.php
+16:27-28 source.php meta.class.php meta.class.body.php string.quoted.single.php punctuation.definition.string.begin.php
+16:28-31 source.php meta.class.php meta.class.body.php string.quoted.single.php
+16:31-32 source.php meta.class.php meta.class.body.php string.quoted.single.php punctuation.definition.string.end.php
+16:32-33 source.php meta.class.php meta.class.body.php punctuation.section.array.end.php
+16:33-34 source.php meta.class.php meta.class.body.php
+16:34-36 source.php meta.class.php meta.class.body.php keyword.operator.null-coalescing.php
+16:36-37 source.php meta.class.php meta.class.body.php
+16:37-38 source.php meta.class.php meta.class.body.php string.quoted.single.php punctuation.definition.string.begin.php
+16:38-53 source.php meta.class.php meta.class.body.php string.quoted.single.php
+16:53-54 source.php meta.class.php meta.class.body.php string.quoted.single.php punctuation.definition.string.end.php
+16:54-55 source.php meta.class.php meta.class.body.php punctuation.terminator.expression.php
+17:0-8 source.php meta.class.php meta.class.body.php
+17:8-9 source.php meta.class.php meta.class.body.php variable.other.php punctuation.definition.variable.php
+17:9-14 source.php meta.class.php meta.class.body.php variable.other.php
+17:14-15 source.php meta.class.php meta.class.body.php
+17:15-16 source.php meta.class.php meta.class.body.php keyword.operator.assignment.php
+17:16-17 source.php meta.class.php meta.class.body.php
+17:17-22 source.php meta.class.php meta.class.body.php meta.function-call.php support.function.array.php
+17:22-23 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.definition.arguments.begin.bracket.round.php
+17:23-24 source.php meta.class.php meta.class.body.php meta.function-call.php variable.other.php punctuation.definition.variable.php
+17:24-31 source.php meta.class.php meta.class.body.php meta.function-call.php variable.other.php
+17:31-32 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.section.array.begin.php
+17:32-33 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php punctuation.definition.string.begin.php
+17:33-40 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php
+17:40-41 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php punctuation.definition.string.end.php
+17:41-42 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.section.array.end.php
+17:42-43 source.php meta.class.php meta.class.body.php meta.function-call.php
+17:43-45 source.php meta.class.php meta.class.body.php meta.function-call.php keyword.operator.null-coalescing.php
+17:45-46 source.php meta.class.php meta.class.body.php meta.function-call.php
+17:46-47 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.section.array.begin.php
+17:47-48 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.section.array.end.php
+17:48-49 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.definition.arguments.end.bracket.round.php
+17:49-50 source.php meta.class.php meta.class.body.php punctuation.terminator.expression.php
+18:0-8 source.php meta.class.php meta.class.body.php punctuation.whitespace.comment.leading.php
+18:8-10 source.php meta.class.php meta.class.body.php comment.line.double-slash.php punctuation.definition.comment.php
+18:10-24 source.php meta.class.php meta.class.body.php comment.line.double-slash.php
+19:0-8 source.php meta.class.php meta.class.body.php
+19:8-14 source.php meta.class.php meta.class.body.php keyword.control.return.php
+19:14-15 source.php meta.class.php meta.class.body.php
+19:15-22 source.php meta.class.php meta.class.body.php meta.function-call.php support.function.string.php
+19:22-23 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.definition.arguments.begin.bracket.round.php
+19:23-24 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.double.php punctuation.definition.string.begin.php
+19:24-39 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.double.php
+19:39-40 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.double.php punctuation.definition.string.end.php
+19:40-41 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.separator.delimiter.php
+19:41-42 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:42-50 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php support.function.file.php
+19:50-51 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php punctuation.definition.arguments.begin.bracket.round.php
+19:51-52 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php variable.other.php punctuation.definition.variable.php
+19:52-58 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php variable.other.php
+19:58-59 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php punctuation.definition.arguments.end.bracket.round.php
+19:59-60 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.separator.delimiter.php
+19:60-61 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:61-64 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php support.function.math.php
+19:64-65 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php punctuation.definition.arguments.begin.bracket.round.php
+19:65-66 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php variable.other.php punctuation.definition.variable.php
+19:66-71 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php variable.other.php
+19:71-72 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php punctuation.separator.delimiter.php
+19:72-73 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php
+19:73-77 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php storage.type.php
+19:77-79 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php keyword.operator.class.php
+19:79-90 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php constant.other.class.php
+19:90-91 source.php meta.class.php meta.class.body.php meta.function-call.php meta.function-call.php punctuation.definition.arguments.end.bracket.round.php
+19:91-92 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.separator.delimiter.php
+19:92-93 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:93-94 source.php meta.class.php meta.class.body.php meta.function-call.php variable.other.php punctuation.definition.variable.php
+19:94-99 source.php meta.class.php meta.class.body.php meta.function-call.php variable.other.php
+19:99-100 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:100-103 source.php meta.class.php meta.class.body.php meta.function-call.php keyword.operator.comparison.php
+19:103-104 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:104-105 source.php meta.class.php meta.class.body.php meta.function-call.php constant.numeric.decimal.php
+19:105-106 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:106-107 source.php meta.class.php meta.class.body.php meta.function-call.php keyword.operator.ternary.php
+19:107-108 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:108-109 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php punctuation.definition.string.begin.php
+19:109-110 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php punctuation.definition.string.end.php
+19:110-111 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:111-112 source.php meta.class.php meta.class.body.php meta.function-call.php keyword.operator.ternary.php
+19:112-113 source.php meta.class.php meta.class.body.php meta.function-call.php
+19:113-114 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php punctuation.definition.string.begin.php
+19:114-115 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php
+19:115-116 source.php meta.class.php meta.class.body.php meta.function-call.php string.quoted.single.php punctuation.definition.string.end.php
+19:116-117 source.php meta.class.php meta.class.body.php meta.function-call.php punctuation.definition.arguments.end.bracket.round.php
+19:117-118 source.php meta.class.php meta.class.body.php punctuation.terminator.expression.php
+20:0-4 source.php meta.class.php meta.class.body.php
+20:4-5 source.php meta.class.php meta.class.body.php punctuation.definition.end.bracket.curly.php
+21:0-1 source.php meta.class.php punctuation.definition.class.end.bracket.curly.php
+22:0-1 source.php keyword.operator.ternary.php
+22:1-2 source.php keyword.operator.comparison.php
+23:0-1 source.php keyword.operator.comparison.php
+23:1-2 source.php constant.other.php
+23:2-3 source.php keyword.operator.comparison.php
+23:3-7 source.php constant.other.php
+23:7-8 source.php
+23:8-12 source.php constant.other.php
+23:12-13 source.php keyword.operator.ternary.php
+23:13-14 source.php
+23:14-15 source.php keyword.operator.comparison.php
+23:15-16 source.php keyword.operator.ternary.php
+23:16-17 source.php keyword.operator.assignment.php
+23:17-18 source.php
+23:18-34 source.php meta.function-call.php support.function.string.php
+23:34-35 source.php meta.function-call.php punctuation.definition.arguments.begin.bracket.round.php
+23:35-36 source.php meta.function-call.php variable.other.php punctuation.definition.variable.php
+23:36-43 source.php meta.function-call.php variable.other.php
+23:43-44 source.php meta.function-call.php
+23:44-46 source.php meta.function-call.php keyword.operator.null-coalescing.php
+23:46-47 source.php meta.function-call.php
+23:47-48 source.php meta.function-call.php string.quoted.double.php punctuation.definition.string.begin.php
+23:48-52 source.php meta.function-call.php string.quoted.double.php
+23:52-53 source.php meta.function-call.php string.quoted.double.php punctuation.definition.string.end.php
+23:53-54 source.php meta.function-call.php punctuation.definition.arguments.end.bracket.round.php
+23:54-55 source.php
+23:55-56 source.php keyword.operator.ternary.php
+23:56-57 source.php keyword.operator.comparison.php
+23:57-58 source.php keyword.operator.comparison.php
+23:58-59 source.php keyword.operator.arithmetic.php
+23:59-60 source.php constant.other.php
+23:60-61 source.php keyword.operator.comparison.php

@@ -1,0 +1,233 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp punctuation.definition.directive.objcpp
+0:1-7 source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp
+0:7-8 source.objcpp meta.preprocessor.include.objcpp
+0:8-9 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp punctuation.definition.string.begin.objcpp
+0:9-32 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp
+0:32-33 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp punctuation.definition.string.end.objcpp
+1:0-1 source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.include.objcpp punctuation.definition.directive.objcpp
+1:1-8 source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.include.objcpp
+1:8-9 source.objcpp meta.preprocessor.include.objcpp
+1:9-10 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp punctuation.definition.string.begin.objcpp
+1:10-16 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp
+1:16-17 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp punctuation.definition.string.end.objcpp
+2:0-1 source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.include.objcpp punctuation.definition.directive.objcpp
+2:1-8 source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.include.objcpp
+2:8-9 source.objcpp meta.preprocessor.include.objcpp
+2:9-10 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp punctuation.definition.string.begin.objcpp
+2:10-16 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp
+2:16-17 source.objcpp meta.preprocessor.include.objcpp string.quoted.other.lt-gt.include.objcpp punctuation.definition.string.end.objcpp
+3:0-0 source.objcpp
+4:0-9 source.objcpp meta.namespace-block.objcpp storage.type.namespace.objcpp
+4:9-10 source.objcpp meta.namespace-block.objcpp
+4:10-14 source.objcpp meta.namespace-block.objcpp entity.name.type.objcpp
+4:14-15 source.objcpp meta.namespace-block.objcpp
+4:15-16 source.objcpp meta.namespace-block.objcpp punctuation.definition.scope.objcpp
+5:0-8 source.objcpp meta.namespace-block.objcpp template.definition.objcpp storage.type.template.objcpp
+5:8-9 source.objcpp meta.namespace-block.objcpp template.definition.objcpp
+5:9-10 source.objcpp meta.namespace-block.objcpp template.definition.objcpp meta.template.angle-brackets.start.objcpp
+5:10-19 source.objcpp meta.namespace-block.objcpp template.definition.objcpp storage.type.template.objcpp
+5:19-20 source.objcpp meta.namespace-block.objcpp template.definition.objcpp entity.name.type.template.objcpp
+5:20-21 source.objcpp meta.namespace-block.objcpp template.definition.objcpp meta.template.angle-brackets.end.objcpp
+6:0-3 source.objcpp meta.namespace-block.objcpp punctuation.separator.namespace.access.objcpp entity.scope.name.objcpp
+6:3-5 source.objcpp meta.namespace-block.objcpp punctuation.separator.namespace.access.objcpp punctuation.separator.namespace.access.objcpp
+6:5-11 source.objcpp meta.namespace-block.objcpp
+6:11-12 source.objcpp meta.namespace-block.objcpp keyword.operator.comparison.objcpp
+6:12-13 source.objcpp meta.namespace-block.objcpp
+6:13-14 source.objcpp meta.namespace-block.objcpp keyword.operator.comparison.objcpp
+6:14-15 source.objcpp meta.namespace-block.objcpp
+6:15-24 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp entity.name.function.objcpp
+6:24-25 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp punctuation.section.parameters.begin.bracket.round.objcpp
+6:25-30 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp storage.modifier.objcpp
+6:30-31 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp
+6:31-34 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp punctuation.separator.namespace.access.objcpp entity.scope.name.objcpp
+6:34-36 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp punctuation.separator.namespace.access.objcpp punctuation.separator.namespace.access.objcpp
+6:36-42 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp
+6:42-43 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp keyword.operator.comparison.objcpp
+6:43-44 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp
+6:44-45 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp keyword.operator.comparison.objcpp
+6:45-46 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp keyword.operator.objcpp
+6:46-47 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp
+6:47-52 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp variable.parameter.probably.objcpp
+6:52-53 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp punctuation.separator.delimiter.objcpp
+6:53-54 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp
+6:54-60 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp storage.type.built-in.objcpp
+6:60-61 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp
+6:61-66 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp variable.parameter.probably.objcpp
+6:66-67 source.objcpp meta.namespace-block.objcpp meta.function.objcpp meta.function.definition.parameters.objcpp punctuation.section.parameters.end.bracket.round.objcpp
+6:67-68 source.objcpp meta.namespace-block.objcpp
+6:68-69 source.objcpp meta.namespace-block.objcpp meta.block.objcpp punctuation.section.block.begin.bracket.curly.objcpp
+7:0-4 source.objcpp meta.namespace-block.objcpp meta.block.objcpp
+7:4-10 source.objcpp meta.namespace-block.objcpp meta.block.objcpp keyword.control.objcpp
+7:10-11 source.objcpp meta.namespace-block.objcpp meta.block.objcpp
+7:11-14 source.objcpp meta.namespace-block.objcpp meta.block.objcpp punctuation.separator.namespace.access.objcpp entity.scope.name.objcpp
+7:14-16 source.objcpp meta.namespace-block.objcpp meta.block.objcpp punctuation.separator.namespace.access.objcpp punctuation.separator.namespace.access.objcpp
+7:16-22 source.objcpp meta.namespace-block.objcpp meta.block.objcpp
+7:22-23 source.objcpp meta.namespace-block.objcpp meta.block.objcpp keyword.operator.comparison.objcpp
+7:23-24 source.objcpp meta.namespace-block.objcpp meta.block.objcpp
+7:24-25 source.objcpp meta.namespace-block.objcpp meta.block.objcpp keyword.operator.comparison.objcpp
+7:25-26 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.parens.begin.bracket.round.objcpp
+7:26-31 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp variable.other.object.access.objcpp
+7:31-32 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.separator.dot-access.objcpp
+7:32-37 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp entity.name.function.member.objcpp
+7:37-38 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.arguments.begin.bracket.round.function.member.objcpp
+7:38-39 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.arguments.end.bracket.round.function.member.objcpp
+7:39-40 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.separator.delimiter.objcpp
+7:40-41 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp
+7:41-46 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp variable.other.object.access.objcpp
+7:46-47 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.separator.dot-access.objcpp
+7:47-52 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp entity.name.function.member.objcpp
+7:52-53 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.arguments.begin.bracket.round.function.member.objcpp
+7:53-54 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.arguments.end.bracket.round.function.member.objcpp
+7:54-55 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp
+7:55-56 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp keyword.operator.objcpp
+7:56-57 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp
+7:57-65 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp entity.name.function.objcpp
+7:65-66 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.section.arguments.begin.bracket.round.objcpp
+7:66-71 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp
+7:71-72 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.separator.delimiter.objcpp
+7:72-73 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp
+7:73-78 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp variable.other.object.access.objcpp
+7:78-79 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.separator.dot-access.objcpp
+7:79-83 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp entity.name.function.member.objcpp
+7:83-84 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.section.arguments.begin.bracket.round.function.member.objcpp
+7:84-85 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.section.arguments.end.bracket.round.function.member.objcpp
+7:85-86 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.section.arguments.end.bracket.round.objcpp
+7:86-87 source.objcpp meta.namespace-block.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.parens.end.bracket.round.objcpp
+7:87-88 source.objcpp meta.namespace-block.objcpp meta.block.objcpp punctuation.terminator.statement.objcpp
+8:0-1 source.objcpp meta.namespace-block.objcpp meta.block.objcpp punctuation.section.block.end.bracket.curly.objcpp
+9:0-1 source.objcpp meta.namespace-block.objcpp punctuation.definition.scope.objcpp
+9:1-2 source.objcpp
+9:2-4 source.objcpp comment.line.double-slash.objcpp punctuation.definition.comment.objcpp
+9:4-19 source.objcpp comment.line.double-slash.objcpp
+10:0-0 source.objcpp
+11:0-1 source.objcpp meta.interface-or-protocol.objcpp storage.type.objcpp punctuation.definition.storage.type.objcpp
+11:1-10 source.objcpp meta.interface-or-protocol.objcpp storage.type.objcpp
+11:10-11 source.objcpp meta.interface-or-protocol.objcpp
+11:11-17 source.objcpp meta.interface-or-protocol.objcpp entity.name.type.objcpp
+11:17-18 source.objcpp meta.interface-or-protocol.objcpp
+11:18-19 source.objcpp meta.interface-or-protocol.objcpp punctuation.definition.entity.other.inherited-class.objcpp
+11:19-20 source.objcpp meta.interface-or-protocol.objcpp
+11:20-28 source.objcpp meta.interface-or-protocol.objcpp entity.other.inherited-class.objcpp
+12:0-2 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp
+12:2-3 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp punctuation.definition.type.begin.objcpp
+12:3-10 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp support.class.cocoa.objcpp
+12:10-11 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp meta.protocol-list.objcpp punctuation.section.scope.begin.objcpp
+12:11-21 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp meta.protocol-list.objcpp
+12:21-22 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp meta.protocol-list.objcpp punctuation.section.scope.end.objcpp
+12:22-23 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp
+12:23-24 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp keyword.operator.objcpp
+12:24-25 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp punctuation.definition.type.end.objcpp
+12:25-38 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.return-type.objcpp entity.name.function.objcpp
+12:38-39 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.argument-type.objcpp entity.name.function.name-of-parameter.objcpp punctuation.separator.arguments.objcpp
+12:39-40 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.argument-type.objcpp punctuation.definition.type.begin.objcpp
+12:40-50 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.argument-type.objcpp support.type.cocoa.leopard.objcpp
+12:50-51 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.argument-type.objcpp punctuation.definition.type.end.objcpp
+12:51-56 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp meta.argument-type.objcpp variable.parameter.function.objcpp
+12:56-57 source.objcpp meta.interface-or-protocol.objcpp meta.scope.interface.objcpp meta.function.objcpp
+13:0-1 source.objcpp meta.interface-or-protocol.objcpp storage.type.objcpp punctuation.definition.storage.type.objcpp
+13:1-4 source.objcpp meta.interface-or-protocol.objcpp storage.type.objcpp
+14:0-0 source.objcpp
+15:0-1 source.objcpp meta.implementation.objcpp storage.type.objcpp punctuation.definition.storage.type.objcpp
+15:1-15 source.objcpp meta.implementation.objcpp storage.type.objcpp
+15:15-16 source.objcpp meta.implementation.objcpp
+15:16-22 source.objcpp meta.implementation.objcpp entity.name.type.objcpp
+16:0-2 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp
+16:2-3 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp punctuation.definition.type.begin.objcpp
+16:3-10 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp support.class.cocoa.objcpp
+16:10-11 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp meta.protocol-list.objcpp punctuation.section.scope.begin.objcpp
+16:11-21 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp meta.protocol-list.objcpp
+16:21-22 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp meta.protocol-list.objcpp punctuation.section.scope.end.objcpp
+16:22-23 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp
+16:23-24 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp keyword.operator.objcpp
+16:24-25 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp punctuation.definition.type.end.objcpp
+16:25-38 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.return-type.objcpp entity.name.function.objcpp
+16:38-39 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.argument-type.objcpp entity.name.function.name-of-parameter.objcpp punctuation.separator.arguments.objcpp
+16:39-40 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.argument-type.objcpp punctuation.definition.type.begin.objcpp
+16:40-50 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.argument-type.objcpp support.type.cocoa.leopard.objcpp
+16:50-51 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.argument-type.objcpp punctuation.definition.type.end.objcpp
+16:51-56 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp meta.argument-type.objcpp variable.parameter.function.objcpp
+16:56-57 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.function.objcpp
+16:57-58 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.section.block.begin.bracket.curly.objcpp
+17:0-4 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+17:4-7 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.separator.namespace.access.objcpp entity.scope.name.objcpp
+17:7-9 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.separator.namespace.access.objcpp punctuation.separator.namespace.access.objcpp
+17:9-15 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+17:15-16 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.operator.comparison.objcpp
+17:16-19 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.separator.namespace.access.objcpp entity.scope.name.objcpp
+17:19-21 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.separator.namespace.access.objcpp punctuation.separator.namespace.access.objcpp
+17:21-27 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+17:27-28 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.operator.comparison.objcpp
+17:28-34 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+17:34-35 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.section.block.begin.bracket.curly.objcpp
+17:35-36 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp punctuation.definition.string.begin.objcpp
+17:36-40 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp
+17:40-41 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp punctuation.definition.string.end.objcpp
+17:41-42 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.separator.delimiter.objcpp
+17:42-43 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+17:43-44 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp punctuation.definition.string.begin.objcpp
+17:44-51 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp
+17:51-52 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp punctuation.definition.string.end.objcpp
+17:52-53 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.separator.delimiter.objcpp
+17:53-54 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+17:54-55 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp punctuation.definition.string.begin.objcpp
+17:55-64 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp
+17:64-65 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp string.quoted.double.objcpp punctuation.definition.string.end.objcpp
+17:65-66 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.section.block.end.bracket.curly.objcpp
+17:66-67 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.terminator.statement.objcpp
+18:0-4 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+18:4-18 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp support.class.cocoa.objcpp
+18:18-19 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+18:19-20 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.operator.objcpp
+18:20-27 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+18:27-28 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.operator.assignment.objcpp
+18:28-29 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+18:29-30 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.definition.begin.bracket.square.objcpp
+18:30-44 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp support.class.cocoa.objcpp
+18:44-50 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp
+18:50-51 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.definition.end.bracket.square.objcpp
+18:51-52 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.terminator.statement.objcpp
+19:0-4 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+19:4-7 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp
+19:7-8 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+19:8-9 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.parens.begin.bracket.round.objcpp
+19:9-14 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp storage.modifier.objcpp
+19:14-19 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp
+19:19-20 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp keyword.operator.objcpp
+19:20-26 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp
+19:26-27 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.range-based.objcpp
+19:27-28 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp
+19:28-43 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp entity.name.function.objcpp
+19:43-44 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.section.arguments.begin.bracket.round.objcpp
+19:44-49 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp
+19:49-50 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.separator.delimiter.objcpp
+19:50-56 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp
+19:56-57 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp meta.function-call.objcpp punctuation.section.arguments.end.bracket.round.objcpp
+19:57-58 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.parens.block.objcpp punctuation.section.parens.end.bracket.round.objcpp
+19:58-59 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+19:59-60 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.section.block.begin.bracket.curly.objcpp
+20:0-8 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+20:8-9 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.definition.begin.bracket.square.objcpp
+20:9-27 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp
+20:27-28 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.section.parens.begin.bracket.round.objcpp
+20:28-32 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp variable.other.object.access.objcpp
+20:32-33 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.separator.dot-access.objcpp
+20:33-38 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp entity.name.function.member.objcpp
+20:38-39 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.section.arguments.begin.bracket.round.function.member.objcpp
+20:39-40 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.section.arguments.end.bracket.round.function.member.objcpp
+20:40-41 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.section.parens.end.bracket.round.objcpp
+20:41-42 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp punctuation.definition.end.bracket.square.objcpp
+20:42-43 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.terminator.statement.objcpp
+21:0-4 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+21:4-5 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.section.block.end.bracket.curly.objcpp
+22:0-4 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+22:4-10 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp
+22:10-17 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+22:17-18 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.terminator.statement.objcpp
+22:18-19 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp
+22:19-21 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp comment.block.objcpp punctuation.definition.comment.begin.objcpp
+22:21-35 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp comment.block.objcpp
+22:35-37 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp comment.block.objcpp punctuation.definition.comment.end.objcpp
+23:0-1 source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp punctuation.section.block.end.bracket.curly.objcpp
+24:0-1 source.objcpp meta.implementation.objcpp storage.type.objcpp punctuation.definition.storage.type.objcpp
+24:1-4 source.objcpp meta.implementation.objcpp storage.type.objcpp

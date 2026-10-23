@@ -1,0 +1,134 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-8 source.groovy
+0:8-9 source.groovy
+1:0-7 source.groovy
+1:7-8 source.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+1:8-20 source.groovy string.quoted.single.groovy
+1:20-21 source.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+2:0-7 source.groovy
+2:7-8 source.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+2:8-21 source.groovy string.quoted.single.groovy
+2:21-22 source.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+3:0-1 source.groovy
+4:0-0 source.groovy
+5:0-6 source.groovy
+5:6-7 source.groovy keyword.operator.assignment.groovy
+5:7-8 source.groovy
+5:8-9 source.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+5:9-20 source.groovy string.quoted.single.groovy
+5:20-21 source.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+6:0-8 source.groovy
+6:8-9 source.groovy keyword.operator.assignment.groovy
+6:9-10 source.groovy
+6:10-11 source.groovy string.quoted.double.groovy punctuation.definition.string.begin.groovy
+6:11-15 source.groovy string.quoted.double.groovy
+6:15-17 source.groovy string.quoted.double.groovy source.groovy.embedded.source punctuation.section.embedded.groovy
+6:17-53 source.groovy string.quoted.double.groovy source.groovy.embedded.source
+6:53-54 source.groovy string.quoted.double.groovy source.groovy.embedded.source punctuation.section.embedded.groovy
+6:54-55 source.groovy string.quoted.double.groovy punctuation.definition.string.end.groovy
+7:0-0 source.groovy
+8:0-3 source.groovy meta.definition.variable.groovy storage.type.def.groovy
+8:3-4 source.groovy meta.definition.variable.groovy
+8:4-15 source.groovy meta.definition.variable.groovy meta.definition.variable.name.groovy
+8:15-16 source.groovy meta.definition.variable.groovy
+8:16-17 source.groovy meta.definition.variable.groovy keyword.operator.assignment.groovy
+8:17-18 source.groovy meta.definition.variable.groovy
+8:18-19 source.groovy meta.definition.variable.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+8:19-24 source.groovy meta.definition.variable.groovy string.quoted.single.groovy
+8:24-25 source.groovy meta.definition.variable.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+9:0-0 source.groovy
+10:0-13 source.groovy
+10:13-14 source.groovy
+11:0-19 source.groovy
+11:19-20 source.groovy string.quoted.double.groovy punctuation.definition.string.begin.groovy
+11:20-54 source.groovy string.quoted.double.groovy
+11:54-56 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy
+11:56-57 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:57-58 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:58-59 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:59-60 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:60-61 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:61-62 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:62-63 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:63-64 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:64-65 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:65-66 source.groovy string.quoted.double.groovy variable.other.interpolated.groovy variable.other.interpolated.groovy
+11:66-67 source.groovy string.quoted.double.groovy punctuation.definition.string.end.groovy
+12:0-23 source.groovy
+12:23-24 source.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+12:24-62 source.groovy string.quoted.single.groovy
+12:62-63 source.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+13:0-1 source.groovy
+14:0-0 source.groovy
+15:0-2 source.groovy comment.block.groovy punctuation.definition.comment.groovy
+15:2-40 source.groovy comment.block.groovy
+15:40-42 source.groovy comment.block.groovy punctuation.definition.comment.groovy
+16:0-5 source.groovy
+16:5-6 source.groovy keyword.operator.navigation.groovy
+16:6-14 source.groovy meta.method-call.groovy meta.method.groovy
+16:14-15 source.groovy meta.method-call.groovy punctuation.definition.method-parameters.begin.groovy
+16:15-16 source.groovy meta.method-call.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+16:16-24 source.groovy meta.method-call.groovy string.quoted.single.groovy
+16:24-25 source.groovy meta.method-call.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+16:25-26 source.groovy meta.method-call.groovy punctuation.definition.method-parameters.end.groovy
+16:26-27 source.groovy
+16:27-28 source.groovy
+17:0-11 source.groovy
+17:11-12 source.groovy
+18:0-8 source.groovy
+18:8-11 source.groovy storage.type.def.groovy
+18:11-18 source.groovy
+18:18-19 source.groovy keyword.operator.assignment.groovy
+18:19-20 source.groovy
+18:20-21 source.groovy meta.structure.groovy punctuation.definition.structure.begin.groovy
+18:21-22 source.groovy meta.structure.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+18:22-26 source.groovy meta.structure.groovy string.quoted.single.groovy
+18:26-27 source.groovy meta.structure.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+18:27-28 source.groovy meta.structure.groovy punctuation.definition.separator.groovy
+18:28-29 source.groovy meta.structure.groovy
+18:29-30 source.groovy meta.structure.groovy string.quoted.single.groovy punctuation.definition.string.begin.groovy
+18:30-37 source.groovy meta.structure.groovy string.quoted.single.groovy
+18:37-38 source.groovy meta.structure.groovy string.quoted.single.groovy punctuation.definition.string.end.groovy
+18:38-39 source.groovy meta.structure.groovy punctuation.definition.structure.end.groovy
+18:39-40 source.groovy keyword.operator.navigation.groovy
+18:40-48 source.groovy
+18:48-49 source.groovy
+18:49-52 source.groovy
+18:52-53 source.groovy keyword.operator.navigation.groovy
+18:53-64 source.groovy meta.method-call.groovy meta.method.groovy
+18:64-65 source.groovy meta.method-call.groovy punctuation.definition.method-parameters.begin.groovy
+18:65-66 source.groovy meta.method-call.groovy punctuation.definition.method-parameters.end.groovy
+18:66-67 source.groovy
+18:67-68 source.groovy
+19:0-8 source.groovy
+19:8-15 source.groovy support.function.print.groovy
+19:15-16 source.groovy
+19:16-17 source.groovy string.quoted.double.groovy punctuation.definition.string.begin.groovy
+19:17-27 source.groovy string.quoted.double.groovy
+19:27-29 source.groovy string.quoted.double.groovy source.groovy.embedded.source punctuation.section.embedded.groovy
+19:29-45 source.groovy string.quoted.double.groovy source.groovy.embedded.source
+19:45-46 source.groovy string.quoted.double.groovy source.groovy.embedded.source punctuation.section.embedded.groovy
+19:46-48 source.groovy string.quoted.double.groovy
+19:48-50 source.groovy string.quoted.double.groovy source.groovy.embedded.source punctuation.section.embedded.groovy
+19:50-62 source.groovy string.quoted.double.groovy source.groovy.embedded.source
+19:62-63 source.groovy string.quoted.double.groovy source.groovy.embedded.source punctuation.section.embedded.groovy
+19:63-64 source.groovy string.quoted.double.groovy
+19:64-65 source.groovy string.quoted.double.groovy punctuation.definition.string.end.groovy
+20:0-8 source.groovy
+20:8-14 source.groovy meta.declaration.assertion.groovy keyword.control.assert.groovy
+20:14-15 source.groovy meta.declaration.assertion.groovy
+20:15-20 source.groovy meta.declaration.assertion.groovy
+20:20-21 source.groovy meta.declaration.assertion.groovy keyword.operator.navigation.groovy
+20:21-27 source.groovy meta.declaration.assertion.groovy
+20:27-28 source.groovy meta.declaration.assertion.groovy
+20:28-32 source.groovy meta.declaration.assertion.groovy
+20:32-35 source.groovy meta.declaration.assertion.groovy keyword.operator.match.groovy
+20:35-36 source.groovy meta.declaration.assertion.groovy
+20:36-37 source.groovy meta.declaration.assertion.groovy string.regexp.groovy punctuation.definition.string.regexp.begin.groovy
+20:37-43 source.groovy meta.declaration.assertion.groovy string.regexp.groovy
+20:43-44 source.groovy meta.declaration.assertion.groovy string.regexp.groovy punctuation.definition.string.regexp.end.groovy
+20:44-45 source.groovy meta.declaration.assertion.groovy
+20:45-46 source.groovy meta.declaration.assertion.groovy
+21:0-4 source.groovy
+21:4-5 source.groovy
+22:0-1 source.groovy

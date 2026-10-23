@@ -1,0 +1,266 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.erlang comment.line.percentage.erlang punctuation.definition.comment.erlang
+0:1-31 source.erlang comment.line.percentage.erlang
+1:0-1 source.erlang meta.directive.module.erlang punctuation.section.directive.begin.erlang
+1:1-7 source.erlang meta.directive.module.erlang keyword.control.directive.module.erlang
+1:7-8 source.erlang meta.directive.module.erlang punctuation.definition.parameters.begin.erlang
+1:8-12 source.erlang meta.directive.module.erlang entity.name.type.class.module.definition.erlang
+1:12-13 source.erlang meta.directive.module.erlang punctuation.definition.parameters.end.erlang
+1:13-14 source.erlang meta.directive.module.erlang punctuation.section.directive.end.erlang
+2:0-1 source.erlang meta.directive.export.erlang punctuation.section.directive.begin.erlang
+2:1-7 source.erlang meta.directive.export.erlang keyword.control.directive.export.erlang
+2:7-8 source.erlang meta.directive.export.erlang punctuation.definition.parameters.begin.erlang
+2:8-9 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang punctuation.definition.list.begin.erlang
+2:9-14 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang entity.name.function.erlang
+2:14-15 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang punctuation.separator.function-arity.erlang
+2:15-16 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang constant.numeric.integer.decimal.erlang
+2:16-17 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang punctuation.separator.list.erlang
+2:17-18 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang
+2:18-23 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang entity.name.function.erlang
+2:23-24 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang punctuation.separator.function-arity.erlang
+2:24-25 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang constant.numeric.integer.decimal.erlang
+2:25-26 source.erlang meta.directive.export.erlang meta.structure.list.function.erlang punctuation.definition.list.end.erlang
+2:26-27 source.erlang meta.directive.export.erlang punctuation.definition.parameters.end.erlang
+2:27-28 source.erlang meta.directive.export.erlang punctuation.section.directive.end.erlang
+3:0-0 source.erlang
+4:0-1 source.erlang meta.directive.define.erlang punctuation.section.directive.begin.erlang
+4:1-7 source.erlang meta.directive.define.erlang keyword.control.directive.define.erlang
+4:7-8 source.erlang meta.directive.define.erlang punctuation.definition.parameters.begin.erlang
+4:8-13 source.erlang meta.directive.define.erlang entity.name.function.macro.definition.erlang
+4:13-15 source.erlang meta.directive.define.erlang
+4:15-16 source.erlang meta.directive.define.erlang string.quoted.double.erlang punctuation.definition.string.begin.erlang
+4:16-27 source.erlang meta.directive.define.erlang string.quoted.double.erlang
+4:27-28 source.erlang meta.directive.define.erlang string.quoted.double.erlang punctuation.definition.string.end.erlang
+4:28-29 source.erlang meta.directive.define.erlang punctuation.definition.parameters.end.erlang
+4:29-30 source.erlang meta.directive.define.erlang punctuation.section.directive.end.erlang
+5:0-0 source.erlang
+6:0-1 source.erlang meta.directive.record.erlang punctuation.section.directive.begin.erlang
+6:1-7 source.erlang meta.directive.record.erlang keyword.control.directive.import.erlang
+6:7-8 source.erlang meta.directive.record.erlang punctuation.definition.parameters.begin.erlang
+6:8-11 source.erlang meta.directive.record.erlang entity.name.type.class.record.definition.erlang
+6:11-12 source.erlang meta.directive.record.erlang punctuation.separator.parameters.erlang
+6:12-13 source.erlang meta.directive.record.erlang
+6:13-14 source.erlang meta.directive.record.erlang meta.structure.record.erlang punctuation.definition.class.record.begin.erlang
+6:14-18 source.erlang meta.directive.record.erlang meta.structure.record.erlang variable.other.field.erlang
+6:18-19 source.erlang meta.directive.record.erlang meta.structure.record.erlang
+6:19-21 source.erlang meta.directive.record.erlang meta.structure.record.erlang keyword.operator.symbolic.erlang
+6:21-22 source.erlang meta.directive.record.erlang meta.structure.record.erlang
+6:22-28 source.erlang meta.directive.record.erlang meta.structure.record.erlang meta.function-call.erlang entity.name.function.erlang
+6:28-29 source.erlang meta.directive.record.erlang meta.structure.record.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+6:29-30 source.erlang meta.directive.record.erlang meta.structure.record.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+6:30-31 source.erlang meta.directive.record.erlang meta.structure.record.erlang punctuation.separator.class.record.erlang
+6:31-32 source.erlang meta.directive.record.erlang meta.structure.record.erlang
+6:32-36 source.erlang meta.directive.record.erlang meta.structure.record.erlang variable.other.field.erlang
+6:36-37 source.erlang meta.directive.record.erlang meta.structure.record.erlang
+6:37-39 source.erlang meta.directive.record.erlang meta.structure.record.erlang keyword.operator.symbolic.erlang
+6:39-40 source.erlang meta.directive.record.erlang meta.structure.record.erlang
+6:40-46 source.erlang meta.directive.record.erlang meta.structure.record.erlang meta.function-call.erlang entity.name.function.erlang
+6:46-47 source.erlang meta.directive.record.erlang meta.structure.record.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+6:47-48 source.erlang meta.directive.record.erlang meta.structure.record.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+6:48-49 source.erlang meta.directive.record.erlang meta.structure.record.erlang punctuation.definition.class.record.end.erlang
+6:49-50 source.erlang meta.directive.record.erlang punctuation.definition.parameters.end.erlang
+6:50-51 source.erlang meta.directive.record.erlang punctuation.section.directive.end.erlang
+7:0-0 source.erlang
+8:0-1 source.erlang meta.directive.erlang punctuation.section.directive.begin.erlang
+8:1-5 source.erlang meta.directive.erlang keyword.control.directive.erlang
+8:5-6 source.erlang meta.directive.erlang
+8:6-11 source.erlang meta.directive.erlang meta.function-call.erlang entity.name.function.erlang
+8:11-12 source.erlang meta.directive.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+8:12-18 source.erlang meta.directive.erlang meta.function-call.erlang meta.function-call.erlang entity.name.function.erlang
+8:18-19 source.erlang meta.directive.erlang meta.function-call.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+8:19-20 source.erlang meta.directive.erlang meta.function-call.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+8:20-21 source.erlang meta.directive.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+8:21-22 source.erlang meta.directive.erlang
+8:22-23 source.erlang meta.directive.erlang keyword.operator.symbolic.erlang
+8:23-24 source.erlang meta.directive.erlang keyword.operator.symbolic.erlang
+8:24-25 source.erlang meta.directive.erlang
+8:25-26 source.erlang meta.directive.erlang meta.structure.list.erlang punctuation.definition.list.begin.erlang
+8:26-27 source.erlang meta.directive.erlang meta.structure.list.erlang meta.record-usage.erlang keyword.operator.record.erlang
+8:27-30 source.erlang meta.directive.erlang meta.structure.list.erlang meta.record-usage.erlang entity.name.type.class.record.erlang
+8:30-31 source.erlang meta.directive.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.begin.erlang
+8:31-32 source.erlang meta.directive.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.end.erlang
+8:32-33 source.erlang meta.directive.erlang meta.structure.list.erlang punctuation.definition.list.end.erlang
+8:33-34 source.erlang meta.directive.erlang punctuation.section.directive.end.erlang
+9:0-5 source.erlang meta.function.erlang entity.name.function.definition.erlang
+9:5-6 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.begin.erlang
+9:6-9 source.erlang meta.function.erlang meta.expression.parenthesized variable.other.erlang
+9:9-10 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.end.erlang
+9:10-11 source.erlang meta.function.erlang
+9:11-12 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+9:12-13 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+10:0-4 source.erlang meta.function.erlang
+10:4-9 source.erlang meta.function.erlang variable.other.erlang
+10:9-10 source.erlang meta.function.erlang
+10:10-11 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+10:11-12 source.erlang meta.function.erlang
+10:12-18 source.erlang meta.function.erlang meta.function-call.erlang entity.name.type.class.module.erlang
+10:18-19 source.erlang meta.function.erlang meta.function-call.erlang punctuation.separator.module-function.erlang
+10:19-24 source.erlang meta.function.erlang meta.function-call.erlang entity.name.function.erlang
+10:24-25 source.erlang meta.function.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+10:25-28 source.erlang meta.function.erlang meta.function-call.erlang variable.other.erlang
+10:28-29 source.erlang meta.function.erlang meta.function-call.erlang punctuation.separator.parameters.erlang
+10:29-30 source.erlang meta.function.erlang meta.function-call.erlang
+10:30-32 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.binary.erlang punctuation.definition.binary.begin.erlang
+10:32-33 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.binary.erlang string.quoted.double.erlang punctuation.definition.string.begin.erlang
+10:33-34 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.binary.erlang string.quoted.double.erlang constant.character.escape.erlang punctuation.definition.escape.erlang
+10:34-35 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.binary.erlang string.quoted.double.erlang constant.character.escape.erlang
+10:35-36 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.binary.erlang string.quoted.double.erlang punctuation.definition.string.end.erlang
+10:36-38 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.binary.erlang punctuation.definition.binary.end.erlang
+10:38-39 source.erlang meta.function.erlang meta.function-call.erlang punctuation.separator.parameters.erlang
+10:39-40 source.erlang meta.function.erlang meta.function-call.erlang
+10:40-41 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.list.erlang punctuation.definition.list.begin.erlang
+10:41-47 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.list.erlang constant.other.symbol.unquoted.erlang
+10:47-48 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.list.erlang punctuation.separator.list.erlang
+10:48-49 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.list.erlang
+10:49-53 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.list.erlang constant.other.symbol.unquoted.erlang
+10:53-54 source.erlang meta.function.erlang meta.function-call.erlang meta.structure.list.erlang punctuation.definition.list.end.erlang
+10:54-55 source.erlang meta.function.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+10:55-56 source.erlang meta.function.erlang punctuation.separator.expressions.erlang
+11:0-4 source.erlang meta.function.erlang
+11:4-5 source.erlang meta.function.erlang meta.structure.list.erlang punctuation.definition.list.begin.erlang
+11:5-6 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang keyword.operator.record.erlang
+11:6-9 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang entity.name.type.class.record.erlang
+11:9-10 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.begin.erlang
+11:10-14 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang variable.other.field.erlang
+11:14-15 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang
+11:15-16 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang keyword.operator.symbolic.erlang
+11:16-17 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang
+11:17-31 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang meta.function-call.erlang entity.name.function.erlang
+11:31-32 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+11:32-36 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang meta.function-call.erlang variable.other.erlang
+11:36-37 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+11:37-38 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang punctuation.separator.class.record.erlang
+11:38-39 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang
+11:39-43 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang variable.other.field.erlang
+11:43-44 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang
+11:44-45 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang keyword.operator.symbolic.erlang
+11:45-46 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang
+11:46-50 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang variable.other.erlang
+11:50-51 source.erlang meta.function.erlang meta.structure.list.erlang meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.end.erlang
+12:0-5 source.erlang meta.function.erlang meta.structure.list.erlang
+12:5-6 source.erlang meta.function.erlang meta.structure.list.erlang punctuation.separator.list.erlang
+12:6-7 source.erlang meta.function.erlang meta.structure.list.erlang punctuation.separator.list.erlang
+12:7-8 source.erlang meta.function.erlang meta.structure.list.erlang
+12:8-12 source.erlang meta.function.erlang meta.structure.list.erlang variable.other.erlang
+12:12-13 source.erlang meta.function.erlang meta.structure.list.erlang
+12:13-15 source.erlang meta.function.erlang meta.structure.list.erlang keyword.operator.symbolic.erlang
+12:15-16 source.erlang meta.function.erlang meta.structure.list.erlang
+12:16-21 source.erlang meta.function.erlang meta.structure.list.erlang variable.other.erlang
+12:21-22 source.erlang meta.function.erlang meta.structure.list.erlang punctuation.separator.list.erlang
+12:22-23 source.erlang meta.function.erlang meta.structure.list.erlang
+12:23-27 source.erlang meta.function.erlang meta.structure.list.erlang variable.other.erlang
+12:27-28 source.erlang meta.function.erlang meta.structure.list.erlang
+12:28-31 source.erlang meta.function.erlang meta.structure.list.erlang keyword.operator.symbolic.erlang
+12:31-32 source.erlang meta.function.erlang meta.structure.list.erlang
+12:32-34 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.binary.erlang punctuation.definition.binary.begin.erlang
+12:34-36 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.binary.erlang punctuation.definition.binary.end.erlang
+12:36-37 source.erlang meta.function.erlang meta.structure.list.erlang punctuation.separator.list.erlang
+12:37-38 source.erlang meta.function.erlang meta.structure.list.erlang
+12:38-44 source.erlang meta.function.erlang meta.structure.list.erlang meta.function-call.erlang entity.name.type.class.module.erlang
+12:44-45 source.erlang meta.function.erlang meta.structure.list.erlang meta.function-call.erlang punctuation.separator.module-function.erlang
+12:45-50 source.erlang meta.function.erlang meta.structure.list.erlang meta.function-call.erlang entity.name.function.erlang
+12:50-51 source.erlang meta.function.erlang meta.structure.list.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+12:51-55 source.erlang meta.function.erlang meta.structure.list.erlang meta.function-call.erlang variable.other.erlang
+12:55-56 source.erlang meta.function.erlang meta.structure.list.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+12:56-57 source.erlang meta.function.erlang meta.structure.list.erlang
+12:57-60 source.erlang meta.function.erlang meta.structure.list.erlang keyword.operator.symbolic.erlang
+12:60-61 source.erlang meta.function.erlang meta.structure.list.erlang
+12:61-62 source.erlang meta.function.erlang meta.structure.list.erlang constant.character.erlang punctuation.definition.character.erlang
+12:62-63 source.erlang meta.function.erlang meta.structure.list.erlang constant.character.erlang
+12:63-64 source.erlang meta.function.erlang meta.structure.list.erlang punctuation.separator.list.erlang
+13:0-8 source.erlang meta.function.erlang meta.structure.list.erlang
+13:8-9 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang punctuation.definition.list.begin.erlang
+13:9-13 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang variable.other.erlang
+13:13-14 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang punctuation.separator.list.erlang
+13:14-15 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang
+13:15-19 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang variable.other.erlang
+13:19-20 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang punctuation.definition.list.end.erlang
+13:20-21 source.erlang meta.function.erlang meta.structure.list.erlang
+13:21-23 source.erlang meta.function.erlang meta.structure.list.erlang keyword.operator.symbolic.erlang
+13:23-24 source.erlang meta.function.erlang meta.structure.list.erlang
+13:24-25 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang punctuation.definition.list.begin.erlang
+13:25-31 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang entity.name.type.class.module.erlang
+13:31-32 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang punctuation.separator.module-function.erlang
+13:32-37 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang entity.name.function.erlang
+13:37-38 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+13:38-42 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang variable.other.erlang
+13:42-43 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang punctuation.separator.parameters.erlang
+13:43-44 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang
+13:44-46 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang meta.structure.binary.erlang punctuation.definition.binary.begin.erlang
+13:46-47 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang meta.structure.binary.erlang string.quoted.double.erlang punctuation.definition.string.begin.erlang
+13:47-48 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang meta.structure.binary.erlang string.quoted.double.erlang
+13:48-49 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang meta.structure.binary.erlang string.quoted.double.erlang punctuation.definition.string.end.erlang
+13:49-51 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang meta.structure.binary.erlang punctuation.definition.binary.end.erlang
+13:51-52 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+13:52-53 source.erlang meta.function.erlang meta.structure.list.erlang meta.structure.list.erlang punctuation.definition.list.end.erlang
+13:53-54 source.erlang meta.function.erlang meta.structure.list.erlang punctuation.definition.list.end.erlang
+13:54-55 source.erlang meta.function.erlang punctuation.terminator.function.erlang
+14:0-0 source.erlang
+15:0-5 source.erlang meta.function.erlang entity.name.function.definition.erlang
+15:5-6 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.begin.erlang
+15:6-7 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang keyword.operator.record.erlang
+15:7-10 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang entity.name.type.class.record.erlang
+15:10-11 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.begin.erlang
+15:11-15 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang variable.other.field.erlang
+15:15-16 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang
+15:16-17 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang keyword.operator.symbolic.erlang
+15:17-18 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang
+15:18-19 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang meta.macro-usage.erlang keyword.operator.macro.erlang
+15:19-24 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang meta.macro-usage.erlang entity.name.function.macro.erlang
+15:24-25 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang
+15:25-27 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang keyword.operator.symbolic.erlang
+15:27-28 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang
+15:28-33 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang variable.other.erlang
+15:33-34 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.end.erlang
+15:34-35 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.end.erlang
+15:35-36 source.erlang meta.function.erlang
+15:36-37 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+15:37-38 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+15:38-39 source.erlang meta.function.erlang
+15:39-44 source.erlang meta.function.erlang variable.other.erlang
+15:44-45 source.erlang meta.function.erlang punctuation.separator.clauses.erlang
+16:0-5 source.erlang meta.function.erlang entity.name.function.erlang
+16:5-6 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.begin.erlang
+16:6-7 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang keyword.operator.record.erlang
+16:7-10 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang entity.name.type.class.record.erlang
+16:10-11 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.begin.erlang
+16:11-15 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang variable.other.field.erlang
+16:15-16 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang
+16:16-17 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang keyword.operator.symbolic.erlang
+16:17-18 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang
+16:18-22 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang variable.other.erlang
+16:22-23 source.erlang meta.function.erlang meta.expression.parenthesized meta.record-usage.erlang meta.structure.record.erlang punctuation.definition.class.record.end.erlang
+16:23-24 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.end.erlang
+16:24-25 source.erlang meta.function.erlang
+16:25-26 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+16:26-27 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+16:27-28 source.erlang meta.function.erlang
+16:28-32 source.erlang meta.function.erlang variable.other.erlang
+16:32-33 source.erlang meta.function.erlang punctuation.terminator.function.erlang
+17:0-0 source.erlang
+18:0-5 source.erlang meta.function.erlang entity.name.function.definition.erlang
+18:5-6 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.begin.erlang
+18:6-10 source.erlang meta.function.erlang meta.expression.parenthesized variable.other.erlang
+18:10-11 source.erlang meta.function.erlang meta.expression.parenthesized punctuation.section.expression.end.erlang
+18:11-12 source.erlang meta.function.erlang
+18:12-16 source.erlang meta.function.erlang keyword.control.erlang
+18:16-17 source.erlang meta.function.erlang
+18:17-24 source.erlang meta.function.erlang meta.function-call.erlang entity.name.function.guard.erlang
+18:24-25 source.erlang meta.function.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+18:25-29 source.erlang meta.function.erlang meta.function-call.erlang variable.other.erlang
+18:29-30 source.erlang meta.function.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+18:30-31 source.erlang meta.function.erlang
+18:31-32 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+18:32-33 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+18:33-34 source.erlang meta.function.erlang
+18:34-40 source.erlang meta.function.erlang meta.function-call.erlang entity.name.function.guard.erlang
+18:40-41 source.erlang meta.function.erlang meta.function-call.erlang punctuation.definition.parameters.begin.erlang
+18:41-45 source.erlang meta.function.erlang meta.function-call.erlang variable.other.erlang
+18:45-46 source.erlang meta.function.erlang meta.function-call.erlang punctuation.definition.parameters.end.erlang
+18:46-47 source.erlang meta.function.erlang
+18:47-48 source.erlang meta.function.erlang keyword.operator.symbolic.erlang
+18:48-49 source.erlang meta.function.erlang
+18:49-51 source.erlang meta.function.erlang constant.numeric.integer.hexadecimal.erlang
+18:51-52 source.erlang meta.function.erlang constant.numeric.integer.hexadecimal.erlang punctuation.separator.base-integer.erlang
+18:52-53 source.erlang meta.function.erlang constant.numeric.integer.hexadecimal.erlang
+18:53-54 source.erlang meta.function.erlang punctuation.terminator.function.erlang

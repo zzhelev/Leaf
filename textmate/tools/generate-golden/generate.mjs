@@ -36,9 +36,6 @@ const GRAMMARS = {
   kotlin: { file: "kotlin.tmLanguage.json", scope: "source.kotlin" },
   markdown: { file: "markdown.tmLanguage.json", scope: "text.html.markdown" },
   javascript: { file: "JavaScript.tmLanguage.json", scope: "source.js" },
-  shell: { file: "shell-unix-bash.tmLanguage.json", scope: "source.shell" },
-  css: { file: "css.tmLanguage.json", scope: "source.css" },
-  rust: { file: "rust.tmLanguage.json", scope: "source.rust" },
 };
 
 async function tokenizeFile(grammar, sourceText) {

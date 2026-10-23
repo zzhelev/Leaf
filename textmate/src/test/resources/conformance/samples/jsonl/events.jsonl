@@ -1,0 +1,3 @@
+{"event": "push", "branch": "main", "commits": 3}
+{"event": "fetch", "remote": "origin", "ok": true, "ms": 125.5}
+{"event": "merge", "from": "feature/x", "conflicts": ["a.kt", "b.kt"], "note": null}

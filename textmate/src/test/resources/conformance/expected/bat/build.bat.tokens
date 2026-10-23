@@ -1,0 +1,107 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.batchfile keyword.operator.at.batchfile
+0:1-5 source.batchfile keyword.command.batchfile
+0:5-6 source.batchfile
+0:6-9 source.batchfile keyword.other.special-method.batchfile
+1:0-8 source.batchfile keyword.command.batchfile
+1:8-9 source.batchfile
+1:9-31 source.batchfile keyword.other.special-method.batchfile
+2:0-0 source.batchfile
+3:0-3 source.batchfile comment.line.rem.batchfile keyword.command.rem.batchfile
+3:3-27 source.batchfile comment.line.rem.batchfile
+4:0-3 source.batchfile keyword.command.batchfile
+4:3-4 source.batchfile
+4:4-5 source.batchfile string.quoted.double.batchfile punctuation.definition.string.begin.batchfile
+4:5-14 source.batchfile string.quoted.double.batchfile variable.other.readwrite.batchfile
+4:14-15 source.batchfile string.quoted.double.batchfile keyword.operator.assignment.batchfile
+4:15-16 source.batchfile string.quoted.double.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.begin.batchfile
+4:16-28 source.batchfile string.quoted.double.batchfile variable.other.readwrite.batchfile
+4:28-29 source.batchfile string.quoted.double.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.end.batchfile
+4:29-41 source.batchfile string.quoted.double.batchfile
+4:41-42 source.batchfile string.quoted.double.batchfile punctuation.definition.string.end.batchfile
+5:0-3 source.batchfile keyword.command.batchfile
+5:3-4 source.batchfile
+5:4-9 source.batchfile variable.other.readwrite.batchfile
+5:9-10 source.batchfile keyword.operator.assignment.batchfile
+5:10-11 source.batchfile constant.numeric.batchfile
+6:0-0 source.batchfile
+7:0-2 source.batchfile keyword.control.conditional.batchfile
+7:2-3 source.batchfile
+7:3-6 source.batchfile keyword.operator.logical.batchfile
+7:6-7 source.batchfile
+7:7-12 source.batchfile keyword.other.special-method.batchfile
+7:12-25 source.batchfile
+7:25-26 source.batchfile meta.group.batchfile punctuation.section.group.begin.batchfile
+8:0-4 source.batchfile meta.group.batchfile
+8:4-8 source.batchfile meta.group.batchfile keyword.command.batchfile
+8:8-9 source.batchfile meta.group.batchfile
+8:9-31 source.batchfile meta.group.batchfile
+8:31-32 source.batchfile meta.group.batchfile constant.numeric.batchfile
+8:32-34 source.batchfile meta.group.batchfile keyword.operator.redirection.batchfile
+8:34-35 source.batchfile meta.group.batchfile
+9:0-4 source.batchfile meta.group.batchfile
+9:4-8 source.batchfile meta.group.batchfile keyword.control.statement.batchfile
+9:8-12 source.batchfile meta.group.batchfile
+9:12-13 source.batchfile meta.group.batchfile constant.numeric.batchfile
+10:0-1 source.batchfile meta.group.batchfile punctuation.section.group.end.batchfile
+11:0-0 source.batchfile
+12:0-3 source.batchfile meta.block.repeat.batchfile keyword.control.repeat.batchfile
+12:3-4 source.batchfile meta.block.repeat.batchfile
+12:4-6 source.batchfile meta.block.repeat.batchfile variable.parameter.repeat.batchfile punctuation.definition.variable.batchfile
+12:6-7 source.batchfile meta.block.repeat.batchfile variable.parameter.repeat.batchfile
+12:7-8 source.batchfile meta.block.repeat.batchfile
+12:8-10 source.batchfile meta.block.repeat.batchfile keyword.control.repeat.in.batchfile
+12:10-11 source.batchfile meta.block.repeat.batchfile
+12:11-12 source.batchfile meta.block.repeat.batchfile meta.group.batchfile punctuation.section.group.begin.batchfile
+12:12-22 source.batchfile meta.block.repeat.batchfile meta.group.batchfile
+12:22-23 source.batchfile meta.block.repeat.batchfile meta.group.batchfile punctuation.section.group.end.batchfile
+12:23-24 source.batchfile meta.block.repeat.batchfile
+12:24-26 source.batchfile meta.block.repeat.batchfile keyword.control.repeat.do.batchfile
+12:26-27 source.batchfile meta.block.repeat.batchfile
+12:27-28 source.batchfile meta.block.repeat.batchfile meta.group.batchfile punctuation.section.group.begin.batchfile
+13:0-4 source.batchfile meta.block.repeat.batchfile meta.group.batchfile
+13:4-8 source.batchfile meta.block.repeat.batchfile meta.group.batchfile keyword.control.statement.batchfile
+13:8-21 source.batchfile meta.block.repeat.batchfile meta.group.batchfile
+13:21-23 source.batchfile meta.block.repeat.batchfile meta.group.batchfile variable.parameter.repeat.batchfile punctuation.definition.variable.batchfile
+13:23-24 source.batchfile meta.block.repeat.batchfile meta.group.batchfile variable.parameter.repeat.batchfile
+13:24-37 source.batchfile meta.block.repeat.batchfile meta.group.batchfile
+13:37-39 source.batchfile meta.block.repeat.batchfile meta.group.batchfile keyword.operator.conditional.batchfile
+13:39-40 source.batchfile meta.block.repeat.batchfile meta.group.batchfile
+13:40-44 source.batchfile meta.block.repeat.batchfile meta.group.batchfile keyword.control.statement.batchfile
+13:44-45 source.batchfile meta.block.repeat.batchfile meta.group.batchfile
+13:45-46 source.batchfile meta.block.repeat.batchfile meta.group.batchfile punctuation.separator.batchfile
+13:46-52 source.batchfile meta.block.repeat.batchfile meta.group.batchfile keyword.other.special-method.batchfile
+14:0-4 source.batchfile meta.block.repeat.batchfile meta.group.batchfile
+14:4-7 source.batchfile meta.block.repeat.batchfile meta.group.batchfile keyword.command.batchfile
+14:7-11 source.batchfile meta.block.repeat.batchfile meta.group.batchfile meta.expression.set.batchfile
+14:11-16 source.batchfile meta.block.repeat.batchfile meta.group.batchfile meta.expression.set.batchfile variable.other.readwrite.batchfile
+14:16-18 source.batchfile meta.block.repeat.batchfile meta.group.batchfile meta.expression.set.batchfile keyword.operator.assignment.augmented.batchfile
+14:18-19 source.batchfile meta.block.repeat.batchfile meta.group.batchfile meta.expression.set.batchfile constant.numeric.batchfile
+15:0-1 source.batchfile meta.block.repeat.batchfile meta.group.batchfile punctuation.section.group.end.batchfile
+16:0-4 source.batchfile keyword.command.batchfile
+16:4-5 source.batchfile
+16:5-9 source.batchfile
+16:9-10 source.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.begin.batchfile
+16:10-15 source.batchfile variable.other.readwrite.batchfile
+16:15-16 source.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.end.batchfile
+16:16-22 source.batchfile
+17:0-4 source.batchfile keyword.control.statement.batchfile
+17:4-5 source.batchfile
+17:5-6 source.batchfile punctuation.separator.batchfile
+17:6-9 source.batchfile keyword.other.special-method.batchfile
+18:0-0 source.batchfile
+19:0-1 source.batchfile punctuation.separator.batchfile
+19:1-7 source.batchfile keyword.other.special-method.batchfile
+20:0-4 source.batchfile keyword.command.batchfile
+20:4-5 source.batchfile
+20:5-23 source.batchfile
+20:23-24 source.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.begin.batchfile
+20:24-34 source.batchfile variable.other.readwrite.batchfile
+20:34-35 source.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.end.batchfile
+21:0-2 source.batchfile comment.line.colon.batchfile punctuation.definition.comment.batchfile
+21:2-23 source.batchfile comment.line.colon.batchfile
+22:0-4 source.batchfile keyword.control.statement.batchfile
+22:4-8 source.batchfile
+22:8-9 source.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.begin.batchfile
+22:9-19 source.batchfile variable.other.readwrite.batchfile
+22:19-20 source.batchfile variable.other.readwrite.batchfile punctuation.definition.variable.end.batchfile

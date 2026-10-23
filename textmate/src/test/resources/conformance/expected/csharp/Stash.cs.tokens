@@ -1,0 +1,212 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-5 source.cs keyword.other.directive.using.cs
+0:5-6 source.cs
+0:6-12 source.cs entity.name.type.namespace.cs
+0:12-13 source.cs punctuation.terminator.statement.cs
+1:0-5 source.cs keyword.other.directive.using.cs
+1:5-6 source.cs
+1:6-12 source.cs entity.name.type.namespace.cs
+1:12-13 source.cs punctuation.accessor.cs
+1:13-24 source.cs entity.name.type.namespace.cs
+1:24-25 source.cs punctuation.accessor.cs
+1:25-32 source.cs entity.name.type.namespace.cs
+1:32-33 source.cs punctuation.terminator.statement.cs
+2:0-5 source.cs keyword.other.directive.using.cs
+2:5-6 source.cs
+2:6-12 source.cs entity.name.type.namespace.cs
+2:12-13 source.cs punctuation.accessor.cs
+2:13-22 source.cs entity.name.type.namespace.cs
+2:22-23 source.cs punctuation.accessor.cs
+2:23-28 source.cs entity.name.type.namespace.cs
+2:28-29 source.cs punctuation.terminator.statement.cs
+3:0-0 source.cs
+4:0-9 source.cs storage.type.namespace.cs
+4:9-10 source.cs
+4:10-17 source.cs entity.name.type.namespace.cs
+4:17-18 source.cs punctuation.accessor.cs
+4:18-21 source.cs entity.name.type.namespace.cs
+5:0-1 source.cs punctuation.curlybrace.open.cs
+6:0-4 source.cs comment.block.documentation.cs punctuation.whitespace.comment.leading.cs
+6:4-7 source.cs comment.block.documentation.cs punctuation.definition.comment.cs
+6:7-8 source.cs comment.block.documentation.cs
+6:8-9 source.cs comment.block.documentation.cs meta.tag.cs punctuation.definition.tag.cs
+6:9-16 source.cs comment.block.documentation.cs meta.tag.cs entity.name.tag.cs entity.name.tag.localname.cs
+6:16-17 source.cs comment.block.documentation.cs meta.tag.cs punctuation.definition.tag.cs
+6:17-31 source.cs comment.block.documentation.cs
+6:31-33 source.cs comment.block.documentation.cs meta.tag.cs punctuation.definition.tag.cs
+6:33-40 source.cs comment.block.documentation.cs meta.tag.cs entity.name.tag.cs entity.name.tag.localname.cs
+6:40-41 source.cs comment.block.documentation.cs meta.tag.cs punctuation.definition.tag.cs
+7:0-4 source.cs
+7:4-10 source.cs storage.modifier.public.cs
+7:10-11 source.cs
+7:11-17 source.cs storage.modifier.sealed.cs
+7:17-18 source.cs
+7:18-24 source.cs storage.type.record.cs
+7:24-25 source.cs
+7:25-30 source.cs entity.name.type.class.cs
+7:30-31 source.cs punctuation.parenthesis.open.cs
+7:31-34 source.cs keyword.type.int.cs
+7:34-35 source.cs
+7:35-40 source.cs entity.name.variable.parameter.cs
+7:40-41 source.cs punctuation.separator.comma.cs
+7:41-42 source.cs
+7:42-48 source.cs keyword.type.string.cs
+7:48-49 source.cs
+7:49-56 source.cs entity.name.variable.parameter.cs
+7:56-57 source.cs punctuation.parenthesis.close.cs
+7:57-58 source.cs punctuation.terminator.statement.cs
+8:0-0 source.cs
+9:0-4 source.cs
+9:4-5 source.cs punctuation.squarebracket.open.cs
+9:5-17 source.cs entity.name.type.cs
+9:17-18 source.cs punctuation.squarebracket.close.cs
+10:0-4 source.cs
+10:4-10 source.cs storage.modifier.public.cs
+10:10-11 source.cs
+10:11-16 source.cs storage.type.class.cs
+10:16-17 source.cs
+10:17-26 source.cs entity.name.type.class.cs
+11:0-4 source.cs
+11:4-5 source.cs punctuation.curlybrace.open.cs
+12:0-8 source.cs
+12:8-15 source.cs storage.modifier.private.cs
+12:15-16 source.cs
+12:16-24 source.cs storage.modifier.readonly.cs
+12:24-25 source.cs
+12:25-29 source.cs entity.name.type.cs
+12:29-30 source.cs punctuation.definition.typeparameters.begin.cs
+12:30-35 source.cs entity.name.type.cs
+12:35-36 source.cs punctuation.definition.typeparameters.end.cs
+12:36-37 source.cs
+12:37-45 source.cs entity.name.variable.field.cs
+12:45-46 source.cs
+12:46-47 source.cs keyword.operator.assignment.cs
+12:47-48 source.cs
+12:48-51 source.cs keyword.operator.expression.new.cs
+12:51-52 source.cs punctuation.parenthesis.open.cs
+12:52-53 source.cs punctuation.parenthesis.close.cs
+12:53-54 source.cs punctuation.terminator.statement.cs
+13:0-8 source.cs
+13:8-14 source.cs storage.modifier.public.cs
+13:14-15 source.cs
+13:15-18 source.cs keyword.type.int.cs
+13:18-19 source.cs
+13:19-24 source.cs entity.name.variable.property.cs
+13:24-25 source.cs
+13:25-27 source.cs keyword.operator.arrow.cs
+13:27-28 source.cs meta.accessor.getter.cs
+13:28-36 source.cs meta.accessor.getter.cs variable.other.object.cs
+13:36-37 source.cs meta.accessor.getter.cs punctuation.accessor.cs
+13:37-42 source.cs meta.accessor.getter.cs variable.other.object.property.cs
+13:42-43 source.cs punctuation.terminator.statement.cs
+14:0-0 source.cs
+15:0-8 source.cs
+15:8-14 source.cs storage.modifier.public.cs
+15:14-15 source.cs
+15:15-20 source.cs storage.modifier.async.cs
+15:20-21 source.cs
+15:21-25 source.cs entity.name.type.cs
+15:25-26 source.cs punctuation.definition.typeparameters.begin.cs
+15:26-31 source.cs entity.name.type.cs
+15:31-32 source.cs punctuation.separator.question-mark.cs
+15:32-33 source.cs punctuation.definition.typeparameters.end.cs
+15:33-34 source.cs
+15:34-42 source.cs entity.name.function.cs
+15:42-43 source.cs punctuation.parenthesis.open.cs
+15:43-44 source.cs punctuation.parenthesis.close.cs
+16:0-8 source.cs
+16:8-9 source.cs punctuation.curlybrace.open.cs
+17:0-12 source.cs
+17:12-17 source.cs keyword.operator.expression.await.cs
+17:17-18 source.cs
+17:18-22 source.cs variable.other.object.cs
+17:22-23 source.cs punctuation.accessor.cs
+17:23-28 source.cs entity.name.function.cs
+17:28-29 source.cs punctuation.parenthesis.open.cs
+17:29-31 source.cs constant.numeric.decimal.cs
+17:31-32 source.cs punctuation.parenthesis.close.cs
+17:32-33 source.cs punctuation.terminator.statement.cs
+18:0-12 source.cs
+18:12-14 source.cs keyword.control.conditional.if.cs
+18:14-15 source.cs
+18:15-16 source.cs punctuation.parenthesis.open.cs
+18:16-24 source.cs variable.other.object.cs
+18:24-25 source.cs punctuation.accessor.cs
+18:25-30 source.cs variable.other.object.property.cs
+18:30-31 source.cs
+18:31-33 source.cs keyword.operator.comparison.cs
+18:33-34 source.cs
+18:34-35 source.cs constant.numeric.decimal.cs
+18:35-36 source.cs punctuation.parenthesis.close.cs
+18:36-37 source.cs
+18:37-43 source.cs keyword.control.flow.return.cs
+18:43-44 source.cs
+18:44-48 source.cs constant.language.null.cs
+18:48-49 source.cs punctuation.terminator.statement.cs
+19:0-12 source.cs
+19:12-15 source.cs storage.type.var.cs
+19:15-16 source.cs
+19:16-21 source.cs entity.name.variable.local.cs
+19:21-22 source.cs
+19:22-23 source.cs keyword.operator.assignment.cs
+19:23-24 source.cs
+19:24-32 source.cs variable.other.object.property.cs
+19:32-33 source.cs punctuation.squarebracket.open.cs
+19:33-34 source.cs constant.numeric.decimal.cs
+19:34-35 source.cs punctuation.squarebracket.close.cs
+19:35-36 source.cs punctuation.terminator.statement.cs
+20:0-12 source.cs
+20:12-20 source.cs variable.other.object.cs
+20:20-21 source.cs punctuation.accessor.cs
+20:21-29 source.cs entity.name.function.cs
+20:29-30 source.cs punctuation.parenthesis.open.cs
+20:30-31 source.cs constant.numeric.decimal.cs
+20:31-32 source.cs punctuation.parenthesis.close.cs
+20:32-33 source.cs punctuation.terminator.statement.cs
+21:0-12 source.cs
+21:12-18 source.cs keyword.control.flow.return.cs
+21:18-19 source.cs
+21:19-24 source.cs variable.other.readwrite.cs
+21:24-25 source.cs punctuation.terminator.statement.cs
+22:0-8 source.cs
+22:8-9 source.cs punctuation.curlybrace.close.cs
+23:0-0 source.cs
+24:0-8 source.cs
+24:8-14 source.cs storage.modifier.public.cs
+24:14-15 source.cs
+24:15-23 source.cs storage.modifier.override.cs
+24:23-24 source.cs
+24:24-30 source.cs keyword.type.string.cs
+24:30-31 source.cs
+24:31-39 source.cs entity.name.function.cs
+24:39-40 source.cs punctuation.parenthesis.open.cs
+24:40-41 source.cs punctuation.parenthesis.close.cs
+24:41-42 source.cs
+24:42-44 source.cs keyword.operator.arrow.cs
+24:44-45 source.cs
+24:45-47 source.cs string.quoted.double.cs punctuation.definition.string.begin.cs
+24:47-48 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.definition.interpolation.begin.cs
+24:48-53 source.cs string.quoted.double.cs meta.embedded.interpolation.cs variable.other.readwrite.cs
+24:53-54 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.definition.interpolation.end.cs
+24:54-72 source.cs string.quoted.double.cs
+24:72-73 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.definition.interpolation.begin.cs
+24:73-81 source.cs string.quoted.double.cs meta.embedded.interpolation.cs variable.other.object.cs
+24:81-82 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.accessor.cs
+24:82-96 source.cs string.quoted.double.cs meta.embedded.interpolation.cs entity.name.function.cs
+24:96-97 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.parenthesis.open.cs
+24:97-98 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.parenthesis.close.cs
+24:98-99 source.cs string.quoted.double.cs meta.embedded.interpolation.cs keyword.operator.null-conditional.cs
+24:99-100 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.accessor.cs
+24:100-107 source.cs string.quoted.double.cs meta.embedded.interpolation.cs variable.other.object.property.cs
+24:107-108 source.cs string.quoted.double.cs meta.embedded.interpolation.cs
+24:108-110 source.cs string.quoted.double.cs meta.embedded.interpolation.cs keyword.operator.null-coalescing.cs
+24:110-111 source.cs string.quoted.double.cs meta.embedded.interpolation.cs
+24:111-112 source.cs string.quoted.double.cs meta.embedded.interpolation.cs string.quoted.double.cs punctuation.definition.string.begin.cs
+24:112-116 source.cs string.quoted.double.cs meta.embedded.interpolation.cs string.quoted.double.cs
+24:116-117 source.cs string.quoted.double.cs meta.embedded.interpolation.cs string.quoted.double.cs punctuation.definition.string.end.cs
+24:117-118 source.cs string.quoted.double.cs meta.embedded.interpolation.cs punctuation.definition.interpolation.end.cs
+24:118-119 source.cs string.quoted.double.cs punctuation.definition.string.end.cs
+24:119-120 source.cs punctuation.terminator.statement.cs
+25:0-4 source.cs
+25:4-5 source.cs punctuation.curlybrace.close.cs
+26:0-1 source.cs punctuation.curlybrace.close.cs

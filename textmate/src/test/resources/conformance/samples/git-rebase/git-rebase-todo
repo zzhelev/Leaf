@@ -1,0 +1,14 @@
+pick a1b2c3d Add the branch lines
+squash e4f5a6b Fix a typo
+fixup -C 0123abc Reword the subject
+reword 9f8e7d6 Squash from the menus
+edit 5d5537f Show the strip
+exec ./gradlew :app:test
+break
+drop 7d03f51 WIP
+
+# Rebase 1edc147..7d03f51 onto 1edc147 (8 commands)
+#
+# Commands:
+# p, pick <commit> = use commit
+# s, squash <commit> = use commit, but meld into previous commit

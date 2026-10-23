@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the branches pane -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="branches_title">Branches</string>
+    <string name="branches_ahead" formatted="false">%1$d ahead &amp; %2$d behind</string>
+    <string name="unused" tools:ignore="UnusedResources">Unused</string>
+    <plurals name="commits">
+        <item quantity="one">%d commit</item>
+        <item quantity="other">%d commits</item>
+    </plurals>
+    <![CDATA[ raw <text> here ]]>
+</resources>

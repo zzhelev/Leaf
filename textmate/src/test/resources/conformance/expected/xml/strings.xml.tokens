@@ -1,0 +1,137 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-2 text.xml meta.tag.preprocessor.xml punctuation.definition.tag.xml
+0:2-5 text.xml meta.tag.preprocessor.xml entity.name.tag.xml
+0:5-13 text.xml meta.tag.preprocessor.xml entity.other.attribute-name.xml
+0:13-14 text.xml meta.tag.preprocessor.xml
+0:14-15 text.xml meta.tag.preprocessor.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+0:15-18 text.xml meta.tag.preprocessor.xml string.quoted.double.xml
+0:18-19 text.xml meta.tag.preprocessor.xml string.quoted.double.xml punctuation.definition.string.end.xml
+0:19-28 text.xml meta.tag.preprocessor.xml entity.other.attribute-name.xml
+0:28-29 text.xml meta.tag.preprocessor.xml
+0:29-30 text.xml meta.tag.preprocessor.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+0:30-35 text.xml meta.tag.preprocessor.xml string.quoted.double.xml
+0:35-36 text.xml meta.tag.preprocessor.xml string.quoted.double.xml punctuation.definition.string.end.xml
+0:36-38 text.xml meta.tag.preprocessor.xml punctuation.definition.tag.xml
+1:0-4 text.xml comment.block.xml punctuation.definition.comment.xml
+1:4-35 text.xml comment.block.xml
+1:35-38 text.xml comment.block.xml punctuation.definition.comment.xml
+2:0-1 text.xml meta.tag.xml punctuation.definition.tag.xml
+2:1-10 text.xml meta.tag.xml entity.name.tag.localname.xml
+2:10-11 text.xml meta.tag.xml
+2:11-16 text.xml meta.tag.xml entity.other.attribute-name.namespace.xml
+2:16-17 text.xml meta.tag.xml entity.other.attribute-name.xml punctuation.separator.namespace.xml
+2:17-22 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+2:22-23 text.xml meta.tag.xml
+2:23-24 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+2:24-56 text.xml meta.tag.xml string.quoted.double.xml
+2:56-57 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+2:57-58 text.xml meta.tag.xml punctuation.definition.tag.xml
+3:0-4 text.xml
+3:4-5 text.xml meta.tag.xml punctuation.definition.tag.xml
+3:5-11 text.xml meta.tag.xml entity.name.tag.localname.xml
+3:11-12 text.xml meta.tag.xml
+3:12-16 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+3:16-17 text.xml meta.tag.xml
+3:17-18 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+3:18-32 text.xml meta.tag.xml string.quoted.double.xml
+3:32-33 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+3:33-34 text.xml meta.tag.xml punctuation.definition.tag.xml
+3:34-42 text.xml
+3:42-44 text.xml meta.tag.xml punctuation.definition.tag.xml
+3:44-50 text.xml meta.tag.xml entity.name.tag.localname.xml
+3:50-51 text.xml meta.tag.xml punctuation.definition.tag.xml
+4:0-4 text.xml
+4:4-5 text.xml meta.tag.xml punctuation.definition.tag.xml
+4:5-11 text.xml meta.tag.xml entity.name.tag.localname.xml
+4:11-12 text.xml meta.tag.xml
+4:12-16 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+4:16-17 text.xml meta.tag.xml
+4:17-18 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+4:18-32 text.xml meta.tag.xml string.quoted.double.xml
+4:32-33 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+4:33-34 text.xml meta.tag.xml
+4:34-43 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+4:43-44 text.xml meta.tag.xml
+4:44-45 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+4:45-50 text.xml meta.tag.xml string.quoted.double.xml
+4:50-51 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+4:51-52 text.xml meta.tag.xml punctuation.definition.tag.xml
+4:52-63 text.xml
+4:63-64 text.xml constant.character.entity.xml punctuation.definition.constant.xml
+4:64-67 text.xml constant.character.entity.xml
+4:67-68 text.xml constant.character.entity.xml punctuation.definition.constant.xml
+4:68-80 text.xml
+4:80-82 text.xml meta.tag.xml punctuation.definition.tag.xml
+4:82-88 text.xml meta.tag.xml entity.name.tag.localname.xml
+4:88-89 text.xml meta.tag.xml punctuation.definition.tag.xml
+5:0-4 text.xml
+5:4-5 text.xml meta.tag.xml punctuation.definition.tag.xml
+5:5-11 text.xml meta.tag.xml entity.name.tag.localname.xml
+5:11-12 text.xml meta.tag.xml
+5:12-16 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+5:16-17 text.xml meta.tag.xml
+5:17-18 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+5:18-24 text.xml meta.tag.xml string.quoted.double.xml
+5:24-25 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+5:25-26 text.xml meta.tag.xml
+5:26-31 text.xml meta.tag.xml entity.other.attribute-name.namespace.xml
+5:31-32 text.xml meta.tag.xml entity.other.attribute-name.xml punctuation.separator.namespace.xml
+5:32-38 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+5:38-39 text.xml meta.tag.xml
+5:39-40 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+5:40-55 text.xml meta.tag.xml string.quoted.double.xml
+5:55-56 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+5:56-57 text.xml meta.tag.xml punctuation.definition.tag.xml
+5:57-63 text.xml
+5:63-65 text.xml meta.tag.xml punctuation.definition.tag.xml
+5:65-71 text.xml meta.tag.xml entity.name.tag.localname.xml
+5:71-72 text.xml meta.tag.xml punctuation.definition.tag.xml
+6:0-4 text.xml
+6:4-5 text.xml meta.tag.xml punctuation.definition.tag.xml
+6:5-12 text.xml meta.tag.xml entity.name.tag.localname.xml
+6:12-13 text.xml meta.tag.xml
+6:13-17 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+6:17-18 text.xml meta.tag.xml
+6:18-19 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+6:19-26 text.xml meta.tag.xml string.quoted.double.xml
+6:26-27 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+6:27-28 text.xml meta.tag.xml punctuation.definition.tag.xml
+7:0-8 text.xml
+7:8-9 text.xml meta.tag.xml punctuation.definition.tag.xml
+7:9-13 text.xml meta.tag.xml entity.name.tag.localname.xml
+7:13-14 text.xml meta.tag.xml
+7:14-22 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+7:22-23 text.xml meta.tag.xml
+7:23-24 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+7:24-27 text.xml meta.tag.xml string.quoted.double.xml
+7:27-28 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+7:28-29 text.xml meta.tag.xml punctuation.definition.tag.xml
+7:29-38 text.xml
+7:38-40 text.xml meta.tag.xml punctuation.definition.tag.xml
+7:40-44 text.xml meta.tag.xml entity.name.tag.localname.xml
+7:44-45 text.xml meta.tag.xml punctuation.definition.tag.xml
+8:0-8 text.xml
+8:8-9 text.xml meta.tag.xml punctuation.definition.tag.xml
+8:9-13 text.xml meta.tag.xml entity.name.tag.localname.xml
+8:13-14 text.xml meta.tag.xml
+8:14-22 text.xml meta.tag.xml entity.other.attribute-name.localname.xml
+8:22-23 text.xml meta.tag.xml
+8:23-24 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.begin.xml
+8:24-29 text.xml meta.tag.xml string.quoted.double.xml
+8:29-30 text.xml meta.tag.xml string.quoted.double.xml punctuation.definition.string.end.xml
+8:30-31 text.xml meta.tag.xml punctuation.definition.tag.xml
+8:31-41 text.xml
+8:41-43 text.xml meta.tag.xml punctuation.definition.tag.xml
+8:43-47 text.xml meta.tag.xml entity.name.tag.localname.xml
+8:47-48 text.xml meta.tag.xml punctuation.definition.tag.xml
+9:0-4 text.xml
+9:4-6 text.xml meta.tag.xml punctuation.definition.tag.xml
+9:6-13 text.xml meta.tag.xml entity.name.tag.localname.xml
+9:13-14 text.xml meta.tag.xml punctuation.definition.tag.xml
+10:0-4 text.xml
+10:4-13 text.xml string.unquoted.cdata.xml punctuation.definition.string.begin.xml
+10:13-30 text.xml string.unquoted.cdata.xml
+10:30-33 text.xml string.unquoted.cdata.xml punctuation.definition.string.end.xml
+11:0-2 text.xml meta.tag.xml punctuation.definition.tag.xml
+11:2-11 text.xml meta.tag.xml entity.name.tag.localname.xml
+11:11-12 text.xml meta.tag.xml punctuation.definition.tag.xml

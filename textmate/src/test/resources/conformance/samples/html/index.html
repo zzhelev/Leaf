@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Leaf &mdash; releases</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { margin: 0 auto; max-width: 60rem; font: 15px/1.5 system-ui, sans-serif; }
+    .tag::before { content: "🏷"; }
+  </style>
+</head>
+<body>
+  <!-- The latest release -->
+  <h1 id="title" class="tag">Leaf 1.4.0</h1>
+  <p>Download for <a href="/mac.dmg" data-os="mac">macOS</a> or <a href='/win.exe'>Windows</a>.</p>
+  <script type="module">
+    const title = document.querySelector("#title");
+    title.textContent += ` (${new Date().getFullYear()})`;
+  </script>
+</body>
+</html>

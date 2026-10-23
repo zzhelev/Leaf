@@ -1,0 +1,226 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.svelte meta.script.svelte meta.tag.start.svelte punctuation.definition.tag.begin.svelte
+0:1-7 source.svelte meta.script.svelte meta.tag.start.svelte entity.name.tag.svelte
+0:7-8 source.svelte meta.script.svelte meta.lang.ts.svelte meta.tag.start.svelte
+0:8-12 source.svelte meta.script.svelte meta.lang.ts.svelte meta.tag.start.svelte meta.attribute.lang.svelte entity.other.attribute-name.svelte
+0:12-13 source.svelte meta.script.svelte meta.lang.ts.svelte meta.tag.start.svelte meta.attribute.lang.svelte punctuation.separator.key-value.svelte
+0:13-14 source.svelte meta.script.svelte meta.lang.ts.svelte meta.tag.start.svelte meta.attribute.lang.svelte string.quoted.svelte punctuation.definition.string.begin.svelte
+0:14-16 source.svelte meta.script.svelte meta.lang.ts.svelte meta.tag.start.svelte meta.attribute.lang.svelte string.quoted.svelte
+0:16-17 source.svelte meta.script.svelte meta.lang.ts.svelte meta.tag.start.svelte meta.attribute.lang.svelte string.quoted.svelte punctuation.definition.string.end.svelte
+0:17-18 source.svelte meta.script.svelte meta.lang.ts.svelte meta.tag.start.svelte punctuation.definition.tag.end.svelte
+1:0-2 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts
+1:2-8 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts keyword.control.export.ts
+1:8-9 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts
+1:9-12 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts storage.type.ts
+1:12-13 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts
+1:13-20 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.definition.variable.ts variable.other.readwrite.ts
+1:20-21 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts keyword.operator.type.annotation.ts
+1:21-22 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts
+1:22-23 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts punctuation.definition.block.ts
+1:23-24 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts
+1:24-29 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.definition.property.ts variable.object.property.ts
+1:29-30 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.type.annotation.ts keyword.operator.type.annotation.ts
+1:30-31 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.type.annotation.ts
+1:31-37 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.type.annotation.ts support.type.primitive.ts
+1:37-38 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts punctuation.terminator.statement.ts
+1:38-39 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts
+1:39-46 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.definition.property.ts variable.object.property.ts
+1:46-47 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.type.annotation.ts keyword.operator.type.annotation.ts
+1:47-48 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.type.annotation.ts
+1:48-54 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.type.annotation.ts support.type.primitive.ts
+1:54-55 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts meta.field.declaration.ts meta.type.annotation.ts
+1:55-56 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.object.type.ts punctuation.definition.block.ts
+1:56-57 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.type.tuple.ts meta.brace.square.ts
+1:57-58 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts meta.type.tuple.ts meta.brace.square.ts
+1:58-59 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.type.annotation.ts
+1:59-60 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts keyword.operator.assignment.ts
+1:60-61 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.array.literal.ts
+1:61-62 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.array.literal.ts meta.brace.square.ts
+1:62-63 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.array.literal.ts meta.brace.square.ts
+1:63-64 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts punctuation.terminator.statement.ts
+2:0-2 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts
+2:2-5 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts storage.type.ts
+2:5-6 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts
+2:6-14 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts meta.definition.variable.ts variable.other.readwrite.ts
+2:14-15 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts meta.var-single-variable.expr.ts
+2:15-16 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts keyword.operator.assignment.ts
+2:16-17 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts
+2:17-18 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts meta.var.expr.ts constant.numeric.decimal.ts
+2:18-19 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts punctuation.terminator.statement.ts
+3:0-2 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts
+3:2-3 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts entity.name.label.ts
+3:3-4 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts punctuation.separator.label.ts
+3:4-5 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts
+3:5-10 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts variable.other.readwrite.ts
+3:10-11 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts
+3:11-12 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts keyword.operator.assignment.ts
+3:12-13 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts
+3:13-20 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts variable.other.object.ts
+3:20-21 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts punctuation.accessor.ts
+3:21-27 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts support.variable.property.ts
+3:27-28 source.svelte meta.script.svelte meta.lang.ts.svelte meta.embedded.block.svelte source.ts punctuation.terminator.statement.ts
+4:0-2 source.svelte meta.script.svelte meta.tag.end.svelte punctuation.definition.tag.begin.svelte
+4:2-8 source.svelte meta.script.svelte meta.tag.end.svelte entity.name.tag.svelte
+4:8-9 source.svelte meta.script.svelte meta.tag.end.svelte punctuation.definition.tag.end.svelte
+5:0-0 source.svelte text.svelte
+6:0-1 source.svelte meta.scope.tag.h2.svelte meta.tag.start.svelte punctuation.definition.tag.begin.svelte
+6:1-3 source.svelte meta.scope.tag.h2.svelte meta.tag.start.svelte entity.name.tag.svelte
+6:3-4 source.svelte meta.scope.tag.h2.svelte meta.tag.start.svelte punctuation.definition.tag.end.svelte
+6:4-5 source.svelte punctuation.section.embedded.begin.svelte
+6:5-10 source.svelte meta.embedded.expression.svelte source.ts variable.other.readwrite.ts
+6:10-11 source.svelte punctuation.section.embedded.end.svelte
+6:11-17 source.svelte text.svelte
+6:17-18 source.svelte punctuation.section.embedded.begin.svelte
+6:18-23 source.svelte meta.embedded.expression.svelte source.ts variable.other.readwrite.ts
+6:23-24 source.svelte meta.embedded.expression.svelte source.ts
+6:24-27 source.svelte meta.embedded.expression.svelte source.ts keyword.operator.comparison.ts
+6:27-28 source.svelte meta.embedded.expression.svelte source.ts
+6:28-29 source.svelte meta.embedded.expression.svelte source.ts constant.numeric.decimal.ts
+6:29-30 source.svelte meta.embedded.expression.svelte source.ts
+6:30-31 source.svelte meta.embedded.expression.svelte source.ts keyword.operator.ternary.ts
+6:31-32 source.svelte meta.embedded.expression.svelte source.ts
+6:32-33 source.svelte meta.embedded.expression.svelte source.ts string.quoted.double.ts punctuation.definition.string.begin.ts
+6:33-34 source.svelte meta.embedded.expression.svelte source.ts string.quoted.double.ts punctuation.definition.string.end.ts
+6:34-35 source.svelte meta.embedded.expression.svelte source.ts
+6:35-36 source.svelte meta.embedded.expression.svelte source.ts keyword.operator.ternary.ts
+6:36-37 source.svelte meta.embedded.expression.svelte source.ts
+6:37-38 source.svelte meta.embedded.expression.svelte source.ts string.quoted.double.ts punctuation.definition.string.begin.ts
+6:38-40 source.svelte meta.embedded.expression.svelte source.ts string.quoted.double.ts
+6:40-41 source.svelte meta.embedded.expression.svelte source.ts string.quoted.double.ts punctuation.definition.string.end.ts
+6:41-42 source.svelte punctuation.section.embedded.end.svelte
+6:42-44 source.svelte meta.scope.tag.h2.svelte meta.tag.end.svelte punctuation.definition.tag.begin.svelte
+6:44-46 source.svelte meta.scope.tag.h2.svelte meta.tag.end.svelte entity.name.tag.svelte
+6:46-47 source.svelte meta.scope.tag.h2.svelte meta.tag.end.svelte punctuation.definition.tag.end.svelte
+7:0-0 source.svelte text.svelte
+8:0-1 source.svelte meta.special.if.svelte meta.special.start.svelte punctuation.definition.block.begin.svelte
+8:1-2 source.svelte meta.special.if.svelte meta.special.start.svelte punctuation.definition.keyword.svelte
+8:2-4 source.svelte meta.special.if.svelte meta.special.start.svelte keyword.control.conditional.svelte
+8:4-5 source.svelte meta.special.if.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts
+8:5-10 source.svelte meta.special.if.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts variable.other.readwrite.ts
+8:10-11 source.svelte meta.special.if.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts
+8:11-12 source.svelte meta.special.if.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts keyword.operator.relational.ts
+8:12-13 source.svelte meta.special.if.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts
+8:13-14 source.svelte meta.special.if.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts constant.numeric.decimal.ts
+8:14-15 source.svelte meta.special.if.svelte meta.special.start.svelte punctuation.definition.block.end.svelte
+9:0-2 source.svelte text.svelte
+9:2-3 source.svelte meta.scope.tag.ul.svelte meta.tag.start.svelte punctuation.definition.tag.begin.svelte
+9:3-5 source.svelte meta.scope.tag.ul.svelte meta.tag.start.svelte entity.name.tag.svelte
+9:5-6 source.svelte meta.scope.tag.ul.svelte meta.tag.start.svelte punctuation.definition.tag.end.svelte
+10:0-4 source.svelte text.svelte
+10:4-5 source.svelte meta.special.each.svelte meta.special.start.svelte punctuation.definition.block.begin.svelte
+10:5-6 source.svelte meta.special.each.svelte meta.special.start.svelte punctuation.definition.keyword.svelte
+10:6-10 source.svelte meta.special.each.svelte meta.special.start.svelte keyword.control.svelte
+10:10-11 source.svelte meta.special.each.svelte meta.special.start.svelte
+10:11-18 source.svelte meta.special.each.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts variable.other.readwrite.ts
+10:18-19 source.svelte meta.special.each.svelte meta.special.start.svelte
+10:19-21 source.svelte meta.special.each.svelte meta.special.start.svelte keyword.control.as.svelte
+10:21-22 source.svelte meta.special.each.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts
+10:22-27 source.svelte meta.special.each.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts variable.other.readwrite.ts
+10:27-28 source.svelte meta.special.each.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts
+10:28-29 source.svelte meta.special.each.svelte meta.special.start.svelte meta.brace.round.svelte
+10:29-34 source.svelte meta.special.each.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts variable.other.object.ts
+10:34-35 source.svelte meta.special.each.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts punctuation.accessor.ts
+10:35-40 source.svelte meta.special.each.svelte meta.special.start.svelte meta.embedded.expression.svelte source.ts variable.other.property.ts
+10:40-41 source.svelte meta.special.each.svelte meta.special.start.svelte meta.brace.round.svelte
+10:41-42 source.svelte meta.special.each.svelte meta.special.start.svelte punctuation.definition.block.end.svelte
+11:0-6 source.svelte text.svelte
+11:6-7 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte punctuation.definition.tag.begin.svelte
+11:7-9 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte entity.name.tag.svelte
+11:9-10 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte
+11:10-15 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte entity.other.attribute-name.svelte
+11:15-16 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte punctuation.definition.keyword.svelte
+11:16-24 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte entity.other.attribute-name.class.svelte
+11:24-25 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte punctuation.separator.key-value.svelte
+11:25-26 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte punctuation.section.embedded.begin.svelte
+11:26-31 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte meta.embedded.expression.svelte source.ts variable.other.object.ts
+11:31-32 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte meta.embedded.expression.svelte source.ts punctuation.accessor.ts
+11:32-37 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte meta.embedded.expression.svelte source.ts variable.other.property.ts
+11:37-38 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte meta.embedded.expression.svelte source.ts
+11:38-41 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte meta.embedded.expression.svelte source.ts keyword.operator.comparison.ts
+11:41-42 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte meta.embedded.expression.svelte source.ts
+11:42-50 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte meta.embedded.expression.svelte source.ts variable.other.readwrite.ts
+11:50-51 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.class.svelte punctuation.section.embedded.end.svelte
+11:51-52 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte
+11:52-54 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte keyword.control.svelte
+11:54-55 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte punctuation.definition.keyword.svelte
+11:55-60 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte entity.name.type.svelte
+11:60-61 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte punctuation.separator.key-value.svelte
+11:61-62 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte punctuation.section.embedded.begin.svelte
+11:62-63 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts meta.arrow.ts meta.parameters.ts punctuation.definition.parameters.begin.ts
+11:63-64 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts meta.arrow.ts meta.parameters.ts punctuation.definition.parameters.end.ts
+11:64-65 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts meta.arrow.ts
+11:65-67 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts meta.arrow.ts storage.type.function.arrow.ts
+11:67-68 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts meta.arrow.ts
+11:68-69 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts meta.brace.round.ts
+11:69-77 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts variable.other.readwrite.ts
+11:77-78 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts
+11:78-79 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts keyword.operator.assignment.ts
+11:79-80 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts
+11:80-85 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts variable.other.object.ts
+11:85-86 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts punctuation.accessor.ts
+11:86-91 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts variable.other.property.ts
+11:91-92 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte meta.embedded.expression.svelte source.ts meta.brace.round.ts
+11:92-93 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte meta.directive.on.svelte punctuation.section.embedded.end.svelte
+11:93-94 source.svelte meta.scope.tag.li.svelte meta.tag.start.svelte punctuation.definition.tag.end.svelte
+12:0-20 source.svelte text.svelte
+12:20-21 source.svelte punctuation.section.embedded.begin.svelte
+12:21-26 source.svelte meta.embedded.expression.svelte source.ts variable.other.object.ts
+12:26-27 source.svelte meta.embedded.expression.svelte source.ts punctuation.accessor.ts
+12:27-32 source.svelte meta.embedded.expression.svelte source.ts variable.other.property.ts
+12:32-33 source.svelte punctuation.section.embedded.end.svelte
+12:33-41 source.svelte text.svelte
+12:41-42 source.svelte punctuation.section.embedded.begin.svelte
+12:42-47 source.svelte meta.embedded.expression.svelte source.ts variable.other.object.ts
+12:47-48 source.svelte meta.embedded.expression.svelte source.ts punctuation.accessor.ts
+12:48-55 source.svelte meta.embedded.expression.svelte source.ts variable.other.property.ts
+12:55-56 source.svelte punctuation.section.embedded.end.svelte
+13:0-6 source.svelte text.svelte
+13:6-8 source.svelte meta.scope.tag.li.svelte meta.tag.end.svelte punctuation.definition.tag.begin.svelte
+13:8-10 source.svelte meta.scope.tag.li.svelte meta.tag.end.svelte entity.name.tag.svelte
+13:10-11 source.svelte meta.scope.tag.li.svelte meta.tag.end.svelte punctuation.definition.tag.end.svelte
+14:0-4 source.svelte text.svelte
+14:4-5 source.svelte meta.special.each.svelte meta.special.end.svelte punctuation.definition.block.begin.svelte
+14:5-6 source.svelte meta.special.each.svelte meta.special.end.svelte punctuation.definition.keyword.svelte
+14:6-10 source.svelte meta.special.each.svelte meta.special.end.svelte keyword.control.svelte
+14:10-11 source.svelte meta.special.each.svelte meta.special.end.svelte punctuation.definition.block.end.svelte
+15:0-2 source.svelte text.svelte
+15:2-4 source.svelte meta.scope.tag.ul.svelte meta.tag.end.svelte punctuation.definition.tag.begin.svelte
+15:4-6 source.svelte meta.scope.tag.ul.svelte meta.tag.end.svelte entity.name.tag.svelte
+15:6-7 source.svelte meta.scope.tag.ul.svelte meta.tag.end.svelte punctuation.definition.tag.end.svelte
+16:0-1 source.svelte meta.special.else.svelte punctuation.definition.block.begin.svelte
+16:1-2 source.svelte meta.special.else.svelte punctuation.definition.keyword.svelte
+16:2-6 source.svelte meta.special.else.svelte keyword.control.conditional.svelte
+16:6-7 source.svelte meta.special.else.svelte punctuation.definition.block.end.svelte
+17:0-2 source.svelte text.svelte
+17:2-3 source.svelte meta.scope.tag.p.svelte meta.tag.start.svelte punctuation.definition.tag.begin.svelte
+17:3-4 source.svelte meta.scope.tag.p.svelte meta.tag.start.svelte entity.name.tag.svelte
+17:4-5 source.svelte meta.scope.tag.p.svelte meta.tag.start.svelte punctuation.definition.tag.end.svelte
+17:5-15 source.svelte text.svelte
+17:15-17 source.svelte meta.scope.tag.p.svelte meta.tag.end.svelte punctuation.definition.tag.begin.svelte
+17:17-18 source.svelte meta.scope.tag.p.svelte meta.tag.end.svelte entity.name.tag.svelte
+17:18-19 source.svelte meta.scope.tag.p.svelte meta.tag.end.svelte punctuation.definition.tag.end.svelte
+18:0-1 source.svelte meta.special.if.svelte meta.special.end.svelte punctuation.definition.block.begin.svelte
+18:1-2 source.svelte meta.special.if.svelte meta.special.end.svelte punctuation.definition.keyword.svelte
+18:2-4 source.svelte meta.special.if.svelte meta.special.end.svelte keyword.control.conditional.svelte
+18:4-5 source.svelte meta.special.if.svelte meta.special.end.svelte punctuation.definition.block.end.svelte
+19:0-0 source.svelte text.svelte
+20:0-1 source.svelte meta.style.svelte meta.tag.start.svelte punctuation.definition.tag.begin.svelte
+20:1-6 source.svelte meta.style.svelte meta.tag.start.svelte entity.name.tag.svelte
+20:6-7 source.svelte meta.style.svelte meta.tag.start.svelte punctuation.definition.tag.end.svelte
+21:0-2 source.svelte meta.style.svelte meta.embedded.block.svelte source.css
+21:2-3 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.selector.css entity.other.attribute-name.class.css punctuation.definition.entity.css
+21:3-11 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.selector.css entity.other.attribute-name.class.css
+21:11-12 source.svelte meta.style.svelte meta.embedded.block.svelte source.css
+21:12-13 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css punctuation.section.property-list.begin.bracket.curly.css
+21:13-14 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css
+21:14-24 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css meta.property-name.css support.type.property-name.css
+21:24-25 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css punctuation.separator.key-value.css
+21:25-26 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css
+21:26-27 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css meta.property-value.css constant.other.color.rgb-value.hex.css punctuation.definition.constant.css
+21:27-33 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css meta.property-value.css constant.other.color.rgb-value.hex.css
+21:33-34 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css punctuation.terminator.rule.css
+21:34-35 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css
+21:35-36 source.svelte meta.style.svelte meta.embedded.block.svelte source.css meta.property-list.css punctuation.section.property-list.end.bracket.curly.css
+22:0-2 source.svelte meta.style.svelte meta.tag.end.svelte punctuation.definition.tag.begin.svelte
+22:2-7 source.svelte meta.style.svelte meta.tag.end.svelte entity.name.tag.svelte
+22:7-8 source.svelte meta.style.svelte meta.tag.end.svelte punctuation.definition.tag.end.svelte

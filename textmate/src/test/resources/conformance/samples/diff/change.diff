@@ -1,0 +1,20 @@
+diff --git a/app/src/Main.kt b/app/src/Main.kt
+index 3b18e51..a1b2c3d 100644
+--- a/app/src/Main.kt
++++ b/app/src/Main.kt
+@@ -1,6 +1,7 @@
+ package dev.example
+ 
+-fun main() {
+-    println("Hello")
++fun main(args: Array<String>) {
++    val name = args.firstOrNull() ?: "Leaf"
++    println("Hello, $name")
+ }
+\ No newline at end of file
+diff --git a/README.md b/README.md
+new file mode 100644
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1 @@
++# Leaf

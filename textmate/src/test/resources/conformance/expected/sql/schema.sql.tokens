@@ -1,0 +1,148 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-2 source.sql comment.line.double-dash.sql punctuation.definition.comment.sql
+0:2-29 source.sql comment.line.double-dash.sql
+1:0-6 source.sql meta.create.sql keyword.other.create.sql
+1:6-7 source.sql meta.create.sql
+1:7-12 source.sql meta.create.sql keyword.other.sql
+1:12-13 source.sql meta.create.sql
+1:13-15 source.sql meta.create.sql entity.name.function.sql
+1:15-16 source.sql
+1:16-19 source.sql keyword.other.sql
+1:19-20 source.sql
+1:20-26 source.sql keyword.other.sql
+1:26-36 source.sql
+2:0-4 source.sql
+2:4-8 source.sql keyword.other.sql
+2:8-16 source.sql
+2:16-20 source.sql storage.type.sql
+2:20-21 source.sql
+2:21-23 source.sql constant.numeric.sql
+2:23-24 source.sql
+2:24-25 source.sql
+2:25-36 source.sql storage.modifier.sql
+2:36-37 source.sql
+3:0-16 source.sql
+3:16-23 source.sql storage.type.sql
+3:23-24 source.sql
+3:24-27 source.sql constant.numeric.sql
+3:27-28 source.sql
+3:28-29 source.sql
+3:29-37 source.sql keyword.other.DDL.create.II.sql
+3:37-38 source.sql
+4:0-4 source.sql
+4:4-13 source.sql keyword.other.sql
+4:13-16 source.sql
+4:16-25 source.sql storage.type.sql
+4:25-40 source.sql storage.type.sql
+4:40-41 source.sql
+4:41-48 source.sql storage.modifier.sql
+4:48-67 source.sql
+5:0-4 source.sql
+5:4-11 source.sql keyword.other.sql
+5:11-16 source.sql
+5:16-20 source.sql storage.type.sql
+6:0-2 source.sql
+7:0-0 source.sql
+8:0-2 source.sql comment.block punctuation.definition.comment.sql
+8:2-32 source.sql comment.block
+8:32-34 source.sql comment.block punctuation.definition.comment.sql
+9:0-6 source.sql keyword.other.DML.sql
+9:6-7 source.sql
+9:7-8 source.sql constant.other.database-name.sql
+9:8-9 source.sql
+9:9-13 source.sql constant.other.table-name.sql
+9:13-15 source.sql
+9:15-16 source.sql constant.other.database-name.sql
+9:16-17 source.sql
+9:17-24 source.sql constant.other.table-name.sql
+9:24-26 source.sql
+9:26-31 source.sql support.function.aggregate.sql
+9:31-32 source.sql
+9:32-33 source.sql constant.other.database-name.sql
+9:33-34 source.sql
+9:34-40 source.sql constant.other.table-name.sql
+9:40-42 source.sql
+9:42-44 source.sql keyword.other.alias.sql
+9:44-52 source.sql
+10:0-4 source.sql keyword.other.DML.sql
+10:4-13 source.sql
+10:13-15 source.sql keyword.other.alias.sql
+10:15-17 source.sql
+11:0-9 source.sql keyword.other.DML.sql
+11:9-20 source.sql
+11:20-22 source.sql keyword.other.DDL.create.II.sql
+11:22-23 source.sql
+11:23-24 source.sql constant.other.database-name.sql
+11:24-25 source.sql
+11:25-30 source.sql constant.other.table-name.sql
+11:30-31 source.sql
+11:31-32 source.sql keyword.operator.comparison.sql
+11:32-33 source.sql
+11:33-34 source.sql constant.other.database-name.sql
+11:34-35 source.sql
+11:35-39 source.sql constant.other.table-name.sql
+12:0-5 source.sql keyword.other.DML.sql
+12:5-6 source.sql
+12:6-7 source.sql constant.other.database-name.sql
+12:7-8 source.sql
+12:8-14 source.sql constant.other.table-name.sql
+12:14-15 source.sql
+12:15-16 source.sql keyword.operator.comparison.sql
+12:16-17 source.sql
+12:17-18 source.sql string.quoted.single.sql punctuation.definition.string.begin.sql
+12:18-23 source.sql string.quoted.single.sql
+12:23-24 source.sql string.quoted.single.sql punctuation.definition.string.end.sql
+12:24-25 source.sql string.quoted.single.sql punctuation.definition.string.begin.sql
+12:25-29 source.sql string.quoted.single.sql
+12:29-30 source.sql string.quoted.single.sql punctuation.definition.string.end.sql
+12:30-31 source.sql
+12:31-34 source.sql keyword.other.DML.sql
+12:34-35 source.sql
+12:35-36 source.sql constant.other.database-name.sql
+12:36-37 source.sql
+12:37-46 source.sql constant.other.table-name.sql
+12:46-47 source.sql
+12:47-48 source.sql keyword.operator.comparison.sql
+12:48-49 source.sql
+12:49-52 source.sql keyword.other.sql
+12:52-53 source.sql meta.block.sql punctuation.section.scope.begin.sql
+12:53-54 source.sql meta.block.sql punctuation.section.scope.end.sql
+12:54-55 source.sql
+12:55-56 source.sql keyword.operator.math.sql
+12:56-66 source.sql
+12:66-67 source.sql string.quoted.single.sql punctuation.definition.string.begin.sql
+12:67-73 source.sql string.quoted.single.sql
+12:73-74 source.sql string.quoted.single.sql punctuation.definition.string.end.sql
+13:0-8 source.sql keyword.other.DML.sql
+13:8-9 source.sql
+13:9-10 source.sql constant.other.database-name.sql
+13:10-11 source.sql
+13:11-15 source.sql constant.other.table-name.sql
+13:15-17 source.sql
+13:17-18 source.sql constant.other.database-name.sql
+13:18-19 source.sql
+13:19-26 source.sql constant.other.table-name.sql
+14:0-6 source.sql keyword.other.DML.sql
+14:6-7 source.sql
+14:7-12 source.sql support.function.aggregate.sql
+14:12-13 source.sql
+14:13-14 source.sql constant.other.database-name.sql
+14:14-15 source.sql
+14:15-21 source.sql constant.other.table-name.sql
+14:21-23 source.sql
+14:23-25 source.sql keyword.operator.comparison.sql
+14:25-26 source.sql
+14:26-27 source.sql constant.numeric.sql
+15:0-8 source.sql keyword.other.DML.sql
+15:8-9 source.sql
+15:9-10 source.sql constant.other.database-name.sql
+15:10-11 source.sql
+15:11-20 source.sql constant.other.table-name.sql
+15:20-21 source.sql
+15:21-25 source.sql keyword.other.order.sql
+16:0-5 source.sql keyword.other.DML.sql
+16:5-6 source.sql
+16:6-8 source.sql constant.numeric.sql
+16:8-16 source.sql
+16:16-17 source.sql constant.numeric.sql
+16:17-18 source.sql

@@ -1,0 +1,24 @@
+# The pull requests of a repository.
+query PullRequests($owner: String!, $name: String!, $first: Int = 20) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
+      totalCount
+      nodes {
+        ...PullRequestFields
+        mergeable @include(if: true)
+      }
+    }
+  }
+}
+
+fragment PullRequestFields on PullRequest {
+  number
+  title
+  headRefName
+}
+
+"""A merged pull request."""
+type Merge implements Node {
+  id: ID!
+  at: DateTime
+}

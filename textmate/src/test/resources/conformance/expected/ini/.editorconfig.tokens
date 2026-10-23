@@ -1,0 +1,49 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.ini comment.line.number-sign.ini punctuation.definition.comment.ini
+0:1-28 source.ini comment.line.number-sign.ini
+1:0-4 source.ini keyword.other.definition.ini
+1:4-5 source.ini
+1:5-6 source.ini punctuation.separator.key-value.ini
+1:6-11 source.ini
+2:0-0 source.ini
+3:0-1 source.ini entity.name.section.group-title.ini punctuation.definition.entity.ini
+3:1-2 source.ini entity.name.section.group-title.ini
+3:2-3 source.ini entity.name.section.group-title.ini punctuation.definition.entity.ini
+4:0-7 source.ini keyword.other.definition.ini
+4:7-8 source.ini
+4:8-9 source.ini punctuation.separator.key-value.ini
+4:9-15 source.ini
+5:0-11 source.ini keyword.other.definition.ini
+5:11-12 source.ini
+5:12-13 source.ini punctuation.separator.key-value.ini
+5:13-16 source.ini
+6:0-20 source.ini keyword.other.definition.ini
+6:20-21 source.ini
+6:21-22 source.ini punctuation.separator.key-value.ini
+6:22-27 source.ini
+7:0-0 source.ini
+8:0-1 source.ini entity.name.section.group-title.ini punctuation.definition.entity.ini
+8:1-11 source.ini entity.name.section.group-title.ini
+8:11-12 source.ini entity.name.section.group-title.ini punctuation.definition.entity.ini
+9:0-12 source.ini keyword.other.definition.ini
+9:12-13 source.ini
+9:13-14 source.ini punctuation.separator.key-value.ini
+9:14-20 source.ini
+10:0-11 source.ini keyword.other.definition.ini
+10:11-12 source.ini
+10:12-13 source.ini punctuation.separator.key-value.ini
+10:13-15 source.ini
+11:0-15 source.ini keyword.other.definition.ini
+11:15-16 source.ini
+11:16-17 source.ini punctuation.separator.key-value.ini
+11:17-21 source.ini
+12:0-0 source.ini
+13:0-1 source.ini comment.line.semicolon.ini punctuation.definition.comment.ini
+13:1-21 source.ini comment.line.semicolon.ini
+14:0-1 source.ini entity.name.section.group-title.ini punctuation.definition.entity.ini
+14:1-9 source.ini entity.name.section.group-title.ini
+14:9-10 source.ini entity.name.section.group-title.ini punctuation.definition.entity.ini
+15:0-12 source.ini keyword.other.definition.ini
+15:12-13 source.ini
+15:13-14 source.ini punctuation.separator.key-value.ini
+15:14-18 source.ini

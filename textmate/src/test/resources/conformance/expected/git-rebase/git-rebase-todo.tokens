@@ -1,0 +1,41 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-4 text.git-rebase meta.commit-command.git-rebase support.function.git-rebase
+0:4-5 text.git-rebase meta.commit-command.git-rebase
+0:5-12 text.git-rebase meta.commit-command.git-rebase constant.sha.git-rebase
+0:12-13 text.git-rebase meta.commit-command.git-rebase
+0:13-33 text.git-rebase meta.commit-command.git-rebase meta.commit-message.git-rebase
+1:0-6 text.git-rebase meta.commit-command.git-rebase support.function.git-rebase
+1:6-7 text.git-rebase meta.commit-command.git-rebase
+1:7-14 text.git-rebase meta.commit-command.git-rebase constant.sha.git-rebase
+1:14-15 text.git-rebase meta.commit-command.git-rebase
+1:15-25 text.git-rebase meta.commit-command.git-rebase meta.commit-message.git-rebase
+2:0-35 text.git-rebase
+3:0-6 text.git-rebase meta.commit-command.git-rebase support.function.git-rebase
+3:6-7 text.git-rebase meta.commit-command.git-rebase
+3:7-14 text.git-rebase meta.commit-command.git-rebase constant.sha.git-rebase
+3:14-15 text.git-rebase meta.commit-command.git-rebase
+3:15-36 text.git-rebase meta.commit-command.git-rebase meta.commit-message.git-rebase
+4:0-4 text.git-rebase meta.commit-command.git-rebase support.function.git-rebase
+4:4-5 text.git-rebase meta.commit-command.git-rebase
+4:5-12 text.git-rebase meta.commit-command.git-rebase constant.sha.git-rebase
+4:12-13 text.git-rebase meta.commit-command.git-rebase
+4:13-27 text.git-rebase meta.commit-command.git-rebase meta.commit-message.git-rebase
+5:0-4 text.git-rebase meta.commit-command.git-rebase support.function.git-rebase
+5:4-5 text.git-rebase meta.commit-command.git-rebase
+5:5-24 text.git-rebase meta.commit-command.git-rebase
+6:0-5 text.git-rebase meta.commit-command.git-rebase support.function.git-rebase
+7:0-4 text.git-rebase meta.commit-command.git-rebase support.function.git-rebase
+7:4-5 text.git-rebase meta.commit-command.git-rebase
+7:5-12 text.git-rebase meta.commit-command.git-rebase constant.sha.git-rebase
+7:12-13 text.git-rebase meta.commit-command.git-rebase
+7:13-16 text.git-rebase meta.commit-command.git-rebase meta.commit-message.git-rebase
+8:0-0 text.git-rebase
+9:0-1 text.git-rebase comment.line.number-sign.git-rebase punctuation.definition.comment.git-rebase
+9:1-51 text.git-rebase comment.line.number-sign.git-rebase
+10:0-1 text.git-rebase comment.line.number-sign.git-rebase punctuation.definition.comment.git-rebase
+11:0-1 text.git-rebase comment.line.number-sign.git-rebase punctuation.definition.comment.git-rebase
+11:1-11 text.git-rebase comment.line.number-sign.git-rebase
+12:0-1 text.git-rebase comment.line.number-sign.git-rebase punctuation.definition.comment.git-rebase
+12:1-31 text.git-rebase comment.line.number-sign.git-rebase
+13:0-1 text.git-rebase comment.line.number-sign.git-rebase punctuation.definition.comment.git-rebase
+13:1-64 text.git-rebase comment.line.number-sign.git-rebase
