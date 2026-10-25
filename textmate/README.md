@@ -48,7 +48,12 @@ Each change after that is a commit of its own:
   fixes 173 of the 351 patterns that Joni refused in shiki's 260 grammars;
 - `\N` and `\O`, which Oniguruma 6.9 reads as any character but a newline and as any character, and Joni as the
   letters, are rewritten into what Joni reads the same way (`regex/EscapeRewrite.kt`). Python's, Less's and Stylus's
-  grammars mark each character of a regular expression's set with `\N`.
+  grammars mark each character of a regular expression's set with `\N`;
+- a scanner reuses each pattern's last search on a line, as vscode-oniguruma does: a search from an earlier start that
+  found nothing, or a match at or after this start, is this search's answer too. Patterns with `\G` are searched each
+  time. The tokenizer searches a line from one position after another, and each pattern searched to the line's end
+  every time, so that a line took the square of its length: a minified JavaScript line of 60,000 characters took
+  204 s, and takes about half a second.
 
 ## Differences from VS Code that remain
 

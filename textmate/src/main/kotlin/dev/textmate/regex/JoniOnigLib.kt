@@ -32,6 +32,19 @@ internal class JoniOnigScanner(
 
     private val regexes: List<Regex> = patterns.map { compilePattern(it) }
 
+    /**
+     * Each pattern's last search, as vscode-oniguruma keeps it: the string searched, the byte it started at, and the
+     * match (its start, or -1 for none). The tokenizer searches a line from one position after another, and without
+     * this every pattern searched to the line's end each time, so that a line took the square of its length.
+     */
+    private val lastString = arrayOfNulls<OnigString>(regexes.size)
+    private val lastStart = IntArray(regexes.size)
+    private val lastMatchStart = IntArray(regexes.size)
+    private val lastResult = arrayOfNulls<MatchResult>(regexes.size)
+
+    /** Patterns with `\G`, whose matches depend on where the search starts, so that no search is reused. */
+    private val anchoredToStart = BooleanArray(patterns.size) { hasGAnchor(patterns[it]) }
+
     override fun findNextMatchSync(string: OnigString, startPosition: Int): MatchResult? {
         val bytes = string.utf8Bytes
         val byteStart = string.charToByteOffset(startPosition)
@@ -41,21 +54,36 @@ internal class JoniOnigScanner(
         var bestStartByte = Int.MAX_VALUE
 
         for ((patternIndex, regex) in regexes.withIndex()) {
-            val matcher = regex.matcher(bytes)
-            val status = matcher.search(byteStart, byteLength, Option.DEFAULT)
-
-            if (status != Matcher.FAILED) {
-                val region = matcher.eagerRegion
-                val matchStartByte = region.getBeg(0)
-
-                if (matchStartByte < bestStartByte) {
-                    bestStartByte = matchStartByte
-                    bestResult = buildMatchResult(patternIndex, region, string)
+            // A search from an earlier start that found nothing, or a match at or after this start, is this search's
+            // answer too: the leftmost match from there is the leftmost from here.
+            val reusable = !anchoredToStart[patternIndex] && lastString[patternIndex] === string &&
+                lastStart[patternIndex] <= byteStart &&
+                (lastMatchStart[patternIndex] < 0 || lastMatchStart[patternIndex] >= byteStart)
+            if (!reusable) {
+                val matcher = regex.matcher(bytes)
+                val status = matcher.search(byteStart, byteLength, Option.DEFAULT)
+                lastString[patternIndex] = string
+                lastStart[patternIndex] = byteStart
+                if (status == Matcher.FAILED) {
+                    lastMatchStart[patternIndex] = -1
+                    lastResult[patternIndex] = null
+                } else {
+                    val region = matcher.eagerRegion
+                    lastMatchStart[patternIndex] = region.getBeg(0)
+                    lastResult[patternIndex] = buildMatchResult(patternIndex, region, string)
                 }
+            }
 
-                if (matchStartByte == byteStart) {
-                    break
-                }
+            val matchStartByte = lastMatchStart[patternIndex]
+            if (matchStartByte < 0) continue
+
+            if (matchStartByte < bestStartByte) {
+                bestStartByte = matchStartByte
+                bestResult = lastResult[patternIndex]
+            }
+
+            if (matchStartByte == byteStart) {
+                break
             }
         }
 
@@ -115,6 +143,19 @@ internal class JoniOnigScanner(
     }
 
     companion object {
+        /** Whether [pattern] has `\G`, not escaped, as vscode-oniguruma looks for it. */
+        internal fun hasGAnchor(pattern: String): Boolean {
+            var i = 0
+            while (i < pattern.length - 1) {
+                if (pattern[i] == '\\') {
+                    if (pattern[i + 1] == 'G') return true
+                    i++
+                }
+                i++
+            }
+            return false
+        }
+
         private val NEVER_MATCH_REGEX: Regex by lazy {
             val bytes = "(?!)".toByteArray(Charsets.UTF_8)
             Regex(bytes, 0, bytes.size, Option.CAPTURE_GROUP, UTF8Encoding.INSTANCE, Syntax.DEFAULT, WarnCallback.NONE)
