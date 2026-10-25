@@ -255,14 +255,21 @@ asking.
     for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
 - `textmate` (fork-only, 2026-10-23): the engine that will colour code, a copy of kotlin-textmate's (MIT, a Kotlin port
-  of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings. Nothing uses it yet (step 1 of
-  `docs/fork/syntax-highlighting.md`). `textmate/README.md` says what Leaf changed in the copy, each a commit of its
-  own, which differences from VS Code remain, and how to take a later fix from kotlin-textmate.
+  of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings. Only `data`'s `TextMateHighlighter`
+  uses it, which no view shows yet (steps 1 to 3 of `docs/fork/syntax-highlighting.md`). `textmate/README.md` says what
+  Leaf changed in the copy, each a commit of its own, which differences from VS Code remain, and how to take a later
+  fix from kotlin-textmate.
   - It ships 82 of shiki's grammars (`textmate/GRAMMARS.md`, copied by `textmate/tools/grammars/copy.mjs` with their
     licences), which `ShippedGrammars` (`dev.app.leaf.textmate`) loads. `domain`'s `highlighting/Languages.kt` maps a
     file's name, extension or `#!` line to one (step 2).
   - `ShippedGrammarsConformanceTest` compares a sample per language with vscode-textmate's tokens, which
     `textmate/tools/conformance/` makes (Node.js); `GoldenSnapshotTest` does the same for kotlin-textmate's goldens.
+  - `TextMateHighlighter` (`data/highlighting/`, an app singleton behind `IHighlightTextAction` and
+    `HighlightTextUseCase`, step 3) colours a text on two threads of its own. A `Grammar` isn't thread-safe, so each
+    thread compiles its own, in a registry of its own (the 12 it used last); compiled patterns are shared
+    (`CompiledPatterns`). It keeps results by grammar and content (32 MB), stops at 2 s a text and 10,000 characters a
+    line, and checks for cancellation before each line. `domain`'s `highlighting/SyntaxCategories.kt` gives a token's
+    scopes their category (section 4.2 of the plan), and `HighlightedText` keeps the spans, three ints each.
 - `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
   helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
   extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.

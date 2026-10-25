@@ -141,14 +141,20 @@ on outwards. Rules match a scope or its children (`string` matches `string.quote
 | `punctuation.definition.template-expression`, `punctuation.section.embedded`, `variable.string-escape` (`${`, `}`, `$c`) | Keyword |
 | `meta.template.expression`, `meta.embedded` (code inside a template) | Plain, then its own tokens |
 | `string`, `punctuation.definition.string`, `constant.character.escape`, `markup.inline.raw`, `markup.fenced_code` | String |
-| `constant.numeric`, `constant.language`, `constant.character` (`true`, `null`, `&amp;`) | Number |
+| `constant.numeric`, `constant.language`, `constant.character` (`true`, `null`, `&amp;`), `keyword.other.unit` (`px` in `8px`)\* | Number |
 | `keyword.operator`, `storage.type.function.arrow` | Plain |
-| `entity.name.type.annotation`, `storage.type.annotation`, `meta.annotation`, `meta.decorator` | Annotation |
+| `storage.modifier.import.java`, `variable.language.wildcard.java`, `storage.modifier.package.java` (Java's package names)\* | Plain |
+| `entity.name.type.annotation`, `storage.type.annotation`, `meta.decorator` | Annotation |
 | `support.type.property-name`, `entity.other.attribute-name`, `entity.name.tag.yaml` (keys) | Attribute |
 | `entity.name.tag`, `punctuation.definition.tag` | Tag |
+| `entity.name.namespace`, `entity.other.attribute`, `entity.name.scope-resolution`, `entity.name.class`, and the types that Go's, Java's and Groovy's grammars scope as `storage.type` (`storage.type.java`, `storage.type.primitive.java`, `storage.type.string.go`, …)\* | Type |
 | `markup.heading`, `keyword`, `storage.type`, `storage.modifier` | Keyword |
 | `entity.name.type`, `entity.other.inherited-class`, `support.type`, `support.class` | Type |
 | `entity.name.function`, `support.function` | Function |
+
+The rows marked \* are VS Code's: its Dark+ and Light+ themes have them, and without them Java's types and package
+names took the keyword's colour, and CSS's units another colour than their numbers (added in step 3). Its entries that
+no shipped grammar has are left out, and so is the plan's `meta.annotation`, for the same reason.
 
 Markdown's `markup.bold` and `markup.italic` are drawn bold and italic, and headings bold. A grammar's quirks show as
 they do in VS Code: Kotlin's grammar colours `class` in `Foo::class` as a function, and `value` as a keyword wherever
@@ -162,11 +168,11 @@ it appears (it is one in `value class`). A grammar can be patched where that mis
 - **In the background.** The text shows at once; its colours arrive when the version is done, without moving anything.
   Results are kept by content (a blob id where the view has one), so stepping through commits doesn't tokenize the
   same file twice.
-- **Limits, set from measurements in step 3:** a time limit per file (about 2 s, as the resolver's), after which the
-  rest stays plain; lines past a length (VS Code stops at 20,000 characters) aren't tokenized, and the next line starts
-  in the state that line started in; the existing `MAX_HIGHLIGHTED_LINE_CHARACTERS` stays for drawing. kotlin-textmate
-  has no time limit (its issue 17); the copy gets vscode-textmate's `timeLimit`, checked inside a line, as one
-  pathological line can take seconds.
+- **Limits, set from measurements in step 3:** 2 s per file (`HIGHLIGHT_TIME_LIMIT_MS`, as the resolver's), after
+  which the rest stays plain; lines past 10,000 characters (`MAX_TOKENIZED_LINE_LENGTH`; VS Code stops at 20,000)
+  aren't tokenized, and the next line starts in the state that line started in; the existing
+  `MAX_HIGHLIGHTED_LINE_CHARACTERS` stays for drawing. kotlin-textmate has no time limit (its issue 17); the copy gets
+  vscode-textmate's `timeLimit`, checked inside a line, as one pathological line can take seconds.
 - **A failure** (a grammar that doesn't load, a regex that throws) leaves the file plain and is logged once per grammar.
 
 ### 4.4 Colours
@@ -296,6 +302,42 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
   cancellation (a view that moves on stops the work).
 - **Measured, to set the limits:** 10,000 lines of Kotlin, the 4,222-line `CLAUDE.md`, 28,000 lines of JSON, a minified
   JavaScript file, a 10 MB lock file; cold and warm.
+- **Done (2026-10-25)**, as above, with these findings and differences:
+  - **Measured**, on this Mac, with the changes below (cold is a new highlighter, whose threads compile the grammar):
+
+    | File | Lines | Spans kept | Cold | Warm |
+    |---|---|---|---|---|
+    | Leaf's Kotlin | 10,000 | 12,941 (190 KB) | 238 ms | 70 ms |
+    | `CLAUDE.md` | 4,460 | 5,767 (85 KB) | 613 ms | 429 ms |
+    | Two grammars, pretty-printed JSON | 31,598 | 25,553 (422 KB) | 91 ms | 88 ms |
+    | A `package-lock.json` | 260,013 (9.6 MB) | 364,015 (5.3 MB) | 652 ms | 581 ms |
+    | vscode-textmate's minified `main.js` | 1 of 61,197 characters | 88 | 1.67 s | 1.62 s |
+    | The same 8 times | 1 of 489,583 characters | 87 | 11.7 s | 11.9 s |
+
+    So the time limit is 2 s, which all but the minified files stay well within, and lines past 10,000 characters
+    aren't tokenized: the diff pane shows that much of a line and colours its first 1,000, and minified JavaScript
+    takes about 25 µs a character, so such a line takes a quarter of a second, where 20,000 would take half. The
+    kept results are 12 bytes a span and 4 a line, up to 32 MB (`HIGHLIGHT_CACHE_BYTES`).
+  - **Three engine fixes** came out of it (`textmate/README.md`): the minified line took 204 s, as each search ran to
+    the line's end, and 280 s with a Cyrillic letter in it, as each offset was found by encoding the line up to it;
+    and each thread kept every grammar it had compiled, at up to 41 MB each (TypeScript's), because each rule compiled
+    its own copy of patterns that grammars repeat. Sharing compiled patterns took the 59 languages from 327 MB to
+    60 MB, and each thread keeps the 12 grammars it used last (`MAX_GRAMMARS_PER_THREAD`).
+  - **The categories** are worked out once per scope (`infoOf`): checking every scope of every token against the table
+    took four times as long as tokenizing JSON, whose scopes nest deep. Three rows of VS Code's themes were added to
+    section 4.2's table.
+  - **A registry per grammar.** `Registry` gives a grammar every injection grammar it holds, not only those whose
+    `injectTo` names it, so each grammar a thread compiles gets a registry of its own, with only its injections, as
+    `ShippedGrammars.loadGrammar` sets them up.
+  - **Not by blob id:** results are kept by the grammar and a SHA-256 of the text, so the use case takes only the path
+    and the text.
+  - VS Code's Markdown grammar colours fenced blocks in 60 languages, Java, Python and shell among them, but not
+    Kotlin; a Kotlin block is drawn in the string colour, as in VS Code.
+  - Tests: `SyntaxCategoriesTest` (the categories of tokens of 17 languages' samples, from the scopes in their
+    goldens, and that every scope of the table is in a shipped grammar), `HighlightedTextTest`,
+    `HighlightTextUseCaseTest` (domain), and `TextMateHighlighterTest` (data: each limit, the cache, cancellation, a
+    grammar that fails, and the samples coloured on both threads at once as one at a time). 21 mutations were each
+    caught by a named test.
 
 ### Step 4: the colours
 
