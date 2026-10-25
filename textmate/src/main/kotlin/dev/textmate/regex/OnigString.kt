@@ -21,11 +21,40 @@ public class OnigString(public val content: String) {
         const val MAX_3_BYTES = 0xFFFF
     }
 
+    /**
+     * The UTF-8 offset of each character, and of the end. A character inside a surrogate pair is one byte past its
+     * pair's start, as encoding the string up to it gives (a lone surrogate encodes as `?`). Encoding the string up to
+     * an offset on each call took the square of a line's length.
+     */
+    private val charToByteOffsets: IntArray by lazy {
+        val map = IntArray(content.length + 1)
+        var byteIdx = 0
+        var charIdx = 0
+        while (charIdx < content.length) {
+            map[charIdx] = byteIdx
+            val codePoint = Character.codePointAt(content, charIdx)
+            if (Character.charCount(codePoint) == 2) map[charIdx + 1] = byteIdx + 1
+            byteIdx += utf8Length(codePoint)
+            charIdx += Character.charCount(codePoint)
+        }
+        map[content.length] = byteIdx
+        map
+    }
+
+    /** How many bytes [codePoint] takes in [utf8Bytes]: a lone surrogate is encoded as `?`. */
+    private fun utf8Length(codePoint: Int): Int = when {
+        codePoint <= MAX_1_BYTE -> 1
+        codePoint <= MAX_2_BYTES -> 2
+        Character.isSurrogate(codePoint.toChar()) && codePoint <= MAX_3_BYTES -> 1
+        codePoint <= MAX_3_BYTES -> 3
+        else -> 4
+    }
+
     public fun charToByteOffset(charOffset: Int): Int {
         if (charOffset <= 0) return 0
         if (charOffset >= content.length) return utf8Bytes.size
         if (!isMultiByte) return charOffset
-        return content.substring(0, charOffset).toByteArray(Charsets.UTF_8).size
+        return charToByteOffsets[charOffset]
     }
 
     public fun byteToCharOffset(byteOffset: Int): Int {
@@ -45,12 +74,7 @@ public class OnigString(public val content: String) {
             val codePoint = Character.codePointAt(content, charIdx)
             val charCount = Character.charCount(codePoint)
 
-            val codePointByteLen = when {
-                codePoint <= MAX_1_BYTE -> 1
-                codePoint <= MAX_2_BYTES -> 2
-                codePoint <= MAX_3_BYTES -> 3
-                else -> 4
-            }
+            val codePointByteLen = utf8Length(codePoint)
 
             for (b in 0 until codePointByteLen) {
                 if (byteIdx + b < map.size) {

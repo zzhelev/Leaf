@@ -53,7 +53,10 @@ Each change after that is a commit of its own:
   found nothing, or a match at or after this start, is this search's answer too. Patterns with `\G` are searched each
   time. The tokenizer searches a line from one position after another, and each pattern searched to the line's end
   every time, so that a line took the square of its length: a minified JavaScript line of 60,000 characters took
-  204 s, and takes about half a second.
+  204 s, and takes about half a second;
+- a line's UTF-8 offsets are looked up in a table (`OnigString.charToByteOffset`), where each call encoded the line up
+  to the offset: with a Cyrillic letter in it, the same line took 280 s. A lone surrogate counts as the one byte that
+  it's encoded as (`?`), both ways.
 
 ## Differences from VS Code that remain
 
