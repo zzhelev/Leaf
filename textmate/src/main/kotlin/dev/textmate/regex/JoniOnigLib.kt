@@ -30,7 +30,11 @@ internal class JoniOnigScanner(
     private val onSentinel: ((String) -> Unit)? = null
 ) : OnigScanner {
 
-    private val regexes: List<Regex> = patterns.map { compilePattern(it) }
+    private val regexes: List<Regex> = patterns.map { pattern ->
+        val compiled = CompiledPatterns.get(pattern, ::compilePattern)
+        if (compiled.refused) onSentinel?.invoke(pattern)
+        compiled.regex
+    }
 
     /**
      * Each pattern's last search, as vscode-oniguruma keeps it: the string searched, the byte it started at, and the
@@ -109,16 +113,15 @@ internal class JoniOnigScanner(
         return MatchResult(index = patternIndex, captureIndices = captureIndices)
     }
 
-    private fun compilePattern(pattern: String): Regex {
+    private fun compilePattern(pattern: String): CompiledPattern {
         // Escapes that Joni reads differently from the Oniguruma that grammars are written for.
         val readable = EscapeRewrite.rewrite(pattern)
         return try {
-            compile(readable)
+            CompiledPattern(compile(readable), refused = false)
         } catch (_: JOniException) {
             // Joni takes fewer look-behinds than that Oniguruma: try them spread out.
             val rewritten = LookbehindRewrite.rewrite(readable) { compileOrNull(it) != null }?.let { compileOrNull(it) }
-            if (rewritten == null) onSentinel?.invoke(pattern)
-            rewritten ?: NEVER_MATCH_REGEX
+            CompiledPattern(rewritten ?: NEVER_MATCH_REGEX, refused = rewritten == null)
         }
     }
 

@@ -56,7 +56,11 @@ Each change after that is a commit of its own:
   204 s, and takes about half a second;
 - a line's UTF-8 offsets are looked up in a table (`OnigString.charToByteOffset`), where each call encoded the line up
   to the offset: with a Cyrillic letter in it, the same line took 280 s. A lone surrogate counts as the one byte that
-  it's encoded as (`?`), both ways.
+  it's encoded as (`?`), both ways;
+- compiled patterns are shared by every scanner, the 10,000 used last (`regex/CompiledPatterns.kt`). Each rule's
+  scanner compiled its own, and grammars repeat their patterns in many rules: the 59 languages' samples compiled
+  43,471 patterns, 4,074 of them different, and kept 327 MB, where they now keep 60 MB. Threads share them, as a
+  forward search doesn't change a compiled Joni `Regex`.
 
 ## Differences from VS Code that remain
 
