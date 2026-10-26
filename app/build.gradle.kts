@@ -23,12 +23,12 @@ val linuxArmTarget = "aarch64-unknown-linux-gnu"
 val linuxX64Target = "x86_64-unknown-linux-gnu"
 
 // Remember to update Constants.APP_VERSION when changing this version
-val projectVersion = "1.4.0"
+val projectVersion = "1.5.0"
 
 val projectName = "Leaf"
 
 // Required for JPackage, as it doesn't accept additional suffixes after the version.
-val projectVersionSimplified = "1.4.0"
+val projectVersionSimplified = "1.5.0"
 
 val appPackageName = "dev.app.leaf"
 group = appPackageName
