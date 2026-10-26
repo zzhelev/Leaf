@@ -164,7 +164,8 @@ it appears (it is one in `value class`). A grammar can be patched where that mis
 
 - **Whole versions, once.** Each version a view shows is tokenized from its first line, so a block comment or a
   multi-line string that starts above a hunk is coloured right. A removed line takes the old version's colours, an
-  added or a context line the new version's.
+  added or a context line the new version's, but on the old side of a split diff a context line takes the old
+  version's (step 5).
 - **In the background.** The text shows at once; its colours arrive when the version is done, without moving anything.
   Results are kept by content (a blob id where the view has one), so stepping through commits doesn't tokenize the
   same file twice.
@@ -386,6 +387,36 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
 - **Tests:** `FormatDiffTest` (spans with tabs, a cut line, word highlights over colours), `DiffSyntaxTest` (rendered:
   each category's colour in both themes, a removed line from the old version, a block comment that starts above the
   hunk, colours that arrive after the text, a file with no grammar).
+- **Done (2026-10-26)**, as above, with these differences:
+  - **Colours belong to a version, not to a diff.** A diff is loaded again on every status refresh, with new
+    `RawText`s, and colouring its versions again would draw it plain until they were done: often, while an agent
+    writes in the worktree. So `DiffHighlightsLoader` (`A/viewmodels/`, one per view model) is shown each diff before
+    the view gets it, and a version whose path and bytes are a coloured version's takes those colours at once; the others
+    are coloured in the background, the last diff's only. It keeps the diff before as well, as the view may draw it
+    until it has the next. `HighlightedVersions` finds them by the `RawText` instance that the hunks hold, so colours
+    never land on another diff's lines.
+  - **The split diff's old side** colours a context line in the old version's colours, which differ from the new
+    version's where a change above it opens or closes a comment or a string; unless the diff ignored whitespace, as its
+    context lines then show the new version's text (`DiffHighlights.spansOf`).
+  - **Where the colours come from:** `DiffPane` provides `LocalDiffHighlights` next to `LocalShowWhitespace`, and file
+    history passes them to `HistoryContentLoaded`, so upstream's code in between is unchanged.
+  - **Decoding:** `HighlightTextUseCase` takes a version's `RawText` too, and decodes it a line at a time, as the diff
+    decodes its lines, once the path or the first 256 bytes name a language. Decoded whole, a file with one line that
+    isn't UTF-8 falls back to another charset for every line, and its spans would miss.
+  - **A word diff cut from another line,** which upstream's pairing allows for, draws its line plain (`spansFit`).
+  - **The conflict resolver** keeps upstream's highlighter until step 6, through `DiffText`'s `legacyHighlighter`.
+  - **Measured** through the Dagger graph in a temporary harness, on a clone of this branch with `CLAUDE.md` (4,460
+    lines of Markdown) open: the first diff shows in 81 to 139 ms and its colours 850 ms after, cold. Sixty steps down the
+    log, 33 ms apart, with the diff following: 13.7 and 14.5 ms a step on average (p95 28 and 36 ms), against 15.2 and
+    14.3 ms (p95 34 and 24 ms) on the commit before. A Kotlin file in the split view: colours 350 ms after the diff.
+  - Tests: `FormatDiffTest` (each category, bold and italic, tabs, a CRLF that the word diff cut, word highlights,
+    the cut and the colour limit, the offsets), `DiffSyntaxTest` (rendered with the real highlighter: both themes, a
+    block comment above the hunk, a removed line and the split diff's old side from the old version, colours that
+    arrive and move nothing, a file without a grammar, a word diff of another line, file history),
+    `DiffHighlightsTest` and `HighlightTextUseCaseTest` (domain), `DiffHighlightsLoaderTest`, and one in
+    `HistoryViewModelTest`. 21 mutations (the version that a line takes, the offsets, the colour limit, the loader,
+    file history's wiring) were each caught by a named test. The main pane's wiring (`DiffPane`'s provider,
+    `RepositoryOpenViewModel`'s loader) needs the Dagger graph, and was checked in the harness.
 
 ### Step 6: blame and the conflict resolver
 

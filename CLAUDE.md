@@ -256,7 +256,8 @@ asking.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
 - `textmate` (fork-only, 2026-10-23): the engine that will colour code, a copy of kotlin-textmate's (MIT, a Kotlin port
   of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings. Only `data`'s `TextMateHighlighter`
-  uses it, which no view shows yet (steps 1 to 3 of `docs/fork/syntax-highlighting.md`). `textmate/README.md` says what
+  uses it, whose colours the diff pane and file history draw (steps 1 to 5 of `docs/fork/syntax-highlighting.md`;
+  blame and the conflict resolver keep upstream's highlighter until step 6). `textmate/README.md` says what
   Leaf changed in the copy, each a commit of its own, which differences from VS Code remain, and how to take a later
   fix from kotlin-textmate.
   - It ships 82 of shiki's grammars (`textmate/GRAMMARS.md`, copied by `textmate/tools/grammars/copy.mjs` with their
@@ -270,6 +271,22 @@ asking.
     (`CompiledPatterns`). It keeps results by grammar and content (32 MB), stops at 2 s a text and 10,000 characters a
     line, and checks for cancellation before each line. `domain`'s `highlighting/SyntaxCategories.kt` gives a token's
     scopes their category (section 4.2 of the plan), and `HighlightedText` keeps the spans, three ints each.
+  - **The diff's colours** (step 5, 2026-10-26): `RepositoryOpenViewModel` and `HistoryViewModel` show each diff to a
+    `DiffHighlightsLoader` (`viewmodels/`) before the view gets it, which colours its two versions in the background
+    (`HighlightTextUseCase` with the hunks' `RawText`, decoded a line at a time as the diff decodes them) and exposes
+    them as `diffHighlights`, a `HighlightedVersions` found by the `RawText` instance. A version with a coloured
+    version's path and bytes takes its colours at once, so a diff loaded again by a refresh doesn't flash plain; the
+    diff before stays, as the view may still draw it. `DiffPane` provides `LocalDiffHighlights` (`ui/diff/DiffSyntax.kt`)
+    and file history passes them to `HistoryContentLoaded`.
+    - A removed line takes the old version's spans, an added or a context line the new one's, and a context line on the
+      split diff's old side the old one's, unless the diff ignored whitespace (`DiffHighlights.spansOf`).
+    - `formatDiff` maps a span's offsets onto the text as drawn (`drawnOffsets`: a tab is four characters, a piece's
+      line ending none), up to `MAX_HIGHLIGHTED_LINE_CHARACTERS`, under the word highlights. A word diff that isn't cut
+      from the line's own text draws plain (`spansFit`). The resolver passes upstream's highlighter as `DiffText`'s
+      `legacyHighlighter` until step 6.
+    - Tests: `FormatDiffTest`, `DiffSyntaxTest` (rendered, with the real highlighter), `DiffHighlightsTest`,
+      `HighlightTextUseCaseTest`, `DiffHighlightsLoaderTest`, `HistoryViewModelTest`. View model tests that build
+      `HistoryViewModel` give it `HighlightTextUseCase(NoHighlights)`.
 - `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
   helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
   extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
