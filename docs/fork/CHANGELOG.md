@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs: a strip about git outside Leaf (2026-10-27)
+
+- **Request:** open question 2 of `docs/fork/lfs-filter.md`, option A of three from a mockup (a strip under the
+  toolbar; the others were a chip in the bottom bar and a row in Settings).
+- **Why:** where git-lfs isn't set up, the git commands that Leaf runs get Leaf's LFS filter, and the working tree has
+  the files' content. A terminal's or an agent's git has no filter there: `git status` shows those files as modified,
+  and `git add` would put their bytes into git. Where git's config names git-lfs and git-lfs is gone, it fails on them.
+- **Now:** a repository with a working tree that uses LFS, where git doesn't run git-lfs, shows a strip under the
+  toolbar: "git-lfs isn't installed. Leaf handles this repository's LFS files, but git in a terminal or an agent would
+  commit them whole." with "Install git-lfs…" (git-lfs.com), or "git-lfs isn't set up…" with "Set up git-lfs", which
+  runs `git lfs install`. Where git's config names a git-lfs that is gone, it says that git fails on them. × hides it
+  for the repository, in every worktree; another of the three shows again.
+- **Set up** writes git-lfs's filter in the user's global config and its hooks in the repository, as git-lfs's own
+  instructions do. When another tool's hook is in the way, git-lfs writes the filter, skips the hooks, and Leaf shows
+  git-lfs's message, which says how to merge them: without git-lfs's pre-push hook, a push from a terminal wouldn't
+  upload the LFS files.
+- Details: CLAUDE.md, "Leaf's LFS client as git's filter", The strip.
+
 ## LFS without git-lfs, stage 1: Leaf's LFS client as git's filter (2026-10-26)
 
 - **Request:** stage 1 of `docs/fork/lfs-filter.md`, approved with the plan: the git commands that Leaf runs check LFS

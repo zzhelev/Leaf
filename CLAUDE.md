@@ -2475,8 +2475,33 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     files by why and says to discard what git wrote before trying again. Stage 2 will download before item 4's
     operations start, so that they don't stop halfway.
   - **git outside Leaf** has no filter in case A: a terminal's or an agent's `git status` shows every file that Leaf
-    wrote as modified, and `git add` stores its bytes. The tests met it (`LfsFilterTest` changes the working tree only
-    through Leaf). Open question 2's strip is to say so.
+    wrote as modified, and `git add` stores its bytes. In case B it fails on them. The tests met it (`LfsFilterTest`
+    changes the working tree only through Leaf). The strip below says so.
+  - **The strip (`GitLfsNoticeStrip`, `ui/`, 2026-10-27, option A of three, chosen with the user from a mockup; open
+    question 2):** under the toolbar, after the other strips, in the `warningStrip` style, while a repository with a
+    working tree uses LFS (`usesLfs`: an `lfs` folder in the common git dir, or `filter=lfs` in the root
+    `.gitattributes`) and git there doesn't run git-lfs. `GetGitLfsNoticeGitAction` (`data/git/lfs/GitLfsNoticeGitActions.kt`)
+    tells which (`GitLfsNotice`, `domain/lfs/`), with `GitLfsSetup`'s rule: `NOT_INSTALLED` (git-lfs doesn't work and
+    git's config doesn't name it: "…would commit them whole"), `MISSING` (named but not working: "…fails on them"),
+    `NOT_SET_UP` (works, not named). It's read with the repository state (`RepositoryDataRepository.gitLfsNotice`,
+    REPO_STATE, reset on a worktree switch), so a pull that brings LFS in shows it, and a terminal's `git lfs install`
+    hides it at the next change.
+    - The button, right after the text: "Install git-lfs…" opens git-lfs.com (`GIT_LFS_URL`); "Set up git-lfs" runs
+      `git lfs install` in the working tree (`SetUpGitLfsGitAction`, `TaskType.SetUpGitLfs`, toast "git-lfs set up"),
+      which writes git-lfs's filter in the user's global config and its hooks where the repository's hooks are
+      (`core.hooksPath`, a linked worktree's common git dir). A hook of another tool in the way: git-lfs writes the
+      filter, skips the hooks and exits with 2, and its message, which says how to merge them, is in `ErrorDialog`. A
+      push from a terminal wouldn't upload LFS objects without the hook. The notice is read again either way
+      (`refreshEvenIfFailed`), and the cached `git lfs version` answer forgotten (`forgetGitLfsCheck`).
+    - × ("Don't show again for this repository") stores the notice in `<common git dir>/leaf` (`lfs.dismissedNotice`,
+      `GitLfsNoticeConfig`), for every worktree. Another notice, as after installing git-lfs without setting it up,
+      shows again.
+    - Tests: `GitLfsNoticeTest` (data: each notice with a fake git-lfs, the LFS folder and the attributes, a bare
+      repository, a linked worktree, a dismissal in every worktree, Set up asking git-lfs again, and with the real
+      git-lfs in a home of the test's own the filter and hooks written, and a hook in the way), `GitLfsNoticeInTabTest`
+      (a `TestTab`: the refresh reads it, × and Set up hide it, a failed Set up too), `GitLfsNoticeStripTest` (app,
+      rendered: each text and button, what they do, ×, the button after the text in a wide window). 18 mutations were
+      each caught by a named test.
   - Tests: `PktLineTest`, `LfsFilterSessionTest` (scripted conversations), the rule in `GitLfsSetupTest`, the relay and
     a cancellation in `AskpassServerTest`, and `LfsFilterTest` (git with the built helper and `FakeLfsServer`: merge,
     fast-forward, cherry-pick, revert, a rebase that stops at a conflicted pointer and continues, `git pull` merging and
