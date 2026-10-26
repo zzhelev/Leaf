@@ -5,7 +5,7 @@
 | Question | How can Leaf colour code by file type (Kotlin, Java, JSON, XML, YAML, …) in as many formats as possible? |
 | Verified against | `main` at `03e4d1e5`; kotlin-textmate 0.3.0 (`a500bc7a`); vscode-textmate 9.3.2; shiki's `tm-grammars` 1.32.22; Joni 2.2.7 |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23 (section 3): the engine (TextMate grammars, a copy of kotlin-textmate kept in Leaf), palette 1a, a Code colours setting with Leaf, VS Code and IntelliJ, tag and attribute colours of their own, the grammar list, and no choice that turns colours off |
+| Status | Decided 2026-10-23 (section 3): the engine (TextMate grammars, a copy of kotlin-textmate kept in Leaf), palette 1a, a Code colours setting with Leaf, VS Code and IntelliJ, tag and attribute colours of their own, the grammar list, and no choice that turns colours off. Built 2026-10-23 to 2026-10-26, steps 1 to 7 (section 5), and checked (section 6) |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`, `T/` = the new module `textmate/` (step 1).
@@ -459,6 +459,11 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
   changed these files since its 2.0 rewrite, so a later change there is a rare modify/delete conflict.
 - `CLAUDE.md` (a section on highlighting), `docs/fork/CHANGELOG.md`, and a demo repository with one file of each
   language for a manual run.
+- **Done (2026-10-26)**, as above: the package's 19 files (2,000 lines) and its test are gone; CLAUDE.md has a section,
+  "Syntax highlighting", which the notes from the module map moved to. The demo is a script,
+  `textmate/tools/demo/make-demo.sh`, which makes it from the conformance samples (a file in each of 59 languages):
+  commits whose diffs add, take out and change lines in every file, and a merge stopped at conflicts in four of them,
+  for the resolver. It makes the folder again on each run, and touches nothing but a folder that it made.
 
 ## 6. Checks before calling it done
 
@@ -470,6 +475,23 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
 - Renders of the diff pane, blame and the resolver in every built-in style, light and dark, against the board.
 - A dev run on Leaf itself and on a large repository: stepping through commits in the log with a diff open stays as
   fast as today.
+
+**Done (2026-10-26):**
+
+- **Suites:** each step's, and `./gradlew build`, which passed: textmate 412 tests, common 7, domain 840, data 1,729,
+  app 1,210.
+- **Conformance:** `ShippedGrammarsConformanceTest` runs every shipped grammar's sample against vscode-textmate's tokens.
+  The differences that remain are in `textmate/README.md`; shell's, the worry above, was fixed in step 1 (its rule for a
+  command, a look-behind that Joni refused, is rewritten).
+- **Mutations:** the category table and the time limit in step 3 (21), the version that a line takes and the offset
+  mapping in step 5 (21), the resolver's and blame's in step 6 (29): each caught by a named test.
+- **Renders,** through the Dagger graph in a temporary harness, on the demo: the diff pane, blame and the resolver in
+  Classic, Tonal, Quiet, Solarized and Teal, light and dark. Every colour is legible, and Solarized's and Teal's own
+  show. Their values are the board's, which `SyntaxColoursTest` checks exactly, so the board itself wasn't opened again.
+- **Speed:** on Leaf's history with `CLAUDE.md` open (step 5): 13.7 and 14.5 ms a step against 15.2 and 14.3 ms
+  before. On TensorFlow (188,645 commits, a clone that shares the original's objects, with a sparse checkout) with
+  XLA's `gpu_compiler.cc` open (3,208 lines of C++): 10.0 ms a step in both runs, against 9.7 and 9.3 ms before, the
+  medians 8.4 to 8.7 ms in all four, and the file's colours 1.0 to 1.6 s after its diff, the first time.
 
 ## 7. Later
 

@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Syntax highlighting with TextMate grammars (2026-10-23 to 2026-10-26)
+
+- **Request:** colour code by file type, in as many formats as possible. Leaf had upstream's highlighter, which split
+  each line on spaces and checked the words against a keyword list, in 17 languages: no strings, numbers or block
+  comments, and no colours for JSON, XML, YAML, Markdown, HTML, CSS or TOML. Planned with the user in
+  `docs/fork/syntax-highlighting.md`, from a probe of four engines and a board of palettes (Claude Design, "Leaf colour
+  palette").
+- **The engine:** TextMate grammars, the format of VS Code, GitHub and shiki, run by a copy of kotlin-textmate kept in
+  Leaf (the `textmate` module), with three fixes for speed and memory that measuring it found. 82 grammars from shiki's
+  collection, about 60 languages, tokenized as VS Code's engine tokenizes them (a test per language). A file's language
+  comes from its name, its extension or its `#!` line.
+- **Where:** the diff pane (unified and split, file history, a comparison's full view), blame, and the conflict
+  resolver's rows and editor. Each version of a file is coloured whole, once, in the background, so a comment or a
+  string that starts above a hunk colours the lines in it; the text shows at once and the colours follow. A diff that a
+  refresh loads again keeps its colours. Lines typed in the resolver are coloured after the lines before them.
+- **Colours:** nine where Leaf had three: keyword, annotation, comment, string, number, type, function, tag and
+  attribute, in every style (palette 1a of the board; Solarized and Teal set their own), each holding 4.5 : 1 on the
+  background and both line tints. The light keyword, annotation and comment got darker. A new setting, Code colours
+  (Settings → Appearance), draws code in Leaf's, VS Code's or IntelliJ's colours, in any style.
+- **Limits:** 2 s a file and 10,000 characters a line are coloured, and the rest stays plain. Stepping through the log
+  with a diff open is as fast as before, on Leaf's history and on TensorFlow's (about 10 ms a step).
+- **Removed:** upstream's highlighter (`ui/diff/syntax_highlighter/`, 2,000 lines).
+- **A demo:** `textmate/tools/demo/make-demo.sh` makes a repository with a file in each language, diffs that change
+  every file, and a merge stopped at conflicts.
+- Details: CLAUDE.md, "Syntax highlighting"; `textmate/README.md`.
+
 ## Cancel during a push, and Stop waiting (2026-10-23)
 
 - **Request:** the follow-up left from deleting a remote's branches: the processing screen's Cancel during a push or a

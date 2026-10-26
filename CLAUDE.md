@@ -254,54 +254,10 @@ asking.
     certificates against the JVM's trust store. An LFS request skips the check only when `http.sslVerify` is false
     for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
-- `textmate` (fork-only, 2026-10-23): the engine that will colour code, a copy of kotlin-textmate's (MIT, a Kotlin port
-  of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings. Only `data`'s `TextMateHighlighter`
-  uses it, whose colours the diff pane, file history, blame and the conflict resolver draw (steps 1 to 6 of
-  `docs/fork/syntax-highlighting.md`; upstream's highlighter goes in step 7). `textmate/README.md` says what
-  Leaf changed in the copy, each a commit of its own, which differences from VS Code remain, and how to take a later
-  fix from kotlin-textmate.
-  - It ships 82 of shiki's grammars (`textmate/GRAMMARS.md`, copied by `textmate/tools/grammars/copy.mjs` with their
-    licences), which `ShippedGrammars` (`dev.app.leaf.textmate`) loads. `domain`'s `highlighting/Languages.kt` maps a
-    file's name, extension or `#!` line to one (step 2).
-  - `ShippedGrammarsConformanceTest` compares a sample per language with vscode-textmate's tokens, which
-    `textmate/tools/conformance/` makes (Node.js); `GoldenSnapshotTest` does the same for kotlin-textmate's goldens.
-  - `TextMateHighlighter` (`data/highlighting/`, an app singleton behind `IHighlightTextAction` and
-    `HighlightTextUseCase`, step 3) colours a text on two threads of its own. A `Grammar` isn't thread-safe, so each
-    thread compiles its own, in a registry of its own (the 12 it used last); compiled patterns are shared
-    (`CompiledPatterns`). It keeps results by grammar and content (32 MB), stops at 2 s a text and 10,000 characters a
-    line, and checks for cancellation before each line. `domain`'s `highlighting/SyntaxCategories.kt` gives a token's
-    scopes their category (section 4.2 of the plan), and `HighlightedText` keeps the spans, three ints each.
-  - **The diff's colours** (step 5, 2026-10-26): `RepositoryOpenViewModel` and `HistoryViewModel` show each diff to a
-    `DiffHighlightsLoader` (`viewmodels/`) before the view gets it, which colours its two versions in the background
-    (`HighlightTextUseCase` with the hunks' `RawText`, decoded a line at a time as the diff decodes them) and exposes
-    them as `diffHighlights`, a `HighlightedVersions` found by the `RawText` instance. A version with a coloured
-    version's path and bytes takes its colours at once, so a diff loaded again by a refresh doesn't flash plain; the
-    diff before stays, as the view may still draw it. `DiffPane` provides `LocalDiffHighlights` (`ui/diff/DiffSyntax.kt`)
-    and file history passes them to `HistoryContentLoaded`.
-    - A removed line takes the old version's spans, an added or a context line the new one's, and a context line on the
-      split diff's old side the old one's, unless the diff ignored whitespace (`DiffHighlights.spansOf`).
-    - `formatDiff` maps a span's offsets onto the text as drawn (`drawnOffsets`: a tab is four characters, a piece's
-      line ending none), up to `MAX_HIGHLIGHTED_LINE_CHARACTERS`, under the word highlights. A word diff that isn't cut
-      from the line's own text draws plain (`spansFit`).
-    - Tests: `FormatDiffTest`, `DiffSyntaxTest` (rendered, with the real highlighter), `DiffHighlightsTest`,
-      `HighlightTextUseCaseTest`, `DiffHighlightsLoaderTest`, `HistoryViewModelTest`. View model tests that build
-      `HistoryViewModel` give it `HighlightTextUseCase(NoHighlights)`.
-  - **Blame's and the conflict resolver's colours** (step 6, 2026-10-26): blame colours the file once, after it loads
-    (`BlameState.Loaded.highlighted`, kept for the blame that is still shown), and each line takes its spans
-    (`colouredLine`, `ui/diff/DiffSyntax.kt`).
-    - The resolver keeps its colours in `ConflictResolverState.syntax`, a `HighlightedVersions` that its cells look up
-      by their `RawText` (`spansOf(cell.text, cell.line)`), passed down the layouts as a parameter in place of the file's
-      path. The view model colours the base, ours and theirs when the file loads, and lines typed (`typedLines`) after
-      ours' lines before their part (`textBefore`, `HighlightTextUseCase.inContext`), so that a part that starts in a
-      comment is coloured as one. It keeps them until another file loads.
-    - The field (`ResolverEdit.syntax`, an `EditorSyntax`) starts from the rows' colours (`editStartSyntax`), so it
-      doesn't go plain, and is coloured again 80 ms after each change (`EDIT_COLOURING_DELAY`), after the same lines.
-      Until then, `EditorColours` gives the lines that didn't change their colours, and the line typed in those of its
-      characters before the change (`spansFor`). Finishing puts the field's colours on the lines typed in the same state
-      as the merge that has them, and colours them again when the field's were of an earlier text.
-    - Tests: `ResolverSyntaxTest` (domain), `HighlightTextUseCaseTest`, `EditorColoursTest`, `ResolverSyntaxColoursTest`
-      (the rows in both layouts, rendered with the real highlighter), `ConflictResolverColouringTest` (the view model,
-      built from its use cases), `BlameSyntaxTest`, and the field's colours in `ConflictResolverTest`.
+- `textmate` (fork-only, 2026-10-23): the engine that colours code (see Syntax highlighting), a copy of
+  kotlin-textmate's (MIT, a Kotlin port of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings.
+  Only `data`'s `TextMateHighlighter` uses it. `textmate/README.md` says what Leaf changed in the copy, each a commit of
+  its own, which differences from VS Code remain, and how to take a later fix from kotlin-textmate.
 - `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
   helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
   extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
@@ -4009,6 +3965,66 @@ tag picked in the side panel. Worktree review and the file-history strip have vi
   `CommitFooterParentsTest` (rendered at 330 px, with PNGs of every state in both themes when `LEAF_RENDER_DIR` is set). The
   view model ran against the real Dagger graph in a temporary harness, which also checked that the real `Log` scrolls to a
   parent that had to be loaded.
+
+## Syntax highlighting
+
+Fork-only, 2026-10-23 to 2026-10-26 (`docs/fork/syntax-highlighting.md`): code in the diff pane (unified and split, file
+history, a comparison's full view), blame and the conflict resolver's rows and editor is coloured with TextMate
+grammars, the format of VS Code, GitHub and shiki. Each version of a file is coloured whole, once, in the background:
+the text shows at once and its colours follow. Upstream's highlighter, a keyword list a line in 17 languages
+(`ui/diff/syntax_highlighter/`), was removed on 2026-10-26.
+
+- **Grammars:** Leaf ships 82 of shiki's grammars (`textmate/GRAMMARS.md`, copied by
+  `textmate/tools/grammars/copy.mjs` with their licences), which `ShippedGrammars` (`dev.app.leaf.textmate`) loads.
+  `domain`'s `highlighting/Languages.kt` maps a file's name, extension or `#!` line to one (step 2).
+- **The engine's tests:** `ShippedGrammarsConformanceTest` compares a sample per language with vscode-textmate's
+  tokens, which `textmate/tools/conformance/` makes (Node.js); `GoldenSnapshotTest` does the same for kotlin-textmate's
+  goldens.
+- **The highlighter:** `TextMateHighlighter` (`data/highlighting/`, an app singleton behind `IHighlightTextAction` and
+  `HighlightTextUseCase`, step 3) colours a text on two threads of its own. A `Grammar` isn't thread-safe, so each
+  thread compiles its own, in a registry of its own (the 12 it used last); compiled patterns are shared
+  (`CompiledPatterns`). It keeps results by grammar and content (32 MB), stops at 2 s a text and 10,000 characters a
+  line, and checks for cancellation before each line. `domain`'s `highlighting/SyntaxCategories.kt` gives a token's
+  scopes their category (section 4.2 of the plan), and `HighlightedText` keeps the spans, three ints each.
+- **The diff's colours** (step 5, 2026-10-26): `RepositoryOpenViewModel` and `HistoryViewModel` show each diff to a
+  `DiffHighlightsLoader` (`viewmodels/`) before the view gets it, which colours its two versions in the background
+  (`HighlightTextUseCase` with the hunks' `RawText`, decoded a line at a time as the diff decodes them) and exposes
+  them as `diffHighlights`, a `HighlightedVersions` found by the `RawText` instance. A version with a coloured
+  version's path and bytes takes its colours at once, so a diff loaded again by a refresh doesn't flash plain; the
+  diff before stays, as the view may still draw it. `DiffPane` provides `LocalDiffHighlights` (`ui/diff/DiffSyntax.kt`)
+  and file history passes them to `HistoryContentLoaded`.
+  - A removed line takes the old version's spans, an added or a context line the new one's, and a context line on the
+    split diff's old side the old one's, unless the diff ignored whitespace (`DiffHighlights.spansOf`).
+  - `formatDiff` maps a span's offsets onto the text as drawn (`drawnOffsets`: a tab is four characters, a piece's
+    line ending none), up to `MAX_HIGHLIGHTED_LINE_CHARACTERS`, under the word highlights. A word diff that isn't cut
+    from the line's own text draws plain (`spansFit`).
+  - Tests: `FormatDiffTest`, `DiffSyntaxTest` (rendered, with the real highlighter), `DiffHighlightsTest`,
+    `HighlightTextUseCaseTest`, `DiffHighlightsLoaderTest`, `HistoryViewModelTest`. View model tests that build
+    `HistoryViewModel` give it `HighlightTextUseCase(NoHighlights)`.
+- **Blame's and the conflict resolver's colours** (step 6, 2026-10-26): blame colours the file once, after it loads
+  (`BlameState.Loaded.highlighted`, kept for the blame that is still shown), and each line takes its spans
+  (`colouredLine`, `ui/diff/DiffSyntax.kt`).
+  - The resolver keeps its colours in `ConflictResolverState.syntax`, a `HighlightedVersions` that its cells look up
+    by their `RawText` (`spansOf(cell.text, cell.line)`), passed down the layouts as a parameter in place of the file's
+    path. The view model colours the base, ours and theirs when the file loads, and lines typed (`typedLines`) after
+    ours' lines before their part (`textBefore`, `HighlightTextUseCase.inContext`), so that a part that starts in a
+    comment is coloured as one. It keeps them until another file loads.
+  - The field (`ResolverEdit.syntax`, an `EditorSyntax`) starts from the rows' colours (`editStartSyntax`), so it
+    doesn't go plain, and is coloured again 80 ms after each change (`EDIT_COLOURING_DELAY`), after the same lines.
+    Until then, `EditorColours` gives the lines that didn't change their colours, and the line typed in those of its
+    characters before the change (`spansFor`). Finishing puts the field's colours on the lines typed in the same state
+    as the merge that has them, and colours them again when the field's were of an earlier text.
+  - Tests: `ResolverSyntaxTest` (domain), `HighlightTextUseCaseTest`, `EditorColoursTest`, `ResolverSyntaxColoursTest`
+    (the rows in both layouts, rendered with the real highlighter), `ConflictResolverColouringTest` (the view model,
+    built from its use cases), `BlameSyntaxTest`, and the field's colours in `ConflictResolverTest`.
+- **Colours:** nine, one per `SyntaxCategory`, which every style sets, and the Code colours setting (Leaf, VS Code,
+  IntelliJ): see Styles, Syntax colours, under Conventions, Settings.
+- **A demo for a manual run:** `textmate/tools/demo/make-demo.sh [folder]` (`/tmp/leaf-syntax-demo` unless given) makes
+  a repository with a file in each shipped language, from the conformance samples, in commits whose diffs add, take out
+  and change lines in every file, and a merge stopped at conflicts in four of them. It makes the folder again on each
+  run, and touches nothing but a folder that it made.
+- **Not done** (section 7 of the plan): a language from `.gitattributes` (`linguist-language`), grammars that a user
+  adds, and colouring the commit message field with git's commit grammar.
 
 ## Refresh
 
