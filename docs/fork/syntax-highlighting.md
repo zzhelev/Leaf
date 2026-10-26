@@ -355,6 +355,26 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
   reader), `CodeColoursSettingTest` (data: a restart, no key, an unknown value), `StyleEditorDialogTest`, and the
   Appearance page's new row, rendered. Renders of the main panes against `main`'s: only syntax colours differ.
 
+- **Done (2026-10-25)**, as above, with these differences:
+  - `SyntaxColors` has all nine colours, so that a view asks one place (`colorOf(category)`); the scheme's three are the
+    same colours, for upstream's code.
+  - **The checks:** palette 1a holds every one in Classic, Tonal and Quiet, light and dark, so they move nothing, and
+    2,000 random seed sets per look and side, and 300 per Code colours choice, hold them all.
+  - **Solarized** sets its nine by hand, the board's values: Solarized's accents and body tone, moved until they hold the
+    checks (its blue holds 3.4 : 1 on base3). Before, its keyword, annotation and comment were Solarized's own,
+    unchecked.
+  - **Teal:** its function is set by hand, the board's #1A69B5 and #97BBFE. Its keyword and tag follow its accent, and
+    on the light side take a shade more to hold on the removed lines (#007473, the board's). Its annotation and comment
+    follow its warning and success seeds through Leaf's own hue shift, which gives #6E6A00 and #307443 in light
+    (#D0BA5B and #94CAA2 in dark), where the board's approximation had #676C00 and #25763E.
+  - **VS Code and IntelliJ** come out as the board's turn 2 shows them, within a unit of rounding (#10708A for its
+    #0E708A), in every built-in style, holding every check.
+  - **The editor's preview** follows the setting, as a nested `AppTheme` takes the outer one's choice
+    (`LocalCodeColours`).
+  - **Not done:** renders of the main panes against `main`'s. No view draws the six new colours until step 5, and the
+    three that the old highlighter draws changed as decision 3 says; `SyntaxColoursTest` checks that a choice changes
+    only the syntax colours, and the built-in looks every other colour exactly.
+
 ### Step 5: the diff pane
 
 - The view models that load a text diff (`RepositoryOpenViewModel`, `HistoryViewModel`, the comparison's full view)

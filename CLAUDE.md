@@ -4199,10 +4199,11 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   palette) and "Style Library" (turn 3: gallery 3b, editor 3c, Solarized).
   - **The model** (`domain/styles/`): `StyleDefinition(id, name, look: AccentStyle, light, dark)`, a side being
     `StyleSide(seeds: StyleSeeds, setByHand: Map<StyleSlot, Int>)` and the seeds Background, Accent, Danger, Warning and
-    Success (ARGB ints, so domain needs no Compose). `StyleSlot` has 58 colours with stable file keys (`background`,
-    `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary` and `onPrimary` are Main action's), the roles' 26 and
-    six lanes. `BuiltInStyles` holds the five, in Settings' order; the looks' ids (`tonal`, `classic`, `quiet`) are what
-    `accent_style` held before, so an old choice still reads.
+    Success (ARGB ints, so domain needs no Compose). `StyleSlot` has 64 colours with stable file keys (`background`,
+    `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary` and `onPrimary` are Main action's), the roles' 26,
+    six lanes, and since 2026-10-25 six more syntax colours, which with the scheme's keyword, annotation and comment make
+    the group Syntax (`StyleSlot.SYNTAX`, see Syntax colours below). `BuiltInStyles` holds the five, in Settings' order;
+    the looks' ids (`tonal`, `classic`, `quiet`) are what `accent_style` held before, so an old choice still reads.
   - **Working a side out** (`resolveStyleSide`, `theme/styles/StyleDerivation.kt`, into a `StylePalette` that gives the
     `ColorsScheme`, the `StyleColors` and the lanes): each colour not set by hand starts as its look's
     (`StylePalette.template(look, isLight)`: `lightTheme.styled(look)` or `darkTheme`'s, `styleColorsFor` and
@@ -4222,11 +4223,14 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
       or a surface moves only away from what's on it (`towards`), so a light panel under grey text gets lighter, never
       dark. What moved is a `StyleAdjustment`, and a check that colours set by hand leave short is a
       `ContrastShortfall`.
-    - Syntax colours aren't checked. Classic's warning icon keeps its 1.75 : 1 amber.
-  - **`AppTheme(selectedTheme, linesHeightType, style)`** (`theme/Theme.kt`) resolves the side (`remember(style,
-    isLight)`) and provides `LocalColorsScheme` (a `CompositionLocal`, where upstream kept the scheme in a global flow,
-    so an `AppTheme` inside another colours only what it holds: the editor's previews), `LocalStyleColors` and
-    `LocalGraphLanes` (`MaterialTheme.graphLanes`, which the log reads). Outside any `AppTheme` the lanes are
+    - The nine syntax colours hold 4.5 : 1 on the background and both line tints, each moving itself (since
+      2026-10-25). Classic's warning icon keeps its 1.75 : 1 amber.
+  - **`AppTheme(selectedTheme, linesHeightType, style, codeColours)`** (`theme/Theme.kt`) resolves the side
+    (`remember(style, isLight, codeColours)`) and provides `LocalColorsScheme` (a `CompositionLocal`, where upstream kept
+    the scheme in a global flow, so an `AppTheme` inside another colours only what it holds: the editor's previews),
+    `LocalStyleColors`, `LocalGraphLanes` (`MaterialTheme.graphLanes`, which the log reads), `LocalSyntaxColors`
+    (`MaterialTheme.syntaxColors`) and `LocalCodeColours`, which an `AppTheme` inside another takes as its default, so
+    the editor's previews follow the setting. Outside any `AppTheme` the lanes are
     `CLASSIC_LANES`, and `styleColors` falls back to Classic's from `MaterialTheme.colors`. `style` defaults to Tonal,
     so a test that renders `AppTheme(theme)` gets Tonal.
   - **Lanes:** Classic keeps Leaf's old six (`CLASSIC_LANES`, the grey written `0xFFe78909c`, which Compose reads as
@@ -4312,9 +4316,27 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     3.2 : 1 on the dark background. The resolver's "ours" cells and legend use `primary` too.
   - **A line's buttons are opaque** (`LineActionButtons`): their fill is laid on the theme's background. Quiet's 8%
     white took the line's tint, on which dark Quiet's Discard icon held 2.9 : 1.
+  - **Syntax colours** (2026-10-25, step 4 of `docs/fork/syntax-highlighting.md`): nine slots in the group Syntax,
+    one per `SyntaxCategory` (`StyleSlot.of`): keyword, annotation and comment (the scheme's `diffKeyword`,
+    `diffAnnotation` and `diffComment`, which upstream's code reads), string, number, type, function, tag and attribute.
+    `SyntaxColors` (`LocalSyntaxColors`, `MaterialTheme.syntaxColors`, `colorOf(category)`) has all nine.
+    - Every look starts from palette 1a of the "Syntax Colours" board (`syntaxTemplate`; light #1A69B5, #756700,
+      #027835, #A44C1D, #A73B6D, #7652AC, #06717A, the tag the keyword's and the attribute the type's), which darkened
+      Leaf's light keyword, annotation and comment (#3B83CF, #9F9927 and #0D9141 held 3.0 to 4.1 : 1 on white, and
+      2.4 to 3.3 on a removed line). Keyword and tag follow Accent, annotation Warning, comment Success; the other five are fixed.
+    - Solarized sets its nine by hand: its accents, moved until they hold the checks, as the board has them. Teal sets
+      its function (#1A69B5, #97BBFE), as the template's, a cyan, would be next to its teal keyword; its light keyword
+      and tag take a shade more than following gives, to hold on the removed lines.
+    - **Code colours** (Settings → Appearance, after the gallery: Leaf, VS Code, IntelliJ; `AppConfig.CodeColours`,
+      key `code_colours`: `leaf`, `vscode` or `intellij`, and a value this version doesn't know reads as Leaf): VS
+      Code's Modern and IntelliJ's schemes (`domain/styles/CodeColours.kt`) take the nine slots in every style, those set
+      by hand included, and are checked as worked-out colours, which keeps their hue. IntelliJ's types are the text
+      colour. `App.kt` passes the setting to `AppTheme`; Settings reads it in the Appearance flow.
+    - Tests: `SyntaxColoursTest` (every built-in's nine, each choice in every built-in, random seeds),
+      `CodeColoursTest`, `CodeColoursSettingTest`, `CodeColoursRowTest` (the row, rendered), `AppThemeStylesTest`,
+      `StyleFileCodecTest` (a file from before the nine).
   - **Not set by a style** (`docs/fork/custom-styles.md`, Limits): about 20 colours written in the UI code (the light
-    themes' amber text #8A5C00, the resolver's purple for theirs, the compare badges, the avatars' palette), and syntax
-    colours beyond keyword, annotation and comment.
+    themes' amber text #8A5C00, the resolver's purple for theirs, the compare badges, the avatars' palette).
   - **Not met:** the warning icon (#C68128) holds 3 : 1 on the light background, but 2.6 on a selected row and 2.7 on
     `secondarySurface`; the strips' icons hold 2.8 on the tonal light strip, where the text says the same.
   - **Checking built-ins:** renders of the whole tab in Classic, Tonal and Quiet, light and dark, were compared with

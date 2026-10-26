@@ -252,7 +252,8 @@ test.
 ## 8. Limits
 
 - The ~20 colours written in the UI code (section 1) stay as they are, whatever the style.
-- Only three syntax colours (keyword, annotation, comment), as today.
+- ~~Only three syntax colours (keyword, annotation, comment), as today.~~ Nine since 2026-10-25, in a group of their
+  own (`docs/fork/syntax-highlighting.md`, step 4).
 - A file edited outside Leaf shows when Settings opens next, not at once.
 - Avatars keep their own palette (decided 2026-10-20).
 
