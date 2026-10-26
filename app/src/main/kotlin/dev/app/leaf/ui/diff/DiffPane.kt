@@ -59,7 +59,6 @@ import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
-import dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter
 import dev.app.leaf.ui.status.StatusAction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -1376,8 +1375,6 @@ fun DiffLineText(
  * [spans]: [text]'s syntax colours, in its own offsets (fork-only), left out where [matchLine] isn't cut from [text].
  * [insertedColor]: the background of [matchLine]'s inserted text, the diff pane's green unless given (fork-only).
  * [startPadding]: the room before the text, where the diff pane puts a line's buttons (fork-only).
- * [legacyHighlighter]: upstream's highlighter, in place of [spans], for the conflict resolver until it colours its
- * versions (step 6 of `docs/fork/syntax-highlighting.md`).
  */
 @Composable
 fun DiffText(
@@ -1386,7 +1383,6 @@ fun DiffText(
     spans: List<SyntaxSpan> = emptyList(),
     insertedColor: Color = MaterialTheme.colors.diffContentAdded,
     startPadding: Dp = 16.dp,
-    legacyHighlighter: SyntaxHighlighter? = null,
 ) {
     val line = matchLine ?: MatchLine(listOf(DiffMatchPatch.Diff(DiffMatchPatch.Operation.EQUAL, text)))
     val fittingSpans = remember(text, matchLine, spans) { if (spansFit(text, matchLine)) spans else emptyList() }
@@ -1416,7 +1412,6 @@ fun DiffText(
             contentRemovedColor = diffContentRemoved,
             hiddenCharactersText = hiddenCharactersText,
             mutedColor = mutedColor,
-            legacyHighlighter = legacyHighlighter,
         )
     }
 
@@ -1477,7 +1472,6 @@ fun formatDiff(
     contentRemovedColor: Color,
     hiddenCharactersText: String? = null,
     mutedColor: Color = Color.Gray,
-    legacyHighlighter: SyntaxHighlighter? = null,
 ): AnnotatedString {
     val isAllSameType = line.diffs
         .filter { it.text != "\n" }
@@ -1518,19 +1512,8 @@ fun formatDiff(
     val highlightedLength = minOf(shown.length, MAX_HIGHLIGHTED_LINE_CHARACTERS)
 
     return buildAnnotatedString {
-        if (legacyHighlighter != null) {
-            val highlighted = legacyHighlighter.syntaxHighlight(
-                annotatedString = shown.subSequence(0, highlightedLength),
-                commentColor = syntaxColors.comment,
-                keywordColor = syntaxColors.keyword,
-                annotationColor = syntaxColors.annotation,
-            )
-            append(highlighted)
-            append(shown.subSequence(highlightedLength, shown.length))
-        } else {
-            append(shown)
-            addSyntaxStyles(spans, diffs.map { it.text }, highlightedLength, syntaxColors)
-        }
+        append(shown)
+        addSyntaxStyles(spans, diffs.map { it.text }, highlightedLength, syntaxColors)
 
         if (shown.length < annotatedString.length && hiddenCharactersText != null) {
             withStyle(SpanStyle(color = mutedColor)) {

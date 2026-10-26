@@ -68,13 +68,14 @@ fun colouredLine(text: String, spans: List<SyntaxSpan>, colors: SyntaxColors): A
 
 /**
  * Colours the text that the diff draws for a line cut into [pieces] with [spans], the offsets of the line's own text,
- * up to [limit] characters as drawn.
+ * up to [limit] characters as drawn. The line starts [at] this offset of the text being built.
  */
 internal fun AnnotatedString.Builder.addSyntaxStyles(
     spans: List<SyntaxSpan>,
     pieces: List<String>,
     limit: Int,
     colors: SyntaxColors,
+    at: Int = 0,
 ) {
     if (spans.isEmpty()) return
     val offsets = drawnOffsets(pieces)
@@ -90,6 +91,6 @@ internal fun AnnotatedString.Builder.addSyntaxStyles(
             fontWeight = if (span.bold) FontWeight.Bold else null,
             fontStyle = if (span.italic) FontStyle.Italic else null,
         )
-        addStyle(style, start, end)
+        addStyle(style, at + start, at + end)
     }
 }

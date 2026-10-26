@@ -13,6 +13,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.extensions.replaceTabs
+import dev.app.leaf.domain.highlighting.SyntaxSpan
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.ui.components.LocalSidewaysScroll
@@ -21,27 +22,26 @@ import dev.app.leaf.ui.components.SidewaysScroll
 import dev.app.leaf.ui.components.UnwrappedLine
 import dev.app.leaf.ui.diff.DiffText
 import dev.app.leaf.ui.diff.MAX_DIFF_LINE_CHARACTERS
-import dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter
 import org.eclipse.jgit.diff.RawText
 
 /** The space that [DiffText] leaves before a line, which stays between the line numbers and the text while it scrolls. */
 private val LineStartPadding = 16.dp
 
 /**
- * A line's text: wrapped, or on one row that scrolls sideways with the others ([LocalSidewaysScroll]), with [marks] on
- * the words that its side changed.
+ * A line's text: wrapped, or on one row that scrolls sideways with the others ([LocalSidewaysScroll]), in its version's
+ * colours ([spans]), with [marks] on the words that its side changed.
  */
 @Composable
-internal fun LineText(text: String, syntaxHighlighter: SyntaxHighlighter, marks: LineMarks? = null) {
+internal fun LineText(text: String, spans: List<SyntaxSpan>, marks: LineMarks? = null) {
     val sideways = LocalSidewaysScroll.current
     val matchLine = remember(text, marks) { marks?.matchLine(text) }
     val markColor = marks?.color ?: Color.Transparent
 
     if (sideways == null) {
-        DiffText(text, matchLine, insertedColor = markColor, legacyHighlighter = syntaxHighlighter)
+        DiffText(text, matchLine, spans, insertedColor = markColor)
     } else {
         UnwrappedLine(sideways, start = LineStartPadding) {
-            DiffText(text, matchLine, insertedColor = markColor, legacyHighlighter = syntaxHighlighter)
+            DiffText(text, matchLine, spans, insertedColor = markColor)
         }
     }
 }
