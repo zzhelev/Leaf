@@ -4,8 +4,10 @@
 package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.domain.highlighting.HighlightedText
+import dev.app.leaf.domain.highlighting.decodedText
 import dev.app.leaf.domain.interfaces.IHighlightTextAction
 import kotlinx.coroutines.runBlocking
+import org.eclipse.jgit.diff.RawText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
@@ -50,6 +52,30 @@ class HighlightTextUseCaseTest {
         assertNull(HighlightTextUseCase(action)("LICENSE", "Permission is hereby granted"))
         // Only the first line can be a #! line.
         assertNull(HighlightTextUseCase(action)("notes", "x".repeat(300) + "\n#!/bin/sh"))
+        assertEquals(emptyList<Pair<String, String>>(), action.calls)
+    }
+
+    @Test
+    fun `a version that a diff holds is decoded a line at a time, once its language is found`(): Unit = runBlocking {
+        val action = RecordingAction()
+        val useCase = HighlightTextUseCase(action)
+        val latin1 = RawText("val caf".toByteArray() + byteArrayOf(0xE9.toByte()) + "\nval na\u00EFve = 1\n".toByteArray())
+
+        assertSame(action.result, useCase("src/Main.kt", latin1))
+        useCase("tools/sync", RawText("#!/usr/bin/env python3\nprint(1)\n".toByteArray()))
+
+        assertEquals(listOf("source.kotlin" to latin1.decodedText(), "source.python" to "#!/usr/bin/env python3\nprint(1)\n"), action.calls)
+        assertEquals("val café\nval naïve = 1\n", action.calls.first().second)
+    }
+
+    @Test
+    fun `a version that nothing names, or that is empty, isn't asked about`(): Unit = runBlocking {
+        val action = RecordingAction()
+        val useCase = HighlightTextUseCase(action)
+
+        assertNull(useCase("LICENSE", RawText("Permission is hereby granted\n".toByteArray())))
+        assertNull(useCase("data.bin", RawText(("x".repeat(300) + "\n#!/bin/sh\n").toByteArray())))
+        assertNull(useCase("src/Main.kt", RawText.EMPTY_TEXT))
         assertEquals(emptyList<Pair<String, String>>(), action.calls)
     }
 }

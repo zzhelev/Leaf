@@ -5,7 +5,10 @@ package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.domain.highlighting.HighlightedText
 import dev.app.leaf.domain.highlighting.Languages
+import dev.app.leaf.domain.highlighting.decodedText
 import dev.app.leaf.domain.interfaces.IHighlightTextAction
+import org.eclipse.jgit.diff.RawText
+import org.eclipse.jgit.util.RawParseUtils
 import javax.inject.Inject
 
 /** How much of a text's start is read for its `#!` line, so that a one-line minified file isn't copied whole. */
@@ -22,5 +25,17 @@ class HighlightTextUseCase @Inject constructor(
     suspend operator fun invoke(path: String, text: String): HighlightedText? {
         val language = Languages.of(path, text.take(MAX_FIRST_LINE).substringBefore('\n')) ?: return null
         return highlightTextAction(language.scopeName, text)
+    }
+
+    /**
+     * The colours of [text], a version that a diff holds, whose lines are decoded one at a time as the diff shows them
+     * ([decodedText]). It's decoded only when a language is found, and an empty text has none.
+     */
+    suspend operator fun invoke(path: String, text: RawText): HighlightedText? {
+        if (text.size() == 0) return null
+        val content = text.rawContent
+        val start = RawParseUtils.decode(content, 0, minOf(content.size, MAX_FIRST_LINE))
+        val language = Languages.of(path, start.substringBefore('\n')) ?: return null
+        return highlightTextAction(language.scopeName, text.decodedText())
     }
 }
