@@ -256,8 +256,8 @@ asking.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
 - `textmate` (fork-only, 2026-10-23): the engine that will colour code, a copy of kotlin-textmate's (MIT, a Kotlin port
   of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings. Only `data`'s `TextMateHighlighter`
-  uses it, whose colours the diff pane and file history draw (steps 1 to 5 of `docs/fork/syntax-highlighting.md`;
-  blame and the conflict resolver keep upstream's highlighter until step 6). `textmate/README.md` says what
+  uses it, whose colours the diff pane, file history, blame and the conflict resolver draw (steps 1 to 6 of
+  `docs/fork/syntax-highlighting.md`; upstream's highlighter goes in step 7). `textmate/README.md` says what
   Leaf changed in the copy, each a commit of its own, which differences from VS Code remain, and how to take a later
   fix from kotlin-textmate.
   - It ships 82 of shiki's grammars (`textmate/GRAMMARS.md`, copied by `textmate/tools/grammars/copy.mjs` with their
@@ -282,11 +282,26 @@ asking.
       split diff's old side the old one's, unless the diff ignored whitespace (`DiffHighlights.spansOf`).
     - `formatDiff` maps a span's offsets onto the text as drawn (`drawnOffsets`: a tab is four characters, a piece's
       line ending none), up to `MAX_HIGHLIGHTED_LINE_CHARACTERS`, under the word highlights. A word diff that isn't cut
-      from the line's own text draws plain (`spansFit`). The resolver passes upstream's highlighter as `DiffText`'s
-      `legacyHighlighter` until step 6.
+      from the line's own text draws plain (`spansFit`).
     - Tests: `FormatDiffTest`, `DiffSyntaxTest` (rendered, with the real highlighter), `DiffHighlightsTest`,
       `HighlightTextUseCaseTest`, `DiffHighlightsLoaderTest`, `HistoryViewModelTest`. View model tests that build
       `HistoryViewModel` give it `HighlightTextUseCase(NoHighlights)`.
+  - **Blame's and the conflict resolver's colours** (step 6, 2026-10-26): blame colours the file once, after it loads
+    (`BlameState.Loaded.highlighted`, kept for the blame that is still shown), and each line takes its spans
+    (`colouredLine`, `ui/diff/DiffSyntax.kt`).
+    - The resolver keeps its colours in `ConflictResolverState.syntax`, a `HighlightedVersions` that its cells look up
+      by their `RawText` (`spansOf(cell.text, cell.line)`), passed down the layouts as a parameter in place of the file's
+      path. The view model colours the base, ours and theirs when the file loads, and lines typed (`typedLines`) after
+      ours' lines before their part (`textBefore`, `HighlightTextUseCase.inContext`), so that a part that starts in a
+      comment is coloured as one. It keeps them until another file loads.
+    - The field (`ResolverEdit.syntax`, an `EditorSyntax`) starts from the rows' colours (`editStartSyntax`), so it
+      doesn't go plain, and is coloured again 80 ms after each change (`EDIT_COLOURING_DELAY`), after the same lines.
+      Until then, `EditorColours` gives the lines that didn't change their colours, and the line typed in those of its
+      characters before the change (`spansFor`). Finishing puts the field's colours on the lines typed in the same state
+      as the merge that has them, and colours them again when the field's were of an earlier text.
+    - Tests: `ResolverSyntaxTest` (domain), `HighlightTextUseCaseTest`, `EditorColoursTest`, `ResolverSyntaxColoursTest`
+      (the rows in both layouts, rendered with the real highlighter), `ConflictResolverColouringTest` (the view model,
+      built from its use cases), `BlameSyntaxTest`, and the field's colours in `ConflictResolverTest`.
 - `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
   helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
   extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
@@ -901,8 +916,8 @@ its lines, with colours while editing (section 11).
     the row's line to stay where it was, and finishing puts the line at the top back as a row.
   - Columns: `EditorRowLayout` makes the item as tall as the field or a side's lines, and the others get one filler.
     Line numbers are placed at the field's lines (`EditorLineNumbers`). Tabs show as four spaces (`TabsAsSpaces`), as
-    `DiffText` shows them, and keywords, annotations and comments in the rows' colours (`EditorColours`, plain past
-    `MAX_COLOURED_EDIT_CHARACTERS`). Without wrapping, the field doesn't wrap, scrolls with `SidewaysScroll` (its
+    `DiffText` shows them, and code in its colours (`EditorColours`, see Blame's and the conflict resolver's colours;
+    plain past `MAX_COLOURED_EDIT_CHARACTERS`). Without wrapping, the field doesn't wrap, scrolls with `SidewaysScroll` (its
     `editorWidth` lets the longest typed line be reached), and keeps the caret in sight.
   - **Opening a file that was saved** (`ResumedMerge.kt`, `resumedFrom`): `GetConflictedFileGitAction` cuts the merge
     into parts, converts the working file as `git add` would (`checkinLineEndings`, through JGit's input stream: its

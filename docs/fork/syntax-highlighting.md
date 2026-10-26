@@ -426,6 +426,32 @@ Seven steps; 2 needs 1, 3 needs 2, 5 and 6 need 3 and 4. Each builds and passes 
   rows take their side's spans; lines typed in a part are tokenized from the state the part's first line had.
 - The editor (`EditorColours`) tokenizes the field's text as it changes, up to `MAX_COLOURED_EDIT_CHARACTERS`.
 - **Tests:** the rows' colours in both layouts in `ConflictResolverTest`, `EditorColoursTest`, blame's lines.
+- **Done (2026-10-26)**, as above, with these differences:
+  - **The resolver's colours are in its state** (`ConflictResolverState.syntax`, a `HighlightedVersions`), which the
+    layouts take as a parameter in place of the file's path. A cell finds its spans by its `RawText`, as the diff's
+    lines do, so a line of the result that a side gives takes that side's colours, and lines typed their own.
+  - **Lines typed:** the engine can't be started from a line's state, so they're coloured after ours' lines before
+    their part (`textBefore`, `HighlightTextUseCase.inContext`), which leave the same state, and only their own spans
+    are kept. The resolver keeps every coloured version of the file until another one loads, so Undo and Redo colour
+    nothing again.
+  - **The field** starts from the rows' colours (`editStartSyntax`), so it doesn't go plain when editing starts, and is
+    coloured again 80 ms after each change (`EDIT_COLOURING_DELAY`), after the same lines. Until then the lines that
+    didn't change keep their colours, and the line typed in keeps those of its characters before the change
+    (`spansFor`). Finishing gives the lines typed the field's colours in the same state as the merge that has them.
+  - **Blame** colours the file after it loads, for the blame that is still shown (`BlameState.Loaded.highlighted`). It
+    drew each line with the file's line delimiter after it, which JGit gives as null for a file without a line break:
+    such a file showed "null" after its line. It draws the line alone now.
+  - **Measured** through the Dagger graph in a temporary harness, on a repository with a Kotlin conflict: the
+    resolver's versions were coloured by the time the file showed (271 ms to load), the field again 89 ms after typing
+    (80 of them the delay), blame by the time it showed.
+  - Tests: `ResolverSyntaxTest` (domain: the lookup, editing's start, the lines before a part, the field's lines while
+    its colours are older), `HighlightTextUseCaseTest` (`inContext`), `EditorColoursTest`, `ResolverSyntaxColoursTest`
+    (the rows in both layouts, rendered with the real highlighter, lines typed), `ConflictResolverColouringTest` (the
+    view model, built from its use cases: the versions, the field, finishing, Undo, another file), `BlameSyntaxTest`
+    (rendered, a file without a line break), and the field in `ConflictResolverTest`. 29 mutations (the lookup, the
+    lines before a part, the field's colours and its matching, finishing, both layouts, blame) were each caught by a
+    named test; two that didn't compile at first were rewritten so that they did. Blame's colouring in
+    `RepositoryOpenViewModel` needs the Dagger graph, and was checked in the harness.
 
 ### Step 7: removing the old highlighter, and notes
 
