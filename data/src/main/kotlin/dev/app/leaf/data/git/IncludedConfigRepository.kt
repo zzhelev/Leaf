@@ -14,6 +14,7 @@ import org.eclipse.jgit.internal.storage.file.FileRepository
 import org.eclipse.jgit.internal.storage.file.FileSnapshot
 import org.eclipse.jgit.lib.BaseRepositoryBuilder
 import org.eclipse.jgit.lib.Config
+import org.eclipse.jgit.lib.ConfigConstants
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.RepositoryBuilder
 import org.eclipse.jgit.lib.RepositoryCache
@@ -28,7 +29,8 @@ private const val TAG = "IncludedConfigRepository"
 /**
  * A repository whose config has, under the repository's own file, what git reads through `includeIf` and JGit
  * doesn't ([IncludedConfig]): JGit's commands then see the identity, signing settings, hooks folder and other
- * settings that git sees (upstream issue 186). Without such entries it reads as JGit's own repository does.
+ * settings that git sees (upstream issue 186). Without such entries it reads as JGit's own repository does. Between the
+ * two are settings that Leaf decides for JGit, in memory only ([useBuiltinLfs]).
  *
  * JGit's [FileRepository] puts its config on the user's config when it's created, so this returns a config of its own
  * for the same file, on [included], which is on the user's config. JGit's constructor reads the config before this
@@ -39,7 +41,13 @@ class IncludedConfigRepository(options: BaseRepositoryBuilder<*, *>) : FileRepos
     /** What git reads through `includeIf`, on the user's and the system's config. */
     private val included = Config(SystemReader.getInstance().userConfig)
 
-    /** The repository's own config, on [included]. Null while JGit's constructor runs. */
+    /**
+     * Settings that Leaf decides for JGit, on [included], in memory only: `config.save()` writes the repository's own
+     * file, never this. Holds JGit's built-in LFS switch ([useBuiltinLfs]).
+     */
+    private val leafSettings = Config(included)
+
+    /** The repository's own config, on [leafSettings]. Null while JGit's constructor runs. */
     private var ownConfig: FileBasedConfig? = null
 
     /** The files that [included] comes from, or that may change what git reads, as they were when it was read. */
@@ -50,7 +58,7 @@ class IncludedConfigRepository(options: BaseRepositoryBuilder<*, *>) : FileRepos
     val includedConfigLock = Mutex()
 
     init {
-        ownConfig = FileBasedConfig(included, File(commonDirectory, Constants.CONFIG), fs).apply {
+        ownConfig = FileBasedConfig(leafSettings, File(commonDirectory, Constants.CONFIG), fs).apply {
             load()
             addChangeListener { fireEvent(it) }
         }
@@ -91,7 +99,38 @@ class IncludedConfigRepository(options: BaseRepositoryBuilder<*, *>) : FileRepos
             included.fromText("")
         }
     }
+
+    /**
+     * Turns JGit's built-in LFS filters (Leaf's, `filter.lfs.usejgitbuiltin`) on or off for this repository, in
+     * memory. With them on, JGit's checkouts and staging use Leaf's LFS client, whatever `filter.lfs.smudge` and
+     * `clean` say. A value that the repository's own file sets still wins, as it's on top.
+     */
+    fun useBuiltinLfs(on: Boolean) {
+        val isOn = leafSettings.getNames(ConfigConstants.CONFIG_FILTER_SECTION, LFS_FILTER)
+            .contains(ConfigConstants.CONFIG_KEY_USEJGITBUILTIN)
+
+        if (on == isOn) {
+            return
+        }
+
+        if (on) {
+            leafSettings.setBoolean(
+                ConfigConstants.CONFIG_FILTER_SECTION,
+                LFS_FILTER,
+                ConfigConstants.CONFIG_KEY_USEJGITBUILTIN,
+                true,
+            )
+        } else {
+            leafSettings.unset(
+                ConfigConstants.CONFIG_FILTER_SECTION,
+                LFS_FILTER,
+                ConfigConstants.CONFIG_KEY_USEJGITBUILTIN,
+            )
+        }
+    }
 }
+
+private const val LFS_FILTER = "lfs"
 
 /**
  * Opens the repository at [gitDir] (a git dir, or a working tree with its `.git`) as [Git.open] does, as an

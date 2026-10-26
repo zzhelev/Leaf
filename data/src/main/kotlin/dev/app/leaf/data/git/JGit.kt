@@ -5,6 +5,7 @@ import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.cli.remote.missingObjectError
 import dev.app.leaf.data.git.config.GitIncludedConfig
 import dev.app.leaf.data.git.config.IncludedConfigSource
+import dev.app.leaf.data.git.lfs.GitLfsSetup
 import dev.app.leaf.data.git.remote_operations.sshNeedsGitError
 import dev.app.leaf.data.git.repository.unsupportedIndexError
 import dev.app.leaf.data.git.signers.gpgSigningError
@@ -30,6 +31,8 @@ class JGit(
     private val hooksDirectory: HooksDirectory? = null,
     // Fork-only: what git reads through includeIf, or null to open repositories as JGit does
     private val includedConfig: IncludedConfigSource? = null,
+    // Fork-only: whether git-lfs does the LFS work, or null to leave JGit's LFS filters as the config says
+    private val gitLfsSetup: GitLfsSetup? = null,
 ) {
     @Inject
     constructor(
@@ -37,11 +40,13 @@ class JGit(
         loginShellEnvironment: LoginShellEnvironment,
         gitHooksDirectory: GitHooksDirectory,
         gitIncludedConfig: GitIncludedConfig,
+        gitLfsSetup: GitLfsSetup,
     ) : this(
         windowsFs,
         loginShellEnvironment,
         gitHooksDirectory as HooksDirectory,
         gitIncludedConfig as IncludedConfigSource,
+        gitLfsSetup,
     )
 
     // Concurrent because cleanupExcept iterates it while other tabs open repositories
@@ -169,19 +174,32 @@ class JGit(
     /**
      * Fork-only: puts what git reads through `includeIf` under the repository's config ([IncludedConfigRepository]),
      * the first time and whenever one of the files that it depends on changed. Otherwise this only reads their state.
+     *
+     * Then turns JGit's built-in LFS filters on unless git-lfs is set up ([GitLfsSetup.jgitRunsGitLfs]): Leaf's LFS
+     * client then smudges and cleans for JGit, as it does for git's commands. Without it, JGit wrote pointer files
+     * and staged the files' bytes when git-lfs was never installed, and failed when its config was left behind.
      */
     private suspend fun refreshIncludedConfig(git: Git) {
         val repository = git.repository as? IncludedConfigRepository ?: return
-        val source = includedConfig ?: return
 
-        try {
-            repository.includedConfigLock.withLock {
-                if (repository.isIncludedConfigStale()) {
-                    repository.useIncludedConfig(source.read(repository))
+        includedConfig?.let { source ->
+            try {
+                repository.includedConfigLock.withLock {
+                    if (repository.isIncludedConfigStale()) {
+                        repository.useIncludedConfig(source.read(repository))
+                    }
                 }
+            } catch (ex: Exception) {
+                printError(TAG, "Reading the config as JGit does, as git's includes couldn't be read: ${ex.message}")
             }
-        } catch (ex: Exception) {
-            printError(TAG, "Reading the config as JGit does, as git's includes couldn't be read: ${ex.message}")
+        }
+
+        gitLfsSetup?.let { setup ->
+            try {
+                repository.useBuiltinLfs(!setup.jgitRunsGitLfs(repository))
+            } catch (ex: Exception) {
+                printError(TAG, "Could not tell whether git-lfs is set up: ${ex.message}")
+            }
         }
     }
 

@@ -4,6 +4,7 @@
 package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.common.printError
+import dev.app.leaf.data.git.lfs.lfsStore
 import dev.app.leaf.domain.models.CommitRelation
 import dev.app.leaf.domain.models.CommitSummary
 import dev.app.leaf.domain.models.ConflictContent
@@ -21,7 +22,6 @@ import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.dircache.DirCacheEntry
 import org.eclipse.jgit.errors.IncorrectObjectTypeException
 import org.eclipse.jgit.errors.MissingObjectException
-import org.eclipse.jgit.lfs.Lfs
 import org.eclipse.jgit.lfs.lib.LongObjectId
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.FileMode
@@ -132,13 +132,13 @@ private class VersionReader(
  * pointer's size, and its bytes when it's an [image] small enough to show.
  */
 internal fun lfsVersion(repository: Repository, obj: LfsObject, image: Boolean): VersionPreview.Lfs {
-    val media = Lfs(repository).getMediaFile(LongObjectId.fromString(obj.oid))
-    val downloaded = Files.isRegularFile(media) && Files.size(media) == obj.size
+    val media = repository.lfsStore().find(LongObjectId.fromString(obj.oid), obj.size)
+    val downloaded = media != null
 
     return VersionPreview.Lfs(
         obj = obj,
         downloaded = downloaded,
-        image = if (downloaded && image && obj.size <= MAX_PREVIEW_IMAGE_SIZE) {
+        image = if (media != null && image && obj.size <= MAX_PREVIEW_IMAGE_SIZE) {
             PreviewImage(Files.readAllBytes(media))
         } else {
             null

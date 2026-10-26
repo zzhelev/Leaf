@@ -4,6 +4,8 @@ import dev.app.leaf.data.git.lfs.AuthenticateLfsServerWithSshGitAction
 import dev.app.leaf.data.git.lfs.GetLfsObjectsGitAction
 import dev.app.leaf.data.git.lfs.UploadLfsObjectGitAction
 import dev.app.leaf.data.git.lfs.VerifyUploadLfsObjectGitAction
+import dev.app.leaf.data.git.lfs.lfsContentOf
+import dev.app.leaf.data.git.lfs.lfsStore
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.extensions.isHttpOrHttps
@@ -20,7 +22,6 @@ import org.eclipse.jgit.attributes.Attribute
 import org.eclipse.jgit.attributes.FilterCommandRegistry
 import org.eclipse.jgit.hooks.PrePushHook
 import org.eclipse.jgit.lfs.InstallBuiltinLfsCommand
-import org.eclipse.jgit.lfs.LfsBlobFilter
 import org.eclipse.jgit.lfs.LfsPointer
 import org.eclipse.jgit.lfs.errors.LfsException
 import org.eclipse.jgit.lib.*
@@ -28,6 +29,7 @@ import org.eclipse.jgit.revwalk.ObjectWalk
 import org.eclipse.jgit.revwalk.RevObject
 import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.util.LfsFactory
+import org.eclipse.jgit.util.TemporaryBuffer
 import java.io.IOException
 import java.io.InputStream
 import java.io.PrintStream
@@ -72,7 +74,9 @@ class AppLfsFactory @Inject constructor(
         ) {
             loader
         } else {
-            LfsBlobFilter.smudgeLfsBlob(repository, loader)
+            // The store in the common git dir, without downloading (fork-only): JGit's LfsBlobFilter looked in the
+            // worktree's own git dir, and downloaded with JGit's LFS client
+            repository.lfsContentOf(loader)
         }
     }
 
@@ -84,12 +88,17 @@ class AppLfsFactory @Inject constructor(
         attribute: Attribute?,
     ): LfsInputStream {
         return if (this.isEnabled(repository, attribute)) {
-            LfsInputStream(
-                LfsBlobFilter.cleanLfsBlob(
-                    repository,
-                    input
-                )
-            )
+            // Into the store in the common git dir, as git-lfs cleans (fork-only)
+            val pointer = TemporaryBuffer.LocalFile(null)
+
+            try {
+                pointer.use { repository.lfsStore().clean(input, it) }
+            } catch (e: IOException) {
+                pointer.destroy()
+                throw e
+            }
+
+            LfsInputStream(pointer)
         } else {
             LfsInputStream(input, length)
         }

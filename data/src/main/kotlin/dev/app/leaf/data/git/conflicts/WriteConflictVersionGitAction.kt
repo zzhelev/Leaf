@@ -10,7 +10,7 @@ import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.interfaces.IWriteConflictVersionGitAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.eclipse.jgit.lfs.Lfs
+import dev.app.leaf.data.git.lfs.lfsStore
 import org.eclipse.jgit.lfs.lib.LongObjectId
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.ObjectId
@@ -56,8 +56,7 @@ internal fun writeConflictVersion(repository: Repository, id: ObjectId, fileName
 
     repository.newObjectReader().use { reader ->
         val media = reader.lfsPointer(id)
-            ?.let { Lfs(repository).getMediaFile(LongObjectId.fromString(it.oid)) }
-            ?.takeIf { Files.isRegularFile(it) }
+            ?.let { repository.lfsStore().find(LongObjectId.fromString(it.oid), it.size) }
         val partial = Files.createTempFile(folder.toPath(), "leaf-version", ".part")
 
         try {

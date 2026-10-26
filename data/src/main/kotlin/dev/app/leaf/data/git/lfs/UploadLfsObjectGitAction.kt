@@ -8,7 +8,6 @@ import dev.app.leaf.domain.lfs.LfsObject
 import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.network.NetworkConstants
 import dev.app.leaf.domain.repositories.LfsRepository
-import org.eclipse.jgit.lfs.Lfs
 import org.eclipse.jgit.lfs.lib.AnyLongObjectId
 import org.eclipse.jgit.lib.Repository
 import javax.inject.Inject
@@ -25,7 +24,8 @@ class UploadLfsObjectGitAction @Inject constructor(
     ): Either<Unit, LfsError> {
         val uploadUrl = lfsObject.actions?.upload?.href ?: return Either.Ok(Unit)
 
-        val lfs = Lfs(repository)
+        val store = repository.lfsStore()
+        val mediaFile = store.find(oid) ?: store.mediaFile(oid)
         val uploadHeaders = lfsObject.actions?.upload?.header.orEmpty()
         val sslVerify = repository.config.isSslVerify(uploadUrl)
 
@@ -33,7 +33,7 @@ class UploadLfsObjectGitAction @Inject constructor(
             lfsRepository.uploadObject(
                 uploadUrl,
                 oid.name(),
-                lfs.getMediaFile(oid),
+                mediaFile,
                 lfsObject.size,
                 uploadHeaders,
                 null,
@@ -45,7 +45,7 @@ class UploadLfsObjectGitAction @Inject constructor(
                 lfsRepository.uploadObject(
                     uploadUrl,
                     oid.name(),
-                    lfs.getMediaFile(oid),
+                    mediaFile,
                     lfsObject.size,
                     uploadHeaders,
                     user,

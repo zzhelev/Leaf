@@ -11,7 +11,6 @@ import dev.app.leaf.domain.repositories.LfsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
-import org.eclipse.jgit.lfs.Lfs
 import org.eclipse.jgit.lfs.lib.AnyLongObjectId
 import org.eclipse.jgit.lfs.lib.Constants
 import org.eclipse.jgit.lfs.lib.LongObjectId
@@ -42,7 +41,7 @@ class DownloadLfsObjectGitAction @Inject constructor(
         val headers = lfsObject.actions?.download?.header.orEmpty()
         val sslVerify = repository.config.isSslVerify(downloadUrl)
 
-        val mediaFile = Lfs(repository).getMediaFile(oid)
+        val mediaFile = repository.lfsStore().mediaFile(oid)
         // In the same folder, so that the move is a rename
         val download = mediaFile.resolveSibling("${mediaFile.fileName}.${UUID.randomUUID()}.tmp")
 

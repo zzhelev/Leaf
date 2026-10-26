@@ -7,6 +7,7 @@ import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.GitExecutableLocator
 import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.config.IncludedConfigSource
+import dev.app.leaf.data.git.lfs.GitLfsSetup
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.services.AppSettingsService
@@ -30,11 +31,13 @@ fun testJGit(
     shellVariables: Map<String, String> = emptyMap(),
     hooksDirectory: HooksDirectory? = null,
     includedConfig: IncludedConfigSource? = null,
+    gitLfsSetup: GitLfsSetup? = null,
 ) = JGit(
     windowsFs = Provider { error("Only used on Windows") },
     loginShellEnvironment = LoginShellEnvironment { shellVariables },
     hooksDirectory = hooksDirectory,
     includedConfig = includedConfig,
+    gitLfsSetup = gitLfsSetup,
 )
 
 /**
