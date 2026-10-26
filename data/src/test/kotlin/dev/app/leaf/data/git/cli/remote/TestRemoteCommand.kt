@@ -12,6 +12,11 @@ import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.git.cli.askpass.ASKPASS_HELPER_NAME
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
+import dev.app.leaf.data.git.lfs.GitLfsSetup
+import dev.app.leaf.data.git.lfs.filter.lfsUrlSetting
+import dev.app.leaf.data.git.lfs.filter.testLfsFilter
+import dev.app.leaf.domain.lfs.LfsServer
+import org.eclipse.jgit.lib.Repository
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
 import dev.app.leaf.domain.credentials.CredentialsStateManager
@@ -28,7 +33,7 @@ import java.util.Collections
 /**
  * A [GitCliRemoteCommand] for tests, with the built askpass [helper], and git kept away from the developer's global and
  * system config (an empty [globalConfig]). [shellVariables] stand for what the login shell adds, such as a PATH
- * without git-lfs.
+ * without git-lfs. Leaf's LFS filter finds its server with [lfsServer], by default the repository's `lfs.url`.
  */
 class TestRemoteCommand(
     helper: File,
@@ -36,6 +41,7 @@ class TestRemoteCommand(
     cacheCredentials: Boolean = true,
     shellVariables: Map<String, String> = emptyMap(),
     jgit: JGit = testJGit(),
+    lfsServer: (Repository) -> LfsServer? = { repository -> lfsUrlSetting(repository)?.let { LfsServer(it, null) } },
 ) {
     val credentialsStateManager = CredentialsStateManager()
     val credentialsCache = CredentialsCacheRepository()
@@ -50,6 +56,9 @@ class TestRemoteCommand(
             "GIT_CONFIG_NOSYSTEM" to "1",
         ) + shellVariables,
     )
+
+    /** One for the command and [gitLfsFetch], as Dagger gives the app one: git-lfs is asked once a minute. */
+    private val gitLfsSetup = GitLfsSetup(gitCli)
 
     val command = GitCliRemoteCommand(
         gitCli = gitCli,
@@ -67,9 +76,10 @@ class TestRemoteCommand(
                 stateRepository.updateTaskProgress(progress)
             }
         },
+        lfsFilter = testLfsFilter(gitCli, jgit, credentialsStateManager, shellVariables, lfsServer, gitLfsSetup),
     )
 
-    val gitLfsFetch = GitLfsFetch(gitCli, command)
+    val gitLfsFetch = GitLfsFetch(gitCli, command, gitLfsSetup)
 
     val partialClone = PartialCloneFetch(jgit, command)
 }

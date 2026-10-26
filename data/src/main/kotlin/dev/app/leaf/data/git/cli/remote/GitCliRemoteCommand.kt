@@ -10,10 +10,12 @@ import dev.app.leaf.data.git.cli.GitCliOutput
 import dev.app.leaf.data.git.cli.askpass.AskpassAnswers
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.withAskpassServer
+import dev.app.leaf.data.git.lfs.filter.LfsFilter
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.errors.LfsFilterError
 import dev.app.leaf.domain.errors.RemoteOperationError
 import dev.app.leaf.domain.models.ServerHandOff
 import dev.app.leaf.domain.models.TaskProgress
@@ -35,6 +37,8 @@ import kotlin.time.Duration
  * - Leaf's in-memory cache is added as git's last credential helper, when "Cache HTTP credentials in memory" is on.
  * - git's progress goes to the processing screen, which can then cancel the command: cancelling the coroutine kills
  *   git and the programs it started. There is no timeout, as a push can take long.
+ * - Where git-lfs isn't set up, Leaf's built-in LFS client is git's LFS filter ([LfsFilter], fork-only), so that git
+ *   checks LFS files out and stages them as with git-lfs.
  */
 class GitCliRemoteCommand @Inject constructor(
     private val gitCli: GitCli,
@@ -43,11 +47,13 @@ class GitCliRemoteCommand @Inject constructor(
     private val credentialsRepository: CredentialsRepository,
     private val appSettingsService: AppSettingsService,
     private val repositoryStateRepository: RepositoryStateRepository,
+    private val lfsFilter: LfsFilter,
 ) {
     /**
      * Runs `git <args>` in [workingDirectory] and returns its output whatever the exit code, except when git failed
      * after the user closed one of its questions: that's [RemoteOperationError.PromptRefused], as git's own message
-     * ("terminal prompts disabled") would mislead.
+     * ("terminal prompts disabled") would mislead. Nor when it failed as Leaf's LFS filter couldn't download files:
+     * that's [LfsFilterError], which says why.
      *
      * @param authenticated tells from the output whether git got past authentication, so that the SSH passphrases the
      * user typed can be kept. By default, when git succeeded.
@@ -99,6 +105,8 @@ class GitCliRemoteCommand @Inject constructor(
         // A delete sends nothing but its command, which goes as soon as git has connected, and git doesn't say when
         if (handOff?.isDelete == true) handOver()
 
+        val filter = lfsFilter.forCommand(workingDirectory, helper) { stage, percent -> report(stage, percent) }
+
         val progress = GitProgressParser(
             onLine = { if (handOff != null && isHandOffLine(it)) handOver() },
         ) {
@@ -111,10 +119,10 @@ class GitCliRemoteCommand @Inject constructor(
         }
 
         val result = try {
-            withAskpassServer(answers::answer) { serverEnvironment ->
+            withAskpassServer(answers::answer, filter) { serverEnvironment ->
                 gitCli.execute(
                     workingDirectory = workingDirectory,
-                    args = cacheHelper + args,
+                    args = cacheHelper + filter?.arguments.orEmpty() + args,
                     timeout = Duration.INFINITE,
                     environment = environment + askpassEnvironment(helper) + LFS_PROGRESS + serverEnvironment,
                     input = input,
@@ -135,6 +143,12 @@ class GitCliRemoteCommand @Inject constructor(
 
         if (output.exitCode != 0 && answers.refused) {
             return Either.Err(RemoteOperationError.PromptRefused(readableGitOutput(output.stderr)))
+        }
+
+        val failedFiles = filter?.failedFiles.orEmpty()
+
+        if (output.exitCode != 0 && failedFiles.isNotEmpty()) {
+            return Either.Err(LfsFilterError(failedFiles, readableGitOutput(output.stderr)))
         }
 
         if (authenticated(output)) {
@@ -187,13 +201,15 @@ internal fun askpassEnvironment(helper: File) = mapOf(
  */
 private val LFS_PROGRESS = mapOf("GIT_LFS_FORCE_PROGRESS" to "1")
 
-/**
- * The helper as a credential helper. git runs `!` helpers with the shell, Git Bash's on Windows, so the path is quoted
- * for it, with `/` in place of `\`, which Git Bash also accepts.
- */
-internal fun credentialHelperCommand(helper: File): String {
-    val path = if (currentOs == OS.WINDOWS) helper.absolutePath.replace('\\', '/') else helper.absolutePath
-    val quoted = "'" + path.replace("'", "'\\''") + "'"
+/** The helper as a credential helper. git runs `!` helpers with the shell, as [quotedForShell] says. */
+internal fun credentialHelperCommand(helper: File): String = "!${quotedForShell(helper)} credential"
 
-    return "!$quoted credential"
+/**
+ * [program]'s path for a command that git runs with the shell, Git Bash's on Windows, such as a credential helper or a
+ * filter: quoted for it, with `/` in place of `\`, which Git Bash also accepts.
+ */
+internal fun quotedForShell(program: File): String {
+    val path = if (currentOs == OS.WINDOWS) program.absolutePath.replace('\\', '/') else program.absolutePath
+
+    return "'" + path.replace("'", "'\\''") + "'"
 }

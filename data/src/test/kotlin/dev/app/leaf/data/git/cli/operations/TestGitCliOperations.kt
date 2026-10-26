@@ -10,6 +10,7 @@ import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
+import dev.app.leaf.data.git.lfs.filter.testLfsFilter
 import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitSettings
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
@@ -41,6 +42,7 @@ fun testGitCliOperations(
             credentialsRepository = CredentialsCacheRepository(),
             appSettingsService = testAppSettings(),
             repositoryStateRepository = repositoryState,
+            lfsFilter = testLfsFilter(gitCli, jgit, credentialsStateManager),
         ),
         gitExecutableLocator = GitExecutableLocator(ProcessRunner()),
         askpassHelper = askpassHelper,

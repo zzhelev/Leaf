@@ -202,7 +202,8 @@ class GitCliLfsTest {
         val states = clone(remote, destination, url = "file://${plain.absolutePath}").toList()
 
         assertEquals(CloneState.Completed(destination), states.last())
-        assertFalse(gitLfsLog.exists()) { gitLfsLog.readText() }
+        // Whether git-lfs runs, which decides Leaf's filter, and nothing that reads the tree
+        assertEquals(listOf("version"), gitLfsLog.readLines())
     }
 
     @Test

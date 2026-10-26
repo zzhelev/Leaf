@@ -6,6 +6,7 @@ package dev.app.leaf.data.git.lfs
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.remote.commandDirectory
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.okOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.eclipse.jgit.lib.Config
@@ -51,6 +52,26 @@ class GitLfsSetup(
         return namesGitLfsFor(repository.config, "smudge", "clean") && gitLfsWorks(repository.commandDirectory())
     }
 
+    /**
+     * Whether git runs git-lfs as the LFS filter of the commands that Leaf runs in [workingDirectory], as its config
+     * there tells it to (`includeIf` included): `process` is set for the LFS filter, or `smudge` and `clean`, and
+     * git-lfs works. Otherwise Leaf's own filter must ([dev.app.leaf.data.git.lfs.filter.LfsFilter]). A config that git
+     * can't read counts as none, and git then fails anyway.
+     */
+    suspend fun gitRunsGitLfs(workingDirectory: File): Boolean {
+        val output = gitCli.execute(workingDirectory, listOf("config", "-z", "--get-regexp", FILTER_COMMANDS))
+            .okOrNull()
+            // git exits with 1 when no key matches
+            ?.takeIf { it.exitCode == 0 }
+            ?: return false
+
+        val commands = parseConfigEntries(output.stdout)
+        val namesGitLfs = !commands["filter.lfs.process"].isNullOrBlank() ||
+            (!commands["filter.lfs.smudge"].isNullOrBlank() && !commands["filter.lfs.clean"].isNullOrBlank())
+
+        return namesGitLfs && gitLfsWorks(workingDirectory)
+    }
+
     /** Whether `git lfs version` works, asked again after [CHECK_AGAIN_AFTER]. */
     suspend fun gitLfsWorks(directory: File): Boolean {
         fresh()?.let { return it.works }
@@ -68,6 +89,19 @@ class GitLfsSetup(
 
     private class Check(val works: Boolean, val at: Long)
 }
+
+/** The keys of the LFS filter's commands, for `git config --get-regexp`, whose patterns are POSIX extended ones. */
+private const val FILTER_COMMANDS = """^filter\.lfs\.(process|smudge|clean)$"""
+
+/**
+ * `git config -z --get-regexp`'s [output] by key, the last value of each: entries end with a NUL, and a key without a
+ * value (which git reads as true) has no line feed after it.
+ */
+internal fun parseConfigEntries(output: String): Map<String, String?> = output.split('\u0000')
+    .filter { it.isNotEmpty() }
+    .associate { entry ->
+        if ('\n' in entry) entry.substringBefore('\n') to entry.substringAfter('\n') else entry to null
+    }
 
 /** Whether [config] gives the LFS filter each of the commands [keys] (`smudge`, `clean`, `process`), none blank. */
 internal fun namesGitLfsFor(config: Config, vararg keys: String): Boolean = keys.all { key ->

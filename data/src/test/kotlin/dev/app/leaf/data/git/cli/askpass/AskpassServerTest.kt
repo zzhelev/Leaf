@@ -3,22 +3,32 @@
 
 package dev.app.leaf.data.git.cli.askpass
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.Collections
 
 /** The real `leaf-askpass` against [withAskpassServer], run the way git and ssh run it. */
 @DisabledOnOs(OS.WINDOWS)
 class AskpassServerTest {
+    @TempDir
+    lateinit var tempDir: File
+
     private lateinit var helper: File
     private val requests: MutableList<AskpassRequest> = Collections.synchronizedList(mutableListOf())
 
@@ -120,6 +130,75 @@ class AskpassServerTest {
     }
 
     @Test
+    fun `as git's LFS filter it relays git's pipe to Leaf's filter and back, from the folder git runs it in`(): Unit =
+        runBlocking {
+            val directories = Collections.synchronizedList(mutableListOf<File>())
+            val filter = AskpassFilter { directory, input, output ->
+                directories += directory
+                output.write(input.readBytes().decodeToString().uppercase().toByteArray())
+                output.flush()
+            }
+            // More than a pipe and a socket hold at once
+            val request = "git's request ".repeat(200_000)
+
+            val result = withAskpassServer(answering(null), filter) { environment ->
+                runHelper(environment, listOf("lfs-filter"), input = request, directory = tempDir)
+            }
+
+            assertEquals(HelperResult(0, request.uppercase()), result)
+            assertEquals(listOf(tempDir.canonicalFile), directories.map { it.canonicalFile })
+            assertEquals(emptyList<AskpassRequest>(), requests)
+        }
+
+    // Repeated, as cancelling right after the filter starts once raced with what stops it
+    @RepeatedTest(20)
+    fun `cancelling the command stops the filter, though git still has its pipe open`(): Unit = runBlocking {
+        val started = CompletableDeferred<Unit>()
+        val ended = CompletableDeferred<Unit>()
+        val filter = AskpassFilter { _, input, _ ->
+            started.complete(Unit)
+            try {
+                input.read()
+            } finally {
+                ended.complete(Unit)
+            }
+        }
+        val process = AtomicReference<Process?>()
+
+        val command = launch(Dispatchers.IO) {
+            withAskpassServer(answering(null), filter) { variables ->
+                // As git does, it keeps the helper's stdin open, and waits
+                process.set(
+                    ProcessBuilder(helper.absolutePath, "lfs-filter")
+                        .apply { environment().putAll(variables) }
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start()
+                )
+                awaitCancellation()
+            }
+        }
+
+        try {
+            withTimeout(10_000) { started.await() }
+            command.cancel()
+            withTimeout(10_000) { command.join() }
+            assertTrue(ended.isCompleted)
+        } finally {
+            process.get()?.destroyForcibly()
+        }
+    }
+
+    @Test
+    fun `without a filter for the command, the helper is refused as git's LFS filter`(): Unit = runBlocking {
+        val result = withAskpassServer(answering("unused")) { environment ->
+            runHelper(environment, listOf("lfs-filter"), input = "git's request")
+        }
+
+        assertEquals(HelperResult(1, ""), result)
+        assertEquals(emptyList<AskpassRequest>(), requests)
+    }
+
+    @Test
     fun `the socket's folder is removed once the command is done`(): Unit = runBlocking {
         val socket = withAskpassServer(answering("x")) { environment -> File(environment.getValue(ASKPASS_SOCKET_VARIABLE)) }
 
@@ -131,9 +210,15 @@ class AskpassServerTest {
         answer
     }
 
-    private suspend fun runHelper(variables: Map<String, String>, args: List<String>, input: String? = null) =
+    private suspend fun runHelper(
+        variables: Map<String, String>,
+        args: List<String>,
+        input: String? = null,
+        directory: File? = null,
+    ) =
         withContext(Dispatchers.IO) {
             val process = ProcessBuilder(listOf(helper.absolutePath) + args)
+                .directory(directory)
                 .apply {
                     environment().remove(ASKPASS_SOCKET_VARIABLE)
                     environment().remove(ASKPASS_TOKEN_VARIABLE)

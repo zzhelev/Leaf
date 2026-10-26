@@ -58,6 +58,16 @@ data class LfsDownloadError(val error: GitError) : GitError
 /** Leaf's built-in LFS client couldn't download one LFS object, as [error] says. */
 data class LfsObjectDownloadError(val error: LfsError) : GitError
 
+/**
+ * git stopped, as Leaf's LFS filter couldn't download the objects of [files]. HEAD and the index are as they were, and
+ * the files that git wrote before it stopped are left in the working tree, as with git-lfs. [output] is what git
+ * printed.
+ */
+data class LfsFilterError(val files: List<LfsFileFailure>, val output: String) : GitError
+
+/** A file whose LFS object couldn't be downloaded, as [error] says. [path] is from the command's working tree. */
+data class LfsFileFailure(val path: String, val error: LfsError)
+
 /** A ref that the remote refused: `!  <source>:<destination>  [rejected] (<reason>)` in `git push --porcelain`. */
 data class RejectedRef(val destination: String, val reason: RejectReason, val detail: String)
 

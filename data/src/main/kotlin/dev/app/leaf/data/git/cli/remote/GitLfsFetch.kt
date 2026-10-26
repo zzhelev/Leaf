@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.cli.remote
 
 import dev.app.leaf.common.printLog
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.lfs.GitLfsSetup
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.LfsDownloadError
@@ -17,11 +18,8 @@ import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.treewalk.TreeWalk
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "GitLfsFetch"
-
-private val LFS_VERSION_TIMEOUT = 10.seconds
 
 /**
  * Downloads the LFS objects of a commit with git-lfs, `git lfs fetch <remote> <commit>`, before JGit checks the commit
@@ -35,6 +33,7 @@ private val LFS_VERSION_TIMEOUT = 10.seconds
 class GitLfsFetch @Inject constructor(
     private val gitCli: GitCli,
     private val remoteCommand: GitCliRemoteCommand,
+    private val gitLfsSetup: GitLfsSetup,
 ) {
     /**
      * @param onProgress receives git-lfs's progress ("Downloading LFS objects"), by default on the processing screen.
@@ -52,7 +51,7 @@ class GitLfsFetch @Inject constructor(
 
         val directory = repository.commandDirectory()
 
-        if (gitCli.run(directory, listOf("lfs", "version"), LFS_VERSION_TIMEOUT) !is Either.Ok) {
+        if (!gitLfsSetup.gitLfsWorks(directory)) {
             printLog(TAG, "git-lfs isn't installed, so Leaf's built-in client downloads the LFS objects")
             return Either.Ok(false)
         }

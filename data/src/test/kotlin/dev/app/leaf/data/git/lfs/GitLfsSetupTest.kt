@@ -142,6 +142,58 @@ class GitLfsSetupTest {
         assertFalse(File(gitDir, "config").readText().contains("usejgitbuiltin", ignoreCase = true))
     }
 
+    @Test
+    fun `git runs git-lfs when git's config names its process, or its smudge and clean, and git-lfs works`(): Unit =
+        runBlocking {
+            withRepository(gitLfsInstalled = false) { repository ->
+                val workTree = repository.workTree
+                val setup = setup(pathWithGitLfs)
+
+                assertFalse(setup.gitRunsGitLfs(workTree))
+
+                setFilter(repository, "process", "git-lfs filter-process")
+                assertTrue(setup.gitRunsGitLfs(workTree))
+                assertFalse(setup(pathWithoutGitLfs).gitRunsGitLfs(workTree))
+
+                // Blank: no command to run, as git-lfs's smudge and clean aren't either
+                setFilter(repository, "process", " ")
+                assertFalse(setup.gitRunsGitLfs(workTree))
+
+                setFilter(repository, "smudge", "git-lfs smudge -- %f")
+                assertFalse(setup.gitRunsGitLfs(workTree))
+
+                setFilter(repository, "clean", "git-lfs clean -- %f")
+                assertTrue(setup.gitRunsGitLfs(workTree))
+            }
+        }
+
+    @Test
+    fun `git's rule reads what git reads, a global config and an includeIf too`(): Unit = runBlocking {
+        withRepository(gitLfsInstalled = false) { repository ->
+            val included = File(tempDir, "lfs.gitconfig").apply {
+                writeText("[filter \"lfs\"]\n\tprocess = git-lfs filter-process\n")
+            }
+            File(tempDir, "empty.gitconfig").writeText(
+                "[includeIf \"gitdir:${repository.directory.canonicalPath}\"]\n\tpath = ${included.path}\n"
+            )
+
+            assertTrue(setup(pathWithGitLfs).gitRunsGitLfs(repository.workTree))
+            // Outside the repository, the includeIf doesn't apply
+            assertFalse(setup(pathWithGitLfs).gitRunsGitLfs(tempDir))
+        }
+    }
+
+    @Test
+    fun `git config's entries are read by key, the last value of each`() {
+        val output = "filter.lfs.process\ngit-lfs filter-process\u0000filter.lfs.required\u0000" +
+            "filter.lfs.process\nother\nline\u0000"
+
+        assertEquals(
+            mapOf("filter.lfs.process" to "other\nline", "filter.lfs.required" to null),
+            parseConfigEntries(output),
+        )
+    }
+
     private fun setup(path: String) = GitLfsSetup(gitCli(path))
 
     /** git with [path], kept away from the developer's config. */

@@ -94,6 +94,9 @@ import dev.app.leaf.app.generated.resources.error_gpg_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_hook_rejection
 import dev.app.leaf.app.generated.resources.error_lfs_download_failed
 import dev.app.leaf.app.generated.resources.error_lfs_object_credentials_denied
+import dev.app.leaf.app.generated.resources.error_lfs_filter_failed
+import dev.app.leaf.app.generated.resources.error_lfs_filter_files_written
+import dev.app.leaf.app.generated.resources.error_lfs_filter_more_files
 import dev.app.leaf.app.generated.resources.error_lfs_object_http
 import dev.app.leaf.app.generated.resources.error_lfs_object_no_download
 import dev.app.leaf.app.generated.resources.error_lfs_object_no_server
@@ -218,6 +221,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is ConflictError.ConflictsLeft -> listOf(path)
     is UnsupportedIndexError -> index.shellCommands() + listOfNotNull((index as? UnsupportedIndex.UnknownExtension)?.extension)
     is PartialCloneFetchError -> error?.monospaceParts().orEmpty()
+    is LfsFilterError -> files.map { it.path }
     is SeveralPushUrlsError -> urls
     else -> emptyList()
 }
@@ -397,6 +401,7 @@ fun AppError.getErrorText(): String {
 
         is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
         is LfsObjectDownloadError -> error.getLfsObjectErrorText()
+        is LfsFilterError -> getLfsFilterErrorText()
 
         is UnsupportedIndexError -> {
             val commands = index.shellCommands()
@@ -514,6 +519,24 @@ fun AppError.getErrorText(): String {
         }
     }
 }
+
+/** The files whose objects Leaf's LFS filter couldn't download, grouped by why (fork-only). */
+@Composable
+private fun LfsFilterError.getLfsFilterErrorText(): String {
+    val groups = files.groupBy { it.error }.map { (error, failures) ->
+        val paths = failures.map { it.path }
+        val more = paths.size - MAX_LFS_FILTER_PATHS
+        val shown = paths.take(MAX_LFS_FILTER_PATHS) +
+            listOfNotNull(stringResource(Res.string.error_lfs_filter_more_files, more).takeIf { more > 0 })
+
+        error.getLfsObjectErrorText() + "\n\n" + shown.joinToString("\n")
+    }
+
+    return (listOf(stringResource(Res.string.error_lfs_filter_failed)) + groups +
+        stringResource(Res.string.error_lfs_filter_files_written)).joinToString("\n\n")
+}
+
+private const val MAX_LFS_FILTER_PATHS = 5
 
 /** Why the built-in LFS client couldn't download an object (fork-only). */
 @Composable

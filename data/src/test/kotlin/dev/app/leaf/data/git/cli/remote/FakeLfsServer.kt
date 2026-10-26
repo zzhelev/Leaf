@@ -20,6 +20,9 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.Base64
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * A Git LFS server for tests, on 127.0.0.1: the batch API and the basic transfer, with the objects in [storage].
@@ -33,6 +36,12 @@ class FakeLfsServer(private val storage: File) : AutoCloseable {
     /** When set, a download sends only that many bytes of the object, then drops the connection. */
     @Volatile
     var dropDownloadsAfter: Int? = null
+
+    /** When set, a download waits until it's opened (30 s at most), and counts in [downloadsWaiting] meanwhile. */
+    @Volatile
+    var downloadGate: CountDownLatch? = null
+
+    val downloadsWaiting = AtomicInteger()
 
     /** `METHOD path user-agent` for each request. */
     val requests: MutableList<String> = Collections.synchronizedList(mutableListOf())
@@ -123,6 +132,15 @@ class FakeLfsServer(private val storage: File) : AutoCloseable {
         if (!file.isFile) {
             exchange.sendResponseHeaders(404, -1)
             return
+        }
+
+        downloadGate?.let { gate ->
+            downloadsWaiting.incrementAndGet()
+            try {
+                gate.await(30, TimeUnit.SECONDS)
+            } finally {
+                downloadsWaiting.decrementAndGet()
+            }
         }
 
         val cut = dropDownloadsAfter

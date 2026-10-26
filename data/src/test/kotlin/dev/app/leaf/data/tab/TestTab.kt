@@ -61,6 +61,7 @@ import dev.app.leaf.data.git.workspace.DiscardAllGitAction
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
+import dev.app.leaf.data.git.lfs.filter.testLfsFilter
 import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.workspace.FileRestorePlanner
 import dev.app.leaf.data.git.workspace.RestoreFileVersionGitAction
@@ -487,6 +488,7 @@ class TestTab(
                 credentialsRepository = CredentialsCacheRepository(),
                 appSettingsService = testAppSettings(),
                 repositoryStateRepository = repositoryState,
+                lfsFilter = testLfsFilter(gitCli, jgit),
             ),
         ),
     )
@@ -516,6 +518,7 @@ class TestTab(
         credentialsRepository = CredentialsCacheRepository(),
         appSettingsService = testAppSettings(),
         repositoryStateRepository = repositoryState,
+        lfsFilter = testLfsFilter(gitCli, jgit),
     )
     val getBranchDeletionPlan = GetBranchDeletionPlanUseCase(
         useCaseExecutor = useCaseExecutor,

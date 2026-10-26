@@ -6,20 +6,28 @@ package dev.app.leaf.data.git.cli.askpass
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printError
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import org.eclipse.jgit.util.FileUtils
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.StandardProtocolFamily
 import java.net.UnixDomainSocketAddress
 import java.nio.ByteBuffer
+import java.nio.channels.Channels
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.nio.file.Files
@@ -43,6 +51,9 @@ private const val MAX_SOCKET_PATH_LENGTH = 100
 private const val ANSWERED: Byte = '1'.code.toByte()
 private const val REFUSED: Byte = '0'.code.toByte()
 
+/** The request of `leaf-askpass lfs-filter`, whose payload is the folder that git runs the filter in. */
+private const val LFS_FILTER_KIND = "lfs-filter"
+
 /** What `leaf-askpass` was run for. */
 sealed interface AskpassRequest {
     /** A prompt from git or ssh, which expects an answer. */
@@ -56,6 +67,15 @@ sealed interface AskpassRequest {
 }
 
 /**
+ * Serves git's long-running LFS filter, which the helper relays (`leaf-askpass lfs-filter`, fork-only): [serve] reads
+ * git's side of the protocol from [input] and writes Leaf's to [output], until git closes it. [directory] is where git
+ * runs the filter, the top of a working tree.
+ */
+fun interface AskpassFilter {
+    suspend fun serve(directory: File, input: InputStream, output: OutputStream)
+}
+
+/**
  * Answers `leaf-askpass` while [block] runs a git command, then stops. [block] gets the variables that point the
  * helper to this server, which only the git command and the programs it starts receive.
  *
@@ -63,15 +83,17 @@ sealed interface AskpassRequest {
  * and answers only requests that carry the random token, so that no other program can read what the user types.
  *
  * [answer] returns the answer, or null when the user refused. It runs once per request, while the helper waits.
+ * [filter] serves the helper as git's LFS filter, for as long as git runs it; without one, the helper is refused.
  */
 suspend fun <T> withAskpassServer(
     answer: suspend (AskpassRequest) -> String?,
+    filter: AskpassFilter? = null,
     block: suspend (environment: Map<String, String>) -> T,
 ): T = coroutineScope {
     val token = ByteArray(TOKEN_BYTES).also { SecureRandom().nextBytes(it) }.toHex()
     val listener = AskpassListener.open()
 
-    val serving = launch(Dispatchers.IO) { listener.serve(token, answer) }
+    val serving = launch(Dispatchers.IO) { listener.serve(token, answer, filter) }
 
     try {
         block(mapOf(ASKPASS_SOCKET_VARIABLE to listener.address, ASKPASS_TOKEN_VARIABLE to token))
@@ -86,7 +108,11 @@ private class AskpassListener(
     val address: String,
     private val socketDirectory: File?,
 ) {
-    suspend fun serve(token: String, answer: suspend (AskpassRequest) -> String?) = coroutineScope {
+    suspend fun serve(
+        token: String,
+        answer: suspend (AskpassRequest) -> String?,
+        filter: AskpassFilter?,
+    ) = coroutineScope {
         while (isActive) {
             val connection = try {
                 runInterruptible { channel.accept() }
@@ -95,7 +121,7 @@ private class AskpassListener(
                 return@coroutineScope
             }
 
-            launch { connection.use { handle(it, token, answer) } }
+            launch { connection.use { handle(it, token, answer, filter) } }
         }
     }
 
@@ -103,6 +129,7 @@ private class AskpassListener(
         connection: SocketChannel,
         token: String,
         answer: suspend (AskpassRequest) -> String?,
+        filter: AskpassFilter?,
     ) {
         val fields = try {
             runInterruptible { connection.readFields() }
@@ -115,6 +142,11 @@ private class AskpassListener(
 
         if (!MessageDigest.isEqual(requestToken.toByteArray(), token.toByteArray())) {
             printError(TAG, "Refused a request without this command's token")
+            return
+        }
+
+        if (kind == LFS_FILTER_KIND) {
+            serveFilter(connection, File(payload), filter)
             return
         }
 
@@ -141,15 +173,56 @@ private class AskpassListener(
         }
 
         try {
-            runInterruptible {
-                val buffer = ByteBuffer.wrap(bytes)
-                while (buffer.hasRemaining()) {
-                    connection.write(buffer)
-                }
-            }
+            runInterruptible { connection.writeFully(bytes) }
         } catch (e: IOException) {
             // The helper is gone: git or ssh stopped waiting for it
             printError(TAG, "Could not answer the helper", e)
+        }
+    }
+
+    /**
+     * Takes the helper's connection as git's LFS filter, for as long as git runs it, or refuses it without a [filter].
+     * A failure ends the filter, which git reports, and nothing else: the other requests of the command go on.
+     */
+    private suspend fun serveFilter(connection: SocketChannel, directory: File, filter: AskpassFilter?) {
+        try {
+            runInterruptible { connection.writeFully(byteArrayOf(if (filter == null) REFUSED else ANSWERED)) }
+        } catch (e: IOException) {
+            printError(TAG, "Could not answer the LFS filter", e)
+            return
+        }
+
+        if (filter == null) {
+            printError(TAG, "Refused the LFS filter, which this command doesn't run")
+            return
+        }
+
+        try {
+            coroutineScope {
+                // The filter reads and writes blocking: closing the connection is what stops it when the command is
+                // cancelled. Started at once, as a coroutine cancelled before it starts runs no finally block
+                val closer = launch(start = CoroutineStart.UNDISPATCHED) {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        connection.close()
+                    }
+                }
+
+                try {
+                    filter.serve(
+                        directory,
+                        BufferedInputStream(Channels.newInputStream(connection)),
+                        BufferedOutputStream(Channels.newOutputStream(connection)),
+                    )
+                } finally {
+                    closer.cancel()
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            printError(TAG, "The LFS filter stopped", e)
         }
     }
 
@@ -239,6 +312,14 @@ private fun SocketChannel.readFields(): List<String>? {
     }
 
     return fields
+}
+
+private fun SocketChannel.writeFully(bytes: ByteArray) {
+    val buffer = ByteBuffer.wrap(bytes)
+
+    while (buffer.hasRemaining()) {
+        write(buffer)
+    }
 }
 
 private fun ByteArray.toHex() = joinToString("") { "%02x".format(it) }
