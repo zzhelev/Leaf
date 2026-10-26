@@ -109,3 +109,11 @@ already has. Then update the table above.
   cd textmate/tools/conformance && npm ci && npm run generate
   ```
 - `ShippedGrammarsTest` checks the index: each grammar's scope, what it embeds, its injections and its licence.
+
+The same samples make a repository to look at the colours in Leaf by hand: a file in each language, commits whose diffs
+add, take out and change lines in every file, and a merge stopped at conflicts in four of them. It makes the folder
+(`/tmp/leaf-syntax-demo` unless given) again on each run, and touches nothing but a folder that it made:
+
+```bash
+textmate/tools/demo/make-demo.sh && ./gradlew :app:run --args="/tmp/leaf-syntax-demo"
+```
