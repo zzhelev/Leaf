@@ -3,7 +3,6 @@ package dev.app.leaf.domain.usecases
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.interfaces.IContinueRebaseGitAction
-import dev.app.leaf.domain.interfaces.IGetRebaseInteractiveStateGitAction
 import dev.app.leaf.domain.interfaces.IGetRepositoryStateGitAction
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.RebaseInteractiveState

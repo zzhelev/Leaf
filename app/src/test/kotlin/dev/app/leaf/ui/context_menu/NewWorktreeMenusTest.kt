@@ -83,9 +83,7 @@ class NewWorktreeMenusTest {
         onRevertCommit = {},
         onCherryPickCommit = {},
         onResetBranch = {},
-        onRebaseInteractive = {},
         onCopyCommitHash = {},
-        isLastCommit = false,
         showInAmend = false,
         onNewWorktree = onNewWorktree,
     )

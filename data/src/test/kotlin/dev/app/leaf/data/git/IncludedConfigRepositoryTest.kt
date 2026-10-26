@@ -13,8 +13,6 @@ import dev.app.leaf.data.git.config.GitIncludedConfig
 import dev.app.leaf.data.git.log.CherryPickCommitGitAction
 import dev.app.leaf.data.git.log.RevertCommitGitAction
 import dev.app.leaf.data.git.rebase.RebaseBranchGitAction
-import dev.app.leaf.data.git.rebase.ResumeRebaseInteractiveGitAction
-import dev.app.leaf.data.git.rebase.StartRebaseInteractiveGitAction
 import dev.app.leaf.data.git.signers.GpgProgramSigner
 import dev.app.leaf.data.git.stash.CreateSnapshotStashGitAction
 import dev.app.leaf.data.git.stash.DeleteStashGitAction
@@ -30,10 +28,8 @@ import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.PullType
 import kotlinx.coroutines.runBlocking
-import org.eclipse.jgit.api.RebaseCommand
 import org.eclipse.jgit.lib.GpgConfig
 import org.eclipse.jgit.lib.PersonIdent
-import org.eclipse.jgit.lib.RebaseTodoLine
 import org.eclipse.jgit.lib.Signers
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
@@ -163,29 +159,6 @@ class IncludedConfigRepositoryTest {
         val result = RebaseBranchGitAction(jgit, partialClone(jgit))(gitDir(repository), branch(repository, "main"))
 
         assertEquals(false, result.okOrNull())
-        assertEquals("$AGENT|$WORK", identities(repository))
-    }
-
-    @Test
-    fun `an interactive rebase is committed as git's identity`(): Unit = runBlocking {
-        val repository = workRepository()
-        commitOnAgentBranch(repository)
-        stage(repository, "second.txt")
-        git(repository, "commit", "-m", "Second on main", "--author=$AGENT")
-
-        StartRebaseInteractiveGitAction(jgit, partialClone(jgit))(gitDir(repository), commit(repository, "HEAD~2"))
-        val reword = object : RebaseCommand.InteractiveHandler {
-            override fun prepareSteps(steps: MutableList<RebaseTodoLine>) {
-                steps.first().action = RebaseTodoLine.Action.REWORD
-            }
-
-            override fun modifyCommitMessage(message: String): String = "Reworded"
-        }
-        val result = ResumeRebaseInteractiveGitAction(jgit)(gitDir(repository), reword)
-
-        assertInstanceOf(Either.Ok::class.java, result)
-        assertEquals("Reworded", git(repository, "log", "-1", "--format=%s", "HEAD~1").trim())
-        assertEquals("$WORK|$WORK", identities(repository, "HEAD~1"))
         assertEquals("$AGENT|$WORK", identities(repository))
     }
 

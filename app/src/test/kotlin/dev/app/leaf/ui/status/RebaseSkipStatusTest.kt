@@ -11,7 +11,6 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.models.EntryType
-import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
@@ -46,7 +45,6 @@ class RebaseSkipStatusTest {
         rebaseStop: RebaseStop? = stop,
         staged: List<StatusEntry> = emptyList(),
         unstaged: List<StatusEntry> = emptyList(),
-        rebaseInteractiveState: RebaseInteractiveState = RebaseInteractiveState.None,
     ) = StatusState(
         isLoading = false,
         staged = staged,
@@ -54,7 +52,6 @@ class RebaseSkipStatusTest {
         commitMessage = TextFieldValue(""),
         repositoryState = repositoryState,
         rebaseStop = rebaseStop,
-        rebaseInteractiveState = rebaseInteractiveState,
     )
 
     @Test
@@ -64,10 +61,6 @@ class RebaseSkipStatusTest {
         assertFalse(state(rebaseStop = stop.copy(isEditStop = true)).canSkipRebaseCommit, "An edit stop")
         assertFalse(state(rebaseStop = null).canSkipRebaseCommit, "No commit to name")
         assertFalse(state(repositoryState = RepositoryState.SAFE).canSkipRebaseCommit)
-        assertFalse(
-            state(rebaseInteractiveState = RebaseInteractiveState.AwaitingInteraction(emptyList())).canSkipRebaseCommit,
-            "The interactive rebase's list, before it starts",
-        )
     }
 
     @Test

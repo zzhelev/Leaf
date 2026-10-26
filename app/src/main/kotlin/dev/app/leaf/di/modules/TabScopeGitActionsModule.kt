@@ -300,10 +300,6 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsGetCommitFromRebaseLineGitAction(action: GetCommitFromRebaseLineGitAction): IGetCommitFromRebaseLineGitAction
-
-    @Binds
-    @TabScope
     fun bindsGetDiffContentGitAction(action: GetDiffContentGitAction): IGetDiffContentGitAction
 
     @Binds
@@ -333,18 +329,6 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetLfsObjectsGitAction(action: GetLfsObjectsGitAction): IGetLfsObjectsGitAction
-
-    @Binds
-    @TabScope
-    fun bindsGetRebaseAmendCommitIdGitAction(action: GetRebaseAmendCommitIdGitAction): IGetRebaseAmendCommitIdGitAction
-
-    @Binds
-    @TabScope
-    fun bindsGetRebaseInteractiveStateGitAction(action: GetRebaseInteractiveStateGitAction): IGetRebaseInteractiveStateGitAction
-
-    @Binds
-    @TabScope
-    fun bindsGetRebaseInteractiveTodoLinesGitAction(action: GetRebaseInteractiveTodoLinesGitAction): IGetRebaseInteractiveTodoLinesGitAction
 
     @Binds
     @TabScope
@@ -456,10 +440,6 @@ interface TabScopeGitActionsModule {
 
     @Binds
     @TabScope
-    fun bindsResumeRebaseInteractiveGitAction(action: ResumeRebaseInteractiveGitAction): IResumeRebaseInteractiveGitAction
-
-    @Binds
-    @TabScope
     fun bindsRevertCommitGitAction(action: SelectingRevertCommitGitAction): IRevertCommitGitAction
 
     @Binds
@@ -501,10 +481,6 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsStageUntrackedFileGitAction(action: StageUntrackedFileGitAction): IStageUntrackedFileGitAction
-
-    @Binds
-    @TabScope
-    fun bindsStartRebaseInteractiveGitAction(action: StartRebaseInteractiveGitAction): IStartRebaseInteractiveGitAction
 
     @Binds
     @TabScope

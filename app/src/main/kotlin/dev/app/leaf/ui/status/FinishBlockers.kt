@@ -141,9 +141,7 @@ val StatusState.skipDiscards: Int
  * already applied. git's skip and JGit's leave the commit out and go on, conflicts open or resolved (git 2.54, JGit 7.7).
  */
 val StatusState.canSkipRebaseCommit: Boolean
-    get() = repositoryState.isRebasing &&
-        rebaseInteractiveState !is RebaseInteractiveState.AwaitingInteraction &&
-        rebaseStop?.isEditStop == false
+    get() = repositoryState.isRebasing && rebaseStop?.isEditStop == false
 
 /**
  * The tracked files with unstaged changes that aren't the stopped commit's (fork-only), which block a rebase's Skip:

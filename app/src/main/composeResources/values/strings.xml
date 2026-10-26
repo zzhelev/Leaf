@@ -49,8 +49,6 @@
     <string name="menu_settings">Settings</string>
     <string name="menu_settings_tooltip">Leaf's settings</string>
 
-    <string name="rebase_interactive_view_title">Rebase interactive</string>
-    <string name="rebase_interactive_view_button_complete_rebase">Complete rebase</string>
 
     <!-- Bottom info bar -->
     <string name="bottom_info_bar_name_and_email">%1$s &lt;%2$s&gt;</string>
@@ -397,7 +395,6 @@
     <string name="log_context_menu_checkout_commit">Checkout commit</string>
     <string name="log_context_menu_create_branch">Create branch</string>
     <string name="log_context_menu_create_tag">Create tag</string>
-    <string name="log_context_menu_rebase_interactive">Rebase interactive</string>
     <string name="log_context_menu_revert_commit">Revert commit</string>
     <string name="log_context_menu_cherry_pick_commit">Cherry-pick commit</string>
     <string name="log_context_menu_reset_current_branch_to_commit">Reset current branch to this commit</string>

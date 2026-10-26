@@ -31,7 +31,6 @@ sealed interface TaskType {
     data object RenameBranch : TaskType
     data object MergeBranch : TaskType
     data object RebaseBranch : TaskType
-    data object RebaseInteractive : TaskType
     data object ContinueRebase : TaskType
     data object AbortRebase : TaskType
     data object SkipRebase : TaskType
@@ -65,8 +64,6 @@ sealed interface TaskType {
     data object DeleteRemote : TaskType
     data object LoadAuthor : TaskType
     data object SaveAuthor : TaskType
-    data object GetCommitForRebase : TaskType
-    data object GetLinesForRebaseInteractive : TaskType
     data object GetFileCommits : TaskType
     data object GetCommitDiffEntries : TaskType
     data object RefreshLog : TaskType

@@ -860,7 +860,6 @@ fun CommitsList(
                 onPushToRemoteBranch = { onAction(LogAction.PushToRemoteBranch(it)) },
                 onPullFromRemoteBranch = { onAction(LogAction.PullFromRemoteBranch(it)) },
                 onRebaseBranch = { onAction(LogAction.Rebase(it)) },
-                onRebaseInteractive = { onAction(LogAction.RebaseInteractive(graphNode.commit)) },
                 onRevCommitSelected = {
                     listFocusRequester.requestFocus()
                     onAction(commitRowClick(graphNode.commit, isStash, isCompareClick(), isRangeClick()))
@@ -1123,7 +1122,6 @@ private fun CommitLine(
     onPullFromRemoteBranch: (Branch) -> Unit,
     onRebaseBranch: (Branch) -> Unit,
     onRevCommitSelected: () -> Unit,
-    onRebaseInteractive: () -> Unit,
     onShowStatusAmending: () -> Unit,
     onCheckoutCommit: () -> Unit,
     onRevertCommit: () -> Unit,
@@ -1138,7 +1136,6 @@ private fun CommitLine(
     branches: List<Branch>,
     tags: List<Tag>,
 ) {
-    val isLastCommitOfCurrentBranch = currentBranch?.hash == graphNode.hash
     val onNewWorktree = LocalOnNewWorktree.current
 
     ContextMenu(
@@ -1165,10 +1162,8 @@ private fun CommitLine(
                     onCreateNewTag = showCreateNewTag,
                     onRevertCommit = onRevertCommit,
                     onCherryPickCommit = onCherryPickCommit,
-                    onRebaseInteractive = onRebaseInteractive,
                     onCopyCommitHash = onCopyCommitHash,
                     onResetBranch = { resetBranch() },
-                    isLastCommit = isLastCommitOfCurrentBranch,
                     showInAmend = showInAmend,
                     onNewWorktree = onNewWorktree?.let { { it(NewWorktreeStart.Commit(graphNode.commit)) } },
                     compare = CompareMenuItems(

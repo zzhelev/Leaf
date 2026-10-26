@@ -115,13 +115,14 @@ class OperationInProgressBannerTest {
     }
 
     @Test
-    fun `the interactive rebase's list, which has its own buttons, gets no banner`() {
+    fun `a rebase whose todo hasn't started, as git rebase -i in a terminal with its editor open, gets the banner`() {
+        // Upstream's list used to take this state, without a banner, and offered to complete the rebase with JGit
         val state = StatusState(
             repositoryState = RepositoryState.REBASING_INTERACTIVE,
-            rebaseInteractiveState = RebaseInteractiveState.AwaitingInteraction(emptyList()),
+            rebaseInteractiveState = RebaseInteractiveState.ProcessingCommits(commitToAmendId = null),
         )
 
-        assertNull(operationInProgress(state))
+        assertEquals(Operation.REBASE, operationInProgress(state)?.operation)
     }
 
     @Test

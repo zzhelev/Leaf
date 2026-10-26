@@ -24,7 +24,6 @@ import dev.app.leaf.domain.errors.BranchOperation
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.UnsupportedIndexError
 import dev.app.leaf.domain.errors.okOrNull
-import dev.app.leaf.domain.exceptions.InvalidMessageException
 import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.extensions.openFileInFolder
 import dev.app.leaf.domain.extensions.toMutableSetAndAdd
@@ -103,7 +102,6 @@ import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import dev.app.leaf.viewmodels.newLazyListState
 import dev.app.leaf.viewmodels.sidepanel.*
 import kotlinx.coroutines.CoroutineScope
-import dev.app.leaf.domain.rebase.withFirstStepPicked
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -113,12 +111,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.eclipse.jgit.api.RebaseCommand.InteractiveHandler
 import org.eclipse.jgit.blame.BlameResult
 import org.eclipse.jgit.diff.DiffEntry
-import org.eclipse.jgit.lib.AbbreviatedObjectId
 import org.eclipse.jgit.lib.Constants
-import org.eclipse.jgit.lib.RebaseTodoLine
 import org.jetbrains.compose.resources.getString
 import java.io.File
 import javax.inject.Inject
@@ -193,10 +188,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val applyStashUseCase: ApplyStashUseCase,
     private val popStashUseCase: PopStashUseCase,
     private val deleteStashUseCase: DeleteStashUseCase,
-    private val startRebaseInteractiveUseCase: StartRebaseInteractiveUseCase,
     private val cherryPickCommitUseCase: CherryPickCommitUseCase,
     private val revertCommitUseCase: RevertCommitUseCase,
-    private val abortRebaseUseCase: AbortRebaseUseCase,
     private val appSettings: AppSettingsService,
     private val addSelectedDiffUseCase: AddSelectedDiffUseCase,
     private val getSummaryFromStatusUseCase: GetSummaryFromStatusUseCase,
@@ -212,8 +205,6 @@ class RepositoryOpenViewModel @Inject constructor(
     private val getDiffUseCase: GetDiffUseCase,
     private val repositoryStateRepository: RepositoryStateRepository,
     private val settings: AppSettingsService,
-    private val getCommitFromRebaseLineUseCase: GetCommitFromRebaseLineUseCase,
-    private val resumeRebaseInteractiveUseCase: ResumeRebaseInteractiveUseCase,
     private val repositoryDataRepository: RepositoryDataRepository,
     private val statusViewModelExtenderFactory: StatusViewModelExtender.Factory,
     private val commitChangesViewModelExtenderFactory: CommitChangesViewModelExtender.Factory,
@@ -260,7 +251,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 RebaseInteractiveState.None
             }
         }
-        .mutableStateIn(viewModelScope, RebaseInteractiveState.None)
+        .stateIn(RebaseInteractiveState.None)
 
     val filter: StateFlow<String>
         field = MutableStateFlow("")
@@ -1930,7 +1921,6 @@ class RepositoryOpenViewModel @Inject constructor(
             is LogAction.PullFromRemoteBranch -> pullFromRemoteBranch(action.branch)
             is LogAction.PushToRemoteBranch -> pushToRemoteBranch(action.branch)
             is LogAction.Rebase -> rebaseBranch(action.branch)
-            is LogAction.RebaseInteractive -> rebaseInteractive(action.commit)
             is LogAction.RevertCommit -> revertCommit(action.commit)
             LogAction.UncommittedChangesSelected -> selectUncommittedChanges()
             LogAction.UncommittedChangesPicked -> pickUncommittedChanges()
@@ -2120,7 +2110,6 @@ class RepositoryOpenViewModel @Inject constructor(
         removeCloseableView(CloseableView.LOG_SEARCH)
     }
 
-    private fun rebaseInteractive(commit: Commit) = startRebaseInteractiveUseCase(commit)
 
     fun loadMoreLogItems(firstVisibleItemIndex: Int) = viewModelScope.launch {
         val logState = this@RepositoryOpenViewModel.logState.value
@@ -2358,8 +2347,6 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    var rewordSteps = ArrayDeque<RebaseLine>()
-
     fun removeSelectedDiff(selectedToRemove: Set<DiffType.CommitDiff>) {
         val diffSelected = diffSelected.value
 
@@ -2377,140 +2364,6 @@ class RepositoryOpenViewModel @Inject constructor(
             this.diffSelected.value = newDiffSelected
         }
     }
-
-    private fun isSameRebase(rebaseLines: List<RebaseLine>, state: RebaseInteractiveState): Boolean {
-        if (state is RebaseInteractiveState.AwaitingInteraction) {
-            val stepsList = state.data
-
-            if (rebaseLines.count() != stepsList.count()) {
-                return false
-            }
-
-            return rebaseLines.map { it.commit } == stepsList.map { it.commit }
-        }
-
-        return false
-    }
-
-    fun continueRebaseInteractive() {
-        val rebaseState = this.rebaseInteractiveState.value
-
-        val interactiveHandlerContinue = object : InteractiveHandler {
-            override fun prepareSteps(steps: MutableList<RebaseTodoLine>) {
-                if (rebaseState !is RebaseInteractiveState.AwaitingInteraction) {
-                    throw Exception("prepareSteps called when rebaseState is not Loaded") // Should never happen, just in case
-                }
-
-                // In case a dropped step left a squash or fixup first
-                val newSteps = rebaseState.data.withFirstStepPicked().toMutableList()
-                rewordSteps = ArrayDeque(newSteps.filter { it.action == RebaseLine.Action.REWORD })
-
-                val newRebaseTodoLines = newSteps
-                    .filter { it.action != RebaseLine.Action.DROP } // Remove dropped lines
-                    .map {
-                        RebaseTodoLine(
-                            when (it.action) {
-                                RebaseLine.Action.PICK -> RebaseTodoLine.Action.PICK
-                                RebaseLine.Action.REWORD -> RebaseTodoLine.Action.REWORD
-                                RebaseLine.Action.SQUASH -> RebaseTodoLine.Action.SQUASH
-                                RebaseLine.Action.FIXUP -> RebaseTodoLine.Action.FIXUP
-                                RebaseLine.Action.EDIT -> RebaseTodoLine.Action.EDIT
-                                RebaseLine.Action.COMMENT -> RebaseTodoLine.Action.COMMENT
-                                else -> throw IllegalStateException("Illegal action ${it.action}")
-                            },
-                            AbbreviatedObjectId.fromString(it.commit),
-                            it.shortMessage,
-                        )
-                    }
-
-                steps.clear()
-                steps.addAll(newRebaseTodoLines)
-            }
-
-            override fun modifyCommitMessage(commit: String): String {
-                // This can be called when there aren't any reword steps if squash is used.
-                val step = rewordSteps.removeFirstOrNull() ?: return commit
-
-                val rebaseState = rebaseInteractiveState.value
-                if (rebaseState !is RebaseInteractiveState.AwaitingInteraction) {
-                    throw Exception("modifyCommitMessage called when rebaseState is not Loaded") // Should never happen, just in case
-                }
-
-                return rebaseState
-                    .data
-                    .firstOrNull { it.commit == step.commit }
-                    ?.let { line ->
-                        line.modifiedMessage ?: line.fullMessage
-                    }
-                    ?: throw InvalidMessageException("Message for commit $commit is unexpectedly null")
-            }
-        }
-
-        resumeRebaseInteractiveUseCase(interactiveHandlerContinue)
-    }
-
-    fun onCommitMessageChanged(rebaseLine: RebaseLine, newMessage: String) {
-        val rebaseState = this.rebaseInteractiveState.value
-
-        if (rebaseState !is RebaseInteractiveState.AwaitingInteraction)
-            return
-
-
-        val rebaseLines = rebaseState.data.toMutableList()
-        val currentValueIndex = rebaseLines.indexOf(rebaseLine)
-
-        rebaseLines[currentValueIndex] = rebaseLine.copy(modifiedMessage = newMessage)
-
-        this.rebaseInteractiveState.value = rebaseState.copy(data = rebaseLines)
-    }
-
-    fun onCommitActionChanged(commit: String, rebaseAction: RebaseLine.Action) {
-        val rebaseState = rebaseInteractiveState.value
-
-        if (rebaseState !is RebaseInteractiveState.AwaitingInteraction)
-            return
-
-        val newStepsList =
-            rebaseState.data.toMutableList() // Change the list reference to update the flow with .toList()
-
-        val stepIndex = newStepsList.indexOfFirst {
-            it.commit == commit
-        }
-
-        if (stepIndex >= 0) {
-            val step = newStepsList[stepIndex]
-            newStepsList[stepIndex] = step.copy(action = rebaseAction)
-
-            this.rebaseInteractiveState.value = rebaseState.copy(data = newStepsList)
-        }
-    }
-
-    fun cancel() {
-        abortRebaseUseCase()
-    }
-
-    fun selectLine(line: RebaseLine) = viewModelScope.launch {
-        val fullCommit = getCommitFromRebaseLineUseCase(line.commit, line.fullMessage).okOrNull()
-
-        if (fullCommit != null) {
-            selectedItem.value = SelectedItem.CommitItem(fullCommit, isStash = false, scrollToItem = false)
-        }
-    }
-
-    fun moveCommit(from: Int, to: Int) {
-        val state = rebaseInteractiveState.value
-
-        if (state is RebaseInteractiveState.AwaitingInteraction) {
-
-            val newStepsList = state.data.toMutableList().apply {
-                add(to, removeAt(from))
-            }
-
-            // A squash or fixup moved to the top, or left there, becomes a pick
-            this.rebaseInteractiveState.value = state.copy(data = newStepsList.withFirstStepPicked())
-        }
-    }
-
 
     fun openFileInFolder(folderPath: String?) = viewModelScope.launch {
         if (folderPath != null) {

@@ -25,7 +25,6 @@ import dev.app.leaf.domain.models.CenterSplitSizes
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.NewWorktreeStart
 import dev.app.leaf.domain.models.PullType
-import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.CloseableView
@@ -539,7 +538,6 @@ fun MainContentView(
     onNavigate: (Screen) -> Unit,
 ) {
     val diffSelected by viewModel.diffSelected.collectAsState()
-    val rebaseInteractiveState by viewModel.rebaseInteractiveState.collectAsState()
     // Fork-only: the pane's width is kept while it is folded, and comes back when it opens
     val branchesPaneFolded by viewModel.branchesPaneFolded.collectAsState()
     // Fork-only: its width is kept too, and the pane shows anyway while something needs it
@@ -572,13 +570,7 @@ fun MainContentView(
 
     TripleVerticalSplitPanel(
         modifier = Modifier.fillMaxSize(),
-        firstWidth = if (
-            rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction || branchesPaneFolded || commitEditorState != null
-        ) {
-            0f
-        } else {
-            firstWidth
-        },
+        firstWidth = if (branchesPaneFolded || commitEditorState != null) 0f else firstWidth,
         thirdWidth = if (changesPane.isShown) thirdWidth else 0f,
         first = {
             SidePanel(
@@ -595,11 +587,6 @@ fun MainContentView(
 
                 if (editor != null) {
                     CommitEditor(state = editor, onAction = viewModel::onCommitEditorAction)
-                } else if (
-                    rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction
-                    && diffSelected == null
-                ) {
-                    RebaseInteractive(viewModel, rebaseInteractiveState)
                 } else if (blameState is BlameState.Loaded && !blameState.isMinimized) {
                     val tabFocusRequester = LocalTabFocusRequester.current
 
@@ -638,8 +625,7 @@ fun MainContentView(
                         LogAndDiffSplit(
                             modifier = Modifier.weight(1f, true),
                             sizes = splitSizes,
-                            // The interactive rebase's list isn't the log: a diff still covers it, as it always did
-                            keepsLog = keepsLog && rebaseInteractiveState !is RebaseInteractiveState.AwaitingInteraction,
+                            keepsLog = keepsLog,
                             isDiffShown = showDiff || missingFile != null,
                             onSizesChange = { splitSizes = it },
                             onSizesChangeFinished = { viewModel.saveCenterSplitSizes(splitSizes) },
@@ -737,7 +723,7 @@ fun MainContentView(
                         onHistory = { viewModel.fileHistory(it) },
                         commitChangesState = commitChangesState,
                     )
-                } else if (rebaseInteractiveState !is RebaseInteractiveState.AwaitingInteraction) {
+                } else {
                     StatusPane(
                         statusState = statusState,
                         completedTasks = viewModel.completedTasks,
@@ -760,7 +746,7 @@ fun MainContentView(
         onFirstSizeChange = {
             val newWidth = firstWidth + it / density
 
-            if (newWidth > 150 && rebaseInteractiveState !is RebaseInteractiveState.AwaitingInteraction) {
+            if (newWidth > 150) {
                 firstWidth = newWidth
                 viewModel.setFirstPaneWidth(newWidth)
             }

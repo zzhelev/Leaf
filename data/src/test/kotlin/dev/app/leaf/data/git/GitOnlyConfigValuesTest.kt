@@ -25,8 +25,6 @@ import dev.app.leaf.data.git.log.CherryPickCommitGitAction
 import dev.app.leaf.data.git.log.RevertCommitGitAction
 import dev.app.leaf.data.git.rebase.ContinueRebaseGitAction
 import dev.app.leaf.data.git.rebase.RebaseBranchGitAction
-import dev.app.leaf.data.git.rebase.ResumeRebaseInteractiveGitAction
-import dev.app.leaf.data.git.rebase.StartRebaseInteractiveGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.stash.ApplyStashGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
@@ -50,9 +48,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.api.RebaseCommand
 import org.eclipse.jgit.lib.Config
-import org.eclipse.jgit.lib.RebaseTodoLine
 import org.eclipse.jgit.lib.RepositoryState
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.util.SystemReader
@@ -216,29 +212,6 @@ class GitOnlyConfigValuesTest {
     }
 
     @Test
-    fun `an interactive rebase stops at conflicts with zdiff3's layout`(): Unit = runBlocking {
-        branches(Conflict)
-        git.run(work, "switch", "feature")
-
-        assertEquals(Either.Ok(Unit), keepingConfig(ZDIFF3) { rebaseInteractively(onto = "main") })
-
-        assertEquals(RepositoryState.REBASING_INTERACTIVE, repositoryState())
-        assertEquals(Conflict.result, conflictIn(work))
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = ["patience", "default", "minimal"])
-    fun `an interactive rebase rebases`(algorithm: String): Unit = runBlocking {
-        branches(Clean)
-        git.run(work, "switch", "feature")
-
-        assertEquals(Either.Ok(Unit), keepingConfig("diff.algorithm=$algorithm") { rebaseInteractively(onto = "main") })
-
-        assertEquals(RepositoryState.SAFE, repositoryState())
-        assertEquals(Clean.result, File(work, FILE).readText())
-    }
-
-    @Test
     fun `a cherry-pick stops at conflicts with zdiff3's layout`(): Unit = runBlocking {
         branches(Conflict)
 
@@ -360,22 +333,6 @@ class GitOnlyConfigValuesTest {
     }
 
     private suspend fun merge(branch: String) = MergeBranchGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, branch(branch), fastForward = true)
-
-    /** Starts an interactive rebase onto [onto] and runs its steps as they are, as the rebase screen does. */
-    private suspend fun rebaseInteractively(onto: String): Either<Unit, GitError> {
-        val started = StartRebaseInteractiveGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, commit(onto))
-
-        if (started is Either.Err) {
-            return started
-        }
-
-        val keepSteps = object : RebaseCommand.InteractiveHandler {
-            override fun prepareSteps(steps: MutableList<RebaseTodoLine>?) {}
-            override fun modifyCommitMessage(message: String?) = message.orEmpty()
-        }
-
-        return ResumeRebaseInteractiveGitAction(jgit)(gitDir, keepSteps)
-    }
 
     private fun formatDiff(): FormatDiffGitAction {
         val getCurrentBranch = GetCurrentBranchGitAction(GetBranchesGitAction(JGitBranchMapper(), jgit), jgit)

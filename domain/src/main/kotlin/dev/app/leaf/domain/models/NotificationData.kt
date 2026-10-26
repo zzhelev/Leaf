@@ -52,7 +52,6 @@ fun TaskType.successTitle(): String? {
         TaskType.RenameBranch -> "Branch renamed"
         TaskType.MergeBranch -> "Merge completed"
         TaskType.RebaseBranch -> "Rebase completed"
-        TaskType.RebaseInteractive -> "Interactive rebase completed"
         TaskType.ContinueRebase -> "Rebase continued"
         TaskType.AbortRebase -> "Rebase aborted"
         TaskType.SkipRebase -> "Rebase step skipped"

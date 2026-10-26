@@ -14,9 +14,7 @@ fun logContextMenu(
     onRevertCommit: () -> Unit,
     onCherryPickCommit: () -> Unit,
     onResetBranch: () -> Unit,
-    onRebaseInteractive: () -> Unit,
     onCopyCommitHash: () -> Unit,
-    isLastCommit: Boolean,
     showInAmend: Boolean,
     onNewWorktree: (() -> Unit)? = null,
     // Fork-only: comparing the row with the selected commit or the current branch
@@ -71,13 +69,6 @@ fun logContextMenu(
     add(ContextMenuElement.ContextSeparator)
 
     addCompareItems(compare)
-
-    if (!isLastCommit) {
-        addContextMenu(
-            composableLabel = { stringResource(Res.string.log_context_menu_rebase_interactive) },
-            onClick = onRebaseInteractive
-        )
-    }
 
     addContextMenu(
         composableLabel = { stringResource(Res.string.log_context_menu_revert_commit) },

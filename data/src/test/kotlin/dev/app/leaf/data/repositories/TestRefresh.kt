@@ -36,8 +36,6 @@ import dev.app.leaf.domain.models.WorktreeBaseBranch
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.usecases.GetLogUseCase
-import dev.app.leaf.domain.usecases.GetRebaseInteractiveTodoLinesUseCase
-import dev.app.leaf.domain.usecases.GetRebaseLinesFullMessageUseCase
 import dev.app.leaf.domain.usecases.GetRemotesUseCase
 import dev.app.leaf.domain.usecases.GetTrackingBranchUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
@@ -109,8 +107,6 @@ fun testRefreshDataUseCase(
         getTagsGitAction = getTags,
         getRefDatesGitAction = mockk(),
         getRepositoryState = mockk(),
-        getRebaseInteractiveTodoLinesUseCase = GetRebaseInteractiveTodoLinesUseCase(mockk(), executor),
-        getRebaseLinesFullMessageUseCase = GetRebaseLinesFullMessageUseCase(mockk(), executor),
         getPersistedCommitMessagesGitAction = getCommitMessages,
         getTrackingBranchUseCase = GetTrackingBranchUseCase(mockk(), executor),
         getLogUseCase = GetLogUseCase(

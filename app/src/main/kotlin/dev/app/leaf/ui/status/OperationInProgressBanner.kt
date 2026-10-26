@@ -22,7 +22,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.ConflictSides
-import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.theme.bottomEdge
 import dev.app.leaf.theme.styleColors
@@ -47,14 +46,10 @@ data class OperationInProgress(
 
 /**
  * What the banner shows, or null when the repository isn't in the middle of a merge, rebase, cherry-pick or revert.
- * None while the interactive rebase's list is open, which has its own buttons. It follows the repository, so it shows
- * too when git in a terminal or an agent stopped at conflicts, and stays until the operation is finished or aborted.
+ * It follows the repository, so it shows too when git in a terminal or an agent stopped at conflicts, and stays until
+ * the operation is finished or aborted.
  */
 fun operationInProgress(statusState: StatusState): OperationInProgress? {
-    if (statusState.rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction) {
-        return null
-    }
-
     val repositoryState = statusState.repositoryState
     val operation = when {
         // Fork-only: git's sequencer, also where JGit reads no operation (`--no-commit`, or stopped by local changes)

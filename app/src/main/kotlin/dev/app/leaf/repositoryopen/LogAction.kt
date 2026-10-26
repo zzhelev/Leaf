@@ -13,7 +13,6 @@ sealed interface LogAction {
     data class CherryPickCommit(val commit: Commit) : LogAction
     data class CheckoutRemoteBranch(val branch: Branch) : LogAction
     data class CheckoutBranch(val branch: Branch) : LogAction
-    data class RebaseInteractive(val commit: Commit) : LogAction
     data class CommitSelected(val commit: Commit, val isStash: Boolean) : LogAction
 
     /** Fork-only: ⌘-click on a row (Ctrl-click elsewhere), which compares it with the selection. */

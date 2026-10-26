@@ -7,7 +7,6 @@ import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.UseCaseExecutor
 import dev.app.leaf.domain.WorktreesRefreshRunner
 import dev.app.leaf.domain.errors.Either
-import dev.app.leaf.domain.errors.flatten
 import dev.app.leaf.domain.errors.mapOk
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.interfaces.*
@@ -36,8 +35,6 @@ class RefreshDataUseCase @Inject constructor(
     private val getTagsGitAction: IGetTagsGitAction,
     private val getRefDatesGitAction: IGetRefDatesGitAction,
     private val getRepositoryState: IGetRepositoryStateGitAction,
-    private val getRebaseInteractiveTodoLinesUseCase: GetRebaseInteractiveTodoLinesUseCase,
-    private val getRebaseLinesFullMessageUseCase: GetRebaseLinesFullMessageUseCase,
     private val getPersistedCommitMessagesGitAction: IGetPersistedCommitMessagesGitAction,
     private val getTrackingBranchUseCase: GetTrackingBranchUseCase,
     private val getLogUseCase: GetLogUseCase,
@@ -258,49 +255,19 @@ class RefreshDataUseCase @Inject constructor(
             val state = (repositoryDataRepository.repositoryState.value as? DataState.Loaded<RepositoryState>)?.data
 
             if (state == RepositoryState.REBASING_INTERACTIVE) {
-                // TODO Error local handling or keep as it is?
-
-                // TODO is this check necessary with this newer arch?
-//            val isSameRebase = isSameRebase(rebaseLines, _rebaseState.value)
-
-//            if (!isSameRebase) {
-//                return@either Either.Ok(RebaseInteractiveViewState.Loaded(rebaseLines, messages))
-//                val firstLine = rebaseLines.firstOrNull()
-// TODO Check what is this logic for and if still necessary
-//                if (firstLine != null) {
-//                    val fullCommit = getCommitFromRebaseLineUseCase(firstLine.commit, firstLine.shortMessage)
-//                    tabState.newSelectedCommit(fullCommit)
-//                }
-//            }
-
+                // Fork-only: upstream's list waited here for a rebase whose todo hadn't started yet (no `done`). Leaf no
+                // longer starts one, as the commit editor hands git its todo, so a rebase in that state (`git rebase -i`
+                // in a terminal, with its editor open) is processing commits too
                 repositoryDataRepository.updateRebaseInteractiveState(repositoryPath) {
                     val rebaseMergeDir = File(repositoryPath, RebaseConstants.REBASE_MERGE)
-                    val doneFile = File(rebaseMergeDir, RebaseConstants.DONE)
-                    val stoppedShaFile = File(rebaseMergeDir, RebaseConstants.STOPPED_SHA)
 
-                    val newState = when {
-                        !rebaseMergeDir.exists() -> RebaseInteractiveState.None
-                        doneFile.exists() || stoppedShaFile.exists() -> {
-                            val commitId: String? = getRebaseAmendCommitId(repositoryPath)
-
-                            RebaseInteractiveState.ProcessingCommits(commitId)
+                    Either.Ok(
+                        if (rebaseMergeDir.exists()) {
+                            RebaseInteractiveState.ProcessingCommits(getRebaseAmendCommitId(repositoryPath))
+                        } else {
+                            RebaseInteractiveState.None
                         }
-
-                        else -> {
-                            val lines = getRebaseInteractiveTodoLinesUseCase()
-                                .mapOk { originalLines ->
-                                    getRebaseLinesFullMessageUseCase(originalLines)
-                                }
-                                .flatten()
-
-                            when (lines) {
-                                is Either.Err -> return@updateRebaseInteractiveState lines
-                                is Either.Ok -> RebaseInteractiveState.AwaitingInteraction(lines.value)
-                            }
-                        }
-                    }
-
-                    Either.Ok(newState)
+                    )
                 }
             } else {
                 repositoryDataRepository.updateRebaseInteractiveState(repositoryPath) {

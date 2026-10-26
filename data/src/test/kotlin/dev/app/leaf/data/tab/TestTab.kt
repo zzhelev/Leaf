@@ -36,8 +36,6 @@ import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.log.JGitGraphRevWalker
 import dev.app.leaf.data.git.rebase.AbortRebaseGitAction
 import dev.app.leaf.data.git.rebase.ContinueRebaseGitAction
-import dev.app.leaf.data.git.rebase.GetCommitFromRebaseLineGitAction
-import dev.app.leaf.data.git.rebase.GetRebaseInteractiveTodoLinesGitAction
 import dev.app.leaf.data.git.rebase.GitCliRebase
 import dev.app.leaf.data.git.rebase.SelectingAbortRebaseGitAction
 import dev.app.leaf.data.git.rebase.SelectingContinueRebaseGitAction
@@ -100,7 +98,6 @@ import dev.app.leaf.domain.usecases.RewriteBranchUseCase
 import dev.app.leaf.domain.usecases.GetOntoBaseCheckUseCase
 import dev.app.leaf.domain.usecases.UndoBranchRewriteUseCase
 import dev.app.leaf.data.mappers.JGitIdentityMapper
-import dev.app.leaf.data.mappers.JGitRebaseTodoLineMapper
 import dev.app.leaf.data.mappers.JGitSubmoduleMapper
 import dev.app.leaf.data.mappers.JGitTagMapper
 import dev.app.leaf.data.mappers.RemoteConfigToRemoteMapper
@@ -139,8 +136,6 @@ import dev.app.leaf.domain.usecases.FollowRemovedWorktreeUseCase
 import dev.app.leaf.domain.usecases.GetAuthorUseCase
 import dev.app.leaf.domain.usecases.GetLogUseCase
 import dev.app.leaf.domain.usecases.GetNewWorktreeContextUseCase
-import dev.app.leaf.domain.usecases.GetRebaseInteractiveTodoLinesUseCase
-import dev.app.leaf.domain.usecases.GetRebaseLinesFullMessageUseCase
 import dev.app.leaf.domain.usecases.GetRemotesUseCase
 import dev.app.leaf.domain.usecases.GetTrackingBranchUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeMergeUseCase
@@ -266,14 +261,6 @@ class TestTab(
         getTagsGitAction = getTags,
         getRefDatesGitAction = GetRefDatesGitAction(jgit),
         getRepositoryState = GetRepositoryStateGitAction(jgit, RepositoryStateMapper()),
-        getRebaseInteractiveTodoLinesUseCase = GetRebaseInteractiveTodoLinesUseCase(
-            GetRebaseInteractiveTodoLinesGitAction(jgit, JGitRebaseTodoLineMapper()),
-            useCaseExecutor,
-        ),
-        getRebaseLinesFullMessageUseCase = GetRebaseLinesFullMessageUseCase(
-            GetCommitFromRebaseLineGitAction(commitMapper, jgit),
-            useCaseExecutor,
-        ),
         getPersistedCommitMessagesGitAction = GetPersistedCommitMessagesGitAction(jgit),
         getTrackingBranchUseCase = GetTrackingBranchUseCase(GetTrackingBranchGitAction(jgit), useCaseExecutor),
         getLogUseCase = getLog,

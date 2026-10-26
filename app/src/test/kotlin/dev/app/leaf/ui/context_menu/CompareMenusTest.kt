@@ -41,7 +41,7 @@ class CompareMenusTest {
                 "Compare with selected (5d5537f)",
                 "Compare with main (current)",
                 SEPARATOR,
-                "Rebase interactive",
+                "Revert commit",
             ),
             labelsOf(items).dropWhile { it != "Copy commit hash" }.take(6),
         )
@@ -323,9 +323,7 @@ class CompareMenusTest {
         onRevertCommit = {},
         onCherryPickCommit = {},
         onResetBranch = {},
-        onRebaseInteractive = {},
         onCopyCommitHash = {},
-        isLastCommit = false,
         showInAmend = false,
         compare = compare,
     )
