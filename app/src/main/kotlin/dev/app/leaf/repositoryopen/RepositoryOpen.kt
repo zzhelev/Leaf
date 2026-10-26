@@ -590,6 +590,7 @@ fun MainContentView(
                     Blame(
                         filePath = blameState.filePath,
                         blameResult = blameState.blameResult,
+                        highlighted = blameState.highlighted,
                         onClose = {
                             viewModel.resetBlameState()
                             // Fork-only: blame had the focus, so the tab takes it back, as when the diff closes

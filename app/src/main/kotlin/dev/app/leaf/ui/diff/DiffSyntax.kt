@@ -9,7 +9,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.buildAnnotatedString
 import dev.app.leaf.domain.extensions.removeLineDelimiters
+import dev.app.leaf.domain.extensions.replaceTabs
 import dev.app.leaf.domain.highlighting.DiffHighlights
 import dev.app.leaf.domain.highlighting.SyntaxSpan
 import dev.app.leaf.domain.models.MatchLine
@@ -50,6 +52,19 @@ internal fun drawnOffsets(pieces: List<String>): IntArray {
  */
 internal fun spansFit(text: String, matchLine: MatchLine?): Boolean =
     matchLine == null || matchLine.diffs.joinToString("") { it.text }.removeLineDelimiters() == text.removeLineDelimiters()
+
+/**
+ * [text], a line of a file, as blame draws it: tabs as four spaces, without its line ending, coloured with [spans] up to
+ * [MAX_HIGHLIGHTED_LINE_CHARACTERS] (step 6).
+ */
+fun colouredLine(text: String, spans: List<SyntaxSpan>, colors: SyntaxColors): AnnotatedString {
+    val shown = text.replaceTabs().removeLineDelimiters()
+
+    return buildAnnotatedString {
+        append(shown)
+        addSyntaxStyles(spans, listOf(text), minOf(shown.length, MAX_HIGHLIGHTED_LINE_CHARACTERS), colors)
+    }
+}
 
 /**
  * Colours the text that the diff draws for a line cut into [pieces] with [spans], the offsets of the line's own text,

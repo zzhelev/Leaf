@@ -60,6 +60,7 @@ import dev.app.leaf.domain.sorting.RefFolderExpansion
 import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
+import dev.app.leaf.domain.highlighting.HighlightedText
 import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
@@ -226,8 +227,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val undoBranchRewriteUseCase: UndoBranchRewriteUseCase,
     private val getOntoBaseCheckUseCase: GetOntoBaseCheckUseCase,
     private val stoppedWaitingCheck: StoppedWaitingCheck,
-    // Fork-only: the diff's syntax colours
-    highlightTextUseCase: HighlightTextUseCase,
+    // Fork-only: the diff's and blame's syntax colours
+    private val highlightTextUseCase: HighlightTextUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -1508,8 +1509,12 @@ class RepositoryOpenViewModel @Inject constructor(
     /** How many folders every tab's watcher holds, while that is near what macOS delivers events for (fork-only). */
     val watchWarning: StateFlow<WatchUsage?> = watchRegistrations.warning
 
+    /** The blame being loaded or coloured (fork-only): another one stops it. */
+    private var blameJob: Job? = null
+
     fun blameFile(filePath: String) {
-        viewModelScope.launch {
+        blameJob?.cancel()
+        blameJob = viewModelScope.launch {
             _blameState.value = BlameState.Loading(filePath)
 
             when (val result = blameFileUseCase(filePath)) {
@@ -1524,7 +1529,14 @@ class RepositoryOpenViewModel @Inject constructor(
                 }
 
                 is Either.Ok -> {
-                    _blameState.value = BlameState.Loaded(filePath, result.value)
+                    val blame = result.value
+                    _blameState.value = BlameState.Loaded(filePath, blame)
+
+                    // Fork-only: the file's colours, once it's coloured, for the blame that is still shown
+                    val highlighted = highlightTextUseCase(filePath, blame.resultContents) ?: return@launch
+                    _blameState.update { state ->
+                        if (state is BlameState.Loaded && state.blameResult === blame) state.copy(highlighted = highlighted) else state
+                    }
                 }
             }
         }
@@ -2371,7 +2383,13 @@ class RepositoryOpenViewModel @Inject constructor(
 sealed interface BlameState {
     data class Loading(val filePath: String) : BlameState
 
-    data class Loaded(val filePath: String, val blameResult: BlameResult, val isMinimized: Boolean = false) : BlameState
+    /** [highlighted]: the file's colours (fork-only), null while it's coloured or when nothing colours it. */
+    data class Loaded(
+        val filePath: String,
+        val blameResult: BlameResult,
+        val isMinimized: Boolean = false,
+        val highlighted: HighlightedText? = null,
+    ) : BlameState
 
     data object None : BlameState
 }
