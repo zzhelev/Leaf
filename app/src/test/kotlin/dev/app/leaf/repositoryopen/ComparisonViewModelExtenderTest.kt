@@ -812,7 +812,10 @@ class ComparisonViewModelExtenderTest {
         commitsOnlyInB = listOf(c1, c3)
         setBranches(agent1Hash = "a2")
 
-        val after = withTimeout(5.seconds) { extender.state.first { it != null && it.bCommit == "a2" && it.shownCommit == null } }!!
+        // The shown commit and its closeable view go before the new read shows, so wait for the read too
+        val after = withTimeout(5.seconds) {
+            extender.state.first { it != null && it.bCommit == "a2" && it.shownCommit == null && !it.isLoading }
+        }!!
         assertEquals(listOf("c1", "c3"), after.comparison!!.commitsOnlyInB.map { it.hash })
         assertEquals(listOf(CloseableView.COMPARISON), closeableViews.toList())
     }

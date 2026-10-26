@@ -34,6 +34,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
@@ -63,8 +64,8 @@ class CommitEditorControllerTest {
     private val starts = mutableListOf<Pair<RebasePlan, Boolean>>()
     private var runResult: Either<BranchRewriteResult, AppError> = Either.Ok(result())
     private var startResult: Either<PlanRebaseOutcome, AppError> = Either.Ok(PlanRebaseOutcome.Stopped("/repo/.git", "/repo", true))
-    private val rewritten = mutableListOf<Pair<RebasePlan, Int>>()
-    private val started = mutableListOf<RebasePlan>()
+    private val rewritten = MutableStateFlow(emptyList<Pair<RebasePlan, Int>>())
+    private val started = MutableStateFlow(emptyList<RebasePlan>())
     private val closeables = mutableListOf<String>()
     private val onto = OntoBaseCheck.Clean(OntoBase(RewriteFixtures.MAIN, "5".repeat(40)), newCommits = 2)
 
@@ -82,8 +83,8 @@ class CommitEditorControllerTest {
         filesOf = { commit -> listOf(PlanFile("src/${commit.shortHash}.kt", org.eclipse.jgit.diff.DiffEntry.ChangeType.MODIFY)) },
         run = { plan -> runs += plan; CompletableDeferred(runResult) },
         start = { plan, autostash -> starts += plan to autostash; CompletableDeferred(startResult) },
-        onRewritten = { _, plan, after -> rewritten += plan to after },
-        onStarted = { started += it },
+        onRewritten = { _, plan, after -> rewritten.update { it + (plan to after) } },
+        onStarted = { plan -> started.update { it + plan } },
         addCloseableView = { closeables += "+$it" },
         removeCloseableView = { closeables += "-$it" },
         checkDelay = 10.milliseconds,
@@ -100,6 +101,15 @@ class CommitEditorControllerTest {
         withTimeout(5_000) { controller.state.first { it != null && predicate(it) }!! }
 
     private suspend fun awaitChecked() = awaitState { it.check != null }
+
+    /**
+     * Start closes the editor before it says what it did, on the controller's threads, so a test that sees the editor
+     * closed waits for [outcomes] too.
+     */
+    private suspend fun <T> awaitClosedWith(outcomes: MutableStateFlow<List<T>>): List<T> = withTimeout(5_000) {
+        controller.state.first { it == null }
+        outcomes.first { it.isNotEmpty() }
+    }
 
     @Test
     fun `opening shows the plan with the newest commit selected, checks it, and reads where it would run`(): Unit = runBlocking {
@@ -295,10 +305,10 @@ class CommitEditorControllerTest {
         awaitChecked()
 
         controller.start()
-        withTimeout(5_000) { controller.state.first { it == null } }
+        val said = awaitClosedWith(rewritten)
 
         assertEquals(1, runs.size)
-        assertEquals(listOf(2), rewritten.map { it.second })
+        assertEquals(listOf(2), said.map { it.second })
         assertTrue(starts.isEmpty())
 
         // Nothing is kept once it ran
@@ -317,11 +327,11 @@ class CommitEditorControllerTest {
 
         controller.setAutostash(true)
         controller.start()
-        withTimeout(5_000) { controller.state.first { it == null } }
+        val stopped = awaitClosedWith(started)
 
         assertEquals(listOf(true), starts.map { it.second })
-        assertEquals(1, started.size)
-        assertTrue(rewritten.isEmpty())
+        assertEquals(1, stopped.size)
+        assertTrue(rewritten.value.isEmpty())
     }
 
     @Test
@@ -332,10 +342,10 @@ class CommitEditorControllerTest {
         awaitChecked()
 
         controller.start()
-        withTimeout(5_000) { controller.state.first { it == null } }
+        val said = awaitClosedWith(rewritten)
 
-        assertEquals(1, rewritten.size)
-        assertTrue(started.isEmpty())
+        assertEquals(1, said.size)
+        assertTrue(started.value.isEmpty())
     }
 
     @Test
@@ -351,7 +361,7 @@ class CommitEditorControllerTest {
 
         assertNotNull(state)
         assertEquals(PlanAction.DROP, state.plan.rows[1].action)
-        assertTrue(rewritten.isEmpty())
+        assertTrue(rewritten.value.isEmpty())
     }
 
     @Test
