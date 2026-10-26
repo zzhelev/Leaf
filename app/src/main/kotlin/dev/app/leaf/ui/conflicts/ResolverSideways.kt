@@ -38,10 +38,10 @@ internal fun LineText(text: String, syntaxHighlighter: SyntaxHighlighter, marks:
     val markColor = marks?.color ?: Color.Transparent
 
     if (sideways == null) {
-        DiffText(text, matchLine, syntaxHighlighter, insertedColor = markColor)
+        DiffText(text, matchLine, insertedColor = markColor, legacyHighlighter = syntaxHighlighter)
     } else {
         UnwrappedLine(sideways, start = LineStartPadding) {
-            DiffText(text, matchLine, syntaxHighlighter, insertedColor = markColor)
+            DiffText(text, matchLine, insertedColor = markColor, legacyHighlighter = syntaxHighlighter)
         }
     }
 }

@@ -60,6 +60,7 @@ import dev.app.leaf.domain.sorting.RefFolderExpansion
 import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
+import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
 import dev.app.leaf.domain.models.WorktreeList
@@ -90,6 +91,7 @@ import dev.app.leaf.ui.toUiDataState
 import dev.app.leaf.updates.Update
 import dev.app.leaf.updates.UpdatesRepository
 import dev.app.leaf.viewmodels.ConflictResolverViewModel
+import dev.app.leaf.viewmodels.DiffHighlightsLoader
 import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import dev.app.leaf.viewmodels.newLazyListState
@@ -224,6 +226,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val undoBranchRewriteUseCase: UndoBranchRewriteUseCase,
     private val getOntoBaseCheckUseCase: GetOntoBaseCheckUseCase,
     private val stoppedWaitingCheck: StoppedWaitingCheck,
+    // Fork-only: the diff's syntax colours
+    highlightTextUseCase: HighlightTextUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -2027,6 +2031,10 @@ class RepositoryOpenViewModel @Inject constructor(
     // Fork-only: the setting is read again whenever any setting is written, which would load the diff again
     val diffWhitespace: StateFlow<DiffWhitespaceMode> = settings.diffWhitespace.stateIn(DiffWhitespaceMode.DEFAULT)
 
+    // Fork-only: the colours of the diff's versions, which each diff below is shown to before the pane gets it
+    private val diffHighlightsLoader = DiffHighlightsLoader(viewModelScope, highlightTextUseCase)
+    val diffHighlights: StateFlow<HighlightedVersions> = diffHighlightsLoader.versions
+
     val diffResult: StateFlow<ViewDiffResult?> = combine(
         diffSelected,
         refreshDiffFlow,
@@ -2035,7 +2043,7 @@ class RepositoryOpenViewModel @Inject constructor(
         diffRefreshTrigger,
         settings.diffWhitespace.distinctUntilChanged(),
     ) { diffSelected, _, diffType, isDisplayFullFile, _, whitespace ->
-        if (diffSelected?.entries?.count() == 1) {
+        val result = if (diffSelected?.entries?.count() == 1) {
             val diff = loadDiff(diffSelected.entries.first(), diffType, isDisplayFullFile, whitespace)
 
             // Fork-only: Esc closes a diff that couldn't be loaded too
@@ -2065,6 +2073,9 @@ class RepositoryOpenViewModel @Inject constructor(
         } else {
             ViewDiffResult.DiffNotFound(null)
         }
+
+        diffHighlightsLoader.show(result)
+        result
     }.stateIn(initialValue = null as ViewDiffResult?)
 
     val isRepositoryInSafeState = repositoryState

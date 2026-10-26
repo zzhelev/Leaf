@@ -11,12 +11,14 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RestoreFileError
+import dev.app.leaf.domain.highlighting.HighlightedText
 import dev.app.leaf.domain.interfaces.IFormatDiffGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitDiffEntriesGitAction
 import dev.app.leaf.domain.interfaces.IGetFileCommitsAction
 import dev.app.leaf.domain.interfaces.IGetFileDiffBetweenCommitsGitAction
 import dev.app.leaf.domain.interfaces.IGetFileRestorePlanGitAction
 import dev.app.leaf.domain.interfaces.IGetWorktreePathGitAction
+import dev.app.leaf.domain.interfaces.IHighlightTextAction
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.models.DiffResult
@@ -41,6 +43,7 @@ import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileDiffBetweenCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.HighlightTextUseCase
 import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
 import io.mockk.coEvery
 import io.mockk.every
@@ -61,7 +64,9 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import javax.inject.Provider
 import kotlin.time.Duration.Companion.seconds
@@ -159,6 +164,12 @@ class HistoryViewModelTest {
     /** Whether the diffs have rows to scroll to: 100 lines when whitespace shows, 20 from line 40 when it's ignored. */
     private var withRows = false
 
+    /** The versions of the file that the diffs' hunks hold. */
+    private var versionText: RawText = RawText.EMPTY_TEXT
+
+    /** What colours the diffs' versions. */
+    private var highlightAction: IHighlightTextAction = NoHighlights
+
     private val formatDiff = mockk<IFormatDiffGitAction> {
         coEvery { this@mockk(any(), any(), any(), any()) } coAnswers {
             val diffType = secondArg<DiffType.CommitDiff>()
@@ -174,8 +185,8 @@ class HistoryViewModelTest {
                     Hunk(
                         "@@",
                         lines.map { Line("line $it\n", it, it, LineType.CONTEXT) },
-                        RawText.EMPTY_TEXT,
-                        RawText.EMPTY_TEXT,
+                        versionText,
+                        versionText,
                         mode.ignoresWhitespace,
                     )
                 )
@@ -196,6 +207,7 @@ class HistoryViewModelTest {
         RestoreFileVersionUseCase(useCaseExecutor, mockk()),
         stateRepository,
         GetFileDiffBetweenCommitsUseCase(getFileDiffBetween, useCaseExecutor),
+        HighlightTextUseCase(highlightAction),
     )
 
     @AfterEach
@@ -213,6 +225,28 @@ class HistoryViewModelTest {
 
         // In the tab's scope, every file history opened kept following it until the tab closed
         withTimeout(5.seconds) { diffTextViewType.subscriptionCount.first { it == 0 } }
+    }
+
+    @Test
+    fun `a diff's versions are given to the colours before the diff shows, and coloured after`(): Unit = runBlocking {
+        val coloured = HighlightedText.Builder().build(1)
+        highlightAction = object : IHighlightTextAction {
+            override suspend fun invoke(scopeName: String, text: String): HighlightedText = coloured
+        }
+        withRows = true
+        versionText = RawText("val a = 1\n".toByteArray())
+        val viewModel = historyViewModel()
+
+        viewModel.fileHistory(FILE)
+
+        val loaded = withTimeout(5.seconds) { viewModel.viewDiffResult.first { it is ViewDiffResult.Loaded } }
+        // Already there when the diff is: the view finds its versions, coloured or not yet
+        assertNotNull(viewModel.diffHighlights.value.versionOf(versionText))
+        val diff = (loaded as ViewDiffResult.Loaded).diffResult
+        val highlights = withTimeout(5.seconds) { viewModel.diffHighlights.first { it.forDiff(diff) != null } }
+        assertSame(coloured, highlights.forDiff(diff)!!.new)
+
+        viewModel.onClear()
     }
 
     @Test

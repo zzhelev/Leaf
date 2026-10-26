@@ -34,6 +34,7 @@ import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.close
+import dev.app.leaf.domain.highlighting.DiffHighlights
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffWhitespaceMode
@@ -55,6 +56,7 @@ import dev.app.leaf.viewmodels.distanceIn
 import dev.app.leaf.ui.diff.DiffLoadFailure
 import dev.app.leaf.ui.diff.DiffViewMenu
 import dev.app.leaf.ui.diff.DiffViewOptions
+import dev.app.leaf.ui.diff.LocalDiffHighlights
 import dev.app.leaf.ui.diff.LocalShowWhitespace
 import dev.app.leaf.ui.diff.OnlyWhitespaceChanged
 import dev.app.leaf.ui.diff.WhitespaceIgnoredStrip
@@ -192,6 +194,10 @@ private fun HistoryContent(
     val selectedCommit by historyViewModel.selectedCommit.collectAsState()
     val whitespaceMode by historyViewModel.diffWhitespace.collectAsState()
     val showWhitespace by historyViewModel.diffShowWhitespace.collectAsState()
+    // Fork-only: the colours of the diff's versions, once they're coloured
+    val highlightedVersions by historyViewModel.diffHighlights.collectAsState()
+    val loadedDiff = (viewDiffResult as? ViewDiffResult.Loaded)?.diffResult
+    val highlights = remember(loadedDiff, highlightedVersions) { loadedDiff?.let(highlightedVersions::forDiff) }
 
     when (historyState) {
         is HistoryState.Loaded -> HistoryContentLoaded(
@@ -210,6 +216,7 @@ private fun HistoryContent(
                 onWhitespaceChanged = { historyViewModel.changeDiffWhitespace(it) },
                 onShowWhitespaceChanged = { historyViewModel.changeDiffShowWhitespace(it) },
             ),
+            highlights = highlights,
         )
 
         is HistoryState.Loading -> Box { }
@@ -243,6 +250,8 @@ fun HistoryContentLoaded(
     versionsActions: FileVersionsActions? = null,
     /** Loads the diff again after it failed (fork-only). */
     onTryAgain: () -> Unit = { selectedCommit?.let(onCommitSelected) },
+    /** The colours of the diff's versions (fork-only), null while neither is coloured. */
+    highlights: DiffHighlights? = null,
 ) {
     // Fork-only: the selected commit's row, kept in view when ↑ and ↓ select another
     val commitsListState = rememberLazyListState()
@@ -380,7 +389,10 @@ fun HistoryContentLoaded(
                 viewDiffResult != null &&
                 viewDiffResult is ViewDiffResult.Loaded
             ) {
-                CompositionLocalProvider(LocalShowWhitespace provides (whitespace?.showWhitespace == true)) {
+                CompositionLocalProvider(
+                    LocalShowWhitespace provides (whitespace?.showWhitespace == true),
+                    LocalDiffHighlights provides highlights,
+                ) {
                     when (val diffResult = viewDiffResult.diffResult) {
                         // Fork-only: the diff hides the whitespace changes that are all there is
                         is DiffResult.TextDiff if diffResult.onlyWhitespaceChanged -> OnlyWhitespaceChanged(
