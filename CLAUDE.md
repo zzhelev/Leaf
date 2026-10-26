@@ -262,9 +262,9 @@ asking.
   kotlin-textmate's (MIT, a Kotlin port of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings.
   Only `data`'s `TextMateHighlighter` uses it. `textmate/README.md` says what Leaf changed in the copy, each a commit of
   its own, which differences from VS Code remain, and how to take a later fix from kotlin-textmate.
-- `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
-  helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
-  extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
+- `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program, credential
+  helper and LFS filter of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and
+  `AskpassHelper` extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
   - No library: the file watcher, the cdylib's last export, moved to the JDK's `WatchService` on 2026-10-15 (see
     Refresh), and uniffi, its bindings and JNA went with it.
   - No SSH: OpenSSH's programs do all of it, run by git, by the built-in LFS client and by `SshProgramSigner` (see
@@ -1789,7 +1789,8 @@ does when git can't.
   `main` and `master`), unless git would take a tag of that name first. JGit's message was "Merge branch 'feature' into
   main" for both.
 - They run through `GitCliRemoteCommand`, as git may have to ask: it downloads what a partial clone lacks itself (so
-  they don't prefetch, see Partial clones), git-lfs's filter downloads LFS files, and ssh-keygen asks for the
+  they don't prefetch, see Partial clones), git-lfs's filter or Leaf's downloads LFS files (see Leaf's LFS client as
+  git's filter), and ssh-keygen asks for the
   passphrase of a key that signs commits (`SshPasswordDialog`). So the processing screen has Cancel: git gets SIGTERM,
   removes its lock files, and leaves the working tree as far as it got.
 - Stopped at conflicts is exit code 1 with unmerged paths (`git ls-files --unmerged`). Exit code 1 without them is a
@@ -2348,9 +2349,9 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   `GitCliPullBranchGitAction` fetched, Leaf runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every
   object in `<common git dir>/lfs/objects` (git-lfs and Leaf use the same store), so Leaf's built-in client
   (`app/.../lfs/`) downloads nothing. `git pull` needs none of it: git-lfs's filter (`filter-process`) checks the files out.
-  - It runs only when the commit's root `.gitattributes` has `filter=lfs` and `git lfs version` works. In a large
-    repository without LFS, git-lfs would read the whole tree to find out. Without git-lfs, the built-in client
-    downloads as before.
+  - It runs only when the commit's root `.gitattributes` has `filter=lfs` and `git lfs version` works (the answer of
+    `GitLfsSetup.gitLfsWorks`, kept for a minute, which Leaf's filter asks too). In a large repository without LFS,
+    git-lfs would read the whole tree to find out. Without git-lfs, the built-in client downloads as before.
   - It goes through `GitCliRemoteCommand`, so git-lfs asks for credentials through git's helpers and Leaf's dialogs,
     reaches SSH remotes with the system's ssh (`git-lfs-authenticate`), shows progress ("Downloading LFS objects") and
     can be cancelled. A failure is `LfsDownloadError`, before anything is checked out or merged.
@@ -2432,6 +2433,59 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   - Tests: `LfsStoreTest` (clean against git-lfs's, byte for byte, and what counts as a pointer, case by case),
     `GitLfsSetupTest`, `BuiltinLfsLayerTest`, `LfsSmudgeSettingsTest` (data), `BuiltinLfsFiltersTest` (app: JGit with
     Leaf's own filters, in a main and a linked worktree).
+- **Leaf's LFS client as git's filter (fork-only, 2026-10-26, stage 1 of `docs/fork/lfs-filter.md`,
+  `data/git/lfs/filter/`):** where git-lfs isn't set up, every command that `GitCliRemoteCommand` runs gets
+  `-c filter.lfs.process='<helper>' lfs-filter -c filter.lfs.required=true`, so git checks LFS files out and stages them
+  through Leaf: merges, cherry-picks, reverts, rebases (Continue and Skip too), `git pull`, submodule updates, and file
+  history's restore. Before, git wrote pointer files without a word (no filter in git's config), or failed with exit
+  128 (`git lfs install`'s config left behind, git-lfs missing).
+  - **The rule** (`GitLfsSetup.gitRunsGitLfs`, one `git config -z --get-regexp` in the command's folder, about 10 ms,
+    so `includeIf` and the global config count as git counts them): git-lfs does the work when the config sets
+    `filter.lfs.process`, or `smudge` and `clean`, none blank, and `git lfs version` works (cached for a minute). The
+    plan had it read JGit's config, but the command has a folder, not a repository, and a clone has none yet.
+  - **`-c`** applies after every config file and reaches the gits that the command starts (`GIT_CONFIG_PARAMETERS`),
+    a submodule's too; `process` wins over git-lfs's `smudge` and `clean`. git starts the filter only for a file whose
+    attributes name it, so a repository without LFS never starts it, and a pull that brings LFS in for the first time
+    gets it.
+  - **The relay** (`leaf-askpass lfs-filter`, in `rs/leaf-askpass.rs`): git runs the helper at the top of the working
+    tree; it sends the token, `lfs-filter` and that folder to Leaf's askpass server, waits for `1`, then copies stdin to
+    the socket and the socket to stdout, flushing each write, until either ends. `AskpassServer` hands such a
+    connection to `AskpassFilter.serve` for as long as it lasts, and refuses it (`0`) to a command without a filter. A
+    blocking read doesn't see a cancellation, so cancelling the command closes the connection, from a coroutine
+    started `UNDISPATCHED`: one cancelled before it starts runs no `finally`, and 18 of 20 cancellations right after
+    the filter started hung that way (`AskpassServerTest`).
+  - **The session** (`LfsFilterSession`, `PktLine.kt`, git's long-running filter protocol, version 2): the
+    handshake offers `clean`, `smudge` and `delay`. Clean is `LfsStore.clean`. Smudge streams the object from the
+    store, and anything but a pointer back as it came (a conflict's markers in a pointer too); a file whose object the
+    store lacks is `status=delayed` when git sends `can-delay=1` (every checkout does), else downloaded at once. At
+    `list_available_blobs` it downloads every delayed object in one batch, then lists every delayed file, failed or not,
+    so that git asks for each again (with no content) and gets the object or `status=error`. git sends a request's
+    whole content before it reads the answer, so the session reads it all first (in memory up to 4 MB, then a temporary
+    file): answering while git still writes would block both. `GIT_LFS_SKIP_SMUDGE` and `lfs.skipdownloaderrors` as in
+    stage 0.
+  - **Each session** (`LfsFilter`, `LfsFilterRun`, one per git that starts the filter) opens the repository at the
+    helper's folder (a submodule's too) through `JGit.provide`, and downloads with `FetchLfsObjectsGitAction`: one
+    `git-lfs-authenticate` for SSH, one batch request, then each object, checked (`FetchLfsObjectGitAction`, the choice
+    cards' and JGit's, is now a batch of one). The server is `IGetLfsUrlGitAction`'s for no remote, as git-lfs picks
+    it. Credentials through `ProvideLfsCredentialsGitAction` and Leaf's dialog. Progress: "Downloading LFS objects
+    (3 of 10)", with the bytes as the percentage.
+  - **A failure:** with `required`, git stops (`smudge filter lfs failed`, exit 128), HEAD and the index as they were,
+    and the files it wrote before left in the working tree, as with git-lfs. `GitCliRemoteCommand.run` then returns
+    `LfsFilterError` (the files by path from the command's folder, each with its `LfsError`), whose text groups the
+    files by why and says to discard what git wrote before trying again. Stage 2 will download before item 4's
+    operations start, so that they don't stop halfway.
+  - **git outside Leaf** has no filter in case A: a terminal's or an agent's `git status` shows every file that Leaf
+    wrote as modified, and `git add` stores its bytes. The tests met it (`LfsFilterTest` changes the working tree only
+    through Leaf). Open question 2's strip is to say so.
+  - Tests: `PktLineTest`, `LfsFilterSessionTest` (scripted conversations), the rule in `GitLfsSetupTest`, the relay and
+    a cancellation in `AskpassServerTest`, and `LfsFilterTest` (git with the built helper and `FakeLfsServer`: merge,
+    fast-forward, cherry-pick, revert, a rebase that stops at a conflicted pointer and continues, `git pull` merging and
+    rebasing, a submodule into its own store, a linked worktree into the common store, cases B and C, git-lfs left
+    alone where it's set up, skipdownloaderrors, `GIT_LFS_SKIP_SMUDGE`, staging, credentials asked once and refused,
+    progress, Cancel while a download waits, a touched file, and the working files, index and store byte for byte
+    against git-lfs's). 24 mutations were each caught by a named test, a blank `process` once the rule's test set one.
+    A broken conversation makes git wait rather than fail, so `LfsFilterTest` has a 60 s timeout per test, and the
+    mutations that break the protocol are checked against the scripted conversations.
 - **The built-in LFS client's downloads (fork-only checks):** `DownloadLfsObjectGitAction` downloads to
   `<oid>.<random>.tmp` next to the object in the store (see One LFS store), and renames it into place once its size
   and SHA-256 are the pointer's. Otherwise it returns `LfsError.CorruptDownload`, which fails the checkout. The temporary file is

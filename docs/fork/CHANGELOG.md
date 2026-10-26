@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs, stage 1: Leaf's LFS client as git's filter (2026-10-26)
+
+- **Request:** stage 1 of `docs/fork/lfs-filter.md`, approved with the plan: the git commands that Leaf runs check LFS
+  files out and stage them through Leaf's built-in LFS client when git-lfs isn't set up.
+- **Before:** without git-lfs, a merge, cherry-pick, revert, rebase or `git pull` that Leaf ran with git wrote pointer
+  files where the real files belonged, without a word. With `git lfs install`'s config left behind and git-lfs gone,
+  each of them failed. Only Leaf's own pull got around it, by merging with JGit.
+- **Now:** Leaf passes git its own filter (`-c filter.lfs.process`, through the askpass helper, which relays git's
+  filter protocol to Leaf), whenever git's config doesn't name git-lfs or git-lfs doesn't run. A checkout's missing
+  objects are downloaded in one batch, with Leaf's credentials dialog, progress ("Downloading LFS objects (3 of 10)")
+  and Cancel. Submodules get it too, into their own stores. Where git-lfs is set up, nothing changes.
+- **A download that fails** stops git, as with git-lfs: HEAD and the index stay as they were, and the files that git
+  wrote before stay in the working tree. The error names the files and why, grouped, and says to discard those changes
+  before trying again. Stage 2 downloads before merges, cherry-picks, reverts and rebases start.
+- **Byte for byte:** the working files, the index and the store are what git-lfs leaves after the same checkout, merge
+  and staging (a test compares them).
+- **Not yet:** a strip about git outside Leaf (open question 2), which a terminal or an agent meets in such a
+  repository: it sees the files that Leaf wrote as modified, and `git add` would store their bytes in git.
+- Details: CLAUDE.md, "Leaf's LFS client as git's filter".
+
 ## LFS without git-lfs, stage 0: one store, and Leaf's filters for JGit (2026-10-26)
 
 - **Request:** check out LFS files without git-lfs in the operations Leaf runs with git, by running Leaf's built-in LFS

@@ -1,7 +1,8 @@
 # Plan: Leaf's built-in LFS client as git's LFS filter
 
 Status: written 2026-10-16 on `main` at `0c330b21`, approved on 2026-10-26 with every recommendation (see Decisions,
-at the end of section 8). Stage 0 was built on 2026-10-26 (CLAUDE.md, "One LFS store, and Leaf's filters for JGit").
+at the end of section 8). Stage 0 was built on 2026-10-26 (CLAUDE.md, "One LFS store, and Leaf's filters for JGit"),
+and stage 1 the same day (CLAUDE.md, "Leaf's LFS client as git's filter"), but for open question 2's strip.
 
 Probes ran with git 2.54.0 (Apple Git-157), git-lfs 3.8.0 and JGit 7.7.0, in temp repos. Each ran with an isolated
 `HOME`, `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_NOSYSTEM=1` and `PATH=/usr/bin:/bin` (no git-lfs), and with `-Duser.home` for
@@ -339,6 +340,24 @@ Found while building stage 0 (2026-10-26):
   restore leaves the in-memory layer alone (`BuiltinLfsLayerTest`).
 - git-lfs takes a pointer of up to 1,024 bytes, extension lines included; it trims white space around the pointer but
   not inside its lines, and wants the oid in lower case.
+- The manual run found that a working tree file's `ObjectLoader` (JGit's `ContentSource`) is large whatever its size and
+  has no cached bytes, so the diff of an edited LFS file failed. `lfsContentOf` reads the head of a stream instead.
+
+Found while building stage 1 (2026-10-26):
+- The rule reads git's config with `git config --get-regexp` in the command's folder, not JGit's config: the command
+  has a folder, not a repository, and a clone has none yet. It costs one process, about 10 ms, per command.
+- git writes a request's whole content before it reads the answer. A session that answered a large file that isn't a
+  pointer as it read it would block, as would git, once the pipe and the socket were full. So the session reads the
+  content first, in memory up to 4 MB and in a temporary file past it.
+- A blocking read on the socket doesn't see the command's cancellation, so cancelling closes the connection. git and
+  the helper are killed with the command; the test holds a download at `FakeLfsServer` and cancels it. What closes
+  the connection is a coroutine, which runs no `finally` if it's cancelled before it starts: a cancellation right
+  after the filter started hung 18 times in 20, until it was started `UNDISPATCHED`.
+- `GitLfsFetch` asked `git lfs version` itself; it now takes `GitLfsSetup`'s answer, which the rule asks for too, so
+  git-lfs runs once a minute for both.
+- The tests met P5 in their own setup: a commit by git outside Leaf, after Leaf's filter had written the real content,
+  staged the file's bytes, and the next pull refused, as the file then differed from the index.
+- `includeIf "gitdir:<path>/.git/"` doesn't match the git dir itself on git 2.54; `gitdir:<path>/.git` does.
 
 ## 7. Tests
 
