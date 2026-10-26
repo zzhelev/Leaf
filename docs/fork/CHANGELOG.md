@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs, stage 0: one store, and Leaf's filters for JGit (2026-10-26)
+
+- **Request:** check out LFS files without git-lfs in the operations Leaf runs with git, by running Leaf's built-in LFS
+  client as git's filter. Planned in `docs/fork/lfs-filter.md`, from probes in temp repositories, and approved with
+  every recommendation. This first stage fixes what the probes found in Leaf's own LFS code, which the filter builds
+  on.
+- **One store:** Leaf kept a linked worktree's LFS objects in that worktree's own git dir, where neither git-lfs nor
+  the other worktrees look, so it downloaded them again, and `git worktree remove` deleted them. It now keeps them in
+  the common git dir, as git-lfs does, and moves the ones it left behind the first time it needs them.
+- **Leaf's filters for JGit when git-lfs isn't set up:** Leaf's own checkouts, staging and status used git-lfs's
+  commands from the config, which wrote pointer files when git-lfs was never installed, and failed, leaving a temporary
+  file in the working tree, when its config was left behind. Worse, once the working tree had the real files, as
+  Leaf's clone and pull leave it, staging an edited LFS file stored its bytes in git instead of in LFS, and a commit
+  then put the binary into the history. Leaf's own filters now do that work whenever git-lfs isn't set up (its filter
+  in git's config, and a git-lfs that runs), so checkouts download from the LFS server, and staging stores the pointer.
+- **git-lfs's rules, byte for byte:** an empty file stays empty, a pointer stays as it is (Leaf's filter wrapped it in
+  another pointer, so a working tree of pointer files showed every one of them as modified), and a pointer that a
+  merge's conflict markers broke isn't read as a pointer. JGit's parser read it as one side's, which would have written
+  that side's file over the conflict. `GIT_LFS_SKIP_SMUDGE` and `lfs.skipdownloaderrors` work as with git-lfs.
+- **Diffs download nothing:** a diff, blame or JGit merge of an LFS file whose object isn't in the store showed it by
+  downloading it with JGit's own LFS client, outside Leaf's credentials and TLS checks. It now shows the pointer, as
+  nothing downloads an LFS object without the user asking (decided 2026-10-15).
+- **Cost:** a checkout without git-lfs now downloads the objects it needs, one at a time, without progress or Cancel,
+  where it wrote pointers; a failed download fails it, as with git-lfs. Stage 2 of the plan downloads first.
+- Details: CLAUDE.md, "One LFS store, and Leaf's filters for JGit".
+
 ## A new comparison no longer ends as it starts, and its test waits for the end (2026-10-27)
 
 - **Before:** `ComparisonViewModelExtenderTest`'s "cmd-click on A or B drops it, and the other stays selected" failed

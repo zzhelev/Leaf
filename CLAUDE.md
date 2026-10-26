@@ -325,6 +325,9 @@ asking.
     take `user.*` for both.
   - Repositories that Leaf opens elsewhere (`SubmoduleWalk`, `RenameBranchGitAction.moveHead`,
     `OpenRepositoryGitAction`'s checks) are plain JGit repositories.
+  - Between the repository's own file and that layer, an in-memory layer holds what Leaf decides for JGit:
+    `refreshIncludedConfig` turns JGit's built-in LFS filters on there unless git-lfs is set up (`useBuiltinLfs`, see
+    One LFS store under Remote operations).
   - Tests: `IncludedConfigTest` checks the entries against git's own list, `IncludedConfigRepositoryTest` JGit's
     merge, revert, cherry-pick, rebase and pull, a snapshot stash, a signed merge, a hook and the
     reflog against git.
@@ -920,8 +923,8 @@ its lines, with colours while editing (section 11).
     bytes for an image (`PREVIEW_IMAGE_TYPES`, by extension, up to `MAX_PREVIEW_IMAGE_SIZE`, 16 MB), which the card
     decodes off the UI thread; a link's target and whether it resolves from the link's folder; a submodule's commit,
     named from the submodule's repository (`SubmoduleWalk.getSubmoduleRepository`), with which contains the other and
-    its checkout (`SubmodulePreview`); a Git LFS pointer's object, downloaded when JGit's `Lfs.getMediaFile` has it
-    with the pointer's size (`lfsVersion`), which the card can download (below).
+    its checkout (`SubmodulePreview`); a Git LFS pointer's object, downloaded when the store has it with the
+    pointer's size (`lfsVersion`, `LfsStore.find`, see One LFS store), which the card can download (below).
   - One side deleted the file: Keep stages the working file as it is (`keepWorkingFile`), as `git mergetool`'s
     "modified" does, so edits since the merge stay. The card's diff (`keptChanges`, git's hunks with 3 lines of
     context, at most `MAX_PREVIEW_LINES`, 300) is the working file's, converted as `git add` would (`checkedIn`), and
@@ -2254,7 +2257,9 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     throw it too (local files stopped it, and the branch is as it was); `CONFLICTS` used to count as conflicts.
   - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (JGit's pull, this one, and both clones). It turns on
     `filter.lfs.useJGitBuiltin` in the cached repository's in-memory config, and puts it back in `finally`: an
-    action's `config.save()`, such as saving the author, writes that config to `.git/config`.
+    action's `config.save()`, such as saving the author, writes that config to `.git/config`. It forces Leaf's filters
+    even where git-lfs is set up, as `git lfs fetch` has put the objects in the store; without git-lfs they're on for
+    everything anyway (see One LFS store).
 - Clone (`GitCliCloneRepositoryGitAction`) runs `git clone --progress --no-checkout -- <url> <folder>` from the
   folder's parent, then JGit checks out HEAD with Leaf's built-in LFS, as after JGit's own clone, so git-lfs isn't
   needed. An empty repository gets no checkout. With "Clone submodules", `git submodule update --init --recursive`
@@ -2341,8 +2346,8 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       list action, the filter, the view model and the dialog were each caught by a named test.
 - **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, or merges or rebases what
   `GitCliPullBranchGitAction` fetched, Leaf runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every
-  object in `<git dir>/lfs/objects` (git-lfs and JGit use the same layout), so Leaf's built-in client (`app/.../lfs/`)
-  downloads nothing. `git pull` needs none of it: git-lfs's filter (`filter-process`) checks the files out.
+  object in `<common git dir>/lfs/objects` (git-lfs and Leaf use the same store), so Leaf's built-in client
+  (`app/.../lfs/`) downloads nothing. `git pull` needs none of it: git-lfs's filter (`filter-process`) checks the files out.
   - It runs only when the commit's root `.gitattributes` has `filter=lfs` and `git lfs version` works. In a large
     repository without LFS, git-lfs would read the whole tree to find out. Without git-lfs, the built-in client
     downloads as before.
@@ -2351,8 +2356,9 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     can be cancelled. A failure is `LfsDownloadError`, before anything is checked out or merged.
   - A clone then gets git-lfs's hooks (`git lfs update`): `git clone` installs them when git-lfs checks the files
     out, but `--no-checkout` doesn't run it, and without `pre-push` a push would fall back to JGit's upload.
-  - Other checkouts (switching branches, reset, stash) are unchanged: JGit runs the configured `filter.lfs.smudge`
-    (`git-lfs smudge`) once per file, without Leaf's dialogs, or writes the pointers when git-lfs isn't set up.
+  - Other checkouts (switching branches, reset, stash) are unchanged where git-lfs is set up: JGit runs the configured
+    `filter.lfs.smudge` (`git-lfs smudge`) once per file, without Leaf's dialogs. Where it isn't, Leaf's own filters
+    smudge and clean for JGit (see One LFS store).
 - **The built-in LFS client's server (fork-only `GetLfsUrlSettingGitAction`, `data/git/lfs/`):** `GetLfsUrlGitAction`
   finds it as git-lfs 3.8 does, for a download or an upload (`IGetLfsUrlGitAction`'s `operation`: the JGit push's
   pre-push hook uploads, everything else downloads).
@@ -2389,9 +2395,46 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     Their URLs point at a port where nothing listens, so git-lfs names the server in its error at once. Both are
     skipped without git-lfs. `LfsPrePushHookTest` runs the pre-push hook of a push through JGit against a JDK
     `HttpServer` that answers 404, and checks which server it asked.
+- **One LFS store, and Leaf's filters for JGit (fork-only, 2026-10-26, stage 0 of `docs/fork/lfs-filter.md`,
+  `data/git/lfs/LfsStore.kt`, `GitLfsSetup.kt`):**
+  - **The store** (`LfsStore`, `Repository.lfsStore()`): `<common git dir>/lfs/objects/aa/bb/<oid>` and `lfs/tmp`,
+    git-lfs's layout, for every worktree. JGit's `Lfs(repository)` took the worktree's own git dir, so the built-in
+    client kept a linked worktree's objects where git-lfs and the other worktrees don't look, and `git worktree remove`
+    deleted them. Every user goes through it: `LfsSmudgeFilter`, `LfsCleanFilter`, `AppLfsFactory`'s smudge and clean
+    (JGit's diffs, blame, merges and patches), the pre-push upload, the downloads, the choice cards and "Open in the
+    default app". `find(oid, size)` moves an object that an older Leaf left in a linked worktree's git dir.
+  - **Leaf's filters where git-lfs isn't set up:** `JGit.provide` turns `filter.lfs.usejgitbuiltin` on in an in-memory
+    layer of `IncludedConfigRepository` (`useBuiltinLfs`; under the repository's own file, which `config.save()`
+    writes, so the switch is never saved and the file still wins), unless `GitLfsSetup.jgitRunsGitLfs`: git's config
+    (`includeIf` included) has `filter.lfs.smudge` and `clean`, and `git lfs version` works (asked again after a
+    minute). JGit's checkouts (switching branches, reset, stash, discard), staging and status then smudge and clean
+    with Leaf's client. Before, without git-lfs, checkouts wrote pointers, staging stored the files' raw bytes once the
+    working tree had the real content (as Leaf's clone and pull leave it), and with `git lfs install`'s config left
+    behind, checkouts failed and left a temporary file in the working tree.
+  - A checkout downloads what the store lacks, one object per request, without progress or Cancel, as a clone's does.
+    A download that fails fails the checkout, as git-lfs's does, and the files written before stay.
+  - **Pointers** (`parseLfsPointer`) as git-lfs reads them: at most 1,024 bytes, white space around them trimmed but
+    none inside a line, `version`, `oid` (lower case) and `size` in that order, blank and extension lines between,
+    nothing after. JGit's parser takes comment lines, and a pointer that a merge's conflict markers broke, which it
+    reads as the side last in the file.
+  - **Clean** (`LfsStore.clean`, git-lfs's rules): an empty file stays empty; a pointer stays as it is (the old filter
+    wrapped it in another pointer, so every pointer file showed as modified once JGit compared its content); anything
+    else goes into the store, and its pointer is
+    `version https://git-lfs.github.com/spec/v1\noid sha256:<oid>\nsize <n>\n`. A file up to 4 MB stays in memory:
+    JGit's status cleans a touched file at every refresh, as it doesn't refresh the index as git does.
+  - **Smudge** (`LfsSmudgeFilter`): anything but a pointer goes out byte for byte, a pointer with extension lines too,
+    as Leaf doesn't run git-lfs's extension programs. `GIT_LFS_SKIP_SMUDGE` writes the pointer, and
+    `lfs.skipdownloaderrors` or `GIT_LFS_SKIP_DOWNLOAD_ERRORS` writes the pointer of an object that can't be downloaded
+    (`LfsSmudgeSettings`: true is `1`, `t`, `true`, `on` or `yes`, in any case, with no spaces, as git-lfs 3.8 reads it).
+  - **Diffs, blame and JGit's merges** (`lfsContentOf`) read the object from the store and download nothing, as decided
+    on 2026-10-15; the pointer shows when the store lacks it. JGit's `LfsBlobFilter` downloaded it with JGit's own LFS
+    client, outside Leaf's credentials and TLS checks.
+  - Tests: `LfsStoreTest` (clean against git-lfs's, byte for byte, and what counts as a pointer, case by case),
+    `GitLfsSetupTest`, `BuiltinLfsLayerTest`, `LfsSmudgeSettingsTest` (data), `BuiltinLfsFiltersTest` (app: JGit with
+    Leaf's own filters, in a main and a linked worktree).
 - **The built-in LFS client's downloads (fork-only checks):** `DownloadLfsObjectGitAction` downloads to
-  `<oid>.<random>.tmp` next to the object in `lfs/objects`, and renames it into place once its size and SHA-256 are
-  the pointer's. Otherwise it returns `LfsError.CorruptDownload`, which fails the checkout. The temporary file is
+  `<oid>.<random>.tmp` next to the object in the store (see One LFS store), and renames it into place once its size
+  and SHA-256 are the pointer's. Otherwise it returns `LfsError.CorruptDownload`, which fails the checkout. The temporary file is
   removed either way.
   - A dropped connection needs the check: Ktor's CIO engine ends the body without an error. The download used to be
     appended to the object's place, unchecked, and kept there truncated.

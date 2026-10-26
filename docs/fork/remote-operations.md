@@ -584,7 +584,7 @@ decisions:
   Merge (`fix/merge-autostash`, which made Leaf's commit and Abort put back `MERGE_AUTOSTASH`).
 - A repository that uses LFS, where git-lfs doesn't work, keeps stage 2's pull (git's fetch, JGit's merge with the
   built-in LFS). Leaf's built-in client as git's LFS filter would cover `git pull` and item 4's operations too, and
-  is its own item.
+  is its own item: `docs/fork/lfs-filter.md`, approved on 2026-10-26.
 - The backup snapshot stays for merge pulls only, with Merge's rule for deleting it.
 - Refusals show git's message.
 
