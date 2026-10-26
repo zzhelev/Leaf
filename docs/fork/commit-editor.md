@@ -5,7 +5,7 @@
 | Question | How does Leaf replace upstream's interactive rebase list with an editor that plans first, says before Start what will happen, and only touches a worktree when it has to? |
 | Verified against | `main` at `1edc1471`; git 2.54 (probes on 2026-10-23, section 2) |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check), B3 (the run without stops, main's unpushed commits), B4 (the run with stops) and B5 (the editor) done. Next: B6 |
+| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check), B3 (the run without stops, main's unpushed commits), B4 (the run with stops), B5 (the editor) and B6 (upstream's list removed) done. Next: B7 |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -315,3 +315,25 @@ Each step is its own commit (or two, code then docs), shown to you before it's m
   Merges after the rewritten commits are kept, as in part A, when nothing replays them.
 - Branches stacked on this one (`--update-refs`): they keep the old commits, as with `git rebase`.
 - `exec` lines, and C, drag and drop in the log.
+
+## 10. Upstream's list, removed (B6)
+
+- **Gone** (decision 7: deleted, not left unreachable): the list (`A/ui/RebaseInteractive.kt`, and its functions in
+  `RepositoryOpenViewModel`; `A/viewmodels/RebaseInteractiveViewModel.kt`, which nothing used), upstream's "Rebase
+  interactive" in a commit's menu, and JGit's interactive start and resume (`DA/git/rebase/StartRebaseInteractiveGitAction.kt`,
+  `ResumeRebaseInteractiveGitAction.kt`). With them went what only they used: reading the todo
+  (`GetRebaseInteractiveTodoLinesGitAction`, `JGitRebaseTodoLineMapper`, `GetCommitFromRebaseLineGitAction` and their
+  use cases), `RebaseLine`, `D/rebase/RebaseSteps.kt` (Leaf's fix for a dropped first step), upstream's unfinished
+  `GetRebaseInteractiveStateGitAction` and the `GetRebaseAmendCommitIdGitAction` that only it used, and three task
+  types. 23 files.
+- **Kept:** `RebaseInteractiveState` without `AwaitingInteraction`. `ProcessingCommits` says whether a rebase stopped
+  where its commit can be amended, which the edit stops of git's rebases use, a plan's included. JGit's continue, skip
+  and abort stay for a rebase that JGit started: Rebase when git can't run it, or an interactive rebase that an older
+  Leaf started.
+- **A rebase whose todo hasn't started** (`rebase-merge` without `done`): upstream showed its list for it, which also
+  took `git rebase -i` in a terminal while its editor was open, and offered to complete that rebase with JGit. It is now
+  a rebase in progress like any other, with the banner, Continue and Abort (`RefreshDataUseCase`).
+- **Tests:** the tests of JGit's interactive rebase with `zdiff3`, `diff.algorithm` and an identity from `includeIf` went
+  with it; JGit's non-interactive rebase has the same ones. `OperationInProgressBannerTest` checks the banner for a
+  rebase whose todo hasn't started, where it checked that the list had none.
+- **Syncing:** upstream's changes to the deleted files come up as modify/delete. Keep the deletion.
