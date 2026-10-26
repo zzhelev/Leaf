@@ -59,6 +59,14 @@ class GitLfsSetup(
      * can't read counts as none, and git then fails anyway.
      */
     suspend fun gitRunsGitLfs(workingDirectory: File): Boolean {
+        return gitNamesGitLfs(workingDirectory) && gitLfsWorks(workingDirectory)
+    }
+
+    /**
+     * Whether git's config in [workingDirectory] gives the LFS filter git-lfs's commands, whether git-lfs works or not:
+     * `process`, or `smudge` and `clean`, none blank.
+     */
+    suspend fun gitNamesGitLfs(workingDirectory: File): Boolean {
         val output = gitCli.execute(workingDirectory, listOf("config", "-z", "--get-regexp", FILTER_COMMANDS))
             .okOrNull()
             // git exits with 1 when no key matches
@@ -66,10 +74,9 @@ class GitLfsSetup(
             ?: return false
 
         val commands = parseConfigEntries(output.stdout)
-        val namesGitLfs = !commands["filter.lfs.process"].isNullOrBlank() ||
-            (!commands["filter.lfs.smudge"].isNullOrBlank() && !commands["filter.lfs.clean"].isNullOrBlank())
 
-        return namesGitLfs && gitLfsWorks(workingDirectory)
+        return !commands["filter.lfs.process"].isNullOrBlank() ||
+            (!commands["filter.lfs.smudge"].isNullOrBlank() && !commands["filter.lfs.clean"].isNullOrBlank())
     }
 
     /** Whether `git lfs version` works, asked again after [CHECK_AGAIN_AFTER]. */
@@ -83,6 +90,11 @@ class GitLfsSetup(
                 works
             }
         }
+    }
+
+    /** Has the next [gitLfsWorks] ask git-lfs again, as after Leaf set it up. */
+    fun forgetGitLfsCheck() {
+        lastCheck = null
     }
 
     private fun fresh(): Check? = lastCheck?.takeIf { now() - it.at < CHECK_AGAIN_AFTER.inWholeMilliseconds }

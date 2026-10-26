@@ -172,7 +172,7 @@ class RemoteOperationsBackend @Inject constructor(
 }
 
 /** Whether [repository] uses LFS: it has LFS objects, or its root `.gitattributes` names the LFS filter. */
-private fun usesLfs(repository: Repository): Boolean {
+internal fun usesLfs(repository: Repository): Boolean {
     val attributes = if (repository.isBare) null else File(repository.workTree, Constants.DOT_GIT_ATTRIBUTES)
 
     return File(repository.commonDirectory ?: repository.directory, "lfs").isDirectory ||

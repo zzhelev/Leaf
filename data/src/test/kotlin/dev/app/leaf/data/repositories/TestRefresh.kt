@@ -15,6 +15,7 @@ import dev.app.leaf.domain.interfaces.IGetBranchesAheadGitAction
 import dev.app.leaf.domain.interfaces.IGetCherryPickSequenceGitAction
 import dev.app.leaf.domain.interfaces.IGetBranchLinesGitAction
 import dev.app.leaf.domain.interfaces.IGetRebaseStopGitAction
+import dev.app.leaf.domain.interfaces.IGetGitLfsNoticeGitAction
 import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.rebase.SkippedRebaseCommits
 import dev.app.leaf.domain.usecases.ReportSkippedRebaseCommitsUseCase
@@ -136,6 +137,9 @@ fun testRefreshDataUseCase(
         },
         getCherryPickSequenceGitAction = getCherryPickSequence,
         getRebaseStopGitAction = mockk<IGetRebaseStopGitAction> { coEvery { this@mockk(any()) } returns Either.Ok(null) },
+        getGitLfsNoticeGitAction = mockk<IGetGitLfsNoticeGitAction> {
+            coEvery { this@mockk(any()) } returns Either.Ok(null)
+        },
         reportSkippedRebaseCommitsUseCase = ReportSkippedRebaseCommitsUseCase(
             SkippedRebaseCommits(),
             mockk(),

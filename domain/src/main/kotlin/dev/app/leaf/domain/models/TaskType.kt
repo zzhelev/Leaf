@@ -108,4 +108,5 @@ sealed interface TaskType {
     data object ResolveConflictsInMergeTool : TaskType
     data object ResolveConflict : TaskType
     data object ConvertIndex : TaskType
+    data object SetUpGitLfs : TaskType
 }

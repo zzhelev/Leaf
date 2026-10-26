@@ -207,6 +207,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.OpenMergeTool, TaskType.ResolveConflictsInMergeTool -> "Waiting for the merge tool"
         TaskType.ResolveConflict -> "Resolving conflicts"
         TaskType.ConvertIndex -> "Converting the index"
+        TaskType.SetUpGitLfs -> "Setting up git-lfs"
         TaskType.ResetRepoState -> "Resetting repository state"
         TaskType.ResetToCommit -> "Resetting to commit"
         TaskType.RevertCommit -> "Reverting commit"

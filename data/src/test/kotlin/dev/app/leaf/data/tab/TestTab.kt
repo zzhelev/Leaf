@@ -62,6 +62,8 @@ import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.data.git.lfs.filter.testLfsFilter
+import dev.app.leaf.data.git.lfs.GetGitLfsNoticeGitAction
+import dev.app.leaf.data.git.lfs.GitLfsSetup
 import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.workspace.FileRestorePlanner
 import dev.app.leaf.data.git.workspace.RestoreFileVersionGitAction
@@ -280,6 +282,7 @@ class TestTab(
         getBranchLinesGitAction = GetBranchLinesGitAction(jgit, GetWorktreeBaseBranchGitAction(jgit), commitMapper),
         getCherryPickSequenceGitAction = GetCherryPickSequenceGitAction(),
         getRebaseStopGitAction = GetRebaseStopGitAction(jgit),
+        getGitLfsNoticeGitAction = GetGitLfsNoticeGitAction(jgit, GitLfsSetup(gitCli)),
         reportSkippedRebaseCommitsUseCase = ReportSkippedRebaseCommitsUseCase(
             skippedRebaseCommits,
             GetCommitsOnHeadGitAction(jgit),

@@ -24,6 +24,12 @@ import dev.app.leaf.data.git.cherrypick.GetBranchesAheadGitAction
 import dev.app.leaf.data.git.cherrypick.GetCherryPickSequenceGitAction
 import dev.app.leaf.domain.interfaces.IGetCommitsOnHeadGitAction
 import dev.app.leaf.domain.interfaces.IGetRebaseStopGitAction
+import dev.app.leaf.data.git.lfs.DismissGitLfsNoticeGitAction
+import dev.app.leaf.data.git.lfs.GetGitLfsNoticeGitAction
+import dev.app.leaf.data.git.lfs.SetUpGitLfsGitAction
+import dev.app.leaf.domain.interfaces.IDismissGitLfsNoticeGitAction
+import dev.app.leaf.domain.interfaces.IGetGitLfsNoticeGitAction
+import dev.app.leaf.domain.interfaces.ISetUpGitLfsGitAction
 import dev.app.leaf.data.git.cli.operations.GitCliCherryPickCommitsGitAction
 import dev.app.leaf.data.git.cli.operations.GitCliCherryPickSequenceGitAction
 import dev.app.leaf.domain.interfaces.ICherryPickCommitsGitAction
@@ -663,6 +669,19 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsGetCommitsOnHeadGitAction(action: GetCommitsOnHeadGitAction): IGetCommitsOnHeadGitAction
+
+    // Fork-only: the strip that says git outside Leaf lacks git-lfs, and its button and ×
+    @Binds
+    @TabScope
+    fun bindsGetGitLfsNoticeGitAction(action: GetGitLfsNoticeGitAction): IGetGitLfsNoticeGitAction
+
+    @Binds
+    @TabScope
+    fun bindsDismissGitLfsNoticeGitAction(action: DismissGitLfsNoticeGitAction): IDismissGitLfsNoticeGitAction
+
+    @Binds
+    @TabScope
+    fun bindsSetUpGitLfsGitAction(action: SetUpGitLfsGitAction): ISetUpGitLfsGitAction
 
     // Fork-only: squashing, fixing up and rewording a branch's commits, and undoing it
     @Binds

@@ -99,6 +99,7 @@ fun TaskType.successTitle(): String? {
         TaskType.AbortCherryPick -> "Cherry-pick aborted"
         TaskType.OpenMergeTool, TaskType.ResolveConflict -> "Conflict resolved"
         TaskType.ConvertIndex -> "Index converted"
+        TaskType.SetUpGitLfs -> "git-lfs set up"
         TaskType.ResolveConflictsInMergeTool -> "Conflicts resolved"
         else -> null
     }

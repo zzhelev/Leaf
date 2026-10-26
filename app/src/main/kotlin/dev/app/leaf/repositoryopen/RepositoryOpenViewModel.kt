@@ -35,6 +35,8 @@ import dev.app.leaf.domain.log.movedLogSelection
 import dev.app.leaf.domain.log.steppedSearchIndex
 import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.index.conversionSteps
+import dev.app.leaf.domain.lfs.GIT_LFS_URL
+import dev.app.leaf.domain.lfs.GitLfsNotice
 import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
 import dev.app.leaf.domain.cherrypick.BranchesAhead
 import dev.app.leaf.domain.models.emptyIdentity
@@ -237,6 +239,9 @@ class RepositoryOpenViewModel @Inject constructor(
     private val stoppedWaitingCheck: StoppedWaitingCheck,
     // Fork-only: the diff's and blame's syntax colours
     private val highlightTextUseCase: HighlightTextUseCase,
+    // Fork-only: the strip that says git outside Leaf lacks git-lfs
+    private val setUpGitLfsUseCase: SetUpGitLfsUseCase,
+    private val dismissGitLfsNoticeUseCase: DismissGitLfsNoticeUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -1028,6 +1033,26 @@ class RepositoryOpenViewModel @Inject constructor(
     /** Converts the worktree's index with the commands the strip's dialog showed (fork-only). */
     fun convertIndex(index: UnsupportedIndex) {
         runWorktreeStepsUseCase(TaskType.ConvertIndex, index.conversionSteps())
+    }
+
+    /**
+     * What git outside Leaf lacks for the repository's LFS files (fork-only), for the strip. Kept while it's read again,
+     * so the strip doesn't flicker, and none when it can't be read.
+     */
+    val gitLfsNotice: StateFlow<GitLfsNotice?> = repositoryDataRepository.gitLfsNotice
+        .filter { it !is DataState.Loading }
+        .map { it.dataOrNull() }
+        .distinctUntilChanged()
+        .stateIn(null)
+
+    fun installGitLfs() = openUrlInBrowserUseCase(GIT_LFS_URL)
+
+    fun setUpGitLfs() {
+        setUpGitLfsUseCase()
+    }
+
+    fun dismissGitLfsNotice(notice: GitLfsNotice) = viewModelScope.launch {
+        dismissGitLfsNoticeUseCase(notice)
     }
 
     init {

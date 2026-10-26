@@ -38,6 +38,7 @@ import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.BranchesPaneToggle
 import dev.app.leaf.ui.components.ChangesPaneToggle
+import dev.app.leaf.ui.GitLfsNoticeStrip
 import dev.app.leaf.ui.StoppedWaitingStrip
 import dev.app.leaf.ui.ChangesPaneState
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
@@ -331,6 +332,20 @@ fun RepositoryOpenPage(
                             onFetch = { repositoryOpenViewModel.fetchAfterStoppedPush() },
                             onTryAgain = { repositoryOpenViewModel.checkStoppedPushAgain() },
                             onDismiss = { repositoryOpenViewModel.dismissStoppedPush() },
+                        )
+                    }
+                }
+
+                // Fork-only: while git outside Leaf has no working LFS filter for the repository, until dismissed
+                val gitLfsNotice by repositoryOpenViewModel.gitLfsNotice.collectAsState()
+
+                gitLfsNotice?.let { notice ->
+                    if (!resolverFocused) {
+                        GitLfsNoticeStrip(
+                            notice = notice,
+                            onInstall = { repositoryOpenViewModel.installGitLfs() },
+                            onSetUp = { repositoryOpenViewModel.setUpGitLfs() },
+                            onDismiss = { repositoryOpenViewModel.dismissGitLfsNotice(notice) },
                         )
                     }
                 }

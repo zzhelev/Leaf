@@ -9,6 +9,7 @@ import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.lfs.GitLfsNotice
 import dev.app.leaf.domain.rebase.RebaseStop
 import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
@@ -77,6 +78,9 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
     override val rebaseStop: StateFlow<DataState<RebaseStop?>>
         field = MutableStateFlow<DataState<RebaseStop?>>(DataState.Loading)
 
+    override val gitLfsNotice: StateFlow<DataState<GitLfsNotice?>>
+        field = MutableStateFlow<DataState<GitLfsNotice?>>(DataState.Loading)
+
     override var maxCommitsToLoadLimit: Int = 0
 
     override val repositoryPath: String?
@@ -105,6 +109,8 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         branchesAhead.value = DataState.Loading
         cherryPickSequence.value = DataState.Loading
         rebaseStop.value = DataState.Loading
+        // A worktree's config can name git-lfs where another's doesn't (includeIf "gitdir:")
+        gitLfsNotice.value = DataState.Loading
         repositorySelectionState.value = RepositorySelectionState.Open(gitDir)
     }
 
@@ -122,6 +128,7 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
         branchLines.value = DataState.Loading
         cherryPickSequence.value = DataState.Loading
         rebaseStop.value = DataState.Loading
+        gitLfsNotice.value = DataState.Loading
     }
 
     override suspend fun updateStatus(repositoryPath: String, block: suspend () -> Either<Status, AppError>) {
@@ -177,6 +184,13 @@ class InMemoryRepositoryDataRepository @Inject constructor() : RepositoryDataRep
 
     override suspend fun updateRebaseStop(repositoryPath: String, block: suspend () -> Either<RebaseStop?, AppError>) {
         handleDataState(rebaseStop, repositoryPath, block)
+    }
+
+    override suspend fun updateGitLfsNotice(
+        repositoryPath: String,
+        block: suspend () -> Either<GitLfsNotice?, AppError>,
+    ) {
+        handleDataState(gitLfsNotice, repositoryPath, block)
     }
 
     override suspend fun updateRefDates(repositoryPath: String, block: suspend () -> Either<RefDates, AppError>) {

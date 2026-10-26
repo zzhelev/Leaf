@@ -43,6 +43,7 @@ class RefreshDataUseCase @Inject constructor(
     private val getBranchLinesGitAction: IGetBranchLinesGitAction,
     private val getCherryPickSequenceGitAction: IGetCherryPickSequenceGitAction,
     private val getRebaseStopGitAction: IGetRebaseStopGitAction,
+    private val getGitLfsNoticeGitAction: IGetGitLfsNoticeGitAction,
     private val reportSkippedRebaseCommitsUseCase: ReportSkippedRebaseCommitsUseCase,
     private val worktreesRefreshRunner: WorktreesRefreshRunner,
     private val dataRefreshRunner: DataRefreshRunner,
@@ -244,6 +245,11 @@ class RefreshDataUseCase @Inject constructor(
             // one that has ended
             repositoryDataRepository.updateRebaseStop(repositoryPath) {
                 getRebaseStopGitAction(repositoryPath)
+            }
+
+            // Fork-only: with the working tree's changes, as a pull can bring LFS in, or git-lfs get installed meanwhile
+            repositoryDataRepository.updateGitLfsNotice(repositoryPath) {
+                getGitLfsNoticeGitAction(repositoryPath)
             }
 
             val repositoryState = repositoryDataRepository.repositoryState.value.dataOrNull()

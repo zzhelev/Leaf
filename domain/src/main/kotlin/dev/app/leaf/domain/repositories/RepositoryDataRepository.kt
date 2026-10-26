@@ -6,6 +6,7 @@ import dev.app.leaf.domain.cherrypick.CherryPickSequence
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.lfs.GitLfsNotice
 import dev.app.leaf.domain.rebase.RebaseStop
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,9 @@ interface RepositoryDataRepository {
 
     /** The commit that a rebase stopped at, or null (fork-only). */
     val rebaseStop: StateFlow<DataState<RebaseStop?>>
+
+    /** What git outside Leaf lacks for the worktree's LFS files, or null (fork-only). */
+    val gitLfsNotice: StateFlow<DataState<GitLfsNotice?>>
     var maxCommitsToLoadLimit: Int
 
     fun setRepositorySelectionState(state: RepositorySelectionState)
@@ -79,6 +83,7 @@ interface RepositoryDataRepository {
         block: suspend () -> Either<CherryPickSequence?, AppError>,
     )
     suspend fun updateRebaseStop(repositoryPath: String, block: suspend () -> Either<RebaseStop?, AppError>)
+    suspend fun updateGitLfsNotice(repositoryPath: String, block: suspend () -> Either<GitLfsNotice?, AppError>)
 }
 
 sealed interface DataState<out T> {

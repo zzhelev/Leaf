@@ -307,6 +307,7 @@ fun TaskType.errorTitle(): String {
         TaskType.OpenMergeTool, TaskType.ResolveConflictsInMergeTool -> "Conflict not resolved"
         TaskType.ResolveConflict -> "Could not resolve the conflicts"
         TaskType.ConvertIndex -> "Could not convert the index"
+        TaskType.SetUpGitLfs -> "Could not set up git-lfs"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"
         TaskType.AddRemote -> "Adding remote failed"
