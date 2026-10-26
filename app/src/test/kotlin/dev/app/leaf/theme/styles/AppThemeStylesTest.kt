@@ -10,22 +10,31 @@ import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.styles.StyleSeed
 import dev.app.leaf.domain.styles.StyleSide
 import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.theme.SyntaxColors
 import dev.app.leaf.theme.backgroundSelected
+import dev.app.leaf.theme.darkTheme
+import dev.app.leaf.theme.diffAnnotation
+import dev.app.leaf.theme.diffComment
+import dev.app.leaf.theme.diffKeyword
 import dev.app.leaf.theme.graphLanes
 import dev.app.leaf.theme.lightTheme
-import dev.app.leaf.theme.darkTheme
 import dev.app.leaf.theme.styleColors
 import dev.app.leaf.theme.styled
+import dev.app.leaf.theme.syntaxColors
 import dev.app.leaf.theme.tertiarySurface
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** What `AppTheme` gives the app from a style (fork-only): its scheme, roles and lanes, and only to what it holds. */
+/**
+ * What `AppTheme` gives the app from a style (fork-only): its scheme, roles, lanes and syntax colours, and only to what
+ * it holds.
+ */
 class AppThemeStylesTest {
     private val solarizedLike = StyleDefinition(
         id = "test",
@@ -115,5 +124,50 @@ class AppThemeStylesTest {
     @Test
     fun `outside any AppTheme, the lanes are Leaf's own`() {
         assertEquals(CLASSIC_LANES, read { MaterialTheme.graphLanes })
+    }
+
+    @Test
+    fun `the syntax colours are the style's, or the Code colours setting's, and a theme inside follows the setting`() {
+        val (own, vsCode, nested) = read {
+            var drawn: Triple<SyntaxColors, SyntaxColors, SyntaxColors>? = null
+            AppTheme(selectedTheme = Theme.Light, style = BuiltInStyles.SOLARIZED) {
+                val own = MaterialTheme.syntaxColors
+                val solarized = BuiltInStyles.SOLARIZED
+                AppTheme(selectedTheme = Theme.Light, style = solarized, codeColours = CodeColours.VS_CODE) {
+                    val vsCode = MaterialTheme.syntaxColors
+                    // As the style editor's previews: no choice given, so the one around it
+                    AppTheme(selectedTheme = Theme.Dark, style = BuiltInStyles.TONAL) {
+                        drawn = Triple(own, vsCode, MaterialTheme.syntaxColors)
+                    }
+                }
+            }
+            checkNotNull(drawn)
+        }
+
+        assertEquals(resolveStyleSide(BuiltInStyles.SOLARIZED, isLight = true).palette.toSyntaxColors(), own)
+        assertEquals(Color(0xFF036FAF), own.keyword)
+        assertEquals(
+            resolveStyleSide(BuiltInStyles.SOLARIZED, isLight = true, CodeColours.VS_CODE).palette.toSyntaxColors(),
+            vsCode,
+        )
+        assertEquals(Color(0xFF0000FF), vsCode.keyword)
+        assertEquals(
+            resolveStyleSide(BuiltInStyles.TONAL, isLight = false, CodeColours.VS_CODE).palette.toSyntaxColors(),
+            nested,
+        )
+        // The scheme's three, which upstream's code reads, are the same colours
+        val scheme = read {
+            var colours: List<Color>? = null
+            AppTheme(selectedTheme = Theme.Light, style = BuiltInStyles.SOLARIZED, codeColours = CodeColours.INTELLIJ) {
+                val scheme = MaterialTheme.colors
+                val syntax = MaterialTheme.syntaxColors
+                colours = listOf(
+                    scheme.diffKeyword, scheme.diffAnnotation, scheme.diffComment,
+                    syntax.keyword, syntax.annotation, syntax.comment,
+                )
+            }
+            checkNotNull(colours)
+        }
+        assertEquals(scheme.take(3), scheme.drop(3))
     }
 }

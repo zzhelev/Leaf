@@ -21,6 +21,7 @@ import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.styles.StylesService
 import dev.app.leaf.domain.styles.UnreadableStyleFile
@@ -36,7 +37,6 @@ import dev.app.leaf.extensions.stateIn
 import dev.app.leaf.system.OpenUrlInBrowserUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine as combineFlows
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
@@ -117,14 +117,17 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun settingsState(): Flow<SettingsViewState> {
-        // Fork-only: the theme and the styles in one flow, as the combine below takes 30 at most
-        val appearance: Flow<Appearance> = combineFlows(
+        // Fork-only: the theme, the styles and the code colours in one flow, as the combine below takes 30 at most
+        val appearance: Flow<Appearance> = combine(
             appSettingsService.theme,
             stylesService.selected,
             stylesService.styles,
             stylesService.library,
             styleNotice,
-        ) { theme, style, styles, library, notice -> Appearance(theme, style, styles, library.unreadable, notice) }
+            appSettingsService.codeColours,
+        ) { theme, style, styles, library, notice, codeColours ->
+            Appearance(theme, style, styles, library.unreadable, notice, codeColours)
+        }
 
         return combine(
             appSettingsService.scaleUi,
@@ -191,6 +194,7 @@ class SettingsViewModel @Inject constructor(
                 appearance.styles,
                 appearance.unreadableStyles,
                 appearance.styleNotice,
+                appearance.codeColours,
                 linesHeightType,
                 dateFormatUseDefault,
                 dateFormatCustomFormat,
@@ -220,43 +224,45 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
+}
 
-    private fun emptySettingsState(): SettingsViewState {
-        return SettingsViewState(
-            scaleUi = null,
-            theme = Theme.Light,
-            style = BuiltInStyles.DEFAULT,
-            styles = BuiltInStyles.ALL,
-            unreadableStyles = emptyList(),
-            styleNotice = null,
-            linesHeightType = LinesHeightType.SPACED,
-            dateFormatUseDefault = false,
-            dateFormatCustomFormat = "",
-            dateFormatIs24h = false,
-            dateFormatUseRelative = false,
-            avatarProvider = AvatarProviderType.Gravatar,
-            swapStatusPanes = false,
-            confirmHunkAndLineDiscards = true,
-            diffWrapLines = true,
-            pullWithRebase = false,
-            pushWithLease = false,
-            remoteOperationsWithGit = false,
-            worktreesRefreshInterval = WorktreesRefreshIntervals.DEFAULT_SECONDS,
-            worktreesUntouchedDays = WorktreesUntouchedDays.DEFAULT_DAYS,
-            worktreeLabels = emptyList(),
-            conflictOpener = ConflictOpener.DEFAULT,
-            conflictResolverLayout = ConflictResolverLayout.DEFAULT,
-            conflictResolverWrapLines = true,
-            commitMessageHints = CommitMessageHints(),
-            fastForwardMerge = false,
-            autoStashOnMerge = false,
-            cloneDefaultDirectory = "",
-            cacheCredentialsInMemory = false,
-            terminalPath = "",
-            gitExecutablePath = "",
-            gitExecutable = null,
-        )
-    }
+/** The settings before the stored ones are read (fork-only: top level, for tests). */
+internal fun emptySettingsState(): SettingsViewState {
+    return SettingsViewState(
+        scaleUi = null,
+        theme = Theme.Light,
+        style = BuiltInStyles.DEFAULT,
+        styles = BuiltInStyles.ALL,
+        unreadableStyles = emptyList(),
+        styleNotice = null,
+        codeColours = CodeColours.DEFAULT,
+        linesHeightType = LinesHeightType.SPACED,
+        dateFormatUseDefault = false,
+        dateFormatCustomFormat = "",
+        dateFormatIs24h = false,
+        dateFormatUseRelative = false,
+        avatarProvider = AvatarProviderType.Gravatar,
+        swapStatusPanes = false,
+        confirmHunkAndLineDiscards = true,
+        diffWrapLines = true,
+        pullWithRebase = false,
+        pushWithLease = false,
+        remoteOperationsWithGit = false,
+        worktreesRefreshInterval = WorktreesRefreshIntervals.DEFAULT_SECONDS,
+        worktreesUntouchedDays = WorktreesUntouchedDays.DEFAULT_DAYS,
+        worktreeLabels = emptyList(),
+        conflictOpener = ConflictOpener.DEFAULT,
+        conflictResolverLayout = ConflictResolverLayout.DEFAULT,
+        conflictResolverWrapLines = true,
+        commitMessageHints = CommitMessageHints(),
+        fastForwardMerge = false,
+        autoStashOnMerge = false,
+        cloneDefaultDirectory = "",
+        cacheCredentialsInMemory = false,
+        terminalPath = "",
+        gitExecutablePath = "",
+        gitExecutable = null,
+    )
 }
 
 @Immutable
@@ -269,6 +275,8 @@ data class SettingsViewState(
     /** Files in the styles folder that couldn't be read, and what the last import or export gave. */
     val unreadableStyles: List<UnreadableStyleFile>,
     val styleNotice: StyleNotice?,
+    /** Whose colours code is drawn in (fork-only). */
+    val codeColours: CodeColours,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,
     val dateFormatCustomFormat: String,
@@ -315,11 +323,12 @@ sealed interface SettingsAction {
     data class Styles(val action: StyleGalleryAction) : SettingsAction
 }
 
-/** Settings → Appearance's theme and styles, in one flow (fork-only). */
+/** Settings → Appearance's theme, styles and code colours, in one flow (fork-only). */
 data class Appearance(
     val theme: Theme,
     val style: StyleDefinition,
     val styles: List<StyleDefinition>,
     val unreadableStyles: List<UnreadableStyleFile>,
     val styleNotice: StyleNotice?,
+    val codeColours: CodeColours,
 )

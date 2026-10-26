@@ -10,11 +10,12 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import dev.app.leaf.domain.highlighting.SyntaxCategory
+import dev.app.leaf.domain.styles.CodeColours
 
 /**
- * The colours of code, one per [SyntaxCategory] (fork-only, `docs/fork/syntax-highlighting.md`, 4.4), which the style
- * sets. The keyword, the annotation and the comment are the scheme's `diffKeyword`, `diffAnnotation` and `diffComment`
- * too, which upstream's code reads.
+ * The colours of code, one per [SyntaxCategory] (fork-only, `docs/fork/syntax-highlighting.md`, 4.4). The style sets
+ * them, and the Code colours setting may put VS Code's or IntelliJ's in their place. The keyword, the annotation and
+ * the comment are the scheme's `diffKeyword`, `diffAnnotation` and `diffComment` too, which upstream's code reads.
  */
 @Immutable
 data class SyntaxColors(
@@ -63,6 +64,9 @@ fun syntaxTemplate(scheme: ColorsScheme): SyntaxColors {
 }
 
 internal val LocalSyntaxColors = staticCompositionLocalOf { syntaxTemplate(darkTheme) }
+
+/** The Code colours setting, which an `AppTheme` inside another, as the style editor's previews, follows. */
+internal val LocalCodeColours = staticCompositionLocalOf { CodeColours.DEFAULT }
 
 val MaterialTheme.syntaxColors: SyntaxColors
     @Composable

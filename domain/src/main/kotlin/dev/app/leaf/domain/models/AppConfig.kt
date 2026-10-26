@@ -26,6 +26,9 @@ sealed interface AppConfig {
      */
     data class Style(val id: String) : AppConfig
 
+    /** Whose colours code is drawn in, as `code_colours` (fork-only, `docs/fork/syntax-highlighting.md`, 4.5). */
+    data class CodeColours(val value: dev.app.leaf.domain.styles.CodeColours) : AppConfig
+
     data class SwapStatusPanes(val value: Boolean) : AppConfig
 
     /** Whether discarding a hunk or a line in the diff asks first. Discarding files always asks. */

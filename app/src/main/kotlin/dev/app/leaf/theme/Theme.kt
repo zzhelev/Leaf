@@ -13,6 +13,7 @@ import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.models.ui.resolved
 import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.theme.styles.CLASSIC_LANES
 import dev.app.leaf.theme.styles.resolveStyleSide
@@ -63,6 +64,9 @@ fun AppTheme(
     linesHeightType: LinesHeightType = LinesHeightType.COMPACT,
     // Fork-only: every colour of the light and the dark theme (docs/fork/custom-styles.md)
     style: StyleDefinition = BuiltInStyles.DEFAULT,
+    // Fork-only: whose colours code is drawn in. An AppTheme inside another, as the style editor's previews, follows
+    // the outer one's
+    codeColours: CodeColours = LocalCodeColours.current,
     // Fork-only: read only when the System theme is selected. Compose polls the operating system's setting, so a
     // change recomposes this, and the colours with it
     systemIsDark: Boolean = selectedTheme == Theme.System && isSystemInDarkTheme(),
@@ -70,7 +74,7 @@ fun AppTheme(
 ) {
     // resolved() never returns System
     val isLight = selectedTheme.resolved(systemIsDark) == Theme.Light
-    val palette = remember(style, isLight) { resolveStyleSide(style, isLight).palette }
+    val palette = remember(style, isLight, codeColours) { resolveStyleSide(style, isLight, codeColours).palette }
     val theme = palette.toColorsScheme()
     val styleColors = palette.toStyleColors()
     val lanes = palette.lanes
@@ -89,6 +93,7 @@ fun AppTheme(
         LocalColorsScheme provides theme,
         LocalGraphLanes provides lanes,
         LocalSyntaxColors provides syntaxColors,
+        LocalCodeColours provides codeColours,
     )
 
     CompositionLocalProvider(values = compositionValues) {

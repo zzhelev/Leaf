@@ -16,6 +16,7 @@ import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.RefPanelSettings
+import dev.app.leaf.domain.styles.CodeColours
 import kotlinx.coroutines.flow.Flow
 
 interface AppSettingsRepository {
@@ -23,6 +24,7 @@ interface AppSettingsRepository {
     val scaleUi: Flow<Float?>
     val theme: Flow<Theme?>
     val styleId: Flow<String?>
+    val codeColours: Flow<CodeColours?>
     val linesHeightType: Flow<LinesHeightType?>
     val dateFormatUseDefault: Flow<Boolean?>
     val dateFormatCustomFormat: Flow<String?>

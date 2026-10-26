@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.domain.styles.StyleColorMath
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.styles.StyleSeed
@@ -211,10 +212,16 @@ fun StylePalette.contrastOf(check: ContrastCheck, replacement: Pair<StyleSlot, I
  * 1. a colour set by hand is used as it is;
  * 2. any other starts as its look's ([StylePalette.template]) and follows its seed ([slotRule]). A colour whose seed is
  *    the look's own stays the look's exactly, so a built-in style gives its look's colours;
- * 3. then each [contrastChecks] that fails moves the first of its movers that can hold it and wasn't set by hand, the
+ * 3. with [codeColours] other than Leaf's, its published colours take the syntax slots, set by hand or not, and count
+ *    as worked out: IntelliJ's types take the text colour;
+ * 4. then each [contrastChecks] that fails moves the first of its movers that can hold it and wasn't set by hand, the
  *    background aside, by as little lightness as it takes. The looks hold every check, so they never move.
  */
-fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedStyleSide {
+fun resolveStyleSide(
+    definition: StyleDefinition,
+    isLight: Boolean,
+    codeColours: CodeColours = CodeColours.DEFAULT,
+): ResolvedStyleSide {
     val look = definition.look
     val template = StylePalette.template(look, isLight)
     val templateSeeds = BuiltInStyles.templateSeeds(look, isLight)
@@ -225,14 +232,16 @@ fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedSty
         side.setByHand[slot]?.let { Color(it) }
             ?: followed(template[slot], slotRule(slot, look, isLight), templateSeeds, seeds)
     }
-    var palette = StylePalette(isLight, colors)
+    val published = codeColours.published(isLight)
+    val inPlace = published.orEmpty().mapValues { (_, argb) -> argb?.let { Color(it) } ?: colors.getValue(TEXT) }
+    var palette = StylePalette(isLight, colors + inPlace)
 
     val checks = contrastChecks(look)
     val firstColors = mutableMapOf<StyleSlot, Color>()
     val lastChecks = mutableMapOf<StyleSlot, Pair<ContrastCheck, Double>>()
 
 
-    fun movable(slot: StyleSlot) = slot !in side.setByHand && slot != BACKGROUND
+    fun movable(slot: StyleSlot) = (slot !in side.setByHand || slot in inPlace) && slot != BACKGROUND
 
     // A colour moved for one check can make another fail, so go round until nothing moves
     for (round in 1..MAX_ROUNDS) {
@@ -257,6 +266,9 @@ fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedSty
 
         if (!moved) break
     }
+
+    // IntelliJ's types are the text, wherever the checks took it
+    published.orEmpty().filterValues { it == null }.keys.forEach { palette = palette.with(it, palette[TEXT]) }
 
     // The background was fitted before anything else, so that text could read on every surface: say for which
     if (seeds.background != side.seeds.background && BACKGROUND !in side.setByHand) {
