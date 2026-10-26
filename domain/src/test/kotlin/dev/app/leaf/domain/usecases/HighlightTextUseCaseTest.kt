@@ -4,7 +4,11 @@
 package dev.app.leaf.domain.usecases
 
 import dev.app.leaf.domain.highlighting.HighlightedText
+import dev.app.leaf.domain.highlighting.SyntaxCategory
+import dev.app.leaf.domain.highlighting.SyntaxSpan
 import dev.app.leaf.domain.highlighting.decodedText
+import dev.app.leaf.domain.highlighting.highlightedTextOf
+import dev.app.leaf.domain.highlighting.lineCountOf
 import dev.app.leaf.domain.interfaces.IHighlightTextAction
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.diff.RawText
@@ -77,5 +81,34 @@ class HighlightTextUseCaseTest {
         assertNull(useCase("data.bin", RawText(("x".repeat(300) + "\n#!/bin/sh\n").toByteArray())))
         assertNull(useCase("src/Main.kt", RawText.EMPTY_TEXT))
         assertEquals(emptyList<Pair<String, String>>(), action.calls)
+    }
+
+    /** Colours each line of a text with one span that starts at the line's number, and notes the texts. */
+    private class NumberingAction : IHighlightTextAction {
+        val texts = mutableListOf<String>()
+
+        override suspend fun invoke(scopeName: String, text: String): HighlightedText {
+            texts += text
+            val lines = lineCountOf(text)
+            return highlightedTextOf((0 until lines).map { listOf(SyntaxSpan(it, it + 1, SyntaxCategory.KEYWORD)) })
+        }
+    }
+
+    @Test
+    fun `lines coloured in context are coloured after the lines before them, and keep only their own`(): Unit = runBlocking {
+        val action = NumberingAction()
+        val useCase = HighlightTextUseCase(action)
+
+        val typed = useCase.inContext("src/Main.kt", "/* a\n   b\n", "c */\nval d")!!
+        assertEquals("/* a\n   b\nc */\nval d", action.texts.single())
+        assertEquals(2, typed.lineCount)
+        assertEquals(listOf(SyntaxSpan(2, 3, SyntaxCategory.KEYWORD)), typed.spansOf(0))
+        assertEquals(listOf(SyntaxSpan(3, 4, SyntaxCategory.KEYWORD)), typed.spansOf(1))
+
+        // Lines before without a last line ending still end before the text; none at all is the text alone
+        assertEquals(listOf(SyntaxSpan(1, 2, SyntaxCategory.KEYWORD)), useCase.inContext("src/Main.kt", "x", "y")!!.spansOf(0))
+        assertEquals("x\ny", action.texts[1])
+        assertEquals(listOf(SyntaxSpan(0, 1, SyntaxCategory.KEYWORD)), useCase.inContext("src/Main.kt", "", "y")!!.spansOf(0))
+        assertNull(useCase.inContext("LICENSE", "x\n", "y"))
     }
 }

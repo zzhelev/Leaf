@@ -6,6 +6,8 @@ package dev.app.leaf.domain.usecases
 import dev.app.leaf.domain.highlighting.HighlightedText
 import dev.app.leaf.domain.highlighting.Languages
 import dev.app.leaf.domain.highlighting.decodedText
+import dev.app.leaf.domain.highlighting.lineCountOf
+import dev.app.leaf.domain.highlighting.lines
 import dev.app.leaf.domain.interfaces.IHighlightTextAction
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.util.RawParseUtils
@@ -37,5 +39,15 @@ class HighlightTextUseCase @Inject constructor(
         val start = RawParseUtils.decode(content, 0, minOf(content.size, MAX_FIRST_LINE))
         val language = Languages.of(path, start.substringBefore('\n')) ?: return null
         return highlightTextAction(language.scopeName, text.decodedText())
+    }
+
+    /**
+     * The colours of [text], lines that follow [before] in a version of the file at [path]: they're coloured from the
+     * state that the lines before them leave, so that lines typed in a comment are the comment's (step 6).
+     */
+    suspend fun inContext(path: String, before: String, text: String): HighlightedText? {
+        val start = if (before.isEmpty() || before.endsWith('\n')) before else before + "\n"
+        val highlighted = invoke(path, start + text) ?: return null
+        return highlighted.lines(start.count { it == '\n' }, lineCountOf(text))
     }
 }

@@ -59,6 +59,14 @@ class HighlightedVersions(val versions: List<Version> = emptyList()) {
     /** These versions, [text]'s with [highlighted] as its colours. */
     fun withHighlighted(text: RawText, highlighted: HighlightedText): HighlightedVersions =
         HighlightedVersions(versions.map { if (it.text === text) Version(it.text, it.path, highlighted) else it })
+
+    /** These versions and [text], from [path], with [highlighted] as its colours, in place of the one it was. */
+    fun with(text: RawText, path: String, highlighted: HighlightedText?): HighlightedVersions =
+        HighlightedVersions(versions.filter { it.text !== text } + Version(text, path, highlighted))
+
+    /** The spans of line [line] of [text], none for a version that isn't here or isn't coloured, or a filler (null). */
+    fun spansOf(text: RawText?, line: Int): List<SyntaxSpan> =
+        text?.let(::versionOf)?.highlighted?.spansOf(line).orEmpty()
 }
 
 /**

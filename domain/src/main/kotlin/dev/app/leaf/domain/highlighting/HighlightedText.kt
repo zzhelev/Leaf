@@ -104,6 +104,23 @@ class HighlightedText private constructor(
     }
 }
 
+/** Lines [from] to [from] + [count] of this text, as a text of their own: its line 0 is line [from] (fork-only, step 6). */
+fun HighlightedText.lines(from: Int, count: Int): HighlightedText = highlightedTextOf((from until from + count).map(::spansOf))
+
+/** A text whose lines have [lines]' spans, each line's in order. */
+fun highlightedTextOf(lines: List<List<SyntaxSpan>>): HighlightedText {
+    val builder = HighlightedText.Builder()
+
+    for (spans in lines) {
+        for (span in spans) {
+            builder.add(span.start, span.end, span.category, span.bold, span.italic)
+        }
+        builder.endLine()
+    }
+
+    return builder.build(lines.size)
+}
+
 /**
  * The lines of [text], as [HighlightedText] counts them: split at `\n`, each without the `\r` before it. A text that
  * ends with a line ending has an empty last line, as an editor shows it.
