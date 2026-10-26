@@ -5,7 +5,7 @@
 | Question | How does Leaf replace upstream's interactive rebase list with an editor that plans first, says before Start what will happen, and only touches a worktree when it has to? |
 | Verified against | `main` at `1edc1471`; git 2.54 (probes on 2026-10-23, section 2) |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check), B3 (the run without stops, main's unpushed commits) and B4 (the run with stops) done. Next: B5 |
+| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check), B3 (the run without stops, main's unpushed commits), B4 (the run with stops) and B5 (the editor) done. Next: B6 |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -113,9 +113,11 @@ Chosen with the user from round 3 of the mockup, each option tried there with it
 
 As round 2, with these changes (round 3 of the mockup):
 
-- **Where:** "Edit branch commits…" in a local branch's menu (side panel, log chip, worktree row), "Interactive rebase
+- **Where:** "Interactive rebase…" in a local branch's menu (side panel, log chip, worktree row), "Interactive rebase
   from here…" on a commit row (that commit included, as IntelliJ does; it replaces upstream's "Rebase interactive",
-  which started after the row), and "Edit these in the rebase editor…" on a Shift range. Disabled with part A's reasons
+  which started after the row), and "Interactive rebase of these 3 commits…" on a Shift range. The branch and range
+  items were "Edit branch commits…" and "Edit these in the rebase editor…" in the mockup, renamed with the user after
+  trying B5 (2026-10-26) to match the editor's title and the commit row's item. Disabled with part A's reasons
   ("On main", "Includes a merge", "On 2 branches", "In a rebase"). On main's own line (decision 5), a commit that
   origin/main has says "On origin/main".
 - **The pane:** the centre pane, the branches pane hidden while it shows, the changes pane held open for the panel
@@ -129,11 +131,70 @@ As round 2, with these changes (round 3 of the mockup):
 - **The footer:** "7 commits → 5 · 1 joined · 1 dropped · reordered", then only lines to act on: where it stops ("Stops at
   d25e917 "wip": ParserCacheTest.kt conflicts." or "Stops at 0a6c3e8 for you to edit it."), where it runs ("Runs in
   leaf-parser-cache.", "Checks out claude/parser-cache here first."), what is in the way, an agent's recent change, the
-  pushed commits. Reset the plan, Cancel (Esc), and "Rewrite 7 commits" or "Start rebase" (⌘↵), which waits for the
-  check.
+  pushed commits. Reset the plan, Cancel, and "Rewrite 7 commits" or "Start rebase", which waits for the check. Esc
+  cancels and ⌘↵ starts; the buttons don't show the keys, as no other button in Leaf does (2026-10-26).
 - **Drop commit…** (choice 4).
 - **After:** the strip, "Rebased claude/parser-cache onto main: 7 commits → 5.", with "Push with force…" and Undo; for a
   rebase that stopped, when it ends, from Leaf or a terminal.
+- Built in B5:
+  - **State** (`A/repositoryopen/CommitEditorController.kt`, made by `RepositoryOpenViewModel` like the other
+    controllers): the plan, the selected row, the check's answer for the plan as it is and the last one (the rows keep
+    showing it while the check runs again), Onto (part A's `checkOntoBase`), where it would replay, the box, the panel's
+    Start from per group, the commits' files. The check runs 150 ms after the last change through a `collectLatest`, and
+    an answer is taken only for the plan it was asked about (by identity). The plans to check go through a shared flow
+    that replays the last one: without it, a plan sent before the collector had started was lost, and never checked
+    (found by a test that failed once in a mutation run). A failed check counts as `PlanStop.Unknown`,
+    so the plan replays with git. Kept plans (decision 6) are by branch, used when the branch's tip and the plan's
+    commits are the same.
+  - **The footer and the rows' tags are domain** (`D/rewrite/PlanFooter.kt`: `planFooter`, `PlanNote`, `PlanPlace`,
+    `planRowMarks`), from the plan, the check, where it replays (`GetPlanPlaceUseCase`: the worktree that has the branch,
+    the tab's own first, its uncommitted tracked changes read again, and another worktree's last change within
+    `RECENT_CHANGE_MS`) and the branch's tip now. "moved" is the rows outside a longest run in the original order.
+  - **The check also says what is in the way** (`PlanCheck.inTheWay`): for a plan that runs through on a branch that a
+    worktree has checked out, `filesInTheWay` from the tip's tree to the plan's last tree, as part A's squash onto main.
+    The run still checks again.
+  - **The view** (`A/ui/commiteditor/`): `CommitEditor` in the centre pane, `CommitEditorPanel` in the right one,
+    `PlanNotes` for the footer's lines, shared with the Drop dialog. The `fixup!` strip under Onto is the notices' strip
+    (`warningStrip`, as the operation banner), with an icon and a "Put them there" button right after its text. Found by
+    the user in the demo (2026-10-26): it first had the selection's blue (1.06 : 1 against a selected row) and a link at
+    its far end, which read as a selected row and as text. Reset the plan and Cancel have no fill and a 1 dp line in the
+    secondary text's colour, which every style holds at 4.5 : 1 on the background: the Unstage role made them red in
+    Classic, and without a line Reset read as plain text. The action menu shows each key at its item's right
+    (`SortMenuItem.Option.shortcut`), and "Nothing below to join" under Squash and Fixup where they can't be chosen. `MainContentView` folds the branches pane while it
+    shows (its width kept), and `ChangesPaneNeed.CommitEditor` holds the changes pane open. Esc is
+    `CloseableView.COMMIT_EDITOR`, which cancels. The list takes the keys (P R S F E D, ↑↓, ⌥↑↓), the whole editor ⌘↵
+    (Ctrl+Enter elsewhere), and a drag reorders through upstream's `RowDragSorting`. The panel's message field keeps its
+    own text while it's typed in, and takes the plan's when anything but typing changed it
+    (`CommitEditorState.messageVersion`): the plan's state reaches the view a frame after a key, so comparing with it
+    lost characters.
+  - **Menus** (`CommitRewrite`'s `onEditor` and `onDrop`): "Drop commit…" and, after a separator, "Interactive rebase
+    from here…" on a commit row, "Interactive rebase of these N commits…" on a Shift range, "Interactive rebase…" on a
+    local branch (side panel, log chip, worktree row), with part A's reasons. Upstream's "Rebase interactive" stays in the
+    commit menu until B6 removes its list.
+  - **Drop commit…** (`A/ui/dialogs/DropCommitDialog.kt`, `Screen.DropCommit`): the commit, its files, the same check and
+    notes; "Drop commit" (red) or "Drop and rebase", waiting for the check.
+  - **Use cases and tasks** (`D/usecases/`): `CheckRebasePlanUseCase` (a query), `RunRebasePlanUseCase`
+    (`TaskType.RunRebasePlan`), `StartRebasePlanUseCase` (`TaskType.StartRebasePlan`, which switches the tab to the
+    worktree where it stopped, as decided, and whose toast warns at conflicts: `executeLaunchAsync` takes
+    `stoppedAtConflicts` now), `GetPlanRecordUseCase`, `BackToRebasePlanUseCase` (`TaskType.BackToRebasePlan`, git's
+    abort). `PlanRebaseOutcome.Stopped` has the worktree and whether it stopped at conflicts.
+  - **A stop:** while the tab's worktree rebases, the view model reads the plan's record (`planRecord`). The banner then
+    has "Back to the plan" before Abort, which asks first (`ConfirmableAction.BackToRebasePlan`, the abort's warning
+    about changed files), aborts, waits for the branch to be back at the plan's tip, and opens the editor with
+    `PlanRecord.planOn`. When the worktree stops rebasing and the branch moved, from Leaf or a terminal, the strip says
+    what the plan did (`RewriteNotice.ofPlan` with the plan that this tab started, or `ofRecord` after a restart, which
+    counts the record's groups and names no upstream). An abort leaves the branch where it was, and says nothing.
+  - Tests: `PlanFooterTest` and `GetPlanPlaceUseCaseTest` (domain), the files in the way in `CheckRebasePlanGitActionTest` and a stop's worktree in
+    `StartRebasePlanGitActionTest` (data), `CommitEditorControllerTest` (fakes: the check's last answer, kept plans,
+    focus and the field's version, Start's two ways, a failure), `CommitEditorViewTest` (rendered: rows, tags, footer,
+    keys, Onto, the fixup strip, the panel), `DropCommitDialogTest`, the editor's items in `RewriteMenusTest` and the
+    plan's strip in `RewriteStripTest` (app). The real tab ran through the Dagger graph in a temporary harness against
+    the demo of `/tmp/leaf-commit-editor-demo.sh`: the branch menu, F and Put them there, a rewrite with git's commits
+    and the same files, the strip and Undo, a drop that stops where the check said, the banner, Back to the plan, Drop
+    commit…, and an edit stop continued from a terminal, which brought up the strip. It also found the tab never reading
+    the plan's record: the collector was in an `init` block above the property, and died on it. 22 mutations were each
+    caught by a named test, two after a test was made stronger (Start from without a message written, and the files of
+    a branch checked out nowhere).
 
 ## 5. The plan and the check (B1, B2)
 
