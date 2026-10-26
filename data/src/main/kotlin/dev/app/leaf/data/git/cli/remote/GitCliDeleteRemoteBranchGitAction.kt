@@ -8,10 +8,12 @@ import dev.app.leaf.data.git.branches.DeleteBranchGitAction
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RemoteBranchChangedError
+import dev.app.leaf.domain.errors.SeveralPushUrlsError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.models.Branch
+import dev.app.leaf.domain.models.ServerHandOff
 import org.eclipse.jgit.lib.Constants
 import javax.inject.Inject
 
@@ -45,6 +47,8 @@ class GitCliDeleteRemoteBranchGitAction @Inject constructor(
             directory,
             listOf("push", "--porcelain", "--progress", "--force-with-lease=$serverRef:$tip", remote, "--delete", serverRef),
             authenticated = ::pushReachedRemote,
+            // Once git has connected, the server deletes it whatever git does next: Cancel would promise too much
+            handOff = ServerHandOff(remote, serverRef, trackingRef = ref.name, pushed = null, before = tip),
         ).bind()
 
         if (output.exitCode != 0) {
@@ -52,7 +56,11 @@ class GitCliDeleteRemoteBranchGitAction @Inject constructor(
 
             if (!stale) raiseError(pushFailure(output))
 
-            val now = remoteCommand.serverTips(directory, remote, listOf(serverRef)).bind()[serverRef]
+            // A remote with several push URLs has no one server to ask: git's own refusal says it
+            val now = when (val tips = remoteCommand.serverTips(directory, remote, listOf(serverRef))) {
+                is Either.Err -> if (tips.error is SeveralPushUrlsError) raiseError(pushFailure(output)) else raiseError(tips.error)
+                is Either.Ok -> tips.value[serverRef]
+            }
 
             if (now != null) {
                 raiseError(RemoteBranchChangedError("$remote/${ref.simpleName}", ref.name, now, was = tip))

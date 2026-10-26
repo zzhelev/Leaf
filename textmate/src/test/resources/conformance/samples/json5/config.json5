@@ -1,0 +1,12 @@
+// Leaf's demo configuration
+{
+  name: 'leaf-demo',
+  version: 2,
+  ratio: .5,
+  limit: +Infinity,
+  hex: 0x1F,
+  /* multi-line
+     comment */
+  branches: ['main', "develop",],
+  nested: { quoted: "a \"b\"", unquoted_key: null, },
+}

@@ -9,17 +9,26 @@ import dev.app.leaf.TabViewModel
 import dev.app.leaf.domain.conflicts.ColumnShares
 import dev.app.leaf.domain.conflicts.DEFAULT_FILE_LIST_WIDTH
 import dev.app.leaf.domain.conflicts.EditStart
+import dev.app.leaf.domain.conflicts.EditorSyntax
 import dev.app.leaf.domain.conflicts.applying
 import dev.app.leaf.domain.conflicts.conflictChunks
 import dev.app.leaf.domain.conflicts.dropping
 import dev.app.leaf.domain.conflicts.editStart
+import dev.app.leaf.domain.conflicts.editStartSyntax
 import dev.app.leaf.domain.conflicts.firstChangedChunk
 import dev.app.leaf.domain.conflicts.inParts
 import dev.app.leaf.domain.conflicts.resolving
+import dev.app.leaf.domain.conflicts.spansFor
 import dev.app.leaf.domain.conflicts.taking
+import dev.app.leaf.domain.conflicts.textBefore
+import dev.app.leaf.domain.conflicts.typedLines
 import dev.app.leaf.domain.conflicts.typing
 import dev.app.leaf.domain.conflicts.withoutTyping
 import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.highlighting.HighlightedText
+import dev.app.leaf.domain.highlighting.HighlightedVersions
+import dev.app.leaf.domain.highlighting.decodedText
+import dev.app.leaf.domain.highlighting.highlightedTextOf
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
@@ -36,6 +45,7 @@ import dev.app.leaf.domain.models.RenamedFile
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.TextMerge
+import dev.app.leaf.domain.models.TypedLines
 import dev.app.leaf.domain.models.VersionPreview
 import dev.app.leaf.domain.models.WorkingFileState
 import dev.app.leaf.domain.repositories.DataState
@@ -44,6 +54,7 @@ import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.usecases.DownloadLfsVersionUseCase
 import dev.app.leaf.domain.usecases.GetConflictedFileUseCase
 import dev.app.leaf.domain.usecases.GetRenamedFilesUseCase
+import dev.app.leaf.domain.usecases.HighlightTextUseCase
 import dev.app.leaf.domain.usecases.MarkConflictResolvedUseCase
 import dev.app.leaf.domain.usecases.OpenConflictVersionUseCase
 import dev.app.leaf.domain.usecases.OpenMergeToolUseCase
@@ -51,14 +62,22 @@ import dev.app.leaf.domain.usecases.ResolveConflictUseCase
 import dev.app.leaf.domain.usecases.ResolveRenamedFileUseCase
 import dev.app.leaf.domain.usecases.SaveConflictResolutionUseCase
 import dev.app.leaf.domain.usecases.StatusStageUseCase
+import dev.app.leaf.ui.conflicts.MAX_COLOURED_EDIT_CHARACTERS
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import org.eclipse.jgit.diff.RawText
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -92,6 +111,8 @@ class ConflictResolverViewModel @Inject constructor(
     private val downloadLfsVersionUseCase: DownloadLfsVersionUseCase,
     private val appSettingsService: AppSettingsService,
     private val session: ConflictResolverSession,
+    // Fork-only: the versions' syntax colours
+    private val highlightTextUseCase: HighlightTextUseCase,
 ) : TabViewModel() {
     val state: StateFlow<ConflictResolverState>
         field = MutableStateFlow(
@@ -116,6 +137,15 @@ class ConflictResolverViewModel @Inject constructor(
     private var conflicted: List<StatusEntry> = emptyList()
     private val resolvedHere = mutableListOf<StatusEntry>()
     private val history = ResolverHistory()
+
+    /** The colouring of the file shown, which loading another one stops (fork-only). */
+    private var colouring = SupervisorJob(viewModelScope.coroutineContext.job)
+
+    /** The texts being coloured: the versions and the lines typed, by instance. */
+    private val beingColoured: MutableSet<RawText> = Collections.synchronizedSet(Collections.newSetFromMap(IdentityHashMap()))
+
+    /** The colouring of the part being edited, which each change starts again. */
+    private var editColouring: Job? = null
 
     /** The file that the external merge tool has: it's loaded again once the status comes back with it conflicted. */
     private var inExternalTool: String? = null
@@ -150,6 +180,14 @@ class ConflictResolverViewModel @Inject constructor(
 
         viewModelScope.launch {
             appSettingsService.conflictResolverWrapLines.collect { wrap -> state.update { it.copy(wrapLines = wrap) } }
+        }
+
+        // Fork-only: the versions of the file shown, and the lines typed in it, get their colours
+        viewModelScope.launch {
+            state
+                .map { state -> (state.file as? ResolverFile.Loaded)?.let { file -> file.path to file.merge } }
+                .distinctUntilChanged { old, new -> old?.first == new?.first && old?.second === new?.second }
+                .collect { shown -> shown?.second?.let { merge -> colourVersions(shown.first, merge) } }
         }
 
         viewModelScope.launch {
@@ -279,7 +317,8 @@ class ConflictResolverViewModel @Inject constructor(
         val start = merge.editStart(chunk)
 
         state.update {
-            it.copy(edit = ResolverEdit(chunk, TextFieldValue(start.text, TextRange(caretAt(start.text, line))), start, line))
+            val value = TextFieldValue(start.text, TextRange(caretAt(start.text, line)))
+            it.copy(edit = ResolverEdit(chunk, value, start, line, merge.editStartSyntax(chunk, it.syntax)))
         }
         selectConflict(chunk)
     }
@@ -301,6 +340,10 @@ class ConflictResolverViewModel @Inject constructor(
         }
 
         state.update { it.copy(edit = it.edit?.copy(value = value)) }
+
+        if (value.text != edit.value.text) {
+            colourEdit()
+        }
     }
 
     /**
@@ -309,11 +352,106 @@ class ConflictResolverViewModel @Inject constructor(
      */
     fun finishEdit() {
         val edit = state.value.edit ?: return
+        editColouring?.cancel()
 
-        state.update { it.copy(edit = null) }
+        if (edit.value.text == edit.start.text) {
+            state.update { it.copy(edit = null) }
+            return
+        }
 
-        if (edit.value.text != edit.start.text) {
-            updateMerge { it.typing(edit.chunk, edit.start.format.typed(edit.value.text)) }
+        val typed = edit.start.format.typed(edit.value.text)
+        val path = state.value.file.path
+
+        // Fork-only: the lines typed keep the field's colours in the rows, coloured again unless they're the text's own
+        state.update { state ->
+            val syntax = edit.syntax
+            val seed = when {
+                syntax == null -> null
+                syntax.text == edit.value.text -> syntax.highlighted
+                else -> highlightedTextOf(syntax.spansFor(edit.value.text.split('\n')))
+            }
+            if (path == null || seed == null) {
+                state.copy(edit = null)
+            } else {
+                state.copy(edit = null, syntax = state.syntax.with(typed.text, path, seed))
+            }
+        }
+        updateMerge { it.typing(edit.chunk, typed) }
+
+        val merge = loadedMerge()
+
+        if (path != null && merge != null && edit.syntax?.text != edit.value.text) {
+            colourTyped(path, merge, edit.chunk, typed)
+        }
+    }
+
+    /**
+     * Colours the part being edited again, a moment after its text changes, after the lines that come before it in ours
+     * (fork-only).
+     */
+    private fun colourEdit() {
+        editColouring?.cancel()
+        val edit = state.value.edit ?: return
+        val file = state.value.file as? ResolverFile.Loaded ?: return
+        val merge = file.merge ?: return
+        val text = edit.value.text
+
+        if (text.length > MAX_COLOURED_EDIT_CHARACTERS) {
+            return
+        }
+
+        editColouring = viewModelScope.launch(colouring) {
+            delay(EDIT_COLOURING_DELAY)
+            val highlighted = highlightTextUseCase.inContext(file.path, merge.textBefore(edit.chunk), text) ?: return@launch
+
+            state.update { state ->
+                val shown = state.edit
+                if (shown != null && shown.chunk == edit.chunk) {
+                    state.copy(edit = shown.copy(syntax = EditorSyntax(text, highlighted)))
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    /** Colours the versions of [merge], the file at [path], and the lines typed in it, that have no colours yet. */
+    private fun colourVersions(path: String, merge: TextMerge) {
+        val known = state.value.syntax
+
+        for (text in listOf(merge.base, merge.ours, merge.theirs)) {
+            if (known.versionOf(text) == null && beingColoured.add(text)) {
+                colour(path, text) { highlightTextUseCase(path, text) }
+            }
+        }
+
+        for ((chunk, typed) in merge.typedLines()) {
+            if (known.versionOf(typed.text) == null) {
+                colourTyped(path, merge, chunk, typed)
+            }
+        }
+    }
+
+    /** Colours [typed], in [chunk]'s place, after the lines that come before it in ours. */
+    private fun colourTyped(path: String, merge: TextMerge, chunk: Int, typed: TypedLines) {
+        if (beingColoured.add(typed.text)) {
+            colour(path, typed.text) {
+                highlightTextUseCase.inContext(path, merge.textBefore(chunk), typed.text.decodedText())
+            }
+        }
+    }
+
+    /** Keeps [text]'s colours, which [highlight] works out, while the file at [path] is shown: none when nothing colours it. */
+    private fun colour(path: String, text: RawText, highlight: suspend () -> HighlightedText?) {
+        viewModelScope.launch(colouring) {
+            try {
+                val highlighted = highlight()
+                state.update { state ->
+                    if (state.file.path == path) state.copy(syntax = state.syntax.with(text, path, highlighted)) else state
+                }
+            } finally {
+                beingColoured.remove(text)
+            }
         }
     }
 
@@ -732,9 +870,14 @@ class ConflictResolverViewModel @Inject constructor(
     private fun load(path: String) {
         loadJob?.cancel()
         history.clear()
+        // Fork-only: another file's versions
+        colouring.cancel()
+        colouring = SupervisorJob(viewModelScope.coroutineContext.job)
+        beingColoured.clear()
         state.update {
             it.copy(
                 file = ResolverFile.Loading(path),
+                syntax = HighlightedVersions(),
                 currentConflict = 0,
                 prompt = null,
                 handOff = null,
@@ -909,7 +1052,14 @@ sealed interface ResolverLeave {
  * A part of the result being edited: [chunk]'s lines, as the text field has them ([value]), which started as [start].
  * [line]: the part's line where editing started, which the view keeps in its place, or null for its end.
  */
-data class ResolverEdit(val chunk: Int, val value: TextFieldValue, val start: EditStart, val line: Int?)
+/** [syntax]: the field's colours (fork-only), maybe of its text before the last changes. */
+data class ResolverEdit(
+    val chunk: Int,
+    val value: TextFieldValue,
+    val start: EditStart,
+    val line: Int?,
+    val syntax: EditorSyntax? = null,
+)
 
 /** Where the caret goes in [text] when editing starts: at the end of line [line], or of the last line. */
 internal fun caretAt(text: String, line: Int?): Int {
@@ -932,6 +1082,12 @@ internal fun caretAt(text: String, line: Int?): Int {
 
 /** The most steps that Undo goes back. */
 private const val MAX_UNDO_STEPS = 500
+
+/**
+ * How long after a change the part being edited is coloured again (fork-only), in milliseconds: typing faster than this
+ * colours only the text that it stops at.
+ */
+private const val EDIT_COLOURING_DELAY = 80L
 
 /**
  * The merges before each pick and finished edit of the file shown, for Undo, and the ones undone, for Redo. A new step
@@ -999,6 +1155,8 @@ data class ConflictResolverState(
     val canRedo: Boolean = false,
     /** The downloads of Git LFS objects that the cards started and that are running or failed, by object id. */
     val lfsDownloads: Map<String, LfsDownload> = emptyMap(),
+    /** The colours of the file's versions and of the lines typed in it, by their texts (fork-only). */
+    val syntax: HighlightedVersions = HighlightedVersions(),
 )
 
 /** A Git LFS object's download from a choice card. One that ended well is gone, as the card shows the object. */

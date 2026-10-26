@@ -1,0 +1,203 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-6 source.swift meta.import.swift keyword.control.import.swift
+0:6-7 source.swift meta.import.swift
+0:7-17 source.swift meta.import.swift entity.name.type.swift
+1:0-0 source.swift
+2:0-3 source.swift comment.line.triple-slash.documentation.swift punctuation.definition.comment.swift
+2:3-44 source.swift comment.line.triple-slash.documentation.swift
+3:0-4 source.swift meta.definition.type.enum.swift storage.type.enum.swift
+3:4-5 source.swift meta.definition.type.enum.swift
+3:5-15 source.swift meta.definition.type.enum.swift entity.name.type.enum.swift
+3:15-16 source.swift meta.definition.type.enum.swift meta.inheritance-clause.swift punctuation.separator.inheritance-clause.swift
+3:16-17 source.swift meta.definition.type.enum.swift meta.inheritance-clause.swift
+3:17-23 source.swift meta.definition.type.enum.swift meta.inheritance-clause.swift entity.other.inherited-class.swift meta.type-name.swift support.type.swift
+3:23-25 source.swift meta.definition.type.enum.swift meta.inheritance-clause.swift meta.inheritance-list.more-types
+3:25-37 source.swift meta.definition.type.enum.swift meta.inheritance-clause.swift meta.inheritance-list.more-types entity.other.inherited-class.swift meta.type-name.swift
+3:37-38 source.swift meta.definition.type.enum.swift meta.inheritance-clause.swift meta.inheritance-list.more-types entity.other.inherited-class.swift
+3:38-39 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift punctuation.definition.type.begin.swift
+4:0-4 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift
+4:4-8 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift storage.type.enum.case.swift
+4:8-9 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift
+4:9-14 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift variable.other.enummember.swift
+4:14-16 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift meta.enum-case.more-cases
+4:16-24 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift meta.enum-case.more-cases variable.other.enummember.swift
+4:24-26 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift meta.enum-case.more-cases meta.enum-case.more-cases
+4:26-33 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift meta.enum-case.more-cases meta.enum-case.more-cases variable.other.enummember.swift
+5:0-4 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift meta.enum-case.more-cases meta.enum-case.more-cases
+5:4-8 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift storage.type.enum.case.swift
+5:8-9 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift
+5:9-19 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift variable.other.enummember.swift
+5:19-20 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift
+5:20-21 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift keyword.operator.assignment.swift
+5:21-22 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift
+5:22-23 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift string.quoted.double.single-line.swift punctuation.definition.string.begin.swift
+5:23-36 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift string.quoted.double.single-line.swift
+5:36-37 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift string.quoted.double.single-line.swift punctuation.definition.string.end.swift
+6:0-1 source.swift meta.definition.type.enum.swift meta.definition.type.body.swift punctuation.definition.type.end.swift
+7:0-0 source.swift
+8:0-1 source.swift meta.attribute.swift storage.modifier.attribute.swift punctuation.definition.attribute.swift
+8:1-10 source.swift meta.attribute.swift storage.modifier.attribute.swift
+9:0-5 source.swift storage.modifier.swift
+9:5-6 source.swift
+9:6-11 source.swift meta.definition.type.class.swift storage.type.class.swift
+9:11-12 source.swift meta.definition.type.class.swift
+9:12-23 source.swift meta.definition.type.class.swift entity.name.type.class.swift
+9:23-24 source.swift meta.definition.type.class.swift meta.inheritance-clause.swift punctuation.separator.inheritance-clause.swift
+9:24-25 source.swift meta.definition.type.class.swift meta.inheritance-clause.swift
+9:25-41 source.swift meta.definition.type.class.swift meta.inheritance-clause.swift entity.other.inherited-class.swift meta.type-name.swift
+9:41-42 source.swift meta.definition.type.class.swift meta.inheritance-clause.swift entity.other.inherited-class.swift
+9:42-43 source.swift meta.definition.type.class.swift meta.definition.type.body.swift punctuation.definition.type.begin.swift
+10:0-4 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:4-5 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.attribute.swift storage.modifier.attribute.swift punctuation.definition.attribute.swift
+10:5-14 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.attribute.swift storage.modifier.attribute.swift
+10:14-15 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:15-22 source.swift meta.definition.type.class.swift meta.definition.type.body.swift keyword.other.declaration-specifier.accessibility.swift
+10:22-23 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.function-call.swift punctuation.definition.arguments.begin.swift
+10:23-26 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.function-call.swift storage.type.function.swift
+10:26-27 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.function-call.swift punctuation.definition.arguments.end.swift
+10:27-28 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:28-31 source.swift meta.definition.type.class.swift meta.definition.type.body.swift keyword.other.declaration-specifier.swift
+10:31-38 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:38-39 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:39-40 source.swift meta.definition.type.class.swift meta.definition.type.body.swift punctuation.section.collection-type.begin.swift
+10:40-46 source.swift meta.definition.type.class.swift meta.definition.type.body.swift support.type.swift
+10:46-47 source.swift meta.definition.type.class.swift meta.definition.type.body.swift punctuation.separator.key-value.swift
+10:47-58 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:58-59 source.swift meta.definition.type.class.swift meta.definition.type.body.swift punctuation.section.collection-type.end.swift
+10:59-60 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:60-61 source.swift meta.definition.type.class.swift meta.definition.type.body.swift keyword.operator.custom.infix.swift
+10:61-63 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+10:63-64 source.swift meta.definition.type.class.swift meta.definition.type.body.swift keyword.operator.ternary.swift
+10:64-65 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+11:0-4 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+11:4-11 source.swift meta.definition.type.class.swift meta.definition.type.body.swift keyword.other.declaration-specifier.accessibility.swift
+11:11-12 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+11:12-15 source.swift meta.definition.type.class.swift meta.definition.type.body.swift keyword.other.declaration-specifier.swift
+11:15-22 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+11:22-23 source.swift meta.definition.type.class.swift meta.definition.type.body.swift keyword.operator.custom.infix.swift
+11:23-24 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+11:24-30 source.swift meta.definition.type.class.swift meta.definition.type.body.swift constant.numeric.integer.decimal.swift
+12:0-0 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+13:0-4 source.swift meta.definition.type.class.swift meta.definition.type.body.swift
+13:4-8 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift storage.type.function.swift
+13:8-9 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift
+13:9-13 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift entity.name.function.swift
+13:13-14 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift punctuation.definition.parameters.begin.swift
+13:14-18 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift entity.name.function.swift
+13:18-19 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift
+13:19-28 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift variable.parameter.function.swift
+13:28-30 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift
+13:30-36 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift support.type.swift
+13:36-37 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift punctuation.definition.parameters.end.swift
+13:37-38 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift
+13:38-43 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.parameter-clause.swift storage.modifier.async.swift
+13:43-44 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift
+13:44-50 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift storage.modifier.exception.swift
+13:50-51 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift
+13:51-52 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift punctuation.section.function.begin.swift
+14:0-8 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:8-11 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.loop.swift
+14:11-17 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:17-19 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.loop.swift
+14:19-30 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:30-35 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift support.function.swift
+14:35-36 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.begin.swift
+14:36-45 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift support.function.any-method.swift
+14:45-46 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.separator.argument-label.swift
+14:46-47 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift
+14:47-48 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift punctuation.definition.string.begin.swift
+14:48-50 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift constant.character.escape.swift
+14:50-51 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift punctuation.definition.string.end.swift
+14:51-52 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.end.swift
+14:52-53 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:53-58 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.branch.swift
+14:58-64 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:64-69 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift support.variable.swift
+14:69-70 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:70-71 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.custom.infix.swift
+14:71-72 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:72-73 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift constant.numeric.integer.decimal.swift
+14:73-74 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+14:74-75 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift punctuation.section.scope.begin.swift
+15:0-12 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+15:12-15 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.other.declaration-specifier.swift
+15:15-21 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+15:21-22 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.custom.infix.swift
+15:22-28 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+15:28-34 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift support.function.swift
+15:34-35 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.begin.swift
+15:35-36 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift constant.numeric.integer.decimal.swift
+15:36-37 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.end.swift
+16:0-12 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+16:12-15 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.other.declaration-specifier.swift
+16:15-21 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+16:21-22 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.custom.infix.swift
+16:22-23 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+16:23-29 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift support.type.swift
+16:29-30 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.begin.swift
+16:30-35 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift
+16:35-44 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift support.function.swift
+16:44-45 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift meta.function-call.swift punctuation.definition.arguments.begin.swift
+16:45-46 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift meta.function-call.swift constant.numeric.integer.decimal.swift
+16:46-47 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift meta.function-call.swift punctuation.definition.arguments.end.swift
+16:47-48 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.end.swift
+17:0-17 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:17-18 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.subscript-expression.swift punctuation.definition.arguments.begin.swift
+17:18-22 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.subscript-expression.swift
+17:22-23 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.subscript-expression.swift punctuation.definition.arguments.end.swift
+17:23-24 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:24-25 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.custom.infix.swift
+17:25-31 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:31-33 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.custom.infix.swift
+17:33-34 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:34-35 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift string.quoted.double.single-line.swift punctuation.definition.string.begin.swift
+17:35-37 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift string.quoted.double.single-line.swift
+17:37-38 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift string.quoted.double.single-line.swift punctuation.definition.string.end.swift
+17:38-39 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:39-40 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.custom.infix.swift
+17:40-42 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:42-52 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift variable.other.swift
+17:52-53 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:53-54 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.ternary.swift
+17:54-56 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+17:56-64 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift variable.other.swift
+18:0-8 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+18:8-9 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift punctuation.section.scope.end.swift
+19:0-8 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:8-13 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.branch.swift
+19:13-20 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:20-25 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift support.variable.swift
+19:25-26 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:26-28 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.operator.custom.infix.swift
+19:28-35 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:35-39 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.branch.swift
+19:39-40 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:40-41 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift punctuation.section.scope.begin.swift
+19:41-42 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:42-47 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.exception.swift
+19:47-48 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:48-58 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift support.function.any-method.swift
+19:58-59 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.begin.swift
+19:59-60 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift
+19:60-76 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift variable.other.swift
+19:76-77 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.end.swift
+19:77-78 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+19:78-79 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift punctuation.section.scope.end.swift
+20:0-8 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+20:8-13 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift support.function.swift
+20:13-14 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.begin.swift
+20:14-15 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift punctuation.definition.string.begin.swift
+20:15-22 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift
+20:22-24 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift meta.embedded.line.swift punctuation.section.embedded.begin.swift
+20:24-30 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift meta.embedded.line.swift source.swift
+20:30-35 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift meta.embedded.line.swift source.swift support.variable.swift
+20:35-36 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift meta.embedded.line.swift punctuation.section.embedded.end.swift
+20:36-42 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift
+20:42-43 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift string.quoted.double.single-line.swift punctuation.definition.string.end.swift
+20:43-44 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift meta.function-call.swift punctuation.definition.arguments.end.swift
+20:44-45 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+20:45-47 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift comment.line.double-slash.swift punctuation.definition.comment.swift
+20:47-61 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift comment.line.double-slash.swift
+21:0-4 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift
+21:4-5 source.swift meta.definition.type.class.swift meta.definition.type.body.swift meta.definition.function.swift meta.definition.function.body.swift punctuation.section.function.end.swift
+22:0-1 source.swift meta.definition.type.class.swift meta.definition.type.body.swift punctuation.definition.type.end.swift

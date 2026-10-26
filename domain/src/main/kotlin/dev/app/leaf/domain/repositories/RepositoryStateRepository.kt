@@ -3,6 +3,7 @@ package dev.app.leaf.domain.repositories
 import dev.app.leaf.domain.rebase.SkippedCommitsNotice
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.models.AutostashNotice
+import dev.app.leaf.domain.models.ServerHandOff
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.usecases.DataToRefresh
@@ -24,8 +25,11 @@ interface RepositoryStateRepository {
     suspend fun <T> runOperation(taskType: TaskType, isForegroundTask: Boolean, block: suspend () -> T): T
     fun updateTaskProgress(progress: TaskProgress?)
 
-    /** Cancels the foreground task, if it can be cancelled (see [taskProgress]). */
-    fun cancelCurrentTask()
+    /**
+     * Cancels the foreground task, if it can be cancelled (see [taskProgress]). Returns what git had already handed the
+     * server, which goes on with it (fork-only, [TaskProgress.handOff]), or null.
+     */
+    fun cancelCurrentTask(): ServerHandOff?
     suspend fun addCompletedTaskSuccessfully(completedTask: TaskType)
 
     /** A task that ran and left conflicts to resolve, such as a merge that stopped at them (fork-only). */

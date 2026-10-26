@@ -21,6 +21,7 @@ import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.SortSettingsCodec
 import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.CodeColours
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
@@ -37,6 +38,9 @@ class AppSettingsService @Inject constructor(
 
     /** Fork-only: the id of the style that draws Leaf, Tonal's when none was chosen. See `StylesService`. */
     val styleId: Flow<String> get() = appSettingsRepository.styleId.defaultIfNull { BuiltInStyles.DEFAULT_ID }
+
+    /** Fork-only: whose colours code is drawn in, each style's own when none was chosen. */
+    val codeColours: Flow<CodeColours> get() = appSettingsRepository.codeColours.defaultIfNull { CodeColours.DEFAULT }
 
     val linesHeightType: Flow<LinesHeightType> get() = appSettingsRepository.linesHeightType.defaultIfNull { DEFAULT_LINES_HEIGHT }
     val dateFormatUseDefault: Flow<Boolean> get() = appSettingsRepository.dateFormatUseDefault.defaultIfNull { DEFAULT_DATE_USE_DEFAULT }

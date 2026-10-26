@@ -28,9 +28,11 @@ val lightTheme = ColorsScheme(
     diffContentAdded = Color(0x4570df70),
     diffLineRemoved = Color(0xAAf0d4d4),
     diffContentRemoved = Color(0x45FF0000),
-    diffKeyword = Color(0xff3b83cf),
-    diffAnnotation = Color(0xff9f9927),
-    diffComment = Color(0xff0d9141),
+    // Fork-only: palette 1a's, which hold 4.5 : 1 on the background and both line tints
+    // (docs/fork/syntax-highlighting.md)
+    diffKeyword = Color(0xFF1A69B5),
+    diffAnnotation = Color(0xFF756700),
+    diffComment = Color(0xFF027835),
     isLight = true,
 )
 
@@ -61,8 +63,9 @@ val darkTheme = ColorsScheme(
     diffContentAdded = Color(0x4500FF00),
     diffLineRemoved = Color(0xAA6f585e),
     diffContentRemoved = Color(0x45FF0000),
+    // Fork-only: palette 1a's (docs/fork/syntax-highlighting.md)
     diffKeyword = Color(0xffa3caf1),
-    diffAnnotation = Color(0xFFB3AE5F),
-    diffComment = Color(0xFF70C290),
+    diffAnnotation = Color(0xFFC9BC6F),
+    diffComment = Color(0xFF86CE99),
     isLight = false,
 )

@@ -1,0 +1,182 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-47 source.r comment.line
+1:0-7 source.r keyword.other
+1:7-8 source.r meta.bracket
+1:8-13 source.r meta.bracket variable.object
+1:13-14 source.r meta.bracket
+2:0-0 source.r
+3:0-12 source.r variable.object
+3:12-13 source.r
+3:13-15 source.r keyword.operator
+3:15-16 source.r
+3:16-24 source.r meta.function.definition keyword.other
+3:24-25 source.r meta.function.definition meta.bracket
+3:25-29 source.r meta.function.definition variable.parameter
+3:29-30 source.r meta.function.definition keyword.operator
+3:30-31 source.r meta.function.definition
+3:31-33 source.r meta.function.definition variable.parameter
+3:33-34 source.r meta.function.definition
+3:34-35 source.r meta.function.definition keyword.operator
+3:35-36 source.r meta.function.definition
+3:36-37 source.r meta.function.definition string.quoted.double
+3:37-40 source.r meta.function.definition string.quoted.double
+3:40-41 source.r meta.function.definition string.quoted.double
+3:41-42 source.r meta.function.definition meta.bracket
+3:42-43 source.r
+3:43-44 source.r meta.bracket
+4:0-2 source.r meta.bracket
+4:2-9 source.r meta.bracket variable.object
+4:9-10 source.r meta.bracket
+4:10-12 source.r meta.bracket keyword.operator
+4:12-13 source.r meta.bracket
+4:13-21 source.r meta.bracket meta.function-call entity.name.function
+4:21-22 source.r meta.bracket meta.bracket
+4:22-26 source.r meta.bracket meta.bracket variable.object
+4:26-27 source.r meta.bracket meta.bracket keyword.operator
+4:27-28 source.r meta.bracket meta.bracket
+4:28-44 source.r meta.bracket meta.bracket variable.parameter
+4:44-45 source.r meta.bracket meta.bracket
+4:45-46 source.r meta.bracket meta.bracket keyword.operator
+4:46-47 source.r meta.bracket meta.bracket
+4:47-52 source.r meta.bracket meta.bracket constant.language
+4:52-53 source.r meta.bracket meta.bracket
+5:0-2 source.r meta.bracket
+5:2-9 source.r meta.bracket variable.object
+5:9-10 source.r meta.bracket keyword.operator
+5:10-14 source.r meta.bracket variable.object
+5:14-15 source.r meta.bracket
+5:15-17 source.r meta.bracket keyword.operator
+5:17-18 source.r meta.bracket
+5:18-28 source.r meta.bracket meta.function-call entity.name.function
+5:28-29 source.r meta.bracket meta.bracket
+5:29-36 source.r meta.bracket meta.bracket variable.object
+5:36-37 source.r meta.bracket meta.bracket keyword.operator
+5:37-41 source.r meta.bracket meta.bracket variable.object
+5:41-42 source.r meta.bracket meta.bracket keyword.operator
+5:42-43 source.r meta.bracket meta.bracket
+5:43-45 source.r meta.bracket meta.bracket variable.parameter
+5:45-46 source.r meta.bracket meta.bracket
+5:46-47 source.r meta.bracket meta.bracket keyword.operator
+5:47-48 source.r meta.bracket meta.bracket
+5:48-50 source.r meta.bracket meta.bracket variable.object
+5:50-51 source.r meta.bracket meta.bracket
+6:0-2 source.r meta.bracket
+6:2-9 source.r meta.bracket variable.object
+7:0-1 source.r meta.bracket
+8:0-0 source.r
+9:0-6 source.r variable.object
+9:6-7 source.r
+9:7-9 source.r keyword.operator
+9:9-10 source.r
+9:10-22 source.r meta.function-call entity.name.function
+9:22-23 source.r meta.bracket
+9:23-24 source.r meta.bracket string.quoted.double
+9:24-35 source.r meta.bracket string.quoted.double
+9:35-36 source.r meta.bracket string.quoted.double
+9:36-37 source.r meta.bracket
+9:37-38 source.r
+9:38-41 source.r keyword.operator
+10:0-2 source.r
+10:2-8 source.r meta.function-call entity.name.function
+10:8-9 source.r meta.bracket
+10:9-13 source.r meta.bracket variable.parameter
+10:13-14 source.r meta.bracket
+10:14-15 source.r meta.bracket keyword.operator
+10:15-16 source.r meta.bracket
+10:16-22 source.r meta.bracket meta.function-call entity.name.function
+10:22-23 source.r meta.bracket meta.bracket
+10:23-27 source.r meta.bracket meta.bracket variable.object
+10:27-28 source.r meta.bracket meta.bracket keyword.operator
+10:28-29 source.r meta.bracket meta.bracket
+10:29-30 source.r meta.bracket meta.bracket string.quoted.double
+10:30-35 source.r meta.bracket meta.bracket string.quoted.double
+10:35-36 source.r meta.bracket meta.bracket string.quoted.double
+10:36-37 source.r meta.bracket meta.bracket
+10:37-38 source.r meta.bracket
+10:38-39 source.r
+10:39-42 source.r keyword.operator
+11:0-2 source.r
+11:2-7 source.r meta.function-call entity.name.function
+11:7-8 source.r meta.bracket
+11:8-12 source.r meta.bracket variable.object
+11:12-13 source.r meta.bracket keyword.operator
+11:13-14 source.r meta.bracket
+11:14-18 source.r meta.bracket variable.parameter
+11:18-19 source.r meta.bracket
+11:19-20 source.r meta.bracket keyword.operator
+11:20-21 source.r meta.bracket
+11:21-22 source.r meta.bracket string.quoted.double
+11:22-29 source.r meta.bracket string.quoted.double
+11:29-30 source.r meta.bracket string.quoted.double
+11:30-31 source.r meta.bracket
+12:0-0 source.r
+13:0-2 source.r keyword
+13:2-3 source.r
+13:3-4 source.r meta.bracket
+13:4-8 source.r meta.bracket meta.function-call entity.name.function
+13:8-9 source.r meta.bracket meta.bracket
+13:9-15 source.r meta.bracket meta.bracket variable.object
+13:15-16 source.r meta.bracket meta.bracket
+13:16-17 source.r meta.bracket
+13:17-18 source.r meta.bracket keyword.operator
+13:18-19 source.r meta.bracket
+13:19-21 source.r meta.bracket constant.numeric
+13:21-22 source.r meta.bracket
+13:22-24 source.r meta.bracket keyword.operator
+13:24-25 source.r meta.bracket
+13:25-26 source.r meta.bracket keyword.operator
+13:26-31 source.r meta.bracket meta.function-call entity.name.function
+13:31-32 source.r meta.bracket meta.bracket
+13:32-38 source.r meta.bracket meta.bracket variable.object
+13:38-39 source.r meta.bracket meta.bracket keyword.operator
+13:39-46 source.r meta.bracket meta.bracket variable.object
+13:46-47 source.r meta.bracket meta.bracket meta.bracket
+13:47-48 source.r meta.bracket meta.bracket meta.bracket constant.numeric
+13:48-49 source.r meta.bracket meta.bracket meta.bracket
+13:49-50 source.r meta.bracket meta.bracket
+13:50-51 source.r meta.bracket
+13:51-52 source.r
+13:52-53 source.r meta.bracket
+14:0-2 source.r meta.bracket
+14:2-7 source.r meta.bracket meta.function-call entity.name.function
+14:7-8 source.r meta.bracket meta.bracket
+14:8-15 source.r meta.bracket meta.bracket meta.function-call entity.name.function
+14:15-16 source.r meta.bracket meta.bracket meta.bracket
+14:16-22 source.r meta.bracket meta.bracket meta.bracket variable.object
+14:22-23 source.r meta.bracket meta.bracket meta.bracket keyword.operator
+14:23-30 source.r meta.bracket meta.bracket meta.bracket variable.object
+14:30-31 source.r meta.bracket meta.bracket meta.bracket
+14:31-32 source.r meta.bracket meta.bracket
+15:0-1 source.r meta.bracket
+15:1-2 source.r
+15:2-6 source.r keyword
+15:6-7 source.r
+15:7-8 source.r meta.bracket
+16:0-2 source.r meta.bracket
+16:2-9 source.r meta.bracket meta.function-call entity.name.function
+16:9-10 source.r meta.bracket meta.bracket
+16:10-11 source.r meta.bracket meta.bracket string.quoted.double
+16:11-21 source.r meta.bracket meta.bracket string.quoted.double
+16:21-22 source.r meta.bracket meta.bracket string.quoted.double
+16:22-23 source.r meta.bracket meta.bracket
+17:0-1 source.r meta.bracket
+18:0-1 source.r variable.object
+18:1-2 source.r
+18:2-4 source.r keyword.operator
+18:4-5 source.r
+18:5-6 source.r meta.function-call entity.name.function
+18:6-7 source.r meta.bracket
+18:7-10 source.r meta.bracket constant.numeric
+18:10-11 source.r meta.bracket keyword.operator
+18:11-12 source.r meta.bracket
+18:12-15 source.r meta.bracket constant.numeric
+18:15-16 source.r meta.bracket keyword.operator
+18:16-17 source.r meta.bracket
+18:17-19 source.r meta.bracket constant.language
+18:19-20 source.r meta.bracket keyword.operator
+18:20-21 source.r meta.bracket
+18:21-25 source.r meta.bracket constant.language
+18:25-26 source.r meta.bracket keyword.operator
+18:26-27 source.r meta.bracket
+18:27-31 source.r meta.bracket constant.language
+18:31-32 source.r meta.bracket

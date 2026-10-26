@@ -109,12 +109,7 @@ data class EditStart(val text: String, val format: LineFormat)
  * without their line endings.
  */
 fun TextMerge.editStart(chunk: Int): EditStart {
-    val part = chunks[chunk]
-    val lines = if (part is Chunk.Conflict && part.resolution == ConflictResolution.Unresolved) {
-        lines(base, part.base)
-    } else {
-        resultLines(part, showBase = false).lines
-    }
+    val lines = editStartLines(chunk)
     val charset = charsetOf(lines.map { (text, line) -> text.lineBytes(line) }) ?: fileCharset()
     val lineEnding = lines.firstNotNullOfOrNull { (text, line) -> text.lineEnding(line) } ?: fileLineEnding()
     // Only the last line of a version can lack a line ending: the part is where the file ends
@@ -124,6 +119,17 @@ fun TextMerge.editStart(chunk: Int): EditStart {
         text = lines.joinToString("\n") { (text, line) -> charset.decode(ByteBuffer.wrap(text.lineBytes(line))).toString() },
         format = LineFormat(charset, lineEnding, endsWithLineEnding),
     )
+}
+
+/** The lines that editing [chunk] starts from ([editStart]): each a line of a version, or of lines typed. */
+fun TextMerge.editStartLines(chunk: Int): List<Pair<RawText, Int>> {
+    val part = chunks[chunk]
+
+    return if (part is Chunk.Conflict && part.resolution == ConflictResolution.Unresolved) {
+        lines(base, part.base)
+    } else {
+        resultLines(part, showBase = false).lines
+    }
 }
 
 /**

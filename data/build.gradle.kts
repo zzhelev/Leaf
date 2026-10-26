@@ -13,6 +13,7 @@ val isLinuxAarch64 = (properties.getOrDefault("isLinuxAarch64", "false") as Stri
 dependencies {
     implementation(project(":common"))
     implementation(project(":domain"))
+    implementation(project(":textmate"))
 
     val composeDependency = when {
         currentOs() == OS.LINUX && isLinuxAarch64 -> libs.compose.desktop.linux.arm64

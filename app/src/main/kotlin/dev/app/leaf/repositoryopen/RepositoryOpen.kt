@@ -38,6 +38,7 @@ import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.BranchesPaneToggle
 import dev.app.leaf.ui.components.ChangesPaneToggle
+import dev.app.leaf.ui.StoppedWaitingStrip
 import dev.app.leaf.ui.ChangesPaneState
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
 import dev.app.leaf.ui.conflicts.ConflictResolver
@@ -319,6 +320,21 @@ fun RepositoryOpenPage(
                     }
                 }
 
+                // Fork-only: what a server did with a push or a delete that the user stopped waiting for
+                val stoppedWaiting by repositoryOpenViewModel.stoppedWaiting.collectAsState()
+
+                stoppedWaiting?.let { state ->
+                    if (!resolverFocused) {
+                        StoppedWaitingStrip(
+                            state = state,
+                            onStopChecking = { repositoryOpenViewModel.stopCheckingStoppedPush() },
+                            onFetch = { repositoryOpenViewModel.fetchAfterStoppedPush() },
+                            onTryAgain = { repositoryOpenViewModel.checkStoppedPushAgain() },
+                            onDismiss = { repositoryOpenViewModel.dismissStoppedPush() },
+                        )
+                    }
+                }
+
                 RepoContent(
                     repositoryOpenViewModel = repositoryOpenViewModel,
                     selectedItem = selectedItem,
@@ -593,6 +609,7 @@ fun MainContentView(
                     Blame(
                         filePath = blameState.filePath,
                         blameResult = blameState.blameResult,
+                        highlighted = blameState.highlighted,
                         onClose = {
                             viewModel.resetBlameState()
                             // Fork-only: blame had the focus, so the tab takes it back, as when the diff closes

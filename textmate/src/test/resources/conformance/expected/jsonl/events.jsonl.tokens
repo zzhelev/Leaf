@@ -1,0 +1,110 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.json.lines meta.structure.dictionary.json.lines punctuation.definition.dictionary.begin.json.lines
+0:1-2 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+0:2-7 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+0:7-8 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+0:8-9 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+0:9-10 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+0:10-11 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+0:11-15 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines
+0:15-16 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+0:16-17 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+0:17-18 source.json.lines meta.structure.dictionary.json.lines
+0:18-19 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+0:19-25 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+0:25-26 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+0:26-27 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+0:27-28 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+0:28-29 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+0:29-33 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines
+0:33-34 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+0:34-35 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+0:35-36 source.json.lines meta.structure.dictionary.json.lines
+0:36-37 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+0:37-44 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+0:44-45 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+0:45-46 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+0:46-47 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+0:47-48 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines constant.numeric.json.lines
+0:48-49 source.json.lines meta.structure.dictionary.json.lines punctuation.definition.dictionary.end.json.lines
+1:0-1 source.json.lines meta.structure.dictionary.json.lines punctuation.definition.dictionary.begin.json.lines
+1:1-2 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+1:2-7 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+1:7-8 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+1:8-9 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+1:9-10 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+1:10-11 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+1:11-16 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines
+1:16-17 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+1:17-18 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+1:18-19 source.json.lines meta.structure.dictionary.json.lines
+1:19-20 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+1:20-26 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+1:26-27 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+1:27-28 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+1:28-29 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+1:29-30 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+1:30-36 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines
+1:36-37 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+1:37-38 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+1:38-39 source.json.lines meta.structure.dictionary.json.lines
+1:39-40 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+1:40-42 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+1:42-43 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+1:43-44 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+1:44-45 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+1:45-49 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines constant.language.json.lines
+1:49-50 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+1:50-51 source.json.lines meta.structure.dictionary.json.lines
+1:51-52 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+1:52-54 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+1:54-55 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+1:55-56 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+1:56-57 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+1:57-62 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines constant.numeric.json.lines
+1:62-63 source.json.lines meta.structure.dictionary.json.lines punctuation.definition.dictionary.end.json.lines
+2:0-1 source.json.lines meta.structure.dictionary.json.lines punctuation.definition.dictionary.begin.json.lines
+2:1-2 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+2:2-7 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+2:7-8 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+2:8-9 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+2:9-10 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+2:10-11 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+2:11-16 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines
+2:16-17 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+2:17-18 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+2:18-19 source.json.lines meta.structure.dictionary.json.lines
+2:19-20 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+2:20-24 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+2:24-25 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+2:25-26 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+2:26-27 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+2:27-28 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+2:28-37 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines
+2:37-38 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+2:38-39 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+2:39-40 source.json.lines meta.structure.dictionary.json.lines
+2:40-41 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+2:41-50 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+2:50-51 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+2:51-52 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+2:52-53 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+2:53-54 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines punctuation.definition.array.begin.json.lines
+2:54-55 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+2:55-59 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines string.quoted.double.json.lines
+2:59-60 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+2:60-61 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines punctuation.separator.array.json.lines
+2:61-62 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines
+2:62-63 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines string.quoted.double.json.lines punctuation.definition.string.begin.json.lines
+2:63-67 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines string.quoted.double.json.lines
+2:67-68 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines string.quoted.double.json.lines punctuation.definition.string.end.json.lines
+2:68-69 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines meta.structure.array.json.lines punctuation.definition.array.end.json.lines
+2:69-70 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.pair.json.lines
+2:70-71 source.json.lines meta.structure.dictionary.json.lines
+2:71-72 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.begin.json.lines
+2:72-76 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines
+2:76-77 source.json.lines meta.structure.dictionary.json.lines string.json.lines support.type.property-name.json.lines punctuation.support.type.property-name.end.json.lines
+2:77-78 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines punctuation.separator.dictionary.key-value.json.lines
+2:78-79 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines
+2:79-83 source.json.lines meta.structure.dictionary.json.lines meta.structure.dictionary.value.json.lines constant.language.json.lines
+2:83-84 source.json.lines meta.structure.dictionary.json.lines punctuation.definition.dictionary.end.json.lines

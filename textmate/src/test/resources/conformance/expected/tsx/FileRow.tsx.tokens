@@ -1,0 +1,270 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-6 source.tsx meta.import.tsx keyword.control.import.tsx
+0:6-7 source.tsx meta.import.tsx
+0:7-12 source.tsx meta.import.tsx variable.other.readwrite.alias.tsx
+0:12-13 source.tsx meta.import.tsx punctuation.separator.comma.tsx
+0:13-14 source.tsx meta.import.tsx
+0:14-15 source.tsx meta.import.tsx meta.block.tsx punctuation.definition.block.tsx
+0:15-16 source.tsx meta.import.tsx meta.block.tsx
+0:16-20 source.tsx meta.import.tsx meta.block.tsx keyword.control.type.tsx
+0:20-21 source.tsx meta.import.tsx meta.block.tsx
+0:21-23 source.tsx meta.import.tsx meta.block.tsx variable.other.readwrite.alias.tsx
+0:23-24 source.tsx meta.import.tsx meta.block.tsx
+0:24-25 source.tsx meta.import.tsx meta.block.tsx punctuation.definition.block.tsx
+0:25-26 source.tsx meta.import.tsx
+0:26-30 source.tsx meta.import.tsx keyword.control.from.tsx
+0:30-31 source.tsx meta.import.tsx
+0:31-32 source.tsx meta.import.tsx string.quoted.double.tsx punctuation.definition.string.begin.tsx
+0:32-37 source.tsx meta.import.tsx string.quoted.double.tsx
+0:37-38 source.tsx meta.import.tsx string.quoted.double.tsx punctuation.definition.string.end.tsx
+0:38-39 source.tsx punctuation.terminator.statement.tsx
+1:0-0 source.tsx
+2:0-9 source.tsx meta.interface.tsx storage.type.interface.tsx
+2:9-10 source.tsx meta.interface.tsx
+2:10-22 source.tsx meta.interface.tsx entity.name.type.interface.tsx
+2:22-23 source.tsx meta.interface.tsx
+2:23-24 source.tsx meta.interface.tsx punctuation.definition.block.tsx
+3:0-2 source.tsx meta.interface.tsx meta.field.declaration.tsx
+3:2-6 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.definition.property.tsx variable.object.property.tsx
+3:6-7 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.type.annotation.tsx keyword.operator.type.annotation.tsx
+3:7-8 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.type.annotation.tsx
+3:8-14 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.type.annotation.tsx support.type.primitive.tsx
+3:14-15 source.tsx meta.interface.tsx punctuation.terminator.statement.tsx
+4:0-2 source.tsx meta.interface.tsx meta.field.declaration.tsx
+4:2-13 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.definition.property.tsx variable.object.property.tsx
+4:13-14 source.tsx meta.interface.tsx meta.field.declaration.tsx keyword.operator.optional.tsx
+4:14-15 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.type.annotation.tsx keyword.operator.type.annotation.tsx
+4:15-16 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.type.annotation.tsx
+4:16-22 source.tsx meta.interface.tsx meta.field.declaration.tsx meta.type.annotation.tsx support.type.primitive.tsx
+4:22-23 source.tsx meta.interface.tsx punctuation.terminator.statement.tsx
+5:0-2 source.tsx meta.interface.tsx meta.method.declaration.tsx
+5:2-8 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.definition.method.tsx entity.name.function.tsx
+5:8-9 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.parameters.tsx punctuation.definition.parameters.begin.tsx
+5:9-13 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.parameters.tsx variable.parameter.tsx
+5:13-14 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.parameters.tsx meta.type.annotation.tsx keyword.operator.type.annotation.tsx
+5:14-15 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.parameters.tsx meta.type.annotation.tsx
+5:15-21 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.parameters.tsx meta.type.annotation.tsx support.type.primitive.tsx
+5:21-22 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.parameters.tsx punctuation.definition.parameters.end.tsx
+5:22-23 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.return.type.tsx keyword.operator.type.annotation.tsx
+5:23-24 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.return.type.tsx
+5:24-28 source.tsx meta.interface.tsx meta.method.declaration.tsx meta.return.type.tsx support.type.primitive.tsx
+5:28-29 source.tsx meta.interface.tsx punctuation.terminator.statement.tsx
+6:0-1 source.tsx meta.interface.tsx punctuation.definition.block.tsx
+7:0-0 source.tsx
+8:0-3 source.tsx comment.block.documentation.tsx punctuation.definition.comment.tsx
+8:3-30 source.tsx comment.block.documentation.tsx
+8:30-32 source.tsx comment.block.documentation.tsx punctuation.definition.comment.tsx
+9:0-6 source.tsx meta.var.expr.tsx keyword.control.export.tsx
+9:6-7 source.tsx meta.var.expr.tsx
+9:7-12 source.tsx meta.var.expr.tsx storage.type.tsx
+9:12-13 source.tsx meta.var.expr.tsx
+9:13-20 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.definition.variable.tsx variable.other.constant.tsx entity.name.function.tsx
+9:20-21 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.type.annotation.tsx keyword.operator.type.annotation.tsx
+9:21-22 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.type.annotation.tsx
+9:22-24 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.type.annotation.tsx entity.name.type.tsx
+9:24-25 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.type.annotation.tsx meta.type.parameters.tsx punctuation.definition.typeparameters.begin.tsx
+9:25-37 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.type.annotation.tsx meta.type.parameters.tsx entity.name.type.tsx
+9:37-38 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.type.annotation.tsx meta.type.parameters.tsx punctuation.definition.typeparameters.end.tsx
+9:38-39 source.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.type.annotation.tsx
+9:39-40 source.tsx meta.var.expr.tsx keyword.operator.assignment.tsx
+9:40-41 source.tsx meta.var.expr.tsx meta.arrow.tsx
+9:41-42 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx punctuation.definition.parameters.begin.tsx
+9:42-43 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx punctuation.definition.binding-pattern.object.tsx
+9:43-44 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx
+9:44-48 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx variable.parameter.tsx
+9:48-49 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx punctuation.separator.comma.tsx
+9:49-50 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx
+9:50-61 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx variable.parameter.tsx
+9:61-62 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx punctuation.separator.comma.tsx
+9:62-63 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx
+9:63-69 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx variable.parameter.tsx
+9:69-70 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx
+9:70-71 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx punctuation.definition.binding-pattern.object.tsx
+9:71-72 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.parameters.tsx punctuation.definition.parameters.end.tsx
+9:72-73 source.tsx meta.var.expr.tsx meta.arrow.tsx
+9:73-75 source.tsx meta.var.expr.tsx meta.arrow.tsx storage.type.function.arrow.tsx
+9:75-76 source.tsx meta.var.expr.tsx meta.arrow.tsx
+9:76-77 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx punctuation.definition.block.tsx
+10:0-2 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx
+10:2-7 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx storage.type.tsx
+10:7-8 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx
+10:8-12 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx meta.definition.variable.tsx variable.other.constant.tsx
+10:12-13 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.var-single-variable.expr.tsx
+10:13-14 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx keyword.operator.assignment.tsx
+10:14-15 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx
+10:15-19 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.function-call.tsx variable.other.object.tsx
+10:19-20 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.function-call.tsx punctuation.accessor.tsx
+10:20-25 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.function-call.tsx entity.name.function.tsx
+10:25-26 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.brace.round.tsx
+10:26-27 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx string.quoted.double.tsx punctuation.definition.string.begin.tsx
+10:27-28 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx string.quoted.double.tsx
+10:28-29 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx string.quoted.double.tsx punctuation.definition.string.end.tsx
+10:29-30 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.brace.round.tsx
+10:30-31 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.function-call.tsx punctuation.accessor.tsx
+10:31-34 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.function-call.tsx entity.name.function.tsx
+10:34-35 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.brace.round.tsx
+10:35-36 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx meta.brace.round.tsx
+10:36-37 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx
+10:37-39 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx keyword.operator.logical.tsx
+10:39-40 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx
+10:40-44 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.var.expr.tsx variable.other.readwrite.tsx
+10:44-45 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx punctuation.terminator.statement.tsx
+11:0-2 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx
+11:2-8 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx keyword.control.flow.tsx
+11:8-9 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx
+11:9-10 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.brace.round.tsx
+12:0-4 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx
+12:4-5 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx punctuation.definition.tag.begin.tsx
+12:5-7 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx entity.name.tag.tsx
+12:7-8 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx
+12:8-17 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx entity.other.attribute-name.tsx
+12:17-18 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx keyword.operator.assignment.tsx
+12:18-19 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx string.quoted.double.tsx punctuation.definition.string.begin.tsx
+12:19-27 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx string.quoted.double.tsx
+12:27-28 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx string.quoted.double.tsx punctuation.definition.string.end.tsx
+12:28-29 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx
+12:29-42 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx entity.other.attribute-name.tsx
+12:42-43 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx keyword.operator.assignment.tsx
+12:43-44 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.begin.tsx
+12:44-45 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.parameters.tsx punctuation.definition.parameters.begin.tsx
+12:45-46 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.parameters.tsx punctuation.definition.parameters.end.tsx
+12:46-47 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.arrow.tsx
+12:47-49 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.arrow.tsx storage.type.function.arrow.tsx
+12:49-50 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.arrow.tsx
+12:50-56 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.function-call.tsx entity.name.function.tsx
+12:56-57 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.brace.round.tsx
+12:57-61 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx variable.other.readwrite.tsx
+12:61-62 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx meta.brace.round.tsx
+12:62-63 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.end.tsx
+12:63-64 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx punctuation.definition.tag.end.tsx
+13:0-6 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx
+13:6-7 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.begin.tsx
+13:7-13 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx entity.name.tag.tsx
+13:13-14 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.end.tsx
+13:14-15 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx punctuation.section.embedded.begin.tsx
+13:15-19 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx variable.other.readwrite.tsx
+13:19-20 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx punctuation.section.embedded.end.tsx
+13:20-22 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.begin.tsx
+13:22-28 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx entity.name.tag.tsx
+13:28-29 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.end.tsx
+14:0-6 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx
+14:6-7 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx punctuation.section.embedded.begin.tsx
+14:7-18 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx variable.other.readwrite.tsx
+14:18-19 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx
+14:19-21 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx keyword.operator.logical.tsx
+14:21-22 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx
+14:22-23 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx punctuation.definition.tag.begin.tsx
+14:23-25 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx entity.name.tag.tsx
+14:25-26 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx
+14:26-31 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx entity.other.attribute-name.tsx
+14:31-32 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx keyword.operator.assignment.tsx
+14:32-33 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.begin.tsx
+14:33-34 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx string.template.tsx punctuation.definition.string.template.begin.tsx
+14:34-47 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx string.template.tsx
+14:47-49 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx string.template.tsx meta.template.expression.tsx punctuation.definition.template-expression.begin.tsx
+14:49-60 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx string.template.tsx meta.template.expression.tsx meta.embedded.line.tsx variable.other.readwrite.tsx
+14:60-61 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx string.template.tsx meta.template.expression.tsx punctuation.definition.template-expression.end.tsx
+14:61-62 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx string.template.tsx punctuation.definition.string.template.end.tsx
+14:62-63 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.end.tsx
+14:63-64 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx punctuation.definition.tag.end.tsx
+14:64-66 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.jsx.children.tsx
+14:66-67 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.jsx.children.tsx punctuation.section.embedded.begin.tsx
+14:67-78 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx variable.other.readwrite.tsx
+14:78-79 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx meta.jsx.children.tsx punctuation.section.embedded.end.tsx
+14:79-81 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx punctuation.definition.tag.begin.tsx
+14:81-83 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx entity.name.tag.tsx
+14:83-84 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.tag.tsx punctuation.definition.tag.end.tsx
+14:84-85 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx punctuation.section.embedded.end.tsx
+15:0-4 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx meta.jsx.children.tsx
+15:4-6 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx punctuation.definition.tag.begin.tsx
+15:6-8 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx entity.name.tag.tsx
+15:8-9 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.tag.tsx punctuation.definition.tag.end.tsx
+16:0-2 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx
+16:2-3 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx meta.brace.round.tsx
+16:3-4 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx punctuation.terminator.statement.tsx
+17:0-1 source.tsx meta.var.expr.tsx meta.arrow.tsx meta.block.tsx punctuation.definition.block.tsx
+17:1-2 source.tsx punctuation.terminator.statement.tsx
+18:0-0 source.tsx
+19:0-6 source.tsx meta.export.default.tsx keyword.control.export.tsx
+19:6-7 source.tsx meta.export.default.tsx
+19:7-14 source.tsx meta.export.default.tsx keyword.control.default.tsx
+19:14-15 source.tsx meta.export.default.tsx
+19:15-23 source.tsx meta.export.default.tsx meta.function.expression.tsx storage.type.function.tsx
+19:23-24 source.tsx meta.export.default.tsx meta.function.expression.tsx
+19:24-28 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.definition.function.tsx entity.name.function.tsx
+19:28-29 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.type.parameters.tsx punctuation.definition.typeparameters.begin.tsx
+19:29-30 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.type.parameters.tsx entity.name.type.tsx
+19:30-31 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.type.parameters.tsx
+19:31-38 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.type.parameters.tsx storage.modifier.tsx
+19:38-39 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.type.parameters.tsx
+19:39-45 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.type.parameters.tsx support.type.primitive.tsx
+19:45-46 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.type.parameters.tsx punctuation.definition.typeparameters.end.tsx
+19:46-47 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx punctuation.definition.parameters.begin.tsx
+19:47-48 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx punctuation.definition.binding-pattern.object.tsx
+19:48-49 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx
+19:49-54 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx variable.parameter.tsx
+19:54-55 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx
+19:55-56 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.parameter.object-binding-pattern.tsx punctuation.definition.binding-pattern.object.tsx
+19:56-57 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx keyword.operator.type.annotation.tsx
+19:57-58 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx
+19:58-59 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx punctuation.definition.block.tsx
+19:59-60 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx
+19:60-65 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx meta.definition.property.tsx variable.object.property.tsx
+19:65-66 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx meta.type.annotation.tsx keyword.operator.type.annotation.tsx
+19:66-67 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx meta.type.annotation.tsx
+19:67-68 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx meta.type.annotation.tsx entity.name.type.tsx
+19:68-69 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx meta.type.annotation.tsx meta.type.tuple.tsx meta.brace.square.tsx
+19:69-70 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx meta.type.annotation.tsx meta.type.tuple.tsx meta.brace.square.tsx
+19:70-71 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx meta.field.declaration.tsx meta.type.annotation.tsx
+19:71-72 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx meta.type.annotation.tsx meta.object.type.tsx punctuation.definition.block.tsx
+19:72-73 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.parameters.tsx punctuation.definition.parameters.end.tsx
+19:73-74 source.tsx meta.export.default.tsx meta.function.expression.tsx
+19:74-75 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx punctuation.definition.block.tsx
+20:0-2 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx
+20:2-8 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx keyword.control.flow.tsx
+20:8-9 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx
+20:9-10 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.begin.tsx
+20:10-12 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx entity.name.tag.tsx
+20:12-13 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.end.tsx
+20:13-14 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx punctuation.section.embedded.begin.tsx
+20:14-19 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.function-call.tsx variable.other.object.tsx
+20:19-20 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.function-call.tsx punctuation.accessor.tsx
+20:20-23 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.function-call.tsx entity.name.function.tsx
+20:23-24 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.brace.round.tsx
+20:24-25 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.parameters.tsx punctuation.definition.parameters.begin.tsx
+20:25-29 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.parameters.tsx variable.parameter.tsx
+20:29-30 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.parameters.tsx punctuation.definition.parameters.end.tsx
+20:30-31 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx
+20:31-33 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx storage.type.function.arrow.tsx
+20:33-34 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx
+20:34-35 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx punctuation.definition.tag.begin.tsx
+20:35-42 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx entity.name.tag.tsx support.class.component.tsx
+20:42-43 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx
+20:43-46 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx entity.other.attribute-name.tsx
+20:46-47 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx keyword.operator.assignment.tsx
+20:47-48 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.begin.tsx
+20:48-52 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx variable.other.readwrite.tsx
+20:52-53 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.end.tsx
+20:53-54 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx
+20:54-58 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx entity.other.attribute-name.tsx
+20:58-59 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx keyword.operator.assignment.tsx
+20:59-60 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.begin.tsx
+20:60-64 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx variable.other.readwrite.tsx
+20:64-65 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.end.tsx
+20:65-66 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx
+20:66-72 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx entity.other.attribute-name.tsx
+20:72-73 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx keyword.operator.assignment.tsx
+20:73-74 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.begin.tsx
+20:74-81 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx variable.other.object.tsx
+20:81-82 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx punctuation.accessor.tsx
+20:82-85 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx meta.embedded.expression.tsx variable.other.property.tsx
+20:85-86 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx punctuation.section.embedded.end.tsx
+20:86-87 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx meta.tag.attributes.tsx
+20:87-89 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.arrow.tsx meta.tag.tsx punctuation.definition.tag.end.tsx
+20:89-90 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx meta.embedded.expression.tsx meta.brace.round.tsx
+20:90-91 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx meta.jsx.children.tsx punctuation.section.embedded.end.tsx
+20:91-93 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.begin.tsx
+20:93-95 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx entity.name.tag.tsx
+20:95-96 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx meta.tag.without-attributes.tsx punctuation.definition.tag.end.tsx
+20:96-97 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx punctuation.terminator.statement.tsx
+21:0-1 source.tsx meta.export.default.tsx meta.function.expression.tsx meta.block.tsx punctuation.definition.block.tsx

@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.app.leaf.domain.DiffMatchPatch
 import dev.app.leaf.domain.models.MatchLine
-import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
 import dev.app.leaf.theme.AppTheme
 import org.jetbrains.skia.Bitmap
 import org.junit.jupiter.api.AfterEach
@@ -256,7 +255,7 @@ class WhitespaceMarksTest {
             AppTheme(dev.app.leaf.domain.models.ui.Theme.Light) {
                 CompositionLocalProvider(LocalShowWhitespace provides showWhitespace) {
                     Box(Modifier.fillMaxSize().background(PAPER).padding(8.dp)) {
-                        DiffText("  a b\t\n", null, getSyntaxHighlighterFromExtension("txt"))
+                        DiffText("  a b\t\n", null)
                     }
                 }
             }
@@ -284,7 +283,7 @@ class WhitespaceMarksTest {
         scene = ImageComposeScene(width = WIDTH, height = HEIGHT, density = Density(1f)) {
             AppTheme(dev.app.leaf.domain.models.ui.Theme.Light) {
                 Box(Modifier.fillMaxSize().background(PAPER).padding(8.dp)) {
-                    DiffText("  a b\t\n", null, getSyntaxHighlighterFromExtension("txt"))
+                    DiffText("  a b\t\n", null)
                 }
             }
         }

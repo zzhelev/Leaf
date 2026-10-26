@@ -1,0 +1,64 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.dockerfile comment.line.number-sign.dockerfile punctuation.definition.comment.dockerfile
+0:1-28 source.dockerfile comment.line.number-sign.dockerfile
+1:0-4 source.dockerfile keyword.other.special-method.dockerfile
+1:4-28 source.dockerfile
+1:28-30 source.dockerfile keyword.other.special-method.dockerfile
+1:30-36 source.dockerfile
+2:0-0 source.dockerfile
+3:0-3 source.dockerfile keyword.other.special-method.dockerfile
+3:3-4 source.dockerfile
+3:4-16 source.dockerfile
+3:16-17 source.dockerfile string.quoted.double.dockerfile
+3:17-42 source.dockerfile string.quoted.double.dockerfile
+3:42-43 source.dockerfile string.quoted.double.dockerfile
+4:0-3 source.dockerfile keyword.other.special-method.dockerfile
+4:3-4 source.dockerfile
+4:4-18 source.dockerfile
+5:0-10 source.dockerfile
+6:0-0 source.dockerfile
+7:0-7 source.dockerfile keyword.other.special-method.dockerfile
+7:7-8 source.dockerfile
+7:8-12 source.dockerfile
+8:0-4 source.dockerfile keyword.other.special-method.dockerfile
+8:4-5 source.dockerfile
+8:5-26 source.dockerfile
+9:0-3 source.dockerfile keyword.other.special-method.dockerfile
+9:3-4 source.dockerfile
+9:4-78 source.dockerfile
+10:0-34 source.dockerfile
+11:0-3 source.dockerfile keyword.other.special-method.dockerfile
+11:3-4 source.dockerfile
+11:4-29 source.dockerfile
+12:0-0 source.dockerfile
+13:0-4 source.dockerfile keyword.other.special-method.dockerfile
+13:4-5 source.dockerfile
+13:5-19 source.dockerfile
+14:0-4 source.dockerfile keyword.other.special-method.dockerfile
+14:4-5 source.dockerfile
+14:5-70 source.dockerfile
+15:0-6 source.dockerfile keyword.other.special-method.dockerfile
+15:6-7 source.dockerfile
+15:7-15 source.dockerfile
+16:0-11 source.dockerfile keyword.other.special-method.dockerfile
+16:11-12 source.dockerfile
+16:12-17 source.dockerfile
+16:17-18 source.dockerfile string.quoted.double.dockerfile
+16:18-22 source.dockerfile string.quoted.double.dockerfile
+16:22-23 source.dockerfile string.quoted.double.dockerfile
+16:23-25 source.dockerfile
+16:25-26 source.dockerfile string.quoted.double.dockerfile
+16:26-28 source.dockerfile string.quoted.double.dockerfile
+16:28-29 source.dockerfile string.quoted.double.dockerfile
+16:29-31 source.dockerfile
+16:31-32 source.dockerfile string.quoted.double.dockerfile
+16:32-50 source.dockerfile string.quoted.double.dockerfile
+16:50-51 source.dockerfile string.quoted.double.dockerfile
+16:51-52 source.dockerfile
+17:0-10 source.dockerfile keyword.other.special-method.dockerfile
+17:10-11 source.dockerfile
+17:11-12 source.dockerfile
+17:12-13 source.dockerfile string.quoted.double.dockerfile
+17:13-31 source.dockerfile string.quoted.double.dockerfile
+17:31-32 source.dockerfile string.quoted.double.dockerfile
+17:32-33 source.dockerfile

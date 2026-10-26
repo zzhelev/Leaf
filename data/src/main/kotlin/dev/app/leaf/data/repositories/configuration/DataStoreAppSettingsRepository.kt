@@ -18,6 +18,7 @@ import dev.app.leaf.domain.models.CommitChangesSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.DiffWhitespaceMode
+import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.WorktreeLabelRulesCodec
 import dev.app.leaf.domain.models.StatusSectionSizes
@@ -47,6 +48,7 @@ private const val DEFAULT_THIRD_PANE_WIDTH = 330f
 private val scaleUiPreference get() = floatPreferencesKey("scale_ui")
 private val themePreference get() = stringPreferencesKey("theme")
 private val accentStylePreference get() = stringPreferencesKey("accent_style")
+private val codeColoursPreference get() = stringPreferencesKey("code_colours")
 private val linesHeightPreference get() = stringPreferencesKey("lines_height")
 private val swapStatusPanesPreference get() = booleanPreferencesKey("swap_status_panes")
 private val confirmHunkAndLineDiscardsPreference get() = booleanPreferencesKey("confirm_hunk_and_line_discards")
@@ -121,6 +123,9 @@ class DataStoreAppSettingsRepository @Inject constructor(
 
     /** Fork-only: the selected style's id, under the key that held the look's name before styles could be made. */
     override val styleId get() = preferences.data[accentStylePreference]
+
+    /** Fork-only: a value this version doesn't know reads as no choice, so a choice added later can't stop Leaf. */
+    override val codeColours get() = preferences.data[codeColoursPreference].map(CodeColours::fromKey)
 
     override val linesHeightType =
         preferences.data[linesHeightPreference].map { linesHeightMapper.toDomain(it) }
@@ -235,6 +240,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
 
                 is AppConfig.Theme -> setValue(themePreference, themeMapper.toData(appConfig.value))
                 is AppConfig.Style -> setValue(accentStylePreference, appConfig.id)
+                is AppConfig.CodeColours -> setValue(codeColoursPreference, appConfig.value.key)
                 is AppConfig.SwapStatusPanes -> setValue(swapStatusPanesPreference, appConfig.value)
                 is AppConfig.ConfirmHunkAndLineDiscards ->
                     setValue(confirmHunkAndLineDiscardsPreference, appConfig.value)

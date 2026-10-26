@@ -33,9 +33,6 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import java.net.InetSocketAddress
-import java.net.ServerSocket
-import java.net.Socket
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -243,38 +240,8 @@ class CheckRemoteBranchesGitActionTest {
         }
 
     /** Runs a `git daemon` that serves [bare]'s folder and takes pushes, for [block] with its URL. Skips without one. */
-    private suspend fun withDaemon(block: suspend (url: String) -> Unit) {
-        val port = ServerSocket(0).use { it.localPort }
-        val daemon = ProcessBuilder(
-            "git", "daemon", "--base-path=${bare.parentFile.absolutePath}", "--export-all", "--enable=receive-pack",
-            "--port=$port", "--listen=127.0.0.1", "--reuseaddr",
-        )
-            .redirectErrorStream(true)
-            .redirectOutput(File(tempDir, "daemon.log"))
-            .apply {
-                environment()["GIT_CONFIG_GLOBAL"] = globalConfig.absolutePath
-                environment()["GIT_CONFIG_NOSYSTEM"] = "1"
-            }
-            .start()
-
-        try {
-            val listening = withTimeout(10.seconds) {
-                while (daemon.isAlive) {
-                    val accepts = runCatching { Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 200) } }
-                    if (accepts.isSuccess) return@withTimeout true
-                    delay(50)
-                }
-                false
-            }
-            assumeTrue(listening) { "git daemon didn't start: ${File(tempDir, "daemon.log").readText()}" }
-
-            block("git://127.0.0.1:$port/${bare.name}")
-        } finally {
-            daemon.descendants().forEach { it.destroyForcibly() }
-            daemon.destroyForcibly()
-            daemon.waitFor()
-        }
-    }
+    private suspend fun withDaemon(block: suspend (url: String) -> Unit) =
+        withGitDaemon(bare.parentFile, globalConfig, File(tempDir, "daemon.log")) { base -> block("$base/${bare.name}") }
 
     private fun target(name: String) =
         BranchToDelete("refs/remotes/origin/$name", git.run(work, "rev-parse", "refs/remotes/origin/$name").trim())

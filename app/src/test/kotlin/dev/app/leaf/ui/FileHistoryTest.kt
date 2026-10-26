@@ -48,6 +48,7 @@ import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileDiffBetweenCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.HighlightTextUseCase
 import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
 import dev.app.leaf.domain.models.ViewDiffResult
 import dev.app.leaf.domain.models.ui.Theme
@@ -55,6 +56,7 @@ import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.viewmodels.FileVersions
 import dev.app.leaf.viewmodels.HistoryState
 import dev.app.leaf.viewmodels.HistoryViewModel
+import dev.app.leaf.viewmodels.NoHighlights
 import dev.app.leaf.viewmodels.adjacentCommit
 import io.mockk.coEvery
 import io.mockk.every
@@ -436,6 +438,7 @@ class FileHistoryTest {
             RestoreFileVersionUseCase(useCaseExecutor, mockk()),
             InMemoryRepositoryStateRepository(),
             GetFileDiffBetweenCommitsUseCase(getFileDiffBetween, useCaseExecutor),
+            HighlightTextUseCase(NoHighlights),
         )
 
         viewModel.fileHistory("src/App.kt")

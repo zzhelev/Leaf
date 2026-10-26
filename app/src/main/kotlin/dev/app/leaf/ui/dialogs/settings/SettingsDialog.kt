@@ -34,6 +34,7 @@ import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.models.ui.LinesHeightType
+import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.theme.backgroundSelected
@@ -137,6 +138,13 @@ val settings = listOf(
         )
     },
     SettingsEntry.Entry(Res.drawable.info, Res.string.settings_entry_logs) { state, onAction -> Logs(state, onAction) },
+)
+
+// Fork-only: whose colours code is drawn in (docs/fork/syntax-highlighting.md, 4.5)
+val codeColoursList = listOf(
+    DropDownOption(CodeColours.LEAF, "Leaf"),
+    DropDownOption(CodeColours.VS_CODE, "VS Code"),
+    DropDownOption(CodeColours.INTELLIJ, "IntelliJ"),
 )
 
 val linesHeightTypesList = listOf(
@@ -692,8 +700,9 @@ private fun Appearance(settingsViewState: SettingsViewState, onAction: (Settings
     }
 }
 
+// Fork-only: internal for its test
 @Composable
-private fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+internal fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
     val currentTheme = settingsViewState.theme
     val currentLinesHeightType = settingsViewState.linesHeightType
     val avatarProvider = settingsViewState.avatarProvider
@@ -719,6 +728,18 @@ private fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (Sett
         ),
         host = LocalStyleGalleryHost.current,
         onAction = { onAction(SettingsAction.Styles(it)) },
+    )
+
+    // Fork-only: VS Code's or IntelliJ's colours in place of every style's own
+    SettingDropDown(
+        title = "Code colours",
+        subtitle = "How code is coloured in diffs, blame and the conflict resolver. " +
+            "Leaf uses each style's own colours.",
+        dropDownOptions = codeColoursList,
+        currentOption = settingsViewState.codeColours,
+        onOptionSelected = { dropDown ->
+            onAction(SettingsAction.SetConfig(AppConfig.CodeColours(dropDown.value)))
+        }
     )
 
     SettingDropDown(

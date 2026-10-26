@@ -130,7 +130,8 @@ class StyleFileCodecTest {
             "background", "panels", "boxes", "headers", "selectedRow", "dialogOverlay", "scrollbar", "scrollbarHover",
             "text", "secondaryText", "links", "highlight", "onHighlight", "error", "onError",
             "addedFile", "modifiedFile", "deletedFile", "conflictedFile",
-            "addedLine", "addedWords", "removedLine", "removedWords", "keyword", "annotation", "comment",
+            "addedLine", "addedWords", "removedLine", "removedWords",
+            "keyword", "annotation", "comment", "string", "number", "type", "function", "tag", "attribute",
             "lane1", "lane2", "lane3", "lane4", "lane5", "lane6",
             "mainAction.fill", "mainAction.text",
             "action.fill", "action.text", "action.edge",
@@ -268,6 +269,34 @@ class StyleFileCodecTest {
         for (word in listOf("glow", "keyword", "comment", "aren't a JSON object")) {
             assertTrue(word in problems, "$word in\n$problems")
         }
+    }
+
+    @Test
+    fun `a file from before the syntax colours keeps its three, and the six new ones are its look's`() {
+        // As a style saved by Leaf before the nine syntax colours: the three it had, set by hand
+        val old = read(
+            """
+            {
+              "leafStyle": 1,
+              "name": "Old",
+              "look": "tonal",
+              "light": { "setByHand": { "keyword": "#3B83CF", "annotation": "#9F9927", "comment": "#0D9141" } }
+            }
+            """.trimIndent()
+        )
+        val byHand = old.definition.light.setByHand
+
+        assertEquals(setOf(StyleSlot.KEYWORD, StyleSlot.ANNOTATION, StyleSlot.COMMENT), byHand.keys)
+        assertEquals(0xFF3B83CF.toInt(), byHand[StyleSlot.KEYWORD])
+
+        // And the new keys read back as written, for this version, where an older Leaf leaves them out as unknown
+        val written = old.definition.withSide(
+            isLight = true,
+            old.definition.light.copy(setByHand = byHand + (StyleSlot.STRING to 0xFFA44C1D.toInt())),
+        )
+        val text = StyleFileCodec.encode(written)
+        assertTrue("\"string\": \"#A44C1D\"" in text, text)
+        assertEquals(written.light.setByHand, read(text, id = written.id).definition.light.setByHand)
     }
 
     @Test

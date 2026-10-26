@@ -85,7 +85,7 @@ import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.addContextMenu
 import dev.app.leaf.ui.diff.LineNumber
-import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
+import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.ui.resizePointerIconEast
 import dev.app.leaf.ui.resizePointerIconNorth
 import dev.app.leaf.ui.status.label
@@ -131,7 +131,8 @@ fun ResolverColumnsView(
     merge: TextMerge,
     rows: List<ColumnRow>,
     sides: ConflictSides?,
-    filePath: String,
+    /** The versions' colours (fork-only), which the rows' lines take. */
+    syntax: HighlightedVersions,
     currentConflictChunk: Int?,
     showBase: Boolean,
     listState: LazyListState,
@@ -143,7 +144,6 @@ fun ResolverColumnsView(
     editorPlace: EditorPlace = remember(listState) { EditorPlace(listState) },
     canEdit: Boolean = true,
 ) {
-    val syntaxHighlighter = remember(filePath) { getSyntaxHighlighterFromExtension(filePath.substringAfterLast('.')) }
     // Picks and lines typed keep the chunks' lines, so the words marked are kept until another file loads
     val words = remember(merge.base, merge.ours, merge.theirs) { ChangedWords(merge) }
     val numberWidth = remember(merge) {
@@ -206,7 +206,7 @@ fun ResolverColumnsView(
                             conflictNumber = conflictNumbers[item.chunk],
                             isCurrentConflict = item.chunk == currentConflictChunk,
                             showBase = showBase,
-                            syntaxHighlighter = syntaxHighlighter,
+                            syntax = syntax,
                             words = words,
                             actions = actions,
                             shares = dragged,
@@ -221,7 +221,7 @@ fun ResolverColumnsView(
                             sides = sides,
                             numberWidth = numberWidth,
                             isCurrentConflict = item.chunk == currentConflictChunk,
-                            syntaxHighlighter = syntaxHighlighter,
+                            syntax = syntax,
                             words = words,
                             actions = actions,
                             shares = dragged,
@@ -377,7 +377,7 @@ private fun ResolverRow(
     conflictNumber: Int?,
     isCurrentConflict: Boolean,
     showBase: Boolean,
-    syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
+    syntax: HighlightedVersions,
     words: ChangedWords,
     actions: PickActions,
     shares: ColumnShares,
@@ -385,7 +385,7 @@ private fun ResolverRow(
     canEdit: Boolean,
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        Cell(row.ours, numberWidth, isCurrentConflict, syntaxHighlighter, words, Modifier.weight(shares.ours.asWeight()))
+        Cell(row.ours, numberWidth, isCurrentConflict, syntax, words, Modifier.weight(shares.ours.asWeight()))
         Gutter(row.chunk, rowInChunk, rowsInChunk, chunk, ConflictSide.OURS, sides, actions, edges)
 
         Box(Modifier.weight(shares.result.asWeight()).fillMaxHeight()) {
@@ -399,13 +399,13 @@ private fun ResolverRow(
                     onEdit = actions.onEdit,
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    ResultCell(row, numberWidth, conflictNumber, isCurrentConflict, showBase, syntaxHighlighter, words)
+                    ResultCell(row, numberWidth, conflictNumber, isCurrentConflict, showBase, syntax, words)
                 }
             }
         }
 
         Gutter(row.chunk, rowInChunk, rowsInChunk, chunk, ConflictSide.THEIRS, sides, actions, edges)
-        Cell(row.theirs, numberWidth, isCurrentConflict, syntaxHighlighter, words, Modifier.weight(shares.theirs.asWeight()))
+        Cell(row.theirs, numberWidth, isCurrentConflict, syntax, words, Modifier.weight(shares.theirs.asWeight()))
     }
 }
 
@@ -422,7 +422,7 @@ private fun EditorRow(
     sides: ConflictSides?,
     numberWidth: Int,
     isCurrentConflict: Boolean,
-    syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
+    syntax: HighlightedVersions,
     words: ChangedWords,
     actions: PickActions,
     shares: ColumnShares,
@@ -432,11 +432,11 @@ private fun EditorRow(
     val first = rows.first()
 
     EditorRowLayout(shares) {
-        SideLines(rows.map { it.ours }, numberWidth, isCurrentConflict, syntaxHighlighter, words)
+        SideLines(rows.map { it.ours }, numberWidth, isCurrentConflict, syntax, words)
         Gutter(first.chunk, rowInChunk = 0, rowsInChunk = 1, chunk, ConflictSide.OURS, sides, actions, edges)
-        PartEditor(editing, numberWidth, place, syntaxHighlighter)
+        PartEditor(editing, numberWidth, place)
         Gutter(first.chunk, rowInChunk = 0, rowsInChunk = 1, chunk, ConflictSide.THEIRS, sides, actions, edges)
-        SideLines(rows.map { it.theirs }, numberWidth, isCurrentConflict, syntaxHighlighter, words)
+        SideLines(rows.map { it.theirs }, numberWidth, isCurrentConflict, syntax, words)
     }
 }
 
@@ -483,14 +483,14 @@ private fun SideLines(
     cells: List<ColumnCell>,
     numberWidth: Int,
     isCurrentConflict: Boolean,
-    syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
+    syntax: HighlightedVersions,
     words: ChangedWords,
 ) {
     val kind = cells.first().kind
 
     Column(Modifier.fillMaxSize()) {
         for (cell in cells.filterNot { it.isFiller }) {
-            Cell(cell, numberWidth, isCurrentConflict, syntaxHighlighter, words, Modifier.height(IntrinsicSize.Min))
+            Cell(cell, numberWidth, isCurrentConflict, syntax, words, Modifier.height(IntrinsicSize.Min))
         }
 
         // A plain box, so that it adds nothing to the column's intrinsic height
@@ -514,7 +514,7 @@ internal fun Cell(
     cell: ColumnCell,
     numberWidth: Int,
     isCurrentConflict: Boolean,
-    syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
+    syntax: HighlightedVersions,
     words: ChangedWords,
     modifier: Modifier = Modifier,
     chip: (@Composable () -> Unit)? = null,
@@ -536,7 +536,7 @@ internal fun Cell(
             if (text == null) {
                 Box(Modifier.fillMaxSize().hatched(MaterialTheme.colors.onBackground.copy(alpha = 0.08f)))
             } else {
-                LineText(text.getString(cell.line), syntaxHighlighter, marksOf(cell, words))
+                LineText(text.getString(cell.line), syntax.spansOf(text, cell.line), marksOf(cell, words))
             }
         }
 
@@ -553,13 +553,13 @@ private fun ResultCell(
     conflictNumber: Int?,
     isCurrentConflict: Boolean,
     showBase: Boolean,
-    syntaxHighlighter: dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter,
+    syntax: HighlightedVersions,
     words: ChangedWords,
 ) {
     val cell = row.result
 
     if (cell.kind != CellKind.OPEN_CONFLICT) {
-        Cell(cell, numberWidth, isCurrentConflict, syntaxHighlighter, words)
+        Cell(cell, numberWidth, isCurrentConflict, syntax, words)
         return
     }
 
@@ -587,7 +587,7 @@ private fun ResultCell(
             if (text != null && showBase) {
                 Row(Modifier.alpha(0.6f)) {
                     LineNumber(text = " ".repeat(numberWidth), remarked = false)
-                    LineText(text.getString(cell.line), syntaxHighlighter)
+                    LineText(text.getString(cell.line), syntax.spansOf(text, cell.line))
                 }
             }
         }

@@ -1,0 +1,211 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-7 source.kotlin meta.package.kotlin keyword.hard.package.kotlin
+0:7-8 source.kotlin meta.package.kotlin
+0:8-28 source.kotlin meta.package.kotlin entity.name.package.kotlin
+1:0-0 source.kotlin
+2:0-6 source.kotlin meta.import.kotlin keyword.soft.kotlin
+2:6-7 source.kotlin meta.import.kotlin
+2:7-35 source.kotlin meta.import.kotlin entity.name.package.kotlin
+3:0-0 source.kotlin
+4:0-3 source.kotlin comment.block.javadoc.kotlin
+4:3-44 source.kotlin comment.block.javadoc.kotlin
+4:44-46 source.kotlin comment.block.javadoc.kotlin
+5:0-10 source.kotlin entity.name.type.annotation.kotlin
+6:0-5 source.kotlin storage.modifier.other.kotlin
+6:5-6 source.kotlin
+6:6-11 source.kotlin keyword.hard.class.kotlin
+6:11-12 source.kotlin
+6:12-22 source.kotlin entity.name.type.class.kotlin
+6:22-23 source.kotlin
+6:23-26 source.kotlin keyword.hard.kotlin
+6:26-27 source.kotlin
+6:27-31 source.kotlin
+6:31-33 source.kotlin
+6:33-39 source.kotlin entity.name.type.kotlin
+6:39-42 source.kotlin
+7:0-4 source.kotlin
+7:4-7 source.kotlin keyword.hard.kotlin
+7:7-8 source.kotlin
+7:8-13 source.kotlin
+7:13-15 source.kotlin
+7:15-21 source.kotlin entity.name.type.kotlin
+7:21-22 source.kotlin
+7:22-25 source.kotlin entity.name.type.kotlin
+7:25-28 source.kotlin
+7:28-29 source.kotlin keyword.operator.assignment.kotlin
+7:29-34 source.kotlin
+7:34-35 source.kotlin
+7:35-47 source.kotlin entity.name.function.call.kotlin
+7:47-48 source.kotlin
+7:48-49 source.kotlin string.quoted.double.kotlin
+7:49-60 source.kotlin string.quoted.double.kotlin
+7:60-61 source.kotlin string.quoted.double.kotlin
+7:61-62 source.kotlin
+8:0-1 source.kotlin
+9:0-0 source.kotlin
+10:0-4 source.kotlin storage.modifier.other.kotlin
+10:4-5 source.kotlin
+10:5-10 source.kotlin keyword.hard.class.kotlin
+10:10-11 source.kotlin
+10:11-17 source.kotlin entity.name.type.class.kotlin
+10:17-18 source.kotlin
+10:18-21 source.kotlin keyword.hard.kotlin
+10:21-22 source.kotlin
+10:22-26 source.kotlin
+10:26-28 source.kotlin
+10:28-38 source.kotlin entity.name.type.kotlin
+10:38-40 source.kotlin
+10:40-43 source.kotlin keyword.hard.kotlin
+10:43-44 source.kotlin
+10:44-49 source.kotlin
+10:49-51 source.kotlin
+10:51-54 source.kotlin entity.name.type.kotlin
+10:54-55 source.kotlin
+10:55-56 source.kotlin keyword.operator.assignment.kotlin
+10:56-57 source.kotlin
+10:57-58 source.kotlin constant.numeric.decimal.kotlin
+10:58-60 source.kotlin
+10:60-63 source.kotlin keyword.hard.kotlin
+10:63-64 source.kotlin
+10:64-70 source.kotlin
+10:70-72 source.kotlin
+10:72-75 source.kotlin entity.name.type.kotlin
+10:75-76 source.kotlin
+10:76-77 source.kotlin keyword.operator.assignment.kotlin
+10:77-78 source.kotlin
+10:78-79 source.kotlin constant.numeric.decimal.kotlin
+10:79-80 source.kotlin
+11:0-0 source.kotlin
+12:0-6 source.kotlin storage.modifier.other.kotlin
+12:6-7 source.kotlin
+12:7-16 source.kotlin keyword.hard.class.kotlin
+12:16-17 source.kotlin
+12:17-21 source.kotlin entity.name.type.class.kotlin
+12:21-22 source.kotlin
+12:22-23 source.kotlin
+13:0-4 source.kotlin
+13:4-8 source.kotlin storage.modifier.other.kotlin
+13:8-9 source.kotlin
+13:9-15 source.kotlin keyword.hard.object.kotlin
+13:15-16 source.kotlin
+13:16-23 source.kotlin entity.name.type.object.kotlin
+13:23-24 source.kotlin
+13:24-26 source.kotlin
+13:26-30 source.kotlin entity.name.type.kotlin
+14:0-4 source.kotlin
+14:4-8 source.kotlin storage.modifier.other.kotlin
+14:8-9 source.kotlin
+14:9-14 source.kotlin keyword.hard.class.kotlin
+14:14-15 source.kotlin
+14:15-21 source.kotlin entity.name.type.class.kotlin
+14:21-22 source.kotlin
+14:22-25 source.kotlin keyword.hard.kotlin
+14:25-26 source.kotlin
+14:26-34 source.kotlin
+14:34-36 source.kotlin
+14:36-40 source.kotlin entity.name.type.kotlin
+14:40-41 source.kotlin
+14:41-47 source.kotlin entity.name.type.kotlin
+14:47-48 source.kotlin
+14:48-50 source.kotlin
+14:50-52 source.kotlin
+14:52-56 source.kotlin entity.name.type.kotlin
+15:0-1 source.kotlin
+16:0-0 source.kotlin
+17:0-7 source.kotlin storage.modifier.other.kotlin
+17:7-8 source.kotlin
+17:8-11 source.kotlin keyword.hard.fun.kotlin
+17:11-12 source.kotlin
+17:12-20 source.kotlin entity.name.function.declaration.kotlin
+17:20-27 source.kotlin
+17:27-29 source.kotlin
+17:29-35 source.kotlin entity.name.type.kotlin
+17:35-41 source.kotlin
+17:41-43 source.kotlin
+17:43-47 source.kotlin entity.name.type.kotlin
+17:47-48 source.kotlin
+17:48-52 source.kotlin entity.name.type.kotlin
+17:52-53 source.kotlin
+17:53-54 source.kotlin
+17:54-56 source.kotlin
+17:56-62 source.kotlin entity.name.type.kotlin
+17:62-63 source.kotlin
+17:63-64 source.kotlin
+18:0-4 source.kotlin
+18:4-7 source.kotlin keyword.hard.kotlin
+18:7-8 source.kotlin
+18:8-15 source.kotlin
+18:15-16 source.kotlin keyword.operator.assignment.kotlin
+18:16-17 source.kotlin
+18:17-19 source.kotlin keyword.control.kotlin
+18:19-34 source.kotlin
+18:34-35 source.kotlin keyword.operator.comparison.kotlin
+18:35-36 source.kotlin
+18:36-37 source.kotlin constant.numeric.decimal.kotlin
+18:37-39 source.kotlin
+18:39-40 source.kotlin string.quoted.double.kotlin
+18:40-41 source.kotlin string.quoted.double.kotlin
+18:41-43 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.begin
+18:43-55 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin
+18:55-56 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.end
+18:56-58 source.kotlin string.quoted.double.kotlin
+18:58-60 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.begin
+18:60-73 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin
+18:73-74 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.end
+18:74-75 source.kotlin string.quoted.double.kotlin
+18:75-76 source.kotlin
+18:76-80 source.kotlin keyword.control.kotlin
+18:80-81 source.kotlin
+18:81-82 source.kotlin string.quoted.double.kotlin
+18:82-89 source.kotlin string.quoted.double.kotlin
+18:89-90 source.kotlin string.quoted.double.kotlin
+19:0-4 source.kotlin
+19:4-7 source.kotlin keyword.hard.kotlin
+19:7-8 source.kotlin
+19:8-12 source.kotlin
+19:12-13 source.kotlin keyword.operator.assignment.kotlin
+19:13-14 source.kotlin
+19:14-17 source.kotlin string.quoted.double.kotlin
+20:0-15 source.kotlin string.quoted.double.kotlin
+20:15-17 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.begin
+20:17-34 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin
+20:34-35 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.end
+21:0-16 source.kotlin string.quoted.double.kotlin
+21:16-23 source.kotlin string.quoted.double.kotlin variable.string-escape.kotlin
+22:0-4 source.kotlin string.quoted.double.kotlin
+22:4-7 source.kotlin string.quoted.double.kotlin
+22:7-8 source.kotlin
+22:8-18 source.kotlin entity.name.function.call.kotlin
+22:18-20 source.kotlin
+23:0-4 source.kotlin
+23:4-10 source.kotlin keyword.control.kotlin
+23:10-11 source.kotlin
+23:11-15 source.kotlin keyword.control.kotlin
+23:15-17 source.kotlin
+24:0-22 source.kotlin
+24:22-23 source.kotlin keyword.operator.comparison.kotlin
+24:23-24 source.kotlin
+24:24-29 source.kotlin constant.numeric.decimal.kotlin
+24:29-30 source.kotlin
+24:30-32 source.kotlin storage.type.function.arrow.kotlin
+24:32-33 source.kotlin
+24:33-34 source.kotlin string.quoted.double.kotlin
+24:34-48 source.kotlin string.quoted.double.kotlin
+24:48-50 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.begin
+24:50-63 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin
+24:63-64 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin
+24:64-72 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin entity.name.function.call.kotlin
+24:72-73 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin
+24:73-75 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin constant.numeric.decimal.kotlin
+24:75-76 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin
+24:76-77 source.kotlin string.quoted.double.kotlin meta.template.expression.kotlin punctuation.definition.template-expression.end
+24:77-78 source.kotlin string.quoted.double.kotlin
+25:0-8 source.kotlin
+25:8-12 source.kotlin keyword.control.kotlin
+25:12-13 source.kotlin
+25:13-15 source.kotlin storage.type.function.arrow.kotlin
+25:15-20 source.kotlin
+25:20-22 source.kotlin comment.line.double-slash.kotlin
+25:22-33 source.kotlin comment.line.double-slash.kotlin
+26:0-5 source.kotlin
+27:0-1 source.kotlin

@@ -1,0 +1,139 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.json meta.structure.dictionary.json punctuation.definition.dictionary.begin.json
+1:0-2 source.json meta.structure.dictionary.json
+1:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+1:3-7 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+1:7-8 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+1:8-9 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+1:9-10 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+1:10-11 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.begin.json
+1:11-20 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+1:20-21 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.end.json
+1:21-22 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+2:0-2 source.json meta.structure.dictionary.json
+2:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+2:3-10 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+2:10-11 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+2:11-12 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+2:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+2:13-14 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.begin.json
+2:14-19 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+2:19-20 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.end.json
+2:20-21 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+3:0-2 source.json meta.structure.dictionary.json
+3:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+3:3-10 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+3:10-11 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+3:11-12 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+3:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+3:13-17 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json constant.language.json
+3:17-18 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+4:0-2 source.json meta.structure.dictionary.json
+4:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+4:3-10 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+4:10-11 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+4:11-12 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+4:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+4:13-14 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json punctuation.definition.dictionary.begin.json
+5:0-4 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json
+5:4-5 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+5:5-10 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json
+5:10-11 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+5:11-12 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+5:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+5:13-14 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.begin.json
+5:14-24 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+5:24-25 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.end.json
+5:25-26 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+6:0-4 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json
+6:4-5 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+6:5-9 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json
+6:9-10 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+6:10-11 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+6:11-12 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+6:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.begin.json
+6:13-38 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+6:38-39 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.end.json
+7:0-2 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+7:2-3 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json punctuation.definition.dictionary.end.json
+7:3-4 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+8:0-2 source.json meta.structure.dictionary.json
+8:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+8:3-10 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+8:10-11 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+8:11-12 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+8:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+8:13-14 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json punctuation.definition.dictionary.begin.json
+8:14-15 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json
+8:15-16 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+8:16-20 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json
+8:20-21 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+8:21-22 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+8:22-23 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+8:23-24 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.begin.json
+8:24-28 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+8:28-29 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.end.json
+8:29-30 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+8:30-31 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json punctuation.definition.dictionary.end.json
+8:31-32 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+9:0-2 source.json meta.structure.dictionary.json
+9:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+9:3-11 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+9:11-12 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+9:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+9:13-14 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+9:14-15 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json punctuation.definition.array.begin.json
+9:15-16 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json punctuation.definition.string.begin.json
+9:16-19 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json
+9:19-20 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json punctuation.definition.string.end.json
+9:20-21 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json punctuation.separator.array.json
+9:21-22 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json
+9:22-23 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json punctuation.definition.string.begin.json
+9:23-32 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json
+9:32-33 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json punctuation.definition.string.end.json
+9:33-34 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json punctuation.separator.array.json
+9:34-35 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json
+9:35-36 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json punctuation.definition.string.begin.json
+9:36-43 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json
+9:43-44 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json string.quoted.double.json punctuation.definition.string.end.json
+9:44-45 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.array.json punctuation.definition.array.end.json
+9:45-46 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+10:0-2 source.json meta.structure.dictionary.json
+10:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+10:3-7 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+10:7-8 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+10:8-9 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+10:9-10 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+10:10-15 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json constant.numeric.json
+10:15-16 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+11:0-2 source.json meta.structure.dictionary.json
+11:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+11:3-12 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+11:12-13 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+11:13-14 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+11:14-15 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+11:15-20 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json constant.language.json
+11:20-21 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+12:0-2 source.json meta.structure.dictionary.json
+12:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+12:3-11 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+12:11-12 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+12:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+12:13-14 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+12:14-18 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json constant.language.json
+12:18-19 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.pair.json
+13:0-2 source.json meta.structure.dictionary.json
+13:2-3 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.begin.json
+13:3-9 source.json meta.structure.dictionary.json string.json support.type.property-name.json
+13:9-10 source.json meta.structure.dictionary.json string.json support.type.property-name.json punctuation.support.type.property-name.end.json
+13:10-11 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json punctuation.separator.dictionary.key-value.json
+13:11-12 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json
+13:12-13 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.begin.json
+13:13-15 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+13:15-17 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json constant.character.escape.json
+13:17-23 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+13:23-25 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json constant.character.escape.json
+13:25-30 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json
+13:30-36 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json constant.character.escape.json
+13:36-37 source.json meta.structure.dictionary.json meta.structure.dictionary.value.json string.quoted.double.json punctuation.definition.string.end.json
+14:0-1 source.json meta.structure.dictionary.json punctuation.definition.dictionary.end.json

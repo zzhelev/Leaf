@@ -1,0 +1,21 @@
+@import (reference) "colours.less";
+
+@lane-width: 14px;
+@lanes: #5b97d3, #cd7670, #7d97a4;
+
+// A lane's colour by index.
+.lane(@index) {
+  @colour: extract(@lanes, @index);
+  border-left: 2px solid @colour;
+}
+
+.graph {
+  width: (@lane-width * 6);
+  .lane-1 { .lane(1); }
+  .lane-2 { .lane(2); }
+  &:hover when (@lane-width > 10px) {
+    opacity: 0.9;
+  }
+  /* block comment */
+  @media (max-width: 600px) { display: none; }
+}

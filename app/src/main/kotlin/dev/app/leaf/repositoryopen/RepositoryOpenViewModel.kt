@@ -60,6 +60,8 @@ import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.refresh.WatchRegistrations
 import dev.app.leaf.domain.refresh.WatchUsage
 import dev.app.leaf.domain.refresh.WorktreesVisibility
+import dev.app.leaf.domain.remote.StoppedWaitingCheck
+import dev.app.leaf.domain.remote.StoppedWaitingState
 import dev.app.leaf.domain.repositories.*
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -67,6 +69,8 @@ import dev.app.leaf.domain.sorting.RefFolderExpansion
 import dev.app.leaf.domain.sorting.RefPanelSettings
 import dev.app.leaf.domain.sorting.RefSection
 import dev.app.leaf.domain.sorting.RefSortState
+import dev.app.leaf.domain.highlighting.HighlightedText
+import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
 import dev.app.leaf.domain.models.WorktreeList
@@ -97,6 +101,7 @@ import dev.app.leaf.ui.toUiDataState
 import dev.app.leaf.updates.Update
 import dev.app.leaf.updates.UpdatesRepository
 import dev.app.leaf.viewmodels.ConflictResolverViewModel
+import dev.app.leaf.viewmodels.DiffHighlightsLoader
 import dev.app.leaf.viewmodels.HistoryViewModel
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import dev.app.leaf.viewmodels.newLazyListState
@@ -229,6 +234,9 @@ class RepositoryOpenViewModel @Inject constructor(
     private val backToRebasePlanUseCase: BackToRebasePlanUseCase,
     private val getPlanPlaceUseCase: GetPlanPlaceUseCase,
     private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
+    private val stoppedWaitingCheck: StoppedWaitingCheck,
+    // Fork-only: the diff's and blame's syntax colours
+    private val highlightTextUseCase: HighlightTextUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -1002,6 +1010,21 @@ class RepositoryOpenViewModel @Inject constructor(
         .distinctUntilChanged()
         .stateIn(null)
 
+    /** What the server did with a push or a delete that the user stopped waiting for (fork-only), until dismissed. */
+    val stoppedWaiting: StateFlow<StoppedWaitingState?> = stoppedWaitingCheck.state
+
+    fun stopCheckingStoppedPush() = stoppedWaitingCheck.stopChecking()
+
+    fun checkStoppedPushAgain() = stoppedWaitingCheck.tryAgain()
+
+    fun dismissStoppedPush() = stoppedWaitingCheck.dismiss()
+
+    /** Fetches, which shows what the server has, in place of the strip that couldn't tell. */
+    fun fetchAfterStoppedPush() {
+        stoppedWaitingCheck.dismiss()
+        fetchAll()
+    }
+
     /** Converts the worktree's index with the commands the strip's dialog showed (fork-only). */
     fun convertIndex(index: UnsupportedIndex) {
         runWorktreeStepsUseCase(TaskType.ConvertIndex, index.conversionSteps())
@@ -1660,8 +1683,12 @@ class RepositoryOpenViewModel @Inject constructor(
     /** How many folders every tab's watcher holds, while that is near what macOS delivers events for (fork-only). */
     val watchWarning: StateFlow<WatchUsage?> = watchRegistrations.warning
 
+    /** The blame being loaded or coloured (fork-only): another one stops it. */
+    private var blameJob: Job? = null
+
     fun blameFile(filePath: String) {
-        viewModelScope.launch {
+        blameJob?.cancel()
+        blameJob = viewModelScope.launch {
             _blameState.value = BlameState.Loading(filePath)
 
             when (val result = blameFileUseCase(filePath)) {
@@ -1676,7 +1703,14 @@ class RepositoryOpenViewModel @Inject constructor(
                 }
 
                 is Either.Ok -> {
-                    _blameState.value = BlameState.Loaded(filePath, result.value)
+                    val blame = result.value
+                    _blameState.value = BlameState.Loaded(filePath, blame)
+
+                    // Fork-only: the file's colours, once it's coloured, for the blame that is still shown
+                    val highlighted = highlightTextUseCase(filePath, blame.resultContents) ?: return@launch
+                    _blameState.update { state ->
+                        if (state is BlameState.Loaded && state.blameResult === blame) state.copy(highlighted = highlighted) else state
+                    }
                 }
             }
         }
@@ -2181,6 +2215,10 @@ class RepositoryOpenViewModel @Inject constructor(
     // Fork-only: the setting is read again whenever any setting is written, which would load the diff again
     val diffWhitespace: StateFlow<DiffWhitespaceMode> = settings.diffWhitespace.stateIn(DiffWhitespaceMode.DEFAULT)
 
+    // Fork-only: the colours of the diff's versions, which each diff below is shown to before the pane gets it
+    private val diffHighlightsLoader = DiffHighlightsLoader(viewModelScope, highlightTextUseCase)
+    val diffHighlights: StateFlow<HighlightedVersions> = diffHighlightsLoader.versions
+
     val diffResult: StateFlow<ViewDiffResult?> = combine(
         diffSelected,
         refreshDiffFlow,
@@ -2189,7 +2227,7 @@ class RepositoryOpenViewModel @Inject constructor(
         diffRefreshTrigger,
         settings.diffWhitespace.distinctUntilChanged(),
     ) { diffSelected, _, diffType, isDisplayFullFile, _, whitespace ->
-        if (diffSelected?.entries?.count() == 1) {
+        val result = if (diffSelected?.entries?.count() == 1) {
             val diff = loadDiff(diffSelected.entries.first(), diffType, isDisplayFullFile, whitespace)
 
             // Fork-only: Esc closes a diff that couldn't be loaded too
@@ -2219,6 +2257,9 @@ class RepositoryOpenViewModel @Inject constructor(
         } else {
             ViewDiffResult.DiffNotFound(null)
         }
+
+        diffHighlightsLoader.show(result)
+        result
     }.stateIn(initialValue = null as ViewDiffResult?)
 
     val isRepositoryInSafeState = repositoryState
@@ -2378,7 +2419,13 @@ class RepositoryOpenViewModel @Inject constructor(
 sealed interface BlameState {
     data class Loading(val filePath: String) : BlameState
 
-    data class Loaded(val filePath: String, val blameResult: BlameResult, val isMinimized: Boolean = false) : BlameState
+    /** [highlighted]: the file's colours (fork-only), null while it's coloured or when nothing colours it. */
+    data class Loaded(
+        val filePath: String,
+        val blameResult: BlameResult,
+        val isMinimized: Boolean = false,
+        val highlighted: HighlightedText? = null,
+    ) : BlameState
 
     data object None : BlameState
 }

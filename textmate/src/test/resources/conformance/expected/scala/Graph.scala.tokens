@@ -1,0 +1,241 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-7 source.scala meta.package.scala keyword.other.package.scala
+0:7-8 source.scala meta.package.scala
+0:8-11 source.scala meta.package.scala entity.name.package.scala
+0:11-12 source.scala meta.package.scala punctuation.definition.package
+0:12-19 source.scala meta.package.scala entity.name.package.scala
+0:19-20 source.scala meta.package.scala punctuation.definition.package
+0:20-25 source.scala meta.package.scala entity.name.package.scala
+1:0-0 source.scala
+2:0-6 source.scala meta.import.scala keyword.other.import.scala
+2:6-7 source.scala meta.import.scala
+2:7-12 source.scala meta.import.scala entity.name.import.scala
+2:12-13 source.scala meta.import.scala punctuation.definition.import
+2:13-23 source.scala meta.import.scala entity.name.import.scala
+2:23-24 source.scala meta.import.scala punctuation.definition.import
+2:24-31 source.scala meta.import.scala entity.name.import.scala
+3:0-0 source.scala
+4:0-3 source.scala comment.block.documentation.scala punctuation.definition.comment.scala
+4:3-28 source.scala comment.block.documentation.scala
+4:28-30 source.scala comment.block.documentation.scala punctuation.definition.comment.scala
+5:0-5 source.scala storage.modifier.other
+5:5-6 source.scala
+5:6-10 source.scala keyword.declaration.scala
+5:10-11 source.scala
+5:11-16 source.scala keyword.declaration.scala
+5:16-17 source.scala
+5:17-23 source.scala entity.name.class.declaration
+5:23-24 source.scala meta.bracket.scala
+5:24-28 source.scala variable.parameter.scala
+5:28-29 source.scala meta.colon.scala
+5:29-30 source.scala
+5:30-36 source.scala entity.name.class
+5:36-38 source.scala
+5:38-45 source.scala variable.parameter.scala
+5:45-46 source.scala meta.colon.scala
+5:46-47 source.scala
+5:47-51 source.scala entity.name.class
+5:51-52 source.scala meta.bracket.scala
+5:52-58 source.scala entity.name.class
+5:58-59 source.scala meta.bracket.scala
+5:59-60 source.scala meta.bracket.scala
+6:0-0 source.scala
+7:0-6 source.scala keyword.declaration.scala
+7:6-7 source.scala
+7:7-12 source.scala entity.name.class.declaration
+7:12-13 source.scala keyword.operator.scala
+8:0-2 source.scala
+8:2-5 source.scala keyword.declaration.stable.scala
+8:5-6 source.scala
+8:6-14 source.scala variable.stable.declaration.scala
+8:14-15 source.scala keyword.operator.scala
+8:15-16 source.scala
+8:16-19 source.scala entity.name.class
+8:19-20 source.scala
+8:20-21 source.scala keyword.operator.comparison.scala
+8:21-22 source.scala
+8:22-24 source.scala constant.numeric.scala
+9:0-0 source.scala
+10:0-2 source.scala
+10:2-5 source.scala keyword.declaration.scala
+10:5-6 source.scala
+10:6-12 source.scala entity.name.function.declaration
+10:12-13 source.scala meta.bracket.scala
+10:13-20 source.scala variable.parameter.scala
+10:20-21 source.scala meta.colon.scala
+10:21-22 source.scala
+10:22-25 source.scala entity.name.class
+10:25-26 source.scala meta.bracket.scala
+10:26-32 source.scala entity.name.class
+10:32-33 source.scala meta.bracket.scala
+10:33-34 source.scala meta.bracket.scala
+10:34-35 source.scala keyword.operator.scala
+10:35-36 source.scala
+10:36-39 source.scala entity.name.class
+10:39-40 source.scala meta.bracket.scala
+10:40-46 source.scala entity.name.class
+10:46-48 source.scala
+10:48-51 source.scala entity.name.class
+10:51-52 source.scala meta.bracket.scala
+10:52-53 source.scala
+10:53-54 source.scala keyword.operator.comparison.scala
+11:0-4 source.scala
+11:4-5 source.scala keyword.operator.scala
+11:5-12 source.scala
+12:0-4 source.scala
+12:4-7 source.scala keyword.declaration.scala
+12:7-8 source.scala
+12:8-12 source.scala entity.name.function.declaration
+12:12-13 source.scala meta.bracket.scala
+12:13-17 source.scala variable.parameter.scala
+12:17-18 source.scala meta.colon.scala
+12:18-19 source.scala
+12:19-23 source.scala entity.name.class
+12:23-24 source.scala meta.bracket.scala
+12:24-30 source.scala entity.name.class
+12:30-31 source.scala meta.bracket.scala
+12:31-33 source.scala
+12:33-38 source.scala variable.parameter.scala
+12:38-39 source.scala meta.colon.scala
+12:39-40 source.scala
+12:40-46 source.scala entity.name.class
+12:46-47 source.scala meta.bracket.scala
+12:47-53 source.scala entity.name.class
+12:53-54 source.scala meta.bracket.scala
+12:54-56 source.scala
+12:56-59 source.scala variable.parameter.scala
+12:59-60 source.scala meta.colon.scala
+12:60-61 source.scala
+12:61-64 source.scala entity.name.class
+12:64-65 source.scala meta.bracket.scala
+12:65-71 source.scala entity.name.class
+12:71-73 source.scala
+12:73-76 source.scala entity.name.class
+12:76-77 source.scala meta.bracket.scala
+12:77-78 source.scala meta.bracket.scala
+12:78-79 source.scala keyword.operator.scala
+12:79-80 source.scala
+12:80-83 source.scala entity.name.class
+12:83-84 source.scala meta.bracket.scala
+12:84-90 source.scala entity.name.class
+12:90-92 source.scala
+12:92-95 source.scala entity.name.class
+12:95-96 source.scala meta.bracket.scala
+12:96-97 source.scala
+12:97-98 source.scala keyword.operator.comparison.scala
+13:0-11 source.scala
+13:11-16 source.scala keyword.control.flow.scala
+14:0-8 source.scala
+14:8-12 source.scala keyword.control.flow.scala
+14:12-13 source.scala
+14:13-16 source.scala entity.name.class
+14:16-17 source.scala
+14:17-19 source.scala keyword.operator.scala
+14:19-23 source.scala
+15:0-8 source.scala
+15:8-12 source.scala keyword.control.flow.scala
+15:12-15 source.scala
+15:15-17 source.scala keyword.operator.scala
+15:17-23 source.scala
+15:23-25 source.scala keyword.operator.scala
+16:0-10 source.scala
+16:10-13 source.scala keyword.declaration.stable.scala
+16:13-14 source.scala
+16:14-18 source.scala variable.stable.declaration.scala
+16:18-19 source.scala
+16:19-20 source.scala keyword.operator.comparison.scala
+16:20-34 source.scala
+16:34-35 source.scala meta.bracket.scala
+16:35-41 source.scala
+16:41-42 source.scala meta.bracket.scala
+16:42-43 source.scala
+16:43-48 source.scala keyword.control.flow.scala
+17:0-12 source.scala
+17:12-16 source.scala keyword.control.flow.scala
+17:16-17 source.scala
+17:17-18 source.scala keyword.operator.arithmetic.scala
+17:18-19 source.scala constant.numeric.scala
+17:19-20 source.scala
+17:20-22 source.scala keyword.operator.scala
+17:22-33 source.scala
+18:0-12 source.scala
+18:12-16 source.scala keyword.control.flow.scala
+18:16-20 source.scala
+18:20-22 source.scala keyword.operator.scala
+18:22-24 source.scala
+19:0-14 source.scala
+19:14-15 source.scala meta.bracket.scala
+19:15-34 source.scala
+19:34-35 source.scala meta.bracket.scala
+19:35-44 source.scala
+19:44-45 source.scala meta.bracket.scala
+19:45-56 source.scala
+19:56-57 source.scala keyword.operator.arithmetic.scala
+19:57-58 source.scala
+19:58-59 source.scala constant.numeric.scala
+19:59-60 source.scala meta.bracket.scala
+19:60-68 source.scala
+19:68-69 source.scala meta.bracket.scala
+19:69-75 source.scala
+19:75-76 source.scala keyword.operator.arithmetic.scala
+19:76-77 source.scala
+19:77-78 source.scala meta.bracket.scala
+19:78-85 source.scala
+19:85-87 source.scala keyword.operator.scala
+19:87-92 source.scala
+19:92-93 source.scala meta.bracket.scala
+19:93-94 source.scala meta.bracket.scala
+20:0-8 source.scala
+20:8-9 source.scala meta.bracket.scala
+20:9-25 source.scala
+20:25-31 source.scala entity.name.class
+20:31-39 source.scala
+20:39-42 source.scala entity.name.class
+20:42-48 source.scala
+20:48-49 source.scala meta.bracket.scala
+20:49-50 source.scala
+20:50-52 source.scala comment.line.double-slash.scala punctuation.definition.comment.scala
+20:52-64 source.scala comment.line.double-slash.scala
+21:0-0 source.scala
+22:0-2 source.scala
+22:2-5 source.scala keyword.declaration.scala
+22:5-6 source.scala
+22:6-14 source.scala entity.name.function.declaration
+22:14-15 source.scala meta.bracket.scala
+22:15-16 source.scala variable.parameter.scala
+22:16-17 source.scala meta.colon.scala
+22:17-18 source.scala
+22:18-24 source.scala entity.name.class
+22:24-25 source.scala meta.bracket.scala
+22:25-26 source.scala keyword.operator.scala
+22:26-27 source.scala
+22:27-33 source.scala entity.name.class
+22:33-34 source.scala
+22:34-35 source.scala keyword.operator.comparison.scala
+22:35-36 source.scala
+22:36-37 source.scala keyword.interpolation.scala
+22:37-38 source.scala string.quoted.double.interpolated.scala punctuation.definition.string.begin.scala
+22:38-40 source.scala meta.template.expression.scala punctuation.definition.template-expression.begin.scala
+22:40-51 source.scala meta.template.expression.scala meta.embedded.line.scala
+22:51-52 source.scala meta.template.expression.scala meta.embedded.line.scala meta.bracket.scala
+22:52-53 source.scala meta.template.expression.scala meta.embedded.line.scala constant.numeric.scala
+22:53-54 source.scala meta.template.expression.scala meta.embedded.line.scala meta.bracket.scala
+22:54-55 source.scala meta.template.expression.scala punctuation.definition.template-expression.end.scala
+22:55-56 source.scala string.quoted.double.interpolated.scala
+22:56-57 source.scala string.quoted.double.interpolated.scala
+22:57-58 source.scala string.quoted.double.interpolated.scala
+22:58-59 source.scala string.quoted.double.interpolated.scala
+22:59-60 source.scala string.quoted.double.interpolated.scala
+22:60-61 source.scala string.quoted.double.interpolated.scala
+22:61-63 source.scala meta.template.expression.scala punctuation.definition.template-expression.begin.scala
+22:63-79 source.scala meta.template.expression.scala meta.embedded.line.scala
+22:79-80 source.scala meta.template.expression.scala punctuation.definition.template-expression.end.scala
+22:80-81 source.scala string.quoted.double.interpolated.scala
+22:81-82 source.scala string.quoted.double.interpolated.scala
+22:82-83 source.scala string.quoted.double.interpolated.scala
+22:83-84 source.scala string.quoted.double.interpolated.scala
+22:84-85 source.scala string.quoted.double.interpolated.scala
+22:85-86 source.scala string.quoted.double.interpolated.scala
+22:86-87 source.scala string.quoted.double.interpolated.scala
+22:87-88 source.scala string.quoted.double.interpolated.scala
+22:88-89 source.scala string.quoted.double.interpolated.scala punctuation.definition.string.end.scala

@@ -1,0 +1,156 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.objc meta.preprocessor.include.objc keyword.control.directive.import.objc punctuation.definition.directive.objc
+0:1-7 source.objc meta.preprocessor.include.objc keyword.control.directive.import.objc
+0:7-8 source.objc meta.preprocessor.include.objc
+0:8-9 source.objc meta.preprocessor.include.objc string.quoted.other.lt-gt.include.objc punctuation.definition.string.begin.objc
+0:9-32 source.objc meta.preprocessor.include.objc string.quoted.other.lt-gt.include.objc
+0:32-33 source.objc meta.preprocessor.include.objc string.quoted.other.lt-gt.include.objc punctuation.definition.string.end.objc
+1:0-1 source.objc meta.preprocessor.include.objc keyword.control.directive.import.objc punctuation.definition.directive.objc
+1:1-7 source.objc meta.preprocessor.include.objc keyword.control.directive.import.objc
+1:7-8 source.objc meta.preprocessor.include.objc
+1:8-9 source.objc meta.preprocessor.include.objc string.quoted.double.include.objc punctuation.definition.string.begin.objc
+1:9-15 source.objc meta.preprocessor.include.objc string.quoted.double.include.objc
+1:15-16 source.objc meta.preprocessor.include.objc string.quoted.double.include.objc punctuation.definition.string.end.objc
+2:0-0 source.objc
+3:0-2 source.objc comment.block.objc punctuation.definition.comment.begin.objc
+3:2-21 source.objc comment.block.objc
+3:21-23 source.objc comment.block.objc punctuation.definition.comment.end.objc
+4:0-1 source.objc meta.interface-or-protocol.objc storage.type.objc punctuation.definition.storage.type.objc
+4:1-10 source.objc meta.interface-or-protocol.objc storage.type.objc
+4:10-11 source.objc meta.interface-or-protocol.objc
+4:11-15 source.objc meta.interface-or-protocol.objc entity.name.type.objc
+4:15-16 source.objc meta.interface-or-protocol.objc
+4:16-17 source.objc meta.interface-or-protocol.objc punctuation.definition.entity.other.inherited-class.objc
+4:17-18 source.objc meta.interface-or-protocol.objc
+4:18-26 source.objc meta.interface-or-protocol.objc entity.other.inherited-class.objc
+5:0-1 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.objc punctuation.definition.keyword.objc
+5:1-9 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.objc
+5:9-10 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc
+5:10-11 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc punctuation.section.scope.begin.objc
+5:11-20 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.attribute.objc
+5:20-22 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc
+5:22-26 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.attribute.objc
+5:26-27 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc punctuation.section.scope.end.objc
+5:27-28 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc
+5:28-36 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc support.class.cocoa.objc
+5:36-37 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc
+5:37-38 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc keyword.operator.objc
+5:38-44 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc
+5:44-45 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc punctuation.terminator.statement.objc
+6:0-1 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.objc punctuation.definition.keyword.objc
+6:1-9 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.objc
+6:9-10 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc
+6:10-11 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc punctuation.section.scope.begin.objc
+6:11-20 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.attribute.objc
+6:20-22 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc
+6:22-28 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc keyword.other.property.attribute.objc
+6:28-29 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc meta.property-with-attributes.objc punctuation.section.scope.end.objc
+6:29-30 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc
+6:30-39 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc support.type.cocoa.leopard.objc
+6:39-45 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc
+6:45-46 source.objc meta.interface-or-protocol.objc meta.scope.interface.objc punctuation.terminator.statement.objc
+7:0-1 source.objc meta.interface-or-protocol.objc storage.type.objc punctuation.definition.storage.type.objc
+7:1-4 source.objc meta.interface-or-protocol.objc storage.type.objc
+8:0-0 source.objc
+9:0-1 source.objc meta.implementation.objc storage.type.objc punctuation.definition.storage.type.objc
+9:1-15 source.objc meta.implementation.objc storage.type.objc
+9:15-16 source.objc meta.implementation.objc
+9:16-20 source.objc meta.implementation.objc entity.name.type.objc
+10:0-0 source.objc meta.implementation.objc meta.scope.implementation.objc
+11:0-2 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc
+11:2-3 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc punctuation.definition.type.begin.objc
+11:3-15 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc storage.type.objc
+11:15-16 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc punctuation.definition.type.end.objc
+11:16-30 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc entity.name.function.objc
+11:30-31 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.argument-type.objc entity.name.function.name-of-parameter.objc punctuation.separator.arguments.objc
+11:31-32 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.argument-type.objc punctuation.definition.type.begin.objc
+11:32-40 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.argument-type.objc support.class.cocoa.objc
+11:40-41 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.argument-type.objc
+11:41-42 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.argument-type.objc keyword.operator.objc
+11:42-43 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.argument-type.objc punctuation.definition.type.end.objc
+11:43-49 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.argument-type.objc variable.parameter.function.objc
+11:49-50 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc
+11:50-51 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.section.block.begin.bracket.curly.objc
+12:0-4 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+12:4-6 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc keyword.control.objc
+12:6-7 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+12:7-8 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc punctuation.section.parens.begin.bracket.round.objc
+12:8-9 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc punctuation.section.parens.begin.bracket.round.objc
+12:9-13 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc variable.language.objc
+12:13-14 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc
+12:14-15 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc keyword.operator.assignment.objc
+12:15-16 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc
+12:16-17 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc meta.bracketed.objc punctuation.section.scope.begin.objc
+12:17-22 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc meta.bracketed.objc variable.language.objc
+12:22-23 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc meta.bracketed.objc
+12:23-27 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc meta.bracketed.objc meta.function-call.objc support.function.any-method.objc
+12:27-28 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc meta.bracketed.objc punctuation.section.scope.end.objc
+12:28-29 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc meta.parens.block.objc punctuation.section.parens.end.bracket.round.objc
+12:29-30 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.parens.block.objc punctuation.section.parens.end.bracket.round.objc
+12:30-31 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+12:31-32 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.section.block.begin.bracket.curly.objc
+13:0-16 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+13:16-17 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc keyword.operator.assignment.objc
+13:17-18 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+13:18-19 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc punctuation.section.scope.begin.objc
+13:19-26 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc
+13:26-30 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc support.function.any-method.objc
+13:30-31 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc punctuation.section.scope.end.objc
+13:31-32 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.terminator.statement.objc
+14:0-15 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+14:15-16 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc keyword.operator.assignment.objc
+14:16-17 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+14:17-18 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc constant.numeric.decimal.objc
+14:18-19 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.terminator.statement.objc
+15:0-4 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+15:4-5 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.section.block.end.bracket.curly.objc
+16:0-4 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+16:4-10 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc keyword.control.objc
+16:10-11 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+16:11-15 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc variable.language.objc
+16:15-16 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.terminator.statement.objc
+17:0-1 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.section.block.end.bracket.curly.objc
+18:0-0 source.objc meta.implementation.objc meta.scope.implementation.objc
+19:0-2 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc
+19:2-3 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc punctuation.definition.type.begin.objc
+19:3-11 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc support.class.cocoa.objc
+19:11-12 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc
+19:12-13 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc keyword.operator.objc
+19:13-14 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc punctuation.definition.type.end.objc
+19:14-25 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc meta.return-type.objc entity.name.function.objc
+19:25-26 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.function.objc
+19:26-27 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.section.block.begin.bracket.curly.objc
+20:0-4 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.whitespace.comment.leading.objc
+20:4-6 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc comment.line.double-slash.objc punctuation.definition.comment.objc
+20:6-36 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc comment.line.double-slash.objc
+21:0-4 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+21:4-10 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc keyword.control.objc
+21:10-11 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc
+21:11-12 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc punctuation.section.scope.begin.objc
+21:12-20 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc support.class.cocoa.objc
+21:20-21 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc
+21:21-37 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc support.function.any-method.objc
+21:37-38 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc support.function.any-method.objc punctuation.separator.arguments.objc
+21:38-40 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc string.quoted.double.objc punctuation.definition.string.begin.objc
+21:40-42 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc string.quoted.double.objc constant.other.placeholder.objc
+21:42-45 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc string.quoted.double.objc
+21:45-48 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc string.quoted.double.objc constant.other.placeholder.objc
+21:48-49 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc string.quoted.double.objc
+21:49-50 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc string.quoted.double.objc punctuation.definition.string.end.objc
+21:50-51 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc punctuation.separator.delimiter.objc
+21:51-52 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc
+21:52-56 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc variable.language.objc
+21:56-63 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc
+21:63-64 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc punctuation.separator.delimiter.objc
+21:64-65 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc
+21:65-66 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc meta.parens.objc punctuation.section.parens.begin.bracket.round.objc
+21:66-70 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc meta.parens.objc storage.type.built-in.primitive.objc
+21:70-71 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc meta.parens.objc punctuation.section.parens.end.bracket.round.objc
+21:71-75 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc variable.language.objc
+21:75-81 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc meta.function-call.objc
+21:81-82 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc meta.bracketed.objc punctuation.section.scope.end.objc
+21:82-83 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.terminator.statement.objc
+22:0-1 source.objc meta.implementation.objc meta.scope.implementation.objc meta.function-with-body.objc meta.block.objc punctuation.section.block.end.bracket.curly.objc
+23:0-0 source.objc meta.implementation.objc meta.scope.implementation.objc
+24:0-1 source.objc meta.implementation.objc storage.type.objc punctuation.definition.storage.type.objc
+24:1-4 source.objc meta.implementation.objc storage.type.objc

@@ -10,6 +10,7 @@ import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.exceptions.MissingDiffEntryException
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.renamedFrom
+import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.domain.interfaces.IGenerateSplitHunkFromDiffResultGitAction
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.repositories.FailureSeverity
@@ -22,6 +23,7 @@ import dev.app.leaf.domain.usecases.GetFileCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileDiffBetweenCommitsUseCase
 import dev.app.leaf.domain.usecases.GetFileRestorePlanUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
+import dev.app.leaf.domain.usecases.HighlightTextUseCase
 import dev.app.leaf.domain.usecases.RestoreFileVersionUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -49,12 +51,18 @@ class HistoryViewModel @Inject constructor(
     private val repositoryStateRepository: RepositoryStateRepository,
     // Fork-only: two versions of the file, compared
     private val getFileDiffBetweenCommitsUseCase: GetFileDiffBetweenCommitsUseCase,
+    // Fork-only: the diff's syntax colours
+    highlightTextUseCase: HighlightTextUseCase,
 ) : TabViewModel() {
     private val _historyState = MutableStateFlow<HistoryState>(HistoryState.Loading(""))
     val historyState: StateFlow<HistoryState> = _historyState
 
     private val _viewDiffResult = MutableStateFlow<ViewDiffResult>(ViewDiffResult.None)
     val viewDiffResult: StateFlow<ViewDiffResult> = _viewDiffResult
+
+    // Fork-only: the colours of the diff's versions, which each diff is shown to before it's set
+    private val diffHighlightsLoader = DiffHighlightsLoader(viewModelScope, highlightTextUseCase)
+    val diffHighlights: StateFlow<HighlightedVersions> = diffHighlightsLoader.versions
 
     // Fork-only: the commit whose diff is shown, which the list highlights and the strip above the diff names
     private val _selectedCommit = MutableStateFlow<Commit?>(null)
@@ -353,6 +361,7 @@ class HistoryViewModel @Inject constructor(
                 ?.let { row -> lazyListState.value = newLazyListState(row) }
         }
 
+        diffHighlightsLoader.show(diffResult)
         _viewDiffResult.value = diffResult
     }
 }

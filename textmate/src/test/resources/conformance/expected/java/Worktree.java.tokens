@@ -1,0 +1,255 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-7 source.java meta.package.java keyword.other.package.java
+0:7-8 source.java meta.package.java
+0:8-11 source.java meta.package.java storage.modifier.package.java
+0:11-12 source.java meta.package.java storage.modifier.package.java punctuation.separator.java
+0:12-19 source.java meta.package.java storage.modifier.package.java
+0:19-20 source.java meta.package.java punctuation.terminator.java
+1:0-0 source.java
+2:0-6 source.java meta.import.java keyword.other.import.java
+2:6-7 source.java meta.import.java
+2:7-11 source.java meta.import.java storage.modifier.import.java
+2:11-12 source.java meta.import.java storage.modifier.import.java punctuation.separator.java
+2:12-15 source.java meta.import.java storage.modifier.import.java
+2:15-16 source.java meta.import.java storage.modifier.import.java punctuation.separator.java
+2:16-20 source.java meta.import.java storage.modifier.import.java
+2:20-21 source.java meta.import.java storage.modifier.import.java punctuation.separator.java
+2:21-25 source.java meta.import.java storage.modifier.import.java
+2:25-26 source.java meta.import.java punctuation.terminator.java
+3:0-6 source.java meta.import.java keyword.other.import.java
+3:6-7 source.java meta.import.java
+3:7-11 source.java meta.import.java storage.modifier.import.java
+3:11-12 source.java meta.import.java storage.modifier.import.java punctuation.separator.java
+3:12-16 source.java meta.import.java storage.modifier.import.java
+3:16-17 source.java meta.import.java storage.modifier.import.java punctuation.separator.java
+3:17-21 source.java meta.import.java storage.modifier.import.java
+3:21-22 source.java meta.import.java punctuation.terminator.java
+4:0-6 source.java meta.import.java keyword.other.import.java
+4:6-7 source.java meta.import.java
+4:7-11 source.java meta.import.java storage.modifier.import.java
+4:11-12 source.java meta.import.java storage.modifier.import.java punctuation.separator.java
+4:12-16 source.java meta.import.java storage.modifier.import.java
+4:16-17 source.java meta.import.java storage.modifier.import.java punctuation.separator.java
+4:17-25 source.java meta.import.java storage.modifier.import.java
+4:25-26 source.java meta.import.java punctuation.terminator.java
+5:0-0 source.java
+6:0-3 source.java comment.block.javadoc.java punctuation.definition.comment.java
+7:0-61 source.java comment.block.javadoc.java
+8:0-1 source.java comment.block.javadoc.java
+8:1-3 source.java comment.block.javadoc.java punctuation.definition.comment.java
+9:0-6 source.java meta.record.java storage.modifier.java
+9:6-7 source.java meta.record.java
+9:7-13 source.java meta.record.java meta.record.identifier.java storage.modifier.java
+9:13-14 source.java meta.record.java meta.record.identifier.java
+9:14-22 source.java meta.record.java meta.record.identifier.java entity.name.type.record.java
+9:22-23 source.java meta.record.java meta.record.identifier.java punctuation.definition.parameters.begin.bracket.round.java
+9:23-27 source.java meta.record.java meta.record.identifier.java storage.type.java
+9:27-34 source.java meta.record.java meta.record.identifier.java
+9:34-35 source.java meta.record.java meta.record.identifier.java punctuation.separator.delimiter.java
+9:35-36 source.java meta.record.java meta.record.identifier.java
+9:36-44 source.java meta.record.java meta.record.identifier.java storage.type.java
+9:44-45 source.java meta.record.java meta.record.identifier.java keyword.operator.comparison.java
+9:45-51 source.java meta.record.java meta.record.identifier.java
+9:51-52 source.java meta.record.java meta.record.identifier.java keyword.operator.comparison.java
+9:52-59 source.java meta.record.java meta.record.identifier.java
+9:59-60 source.java meta.record.java meta.record.identifier.java punctuation.separator.delimiter.java
+9:60-61 source.java meta.record.java meta.record.identifier.java
+9:61-68 source.java meta.record.java meta.record.identifier.java storage.type.primitive.java
+9:68-75 source.java meta.record.java meta.record.identifier.java
+9:75-76 source.java meta.record.java meta.record.identifier.java punctuation.definition.parameters.end.bracket.round.java
+9:76-77 source.java meta.record.java
+9:77-78 source.java meta.record.java meta.record.body.java punctuation.section.class.begin.bracket.curly.java
+10:0-0 source.java meta.record.java meta.record.body.java
+11:0-4 source.java meta.record.java meta.record.body.java
+11:4-11 source.java meta.record.java meta.record.body.java storage.modifier.java
+11:11-12 source.java meta.record.java meta.record.body.java
+11:12-18 source.java meta.record.java meta.record.body.java storage.modifier.java
+11:18-19 source.java meta.record.java meta.record.body.java
+11:19-24 source.java meta.record.java meta.record.body.java storage.modifier.java
+11:24-25 source.java meta.record.java meta.record.body.java
+11:25-28 source.java meta.record.java meta.record.body.java meta.definition.variable.java storage.type.primitive.java
+11:28-29 source.java meta.record.java meta.record.body.java meta.definition.variable.java
+11:29-37 source.java meta.record.java meta.record.body.java meta.definition.variable.java variable.other.definition.java
+11:37-38 source.java meta.record.java meta.record.body.java meta.definition.variable.java
+11:38-39 source.java meta.record.java meta.record.body.java keyword.operator.assignment.java
+11:39-40 source.java meta.record.java meta.record.body.java
+11:40-43 source.java meta.record.java meta.record.body.java constant.numeric.decimal.java
+11:43-44 source.java meta.record.java meta.record.body.java punctuation.terminator.java
+12:0-0 source.java meta.record.java meta.record.body.java
+13:0-4 source.java meta.record.java meta.record.body.java
+13:4-5 source.java meta.record.java meta.record.body.java meta.declaration.annotation.java punctuation.definition.annotation.java
+13:5-13 source.java meta.record.java meta.record.body.java meta.declaration.annotation.java storage.type.annotation.java
+14:0-4 source.java meta.record.java meta.record.body.java
+14:4-10 source.java meta.record.java meta.record.body.java meta.method.java storage.modifier.java
+14:10-11 source.java meta.record.java meta.record.body.java meta.method.java
+14:11-17 source.java meta.record.java meta.record.body.java meta.method.java meta.method.return-type.java storage.type.java
+14:17-18 source.java meta.record.java meta.record.body.java meta.method.java
+14:18-26 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java entity.name.function.java
+14:26-27 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java punctuation.definition.parameters.begin.bracket.round.java
+14:27-28 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java punctuation.definition.parameters.end.bracket.round.java
+14:28-29 source.java meta.record.java meta.record.body.java meta.method.java
+14:29-30 source.java meta.record.java meta.record.body.java meta.method.java punctuation.section.method.begin.bracket.curly.java
+15:0-8 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java punctuation.whitespace.comment.leading.java
+15:8-10 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java comment.line.double-slash.java punctuation.definition.comment.java
+15:10-45 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java comment.line.double-slash.java
+16:0-8 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+16:8-14 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java storage.type.java
+16:14-15 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java
+16:15-19 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java variable.other.definition.java
+16:19-20 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java
+16:20-21 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.operator.assignment.java
+16:21-22 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+16:22-28 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java variable.other.object.java
+16:28-29 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.period.java
+16:29-35 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java entity.name.function.java
+16:35-36 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+16:36-37 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.begin.java
+16:37-47 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java
+16:47-48 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.end.java
+16:48-49 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+16:49-50 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java punctuation.terminator.java
+17:0-8 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+17:8-14 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.control.java
+17:14-15 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+17:15-21 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java variable.other.object.java
+17:21-22 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.period.java
+17:22-28 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java entity.name.function.java
+17:28-29 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+17:29-30 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.begin.java
+17:30-39 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java
+17:39-40 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.end.java
+17:40-41 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.delimiter.java
+17:41-48 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+17:48-49 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.delimiter.java
+17:49-54 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+17:54-55 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.delimiter.java
+17:55-63 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+17:63-64 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java keyword.control.ternary.java
+17:64-65 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+17:65-66 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.begin.java
+17:66-73 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java
+17:73-74 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.end.java
+17:74-75 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+17:75-76 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java keyword.control.ternary.java
+17:76-77 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+17:77-78 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.begin.java
+17:78-79 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java string.quoted.double.java punctuation.definition.string.end.java
+17:79-80 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+17:80-81 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java punctuation.terminator.java
+18:0-4 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+18:4-5 source.java meta.record.java meta.record.body.java meta.method.java punctuation.section.method.end.bracket.curly.java
+19:0-0 source.java meta.record.java meta.record.body.java
+20:0-4 source.java meta.record.java meta.record.body.java
+20:4-10 source.java meta.record.java meta.record.body.java meta.method.java storage.modifier.java
+20:10-11 source.java meta.record.java meta.record.body.java meta.method.java
+20:11-17 source.java meta.record.java meta.record.body.java meta.method.java storage.modifier.java
+20:17-18 source.java meta.record.java meta.record.body.java meta.method.java
+20:18-22 source.java meta.record.java meta.record.body.java meta.method.java meta.method.return-type.java storage.type.java
+20:22-23 source.java meta.record.java meta.record.body.java meta.method.java meta.method.return-type.java punctuation.bracket.angle.java
+20:23-31 source.java meta.record.java meta.record.body.java meta.method.java meta.method.return-type.java storage.type.generic.java
+20:31-32 source.java meta.record.java meta.record.body.java meta.method.java meta.method.return-type.java punctuation.bracket.angle.java
+20:32-33 source.java meta.record.java meta.record.body.java meta.method.java
+20:33-38 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java entity.name.function.java
+20:38-39 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java punctuation.definition.parameters.begin.bracket.round.java
+20:39-45 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java storage.type.java
+20:45-46 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java
+20:46-55 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java variable.parameter.java
+20:55-56 source.java meta.record.java meta.record.body.java meta.method.java meta.method.identifier.java punctuation.definition.parameters.end.bracket.round.java
+20:56-57 source.java meta.record.java meta.record.body.java meta.method.java
+20:57-63 source.java meta.record.java meta.record.body.java meta.method.java meta.throwables.java storage.modifier.java
+20:63-64 source.java meta.record.java meta.record.body.java meta.method.java meta.throwables.java
+20:64-88 source.java meta.record.java meta.record.body.java meta.method.java meta.throwables.java storage.type.java
+20:88-89 source.java meta.record.java meta.record.body.java meta.method.java meta.throwables.java
+20:89-90 source.java meta.record.java meta.record.body.java meta.method.java punctuation.section.method.begin.bracket.curly.java
+21:0-8 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+21:8-11 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.local.java storage.type.local.java
+21:11-12 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.local.java
+21:12-16 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.local.java variable.other.definition.java
+21:16-17 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.local.java
+21:17-18 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.operator.assignment.java
+21:18-19 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+21:19-22 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java string.quoted.triple.java punctuation.definition.string.begin.java
+22:0-26 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java string.quoted.triple.java
+23:0-34 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java string.quoted.triple.java
+24:0-12 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java string.quoted.triple.java
+24:12-15 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java string.quoted.triple.java punctuation.definition.string.end.java
+24:15-16 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java punctuation.terminator.java
+25:0-8 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+25:8-12 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java storage.type.primitive.java
+25:12-13 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java
+25:13-18 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java variable.other.definition.java
+25:18-19 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.definition.variable.java
+25:19-20 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.operator.assignment.java
+25:20-21 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+25:21-30 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java variable.other.object.java
+25:30-31 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.period.java
+25:31-36 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java entity.name.function.java
+25:36-37 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+25:37-38 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+25:38-39 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.period.java
+25:39-45 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java entity.name.function.java
+25:45-46 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+25:46-51 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+25:51-53 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java storage.type.function.arrow.java
+25:53-54 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+25:54-58 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java variable.other.object.java
+25:58-59 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.method-call.java punctuation.separator.period.java
+25:59-69 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.method-call.java entity.name.function.java
+25:69-70 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+25:70-71 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.method-call.java string.quoted.double.java punctuation.definition.string.begin.java
+25:71-80 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.method-call.java string.quoted.double.java
+25:80-81 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.method-call.java string.quoted.double.java punctuation.definition.string.end.java
+25:81-82 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+25:82-83 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+25:83-84 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.period.java
+25:84-89 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java entity.name.function.java
+25:89-90 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+25:90-91 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+25:91-92 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java punctuation.terminator.java
+26:0-8 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+26:8-14 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.control.java
+26:14-21 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+26:21-22 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.operator.comparison.java
+26:22-32 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+26:32-33 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.control.ternary.java
+26:33-34 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+26:34-38 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java variable.other.object.java
+26:38-39 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.period.java
+26:39-41 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java entity.name.function.java
+26:41-42 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+26:42-43 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+26:43-44 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+26:44-45 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java keyword.control.ternary.java
+26:45-46 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+26:46-50 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java variable.other.object.java
+26:50-51 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.separator.period.java
+26:51-53 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java entity.name.function.java
+26:53-54 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+26:54-57 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java keyword.control.new.java
+26:57-58 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java
+26:58-66 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java entity.name.function.java
+26:66-67 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java punctuation.definition.parameters.begin.bracket.round.java
+26:67-71 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java variable.other.object.java
+26:71-72 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java punctuation.separator.period.java
+26:72-74 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java entity.name.function.java
+26:74-75 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+26:75-76 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java string.quoted.double.java punctuation.definition.string.begin.java
+26:76-81 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java string.quoted.double.java
+26:81-82 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java string.quoted.double.java punctuation.definition.string.end.java
+26:82-83 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+26:83-84 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java punctuation.separator.delimiter.java
+26:84-85 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java
+26:85-93 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java variable.other.object.java
+26:93-94 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java punctuation.separator.period.java
+26:94-99 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java entity.name.function.java
+26:99-100 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java punctuation.definition.parameters.begin.bracket.round.java
+26:100-101 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+26:101-102 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java punctuation.separator.delimiter.java
+26:102-103 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java
+26:103-108 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java constant.language.java
+26:108-109 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java meta.function-call.java punctuation.definition.parameters.end.bracket.round.java
+26:109-110 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java meta.method-call.java punctuation.definition.parameters.end.bracket.round.java
+26:110-111 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java punctuation.terminator.java
+27:0-4 source.java meta.record.java meta.record.body.java meta.method.java meta.method.body.java
+27:4-5 source.java meta.record.java meta.record.body.java meta.method.java punctuation.section.method.end.bracket.curly.java
+28:0-1 source.java meta.record.java punctuation.section.class.end.bracket.curly.java

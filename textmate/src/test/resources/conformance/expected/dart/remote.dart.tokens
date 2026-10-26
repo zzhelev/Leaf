@@ -1,0 +1,172 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-6 source.dart meta.declaration.dart keyword.other.import.dart
+0:6-7 source.dart meta.declaration.dart
+0:7-8 source.dart meta.declaration.dart string.interpolated.single.dart
+0:8-18 source.dart meta.declaration.dart string.interpolated.single.dart
+0:18-19 source.dart meta.declaration.dart string.interpolated.single.dart
+0:19-20 source.dart meta.declaration.dart punctuation.terminator.dart
+1:0-0 source.dart
+2:0-3 source.dart comment.block.documentation.dart
+2:3-17 source.dart comment.block.documentation.dart
+3:0-5 source.dart keyword.declaration.dart
+3:5-6 source.dart
+3:6-12 source.dart support.class.dart
+3:12-13 source.dart
+3:13-14 source.dart
+4:0-2 source.dart
+4:2-7 source.dart storage.modifier.dart
+4:7-8 source.dart
+4:8-14 source.dart support.class.dart
+4:14-15 source.dart
+4:15-19 source.dart
+4:19-20 source.dart punctuation.terminator.dart
+5:0-2 source.dart
+5:2-7 source.dart storage.modifier.dart
+5:7-8 source.dart
+5:8-11 source.dart support.class.dart
+5:11-12 source.dart
+5:12-15 source.dart
+5:15-16 source.dart punctuation.terminator.dart
+6:0-2 source.dart
+6:2-7 source.dart storage.modifier.dart
+6:7-8 source.dart
+6:8-14 source.dart support.class.dart
+6:14-15 source.dart
+6:15-19 source.dart variable.language.dart
+6:19-20 source.dart punctuation.dot.dart
+6:20-24 source.dart
+6:24-25 source.dart punctuation.comma.dart
+6:25-26 source.dart
+6:26-30 source.dart variable.language.dart
+6:30-31 source.dart punctuation.dot.dart
+6:31-35 source.dart
+6:35-36 source.dart punctuation.terminator.dart
+7:0-0 source.dart
+8:0-2 source.dart
+8:2-11 source.dart storage.type.annotation.dart
+9:0-2 source.dart
+9:2-8 source.dart support.class.dart
+9:8-9 source.dart
+9:9-17 source.dart entity.name.function.dart
+9:17-18 source.dart
+9:18-20 source.dart
+9:20-22 source.dart keyword.operator.closure.dart
+9:22-23 source.dart
+9:23-24 source.dart string.interpolated.single.dart
+9:24-25 source.dart string.interpolated.single.dart meta.embedded.expression.dart
+9:25-29 source.dart string.interpolated.single.dart meta.embedded.expression.dart variable.parameter.dart
+9:29-33 source.dart string.interpolated.single.dart
+9:33-35 source.dart string.interpolated.single.dart meta.embedded.expression.dart
+9:35-38 source.dart string.interpolated.single.dart meta.embedded.expression.dart variable.parameter.dart
+9:38-39 source.dart string.interpolated.single.dart meta.embedded.expression.dart
+9:39-43 source.dart string.interpolated.single.dart meta.embedded.expression.dart variable.parameter.dart
+9:43-44 source.dart string.interpolated.single.dart meta.embedded.expression.dart
+9:44-45 source.dart string.interpolated.single.dart
+9:45-46 source.dart punctuation.terminator.dart
+10:0-1 source.dart
+11:0-0 source.dart
+12:0-6 source.dart support.class.dart
+12:6-7 source.dart other.source.dart
+12:7-11 source.dart support.class.dart
+12:11-12 source.dart other.source.dart
+12:12-18 source.dart support.class.dart
+12:18-19 source.dart other.source.dart
+12:19-20 source.dart other.source.dart
+12:20-21 source.dart
+12:21-32 source.dart entity.name.function.dart
+12:32-33 source.dart
+12:33-39 source.dart support.class.dart
+12:39-40 source.dart other.source.dart
+12:40-46 source.dart support.class.dart
+12:46-47 source.dart other.source.dart
+12:47-55 source.dart
+12:55-60 source.dart keyword.control.dart
+12:60-62 source.dart
+13:0-2 source.dart
+13:2-7 source.dart storage.modifier.dart
+13:7-16 source.dart
+13:16-17 source.dart keyword.operator.assignment.dart
+13:17-18 source.dart
+13:18-19 source.dart keyword.operator.comparison.dart
+13:19-25 source.dart support.class.dart
+13:25-26 source.dart keyword.operator.comparison.dart
+13:26-28 source.dart
+13:28-29 source.dart punctuation.terminator.dart
+14:0-2 source.dart
+14:2-7 source.dart keyword.control.dart
+14:7-8 source.dart
+14:8-11 source.dart keyword.control.dart
+14:11-13 source.dart
+14:13-18 source.dart storage.modifier.dart
+14:18-24 source.dart
+14:24-26 source.dart keyword.control.dart
+14:26-35 source.dart
+15:0-4 source.dart
+15:4-9 source.dart storage.modifier.dart
+15:9-16 source.dart
+15:16-17 source.dart keyword.operator.assignment.dart
+15:17-22 source.dart
+15:22-23 source.dart punctuation.dot.dart
+15:23-28 source.dart entity.name.function.dart
+15:28-29 source.dart
+15:29-35 source.dart support.class.dart
+15:35-36 source.dart
+15:36-38 source.dart string.quoted.single.dart
+15:38-41 source.dart string.quoted.single.dart
+15:41-42 source.dart string.quoted.single.dart
+15:42-44 source.dart
+15:44-45 source.dart punctuation.terminator.dart
+16:0-4 source.dart
+16:4-6 source.dart keyword.control.dart
+16:6-13 source.dart
+16:13-14 source.dart punctuation.dot.dart
+16:14-21 source.dart
+16:21-22 source.dart keyword.operator.comparison.dart
+16:22-23 source.dart
+16:23-24 source.dart constant.numeric.dart
+16:24-26 source.dart
+16:26-34 source.dart keyword.control.dart
+16:34-35 source.dart punctuation.terminator.dart
+16:35-36 source.dart
+16:36-48 source.dart comment.line.double-slash.dart
+17:0-11 source.dart
+17:11-12 source.dart punctuation.dot.dart
+17:12-15 source.dart entity.name.function.dart
+17:15-16 source.dart
+17:16-22 source.dart support.class.dart
+17:22-29 source.dart
+17:29-30 source.dart constant.numeric.dart
+17:30-31 source.dart
+17:31-32 source.dart punctuation.comma.dart
+17:32-33 source.dart
+17:33-36 source.dart support.class.dart
+17:36-37 source.dart punctuation.dot.dart
+17:37-42 source.dart entity.name.function.dart
+17:42-43 source.dart
+17:43-49 source.dart
+17:49-50 source.dart constant.numeric.dart
+17:50-54 source.dart
+17:54-55 source.dart punctuation.terminator.dart
+18:0-3 source.dart
+19:0-2 source.dart
+19:2-8 source.dart keyword.control.return.dart
+19:8-16 source.dart
+19:16-17 source.dart punctuation.dot.dart
+19:17-18 source.dart punctuation.dot.dart
+19:18-22 source.dart entity.name.function.dart
+19:22-23 source.dart
+19:23-25 source.dart
+19:25-26 source.dart punctuation.comma.dart
+19:26-30 source.dart
+19:30-32 source.dart keyword.operator.closure.dart
+19:32-34 source.dart
+19:34-35 source.dart punctuation.dot.dart
+19:35-39 source.dart
+19:39-40 source.dart punctuation.dot.dart
+19:40-49 source.dart entity.name.function.dart
+19:49-50 source.dart
+19:50-51 source.dart
+19:51-52 source.dart punctuation.dot.dart
+19:52-58 source.dart
+19:58-59 source.dart punctuation.terminator.dart
+20:0-1 source.dart

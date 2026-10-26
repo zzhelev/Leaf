@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.domain.styles.StyleColorMath
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.styles.StyleSeed
@@ -64,7 +65,11 @@ fun slotRule(slot: StyleSlot, look: AccentStyle, isLight: Boolean): SlotRule {
         TEXT, SECONDARY_TEXT -> asText
         DIALOG_OVERLAY, HIGHLIGHT, ON_HIGHLIGHT, ON_ERROR, MAIN_ACTION_TEXT, LANE_3, LANE_6 -> fixed
 
-        SELECTED_ROW, LINKS, MODIFIED_FILE, KEYWORD, LANE_1, MAIN_ACTION_FILL -> hue(StyleSeed.ACCENT)
+        // The code colours between the keyword's, the annotation's and the comment's hues: the checks move them on a
+        // background that needs it
+        STRING, NUMBER, TYPE, FUNCTION, ATTRIBUTE -> fixed
+
+        SELECTED_ROW, LINKS, MODIFIED_FILE, KEYWORD, TAG, LANE_1, MAIN_ACTION_FILL -> hue(StyleSeed.ACCENT)
         ERROR, DELETED_FILE, REMOVED_LINE, REMOVED_WORDS, LANE_2 -> hue(StyleSeed.DANGER)
         CONFLICTED_FILE, ANNOTATION, LANE_4, WARNING_ICON, WARNING_STRIP_FILL -> hue(StyleSeed.WARNING)
         ADDED_FILE, ADDED_LINE, ADDED_WORDS, COMMENT, LANE_5, SUCCESS_STRIP_FILL -> hue(StyleSeed.SUCCESS)
@@ -162,6 +167,14 @@ fun contrastChecks(look: AccentStyle): List<ContrastCheck> = buildList {
     button(NEUTRAL_FILL, NEUTRAL_TEXT, filledButtons, on = listOf(BACKGROUND, PANELS, HEADERS, BOXES))
     button(DESTRUCTIVE_FILL, DESTRUCTIVE_TEXT, filledButtons, on = listOf(BACKGROUND, PANELS, BOXES, WARNING_STRIP_FILL))
 
+    // Code is text: on the background, and on the added and removed lines (not on the word highlights, where even white
+    // holds only 5.0 in dark), each colour moving itself
+    for (syntax in StyleSlot.SYNTAX) {
+        for (layers in listOf(listOf(BACKGROUND), listOf(ADDED_LINE, BACKGROUND), listOf(REMOVED_LINE, BACKGROUND))) {
+            add(ContrastCheck(syntax, layers, TEXT_CONTRAST, listOf(syntax)))
+        }
+    }
+
     // Classic keeps Leaf's amber icon, 1.75 : 1 on white, which the other looks are there to fix
     if (look != AccentStyle.CLASSIC) add(ContrastCheck(WARNING_ICON, listOf(BACKGROUND), ICON_CONTRAST, listOf(WARNING_ICON)))
 
@@ -199,10 +212,16 @@ fun StylePalette.contrastOf(check: ContrastCheck, replacement: Pair<StyleSlot, I
  * 1. a colour set by hand is used as it is;
  * 2. any other starts as its look's ([StylePalette.template]) and follows its seed ([slotRule]). A colour whose seed is
  *    the look's own stays the look's exactly, so a built-in style gives its look's colours;
- * 3. then each [contrastChecks] that fails moves the first of its movers that can hold it and wasn't set by hand, the
+ * 3. with [codeColours] other than Leaf's, its published colours take the syntax slots, set by hand or not, and count
+ *    as worked out: IntelliJ's types take the text colour;
+ * 4. then each [contrastChecks] that fails moves the first of its movers that can hold it and wasn't set by hand, the
  *    background aside, by as little lightness as it takes. The looks hold every check, so they never move.
  */
-fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedStyleSide {
+fun resolveStyleSide(
+    definition: StyleDefinition,
+    isLight: Boolean,
+    codeColours: CodeColours = CodeColours.DEFAULT,
+): ResolvedStyleSide {
     val look = definition.look
     val template = StylePalette.template(look, isLight)
     val templateSeeds = BuiltInStyles.templateSeeds(look, isLight)
@@ -213,14 +232,16 @@ fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedSty
         side.setByHand[slot]?.let { Color(it) }
             ?: followed(template[slot], slotRule(slot, look, isLight), templateSeeds, seeds)
     }
-    var palette = StylePalette(isLight, colors)
+    val published = codeColours.published(isLight)
+    val inPlace = published.orEmpty().mapValues { (_, argb) -> argb?.let { Color(it) } ?: colors.getValue(TEXT) }
+    var palette = StylePalette(isLight, colors + inPlace)
 
     val checks = contrastChecks(look)
     val firstColors = mutableMapOf<StyleSlot, Color>()
     val lastChecks = mutableMapOf<StyleSlot, Pair<ContrastCheck, Double>>()
 
 
-    fun movable(slot: StyleSlot) = slot !in side.setByHand && slot != BACKGROUND
+    fun movable(slot: StyleSlot) = (slot !in side.setByHand || slot in inPlace) && slot != BACKGROUND
 
     // A colour moved for one check can make another fail, so go round until nothing moves
     for (round in 1..MAX_ROUNDS) {
@@ -245,6 +266,9 @@ fun resolveStyleSide(definition: StyleDefinition, isLight: Boolean): ResolvedSty
 
         if (!moved) break
     }
+
+    // IntelliJ's types are the text, wherever the checks took it
+    published.orEmpty().filterValues { it == null }.keys.forEach { palette = palette.with(it, palette[TEXT]) }
 
     // The background was fitted before anything else, so that text could read on every surface: say for which
     if (seeds.background != side.seeds.background && BACKGROUND !in side.setByHand) {

@@ -1,0 +1,22 @@
+@use "sass:math";
+
+$accent: #1a69b5 !default;
+$radius: 4px;
+
+// Mixes a tint of the accent.
+@mixin tint($amount: 10%) {
+  background: mix($accent, white, $amount);
+}
+
+.badge {
+  border-radius: math.div($radius, 2);
+  @include tint(20%);
+
+  &--current {
+    font-weight: 600;
+    &:hover { color: darken($accent, 10%); }
+  }
+
+  /* nested selector */
+  .row > & { margin-left: #{$radius * 2}; }
+}

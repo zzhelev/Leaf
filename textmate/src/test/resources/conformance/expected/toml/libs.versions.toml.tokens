@@ -1,0 +1,137 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.toml comment.line.number-sign.toml punctuation.definition.comment.toml
+0:1-34 source.toml comment.line.number-sign.toml
+1:0-1 source.toml meta.group.toml punctuation.definition.section.begin.toml
+1:1-9 source.toml meta.group.toml entity.name.section.toml
+1:9-10 source.toml meta.group.toml punctuation.definition.section.begin.toml
+2:0-6 source.toml variable.other.key.toml
+2:6-7 source.toml
+2:7-8 source.toml punctuation.separator.key-value.toml
+2:8-9 source.toml
+2:9-10 source.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+2:10-15 source.toml string.quoted.double.toml
+2:15-16 source.toml string.quoted.double.toml punctuation.definition.string.end.toml
+3:0-4 source.toml variable.other.key.toml
+3:4-5 source.toml
+3:5-6 source.toml punctuation.separator.key-value.toml
+3:6-7 source.toml
+3:7-8 source.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+3:8-28 source.toml string.quoted.double.toml
+3:28-29 source.toml string.quoted.double.toml punctuation.definition.string.end.toml
+4:0-7 source.toml variable.other.key.toml
+4:7-8 source.toml
+4:8-9 source.toml punctuation.separator.key-value.toml
+4:9-10 source.toml
+4:10-11 source.toml constant.numeric.integer.toml
+5:0-5 source.toml variable.other.key.toml
+5:5-6 source.toml
+5:6-7 source.toml punctuation.separator.key-value.toml
+5:7-8 source.toml
+5:8-12 source.toml constant.numeric.float.toml
+6:0-7 source.toml variable.other.key.toml
+6:7-8 source.toml
+6:8-9 source.toml punctuation.separator.key-value.toml
+6:9-10 source.toml
+6:10-14 source.toml constant.language.boolean.toml
+7:0-8 source.toml variable.other.key.toml
+7:8-9 source.toml
+7:9-10 source.toml punctuation.separator.key-value.toml
+7:10-11 source.toml
+7:11-31 source.toml constant.other.date.toml
+8:0-0 source.toml
+9:0-1 source.toml meta.group.toml punctuation.definition.section.begin.toml
+9:1-10 source.toml meta.group.toml entity.name.section.toml
+9:10-11 source.toml meta.group.toml punctuation.definition.section.begin.toml
+10:0-9 source.toml variable.other.key.toml
+10:9-10 source.toml
+10:10-11 source.toml punctuation.separator.key-value.toml
+10:11-12 source.toml
+10:12-13 source.toml meta.inline-table.toml punctuation.definition.inline-table.begin.toml
+10:13-14 source.toml meta.inline-table.toml
+10:14-19 source.toml meta.inline-table.toml variable.other.key.toml
+10:19-20 source.toml meta.inline-table.toml
+10:20-21 source.toml meta.inline-table.toml punctuation.separator.key-value.toml
+10:21-22 source.toml meta.inline-table.toml
+10:22-23 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+10:23-39 source.toml meta.inline-table.toml string.quoted.double.toml
+10:39-40 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.end.toml
+10:40-41 source.toml meta.inline-table.toml punctuation.separator.inline-table.toml
+10:41-42 source.toml meta.inline-table.toml
+10:42-46 source.toml meta.inline-table.toml variable.other.key.toml
+10:46-47 source.toml meta.inline-table.toml
+10:47-48 source.toml meta.inline-table.toml punctuation.separator.key-value.toml
+10:48-49 source.toml meta.inline-table.toml
+10:49-50 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+10:50-66 source.toml meta.inline-table.toml string.quoted.double.toml
+10:66-67 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.end.toml
+10:67-68 source.toml meta.inline-table.toml punctuation.separator.inline-table.toml
+10:68-69 source.toml meta.inline-table.toml
+10:69-76 source.toml meta.inline-table.toml variable.other.key.toml
+10:76-77 source.toml meta.inline-table.toml variable.other.key.toml punctuation.separator.variable.toml
+10:77-80 source.toml meta.inline-table.toml variable.other.key.toml
+10:80-81 source.toml meta.inline-table.toml
+10:81-82 source.toml meta.inline-table.toml punctuation.separator.key-value.toml
+10:82-83 source.toml meta.inline-table.toml
+10:83-84 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+10:84-88 source.toml meta.inline-table.toml string.quoted.double.toml
+10:88-89 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.end.toml
+10:89-90 source.toml meta.inline-table.toml
+10:90-91 source.toml meta.inline-table.toml punctuation.definition.inline-table.end.toml
+11:0-4 source.toml variable.other.key.toml
+11:4-5 source.toml
+11:5-6 source.toml punctuation.separator.key-value.toml
+11:6-7 source.toml
+11:7-8 source.toml meta.inline-table.toml punctuation.definition.inline-table.begin.toml
+11:8-9 source.toml meta.inline-table.toml
+11:9-15 source.toml meta.inline-table.toml variable.other.key.toml
+11:15-16 source.toml meta.inline-table.toml
+11:16-17 source.toml meta.inline-table.toml punctuation.separator.key-value.toml
+11:17-18 source.toml meta.inline-table.toml
+11:18-19 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+11:19-38 source.toml meta.inline-table.toml string.quoted.double.toml
+11:38-39 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.end.toml
+11:39-40 source.toml meta.inline-table.toml punctuation.separator.inline-table.toml
+11:40-41 source.toml meta.inline-table.toml
+11:41-48 source.toml meta.inline-table.toml variable.other.key.toml
+11:48-49 source.toml meta.inline-table.toml
+11:49-50 source.toml meta.inline-table.toml punctuation.separator.key-value.toml
+11:50-51 source.toml meta.inline-table.toml
+11:51-52 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+11:52-57 source.toml meta.inline-table.toml string.quoted.double.toml
+11:57-58 source.toml meta.inline-table.toml string.quoted.double.toml punctuation.definition.string.end.toml
+11:58-59 source.toml meta.inline-table.toml
+11:59-60 source.toml meta.inline-table.toml punctuation.definition.inline-table.end.toml
+12:0-0 source.toml
+13:0-2 source.toml meta.group.double.toml punctuation.definition.section.begin.toml
+13:2-9 source.toml meta.group.double.toml entity.name.section.toml
+13:9-10 source.toml meta.group.double.toml
+13:10-15 source.toml meta.group.double.toml entity.name.section.toml
+13:15-17 source.toml meta.group.double.toml punctuation.definition.section.begin.toml
+14:0-4 source.toml variable.other.key.toml
+14:4-5 source.toml
+14:5-6 source.toml punctuation.separator.key-value.toml
+14:6-7 source.toml
+14:7-8 source.toml string.quoted.single.toml punctuation.definition.string.begin.toml
+14:8-13 source.toml string.quoted.single.toml
+14:13-14 source.toml string.quoted.single.toml punctuation.definition.string.end.toml
+15:0-5 source.toml variable.other.key.toml
+15:5-6 source.toml
+15:6-7 source.toml punctuation.separator.key-value.toml
+15:7-8 source.toml
+15:8-9 source.toml meta.array.toml punctuation.definition.array.begin.toml
+15:9-10 source.toml meta.array.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+15:10-23 source.toml meta.array.toml string.quoted.double.toml
+15:23-24 source.toml meta.array.toml string.quoted.double.toml punctuation.definition.string.end.toml
+15:24-25 source.toml meta.array.toml punctuation.separator.array.toml
+15:25-26 source.toml meta.array.toml
+15:26-27 source.toml meta.array.toml string.quoted.double.toml punctuation.definition.string.begin.toml
+15:27-32 source.toml meta.array.toml string.quoted.double.toml
+15:32-33 source.toml meta.array.toml string.quoted.double.toml punctuation.definition.string.end.toml
+15:33-34 source.toml meta.array.toml punctuation.definition.array.end.toml
+16:0-5 source.toml variable.other.key.toml
+16:5-6 source.toml
+16:6-7 source.toml punctuation.separator.key-value.toml
+16:7-8 source.toml
+16:8-11 source.toml string.quoted.triple.double.toml punctuation.definition.string.begin.toml
+17:0-9 source.toml string.quoted.triple.double.toml
+18:0-3 source.toml string.quoted.triple.double.toml punctuation.definition.string.end.toml

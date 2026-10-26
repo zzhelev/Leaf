@@ -1,0 +1,146 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.css.scss meta.at-rule.use.scss keyword.control.at-rule.use.scss punctuation.definition.keyword.scss
+0:1-4 source.css.scss meta.at-rule.use.scss keyword.control.at-rule.use.scss
+0:4-5 source.css.scss meta.at-rule.use.scss
+0:5-6 source.css.scss meta.at-rule.use.scss string.quoted.double.scss punctuation.definition.string.begin.scss
+0:6-15 source.css.scss meta.at-rule.use.scss string.quoted.double.scss
+0:15-16 source.css.scss meta.at-rule.use.scss string.quoted.double.scss punctuation.definition.string.end.scss
+0:16-17 source.css.scss punctuation.terminator.rule.css
+1:0-0 source.css.scss
+2:0-7 source.css.scss meta.definition.variable.scss variable.scss
+2:7-8 source.css.scss meta.definition.variable.scss punctuation.separator.key-value.scss
+2:8-9 source.css.scss meta.definition.variable.scss
+2:9-10 source.css.scss meta.definition.variable.scss constant.other.color.rgb-value.hex.css punctuation.definition.constant.css
+2:10-16 source.css.scss meta.definition.variable.scss constant.other.color.rgb-value.hex.css
+2:16-17 source.css.scss meta.definition.variable.scss
+2:17-25 source.css.scss meta.definition.variable.scss keyword.other.default.scss
+2:25-26 source.css.scss punctuation.terminator.rule.scss
+3:0-7 source.css.scss meta.definition.variable.scss variable.scss
+3:7-8 source.css.scss meta.definition.variable.scss punctuation.separator.key-value.scss
+3:8-9 source.css.scss meta.definition.variable.scss
+3:9-10 source.css.scss meta.definition.variable.scss constant.numeric.css
+3:10-12 source.css.scss meta.definition.variable.scss constant.numeric.css keyword.other.unit.px.css
+3:12-13 source.css.scss punctuation.terminator.rule.scss
+4:0-0 source.css.scss
+5:0-2 source.css.scss comment.line.scss punctuation.definition.comment.scss
+5:2-30 source.css.scss comment.line.scss
+6:0-1 source.css.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss
+6:1-6 source.css.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss
+6:6-7 source.css.scss meta.at-rule.mixin.scss
+6:7-11 source.css.scss meta.at-rule.mixin.scss entity.name.function.scss
+6:11-12 source.css.scss meta.at-rule.mixin.scss punctuation.definition.parameters.begin.bracket.round.scss
+6:12-19 source.css.scss meta.at-rule.mixin.scss variable.scss
+6:19-20 source.css.scss meta.at-rule.mixin.scss punctuation.separator.key-value.scss
+6:20-21 source.css.scss meta.at-rule.mixin.scss
+6:21-23 source.css.scss meta.at-rule.mixin.scss constant.numeric.css
+6:23-24 source.css.scss meta.at-rule.mixin.scss constant.numeric.css keyword.other.unit.percentage.css
+6:24-25 source.css.scss meta.at-rule.mixin.scss punctuation.definition.parameters.end.bracket.round.scss
+6:25-26 source.css.scss
+6:26-27 source.css.scss meta.property-list.scss punctuation.section.property-list.begin.bracket.curly.scss
+7:0-2 source.css.scss meta.property-list.scss
+7:2-12 source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css
+7:12-13 source.css.scss meta.property-list.scss punctuation.separator.key-value.scss
+7:13-14 source.css.scss meta.property-list.scss
+7:14-17 source.css.scss meta.property-list.scss meta.property-value.scss support.function.misc.scss
+7:17-18 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.section.function.scss
+7:18-25 source.css.scss meta.property-list.scss meta.property-value.scss variable.scss
+7:25-26 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.separator.delimiter.scss
+7:26-27 source.css.scss meta.property-list.scss meta.property-value.scss
+7:27-32 source.css.scss meta.property-list.scss meta.property-value.scss support.constant.color.w3c-standard-color-name.css
+7:32-33 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.separator.delimiter.scss
+7:33-34 source.css.scss meta.property-list.scss meta.property-value.scss
+7:34-41 source.css.scss meta.property-list.scss meta.property-value.scss variable.scss
+7:41-42 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.section.function.scss
+7:42-43 source.css.scss meta.property-list.scss punctuation.terminator.rule.scss
+8:0-1 source.css.scss meta.property-list.scss punctuation.section.property-list.end.bracket.curly.scss
+9:0-0 source.css.scss
+10:0-1 source.css.scss entity.other.attribute-name.class.css punctuation.definition.entity.css
+10:1-6 source.css.scss entity.other.attribute-name.class.css
+10:6-7 source.css.scss
+10:7-8 source.css.scss meta.property-list.scss punctuation.section.property-list.begin.bracket.curly.scss
+11:0-2 source.css.scss meta.property-list.scss
+11:2-15 source.css.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css
+11:15-16 source.css.scss meta.property-list.scss punctuation.separator.key-value.scss
+11:16-17 source.css.scss meta.property-list.scss
+11:17-21 source.css.scss meta.property-list.scss meta.property-value.scss variable.scss
+11:21-22 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.access.module.scss
+11:22-25 source.css.scss meta.property-list.scss meta.property-value.scss support.function.misc.scss
+11:25-26 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.section.function.scss
+11:26-33 source.css.scss meta.property-list.scss meta.property-value.scss variable.scss
+11:33-34 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.separator.delimiter.scss
+11:34-35 source.css.scss meta.property-list.scss meta.property-value.scss
+11:35-36 source.css.scss meta.property-list.scss meta.property-value.scss constant.numeric.css
+11:36-37 source.css.scss meta.property-list.scss meta.property-value.scss punctuation.section.function.scss
+11:37-38 source.css.scss meta.property-list.scss punctuation.terminator.rule.scss
+12:0-2 source.css.scss meta.property-list.scss
+12:2-3 source.css.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss punctuation.definition.keyword.scss
+12:3-10 source.css.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss
+12:10-11 source.css.scss meta.property-list.scss meta.at-rule.include.scss
+12:11-15 source.css.scss meta.property-list.scss meta.at-rule.include.scss entity.name.function.scss
+12:15-16 source.css.scss meta.property-list.scss meta.at-rule.include.scss punctuation.definition.parameters.begin.bracket.round.scss
+12:16-18 source.css.scss meta.property-list.scss meta.at-rule.include.scss constant.numeric.css
+12:18-19 source.css.scss meta.property-list.scss meta.at-rule.include.scss constant.numeric.css keyword.other.unit.percentage.css
+12:19-20 source.css.scss meta.property-list.scss meta.at-rule.include.scss punctuation.definition.parameters.end.bracket.round.scss
+12:20-21 source.css.scss meta.property-list.scss punctuation.terminator.rule.css
+13:0-0 source.css.scss meta.property-list.scss
+14:0-2 source.css.scss meta.property-list.scss
+14:2-3 source.css.scss meta.property-list.scss entity.name.tag.reference.scss
+14:3-12 source.css.scss meta.property-list.scss variable.scss
+14:12-13 source.css.scss meta.property-list.scss
+14:13-14 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.section.property-list.begin.bracket.curly.scss
+15:0-4 source.css.scss meta.property-list.scss meta.property-list.scss
+15:4-15 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css
+15:15-16 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.separator.key-value.scss
+15:16-17 source.css.scss meta.property-list.scss meta.property-list.scss
+15:17-20 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss constant.numeric.css
+15:20-21 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.terminator.rule.scss
+16:0-4 source.css.scss meta.property-list.scss meta.property-list.scss
+16:4-5 source.css.scss meta.property-list.scss meta.property-list.scss entity.name.tag.reference.scss
+16:5-6 source.css.scss meta.property-list.scss meta.property-list.scss entity.other.attribute-name.pseudo-class.css punctuation.definition.entity.css
+16:6-11 source.css.scss meta.property-list.scss meta.property-list.scss entity.other.attribute-name.pseudo-class.css
+16:11-12 source.css.scss meta.property-list.scss meta.property-list.scss
+16:12-13 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss punctuation.section.property-list.begin.bracket.curly.scss
+16:13-14 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss
+16:14-19 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css
+16:19-20 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss punctuation.separator.key-value.scss
+16:20-21 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss
+16:21-27 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss support.function.misc.scss
+16:27-28 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss punctuation.section.function.scss
+16:28-35 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.scss
+16:35-36 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss punctuation.separator.delimiter.scss
+16:36-37 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss
+16:37-39 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss constant.numeric.css
+16:39-40 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss constant.numeric.css keyword.other.unit.percentage.css
+16:40-41 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss punctuation.section.function.scss
+16:41-42 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss punctuation.terminator.rule.scss
+16:42-43 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss
+16:43-44 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss punctuation.section.property-list.end.bracket.curly.scss
+17:0-2 source.css.scss meta.property-list.scss meta.property-list.scss
+17:2-3 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.section.property-list.end.bracket.curly.scss
+18:0-0 source.css.scss meta.property-list.scss
+19:0-2 source.css.scss meta.property-list.scss
+19:2-4 source.css.scss meta.property-list.scss comment.block.scss punctuation.definition.comment.scss
+19:4-21 source.css.scss meta.property-list.scss comment.block.scss
+19:21-23 source.css.scss meta.property-list.scss comment.block.scss punctuation.definition.comment.scss
+20:0-2 source.css.scss meta.property-list.scss
+20:2-3 source.css.scss meta.property-list.scss entity.other.attribute-name.class.css punctuation.definition.entity.css
+20:3-6 source.css.scss meta.property-list.scss entity.other.attribute-name.class.css
+20:6-9 source.css.scss meta.property-list.scss
+20:9-10 source.css.scss meta.property-list.scss entity.name.tag.reference.scss
+20:10-11 source.css.scss meta.property-list.scss
+20:11-12 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.section.property-list.begin.bracket.curly.scss
+20:12-13 source.css.scss meta.property-list.scss meta.property-list.scss
+20:13-24 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-name.scss meta.property-name.css support.type.property-name.css
+20:24-25 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.separator.key-value.scss
+20:25-26 source.css.scss meta.property-list.scss meta.property-list.scss
+20:26-28 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.interpolation.scss punctuation.definition.interpolation.begin.bracket.curly.scss
+20:28-35 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.interpolation.scss variable.scss
+20:35-36 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.interpolation.scss
+20:36-37 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.interpolation.scss keyword.operator.css
+20:37-38 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.interpolation.scss
+20:38-39 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.interpolation.scss constant.numeric.css
+20:39-40 source.css.scss meta.property-list.scss meta.property-list.scss meta.property-value.scss variable.interpolation.scss punctuation.definition.interpolation.end.bracket.curly.scss
+20:40-41 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.terminator.rule.scss
+20:41-42 source.css.scss meta.property-list.scss meta.property-list.scss
+20:42-43 source.css.scss meta.property-list.scss meta.property-list.scss punctuation.section.property-list.end.bracket.curly.scss
+21:0-1 source.css.scss meta.property-list.scss punctuation.section.property-list.end.bracket.curly.scss

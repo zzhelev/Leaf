@@ -1,0 +1,221 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-7 source.go keyword.package.go
+0:7-8 source.go
+0:8-12 source.go entity.name.type.package.go
+1:0-0 source.go
+2:0-6 source.go keyword.control.import.go
+2:6-7 source.go
+2:7-8 source.go punctuation.definition.imports.begin.bracket.round.go
+3:0-1 source.go
+3:1-2 source.go string.quoted.double.go punctuation.definition.string.begin.go
+3:2-5 source.go string.quoted.double.go entity.name.import.go
+3:5-6 source.go string.quoted.double.go punctuation.definition.string.end.go
+4:0-1 source.go
+4:1-2 source.go string.quoted.double.go punctuation.definition.string.begin.go
+4:2-9 source.go string.quoted.double.go entity.name.import.go
+4:9-10 source.go string.quoted.double.go punctuation.definition.string.end.go
+5:0-1 source.go punctuation.definition.imports.end.bracket.round.go
+6:0-0 source.go
+7:0-2 source.go comment.line.double-slash.go punctuation.definition.comment.go
+7:2-26 source.go comment.line.double-slash.go
+8:0-4 source.go keyword.type.go
+8:4-5 source.go
+8:5-8 source.go entity.name.type.go
+8:8-9 source.go
+8:9-15 source.go keyword.struct.go
+8:15-16 source.go
+8:16-17 source.go punctuation.definition.begin.bracket.curly.go
+9:0-1 source.go
+9:1-5 source.go variable.other.property.go
+9:5-6 source.go
+9:6-12 source.go storage.type.string.go
+10:0-1 source.go
+10:1-5 source.go variable.other.property.go
+10:5-6 source.go
+10:6-7 source.go punctuation.definition.begin.bracket.square.go
+10:7-9 source.go constant.numeric.decimal.go
+10:9-10 source.go punctuation.definition.end.bracket.square.go
+10:10-14 source.go storage.type.byte.go
+11:0-1 source.go punctuation.definition.end.bracket.curly.go
+12:0-0 source.go
+13:0-5 source.go keyword.const.go
+13:5-6 source.go
+13:6-17 source.go variable.other.constant.go
+13:17-18 source.go
+13:18-19 source.go keyword.operator.assignment.go
+13:19-20 source.go
+13:20-21 source.go string.quoted.double.go punctuation.definition.string.begin.go
+13:21-32 source.go string.quoted.double.go
+13:32-33 source.go string.quoted.double.go punctuation.definition.string.end.go
+14:0-0 source.go
+15:0-2 source.go comment.line.double-slash.go punctuation.definition.comment.go
+15:2-41 source.go comment.line.double-slash.go
+16:0-4 source.go keyword.function.go
+16:4-5 source.go
+16:5-6 source.go punctuation.definition.begin.bracket.round.go
+16:6-8 source.go variable.parameter.go
+16:8-11 source.go entity.name.type.go
+16:11-12 source.go punctuation.definition.end.bracket.round.go
+16:12-13 source.go
+16:13-18 source.go entity.name.function.go
+16:18-19 source.go punctuation.definition.begin.bracket.round.go
+16:19-20 source.go punctuation.definition.end.bracket.round.go
+16:20-21 source.go
+16:21-27 source.go storage.type.string.go
+16:27-28 source.go
+16:28-29 source.go punctuation.definition.begin.bracket.curly.go
+17:0-1 source.go
+17:1-7 source.go keyword.control.go
+17:7-8 source.go
+17:8-15 source.go variable.other.go
+17:15-16 source.go punctuation.other.period.go
+17:16-26 source.go entity.name.function.support.go
+17:26-27 source.go punctuation.definition.begin.bracket.round.go
+17:27-28 source.go variable.other.go
+17:28-29 source.go punctuation.other.period.go
+17:29-33 source.go variable.other.go
+17:33-34 source.go punctuation.other.comma.go
+17:34-35 source.go
+17:35-46 source.go variable.other.go
+17:46-47 source.go punctuation.definition.end.bracket.round.go
+18:0-1 source.go punctuation.definition.end.bracket.curly.go
+19:0-0 source.go
+20:0-4 source.go keyword.function.go
+20:4-5 source.go
+20:5-10 source.go entity.name.function.go
+20:10-11 source.go punctuation.definition.begin.bracket.round.go
+20:11-16 source.go variable.parameter.go
+20:16-17 source.go
+20:17-18 source.go punctuation.definition.begin.bracket.square.go
+20:18-19 source.go punctuation.definition.end.bracket.square.go
+20:19-25 source.go storage.type.string.go
+20:25-26 source.go punctuation.definition.end.bracket.round.go
+20:26-27 source.go
+20:27-28 source.go punctuation.definition.begin.bracket.round.go
+20:28-31 source.go keyword.map.go
+20:31-32 source.go punctuation.definition.begin.bracket.square.go
+20:32-38 source.go storage.type.string.go
+20:38-39 source.go punctuation.definition.end.bracket.square.go
+20:39-42 source.go entity.name.type.go
+20:42-43 source.go punctuation.other.comma.go
+20:43-44 source.go
+20:44-49 source.go storage.type.error.go
+20:49-50 source.go punctuation.definition.end.bracket.round.go
+20:50-51 source.go
+20:51-52 source.go punctuation.definition.begin.bracket.curly.go
+21:0-1 source.go
+21:1-5 source.go variable.other.assignment.go
+21:5-6 source.go
+21:6-8 source.go keyword.operator.assignment.go
+21:8-9 source.go
+21:9-13 source.go entity.name.function.support.builtin.go
+21:13-14 source.go punctuation.definition.begin.bracket.round.go
+21:14-17 source.go keyword.map.go
+21:17-18 source.go punctuation.definition.begin.bracket.square.go
+21:18-24 source.go storage.type.string.go
+21:24-25 source.go punctuation.definition.end.bracket.square.go
+21:25-28 source.go entity.name.type.go
+21:28-29 source.go punctuation.other.comma.go
+21:29-30 source.go
+21:30-33 source.go entity.name.function.support.builtin.go
+21:33-34 source.go punctuation.definition.begin.bracket.round.go
+21:34-39 source.go variable.other.go
+21:39-40 source.go punctuation.definition.end.bracket.round.go
+21:40-41 source.go punctuation.definition.end.bracket.round.go
+22:0-1 source.go
+22:1-4 source.go keyword.control.go
+22:4-5 source.go
+22:5-6 source.go variable.other.assignment.go
+22:6-7 source.go punctuation.other.comma.go
+22:7-8 source.go
+22:8-12 source.go variable.other.assignment.go
+22:12-13 source.go
+22:13-15 source.go keyword.operator.assignment.go
+22:15-16 source.go
+22:16-21 source.go keyword.control.go
+22:21-22 source.go
+22:22-27 source.go variable.other.go
+22:27-28 source.go
+22:28-29 source.go punctuation.definition.begin.bracket.curly.go
+23:0-2 source.go
+23:2-6 source.go variable.other.assignment.go
+23:6-7 source.go punctuation.other.comma.go
+23:7-8 source.go
+23:8-9 source.go variable.other.assignment.go
+23:9-10 source.go punctuation.other.comma.go
+23:10-11 source.go
+23:11-13 source.go variable.other.assignment.go
+23:13-14 source.go
+23:14-16 source.go keyword.operator.assignment.go
+23:16-17 source.go
+23:17-24 source.go variable.other.go
+23:24-25 source.go punctuation.other.period.go
+23:25-28 source.go entity.name.function.support.go
+23:28-29 source.go punctuation.definition.begin.bracket.round.go
+23:29-33 source.go variable.other.go
+23:33-34 source.go punctuation.other.comma.go
+23:34-35 source.go
+23:35-36 source.go string.quoted.double.go punctuation.definition.string.begin.go
+23:36-37 source.go string.quoted.double.go
+23:37-38 source.go string.quoted.double.go punctuation.definition.string.end.go
+23:38-39 source.go punctuation.definition.end.bracket.round.go
+24:0-2 source.go
+24:2-4 source.go keyword.control.go
+24:4-5 source.go
+24:5-6 source.go keyword.operator.logical.go
+24:6-8 source.go variable.other.go
+24:8-9 source.go
+24:9-10 source.go punctuation.definition.begin.bracket.curly.go
+25:0-3 source.go
+25:3-9 source.go keyword.control.go
+25:9-10 source.go
+25:10-13 source.go constant.language.null.go
+25:13-14 source.go punctuation.other.comma.go
+25:14-15 source.go
+25:15-18 source.go variable.other.go
+25:18-19 source.go punctuation.other.period.go
+25:19-25 source.go entity.name.function.support.go
+25:25-26 source.go punctuation.definition.begin.bracket.round.go
+25:26-27 source.go string.quoted.double.go punctuation.definition.string.begin.go
+25:27-32 source.go string.quoted.double.go
+25:32-34 source.go string.quoted.double.go constant.other.placeholder.go
+25:34-36 source.go string.quoted.double.go
+25:36-38 source.go string.quoted.double.go constant.other.placeholder.go
+25:38-50 source.go string.quoted.double.go
+25:50-51 source.go string.quoted.double.go punctuation.definition.string.end.go
+25:51-52 source.go punctuation.other.comma.go
+25:52-53 source.go
+25:53-54 source.go variable.other.go
+25:54-55 source.go keyword.operator.arithmetic.go
+25:55-56 source.go constant.numeric.decimal.go
+25:56-57 source.go punctuation.other.comma.go
+25:57-58 source.go
+25:58-62 source.go variable.other.go
+25:62-63 source.go punctuation.definition.end.bracket.round.go
+26:0-2 source.go
+26:2-3 source.go punctuation.definition.end.bracket.curly.go
+27:0-2 source.go
+27:2-6 source.go variable.other.go
+27:6-7 source.go punctuation.definition.begin.bracket.square.go
+27:7-11 source.go variable.other.go
+27:11-12 source.go punctuation.definition.end.bracket.square.go
+27:12-13 source.go
+27:13-14 source.go keyword.operator.assignment.go
+27:14-15 source.go
+27:15-18 source.go entity.name.type.go
+27:18-19 source.go punctuation.definition.begin.bracket.curly.go
+27:19-23 source.go variable.other.property.go
+27:23-24 source.go punctuation.other.colon.go
+27:24-25 source.go
+27:25-29 source.go variable.other.go
+27:29-30 source.go punctuation.definition.end.bracket.curly.go
+28:0-1 source.go
+28:1-2 source.go punctuation.definition.end.bracket.curly.go
+29:0-1 source.go
+29:1-7 source.go keyword.control.go
+29:7-8 source.go
+29:8-12 source.go variable.other.go
+29:12-13 source.go punctuation.other.comma.go
+29:13-14 source.go
+29:14-17 source.go constant.language.null.go
+30:0-1 source.go punctuation.definition.end.bracket.curly.go

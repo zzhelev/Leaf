@@ -34,6 +34,10 @@ import androidx.compose.ui.graphics.Color
 import dev.app.leaf.domain.conflicts.resolving
 import dev.app.leaf.domain.conflicts.ChangedWords
 import dev.app.leaf.domain.conflicts.editStart
+import dev.app.leaf.domain.conflicts.editStartSyntax
+import dev.app.leaf.domain.highlighting.HighlightedVersions
+import dev.app.leaf.domain.usecases.HighlightTextUseCase
+import dev.app.leaf.data.highlighting.TextMateHighlighter
 import dev.app.leaf.domain.conflicts.typing
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.errors.LfsObjectDownloadError
@@ -138,6 +142,16 @@ class ConflictResolverTest {
         StatusType.CONFLICTING,
         conflict = FileConflict(ConflictVersion.FILE, ConflictVersion.FILE),
     )
+
+    /** The merge's versions in their colours, as the view model colours them (step 6 of the syntax plan). */
+    private val syntax: HighlightedVersions by lazy {
+        runBlocking {
+            val highlight = HighlightTextUseCase(TextMateHighlighter())
+            listOf(merge.base, merge.ours, merge.theirs).fold(HighlightedVersions()) { versions, text ->
+                versions.with(text, entry.filePath, highlight(entry.filePath, text))
+            }
+        }
+    }
 
     @Test
     fun `the conflict counter is a chip in the style's warning strip, not the conflict amber`(): Unit =
@@ -1789,6 +1803,7 @@ class ConflictResolverTest {
             merge = merge,
             saved = this.merge,
         ),
+        syntax = syntax,
     )
 
     private fun actions(
@@ -1920,7 +1935,7 @@ class ConflictResolverTest {
         val start = merge.editStart(chunk)
         val value = text ?: start.text
 
-        return ResolverEdit(chunk, TextFieldValue(value, TextRange(value.length)), start, line)
+        return ResolverEdit(chunk, TextFieldValue(value, TextRange(value.length)), start, line, merge.editStartSyntax(chunk, syntax))
     }
 
     /** The text field of the part being edited. */

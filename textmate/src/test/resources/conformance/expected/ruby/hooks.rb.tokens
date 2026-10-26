@@ -1,0 +1,200 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.ruby comment.line.number-sign.ruby punctuation.definition.comment.ruby
+0:1-29 source.ruby comment.line.number-sign.ruby
+1:0-0 source.ruby
+2:0-7 source.ruby meta.require.ruby keyword.other.special-method.ruby
+2:7-8 source.ruby meta.require.ruby
+2:8-9 source.ruby meta.require.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.begin.ruby
+2:9-13 source.ruby meta.require.ruby string.quoted.double.interpolated.ruby
+2:13-14 source.ruby meta.require.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.end.ruby
+3:0-0 source.ruby
+4:0-6 source.ruby meta.module.ruby keyword.control.module.ruby
+4:6-7 source.ruby meta.module.ruby
+4:7-12 source.ruby meta.module.ruby entity.name.type.module.ruby
+5:0-2 source.ruby punctuation.whitespace.comment.leading.ruby
+5:2-3 source.ruby comment.line.number-sign.ruby punctuation.definition.comment.ruby
+5:3-29 source.ruby comment.line.number-sign.ruby
+6:0-2 source.ruby
+6:2-7 source.ruby meta.class.ruby keyword.control.class.ruby
+6:7-8 source.ruby meta.class.ruby
+6:8-14 source.ruby meta.class.ruby entity.name.type.class.ruby
+7:0-4 source.ruby
+7:4-15 source.ruby keyword.other.special-method.ruby
+7:15-16 source.ruby
+7:16-17 source.ruby constant.language.symbol.ruby punctuation.definition.constant.ruby
+7:17-21 source.ruby constant.language.symbol.ruby
+8:0-0 source.ruby
+9:0-4 source.ruby
+9:4-7 source.ruby meta.function.method.with-arguments.ruby keyword.control.def.ruby
+9:7-8 source.ruby meta.function.method.with-arguments.ruby
+9:8-18 source.ruby meta.function.method.with-arguments.ruby entity.name.function.ruby
+9:18-19 source.ruby meta.function.method.with-arguments.ruby punctuation.definition.parameters.ruby
+9:19-23 source.ruby meta.function.method.with-arguments.ruby variable.parameter.function.ruby
+9:23-24 source.ruby meta.function.method.with-arguments.ruby punctuation.separator.object.ruby
+9:24-25 source.ruby meta.function.method.with-arguments.ruby
+9:25-32 source.ruby meta.function.method.with-arguments.ruby constant.other.symbol.hashkey.parameter.function.ruby
+9:32-33 source.ruby meta.function.method.with-arguments.ruby constant.other.symbol.hashkey.parameter.function.ruby punctuation.definition.constant.ruby
+9:33-34 source.ruby meta.function.method.with-arguments.ruby
+9:34-36 source.ruby meta.function.method.with-arguments.ruby constant.numeric.ruby
+9:36-37 source.ruby meta.function.method.with-arguments.ruby punctuation.definition.parameters.ruby
+10:0-6 source.ruby
+10:6-7 source.ruby variable.other.readwrite.instance.ruby punctuation.definition.variable.ruby
+10:7-11 source.ruby variable.other.readwrite.instance.ruby
+10:11-12 source.ruby
+10:12-13 source.ruby keyword.operator.assignment.ruby
+10:13-18 source.ruby
+11:0-6 source.ruby
+11:6-7 source.ruby variable.other.readwrite.instance.ruby punctuation.definition.variable.ruby
+11:7-14 source.ruby variable.other.readwrite.instance.ruby
+11:14-15 source.ruby
+11:15-16 source.ruby keyword.operator.assignment.ruby
+11:16-24 source.ruby
+12:0-4 source.ruby
+12:4-7 source.ruby keyword.control.ruby
+13:0-0 source.ruby
+14:0-4 source.ruby
+14:4-7 source.ruby meta.function.method.with-arguments.ruby keyword.control.def.ruby
+14:7-8 source.ruby meta.function.method.with-arguments.ruby
+14:8-11 source.ruby meta.function.method.with-arguments.ruby entity.name.function.ruby
+14:11-12 source.ruby meta.function.method.with-arguments.ruby punctuation.definition.parameters.ruby
+14:12-13 source.ruby meta.function.method.with-arguments.ruby storage.type.variable.ruby
+14:13-17 source.ruby meta.function.method.with-arguments.ruby variable.parameter.function.ruby
+14:17-18 source.ruby meta.function.method.with-arguments.ruby punctuation.definition.parameters.ruby
+15:0-6 source.ruby
+15:6-10 source.ruby variable.ruby
+15:10-11 source.ruby
+15:11-12 source.ruby keyword.operator.assignment.ruby
+15:12-13 source.ruby
+15:13-17 source.ruby support.class.ruby
+15:17-18 source.ruby punctuation.separator.method.ruby
+15:18-22 source.ruby meta.function-call.ruby entity.name.function.ruby
+15:22-23 source.ruby punctuation.section.function.ruby
+15:23-24 source.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.begin.ruby
+15:24-28 source.ruby string.quoted.double.interpolated.ruby
+15:28-29 source.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.end.ruby
+15:29-30 source.ruby punctuation.separator.object.ruby
+15:30-31 source.ruby
+15:31-32 source.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.begin.ruby
+15:32-37 source.ruby string.quoted.double.interpolated.ruby
+15:37-38 source.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.end.ruby
+15:38-39 source.ruby punctuation.separator.object.ruby
+15:39-44 source.ruby
+15:44-45 source.ruby punctuation.section.function.ruby
+16:0-6 source.ruby
+16:6-12 source.ruby keyword.control.pseudo-method.ruby
+16:12-13 source.ruby
+16:13-14 source.ruby constant.language.symbol.ruby punctuation.definition.constant.ruby
+16:14-21 source.ruby constant.language.symbol.ruby
+16:21-22 source.ruby
+16:22-28 source.ruby keyword.control.ruby
+16:28-29 source.ruby
+16:29-33 source.ruby support.class.ruby
+16:33-34 source.ruby punctuation.separator.method.ruby
+16:34-45 source.ruby meta.function-call.ruby entity.name.function.ruby
+16:45-46 source.ruby punctuation.section.function.ruby
+16:46-50 source.ruby
+16:50-51 source.ruby punctuation.section.function.ruby
+17:0-0 source.ruby
+18:0-6 source.ruby
+18:6-12 source.ruby variable.ruby
+18:12-13 source.ruby
+18:13-14 source.ruby keyword.operator.assignment.ruby
+18:14-15 source.ruby
+18:15-16 source.ruby string.interpolated.ruby punctuation.definition.string.begin.ruby
+18:16-18 source.ruby string.interpolated.ruby meta.embedded.line.ruby punctuation.section.embedded.begin.ruby
+18:18-22 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby
+18:22-23 source.ruby string.interpolated.ruby meta.embedded.line.ruby punctuation.section.embedded.end.ruby
+18:23-24 source.ruby string.interpolated.ruby
+18:24-26 source.ruby string.interpolated.ruby meta.embedded.line.ruby punctuation.section.embedded.begin.ruby
+18:26-30 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby
+18:30-31 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby punctuation.separator.method.ruby
+18:31-35 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby meta.function-call.ruby entity.name.function.ruby
+18:35-36 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby punctuation.section.function.ruby
+18:36-37 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.begin.ruby
+18:37-38 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby string.quoted.double.interpolated.ruby
+18:38-39 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby string.quoted.double.interpolated.ruby punctuation.definition.string.end.ruby
+18:39-40 source.ruby string.interpolated.ruby meta.embedded.line.ruby source.ruby punctuation.section.function.ruby
+18:40-41 source.ruby string.interpolated.ruby meta.embedded.line.ruby punctuation.section.embedded.end.ruby
+18:41-42 source.ruby string.interpolated.ruby punctuation.definition.string.end.ruby
+19:0-6 source.ruby
+19:6-7 source.ruby variable.other.readwrite.global.pre-defined.ruby punctuation.definition.variable.ruby
+19:7-8 source.ruby variable.other.readwrite.global.pre-defined.ruby
+19:8-9 source.ruby punctuation.separator.method.ruby
+19:9-17 source.ruby meta.function-call.ruby entity.name.function.ruby
+19:17-18 source.ruby
+19:18-19 source.ruby keyword.operator.comparison.ruby
+19:19-20 source.ruby
+19:20-21 source.ruby constant.language.symbol.ruby punctuation.definition.constant.ruby
+19:21-23 source.ruby constant.language.symbol.ruby
+19:23-24 source.ruby
+19:24-25 source.ruby punctuation.separator.other.ruby
+19:25-26 source.ruby
+19:26-27 source.ruby punctuation.section.scope.begin.ruby
+19:27-28 source.ruby meta.syntax.ruby.start-block
+19:28-34 source.ruby constant.language.symbol.hashkey.ruby
+19:34-35 source.ruby constant.language.symbol.hashkey.ruby punctuation.definition.constant.hashkey.ruby
+19:35-36 source.ruby
+19:36-37 source.ruby variable.other.readwrite.global.pre-defined.ruby punctuation.definition.variable.ruby
+19:37-38 source.ruby variable.other.readwrite.global.pre-defined.ruby
+19:38-39 source.ruby punctuation.separator.method.ruby
+19:39-49 source.ruby meta.function-call.ruby entity.name.function.ruby
+19:49-50 source.ruby punctuation.separator.object.ruby
+19:50-51 source.ruby
+19:51-57 source.ruby constant.language.symbol.hashkey.ruby
+19:57-58 source.ruby constant.language.symbol.hashkey.ruby punctuation.definition.constant.hashkey.ruby
+19:58-66 source.ruby
+19:66-67 source.ruby punctuation.section.scope.end.ruby
+20:0-4 source.ruby
+20:4-7 source.ruby keyword.control.ruby
+21:0-2 source.ruby
+21:2-5 source.ruby keyword.control.ruby
+22:0-3 source.ruby keyword.control.ruby
+23:0-0 source.ruby
+24:0-3 source.ruby string.quoted.other.ruby punctuation.section.array.begin.ruby
+24:3-24 source.ruby string.quoted.other.ruby
+24:24-25 source.ruby string.quoted.other.ruby punctuation.section.array.end.ruby
+24:25-26 source.ruby punctuation.separator.method.ruby
+24:26-30 source.ruby meta.function-call.ruby entity.name.function.ruby
+24:30-31 source.ruby
+24:31-32 source.ruby punctuation.section.scope.begin.ruby
+24:32-33 source.ruby meta.syntax.ruby.start-block
+24:33-34 source.ruby meta.block.parameters.ruby punctuation.separator.variable.ruby
+24:34-38 source.ruby meta.block.parameters.ruby variable.other.block.ruby
+24:38-39 source.ruby meta.block.parameters.ruby punctuation.separator.variable.ruby
+24:39-40 source.ruby
+24:40-44 source.ruby support.function.kernel.ruby
+24:44-45 source.ruby
+24:45-50 source.ruby support.class.ruby
+24:50-52 source.ruby punctuation.separator.namespace.ruby
+24:52-58 source.ruby support.class.ruby
+24:58-59 source.ruby punctuation.separator.method.ruby
+24:59-62 source.ruby keyword.other.special-method.ruby
+24:62-63 source.ruby punctuation.section.function.ruby
+24:63-67 source.ruby
+24:67-68 source.ruby punctuation.section.function.ruby
+24:68-69 source.ruby punctuation.separator.method.ruby
+24:69-72 source.ruby meta.function-call.ruby entity.name.function.ruby
+24:72-73 source.ruby
+24:73-74 source.ruby punctuation.section.scope.end.ruby
+25:0-1 source.ruby punctuation.section.array.begin.ruby
+25:1-2 source.ruby constant.numeric.ruby
+25:2-3 source.ruby punctuation.separator.object.ruby
+25:3-4 source.ruby
+25:4-5 source.ruby constant.numeric.ruby
+25:5-6 source.ruby punctuation.separator.object.ruby
+25:6-7 source.ruby
+25:7-8 source.ruby constant.numeric.ruby
+25:8-9 source.ruby punctuation.section.array.end.ruby
+25:9-10 source.ruby punctuation.separator.method.ruby
+25:10-13 source.ruby meta.function-call.ruby entity.name.function.ruby
+25:13-14 source.ruby
+25:14-16 source.ruby keyword.control.start-block.ruby
+25:16-17 source.ruby
+25:17-18 source.ruby meta.block.parameters.ruby punctuation.separator.variable.ruby
+25:18-19 source.ruby meta.block.parameters.ruby variable.other.block.ruby
+25:19-20 source.ruby meta.block.parameters.ruby punctuation.separator.variable.ruby
+26:0-4 source.ruby
+26:4-5 source.ruby keyword.operator.arithmetic.ruby
+26:5-6 source.ruby
+26:6-7 source.ruby constant.numeric.ruby
+27:0-3 source.ruby keyword.control.ruby

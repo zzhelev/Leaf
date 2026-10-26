@@ -40,6 +40,55 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   misplaced `fixup!` commit, a drop that stops, pushed commits and a main that moved on.
 - Details: CLAUDE.md, "The commit editor".
 
+## Syntax highlighting with TextMate grammars (2026-10-23 to 2026-10-26)
+
+- **Request:** colour code by file type, in as many formats as possible. Leaf had upstream's highlighter, which split
+  each line on spaces and checked the words against a keyword list, in 17 languages: no strings, numbers or block
+  comments, and no colours for JSON, XML, YAML, Markdown, HTML, CSS or TOML. Planned with the user in
+  `docs/fork/syntax-highlighting.md`, from a probe of four engines and a board of palettes (Claude Design, "Leaf colour
+  palette").
+- **The engine:** TextMate grammars, the format of VS Code, GitHub and shiki, run by a copy of kotlin-textmate kept in
+  Leaf (the `textmate` module), with three fixes for speed and memory that measuring it found. 82 grammars from shiki's
+  collection, about 60 languages, tokenized as VS Code's engine tokenizes them (a test per language). A file's language
+  comes from its name, its extension or its `#!` line.
+- **Where:** the diff pane (unified and split, file history, a comparison's full view), blame, and the conflict
+  resolver's rows and editor. Each version of a file is coloured whole, once, in the background, so a comment or a
+  string that starts above a hunk colours the lines in it; the text shows at once and the colours follow. A diff that a
+  refresh loads again keeps its colours. Lines typed in the resolver are coloured after the lines before them.
+- **Colours:** nine where Leaf had three: keyword, annotation, comment, string, number, type, function, tag and
+  attribute, in every style (palette 1a of the board; Solarized and Teal set their own), each holding 4.5 : 1 on the
+  background and both line tints. The light keyword, annotation and comment got darker. A new setting, Code colours
+  (Settings → Appearance), draws code in Leaf's, VS Code's or IntelliJ's colours, in any style.
+- **Limits:** 2 s a file and 10,000 characters a line are coloured, and the rest stays plain. Stepping through the log
+  with a diff open is as fast as before, on Leaf's history and on TensorFlow's (about 10 ms a step).
+- **Removed:** upstream's highlighter (`ui/diff/syntax_highlighter/`, 2,000 lines).
+- **A demo:** `textmate/tools/demo/make-demo.sh` makes a repository with a file in each language, diffs that change
+  every file, and a merge stopped at conflicts.
+- Details: CLAUDE.md, "Syntax highlighting"; `textmate/README.md`.
+
+## Cancel during a push, and Stop waiting (2026-10-23)
+
+- **Request:** the follow-up left from deleting a remote's branches: the processing screen's Cancel during a push or a
+  remote branch's delete stopped git, not the server. Planned with the user, from a probe and a mockup, and built as
+  recommended.
+- **What a probe showed** (git 2.54, `git daemon`): a push stopped while git still uploads, or while git-lfs uploads in
+  the pre-push hook, leaves the server as it was. One stopped after git's last upload line (`Writing objects: 100%`,
+  `Total N`) is taken anyway while the server's hook runs, and Leaf then said nothing, showed the branch as not pushed
+  and set no upstream.
+- **Cancel until then:** the button stays Cancel while git uploads, and now does what it says. Once git has sent
+  everything, the screen says "Waiting for origin", the button goes, and after 10 s it comes back as "Stop waiting", as
+  in the dialog that deletes several branches. A remote branch's delete is only a command, so it gets Stop waiting
+  after 10 s from the start.
+- **After Stop waiting,** a strip under the toolbar asks origin whether it took the push (or deleted the branch), again
+  every 2 s for up to 30 s, and then says so: "origin took the push: main is at 7b6ee23.", "origin hasn't taken the push
+  of main: it's still at 8180de8." with Fetch, or that it couldn't ask, with Try again. When origin took it, Leaf does
+  what git would have: `origin/main` moves to the pushed commit and a new branch gets its upstream. A real Cancel shows
+  nothing, as nothing changed.
+- **Asking the push URL** (found while planning): checking a remote branch after a refused delete, or after a stop,
+  asked the remote's fetch URL, which is another server when `pushurl` points at a fork or a mirror. It now asks the
+  push URL; with several, it says it can't tell, and the single delete shows git's refusal.
+- Details: CLAUDE.md, "Remote operations", "Stop waiting, for a push or a remote branch's delete".
+
 ## Squash, fix up and reword a branch's commits, also onto the latest main (upstream issue 73, 2026-10-23)
 
 - **Request:** tidy a feature branch's commits in Leaf, such as an agent's branch of small `wip` commits, without

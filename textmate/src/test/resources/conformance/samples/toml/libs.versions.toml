@@ -1,0 +1,19 @@
+# Versions of Leaf's dependencies.
+[versions]
+kotlin = "2.4.0"
+jgit = "7.7.0.202606012155-r"
+retries = 3
+ratio = 0.75
+enabled = true
+released = 2026-10-23T09:30:00Z
+
+[libraries]
+jgit-core = { group = "org.eclipse.jgit", name = "org.eclipse.jgit", version.ref = "jgit" }
+joni = { module = "org.jruby.joni:joni", version = "2.2.7" }
+
+[[bundles.tests]]
+name = 'junit'
+items = ["junit-jupiter", "mockk"]
+multi = """
+two lines
+"""

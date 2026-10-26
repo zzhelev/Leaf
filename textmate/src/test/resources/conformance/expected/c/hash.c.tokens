@@ -1,0 +1,192 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.c meta.preprocessor.include.c keyword.control.directive.include.c punctuation.definition.directive.c
+0:1-8 source.c meta.preprocessor.include.c keyword.control.directive.include.c
+0:8-9 source.c meta.preprocessor.include.c
+0:9-10 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c punctuation.definition.string.begin.c
+0:10-18 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c
+0:18-19 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c punctuation.definition.string.end.c
+1:0-1 source.c meta.preprocessor.include.c keyword.control.directive.include.c punctuation.definition.directive.c
+1:1-8 source.c meta.preprocessor.include.c keyword.control.directive.include.c
+1:8-9 source.c meta.preprocessor.include.c
+1:9-10 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c punctuation.definition.string.begin.c
+1:10-17 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c
+1:17-18 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c punctuation.definition.string.end.c
+2:0-1 source.c meta.preprocessor.include.c keyword.control.directive.include.c punctuation.definition.directive.c
+2:1-8 source.c meta.preprocessor.include.c keyword.control.directive.include.c
+2:8-9 source.c meta.preprocessor.include.c
+2:9-10 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c punctuation.definition.string.begin.c
+2:10-18 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c
+2:18-19 source.c meta.preprocessor.include.c string.quoted.other.lt-gt.include.c punctuation.definition.string.end.c
+3:0-0 source.c
+4:0-1 source.c meta.preprocessor.macro.c keyword.control.directive.define.c punctuation.definition.directive.c
+4:1-7 source.c meta.preprocessor.macro.c keyword.control.directive.define.c
+4:7-8 source.c meta.preprocessor.macro.c
+4:8-17 source.c meta.preprocessor.macro.c entity.name.function.preprocessor.c
+4:17-18 source.c meta.preprocessor.macro.c
+4:18-20 source.c meta.preprocessor.macro.c keyword.other.unit.hexadecimal.c
+4:20-28 source.c meta.preprocessor.macro.c constant.numeric.hexadecimal.c
+4:28-29 source.c meta.preprocessor.macro.c keyword.other.unit.suffix.integer.c
+5:0-1 source.c meta.preprocessor.macro.c keyword.control.directive.define.c punctuation.definition.directive.c
+5:1-7 source.c meta.preprocessor.macro.c keyword.control.directive.define.c
+5:7-8 source.c meta.preprocessor.macro.c
+5:8-18 source.c meta.preprocessor.macro.c entity.name.function.preprocessor.c
+5:18-19 source.c meta.preprocessor.macro.c
+5:19-29 source.c meta.preprocessor.macro.c constant.numeric.decimal.c
+5:29-30 source.c meta.preprocessor.macro.c keyword.other.unit.suffix.integer.c
+6:0-0 source.c
+7:0-2 source.c comment.block.c punctuation.definition.comment.begin.c
+7:2-25 source.c comment.block.c
+7:25-27 source.c comment.block.c punctuation.definition.comment.end.c
+8:0-6 source.c storage.modifier.c
+8:6-7 source.c
+8:7-15 source.c storage.type.built-in.c
+8:15-16 source.c
+8:16-21 source.c meta.function.c meta.function.definition.parameters.c entity.name.function.c
+8:21-22 source.c meta.function.c meta.function.definition.parameters.c punctuation.section.parameters.begin.bracket.round.c
+8:22-27 source.c meta.function.c meta.function.definition.parameters.c storage.modifier.c
+8:27-28 source.c meta.function.c meta.function.definition.parameters.c
+8:28-36 source.c meta.function.c meta.function.definition.parameters.c storage.type.built-in.primitive.c
+8:36-37 source.c meta.function.c meta.function.definition.parameters.c
+8:37-41 source.c meta.function.c meta.function.definition.parameters.c storage.type.built-in.primitive.c
+8:41-42 source.c meta.function.c meta.function.definition.parameters.c
+8:42-43 source.c meta.function.c meta.function.definition.parameters.c keyword.operator.c
+8:43-47 source.c meta.function.c meta.function.definition.parameters.c variable.parameter.probably.c
+8:47-48 source.c meta.function.c meta.function.definition.parameters.c punctuation.separator.delimiter.c
+8:48-49 source.c meta.function.c meta.function.definition.parameters.c
+8:49-55 source.c meta.function.c meta.function.definition.parameters.c storage.type.built-in.c
+8:55-56 source.c meta.function.c meta.function.definition.parameters.c
+8:56-62 source.c meta.function.c meta.function.definition.parameters.c variable.parameter.probably.c
+8:62-63 source.c meta.function.c meta.function.definition.parameters.c punctuation.section.parameters.end.bracket.round.c
+8:63-64 source.c
+8:64-65 source.c meta.block.c punctuation.section.block.begin.bracket.curly.c
+9:0-4 source.c meta.block.c
+9:4-12 source.c meta.block.c storage.type.built-in.c
+9:12-18 source.c meta.block.c
+9:18-19 source.c meta.block.c keyword.operator.assignment.c
+9:19-30 source.c meta.block.c
+9:30-31 source.c meta.block.c punctuation.terminator.statement.c
+10:0-4 source.c meta.block.c
+10:4-7 source.c meta.block.c keyword.control.c
+10:7-8 source.c meta.block.c
+10:8-9 source.c meta.block.c meta.parens.block.c punctuation.section.parens.begin.bracket.round.c
+10:9-15 source.c meta.block.c meta.parens.block.c storage.type.built-in.c
+10:15-18 source.c meta.block.c meta.parens.block.c
+10:18-19 source.c meta.block.c meta.parens.block.c keyword.operator.assignment.c
+10:19-20 source.c meta.block.c meta.parens.block.c
+10:20-21 source.c meta.block.c meta.parens.block.c constant.numeric.decimal.c
+10:21-22 source.c meta.block.c meta.parens.block.c punctuation.terminator.statement.c
+10:22-25 source.c meta.block.c meta.parens.block.c
+10:25-26 source.c meta.block.c meta.parens.block.c keyword.operator.comparison.c
+10:26-33 source.c meta.block.c meta.parens.block.c
+10:33-34 source.c meta.block.c meta.parens.block.c punctuation.terminator.statement.c
+10:34-36 source.c meta.block.c meta.parens.block.c
+10:36-38 source.c meta.block.c meta.parens.block.c keyword.operator.increment.c
+10:38-39 source.c meta.block.c meta.parens.block.c punctuation.section.parens.end.bracket.round.c
+10:39-40 source.c meta.block.c
+10:40-41 source.c meta.block.c punctuation.section.block.begin.bracket.curly.c
+11:0-13 source.c meta.block.c
+11:13-15 source.c meta.block.c keyword.operator.assignment.compound.bitwise.c
+11:15-16 source.c meta.block.c
+11:16-20 source.c meta.block.c meta.bracket.square.access.c variable.object.c
+11:20-21 source.c meta.block.c meta.bracket.square.access.c punctuation.definition.begin.bracket.square.c
+11:21-22 source.c meta.block.c meta.bracket.square.access.c
+11:22-23 source.c meta.block.c meta.bracket.square.access.c punctuation.definition.end.bracket.square.c
+11:23-24 source.c meta.block.c punctuation.terminator.statement.c
+12:0-13 source.c meta.block.c
+12:13-15 source.c meta.block.c keyword.operator.assignment.compound.c
+12:15-25 source.c meta.block.c
+12:25-26 source.c meta.block.c punctuation.terminator.statement.c
+13:0-4 source.c meta.block.c
+13:4-5 source.c meta.block.c punctuation.section.block.end.bracket.curly.c
+14:0-4 source.c meta.block.c
+14:4-10 source.c meta.block.c keyword.control.c
+14:10-15 source.c meta.block.c
+14:15-16 source.c meta.block.c punctuation.terminator.statement.c
+15:0-1 source.c meta.block.c punctuation.section.block.end.bracket.curly.c
+16:0-0 source.c
+17:0-3 source.c storage.type.built-in.primitive.c
+17:3-4 source.c
+17:4-8 source.c meta.function.c meta.function.definition.parameters.c entity.name.function.c
+17:8-9 source.c meta.function.c meta.function.definition.parameters.c punctuation.section.parameters.begin.bracket.round.c
+17:9-12 source.c meta.function.c meta.function.definition.parameters.c storage.type.built-in.primitive.c
+17:12-13 source.c meta.function.c meta.function.definition.parameters.c
+17:13-17 source.c meta.function.c meta.function.definition.parameters.c variable.parameter.probably.c
+17:17-18 source.c meta.function.c meta.function.definition.parameters.c punctuation.separator.delimiter.c
+17:18-19 source.c meta.function.c meta.function.definition.parameters.c
+17:19-23 source.c meta.function.c meta.function.definition.parameters.c storage.type.built-in.primitive.c
+17:23-24 source.c meta.function.c meta.function.definition.parameters.c
+17:24-25 source.c meta.function.c meta.function.definition.parameters.c keyword.operator.c
+17:25-26 source.c meta.function.c meta.function.definition.parameters.c keyword.operator.c
+17:26-30 source.c meta.function.c meta.function.definition.parameters.c variable.parameter.probably.c
+17:30-31 source.c meta.function.c meta.function.definition.parameters.c punctuation.section.parameters.end.bracket.round.c
+17:31-32 source.c
+17:32-33 source.c meta.block.c punctuation.section.block.begin.bracket.curly.c
+18:0-4 source.c meta.block.c
+18:4-9 source.c meta.block.c storage.modifier.c
+18:9-10 source.c meta.block.c
+18:10-14 source.c meta.block.c storage.type.built-in.primitive.c
+18:14-15 source.c meta.block.c
+18:15-16 source.c meta.block.c keyword.operator.c
+18:16-21 source.c meta.block.c
+18:21-22 source.c meta.block.c keyword.operator.assignment.c
+18:22-28 source.c meta.block.c
+18:28-29 source.c meta.block.c keyword.operator.comparison.c
+18:29-30 source.c meta.block.c
+18:30-31 source.c meta.block.c constant.numeric.decimal.c
+18:31-32 source.c meta.block.c
+18:32-33 source.c meta.block.c keyword.operator.ternary.c
+18:33-34 source.c meta.block.c
+18:34-38 source.c meta.block.c meta.bracket.square.access.c variable.object.c
+18:38-39 source.c meta.block.c meta.bracket.square.access.c punctuation.definition.begin.bracket.square.c
+18:39-40 source.c meta.block.c meta.bracket.square.access.c constant.numeric.decimal.c
+18:40-41 source.c meta.block.c meta.bracket.square.access.c punctuation.definition.end.bracket.square.c
+18:41-42 source.c meta.block.c
+18:42-43 source.c meta.block.c keyword.operator.ternary.c
+18:43-44 source.c meta.block.c
+18:44-45 source.c meta.block.c string.quoted.double.c punctuation.definition.string.begin.c
+18:45-49 source.c meta.block.c string.quoted.double.c
+18:49-50 source.c meta.block.c string.quoted.double.c punctuation.definition.string.end.c
+18:50-51 source.c meta.block.c punctuation.terminator.statement.c
+19:0-4 source.c meta.block.c punctuation.whitespace.comment.leading.c
+19:4-6 source.c meta.block.c comment.line.double-slash.c punctuation.definition.comment.c
+19:6-30 source.c meta.block.c comment.line.double-slash.c
+20:0-4 source.c meta.block.c
+20:4-10 source.c meta.block.c meta.function-call.c entity.name.function.c
+20:10-11 source.c meta.block.c meta.function-call.c punctuation.section.arguments.begin.bracket.round.c
+20:11-12 source.c meta.block.c meta.function-call.c string.quoted.double.c punctuation.definition.string.begin.c
+20:12-14 source.c meta.block.c meta.function-call.c string.quoted.double.c constant.other.placeholder.c
+20:14-18 source.c meta.block.c meta.function-call.c string.quoted.double.c
+20:18-22 source.c meta.block.c meta.function-call.c string.quoted.double.c constant.other.placeholder.c
+20:22-24 source.c meta.block.c meta.function-call.c string.quoted.double.c constant.character.escape.c
+20:24-25 source.c meta.block.c meta.function-call.c string.quoted.double.c punctuation.definition.string.end.c
+20:25-26 source.c meta.block.c meta.function-call.c punctuation.separator.delimiter.c
+20:26-31 source.c meta.block.c meta.function-call.c
+20:31-32 source.c meta.block.c meta.function-call.c punctuation.separator.delimiter.c
+20:32-33 source.c meta.block.c meta.function-call.c
+20:33-38 source.c meta.block.c meta.function-call.c entity.name.function.c
+20:38-39 source.c meta.block.c meta.function-call.c punctuation.section.arguments.begin.bracket.round.c
+20:39-40 source.c meta.block.c meta.function-call.c punctuation.section.parens.begin.bracket.round.c
+20:40-45 source.c meta.block.c meta.function-call.c storage.modifier.c
+20:45-46 source.c meta.block.c meta.function-call.c
+20:46-54 source.c meta.block.c meta.function-call.c storage.type.built-in.primitive.c
+20:54-55 source.c meta.block.c meta.function-call.c
+20:55-59 source.c meta.block.c meta.function-call.c storage.type.built-in.primitive.c
+20:59-60 source.c meta.block.c meta.function-call.c
+20:60-61 source.c meta.block.c meta.function-call.c keyword.operator.c
+20:61-62 source.c meta.block.c meta.function-call.c punctuation.section.parens.end.bracket.round.c
+20:62-66 source.c meta.block.c meta.function-call.c
+20:66-67 source.c meta.block.c meta.function-call.c punctuation.separator.delimiter.c
+20:67-68 source.c meta.block.c meta.function-call.c
+20:68-74 source.c meta.block.c meta.function-call.c entity.name.function.c
+20:74-75 source.c meta.block.c meta.function-call.c punctuation.section.arguments.begin.bracket.round.c
+20:75-79 source.c meta.block.c meta.function-call.c
+20:79-80 source.c meta.block.c meta.function-call.c punctuation.section.arguments.end.bracket.round.c
+20:80-81 source.c meta.block.c meta.function-call.c punctuation.section.arguments.end.bracket.round.c
+20:81-82 source.c meta.block.c meta.function-call.c punctuation.section.arguments.end.bracket.round.c
+20:82-83 source.c meta.block.c punctuation.terminator.statement.c
+21:0-4 source.c meta.block.c
+21:4-10 source.c meta.block.c keyword.control.c
+21:10-11 source.c meta.block.c
+21:11-12 source.c meta.block.c constant.numeric.decimal.c
+21:12-13 source.c meta.block.c punctuation.terminator.statement.c
+22:0-1 source.c meta.block.c punctuation.section.block.end.bracket.curly.c

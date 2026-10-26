@@ -3,6 +3,7 @@ package dev.app.leaf.data.repositories
 import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.errors.AppError
 import dev.app.leaf.domain.models.AutostashNotice
+import dev.app.leaf.domain.models.ServerHandOff
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.repositories.CompletedTask
@@ -53,10 +54,12 @@ class InMemoryRepositoryStateRepository @Inject constructor() : RepositoryStateR
         taskProgress.value = progress
     }
 
-    override fun cancelCurrentTask() {
-        if (taskProgress.value != null) {
-            currentTaskJob?.cancel()
-        }
+    override fun cancelCurrentTask(): ServerHandOff? {
+        val progress = taskProgress.value ?: return null
+
+        currentTaskJob?.cancel()
+
+        return progress.handOff
     }
 
     override suspend fun addCompletedTaskSuccessfully(completedTask: TaskType) {

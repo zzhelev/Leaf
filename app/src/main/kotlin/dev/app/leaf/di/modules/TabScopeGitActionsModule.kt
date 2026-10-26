@@ -39,6 +39,7 @@ import dev.app.leaf.data.git.cli.operations.SelectingCherryPickCommitGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingMergeBranchGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingRebaseBranchGitAction
 import dev.app.leaf.data.git.cli.operations.SelectingRevertCommitGitAction
+import dev.app.leaf.data.git.cli.remote.CheckHandOffGitAction
 import dev.app.leaf.data.git.cli.remote.CheckRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.remote.DeleteRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.remote.SelectingAddSubmoduleGitAction
@@ -195,6 +196,10 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsCheckRemoteBranchesGitAction(action: CheckRemoteBranchesGitAction): ICheckRemoteBranchesGitAction
+
+    @Binds
+    @TabScope
+    fun bindsCheckHandOffGitAction(action: CheckHandOffGitAction): ICheckHandOffGitAction
 
     @Binds
     @TabScope

@@ -22,6 +22,7 @@ import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.models.TaskProgress
 import dev.app.leaf.domain.models.TaskType
 import dev.app.leaf.domain.models.worktreeSwitches
+import dev.app.leaf.domain.remote.StoppedWaitingCheck
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.repositories.FailureSeverity
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
@@ -79,6 +80,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val appViewModel: AppViewModel,
     private val cherryPickCommitsUseCase: CherryPickCommitsUseCase,
     private val deleteRemoteBranchUseCase: DeleteRemoteBranchUseCase,
+    private val stoppedWaitingCheck: StoppedWaitingCheck,
     @Assisted val initialPath: String?,
     updatesRepository: UpdatesRepository,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
@@ -346,9 +348,12 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
     val update: StateFlow<Update?> = updatesRepository.update
 
-    /** Stops the foreground task, which only the tasks that report progress (the git CLI's) can do. */
+    /**
+     * Stops the foreground task, which only the tasks that report progress (the git CLI's) can do. Fork-only: when git
+     * had handed the server what it carries out on its own (Stop waiting), the server is then asked what it did.
+     */
     fun cancelOngoingTask() {
-        repositoryStateRepository.cancelCurrentTask()
+        repositoryStateRepository.cancelCurrentTask()?.let { stoppedWaitingCheck.start(it) }
     }
 
     fun openUrlInBrowser(url: String) {

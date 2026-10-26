@@ -1,0 +1,154 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 text.html.markdown markup.heading.markdown heading.1.markdown punctuation.definition.heading.markdown
+0:1-2 text.html.markdown markup.heading.markdown heading.1.markdown
+0:2-6 text.html.markdown markup.heading.markdown heading.1.markdown entity.name.section.markdown
+1:0-0 text.html.markdown
+2:0-18 text.html.markdown meta.paragraph.markdown
+2:18-20 text.html.markdown meta.paragraph.markdown markup.bold.markdown punctuation.definition.bold.markdown
+2:20-31 text.html.markdown meta.paragraph.markdown markup.bold.markdown
+2:31-33 text.html.markdown meta.paragraph.markdown markup.bold.markdown punctuation.definition.bold.markdown
+2:33-56 text.html.markdown meta.paragraph.markdown
+2:56-57 text.html.markdown meta.paragraph.markdown markup.italic.markdown punctuation.definition.italic.markdown
+2:57-62 text.html.markdown meta.paragraph.markdown markup.italic.markdown
+2:62-63 text.html.markdown meta.paragraph.markdown markup.italic.markdown punctuation.definition.italic.markdown
+2:63-74 text.html.markdown meta.paragraph.markdown
+3:0-0 text.html.markdown
+4:0-2 text.html.markdown markup.heading.markdown heading.2.markdown punctuation.definition.heading.markdown
+4:2-3 text.html.markdown markup.heading.markdown heading.2.markdown
+4:3-11 text.html.markdown markup.heading.markdown heading.2.markdown entity.name.section.markdown
+5:0-0 text.html.markdown
+6:0-2 text.html.markdown markup.list.numbered.markdown punctuation.definition.list.begin.markdown
+6:2-3 text.html.markdown markup.list.numbered.markdown
+6:3-20 text.html.markdown markup.list.numbered.markdown meta.paragraph.markdown
+7:0-2 text.html.markdown markup.list.numbered.markdown punctuation.definition.list.begin.markdown
+7:2-3 text.html.markdown markup.list.numbered.markdown
+7:3-17 text.html.markdown markup.list.numbered.markdown meta.paragraph.markdown
+8:0-0 text.html.markdown markup.list.numbered.markdown
+9:0-3 text.html.markdown markup.list.numbered.markdown
+9:3-6 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown punctuation.definition.markdown
+9:6-10 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown fenced_code.block.language.markdown
+10:0-3 text.html.markdown markup.list.numbered.markdown
+10:3-9 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell storage.modifier.export.shell
+10:9-10 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell
+10:10-19 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell variable.other.assignment.shell
+10:19-20 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell keyword.operator.assignment.shell
+10:20-21 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell string.quoted.double.shell punctuation.definition.string.begin.shell
+10:21-22 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell string.quoted.double.shell punctuation.definition.variable.shell variable.other.normal.shell
+10:22-26 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell string.quoted.double.shell variable.other.normal.shell
+10:26-33 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell string.quoted.double.shell
+10:33-34 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript meta.statement.shell meta.expression.assignment.modified.shell string.quoted.double.shell punctuation.definition.string.end.shell
+10:34-37 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript
+10:37-38 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript comment.line.number-sign.shell punctuation.definition.comment.shell
+10:38-49 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript comment.line.number-sign.shell
+11:0-3 text.html.markdown markup.list.numbered.markdown
+11:3-18 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown meta.embedded.block.shellscript
+12:0-3 text.html.markdown markup.list.numbered.markdown
+12:3-6 text.html.markdown markup.list.numbered.markdown markup.fenced_code.block.markdown punctuation.definition.markdown
+13:0-0 text.html.markdown markup.list.numbered.markdown
+14:0-1 text.html.markdown markup.list.unnumbered.markdown punctuation.definition.list.begin.markdown
+14:1-2 text.html.markdown markup.list.unnumbered.markdown
+14:2-3 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown punctuation.definition.link.title.begin.markdown
+14:3-11 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown string.other.link.title.markdown
+14:11-12 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown punctuation.definition.link.title.end.markdown
+14:12-13 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown punctuation.definition.metadata.markdown
+14:13-41 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown markup.underline.link.markdown
+14:41-42 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown
+14:42-43 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown string.other.link.description.title.markdown punctuation.definition.string.begin.markdown
+14:43-52 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown string.other.link.description.title.markdown
+14:52-53 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown string.other.link.description.title.markdown punctuation.definition.string.end.markdown
+14:53-54 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown meta.link.inline.markdown punctuation.definition.metadata.markdown
+15:0-1 text.html.markdown markup.list.unnumbered.markdown punctuation.definition.list.begin.markdown
+15:1-2 text.html.markdown markup.list.unnumbered.markdown
+15:2-3 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown markup.inline.raw.string.markdown punctuation.definition.raw.markdown
+15:3-14 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown markup.inline.raw.string.markdown
+15:14-15 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown markup.inline.raw.string.markdown punctuation.definition.raw.markdown
+15:15-20 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown
+15:20-22 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown markup.strikethrough.markdown punctuation.definition.strikethrough.markdown
+15:22-30 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown markup.strikethrough.markdown
+15:30-32 text.html.markdown markup.list.unnumbered.markdown meta.paragraph.markdown markup.strikethrough.markdown punctuation.definition.strikethrough.markdown
+16:0-0 text.html.markdown markup.list.unnumbered.markdown
+17:0-1 text.html.markdown markup.quote.markdown punctuation.definition.quote.begin.markdown
+17:1-2 text.html.markdown markup.quote.markdown
+17:2-4 text.html.markdown markup.quote.markdown meta.paragraph.markdown markup.bold.markdown punctuation.definition.bold.markdown
+17:4-9 text.html.markdown markup.quote.markdown meta.paragraph.markdown markup.bold.markdown
+17:9-11 text.html.markdown markup.quote.markdown meta.paragraph.markdown markup.bold.markdown punctuation.definition.bold.markdown
+17:11-40 text.html.markdown markup.quote.markdown meta.paragraph.markdown
+18:0-0 text.html.markdown
+19:0-3 text.html.markdown markup.fenced_code.block.markdown punctuation.definition.markdown
+19:3-9 text.html.markdown markup.fenced_code.block.markdown fenced_code.block.language
+20:0-40 text.html.markdown markup.fenced_code.block.markdown
+21:0-3 text.html.markdown markup.fenced_code.block.markdown punctuation.definition.markdown
+22:0-0 text.html.markdown
+23:0-1 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+23:1-2 text.html.markdown markup.table.markdown
+23:2-5 text.html.markdown markup.table.markdown
+23:5-6 text.html.markdown markup.table.markdown
+23:6-7 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+23:7-8 text.html.markdown markup.table.markdown
+23:8-14 text.html.markdown markup.table.markdown
+23:14-15 text.html.markdown markup.table.markdown
+23:15-16 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+24:0-1 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+24:1-6 text.html.markdown markup.table.markdown punctuation.separator.table.markdown
+24:6-7 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+24:7-15 text.html.markdown markup.table.markdown punctuation.separator.table.markdown
+24:15-16 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+25:0-1 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+25:1-2 text.html.markdown markup.table.markdown
+25:2-4 text.html.markdown markup.table.markdown
+25:4-6 text.html.markdown markup.table.markdown
+25:6-7 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+25:7-8 text.html.markdown markup.table.markdown
+25:8-15 text.html.markdown markup.table.markdown
+25:15-16 text.html.markdown markup.table.markdown
+25:16-17 text.html.markdown markup.table.markdown punctuation.definition.table.markdown
+26:0-0 text.html.markdown
+27:0-1 text.html.markdown meta.tag.structure.details.start.html punctuation.definition.tag.begin.html
+27:1-8 text.html.markdown meta.tag.structure.details.start.html entity.name.tag.html
+27:8-9 text.html.markdown meta.tag.structure.details.start.html punctuation.definition.tag.end.html
+27:9-10 text.html.markdown meta.tag.structure.summary.start.html punctuation.definition.tag.begin.html
+27:10-17 text.html.markdown meta.tag.structure.summary.start.html entity.name.tag.html
+27:17-18 text.html.markdown meta.tag.structure.summary.start.html punctuation.definition.tag.end.html
+27:18-22 text.html.markdown
+27:22-24 text.html.markdown meta.tag.structure.summary.end.html punctuation.definition.tag.begin.html
+27:24-31 text.html.markdown meta.tag.structure.summary.end.html entity.name.tag.html
+27:31-32 text.html.markdown meta.tag.structure.summary.end.html punctuation.definition.tag.end.html
+27:32-36 text.html.markdown
+27:36-37 text.html.markdown meta.tag.inline.em.start.html punctuation.definition.tag.begin.html
+27:37-39 text.html.markdown meta.tag.inline.em.start.html entity.name.tag.html
+27:39-40 text.html.markdown meta.tag.inline.em.start.html punctuation.definition.tag.end.html
+27:40-44 text.html.markdown
+27:44-46 text.html.markdown meta.tag.inline.em.end.html punctuation.definition.tag.begin.html
+27:46-48 text.html.markdown meta.tag.inline.em.end.html entity.name.tag.html
+27:48-49 text.html.markdown meta.tag.inline.em.end.html punctuation.definition.tag.end.html
+27:49-50 text.html.markdown
+27:50-52 text.html.markdown meta.tag.structure.details.end.html punctuation.definition.tag.begin.html
+27:52-59 text.html.markdown meta.tag.structure.details.end.html entity.name.tag.html
+27:59-60 text.html.markdown meta.tag.structure.details.end.html punctuation.definition.tag.end.html
+28:0-0 text.html.markdown
+29:0-3 text.html.markdown markup.fenced_code.block.markdown punctuation.definition.markdown
+29:3-6 text.html.markdown markup.fenced_code.block.markdown fenced_code.block.language.markdown
+30:0-1 text.html.markdown markup.fenced_code.block.markdown punctuation.definition.tag.begin.html.vue
+30:1-9 text.html.markdown markup.fenced_code.block.markdown entity.name.tag.template.html.vue
+30:9-10 text.html.markdown markup.fenced_code.block.markdown meta.tag-stuff punctuation.definition.tag.end.html.vue
+30:10-11 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html punctuation.definition.tag.begin.html
+30:11-12 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html entity.name.tag.html
+30:12-13 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html
+30:13-17 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html meta.attribute.directive.control.vue keyword.control.conditional.vue
+30:17-18 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html meta.attribute.directive.control.vue punctuation.separator.key-value.html.vue
+30:18-19 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html meta.attribute.directive.control.vue punctuation.definition.string.begin.html.vue
+30:19-21 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html meta.attribute.directive.control.vue source.ts.embedded.html.vue variable.other.readwrite.ts
+30:21-22 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html meta.attribute.directive.control.vue punctuation.definition.string.end.html.vue
+30:22-23 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.start.html punctuation.definition.tag.end.html
+30:23-25 text.html.markdown markup.fenced_code.block.markdown text.html.derivative expression.embedded.vue punctuation.definition.interpolation.begin.html.vue
+30:25-26 text.html.markdown markup.fenced_code.block.markdown text.html.derivative expression.embedded.vue source.ts.embedded.html.vue
+30:26-33 text.html.markdown markup.fenced_code.block.markdown text.html.derivative expression.embedded.vue source.ts.embedded.html.vue variable.other.readwrite.ts
+30:33-34 text.html.markdown markup.fenced_code.block.markdown text.html.derivative expression.embedded.vue source.ts.embedded.html.vue
+30:34-36 text.html.markdown markup.fenced_code.block.markdown text.html.derivative expression.embedded.vue punctuation.definition.interpolation.end.html.vue
+30:36-38 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.end.html punctuation.definition.tag.begin.html
+30:38-39 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.end.html entity.name.tag.html
+30:39-40 text.html.markdown markup.fenced_code.block.markdown text.html.derivative meta.tag.structure.p.end.html punctuation.definition.tag.end.html
+30:40-42 text.html.markdown markup.fenced_code.block.markdown punctuation.definition.tag.begin.html.vue
+30:42-50 text.html.markdown markup.fenced_code.block.markdown entity.name.tag.template.html.vue
+30:50-51 text.html.markdown markup.fenced_code.block.markdown punctuation.definition.tag.end.html.vue
+31:0-3 text.html.markdown markup.fenced_code.block.markdown punctuation.definition.markdown

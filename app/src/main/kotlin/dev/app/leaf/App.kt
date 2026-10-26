@@ -223,6 +223,7 @@ class App @Inject constructor(
 
         val themeInitial = appSettings.theme.first()
         val styleInitial = stylesService.selected.first()
+        val codeColoursInitial = appSettings.codeColours.first()
         val scaleInitial = appSettings.scaleUi.firstOrNull()
         val linesHeightTypeInitial = appSettings.linesHeightType.first()
         val avatarProviderTypeInitial = appSettings.avatarProvider.first()
@@ -234,6 +235,7 @@ class App @Inject constructor(
         application {
             val theme by appSettings.theme.collectAsState(themeInitial)
             val style by stylesService.selected.collectAsState(styleInitial)
+            val codeColours by appSettings.codeColours.collectAsState(codeColoursInitial)
             val scale = appSettings.scaleUi.collectAsState(scaleInitial).value
             val linesHeightType by appSettings.linesHeightType.collectAsState(linesHeightTypeInitial)
             val avatarProviderType by appSettings.avatarProvider.collectAsState(avatarProviderTypeInitial)
@@ -350,6 +352,7 @@ class App @Inject constructor(
                     AppTheme(
                         selectedTheme = theme,
                         style = style,
+                        codeColours = codeColours,
                         linesHeightType = linesHeightType,
                     ) {
                         Box(modifier = Modifier.background(MaterialTheme.colors.background)) {

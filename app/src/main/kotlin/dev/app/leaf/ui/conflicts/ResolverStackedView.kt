@@ -69,8 +69,7 @@ import dev.app.leaf.ui.components.SectionDivider
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.diff.LineNumber
-import dev.app.leaf.ui.diff.syntax_highlighter.SyntaxHighlighter
-import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
+import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.ui.status.label
 import dev.app.leaf.viewmodels.DEFAULT_STACKED_SPLIT
 import org.jetbrains.compose.resources.painterResource
@@ -128,7 +127,8 @@ fun ResolverStackedView(
     sidesRows: List<SidesRow>,
     resultRows: List<ResultRow>,
     sides: ConflictSides?,
-    filePath: String,
+    /** The versions' colours (fork-only), which the rows' lines take. */
+    syntax: HighlightedVersions,
     currentConflictChunk: Int?,
     showBase: Boolean,
     /** The top pair's share of the height. */
@@ -140,7 +140,6 @@ fun ResolverStackedView(
     editing: PartEditing? = null,
     canEdit: Boolean = true,
 ) {
-    val syntaxHighlighter = remember(filePath) { getSyntaxHighlighterFromExtension(filePath.substringAfterLast('.')) }
     // Picks and lines typed keep the chunks' lines, so the words marked are kept until another file loads
     val words = remember(merge.base, merge.ours, merge.theirs) { ChangedWords(merge) }
     val numberWidth = remember(merge) {
@@ -213,7 +212,7 @@ fun ResolverStackedView(
                             sides = sides,
                             numberWidth = numberWidth,
                             isCurrentConflict = row.chunk == currentConflictChunk,
-                            syntaxHighlighter = syntaxHighlighter,
+                            syntax = syntax,
                             words = words,
                             actions = actions,
                         )
@@ -259,7 +258,7 @@ fun ResolverStackedView(
                                 conflictNumber = conflictNumbers[item.chunk],
                                 isCurrentConflict = item.chunk == currentConflictChunk,
                                 showBase = showBase,
-                                syntaxHighlighter = syntaxHighlighter,
+                                syntax = syntax,
                                 words = words,
                                 actions = actions,
                                 canEdit = canEdit,
@@ -275,7 +274,7 @@ fun ResolverStackedView(
                                             .fillMaxHeight()
                                             .background(MaterialTheme.colors.primaryVariant)
                                     )
-                                    PartEditor(editing, numberWidth, editorPlace, syntaxHighlighter, Modifier.weight(1f))
+                                    PartEditor(editing, numberWidth, editorPlace, Modifier.weight(1f))
                                 }
                             }
                         }
@@ -318,7 +317,7 @@ private fun SidesRowView(
     sides: ConflictSides?,
     numberWidth: Int,
     isCurrentConflict: Boolean,
-    syntaxHighlighter: SyntaxHighlighter,
+    syntax: HighlightedVersions,
     words: ChangedWords,
     actions: PickActions,
 ) {
@@ -330,7 +329,7 @@ private fun SidesRowView(
                 cell = cell,
                 numberWidth = numberWidth,
                 isCurrentConflict = isCurrentConflict,
-                syntaxHighlighter = syntaxHighlighter,
+                syntax = syntax,
                 words = words,
                 modifier = Modifier.weight(1f),
                 chip = if (row.first) {
@@ -489,7 +488,7 @@ private fun ResultRowView(
     conflictNumber: Int?,
     isCurrentConflict: Boolean,
     showBase: Boolean,
-    syntaxHighlighter: SyntaxHighlighter,
+    syntax: HighlightedVersions,
     words: ChangedWords,
     actions: PickActions,
     canEdit: Boolean,
@@ -528,7 +527,7 @@ private fun ResultRowView(
                         if (text != null && showBase) {
                             Row(Modifier.alpha(0.6f)) {
                                 LineNumber(text = " ".repeat(numberWidth), remarked = false)
-                                LineText(text.getString(cell.line), syntaxHighlighter)
+                                LineText(text.getString(cell.line), syntax.spansOf(text, cell.line))
                             }
                         }
                     }
@@ -544,7 +543,7 @@ private fun ResultRowView(
                         text = cell.number.toStringWithSpaces(numberWidth),
                         remarked = cell.kind != CellKind.UNCHANGED,
                     )
-                    LineText(text.getString(cell.line), syntaxHighlighter, marksOf(cell, words))
+                    LineText(text.getString(cell.line), syntax.spansOf(text, cell.line), marksOf(cell, words))
                 }
             }
         }

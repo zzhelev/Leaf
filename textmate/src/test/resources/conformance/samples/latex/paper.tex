@@ -1,0 +1,23 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage[utf8]{inputenc}
+
+% Lines of a diff, measured.
+\newcommand{\churn}[2]{#1 + #2}
+
+\begin{document}
+\title{Merging Without Conflicts}
+\author{A.~Author}
+\maketitle
+
+\section{Introduction}\label{sec:intro}
+Three-way merges compare \emph{both} sides with their base, as in
+\begin{equation}
+  M = B + (O - B) + (T - B), \quad \text{for } |O \cap T| = 0.
+\end{equation}
+Inline math: $\sum_{i=1}^{n} x_i^2$, see Section~\ref{sec:intro}.
+
+\begin{verbatim}
+git merge --no-ff feature
+\end{verbatim}
+\end{document}

@@ -63,6 +63,7 @@ import dev.app.leaf.app.generated.resources.error_delete_branch_bisected_in_work
 import dev.app.leaf.app.generated.resources.error_delete_branch_checked_out_in_worktree
 import dev.app.leaf.app.generated.resources.error_delete_file_linked_worktree
 import dev.app.leaf.app.generated.resources.error_remote_branch_changed
+import dev.app.leaf.app.generated.resources.error_several_push_urls
 import dev.app.leaf.app.generated.resources.error_remote_branch_changed_now
 import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_helper_missing
 import dev.app.leaf.app.generated.resources.error_remote_branches_need_git_not_found
@@ -217,6 +218,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is ConflictError.ConflictsLeft -> listOf(path)
     is UnsupportedIndexError -> index.shellCommands() + listOfNotNull((index as? UnsupportedIndex.UnknownExtension)?.extension)
     is PartialCloneFetchError -> error?.monospaceParts().orEmpty()
+    is SeveralPushUrlsError -> urls
     else -> emptyList()
 }
 
@@ -490,6 +492,8 @@ fun AppError.getErrorText(): String {
                 stringResource(Res.string.error_remote_branch_changed, branch)
             }
         }
+
+        is SeveralPushUrlsError -> stringResource(Res.string.error_several_push_urls, remote, urls.joinToString("\n"))
 
         is RemoteBranchesNeedGitError -> when (reason) {
             SshNeedsGitError.Reason.SettingOff -> stringResource(Res.string.error_remote_branches_need_git_setting_off)

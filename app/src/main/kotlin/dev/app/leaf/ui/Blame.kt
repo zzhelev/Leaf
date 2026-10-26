@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.close
 import dev.app.leaf.domain.extensions.lineAt
+import dev.app.leaf.domain.highlighting.HighlightedText
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.toStringWithSpaces
@@ -35,10 +36,11 @@ import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.secondarySurface
+import dev.app.leaf.theme.syntaxColors
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableLazyColumn
-import dev.app.leaf.ui.diff.syntax_highlighter.getSyntaxHighlighterFromExtension
+import dev.app.leaf.ui.diff.colouredLine
 import org.eclipse.jgit.blame.BlameResult
 import org.jetbrains.compose.resources.painterResource
 
@@ -48,10 +50,10 @@ fun Blame(
     blameResult: BlameResult,
     onSelectCommit: (Commit) -> Unit,
     onClose: () -> Unit,
+    /** The file's colours (fork-only), null while it's coloured or when nothing colours it. */
+    highlighted: HighlightedText? = null,
 ) {
-
-    val fileExtension = filePath.split(".").lastOrNull()
-    val syntaxHighlighter = getSyntaxHighlighterFromExtension(fileExtension)
+    val syntaxColors = MaterialTheme.syntaxColors
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -122,7 +124,9 @@ fun Blame(
                         }
 
                         Text(
-                            text = syntaxHighlighter.syntaxHighlight(line + blameResult.resultContents.lineDelimiter),
+                            text = remember(line, highlighted, syntaxColors) {
+                                colouredLine(line, highlighted?.spansOf(index).orEmpty(), syntaxColors)
+                            },
                             color = MaterialTheme.colors.onBackground,
                             modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
                             fontFamily = monoTypography(),

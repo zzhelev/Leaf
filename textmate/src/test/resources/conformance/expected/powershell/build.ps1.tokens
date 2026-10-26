@@ -1,0 +1,158 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 source.powershell comment.line.powershell punctuation.definition.comment.powershell
+0:1-10 source.powershell comment.line.powershell meta.requires.powershell keyword.control.requires.powershell
+0:10-18 source.powershell comment.line.powershell meta.requires.powershell keyword.other.powershell
+0:18-19 source.powershell comment.line.powershell meta.requires.powershell
+0:19-20 source.powershell comment.line.powershell meta.requires.powershell variable.parameter.powershell
+1:0-2 source.powershell comment.block.powershell punctuation.definition.comment.block.begin.powershell
+2:0-1 source.powershell comment.block.powershell comment.documentation.embedded.powershell constant.string.documentation.powershell
+2:1-9 source.powershell comment.block.powershell comment.documentation.embedded.powershell keyword.operator.documentation.powershell
+3:0-27 source.powershell comment.block.powershell
+4:0-2 source.powershell comment.block.powershell punctuation.definition.comment.block.end.powershell
+5:0-5 source.powershell keyword.control.powershell
+5:5-6 source.powershell meta.group.simple.subexpression.powershell punctuation.section.group.begin.powershell
+6:0-4 source.powershell meta.group.simple.subexpression.powershell
+6:4-5 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.begin.powershell
+6:5-11 source.powershell meta.group.simple.subexpression.powershell storage.type.powershell
+6:11-12 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.end.powershell
+6:12-13 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+6:13-26 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell
+6:26-27 source.powershell meta.group.simple.subexpression.powershell
+6:27-28 source.powershell meta.group.simple.subexpression.powershell keyword.operator.assignment.powershell
+6:28-29 source.powershell meta.group.simple.subexpression.powershell
+6:29-30 source.powershell meta.group.simple.subexpression.powershell string.quoted.double.powershell punctuation.definition.string.begin.powershell
+6:30-37 source.powershell meta.group.simple.subexpression.powershell string.quoted.double.powershell
+6:37-38 source.powershell meta.group.simple.subexpression.powershell string.quoted.double.powershell punctuation.definition.string.end.powershell
+6:38-39 source.powershell meta.group.simple.subexpression.powershell keyword.operator.other.powershell
+7:0-4 source.powershell meta.group.simple.subexpression.powershell
+7:4-5 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.begin.powershell
+7:5-11 source.powershell meta.group.simple.subexpression.powershell storage.type.powershell
+7:11-12 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.end.powershell
+7:12-13 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+7:13-22 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell
+8:0-1 source.powershell meta.group.simple.subexpression.powershell punctuation.section.group.end.powershell
+9:0-0 source.powershell
+10:0-1 source.powershell variable.language.powershell punctuation.definition.variable.powershell
+10:1-22 source.powershell variable.language.powershell
+10:22-23 source.powershell
+10:23-24 source.powershell keyword.operator.assignment.powershell
+10:24-25 source.powershell
+10:25-26 source.powershell string.quoted.single.powershell punctuation.definition.string.begin.powershell
+10:26-30 source.powershell string.quoted.single.powershell
+10:30-31 source.powershell string.quoted.single.powershell punctuation.definition.string.end.powershell
+11:0-1 source.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+11:1-4 source.powershell variable.other.readwrite.powershell
+11:4-5 source.powershell
+11:5-6 source.powershell keyword.operator.assignment.powershell
+11:6-7 source.powershell
+11:7-16 source.powershell support.function.powershell
+11:16-17 source.powershell
+11:17-18 source.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+11:18-22 source.powershell variable.other.readwrite.powershell support.variable.drive.powershell
+11:22-34 source.powershell variable.other.readwrite.powershell
+11:34-35 source.powershell
+11:35-36 source.powershell string.quoted.double.powershell punctuation.definition.string.begin.powershell
+11:36-47 source.powershell string.quoted.double.powershell
+11:47-48 source.powershell string.quoted.double.powershell punctuation.definition.string.end.powershell
+12:0-0 source.powershell
+13:0-8 source.powershell meta.function.powershell storage.type.powershell
+13:8-9 source.powershell meta.function.powershell
+13:9-22 source.powershell meta.function.powershell entity.name.function.powershell
+13:22-23 source.powershell meta.group.simple.subexpression.powershell punctuation.section.group.begin.powershell
+13:23-24 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.begin.powershell
+13:24-30 source.powershell meta.group.simple.subexpression.powershell storage.type.powershell
+13:30-31 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.begin.powershell
+13:31-32 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.end.powershell
+13:32-33 source.powershell meta.group.simple.subexpression.powershell punctuation.section.bracket.end.powershell
+13:33-34 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+13:34-39 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell
+13:39-40 source.powershell meta.group.simple.subexpression.powershell punctuation.section.group.end.powershell
+13:40-41 source.powershell
+13:41-42 source.powershell meta.scriptblock.powershell punctuation.section.braces.begin.powershell
+14:0-4 source.powershell meta.scriptblock.powershell
+14:4-5 source.powershell meta.scriptblock.powershell keyword.operator.other.powershell
+14:5-8 source.powershell meta.scriptblock.powershell
+14:8-19 source.powershell meta.scriptblock.powershell support.function.powershell
+14:19-20 source.powershell meta.scriptblock.powershell
+14:20-21 source.powershell meta.scriptblock.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+14:21-26 source.powershell meta.scriptblock.powershell variable.other.readwrite.powershell
+14:26-27 source.powershell meta.scriptblock.powershell
+14:27-28 source.powershell meta.scriptblock.powershell keyword.operator.assignment.powershell
+14:28-29 source.powershell meta.scriptblock.powershell keyword.operator.assignment.powershell
+14:29-31 source.powershell meta.scriptblock.powershell
+14:31-32 source.powershell meta.scriptblock.powershell keyword.operator.assignment.powershell
+14:32-38 source.powershell meta.scriptblock.powershell
+15:0-4 source.powershell meta.scriptblock.powershell
+15:4-6 source.powershell meta.scriptblock.powershell keyword.control.powershell
+15:6-7 source.powershell meta.scriptblock.powershell
+15:7-8 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell punctuation.section.group.begin.powershell
+15:8-9 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell support.variable.automatic.powershell punctuation.definition.variable.powershell
+15:9-21 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell support.variable.automatic.powershell
+15:21-22 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell
+15:22-25 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell keyword.operator.comparison.powershell
+15:25-26 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell
+15:26-27 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell constant.numeric.integer.powershell
+15:27-28 source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell punctuation.section.group.end.powershell
+15:28-29 source.powershell meta.scriptblock.powershell
+15:29-30 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell punctuation.section.braces.begin.powershell
+15:30-31 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell
+15:31-36 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell keyword.control.powershell
+15:36-37 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell
+15:37-38 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell string.quoted.double.powershell punctuation.definition.string.begin.powershell
+15:38-53 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell string.quoted.double.powershell
+15:53-54 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell string.quoted.double.powershell support.variable.automatic.powershell punctuation.definition.variable.powershell
+15:54-66 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell string.quoted.double.powershell support.variable.automatic.powershell
+15:66-67 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell string.quoted.double.powershell punctuation.definition.string.end.powershell
+15:67-68 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell
+15:68-69 source.powershell meta.scriptblock.powershell meta.scriptblock.powershell punctuation.section.braces.end.powershell
+16:0-1 source.powershell meta.scriptblock.powershell punctuation.section.braces.end.powershell
+17:0-0 source.powershell
+18:0-1 source.powershell comment.line.powershell punctuation.definition.comment.powershell
+18:1-34 source.powershell comment.line.powershell
+19:0-13 source.powershell support.function.powershell
+19:13-14 source.powershell
+19:14-15 source.powershell meta.group.array-expression.powershell keyword.other.array.begin.powershell
+19:15-16 source.powershell meta.group.array-expression.powershell punctuation.section.group.begin.powershell
+19:16-17 source.powershell meta.group.array-expression.powershell string.quoted.single.powershell punctuation.definition.string.begin.powershell
+19:17-22 source.powershell meta.group.array-expression.powershell string.quoted.single.powershell
+19:22-23 source.powershell meta.group.array-expression.powershell string.quoted.single.powershell punctuation.definition.string.end.powershell
+19:23-24 source.powershell meta.group.array-expression.powershell punctuation.section.group.end.powershell
+20:0-2 source.powershell keyword.control.powershell
+20:2-3 source.powershell
+20:3-4 source.powershell meta.group.simple.subexpression.powershell punctuation.section.group.begin.powershell
+20:4-8 source.powershell meta.group.simple.subexpression.powershell keyword.operator.logical.powershell
+20:8-9 source.powershell meta.group.simple.subexpression.powershell
+20:9-10 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+20:10-19 source.powershell meta.group.simple.subexpression.powershell variable.other.readwrite.powershell
+20:19-20 source.powershell meta.group.simple.subexpression.powershell punctuation.section.group.end.powershell
+20:20-21 source.powershell
+20:21-22 source.powershell meta.scriptblock.powershell punctuation.section.braces.begin.powershell
+20:22-23 source.powershell meta.scriptblock.powershell
+20:23-36 source.powershell meta.scriptblock.powershell support.function.powershell
+20:36-37 source.powershell meta.scriptblock.powershell
+20:37-38 source.powershell meta.scriptblock.powershell meta.group.array-expression.powershell keyword.other.array.begin.powershell
+20:38-39 source.powershell meta.scriptblock.powershell meta.group.array-expression.powershell punctuation.section.group.begin.powershell
+20:39-40 source.powershell meta.scriptblock.powershell meta.group.array-expression.powershell string.quoted.single.powershell punctuation.definition.string.begin.powershell
+20:40-44 source.powershell meta.scriptblock.powershell meta.group.array-expression.powershell string.quoted.single.powershell
+20:44-45 source.powershell meta.scriptblock.powershell meta.group.array-expression.powershell string.quoted.single.powershell punctuation.definition.string.end.powershell
+20:45-46 source.powershell meta.scriptblock.powershell meta.group.array-expression.powershell punctuation.section.group.end.powershell
+20:46-47 source.powershell meta.scriptblock.powershell
+20:47-48 source.powershell meta.scriptblock.powershell punctuation.section.braces.end.powershell
+21:0-10 source.powershell support.function.powershell
+21:10-11 source.powershell
+21:11-12 source.powershell string.quoted.double.powershell punctuation.definition.string.begin.powershell
+21:12-18 source.powershell string.quoted.double.powershell
+21:18-19 source.powershell string.quoted.double.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+21:19-32 source.powershell string.quoted.double.powershell variable.other.readwrite.powershell
+21:32-38 source.powershell string.quoted.double.powershell
+21:38-39 source.powershell string.quoted.double.powershell meta.embedded.substatement.powershell keyword.other.substatement.powershell punctuation.definition.substatement.powershell punctuation.section.embedded.substatement.begin.powershell
+21:39-40 source.powershell string.quoted.double.powershell meta.embedded.substatement.powershell punctuation.section.group.begin.powershell punctuation.section.embedded.substatement.begin.powershell
+21:40-41 source.powershell string.quoted.double.powershell meta.embedded.substatement.powershell interpolated.complex.source.powershell variable.other.readwrite.powershell punctuation.definition.variable.powershell
+21:41-44 source.powershell string.quoted.double.powershell meta.embedded.substatement.powershell interpolated.complex.source.powershell variable.other.readwrite.powershell
+21:44-51 source.powershell string.quoted.double.powershell meta.embedded.substatement.powershell interpolated.complex.source.powershell variable.other.readwrite.powershell variable.other.member.powershell
+21:51-52 source.powershell string.quoted.double.powershell meta.embedded.substatement.powershell punctuation.section.group.end.powershell punctuation.section.embedded.substatement.end.powershell
+21:52-66 source.powershell string.quoted.double.powershell
+21:66-67 source.powershell string.quoted.double.powershell punctuation.definition.string.end.powershell
+21:67-68 source.powershell
+21:68-69 source.powershell keyword.operator.assignment.powershell
+21:69-90 source.powershell

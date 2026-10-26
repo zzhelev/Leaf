@@ -141,7 +141,7 @@ Run everything from the repo root, with `JAVA_HOME` set as above.
 
 ```bash
 ./gradlew build                          # full build + tests; ~5 min (a cold Rust build adds ~2 s)
-./gradlew test                           # all tests (:app, :common, :data, :domain)
+./gradlew test                           # all tests (:app, :common, :data, :domain, :textmate)
 ./gradlew :data:test                     # ~25 s when the build is warm
 ./gradlew :app:run                       # launch the app
 ./gradlew :app:run --args="/path/to/repo"  # launch and open a repo/dir in a new tab (App.getDirToOpen)
@@ -258,6 +258,10 @@ asking.
     certificates against the JVM's trust store. An LFS request skips the check only when `http.sslVerify` is false
     for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does.
 - `ui`: empty placeholder module (only `build.gradle.kts`).
+- `textmate` (fork-only, 2026-10-23): the engine that colours code (see Syntax highlighting), a copy of
+  kotlin-textmate's (MIT, a Kotlin port of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings.
+  Only `data`'s `TextMateHighlighter` uses it. `textmate/README.md` says what Leaf changed in the copy, each a commit of
+  its own, which differences from VS Code remain, and how to take a later fix from kotlin-textmate.
 - `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program and credential
   helper of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and `AskpassHelper`
   extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.
@@ -872,8 +876,8 @@ its lines, with colours while editing (section 11).
     the row's line to stay where it was, and finishing puts the line at the top back as a row.
   - Columns: `EditorRowLayout` makes the item as tall as the field or a side's lines, and the others get one filler.
     Line numbers are placed at the field's lines (`EditorLineNumbers`). Tabs show as four spaces (`TabsAsSpaces`), as
-    `DiffText` shows them, and keywords, annotations and comments in the rows' colours (`EditorColours`, plain past
-    `MAX_COLOURED_EDIT_CHARACTERS`). Without wrapping, the field doesn't wrap, scrolls with `SidewaysScroll` (its
+    `DiffText` shows them, and code in its colours (`EditorColours`, see Blame's and the conflict resolver's colours;
+    plain past `MAX_COLOURED_EDIT_CHARACTERS`). Without wrapping, the field doesn't wrap, scrolls with `SidewaysScroll` (its
     `editorWidth` lets the longest typed line be reached), and keeps the caret in sight.
   - **Opening a file that was saved** (`ResumedMerge.kt`, `resumedFrom`): `GetConflictedFileGitAction` cuts the merge
     into parts, converts the working file as `git add` would (`checkinLineEndings`, through JGit's input stream: its
@@ -2192,6 +2196,10 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     commit as the lease (`RepositoryTabViewModel.deleteRemoteBranch`), so a further push still stops it. Leaf doesn't
     overrule an explicit choice: it says what changed, and the user decides. The branch's name on the server comes from
     the fetch refspec (`serverRefOf`, shared with the batch delete); it used to be `refs/heads/` plus the tracking name.
+    `serverTips` asks the server that the remote pushes to (`git remote get-url --push --all`): `git ls-remote <remote>`
+    asks its fetch URL, a fork or a mirror when `pushurl` points elsewhere. It asks by the remote's name when both are
+    the same, so that the remote's own settings apply, and a remote with several push URLs gets `SeveralPushUrlsError`;
+    the single delete then reports git's refusal.
 - Fetch runs `git fetch --progress --prune <remote>` for each remote in turn (`GitCliFetchAllRemotesGitAction`), so
   one that fails doesn't stop the others. The failures come back together as `FetchRemotesError`. A remote whose
   dialog the user closed isn't reported, as with JGit ("Cancelled authentication").
@@ -2456,6 +2464,40 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   started, and `UseCaseExecutor` records nothing for a cancelled task, even if its code turned the cancellation into
   an error. `CredentialsStateManager` goes back to `None` when the coroutine waiting for a dialog is cancelled, and
   `AppTab` then closes the dialog.
+- **Stop waiting, for a push or a remote branch's delete (fork-only, 2026-10-23, `domain/remote/`):** killing git
+  doesn't stop a server that has what git handed it. Probed with git 2.54 against `git daemon` (a server outside git's
+  process tree, as ssh and https servers are; a remote on disk dies with git): a push killed while it wrote its objects,
+  or in the pre-push hook where git-lfs uploads, left the server as it was, as a server takes a push only with its whole
+  pack; one killed after git's `Total` line, while the server's pre-receive hook ran, was taken. git, killed, then left
+  `origin/<branch>` where it was and set no upstream.
+  - **The hand-off:** `GitCliPushBranchGitAction` and `GitCliDeleteRemoteBranchGitAction` pass `GitCliRemoteCommand.run`
+    a `ServerHandOff` (the remote, the branch on the server, the remote-tracking branch from the fetch refspec,
+    `trackingRefOf`, the commit pushed or none for a delete, the commit before, and the branch whose upstream `-u`
+    sets). The run reports it in `TaskProgress.handOff` and `handedOverAt` at stderr's first `Writing objects: 100%` or
+    `Total N` line (`isHandOffLine`; `Total 0` for a push with no new objects), or at once for a delete, which sends
+    only its command and doesn't say when. After it, only the server's progress (`remote: …`, `GitProgress.fromServer`)
+    shows, and the screen says "Waiting for origin". A push over HTTPS may print `Total` before git has sent all of it;
+    the check below then says what happened.
+  - **The button** (`processingButton`): Cancel until the hand-off, none for `STOP_WAITING_AFTER` (10 s, shared with the
+    batch delete dialog), then Stop waiting. The screen keeps the button's place meanwhile (`BUTTON_PLACE_HEIGHT`).
+  - **After Stop waiting:** `cancelCurrentTask` returns the hand-off, and `RepositoryTabViewModel.cancelOngoingTask`
+    starts the tab-scoped `StoppedWaitingCheck`, which runs in the tab's scope, as the task was cancelled.
+    `CheckHandOffGitAction` asks the server (`serverTips`), every `CHECK_AGAIN_EVERY` (2 s) while it hasn't done it,
+    `CHECK_ROUNDS` (15) times at most. Once it has, it does what git would have: moves the remote-tracking branch to
+    the pushed commit while it's still at the one before (a fetch since keeps its own), sets the upstream unless the
+    branch has one by then, or removes a deleted branch's remote-tracking branch, then refreshes the remote branches,
+    the branches and the log.
+  - **The strip** (`StoppedWaitingStrip`, under the toolbar after the unsupported index banner, until closed):
+    "Stopped waiting. Asking origin whether it took the push of main…" with Stop checking; "origin took the push: main
+    is at 7b6ee23." (success); "origin hasn't taken the push of main: it's still at 8180de8." with Fetch; Fetch when
+    nothing tells (several push URLs, or checking stopped before an answer); "Couldn't ask origin about main: …" with
+    Try again. A first answer that fails is the last; a later one leaves the answer before it. A real Cancel shows
+    nothing, as nothing changed. Pushed tags aren't checked: pushing them changes no local ref.
+  - Tests: `PushHandOffTest` (the hand-off line for each kind of push and a delete, a Cancel before it, a stop after it
+    over `git daemon` taken or refused by the server's hook, what the check sets and keeps, the push URL),
+    `StoppingPushesTest` (a `TestTab` through the use cases), `StopWaitingTest` and `StoppedWaitingCheckTest` (domain),
+    `ProcessingScreenTest` and `StoppedWaitingStripTest` (rendered). The view models' two lines ran through the Dagger
+    graph in a temporary harness against the notes folder's `push-cancel-demo.sh`.
 
 **Index formats that JGit can't read (fork-only, `data/git/repository/IndexExtensions.kt`,
 `domain/index/UnsupportedIndex.kt`):** git writes the index split (`git update-index --split-index`,
@@ -4021,6 +4063,66 @@ tag picked in the side panel. Worktree review and the file-history strip have vi
   view model ran against the real Dagger graph in a temporary harness, which also checked that the real `Log` scrolls to a
   parent that had to be loaded.
 
+## Syntax highlighting
+
+Fork-only, 2026-10-23 to 2026-10-26 (`docs/fork/syntax-highlighting.md`): code in the diff pane (unified and split, file
+history, a comparison's full view), blame and the conflict resolver's rows and editor is coloured with TextMate
+grammars, the format of VS Code, GitHub and shiki. Each version of a file is coloured whole, once, in the background:
+the text shows at once and its colours follow. Upstream's highlighter, a keyword list a line in 17 languages
+(`ui/diff/syntax_highlighter/`), was removed on 2026-10-26.
+
+- **Grammars:** Leaf ships 82 of shiki's grammars (`textmate/GRAMMARS.md`, copied by
+  `textmate/tools/grammars/copy.mjs` with their licences), which `ShippedGrammars` (`dev.app.leaf.textmate`) loads.
+  `domain`'s `highlighting/Languages.kt` maps a file's name, extension or `#!` line to one (step 2).
+- **The engine's tests:** `ShippedGrammarsConformanceTest` compares a sample per language with vscode-textmate's
+  tokens, which `textmate/tools/conformance/` makes (Node.js); `GoldenSnapshotTest` does the same for kotlin-textmate's
+  goldens.
+- **The highlighter:** `TextMateHighlighter` (`data/highlighting/`, an app singleton behind `IHighlightTextAction` and
+  `HighlightTextUseCase`, step 3) colours a text on two threads of its own. A `Grammar` isn't thread-safe, so each
+  thread compiles its own, in a registry of its own (the 12 it used last); compiled patterns are shared
+  (`CompiledPatterns`). It keeps results by grammar and content (32 MB), stops at 2 s a text and 10,000 characters a
+  line, and checks for cancellation before each line. `domain`'s `highlighting/SyntaxCategories.kt` gives a token's
+  scopes their category (section 4.2 of the plan), and `HighlightedText` keeps the spans, three ints each.
+- **The diff's colours** (step 5, 2026-10-26): `RepositoryOpenViewModel` and `HistoryViewModel` show each diff to a
+  `DiffHighlightsLoader` (`viewmodels/`) before the view gets it, which colours its two versions in the background
+  (`HighlightTextUseCase` with the hunks' `RawText`, decoded a line at a time as the diff decodes them) and exposes
+  them as `diffHighlights`, a `HighlightedVersions` found by the `RawText` instance. A version with a coloured
+  version's path and bytes takes its colours at once, so a diff loaded again by a refresh doesn't flash plain; the
+  diff before stays, as the view may still draw it. `DiffPane` provides `LocalDiffHighlights` (`ui/diff/DiffSyntax.kt`)
+  and file history passes them to `HistoryContentLoaded`.
+  - A removed line takes the old version's spans, an added or a context line the new one's, and a context line on the
+    split diff's old side the old one's, unless the diff ignored whitespace (`DiffHighlights.spansOf`).
+  - `formatDiff` maps a span's offsets onto the text as drawn (`drawnOffsets`: a tab is four characters, a piece's
+    line ending none), up to `MAX_HIGHLIGHTED_LINE_CHARACTERS`, under the word highlights. A word diff that isn't cut
+    from the line's own text draws plain (`spansFit`).
+  - Tests: `FormatDiffTest`, `DiffSyntaxTest` (rendered, with the real highlighter), `DiffHighlightsTest`,
+    `HighlightTextUseCaseTest`, `DiffHighlightsLoaderTest`, `HistoryViewModelTest`. View model tests that build
+    `HistoryViewModel` give it `HighlightTextUseCase(NoHighlights)`.
+- **Blame's and the conflict resolver's colours** (step 6, 2026-10-26): blame colours the file once, after it loads
+  (`BlameState.Loaded.highlighted`, kept for the blame that is still shown), and each line takes its spans
+  (`colouredLine`, `ui/diff/DiffSyntax.kt`).
+  - The resolver keeps its colours in `ConflictResolverState.syntax`, a `HighlightedVersions` that its cells look up
+    by their `RawText` (`spansOf(cell.text, cell.line)`), passed down the layouts as a parameter in place of the file's
+    path. The view model colours the base, ours and theirs when the file loads, and lines typed (`typedLines`) after
+    ours' lines before their part (`textBefore`, `HighlightTextUseCase.inContext`), so that a part that starts in a
+    comment is coloured as one. It keeps them until another file loads.
+  - The field (`ResolverEdit.syntax`, an `EditorSyntax`) starts from the rows' colours (`editStartSyntax`), so it
+    doesn't go plain, and is coloured again 80 ms after each change (`EDIT_COLOURING_DELAY`), after the same lines.
+    Until then, `EditorColours` gives the lines that didn't change their colours, and the line typed in those of its
+    characters before the change (`spansFor`). Finishing puts the field's colours on the lines typed in the same state
+    as the merge that has them, and colours them again when the field's were of an earlier text.
+  - Tests: `ResolverSyntaxTest` (domain), `HighlightTextUseCaseTest`, `EditorColoursTest`, `ResolverSyntaxColoursTest`
+    (the rows in both layouts, rendered with the real highlighter), `ConflictResolverColouringTest` (the view model,
+    built from its use cases), `BlameSyntaxTest`, and the field's colours in `ConflictResolverTest`.
+- **Colours:** nine, one per `SyntaxCategory`, which every style sets, and the Code colours setting (Leaf, VS Code,
+  IntelliJ): see Styles, Syntax colours, under Conventions, Settings.
+- **A demo for a manual run:** `textmate/tools/demo/make-demo.sh [folder]` (`/tmp/leaf-syntax-demo` unless given) makes
+  a repository with a file in each shipped language, from the conformance samples, in commits whose diffs add, take out
+  and change lines in every file, and a merge stopped at conflicts in four of them. It makes the folder again on each
+  run, and touches nothing but a folder that it made.
+- **Not done** (section 7 of the plan): a language from `.gitattributes` (`linguist-language`), grammars that a user
+  adds, and colouring the commit message field with git's commit grammar.
+
 ## Refresh
 
 **The watcher (fork-only, `data/.../git/FileChangesWatcher.kt`):** the JDK's `WatchService`, since 2026-10-15. Upstream
@@ -4242,10 +4344,11 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   palette) and "Style Library" (turn 3: gallery 3b, editor 3c, Solarized).
   - **The model** (`domain/styles/`): `StyleDefinition(id, name, look: AccentStyle, light, dark)`, a side being
     `StyleSide(seeds: StyleSeeds, setByHand: Map<StyleSlot, Int>)` and the seeds Background, Accent, Danger, Warning and
-    Success (ARGB ints, so domain needs no Compose). `StyleSlot` has 58 colours with stable file keys (`background`,
-    `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary` and `onPrimary` are Main action's), the roles' 26 and
-    six lanes. `BuiltInStyles` holds the five, in Settings' order; the looks' ids (`tonal`, `classic`, `quiet`) are what
-    `accent_style` held before, so an old choice still reads.
+    Success (ARGB ints, so domain needs no Compose). `StyleSlot` has 64 colours with stable file keys (`background`,
+    `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary` and `onPrimary` are Main action's), the roles' 26,
+    six lanes, and since 2026-10-25 six more syntax colours, which with the scheme's keyword, annotation and comment make
+    the group Syntax (`StyleSlot.SYNTAX`, see Syntax colours below). `BuiltInStyles` holds the five, in Settings' order;
+    the looks' ids (`tonal`, `classic`, `quiet`) are what `accent_style` held before, so an old choice still reads.
   - **Working a side out** (`resolveStyleSide`, `theme/styles/StyleDerivation.kt`, into a `StylePalette` that gives the
     `ColorsScheme`, the `StyleColors` and the lanes): each colour not set by hand starts as its look's
     (`StylePalette.template(look, isLight)`: `lightTheme.styled(look)` or `darkTheme`'s, `styleColorsFor` and
@@ -4265,11 +4368,14 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
       or a surface moves only away from what's on it (`towards`), so a light panel under grey text gets lighter, never
       dark. What moved is a `StyleAdjustment`, and a check that colours set by hand leave short is a
       `ContrastShortfall`.
-    - Syntax colours aren't checked. Classic's warning icon keeps its 1.75 : 1 amber.
-  - **`AppTheme(selectedTheme, linesHeightType, style)`** (`theme/Theme.kt`) resolves the side (`remember(style,
-    isLight)`) and provides `LocalColorsScheme` (a `CompositionLocal`, where upstream kept the scheme in a global flow,
-    so an `AppTheme` inside another colours only what it holds: the editor's previews), `LocalStyleColors` and
-    `LocalGraphLanes` (`MaterialTheme.graphLanes`, which the log reads). Outside any `AppTheme` the lanes are
+    - The nine syntax colours hold 4.5 : 1 on the background and both line tints, each moving itself (since
+      2026-10-25). Classic's warning icon keeps its 1.75 : 1 amber.
+  - **`AppTheme(selectedTheme, linesHeightType, style, codeColours)`** (`theme/Theme.kt`) resolves the side
+    (`remember(style, isLight, codeColours)`) and provides `LocalColorsScheme` (a `CompositionLocal`, where upstream kept
+    the scheme in a global flow, so an `AppTheme` inside another colours only what it holds: the editor's previews),
+    `LocalStyleColors`, `LocalGraphLanes` (`MaterialTheme.graphLanes`, which the log reads), `LocalSyntaxColors`
+    (`MaterialTheme.syntaxColors`) and `LocalCodeColours`, which an `AppTheme` inside another takes as its default, so
+    the editor's previews follow the setting. Outside any `AppTheme` the lanes are
     `CLASSIC_LANES`, and `styleColors` falls back to Classic's from `MaterialTheme.colors`. `style` defaults to Tonal,
     so a test that renders `AppTheme(theme)` gets Tonal.
   - **Lanes:** Classic keeps Leaf's old six (`CLASSIC_LANES`, the grey written `0xFFe78909c`, which Compose reads as
@@ -4355,9 +4461,27 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     3.2 : 1 on the dark background. The resolver's "ours" cells and legend use `primary` too.
   - **A line's buttons are opaque** (`LineActionButtons`): their fill is laid on the theme's background. Quiet's 8%
     white took the line's tint, on which dark Quiet's Discard icon held 2.9 : 1.
+  - **Syntax colours** (2026-10-25, step 4 of `docs/fork/syntax-highlighting.md`): nine slots in the group Syntax,
+    one per `SyntaxCategory` (`StyleSlot.of`): keyword, annotation and comment (the scheme's `diffKeyword`,
+    `diffAnnotation` and `diffComment`, which upstream's code reads), string, number, type, function, tag and attribute.
+    `SyntaxColors` (`LocalSyntaxColors`, `MaterialTheme.syntaxColors`, `colorOf(category)`) has all nine.
+    - Every look starts from palette 1a of the "Syntax Colours" board (`syntaxTemplate`; light #1A69B5, #756700,
+      #027835, #A44C1D, #A73B6D, #7652AC, #06717A, the tag the keyword's and the attribute the type's), which darkened
+      Leaf's light keyword, annotation and comment (#3B83CF, #9F9927 and #0D9141 held 3.0 to 4.1 : 1 on white, and
+      2.4 to 3.3 on a removed line). Keyword and tag follow Accent, annotation Warning, comment Success; the other five are fixed.
+    - Solarized sets its nine by hand: its accents, moved until they hold the checks, as the board has them. Teal sets
+      its function (#1A69B5, #97BBFE), as the template's, a cyan, would be next to its teal keyword; its light keyword
+      and tag take a shade more than following gives, to hold on the removed lines.
+    - **Code colours** (Settings → Appearance, after the gallery: Leaf, VS Code, IntelliJ; `AppConfig.CodeColours`,
+      key `code_colours`: `leaf`, `vscode` or `intellij`, and a value this version doesn't know reads as Leaf): VS
+      Code's Modern and IntelliJ's schemes (`domain/styles/CodeColours.kt`) take the nine slots in every style, those set
+      by hand included, and are checked as worked-out colours, which keeps their hue. IntelliJ's types are the text
+      colour. `App.kt` passes the setting to `AppTheme`; Settings reads it in the Appearance flow.
+    - Tests: `SyntaxColoursTest` (every built-in's nine, each choice in every built-in, random seeds),
+      `CodeColoursTest`, `CodeColoursSettingTest`, `CodeColoursRowTest` (the row, rendered), `AppThemeStylesTest`,
+      `StyleFileCodecTest` (a file from before the nine).
   - **Not set by a style** (`docs/fork/custom-styles.md`, Limits): about 20 colours written in the UI code (the light
-    themes' amber text #8A5C00, the resolver's purple for theirs, the compare badges, the avatars' palette), and syntax
-    colours beyond keyword, annotation and comment.
+    themes' amber text #8A5C00, the resolver's purple for theirs, the compare badges, the avatars' palette).
   - **Not met:** the warning icon (#C68128) holds 3 : 1 on the light background, but 2.6 on a selected row and 2.7 on
     `secondarySurface`; the strips' icons hold 2.8 on the tonal light strip, where the text says the same.
   - **Checking built-ins:** renders of the whole tab in Classic, Tonal and Quiet, light and dark, were compared with

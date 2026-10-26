@@ -87,7 +87,9 @@ class GitCliPushBranchGitActionTest {
         assertEquals(head(), remoteRef("refs/heads/main"))
         assertEquals("origin", git.run(work, "config", "branch.main.remote").trim())
         assertEquals("refs/heads/main", git.run(work, "config", "branch.main.merge").trim())
-        assertEquals(TaskProgress("Writing objects", 100), remote.progress.lastOrNull { it != null })
+        // Fork-only: once git has written its last object, the server has the push, and the progress says so
+        assertEquals(TaskProgress("Writing objects", 100), remote.progress.lastOrNull { it != null && it.handOff == null })
+        assertEquals(head(), remote.progress.lastOrNull { it != null }?.handOff?.pushed)
         assertEquals(null, remote.stateRepository.taskProgress.value)
     }
 

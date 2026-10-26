@@ -1,0 +1,11 @@
+{
+  // Editor settings
+  "editor.tabSize": 4,
+  "editor.rulers": [80, 120],
+  /* Files the watcher skips. */
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/node_modules/**": true,
+  },
+  "git.autofetch": false, // trailing comma above
+}

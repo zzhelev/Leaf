@@ -4,17 +4,22 @@
 package dev.app.leaf.data.git.cli.remote
 
 /**
- * A line of git's progress: `Writing objects:  45% (9/20)`, or the server's `remote: Compressing objects:  50% (1/2)`.
+ * A line of git's progress: `Writing objects:  45% (9/20)`, or the server's `remote: Compressing objects:  50% (1/2)`
+ * ([fromServer]).
  */
-data class GitProgress(val stage: String, val percent: Int)
+data class GitProgress(val stage: String, val percent: Int, val fromServer: Boolean = false)
 
-private val PROGRESS_LINE = Regex("""^(?:remote: )?([^:]+): +(\d{1,3})% \(\d+/\d+\)""")
+private val PROGRESS_LINE = Regex("""^(remote: )?([^:]+): +(\d{1,3})% \(\d+/\d+\)""")
 
 /**
  * Reads progress from git's stderr as it's written (`--progress`). git rewrites a stage's line with `\r` while it runs,
- * and ends it with `\n` once it's done.
+ * and ends it with `\n` once it's done. [onLine] gets each line, as rewritten, progress or not, after its progress
+ * (fork-only).
  */
-class GitProgressParser(private val onProgress: (GitProgress) -> Unit) {
+class GitProgressParser(
+    private val onLine: ((String) -> Unit)? = null,
+    private val onProgress: (GitProgress) -> Unit,
+) {
     private val line = StringBuilder()
 
     fun accept(text: String) {
@@ -29,10 +34,13 @@ class GitProgressParser(private val onProgress: (GitProgress) -> Unit) {
     }
 
     private fun parseLine(text: String) {
-        val match = PROGRESS_LINE.find(text) ?: return
-        val percent = match.groupValues[2].toInt().coerceAtMost(100)
+        PROGRESS_LINE.find(text)?.let { match ->
+            val percent = match.groupValues[3].toInt().coerceAtMost(100)
 
-        onProgress(GitProgress(match.groupValues[1].trim(), percent))
+            onProgress(GitProgress(match.groupValues[2].trim(), percent, fromServer = match.groupValues[1].isNotEmpty()))
+        }
+
+        onLine?.invoke(text)
     }
 }
 

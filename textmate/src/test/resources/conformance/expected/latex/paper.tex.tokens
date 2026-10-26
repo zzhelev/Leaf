@@ -1,0 +1,154 @@
+# vscode-textmate 9.3.2, vscode-oniguruma 2.0.1
+0:0-1 text.tex.latex meta.preamble.latex keyword.control.preamble.latex punctuation.definition.function.latex
+0:1-14 text.tex.latex meta.preamble.latex keyword.control.preamble.latex
+0:14-15 text.tex.latex meta.preamble.latex meta.parameter.optional.latex punctuation.definition.arguments.optional.begin.latex
+0:15-19 text.tex.latex meta.preamble.latex meta.parameter.optional.latex variable.parameter.function.latex
+0:19-20 text.tex.latex meta.preamble.latex meta.parameter.optional.latex punctuation.definition.arguments.optional.end.latex
+0:20-21 text.tex.latex meta.preamble.latex punctuation.definition.arguments.begin.latex
+0:21-28 text.tex.latex meta.preamble.latex support.class.latex
+0:28-29 text.tex.latex meta.preamble.latex punctuation.definition.arguments.end.latex
+1:0-1 text.tex.latex meta.preamble.latex keyword.control.preamble.latex punctuation.definition.function.latex
+1:1-11 text.tex.latex meta.preamble.latex keyword.control.preamble.latex
+1:11-12 text.tex.latex meta.preamble.latex punctuation.definition.arguments.begin.latex
+1:12-19 text.tex.latex meta.preamble.latex support.class.latex
+1:19-20 text.tex.latex meta.preamble.latex punctuation.definition.arguments.end.latex
+2:0-1 text.tex.latex meta.preamble.latex keyword.control.preamble.latex punctuation.definition.function.latex
+2:1-11 text.tex.latex meta.preamble.latex keyword.control.preamble.latex
+2:11-12 text.tex.latex meta.preamble.latex meta.parameter.optional.latex punctuation.definition.arguments.optional.begin.latex
+2:12-16 text.tex.latex meta.preamble.latex meta.parameter.optional.latex variable.parameter.function.latex
+2:16-17 text.tex.latex meta.preamble.latex meta.parameter.optional.latex punctuation.definition.arguments.optional.end.latex
+2:17-18 text.tex.latex meta.preamble.latex punctuation.definition.arguments.begin.latex
+2:18-26 text.tex.latex meta.preamble.latex support.class.latex
+2:26-27 text.tex.latex meta.preamble.latex punctuation.definition.arguments.end.latex
+3:0-0 text.tex.latex
+4:0-1 text.tex.latex comment.line.percentage.tex punctuation.definition.comment.tex
+4:1-28 text.tex.latex comment.line.percentage.tex
+5:0-1 text.tex.latex meta.parameter.newcommand.latex storage.type.function.latex punctuation.definition.function.latex
+5:1-11 text.tex.latex meta.parameter.newcommand.latex storage.type.function.latex
+5:11-12 text.tex.latex meta.parameter.newcommand.latex punctuation.definition.begin.latex
+5:12-13 text.tex.latex meta.parameter.newcommand.latex support.function.general.latex punctuation.definition.function.latex
+5:13-18 text.tex.latex meta.parameter.newcommand.latex support.function.general.latex
+5:18-19 text.tex.latex meta.parameter.newcommand.latex punctuation.definition.end.latex
+5:19-20 text.tex.latex meta.parameter.newcommand.latex punctuation.definition.arguments.optional.begin.latex
+5:20-21 text.tex.latex meta.parameter.newcommand.latex
+5:21-22 text.tex.latex meta.parameter.newcommand.latex punctuation.definition.arguments.optional.end.latex
+5:22-23 text.tex.latex meta.parameter.newcommand.latex punctuation.definition.arguments.begin.latex
+5:23-30 text.tex.latex meta.parameter.newcommand.latex
+5:30-31 text.tex.latex meta.parameter.newcommand.latex punctuation.definition.arguments.end.latex
+6:0-0 text.tex.latex
+7:0-1 text.tex.latex meta.function.begin-document.latex support.function.be.latex punctuation.definition.function.latex
+7:1-6 text.tex.latex meta.function.begin-document.latex support.function.be.latex
+7:6-7 text.tex.latex meta.function.begin-document.latex punctuation.definition.arguments.begin.latex
+7:7-15 text.tex.latex meta.function.begin-document.latex variable.parameter.function.latex
+7:15-16 text.tex.latex meta.function.begin-document.latex punctuation.definition.arguments.end.latex
+8:0-1 text.tex.latex support.function.general.tex punctuation.definition.function.tex
+8:1-6 text.tex.latex support.function.general.tex
+8:6-33 text.tex.latex
+9:0-1 text.tex.latex support.function.general.tex punctuation.definition.function.tex
+9:1-7 text.tex.latex support.function.general.tex
+9:7-18 text.tex.latex
+10:0-1 text.tex.latex support.function.general.tex punctuation.definition.function.tex
+10:1-10 text.tex.latex support.function.general.tex
+11:0-0 text.tex.latex
+12:0-1 text.tex.latex meta.function.section.section.latex support.function.section.latex punctuation.definition.function.latex
+12:1-8 text.tex.latex meta.function.section.section.latex support.function.section.latex
+12:8-9 text.tex.latex meta.function.section.section.latex punctuation.definition.arguments.begin.latex
+12:9-21 text.tex.latex meta.function.section.section.latex entity.name.section.latex
+12:21-22 text.tex.latex meta.function.section.section.latex punctuation.definition.arguments.end.latex
+12:22-23 text.tex.latex meta.definition.label.latex keyword.control.label.latex punctuation.definition.keyword.latex
+12:23-28 text.tex.latex meta.definition.label.latex keyword.control.label.latex
+12:28-29 text.tex.latex meta.definition.label.latex punctuation.definition.arguments.begin.latex
+12:29-38 text.tex.latex meta.definition.label.latex variable.parameter.definition.label.latex
+12:38-39 text.tex.latex meta.definition.label.latex punctuation.definition.arguments.end.latex
+13:0-25 text.tex.latex
+13:25-26 text.tex.latex meta.function.emph.latex support.function.emph.latex punctuation.definition.function.latex
+13:26-30 text.tex.latex meta.function.emph.latex support.function.emph.latex
+13:30-31 text.tex.latex meta.function.emph.latex punctuation.definition.emph.begin.latex
+13:31-35 text.tex.latex meta.function.emph.latex markup.italic.emph.latex
+13:35-36 text.tex.latex meta.function.emph.latex punctuation.definition.emph.end.latex
+13:36-65 text.tex.latex
+14:0-1 text.tex.latex meta.function.environment.math.latex support.function.be.latex punctuation.definition.function.latex
+14:1-6 text.tex.latex meta.function.environment.math.latex support.function.be.latex
+14:6-7 text.tex.latex meta.function.environment.math.latex punctuation.definition.arguments.begin.latex
+14:7-15 text.tex.latex meta.function.environment.math.latex variable.parameter.function.latex
+14:15-16 text.tex.latex meta.function.environment.math.latex punctuation.definition.arguments.end.latex
+15:0-8 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:8-9 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.operator.tex
+15:9-10 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:10-11 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.begin.bracket.round.tex
+15:11-13 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:13-14 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.operator.tex
+15:14-16 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:16-17 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.end.bracket.round.tex
+15:17-18 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:18-19 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.operator.tex
+15:19-20 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:20-21 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.begin.bracket.round.tex
+15:21-23 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:23-24 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.operator.tex
+15:24-26 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:26-27 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.math.end.bracket.round.tex
+15:27-29 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:29-30 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex constant.other.general.math.tex punctuation.definition.constant.math.tex
+15:30-34 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex constant.other.general.math.tex
+15:34-35 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex meta.space-after-command.latex
+15:35-36 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex constant.other.math.tex punctuation.definition.function.tex
+15:36-40 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex constant.other.math.tex
+15:40-41 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.definition.arguments.begin.tex meta.text.normal.tex
+15:41-45 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex meta.text.normal.tex
+15:45-46 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex punctuation.definition.arguments.end.tex meta.text.normal.tex
+15:46-50 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:50-51 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex constant.character.math.tex punctuation.definition.constant.math.tex
+15:51-54 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex constant.character.math.tex
+15:54-55 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex meta.space-after-command.latex
+15:55-60 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+15:60-61 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex constant.numeric.math.tex
+15:61-62 text.tex.latex meta.function.environment.math.latex meta.math.block.latex support.class.math.block.environment.latex
+16:0-1 text.tex.latex meta.function.environment.math.latex support.function.be.latex punctuation.definition.function.latex
+16:1-4 text.tex.latex meta.function.environment.math.latex support.function.be.latex
+16:4-5 text.tex.latex meta.function.environment.math.latex punctuation.definition.arguments.begin.latex
+16:5-13 text.tex.latex meta.function.environment.math.latex variable.parameter.function.latex
+16:13-14 text.tex.latex meta.function.environment.math.latex punctuation.definition.arguments.end.latex
+17:0-13 text.tex.latex
+17:13-14 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.definition.string.begin.tex
+17:14-15 text.tex.latex meta.math.block.tex support.class.math.block.tex constant.character.math.tex punctuation.definition.constant.math.tex
+17:15-18 text.tex.latex meta.math.block.tex support.class.math.block.tex constant.character.math.tex
+17:18-19 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.operator.tex
+17:19-20 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.begin.bracket.curly.tex
+17:20-22 text.tex.latex meta.math.block.tex support.class.math.block.tex
+17:22-23 text.tex.latex meta.math.block.tex support.class.math.block.tex constant.numeric.math.tex
+17:23-24 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.end.bracket.curly.tex
+17:24-25 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.operator.tex
+17:25-26 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.begin.bracket.curly.tex
+17:26-27 text.tex.latex meta.math.block.tex support.class.math.block.tex
+17:27-28 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.end.bracket.curly.tex
+17:28-30 text.tex.latex meta.math.block.tex support.class.math.block.tex
+17:30-31 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.operator.tex
+17:31-32 text.tex.latex meta.math.block.tex support.class.math.block.tex
+17:32-33 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.math.operator.tex
+17:33-34 text.tex.latex meta.math.block.tex support.class.math.block.tex constant.numeric.math.tex
+17:34-35 text.tex.latex meta.math.block.tex support.class.math.block.tex punctuation.definition.string.end.tex
+17:35-49 text.tex.latex
+17:49-50 text.tex.latex meta.reference.label.latex keyword.control.ref.latex punctuation.definition.keyword.latex
+17:50-53 text.tex.latex meta.reference.label.latex keyword.control.ref.latex
+17:53-54 text.tex.latex meta.reference.label.latex punctuation.definition.arguments.begin.latex
+17:54-63 text.tex.latex meta.reference.label.latex constant.other.reference.label.latex
+17:63-64 text.tex.latex meta.reference.label.latex punctuation.definition.arguments.end.latex
+17:64-65 text.tex.latex
+18:0-0 text.tex.latex
+19:0-1 text.tex.latex meta.function.verbatim.latex support.function.be.latex punctuation.definition.function.latex
+19:1-6 text.tex.latex meta.function.verbatim.latex support.function.be.latex
+19:6-7 text.tex.latex meta.function.verbatim.latex punctuation.definition.arguments.begin.latex
+19:7-15 text.tex.latex meta.function.verbatim.latex variable.parameter.function.latex
+19:15-16 text.tex.latex meta.function.verbatim.latex punctuation.definition.arguments.end.latex
+20:0-25 text.tex.latex meta.function.verbatim.latex markup.raw.verbatim.latex
+21:0-1 text.tex.latex meta.function.verbatim.latex support.function.be.latex punctuation.definition.function.latex
+21:1-4 text.tex.latex meta.function.verbatim.latex support.function.be.latex
+21:4-5 text.tex.latex meta.function.verbatim.latex punctuation.definition.arguments.begin.latex
+21:5-13 text.tex.latex meta.function.verbatim.latex variable.parameter.function.latex
+21:13-14 text.tex.latex meta.function.verbatim.latex punctuation.definition.arguments.end.latex
+22:0-1 text.tex.latex meta.function.end-document.latex support.function.be.latex punctuation.definition.function.latex
+22:1-4 text.tex.latex meta.function.end-document.latex support.function.be.latex
+22:4-5 text.tex.latex meta.function.end-document.latex punctuation.definition.arguments.begin.latex
+22:5-13 text.tex.latex meta.function.end-document.latex variable.parameter.function.latex
+22:13-14 text.tex.latex meta.function.end-document.latex punctuation.definition.arguments.end.latex

@@ -17,6 +17,8 @@ materialExtended = "1.7.3"
 coroutines = "1.10.2"
 datastore = "1.2.1"
 androidx-viewmodel = "2.10.0"
+joni = "2.2.7"
+jcodings = "1.0.64"
 
 [libraries]
 compose-desktop-linux-arm64 = { group = "org.jetbrains.compose.desktop", name = "desktop-jvm-linux-arm64", version.ref = "compose" }
@@ -58,6 +60,9 @@ ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version
 
 coil3-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil3-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+
+joni = { group = "org.jruby.joni", name = "joni", version.ref = "joni" }
+jcodings = { group = "org.jruby.jcodings", name = "jcodings", version.ref = "jcodings" }
 
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
