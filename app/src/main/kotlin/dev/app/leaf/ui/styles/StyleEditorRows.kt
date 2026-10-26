@@ -36,7 +36,7 @@ private fun row(label: StringResource, vararg slots: Pair<StyleSlot, SlotPart>) 
 
 /**
  * The Advanced table (fork-only, option 3c of the "Style Library" board): every colour a style sets, once, grouped as
- * Surfaces, Text, Files, Diff, Graph lanes, and Buttons and notices.
+ * Surfaces, Text, Files, Diff, Syntax, Graph lanes, and Buttons and notices.
  */
 val ADVANCED_GROUPS: List<AdvancedGroup> = listOf(
     AdvancedGroup(
@@ -76,9 +76,21 @@ val ADVANCED_GROUPS: List<AdvancedGroup> = listOf(
         listOf(
             row(Res.string.style_editor_row_added_lines, ADDED_LINE to SlotPart.LINE, ADDED_WORDS to SlotPart.WORDS),
             row(Res.string.style_editor_row_removed_lines, REMOVED_LINE to SlotPart.LINE, REMOVED_WORDS to SlotPart.WORDS),
+        ),
+    ),
+    // The colours of code (docs/fork/syntax-highlighting.md, 4.4)
+    AdvancedGroup(
+        Res.string.style_editor_group_syntax,
+        listOf(
             row(Res.string.style_editor_row_keyword, KEYWORD),
             row(Res.string.style_editor_row_annotation, ANNOTATION),
             row(Res.string.style_editor_row_comment, COMMENT),
+            row(Res.string.style_editor_row_string, STRING),
+            row(Res.string.style_editor_row_number, NUMBER),
+            row(Res.string.style_editor_row_type, TYPE),
+            row(Res.string.style_editor_row_function, FUNCTION),
+            row(Res.string.style_editor_row_tag, TAG),
+            row(Res.string.style_editor_row_attribute, ATTRIBUTE),
         ),
     ),
     AdvancedGroup(

@@ -1388,6 +1388,7 @@
     <string name="style_editor_group_text">Text</string>
     <string name="style_editor_group_files">Files</string>
     <string name="style_editor_group_diff">Diff</string>
+    <string name="style_editor_group_syntax">Syntax</string>
     <string name="style_editor_group_lanes">Graph lanes</string>
     <string name="style_editor_group_buttons">Buttons and notices</string>
     <string name="style_editor_row_background">Background</string>
@@ -1412,6 +1413,12 @@
     <string name="style_editor_row_keyword">Keyword</string>
     <string name="style_editor_row_annotation">Annotation</string>
     <string name="style_editor_row_comment">Comment</string>
+    <string name="style_editor_row_string">String</string>
+    <string name="style_editor_row_number">Number, constant</string>
+    <string name="style_editor_row_type">Type</string>
+    <string name="style_editor_row_function">Function</string>
+    <string name="style_editor_row_tag">Tag</string>
+    <string name="style_editor_row_attribute">Attribute, key</string>
     <string name="style_editor_row_lane">Lane %1$d</string>
     <string name="style_editor_row_main_action">Main action</string>
     <string name="style_editor_row_action">Action</string>

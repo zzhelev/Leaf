@@ -64,7 +64,11 @@ fun slotRule(slot: StyleSlot, look: AccentStyle, isLight: Boolean): SlotRule {
         TEXT, SECONDARY_TEXT -> asText
         DIALOG_OVERLAY, HIGHLIGHT, ON_HIGHLIGHT, ON_ERROR, MAIN_ACTION_TEXT, LANE_3, LANE_6 -> fixed
 
-        SELECTED_ROW, LINKS, MODIFIED_FILE, KEYWORD, LANE_1, MAIN_ACTION_FILL -> hue(StyleSeed.ACCENT)
+        // The code colours between the keyword's, the annotation's and the comment's hues: the checks move them on a
+        // background that needs it
+        STRING, NUMBER, TYPE, FUNCTION, ATTRIBUTE -> fixed
+
+        SELECTED_ROW, LINKS, MODIFIED_FILE, KEYWORD, TAG, LANE_1, MAIN_ACTION_FILL -> hue(StyleSeed.ACCENT)
         ERROR, DELETED_FILE, REMOVED_LINE, REMOVED_WORDS, LANE_2 -> hue(StyleSeed.DANGER)
         CONFLICTED_FILE, ANNOTATION, LANE_4, WARNING_ICON, WARNING_STRIP_FILL -> hue(StyleSeed.WARNING)
         ADDED_FILE, ADDED_LINE, ADDED_WORDS, COMMENT, LANE_5, SUCCESS_STRIP_FILL -> hue(StyleSeed.SUCCESS)
@@ -161,6 +165,14 @@ fun contrastChecks(look: AccentStyle): List<ContrastCheck> = buildList {
     button(ACTION_FILL, ACTION_TEXT, filledButtons, on = listOf(BACKGROUND, PANELS, HEADERS, BOXES))
     button(NEUTRAL_FILL, NEUTRAL_TEXT, filledButtons, on = listOf(BACKGROUND, PANELS, HEADERS, BOXES))
     button(DESTRUCTIVE_FILL, DESTRUCTIVE_TEXT, filledButtons, on = listOf(BACKGROUND, PANELS, BOXES, WARNING_STRIP_FILL))
+
+    // Code is text: on the background, and on the added and removed lines (not on the word highlights, where even white
+    // holds only 5.0 in dark), each colour moving itself
+    for (syntax in StyleSlot.SYNTAX) {
+        for (layers in listOf(listOf(BACKGROUND), listOf(ADDED_LINE, BACKGROUND), listOf(REMOVED_LINE, BACKGROUND))) {
+            add(ContrastCheck(syntax, layers, TEXT_CONTRAST, listOf(syntax)))
+        }
+    }
 
     // Classic keeps Leaf's amber icon, 1.75 : 1 on white, which the other looks are there to fix
     if (look != AccentStyle.CLASSIC) add(ContrastCheck(WARNING_ICON, listOf(BACKGROUND), ICON_CONTRAST, listOf(WARNING_ICON)))

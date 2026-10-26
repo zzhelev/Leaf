@@ -75,25 +75,40 @@ object BuiltInStyles {
 
     /**
      * Solarized's own values where they say what a colour is and hold Leaf's checks: its emphasised content tone as
-     * text (base01, base1), its body tone for comments (base00, base0), and its accents for the keyword, annotations
-     * and the lanes. On the dark side its highlight tone base02 is the panels. On the light side base2 isn't: base01
-     * holds 4.39 : 1 on it, so the panels are worked out. Secondary text is the "Style Library" board's: a shade of
-     * base01 on the light side, and on the dark side base0 lifted until it holds 4.5 : 1 on base02 (base0 itself
-     * holds 4.11).
+     * text (base01, base1) and its accents for the lanes. On the dark side its highlight tone base02 is the panels. On
+     * the light side base2 isn't: base01 holds 4.39 : 1 on it, so the panels are worked out. Secondary text is the
+     * "Style Library" board's: a shade of base01 on the light side, and on the dark side base0 lifted until it holds
+     * 4.5 : 1 on base02 (base0 itself holds 4.11).
+     *
+     * Code takes Solarized's accents, as the "Syntax Colours" board worked them out: blue keywords and tags, yellow
+     * annotations, cyan strings, magenta numbers, violet types and attributes, orange functions, and comments in its
+     * body tone, each moved in lightness until it holds 4.5 : 1 on the background and both line tints. Darker on the
+     * light side and lighter on the dark: Solarized's blue holds 3.4 on base3, and the body tones less than 4.5 on the
+     * removed lines.
      */
     private fun solarizedByHand(isLight: Boolean): Map<StyleSlot, Int> = buildMap {
         if (isLight) {
             put(StyleSlot.TEXT, 0xFF586E75.toInt())
             put(StyleSlot.SECONDARY_TEXT, 0xFF516770.toInt())
-            put(StyleSlot.COMMENT, 0xFF657B83.toInt())
         } else {
             put(StyleSlot.PANELS, 0xFF073642.toInt())
             put(StyleSlot.TEXT, 0xFF93A1A1.toInt())
             put(StyleSlot.SECONDARY_TEXT, 0xFF8A9C9E.toInt())
-            put(StyleSlot.COMMENT, 0xFF839496.toInt())
         }
-        put(StyleSlot.KEYWORD, 0xFF268BD2.toInt())
-        put(StyleSlot.ANNOTATION, 0xFFB58900.toInt())
+
+        // Keyword, annotation, comment, string, number, type, function, tag and attribute
+        val code = if (isLight) {
+            listOf(
+                0xFF036FAF, 0xFF866502, 0xFF586E75, 0xFF007770, 0xFFC42576,
+                0xFF5E62B4, 0xFFBE3F00, 0xFF036FAF, 0xFF5E62B4,
+            )
+        } else {
+            listOf(
+                0xFF45A5EE, 0xFFC49823, 0xFF91A2A4, 0xFF3DAFA6, 0xFFFF6AAB,
+                0xFF9097EE, 0xFFFB7748, 0xFF45A5EE, 0xFF9097EE,
+            )
+        }
+        StyleSlot.SYNTAX.zip(code).forEach { (slot, argb) -> put(slot, argb.toInt()) }
 
         // Blue, red, cyan, orange, green and magenta, the hues of Leaf's own lanes
         val lanes = listOf(0xFF268BD2, 0xFFDC322F, 0xFF2AA198, 0xFFCB4B16, 0xFF859900, 0xFFD33682)
@@ -104,14 +119,17 @@ object BuiltInStyles {
      * Teal's colours set by hand: a text tinted with its hue on the light side, and on the dark side the headers and
      * boxes, which follow no seed and would stay Tonal's navy. They're Tonal's turned to Teal's hue: #0A335C at the most
      * chroma sRGB has at its lightness, and #1A2B3D. Lanes 2 to 6 are set apart from lane 1's teal and from each other:
-     * following the seeds, lane 2 would be a rose next to lane 6's pink.
+     * following the seeds, lane 2 would be a rose next to lane 6's pink. The function is the "Syntax Colours" board's
+     * blue: Teal's keyword follows its accent, and the template's function, a cyan, would be next to it.
      */
     private fun tealByHand(isLight: Boolean): Map<StyleSlot, Int> = buildMap {
         if (isLight) {
             put(StyleSlot.TEXT, 0xFF1D2B2B.toInt())
+            put(StyleSlot.FUNCTION, 0xFF1A69B5.toInt())
         } else {
             put(StyleSlot.HEADERS, 0xFF003B3A.toInt())
             put(StyleSlot.BOXES, 0xFF152F2D.toInt())
+            put(StyleSlot.FUNCTION, 0xFF97BBFE.toInt())
         }
 
         // Orange, blue, pink, green and violet, in the lightness of Tonal's lanes

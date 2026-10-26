@@ -303,13 +303,15 @@ class StyleDerivationTest {
     }
 
     @Test
-    fun `Teal holds every check on both sides with nothing moved, and keeps every colour it sets by hand`() {
+    fun `Teal holds every check, moving only its light keyword and tag, and keeps what it sets by hand`() {
         val teal = BuiltInStyles.TEAL
 
         for (isLight in sides) {
             val resolved = resolveStyleSide(teal, isLight)
 
-            assertEquals(emptyList<StyleAdjustment>(), resolved.adjustments, "$isLight")
+            // Following the accent, they fall just short of 4.5 : 1 on the removed lines, and take a shade more
+            val moved = if (isLight) setOf(StyleSlot.KEYWORD, StyleSlot.TAG) else emptySet()
+            assertEquals(moved, resolved.adjustments.map { it.slot }.toSet(), "$isLight")
             assertEquals(emptyList<ContrastShortfall>(), resolved.shortfalls, "$isLight")
             for ((slot, argb) in teal.side(isLight).setByHand) {
                 assertEquals(StyleColorHex.format(argb), resolved.palette[slot].hex(), "$isLight $slot")
@@ -394,9 +396,9 @@ class StyleDerivationTest {
                 StyleSlot.TEXT, StyleSlot.SECONDARY_TEXT, StyleSlot.NEUTRAL_FILL, StyleSlot.NEUTRAL_TEXT,
             ),
             StyleSeed.ACCENT to setOf(
-                StyleSlot.MAIN_ACTION_FILL, StyleSlot.LINKS, StyleSlot.MODIFIED_FILE, StyleSlot.KEYWORD, StyleSlot.LANE_1,
-                StyleSlot.SELECTED_ROW, StyleSlot.SCROLLBAR_HOVER, StyleSlot.ACTION_FILL, StyleSlot.ACTION_TEXT,
-                StyleSlot.ACTION_EDGE,
+                StyleSlot.MAIN_ACTION_FILL, StyleSlot.LINKS, StyleSlot.MODIFIED_FILE, StyleSlot.KEYWORD, StyleSlot.TAG,
+                StyleSlot.LANE_1, StyleSlot.SELECTED_ROW, StyleSlot.SCROLLBAR_HOVER, StyleSlot.ACTION_FILL,
+                StyleSlot.ACTION_TEXT, StyleSlot.ACTION_EDGE,
             ),
             StyleSeed.DANGER to setOf(
                 StyleSlot.ERROR, StyleSlot.DELETED_FILE, StyleSlot.REMOVED_LINE, StyleSlot.REMOVED_WORDS, StyleSlot.LANE_2,

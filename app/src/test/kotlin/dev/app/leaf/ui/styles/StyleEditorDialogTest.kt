@@ -151,7 +151,11 @@ class StyleEditorDialogTest {
             .withColourSetByHand(StyleSlot.TEXT, isLight = true, 0xFFCCCCCC.toInt())
         show(byHand)
 
-        for (text in listOf("SURFACES", "TEXT", "FILES", "DIFF", "GRAPH LANES", "BUTTONS AND NOTICES", "Hunk headers and boxes", "Lane 6", "Warning strip's button")) {
+        val groups = listOf("SURFACES", "TEXT", "FILES", "DIFF", "SYNTAX", "GRAPH LANES", "BUTTONS AND NOTICES")
+        val rows = listOf(
+            "Hunk headers and boxes", "Number, constant", "Attribute, key", "Lane 6", "Warning strip's button",
+        )
+        for (text in groups + rows) {
             assertTrue(text in texts(), "$text in ${texts()}")
         }
         assertEquals(1, nodes().count { it.config.getOrNull(SemanticsProperties.ContentDescription)?.contains("Set by hand") == true })

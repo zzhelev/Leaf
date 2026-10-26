@@ -11,10 +11,12 @@ import dev.app.leaf.theme.ColorsScheme
 import dev.app.leaf.theme.RoleColors
 import dev.app.leaf.theme.StripColors
 import dev.app.leaf.theme.StyleColors
+import dev.app.leaf.theme.SyntaxColors
 import dev.app.leaf.theme.darkTheme
 import dev.app.leaf.theme.lightTheme
 import dev.app.leaf.theme.styleColorsFor
 import dev.app.leaf.theme.styled
+import dev.app.leaf.theme.syntaxTemplate
 
 /**
  * The log graph's lanes as Leaf drew them until styles set them: Material's 400 shades. The grey one is `0xFFe78909c`,
@@ -126,6 +128,18 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
         warningIcon = this[StyleSlot.WARNING_ICON],
     )
 
+    fun toSyntaxColors() = SyntaxColors(
+        keyword = this[StyleSlot.KEYWORD],
+        annotation = this[StyleSlot.ANNOTATION],
+        comment = this[StyleSlot.COMMENT],
+        string = this[StyleSlot.STRING],
+        number = this[StyleSlot.NUMBER],
+        type = this[StyleSlot.TYPE],
+        function = this[StyleSlot.FUNCTION],
+        tag = this[StyleSlot.TAG],
+        attribute = this[StyleSlot.ATTRIBUTE],
+    )
+
     private fun role(fill: StyleSlot, text: StyleSlot, edge: StyleSlot) = RoleColors(this[fill], this[text], this[edge])
 
     override fun equals(other: Any?): Boolean =
@@ -134,8 +148,16 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
     override fun hashCode(): Int = 31 * isLight.hashCode() + colors.hashCode()
 
     companion object {
-        /** The palette of [scheme], [roles] and [lanes], which is how the built-in looks are kept. */
-        fun of(scheme: ColorsScheme, roles: StyleColors, lanes: List<Color>): StylePalette {
+        /**
+         * The palette of [scheme], [roles], [lanes] and [syntax], which is how the built-in looks are kept. The syntax
+         * colours' keyword, annotation and comment are the scheme's, which upstream's code reads.
+         */
+        fun of(
+            scheme: ColorsScheme,
+            roles: StyleColors,
+            lanes: List<Color>,
+            syntax: SyntaxColors = syntaxTemplate(scheme),
+        ): StylePalette {
             require(lanes.size == StyleSlot.LANES.size)
 
             val colors = mapOf(
@@ -162,9 +184,15 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
                 StyleSlot.ADDED_WORDS to scheme.diffContentAdded,
                 StyleSlot.REMOVED_LINE to scheme.diffLineRemoved,
                 StyleSlot.REMOVED_WORDS to scheme.diffContentRemoved,
-                StyleSlot.KEYWORD to scheme.diffKeyword,
-                StyleSlot.ANNOTATION to scheme.diffAnnotation,
-                StyleSlot.COMMENT to scheme.diffComment,
+                StyleSlot.KEYWORD to syntax.keyword,
+                StyleSlot.ANNOTATION to syntax.annotation,
+                StyleSlot.COMMENT to syntax.comment,
+                StyleSlot.STRING to syntax.string,
+                StyleSlot.NUMBER to syntax.number,
+                StyleSlot.TYPE to syntax.type,
+                StyleSlot.FUNCTION to syntax.function,
+                StyleSlot.TAG to syntax.tag,
+                StyleSlot.ATTRIBUTE to syntax.attribute,
                 // The scheme's primary and onPrimary are the main action's, in every built-in look
                 StyleSlot.MAIN_ACTION_FILL to roles.mainAction.background,
                 StyleSlot.MAIN_ACTION_TEXT to roles.mainAction.content,

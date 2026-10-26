@@ -43,7 +43,7 @@ import dev.app.leaf.theme.bottomEdge
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.diffContentAdded
 import dev.app.leaf.theme.diffContentRemoved
-import dev.app.leaf.theme.diffKeyword
+import dev.app.leaf.theme.syntaxColors
 import dev.app.leaf.theme.diffLineAdded
 import dev.app.leaf.theme.diffLineRemoved
 import dev.app.leaf.theme.graphLanes
@@ -125,29 +125,43 @@ fun StyleEditorPreview(style: StyleDefinition, isLight: Boolean, modifier: Modif
                 SecondaryButton(text = stringResource(Res.string.style_editor_preview_stage_hunk), onClick = {})
             }
 
-            val keyword = colors.diffKeyword
+            val syntax = MaterialTheme.syntaxColors
             val removedWords = colors.diffContentRemoved
             val addedWords = colors.diffContentAdded
 
+            // Code in the syntax colours: a keyword, a function, a type, a number and a string
             DiffLine(null) {
                 append("    ")
-                withStyle(SpanStyle(color = keyword)) { append("fun") }
-                append(" next(): Token {")
+                withStyle(SpanStyle(color = syntax.keyword)) { append("fun") }
+                append(" ")
+                withStyle(SpanStyle(color = syntax.function)) { append("next") }
+                append("(): ")
+                withStyle(SpanStyle(color = syntax.type)) { append("Token") }
+                append(" {")
             }
             DiffLine(colors.diffLineRemoved) {
                 append("        ")
-                withStyle(SpanStyle(color = keyword)) { append("val") }
+                withStyle(SpanStyle(color = syntax.keyword)) { append("val") }
                 append(" c = ")
-                withStyle(SpanStyle(background = removedWords)) { append("source[pos++]") }
+                withStyle(SpanStyle(background = removedWords)) {
+                    append("source[pos + ")
+                    withStyle(SpanStyle(color = syntax.number)) { append("1") }
+                    append("]")
+                }
             }
             DiffLine(colors.diffLineAdded) {
                 append("        ")
-                withStyle(SpanStyle(color = keyword)) { append("val") }
+                withStyle(SpanStyle(color = syntax.keyword)) { append("val") }
                 append(" c = ")
-                withStyle(SpanStyle(background = addedWords)) { append("peek()") }
+                withStyle(SpanStyle(background = addedWords)) {
+                    withStyle(SpanStyle(color = syntax.function)) { append("peek") }
+                    append("()")
+                }
                 append(" ?: ")
-                withStyle(SpanStyle(color = keyword)) { append("return") }
-                append(" Token.End")
+                withStyle(SpanStyle(color = syntax.function)) { append("error") }
+                append("(")
+                withStyle(SpanStyle(color = syntax.string)) { append("\"end\"") }
+                append(")")
             }
 
             // A list's header and two files, the first selected

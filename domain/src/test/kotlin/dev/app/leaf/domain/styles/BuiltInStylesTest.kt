@@ -64,24 +64,29 @@ class BuiltInStylesTest {
             "lane1" to "#268BD2", "lane2" to "#DC322F", "lane3" to "#2AA198",
             "lane4" to "#CB4B16", "lane5" to "#859900", "lane6" to "#D33682",
         )
+        // Code in Solarized's accents, moved until they hold 4.5 : 1, as the "Syntax Colours" board has them
         assertEquals(
             mapOf(
-                "text" to "#586E75", "secondaryText" to "#516770", "comment" to "#657B83",
-                "keyword" to "#268BD2", "annotation" to "#B58900",
+                "text" to "#586E75", "secondaryText" to "#516770",
+                "keyword" to "#036FAF", "annotation" to "#866502", "comment" to "#586E75", "string" to "#007770",
+                "number" to "#C42576", "type" to "#5E62B4", "function" to "#BE3F00", "tag" to "#036FAF",
+                "attribute" to "#5E62B4",
             ) + lanes,
             hex(solarized.light.setByHand),
         )
         assertEquals(
             mapOf(
-                "panels" to "#073642", "text" to "#93A1A1", "secondaryText" to "#8A9C9E", "comment" to "#839496",
-                "keyword" to "#268BD2", "annotation" to "#B58900",
+                "panels" to "#073642", "text" to "#93A1A1", "secondaryText" to "#8A9C9E",
+                "keyword" to "#45A5EE", "annotation" to "#C49823", "comment" to "#91A2A4", "string" to "#3DAFA6",
+                "number" to "#FF6AAB", "type" to "#9097EE", "function" to "#FB7748", "tag" to "#45A5EE",
+                "attribute" to "#9097EE",
             ) + lanes,
             hex(solarized.dark.setByHand),
         )
     }
 
     @Test
-    fun `Teal comes last, in the Tonal look, with its seeds, and its text, dark headers and lanes set by hand`() {
+    fun `Teal comes last, in the Tonal look, with its seeds, and its text, dark headers, function and lanes by hand`() {
         val teal = BuiltInStyles.TEAL
 
         assertEquals(
@@ -100,8 +105,11 @@ class BuiltInStylesTest {
 
         // Lane 1 follows the accent
         val lanes = mapOf("lane2" to "#C87D52", "lane3" to "#5B97D3", "lane4" to "#C4759C", "lane5" to "#60A56B", "lane6" to "#9D82CC")
-        assertEquals(mapOf("text" to "#1D2B2B") + lanes, hex(teal.light.setByHand))
-        assertEquals(mapOf("headers" to "#003B3A", "boxes" to "#152F2D") + lanes, hex(teal.dark.setByHand))
+        assertEquals(mapOf("text" to "#1D2B2B", "function" to "#1A69B5") + lanes, hex(teal.light.setByHand))
+        assertEquals(
+            mapOf("headers" to "#003B3A", "boxes" to "#152F2D", "function" to "#97BBFE") + lanes,
+            hex(teal.dark.setByHand),
+        )
     }
 
     @Test

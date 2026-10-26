@@ -3,12 +3,17 @@
 
 package dev.app.leaf.domain.styles
 
+import dev.app.leaf.domain.highlighting.SyntaxCategory
+
 /** Where a colour is used, which groups the rows of the style editor's Advanced table. */
 enum class StyleSlotGroup {
     SURFACES,
     TEXT,
     FILES,
     DIFF,
+
+    /** The colours of code, by category (`docs/fork/syntax-highlighting.md`, 4.4). */
+    SYNTAX,
     GRAPH_LANES,
     BUTTONS_AND_NOTICES,
 }
@@ -60,9 +65,21 @@ enum class StyleSlot(val key: String, val group: StyleSlotGroup) {
     ADDED_WORDS("addedWords", StyleSlotGroup.DIFF),
     REMOVED_LINE("removedLine", StyleSlotGroup.DIFF),
     REMOVED_WORDS("removedWords", StyleSlotGroup.DIFF),
-    KEYWORD("keyword", StyleSlotGroup.DIFF),
-    ANNOTATION("annotation", StyleSlotGroup.DIFF),
-    COMMENT("comment", StyleSlotGroup.DIFF),
+    KEYWORD("keyword", StyleSlotGroup.SYNTAX),
+    ANNOTATION("annotation", StyleSlotGroup.SYNTAX),
+    COMMENT("comment", StyleSlotGroup.SYNTAX),
+    STRING("string", StyleSlotGroup.SYNTAX),
+
+    /** Numbers and constants: `42`, `true`, `null`. */
+    NUMBER("number", StyleSlotGroup.SYNTAX),
+    TYPE("type", StyleSlotGroup.SYNTAX),
+    FUNCTION("function", StyleSlotGroup.SYNTAX),
+
+    /** Markup's tags: `<div>`, `<resources>`. */
+    TAG("tag", StyleSlotGroup.SYNTAX),
+
+    /** Markup's attributes, and the keys of JSON, YAML and CSS. */
+    ATTRIBUTE("attribute", StyleSlotGroup.SYNTAX),
 
     LANE_1("lane1", StyleSlotGroup.GRAPH_LANES),
     LANE_2("lane2", StyleSlotGroup.GRAPH_LANES),
@@ -106,5 +123,11 @@ enum class StyleSlot(val key: String, val group: StyleSlotGroup) {
 
         /** The graph's lanes, in the order the log uses them. */
         val LANES = listOf(LANE_1, LANE_2, LANE_3, LANE_4, LANE_5, LANE_6)
+
+        /** The colours of code, in [SyntaxCategory]'s order. */
+        val SYNTAX = listOf(KEYWORD, ANNOTATION, COMMENT, STRING, NUMBER, TYPE, FUNCTION, TAG, ATTRIBUTE)
+
+        /** The colour of code of [category]. */
+        fun of(category: SyntaxCategory): StyleSlot = SYNTAX[category.ordinal]
     }
 }
