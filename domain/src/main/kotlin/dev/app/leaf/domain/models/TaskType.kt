@@ -98,6 +98,12 @@ sealed interface TaskType {
     // says what was done, so neither has a toast.
     data object RewriteBranch : TaskType
     data object UndoBranchRewrite : TaskType
+
+    // Fork-only: running a commit editor's plan (`docs/fork/commit-editor.md`), without a worktree or with
+    // `git rebase -i`. The strip says what was done, and the banner where a rebase stopped.
+    data object RunRebasePlan : TaskType
+    data object StartRebasePlan : TaskType
+    data object BackToRebasePlan : TaskType
     data object ContinueCherryPick : TaskType
     data object SkipCherryPick : TaskType
     data object AbortCherryPick : TaskType

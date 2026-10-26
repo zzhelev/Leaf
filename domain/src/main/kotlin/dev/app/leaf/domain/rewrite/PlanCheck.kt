@@ -10,10 +10,13 @@ package dev.app.leaf.domain.rewrite
  *
  * @param groups the groups before [stop], or all of the plan's when it doesn't stop.
  * @param stop where the plan stops first, or null when it runs through.
+ * @param inTheWay for a plan that runs through on a branch that a worktree has checked out, the files there that moving
+ * the branch's files would meet (B5): the run refuses them, as part A's squash onto the base does.
  */
 data class PlanCheck(
     val groups: List<CheckedGroup>,
     val stop: PlanStop?,
+    val inTheWay: FilesInTheWay? = null,
 ) {
     val stops: Boolean
         get() = stop != null
@@ -38,6 +41,12 @@ data class CheckedGroup(
     val isLeftOut: Boolean
         get() = commits.all { it in emptyCommits }
 }
+
+/** Uncommitted [files] in the worktree at [worktreePath] that a plan's new files would overwrite. */
+data class FilesInTheWay(
+    val worktreePath: String,
+    val files: List<String>,
+)
 
 /** Where a plan stops, so that it has to run in a worktree, with `git rebase -i`. */
 sealed interface PlanStop {

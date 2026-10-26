@@ -5,6 +5,10 @@ package dev.app.leaf
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.rewrite.OntoBase
 import dev.app.leaf.domain.rewrite.OntoBaseCheck
+import dev.app.leaf.domain.rewrite.PlanCheck
+import dev.app.leaf.domain.rewrite.RebasePlan
+import dev.app.leaf.repositoryopen.PlanFile
+import dev.app.leaf.ui.dialogs.DropCheck
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -161,6 +165,16 @@ sealed interface Screen : NavKey {
         val cleanup: MessageCleanup,
         val checkOnto: (suspend () -> OntoBaseCheck?)? = null,
         val onConfirm: (message: String, onto: OntoBase?) -> Unit,
+    ) : Screen
+    /**
+     * "Drop commit…" (fork-only, `docs/fork/commit-editor.md`): [plan] drops its first row, [check] checks it when the
+     * dialog opens, and [onConfirm] runs it.
+     */
+    data class DropCommit(
+        val plan: RebasePlan,
+        val check: suspend () -> DropCheck,
+        val filesOf: suspend () -> List<PlanFile>?,
+        val onConfirm: (check: PlanCheck, autostash: Boolean) -> Unit,
     ) : Screen
     /** Rebases [worktree]'s branch onto [base], the base branch (fork-only). */
     data class WorktreeRebaseOntoBase(val worktree: Worktree, val base: String) : Screen

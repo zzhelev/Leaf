@@ -125,6 +125,8 @@ fun OperationInProgressBanner(
     modifier: Modifier = Modifier,
     /** Opens the conflicts, while files have them: the built-in resolver or the external merge tool. */
     onResolveConflicts: (() -> Unit)? = null,
+    /** Fork-only: aborts the rebase of a commit editor's plan and opens the plan again, while one waits. */
+    onBackToPlan: (() -> Unit)? = null,
 ) {
     val strip = MaterialTheme.styleColors.warningStrip
 
@@ -170,6 +172,15 @@ fun OperationInProgressBanner(
                 text = stringResource(Res.string.operation_banner_resolve_conflicts),
                 colors = strip.button,
                 onClick = onResolveConflicts,
+                modifier = Modifier.padding(end = 8.dp),
+            )
+        }
+
+        if (onBackToPlan != null && inProgress.operation == Operation.REBASE) {
+            SecondaryButton(
+                text = stringResource(Res.string.commit_editor_back_to_plan),
+                colors = strip.button,
+                onClick = onBackToPlan,
                 modifier = Modifier.padding(end = 8.dp),
             )
         }

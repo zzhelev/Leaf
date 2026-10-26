@@ -12,6 +12,9 @@ import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.rewrite.BranchRewriteResult
 import dev.app.leaf.domain.rewrite.LineRange
 import dev.app.leaf.domain.rewrite.OntoBase
+import dev.app.leaf.domain.rewrite.PlanAction
+import dev.app.leaf.domain.rewrite.PlanRecord
+import dev.app.leaf.domain.rewrite.RebasePlan
 import dev.app.leaf.domain.rewrite.RewriteKind
 import dev.app.leaf.repositoryopen.RewriteNotice
 import dev.app.leaf.theme.AppTheme
@@ -119,6 +122,48 @@ class RewriteStripTest {
                 assertEquals(listOf("dismiss"), strip.calls)
             }
         }
+
+    @Test
+    fun `a commit editor's plan says how many commits it gave, and onto what`(): Unit = runBlocking(Dispatchers.Swing) {
+        val plan = RebasePlan.of(RewriteFixtures.line(pushed = setOf(add.hash)), listOf(add, wip, cache))
+            .withAction(wip.hash, PlanAction.SQUASH)
+        val onto = OntoBase("refs/heads/main", "5".repeat(40))
+
+        StripScene(RewriteNotice.ofPlan(result(RewriteKind.REBASE), plan, after = 2, currentBranch = BRANCH)).use { strip ->
+            assertEquals(
+                listOf(
+                    "Rebased claude/parser-cache: 3 commits → 2.",
+                    "origin/claude/parser-cache still has the old commits: push with force to replace them.",
+                ),
+                strip.texts().filterNot { it in BUTTONS },
+            )
+            assertTrue(strip.isClickable("Push with force…"))
+        }
+
+        val ontoMain = RewriteNotice.ofPlan(result(RewriteKind.REBASE).copy(onto = onto), plan, after = 2, currentBranch = null)
+
+        StripScene(ontoMain).use { strip ->
+            assertEquals("Rebased claude/parser-cache onto main: 3 commits → 2.", strip.texts().first())
+            assertFalse(strip.isClickable("Push with force…"))
+        }
+    }
+
+    @Test
+    fun `a stopped rebase that ended counts its plan's groups, from its record`() {
+        val record = PlanRecord(
+            branch = BRANCH,
+            expectedTip = cache.hash,
+            onto = null,
+            rows = listOf(add.hash to PlanAction.PICK, wip.hash to PlanAction.FIXUP, cache.hash to PlanAction.DROP),
+            messages = emptyMap(),
+            twins = emptyMap(),
+        )
+        val notice = RewriteNotice.ofRecord(result(RewriteKind.REBASE), record)
+
+        assertEquals(3, notice.joined)
+        assertEquals(1, notice.after)
+        assertNull(notice.pushedTo)
+    }
 
     @Test
     fun `the notice counts the commits, and names the upstream only when the rewrite changed pushed ones`() {

@@ -43,6 +43,16 @@ import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.rewrite.BranchLine
 import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.rewrite.BranchRewrite
+import dev.app.leaf.domain.rewrite.BranchRewriteResult
+import dev.app.leaf.domain.rewrite.PlanCheck
+import dev.app.leaf.domain.rewrite.PlanPlace
+import dev.app.leaf.domain.rewrite.PlanRebaseOutcome
+import dev.app.leaf.domain.rewrite.PlanRecord
+import dev.app.leaf.domain.rewrite.PlanStop
+import dev.app.leaf.domain.rewrite.RebasePlan
+import dev.app.leaf.domain.rewrite.RewriteKind
+import dev.app.leaf.domain.rewrite.UnknownStopReason
+import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.rewrite.LineRange
 import dev.app.leaf.domain.rewrite.OntoBase
 import dev.app.leaf.domain.rewrite.OntoBaseCheck
@@ -221,6 +231,13 @@ class RepositoryOpenViewModel @Inject constructor(
     private val rewriteBranchUseCase: RewriteBranchUseCase,
     private val undoBranchRewriteUseCase: UndoBranchRewriteUseCase,
     private val getOntoBaseCheckUseCase: GetOntoBaseCheckUseCase,
+    private val checkRebasePlanUseCase: CheckRebasePlanUseCase,
+    private val runRebasePlanUseCase: RunRebasePlanUseCase,
+    private val startRebasePlanUseCase: StartRebasePlanUseCase,
+    private val getPlanRecordUseCase: GetPlanRecordUseCase,
+    private val backToRebasePlanUseCase: BackToRebasePlanUseCase,
+    private val getPlanPlaceUseCase: GetPlanPlaceUseCase,
+    private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -596,6 +613,170 @@ class RepositoryOpenViewModel @Inject constructor(
         applyCommitSelection(commit, isStash = false, scrollToItem = true)
     }
 
+    // Fork-only: the commit editor, a plan-first interactive rebase (docs/fork/commit-editor.md, B5)
+    private val commitEditor = CommitEditorController(
+        scope = viewModelScope,
+        branchLines = branchLines,
+        worktrees = worktrees.map { it.data }.stateIn(null),
+        check = { plan ->
+            (checkRebasePlanUseCase(plan) as? Either.Ok)?.value
+                ?: PlanCheck(emptyList(), PlanStop.Unknown(UnknownStopReason.FAILED))
+        },
+        placeOf = { list, branch -> list?.let { getPlanPlaceUseCase(it, branch) } ?: PlanPlace() },
+        ontoOf = ::checkOntoBase,
+        filesOf = ::filesOfCommit,
+        run = runRebasePlanUseCase::invoke,
+        start = startRebasePlanUseCase::invoke,
+        onRewritten = { result, plan, after ->
+            rewriteNotice.value = RewriteNotice.ofPlan(result, plan, after, logState.value.currentBranch?.name)
+            viewModelScope.launch { selectOnceLogged(result.newTip) }
+        },
+        onStarted = { plan -> startedPlan = plan },
+        addCloseableView = ::addCloseableView,
+        removeCloseableView = ::removeCloseableView,
+    )
+
+    val commitEditorState: StateFlow<CommitEditorState?> = commitEditor.state
+
+    /** The files that [commit] changes, for the editor's panel and the Drop dialog; null when they couldn't be read. */
+    suspend fun filesOfCommit(commit: Commit): List<PlanFile>? =
+        (getCommitDiffEntriesUseCase(commit) as? Either.Ok)?.value?.map { PlanFile(it.filePath, it.changeType) }
+
+    /** Opens the commit editor with [plan], or with the plan kept for its branch (decision 6). */
+    fun openCommitEditor(plan: RebasePlan) {
+        rewriteNotice.value = null
+        commitEditor.open(plan)
+    }
+
+    fun onCommitEditorAction(action: CommitEditorAction) {
+        when (action) {
+            is CommitEditorAction.Select -> commitEditor.select(action.hash)
+            is CommitEditorAction.SelectNext -> commitEditor.selectNext(action.newer)
+            is CommitEditorAction.SetAction -> commitEditor.setAction(action.hash, action.action)
+            is CommitEditorAction.MoveSelected -> commitEditor.moveSelected(action.newer)
+            is CommitEditorAction.MoveShown -> commitEditor.moveShown(action.from, action.to)
+            is CommitEditorAction.SetMessage -> commitEditor.setMessage(action.text)
+            CommitEditorAction.ResetMessage -> commitEditor.resetMessage()
+            is CommitEditorAction.SetMessageStart -> commitEditor.setMessageStart(action.start)
+            is CommitEditorAction.SetOnto -> commitEditor.setOnto(action.ontoLatest)
+            is CommitEditorAction.SetAutostash -> commitEditor.setAutostash(action.autostash)
+            CommitEditorAction.PlaceFixups -> commitEditor.placeFixups()
+            CommitEditorAction.Reset -> commitEditor.reset()
+            CommitEditorAction.Cancel -> commitEditor.cancel()
+            CommitEditorAction.Start -> commitEditor.start()
+        }
+    }
+
+    /**
+     * What "Drop commit…" does with [plan] (decision 4a): the same check as the editor's, and where it would replay if
+     * it stops, for its dialog.
+     */
+    suspend fun checkDrop(plan: RebasePlan): Pair<PlanCheck, PlanPlace> {
+        val check = (checkRebasePlanUseCase(plan) as? Either.Ok)?.value
+            ?: PlanCheck(emptyList(), PlanStop.Unknown(UnknownStopReason.FAILED))
+        val place = worktrees.value.data?.let { getPlanPlaceUseCase(it, plan.line.branch) } ?: PlanPlace()
+
+        return check to place
+    }
+
+    /** The Drop dialog's Drop: rewrites the commits after it, or starts the rebase when it stops. */
+    fun dropCommit(plan: RebasePlan, check: PlanCheck, autostash: Boolean) = viewModelScope.launch {
+        rewriteNotice.value = null
+
+        val after = plan.groups.size - check.groups.count { it.isLeftOut }
+
+        if (!check.stops) {
+            val result = (runRebasePlanUseCase(plan).await() as? Either.Ok)?.value ?: return@launch
+
+            rewriteNotice.value = RewriteNotice.ofPlan(result, plan, after, logState.value.currentBranch?.name)
+            selectOnceLogged(result.newTip)
+        } else {
+            when (val outcome = (startRebasePlanUseCase(plan, autostash).await() as? Either.Ok)?.value) {
+                is PlanRebaseOutcome.Done -> {
+                    rewriteNotice.value = RewriteNotice.ofPlan(outcome.result, plan, after, logState.value.currentBranch?.name)
+                    selectOnceLogged(outcome.result.newTip)
+                }
+
+                is PlanRebaseOutcome.Stopped -> startedPlan = plan
+                null -> Unit
+            }
+        }
+    }
+
+    /** The plan of the last rebase that the editor started and that stopped, for the strip when it ends. */
+    @Volatile
+    private var startedPlan: RebasePlan? = null
+
+    /** The commit editor's plan that waits at a stop in the tab's worktree (B4), for "Back to the plan". */
+    val planRecord: StateFlow<PlanRecord?>
+        field = MutableStateFlow<PlanRecord?>(null)
+
+    /** The git dir that [planRecord] was read in: its rebase ending there gives the strip. */
+    @Volatile
+    private var planRecordGitDir: String? = null
+
+    init {
+        // The commit editor's plan that waits at a stop, and the strip once its rebase ends. After the properties it
+        // reads, which a coroutine started earlier could find not yet set
+        viewModelScope.launch {
+            repositoryState.map { it.isRebasing }.distinctUntilChanged().collectLatest { isRebasing ->
+                val record = planRecord.value
+                val gitDir = planRecordGitDir
+
+                if (isRebasing) {
+                    planRecordGitDir = repositoryDataRepository.repositoryPath
+                    planRecord.value = (getPlanRecordUseCase() as? Either.Ok)?.value
+                } else {
+                    planRecord.value = null
+                    planRecordGitDir = null
+
+                    if (record != null && gitDir != null) noticeIfPlanEnded(record, gitDir)
+                }
+            }
+        }
+    }
+
+    /**
+     * "Back to the plan": aborts the rebase, which puts the branch back where the plan found it, and opens the editor
+     * with the plan once the tab reads the branch there again.
+     */
+    fun backToPlan() = viewModelScope.launch {
+        val record = planRecord.value ?: return@launch
+
+        if (backToRebasePlanUseCase().await() !is Either.Ok) return@launch
+
+        val lines = withTimeoutOrNull(REWRITE_SELECT_TIMEOUT) {
+            branchLines.first { it.lines[record.branch]?.commits?.firstOrNull()?.hash == record.expectedTip }
+        } ?: return@launch
+        val plan = lines.lines[record.branch]?.let(record::planOn) ?: return@launch
+
+        rewriteNotice.value = null
+        commitEditor.open(plan, useKept = false)
+    }
+
+    /**
+     * After a rebase of the editor's plan that stopped: when the tab's worktree stops rebasing, from Leaf or a terminal,
+     * and the branch moved, the strip says what the plan did. An abort leaves the branch where it was, and says nothing.
+     */
+    private suspend fun noticeIfPlanEnded(record: PlanRecord, gitDir: String) {
+        if (repositoryDataRepository.repositoryPath != gitDir) return
+
+        val tip = withTimeoutOrNull(REWRITE_SELECT_TIMEOUT) {
+            repositoryDataRepository.localBranches
+                .mapNotNull { branches -> branches.dataOrNull()?.firstOrNull { it.name == record.branch }?.hash }
+                .first { it != record.expectedTip }
+        } ?: return
+        val result = BranchRewriteResult(record.branch, RewriteKind.REBASE, record.expectedTip, tip, emptyList(), record.onto)
+        val plan = startedPlan?.takeIf { it.line.branch == record.branch && it.expectedTip == record.expectedTip }
+
+        startedPlan = null
+        rewriteNotice.value = if (plan != null) {
+            RewriteNotice.ofPlan(result, plan, RewriteNotice.ofRecord(result, record).after, logState.value.currentBranch?.name)
+        } else {
+            RewriteNotice.ofRecord(result, record)
+        }
+    }
+
     val branchWorktrees: StateFlow<BranchWorktreesState> = worktrees
         .map { worktrees ->
             val list = worktrees.data
@@ -841,6 +1022,7 @@ class RepositoryOpenViewModel @Inject constructor(
             combine(
                 statusState.map { operationInProgress(it)?.operation }.distinctUntilChanged(),
                 comparisonState.map { it != null }.distinctUntilChanged(),
+                commitEditorState.map { it != null }.distinctUntilChanged(),
                 ::changesPaneNeed,
             ).distinctUntilChanged().collect { changesPaneNeeds.set(it) }
         }
@@ -878,6 +1060,7 @@ class RepositoryOpenViewModel @Inject constructor(
 
                 CloseableView.BRANCH_SELECTION -> branchSelectionController.clear()
                 CloseableView.LOG_SELECTION -> logSelectionController.clear()
+                CloseableView.COMMIT_EDITOR -> commitEditor.cancel()
 
             }
         }

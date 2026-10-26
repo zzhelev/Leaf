@@ -16,6 +16,8 @@ import dev.app.leaf.domain.errors.BranchOperation
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.PlanAction
+import dev.app.leaf.domain.rewrite.RebasePlan
 import dev.app.leaf.domain.rewrite.RewriteDialogKind
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.theme.AppTheme
@@ -182,6 +184,82 @@ class RewriteMenusTest {
 
         assertEquals(RewriteDialogKind.SQUASH_BRANCH, opened.single().kind)
         assertEquals(listOf(add, wip, cache), opened.single().range.commits)
+    }
+
+    // The commit editor's items (docs/fork/commit-editor.md, B5)
+
+    private val editors = mutableListOf<RebasePlan>()
+    private val drops = mutableListOf<RebasePlan>()
+
+    private fun withEditor(busy: BranchOperation? = null) = CommitRewrite(
+        lines = RewriteFixtures.lines(pushed = setOf(add.hash)),
+        currentBranch = BRANCH,
+        busy = { busy },
+        onOpen = { opened += it },
+        onFixup = { fixedUp += it },
+        onEditor = { editors += it },
+        onDrop = { drops += it },
+    )
+
+    @Test
+    fun `with the editor, a commit row adds Drop and, after a separator, the editor from that commit`() {
+        val elements = withEditor().commitItems(wip.hash)
+
+        assertEquals(
+            listOf(
+                Item("Edit message…", null, true),
+                Item("Squash into parent…", null, true),
+                Item("Fixup into parent", null, true),
+                Item("Drop commit…", null, true),
+                Item("Interactive rebase from here…", null, true),
+            ),
+            items(elements),
+        )
+        assertTrue(elements[4] is ContextMenuElement.ContextSeparator, elements.toString())
+
+        val entries = elements.filterIsInstance<ContextMenuElement.ContextTextEntry>()
+        entries[3].onClick()
+        entries[4].onClick()
+
+        // Drop's plan is from the commit, with it dropped; the editor's from the commit, that commit included
+        assertEquals(listOf(wip, cache), drops.single().original)
+        assertEquals(PlanAction.DROP, drops.single().rows.first().action)
+        assertEquals(listOf(wip, cache), editors.single().original)
+        assertTrue(!editors.single().isChanged)
+    }
+
+    @Test
+    fun `the editor's items say why they can't be used, as part A's do`() {
+        for ((commit, busy, why) in listOf(
+            Triple(onMain.hash, null, "On main"),
+            Triple(cache.hash, BranchOperation.REBASE, "In a rebase"),
+        )) {
+            val shown = items(withEditor(busy).commitItems(commit))
+
+            assertEquals(5, shown.size, why)
+            assertTrue(shown.all { !it.isEnabled && it.hint == why }, shown.toString())
+        }
+    }
+
+    @Test
+    fun `a selection and a branch open the editor with their commits, from the oldest`() {
+        assertEquals(
+            Item("Interactive rebase of these 2 commits…", null, true),
+            item(withEditor().rangeEditorItem(listOf(cache.hash, wip.hash))),
+        )
+        assertEquals(Item("Interactive rebase…", null, true), item(withEditor().branchEditorItem(BRANCH)))
+        assertEquals(
+            Item("Interactive rebase…", "In a merge", false),
+            item(withEditor(BranchOperation.MERGE).branchEditorItem(BRANCH)),
+        )
+        assertNull(withEditor().branchEditorItem(MAIN))
+        assertNull(rewrite().branchEditorItem(BRANCH))
+        assertNull(rewrite().rangeEditorItem(listOf(cache.hash)))
+
+        (withEditor().rangeEditorItem(listOf(cache.hash, wip.hash)) as ContextMenuElement.ContextTextEntry).onClick()
+        (withEditor().branchEditorItem(BRANCH) as ContextMenuElement.ContextTextEntry).onClick()
+
+        assertEquals(listOf(listOf(wip, cache), listOf(add, wip, cache)), editors.map { it.original })
     }
 
     @Test

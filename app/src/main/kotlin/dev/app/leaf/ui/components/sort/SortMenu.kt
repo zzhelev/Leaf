@@ -67,6 +67,8 @@ sealed interface SortMenuItem {
         val icon: DrawableResource? = null,
         /** False greys the option out, and choosing it does nothing, such as an action with nothing to act on. */
         val isEnabled: Boolean = true,
+        /** The key that does the same, at the row's right end, as menus show shortcuts. */
+        val shortcut: String? = null,
         val onClick: () -> Unit,
     ) : SortMenuItem
 
@@ -327,7 +329,7 @@ private fun MenuOption(
             }
         }
 
-        Column {
+        Column(modifier = if (option.shortcut != null) Modifier.weight(1f) else Modifier) {
             Text(
                 text = option.label,
                 style = MaterialTheme.typography.body2,
@@ -344,6 +346,20 @@ private fun MenuOption(
                     maxLines = 1,
                 )
             }
+        }
+
+        if (option.shortcut != null) {
+            Text(
+                text = option.shortcut,
+                style = MaterialTheme.typography.body2,
+                color = if (option.isEnabled) {
+                    MaterialTheme.colors.onBackgroundSecondary
+                } else {
+                    MaterialTheme.colors.onBackground.copy(alpha = DISABLED_OPTION_ALPHA)
+                },
+                maxLines = 1,
+                modifier = Modifier.padding(start = 24.dp),
+            )
         }
     }
 }

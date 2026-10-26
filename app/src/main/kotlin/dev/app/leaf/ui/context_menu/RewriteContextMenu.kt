@@ -14,12 +14,14 @@ import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.rewrite.BranchLines
 import dev.app.leaf.domain.rewrite.LineRange
+import dev.app.leaf.domain.rewrite.RebasePlan
 import dev.app.leaf.domain.rewrite.RewriteDialogKind
 import dev.app.leaf.domain.rewrite.RewriteRefusal
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.domain.rewrite.shortName
 import dev.app.leaf.Screen
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
+import dev.app.leaf.ui.dialogs.DropCheck
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -28,7 +30,9 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * What the log's and the branches' menus need to squash and reword commits (fork-only, step A3 of
  * `docs/fork/squash-and-rebase.md`): every branch's own commits, the current branch, what a worktree is in the middle of
- * with a branch ([busy]), the dialog to open ([onOpen]) and the fixup that runs at once ([onFixup]).
+ * with a branch ([busy]), the dialog to open ([onOpen]) and the fixup that runs at once ([onFixup]). Also the commit
+ * editor's items (B5 of `docs/fork/commit-editor.md`), which open it with a plan ([onEditor]) or the Drop dialog
+ * ([onDrop]), when they're given.
  *
  * An item that can't be used is in the menu all the same, disabled, with why at its right.
  */
@@ -38,6 +42,8 @@ class CommitRewrite(
     private val busy: (branch: String) -> BranchOperation?,
     private val onOpen: (RewriteRequest) -> Unit,
     private val onFixup: (LineRange) -> Unit,
+    private val onEditor: ((RebasePlan) -> Unit)? = null,
+    private val onDrop: ((RebasePlan) -> Unit)? = null,
 ) {
     private val baseName = lines.base?.let(::shortName)
 
@@ -54,6 +60,51 @@ class CommitRewrite(
         addChoice({ stringResource(Res.string.rewrite_menu_fixup_into_parent) }, Res.drawable.align_top, choices.fixup) {
             onFixup(it)
         }
+
+        if (onDrop != null) {
+            addChoice({ stringResource(Res.string.commit_editor_menu_drop) }, Res.drawable.delete, lines.dropChoice(commit, currentBranch, busy)) {
+                onDrop(it)
+            }
+        }
+
+        if (onEditor != null) {
+            add(ContextMenuElement.ContextSeparator)
+            addChoice(
+                label = { stringResource(Res.string.commit_editor_menu_from_here) },
+                icon = Res.drawable.edit,
+                choice = lines.editorFrom(commit, currentBranch, busy),
+            ) {
+                onEditor(it)
+            }
+        }
+    }
+
+    /** "Interactive rebase of these N commits…" on a row of [commits], selected in the log, or null without the editor. */
+    fun rangeEditorItem(commits: Collection<String>): ContextMenuElement? {
+        val open = onEditor ?: return null
+
+        return buildList {
+            addChoice(
+                label = { pluralStringResource(Res.plurals.commit_editor_menu_range, commits.size, commits.size) },
+                icon = Res.drawable.edit,
+                choice = lines.editorForRange(commits, currentBranch, busy),
+                isRange = true,
+            ) {
+                open(it)
+            }
+        }.single()
+    }
+
+    /** "Interactive rebase…" on the local branch [branch], or null for one with no commits of its own. */
+    fun branchEditorItem(branch: String): ContextMenuElement? {
+        val open = onEditor ?: return null
+        val choice = lines.editorChoice(branch, busy) ?: return null
+
+        return buildList {
+            addChoice({ stringResource(Res.string.commit_editor_menu_branch) }, Res.drawable.edit, choice, isRange = true) {
+                open(it)
+            }
+        }.single()
     }
 
     /** "Squash N commits…" on a row of [commits], selected in the log. */
@@ -81,12 +132,12 @@ class CommitRewrite(
         }.single()
     }
 
-    private fun MutableList<ContextMenuElement>.addChoice(
+    private fun <T> MutableList<ContextMenuElement>.addChoice(
         label: @Composable () -> String,
         icon: DrawableResource,
-        choice: Either<LineRange, RewriteRefusal>,
+        choice: Either<T, RewriteRefusal>,
         isRange: Boolean = false,
-        onPick: (LineRange) -> Unit,
+        onPick: (T) -> Unit,
     ) {
         when (choice) {
             is Either.Ok -> addContextMenu(
@@ -111,16 +162,20 @@ class CommitRewrite(
  */
 val LocalCommitRewrite = compositionLocalOf<CommitRewrite?> { null }
 
-/** The [CommitRewrite] of [viewModel]'s tab, whose dialog [onRewrite] opens; null without one, as in tests. */
+/**
+ * The [CommitRewrite] of [viewModel]'s tab, whose dialog [onRewrite] opens, and the Drop dialog [onDrop]; null without
+ * one, as in tests. The commit editor opens in the tab.
+ */
 @Composable
 fun rememberCommitRewrite(
     viewModel: RepositoryOpenViewModel,
     currentBranch: Branch?,
     onRewrite: ((RewriteRequest) -> Unit)?,
+    onDrop: ((RebasePlan) -> Unit)? = null,
 ): CommitRewrite? {
     val lines by viewModel.branchLines.collectAsState()
 
-    return remember(viewModel, lines, currentBranch?.name, onRewrite) {
+    return remember(viewModel, lines, currentBranch?.name, onRewrite, onDrop) {
         onRewrite?.let { open ->
             CommitRewrite(
                 lines = lines,
@@ -128,10 +183,23 @@ fun rememberCommitRewrite(
                 busy = viewModel::rewriteBusyWith,
                 onOpen = open,
                 onFixup = viewModel::fixupIntoParent,
+                onEditor = viewModel::openCommitEditor,
+                onDrop = onDrop,
             )
         }
     }
 }
+
+/** The Drop dialog of [plan], which drops its first row, in [viewModel]'s tab (fork-only, choice 4a). */
+fun dropCommitScreen(viewModel: RepositoryOpenViewModel, plan: RebasePlan) = Screen.DropCommit(
+    plan = plan,
+    check = {
+        val (check, place) = viewModel.checkDrop(plan)
+        DropCheck(check, place)
+    },
+    filesOf = { viewModel.filesOfCommit(plan.rows.first().commit) },
+    onConfirm = { check, autostash -> viewModel.dropCommit(plan, check, autostash) },
+)
 
 /**
  * Why an item can't rewrite, at its right: short, as the menu is narrow. [base] is the base branch's short name, and

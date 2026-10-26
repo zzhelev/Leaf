@@ -72,6 +72,12 @@ sealed interface ConfirmableAction {
     }
 
     /**
+     * Fork-only: aborts the rebase of a commit editor's plan on [branch], and opens the editor with the plan again
+     * (`docs/fork/commit-editor.md`, B5). [changedFiles] files have uncommitted changes, which the abort resets.
+     */
+    data class BackToRebasePlan(val branch: String, val changedFiles: Int) : ConfirmableAction
+
+    /**
      * Fork-only: leaves out the commit that a cherry-pick of several commits stopped at, and picks the rest. Its changes
      * in [discardedFiles] files, staged or with conflicts, are lost.
      */
@@ -432,6 +438,18 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 primaryAction = stringResource(Res.string.abort_dialog_abort),
             )
         }
+
+        is ConfirmableAction.BackToRebasePlan -> ConfirmationTexts(
+            icon = warning,
+            title = stringResource(Res.string.back_to_plan_dialog_title),
+            subtitle = stringResource(Res.string.back_to_plan_dialog_subtitle, branch),
+            warning = if (changedFiles > 0) {
+                pluralStringResource(Res.plurals.abort_dialog_changes_discarded, changedFiles, changedFiles)
+            } else {
+                null
+            },
+            primaryAction = stringResource(Res.string.commit_editor_back_to_plan),
+        )
 
         is ConfirmableAction.SkipCherryPickCommit -> ConfirmationTexts(
             icon = warning,

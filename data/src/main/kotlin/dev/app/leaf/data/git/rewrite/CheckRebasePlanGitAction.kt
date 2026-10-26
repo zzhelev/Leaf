@@ -8,9 +8,11 @@ import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.remote.readableGitOutput
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.interfaces.ICheckRebasePlanGitAction
 import dev.app.leaf.domain.rewrite.CheckedGroup
+import dev.app.leaf.domain.rewrite.FilesInTheWay
 import dev.app.leaf.domain.rewrite.PlanCheck
 import dev.app.leaf.domain.rewrite.PlanStop
 import dev.app.leaf.domain.rewrite.RebasePlan
@@ -65,7 +67,7 @@ class CheckRebasePlanGitAction @Inject constructor(
         val repository = git.repository
 
         try {
-            check(repository, plan)
+            check(repository, plan).withFilesInTheWay(repository, plan)
         } catch (e: MissingObjectException) {
             printError(TAG, "A commit or tree of the plan is missing: ${e.message}")
             PlanCheck(emptyList(), PlanStop.Unknown(UnknownStopReason.MISSING_OBJECTS))
@@ -111,6 +113,44 @@ class CheckRebasePlanGitAction @Inject constructor(
 
         PlanCheck(checked, null)
     }
+
+    /**
+     * The check with the files in the way, for a plan that runs through on a branch that a worktree has checked out
+     * (B5): the uncommitted changes there that moving the files from the branch's tip to the plan's last tree meets.
+     * Left out when git can't tell, as the run looks again.
+     */
+    private suspend fun PlanCheck.withFilesInTheWay(repository: Repository, plan: RebasePlan): PlanCheck {
+        if (stops) return this
+
+        // A plan that keeps no commit leaves the tree that it starts on
+        val lastTree = groups.lastOrNull { !it.isLeftOut }?.tree ?: RevWalk(repository).use { walk ->
+            val trees = CommitTrees(walk)
+            plan.onto?.let { trees.of(it.commit) } ?: trees.parentOf(plan.original.first().hash)
+        }
+        val found = either {
+            val place = branchPlace(repository, plan.line.branch)
+
+            if (!place.hasBranchCheckedOut || lastTree == treeOf(repository, plan.expectedTip)) {
+                Either.Ok(null)
+            } else {
+                val files = filesInTheWay(gitCli, place, plan.expectedTip, lastTree)
+
+                Either.Ok(files.takeIf { it.isNotEmpty() }?.let { FilesInTheWay(place.workingDirectory.path, it) })
+            }
+        }
+
+        return when (found) {
+            is Either.Err -> {
+                printError(TAG, "Couldn't tell which files are in the way: ${found.error}")
+                this
+            }
+
+            is Either.Ok -> copy(inTheWay = found.value)
+        }
+    }
+
+    private fun treeOf(repository: Repository, commit: String): String =
+        RevWalk(repository).use { it.parseCommit(ObjectId.fromString(commit)).tree.name }
 
     /** Picking the change from [parentTree] to [commitTree] onto [tree], remembered for the tab. */
     private suspend fun pick(repository: Repository, parentTree: String, tree: String, commitTree: String): PickResult {

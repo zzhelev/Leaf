@@ -55,6 +55,7 @@ import dev.app.leaf.common.printLog
 import dev.app.leaf.compose.rememberInTab
 import dev.app.leaf.domain.BranchesConstants.LOCAL_PREFIX_LENGTH
 import dev.app.leaf.domain.log.LogMove
+import dev.app.leaf.domain.rewrite.RebasePlan
 import dev.app.leaf.domain.rewrite.RewriteRequest
 import dev.app.leaf.domain.log.headCommitHash
 import dev.app.leaf.domain.models.*
@@ -130,6 +131,8 @@ fun Log(
     onCherryPickCommits: ((Branch) -> Unit)? = null,
     // Fork-only: opens the dialog that squashes or rewords commits (docs/fork/squash-and-rebase.md, A3)
     onRewrite: ((RewriteRequest) -> Unit)? = null,
+    // Fork-only: the Drop dialog of a plan that drops a commit (docs/fork/commit-editor.md)
+    onDropCommit: ((RebasePlan) -> Unit)? = null,
 ) {
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
@@ -162,7 +165,7 @@ fun Log(
     val selectedCommits by viewModel.selectedCommits.collectAsState()
 
     // Fork-only: the menus' squash and reword items (A3)
-    val commitRewrite = rememberCommitRewrite(viewModel, logStatus.currentBranch, onRewrite)
+    val commitRewrite = rememberCommitRewrite(viewModel, logStatus.currentBranch, onRewrite, onDropCommit)
 
     // Fork-only: the branch chips' cherry-pick item
     val branchesAhead by viewModel.branchesAhead.collectAsState()
@@ -820,6 +823,7 @@ fun CommitsList(
                         },
                         onClearSelection = { onAction(LogAction.LogSelectionCleared) },
                         squash = commitRewrite?.let { rewrite -> { rewrite.rangeItem(selectedCommits) } },
+                        edit = commitRewrite?.let { rewrite -> { rewrite.rangeEditorItem(selectedCommits) } },
                     )
                 } else {
                     null
@@ -1145,6 +1149,7 @@ private fun CommitLine(
                     onCopyHashes = selectedCommitsMenu.onCopyHashes,
                     onClearSelection = selectedCommitsMenu.onClearSelection,
                     squash = selectedCommitsMenu.squash?.invoke(),
+                    edit = selectedCommitsMenu.edit?.invoke(),
                 )
             } else if (isStash) {
                 stashesContextMenuItems(
@@ -1707,6 +1712,7 @@ fun BranchChip(
             cherryPick = branchCherryPick?.itemFor(branch),
             onCherryPick = { item -> branchCherryPick?.onCherryPick?.invoke(branch, item) },
             squashBranch = commitRewrite?.takeIf { branch.isLocal }?.branchItem(branch.name),
+            editBranch = commitRewrite?.takeIf { branch.isLocal }?.branchEditorItem(branch.name),
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }
@@ -1875,4 +1881,5 @@ private class SelectedCommitsMenu(
     val onCopyHashes: () -> Unit,
     val onClearSelection: () -> Unit,
     val squash: (() -> ContextMenuElement)? = null,
+    val edit: (() -> ContextMenuElement?)? = null,
 )

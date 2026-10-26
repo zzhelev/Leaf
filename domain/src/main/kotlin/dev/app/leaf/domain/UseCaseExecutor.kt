@@ -87,6 +87,7 @@ class UseCaseExecutor @Inject constructor(
         dataToRefresh: Array<DataToRefresh>,
         refreshEvenIfFailed: Boolean = false,
         isForegroundTask: Boolean = true,
+        stoppedAtConflicts: (T) -> Boolean = { false },
         block: suspend EitherContext<AppError>.(String) -> Either<T, AppError>,
     ): Deferred<Either<T, AppError>> {
         return repositoryStateRepository.runOperationInTabScopeAsync(taskType, scope, isForegroundTask) {
@@ -95,6 +96,7 @@ class UseCaseExecutor @Inject constructor(
                 dataToRefresh,
                 refreshEvenIfFailed,
                 block,
+                stoppedAtConflicts,
             )
         }
     }

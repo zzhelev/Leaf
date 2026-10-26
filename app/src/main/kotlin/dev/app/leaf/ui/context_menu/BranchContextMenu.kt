@@ -40,6 +40,8 @@ fun branchContextMenuItems(
     onCherryPick: (BranchCherryPickItem) -> Unit = {},
     // Fork-only: squashes the branch's own commits into one
     squashBranch: ContextMenuElement? = null,
+    // Fork-only: opens the commit editor with the branch's own commits
+    editBranch: ContextMenuElement? = null,
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -84,8 +86,9 @@ fun branchContextMenuItems(
         }
 
         // Fork-only: the current branch too
-        if (squashBranch != null) {
-            add(squashBranch)
+        if (squashBranch != null || editBranch != null) {
+            squashBranch?.let(::add)
+            editBranch?.let(::add)
             add(ContextMenuElement.ContextSeparator)
         }
 

@@ -19,7 +19,8 @@ fun warningNotification(text: String) = NotificationData(NotificationType.Warnin
 fun TaskType.conflictsTitle(): String {
     return when (this) {
         TaskType.MergeBranch -> "Merge stopped at conflicts, fix them to continue"
-        TaskType.RebaseBranch, TaskType.RebaseWorktree, TaskType.ContinueRebase, TaskType.SkipRebase ->
+        TaskType.RebaseBranch, TaskType.RebaseWorktree, TaskType.ContinueRebase, TaskType.SkipRebase,
+        TaskType.StartRebasePlan ->
             "Rebase stopped at conflicts, fix them to continue"
 
         TaskType.Pull -> "Pull stopped at conflicts, fix them to continue"

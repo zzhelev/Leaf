@@ -265,7 +265,7 @@ private fun CommitList(request: RewriteRequest) {
  * centres one line in its border.
  */
 @Composable
-private fun MessageField(
+internal fun MessageField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
@@ -393,7 +393,7 @@ private fun fileNames(files: List<String>): String {
 
 /** "Start from": the subjects as a list, all the messages, or the oldest one's. */
 @Composable
-private fun StartSwitch(start: SquashMessageStart, onPick: (SquashMessageStart) -> Unit) {
+internal fun StartSwitch(start: SquashMessageStart, onPick: (SquashMessageStart) -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))

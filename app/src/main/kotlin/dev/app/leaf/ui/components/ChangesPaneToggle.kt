@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.changes_pane_held_commit_editor
 import dev.app.leaf.app.generated.resources.changes_pane_held_comparison
 import dev.app.leaf.app.generated.resources.changes_pane_held_operation
 import dev.app.leaf.app.generated.resources.changes_pane_hide
@@ -101,6 +102,7 @@ fun ChangesPaneToggle(
 internal fun changesPaneToggleLabel(state: ChangesPaneState): String = when (val need = state.need) {
     is ChangesPaneNeed.OperationInProgress -> stringResource(Res.string.changes_pane_held_operation, operationName(need.operation))
     ChangesPaneNeed.Comparison -> stringResource(Res.string.changes_pane_held_comparison)
+    ChangesPaneNeed.CommitEditor -> stringResource(Res.string.changes_pane_held_commit_editor)
     null -> stringResource(if (state.isFolded) Res.string.changes_pane_show else Res.string.changes_pane_hide)
 }
 

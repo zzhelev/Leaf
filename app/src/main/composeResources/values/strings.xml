@@ -484,7 +484,125 @@
     </plurals>
     <string name="rewrite_strip_fixed_up">Fixed up %1$s into its parent on %2$s.</string>
     <string name="rewrite_strip_reworded">Changed the message of %1$s on %2$s.</string>
-    <string name="rewrite_strip_rebased">Rewrote the commits of %1$s.</string>
+    <string name="rewrite_strip_rebased">Rebased %1$s: %2$s.</string>
+    <!-- Fork-only: the commit editor (docs/fork/commit-editor.md, B5) -->
+    <string name="commit_editor_title">Interactive rebase · %1$s</string>
+    <plurals name="commit_editor_since_base">
+        <item quantity="one">%1$d commit since the branch left %2$s</item>
+        <item quantity="other">%1$d commits since the branch left %2$s</item>
+    </plurals>
+    <plurals name="commit_editor_after_commit">
+        <item quantity="one">%1$d commit after %2$s</item>
+        <item quantity="other">%1$d commits after %2$s</item>
+    </plurals>
+    <plurals name="commit_editor_commits">
+        <item quantity="one">%1$d commit</item>
+        <item quantity="other">%1$d commits</item>
+    </plurals>
+    <string name="commit_editor_onto">Onto</string>
+    <plurals name="commit_editor_onto_latest">
+        <item quantity="one">Latest %1$s · %2$s, %3$d new commit</item>
+        <item quantity="other">Latest %1$s · %2$s, %3$d new commits</item>
+    </plurals>
+    <string name="commit_editor_onto_start">Where it started · %1$s</string>
+    <string name="commit_editor_keys">↑↓ select · P R S F E D action · %1$s↑ %1$s↓ or drag to move</string>
+    <plurals name="commit_editor_fixups">
+        <item quantity="one">%1$d fixup! commit can go under the commit it names.</item>
+        <item quantity="other">%1$d fixup! commits can go under the commits they name.</item>
+    </plurals>
+    <string name="commit_editor_fixups_place">Put them there</string>
+    <string name="commit_editor_action_pick">Pick</string>
+    <string name="commit_editor_action_reword">Reword</string>
+    <string name="commit_editor_action_squash">Squash</string>
+    <string name="commit_editor_action_fixup">Fixup</string>
+    <string name="commit_editor_action_edit">Edit</string>
+    <string name="commit_editor_action_drop">Drop</string>
+    <string name="commit_editor_menu_squash">Squash into the one below</string>
+    <string name="commit_editor_menu_fixup">Fixup into the one below</string>
+    <string name="commit_editor_menu_edit">Stop to edit</string>
+    <string name="commit_editor_menu_nothing_below">Nothing below to join</string>
+    <string name="commit_editor_action_of">Action of %1$s</string>
+    <string name="commit_editor_drag">Drag to move</string>
+    <string name="commit_editor_tag_joined">+%1$d</string>
+    <plurals name="commit_editor_tag_joined_tooltip">
+        <item quantity="one">%1$d commit joins this one</item>
+        <item quantity="other">%1$d commits join this one</item>
+    </plurals>
+    <string name="commit_editor_tag_picked">picked</string>
+    <string name="commit_editor_tag_picked_tooltip">Nothing below it to join, so it stays a commit of its own</string>
+    <string name="commit_editor_tag_moved">moved</string>
+    <string name="commit_editor_tag_moved_tooltip">Moved: replayed in a new order</string>
+    <string name="commit_editor_tag_stops">Stops · %1$s</string>
+    <string name="commit_editor_tag_stops_tooltip">Conflicts in %1$s</string>
+    <string name="commit_editor_tag_empty_in">In %1$s</string>
+    <string name="commit_editor_tag_empty">Empty</string>
+    <string name="commit_editor_tag_empty_tooltip">Its changes are already there: it's left out</string>
+    <string name="commit_editor_pushed_tooltip">On %1$s</string>
+    <plurals name="commit_editor_summary">
+        <item quantity="one">%1$d commit → %2$d</item>
+        <item quantity="other">%1$d commits → %2$d</item>
+    </plurals>
+    <string name="commit_editor_summary_joined">%1$d joined</string>
+    <string name="commit_editor_summary_dropped">%1$d dropped</string>
+    <string name="commit_editor_summary_reordered">reordered</string>
+    <plurals name="commit_editor_summary_stops">
+        <item quantity="one">%1$d stop</item>
+        <item quantity="other">%1$d stops</item>
+    </plurals>
+    <string name="commit_editor_note_stops">Stops at %1$s “%2$s”: %3$s conflicts.</string>
+    <plurals name="commit_editor_note_stops_more">
+        <item quantity="one">Stops at %1$s “%2$s”: %3$s and %4$d more file conflict.</item>
+        <item quantity="other">Stops at %1$s “%2$s”: %3$s and %4$d more files conflict.</item>
+    </plurals>
+    <string name="commit_editor_note_stops_to_edit">Stops at %1$s for you to edit it.</string>
+    <string name="commit_editor_note_may_stop">It may stop at conflicts.</string>
+    <string name="commit_editor_note_runs_in">Runs in %1$s.</string>
+    <string name="commit_editor_note_checks_out_here">Checks out %1$s here first.</string>
+    <plurals name="commit_editor_note_changes_there">
+        <item quantity="one">%1$s has %2$d uncommitted change.</item>
+        <item quantity="other">%1$s has %2$d uncommitted changes.</item>
+    </plurals>
+    <string name="commit_editor_note_in_the_way">Your changes to %1$s are in the way.</string>
+    <string name="commit_editor_note_branch_moved">%1$s moved since. Reset the plan to start from its commits now.</string>
+    <string name="commit_editor_note_empty_message">A commit's message is empty.</string>
+    <string name="commit_editor_note_joins_merge">%1$s is a merge: it can't join others or stop to be edited.</string>
+    <string name="commit_editor_note_replays_merge">%1$s is a merge, which the plan would have to merge again.</string>
+    <plurals name="commit_editor_autostash">
+        <item quantity="one">Set my %1$d uncommitted change aside, and put it back after the rebase</item>
+        <item quantity="other">Set my %1$d uncommitted changes aside, and put them back after the rebase</item>
+    </plurals>
+    <string name="commit_editor_reset">Reset the plan</string>
+    <string name="commit_editor_cancel">Cancel</string>
+    <plurals name="commit_editor_rewrite">
+        <item quantity="one">Rewrite %1$d commit</item>
+        <item quantity="other">Rewrite %1$d commits</item>
+    </plurals>
+    <string name="commit_editor_start_rebase">Start rebase</string>
+    <string name="commit_editor_panel_commit">Commit %1$d of %2$d after the rebase</string>
+    <string name="commit_editor_panel_dropped">Dropped</string>
+    <string name="commit_editor_panel_put_back">Put the message back</string>
+    <string name="commit_editor_panel_files">Files in %1$s</string>
+    <string name="commit_editor_panel_conflicts">conflicts</string>
+    <string name="commit_editor_panel_no_files">No files changed</string>
+    <string name="commit_editor_menu_branch">Interactive rebase…</string>
+    <string name="commit_editor_menu_from_here">Interactive rebase from here…</string>
+    <plurals name="commit_editor_menu_range">
+        <item quantity="one">Interactive rebase of this commit…</item>
+        <item quantity="other">Interactive rebase of these %1$d commits…</item>
+    </plurals>
+    <string name="commit_editor_menu_drop">Drop commit…</string>
+    <string name="commit_editor_back_to_plan">Back to the plan</string>
+    <string name="back_to_plan_dialog_title">Back to the plan</string>
+    <string name="back_to_plan_dialog_subtitle">Abort the rebase of %1$s, and open the plan again in the editor?</string>
+    <string name="drop_commit_dialog_title">Drop %1$s?</string>
+    <string name="drop_commit_dialog_drop">Drop commit</string>
+    <string name="drop_commit_dialog_drop_and_rebase">Drop and rebase</string>
+    <string name="drop_commit_dialog_checking">Checking the commits after it…</string>
+    <plurals name="rewrite_strip_rebased_counts">
+        <item quantity="one">%1$d commit → %2$d</item>
+        <item quantity="other">%1$d commits → %2$d</item>
+    </plurals>
+    <string name="rewrite_strip_rebased_onto">Rebased %1$s onto %2$s: %3$s.</string>
     <string name="rewrite_strip_pushed">%1$s still has the old commits: push with force to replace them.</string>
     <string name="rewrite_strip_push">Push with force…</string>
     <string name="rewrite_strip_undo">Undo</string>
@@ -1887,6 +2005,7 @@
     <string name="changes_pane_show">Show the changes pane</string>
     <string name="changes_pane_held_operation">Changes pane: shown while a %1$s is in progress</string>
     <string name="changes_pane_held_comparison">Changes pane: shown while comparing</string>
+    <string name="changes_pane_held_commit_editor">Changes pane: shown while the commit editor is open</string>
     <string name="changes_pane_operation_merge">merge</string>
     <string name="changes_pane_operation_rebase">rebase</string>
     <string name="changes_pane_operation_cherry_pick">cherry-pick</string>

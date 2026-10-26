@@ -86,7 +86,7 @@ data class BranchLines(
     }
 
     /**
-     * What "Edit branch commits…" opens for the local branch [branch]: a plan of all its own commits, or null when it has
+     * What "Interactive rebase…" opens for the local branch [branch]: a plan of all its own commits, or null when it has
      * none to offer it for, as for [branchChoice].
      */
     fun editorChoice(branch: String, busy: (branch: String) -> BranchOperation?): Either<RebasePlan, RewriteRefusal>? {
@@ -108,7 +108,7 @@ data class BranchLines(
         busy: (branch: String) -> BranchOperation?,
     ): Either<RebasePlan, RewriteRefusal> = editorFromOldestOf(listOf(commit), currentBranch, busy)
 
-    /** What "Edit these in the rebase editor…" opens for [commits], selected in the log: the line from the oldest. */
+    /** What "Interactive rebase of these N commits…" opens for [commits], selected in the log: the line from the oldest. */
     fun editorForRange(
         commits: Collection<String>,
         currentBranch: String?,

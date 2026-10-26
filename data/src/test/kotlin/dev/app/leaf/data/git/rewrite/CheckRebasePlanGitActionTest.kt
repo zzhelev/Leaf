@@ -387,6 +387,34 @@ class CheckRebasePlanGitActionTest {
     }
 
     @Test
+    fun `a plan that runs through names the uncommitted changes that moving the branch's files would meet`(): Unit = runBlocking {
+        commit(work, "Base", "a.txt" to "a\n")
+        git.run(work, "switch", "-q", "-c", "feat")
+        val a = commit(work, "Add the cache", "cache.txt" to "cache\n")
+        val b = commit(work, "Add notes", "notes.txt" to "notes\n", "a.txt" to "a\nnoted\n")
+        val (line, original) = featLine()
+        File(work, "notes.txt").writeText("my own notes\n")
+
+        val dropNotes = check(RebasePlan.of(line, original).withAction(b, PlanAction.DROP))
+        val dropCache = check(RebasePlan.of(line, original).withAction(a, PlanAction.DROP))
+        val reword = check(RebasePlan.of(line, original).withMessage(b, "Add the notes\n"))
+
+        assertNull(dropNotes.stop)
+        assertEquals(listOf("notes.txt"), dropNotes.inTheWay?.files)
+        assertEquals(work.canonicalPath, File(dropNotes.inTheWay!!.worktreePath).canonicalPath)
+        assertNull(dropCache.inTheWay)
+        assertNull(reword.inTheWay)
+
+        // Checked out nowhere, nothing's files move: the tab's worktree on main has changes to a file that the drop
+        // changes, which aren't in the way
+        git.run(work, "stash", "-q")
+        git.run(work, "switch", "-q", "main")
+        File(work, "a.txt").writeText("a\nmine\n")
+
+        assertNull(check(RebasePlan.of(line, original).withAction(b, PlanAction.DROP)).inTheWay)
+    }
+
+    @Test
     fun `a branch from the repository's first commit starts from the empty tree`(): Unit = runBlocking {
         git.run(work, "checkout", "-q", "-b", "feat")
         val a = commit(work, "A", "a.txt" to "a\n")

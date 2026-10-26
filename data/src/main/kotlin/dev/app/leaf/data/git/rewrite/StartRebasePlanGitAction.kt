@@ -45,6 +45,7 @@ private const val REBASE_FOLDER = "rebase-merge"
 /** Where the plan's rebase runs, and what it gets. */
 private class PreparedRebase(
     val gitDir: File,
+    val worktree: File,
     val branchArgument: String,
     val oldTip: String,
     val todo: RebaseTodo,
@@ -90,8 +91,7 @@ class StartRebasePlanGitAction @Inject constructor(
         val check = checkPlan(repositoryPath, plan).bind()
         val prepared = jgit.provide(repositoryPath) { git -> prepare(git.repository, plan, check) }.bind()
         val todoFile = Files.createTempFile("leaf-rebase-todo-", ".txt").toFile()
-
-        try {
+        val atConflicts = try {
             todoFile.writeText(prepared.todo.lines.joinToString("\n", postfix = "\n"))
 
             // A branch from the repository's first commit has no upstream: git starts at the root
@@ -119,7 +119,7 @@ class StartRebasePlanGitAction @Inject constructor(
             runCatching { File(rebaseFolder, PLAN_RECORD_FILE_NAME).writeText(record) }
                 .onFailure { printError(TAG, "Couldn't write the plan's record: ${it.message}") }
 
-            Either.Ok(PlanRebaseOutcome.Stopped(prepared.gitDir.absolutePath))
+            Either.Ok(PlanRebaseOutcome.Stopped(prepared.gitDir.absolutePath, prepared.worktree.absolutePath, atConflicts))
         } else {
             val newTip = jgit.provide(repositoryPath) { git -> git.repository.exactRef(plan.line.branch)?.objectId?.name }
                 .bind()
@@ -184,7 +184,7 @@ class StartRebasePlanGitAction @Inject constructor(
 
         val branchArgument = operations.branchArgument(gitDir.absolutePath, branch).bind()
 
-        return PreparedRebase(gitDir, branchArgument, oldTip, plan.rebaseTodo(check, twins), twins)
+        return PreparedRebase(gitDir, place.workingDirectory, branchArgument, oldTip, plan.rebaseTodo(check, twins), twins)
     }
 }
 

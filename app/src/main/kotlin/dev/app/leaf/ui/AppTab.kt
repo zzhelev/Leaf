@@ -541,6 +541,17 @@ fun AppTab(
                                 onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
+                        entry<Screen.DropCommit>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            DropCommitDialog(
+                                plan = entry.plan,
+                                check = entry.check,
+                                filesOf = entry.filesOf,
+                                onConfirm = entry.onConfirm,
+                                onDismiss = { backStack.removeLastOrNull() },
+                            )
+                        }
                         entry<Screen.WorktreeRebaseOntoBase>(
                             metadata = dialogsMetadata
                         ) { entry ->

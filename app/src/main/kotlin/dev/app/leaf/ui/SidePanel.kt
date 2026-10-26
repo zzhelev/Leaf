@@ -103,10 +103,12 @@ fun SidePanel(
     val cherryPick = BranchCherryPick(branchesAhead, branchesState.currentBranch) { branch, item ->
         viewModel.cherryPickFromBranch(branch, item) { onNavigate(Screen.CherryPickBranch(it)) }
     }
-    // Fork-only: the local branches' "Squash branch into one commit…"
-    val commitRewrite = rememberCommitRewrite(viewModel, branchesState.currentBranch) { request ->
-        onNavigate(rewriteCommitsScreen(viewModel, request))
-    }
+    // Fork-only: the local branches' "Squash branch into one commit…" and "Interactive rebase…"
+    val commitRewrite = rememberCommitRewrite(
+        viewModel = viewModel,
+        currentBranch = branchesState.currentBranch,
+        onRewrite = { request -> onNavigate(rewriteCommitsScreen(viewModel, request)) },
+    )
 
     val searchFocusRequester = remember { FocusRequester() }
     val tabFocusRequester = LocalTabFocusRequester.current
@@ -206,6 +208,7 @@ fun SidePanel(
                         }
                     },
                     squashBranch = { branch -> commitRewrite?.branchItem(branch) },
+                    editBranch = { branch -> commitRewrite?.branchEditorItem(branch) },
                 ),
             )
 
@@ -903,6 +906,7 @@ internal fun Branch(
                 cherryPick = cherryPickItem,
                 onCherryPick = onCherryPick,
                 squashBranch = commitRewrite?.branchItem(branch.name),
+                editBranch = commitRewrite?.branchEditorItem(branch.name),
             )
         }
     ) {

@@ -176,6 +176,8 @@ class StartRebasePlanGitActionTest {
 
         // In the tab's worktree, where feat is checked out
         assertEquals(File(work, ".git").canonicalPath, File((outcome as PlanRebaseOutcome.Stopped).gitDir).canonicalPath)
+        assertEquals(work.canonicalPath, File(outcome.worktreePath).canonicalPath)
+        assertTrue(outcome.atConflicts)
         assertEquals(b, hash("REBASE_HEAD"))
         assertEquals("cache.txt\n", git.run(work, "diff", "--name-only", "--diff-filter=U"))
 
@@ -232,6 +234,7 @@ class StartRebasePlanGitActionTest {
         val outcome = startPlan(gitDir, plan(a to PICK, b to PICK, c to EDIT, d to PICK), autostash = false).ok()
 
         assertInstanceOf(PlanRebaseOutcome.Stopped::class.java, outcome)
+        assertFalse((outcome as PlanRebaseOutcome.Stopped).atConflicts)
         assertTrue(File(work, ".git/rebase-merge/amend").exists())
         assertEquals("Add the parser", subject("HEAD"))
 
@@ -293,6 +296,7 @@ class StartRebasePlanGitActionTest {
 
         val linkedGitDir = File(git.run(linked, "rev-parse", "--absolute-git-dir").trim())
         assertEquals(linkedGitDir.canonicalPath, File((outcome as PlanRebaseOutcome.Stopped).gitDir).canonicalPath)
+        assertEquals(linked.canonicalPath, File(outcome.worktreePath).canonicalPath)
         assertEquals(b, hash("REBASE_HEAD", linked))
         assertEquals(ownHead, hash("HEAD"))
         assertFalse(File(work, ".git/rebase-merge").exists())

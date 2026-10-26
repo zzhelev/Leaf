@@ -23,8 +23,11 @@ sealed interface PlanRebaseOutcome {
     /** It ran to the end, and [result] says from where to where, for the strip and Undo. */
     data class Done(val result: BranchRewriteResult) : PlanRebaseOutcome
 
-    /** It stopped, at a conflict or an edit, in the worktree whose git dir is [gitDir]. */
-    data class Stopped(val gitDir: String) : PlanRebaseOutcome
+    /**
+     * It stopped in the worktree at [worktreePath], whose git dir is [gitDir]: at conflicts ([atConflicts]), or at an
+     * edit.
+     */
+    data class Stopped(val gitDir: String, val worktreePath: String, val atConflicts: Boolean) : PlanRebaseOutcome
 }
 
 /**

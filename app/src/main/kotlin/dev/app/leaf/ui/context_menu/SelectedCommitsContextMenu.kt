@@ -18,9 +18,12 @@ fun selectedCommitsContextMenuItems(
     onCopyHashes: () -> Unit,
     onClearSelection: () -> Unit,
     squash: ContextMenuElement? = null,
+    // The commit editor with them (docs/fork/commit-editor.md, B5)
+    edit: ContextMenuElement? = null,
 ): List<ContextMenuElement> = buildList {
-    if (squash != null) {
-        add(squash)
+    if (squash != null || edit != null) {
+        squash?.let(::add)
+        edit?.let(::add)
         add(ContextMenuElement.ContextSeparator)
     }
 

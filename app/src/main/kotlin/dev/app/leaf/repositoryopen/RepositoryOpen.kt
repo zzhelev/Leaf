@@ -29,6 +29,7 @@ import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.CloseableView
+import dev.app.leaf.domain.rewrite.shortName
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
@@ -45,7 +46,10 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffLogToggle
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.diff.FollowedDiffPlaceholder
+import dev.app.leaf.ui.context_menu.dropCommitScreen
 import dev.app.leaf.ui.context_menu.rewriteCommitsScreen
+import dev.app.leaf.ui.commiteditor.CommitEditor
+import dev.app.leaf.ui.commiteditor.CommitEditorPanel
 import dev.app.leaf.ui.log.Log
 import dev.app.leaf.ui.log.LocalLogFocusRequester
 import dev.app.leaf.ui.status.OperationInProgressBanner
@@ -247,10 +251,26 @@ fun RepositoryOpenPage(
                 val statusState by repositoryOpenViewModel.statusState.collectAsState()
                 val inProgress = operationInProgress(statusState)
 
+                // Fork-only: the commit editor's plan that waits at a stop (docs/fork/commit-editor.md, B5)
+                val planRecord by repositoryOpenViewModel.planRecord.collectAsState()
+
                 if (inProgress != null && !resolverFocused) {
                     OperationInProgressBanner(
                         inProgress = inProgress,
                         onResolveConflicts = { repositoryOpenViewModel.resolveConflicts() },
+                        onBackToPlan = planRecord?.let { record ->
+                            {
+                                onNavigate(
+                                    Screen.ConfirmAction(
+                                        action = ConfirmableAction.BackToRebasePlan(
+                                            branch = shortName(record.branch),
+                                            changedFiles = statusState.changedFilesCount,
+                                        ),
+                                        onConfirm = { repositoryOpenViewModel.backToPlan() },
+                                    )
+                                )
+                            }
+                        },
                         onAbort = {
                             abortOperationInProgress(
                                 statusState,
@@ -524,6 +544,8 @@ fun MainContentView(
     val branchesPaneFolded by viewModel.branchesPaneFolded.collectAsState()
     // Fork-only: its width is kept too, and the pane shows anyway while something needs it
     val changesPane by viewModel.changesPane.collectAsState()
+    // Fork-only: the commit editor takes the centre pane, and its panel the right one (docs/fork/commit-editor.md)
+    val commitEditorState by viewModel.commitEditorState.collectAsState()
     val density = LocalDensity.current.density
     val scope = rememberCoroutineScope()
 
@@ -550,7 +572,13 @@ fun MainContentView(
 
     TripleVerticalSplitPanel(
         modifier = Modifier.fillMaxSize(),
-        firstWidth = if (rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction || branchesPaneFolded) 0f else firstWidth,
+        firstWidth = if (
+            rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction || branchesPaneFolded || commitEditorState != null
+        ) {
+            0f
+        } else {
+            firstWidth
+        },
         thirdWidth = if (changesPane.isShown) thirdWidth else 0f,
         first = {
             SidePanel(
@@ -563,7 +591,11 @@ fun MainContentView(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                if (
+                val editor = commitEditorState
+
+                if (editor != null) {
+                    CommitEditor(state = editor, onAction = viewModel::onCommitEditorAction)
+                } else if (
                     rebaseInteractiveState is RebaseInteractiveState.AwaitingInteraction
                     && diffSelected == null
                 ) {
@@ -636,6 +668,7 @@ fun MainContentView(
                                         onNewWorktree = { onNavigate(Screen.WorktreeCreate(it)) },
                                         onCherryPickCommits = { onNavigate(Screen.CherryPickBranch(it)) },
                                         onRewrite = { request -> onNavigate(rewriteCommitsScreen(viewModel, request)) },
+                                        onDropCommit = { plan -> onNavigate(dropCommitScreen(viewModel, plan)) },
                                     )
                                 }
                             },
@@ -689,7 +722,11 @@ fun MainContentView(
                 // Fork-only: the commits selected in the log with Shift (docs/fork/squash-and-rebase.md, A2)
                 val selectedCommits = viewModel.selectedCommits.collectAsState().value
 
-                if (comparisonState != null) {
+                val editor = commitEditorState
+
+                if (editor != null) {
+                    CommitEditorPanel(state = editor, onAction = viewModel::onCommitEditorAction)
+                } else if (comparisonState != null) {
                     ComparisonPane(viewModel = viewModel, state = comparisonState)
                 } else if (selectedCommits != null) {
                     SelectedCommitsPane(selected = selectedCommits, onClear = viewModel::clearLogSelection)

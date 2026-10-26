@@ -133,6 +133,13 @@ internal fun rewriteStripText(notice: RewriteNotice): String {
         }
         RewriteKind.FIXUP -> stringResource(Res.string.rewrite_strip_fixed_up, notice.commit, branch)
         RewriteKind.REWORD -> stringResource(Res.string.rewrite_strip_reworded, notice.commit, branch)
-        RewriteKind.REBASE -> stringResource(Res.string.rewrite_strip_rebased, branch)
+        RewriteKind.REBASE -> {
+            val counts = pluralStringResource(Res.plurals.rewrite_strip_rebased_counts, notice.joined, notice.joined, notice.after)
+
+            when (val onto = notice.result.onto) {
+                null -> stringResource(Res.string.rewrite_strip_rebased, branch, counts)
+                else -> stringResource(Res.string.rewrite_strip_rebased_onto, branch, shortName(onto.base), counts)
+            }
+        }
     }
 }
