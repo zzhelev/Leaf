@@ -205,6 +205,10 @@ asking.
 
 ### Build gotchas
 
+- **The Gradle daemon's memory (fork-only, 2026-10-26):** `gradle.properties` sets
+  `org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g`. KSP runs inside the daemon and leaves classes behind on each
+  build, so Gradle's defaults (512 MB of heap, 384 MB of Metaspace) ran out after a few builds: `:domain:kspKotlin`
+  failed with `OutOfMemoryError: Metaspace`, or the build hung. A daemon that runs out stops itself after its build.
 - **Rust tasks (fork-only, `app/build.gradle.kts`, group `rust`):**
   - `cargoBuild` runs `cargo build --release` in `rs/` (`cross build --target=…` with `-PuseCross=true` on Linux), and
     `copyRustBuild` copies `leaf-askpass` into the app's resources. `processResources` depends on it, so every app
@@ -294,8 +298,8 @@ asking.
   `config/IncludedConfig.kt`):** JGit's parser expands only `[include]`, so what a file that `includeIf` names sets (a
   work identity for `~/work/`, signing, `core.hooksPath`, `core.autocrlf`, …) never reached JGit (upstream issue 186).
   `JGit.open` opens an `IncludedConfigRepository`, whose config is the repository's own file on a layer of what only
-  git reads, on the user's config. JGit's own commits (the interactive rebase, and pull's merge and rebase, merge,
-  cherry-pick, revert and rebase when git can't run them), its reflog entries, its stashes and its other settings then
+  git reads, on the user's config. JGit's own commits (pull's merge and rebase, merge, cherry-pick, revert and rebase
+  when git can't run them), its reflog entries, its stashes and its other settings then
   see what git sees.
   - `GitIncludedConfig` runs `git --git-dir=<git dir> config --list -z --show-origin --show-scope` and keeps the
     entries of the files reached through `includeIf` (`includedConfig`). git lists an included file's entries right
@@ -318,7 +322,7 @@ asking.
   - Repositories that Leaf opens elsewhere (`SubmoduleWalk`, `RenameBranchGitAction.moveHead`,
     `OpenRepositoryGitAction`'s checks) are plain JGit repositories.
   - Tests: `IncludedConfigTest` checks the entries against git's own list, `IncludedConfigRepositoryTest` JGit's
-    merge, revert, cherry-pick, rebase, interactive rebase and pull, a snapshot stash, a signed merge, a hook and the
+    merge, revert, cherry-pick, rebase and pull, a snapshot stash, a signed merge, a hook and the
     reflog against git.
 - **Hooks are where git finds them (fork-only `GitHooksDirectory`):** `PosixFs` and `WindowsFs` override `findHook`,
   which runs `git --git-dir=<git dir> rev-parse --path-format=absolute --git-path hooks` in the working tree (the git
@@ -388,8 +392,8 @@ code, "worktree" means the working directory, not linked worktrees.
     the toolbar while the repository is in the middle of a merge, rebase, cherry-pick or revert, with the files that
     still have conflicts and an Abort button right after the text (the text is only as wide as it needs, so the
     button doesn't drift to the far right of a wide window). It follows `StatusState` (`operationInProgress`), not the task, so it
-    shows for conflicts from a terminal or an agent too, and stays until the operation is finished or aborted. None
-    while the interactive rebase's list is open. Its Abort and the status pane's go through
+    shows for conflicts from a terminal or an agent too, and stays until the operation is finished or aborted. Its
+    Abort and the status pane's go through
     `abortOperationInProgress`, which asks first (`ConfirmableAction.AbortOperation`).
 - Queries are `suspend` and use `useCaseExecutor.execute`. So do mutations whose dialog shows the result, such as
   rename branch and delete branch or tag: `execute` records no task, so they get no ProcessingScreen, toast or
@@ -1564,8 +1568,9 @@ and a ruler as an option (R1).
   column (`columnRuler`, measured with a `TextMeasurer`, 16 dp in as Material's field pads its text). The text keeps
   wrapping at the pane, so the line shows only while the column fits: about 600 dp for 72 (the pane is 330 dp by
   default). Option R1; R2 (no wrap, sideways scroll) was turned down.
-- Tags and the interactive rebase's reword still take their messages as typed. The rest of the same mockups came next:
-  Co-authors, Conventional Commits suggestions, and "Wrap body, ticket keys and the commit template".
+- Tags still take their messages as typed; the commit editor's and part A's are cleaned as here. The rest of the same
+  mockups came next: Co-authors, Conventional Commits suggestions, and "Wrap body, ticket keys and the commit
+  template".
 - Tests: `CommitMessageLayoutTest` (domain), `CommitMessageCleanupTest` (data: random messages against `git stripspace`
   with `#`, `;` and `//`; every mode with every kind of prefix, and 160 random messages with `auto` and the default,
   against `git commit`; Leaf's real commit against git's in twin repositories; the config, `includeIf` included),
@@ -1790,7 +1795,7 @@ does when git can't.
   show without `REVERT_HEAD` (the repository is SAFE).
 - The `Selecting…GitAction`s are bound in place of JGit's: git when `GitCliOperations.useGitCli()` (a usable git and
   the askpass helper), JGit otherwise. The "Use git for remote operations" setting doesn't apply. Pull runs
-  `git pull` (see Remote operations); the interactive rebase stays with JGit.
+  `git pull` (see Remote operations), and the commit editor's plans `git rebase -i` (see The commit editor).
 - `MergeBranchUseCase` deletes its backup snapshot ("Automatically stash uncommitted changes before merge") after a
   merge that completed, as before, and (fork-only) after a failure that changed nothing: HEAD still at the backup's
   first parent and no merge in progress (`IsUnchangedSinceGitAction`), unless the task was cancelled. Each of git's
@@ -1928,8 +1933,8 @@ terminal: git sets local changes aside (a stash commit) and puts them back when 
 
 **A rebase that git started (fork-only, `data/git/rebase/GitCliRebase.kt`):** Continue, Skip and Abort, in the status
 pane and the banner, run `git rebase --continue`, `--skip` or `--abort` for a rebase that git started: Rebase in the
-branch menu (see above), "Rebase onto", a terminal or an agent. A rebase that JGit started (interactive ones, and Rebase
-when git can't run it) stays with JGit.
+branch menu (see above), "Rebase onto", a terminal or an agent. A rebase that JGit started (Rebase when git can't run
+it, or an interactive one that a Leaf before 2026-10-26 started) stays with JGit.
 - `isRebaseStartedByGit`: a `rebase-apply` folder (git's apply backend), or a `rebase-merge` folder without JGit's
   `onto_name` file, which git 2.54 doesn't write. The `Selecting…RebaseGitAction`s are bound to the domain
   interfaces, and use JGit when git can't run (`GitCliOperations.useGitCli()`).
@@ -1950,7 +1955,8 @@ when git can't run it) stays with JGit.
   to tracked ones, staged or not, in all three. The status pane's rules for them are in the commit field (see What
   disables the primary button).
 - A rebase that git started writes `rebase-merge/interactive` even when it isn't interactive, so JGit reads it as
-  `REBASING_INTERACTIVE`. Leaf shows it as processing commits (`done` exists), as it did before.
+  `REBASING_INTERACTIVE`. Leaf shows it as processing commits, as any rebase with a `rebase-merge` folder (see The
+  commit editor, Upstream's list removed).
 - git signs the commits that it makes during a rebase as `commit.gpgSign` says, with its own gpg or ssh-keygen rather
   than Leaf's signers. ssh-keygen asks for a key's passphrase in Leaf's dialog, through the askpass helper (checked
   with a merge, as above). Until 2026-10-15 Continue and Skip ran without it.
@@ -1971,10 +1977,9 @@ cherry-pick's, with the five guards that the discussion proposed:
   gets the same dialog, naming it, without the warning.
 - **The stopped commit** (`RebaseStop`, `RepositoryDataRepository.rebaseStop`, refreshed with REPO_STATE): `REBASE_HEAD`,
   which git writes at each stop of both backends, or `rebase-merge/stopped-sha`, which JGit writes; `head-name` for the
-  branch; an edit stop (`rebase-merge/amend`) gets no Skip (`canSkipRebaseCommit`), as it already applied the commit. Nor
-  does the interactive rebase's list before it starts.
-- **Both engines:** JGit's skip at a conflict leaves the commit out and goes on, as git's does (probed), so Leaf's own
-  interactive rebases get it too; the guard above applies to both.
+  branch; an edit stop (`rebase-merge/amend`) gets no Skip (`canSkipRebaseCommit`), as it already applied the commit.
+- **Both engines:** JGit's skip at a conflict leaves the commit out and goes on, as git's does (probed), so JGit's
+  rebases get it too; the guard above applies to both.
 - **A lasting note** (`SkippedRebaseCommits`, tab-scoped, by git dir; `ReportSkippedRebaseCommitsUseCase`): Skip of a commit
   with changes records it (`SkipRebaseUseCase(skipped)`, `StatusAction.SkipRebase(skipped)`). The refresh of the repository
   state reports, once the worktree isn't rebasing, the recorded commits that HEAD doesn't contain
@@ -1991,9 +1996,9 @@ cherry-pick's, with the five guards that the discussion proposed:
 **Squashing, fixing up and rewording a branch's commits (fork-only, upstream issue 73, 2026-10-23,
 `docs/fork/squash-and-rebase.md`, `domain/rewrite/`, `data/git/rewrite/`):** part A of the plan, quick actions that
 rebuild a branch's commits from git's own trees, so nothing is replayed, nothing stops at conflicts, and the working
-tree stays as it is. Part B, a plan-first editor that replaces upstream's interactive rebase list, has its own plan to
-come. Chosen with the user from a working mockup (Claude Design, "Leaf squash and interactive rebase"): A then B,
-Shift-click for a range, newest first, onto the latest main, and every new message edited before anything is applied.
+tree stays as it is. Part B, the commit editor, is the next section. Chosen with the user from a working mockup
+(Claude Design, "Leaf squash and interactive rebase"): A then B, Shift-click for a range, newest first, onto the latest
+main, and every new message edited before anything is applied.
 - **The items** (`ui/context_menu/RewriteContextMenu.kt`, `CommitRewrite`, given to the log as `LocalCommitRewrite`): a
   commit row has "Edit message…", "Squash into parent…" and "Fixup into parent" before Checkout; a Shift range's menu
   (`SelectedCommitsMenu`) "Squash N commits…" first; a local branch's (side panel, log chip, worktree row) "Squash branch
@@ -2062,8 +2067,7 @@ Shift-click for a range, newest first, onto the latest main, and every new messa
     changes and that have uncommitted changes, and anything on disk where it adds a file or a folder, untracked or
     ignored. `read-tree` overwrites an ignored file there without a word, as git counts ignored files as expendable,
     and it may be a local `.env`. Refusals at run time are `ConflictsWithBase` and `ChangesInTheWay`, in `ErrorDialog`.
-- **Not done** (part B): dropping, moving and editing commits, which replay with `git rebase -i` and can stop; the
-  interactive rebase list is still upstream's.
+- Dropping, moving and editing commits, which can stop, are the commit editor's (next section).
 - Tests: `BranchLineTest`, `BranchLinesTest`, `SquashMessageTest`, `FixupTargetTest` (domain); `AutosquashTargetTest`
   (the commit each `fixup!`, `squash!` and `amend!` subject names, against the todo of `git rebase -i --autosquash`,
   read by a sequence editor that exits 1, which leaves the branch as it was); `RewriteBranchGitActionTest` (a squash, a fixup
@@ -2076,6 +2080,101 @@ Shift-click for a range, newest first, onto the latest main, and every new messa
   for HEAD) wasn't needed, and that code went. Six of the fixup rule were each caught too, one after a test was added
   (a subject read as its first line only). The menus, the dialogs, the strip and Undo ran in the real
   tab through the Dagger graph in a temporary harness, in both themes, against a branch pushed to a bare `origin`.
+
+**The commit editor: a plan-first interactive rebase (fork-only, upstream issue 73 part B, 2026-10-23 to 2026-10-26,
+`docs/fork/commit-editor.md`, `domain/rewrite/`, `data/git/rewrite/`, `ui/commiteditor/`):** an editor that plans a
+branch's rebase before anything runs, checks the plan while it's edited, and says before Start whether and where it
+stops. It replaced upstream's interactive rebase list, which JGit started before the list was edited. Decided with the
+user from round 3 of a working mockup (Claude Design, "Leaf squash and interactive rebase", `Commit Editor.dc.html`):
+1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (the doc's section 3).
+- **The items** (`RewriteContextMenu.kt`, `CommitRewrite`'s `onEditor` and `onDrop`): "Interactive rebase…" on a local
+  branch (side panel, log chip, worktree row), "Interactive rebase from here…" on a commit row (that commit included,
+  as IntelliJ does), "Interactive rebase of these 3 commits…" on a Shift range, and "Drop commit…" on a commit row,
+  faded with part A's reasons. The mockup's "Edit branch commits…" and "Edit these in the rebase editor…" were renamed
+  with the user (2026-10-26) to match the editor's title.
+- **The plan** (`RebasePlan`): rows oldest first (shown newest first), each a commit of the branch's line (part A's
+  `BranchLine`) and an action (pick, reword, squash, fixup, edit, drop); the groups they make; the first kept row can't
+  join; a message per group, from `SquashMessageStart`; onto the latest base or where the branch started (`withOnto`).
+  "Put them there" puts `fixup!`, `squash!` and `amend!` commits under the commits they name, as
+  `git rebase --autosquash` does (`withFixupsPlaced`, `autosquashTarget`).
+- **The check** (`CheckRebasePlanGitAction`, `PlanCheck`): the plan replayed without a working tree. Per group, a tree
+  chain from the new parent's tree: the commit's own tree where nothing before it changed, else
+  `git merge-tree --write-tree --merge-base=<c>^ <tree> <c>` (git 2.40 and later). Each group gives a tree, is left out
+  empty, conflicts with its files (the plan stops there), or stops to be edited. Results are kept by (parent tree,
+  commit). A partial clone checks with `GIT_NO_LAZY_FETCH=1`, and a blob it lacks makes the plan "may stop". It also
+  gives the files in the way (`PlanCheck.inTheWay`) for a plan that runs through on a checked-out branch. On 40 random
+  plans, `git rebase -i` with the same todo stopped where the check said, with the same files, and gave its trees
+  otherwise.
+- **A plan that doesn't stop** (`RunRebasePlanGitAction`), "Rewrite 7 commits", is applied at once from any tab, as
+  part A's rewrites: `commit-tree` per group (its first commit's author and date, git's committer, `-S` per
+  `commit.gpgSign`), one `update-ref` that expects the old tip, `moveBranchWithFiles` for a checked-out branch, and
+  `post-rewrite` with git's list. Its commits are byte for byte what `git rebase -i` makes from the same todo. Undo as
+  in part A; the reflog says `rebase: <subject>` or `rebase onto main: <subject>`.
+- **A plan that stops** (`StartRebasePlanGitAction`), "Start rebase", runs `git rebase -i --empty=drop --force-rebase
+  --autostash|--no-autostash --onto <onto> <upstream> <branch>` in the worktree that has the branch, else in the tab's,
+  where git checks it out first (choice 2a), through `GitCliOperations.run`.
+  - Leaf's todo (`rebaseTodo`) replaces git's whole: `GIT_SEQUENCE_EDITOR` copies it, so `rebase.autoSquash`,
+    `rebase.updateRefs` and the cherry-picks git leaves out never reach the rebase, and it lists every commit, as
+    `rebase.missingCommitsCheck=error` asks.
+  - New messages ride in twins: `commit-tree` of a group's first tree, its new message and its author, picked in its
+    place, with `GIT_EDITOR=:`. git opens an editor for `reword`, `squash` and a Continue after a conflict, so a
+    terminal's Continue would have shown the old message.
+  - `rebase-merge/leaf-plan` (`PlanRecord`) keeps the plan and each twin's original, for "Back to the plan" after a
+    restart. The tab switches to the worktree where it stopped.
+- **Uncommitted changes where a plan stops** (choice 3a): in the tab's worktree, the box "Set my 2 uncommitted changes
+  aside, and put them back after the rebase" (`--autostash`), which Start waits for; in another worktree, refused
+  ("leaf-wt has 2 uncommitted changes."), with an agent's change of the last 5 minutes said too. A plan that doesn't
+  stop keeps them, unless the files it changes have them.
+- **The editor** (`ui/commiteditor/`: `CommitEditor`, `CommitEditorPanel`, `PlanNotes`; state in
+  `repositoryopen/CommitEditorController.kt`) takes the centre pane, folds the branches pane (its width kept) and holds
+  the changes pane open for its panel (`ChangesPaneNeed.CommitEditor`).
+  - Rows with an action pill, whose menu shows each key at its right (`SortMenuItem.Option.shortcut`), and tags:
+    "Stops · cache.txt" on the first stop only, "In main" for a group that comes out empty, "moved" (outside a longest
+    run in the original order), "+2" and "picked". The panel: the commit that the row becomes, its message, Start from,
+    the files, "conflicts".
+  - The footer (`PlanFooter.kt`: `planFooter`, `PlanNote`, `PlanPlace` from `GetPlanPlaceUseCase`, `planRowMarks`):
+    "5 commits → 4 · 1 joined · reordered", then only lines to act on (where it stops, where it runs, "Checks out
+    claude/parser-cache here first.", what is in the way, the pushed commits), Reset the plan, Cancel and Start.
+  - Keys: ↑↓, P R S F E D, ⌥↑↓ and dragging (upstream's `RowDragSorting`) move a row, ⌘↵ (Ctrl+Enter) starts, Esc
+    (`CloseableView.COMMIT_EDITOR`) cancels. The buttons don't show the keys, as no other button does.
+  - The check runs 150 ms after each change, through a shared flow that replays the last plan to a `collectLatest`:
+    without the replay, a plan sent before the collector had started was never checked. An answer counts only for the
+    plan it was asked about; a failed check is `PlanStop.Unknown`, which replays with git.
+  - A plan closed with Cancel opens again as it was while the branch's tip and commits stay (choice 6, per tab and
+    branch); Reset the plan starts over. The message field keeps its own text while typed in, and takes the plan's when
+    anything else changed it (`CommitEditorState.messageVersion`): the state reaches the view a frame after a key.
+  - The `fixup!` strip is the notices' strip (`warningStrip`) with a "Put them there" button right after its text: in
+    the selection's blue (1.06 : 1 against a selected row), with a link at its far end, the user couldn't find it.
+    Reset the plan and Cancel have no fill and a line in the secondary text's colour: a role made them red in Classic,
+    and without a line Reset read as text.
+- **Drop commit…** (`ui/dialogs/DropCommitDialog.kt`, `Screen.DropCommit`, choice 4a): the commit, its files, the
+  check's notes, then "Drop commit" (red, with Undo after) or "Drop and rebase".
+- **A stop:** while the tab's worktree rebases a plan (`planRecord`), the banner has "Back to the plan" before Abort,
+  which asks first (`ConfirmableAction.BackToRebasePlan`), aborts, waits for the branch to be back at the plan's tip and
+  opens the editor with `PlanRecord.planOn`. When such a rebase ends and the branch moved, from Leaf or a terminal, the
+  strip says what the plan did ("Rebased claude/parser-cache: 5 commits → 4.", `RewriteNotice.ofPlan`, or `ofRecord`
+  after a restart), with Undo. An abort says nothing.
+- **main's own unpushed commits** (decision 5): the base branch's line is the commits that its upstream lacks, so part
+  A's items and the editor work on them, and a commit that the upstream has says "On origin/main".
+- **Upstream's list removed** (decision 7: deleted, not left unreachable): `ui/RebaseInteractive.kt` and its view model
+  code, the commit menu's "Rebase interactive", JGit's interactive start and resume (`StartRebaseInteractiveGitAction`,
+  `ResumeRebaseInteractiveGitAction`), reading the todo, `RebaseLine` and three task types; 23 files. A sync shows
+  modify/delete for them: keep the deletion. `RebaseInteractiveState` keeps `None` and `ProcessingCommits` (an edit
+  stop's Amend). A rebase whose todo hasn't started (`rebase-merge` without `done`, as `git rebase -i` in a terminal
+  leaves while its editor is open) shows as any rebase in progress, where the list took it and offered to finish it
+  with JGit.
+- **Not as `git rebase -i`:** a plan that doesn't stop runs no `pre-rebase`, `prepare-commit-msg` or `post-commit`, as
+  part A's rewrites don't; a stopping plan's `post-rewrite` list names twins. Not built: merges among the commits that
+  a plan replays (refused, as replaying one means merging again), branches stacked on this one (`--update-refs`),
+  `exec` lines.
+- Tests: `RebasePlanTest`, `RebaseTodoTest`, `PlanRecordTest`, `PlanFooterTest`, `GetPlanPlaceUseCaseTest`,
+  `BranchLinesTest` (domain); `CheckRebasePlanGitActionTest`, `RunRebasePlanGitActionTest`,
+  `StartRebasePlanGitActionTest`, `GetBranchLinesGitActionTest` (data, against git 2.54 in twin repositories: random
+  plans, Continue from Leaf and from a terminal, `rebase.missingCommitsCheck`, `rebase.updateRefs`, `rebase.autoSquash`,
+  `rebase.autoStash`, a branch checked out nowhere, here and in another worktree); `CommitEditorControllerTest`,
+  `CommitEditorViewTest`, `DropCommitDialogTest`, `RewriteMenusTest`, `RewriteStripTest` (app). The real tab ran through
+  the Dagger graph in a temporary harness against `/tmp/leaf-commit-editor-demo.sh`'s repository, and the user ran it by
+  hand (2026-10-26). 22 mutations of B5 were each caught by a named test.
 
 **Remote operations (fork-only, `data/git/cli/remote/`, `data/git/cli/askpass/`):** push, fetch, pull, clone, and
 adding and updating submodules run the git CLI, and git-lfs downloads LFS files when it's installed (stages 1 to 5 of
@@ -2404,8 +2503,8 @@ when it first needs them. JGit can't: it throws `MissingObjectException`, which 
   commit's file (`DiffType.blobIds`), and the versions of a blamed file, with, where it was added, the files that blame
   compares to find a rename (`fileVersions`). Queries show no progress.
 - Changing: JGit's checkout deletes files before it writes the new ones, and a missing blob stopped it halfway, with
-  HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset, the
-  interactive rebase, `GitCliPullBranchGitAction`'s merge or rebase, and JGit's merge, cherry-pick, revert and rebase
+  HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset,
+  `GitCliPullBranchGitAction`'s merge or rebase, and JGit's merge, cherry-pick, revert and rebase
   (when git can't run them; git downloads what its own need, `git pull`'s too) download first
   (`prefetchCheckout`, `prefetchForMerge`, `prefetchForCherryPick`, `prefetchForRebase`): the blobs where the trees
   involved differ (`blobsThatDiffer`), with the processing screen's progress and Cancel. A failed download is
@@ -2565,8 +2664,8 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     leaves out `include` and `includeIf`, whose files git has read.
   - JGit reads an empty value (`key =`) as null, where git reads "", from its own files too.
 - Merge in the branch menu, cherry-pick, revert, Rebase and Pull run git (see Merge, cherry-pick, revert and rebase
-  with git, and Remote operations). The commits that JGit makes itself, whose commands take no committer (the
-  interactive rebase, and pull's merge and rebase and those four when git can't run them), its reflog entries and
+  with git, and Remote operations). The commits that JGit makes itself, whose commands take no committer (pull's
+  merge and rebase, and those four when git can't run them), its reflog entries and
   every other setting that JGit reads see the
   files that `includeIf` names through `IncludedConfigRepository`, and hooks are found where git finds them (see
   `JGit.provide`).
@@ -3618,8 +3717,7 @@ both), with a button in the diff's header that gives the diff the whole pane.
     a commit closes an uncommitted file's diff (the Staged and Unstaged lists are gone); the worktree review has no
     selected item, so a diff opened from it isn't pinned and closes when a commit or the uncommitted changes are selected
     again. A worktree switch is as before (the uncommitted diff closes; a commit's diff stays, the commit being selected
-    still). Expanded blame, file history and the conflict resolver replace the centre or the tab, as before. The
-    interactive rebase's list is still covered by a diff.
+    still). Expanded blame, file history and the conflict resolver replace the centre or the tab, as before.
   - **Closing:** the X, Esc (`CloseableView.DIFF`: the placeholder joins it when it shows, `onShown`, and closes on
     `closeRequests`) and the hide button's other state close the diff, and `forgetFollowedFile` ends the following. The
     pane's "diff not found" path doesn't forget: `LogAndDiffSplit` is a `BoxWithConstraints`, a `SubcomposeLayout`, so its
@@ -3647,7 +3745,7 @@ both), with a button in the diff's header that gives the diff the whole pane.
   composed again), `FollowedDiffPlaceholderTest` (texts, Esc, the buttons), `DiffKeepsLogSettingTest`. The real tab
   content ran against a clone of this repository and the big repository in a temporary harness (stepping with the arrows,
   every rule, renders in both themes and two window sizes; it found the race above).
-- Not built: the interactive rebase's list under a diff; following a file across a rename into older commits (only the
+- Not built: following a file across a rename into older commits (only the
   commit that renamed it shows the move). Upstream issue 136's width came with the branches pane's fold toggle (next section).
 
 **The branches pane's fold toggle (fork-only, upstream issue 136, 2026-10-22):** the side panel can be folded away, which
@@ -3663,7 +3761,7 @@ gives the log and the diff its 220 dp (1102 dp wide in a 1440 dp window instead 
   with the shortcut at the row's end (`QuickAction.keybinding`, which the list shows for any entry that has one).
 - **State:** `BranchesPaneConfig` (`ui/`, an app singleton like `CenterSplitConfig`), kept as `branchesPaneFolded` in the prefs
   node, so every tab folds together and the choice survives a restart. `MainContentView` gives `TripleVerticalSplitPanel` a first
-  width of 0 while it is set, as it does while the interactive rebase's list awaits: the pane isn't composed (`SidePanel`'s
+  width of 0 while it is set, as it does while the commit editor shows: the pane isn't composed (`SidePanel`'s
   dispose stops the worktree list's polling), its saved width is kept and comes back when it opens, and its search text stays in
   the view model.
 - **Focus:** folding removes whatever in the pane had the focus, and the tab's shortcuts reach their handler only while something
@@ -3723,8 +3821,7 @@ the branches pane's does (previous section), with one difference: some things ca
 - **Chosen with the user** on the Claude Design board "Leaf branches pane toggle" (`Right Pane Toggle.dc.html`): the bar's right
   end (2a), against both icons together at its left edge (2b); the name "changes pane", over "files pane" and "right pane"; and
   the shortcut was left to Leaf, as "similar to the branches pane's".
-- **Not built:** folding by itself, and a double-click on the divider. While the interactive rebase's list awaits, the pane is
-  empty as before.
+- **Not built:** folding by itself, and a double-click on the divider.
 - Tests: `ChangesPaneConfigTest`, `ChangesPaneStateTest` (the rules, the need's order, and the toggle's guard),
   `ChangesPaneKeybindingTest`, `ChangesPaneToggleTest` (the name and icon of each state, the dot, the click that does nothing
   while held), `QuickActionsChangesPaneTest`, `TripleVerticalSplitPanelTest`. The tab itself ran in a temporary harness on a

@@ -2,12 +2,50 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Commit editor: an interactive rebase planned before it runs (upstream issue 73, part B, 2026-10-26)
+
+- **Request:** part B of upstream issue 73, an interactive rebase that says what will happen before it touches
+  anything, in place of upstream's list, which JGit started before the list was edited. Planned with the user from a
+  working prototype (Claude Design, "Leaf squash and interactive rebase", `Commit Editor.dc.html`), each choice tried
+  there with its switch: `docs/fork/commit-editor.md`.
+- **Opening it:** "Interactive rebase…" in a local branch's menu (side panel, log label, worktree row), "Interactive
+  rebase from here…" on a commit (that commit included), and "Interactive rebase of these 3 commits…" on a Shift range.
+  "Drop commit…" on a commit opens a dialog of its own.
+- **The editor:** the centre pane, newest first, with the branches pane folded and the right pane showing the commit
+  that each row becomes: its message, the commits joined into it, its files. P R S F E D, or a row's menu, which shows
+  the keys, set pick, reword, squash, fixup, edit or drop; ⌥↑↓ or a drag move a row; Onto switches between the latest
+  main and where the branch started; "Put them there" moves `fixup!` commits under the commits they name. Nothing
+  touches the repository until Start. Cancel keeps the plan for next time while the branch doesn't move; Reset the plan
+  starts over.
+- **It says before Start where it stops:** after each change, Leaf replays the plan in memory with `git merge-tree`, so
+  the row that would conflict says "Stops · cache.txt", and the footer says where the plan stops, where it runs, what is
+  in the way and how many pushed commits it rewrites.
+- **A plan that doesn't stop is applied at once,** drops and moves included, from any tab and without checking anything
+  out: "Rewrite 7 commits", then the strip with Undo. Its commits are what `git rebase -i` makes from the same plan.
+- **A plan that stops replays with `git rebase -i`** in the worktree that has the branch, checking it out here first
+  when none has it: "Start rebase". Its stops are Leaf's banner, resolver, Continue, Skip and Abort, plus "Back to the
+  plan", which aborts and opens the plan again. Uncommitted changes in this tab's worktree can be set aside and put back
+  after (a box that Start waits for); an agent's worktree with changes is refused. When the rebase ends, from Leaf or a
+  terminal, the strip says what the plan did, with Undo.
+- **main's own unpushed commits** can be edited the same way, and with part A's items.
+- **Upstream's list is gone,** with its "Rebase interactive" item and JGit's interactive rebase. `git rebase -i` in a
+  terminal, with its editor still open, now shows as a rebase in progress, where the list took it.
+- **From the user's run** (2026-10-26): the branch item was "Edit branch commits…"; the `fixup!` notice was a pale blue
+  strip with a link at its far end, which read as a selected row, and is now the amber notice strip with a button after
+  its text; Reset the plan and Cancel were red in Classic and plain text elsewhere, and are now outlined; the action
+  menu showed each key under its item.
+- **Builds:** the Gradle daemon gets 1 GB of Metaspace. KSP filled the default 384 MB after a few builds, which failed
+  or hung.
+- Manual run by the user on macOS, against the repository of `/tmp/leaf-commit-editor-demo.sh`: a branch with a
+  misplaced `fixup!` commit, a drop that stops, pushed commits and a main that moved on.
+- Details: CLAUDE.md, "The commit editor".
+
 ## Squash, fix up and reword a branch's commits, also onto the latest main (upstream issue 73, 2026-10-23)
 
 - **Request:** tidy a feature branch's commits in Leaf, such as an agent's branch of small `wip` commits, without
   finding where it left main or fearing a rebase. Leaf had only upstream's interactive rebase, which starts before its
   list is edited. Planned with the user from a working mockup (Claude Design, "Leaf squash and interactive rebase"): part
-  A of `docs/fork/squash-and-rebase.md`. Part B, an editor that plans first, comes next.
+  A of `docs/fork/squash-and-rebase.md`. Part B, an editor that plans first, came on 2026-10-26 (above).
 - **A range in the log:** Shift-click a second row, or Shift+↑↓, selects the rows between. The right pane lists them,
   and their menu copies their hashes. ⌘-click (Ctrl-click) still compares.
 - **The items:** a commit's menu has "Edit message…", "Squash into parent…" and "Fixup into parent"; a range's menu

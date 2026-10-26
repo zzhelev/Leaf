@@ -5,7 +5,7 @@
 | Question | How does Leaf replace upstream's interactive rebase list with an editor that plans first, says before Start what will happen, and only touches a worktree when it has to? |
 | Verified against | `main` at `1edc1471`; git 2.54 (probes on 2026-10-23, section 2) |
 | Date | 2026-10-23 |
-| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check), B3 (the run without stops, main's unpushed commits), B4 (the run with stops), B5 (the editor) and B6 (upstream's list removed) done. Next: B7 |
+| Status | Decided 2026-10-23: 1a, 2a, 3a, 4a, and yes to 5, 6 and 7 (section 3). B1 (the plan in domain), B2 (the check), B3 (the run without stops, main's unpushed commits), B4 (the run with stops), B5 (the editor), B6 (upstream's list removed) and B7 (`CLAUDE.md`, the changelog, the user's manual run) done |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`,
 `DA/` = `data/src/main/kotlin/dev/app/leaf/data/`.
@@ -307,7 +307,8 @@ Each step is its own commit (or two, code then docs), shown to you before it's m
     signing, `post-rewrite`;
   - a partial clone: the check downloads nothing.
 - **App, rendered:** the editor in each state of the mockup, the keys, drag, the panel, the Drop dialog, the strip.
-- **Done** (`PLAN.md`): a manual run on macOS against a demo repository, and `CHANGELOG.md`.
+- **Done** (`PLAN.md`): a manual run on macOS against a demo repository (the user's, 2026-10-26, on
+  `/tmp/leaf-commit-editor-demo.sh`), and `CHANGELOG.md`.
 
 ## 9. Not in B
 

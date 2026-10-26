@@ -217,8 +217,9 @@ Each step is its own commit (or two, code then docs), shown to you before it's m
 
 ## 4. B: the editor (outline; its own plan after A)
 
-Planned in `docs/fork/commit-editor.md` (2026-10-23), which changes this outline: a plan that doesn't stop, drops and
-moves included, runs in memory as A does, and only a plan that stops replays with `git rebase -i`.
+Planned in `docs/fork/commit-editor.md` (2026-10-23) and built by 2026-10-26, which changes this outline: a plan that
+doesn't stop, drops and moves included, runs in memory as A does, and only a plan that stops replays with
+`git rebase -i`.
 
 - The editor of the mockup in the centre pane, from "Interactive rebase…" (the branch and worktree menus) and
   "Interactive rebase from here…" (a commit row, including that commit, as IntelliJ does). Nothing runs until Start.
