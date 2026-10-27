@@ -2236,31 +2236,23 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     deletes it after a pull that completed, or that failed without changing anything (`IsUnchangedSinceGitAction`, as
     Merge does). It's kept after conflicts, and after a hook that refuses with `MERGE_HEAD` left. A rebase pull takes
     none: git refuses uncommitted changes before it fetches, unless `rebase.autoStash` sets them aside.
-- A repository that uses LFS, where git-lfs doesn't work, pulls with `GitCliPullBranchGitAction` instead
-  (`RemoteOperationsBackend.pullNeedsBuiltinLfs`), as `git pull` would check out pointer files without a word, or fail
-  with `filter.lfs.required` (which `git lfs install` sets), a rebase halfway. It fetches with git, then JGit merges or
-  rebases with Leaf's built-in LFS, as its `PullCommand` does after its own fetch, and git never opens an editor.
-  - A repository uses LFS when its common git dir has an `lfs` folder, or a root `.gitattributes` names `filter=lfs`:
-    the working tree's, or that of the commit pulled as its remote-tracking branch has it (a file that a partial clone
-    hasn't downloaded counts as no).
-  - What is pulled is what `PullCommand` pulls: the chosen remote branch, or the upstream (`branch.<name>.remote` and
-    `.merge`), or the branch of the same name on `origin`. An upstream is fetched with `git fetch <remote>`, which
-    updates every remote-tracking branch and marks it for merge in `FETCH_HEAD`. Anything else is fetched by name.
-    The commit comes from the `FETCH_HEAD` line marked for merge (`parseFetchHead`), never from a remote-tracking
-    branch, which may be stale.
-  - The merge message names it with git's own description from `FETCH_HEAD` (`branch 'main' of <url>`), and JGit adds
-    ` into <branch>`. `pull.ff` is read as `PullCommand` reads it. An upstream that is a local branch (remote `.`) is
-    merged without fetching, and a branch without commits takes the pulled commit.
-  - `mergeHasConflicts` and `rebaseHasConflicts` (`remote_operations/PullOutcome.kt`) tell both pulls, JGit's and
-    this one, what happened. A merge that would overwrite local changes throws `PullWouldOverwriteException` (JGit
-    returns `FAILED`, or throws `CheckoutConflictException` for a fast-forward); it used to count as a pull without
-    conflicts. This pull then drops its backup stash, since nothing changed. A rebase's `CONFLICTS` and `FAILED`
-    throw it too (local files stopped it, and the branch is as it was); `CONFLICTS` used to count as conflicts.
-  - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (JGit's pull, this one, and both clones). It turns on
+- A repository that uses LFS pulls with `git pull` too: where git-lfs isn't set up, git checks its LFS files out through
+  Leaf's filter (see Leaf's LFS client as git's filter). A download that fails stops git halfway, with the files it
+  wrote left in the working tree, as git-lfs does: Leaf downloads first only for a merge, cherry-pick, revert and
+  rebase. Until 2026-10-27 (stage 3 of `docs/fork/lfs-filter.md`), such a repository fetched with git and merged or
+  rebased with JGit and Leaf's built-in LFS (`GitCliPullBranchGitAction`, removed), as `git pull` checked out pointer
+  files without a word, or failed with `filter.lfs.required` (which `git lfs install` sets), a rebase halfway.
+- JGit's pull, the fallback (`PullBranchGitAction`):
+  - `mergeHasConflicts` and `rebaseHasConflicts` (`remote_operations/PullOutcome.kt`) tell it what happened. A merge
+    that would overwrite local changes throws `PullWouldOverwriteException` (JGit returns `FAILED`, or throws
+    `CheckoutConflictException` for a fast-forward); it used to count as a pull without conflicts. A rebase's
+    `CONFLICTS` and `FAILED` throw it too (local files stopped it, and the branch is as it was); `CONFLICTS` used to
+    count as conflicts.
+  - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (JGit's pull, and both clones). It turns on
     `filter.lfs.useJGitBuiltin` in the cached repository's in-memory config, and puts it back in `finally`: an
     action's `config.save()`, such as saving the author, writes that config to `.git/config`. It forces Leaf's filters
-    even where git-lfs is set up, as `git lfs fetch` has put the objects in the store; without git-lfs they're on for
-    everything anyway (see One LFS store).
+    even where git-lfs is set up, as a clone's `git lfs fetch` has put the objects in the store; without git-lfs
+    they're on for everything anyway (see One LFS store).
 - Clone (`GitCliCloneRepositoryGitAction`) runs `git clone --progress --no-checkout -- <url> <folder>` from the
   folder's parent, then JGit checks out HEAD with Leaf's built-in LFS, as after JGit's own clone, so git-lfs isn't
   needed. An empty repository gets no checkout. With "Clone submodules", `git submodule update --init --recursive`
@@ -2345,16 +2337,16 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       click, one request per click, the list, the filter, a pick with a real press, the keys, Esc, a press elsewhere,
       Try again, closing the dialog) and `CloneBranchChoicesTest` (the keys and the list's items). 59 mutations of the
       list action, the filter, the view model and the dialog were each caught by a named test.
-- **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, or merges or rebases what
-  `GitCliPullBranchGitAction` fetched, Leaf runs `git lfs fetch <remote> <commit>`. JGit's checkout then finds every
-  object in `<common git dir>/lfs/objects` (git-lfs and Leaf use the same store), so Leaf's built-in client
-  (`app/.../lfs/`) downloads nothing. `git pull` needs none of it: git-lfs's filter (`filter-process`) checks the files out.
+- **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, Leaf runs `git lfs fetch <remote> <commit>`.
+  JGit's checkout then finds every object in `<common git dir>/lfs/objects` (git-lfs and Leaf use the same store), so
+  Leaf's built-in client (`app/.../lfs/`) downloads nothing. `git pull` needs none of it: git-lfs's filter
+  (`filter-process`) checks the files out.
   - It runs only when the commit's root `.gitattributes` has `filter=lfs` and `git lfs version` works (the answer of
     `GitLfsSetup.gitLfsWorks`, kept for a minute, which Leaf's filter asks too). In a large repository without LFS,
     git-lfs would read the whole tree to find out. Without git-lfs, the built-in client downloads as before.
   - It goes through `GitCliRemoteCommand`, so git-lfs asks for credentials through git's helpers and Leaf's dialogs,
     reaches SSH remotes with the system's ssh (`git-lfs-authenticate`), shows progress ("Downloading LFS objects") and
-    can be cancelled. A failure is `LfsDownloadError`, before anything is checked out or merged.
+    can be cancelled. A failure is `LfsDownloadError`, before anything is checked out.
   - A clone then gets git-lfs's hooks (`git lfs update`): `git clone` installs them when git-lfs checks the files
     out, but `--no-checkout` doesn't run it, and without `pre-push` a push would fall back to JGit's upload.
   - Other checkouts (switching branches, reset, stash) are unchanged where git-lfs is set up: JGit runs the configured
@@ -2565,9 +2557,8 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     them itself.
 
   It decides before git starts, never after a failure, which could push twice. The LFS condition applies only to
-  push: a fetch doesn't involve git-lfs, and JGit does a clone's checkout either way. A pull in an LFS repository
-  where git-lfs doesn't work takes `GitCliPullBranchGitAction` in place of `git pull` (`pullNeedsBuiltinLfs`, see
-  above). A clone has no repository yet, so it asks `useGitCli()` without one.
+  push: a fetch doesn't involve git-lfs, JGit does a clone's checkout either way, and git checks LFS files out through
+  Leaf's filter where git-lfs isn't set up. A clone has no repository yet, so it asks `useGitCli()` without one.
 - **JGit and SSH:** JGit can't reach SSH remotes. `HandleTransportGitAction` gives an `SshTransport` (so after
   `insteadOf`) the `NoSshSessionFactory`, which fails before connecting with `SshNeedsGitError`. Its reason is
   `RemoteOperationsBackend.whyNotGitCli()` (the setting off, no usable git, no helper), or else an LFS push that git
@@ -2689,8 +2680,8 @@ when it first needs them. JGit can't: it throws `MissingObjectException`, which 
   commit's file (`DiffType.blobIds`), and the versions of a blamed file, with, where it was added, the files that blame
   compares to find a rename (`fileVersions`). Queries show no progress.
 - Changing: JGit's checkout deletes files before it writes the new ones, and a missing blob stopped it halfway, with
-  HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset,
-  `GitCliPullBranchGitAction`'s merge or rebase, and JGit's merge, cherry-pick, revert and rebase
+  HEAD where it was; a hard reset had moved HEAD. So the checkouts (branch, remote branch, commit), a hard reset, and
+  JGit's merge, cherry-pick, revert and rebase
   (when git can't run them; git downloads what its own need, `git pull`'s too) download first
   (`prefetchCheckout`, `prefetchForMerge`, `prefetchForCherryPick`, `prefetchForRebase`): the blobs where the trees
   involved differ (`blobsThatDiffer`), with the processing screen's progress and Cancel. A failed download is
@@ -4756,9 +4747,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - `builtAskpassHelper()` finds the helper in `app/src/main/resources`. Tests that run it are skipped without it.
   - `answeringDialogs` plays the user: it answers each `CredentialsRequest` in turn and returns the dialogs shown.
   - `TestRemoteCommand` builds a `GitCliRemoteCommand` with git kept away from the developer's config.
-  - `GitCliPushBranchGitActionTest`, `GitPullTest` and `GitCliFetchPullTest` (the fetch, and the pull that JGit
-    merges) use bare repositories on disk, which another clone changes. `GitPullTest` checks each pull against what
-    `git pull` does in a terminal, and `GitCliLfsTest` and `PartialCloneTest` have a `git pull` each.
+  - `GitCliPushBranchGitActionTest`, `GitPullTest` and `GitCliFetchTest` use bare repositories on disk, which another
+    clone changes. `GitPullTest` checks each pull against what `git pull` does in a terminal, and `GitCliLfsTest` and
+    `PartialCloneTest` have a `git pull` each.
     `GitCliCloneTest` clones, and adds and updates submodules, from repositories on disk; its global config sets
     `protocol.file.allow=always` for the local submodules.
   - `GitCliHttpsTest` runs `git http-backend` as CGI behind Basic authentication in a JDK `HttpServer`. The clone

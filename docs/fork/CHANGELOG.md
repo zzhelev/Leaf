@@ -2,6 +2,20 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs, stage 3: Pull is `git pull` in every repository (2026-10-27)
+
+- **Request:** stage 3 of `docs/fork/lfs-filter.md`, approved with the plan.
+- **Before:** a repository that uses LFS, where git-lfs didn't work, pulled in a way of its own: git fetched, then JGit
+  merged or rebased with Leaf's built-in LFS. Its pulls missed what `git pull` gives elsewhere: git's merge engine,
+  which follows renamed files, git's messages and hooks, and a rebase from the fork point. Its LFS files downloaded
+  one request each.
+- **Now:** Pull runs `git pull` there too, and git checks the LFS files out through Leaf's filter, in one batch per
+  checkout, with progress and Cancel. A download that fails stops git halfway, with the files it wrote left as
+  changes, as with git-lfs, and the error names them.
+- **Removed:** `GitCliPullBranchGitAction`, its `FETCH_HEAD` parser and `RemoteOperationsBackend.pullNeedsBuiltinLfs`.
+  JGit's pull stays the fallback where git can't run.
+- Details: CLAUDE.md, "Remote operations".
+
 ## LFS without git-lfs, stage 2: the files downloaded before git starts (2026-10-27)
 
 - **Request:** stage 2 of `docs/fork/lfs-filter.md`, approved with the plan.

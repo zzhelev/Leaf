@@ -3,7 +3,8 @@
 Status: written 2026-10-16 on `main` at `0c330b21`, approved on 2026-10-26 with every recommendation (see Decisions,
 at the end of section 8). Stage 0 was built on 2026-10-26 (CLAUDE.md, "One LFS store, and Leaf's filters for JGit"),
 and stage 1 the same day (CLAUDE.md, "Leaf's LFS client as git's filter"). Open question 2's strip followed on
-2026-10-27 (option A of three, chosen from a mockup), and stage 2 the same day (CLAUDE.md, "Downloaded first").
+2026-10-27 (option A of three, chosen from a mockup), and stages 2 and 3 the same day (CLAUDE.md, "Downloaded first",
+and Remote operations: Pull is `git pull` in every repository).
 
 Probes ran with git 2.54.0 (Apple Git-157), git-lfs 3.8.0 and JGit 7.7.0, in temp repos. Each ran with an isolated
 `HOME`, `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_NOSYSTEM=1` and `PATH=/usr/bin:/bin` (no git-lfs), and with `-Duser.home` for
