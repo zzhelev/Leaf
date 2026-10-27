@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.cli.operations
 
+import dev.app.leaf.data.git.lfs.filter.LfsCheckout
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.bind
@@ -22,6 +23,6 @@ class GitCliRebaseBranchGitAction @Inject constructor(
     override suspend fun invoke(repositoryPath: String, branch: Branch): Either<IsMultiStep, GitError> = either {
         val branchArgument = operations.branchArgument(repositoryPath, branch.name).bind()
 
-        operations.run(repositoryPath, listOf("rebase", branchArgument))
+        operations.run(repositoryPath, listOf("rebase", branchArgument), checkout = LfsCheckout.Rebase(branch.name))
     }
 }

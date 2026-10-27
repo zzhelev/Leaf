@@ -94,6 +94,7 @@ import dev.app.leaf.app.generated.resources.error_gpg_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_hook_rejection
 import dev.app.leaf.app.generated.resources.error_lfs_download_failed
 import dev.app.leaf.app.generated.resources.error_lfs_object_credentials_denied
+import dev.app.leaf.app.generated.resources.error_lfs_download_first_failed
 import dev.app.leaf.app.generated.resources.error_lfs_filter_failed
 import dev.app.leaf.app.generated.resources.error_lfs_filter_files_written
 import dev.app.leaf.app.generated.resources.error_lfs_filter_more_files
@@ -222,6 +223,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is UnsupportedIndexError -> index.shellCommands() + listOfNotNull((index as? UnsupportedIndex.UnknownExtension)?.extension)
     is PartialCloneFetchError -> error?.monospaceParts().orEmpty()
     is LfsFilterError -> files.map { it.path }
+    is LfsDownloadFirstError -> files.map { it.path }
     is SeveralPushUrlsError -> urls
     else -> emptyList()
 }
@@ -403,6 +405,9 @@ fun AppError.getErrorText(): String {
         is LfsObjectDownloadError -> error.getLfsObjectErrorText()
         is LfsFilterError -> getLfsFilterErrorText()
 
+        is LfsDownloadFirstError -> (listOf(stringResource(Res.string.error_lfs_download_first_failed)) +
+            lfsFileFailuresText(files)).joinToString("\n\n")
+
         is UnsupportedIndexError -> {
             val commands = index.shellCommands()
 
@@ -523,7 +528,14 @@ fun AppError.getErrorText(): String {
 /** The files whose objects Leaf's LFS filter couldn't download, grouped by why (fork-only). */
 @Composable
 private fun LfsFilterError.getLfsFilterErrorText(): String {
-    val groups = files.groupBy { it.error }.map { (error, failures) ->
+    return (listOf(stringResource(Res.string.error_lfs_filter_failed)) + lfsFileFailuresText(files) +
+        stringResource(Res.string.error_lfs_filter_files_written)).joinToString("\n\n")
+}
+
+/** The files whose LFS objects couldn't be downloaded, grouped by why: the reason, then the first few paths. */
+@Composable
+private fun lfsFileFailuresText(files: List<LfsFileFailure>): List<String> {
+    return files.groupBy { it.error }.map { (error, failures) ->
         val paths = failures.map { it.path }
         val more = paths.size - MAX_LFS_FILTER_PATHS
         val shown = paths.take(MAX_LFS_FILTER_PATHS) +
@@ -531,9 +543,6 @@ private fun LfsFilterError.getLfsFilterErrorText(): String {
 
         error.getLfsObjectErrorText() + "\n\n" + shown.joinToString("\n")
     }
-
-    return (listOf(stringResource(Res.string.error_lfs_filter_failed)) + groups +
-        stringResource(Res.string.error_lfs_filter_files_written)).joinToString("\n\n")
 }
 
 private const val MAX_LFS_FILTER_PATHS = 5

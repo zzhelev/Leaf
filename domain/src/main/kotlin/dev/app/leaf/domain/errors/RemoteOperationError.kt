@@ -65,6 +65,12 @@ data class LfsObjectDownloadError(val error: LfsError) : GitError
  */
 data class LfsFilterError(val files: List<LfsFileFailure>, val output: String) : GitError
 
+/**
+ * Leaf couldn't download the LFS objects of [files] that a merge, cherry-pick, revert or rebase needs, before git
+ * started it (fork-only): nothing changed.
+ */
+data class LfsDownloadFirstError(val files: List<LfsFileFailure>) : GitError
+
 /** A file whose LFS object couldn't be downloaded, as [error] says. [path] is from the command's working tree. */
 data class LfsFileFailure(val path: String, val error: LfsError)
 

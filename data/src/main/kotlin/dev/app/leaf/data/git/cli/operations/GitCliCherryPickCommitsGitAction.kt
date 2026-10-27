@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.cli.operations
 
+import dev.app.leaf.data.git.lfs.filter.LfsCheckout
 import dev.app.leaf.domain.cherrypick.cherryPickArguments
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
@@ -24,7 +25,12 @@ class GitCliCherryPickCommitsGitAction @Inject constructor(
         commits: List<String>,
         noCommit: Boolean,
     ): Either<Boolean, GitError> {
-        return operations.run(repositoryPath, cherryPickArguments(commits, noCommit), mayStop = true)
+        return operations.run(
+            repositoryPath,
+            cherryPickArguments(commits, noCommit),
+            mayStop = true,
+            checkout = LfsCheckout.CherryPicks(commits),
+        )
     }
 }
 

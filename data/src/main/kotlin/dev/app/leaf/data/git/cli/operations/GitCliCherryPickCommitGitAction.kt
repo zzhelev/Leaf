@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.cli.operations
 
+import dev.app.leaf.data.git.lfs.filter.LfsCheckout
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
@@ -22,7 +23,11 @@ class GitCliCherryPickCommitGitAction @Inject constructor(
     private val operations: GitCliOperations,
 ) : ICherryPickCommitGitAction {
     override suspend fun invoke(repositoryPath: String, commit: Commit): Either<Unit, GitError> = either {
-        val stoppedAtConflicts = operations.run(repositoryPath, listOf("cherry-pick", commit.hash)).bind()
+        val stoppedAtConflicts = operations.run(
+            repositoryPath,
+            listOf("cherry-pick", commit.hash),
+            checkout = LfsCheckout.CherryPicks(listOf(commit.hash)),
+        ).bind()
 
         if (stoppedAtConflicts) {
             raiseError(

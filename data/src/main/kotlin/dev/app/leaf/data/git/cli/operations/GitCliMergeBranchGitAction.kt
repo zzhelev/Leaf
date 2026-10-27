@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.cli.operations
 
+import dev.app.leaf.data.git.lfs.filter.LfsCheckout
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.bind
@@ -29,6 +30,10 @@ class GitCliMergeBranchGitAction @Inject constructor(
         val branchArgument = operations.branchArgument(repositoryPath, branch.name).bind()
         val fastForwardOption = if (fastForward) "--ff" else "--no-ff"
 
-        operations.run(repositoryPath, listOf("merge", fastForwardOption, "--no-edit", branchArgument))
+        operations.run(
+            repositoryPath,
+            listOf("merge", fastForwardOption, "--no-edit", branchArgument),
+            checkout = LfsCheckout.Merge(branch.name),
+        )
     }
 }

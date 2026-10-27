@@ -12,6 +12,8 @@ import dev.app.leaf.data.git.cli.GitExecutableLocator
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.data.git.cli.remote.readableGitOutput
+import dev.app.leaf.data.git.lfs.filter.LfsCheckout
+import dev.app.leaf.data.git.lfs.filter.LfsDownloadFirst
 import dev.app.leaf.data.git.log.CherryPickCommitGitAction
 import dev.app.leaf.data.git.log.RevertCommitGitAction
 import dev.app.leaf.data.git.rebase.RebaseBranchGitAction
@@ -64,6 +66,7 @@ class GitCliOperations @Inject constructor(
     private val appSettingsService: AppSettingsService,
     private val jgit: JGit,
     private val autostashes: Autostashes,
+    private val lfsDownloadFirst: LfsDownloadFirst,
 ) {
     /** Whether git runs these operations: Leaf found a usable git, and has the askpass helper. */
     suspend fun useGitCli(): Boolean {
@@ -91,6 +94,8 @@ class GitCliOperations @Inject constructor(
      * so does `git pull`'s. When that doesn't apply, git keeps it in the stash list as "autostash", exits with 0
      * nonetheless, and the tab shows a notice ([Autostashes.noticeIfKept]).
      *
+     * @param checkout what git checks out, whose LFS objects Leaf downloads before git starts ([LfsDownloadFirst]): a
+     * download that fails then changes nothing, where during the checkout it would stop git halfway.
      * @param failure the error for a failure, by default [GitCliError.CommandFailed] with git's message.
      * @param environment variables for git besides its editor, such as the commit editor's `GIT_SEQUENCE_EDITOR`.
      */
@@ -98,12 +103,18 @@ class GitCliOperations @Inject constructor(
         repositoryPath: String,
         args: List<String>,
         mayStop: Boolean = true,
+        checkout: LfsCheckout? = null,
         environment: Map<String, String> = emptyMap(),
         failure: (GitCliOutput) -> GitError = { output ->
             GitCliError.CommandFailed("git " + args.joinToString(" "), output.exitCode, failureMessage(output))
         },
     ): Either<Boolean, GitError> = either {
         val workTree = workTree(repositoryPath).bind()
+
+        if (checkout != null) {
+            lfsDownloadFirst.before(repositoryPath, checkout).bind()
+        }
+
         val autostashOperation = autostashOperation(args)
         val stashBefore = autostashOperation?.let { autostashes.newestStash(workTree) }
         val output = remoteCommand.run(workTree, args, environment = NO_EDITOR + environment).bind()

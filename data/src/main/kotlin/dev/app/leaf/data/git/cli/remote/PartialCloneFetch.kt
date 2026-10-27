@@ -111,59 +111,22 @@ class PartialCloneFetch @Inject constructor(
 
     /**
      * Before merging [other] into HEAD: downloads the versions that the merge reads, of the files that the merge base,
-     * HEAD and [other] don't all have alike. Every merge base, as the recursive merge merges them first.
+     * HEAD and [other] don't all have alike ([mergeTrees]).
      */
     suspend fun prefetchForMerge(repository: Repository, other: AnyObjectId): Either<Unit, GitError> =
-        prefetch(repository) { walk ->
-            val head = repository.resolve(Constants.HEAD)
-                ?: return@prefetch blobsThatDiffer(repository, listOf(null, walk.parseTree(other)))
-
-            walk.revFilter = RevFilter.MERGE_BASE
-            walk.markStart(walk.parseCommit(head))
-            walk.markStart(walk.parseCommit(other))
-            val bases = walk.toList()
-            walk.reset()
-            walk.revFilter = RevFilter.ALL
-
-            blobsThatDiffer(
-                repository,
-                bases.map { walk.parseTree(it) } + walk.parseTree(head) + walk.parseTree(other),
-            )
-        }
+        prefetch(repository) { walk -> blobsThatDiffer(repository, mergeTrees(repository, walk, other)) }
 
     /**
-     * Before cherry-picking or reverting [commit] onto HEAD: downloads the versions that applying its changes reads,
-     * of the files that its parent, HEAD and [commit] don't all have alike.
+     * Before cherry-picking or reverting [commit] onto HEAD: downloads the versions that applying its changes reads
+     * ([cherryPickTrees]).
      */
     suspend fun prefetchForCherryPick(repository: Repository, commit: AnyObjectId): Either<Unit, GitError> =
-        prefetch(repository) { walk ->
-            val picked = walk.parseCommit(commit)
-            val parent = picked.parents.firstOrNull()?.let { walk.parseTree(it) }
+        prefetch(repository) { walk -> blobsThatDiffer(repository, cherryPickTrees(repository, walk, commit)) }
 
-            blobsThatDiffer(repository, listOf(parent, walk.headTree(repository), walk.parseTree(picked)))
-        }
-
-    /**
-     * Before rebasing HEAD onto [onto]: downloads the files that differ between HEAD and [onto], which the rebase
-     * checks out first, and both versions of what each commit it replays changes. A merge commit isn't replayed.
-     */
+    /** Before rebasing HEAD onto [onto]: downloads the versions that the rebase reads ([rebaseTreeSets]). */
     suspend fun prefetchForRebase(repository: Repository, onto: AnyObjectId): Either<Unit, GitError> =
         prefetch(repository) { walk ->
-            val head = repository.resolve(Constants.HEAD)
-                ?: return@prefetch blobsThatDiffer(repository, listOf(null, walk.parseTree(onto)))
-            val needed = blobsThatDiffer(repository, listOf(walk.parseTree(head), walk.parseTree(onto))).toMutableSet()
-
-            walk.markStart(walk.parseCommit(head))
-            walk.markUninteresting(walk.parseCommit(onto))
-
-            for (commit in walk.toList()) {
-                if (commit.parentCount <= 1) {
-                    val parent = commit.parents.firstOrNull()?.let { walk.parseTree(it) }
-                    needed += blobsThatDiffer(repository, listOf(parent, walk.parseTree(commit)))
-                }
-            }
-
-            needed
+            rebaseTreeSets(repository, walk, onto).flatMapTo(mutableSetOf()) { blobsThatDiffer(repository, it) }
         }
 
     /**
@@ -347,6 +310,54 @@ internal fun blobsThatDiffer(repository: Repository, trees: List<AnyObjectId?>):
     }
 
     return blobs
+}
+
+/**
+ * The trees that merging [other] into HEAD reads, for [blobsThatDiffer]: every merge base, as the recursive merge
+ * merges them first, HEAD and [other]. Without HEAD, the empty tree and [other].
+ */
+internal fun mergeTrees(repository: Repository, walk: RevWalk, other: AnyObjectId): List<AnyObjectId?> {
+    val head = repository.resolve(Constants.HEAD) ?: return listOf(null, walk.parseTree(other))
+
+    walk.revFilter = RevFilter.MERGE_BASE
+    walk.markStart(walk.parseCommit(head))
+    walk.markStart(walk.parseCommit(other))
+    val bases = walk.toList()
+    walk.reset()
+    walk.revFilter = RevFilter.ALL
+
+    return bases.map { walk.parseTree(it) } + walk.parseTree(head) + walk.parseTree(other)
+}
+
+/** The trees that cherry-picking or reverting [commit] onto HEAD reads: its parent's, HEAD's and its own. */
+internal fun cherryPickTrees(repository: Repository, walk: RevWalk, commit: AnyObjectId): List<AnyObjectId?> {
+    val picked = walk.parseCommit(commit)
+    val parent = picked.parents.firstOrNull()?.let { walk.parseTree(it) }
+
+    return listOf(parent, walk.headTree(repository), walk.parseTree(picked))
+}
+
+/**
+ * The sets of trees that rebasing HEAD onto [onto] reads: HEAD's and [onto]'s, which the rebase checks out first, then
+ * each commit it replays with its parent. A merge commit isn't replayed. Without HEAD, the empty tree and [onto].
+ */
+internal fun rebaseTreeSets(repository: Repository, walk: RevWalk, onto: AnyObjectId): List<List<AnyObjectId?>> {
+    val head = repository.resolve(Constants.HEAD) ?: return listOf(listOf(null, walk.parseTree(onto)))
+    val sets = mutableListOf<List<AnyObjectId?>>(listOf(walk.parseTree(head), walk.parseTree(onto)))
+
+    walk.markStart(walk.parseCommit(head))
+    walk.markUninteresting(walk.parseCommit(onto))
+
+    for (commit in walk.toList()) {
+        if (commit.parentCount <= 1) {
+            val parent = commit.parents.firstOrNull()?.let { walk.parseTree(it) }
+            sets += listOf(parent, walk.parseTree(commit))
+        }
+    }
+
+    walk.reset()
+
+    return sets
 }
 
 /** HEAD's tree, or null for a branch without commits. */

@@ -86,8 +86,7 @@ class LfsFilter @Inject constructor(
             server,
             pointers.map { LfsObjectBatch(it.oid.name(), it.size) },
         ) { done, receivedBytes ->
-            val percent = if (total > 0) (receivedBytes * 100 / total).toInt().coerceIn(0, 100) else null
-            onProgress("Downloading LFS objects (${minOf(done + 1, pointers.size)} of ${pointers.size})", percent)
+            onProgress(lfsDownloadStage(done, pointers.size), lfsDownloadPercent(receivedBytes, total))
         }
     }
 }

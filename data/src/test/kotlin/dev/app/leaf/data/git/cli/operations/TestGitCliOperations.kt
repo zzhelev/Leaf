@@ -10,6 +10,7 @@ import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
+import dev.app.leaf.data.git.lfs.filter.testLfsDownloadFirst
 import dev.app.leaf.data.git.lfs.filter.testLfsFilter
 import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitSettings
@@ -49,5 +50,6 @@ fun testGitCliOperations(
         appSettingsService = testGitSettings(gitExecutablePath),
         jgit = jgit,
         autostashes = Autostashes(gitCli, repositoryState),
+        lfsDownloadFirst = testLfsDownloadFirst(gitCli, jgit, credentialsStateManager, repositoryState),
     )
 }

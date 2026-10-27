@@ -1884,6 +1884,7 @@
     <string name="error_lfs_object_credentials_denied">Couldn't download the LFS object: the LFS server's credentials weren't given.</string>
     <string name="error_lfs_filter_failed">git stopped, as Leaf couldn't download the Git LFS files it was writing.</string>
     <string name="error_lfs_filter_more_files">and %1$d more</string>
+    <string name="error_lfs_download_first_failed">Leaf couldn't download the Git LFS files that this needs, so it didn't start, and nothing changed.</string>
     <string name="error_lfs_filter_files_written">The files that git wrote before it stopped are left in the working tree, as changes. Discard them before you try again.</string>
     <string name="git_lfs_notice_not_installed">git-lfs isn't installed. Leaf handles this repository's LFS files, but git in a terminal or an agent would commit them whole.</string>
     <string name="git_lfs_notice_missing">git-lfs isn't installed. Leaf handles this repository's LFS files, but git in a terminal or an agent fails on them.</string>
