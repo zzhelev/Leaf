@@ -553,6 +553,10 @@ class ComparisonViewModelExtenderTest {
         assertEquals(selected("c1"), selectedItem.value)
         assertEquals(emptyList<CloseableView>(), closeableViews.toList())
 
+        // The state shows the end a moment later. Until then, loaded() would take this comparison's state for the next
+        // one's, which has the same sides, and pick() would find no comparison once the end showed
+        withTimeout(5.seconds) { extender.state.first { it == null } }
+
         extender.comparePicked(older, newer)
         loaded()
 

@@ -466,10 +466,12 @@ class ComparisonViewModelExtender @AssistedInject constructor(
     }.stateIn(null as ComparisonState?)
 
     init {
-        // Selecting anything else ends the comparison. The selection is read again: an older value can come after a
-        // comparison started, which sets it to None first
+        // Selecting anything else ends the comparison. Both are read again, the comparison first: an older value can
+        // come after a comparison started, and start() selects None before it sets the comparison, so the comparison
+        // read here comes with its own selection or a later one. The other way round, the selection from before a
+        // comparison could be read with it, which ended the comparison as it started
         selectedItem.collectLatestInCoroutineScope {
-            if (selectedItem.value != SelectedItem.None && active.value != null) {
+            if (active.value != null && selectedItem.value != SelectedItem.None) {
                 stop()
             }
         }
@@ -672,6 +674,7 @@ class ComparisonViewModelExtender @AssistedInject constructor(
 
         collapsedDirectories.value = emptySet()
         shownEntry = null
+        // The selection before the comparison, which the collector in init reads the other way round
         onSelectItem(SelectedItem.None)
         active.value = Active(target, mode, relation = null, orderSettled, isFullView = false, tries = 0, isPending = isPending)
         picker.value = null

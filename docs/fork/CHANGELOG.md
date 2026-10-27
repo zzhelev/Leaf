@@ -2,6 +2,31 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A new comparison no longer ends as it starts, and its test waits for the end (2026-10-27)
+
+- **Before:** `ComparisonViewModelExtenderTest`'s "cmd-click on A or B drops it, and the other stays selected" failed
+  once in a full `./gradlew :data:test :app:test :domain:test` that took 25 minutes on a loaded machine (nothing was
+  selected where c2 should be), and passed in three runs alone. Run 3,000 times in one JVM (a temporary
+  `@RepeatedTest`) on that machine, it failed 29 times, the same way.
+- **Cause, in the test:** after ⌘-click on B ended the comparison, the test started the same comparison again and
+  waited for a loaded state. The state combines several flows on `Dispatchers.Default` and shows the end a moment
+  later, so the wait could take the first comparison's state for the second's. ⌘-click on A then found no comparison
+  once the end showed, as `pick` does nothing while the state is null. A probe in the 25 failures of another 3,000
+  runs: each time the wait returned the first comparison's state, and the state was null at the ⌘-click.
+- **Cause, in the code:** with the test waiting for the end, 1 to 3 runs in 3,000 still failed, and in most of them
+  the second comparison never loaded. The collector that ends a comparison when something else is selected
+  (`ComparisonViewModelExtender`'s `init`) read the selection, then the comparison. Woken late by the end's selection,
+  it could read that selection just before `start()` selected None and the comparison just after `start()` set it,
+  and so end the new comparison. A probe counted that stop in each of the 3 failures of one run. In the app it needs
+  a comparison to start within moments of a selection change.
+- **Now:** the test waits for the state to show the end before it starts the next comparison. The collector reads the
+  comparison first: `start()` selects None before it sets the comparison, so a comparison read there comes with its
+  own selection or a later one.
+- **Tests:** held between its two reads until the other value changed (a temporary loop), the old order failed 29 of
+  100 runs and the new order none. With both changes, 9,000 runs of the test (3 × 3,000) passed with 8 CPU burners on
+  top of the machine's own load (load average 12 to 21 on 14 cores), and the class's 43 tests passed 20 runs in a row
+  (`--rerun`) under the same burners (load average 18 to 27). No other test builds the extender.
+
 ## Commit editor: an interactive rebase planned before it runs (upstream issue 73, part B, 2026-10-26)
 
 - **Request:** part B of upstream issue 73, an interactive rebase that says what will happen before it touches
