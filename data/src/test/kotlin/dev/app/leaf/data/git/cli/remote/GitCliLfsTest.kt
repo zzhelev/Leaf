@@ -8,18 +8,11 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.GetTrackingBranchGitAction
 import dev.app.leaf.data.git.cli.askpass.answeringDialogs
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
-import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.testJGit
-import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.git.writeExecutable
-import dev.app.leaf.data.mappers.JGitCommitMapper
-import dev.app.leaf.data.mappers.JGitIdentityMapper
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.errors.Either
-import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.LfsDownloadError
-import dev.app.leaf.domain.errors.RemoteOperationError
-import dev.app.leaf.domain.interfaces.PullHasConflicts
 import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.PullType
 import dev.app.leaf.domain.models.TaskProgress
@@ -241,22 +234,6 @@ class GitCliLfsTest {
     }
 
     @Test
-    fun `git-lfs downloads a pull's new LFS files before the merge`(): Unit = runBlocking {
-        val work = cloneWithGit()
-        val pushed = commitLfsFile("second.bin")
-        val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to pathWithGitLfs))
-
-        val result = pull(remote, work)
-
-        assertEquals(Either.Ok(false), result)
-        assertEquals(pushed, git.run(work, "rev-parse", "HEAD").trim())
-        assertArrayEquals(File(source, "second.bin").readBytes(), File(work, "second.bin").readBytes())
-        assertEquals(emptyList<String>(), builtinDownloads)
-        assertEquals(listOf("version", "fetch origin $pushed"), gitLfsLog.readLines())
-        assertTrue(TaskProgress("Downloading LFS objects", 100) in remote.progress) { "${remote.progress}" }
-    }
-
-    @Test
     fun `git pull checks out a pull's new LFS files with git-lfs's filter`(): Unit = runBlocking {
         val work = cloneWithGit()
         val pushed = commitLfsFile("second.bin")
@@ -275,24 +252,6 @@ class GitCliLfsTest {
         assertArrayEquals(File(source, "second.bin").readBytes(), File(work, "second.bin").readBytes())
         assertEquals(emptyList<String>(), builtinDownloads)
         assertTrue("filter-process" in gitLfsLog.readLines()) { gitLfsLog.readText() }
-    }
-
-    @Test
-    fun `a pull whose LFS files can't be downloaded changes nothing`(): Unit = runBlocking {
-        val work = cloneWithGit()
-        val before = git.run(work, "rev-parse", "HEAD").trim()
-        commitLfsFile("second.bin")
-        File(tempDir, "lfs-store/${lfsOid("second.bin")}").delete()
-        val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to pathWithGitLfs))
-
-        val result = pull(remote, work)
-
-        val error = (result as Either.Err).error
-        assertInstanceOf(LfsDownloadError::class.java, error)
-        val output = ((error as LfsDownloadError).error as RemoteOperationError).output
-        assertTrue(output.contains("Object does not exist")) { output }
-        assertEquals(before, git.run(work, "rev-parse", "HEAD").trim())
-        assertFalse(File(work, "second.bin").exists())
     }
 
     @Test
@@ -323,17 +282,6 @@ class GitCliLfsTest {
         branch: String? = null,
         singleBranch: Boolean = false,
     ) = GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, url, false, branch, singleBranch)
-
-    private suspend fun pull(remote: TestRemoteCommand, work: File): Either<PullHasConflicts, GitError> =
-        GitCliPullBranchGitAction(
-            jgit = jgit,
-            remoteCommand = remote.command,
-            gitLfsFetch = remote.gitLfsFetch,
-            partialClone = PartialCloneFetch(jgit, remote.command),
-            checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
-            deleteStashGitAction = DeleteStashGitAction(jgit),
-            commitMapper = JGitCommitMapper(JGitIdentityMapper()),
-        )(File(work, ".git").path, PullType.MERGE, mergeAutoStash = true, remoteBranch = null, "automatic stash")
 
     /** `source`, with an LFS file, pushed to `origin.git` and its LFS object to the server. */
     private fun publishLfsRepository() {

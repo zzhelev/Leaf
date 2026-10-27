@@ -26,10 +26,8 @@ import dev.app.leaf.data.git.log.ResetToCommitGitAction
 import dev.app.leaf.data.git.log.RevertCommitGitAction
 import dev.app.leaf.data.git.rebase.RebaseBranchGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
-import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.testJGit
-import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.mappers.JGitBranchMapper
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
@@ -255,29 +253,6 @@ class PartialCloneTest {
         assertEquals(Either.Ok(false), stopped)
         assertEquals("v3\n", File(clone, "a.txt").readText())
         assertEquals("side's file\n", File(clone, "s.txt").readText())
-        assertEquals("", status())
-    }
-
-    @Test
-    fun `a pull downloads what it merges`(): Unit = runBlocking {
-        git.run(source, "mv", "c.txt", "e.txt")
-        commit("four", "a.txt" to "v4\n")
-
-        val pull = GitCliPullBranchGitAction(
-            jgit = jgit,
-            remoteCommand = remote.command,
-            gitLfsFetch = remote.gitLfsFetch,
-            partialClone = partialClone,
-            checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
-            deleteStashGitAction = DeleteStashGitAction(jgit),
-            commitMapper = JGitCommitMapper(JGitIdentityMapper()),
-        )
-
-        val hasConflicts = pull(gitDir, PullType.MERGE, mergeAutoStash = true, remoteBranch = null, "automatic stash")
-
-        assertEquals(Either.Ok(false), hasConflicts)
-        assertEquals("v4\n", File(clone, "a.txt").readText())
-        assertTrue(File(clone, "e.txt").isFile)
         assertEquals("", status())
     }
 

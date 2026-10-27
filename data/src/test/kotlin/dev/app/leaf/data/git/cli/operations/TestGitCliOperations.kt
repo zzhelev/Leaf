@@ -22,7 +22,8 @@ import java.io.File
 
 /**
  * [GitCliOperations] as Dagger builds them, around [gitCli], with the built askpass helper ([helper]), so that git runs
- * them. Without the helper, or with a git that isn't there ([gitExecutablePath]), JGit does.
+ * them. Without the helper, or with a git that isn't there ([gitExecutablePath]), JGit does. git runs through
+ * [remoteCommand], by default one with a credentials cache of its own.
  */
 fun testGitCliOperations(
     jgit: JGit,
@@ -31,20 +32,21 @@ fun testGitCliOperations(
     repositoryState: RepositoryStateRepository = InMemoryRepositoryStateRepository(),
     helper: File? = builtAskpassHelper(),
     gitExecutablePath: String? = null,
+    remoteCommand: GitCliRemoteCommand = GitCliRemoteCommand(
+        gitCli = gitCli,
+        askpassHelper = AskpassHelper { helper },
+        credentialsStateManager = credentialsStateManager,
+        credentialsRepository = CredentialsCacheRepository(),
+        appSettingsService = testAppSettings(),
+        repositoryStateRepository = repositoryState,
+        lfsFilter = testLfsFilter(gitCli, jgit, credentialsStateManager),
+    ),
 ): GitCliOperations {
     val askpassHelper = AskpassHelper { helper }
 
     return GitCliOperations(
         gitCli = gitCli,
-        remoteCommand = GitCliRemoteCommand(
-            gitCli = gitCli,
-            askpassHelper = askpassHelper,
-            credentialsStateManager = credentialsStateManager,
-            credentialsRepository = CredentialsCacheRepository(),
-            appSettingsService = testAppSettings(),
-            repositoryStateRepository = repositoryState,
-            lfsFilter = testLfsFilter(gitCli, jgit, credentialsStateManager),
-        ),
+        remoteCommand = remoteCommand,
         gitExecutableLocator = GitExecutableLocator(ProcessRunner()),
         askpassHelper = askpassHelper,
         appSettingsService = testGitSettings(gitExecutablePath),

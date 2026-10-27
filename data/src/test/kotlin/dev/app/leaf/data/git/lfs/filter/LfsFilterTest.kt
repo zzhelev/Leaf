@@ -10,14 +10,19 @@ import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.cli.operations.testGitCliOperations
 import dev.app.leaf.data.git.cli.remote.FakeLfsServer
 import dev.app.leaf.data.git.cli.remote.GIT_LFS_FILTERS
+import dev.app.leaf.data.git.cli.remote.SelectingPullBranchGitAction
 import dev.app.leaf.data.git.cli.remote.TestRemoteCommand
 import dev.app.leaf.data.git.cli.remote.pathWithoutGitLfs
+import dev.app.leaf.data.git.cli.remote.testGitPullGitAction
+import dev.app.leaf.data.git.cli.remote.testRemoteOperationsBackend
 import dev.app.leaf.data.git.lfs.lfsPointerText
 import dev.app.leaf.data.git.testJGit
+import dev.app.leaf.data.git.testJGitPullBranchGitAction
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.errors.LfsFileFailure
 import dev.app.leaf.domain.errors.LfsFilterError
+import dev.app.leaf.domain.models.PullType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -231,6 +236,42 @@ class LfsFilterTest {
         assertEquals(Either.Ok(false), operations.run(gitDir(), listOf("pull", "--rebase", "origin", "main")))
         assertEquals(C1, File(repo, "c.bin").readText())
         assertEquals(A1, File(repo, "a.bin").readText())
+        assertEquals("", leafGit(remote, "status", "--porcelain"))
+    }
+
+    @Test
+    fun `Leaf's Pull is git pull, with Leaf's filter, where git-lfs isn't set up`(): Unit = runBlocking {
+        val origin = File(tempDir, "origin.git")
+        git.run(tempDir, "init", "-q", "--bare", origin.path)
+        git.run(repo, "remote", "add", "origin", origin.path)
+        git.run(repo, "push", "-q", "origin", "main")
+        val other = File(tempDir, "other")
+        git.run(tempDir, "clone", "-q", origin.path, other.path)
+        File(other, "b.bin").writeText(pointer(B1))
+        File(serverStorage, oid(B1)).writeText(B1)
+        git.run(other, "add", "-A")
+        git.run(other, "commit", "-q", "-m", "Add b.bin")
+        git.run(other, "push", "-q", "origin", "main")
+
+        val remote = remote()
+        checkOutThroughLeaf(remote)
+        File(repo, "README.md").writeText("LFS test, locally\n")
+        leafGit(remote, "commit", "-q", "-a", "-m", "Local change")
+        val pull = SelectingPullBranchGitAction(
+            backend = testRemoteOperationsBackend(jgit, remote.gitCli, helper),
+            gitPullGitAction = testGitPullGitAction(jgit, remote.gitCli),
+            jGitPullBranchGitAction = testJGitPullBranchGitAction(jgit),
+        )
+
+        val result = pull(gitDir(), PullType.MERGE, mergeAutoStash = true, remoteBranch = null, "automatic stash")
+
+        assertEquals(Either.Ok(false), result)
+        assertEquals(B1, File(repo, "b.bin").readText())
+        // git's message: JGit's merge, which pulled here before, adds " into main"
+        assertEquals(
+            "Merge branch 'main' of ${origin.path.removeSuffix(".git")}",
+            git.run(repo, "log", "-1", "--format=%s").trim(),
+        )
         assertEquals("", leafGit(remote, "status", "--porcelain"))
     }
 

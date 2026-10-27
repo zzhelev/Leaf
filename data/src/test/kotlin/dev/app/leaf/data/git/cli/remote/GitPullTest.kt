@@ -8,6 +8,7 @@ import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.cli.operations.GitCliOperations
 import dev.app.leaf.data.git.cli.operations.testGitCliOperations
 import dev.app.leaf.data.git.repository.IsUnchangedSinceGitAction
 import dev.app.leaf.data.git.stash.CreateSnapshotStashGitAction
@@ -581,15 +582,19 @@ class GitPullTest {
         runCatching { git.run(repository, "rev-parse", "--verify", "-q", name).trim() }.getOrNull()
 }
 
-/** [GitPullGitAction] as Dagger builds it, around [gitCli], with the built askpass helper. */
+/**
+ * [GitPullGitAction] as Dagger builds it, around [gitCli], with the built askpass helper. git runs through
+ * [operations].
+ */
 internal fun testGitPullGitAction(
     jgit: JGit,
     gitCli: GitCli,
     repositoryState: RepositoryStateRepository = InMemoryRepositoryStateRepository(),
+    operations: GitCliOperations = testGitCliOperations(jgit, gitCli, repositoryState = repositoryState),
 ) = GitPullGitAction(
     jgit = jgit,
     gitCli = gitCli,
-    operations = testGitCliOperations(jgit, gitCli, repositoryState = repositoryState),
+    operations = operations,
     checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
     createSnapshotStashGitAction = CreateSnapshotStashGitAction(JGitCommitMapper(JGitIdentityMapper()), jgit),
     deleteStashGitAction = DeleteStashGitAction(jgit),

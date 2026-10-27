@@ -5,9 +5,6 @@ package dev.app.leaf.data.git
 
 import dev.app.leaf.data.git.branches.MergeBranchGitAction
 import dev.app.leaf.data.git.cli.ProcessRunner
-import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
-import dev.app.leaf.data.git.cli.remote.GitCliPullBranchGitAction
-import dev.app.leaf.data.git.cli.remote.TestRemoteCommand
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.config.GitIncludedConfig
 import dev.app.leaf.data.git.log.CherryPickCommitGitAction
@@ -15,8 +12,6 @@ import dev.app.leaf.data.git.log.RevertCommitGitAction
 import dev.app.leaf.data.git.rebase.RebaseBranchGitAction
 import dev.app.leaf.data.git.signers.GpgProgramSigner
 import dev.app.leaf.data.git.stash.CreateSnapshotStashGitAction
-import dev.app.leaf.data.git.stash.DeleteStashGitAction
-import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -36,7 +31,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
@@ -163,9 +157,7 @@ class IncludedConfigRepositoryTest {
     }
 
     @Test
-    fun `a pull's merge and rebase are committed as git's identity`(): Unit = runBlocking {
-        val helper = builtAskpassHelper()
-        assumeTrue(helper?.exists() == true) { "leaf-askpass isn't built, run ./gradlew :app:rustTasks" }
+    fun `JGit's pull merges and rebases as git's identity`(): Unit = runBlocking {
         val origin = File(root, "origin.git")
         git(root, "init", "-q", "--bare", "-b", "main", origin.path)
         val other = File(root, "other")
@@ -180,16 +172,7 @@ class IncludedConfigRepositoryTest {
         git(other, "push", "-q", "origin", "main")
         stage(repository, "ours.txt")
         git(repository, "commit", "-m", "Ours")
-        val remote = TestRemoteCommand(helper!!, globalConfig, shellVariables = shellVariables, jgit = jgit)
-        val pull = GitCliPullBranchGitAction(
-            jgit = jgit,
-            remoteCommand = remote.command,
-            gitLfsFetch = remote.gitLfsFetch,
-            partialClone = remote.partialClone,
-            checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
-            deleteStashGitAction = DeleteStashGitAction(jgit),
-            commitMapper = JGitCommitMapper(JGitIdentityMapper()),
-        )
+        val pull = testJGitPullBranchGitAction(jgit)
 
         assertEquals(false, pull(gitDir(repository), PullType.MERGE, false, null, "automatic stash").okOrNull())
         assertEquals("$WORK|$WORK", identities(repository))

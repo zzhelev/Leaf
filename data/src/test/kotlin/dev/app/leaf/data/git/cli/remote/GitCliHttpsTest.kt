@@ -10,11 +10,8 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.GetTrackingBranchGitAction
 import dev.app.leaf.data.git.cli.askpass.answeringDialogs
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
-import dev.app.leaf.data.git.stash.DeleteStashGitAction
+import dev.app.leaf.data.git.cli.operations.testGitCliOperations
 import dev.app.leaf.data.git.testJGit
-import dev.app.leaf.data.git.workspace.CheckHasUncommittedChangesGitAction
-import dev.app.leaf.data.mappers.JGitCommitMapper
-import dev.app.leaf.data.mappers.JGitIdentityMapper
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.credentials.CredentialsStateManager
@@ -216,16 +213,20 @@ class GitCliHttpsTest {
         assertEquals(Either.Ok(Unit), fetched)
         assertEquals(listOf(CredentialsRequest.HttpCredentialsRequest(user = null, askPassword = true)), fetchDialogs)
 
+        val operations = testGitCliOperations(
+            jgit,
+            remote.gitCli,
+            remote.credentialsStateManager,
+            remoteCommand = remote.command,
+        )
         val (pulled, pullDialogs) = remote.credentialsStateManager.answeringDialogs {
-            GitCliPullBranchGitAction(
-                jgit = jgit,
-                remoteCommand = remote.command,
-                gitLfsFetch = remote.gitLfsFetch,
-                partialClone = PartialCloneFetch(jgit, remote.command),
-                checkHasUncommittedChangesGitAction = CheckHasUncommittedChangesGitAction(jgit),
-                deleteStashGitAction = DeleteStashGitAction(jgit),
-                commitMapper = JGitCommitMapper(JGitIdentityMapper()),
-            )(gitDir, PullType.MERGE, mergeAutoStash = true, remoteBranch = null, "automatic stash")
+            testGitPullGitAction(jgit, remote.gitCli, operations = operations)(
+                gitDir,
+                PullType.MERGE,
+                mergeAutoStash = true,
+                remoteBranch = null,
+                "automatic stash",
+            )
         }
 
         assertEquals(Either.Ok(false), pulled)
