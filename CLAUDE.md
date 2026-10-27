@@ -2472,8 +2472,30 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   - **A failure:** with `required`, git stops (`smudge filter lfs failed`, exit 128), HEAD and the index as they were,
     and the files it wrote before left in the working tree, as with git-lfs. `GitCliRemoteCommand.run` then returns
     `LfsFilterError` (the files by path from the command's folder, each with its `LfsError`), whose text groups the
-    files by why and says to discard what git wrote before trying again. Stage 2 will download before item 4's
-    operations start, so that they don't stop halfway.
+    files by why and says to discard what git wrote before trying again. Merges, cherry-picks, reverts and rebases
+    download first, so that they don't stop halfway (below).
+  - **Downloaded first (stage 2, 2026-10-27, `LfsDownloadFirst`, `data/git/lfs/filter/LfsDownloadFirst.kt`):** before
+    git merges (`GitCliMergeBranchGitAction`), cherry-picks one commit or several, reverts or rebases, where Leaf's
+    filter applies, `GitCliOperations.run` gets the operation's `LfsCheckout` and downloads the LFS objects that its
+    checkout will smudge, in one batch, with the processing screen's progress ("Downloading LFS objects (1 of 2)") and
+    Cancel. One that fails stops the operation before git starts, with nothing changed: `LfsDownloadFirstError`, "Leaf
+    couldn't download the Git LFS files that this needs, so it didn't start, and nothing changed.", then the files by
+    why. `git pull`, a clone and a submodule update aren't covered, as their commits come from their own fetch; nor are
+    a rebase's Continue and Skip.
+    - Which objects (`lfsFilesToDownload`): the files that the operation's trees don't all have alike, the sets that a
+      partial clone downloads first too (`mergeTrees`, `cherryPickTrees`, `rebaseTreeSets` in `PartialCloneFetch.kt`,
+      shared since), that are LFS pointers by git-lfs's rules without extension lines (the filter passes those
+      through), at a path that the attributes of the pointer's own tree give the LFS filter, whose objects the store
+      lacks. JGit's `TreeWalk.getAttributes(index)` reads one tree's `.gitattributes` and `info/attributes`, and agrees
+      with `git check-attr --source` (a test). So a test fixture that only looks like a pointer doesn't block a merge.
+      A blob that a partial clone lacks is left out (git downloads it, the filter its object), and a lookup that fails
+      (a tree that a treeless clone lacks) downloads nothing first.
+    - Where git-lfs is set up, nothing is downloaded first: git-lfs does it, with its own settings (`lfs.storage`).
+    - Tests: `LfsDownloadFirstTest` (git with the built helper and `FakeLfsServer`: a merge in one batch, a refused
+      object changing nothing for a merge, a cherry-pick, several cherry-picks, a revert and a rebase, a pointer at a
+      path without the filter, objects already in the store, two paths of one object, git-lfs left alone, progress and
+      Cancel before git, the attributes against `git check-attr`, a missing blob), `LfsErrorTextTest` (both errors'
+      texts). 16 mutations were each caught by a named test.
   - **git outside Leaf** has no filter in case A: a terminal's or an agent's `git status` shows every file that Leaf
     wrote as modified, and `git add` stores its bytes. In case B it fails on them. The tests met it (`LfsFilterTest`
     changes the working tree only through Leaf). The strip below says so.

@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs, stage 2: the files downloaded before git starts (2026-10-27)
+
+- **Request:** stage 2 of `docs/fork/lfs-filter.md`, approved with the plan.
+- **Before:** where Leaf's LFS filter applies, a merge, cherry-pick, revert or rebase downloaded its LFS files as git
+  checked them out. One that failed stopped git halfway: HEAD stayed, but the files that git had written were left in
+  the working tree, to discard before trying again.
+- **Now:** Leaf downloads the LFS files that the operation will check out first, in one batch, with progress
+  ("Downloading LFS objects (1 of 2)") and Cancel. A download that fails stops the operation before git starts, and
+  nothing changes: "Leaf couldn't download the Git LFS files that this needs, so it didn't start, and nothing changed.",
+  with the files and why. Only files that git would pass to the LFS filter count, by their `.gitattributes`, so a test
+  fixture that holds a pointer doesn't block a merge.
+- **Not covered:** `git pull`, a clone and a submodule update, whose commits come from their own fetch, and a rebase's
+  Continue and Skip. There a failed download still stops git halfway, as with git-lfs. Where git-lfs is set up, it
+  downloads as before.
+- Details: CLAUDE.md, "Leaf's LFS client as git's filter", Downloaded first.
+
 ## LFS without git-lfs: a strip about git outside Leaf (2026-10-27)
 
 - **Request:** open question 2 of `docs/fork/lfs-filter.md`, option A of three from a mockup (a strip under the

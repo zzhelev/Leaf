@@ -3,7 +3,7 @@
 Status: written 2026-10-16 on `main` at `0c330b21`, approved on 2026-10-26 with every recommendation (see Decisions,
 at the end of section 8). Stage 0 was built on 2026-10-26 (CLAUDE.md, "One LFS store, and Leaf's filters for JGit"),
 and stage 1 the same day (CLAUDE.md, "Leaf's LFS client as git's filter"). Open question 2's strip followed on
-2026-10-27 (option A of three, chosen from a mockup).
+2026-10-27 (option A of three, chosen from a mockup), and stage 2 the same day (CLAUDE.md, "Downloaded first").
 
 Probes ran with git 2.54.0 (Apple Git-157), git-lfs 3.8.0 and JGit 7.7.0, in temp repos. Each ran with an isolated
 `HOME`, `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_NOSYSTEM=1` and `PATH=/usr/bin:/bin` (no git-lfs), and with `-Duser.home` for
@@ -359,6 +359,16 @@ Found while building stage 1 (2026-10-26):
 - The tests met P5 in their own setup: a commit by git outside Leaf, after Leaf's filter had written the real content,
   staged the file's bytes, and the next pull refused, as the file then differed from the index.
 - `includeIf "gitdir:<path>/.git/"` doesn't match the git dir itself on git 2.54; `gitdir:<path>/.git` does.
+
+Found while building stage 2 (2026-10-27):
+- A blob that looks like a pointer is downloaded first only at a path whose attributes give it the LFS filter, as git
+  asks the filter for nothing else: a test fixture that holds a pointer, whose object no server has, would otherwise
+  block a merge that git completes. JGit's `TreeWalk.getAttributes(index)` reads them from one tree of a walk over
+  several, and agrees with `git check-attr --source=<commit>` (git 2.40 and later), so no git process is needed.
+- §3's "the blobs where the trees differ" are now shared: `mergeTrees`, `cherryPickTrees` and `rebaseTreeSets` give
+  the trees, which the partial clone's prefetch and the LFS download read alike.
+- A rebase's Continue and Skip replay the rest of the commits with the filter only, as Leaf doesn't read git's todo
+  for them. A download that fails there stops the rebase at that commit, as git-lfs does.
 
 ## 7. Tests
 
