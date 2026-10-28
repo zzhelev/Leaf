@@ -8,6 +8,15 @@ Leaf aims to be a multiplatform open source Git client, without any kind of cons
 without relying on web technologies. It focuses on first-class support for git worktrees in workflows where AI coding
 agents work side by side.
 
+## Screenshots
+
+Click a screenshot to see it larger.
+
+<p>
+  <a href="res/img/worktrees-overview.png"><img src="res/img/worktrees-overview-thumb.png" width="320" alt="The history graph next to the Worktrees list, which shows each worktree's branch and how far it is from main"></a>
+  <a href="res/img/agent-worktree.png"><img src="res/img/agent-worktree-thumb.png" width="320" alt="An agent's worktree with its uncommitted changes in the Unstaged list"></a>
+</p>
+
 ## Download/Install
 
 Download Leaf from the [releases page](https://github.com/zzhelev/Leaf/releases):
