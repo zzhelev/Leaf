@@ -5,6 +5,7 @@ package dev.app.leaf.data.tab
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.conflicts.OpenMergeToolGitAction
 import dev.app.leaf.data.git.conflicts.mergeWithConflicts
 import dev.app.leaf.data.git.conflicts.mergeWithConflictsIn
@@ -59,7 +60,12 @@ class ResolvingConflictsInMergeToolTest {
     }
     private val tab by lazy { TestTab(jgit, gitCli) }
     private val openMergeTool by lazy {
-        OpenMergeToolUseCase(OpenMergeToolGitAction(jgit, gitCli, tab.repositoryState), tab.useCaseExecutor)
+        OpenMergeToolUseCase(OpenMergeToolGitAction(
+            jgit,
+            gitCli,
+            testGitCliRemoteCommand(gitCli, jgit, tab.repositoryState),
+            tab.repositoryState,
+        ), tab.useCaseExecutor)
     }
 
     private val repository by lazy { git.initRepository(File(tempDir, "repo")) }

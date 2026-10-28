@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
@@ -43,7 +44,11 @@ class RenamedFilesTest {
     private val git by lazy { TestGitCli(globalConfig) }
     private val isolatedGit by lazy { mapOf("GIT_CONFIG_GLOBAL" to globalConfig.path, "GIT_CONFIG_NOSYSTEM" to "1") }
     private val jgit = testJGit()
-    private val resolve by lazy { ResolveRenamedFileGitAction(jgit, testGitCli(isolatedGit)) }
+    private val resolve by lazy {
+        val gitCli = testGitCli(isolatedGit)
+
+        ResolveRenamedFileGitAction(jgit, gitCli, testGitCliRemoteCommand(gitCli, jgit))
+    }
     private val repository by lazy { git.initRepository(File(tempDir, "repo")) }
 
     private val lines = (1..8).joinToString("") { "line $it\n" }

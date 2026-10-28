@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.EitherContext
@@ -30,11 +31,13 @@ import javax.inject.Inject
  * itself suggests: `git rm` for the old name and a new name not kept, `git add` for a name kept. A name kept whose
  * working file has conflict markers, as git leaves it when both sides' changes to the content conflict, gets the three
  * stages of a content conflict instead (`git update-index --index-info`), and its working file is written again with
- * the resolver's markers, unless it was edited since.
+ * the resolver's markers, unless it was edited since. The checkout and `git add` go through [GitCliRemoteCommand]
+ * (fork-only), for Leaf's LFS filter where git-lfs isn't set up, as in [ResolveConflictGitAction].
  */
 class ResolveRenamedFileGitAction @Inject constructor(
     private val jgit: JGit,
     private val gitCli: GitCli,
+    private val remoteCommand: GitCliRemoteCommand,
 ) : IResolveRenamedFileGitAction {
     override suspend fun invoke(
         repositoryPath: String,
@@ -49,11 +52,12 @@ class ResolveRenamedFileGitAction @Inject constructor(
         gitCli.run(plan.workTree, listOf("--literal-pathspecs", "rm", "--quiet", "--") + dropped).bind()
 
         for ((side, path) in plan.missing) {
-            gitCli.run(plan.workTree, listOf("--literal-pathspecs", "checkout", side.checkoutOption, "--", path)).bind()
+            val args = listOf("--literal-pathspecs", "checkout", side.checkoutOption, "--", path)
+            remoteCommand.runLocal(plan.workTree, args).bind()
         }
 
         if (plan.staged.isNotEmpty()) {
-            gitCli.run(plan.workTree, listOf("--literal-pathspecs", "add", "--") + plan.staged).bind()
+            remoteCommand.runLocal(plan.workTree, listOf("--literal-pathspecs", "add", "--") + plan.staged).bind()
         }
 
         if (plan.conflicts.isNotEmpty()) {

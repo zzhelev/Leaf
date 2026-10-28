@@ -105,7 +105,7 @@ class RewriteBranchGitAction @Inject constructor(
             if (ontoTree == null) {
                 moveBranch(gitCli, place, rewrite.branch, oldTip, newTip, "$action: $subject")
             } else {
-                moveBranchWithFiles(gitCli, place, rewrite.branch, oldTip, newTip, "$action: $subject")
+                moveBranchWithFiles(gitCli, remoteCommand, place, rewrite.branch, oldTip, newTip, "$action: $subject")
             }
 
             runPostRewrite(gitCli, place, rewritten)

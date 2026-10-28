@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.rewrite
 
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.data.git.cli.remote.readableGitOutput
 import dev.app.leaf.data.git.worktrees.readTextOrNull
 import dev.app.leaf.data.git.worktrees.worktreesUsing
@@ -155,9 +156,11 @@ internal suspend fun EitherContext<GitError>.moveBranch(
  * changing nothing, when uncommitted changes, untracked or ignored files are in the way ([filesInTheWay], and git's own
  * refusal: [RewriteBranchError.ChangesInTheWay]).
  * When the branch moved meanwhile, the files go back to [from], and it's refused as [moveBranch] refuses it.
+ * `git read-tree` writes LFS files with Leaf's LFS filter where git-lfs isn't set up ([remoteCommand]).
  */
 internal suspend fun EitherContext<GitError>.moveBranchWithFiles(
     gitCli: GitCli,
+    remoteCommand: GitCliRemoteCommand,
     place: BranchPlace,
     branch: String,
     from: String,
@@ -176,12 +179,12 @@ internal suspend fun EitherContext<GitError>.moveBranchWithFiles(
         )
     }
 
-    readTree(gitCli, place, branch, from, to)
+    readTree(remoteCommand, place, branch, from, to)
 
     val moved = either<Unit, GitError> { Either.Ok(moveBranch(gitCli, place, branch, from, to, reflogMessage)) }
 
     if (moved is Either.Err) {
-        either<Unit, GitError> { Either.Ok(readTree(gitCli, place, branch, to, from)) }
+        either<Unit, GitError> { Either.Ok(readTree(remoteCommand, place, branch, to, from)) }
             .let { if (it is Either.Err) printError(TAG, "Couldn't put the files back at $from: ${it.error}") }
 
         raiseError(moved.error)
@@ -190,14 +193,15 @@ internal suspend fun EitherContext<GitError>.moveBranchWithFiles(
 
 /** `git read-tree -m -u [from] [to]` in [place], the two-tree merge that `git checkout` makes. */
 private suspend fun EitherContext<GitError>.readTree(
-    gitCli: GitCli,
+    remoteCommand: GitCliRemoteCommand,
     place: BranchPlace,
     branch: String,
     from: String,
     to: String,
 ) {
     val args = place.gitArgs + listOf("read-tree", "-m", "-u", from, to)
-    val output = gitCli.execute(place.workingDirectory, args, timeout = Duration.INFINITE).bind()
+    // No progress on the processing screen, which would offer Cancel: stopped halfway, the files would be half moved
+    val output = remoteCommand.executeLocal(place.workingDirectory, args, onProgress = {}).bind()
 
     if (output.exitCode == 0) {
         return

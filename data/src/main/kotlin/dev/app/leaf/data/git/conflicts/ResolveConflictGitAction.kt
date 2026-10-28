@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
@@ -28,11 +29,14 @@ import javax.inject.Inject
  * - a submodule: `git update-index --cacheinfo` with the side's commit. `git add` would stage the commit that the
  *   submodule has checked out, whichever side that is. Its working tree is left alone, as after `git add`.
  *
- * Paths go to git with `--literal-pathspecs`, so that a name such as `[ab].txt` isn't taken as a pattern.
+ * Paths go to git with `--literal-pathspecs`, so that a name such as `[ab].txt` isn't taken as a pattern. The checkout
+ * and `git add` go through [GitCliRemoteCommand] (fork-only), so that git writes and stages LFS files with Leaf's LFS
+ * filter where git-lfs isn't set up: `git add` would otherwise stage an LFS file's content, not its pointer.
  */
 class ResolveConflictGitAction @Inject constructor(
     private val jgit: JGit,
     private val gitCli: GitCli,
+    private val remoteCommand: GitCliRemoteCommand,
 ) : IResolveConflictGitAction {
     override suspend fun invoke(
         repositoryPath: String,
@@ -67,11 +71,12 @@ class ResolveConflictGitAction @Inject constructor(
         }
 
         if (checkedOut.isNotEmpty()) {
-            gitCli.run(workTree, listOf("--literal-pathspecs", "checkout", side.checkoutOption, "--") + checkedOut).bind()
+            val args = listOf("--literal-pathspecs", "checkout", side.checkoutOption, "--") + checkedOut
+            remoteCommand.runLocal(workTree, args).bind()
         }
 
         if (files.isNotEmpty()) {
-            gitCli.run(workTree, listOf("--literal-pathspecs", "add", "--") + files).bind()
+            remoteCommand.runLocal(workTree, listOf("--literal-pathspecs", "add", "--") + files).bind()
         }
 
         if (deleted.isNotEmpty()) {

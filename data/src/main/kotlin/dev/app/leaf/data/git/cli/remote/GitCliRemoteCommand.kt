@@ -7,6 +7,7 @@ import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.GitCliOutput
+import dev.app.leaf.data.git.cli.describeGitCommand
 import dev.app.leaf.data.git.cli.askpass.AskpassAnswers
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.withAskpassServer
@@ -30,7 +31,8 @@ import kotlin.time.Duration
 
 /**
  * Runs git commands that talk to a remote, or may (merges, cherry-picks, reverts and rebases, see
- * [dev.app.leaf.data.git.cli.operations.GitCliOperations]):
+ * [dev.app.leaf.data.git.cli.operations.GitCliOperations]), and the local ones that may check out or stage files
+ * ([executeLocal]):
  * - git and ssh ask through Leaf's dialogs, with the askpass helper ([AskpassAnswers]). The user's own credential
  *   helpers, ssh config, agent and known_hosts apply as in a terminal. `core.sshCommand` too, as Leaf never sets
  *   `GIT_SSH_COMMAND`.
@@ -156,6 +158,46 @@ class GitCliRemoteCommand @Inject constructor(
         }
 
         return result
+    }
+
+    /**
+     * Runs `git <args>`, a command that talks to no remote but may check out or stage files, such as `git checkout`,
+     * `git add` or `git stash apply`, as [run] does (fork-only): with Leaf's LFS filter where git-lfs isn't set up, so
+     * that git writes and stages LFS files as with git-lfs, Leaf's dialogs, and the processing screen's progress and
+     * Cancel. Without the askpass helper, git runs as [GitCli.execute] runs it, without them, as before.
+     */
+    suspend fun executeLocal(
+        workingDirectory: File,
+        args: List<String>,
+        onProgress: (TaskProgress?) -> Unit = repositoryStateRepository::updateTaskProgress,
+        input: ByteArray? = null,
+    ): Either<GitCliOutput, GitError> {
+        if (askpassHelper.path() == null) {
+            return gitCli.execute(workingDirectory, args, timeout = Duration.INFINITE, input = input)
+        }
+
+        return run(workingDirectory, args, onProgress = onProgress, input = input)
+    }
+
+    /**
+     * [executeLocal], returning git's stdout when it exits with 0, and [GitCliError.CommandFailed] otherwise, as
+     * [GitCli.run] does.
+     */
+    suspend fun runLocal(
+        workingDirectory: File,
+        args: List<String>,
+        onProgress: (TaskProgress?) -> Unit = repositoryStateRepository::updateTaskProgress,
+    ): Either<String, GitError> {
+        val output = when (val result = executeLocal(workingDirectory, args, onProgress)) {
+            is Either.Err -> return result
+            is Either.Ok -> result.value
+        }
+
+        return if (output.exitCode == 0) {
+            Either.Ok(output.stdout)
+        } else {
+            Either.Err(GitCliError.CommandFailed(describeGitCommand(args), output.exitCode, output.stderr.trim()))
+        }
     }
 
     /**

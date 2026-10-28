@@ -5,7 +5,9 @@ package dev.app.leaf.data.git.worktrees
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.testGitCli
+import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.models.BranchMerged
@@ -172,7 +174,7 @@ class WorktreeLifecycleGitActionsTest {
     fun `a command that git refuses fails with git's message`(): Unit = runBlocking {
         File(agent, "untracked.txt").writeText("work in progress\n")
 
-        val result = RunGitCommandGitAction(gitCli)(main.path, listOf("worktree", "remove", "../agent"))
+        val result = runGitCommand(main.path, listOf("worktree", "remove", "../agent"))
 
         val error = assertInstanceOf(GitCliError.CommandFailed::class.java, (result as Either.Err).error)
         assertEquals("git worktree remove ../agent", error.command)
@@ -182,11 +184,14 @@ class WorktreeLifecycleGitActionsTest {
 
     @Test
     fun `a command runs in the folder it's given`(): Unit = runBlocking {
-        val result = RunGitCommandGitAction(gitCli)(main.path, listOf("worktree", "remove", "../agent"))
+        val result = runGitCommand(main.path, listOf("worktree", "remove", "../agent"))
 
         assertNotNull((result as? Either.Ok)?.value)
         assertTrue(!agent.exists())
     }
+
+    private suspend fun runGitCommand(folder: String, args: List<String>) =
+        RunGitCommandGitAction(gitCli, testGitCliRemoteCommand(gitCli, testJGit()))(folder, args)
 
     private suspend fun merged(): BranchMerged? {
         val result = GetBranchMergedGitAction(gitCli)(mainGitDir, "refs/heads/main", "refs/heads/agent")

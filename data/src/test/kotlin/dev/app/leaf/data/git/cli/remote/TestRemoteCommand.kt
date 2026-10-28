@@ -12,6 +12,8 @@ import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.git.cli.askpass.ASKPASS_HELPER_NAME
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
+import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.lfs.GitLfsSetup
 import dev.app.leaf.data.git.lfs.filter.lfsUrlSetting
 import dev.app.leaf.data.git.lfs.filter.testLfsFilter
@@ -83,6 +85,28 @@ class TestRemoteCommand(
 
     val partialClone = PartialCloneFetch(jgit, command)
 }
+
+/**
+ * A [GitCliRemoteCommand] around [gitCli] and [jgit], as Dagger builds one, with the built askpass [helper]: for the
+ * local commands that may check out or stage files ([GitCliRemoteCommand.executeLocal]) of tests that have a [GitCli]
+ * of their own. Leaf's LFS filter finds its server in `lfs.url`. Without the helper, git runs without it, as in the
+ * app.
+ */
+fun testGitCliRemoteCommand(
+    gitCli: GitCli,
+    jgit: JGit,
+    repositoryState: RepositoryStateRepository = InMemoryRepositoryStateRepository(),
+    credentialsStateManager: CredentialsStateManager = CredentialsStateManager(),
+    helper: File? = builtAskpassHelper(),
+): GitCliRemoteCommand = GitCliRemoteCommand(
+    gitCli = gitCli,
+    askpassHelper = AskpassHelper { helper },
+    credentialsStateManager = credentialsStateManager,
+    credentialsRepository = CredentialsCacheRepository(),
+    appSettingsService = testAppSettings(),
+    repositoryStateRepository = repositoryState,
+    lfsFilter = testLfsFilter(gitCli, jgit, credentialsStateManager),
+)
 
 /**
  * A PATH without git-lfs, as macOS has it until Homebrew installs one: a `git-lfs` in [folder] that fails as git does

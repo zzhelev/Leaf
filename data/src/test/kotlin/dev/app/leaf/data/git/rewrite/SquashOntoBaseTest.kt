@@ -58,7 +58,7 @@ class SquashOntoBaseTest {
     private val rewriteBranch by lazy {
         RewriteBranchGitAction(jgit, remote.gitCli, remote.command, remote.stateRepository)
     }
-    private val undoRewrite by lazy { UndoBranchRewriteGitAction(jgit, remote.gitCli) }
+    private val undoRewrite by lazy { UndoBranchRewriteGitAction(jgit, remote.gitCli, remote.command) }
     private val checkOnto by lazy { GetOntoBaseCheckGitAction(jgit, remote.gitCli) }
 
     private lateinit var work: File

@@ -67,7 +67,7 @@ class RewriteBranchGitActionTest {
     private val rewriteBranch by lazy {
         RewriteBranchGitAction(jgit, remote.gitCli, remote.command, remote.stateRepository)
     }
-    private val undoRewrite by lazy { UndoBranchRewriteGitAction(jgit, remote.gitCli) }
+    private val undoRewrite by lazy { UndoBranchRewriteGitAction(jgit, remote.gitCli, remote.command) }
 
     private lateinit var work: File
     private var clock = 1_700_000_000L

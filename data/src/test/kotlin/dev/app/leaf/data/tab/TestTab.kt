@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.tab
 
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.cli.remote.testRemoteOperationsBackend
 import dev.app.leaf.data.git.cli.remote.CheckRemoteBranchesGitAction
 import dev.app.leaf.data.git.cli.remote.DeleteRemoteBranchesGitAction
@@ -217,6 +218,9 @@ class TestTab(
     val repositoryState = InMemoryRepositoryStateRepository()
     val watchers: MutableList<RecordingFileChangesWatcher> = CopyOnWriteArrayList()
 
+    /** For the local commands that may check out or stage files, through the built askpass helper (fork-only). */
+    private val localCommand = testGitCliRemoteCommand(gitCli, jgit, repositoryState)
+
     private lateinit var refresh: RefreshDataUseCase
 
     /** Fork-only: the commits that Skip left out of a rebase, which the refresh reports once it ends. */
@@ -330,7 +334,7 @@ class TestTab(
 
     val runWorktreeSteps = RunWorktreeStepsUseCase(
         useCaseExecutor = useCaseExecutor,
-        runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+        runGitCommandGitAction = RunGitCommandGitAction(gitCli, localCommand),
         copyWorktreeFilesGitAction = CopyWorktreeFilesGitAction(),
         getUnmergedFilesGitAction = GetUnmergedFilesGitAction(gitCli),
         openRepositoryGitAction = OpenRepositoryGitAction(),
@@ -346,14 +350,14 @@ class TestTab(
         getWorktreeActivityGitAction = GetWorktreeActivityGitAction(gitCli),
         getComparisonGitAction = GetComparisonGitAction(jgit, commitMapper, testPartialCloneFetch(jgit)),
         getBranchMergedGitAction = GetBranchMergedGitAction(gitCli),
-        runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+        runGitCommandGitAction = RunGitCommandGitAction(gitCli, localCommand),
     )
 
-    private val autostashes = Autostashes(gitCli, repositoryState)
+    private val autostashes = Autostashes(gitCli, localCommand, repositoryState)
 
     val abortSquashMerge = AbortSquashMergeUseCase(
         useCaseExecutor = useCaseExecutor,
-        abortSquashMergeGitAction = AbortSquashMergeGitAction(autostashes, gitCli, jgit),
+        abortSquashMergeGitAction = AbortSquashMergeGitAction(autostashes, localCommand, jgit),
     )
 
     val doCommit = DoCommitUseCase(
@@ -434,7 +438,7 @@ class TestTab(
         getWorktreeStatusGitAction = GetWorktreeStatusGitAction(gitCli),
         getWorktreeActivityGitAction = GetWorktreeActivityGitAction(gitCli),
         getAheadBehindGitAction = GetAheadBehindGitAction(gitCli),
-        runGitCommandGitAction = RunGitCommandGitAction(gitCli),
+        runGitCommandGitAction = RunGitCommandGitAction(gitCli, localCommand),
     )
 
     private val gitCliRebase = GitCliRebase(operations)
@@ -580,7 +584,8 @@ class TestTab(
         useCaseExecutor,
         RewriteBranchGitAction(jgit, gitCli, remoteCommand, repositoryState),
     )
-    val undoBranchRewrite = UndoBranchRewriteUseCase(useCaseExecutor, UndoBranchRewriteGitAction(jgit, gitCli))
+    val undoBranchRewrite =
+        UndoBranchRewriteUseCase(useCaseExecutor, UndoBranchRewriteGitAction(jgit, gitCli, remoteCommand))
     val checkOntoBase = GetOntoBaseCheckUseCase(useCaseExecutor, GetOntoBaseCheckGitAction(jgit, gitCli))
 
     /** Waits until [flow] has loaded data that passes [predicate]. */

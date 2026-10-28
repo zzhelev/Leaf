@@ -5,6 +5,8 @@ package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
@@ -58,7 +60,7 @@ class OpenMergeToolGitActionTest {
     private val isolatedGit by lazy { mapOf("GIT_CONFIG_GLOBAL" to globalConfig.path, "GIT_CONFIG_NOSYSTEM" to "1") }
     private val jgit = testJGit()
     private val stateRepository = InMemoryRepositoryStateRepository()
-    private val openMergeTool by lazy { OpenMergeToolGitAction(jgit, testGitCli(isolatedGit), stateRepository) }
+    private val openMergeTool by lazy { mergeToolAction(testGitCli(isolatedGit)) }
 
     private val repository by lazy { git.initRepository(File(tempDir, "repo")) }
     private val tools by lazy { File(tempDir, "tools").apply { mkdirs() } }
@@ -231,11 +233,7 @@ class OpenMergeToolGitActionTest {
             git.mergeWithConflicts(repository)
             // One of git's own tools, which it looks for on the PATH, where it isn't
             git.run(repository, "config", "merge.tool", "tortoisemerge")
-            val withoutTools = OpenMergeToolGitAction(
-                jgit,
-                testGitCli(isolatedGit + ("PATH" to "/usr/bin:/bin")),
-                stateRepository,
-            )
+            val withoutTools = mergeToolAction(testGitCli(isolatedGit + ("PATH" to "/usr/bin:/bin")))
 
             val error = (withTimeout(30.seconds) { withoutTools(gitDir(), "notes.txt") } as Either.Err).error
 
@@ -392,6 +390,9 @@ class OpenMergeToolGitActionTest {
         }
 
     private fun gitDir() = File(repository, ".git").path
+
+    private fun mergeToolAction(gitCli: GitCli) =
+        OpenMergeToolGitAction(jgit, gitCli, testGitCliRemoteCommand(gitCli, jgit, stateRepository), stateRepository)
 
     private suspend fun openMergeTool(path: String): Either<Unit, GitError> =
         withTimeout(30.seconds) { openMergeTool(gitDir(), path) }

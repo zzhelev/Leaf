@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.conflicts
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.domain.errors.ConflictError
@@ -33,7 +34,12 @@ class ResolveConflictGitActionTest {
     private val globalConfig by lazy { File(tempDir, "config/global.gitconfig") }
     private val git by lazy { TestGitCli(globalConfig) }
     private val isolatedGit by lazy { mapOf("GIT_CONFIG_GLOBAL" to globalConfig.path, "GIT_CONFIG_NOSYSTEM" to "1") }
-    private val resolveConflict by lazy { ResolveConflictGitAction(testJGit(), testGitCli(isolatedGit)) }
+    private val resolveConflict by lazy {
+        val jgit = testJGit()
+        val gitCli = testGitCli(isolatedGit)
+
+        ResolveConflictGitAction(jgit, gitCli, testGitCliRemoteCommand(gitCli, jgit))
+    }
 
     private val repository by lazy { git.initRepository(File(tempDir, "repo")) }
 

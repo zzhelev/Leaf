@@ -126,8 +126,11 @@ class GitCli @Inject constructor(
         }
     }
 
-    private fun describe(args: List<String>) = (listOf("git") + args.map(::redactUrlPassword)).joinToString(" ")
+    private fun describe(args: List<String>) = describeGitCommand(args)
 }
+
+/** `git <args>` as the log and error messages name it, with a URL's password hidden ([redactUrlPassword]). */
+internal fun describeGitCommand(args: List<String>) = (listOf("git") + args.map(::redactUrlPassword)).joinToString(" ")
 
 private val URL_PASSWORD = Regex("""(://[^/@:\s]*):[^/@\s]*@""")
 

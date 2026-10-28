@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.rewrite
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.RewriteBranchError
@@ -25,6 +26,7 @@ import javax.inject.Inject
 class UndoBranchRewriteGitAction @Inject constructor(
     private val jgit: JGit,
     private val gitCli: GitCli,
+    private val remoteCommand: GitCliRemoteCommand,
 ) : IUndoBranchRewriteGitAction {
     override suspend operator fun invoke(
         repositoryPath: String,
@@ -48,7 +50,7 @@ class UndoBranchRewriteGitAction @Inject constructor(
 
         // After a squash onto the base, the files go back too
         if (treeChanges) {
-            moveBranchWithFiles(gitCli, place, rewrite.branch, rewrite.newTip, rewrite.oldTip, message)
+            moveBranchWithFiles(gitCli, remoteCommand, place, rewrite.branch, rewrite.newTip, rewrite.oldTip, message)
         } else {
             moveBranch(gitCli, place, rewrite.branch, rewrite.newTip, rewrite.oldTip, message)
         }

@@ -10,11 +10,9 @@ import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.lfs.filter.testLfsDownloadFirst
-import dev.app.leaf.data.git.lfs.filter.testLfsFilter
-import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitSettings
-import dev.app.leaf.data.repositories.CredentialsCacheRepository
 import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
@@ -32,15 +30,8 @@ fun testGitCliOperations(
     repositoryState: RepositoryStateRepository = InMemoryRepositoryStateRepository(),
     helper: File? = builtAskpassHelper(),
     gitExecutablePath: String? = null,
-    remoteCommand: GitCliRemoteCommand = GitCliRemoteCommand(
-        gitCli = gitCli,
-        askpassHelper = AskpassHelper { helper },
-        credentialsStateManager = credentialsStateManager,
-        credentialsRepository = CredentialsCacheRepository(),
-        appSettingsService = testAppSettings(),
-        repositoryStateRepository = repositoryState,
-        lfsFilter = testLfsFilter(gitCli, jgit, credentialsStateManager),
-    ),
+    remoteCommand: GitCliRemoteCommand =
+        testGitCliRemoteCommand(gitCli, jgit, repositoryState, credentialsStateManager, helper),
 ): GitCliOperations {
     val askpassHelper = AskpassHelper { helper }
 
@@ -51,7 +42,7 @@ fun testGitCliOperations(
         askpassHelper = askpassHelper,
         appSettingsService = testGitSettings(gitExecutablePath),
         jgit = jgit,
-        autostashes = Autostashes(gitCli, repositoryState),
+        autostashes = Autostashes(gitCli, remoteCommand, repositoryState),
         lfsDownloadFirst = testLfsDownloadFirst(gitCli, jgit, credentialsStateManager, repositoryState),
     )
 }

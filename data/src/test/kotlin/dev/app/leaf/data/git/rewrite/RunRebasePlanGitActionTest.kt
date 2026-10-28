@@ -78,7 +78,7 @@ class RunRebasePlanGitActionTest {
             CheckRebasePlanGitAction(jgit, remote.gitCli),
         )
     }
-    private val undoRewrite by lazy { UndoBranchRewriteGitAction(jgit, remote.gitCli) }
+    private val undoRewrite by lazy { UndoBranchRewriteGitAction(jgit, remote.gitCli, remote.command) }
 
     private lateinit var work: File
     private var clock = 1_700_000_000L

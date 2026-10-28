@@ -158,7 +158,7 @@ class RunRebasePlanGitAction @Inject constructor(
             if (newTree == oldTree) {
                 moveBranch(gitCli, place, branch, oldTip, newTip, "$action: $subject")
             } else {
-                moveBranchWithFiles(gitCli, place, branch, oldTip, newTip, "$action: $subject")
+                moveBranchWithFiles(gitCli, remoteCommand, place, branch, oldTip, newTip, "$action: $subject")
             }
 
             runPostRewrite(gitCli, place, rewritten)

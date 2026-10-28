@@ -9,6 +9,7 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.branches.CheckoutBranchGitAction
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.diff.CanGenerateTextDiffGitAction
 import dev.app.leaf.data.git.diff.FormatDiffGitAction
@@ -239,7 +240,8 @@ class UnsupportedIndexTest {
 
     /** Runs the steps as the Convert button does, with the git CLI. */
     private suspend fun runSteps(steps: List<WorktreeStep.Git>) {
-        val run = RunGitCommandGitAction(testGitCli(gitConfigVariables))
+        val gitCli = testGitCli(gitConfigVariables)
+        val run = RunGitCommandGitAction(gitCli, testGitCliRemoteCommand(gitCli, jgit))
 
         for (step in steps) {
             run(step.folder, step.args).ok()

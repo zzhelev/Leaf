@@ -6,6 +6,7 @@ package dev.app.leaf.data.git.conflicts
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.domain.errors.ConflictError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
@@ -20,7 +21,6 @@ import dev.app.leaf.domain.models.mergeToolRefusal
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import java.io.File
 import javax.inject.Inject
-import kotlin.time.Duration
 
 private const val TAG = "OpenMergeToolGitAction"
 
@@ -39,10 +39,14 @@ private const val TAG = "OpenMergeToolGitAction"
  * - the ones git asks about deletions, symbolic links and submodules, and before guessing a tool when none is set,
  *   are never reached: Leaf refuses those conflicts and passes `--tool` itself. When git stops at such a question, it
  *   leaves its temporary files behind.
+ *
+ * `git mergetool` runs through [GitCliRemoteCommand] (fork-only), so that the versions that it gives the tool, and the
+ * file that it stages, go through Leaf's LFS filter where git-lfs isn't set up.
  */
 class OpenMergeToolGitAction @Inject constructor(
     private val jgit: JGit,
     private val gitCli: GitCli,
+    private val remoteCommand: GitCliRemoteCommand,
     private val repositoryStateRepository: RepositoryStateRepository,
 ) : IOpenMergeToolGitAction {
     override suspend fun invoke(
@@ -79,11 +83,17 @@ class OpenMergeToolGitAction @Inject constructor(
         // The processing screen's Cancel stops waiting: it kills git and what it started. A tool that detaches from
         // its starter, as `open -W -a Meld` does on macOS, stays open
         val count = turn?.let { " (${it.number} of ${it.count})" }.orEmpty()
-        repositoryStateRepository.updateTaskProgress(TaskProgress(stage = "$tool: $filePath$count", percent = null))
+        val toolProgress = TaskProgress(stage = "$tool: $filePath$count", percent = null)
+        repositoryStateRepository.updateTaskProgress(toolProgress)
 
         val output = try {
-            // No timeout: the tool stays open as long as the user needs it
-            gitCli.execute(workTree, args, timeout = Duration.INFINITE).bind()
+            // No timeout: the tool stays open as long as the user needs it. An LFS download's progress shows while it
+            // runs, and the tool's name again once it's done
+            remoteCommand.executeLocal(workTree, args, onProgress = { progress ->
+                val downloading = progress?.stage != null && progress.percent != 100
+
+                repositoryStateRepository.updateTaskProgress(if (downloading) progress else toolProgress)
+            }).bind()
         } finally {
             repositoryStateRepository.updateTaskProgress(null)
         }

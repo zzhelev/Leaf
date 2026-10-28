@@ -6,6 +6,7 @@ package dev.app.leaf.data.git.cli.operations
 import dev.app.leaf.common.printLog
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
 import dev.app.leaf.data.git.worktrees.unmergedPaths
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
@@ -24,7 +25,6 @@ import dev.app.leaf.domain.models.AutostashPutBackAfter
 import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import java.io.File
 import javax.inject.Inject
-import kotlin.time.Duration
 
 private const val TAG = "Autostashes"
 
@@ -51,6 +51,7 @@ internal data class NewestStash(val id: String, val message: String)
  */
 class Autostashes @Inject constructor(
     private val gitCli: GitCli,
+    private val remoteCommand: GitCliRemoteCommand,
     private val repositoryStateRepository: RepositoryStateRepository,
 ) {
     /** The stash list's newest entry in [workTree]'s repository, or null when there's none, or git can't tell. */
@@ -108,7 +109,8 @@ class Autostashes @Inject constructor(
     /**
      * Puts the changes in the stash commit [id] back in [workTree], as git's `apply_save_autostash_oid` does:
      * `git stash apply`, or when that fails, `git stash store -m autostash`, with a notice. It leaves `MERGE_AUTOSTASH`
-     * as it is.
+     * as it is. `git stash apply` writes LFS files with Leaf's LFS filter where git-lfs isn't set up
+     * ([GitCliRemoteCommand.executeLocal]); a download that fails leaves `MERGE_AUTOSTASH` too.
      */
     internal suspend fun putBack(
         workTree: File,
@@ -116,8 +118,7 @@ class Autostashes @Inject constructor(
         setAsideFor: AutostashOperation,
         after: AutostashPutBackAfter,
     ): Either<AutostashPutBack, GitError> = either {
-        // No time limit, as git-lfs's filter may run
-        val apply = gitCli.execute(workTree, listOf("stash", "apply", id), timeout = Duration.INFINITE).bind()
+        val apply = remoteCommand.executeLocal(workTree, listOf("stash", "apply", id)).bind()
 
         if (apply.exitCode == 0) {
             Either.Ok(AutostashPutBack.Applied)
@@ -177,11 +178,11 @@ class PutBackMergeAutostashGitAction @Inject constructor(
  * Undoes a squash merge that waits to be committed with `git reset --merge` (fork-only), and puts back the changes
  * that `merge.autoStash` set aside, as `git merge --abort` does for a merge: it takes `MERGE_AUTOSTASH` out first,
  * as `git reset --merge` would store them in the stash list (git 2.54). When git refuses, the squash merge waits as
- * before, with them.
+ * before, with them. `git reset --merge` writes LFS files with Leaf's LFS filter where git-lfs isn't set up.
  */
 class AbortSquashMergeGitAction @Inject constructor(
     private val autostashes: Autostashes,
-    private val gitCli: GitCli,
+    private val remoteCommand: GitCliRemoteCommand,
     private val jgit: JGit,
 ) : IAbortSquashMergeGitAction {
     override suspend fun invoke(repositoryPath: String): Either<Unit, GitError> = either {
@@ -192,7 +193,7 @@ class AbortSquashMergeGitAction @Inject constructor(
             autostashes.deleteMergeAutostash(workTree, autostash).bind()
         }
 
-        val reset = gitCli.run(workTree, listOf("reset", "--merge"), timeout = Duration.INFINITE).mapOk { }
+        val reset = remoteCommand.runLocal(workTree, listOf("reset", "--merge")).mapOk { }
 
         if (autostash != null) {
             if (reset is Either.Ok) {

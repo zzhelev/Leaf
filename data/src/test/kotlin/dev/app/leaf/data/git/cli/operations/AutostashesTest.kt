@@ -5,6 +5,7 @@ package dev.app.leaf.data.git.cli.operations
 
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
+import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
@@ -44,7 +45,10 @@ class AutostashesTest {
         testGitCli(mapOf("GIT_CONFIG_GLOBAL" to globalConfig.path, "GIT_CONFIG_NOSYSTEM" to "1"))
     }
     private val repositoryState = InMemoryRepositoryStateRepository()
-    private val putBack by lazy { PutBackMergeAutostashGitAction(Autostashes(gitCli, repositoryState), testJGit()) }
+    private val autostashes by lazy {
+        Autostashes(gitCli, testGitCliRemoteCommand(gitCli, testJGit(), repositoryState), repositoryState)
+    }
+    private val putBack by lazy { PutBackMergeAutostashGitAction(autostashes, testJGit()) }
 
     @BeforeEach
     fun setUp() {
@@ -169,7 +173,6 @@ class AutostashesTest {
 
     @Test
     fun `takes only a new stash named autostash for one that git kept`(): Unit = runBlocking {
-        val autostashes = Autostashes(gitCli, repositoryState)
         val repository = mergeStoppedAtConflicts("leaf", localChanges = emptyMap())
         commitResolvedWithJGit(repository)
         val before = autostashes.newestStash(repository)
