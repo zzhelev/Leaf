@@ -1044,7 +1044,9 @@ commands.
     into a terminal.
   - `RunWorktreeStepsUseCase` runs the same list on confirm, as a foreground task. It stops at the first failure,
     whose `GitCliError.CommandFailed` names the command, and refreshes even then. `RunGitCommandGitAction` gives git
-    no time limit. `runSteps` runs them inside another task (`CreateWorktreeUseCase`).
+    no time limit, and runs a command that may check out or stage files through `GitCliRemoteCommand`, with Leaf's LFS
+    filter and Cancel (see Leaf's LFS client as git's filter, Local commands). `runSteps` runs them inside another task
+    (`CreateWorktreeUseCase`).
   - A merge or a rebase (`Git.mayStopAtConflicts`) that stops at conflicts doesn't stop the steps: the task ends as one
     that stopped at conflicts (`stoppedAtConflicts`). git exits with 1 for conflicts, but also when it refuses a squash
     merge or a rebase (a plain merge refuses with 2), so only exit code 1 with unmerged paths
@@ -2428,9 +2430,10 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
 - **Leaf's LFS client as git's filter (fork-only, 2026-10-26, stage 1 of `docs/fork/lfs-filter.md`,
   `data/git/lfs/filter/`):** where git-lfs isn't set up, every command that `GitCliRemoteCommand` runs gets
   `-c filter.lfs.process='<helper>' lfs-filter -c filter.lfs.required=true`, so git checks LFS files out and stages them
-  through Leaf: merges, cherry-picks, reverts, rebases (Continue and Skip too), `git pull`, submodule updates, and file
-  history's restore. Before, git wrote pointer files without a word (no filter in git's config), or failed with exit
-  128 (`git lfs install`'s config left behind, git-lfs missing).
+  through Leaf: merges, cherry-picks, reverts, rebases (Continue and Skip too), `git pull`, submodule updates, file
+  history's restore, and the local commands that may check out or stage files (stage 4, below). Before, git wrote
+  pointer files without a word (no filter in git's config), or failed with exit 128 (`git lfs install`'s config left
+  behind, git-lfs missing).
   - **The rule** (`GitLfsSetup.gitRunsGitLfs`, one `git config -z --get-regexp` in the command's folder, about 10 ms,
     so `includeIf` and the global config count as git counts them): git-lfs does the work when the config sets
     `filter.lfs.process`, or `smudge` and `clean`, none blank, and `git lfs version` works (cached for a minute). The
@@ -2488,6 +2491,33 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       path without the filter, objects already in the store, two paths of one object, git-lfs left alone, progress and
       Cancel before git, the attributes against `git check-attr`, a missing blob), `LfsErrorTextTest` (both errors'
       texts). 16 mutations were each caught by a named test.
+  - **Local commands (stage 4, 2026-10-27):** the git commands that talk to no remote but may check out or stage files
+    run through `GitCliRemoteCommand.executeLocal` and `runLocal` (stdout, or `CommandFailed`, as `GitCli.run`), so they
+    get the filter, Leaf's dialogs, and the processing screen's progress and Cancel. Without the askpass helper, git runs
+    as `GitCli.execute` runs it, as before. Without the filter, git wrote pointers into the working tree, and `git add`
+    staged an LFS file's content in place of its pointer.
+    - The worktree steps (`RunGitCommandGitAction`) whose command `checksOutOrStages`: `add`, `am`, `checkout`,
+      `checkout-index`, `cherry-pick`, `commit`, `merge`, `mergetool`, `pull`, `read-tree`, `rebase`, `reset`,
+      `restore`, `revert`, `stash`, `switch`, `worktree add`, and `sparse-checkout` but `list`, after git's own options
+      (`-c`, `-C`, `--literal-pathspecs`). The others (`worktree remove`, `branch -D`, `rev-parse`) stay on `GitCli`,
+      without Cancel, which would stop a removal halfway.
+    - Use ours, Use theirs and Keep (`ResolveConflictGitAction`) and a renamed file's resolution
+      (`ResolveRenamedFileGitAction`): their `git checkout` and `git add`.
+    - The merge tool (`OpenMergeToolGitAction`): `git mergetool`, whose `checkout-index --temp` gives the tool the
+      files' content and whose `git add` stages the pointer. The processing screen keeps the tool's label, and shows a
+      download's progress while it runs.
+    - Putting autostashed changes back (`Autostashes.putBack`, `git stash apply`; a download that fails leaves
+      `MERGE_AUTOSTASH`) and undoing a squash merge (`AbortSquashMergeGitAction`, `git reset --merge`).
+    - A squash onto the latest main, a commit editor's plan that doesn't stop, and their Undo (`moveBranchWithFiles`,
+      `git read-tree -m -u`), without progress on the processing screen, whose Cancel would leave the files half moved.
+    - Not downloaded first: a download that fails stops git halfway, with `LfsFilterError`.
+    - Not covered: the read-only commands that compare the working tree with the index (`git status` for the worktree
+      list and `filesInTheWay`, the restore's plan) run without the filter, so a touched LFS file counts as changed
+      there in case A; and `git apply` for hunks.
+    - Tests: `LfsFilterLocalCommandsTest` (each command with the built helper and `FakeLfsServer`, the working files
+      and the index against what git-lfs leaves, without the helper, a refused command's error, no progress while
+      read-tree downloads, the merge tool's label around a download), `ChecksOutOrStagesTest`. 20 mutations were each
+      caught by a named test.
   - **git outside Leaf** has no filter in case A: a terminal's or an agent's `git status` shows every file that Leaf
     wrote as modified, and `git add` stores its bytes. In case B it fails on them. The tests met it (`LfsFilterTest`
     changes the working tree only through Leaf). The strip below says so.

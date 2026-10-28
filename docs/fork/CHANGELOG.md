@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs, stage 4: the local commands through Leaf's filter (2026-10-27)
+
+- **Request:** stage 4 of `docs/fork/lfs-filter.md`, approved with the plan (open question 6: through
+  `GitCliRemoteCommand`).
+- **Before:** where git-lfs isn't set up, the git commands that Leaf runs locally had no LFS filter: the worktree
+  dialogs' steps (`git worktree add`, a squash merge, a merge, a rebase), Use ours, Use theirs and Keep, a renamed file's
+  resolution, the merge tool, putting autostashed changes back, undoing a squash merge, and a squash onto the latest
+  main. They wrote pointer files into the working tree, and `git add` staged an LFS file's content in place of its
+  pointer, which a push then sent whole.
+- **Now:** they write and stage LFS files through Leaf's filter, as merges and pulls do, with the processing screen's
+  progress and Cancel. The worktree steps that don't touch files, such as removing a worktree, run as before, with no
+  Cancel that would stop them halfway; so does a squash onto the latest main, which moves the files in a step that
+  can't be cancelled. A download that fails stops git halfway, with the error naming the files.
+- **Not covered:** the read-only commands that compare the working tree with the index (`git status` for the worktree
+  list, the squash's check for changes in the way), where a touched LFS file counts as changed.
+- Details: CLAUDE.md, "Leaf's LFS client as git's filter", Local commands.
+
 ## LFS without git-lfs, stage 3: Pull is `git pull` in every repository (2026-10-27)
 
 - **Request:** stage 3 of `docs/fork/lfs-filter.md`, approved with the plan.

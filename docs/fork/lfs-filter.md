@@ -3,8 +3,8 @@
 Status: written 2026-10-16 on `main` at `0c330b21`, approved on 2026-10-26 with every recommendation (see Decisions,
 at the end of section 8). Stage 0 was built on 2026-10-26 (CLAUDE.md, "One LFS store, and Leaf's filters for JGit"),
 and stage 1 the same day (CLAUDE.md, "Leaf's LFS client as git's filter"). Open question 2's strip followed on
-2026-10-27 (option A of three, chosen from a mockup), and stages 2 and 3 the same day (CLAUDE.md, "Downloaded first",
-and Remote operations: Pull is `git pull` in every repository).
+2026-10-27 (option A of three, chosen from a mockup), and stages 2, 3 and 4 the same day (CLAUDE.md, "Downloaded
+first"; Remote operations, a repository that uses LFS pulls with `git pull`; "Local commands").
 
 Probes ran with git 2.54.0 (Apple Git-157), git-lfs 3.8.0 and JGit 7.7.0, in temp repos. Each ran with an isolated
 `HOME`, `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_NOSYSTEM=1` and `PATH=/usr/bin:/bin` (no git-lfs), and with `-Duser.home` for
@@ -370,6 +370,19 @@ Found while building stage 2 (2026-10-27):
   the trees, which the partial clone's prefetch and the LFS download read alike.
 - A rebase's Continue and Skip replay the rest of the commits with the filter only, as Leaf doesn't read git's todo
   for them. A download that fails there stops the rebase at that commit, as git-lfs does.
+
+Found while building stage 4 (2026-10-27):
+- A squash onto the latest main moves the branch's files with `git read-tree -m -u`, which §6's list missed. It takes
+  the filter too, without progress on the processing screen, as it runs where Cancel can't stop it.
+- Of the worktree steps, only those that may check out or stage files go through `GitCliRemoteCommand`: Cancel would
+  stop `git worktree remove` halfway, and a query such as `git rev-parse` needs no askpass server.
+- A conflict in an LFS file is a conflict in its pointer: `merge=lfs` names no driver, so git merges the two pointers
+  as text, line by line (the `oid` lines between markers, the `version` line, and `size` when it's the same, outside),
+  and the filter passes the marked pointer through, as git-lfs does. Use theirs then checks the side's pointer out,
+  which the filter smudges.
+- The read-only commands that compare the working tree with the index (`git status` for the worktree list and for a
+  squash's changes in the way, the restore's plan) still run without the filter. A file that git checked out through
+  it counts as unchanged by its stat, but one touched since counts as changed there.
 
 ## 7. Tests
 
