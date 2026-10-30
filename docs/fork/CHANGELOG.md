@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs, stage 5: a clone checks its files out with git (2026-10-28)
+
+- **Request:** stage 5 of `docs/fork/lfs-filter.md`, optional in the plan, to follow stages 0 to 4 (open question 7).
+- **Before:** a clone ran `git clone --no-checkout`, then JGit checked the files out with Leaf's built-in LFS, which
+  downloaded the LFS files one request at a time, with no progress. Where git-lfs worked, Leaf ran `git lfs fetch`
+  first, and `git lfs update` after for its hooks.
+- **Now:** `git clone` checks the files out itself: through git-lfs's filter where git-lfs is set up, which also
+  installs its hooks, and through Leaf's filter elsewhere, which downloads the LFS files in one batch. The clone
+  dialog shows git's checkout from the start: "Updating files", and "Filtering content" while LFS files download.
+- **A failed checkout,** as when an LFS file can't be downloaded: git keeps the clone, and Leaf removes it, as before.
+  The error says so ("git cloned the repository but couldn't check out its files, so Leaf removed the clone."), then
+  names the files and why, or gives git-lfs's output without git's advice to `git restore` in the removed folder.
+- **Removed:** `GitLfsFetch` and `LfsDownloadError`. JGit's own clone stays the fallback where git can't run.
+- **Found in the manual run:** the clone dialog creates the Directory when it's missing, and a clone that failed left
+  it behind, empty. A clone that fails or is cancelled now removes the folders that the dialog created, while they're
+  empty.
+- Details: CLAUDE.md, "Remote operations", Clone.
+
 ## LFS without git-lfs, stage 4: the local commands through Leaf's filter (2026-10-27)
 
 - **Request:** stage 4 of `docs/fork/lfs-filter.md`, approved with the plan (open question 6: through

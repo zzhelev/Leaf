@@ -294,8 +294,8 @@ Once `git pull` runs with Leaf's filter:
   - `GitOnlyConfigValuesPullTest` and `IncludedConfigRepositoryTest`: they check JGit's merge after git's fetch, and
     JGit's own pull keeps them meaningful.
   - `RemoteOperationsBackendTest`.
-- **Later, optional (stage 5):** a clone checks out with `git -c filter.lfs.process=… clone`, or with git-lfs. That
-  drops the JGit checkout after `--no-checkout`, the clone's `useBuiltinLfs` and `GitLfsFetch`.
+- **Later, optional (stage 5, built on 2026-10-28):** a clone checks out with `git -c filter.lfs.process=… clone`, or
+  with git-lfs. That drops the JGit checkout after `--no-checkout`, the clone's `useBuiltinLfs` and `GitLfsFetch`.
 
 Item 4's `useGitCli()` needs no LFS condition. JGit writes the same pointers in case A, and fails worse in case B (P2).
 Option C is the only interim that would help, at item 4's cost. Recommended: no interim, as this item replaces it.
@@ -383,6 +383,21 @@ Found while building stage 4 (2026-10-27):
 - The read-only commands that compare the working tree with the index (`git status` for the worktree list and for a
   squash's changes in the way, the restore's plan) still run without the filter. A file that git checked out through
   it counts as unchanged by its stat, but one touched since counts as changed there.
+
+Found while building stage 5 (2026-10-28):
+- git-lfs installs its hooks itself as it checks a clone's files out (git-lfs 3.8), so Leaf's `git lfs update` went
+  with `GitLfsFetch`.
+- git keeps a clone whose checkout failed: it exits with 128 and says "Clone succeeded, but checkout failed", with
+  advice to run `git status` and `git restore`, and git-lfs says where it logged its errors, both in the clone's
+  folder. Leaf removes that clone, as it removed one whose JGit checkout failed, so its error leaves those lines out.
+- The filter's sessions open the clone through `JGit.provide`, which caches it, so a clone that Leaf removes is
+  dropped from the cache first.
+- The rule reads git's config in the folder that the clone runs in, its parent, as there is no repository yet. A
+  `filter.lfs.*` that only an `includeIf` for the new repository sets isn't seen there, and Leaf's filter then does
+  the work where git-lfs would: the files are the same, but git-lfs doesn't install its hooks.
+- git-lfs's filter shows no progress of its own during a clone, where `git lfs fetch` showed "Downloading LFS
+  objects", and git shows its checkout's ("Updating files", and "Filtering content" for the files that a filter
+  delays) only once it has taken 2 s. `GIT_PROGRESS_DELAY=0` shows them from the start, also without a terminal.
 
 ## 7. Tests
 

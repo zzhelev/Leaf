@@ -2250,34 +2250,47 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     `CheckoutConflictException` for a fast-forward); it used to count as a pull without conflicts. A rebase's
     `CONFLICTS` and `FAILED` throw it too (local files stopped it, and the branch is as it was); `CONFLICTS` used to
     count as conflicts.
-  - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (JGit's pull, and both clones). It turns on
+  - JGit's merge, rebase and checkout run inside `useBuiltinLfs` (JGit's pull and JGit's clone). It turns on
     `filter.lfs.useJGitBuiltin` in the cached repository's in-memory config, and puts it back in `finally`: an
     action's `config.save()`, such as saving the author, writes that config to `.git/config`. It forces Leaf's filters
-    even where git-lfs is set up, as a clone's `git lfs fetch` has put the objects in the store; without git-lfs
-    they're on for everything anyway (see One LFS store).
-- Clone (`GitCliCloneRepositoryGitAction`) runs `git clone --progress --no-checkout -- <url> <folder>` from the
-  folder's parent, then JGit checks out HEAD with Leaf's built-in LFS, as after JGit's own clone, so git-lfs isn't
-  needed. An empty repository gets no checkout. With "Clone submodules", `git submodule update --init --recursive`
-  follows; without it, submodules aren't initialized, as with a plain `git clone`.
+    even where git-lfs is set up, so that they download with Leaf's client and dialogs; without git-lfs they're on for
+    everything anyway (see One LFS store).
+- Clone (`GitCliCloneRepositoryGitAction`) runs `git clone --progress -- <url> <folder>` from the folder's parent, and
+  git checks the files out: through git-lfs's filter where git-lfs is set up, and through Leaf's elsewhere (see Leaf's
+  LFS client as git's filter), so git-lfs isn't needed. With "Clone submodules", `git submodule update --init
+  --recursive` follows; without it, submodules aren't initialized, as with a plain `git clone`.
+  - Until 2026-10-28 (stage 5 of `docs/fork/lfs-filter.md`) it cloned with `--no-checkout`, then JGit checked HEAD out
+    with Leaf's built-in LFS, one download at a time, after `git lfs fetch` where git-lfs worked (`GitLfsFetch`, gone).
   - Its progress goes into `CloneState.Cloning` (`GitCliRemoteCommand.run`'s `onProgress`), not to the tab's
     processing screen: the clone dialog shows it and has its own Cancel.
   - A clone that fails or is cancelled is removed: the folder, or what's in it when the user chose an empty folder.
-    git removes its own on failure and on SIGTERM, but not after JGit's checkout. A folder with files is refused by
-    git and left alone. The removal uses JGit's `FileUtils.delete`, which doesn't follow symbolic links; Kotlin's
+    git removes its own on failure and on SIGTERM, but not once its checkout started. A folder with files is refused
+    by git and left alone. The removal uses JGit's `FileUtils.delete`, which doesn't follow symbolic links; Kotlin's
     `File.deleteRecursively` does, and would empty the folder that a link in the clone points to.
+  - **A failed checkout** (git 2.54 exits with 128 and says `Clone succeeded, but checkout failed.`, `checkoutFailed`),
+    as when an LFS file can't be downloaded: git keeps the clone, and Leaf removes it too. The error is
+    `CloneCheckoutError`, around Leaf's filter's `LfsFilterError` (the files, as paths from the clone's parent folder,
+    and why) or git-lfs's output, without the lines that point into the removed folder: git's advice to `git status`
+    and `git restore`, and where git-lfs logged its errors (`withoutRemovedCloneHints`).
+  - Before removing a clone, `JGit.forgetRepositoriesIn` closes and drops the repositories that Leaf's filter opened
+    in it (its sessions open them through `JGit.provide`, which caches), so that a clone made again in the same folder
+    doesn't get the removed one's.
   - Only a clone whose submodules failed is kept, as with `git clone --recurse-submodules`: `CloneSubmodulesError`
     names its folder. The clone dialog's error box scrolls once it's 200 dp tall, as git's output can be long.
   - `CloneViewModel` no longer creates the folder first, so a failed clone leaves none. JGit's clone, the fallback,
     removes the folder too when it created it.
+  - The dialog's Directory is created when it's missing, with any missing folders above it. A clone that fails or is
+    cancelled removes them again, innermost first, while they're empty (`missingFolders`, `removeEmptyFolders`, run
+    from `CloneViewModel`'s `onCompletion`, after the clone removed its own folder). A kept clone, or anything else
+    put there meanwhile, keeps them. Until 2026-10-30 an empty folder was left behind (found in stage 5's manual run).
   - **A chosen branch or tag (fork-only, upstream issue 209, 2026-10-19):** the dialog's "Branch or tag (optional)"
     field and "Only this branch" box reach `ICloneRepositoryGitAction` as `branch` (trimmed, blank is none) and
     `singleBranch`. The box needs a branch to be checked, though the action takes `--single-branch` alone too (the
     remote's default branch only). git gets `--branch=<name>`, in the `=` form so that a name that starts with `-` is a
     value, and `--single-branch` (`cloneArguments`).
-    - What git 2.54 does with `--no-checkout`, and what the steps after it rely on: HEAD is `refs/heads/<branch>`, so
-      the checkout, `git lfs fetch <remote> <commit>` and the `.gitmodules` check all follow the chosen branch, with
-      no change. A tag leaves HEAD detached at the tag's commit (annotated tags too), and the code already took
-      `origin` when HEAD has no branch. `--single-branch` sets `remote.origin.fetch` to the branch alone
+    - What git 2.54 does: HEAD is `refs/heads/<branch>`, git checks that branch out, and the `.gitmodules` check
+      follows it. A tag leaves HEAD detached at the tag's commit (annotated tags too). `--single-branch` sets
+      `remote.origin.fetch` to the branch alone
       (`+refs/heads/x:refs/remotes/origin/x`; for a tag `+refs/tags/v1:refs/tags/v1` and no branch at all), so a later
       fetch, Leaf's too, brings only that. The dialog says so under the box. It limits the superproject only:
       `git submodule update` clones the submodules whole.
@@ -2293,8 +2306,8 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       does, as `BranchNotFound`.
     - Tests: `GitCliCloneTest` (a branch, trimming, tags, only this branch, only a tag, the default branch alone, a
       missing branch, a name starting with `-`, submodules of the branch, the clone the app runs for git and for JGit),
-      `CloneRepositoryGitActionBranchTest` (the same for JGit), `GitCliLfsTest` (git-lfs fetches the branch's commit)
-      and `CloneDialogTest` (the field and the box, rendered).
+      `CloneRepositoryGitActionBranchTest` (the same for JGit), `GitCliLfsTest` (git-lfs checks out the branch's LFS
+      files) and `CloneDialogTest` (the field and the box, rendered).
   - **Choose… (fork-only, 2026-10-19, follows upstream issue 209):** a button beside the Branch field lists the remote's
     branches and tags in a popup under it. It is the only thing that asks the remote: typing in the field, opening the
     dialog and changing the URL never do, and a click asks once.
@@ -2339,18 +2352,13 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       click, one request per click, the list, the filter, a pick with a real press, the keys, Esc, a press elsewhere,
       Try again, closing the dialog) and `CloneBranchChoicesTest` (the keys and the list's items). 59 mutations of the
       list action, the filter, the view model and the dialog were each caught by a named test.
-- **LFS with git-lfs (`GitLfsFetch`):** before JGit checks out a clone, Leaf runs `git lfs fetch <remote> <commit>`.
-  JGit's checkout then finds every object in `<common git dir>/lfs/objects` (git-lfs and Leaf use the same store), so
-  Leaf's built-in client (`app/.../lfs/`) downloads nothing. `git pull` needs none of it: git-lfs's filter
-  (`filter-process`) checks the files out.
-  - It runs only when the commit's root `.gitattributes` has `filter=lfs` and `git lfs version` works (the answer of
-    `GitLfsSetup.gitLfsWorks`, kept for a minute, which Leaf's filter asks too). In a large repository without LFS,
-    git-lfs would read the whole tree to find out. Without git-lfs, the built-in client downloads as before.
-  - It goes through `GitCliRemoteCommand`, so git-lfs asks for credentials through git's helpers and Leaf's dialogs,
-    reaches SSH remotes with the system's ssh (`git-lfs-authenticate`), shows progress ("Downloading LFS objects") and
-    can be cancelled. A failure is `LfsDownloadError`, before anything is checked out.
-  - A clone then gets git-lfs's hooks (`git lfs update`): `git clone` installs them when git-lfs checks the files
-    out, but `--no-checkout` doesn't run it, and without `pre-push` a push would fall back to JGit's upload.
+- **LFS with git-lfs:** where git-lfs is set up, git runs its filter (`git-lfs filter-process`) for the commands that
+  Leaf runs, a clone's and `git pull`'s checkouts included, and Leaf adds none (see Leaf's LFS client as git's
+  filter). git-lfs uses the same store as Leaf (`<common git dir>/lfs/objects`).
+  - The commands go through `GitCliRemoteCommand`, so git-lfs asks for credentials through git's helpers and Leaf's
+    dialogs, reaches SSH remotes with the system's ssh (`git-lfs-authenticate`), and can be cancelled.
+  - During a clone, git-lfs installs its hooks as it checks the files out (probed with git-lfs 3.8), `pre-push` among
+    them, so pushes upload with git-lfs rather than JGit's upload.
   - Other checkouts (switching branches, reset, stash) are unchanged where git-lfs is set up: JGit runs the configured
     `filter.lfs.smudge` (`git-lfs smudge`) once per file, without Leaf's dialogs. Where it isn't, Leaf's own filters
     smudge and clean for JGit (see One LFS store).
@@ -2430,8 +2438,8 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
 - **Leaf's LFS client as git's filter (fork-only, 2026-10-26, stage 1 of `docs/fork/lfs-filter.md`,
   `data/git/lfs/filter/`):** where git-lfs isn't set up, every command that `GitCliRemoteCommand` runs gets
   `-c filter.lfs.process='<helper>' lfs-filter -c filter.lfs.required=true`, so git checks LFS files out and stages them
-  through Leaf: merges, cherry-picks, reverts, rebases (Continue and Skip too), `git pull`, submodule updates, file
-  history's restore, and the local commands that may check out or stage files (stage 4, below). Before, git wrote
+  through Leaf: merges, cherry-picks, reverts, rebases (Continue and Skip too), `git pull`, a clone, submodule updates,
+  file history's restore, and the local commands that may check out or stage files (stage 4, below). Before, git wrote
   pointer files without a word (no filter in git's config), or failed with exit 128 (`git lfs install`'s config left
   behind, git-lfs missing).
   - **The rule** (`GitLfsSetup.gitRunsGitLfs`, one `git config -z --get-regexp` in the command's folder, about 10 ms,
@@ -2518,6 +2526,18 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
       and the index against what git-lfs leaves, without the helper, a refused command's error, no progress while
       read-tree downloads, the merge tool's label around a download), `ChecksOutOrStagesTest`. 20 mutations were each
       caught by a named test.
+  - **Clones (stage 5, 2026-10-28):** `git clone` checks the files out itself, through the filter, which downloads the
+    LFS files in one batch (see Clone, under Remote operations). With `GIT_PROGRESS_DELAY=0` (`CHECKOUT_PROGRESS`), git
+    shows its checkout's progress from the start: "Updating files", and "Filtering content" while a filter downloads,
+    which is the only progress where git-lfs is the filter, as git-lfs's filter shows none (git-lfs 3.8). The rule
+    reads git's config in the clone's parent folder, as there is no repository yet.
+    - Not downloaded first: a download that fails stops the checkout, and Leaf removes the clone (`CloneCheckoutError`).
+    - Tests: `LfsFilterCloneTest` (one batch, the pointers staged, a clean status through the filter, the dialog's
+      progress and none on the tab, a failed download that names the files and removes the clone, a chosen empty folder
+      left empty and cloned into again, Cancel while a download waits, the JGit cache), `GitCliLfsTest` (git-lfs's
+      filter and its hooks, Leaf's filter over git-lfs's in the config, git-lfs's failure), `GitCliCloneTest`,
+      `ForgetRepositoriesTest`, `LfsErrorTextTest`, `CloneViewModelTest` (the folders that the dialog created). 17
+      mutations were each caught by a named test.
   - **git outside Leaf** has no filter in case A: a terminal's or an agent's `git status` shows every file that Leaf
     wrote as modified, and `git add` stores its bytes. In case B it fails on them. The tests met it (`LfsFilterTest`
     changes the working tree only through Leaf). The strip below says so.
