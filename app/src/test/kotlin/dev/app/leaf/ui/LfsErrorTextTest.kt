@@ -6,15 +6,18 @@ package dev.app.leaf.ui
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.errors.AppError
+import dev.app.leaf.domain.errors.CloneCheckoutError
 import dev.app.leaf.domain.errors.LfsDownloadFirstError
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.errors.LfsFileFailure
 import dev.app.leaf.domain.errors.LfsFilterError
+import dev.app.leaf.domain.errors.RemoteOperationError
 import dev.app.leaf.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.swing.Swing
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -61,6 +64,33 @@ class LfsErrorTextTest {
                 textOf(error),
             )
         }
+
+    @Test
+    fun `a clone whose files couldn't be downloaded says that it was removed, not to discard them`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val error = CloneCheckoutError(LfsFilterError(listOf(LfsFileFailure("clone/b.bin", refused)), output = ""))
+
+            assertEquals(
+                listOf(
+                    "git cloned the repository but couldn't check out its files, so Leaf removed the clone.",
+                    "Couldn't download the LFS object: the LFS server answered 404 Object does not exist.\n\n" +
+                        "clone/b.bin",
+                ).joinToString("\n\n"),
+                textOf(error),
+            )
+        }
+
+    @Test
+    fun `a clone that git-lfs couldn't check out shows git's output after it`(): Unit = runBlocking(Dispatchers.Swing) {
+        val output = "fatal: b.bin: smudge filter lfs failed"
+        val error = CloneCheckoutError(RemoteOperationError.Failed(128, output))
+
+        val text = textOf(error)
+
+        val removed = "git cloned the repository but couldn't check out its files, so Leaf removed the clone."
+        assertTrue(text.startsWith("$removed\n\n")) { text }
+        assertTrue(text.endsWith(output)) { text }
+    }
 
     private fun textOf(error: AppError): String {
         var text = ""

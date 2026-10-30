@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
@@ -88,6 +89,9 @@ class CloneViewModel @Inject constructor(
             }
 
             val directory = File(directoryPath)
+            // Fork-only: the folders created here go again, while empty, when the clone doesn't complete
+            val createdFolders = missingFolders(directory)
+            var completed = false
 
             if (!directory.exists()) {
                 directory.mkdirs()
@@ -109,7 +113,11 @@ class CloneViewModel @Inject constructor(
                 singleBranch = onlyThisBranch && chosenBranch != null,
             )
                 .flowOn(Dispatchers.IO)
+                // After the clone removed its own folder, also when it's cancelled
+                .onCompletion { if (!completed) removeEmptyFolders(createdFolders) }
                 .collect { newCloneStatus ->
+                    completed = completed || newCloneStatus is CloneState.Completed
+
                     if (newCloneStatus is CloneState.Fail) {
                         error.value = CloneUiError.CloneError(newCloneStatus.reason)
                         _cloneState.value = CloneState.None

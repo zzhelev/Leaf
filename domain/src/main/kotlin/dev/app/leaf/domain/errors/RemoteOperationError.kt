@@ -52,8 +52,11 @@ data class RemoteFetchFailure(val remote: String, val error: RemoteOperationErro
  */
 data class CloneSubmodulesError(val directory: String, val error: GitError) : GitError
 
-/** git-lfs couldn't download the LFS files of what was pulled or cloned, as [error] says. Nothing was checked out. */
-data class LfsDownloadError(val error: GitError) : GitError
+/**
+ * git cloned the repository but couldn't check out its files, as [error] says, so Leaf removed the clone (fork-only):
+ * Leaf's LFS filter couldn't download some of them ([LfsFilterError]), or git-lfs couldn't.
+ */
+data class CloneCheckoutError(val error: GitError) : GitError
 
 /** Leaf's built-in LFS client couldn't download one LFS object, as [error] says. */
 data class LfsObjectDownloadError(val error: LfsError) : GitError

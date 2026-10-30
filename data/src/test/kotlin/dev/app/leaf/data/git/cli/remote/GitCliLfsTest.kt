@@ -12,17 +12,13 @@ import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.errors.Either
-import dev.app.leaf.domain.errors.LfsDownloadError
+import dev.app.leaf.domain.errors.CloneCheckoutError
+import dev.app.leaf.domain.errors.RemoteOperationError
 import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.PullType
 import dev.app.leaf.domain.models.TaskProgress
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import org.eclipse.jgit.attributes.FilterCommand
-import org.eclipse.jgit.attributes.FilterCommandRegistry
-import org.eclipse.jgit.lfs.Lfs
-import org.eclipse.jgit.lfs.LfsPointer
-import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
@@ -36,20 +32,15 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
-import java.io.BufferedInputStream
 import java.io.File
-import java.io.InputStream
-import java.io.OutputStream
-import java.nio.file.Files
 import java.security.MessageDigest
-import java.util.Collections
 import kotlin.random.Random
 
 private const val USER = "leaf"
 private const val PASSWORD = "s3cret"
 
-internal const val BUILTIN_LFS_SMUDGE = "jgit://builtin/lfs/smudge"
-private const val BUILTIN_CONTENT = "downloaded by Leaf's built-in client\n"
+/** What git passes `post-checkout` as the commit before a clone's checkout. */
+private const val NO_COMMIT = "0000000000000000000000000000000000000000"
 
 /** As `git lfs install` sets them up. */
 internal const val GIT_LFS_FILTERS = "[filter \"lfs\"]\n" +
@@ -60,11 +51,7 @@ internal const val GIT_LFS_FILTERS = "[filter \"lfs\"]\n" +
 
 /**
  * Clones, pulls and pushes LFS files with the git CLI and git-lfs, from a bare repository on disk whose LFS objects
- * are on [FakeLfsServer]. Skipped without git-lfs or the askpass helper.
- *
- * Leaf's built-in LFS lives in the app module, so a stand-in takes its place as JGit's built-in smudge filter: it
- * passes on the objects that are already in the repository, and for the others writes [BUILTIN_CONTENT] and notes
- * them in [builtinDownloads], where the real one would download them. A `git-lfs` that notes how it was run in
+ * are on [FakeLfsServer]. Skipped without git-lfs or the askpass helper. A `git-lfs` that notes how it was run in
  * [gitLfsLog], then runs the real one, is on the PATH that Leaf's git gets.
  */
 @DisabledOnOs(OS.WINDOWS)
@@ -74,7 +61,6 @@ class GitCliLfsTest {
 
     private val originalReader: SystemReader = SystemReader.getInstance()
     private val jgit = testJGit()
-    private val builtinDownloads: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
     private lateinit var helper: File
     private lateinit var git: TestGitCli
@@ -96,9 +82,6 @@ class GitCliLfsTest {
         assumeTrue(realGitLfs.isNotEmpty()) { "git-lfs isn't installed" }
 
         SystemReader.setInstance(IsolatedSystemReader(File(tempDir, "jgit-config"), originalReader))
-        FilterCommandRegistry.register(BUILTIN_LFS_SMUDGE) { repository, input, output ->
-            LocalObjectsSmudge(repository, input, output, builtinDownloads)
-        }
 
         globalConfig = File(tempDir, "test.gitconfig").apply { writeText(GIT_LFS_FILTERS) }
         git = TestGitCli(globalConfig)
@@ -118,12 +101,11 @@ class GitCliLfsTest {
         if (::server.isInitialized) {
             server.close()
         }
-        FilterCommandRegistry.unregister(BUILTIN_LFS_SMUDGE)
         SystemReader.setInstance(originalReader)
     }
 
     @Test
-    fun `git-lfs downloads a clone's LFS files, asking through Leaf's dialog`(): Unit = runBlocking {
+    fun `git-lfs checks a clone's LFS files out, asking through Leaf's dialog`(): Unit = runBlocking {
         server.credentials = USER to PASSWORD
         val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to pathWithGitLfs))
         val destination = File(tempDir, "clone")
@@ -135,25 +117,25 @@ class GitCliLfsTest {
         assertEquals(CloneState.Completed(destination), states.last())
         assertEquals(listOf(CredentialsRequest.HttpCredentialsRequest(user = null, askPassword = true)), dialogs)
         assertArrayEquals(File(source, "first.bin").readBytes(), File(destination, "first.bin").readBytes())
-        assertEquals(emptyList<String>(), builtinDownloads)
 
-        assertTrue(CloneState.Cloning("Downloading LFS objects", 100, 100) in states) { "$states" }
+        // git's count of the files that the filter delays, as git-lfs's filter shows no progress of its own
+        assertTrue(CloneState.Cloning("Filtering content", 100, 100) in states) { "$states" }
+        // Whether git-lfs works, for Leaf's filter, then git's filter (Leaf adds none), then the hook it installed
         val head = git.run(destination, "rev-parse", "HEAD").trim()
-        assertEquals(listOf("version", "fetch origin $head", "update"), gitLfsLog.readLines())
+        assertEquals(listOf("version", "filter-process", "post-checkout $NO_COMMIT $head 1"), gitLfsLog.readLines())
         assertTrue(server.requests.any { it.startsWith("POST /objects/batch git-lfs/") }) { "${server.requests}" }
         assertEquals("", git.run(destination, "status", "--porcelain"))
-        // As `git clone` would have them, so that pushes upload the LFS objects
+        // git-lfs installs its hooks as it checks the files out, so that pushes upload the LFS objects
         assertTrue(File(destination, ".git/hooks/pre-push").readText().contains("git lfs pre-push"))
     }
 
     @Test
-    fun `git-lfs downloads the LFS files of the chosen branch`(): Unit = runBlocking {
+    fun `git-lfs checks out the LFS files of the chosen branch`(): Unit = runBlocking {
         git.run(source, "switch", "-c", "feature")
         File(source, "branch.bin").writeBytes(Random(7).nextBytes(20_000))
         git.run(source, "add", ".")
         git.run(source, "commit", "-m", "Add branch.bin")
         git.run(source, "push", "origin", "feature")
-        val featureHead = git.run(source, "rev-parse", "HEAD").trim()
         val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to pathWithGitLfs))
         val destination = File(tempDir, "clone")
 
@@ -162,25 +144,27 @@ class GitCliLfsTest {
         assertEquals(CloneState.Completed(destination), states.last()) { "$states" }
         assertEquals("refs/heads/feature", git.run(destination, "symbolic-ref", "HEAD").trim())
         assertArrayEquals(File(source, "branch.bin").readBytes(), File(destination, "branch.bin").readBytes())
-        assertEquals(emptyList<String>(), builtinDownloads)
-        // The objects of the branch's commit, not of the remote's default branch
-        assertEquals(listOf("version", "fetch origin $featureHead", "update"), gitLfsLog.readLines())
+        val head = git.run(destination, "rev-parse", "HEAD").trim()
+        assertEquals(listOf("version", "filter-process", "post-checkout $NO_COMMIT $head 1"), gitLfsLog.readLines())
         assertEquals("", git.run(destination, "status", "--porcelain"))
     }
 
     @Test
-    fun `without git-lfs, a clone's LFS files are left to the built-in client`(): Unit = runBlocking {
-        val path = pathWithoutGitLfs(File(tempDir, "no-lfs-bin"))
-        val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to path))
-        val destination = File(tempDir, "clone")
+    fun `without git-lfs, Leaf's filter checks a clone's LFS files out, over git-lfs's in the config`(): Unit =
+        runBlocking {
+            val path = pathWithoutGitLfs(File(tempDir, "no-lfs-bin"))
+            val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to path))
+            val destination = File(tempDir, "clone")
 
-        val states = clone(remote, destination).toList()
+            val states = clone(remote, destination).toList()
 
-        assertEquals(CloneState.Completed(destination), states.last())
-        assertEquals(listOf(lfsOid("first.bin")), builtinDownloads)
-        assertEquals(BUILTIN_CONTENT, File(destination, "first.bin").readText())
-        assertEquals(emptyList<String>(), server.requests)
-    }
+            assertEquals(CloneState.Completed(destination), states.last()) { "$states" }
+            assertArrayEquals(File(source, "first.bin").readBytes(), File(destination, "first.bin").readBytes())
+            assertEquals(1, server.requests.count { it.startsWith("POST /objects/batch") }) { "${server.requests}" }
+            val id = lfsOid("first.bin")
+            assertTrue(File(destination, ".git/lfs/objects/${id.take(2)}/${id.substring(2, 4)}/$id").isFile)
+            assertEquals("", git.run(destination, "status", "--porcelain"))
+        }
 
     @Test
     fun `a repository without LFS is cloned without running git-lfs`(): Unit = runBlocking {
@@ -200,7 +184,7 @@ class GitCliLfsTest {
     }
 
     @Test
-    fun `a clone whose LFS files can't be downloaded fails, and leaves no folder`(): Unit = runBlocking {
+    fun `a clone whose LFS files git-lfs can't download fails, and leaves no folder`(): Unit = runBlocking {
         File(tempDir, "lfs-store/${lfsOid("first.bin")}").delete()
         val remote = TestRemoteCommand(helper, globalConfig, shellVariables = mapOf("PATH" to pathWithGitLfs))
         val destination = File(tempDir, "clone")
@@ -208,8 +192,11 @@ class GitCliLfsTest {
         val states = clone(remote, destination).toList()
 
         val error = (states.last() as CloneState.Fail).reason
-        assertInstanceOf(LfsDownloadError::class.java, error)
-        assertEquals(emptyList<String>(), builtinDownloads)
+        assertInstanceOf(CloneCheckoutError::class.java, error) { "$error" }
+        val output = ((error as CloneCheckoutError).error as RemoteOperationError).output
+        assertTrue("smudge filter lfs failed" in output) { output }
+        // What git and git-lfs say about the clone, which Leaf removed
+        assertFalse("git restore" in output || "Errors logged to" in output) { output }
         assertFalse(destination.exists())
     }
 
@@ -250,7 +237,6 @@ class GitCliLfsTest {
         assertEquals(Either.Ok(false), result)
         assertEquals(pushed, git.run(work, "rev-parse", "HEAD").trim())
         assertArrayEquals(File(source, "second.bin").readBytes(), File(work, "second.bin").readBytes())
-        assertEquals(emptyList<String>(), builtinDownloads)
         assertTrue("filter-process" in gitLfsLog.readLines()) { gitLfsLog.readText() }
     }
 
@@ -281,7 +267,7 @@ class GitCliLfsTest {
         url: String = "file://${origin.absolutePath}",
         branch: String? = null,
         singleBranch: Boolean = false,
-    ) = GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, url, false, branch, singleBranch)
+    ) = GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, url, false, branch, singleBranch)
 
     /** `source`, with an LFS file, pushed to `origin.git` and its LFS object to the server. */
     private fun publishLfsRepository() {
@@ -324,38 +310,4 @@ class GitCliLfsTest {
 /** An LFS object's ID: the SHA-256 of the file. */
 internal fun sha256(file: File) = MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") {
     "%02x".format(it)
-}
-
-/** Stands in for Leaf's built-in smudge filter: see [GitCliLfsTest]. */
-internal class LocalObjectsSmudge(
-    repository: Repository,
-    input: InputStream,
-    output: OutputStream,
-    downloads: MutableList<String>,
-) : FilterCommand(input, output) {
-    init {
-        val pointer = BufferedInputStream(input).use { LfsPointer.parseLfsPointer(it) }
-        val media = pointer?.let { Lfs(repository).getMediaFile(it.oid) }
-
-        `in` = if (media != null && Files.exists(media)) {
-            Files.newInputStream(media)
-        } else {
-            pointer?.let { downloads.add(it.oid.name()) }
-            BUILTIN_CONTENT.byteInputStream()
-        }
-    }
-
-    override fun run(): Int {
-        val buffer = ByteArray(8192)
-        val count = `in`.read(buffer)
-
-        if (count < 0) {
-            `in`.close()
-            out.close()
-            return -1
-        }
-
-        out.write(buffer, 0, count)
-        return count
-    }
 }

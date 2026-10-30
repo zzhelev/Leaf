@@ -43,6 +43,7 @@ import dev.app.leaf.app.generated.resources.error_checkout_branch_bisected_in_wo
 import dev.app.leaf.app.generated.resources.error_checkout_branch_checked_out_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_branch_rebased_in_worktree
 import dev.app.leaf.app.generated.resources.error_checkout_cannot_fast_forward
+import dev.app.leaf.app.generated.resources.error_clone_checkout_failed
 import dev.app.leaf.app.generated.resources.error_clone_submodules_failed
 import dev.app.leaf.app.generated.resources.error_conflict_cant_discard
 import dev.app.leaf.app.generated.resources.error_conflict_conflicts_left
@@ -92,7 +93,6 @@ import dev.app.leaf.app.generated.resources.error_gpg_signing_program_not_found
 import dev.app.leaf.app.generated.resources.error_gpg_signing_start_failed
 import dev.app.leaf.app.generated.resources.error_gpg_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_hook_rejection
-import dev.app.leaf.app.generated.resources.error_lfs_download_failed
 import dev.app.leaf.app.generated.resources.error_lfs_object_credentials_denied
 import dev.app.leaf.app.generated.resources.error_lfs_download_first_failed
 import dev.app.leaf.app.generated.resources.error_lfs_filter_failed
@@ -223,6 +223,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is UnsupportedIndexError -> index.shellCommands() + listOfNotNull((index as? UnsupportedIndex.UnknownExtension)?.extension)
     is PartialCloneFetchError -> error?.monospaceParts().orEmpty()
     is LfsFilterError -> files.map { it.path }
+    is CloneCheckoutError -> error.monospaceParts()
     is LfsDownloadFirstError -> files.map { it.path }
     is SeveralPushUrlsError -> urls
     else -> emptyList()
@@ -401,7 +402,16 @@ fun AppError.getErrorText(): String {
         is CloneSubmodulesError -> stringResource(Res.string.error_clone_submodules_failed, directory) + " " +
             error.getErrorText()
 
-        is LfsDownloadError -> stringResource(Res.string.error_lfs_download_failed) + " " + error.getErrorText()
+        is CloneCheckoutError -> {
+            val details = when (val cause = error) {
+                // The files that git wrote went with the clone
+                is LfsFilterError -> lfsFileFailuresText(cause.files)
+                else -> listOf(cause.getErrorText())
+            }
+
+            (listOf(stringResource(Res.string.error_clone_checkout_failed)) + details).joinToString("\n\n")
+        }
+
         is LfsObjectDownloadError -> error.getLfsObjectErrorText()
         is LfsFilterError -> getLfsFilterErrorText()
 

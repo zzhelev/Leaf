@@ -115,7 +115,7 @@ class GitCliRemoteCommand @Inject constructor(
             // Once the server has it all, git's own stages only repeat their last line
             if (handedOverAt.get() == null || it.fromServer) report(it.stage, it.percent)
         }
-        // git-lfs writes its progress to stdout: `git lfs fetch`'s, and the pre-push hook's, which git passes on
+        // git-lfs's pre-push hook writes its progress to stdout, which git passes on
         val stdoutProgress = GitProgressParser {
             if (handedOverAt.get() == null) report(it.stage, it.percent)
         }
@@ -238,8 +238,8 @@ internal fun askpassEnvironment(helper: File) = mapOf(
 
 /**
  * git-lfs only writes its progress ("Downloading LFS objects", "Uploading LFS objects") to a terminal, unless this is
- * set. It reaches git-lfs whether git runs it as a filter, as a hook or as `git lfs fetch`. The progress goes to
- * stdout, where `git push --porcelain` writes its refs too, which `parsePushPorcelain` tells apart.
+ * set. It reaches git-lfs whether git runs it as a filter or as a hook. The hook's progress goes to stdout, where
+ * `git push --porcelain` writes its refs too, which `parsePushPorcelain` tells apart.
  */
 private val LFS_PROGRESS = mapOf("GIT_LFS_FORCE_PROGRESS" to "1")
 

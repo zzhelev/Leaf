@@ -203,6 +203,31 @@ class JGit(
         }
     }
 
+    /**
+     * Closes and drops the cached repositories in [folder] and below it (fork-only), before Leaf removes a clone:
+     * Leaf's LFS filter opened them while git checked out the clone's files, its submodules' too. A clone made again in
+     * the same folder would otherwise get the removed one's.
+     */
+    fun forgetRepositoriesIn(folder: File) {
+        for (repo in repositories.keys.filter { isIn(it, folder) }) {
+            try {
+                repositories.remove(repo)?.close()
+            } catch (ex: Exception) {
+                printError(TAG, "Failed to cleanup $repo from memory: ${ex.message}")
+            }
+        }
+    }
+
+    /** Whether a repository in [folder] or below it is cached, for tests. */
+    internal fun hasRepositoriesIn(folder: File): Boolean = repositories.keys.any { isIn(it, folder) }
+
+    private fun isIn(repositoryPath: String, folder: File): Boolean {
+        val path = File(repositoryPath).canonicalPath
+        val folderPath = folder.canonicalPath
+
+        return path == folderPath || path.startsWith(folderPath + File.separator)
+    }
+
     fun cleanupExcept(repositoriesToKeep: Set<String>) {
         val repositoriesToRemove = repositories.keys - repositoriesToKeep
 

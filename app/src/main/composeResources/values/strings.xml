@@ -1873,7 +1873,7 @@
     <string name="error_conflict_conflicts_left">%1$s can't be marked resolved while conflicts are open (%2$d left). Pick a side for each, or Save to keep their markers.</string>
 
     <string name="error_fetch_remote_failed">Couldn't fetch %1$s.</string>
-    <string name="error_lfs_download_failed">git-lfs couldn't download the LFS files, so nothing was checked out.</string>
+    <string name="error_clone_checkout_failed">git cloned the repository but couldn't check out its files, so Leaf removed the clone.</string>
     <string name="error_lfs_object_no_server">Couldn't download the LFS object: no LFS server was found. Leaf looks for lfs.url in .lfsconfig, then for the current branch's remote, then for origin.</string>
     <string name="error_lfs_object_http">Couldn't download the LFS object: the LFS server answered %1$s.</string>
     <string name="error_lfs_object_refused">Couldn't download the LFS object: the LFS server answered %1$s.</string>

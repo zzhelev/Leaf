@@ -82,7 +82,7 @@ class GitCliCloneTest {
     }
 
     @Test
-    fun `a clone checks the default branch out with JGit, and shows git's progress`(): Unit = runBlocking {
+    fun `a clone checks the default branch out, and shows git's progress`(): Unit = runBlocking {
         val destination = File(clones, "copy")
 
         val states = clone(destination, "file://${source.absolutePath}")
@@ -90,7 +90,7 @@ class GitCliCloneTest {
         assertEquals(CloneState.Cloning("Starting...", 0, 0), states.first())
         assertEquals(CloneState.Completed(destination), states.last())
         assertTrue(CloneState.Cloning("Receiving objects", 100, 100) in states) { "$states" }
-        assertTrue(CloneState.Cloning("Checking out files", 0, 0) in states) { "$states" }
+        assertTrue(CloneState.Cloning("Updating files", 100, 100) in states) { "$states" }
 
         assertEquals("Test repository\n", File(destination, "README.md").readText())
         // The index matches HEAD, so nothing shows as changed
@@ -371,16 +371,46 @@ class GitCliCloneTest {
         val destination = File("/clones/copy")
 
         assertEquals(
-            listOf("clone", "--progress", "--no-checkout", "--", "u", "/clones/copy"),
+            listOf("clone", "--progress", "--", "u", "/clones/copy"),
             cloneArguments("u", destination, branch = null, singleBranch = false),
         )
         assertEquals(
-            listOf("clone", "--progress", "--no-checkout", "--branch=feature/x", "--single-branch", "--", "u", "/clones/copy"),
+            listOf("clone", "--progress", "--branch=feature/x", "--single-branch", "--", "u", "/clones/copy"),
             cloneArguments("u", destination, branch = " feature/x ", singleBranch = true),
         )
         assertEquals(
-            listOf("clone", "--progress", "--no-checkout", "--single-branch", "--", "u", "/clones/copy"),
+            listOf("clone", "--progress", "--single-branch", "--", "u", "/clones/copy"),
             cloneArguments("u", destination, branch = "", singleBranch = true),
+        )
+    }
+
+    @Test
+    fun `a failed checkout is told from git's output, without what points into the clone that Leaf removes`() {
+        // git 2.54 and git-lfs 3.8, when an LFS object is missing on the server
+        val stderr = "Cloning into '/clones/copy'...\n" +
+            "Downloading a.bin (20 KB)\n" +
+            "Error downloading object: a.bin (8371ed9): Smudge error: [0] remote missing object 8371ed9\n" +
+            "\n" +
+            "Errors logged to '/clones/copy/.git/lfs/logs/20261028T035206.922605.log'.\n" +
+            "Use `git lfs logs last` to view the log.\n" +
+            "error: external filter 'git-lfs filter-process' failed\n" +
+            "fatal: a.bin: smudge filter lfs failed\n" +
+            "warning: Clone succeeded, but checkout failed.\n" +
+            "You can inspect what was checked out with 'git status'\n" +
+            "and retry with 'git restore --source=HEAD :/'\n" +
+            "\n"
+
+        assertTrue(checkoutFailed(stderr))
+        assertFalse(checkoutFailed("fatal: repository '/nowhere' does not exist\n"))
+        assertEquals(
+            "Cloning into '/clones/copy'...\n" +
+                "Downloading a.bin (20 KB)\n" +
+                "Error downloading object: a.bin (8371ed9): Smudge error: [0] remote missing object 8371ed9\n" +
+                "\n" +
+                "error: external filter 'git-lfs filter-process' failed\n" +
+                "fatal: a.bin: smudge filter lfs failed\n" +
+                "\n",
+            withoutRemovedCloneHints(stderr),
         )
     }
 
@@ -481,7 +511,7 @@ class GitCliCloneTest {
         cloneSubmodules: Boolean = false,
         branch: String? = null,
         singleBranch: Boolean = false,
-    ) = GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(
+    ) = GitCliCloneRepositoryGitAction(jgit, remote.command)(
         destination,
         url,
         cloneSubmodules,
@@ -503,7 +533,7 @@ class GitCliCloneTest {
             gitCli = remote.gitCli,
             jgit = jgit,
         ),
-        gitCliCloneRepositoryGitAction = GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch),
+        gitCliCloneRepositoryGitAction = GitCliCloneRepositoryGitAction(jgit, remote.command),
         jGitCloneRepositoryGitAction = CloneRepositoryGitAction(
             HandleTransportGitAction(
                 noSshSessionFactory = NoSshSessionFactory { null },

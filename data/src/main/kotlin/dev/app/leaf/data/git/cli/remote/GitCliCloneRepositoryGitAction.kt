@@ -5,25 +5,19 @@ package dev.app.leaf.data.git.cli.remote
 
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.JGit
-import dev.app.leaf.data.git.remote_operations.useBuiltinLfs
+import dev.app.leaf.domain.errors.CloneCheckoutError
 import dev.app.leaf.domain.errors.CloneSubmodulesError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
+import dev.app.leaf.domain.errors.LfsFilterError
 import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.TaskProgress
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.ProducerScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
-import org.eclipse.jgit.lib.ConfigConstants
 import org.eclipse.jgit.lib.Constants
-import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.util.FileUtils
 import java.io.File
 import java.io.IOException
@@ -34,24 +28,30 @@ private const val TAG = "GitCliCloneRepository"
 private const val SUBMODULES_STAGE = "Cloning submodules"
 
 /**
- * Clones with `git clone --no-checkout`, then checks the files out with JGit and Leaf's built-in LFS, as
- * [dev.app.leaf.data.git.remote_operations.CloneRepositoryGitAction] does after JGit's own clone, so git-lfs isn't
- * needed. When it's installed, git-lfs downloads the LFS objects before the checkout. With `cloneSubmodules`,
- * `git submodule update --init --recursive` then clones the submodules, as `git clone --recurse-submodules` does.
+ * git shows its checkout's progress ("Updating files", and "Filtering content" while a filter downloads LFS files)
+ * only once it has taken 2 s, and git-lfs's filter shows none (git 2.54, git-lfs 3.8). With no delay, the clone's
+ * dialog shows both from the start.
+ */
+private val CHECKOUT_PROGRESS = mapOf("GIT_PROGRESS_DELAY" to "0")
+
+/**
+ * Clones with `git clone`, which checks the files out itself: with git-lfs's filter where git-lfs is set up, which also
+ * installs its hooks, and with Leaf's otherwise ([dev.app.leaf.data.git.lfs.filter.LfsFilter], through
+ * [GitCliRemoteCommand]), so git-lfs isn't needed. With `cloneSubmodules`, `git submodule update --init --recursive`
+ * then clones the submodules, as `git clone --recurse-submodules` does.
  *
  * With a `branch`, git checks out that branch or tag (`--branch`, a tag leaves HEAD detached), and with `singleBranch`
- * fetches only it (`--single-branch`), which also limits `remote.origin.fetch`. HEAD then points at it, so the checkout,
- * git-lfs and the submodules below all follow. A branch that the remote lacks is `RemoteOperationError.BranchNotFound`,
- * and git has made no folder by then.
+ * fetches only it (`--single-branch`), which also limits `remote.origin.fetch`. The submodules below follow HEAD. A
+ * branch that the remote lacks is `RemoteOperationError.BranchNotFound`, and git has made no folder by then.
  *
- * A clone that fails or is cancelled is removed, as git removes it: the folder, or what's in it when it was an empty
- * folder before. git refuses a folder with files in it, which is then left alone. Only a clone whose submodules failed
+ * A clone that fails or is cancelled is removed: the folder, or what's in it when it was an empty folder before. git
+ * keeps a clone whose checkout failed, as when an LFS file couldn't be downloaded ([CloneCheckoutError]), and Leaf
+ * removes it too. git refuses a folder with files in it, which is then left alone. Only a clone whose submodules failed
  * is kept, as with `git clone --recurse-submodules`, since the repository itself is complete.
  */
 class GitCliCloneRepositoryGitAction @Inject constructor(
     private val jgit: JGit,
     private val remoteCommand: GitCliRemoteCommand,
-    private val gitLfsFetch: GitLfsFetch,
 ) {
     operator fun invoke(
         directory: File,
@@ -82,8 +82,9 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
 
             send(if (error == null) CloneState.Completed(destination) else CloneState.Fail(error))
         } finally {
-            // Also after a cancellation: git removes its folder when it's stopped, but not JGit's checkout
+            // Also after a cancellation, and after a failed checkout, whose clone git keeps
             if (!keep && removable) {
+                jgit.forgetRepositoriesIn(destination)
                 removePartialClone(destination, existed)
             }
         }
@@ -100,18 +101,21 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
             workingDirectory = destination.parentFile ?: destination,
             args = cloneArguments(url, destination, branch, singleBranch),
             onProgress = { reportProgress(it, prefix = "") },
+            environment = CHECKOUT_PROGRESS,
         )
 
         val output = when (clone) {
-            is Either.Err -> return clone.error
+            is Either.Err -> return if (clone.error is LfsFilterError) CloneCheckoutError(clone.error) else clone.error
             is Either.Ok -> clone.value
         }
 
         if (output.exitCode != 0) {
-            return remoteOperationError(output.exitCode, output.stderr)
+            return if (checkoutFailed(output.stderr)) {
+                CloneCheckoutError(remoteOperationError(output.exitCode, withoutRemovedCloneHints(output.stderr)))
+            } else {
+                remoteOperationError(output.exitCode, output.stderr)
+            }
         }
-
-        checkOut(destination)?.let { return it }
 
         if (cloneSubmodules && File(destination, Constants.DOT_GIT_MODULES).isFile) {
             send(CloneState.Cloning(SUBMODULES_STAGE, 0, 0))
@@ -137,56 +141,6 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
         }
 
         return null
-    }
-
-    /**
-     * Checks out what HEAD points to, as JGit's own clone does, unless the repository has no commits yet. When git-lfs
-     * is installed, it downloads the LFS objects first ([GitLfsFetch]), so the built-in LFS only reads them, and its
-     * hooks are installed, as `git clone` would.
-     */
-    private suspend fun ProducerScope<CloneState>.checkOut(destination: File): GitError? {
-        val checkout = withContext(Dispatchers.IO) {
-            jgit.provideOnce(File(destination, Constants.DOT_GIT).path) { git ->
-                val repository = git.repository
-                val head = repository.resolve(Constants.HEAD) ?: return@provideOnce null
-                val remote = repository.config.getString(
-                    ConfigConstants.CONFIG_BRANCH_SECTION,
-                    repository.branch,
-                    ConfigConstants.CONFIG_KEY_REMOTE,
-                ) ?: Constants.DEFAULT_REMOTE_NAME
-
-                val usesGitLfs = when (
-                    val fetch = gitLfsFetch(repository, remote, head, onProgress = { reportProgress(it, prefix = "") })
-                ) {
-                    is Either.Err -> return@provideOnce fetch.error
-                    is Either.Ok -> fetch.value
-                }
-
-                send(CloneState.Cloning("Checking out files", 0, 0))
-
-                useBuiltinLfs(repository) {
-                    git.checkout()
-                        .setName(repository.fullBranch)
-                        .setForced(true)
-                        .setProgressMonitor(CheckoutProgress(this@checkOut))
-                        .call()
-                }
-
-                if (usesGitLfs) {
-                    gitLfsFetch.installHooks(repository)
-                }
-
-                null
-            }
-        }
-
-        // A cancelled checkout stops with an error of its own
-        currentCoroutineContext().ensureActive()
-
-        return when (checkout) {
-            is Either.Err -> checkout.error
-            is Either.Ok -> checkout.value
-        }
     }
 
     private fun ProducerScope<CloneState>.reportProgress(progress: TaskProgress?, prefix: String) {
@@ -216,47 +170,32 @@ class GitCliCloneRepositoryGitAction @Inject constructor(
  */
 internal fun cloneArguments(url: String, destination: File, branch: String?, singleBranch: Boolean): List<String> =
     buildList {
-        addAll(listOf("clone", "--progress", "--no-checkout"))
+        addAll(listOf("clone", "--progress"))
         if (!branch.isNullOrBlank()) add("--branch=${branch.trim()}")
         if (singleBranch) add("--single-branch")
         addAll(listOf("--", url, destination.path))
     }
 
-/** JGit's checkout progress, as the clone dialog shows it. The checkout stops once the clone is cancelled. */
-private class CheckoutProgress(private val scope: ProducerScope<CloneState>) : ProgressMonitor {
-    private var title = ""
-    private var total = 0
-    private var completed = 0
-    private var percent = -1
+private const val CHECKOUT_FAILED = "Clone succeeded, but checkout failed."
 
-    override fun start(totalTasks: Int) {}
+/** Whether git's [stderr] says that it cloned, but couldn't check the files out (git 2.54, in English). */
+internal fun checkoutFailed(stderr: String) = CHECKOUT_FAILED in stderr
 
-    override fun beginTask(title: String?, totalWork: Int) {
-        this.title = title.orEmpty()
-        total = totalWork
-        completed = 0
-        percent = -1
-        report()
-    }
+/**
+ * Lines of git's output that point into a clone that Leaf removes: git's own (`git status`, `git restore`, after
+ * "Clone succeeded, but checkout failed."), and where git-lfs logged its errors.
+ */
+private val REMOVED_CLONE_HINTS = listOf(
+    Regex("""^warning: ${Regex.escape(CHECKOUT_FAILED)}$"""),
+    Regex("""^You can inspect what was checked out with 'git status'$"""),
+    Regex("""^and retry with 'git restore --source=HEAD :/'$"""),
+    Regex("""^Errors logged to '.*'\.$"""),
+    Regex("""^Use `git lfs logs last` to view the log\.$"""),
+)
 
-    override fun update(completed: Int) {
-        this.completed += completed
-        report()
-    }
-
-    override fun endTask() {}
-
-    override fun isCancelled(): Boolean = !scope.isActive
-
-    override fun showDuration(enabled: Boolean) {}
-
-    /** Only when the percentage changes, as JGit reports each file. */
-    private fun report() {
-        val newPercent = if (total > 0) completed * 100 / total else 0
-
-        if (newPercent != percent) {
-            percent = newPercent
-            scope.trySend(CloneState.Cloning(title, newPercent, if (total > 0) 100 else 0))
-        }
-    }
-}
+/** git's [stderr] for a clone whose checkout failed, without [REMOVED_CLONE_HINTS]. */
+internal fun withoutRemovedCloneHints(stderr: String): String = stderr
+    .replace("\r\n", "\n")
+    .split('\n')
+    .filterNot { line -> REMOVED_CLONE_HINTS.any { it.matches(line.trimEnd()) } }
+    .joinToString("\n")

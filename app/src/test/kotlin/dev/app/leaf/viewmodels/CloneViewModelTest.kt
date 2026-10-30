@@ -20,10 +20,12 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -32,11 +34,15 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 
-/** "Choose…" in the Clone dialog (fork-only): the server is asked once per click, and never otherwise. */
+/**
+ * "Choose…" in the Clone dialog (fork-only): the server is asked once per click, and never otherwise. And the folders
+ * that the dialog creates for a clone, which go again, while empty, when the clone doesn't complete.
+ */
 class CloneViewModelTest {
     private val refs = RemoteRefs("main", listOf("feature/x", "main"), listOf("v1"))
 
@@ -65,6 +71,9 @@ class CloneViewModelTest {
     private val list = FakeList()
     private val clones = Collections.synchronizedList(mutableListOf<Pair<String, Boolean>>())
 
+    /** What the clone action sends for the clone's folder. */
+    private var cloneStates: (File) -> Flow<CloneState> = { emptyFlow() }
+
     private val viewModel = CloneViewModel(
         cloneRepositoryGitAction = object : ICloneRepositoryGitAction {
             override fun invoke(
@@ -75,7 +84,7 @@ class CloneViewModelTest {
                 singleBranch: Boolean,
             ): Flow<CloneState> {
                 clones += url to singleBranch
-                return emptyFlow()
+                return cloneStates(directory)
             }
         },
         listRemoteRefsGitAction = list,
@@ -225,10 +234,86 @@ class CloneViewModelTest {
         viewModel.chooseBranch("https://example.com/r.git")
         awaitState { it is BranchChoicesState.Loaded }
 
-        viewModel.clone("/tmp/clones", "https://example.com/r.git", "r", cloneSubmodules = false, branch = "feature/x")
+        viewModel.clone(temp.path, "https://example.com/r.git", "r", cloneSubmodules = false, branch = "feature/x")
 
         assertEquals(BranchChoicesState.Closed, viewModel.branchChoices.value)
         withTimeout(5_000) { while (clones.isEmpty()) delay(10) }
         assertFalse(clones.isEmpty())
+    }
+
+    @TempDir
+    lateinit var temp: File
+
+    private val failure = RemoteOperationError.Failed(128, "fatal: video.bin: smudge filter lfs failed")
+
+    private suspend fun awaitGone(folder: File) = withTimeout(5_000) { while (folder.exists()) delay(10) }
+
+    @Test
+    fun `a clone that fails removes the folders that the dialog created for it, and only those`(): Unit =
+        runBlocking {
+            val existing = File(temp, "existing").apply { mkdir() }
+            cloneStates = { flowOf(CloneState.Cloning("Receiving objects", 10, 100), CloneState.Fail(failure)) }
+
+            viewModel.clone(File(existing, "new/deeper").path, "/tmp/r", "r", cloneSubmodules = false)
+            // The folders are made before the clone starts, and removed after its failure
+            assertTrue(withTimeout(5_000) { viewModel.error.first { it != null } } is CloneUiError.CloneError)
+
+            awaitGone(File(existing, "new"))
+            assertTrue(existing.isDirectory)
+        }
+
+    @Test
+    fun `a cancelled clone removes them too`(): Unit = runBlocking {
+        cloneStates = { flow { emit(CloneState.Cloning("Receiving objects", 10, 100)); awaitCancellation() } }
+
+        viewModel.clone(File(temp, "new/deeper").path, "/tmp/r", "r", cloneSubmodules = false)
+        withTimeout(5_000) { viewModel.cloneState.first { it is CloneState.Cloning } }
+        assertTrue(File(temp, "new/deeper").isDirectory)
+
+        viewModel.cancelClone()
+
+        awaitGone(File(temp, "new"))
+        assertTrue(temp.isDirectory)
+    }
+
+    @Test
+    fun `a completed clone keeps them`(): Unit = runBlocking {
+        // No clone folder in them, so that only the outcome keeps them
+        cloneStates = { flowOf(CloneState.Completed(it)) }
+
+        viewModel.clone(File(temp, "new/deeper").path, "/tmp/r", "r", cloneSubmodules = false)
+        withTimeout(5_000) { viewModel.cloneState.first { it is CloneState.Completed } }
+        delay(200)
+
+        assertTrue(File(temp, "new/deeper").isDirectory)
+    }
+
+    @Test
+    fun `a folder that isn't empty stays, with the folders above it`(): Unit = runBlocking {
+        // As a clone whose submodules failed is kept
+        cloneStates = { folder ->
+            flow {
+                File(folder, "README.md").apply { parentFile.mkdirs() }.writeText("kept")
+                emit(CloneState.Fail(failure))
+            }
+        }
+
+        viewModel.clone(File(temp, "new/deeper").path, "/tmp/r", "r", cloneSubmodules = false)
+        withTimeout(5_000) { viewModel.error.first { it != null } }
+        delay(200)
+
+        assertTrue(File(temp, "new/deeper/r/README.md").isFile)
+    }
+
+    @Test
+    fun `a folder that was there before stays, even empty`(): Unit = runBlocking {
+        val chosen = File(temp, "chosen").apply { mkdir() }
+        cloneStates = { flowOf(CloneState.Fail(failure)) }
+
+        viewModel.clone(chosen.path, "/tmp/r", "r", cloneSubmodules = false)
+        withTimeout(5_000) { viewModel.error.first { it != null } }
+        delay(200)
+
+        assertTrue(chosen.isDirectory)
     }
 }

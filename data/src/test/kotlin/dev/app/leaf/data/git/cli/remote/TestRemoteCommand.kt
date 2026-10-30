@@ -59,7 +59,7 @@ class TestRemoteCommand(
         ) + shellVariables,
     )
 
-    /** One for the command and [gitLfsFetch], as Dagger gives the app one: git-lfs is asked once a minute. */
+    /** One for the whole command, as Dagger gives the app one: git-lfs is asked once a minute. */
     private val gitLfsSetup = GitLfsSetup(gitCli)
 
     val command = GitCliRemoteCommand(
@@ -80,8 +80,6 @@ class TestRemoteCommand(
         },
         lfsFilter = testLfsFilter(gitCli, jgit, credentialsStateManager, shellVariables, lfsServer, gitLfsSetup),
     )
-
-    val gitLfsFetch = GitLfsFetch(gitCli, command, gitLfsSetup)
 
     val partialClone = PartialCloneFetch(jgit, command)
 }

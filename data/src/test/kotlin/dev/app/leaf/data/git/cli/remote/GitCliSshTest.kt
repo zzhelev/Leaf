@@ -24,7 +24,6 @@ import dev.app.leaf.domain.models.CloneState
 import dev.app.leaf.domain.models.OperationType
 import kotlinx.coroutines.flow.toList
 import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.attributes.FilterCommandRegistry
 import org.eclipse.jgit.lfs.errors.LfsException
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.util.SystemReader
@@ -47,7 +46,6 @@ import java.io.File
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.file.Files
-import java.util.Collections
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
@@ -287,7 +285,7 @@ class GitCliSshTest {
         val destination = File(tempDir, "clone")
 
         val (states, dialogs) = remote.credentialsStateManager.answeringDialogs({ sshHostKeyTrusted() }) {
-            GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, remoteUrl(), cloneSubmodules = false)
+            GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, remoteUrl(), cloneSubmodules = false)
                 .toList()
         }
 
@@ -313,21 +311,11 @@ class GitCliSshTest {
 
             git.run(tempDir, "config", "--file", globalConfig.path, "core.sshCommand", sshCommand("alice"))
             val destination = File(tempDir, "clone")
-            val builtinDownloads = Collections.synchronizedList(mutableListOf<String>())
-            FilterCommandRegistry.register(BUILTIN_LFS_SMUDGE) { repository, input, output ->
-                LocalObjectsSmudge(repository, input, output, builtinDownloads)
-            }
 
-            val states = try {
-                GitCliCloneRepositoryGitAction(jgit, remote.command, remote.gitLfsFetch)(destination, remoteUrl(), false)
-                    .toList()
-            } finally {
-                FilterCommandRegistry.unregister(BUILTIN_LFS_SMUDGE)
-            }
+            val states = GitCliCloneRepositoryGitAction(jgit, remote.command)(destination, remoteUrl(), false).toList()
 
             assertEquals(CloneState.Completed(destination), states.last())
             assertArrayEquals(file.readBytes(), File(destination, "big.bin").readBytes())
-            assertEquals(emptyList<String>(), builtinDownloads)
         }
 
     @Test
