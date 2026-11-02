@@ -2,6 +2,27 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The log search finds commits that the log hasn't loaded (2026-11-02)
+
+- **Request:** upstream issue 277, "the search in the commit graph doesn't find commits that aren't loaded yet".
+  Chosen with the user: a walk of the whole history in the background, the first hit opening at once, and the counter
+  "1/12+" while it runs.
+- **Before:** the search filtered only the commits that the log had loaded (2,000 at first, 500 more for each page that
+  scrolling to its end loaded), so a commit further down was never found, and a term that only older commits matched
+  said "0/0".
+- **Now:** the loaded commits answer at once, as before, and the first match scrolls into view. A walk of the whole
+  history follows, and its hits replace those: the counter reads "1/12+" while it runs and "1/2730" once it ended, and
+  keeps the commit it pointed at. A term with no match among the loaded commits opens the first hit that the walk finds.
+  Stepping to a hit that the log hasn't loaded loads the log to its depth in one step, then scrolls to it. Wrap-around,
+  cancelling the search of the term before, and the stash and uncommitted rows work as before.
+- **Measured** on a repository of 199,582 commits: the walk takes 1.1 to 1.4 s whatever the term, about one page of the
+  existing log; this repository's 1,978 commits take 15 ms. The oldest commit of that repository opens in 3.5 s from the
+  last letter, one load of its 196,626 commits.
+- **Limits:** 10,000 hits (the counter then says "10000+") and the first 200,000 commits of the log.
+- **Also:** the log's focus event is no longer lost while the log reloads, and a row asks a hash set, not a list, whether
+  it matches. Nothing outlives a search: a new term, the ✕, Esc and closing the tab cancel the walk.
+- Details: CLAUDE.md, "Log", Log search.
+
 ## Sparse checkouts: Leaf no longer widens them (2026-11-02)
 
 - **Request:** upstream issue 336 asks for sparse-checkout support. The triage probe found a bug on top of it, which this

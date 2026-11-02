@@ -4300,17 +4300,20 @@ Up, Down, Page Up, Page Down, Home and End. Left and Right do nothing (decided w
   the view model method and the focus on click, which need the Dagger graph and a window. Three mutations (the scroll's
   sign, the modifier check, wrap-around) were each caught.
 
-**Log search (fork-only changes, 2026-10-20):** the bar is `SearchFilter` (`ui/log/Log.kt`), over
-`RepositoryOpenViewModel.logSearchFilterResults`: `LogSearch.SearchResults(commits, index, totalCount, hasTerm)`, where
-`index` is the counter's number, starting at 1, and 0 means no result.
-- **What builds it:** typing (`searchLog`; the newest term wins). It searches the loaded commits only, and
-  a refresh doesn't run it again, so the results keep the commits of the log as it was when the term was typed. An empty
-  field is `hasTerm = false`: `matchingCommits` is then null and no row is dimmed. An empty list would make every row a
-  non-match, and with the dim below the whole log faded as the bar opened.
+**Log search (fork-only changes, 2026-10-20; over the whole history since 2026-11-02):** the bar is `SearchFilter`
+(`ui/log/Log.kt`), over `RepositoryOpenViewModel.logSearchFilterResults`: `LogSearch.SearchResults(hits, index, hasTerm,
+isSearching, isCapped)`, where `hits` (`SearchHits`) are `SearchHit(hash, depth)` in the log's order, `index` is the
+counter's number, starting at 1, and 0 means no result. `LogSearchController` (`repositoryopen/`, made by the view model,
+whose `onSearchValueChanged`, `selectNextFilterCommit`, `selectPreviousFilterCommit` and `closeSearch` only call it) holds
+the logic.
+- **What builds it:** typing (`LogSearchController.search`; the newest term wins), in the two steps of The whole history,
+  below. A refresh doesn't run it again, so the hits are those of the log as it was when the term was typed. An empty
+  field is `hasTerm = false` (`SearchResults.NoTerm`): `matchingHashes` is then null and no row is dimmed. An empty list
+  would make every row a non-match, and with the dim below the whole log faded as the bar opened.
 - **Wrap-around:** `steppedSearchIndex` (`domain/log/SearchNavigation.kt`) gives the result after a step: next from the
   last goes to the first, previous from the first to the last, one result stays, none is 0, and an index outside the
   results counts as before the first (next) or after the last (previous). The down button and Enter step forward, the
-  up button and Shift+Enter (`KeybindingOption.SEARCH_PREVIOUS_RESULT`) back, all through `stepSearchResult`.
+  up button and Shift+Enter (`KeybindingOption.SEARCH_PREVIOUS_RESULT`) back, all through `LogSearchController.step`.
   - It writes with `MutableStateFlow.update`, so a step can't put an older list back over the results of a search typed
     meanwhile. That is by construction: a racing test can't tell it from a plain read and write, as the window is too
     narrow (tried).
@@ -4318,16 +4321,74 @@ Up, Down, Page Up, Page Down, Home and End. Left and Right do nothing (decided w
     no result it does nothing.
 - **A step scrolls, it doesn't select** (decided 2026-10-20: "mark only"). The commit pane stays on the user's own
   selection. `scrollToCommit` doesn't scroll when the row is on screen, so the mark below is the only sign of which
-  result is current. A click on a match (`selectCommit`) moves the counter to it.
+  result is current. A click on a match (`selectCommit`) moves the counter to it (`LogSearchController.commitSelected`).
 - **Rows** (`ui/log/SearchMatchStyle.kt`): a non-match fades as a whole (`dimmedWhenNotMatching`: message, ref chips,
   avatars, author and date), to 45% in the dark theme and 55% in the light one, which leaves its text at about 4.5:1 and
   3.5:1. The graph isn't part of it, so its lines stay continuous. The old dim only changed the message and names to
   `onBackgroundSecondary`: in the dark theme 11.8:1 against a match's 19.2:1, too close to tell apart. The focused
-  match (`SearchResults.focusedCommit`, the counter's) has a 2 dp outline in the matches' bar colour
-  (`outlinedWhenFocusedMatch`), which keeps the selection's fill visible inside it. Every match keeps its 4 dp bar.
-- Tests: `SearchNavigationTest` (domain), `LogSearchTest`, and `SearchMatchStyleTest` (pixels, both themes). The view
-  model and the real `Log` ran against a demo repository through the Dagger graph in a temporary harness (wrap both
-  ways, one result, none, an empty field, a click, 3,200 steps racing 150 searches, renders in both themes).
+  match (`SearchResults.focusedHit`, the counter's) has a 2 dp outline in the matches' bar colour
+  (`outlinedWhenFocusedMatch`), which keeps the selection's fill visible inside it. Every match keeps its 4 dp bar. A row
+  asks `matchingHashes`, a hash set that the copies of a result share (it was a list scanned for each row).
+- **The whole history (upstream issue 277, 2026-11-02):** the search only filtered the commits that the log had loaded
+  (2,000 at first, 500 more per page), so a commit further down was never found, and a term that only older commits
+  matched said "0/0". Chosen with the user from two options: this one, and loading pages one after another until a
+  match shows (no total, and a term that nothing matches would load the whole log). With the first hit opening at once,
+  and the counter "1/12+".
+  - **A term is answered twice** (`LogSearchController.run`). At once, the loaded commits are filtered, as always, and
+    the first match scrolls into view. Then `SearchLogUseCase` walks the whole history, and its hits replace those, the
+    counter keeping the commit that it pointed at (by hash). The counter reads "1/12+" while the walk runs
+    (`isSearching`), "0/…" while it has found nothing, "1/2730" after, and a "+" also when the walk stopped at
+    `MAX_SEARCH_HITS`. When the loaded commits had no match, the first hit that the walk finds opens at once: the log
+    loads to it.
+  - **The walk** (`FindCommitsGitAction`, `walkForHits`): JGit in process, on `Dispatchers.IO`, from the commits that the
+    log starts from (`GetLogUseCase.logStart`, which `invoke` uses too) and sorted as the log is (`TOPO`, then commit
+    time), so the hits come in the order of the rows and a hit's `depth` is about its row. It skips a stash's other
+    parents as the log does. The test is `matchesLogSearch` (`domain/log/LogSearchMatch.kt`), the one that filters the
+    loaded commits: the term, lower-cased, in the message, the author's or the committer's name, or anywhere in the
+    hash; no email. Limits: `MAX_SEARCH_HITS` (10,000) and `MAX_SEARCH_DEPTH` (200,000 commits, as far as the log is
+    allowed to load: 165 MB at about 0.85 KB a commit).
+  - **Measured** (a TensorFlow clone, 199,582 commits, 1.28 GiB pack, JGit 7.7, git 2.54, a Mac with 48 GB): the walk
+    takes 1.1 to 1.4 s whatever the term and its matches (3.3 s the first time, with a cold JVM and cache); `git log
+    --grep` 1.5 to 2.6 s, and it can't match a hash's middle or OR a message and a name; one page of the existing log
+    0.95 s, as its topological sort reads the whole history. This repository's 1,978 commits take 15 ms, git-cola's
+    9,037 commits 43 ms. Reading the first commit of a topological walk reads the whole history, so a walk that a newer
+    term cancels still takes its second on a big repository: it checks for cancellation at each commit after that, and
+    starts only `SEARCH_DEBOUNCE` (120 ms) after the last letter, so a quick run of letters starts one. The answer from
+    the loaded commits isn't delayed.
+  - **A hit that the log hasn't loaded** is shown by `LoadLogUntilCommitUseCase(hash, maxCommits = MAX_SEARCH_DEPTH,
+    expectedDepth = depth)`: its first step loads to the hit's depth plus 100, instead of the steps that double (about 8
+    walks of a second each to reach 100,000 commits down on TensorFlow), and the doubling steps go on if the log's own
+    order put the commit a little deeper (its pages start from the lanes that the page before left open). A hit that the
+    log can't show (`NotReachable` or `LimitReached`, as after a branch moved since the walk) is dropped from the list,
+    and the next is tried, three at most for a step. A step whose load ended after the counter moved on (a new term,
+    another step, Esc) scrolls nowhere.
+  - **The focus event** (`Log`): its collector used to restart each time the log's list changed, and an event sent
+    while it did was lost. That is the moment a search sends one, as the log loaded the hit a moment before. It runs
+    once now, and a focus waits (2 s at most) for the list that is drawn to have the commit.
+  - **Nothing is left running:** the walk and the loading run in the view model's scope. A new term, `close()` (the
+    ✕ and Esc, `CloseableView.LOG_SEARCH`) and closing the tab cancel them. A cancelled search can't write: its
+    writes check that its job is active inside `update`, so closing the bar can't be undone by a walk that ends later.
+    `JGit.provide` turns a cancellation into an error result, so the job checks for cancellation after the walk too,
+    or the old term's failure would end the newer search's "+".
+  - **From the real tab** (the Dagger graph in a temporary harness, a TensorFlow clone: 196,626 commits in the log's
+    start commits): the first answer 24 ms after typing; "cuda" (2,675 hits) 1.6 s to the last hit, and 3 steps
+    225 ms; the oldest commit ("Initial commit of TensorFlow", 196,625 down) 3.5 s from the last letter to the log
+    scrolled to it (1.3 s the walk, then one load of all 196,626 commits); wrapping to a hit 196,597 down, which the log
+    had loaded, 117 ms. In a 6,000-commit repository with the only match 5,200 down: 183 ms, the log loaded to 5,301.
+  - **Not done:** the search doesn't run again when the log refreshes or the worktree switches, as before; it stops at
+    the 200,000th commit; its results keep the hits as of the typing.
+- Tests: `SearchNavigationTest` and `LogSearchMatchTest` (domain), `LogSearchTest` (the result and the counter's text),
+  `LogSearchControllerTest` (the controller with a fake walk and fake loading, in the test's own `runBlocking`, so a
+  coroutine left running hangs it: both answers, the counter keeping its commit, the first hit opening, wrap-around both
+  ways and past the loaded commits, a new term, the debounce, closing, a step that is overtaken, a hit that can't be
+  shown, a walk that fails or comes back as a failure when cancelled, no job left), `SearchingLogTest` (a `TestTab`
+  on repositories of up to 8,000 commits made with `git fast-import`: hits on the last page, in order, with their
+  depth, against the filter of the loaded commits, past merges where a hit's depth is its row, a stash's other parents,
+  the limits, the walk cancelled at the next commit, loading to a depth in one step and with a depth that was too small),
+  and `SearchMatchStyleTest` (pixels, both themes). The view model and the real `Log` ran through the Dagger graph in a
+  temporary harness against a 6,000-commit demo and the TensorFlow clone (the numbers above, wrap both ways, a click, a
+  term typed letter by letter, no match, closing while it walks, the tab closed during a search, the real `Log`
+  scrolled to the hits).
 
 **Parents in the commit details (fork-only, upstream issue 270, 2026-10-20):** `CommitFooter` lists the selected commit's
 parents under the hash, one row each. It is the footer of `CommitChanges`, so it shows for a log commit and for a branch or
