@@ -2,6 +2,49 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Sparse checkouts: Leaf no longer widens them (2026-11-02)
+
+- **Request:** upstream issue 336 asks for sparse-checkout support. The triage probe found a bug on top of it, which this
+  fixes. Managing the sparse set from Leaf (`git sparse-checkout set`, `add`, `disable`) is a later item.
+- **Before:** after `git sparse-checkout set keep`, Leaf's status was clean, as JGit honours the skip-worktree bit that
+  git sets on the skipped files. But switching branches in Leaf wrote the skipped files that the branch changes, and
+  cleared their bit, so `git status` stayed clean and the sparse set was wider. Re-probed on `main` with JGit 7.7 and git
+  2.54: each action below ran on a sparse repository, and a twin ran what git does.
+
+  | Action | JGit | Now |
+  |---|---|---|
+  | Checkout of a branch, of a remote branch, of a commit | wrote skipped files, cleared their bit | `git switch` |
+  | Fast-forward of a branch to its remote branch (current or not) | same | `git merge --ff-only`, `git switch` |
+  | New branch at a commit | same | `git switch --create` |
+  | Reset hard | same | `git reset --hard` |
+  | Reset mixed | cleared the bits: the skipped files showed as deleted | `git reset --mixed` |
+  | Reset soft | fine | JGit |
+  | Abort of a merge, cherry-pick or revert (hard reset at HEAD) | wrote every skipped file, cleared the bits | `git reset --hard` |
+  | Stash | the stash was right, but its hard reset wrote the skipped files | `git stash push -u` |
+  | Apply and pop a stash | cleared the bits: the skipped files showed as deleted | `git stash apply --index` |
+  | Unstage all (no search) | cleared the bits: the skipped files showed as deleted | `git reset` |
+  | Stage or unstage a folder that is partly skipped | staged the deletion of the skipped files under it, or showed it | `git add`, `git reset` |
+  | Discard, stage or unstage by path, commit, the merge backup | fine | JGit |
+  | Merge, cherry-pick, revert, rebase, pull, `read-tree -m -u`, `reset --merge` | fine: they run git | git |
+  | JGit's merge, cherry-pick, revert, rebase (when git can't run) | write the skipped files | JGit, as before |
+
+- **Now:** these actions ask `SparseCheckoutGit.applies`: `core.sparseCheckout` in the repository's config or the
+  worktree's own `config.worktree` (JGit doesn't read it; a linked worktree of a sparse repository is sparse too) and a
+  usable git. Then git does it, through `GitCliRemoteCommand.runLocal`, so LFS files, dialogs, progress and Cancel work as
+  in the worktree steps. Each keeps its guards and its partial clone prefetch. Without a sparse checkout, or without a
+  usable git, JGit does it as before.
+- **What differs:** reflog entries are git's, a refused checkout is git's message (`error: Your local changes ... would
+  be overwritten`), and a stash with a typed message is named `On main: wip`, as git names it, where JGit used the text
+  as typed. The index of a sparse repository that git wrote sparse (`index.sparse`) is still the "Convert index"
+  banner.
+- **Not done:** the management UI, a refusal where JGit's merge, cherry-pick, revert and rebase would be the fallback,
+  and telling the user that a new worktree of a sparse repository is sparse too (git copies the patterns).
+- **Found while probing:** the folder row's Stage button (`StageByDirectoryGitAction`) staged the deletion of the files
+  under a partly skipped folder, which a commit would have made real.
+- Details: CLAUDE.md, "Sparse checkouts". Tests: `SparseCheckoutActionsTest`, 27 tests, one repository whose files are
+  partly skipped, and for each action Leaf on one copy and git on the other, compared on the branch, the files on disk,
+  the skip-worktree bits, the index and the status.
+
 ## Staged lists the files of the commit that Amend rewrites (upstream issue 260, 2026-11-02)
 
 - **Request:** upstream issue 260, "Show last commit changes in staged changes when amending". Amend only filled the

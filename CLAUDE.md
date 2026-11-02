@@ -2699,7 +2699,8 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
 at the first entry it can't read: a split index has entries without a path (`Invalid path: `), a sparse one has folders
 (`Invalid path: b/`). So whatever reads the index fails: status, staging, uncommitted diffs, blame, commits,
 checkouts, stashes, merges. JGit reads the index before it changes anything, so nothing is left half done. A sparse
-checkout with a full index, and `feature.manyFiles` (version 4 without a checksum), are fine.
+checkout with a full index, and `feature.manyFiles` (version 4 without a checksum), are fine to read (what JGit writes
+into the sparse one is in Sparse checkouts, below).
 - `JGit.toGitError` turns a failure with a `CorruptObjectException` in its cause chain into `UnsupportedIndexError`
   when `unsupportedIndex` finds the reason in the index file. `indexExtensions` lists its extensions (gitformat-index
   versions 2 to 4: they come after the entries, so every entry is read past). `link` is split, `sdir` sparse, and
@@ -2722,6 +2723,53 @@ checkout with a full index, and `feature.manyFiles` (version 4 without a checksu
   discard read the index too.
 - Tests: `IndexExtensionsTest` (index files of every version that git 2.54 writes), `UnsupportedIndexTest` (Leaf's
   actions on split and sparse indexes, and the conversions), `UnsupportedIndexBannerTest`.
+
+**Sparse checkouts (fork-only, upstream issue 336, 2026-11-02, `data/git/sparse/SparseCheckoutGit.kt`):** after `git
+sparse-checkout set keep`, git leaves the files outside the patterns off the disk and gives their index entries the
+skip-worktree bit. JGit's status honours the bit, but whatever makes JGit write the working tree or rebuild the index
+doesn't: it writes the skipped files that a branch changes and clears their bit, so that `git status` stays clean and the
+user's sparse set is wider with no word, or it forgets the bit and the skipped files show as deleted, or stages their
+deletion. Probed on JGit 7.7 and git 2.54 against each action (the table is in `docs/fork/CHANGELOG.md`).
+- **The rule:** the actions that did this ask `SparseCheckoutGit.applies(repository)` and run git where it says yes:
+  `Repository.usesSparseCheckout()`, which is `core.sparseCheckout` in the config that JGit reads or in the worktree's
+  own `config.worktree`, where `git sparse-checkout` writes it and JGit doesn't read it (a linked worktree of a sparse
+  repository is sparse too, with its own file), and a usable git (`GitExecutableLocator`, which doesn't need the askpass
+  helper). Otherwise JGit does it as before: a repository that isn't sparse, or no git, which is the rare case where
+  Leaf can't find the git that set the sparse set up. A skip-worktree bit that `git update-index --skip-worktree` set
+  alone is not a sparse checkout, and `git sparse-checkout disable` clears both. The commands go through
+  `GitCliRemoteCommand.runLocal`, as the worktree steps do, so git writes LFS files through Leaf's filter, with Leaf's
+  dialogs and the processing screen's progress and Cancel. `SparseCheckoutGit.read` runs a read-only command without
+  them.
+- **The actions** (each keeps its guards and `PartialCloneFetch` prefetch, and falls back to JGit): checkout of a branch
+  and of a remote branch (`CheckoutBranchGitAction`, `CheckoutRemoteBranchGitAction`: `git switch`, `--track --create`
+  for a new local branch, and `git merge --ff-only` for the current one, after reading the ancestry as before so that
+  "can't fast-forward" is still `CannotFastForward`), `CreateBranchGitAction` (`git switch --create`, with the dialog's
+  two errors raised first), `CheckoutCommitGitAction` (`git switch --detach`), `ResetToCommitGitAction` (`git reset
+  --hard` and `--mixed`; soft changes no index), `ResetRepositoryStateGitAction` (`git reset --hard`, the abort of a
+  merge, cherry-pick or revert), `StashChangesGitAction` (`git stash push --include-untracked`), `ApplyStashGitAction`
+  and the pop that uses it (`git stash apply --index`, which restores the staged changes as JGit does), `UnstageAllGitAction`
+  without a list (`git reset`), and `UnstageByDirectoryGitAction` and `StageByDirectoryGitAction` (`git reset` and
+  `git add` with `--literal-pathspecs`, for a folder that is partly skipped: JGit staged the deletion of the files under
+  it that aren't on disk, which a commit would have made real).
+- **What changes:** reflog entries and messages are git's (`switch` writes `checkout: moving from a to b`, as the reflog
+  parser expects), a refused checkout is `GitCliError.CommandFailed` with git's own message, and a stash that has a
+  typed message is named as git names it, `On main: wip`, where JGit used the text as typed.
+  The stash is whatever `git stash push` makes, with git's identity, which includeIf may set.
+- **Already right** (probed, no change): JGit's commit, staging and unstaging of single paths, discard (paths are
+  explicit), the merge backup snapshot (`SnapshotStashCreateCommand`), and every git CLI operation: merge, cherry-pick,
+  revert, rebase, pull, `git read-tree -m -u` (a squash onto the latest main) and `git reset --merge`. JGit's own merge,
+  cherry-pick, revert and rebase, which run only when git can't, still write the skipped files, and so does every
+  action above where no usable git was found.
+- **Not done:** managing the sparse set from Leaf (`git sparse-checkout set`, `add`, `disable`), a refusal where JGit
+  would be the fallback, and telling the user that a new worktree of a sparse repository is sparse too (git copies the
+  patterns into the worktree's own `config.worktree`).
+- Tests: `SparseCheckoutActionsTest` (a sparse repository whose `keep/` and `mixed/a` stay, with `skip/` and `mixed/b`
+  skipped: every action above runs on one of two alike repositories and what git does on the other, and the branch,
+  files on disk, skip-worktree bits, index and status must agree; also a refused checkout, a linked worktree, the
+  diverged fast-forward and a branch ahead of its remote branch, `--track` with `branch.autoSetupMerge` off, nothing
+  to stash, the detection and the missing git). 25 mutations (each action's git route, `--index`, `--track`, the
+  stash's message and its nothing-to-stash check, the ancestry before `--ff-only`, the config file, the missing git)
+  were each caught by a named test, three of them after a test was added.
 
 **Partial clones (fork-only, `data/git/cli/remote/PartialCloneFetch.kt`):** a partial clone (`git clone
 --filter=blob:none`) has every commit and tree, but only the files that it checked out, and git downloads the others
