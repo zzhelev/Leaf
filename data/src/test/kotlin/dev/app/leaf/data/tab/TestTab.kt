@@ -34,6 +34,7 @@ import dev.app.leaf.data.git.compare.GetComparisonGitAction
 import dev.app.leaf.data.git.config.GetWorktreeCreationSettingsGitAction
 import dev.app.leaf.data.git.config.LoadSignOffConfigGitAction
 import dev.app.leaf.data.git.config.SaveWorktreeCreationSettingsGitAction
+import dev.app.leaf.data.git.log.FindCommitsGitAction
 import dev.app.leaf.data.git.log.JGitGraphRevWalker
 import dev.app.leaf.data.git.rebase.AbortRebaseGitAction
 import dev.app.leaf.data.git.rebase.ContinueRebaseGitAction
@@ -150,6 +151,7 @@ import dev.app.leaf.domain.usecases.AddIgnoreRulesUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.IncreaseLogCountUseCase
 import dev.app.leaf.domain.usecases.LoadLogUntilCommitUseCase
+import dev.app.leaf.domain.usecases.SearchLogUseCase
 import dev.app.leaf.domain.usecases.GetWorktreeCleanupUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import dev.app.leaf.domain.usecases.MergeBranchUseCase
@@ -301,6 +303,10 @@ class TestTab(
     /** Loads the log further than its first commits, as scrolling to its end does, and until a commit is there. */
     val increaseLogCount = IncreaseLogCountUseCase(repositoryData, useCaseExecutor, getLog, dataRefreshRunner)
     val loadLogUntilCommit = LoadLogUntilCommitUseCase(repositoryData, increaseLogCount)
+
+    /** The log's search of the whole history (upstream issue 277). */
+    val findCommits = FindCommitsGitAction(jgit)
+    val searchLog = SearchLogUseCase(getLog, findCommits, useCaseExecutor)
 
     val observeRepositoryToRefresh = ObserveRepositoryToRefreshUseCase(
         tabCoroutineScope = scope,

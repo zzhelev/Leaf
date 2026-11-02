@@ -548,6 +548,11 @@ interface TabScopeGitActionsModule {
     @Binds
     fun bindsGraphRevWalker(walker: JGitGraphRevWalker): GraphRevWalker
 
+    // Fork-only: the log's search of the whole history (upstream issue 277)
+    @Binds
+    @TabScope
+    fun bindsFindCommitsGitAction(action: FindCommitsGitAction): IFindCommitsGitAction
+
     @Binds
     @TabScope
     fun bindsGetPersistedCommitMessagesGitAction(walker: GetPersistedCommitMessagesGitAction): IGetPersistedCommitMessagesGitAction

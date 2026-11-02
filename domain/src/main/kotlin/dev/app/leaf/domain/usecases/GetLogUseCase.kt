@@ -36,6 +36,25 @@ class GetLogUseCase @Inject constructor(
 
         val hasUncommittedChanges = status != null && (status.staged.isNotEmpty() || status.unstaged.isNotEmpty())
 
+        val start = logStart(repository)
+
+        val r = graphLogGenerator.generate(
+            repository,
+            maxCommits = max(repositoryDataRepository.maxCommitsToLoadLimit, INITIAL_COMMITS_LOAD),
+            start.commits,
+            HashSet(start.stashes),
+            forcedFirstLaneBranchHash = if (hasUncommittedChanges) currentBranch?.hash else null,
+            pagination = pagination,
+        )
+
+        Either.Ok(r)
+    }
+
+    /**
+     * What the log's walk starts from (fork-only: the log search walks from the same commits), and the stashes among
+     * them. The refs' commits come first, then those that only another worktree's detached HEAD has.
+     */
+    suspend fun logStart(repository: String): LogStart {
         val branches = getBranchesGitAction(repository).okOrNull().orEmpty()
         val tags = getTagsGitAction(repository).okOrNull().orEmpty()
         val remoteBranches = getRemotesUseCase().okOrNull().orEmpty().flatMap { it.branchesList }
@@ -52,15 +71,9 @@ class GetLogUseCase @Inject constructor(
             .filter { it !in refHashes }
         val hashes = refHashes + otherWorktreeHeads
 
-        val r = graphLogGenerator.generate(
-            repository,
-            maxCommits = max(repositoryDataRepository.maxCommitsToLoadLimit, INITIAL_COMMITS_LOAD),
-            hashes,
-            HashSet(stashes),
-            forcedFirstLaneBranchHash = if (hasUncommittedChanges) currentBranch?.hash else null,
-            pagination = pagination,
-        )
-
-        Either.Ok(r)
+        return LogStart(hashes, stashes)
     }
 }
+
+/** The commits that the log's walk starts from, and which of them are stashes. */
+data class LogStart(val commits: List<String>, val stashes: List<String>)

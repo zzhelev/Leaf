@@ -84,6 +84,9 @@ import dev.app.leaf.ui.context_menu.*
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.resizePointerIconEast
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import org.eclipse.jgit.lib.Constants
 import org.jetbrains.compose.resources.DrawableResource
@@ -106,6 +109,9 @@ private val COMMIT_TOOLTIP_AVATAR_SIZE = 20.dp
 private const val DIVIDER_WIDTH = 8
 
 private const val LOG_BOTTOM_PADDING = 80
+
+/** How long a focus waits for the drawn log to have its commit, once the log loaded it (fork-only). */
+private val FOCUS_WAIT = 2.seconds
 
 private const val MIN_COMMITS_BEFORE_REQUESTING_MORE = 200
 
@@ -177,15 +183,24 @@ fun Log(
         }
     }
 
-    LaunchedEffect(logStatus.verticalScrollState, logStatus.commitList) {
+    // Fork-only: the log's search focuses a commit that the log has loaded a moment before (upstream issue 277). The
+    // collectors don't restart with the list, as an event sent while they did was lost, and a focus waits for the list
+    // that is drawn to have its commit.
+    val drawnCommitList by rememberUpdatedState(logStatus.commitList)
+
+    LaunchedEffect(logStatus.verticalScrollState) {
         launch {
             viewModel.focusCommit.collect { commit ->
-                scrollToCommit(logStatus.verticalScrollState, logStatus.commitList, commit.commit)
+                withTimeoutOrNull(FOCUS_WAIT) {
+                    snapshotFlow { drawnCommitList }.first { it.containsKey(commit.hash) }
+                }
+
+                scrollToCommit(logStatus.verticalScrollState, drawnCommitList, commit.commit)
             }
         }
         launch {
             viewModel.scrollToUncommittedChanges.collect {
-                scrollToUncommittedChanges(logStatus.verticalScrollState, logStatus.commitList)
+                scrollToUncommittedChanges(logStatus.verticalScrollState, drawnCommitList)
             }
         }
     }
@@ -377,8 +392,8 @@ private fun LogView(
                 scrollState = verticalScrollState,
                 horizontalScrollState = horizontalScrollState,
                 hasUncommittedChanges = hasUncommittedChanges,
-                searchFilter = (searchFilterValue as? LogSearch.SearchResults)?.matchingCommits,
-                focusedSearchMatch = (searchFilterValue as? LogSearch.SearchResults)?.focusedCommit?.hash,
+                searchFilter = (searchFilterValue as? LogSearch.SearchResults)?.matchingHashes,
+                focusedSearchMatch = (searchFilterValue as? LogSearch.SearchResults)?.focusedHit?.hash,
                 selectedCommit = selectedCommit,
                 logState = logState,
                 repositoryState = repositoryState,
@@ -565,7 +580,7 @@ fun SearchFilter(
                 ) {
                     if (searchFilterText.isNotEmpty()) {
                         Text(
-                            "${searchFilterResults.index}/${searchFilterResults.totalCount}",
+                            "${searchFilterResults.index}/${searchFilterResults.totalText}",
                             color = MaterialTheme.colors.onBackgroundSecondary,
                         )
                     }
@@ -609,7 +624,7 @@ fun SearchFilter(
 fun CommitsList(
     scrollState: LazyListState,
     hasUncommittedChanges: Boolean,
-    searchFilter: List<GraphCommit>?,
+    searchFilter: Set<String>?,
     focusedSearchMatch: String?,
     selectedCommit: Commit?,
     logState: LogState,
@@ -842,7 +857,7 @@ fun CommitsList(
                 branches = branches[graphNode.hash].orEmpty(),
                 tags = tags[graphNode.hash].orEmpty(),
                 currentBranch = logState.currentBranch,
-                matchesSearchFilter = searchFilter?.contains(graphNode),
+                matchesSearchFilter = searchFilter?.contains(graphNode.hash),
                 isFocusedSearchMatch = focusedSearchMatch == graphNode.hash,
                 horizontalScrollState = horizontalScrollState,
                 showCreateNewBranch = { onCreateBranch(graphNode.commit) },

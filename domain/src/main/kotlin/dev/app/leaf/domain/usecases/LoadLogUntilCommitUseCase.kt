@@ -23,6 +23,13 @@ private const val FIRST_STEP = 500
 /** How often a step may find that nothing was loaded, because the log wasn't ready, before the search gives up. */
 private const val MAX_STEPS_WITHOUT_LOADING = 3
 
+/**
+ * How many commits past a hit's depth the first step loads, when the search says how deep the commit is. The log's pages
+ * start from the lanes that the page before left open, which can order commits a little differently from a walk of the
+ * whole history, so the commit may be a few places further down than the walk found it.
+ */
+private const val EXPECTED_DEPTH_MARGIN = 100
+
 private val LOG_READY_TIMEOUT = 10.seconds
 
 /** How a search for a commit in the log ended. */
@@ -49,6 +56,10 @@ sealed interface LoadLogResult {
  * whatever it loads (a probe on 66,000 commits: 155 ms for a page, 190 ms for 10,000), so doubling finds a commit that
  * is far away in a few steps and one that is close by without loading much more than a page. A step can't be
  * stopped once it started, so cancelling takes effect when it ends.
+ *
+ * The log's search knows how deep the commit is, as it walked the whole history (fork-only, upstream issue 277). With
+ * [expectedDepth], the first step loads that far in one go, plus a margin, instead of the steps that double; a commit
+ * that is still missing after it is looked for by the doubling steps as before.
  */
 class LoadLogUntilCommitUseCase @Inject constructor(
     private val repositoryDataRepository: RepositoryDataRepository,
@@ -58,12 +69,14 @@ class LoadLogUntilCommitUseCase @Inject constructor(
     suspend operator fun invoke(
         hash: String,
         maxCommits: Int = MAX_COMMITS_LOADED_FOR_ONE,
+        expectedDepth: Int? = null,
         onProgress: (loadedCommits: Int) -> Unit = {},
     ): LoadLogResult {
         val startLog = awaitLoadedLog() ?: return LoadLogResult.LogUnavailable
         val ceiling = startLog.size + maxCommits
         var step = FIRST_STEP
         var stepsWithoutLoading = 0
+        var firstStepTo = expectedDepth?.plus(EXPECTED_DEPTH_MARGIN)
 
         while (true) {
             currentCoroutineContext().ensureActive()
@@ -75,7 +88,9 @@ class LoadLogUntilCommitUseCase @Inject constructor(
 
             if (before.size >= ceiling) return LoadLogResult.LimitReached(before.size - startLog.size)
 
-            val newLimit = min(before.size + step, ceiling)
+            // The first step goes as deep as the search says, when that is deeper than the log is
+            val newLimit = min(firstStepTo?.takeIf { it > before.size } ?: (before.size + step), ceiling)
+            firstStepTo = null
 
             increaseLogCountUseCase(newLimit)
 

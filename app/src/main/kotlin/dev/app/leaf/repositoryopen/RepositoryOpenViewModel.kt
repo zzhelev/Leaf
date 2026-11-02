@@ -29,10 +29,10 @@ import dev.app.leaf.domain.extensions.openFileInFolder
 import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
 import dev.app.leaf.domain.log.LogMove
+import dev.app.leaf.domain.log.MAX_SEARCH_DEPTH
 import dev.app.leaf.domain.log.SearchStep
 import dev.app.leaf.domain.log.logRefs
 import dev.app.leaf.domain.log.movedLogSelection
-import dev.app.leaf.domain.log.steppedSearchIndex
 import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.index.conversionSteps
 import dev.app.leaf.domain.lfs.GIT_LFS_URL
@@ -134,18 +134,6 @@ private const val MIN_TIME_IN_MS_TO_SHOW_LOAD = 500L
 private const val MIN_TIME_AFTER_GIT_OPERATION = 2000L
 private const val INCREMENTAL_COMMITS_LOAD = 500
 
-
-/**
- * Represents when the search filter is not being used or the results list is empty
- */
-private const val NONE_MATCHING_INDEX = 0
-
-/**
- * The search UI starts the index count at 1 (for example "1/10" to represent the first commit of the search result
- * being selected)
- */
-private const val FIRST_INDEX = 1
-
 private const val TAG = "TabViewModel"
 
 /** How long a rewrite's new commit is waited for in the log, to select it (fork-only). */
@@ -174,6 +162,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val refreshDataUseCase: RefreshDataUseCase,
     private val increaseLogCountUseCase: IncreaseLogCountUseCase,
     private val loadLogUntilCommitUseCase: LoadLogUntilCommitUseCase,
+    private val searchLogUseCase: SearchLogUseCase,
     private val blameFileUseCase: BlameFileUseCase,
     updatesRepository: UpdatesRepository,
     watchRegistrations: WatchRegistrations,
@@ -843,6 +832,19 @@ class RepositoryOpenViewModel @Inject constructor(
         .stateIn(LogState(true))
 
 
+    // Fork-only: the log's search of the whole history, not only the commits that it has loaded (upstream issue 277)
+    private val logSearch = LogSearchController(
+        scope = viewModelScope,
+        results = logSearchFilterResults,
+        loadedCommits = { logState.value.commitList },
+        searchHistory = { term -> searchLogUseCase(term).okOrNull() },
+        loadLogUntilCommit = { hash, depth ->
+            loadLogUntilCommitUseCase(hash, maxCommits = MAX_SEARCH_DEPTH, expectedDepth = depth)
+        },
+        focus = { commit -> _focusCommit.emit(commit) },
+    )
+
+
     /** How Files changed, Staged and Unstaged sort and show files. They share one setting. */
     private val filesViewState = appSettings.filesChangedView.stateIn(FilesViewState())
 
@@ -1078,7 +1080,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 }
 
                 CloseableView.LOG_SEARCH -> {
-                    logSearchFilterResults.value = LogSearch.NotSearching
+                    logSearch.close()
                 }
 
                 CloseableView.STAGED_CHANGES_SEARCH -> {
@@ -2028,22 +2030,6 @@ class RepositoryOpenViewModel @Inject constructor(
 
     private fun applyUncommittedChangesSelection() {
         selectedItem.value = SelectedItem.UncommittedChanges
-
-        val searchValue = logSearchFilterResults.value
-        if (searchValue is LogSearch.SearchResults) {
-            val lastIndexSelected = getLastIndexSelected()
-
-            logSearchFilterResults.value = searchValue.copy(index = lastIndexSelected)
-        }
-    }
-
-    private fun getLastIndexSelected(): Int {
-        val logSearchFilterResultsValue = logSearchFilterResults.value
-
-        return if (logSearchFilterResultsValue is LogSearch.SearchResults) {
-            logSearchFilterResultsValue.index
-        } else
-            NONE_MATCHING_INDEX
     }
 
     fun selectCommit(commit: Commit, isStash: Boolean, scrollToItem: Boolean = false) = viewModelScope.launch {
@@ -2053,17 +2039,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private fun applyCommitSelection(commit: Commit, isStash: Boolean, scrollToItem: Boolean) {
         selectedItem.value = SelectedItem.CommitItem(commit, isStash = isStash, scrollToItem = scrollToItem)
 
-        val searchValue = logSearchFilterResults.value
-        if (searchValue is LogSearch.SearchResults) {
-            var index = searchValue.commits.indexOfFirst { it.hash == commit.hash }
-
-            if (index == -1)
-                index = getLastIndexSelected()
-            else
-                index += 1  // +1 because UI count starts at 1
-
-            logSearchFilterResults.value = searchValue.copy(index = index)
-        }
+        // A hit that is clicked moves the search's counter to it
+        logSearch.commitSelected(commit.hash)
     }
 
     /**
@@ -2107,78 +2084,17 @@ class RepositoryOpenViewModel @Inject constructor(
         return target
     }
 
-    /** The search for the last term typed. Each new term cancels it, so that a slower earlier search can't win. */
-    private var logSearchJob: Job? = null
-
     fun onSearchValueChanged(searchTerm: String): Job {
-        logSearchJob?.cancel()
-
-        return viewModelScope.launch { searchLog(searchTerm) }.also { logSearchJob = it }
-    }
-
-    private suspend fun searchLog(searchTerm: String) {
-        val logStatusValue = logState.value
-
         savedSearchFilter = searchTerm
 
-        if (searchTerm.isNotBlank()) {
-            val lowercaseValue = searchTerm.lowercase()
-            val plotCommitList = logStatusValue.commitList
-
-            val matchingCommits = plotCommitList.commits.filter {
-                it.value.message.lowercase().contains(lowercaseValue) ||
-                        it.value.author.name.orEmpty().lowercase().contains(lowercaseValue) ||
-                        it.value.committer.name.orEmpty().lowercase().contains(lowercaseValue) ||
-                        it.value.hash.lowercase().contains(lowercaseValue)
-            }
-
-            var startingUiIndex = NONE_MATCHING_INDEX
-            // A newer term may have come while the commits were filtered
-            currentCoroutineContext().ensureActive()
-
-            if (matchingCommits.isNotEmpty()) {
-                _focusCommit.emit(matchingCommits.entries.first().value)
-                startingUiIndex = FIRST_INDEX
-            }
-
-            // TODO Instead of casting commits to list, use LinkedHashMap everywhere
-            logSearchFilterResults.value = LogSearch.SearchResults(matchingCommits.values.toList(), startingUiIndex)
-        } else {
-            logSearchFilterResults.value = LogSearch.SearchResults(emptyList(), NONE_MATCHING_INDEX, hasTerm = false)
-        }
+        return logSearch.search(searchTerm)
     }
 
-    suspend fun selectPreviousFilterCommit() = stepSearchResult(SearchStep.PREVIOUS)
+    suspend fun selectPreviousFilterCommit() = logSearch.step(SearchStep.PREVIOUS)
 
-    suspend fun selectNextFilterCommit() = stepSearchResult(SearchStep.NEXT)
+    suspend fun selectNextFilterCommit() = logSearch.step(SearchStep.NEXT)
 
-    /**
-     * Moves to the previous or next search result, wrapping at the ends (fork-only), and scrolls to it,
-     * also when it's the one already there, as with a single result. `update` keeps a step from putting an older
-     * list back over the results of a search typed meanwhile.
-     */
-    private suspend fun stepSearchResult(step: SearchStep) {
-        var commitToFocus: GraphCommit? = null
-
-        logSearchFilterResults.update { current ->
-            // The block runs again when another write came in between
-            commitToFocus = null
-
-            if (current !is LogSearch.SearchResults) return@update current
-
-            val newIndex = steppedSearchIndex(current.index, current.commits.size, step)
-
-            commitToFocus = current.commits.getOrNull(newIndex - 1) // The index starts at 1, the list at 0
-
-            if (newIndex == current.index) current else current.copy(index = newIndex)
-        }
-
-        commitToFocus?.let { _focusCommit.emit(it) }
-    }
-
-    fun closeSearch() {
-        logSearchFilterResults.value = LogSearch.NotSearching
-    }
+    fun closeSearch() = logSearch.close()
 
     fun addSearchToCloseableView() = tabScope.launch {
         addCloseableView(CloseableView.LOG_SEARCH)
