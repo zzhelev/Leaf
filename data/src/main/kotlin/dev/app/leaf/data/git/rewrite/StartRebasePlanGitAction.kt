@@ -7,6 +7,7 @@ import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.operations.GitCliOperations
 import dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand
+import dev.app.leaf.data.git.lfs.filter.LfsCheckout
 import dev.app.leaf.data.git.workspace.messageCleanup
 import dev.app.leaf.domain.commitmessage.cleanCommitMessage
 import dev.app.leaf.domain.errors.Either
@@ -63,7 +64,8 @@ private class PreparedRebase(
  * aside don't go back), with `--empty=drop` (a commit whose changes are there already is left out, as in the check),
  * `--force-rebase` (every commit is made again, signed as git's config says) and `--autostash` or `--no-autostash`, so
  * that `rebase.autoStash` doesn't decide for the user. Leaf's todo replaces git's whole, so what `rebase.autoSquash`
- * and `rebase.updateRefs` put in git's, and the cherry-picks that git leaves out of it, never reach the rebase.
+ * and `rebase.updateRefs` put in git's, and the cherry-picks that git leaves out of it, never reach the rebase. The LFS
+ * objects that the commits it replays need are downloaded before git starts ([LfsCheckout.Replay]), as for a rebase.
  *
  * When it stops, Leaf writes the plan's record ([PlanRecord]) into git's `rebase-merge` folder, which git removes when
  * the rebase ends or is aborted.
@@ -105,6 +107,7 @@ class StartRebasePlanGitAction @Inject constructor(
             operations.run(
                 prepared.gitDir.absolutePath,
                 args,
+                checkout = LfsCheckout.Replay(prepared.todo.onto, prepared.todo.replayed),
                 environment = mapOf("GIT_SEQUENCE_EDITOR" to sequenceEditor),
             ).bind()
         } finally {

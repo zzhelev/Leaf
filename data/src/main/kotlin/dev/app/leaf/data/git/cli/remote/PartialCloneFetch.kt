@@ -343,19 +343,36 @@ internal fun cherryPickTrees(repository: Repository, walk: RevWalk, commit: AnyO
  */
 internal fun rebaseTreeSets(repository: Repository, walk: RevWalk, onto: AnyObjectId): List<List<AnyObjectId?>> {
     val head = repository.resolve(Constants.HEAD) ?: return listOf(listOf(null, walk.parseTree(onto)))
-    val sets = mutableListOf<List<AnyObjectId?>>(listOf(walk.parseTree(head), walk.parseTree(onto)))
 
     walk.markStart(walk.parseCommit(head))
     walk.markUninteresting(walk.parseCommit(onto))
+    val replayed = walk.toList()
+    walk.reset()
 
-    for (commit in walk.toList()) {
+    return replayTreeSets(repository, walk, onto, replayed)
+}
+
+/**
+ * The sets of trees that a rebase reads as it replays [commits] onto [onto] (the empty tree for null, as `--root`
+ * starts): HEAD's and [onto]'s, which it checks out first, then each commit with its parent. A merge commit isn't
+ * replayed.
+ */
+internal fun replayTreeSets(
+    repository: Repository,
+    walk: RevWalk,
+    onto: AnyObjectId?,
+    commits: List<AnyObjectId>,
+): List<List<AnyObjectId?>> {
+    val sets = mutableListOf(listOf(walk.headTree(repository), onto?.let { walk.parseTree(it) }))
+
+    for (id in commits) {
+        val commit = walk.parseCommit(id)
+
         if (commit.parentCount <= 1) {
             val parent = commit.parents.firstOrNull()?.let { walk.parseTree(it) }
             sets += listOf(parent, walk.parseTree(commit))
         }
     }
-
-    walk.reset()
 
     return sets
 }

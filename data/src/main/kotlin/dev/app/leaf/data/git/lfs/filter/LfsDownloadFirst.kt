@@ -9,6 +9,7 @@ import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.remote.cherryPickTrees
 import dev.app.leaf.data.git.cli.remote.mergeTrees
 import dev.app.leaf.data.git.cli.remote.rebaseTreeSets
+import dev.app.leaf.data.git.cli.remote.replayTreeSets
 import dev.app.leaf.data.git.lfs.FetchLfsObjectsGitAction
 import dev.app.leaf.data.git.lfs.GitLfsSetup
 import dev.app.leaf.data.git.lfs.MAX_LFS_POINTER_SIZE
@@ -51,6 +52,12 @@ sealed interface LfsCheckout {
 
     /** A rebase of HEAD onto [onto]. */
     data class Rebase(val onto: String) : LfsCheckout
+
+    /**
+     * A rebase that replays [commits], oldest first, onto [onto] (the empty tree for null, as `--root` starts): a commit
+     * editor's plan, whose todo, not git's, says which commits.
+     */
+    data class Replay(val onto: String?, val commits: List<String>) : LfsCheckout
 }
 
 /**
@@ -60,10 +67,10 @@ sealed interface LfsCheckout {
  * operation before git starts, with nothing changed ([LfsDownloadFirstError]).
  *
  * The objects are those of the files that the operation's trees don't all have alike, the versions that a partial
- * clone downloads first too ([mergeTrees], [cherryPickTrees], [rebaseTreeSets]), which are LFS pointers at a path that
- * their tree's attributes give the LFS filter, and whose objects the store lacks ([lfsFilesToDownload]). They go in one
- * batch, with the processing screen's progress and Cancel. Where git-lfs is set up, it downloads them itself, as
- * Leaf's filter doesn't run. The filter downloads what this misses.
+ * clone downloads first too ([mergeTrees], [cherryPickTrees], [rebaseTreeSets], and [replayTreeSets] for a commit
+ * editor's plan), which are LFS pointers at a path that their tree's attributes give the LFS filter, and whose objects
+ * the store lacks ([lfsFilesToDownload]). They go in one batch, with the processing screen's progress and Cancel. Where
+ * git-lfs is set up, it downloads them itself, as Leaf's filter doesn't run. The filter downloads what this misses.
  */
 class LfsDownloadFirst @Inject constructor(
     private val jgit: JGit,
@@ -151,6 +158,13 @@ private fun treeSets(repository: Repository, walk: RevWalk, checkout: LfsCheckou
         is LfsCheckout.Rebase -> repository.resolve(checkout.onto)
             ?.let { rebaseTreeSets(repository, walk, it) }
             .orEmpty()
+
+        is LfsCheckout.Replay -> replayTreeSets(
+            repository,
+            walk,
+            checkout.onto?.let { repository.resolve(it) },
+            checkout.commits.mapNotNull { repository.resolve(it) },
+        )
     }
 }
 

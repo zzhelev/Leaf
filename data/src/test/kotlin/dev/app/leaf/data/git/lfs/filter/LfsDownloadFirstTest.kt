@@ -17,6 +17,8 @@ import dev.app.leaf.data.git.cli.remote.GIT_LFS_FILTERS
 import dev.app.leaf.data.git.cli.remote.TestRemoteCommand
 import dev.app.leaf.data.git.cli.remote.pathWithoutGitLfs
 import dev.app.leaf.data.git.lfs.lfsPointerText
+import dev.app.leaf.data.git.rewrite.CheckRebasePlanGitAction
+import dev.app.leaf.data.git.rewrite.StartRebasePlanGitAction
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.repositories.InMemoryRepositoryStateRepository
 import dev.app.leaf.domain.errors.Either
@@ -27,6 +29,11 @@ import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.TaskProgress
+import dev.app.leaf.domain.rewrite.BranchLine
+import dev.app.leaf.domain.rewrite.OntoBase
+import dev.app.leaf.domain.rewrite.PlanAction
+import dev.app.leaf.domain.rewrite.PlanRebaseOutcome
+import dev.app.leaf.domain.rewrite.RebasePlan
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -60,10 +67,10 @@ private const val B1 = "b.bin, version 1\n"
 private const val C1 = "c.bin, version 1\n"
 
 /**
- * The LFS objects that a merge, cherry-pick, revert or rebase needs, downloaded before git starts, where Leaf's LFS
- * filter applies (stage 2): a download that fails then changes nothing, where during git's checkout it stopped git
- * halfway. The objects are on [FakeLfsServer], and git runs without git-lfs unless a test says otherwise. Skipped
- * without the askpass helper.
+ * The LFS objects that a merge, cherry-pick, revert or rebase (a commit editor's too) needs, downloaded before git
+ * starts, where Leaf's LFS filter applies (stage 2): a download that fails then changes nothing, where during git's
+ * checkout it stopped git halfway. The objects are on [FakeLfsServer], and git runs without git-lfs unless a test says
+ * otherwise. Skipped without the askpass helper.
  */
 @DisabledOnOs(OS.WINDOWS)
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
@@ -198,6 +205,45 @@ class LfsDownloadFirstTest {
         assertEquals(Either.Ok(false), rebase(gitDir(), branch("feature")))
         assertEquals(B1, File(repo, "b.bin").readText())
         assertEquals(1, batchRequests(), "${server.requests}")
+    }
+
+    @Test
+    fun `a commit editor's plan downloads what its rebase checks out and replays first`(): Unit = runBlocking {
+        branchWithChanges()
+        commit("Add c", "c.bin" to C1)
+        // feature is checked out nowhere, so the plan's rebase runs here, from another branch
+        git.run(repo, "switch", "-q", "-c", "other", "main~2")
+        val remote = remote()
+        checkOutThroughLeaf(remote)
+        File(serverStorage, oid(B1)).delete()
+        File(serverStorage, oid(C1)).delete()
+        val head = git.run(repo, "rev-parse", "HEAD")
+        val startPlan = StartRebasePlanGitAction(
+            jgit,
+            remote.command,
+            testGitCliOperations(jgit, remote.gitCli),
+            CheckRebasePlanGitAction(jgit, remote.gitCli),
+        )
+
+        // The first checkout brings main's c.bin, and replaying feature's commit its b.bin
+        val refused = startPlan(gitDir(), featureEditedOntoMain(), autostash = false)
+
+        val files = (refused.error() as LfsDownloadFirstError).files.map { it.path }
+        assertEquals(setOf("b.bin", "c.bin"), files.toSet())
+        assertNothingChanged(remote, head)
+        assertFalse(File(repo, "c.bin").exists())
+        assertFalse(File(repo, ".git/rebase-merge").exists())
+
+        File(serverStorage, oid(B1)).writeText(B1)
+        File(serverStorage, oid(C1)).writeText(C1)
+        server.requests.clear()
+
+        val outcome = (startPlan(gitDir(), featureEditedOntoMain(), autostash = false) as Either.Ok).value
+
+        assertEquals(false, (outcome as PlanRebaseOutcome.Stopped).atConflicts)
+        assertEquals(1, batchRequests(), "${server.requests}")
+        assertEquals(listOf(A2, B1, C1), listOf("a.bin", "b.bin", "c.bin").map { File(repo, it).readText() })
+        assertEquals("", leafGit(remote, "status", "--porcelain"))
     }
 
     @Test
@@ -399,6 +445,17 @@ class LfsDownloadFirstTest {
 
         git.run(repo, "add", "-A")
         git.run(repo, "commit", "-q", "-m", message)
+    }
+
+    /** A commit editor's plan that moves feature's one commit onto main's tip, and stops there for an edit. */
+    private fun featureEditedOntoMain(): RebasePlan {
+        val feature = commit(git.run(repo, "rev-parse", "feature").trim())
+            .copy(parentsHashes = listOf(git.run(repo, "rev-parse", "feature^").trim()))
+        val line = BranchLine("refs/heads/feature", "refs/heads/main", listOf(feature))
+
+        return RebasePlan.of(line, listOf(feature))
+            .withAction(feature.hash, PlanAction.EDIT)
+            .withOnto(OntoBase("refs/heads/main", git.run(repo, "rev-parse", "main").trim()))
     }
 
     /** Writes the working tree's LFS files again through Leaf's filter, as Leaf's clone leaves them. */

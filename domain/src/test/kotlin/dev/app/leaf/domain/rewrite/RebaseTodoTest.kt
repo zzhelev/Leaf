@@ -75,6 +75,14 @@ class RebaseTodoTest {
     }
 
     @Test
+    fun `what git replays is every line but the drops, twins and edits included, in the todo's order`() {
+        val todo = RebaseTodo("base", "m", listOf("drop a", "drop b", "pick twin-b", "fixup c", "edit d", "pick e"))
+
+        assertEquals(listOf("twin-b", "c", "d", "e"), todo.replayed)
+        assertEquals(emptyList<String>(), RebaseTodo("base", "base", listOf("drop a")).replayed)
+    }
+
+    @Test
     fun `an edit is an edit line, of the twin when the commit gets a new message`() {
         val edited = plan.withAction("c", EDIT)
 

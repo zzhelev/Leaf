@@ -38,7 +38,11 @@ data class RebaseTodo(
     val upstream: String?,
     val onto: String?,
     val lines: List<String>,
-)
+) {
+    /** The commits that git replays, oldest first: those that [lines] pick, edit or fix up, twins included. */
+    val replayed: List<String>
+        get() = lines.filterNot { it.startsWith("drop ") }.map { it.substringAfter(' ') }
+}
 
 /**
  * The twins that the plan needs for `git rebase -i` ([TwinCommit]), from the first row that changes: a group with a new
