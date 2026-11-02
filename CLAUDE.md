@@ -3703,6 +3703,64 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   - They are global: `StatusSectionsConfig` (app singleton) → `AppSettingsRepository.statusSectionSizes`, stored in the
     prefs node as `statusStagedShare` and `statusCommitFieldHeight`, like the pane widths. `StatusPane` keeps a local
     copy during a drag and sends `StatusAction.SectionSizesChanged` when it ends.
+- **The amended commit's files under Staged (fork-only, upstream issue 260, 2026-11-02, `ui/status/AmendedFiles.kt`,
+  `AmendedFilesSection.kt`, `repositoryopen/AmendedFilesController.kt`):** while Amend is on, Staged lists the files that
+  the commit being amended changes after its own rows, under "In the last commit" and a count (`CountPill`). An amend
+  commits the index (`DoCommitGitAction`: `setAmend(true)`, no `setAll`), so the amended commit is its parent plus
+  `HEAD~` to the index, and Staged (`HEAD` to the index) only had the new part. Chosen with the user from a mockup of
+  three options, open by default: this group; Staged as `HEAD~` to the index (as other clients do, where unstaging a
+  file takes it out of the commit), which would change Stage all, Unstage all, Discard, hunk staging and the "nothing
+  staged" blocker and needs a diff type of the index against the parent; a switch in the header, which needs that type
+  too. The group only adds information.
+  - **Which commit** (`amendedCommit`): the one that the commit message's "Amend last commit" item says is amended
+    (`commitMessageHeader(...).amend?.isOn`, so the rule is the menu's): HEAD with Amend on outside an operation, and at
+    an interactive rebase's edit stop (`isAmenableRebaseInteractive`) the stopped commit with that stop's own switch. HEAD
+    is `currentBranch`'s hash in the loaded log (`StatusViewModelExtender.headCommit`; the last answer stays while they
+    reload). At an edit stop `rebase-merge/amend` is HEAD, for git's rebase and JGit's. A merge, cherry-pick or revert has
+    no Amend, and neither has a rebase stop with conflicts, where the field is read-only. `isAmendRebaseInteractive` alone
+    is true at every stop of an interactive rebase, so it can't be used on its own.
+  - **Its files:** `AmendedFilesController` reads `GetCommitDiffEntriesUseCase(commit)`, the commit pane's list: against
+    the first parent (a merge commit lists what it brought in), an empty tree for a root commit (every file added),
+    renames as one row. It reads when the commit changes (a commit's files don't), never for a status refresh, which
+    gives the same hash again (`distinctUntilChanged` by hash). Another commit (HEAD moved from a terminal) reads again
+    and the first one's files stay until they arrive. A failure is `AmendedFiles.error`: the group says "Couldn't list
+    the files" and "Try again" (`StatusAction.RetryAmendedFiles`). It runs while the pane isn't shown too.
+  - **The rows** (`amendedGroup`) are built as Staged's are: `buildFileRows` over the commit pane's `toFileItems`, with
+    Staged's sort and view (list, columns, tree) and its search (`matchesSearch`, a renamed file by the name it had).
+    The count is the files shown, and a search that matches none leaves the group out, as Staged shows no row then. Its
+    folders close apart from Staged's (`amendedCollapsedFolders`, cleared with the search), and a click on the header
+    closes it (`amendedCollapsed`); both start open again each time Amend goes off. `StatusState.amended` is next to
+    `staged` and never in it, so Stage all, Unstage all (`entriesShown`, `bulkTarget`), the finish blockers and the commit
+    buttons never see it.
+  - **The list** (`ChangedFilesList(section = FilesSection)`): the rows come after the list's own in the same `LazyColumn`
+    (one scroll, one scrollbar), with `section:` in front of their keys, as a folder both lists show has the same key
+    (`dir:<path>`) in tree view and the list refuses it. The file row's content is shared (`FileRowContent`). They are
+    quieter (`LocalMutedRows`: the name at 80% and the icon at 75%, which keeps the contrast), have no hover button,
+    double-click or keyboard position, and their menu is the commit pane's (`committedChangesEntriesContextMenuItems`).
+    Only Staged gets a section (`StatusChangesList`).
+  - **A click** (`StatusAction.OpenAmendedFile`) opens that commit's diff of the file: `DiffSelected.CommitedChanges`
+    with `CommitDiff(entry)`, as the commit pane does, while the uncommitted changes stay selected. The row stays
+    highlighted (`StatusState.selectedAmendedEntry`, by identity). `DiffFollowController` closes a commit's diff only when
+    the selection or the commit pane changes, so a refresh doesn't. `RepositoryOpenViewModel` closes such a diff
+    (`isAmendedFileDiffStale`, by the entries the group listed last, `amendedEntries`) when the group goes (Amend off, the
+    commit), when another commit's files replace it, and when anything but the uncommitted changes is selected.
+  - **Not done:** Up and Down don't move from Staged's rows into the group; a "take out of commit" action for a file of
+    the group, which is what B would have given; and Staged's height doesn't grow with the group, so in a short window
+    its files start below the fold, with the header and count showing (at 640 px of pane, two staged files leave room for
+    the header only).
+  - Tests: `AmendingShowsLastCommitFilesTest` (data, a `TestTab` with real git: a normal commit, a root commit, an empty
+    one, a merge and a rename against git's own list; an amend where the group's files and the staged ones are together
+    the amended commit's files, with changes, with none and on a root commit; a rebase's edit stop, where
+    `commitToAmendId` is HEAD, and a stop with conflicts, where there is none), `AmendedFilesTest` (which commit is
+    amended in every repository state and switch, the rows against Staged's sort, view and search, the state with and
+    without staged files, Stage all and Unstage all unchanged, the rule for closing a diff), `AmendedFilesControllerTest`
+    (no read for the same commit, the files before staying, the last commit winning, failure and Try again) and
+    `AmendedFilesSectionTest` (the pane rendered at 330 px: the order, clicks, the closed group, hover, double click, the
+    tree sharing a folder with Staged, a failure, the selected row, the quieter names in both themes, Unstaged without it;
+    set `LEAF_RENDER_DIR` for PNGs in two styles and both themes). 13 mutations were each caught by a named test. The
+    real tab ran through the Dagger graph against demo repositories (Amend on and off, a file's diff opening and closing
+    with the group, a commit selected, HEAD moved from a terminal, the amend itself, and a root commit, a merge commit
+    and a rebase's edit stop), and the real `StatusPane` was rendered at 640 and 960 px in two styles and both themes.
 - **Files changed pane sections (fork-only):** one handle resizes the commit message below the files list, the same
   way. `CommitChangesSectionSizes` holds the message height (default 120 dp); the files list keeps 100 dp and the
   message 40 dp. The author footer is laid out outside the fitted area, so its 72 dp isn't part of the model. Saved

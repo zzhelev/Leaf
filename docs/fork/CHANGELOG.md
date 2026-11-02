@@ -2,6 +2,44 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Staged lists the files of the commit that Amend rewrites (upstream issue 260, 2026-11-02)
+
+- **Request:** upstream issue 260, "Show last commit changes in staged changes when amending". Amend only filled the
+  message. An amend commits the index, so the amended commit is the last commit's files plus what is staged, and Staged
+  listed only what is staged: the commit's own files showed nowhere in the pane.
+- **Chosen with the user** (2026-11-02, from a mockup of three options): a group under Staged's rows, open by default.
+  The alternatives were Staged becoming the whole amended commit (`HEAD~` to the index, where unstaging a file would take
+  it out of the commit, as other clients do) and a switch in Staged's header. Both change what Stage all, Unstage all,
+  Discard, hunk staging and the "nothing staged" blocker mean, and need a diff of the index against the parent. The group
+  only adds information.
+- **Now:** while Amend is on, "In the last commit" and a count come after Staged's rows, then the files that commit
+  changes, in the same list, with the same sort, view (list, columns or tree), search and renames. The rows are a little
+  quieter than Staged's and have no stage button. A click opens that commit's diff of the file, and the row stays
+  highlighted; the uncommitted changes stay selected. Clicking the header closes the group. With nothing staged, the
+  group is all that shows, which is the case of an amend that only changes the message.
+- **Which commit:** the last one while Amend is on, and at an interactive rebase's edit stop, where Amend is on at first,
+  the commit that stopped (HEAD, which `rebase-merge/amend` names). Not during a merge, cherry-pick or revert, nor at a
+  rebase stop with conflicts, where the field is read-only and there is no Amend. A root commit lists every file as
+  added, and a merge commit what it brought in over its first parent, as Files changed shows them.
+- **It follows:** a status refresh reads nothing, as the commit's files don't change. HEAD moving (a commit from a
+  terminal) reads the new commit's files, and the old ones stay until they arrive. Turning Amend off, or the commit,
+  takes the group away, and a diff opened from it closes with it, as it does when a commit is selected in the log.
+- **Not touched:** Stage all, Unstage all, Discard and the commit buttons never see the group; the files stay out of
+  Staged's list.
+- **Not done:** Up and Down don't move from Staged's rows into the group; a "take out of commit" action for a file of the
+  group; and Staged's height doesn't grow with it, so in a short window the group's files start below the fold (the header
+  and its count show).
+- Tests: the group's files against git for a normal commit, a root commit, a merge and a rename, an amend whose staged and
+  group files are together the amended commit's files (with changes, with none, and on a root commit), and a rebase's edit
+  stop and its other stops, in a tab with real git; which commit is amended in every repository state; the rows against
+  Staged's sort, view and search; the controller (no read for a refresh, the files before staying, the last commit
+  winning, failure and Try again); the rendered pane (clicks, closing, the tree sharing a folder with Staged, hover, a
+  failure, the selected row, the quieter names in both themes). 13 mutations, each caught by a named test. The real tab
+  ran through the Dagger graph against demo repositories: Amend on and off, a file's diff opening and closing with the
+  group, a commit selected, HEAD moved from a terminal, the commit itself, and a root commit, a merge commit and a
+  rebase's edit stop; the real pane was rendered at two heights in two styles and both themes.
+- Details: CLAUDE.md, "Sorting and grouping", the amended commit's files.
+
 ## LFS without git-lfs: the commit editor's plan downloads first (2026-11-02)
 
 - **Request:** found while rebasing the LFS stages onto `main`, which had the commit editor by then.
