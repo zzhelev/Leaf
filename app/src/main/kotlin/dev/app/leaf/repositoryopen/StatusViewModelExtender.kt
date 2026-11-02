@@ -83,6 +83,7 @@ class StatusViewModelExtender @AssistedInject constructor(
     private val signOffChanges: SignOffChanges,
     private val getCommitlintRulesUseCase: GetCommitlintRulesUseCase,
     private val getCommitTemplateUseCase: GetCommitTemplateUseCase,
+    private val getCommitDiffEntriesUseCase: GetCommitDiffEntriesUseCase,
     @Assisted private val viewModelScope: CoroutineScope,
     @Assisted private val filesViewState: StateFlow<FilesViewState>,
     @Assisted private val diffSelected: StateFlow<DiffSelected?>,
@@ -266,6 +267,45 @@ class StatusViewModelExtender @AssistedInject constructor(
             }
             .mutableStateIn(viewModelScope, false)
 
+    /**
+     * Fork-only (upstream issue 260): the commit that HEAD is at, which Amend rewrites. The last answer stays while the
+     * branch or the log reload, so that the group of its files doesn't flicker.
+     */
+    private val headCommit: Flow<Commit?> = combine(
+        repositoryDataRepository.currentBranch.filter { it !is DataState.Loading },
+        repositoryDataRepository.log.filter { it !is DataState.Loading },
+    ) { branch, log ->
+        branch.dataOrNull()?.let { log.dataOrNull()?.get(it.hash)?.commit }
+    }
+
+    /** Fork-only: the files of the commit that the next commit amends, which Staged lists after its own. */
+    private val amendedFilesController = AmendedFilesController(
+        scope = viewModelScope,
+        target = combine(
+            repositoryDataRepository.repositoryState.filter { it !is DataState.Loading },
+            rebaseInteractiveState,
+            isAmend,
+            isAmendRebaseInteractive,
+            headCommit,
+        ) { repositoryState, rebaseState, isAmend, isAmendRebase, head ->
+            amendedCommit(repositoryState.dataOrNull() ?: RepositoryState.SAFE, rebaseState, isAmend, isAmendRebase, head)
+        },
+        load = { commit -> getCommitDiffEntriesUseCase(commit) },
+    )
+
+    /** Fork-only: the amended commit's files, or null while nothing is amended. */
+    val amendedFiles: StateFlow<AmendedFiles?> = amendedFilesController.files
+
+    /** Fork-only: the group is open each time Amend is turned on, and so are its folders. */
+    private val amendedCollapsed = MutableStateFlow(false)
+    private val amendedCollapsedFolders = MutableStateFlow(CollapsedFolders())
+
+    /** Fork-only: the amended commit's file whose diff is open, which its row highlights. */
+    private val selectedAmendedEntry = combine(diffSelected, amendedFiles) { selected, files ->
+        val shown = (selected as? DiffSelected.CommitedChanges)?.items?.singleOrNull()?.diffEntry
+
+        shown?.takeIf { entry -> files?.changes?.any { it === entry } == true }
+    }.distinctUntilChanged()
 
     private var persistMessageJob: Job? = null
 
@@ -426,6 +466,10 @@ class StatusViewModelExtender @AssistedInject constructor(
         messageStartInputs,
         repositoryDataRepository.cherryPickSequence.map { it.dataOrNull() }.distinctUntilChanged(),
         repositoryDataRepository.rebaseStop.map { it.dataOrNull() }.distinctUntilChanged(),
+        amendedFiles,
+        amendedCollapsed,
+        amendedCollapsedFolders,
+        selectedAmendedEntry,
     )
         .stateIn(StatusState())
 
@@ -478,6 +522,15 @@ class StatusViewModelExtender @AssistedInject constructor(
 
         isSearchingFlow(EntryType.STAGED).collectLatestInCoroutineScope {
             stagedCollapsedFolders.update(CollapsedFolders::withoutSearch)
+            amendedCollapsedFolders.update(CollapsedFolders::withoutSearch)
+        }
+
+        // Fork-only: the group opens again the next time Amend is turned on
+        amendedFiles.map { it != null }.distinctUntilChanged().collectLatestInCoroutineScope { isAmending ->
+            if (!isAmending) {
+                amendedCollapsed.value = false
+                amendedCollapsedFolders.value = CollapsedFolders()
+            }
         }
 
         isSearchingFlow(EntryType.UNSTAGED).collectLatestInCoroutineScope {
@@ -603,6 +656,15 @@ class StatusViewModelExtender @AssistedInject constructor(
         }
 
         StatusAction.ToggleSignOff -> toggleSignOff()
+
+        is StatusAction.OpenAmendedFile ->
+            onDiffSelected(DiffSelected.CommitedChanges(setOf(DiffType.CommitDiff(action.entry))))
+
+        StatusAction.ToggleAmendedGroup -> amendedCollapsed.update { !it }
+        is StatusAction.AmendedDirectoryToggle ->
+            amendedCollapsedFolders.update { it.toggled(action.path, isSearching(EntryType.STAGED)) }
+
+        StatusAction.RetryAmendedFiles -> amendedFilesController.retry()
     }
 
     /** Fork-only: the commit message's "Add Signed-off-by" switches the repository's setting, and keeps its format. */

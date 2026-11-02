@@ -24,6 +24,7 @@ import dev.app.leaf.domain.sorting.buildFileRows
 import dev.app.leaf.domain.sorting.inFolder
 import dev.app.leaf.domain.sorting.toFileItems
 import dev.app.leaf.ui.UiDataState
+import org.eclipse.jgit.diff.DiffEntry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -88,6 +89,13 @@ data class StatusState(
     val commitlintRules: CommitlintRules? = null,
     /** The branch's ticket key and git's commit template, which an empty field offers to start from (fork-only). */
     val messageStartInputs: MessageStartInputs = MessageStartInputs(),
+    /**
+     * The files of the commit that Amend rewrites, listed after Staged's own rows while Amend is on (fork-only, upstream
+     * issue 260). Apart from [staged], so that Stage all and Unstage all never see them.
+     */
+    val amended: AmendedGroup? = null,
+    /** The file of the amended commit whose diff is open, which its row highlights (fork-only). */
+    val selectedAmendedEntry: DiffEntry? = null,
 ) {
     /** What the commit field shows about its message, as git will commit it (fork-only). */
     val messageLayout: CommitMessageLayout = commitMessageLayout(commitMessage.text, messageCleanup)
@@ -169,6 +177,7 @@ private class StatusLists(
     val unstaged: List<StatusEntry>,
     val stagedRows: List<FileRow<StatusEntry>>,
     val unstagedRows: List<FileRow<StatusEntry>>,
+    val amended: AmendedGroup?,
     val showSearchStaged: Boolean,
     val searchFilterStaged: TextFieldValue,
     val showSearchUnstaged: Boolean,
@@ -208,6 +217,10 @@ fun combineStatusState(
     messageStartInputs: Flow<MessageStartInputs> = flowOf(MessageStartInputs()),
     cherryPickSequence: Flow<CherryPickSequence?> = flowOf(null),
     rebaseStop: Flow<RebaseStop?> = flowOf(null),
+    amendedFiles: Flow<AmendedFiles?> = flowOf(null),
+    amendedCollapsed: Flow<Boolean> = flowOf(false),
+    amendedCollapsedFolders: Flow<CollapsedFolders> = flowOf(CollapsedFolders()),
+    selectedAmendedEntry: Flow<DiffEntry?> = flowOf(null),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -218,6 +231,9 @@ fun combineStatusState(
         viewState,
         stagedCollapsedFolders,
         unstagedCollapsedFolders,
+        amendedFiles,
+        amendedCollapsed,
+        amendedCollapsedFolders,
     ) {
             statusDataState,
             showSearchStaged,
@@ -227,6 +243,9 @@ fun combineStatusState(
             viewState,
             stagedCollapsedFolders,
             unstagedCollapsedFolders,
+            amendedFiles,
+            amendedCollapsed,
+            amendedCollapsedFolders,
         ->
         val status = statusDataState.data ?: Status()
         val staged = status.staged.prioritizeConflicts()
@@ -247,6 +266,14 @@ fun combineStatusState(
                 viewState,
                 searchFilter = activeSearch(showSearchUnstaged, searchFilterUnstaged),
                 unstagedCollapsedFolders,
+            ),
+            // Fork-only: the group follows Staged's search and view
+            amended = amendedGroup(
+                amendedFiles,
+                viewState,
+                searchFilter = activeSearch(showSearchStaged, searchFilterStaged),
+                isCollapsed = amendedCollapsed,
+                folders = amendedCollapsedFolders,
             ),
             showSearchStaged = showSearchStaged,
             searchFilterStaged = searchFilterStaged,
@@ -281,6 +308,7 @@ fun combineStatusState(
         messageStartInputs,
         cherryPickSequence,
         rebaseStop,
+        selectedAmendedEntry,
     ) {
             lists,
             swapUncommittedChanges,
@@ -306,6 +334,7 @@ fun combineStatusState(
             messageStartInputs,
             cherryPickSequence,
             rebaseStop,
+            selectedAmendedEntry,
         ->
         val repositoryState = repositoryStateDateState.data ?: RepositoryState.SAFE
         val isLoading = lists.statusDataState.isLoading || repositoryStateDateState.isLoading
@@ -344,6 +373,8 @@ fun combineStatusState(
             messageStartInputs = messageStartInputs,
             cherryPickSequence = cherryPickSequence,
             rebaseStop = rebaseStop,
+            amended = lists.amended,
+            selectedAmendedEntry = selectedAmendedEntry,
         )
     }
 }

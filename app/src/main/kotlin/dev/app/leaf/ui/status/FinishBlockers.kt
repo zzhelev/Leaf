@@ -4,6 +4,7 @@
 package dev.app.leaf.ui.status
 
 import dev.app.leaf.domain.models.RebaseInteractiveState
+import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.StatusType
 
 /**
@@ -62,9 +63,14 @@ private fun StatusState.uneditedStart(): FinishBlocker.UneditedStart? = messageS
 
 /** An interactive rebase stopped at a commit that the user can amend. */
 val StatusState.isAmenableRebaseInteractive: Boolean
-    get() = repositoryState.isRebasing &&
-            rebaseInteractiveState is RebaseInteractiveState.ProcessingCommits &&
-            rebaseInteractiveState.isCurrentStepAmenable
+    get() = isAmenableRebaseInteractive(repositoryState, rebaseInteractiveState)
+
+fun isAmenableRebaseInteractive(
+    repositoryState: RepositoryState,
+    rebaseInteractiveState: RebaseInteractiveState,
+): Boolean = repositoryState.isRebasing &&
+        rebaseInteractiveState is RebaseInteractiveState.ProcessingCommits &&
+        rebaseInteractiveState.isCurrentStepAmenable
 
 /**
  * Whether Commit works outside an operation: a message, staged files, and no conflicts (a squash merge's). Fork-only: not

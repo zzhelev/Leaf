@@ -71,6 +71,7 @@ import dev.app.leaf.theme.RoleColors
 import dev.app.leaf.theme.roleBorder
 import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.ChangedFilesList
+import dev.app.leaf.ui.FilesSection
 import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
@@ -413,6 +414,15 @@ fun StatusChangesList(
             ?.let { request -> { onIgnore(request) } }
     }
 
+    // Fork-only (upstream issue 260): the files of the commit that Amend rewrites, after Staged's own rows
+    val amendedSection = if (entryType == EntryType.STAGED) {
+        statusState.amended?.let { group ->
+            amendedFilesSection(group, statusState.selectedAmendedEntry, onAction, onBlameFile, onHistoryFile)
+        }
+    } else {
+        null
+    }
+
     ChangesList(
         title = title,
         actionInfo = actionInfo,
@@ -464,6 +474,7 @@ fun StatusChangesList(
             }
         },
         modifier = modifier,
+        section = amendedSection,
     )
 }
 
@@ -501,6 +512,8 @@ fun ChangesList(
     onAction: (StatusAction) -> Unit,
     onCopy: (relative: Boolean, entries: List<StatusEntry>) -> Unit,
     modifier: Modifier = Modifier,
+    /** Rows after the list's own, under a header of their own (fork-only). */
+    section: FilesSection<*>? = null,
 ) {
     fun entriesContextMenu(): (StatusEntry) -> List<ContextMenuElement> = { statusEntry ->
         statusEntryContextMenuItems(
@@ -639,6 +652,7 @@ fun ChangesList(
                     onAction(StatusAction.FolderRowAction(folder.path, entryType))
                 }
             },
+            section = section,
         )
     }
 }

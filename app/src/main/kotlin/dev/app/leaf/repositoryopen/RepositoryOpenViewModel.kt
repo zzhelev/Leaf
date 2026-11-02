@@ -97,6 +97,7 @@ import dev.app.leaf.ui.VerticalSplitPaneConfig
 import dev.app.leaf.ui.WorktreePickerState
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.status.StatusAction
+import dev.app.leaf.ui.status.isAmendedFileDiffStale
 import dev.app.leaf.ui.status.operationInProgress
 import dev.app.leaf.ui.UiDataState
 import dev.app.leaf.ui.toUiDataState
@@ -299,6 +300,9 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val diffSelected: StateFlow<DiffSelected?>
         field = MutableStateFlow<DiffSelected?>(null)
+
+    /** The files that the amend group listed last, which a diff may have been opened from (fork-only, upstream issue 260). */
+    private var amendedEntries: List<DiffEntry> = emptyList()
 
     private val closeableViews = ArrayDeque<CloseableView>()
     private val closeableViewsMutex = Mutex()
@@ -1133,6 +1137,21 @@ class RepositoryOpenViewModel @Inject constructor(
         comparisonState.map { it != null }.distinctUntilChanged().drop(1).filter { !it }.collectLatestInViewModel {
             clearComparisonDiff()
         }
+
+        // Fork-only (upstream issue 260): a diff opened from the amend group goes with it: when Amend is turned off or the
+        // commit is made, when the files of another commit replace its file, and when anything but the uncommitted changes
+        // is selected, as the pane that held the group is gone
+        combine(selectedItem, statusViewModelExtender.amendedFiles) { item, files -> item to files?.changes.orEmpty() }
+            .collectLatestInViewModel { (item, listed) ->
+                val shown = (diffSelected.value as? DiffSelected.CommitedChanges)?.items?.singleOrNull()?.diffEntry
+
+                if (isAmendedFileDiffStale(shown, amendedEntries, listed, item == SelectedItem.UncommittedChanges)) {
+                    diffSelected.value = null
+                    removeCloseableView(CloseableView.DIFF)
+                }
+
+                amendedEntries = listed
+            }
 
         // Fork-only: closes what showed the files of the worktree that the tab switched away from
         repositoryDataRepository.repositorySelectionState.worktreeSwitches().collectLatestInViewModel {

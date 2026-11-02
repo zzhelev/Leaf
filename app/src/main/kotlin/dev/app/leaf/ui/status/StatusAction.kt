@@ -10,6 +10,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.sorting.DiscardAllPlan
 import dev.app.leaf.domain.sorting.FilesViewState
+import org.eclipse.jgit.diff.DiffEntry
 
 sealed interface StatusAction {
     data class EntryAction(val statusEntry: StatusEntry) : StatusAction
@@ -84,4 +85,16 @@ sealed interface StatusAction {
 
     /** Switches the repository's sign-off setting, from the commit message's menu (fork-only). */
     data object ToggleSignOff : StatusAction
+
+    /** Opens the diff of [entry], a file of the commit that Amend rewrites, as that commit changed it (fork-only). */
+    data class OpenAmendedFile(val entry: DiffEntry) : StatusAction
+
+    /** Closes or opens the group of the amended commit's files (fork-only). */
+    data object ToggleAmendedGroup : StatusAction
+
+    /** Closes or opens a folder of the group's tree (fork-only). */
+    data class AmendedDirectoryToggle(val path: String) : StatusAction
+
+    /** Reads the amended commit's files again after a failure (fork-only). */
+    data object RetryAmendedFiles : StatusAction
 }

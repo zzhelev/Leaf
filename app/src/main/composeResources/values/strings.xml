@@ -2048,4 +2048,7 @@
     <string name="changes_pane_operation_squash">squash merge</string>
     <string name="quick_actions_hide_changes_pane">Hide changes pane</string>
     <string name="quick_actions_show_changes_pane">Show changes pane</string>
+    <string name="amended_files_title">In the last commit</string>
+    <string name="amended_files_failed">Couldn't list the files</string>
+    <string name="amended_files_try_again">Try again</string>
 </resources>

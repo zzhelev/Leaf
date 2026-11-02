@@ -16,6 +16,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -49,6 +50,7 @@ import dev.app.leaf.app.generated.resources.files_changed_renamed_from_similar
 import dev.app.leaf.app.generated.resources.files_changed_renamed_from_unchanged
 import dev.app.leaf.app.generated.resources.files_changed_untracked
 import dev.app.leaf.app.generated.resources.files_changed_untracked_tooltip
+import dev.app.leaf.domain.sorting.FileItem
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FileSortKey
 import dev.app.leaf.domain.sorting.FilesViewMode
@@ -93,6 +95,34 @@ private const val FIT_MEASURED_NAMES = 300
 private const val NAME_MAX_SHARE = 0.55f
 private const val HINT_MAX_SHARE = 0.8f
 
+/** How much of its colour a file name and icon keep in a [FilesSection]'s rows (fork-only). */
+private const val MUTED_ALPHA = 0.8f
+private const val MUTED_ICON_ALPHA = 0.75f
+
+/** Set while a [FilesSection]'s rows are drawn: their file names and icons are a little quieter than the list's own. */
+private val LocalMutedRows = compositionLocalOf { false }
+
+private fun Color.mutedIf(isMuted: Boolean, alpha: Float = MUTED_ALPHA): Color = if (isMuted) copy(alpha = alpha) else this
+
+/**
+ * Rows that follow a [ChangedFilesList]'s own, under a header of their own (fork-only, upstream issue 260): the Staged
+ * pane lists the files of the commit that Amend rewrites there. They scroll with the list and take the same view (sort,
+ * flat list, columns or tree), but only open something: they have no stage button, double-click or keyboard position.
+ * [rows] is empty while the section is closed, and [message] shows in their place when there is one.
+ */
+class FilesSection<S>(
+    val header: @Composable () -> Unit,
+    val rows: List<FileRow<S>>,
+    /** The row that is selected, by identity. */
+    val selected: S?,
+    val fileIcon: (S) -> ImageVector,
+    val fileIconColor: @Composable (S) -> Color,
+    val onFileClick: (S) -> Unit,
+    val onFolderToggle: (path: String) -> Unit,
+    val onGenerateContextMenu: (S) -> List<ContextMenuElement>,
+    val message: (@Composable () -> Unit)? = null,
+)
+
 /**
  * Changed files as a flat list, split columns or a folder tree, for the Files changed, Staged and Unstaged panes.
  * Up and Down move the selection; in the tree, Left and Right close and open folders or move to the parent or first
@@ -122,6 +152,8 @@ fun <T> ChangedFilesList(
     onGenerateFolderContextMenu: ((FileRow.Folder) -> List<ContextMenuElement>)? = null,
     fileTrailingAction: (@Composable BoxScope.(file: T, isHovered: Boolean) -> Unit)? = null,
     folderTrailingAction: (@Composable BoxScope.(folder: FileRow.Folder, isHovered: Boolean) -> Unit)? = null,
+    /** Rows after the list's own, under a header of their own (fork-only). */
+    section: FilesSection<*>? = null,
 ) {
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
@@ -302,53 +334,129 @@ fun <T> ChangedFilesList(
                             { isHovered -> action(row.file.item, isHovered) }
                         },
                     ) {
-                        // Where a renamed file came from, right after its name: the directory, which is long and which
-                        // the pane often can't fit, is what gives way to it. Fork-only: and that git doesn't track a
-                        // file yet, in a comparison with the working tree
-                        val renamedFrom = row.file.renamedFrom
-                        val isUntracked = row.file.isUntracked
-                        val renamedHint: (@Composable RowScope.() -> Unit)? = if (renamedFrom == null && !isUntracked) {
-                            null
-                        } else {
-                            {
-                                if (renamedFrom != null) RenamedFromHint(renamedFrom, row.file.path)
-                                if (isUntracked) UntrackedTag(Modifier.padding(start = if (renamedFrom != null) 6.dp else 0.dp))
-                            }
-                        }
-
-                        when (viewState.viewMode) {
-                            FilesViewMode.FlatList -> if (viewState.sortKey == FileSortKey.FileName) {
-                                FileNameFirstContent(row.file.fileName, row.file.directory, renamedHint)
-                            } else {
-                                DirectoryFirstContent(row.file.fileName, row.file.directory, renamedHint)
-                            }
-
-                            FilesViewMode.SplitColumns -> SplitColumnsContent(
-                                fileName = row.file.fileName,
-                                directory = row.file.directory,
-                                path = row.file.path,
-                                ratio = splitRatio,
-                                renamedHint = renamedHint,
-                            )
-
-                            FilesViewMode.FolderTree -> {
-                                FileNameText(row.file.fileName, Modifier.nameBesides(renamedHint))
-
-                                if (renamedHint == null) {
-                                    Spacer(Modifier.width(ROW_END_PADDING))
-                                } else {
-                                    Spacer(Modifier.width(HINT_GAP))
-                                    renamedHint()
-                                    Spacer(Modifier.width(ROW_END_PADDING))
-                                }
-                            }
-                        }
+                        FileRowContent(row.file, viewState, splitRatio)
                     }
+                }
+            }
+
+            if (section != null) {
+                sectionItems(
+                    section = section,
+                    viewState = viewState,
+                    splitRatio = splitRatio,
+                    // As the list's own rows do, so the arrow keys stay with the list that was clicked
+                    onRowClicked = {
+                        folderCursorKey = null
+                        focusRequester.requestFocus()
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The content of a file's row after its icon: the name and directory in the view's layout, and where a renamed file came
+ * from. Shared by the list's own rows and a [FilesSection]'s.
+ */
+@Composable
+private fun RowScope.FileRowContent(file: FileItem<*>, viewState: FilesViewState, splitRatio: Float) {
+    // Where a renamed file came from, right after its name: the directory, which is long and which
+    // the pane often can't fit, is what gives way to it. Fork-only: and that git doesn't track a
+    // file yet, in a comparison with the working tree
+    val renamedFrom = file.renamedFrom
+    val isUntracked = file.isUntracked
+    val renamedHint: (@Composable RowScope.() -> Unit)? = if (renamedFrom == null && !isUntracked) {
+        null
+    } else {
+        {
+            if (renamedFrom != null) RenamedFromHint(renamedFrom, file.path)
+            if (isUntracked) UntrackedTag(Modifier.padding(start = if (renamedFrom != null) 6.dp else 0.dp))
+        }
+    }
+
+    when (viewState.viewMode) {
+        FilesViewMode.FlatList -> if (viewState.sortKey == FileSortKey.FileName) {
+            FileNameFirstContent(file.fileName, file.directory, renamedHint)
+        } else {
+            DirectoryFirstContent(file.fileName, file.directory, renamedHint)
+        }
+
+        FilesViewMode.SplitColumns -> SplitColumnsContent(
+            fileName = file.fileName,
+            directory = file.directory,
+            path = file.path,
+            ratio = splitRatio,
+            renamedHint = renamedHint,
+        )
+
+        FilesViewMode.FolderTree -> {
+            FileNameText(file.fileName, Modifier.nameBesides(renamedHint))
+
+            if (renamedHint == null) {
+                Spacer(Modifier.width(ROW_END_PADDING))
+            } else {
+                Spacer(Modifier.width(HINT_GAP))
+                renamedHint()
+                Spacer(Modifier.width(ROW_END_PADDING))
+            }
+        }
+    }
+}
+
+/** A [FilesSection]'s header and rows, after the list's own (fork-only). */
+private fun <S> LazyListScope.sectionItems(
+    section: FilesSection<S>,
+    viewState: FilesViewState,
+    splitRatio: Float,
+    onRowClicked: () -> Unit,
+) {
+    item(key = SECTION_HEADER_KEY) { section.header() }
+
+    section.message?.let { message -> item(key = SECTION_MESSAGE_KEY) { message() } }
+
+    // Their keys can't be the list's own: a folder row's `dir:<path>` is the same for the same folder in both
+    items(items = section.rows, key = { SECTION_ROW_KEY_PREFIX + it.key }) { row ->
+        CompositionLocalProvider(LocalMutedRows provides true) {
+            when (row) {
+                is FileRow.Folder -> FolderRow(
+                    folder = row,
+                    hasKeyboardFocus = false,
+                    onClick = {
+                        onRowClicked()
+                        section.onFolderToggle(row.path)
+                    },
+                    onGenerateContextMenu = null,
+                    trailingAction = null,
+                )
+
+                is FileRow.File -> ChangedFileRow(
+                    icon = section.fileIcon(row.file.item),
+                    iconColor = section.fileIconColor(row.file.item),
+                    isSelected = row.file.item === section.selected,
+                    startPadding = if (viewState.viewMode == FilesViewMode.FolderTree) {
+                        TREE_FOLDER_START + TREE_INDENT * row.depth + 10.dp
+                    } else {
+                        0.dp
+                    },
+                    onClick = {
+                        onRowClicked()
+                        section.onFileClick(row.file.item)
+                    },
+                    onDoubleClick = null,
+                    onGenerateContextMenu = { section.onGenerateContextMenu(row.file.item) },
+                    trailingAction = null,
+                ) {
+                    FileRowContent(row.file, viewState, splitRatio)
                 }
             }
         }
     }
 }
+
+private const val SECTION_HEADER_KEY = "section:header"
+private const val SECTION_MESSAGE_KEY = "section:message"
+private const val SECTION_ROW_KEY_PREFIX = "section:"
 
 @Composable
 private fun SplitColumnsHeader(
@@ -525,7 +633,7 @@ private fun ChangedFileRow(
                     modifier = Modifier
                         .padding(horizontal = 8.dp)
                         .size(16.dp),
-                    tint = iconColor,
+                    tint = iconColor.mutedIf(LocalMutedRows.current, MUTED_ICON_ALPHA),
                 )
 
                 content()
@@ -629,7 +737,7 @@ private fun RowScope.SplitColumnsContent(
             softWrap = false,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.body2,
-            color = MaterialTheme.colors.onBackground,
+            color = MaterialTheme.colors.onBackground.mutedIf(LocalMutedRows.current),
         )
 
         Spacer(Modifier.width(COLUMN_GAP))
@@ -744,6 +852,6 @@ private fun FileNameText(fileName: String, modifier: Modifier) {
         softWrap = false,
         overflow = TextOverflow.Ellipsis,
         style = MaterialTheme.typography.body2,
-        color = MaterialTheme.colors.onBackground,
+        color = MaterialTheme.colors.onBackground.mutedIf(LocalMutedRows.current),
     )
 }
