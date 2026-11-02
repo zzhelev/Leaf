@@ -2131,6 +2131,9 @@ user from round 3 of a working mockup (Claude Design, "Leaf squash and interacti
     terminal's Continue would have shown the old message.
   - `rebase-merge/leaf-plan` (`PlanRecord`) keeps the plan and each twin's original, for "Back to the plan" after a
     restart. The tab switches to the worktree where it stopped.
+  - Where Leaf's LFS filter applies, the LFS objects that the rebase checks out are downloaded before git starts
+    (`LfsCheckout.Replay`, from the todo's `replayed`, see Downloaded first under Remote operations), so a download
+    that fails changes nothing.
 - **Uncommitted changes where a plan stops** (choice 3a): in the tab's worktree, the box "Set my 2 uncommitted changes
   aside, and put them back after the rebase" (`--autostash`), which Start waits for; in another worktree, refused
   ("leaf-wt has 2 uncommitted changes."), with an agent's change of the last 5 minutes said too. A plan that doesn't
@@ -2485,20 +2488,26 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     couldn't download the Git LFS files that this needs, so it didn't start, and nothing changed.", then the files by
     why. `git pull`, a clone and a submodule update aren't covered, as their commits come from their own fetch; nor are
     a rebase's Continue and Skip.
+    - A commit editor's plan that stops (`StartRebasePlanGitAction`, since 2026-11-02) downloads first too
+      (`LfsCheckout.Replay`): its `git rebase -i` checks out its onto, from the HEAD of the worktree it runs in, then
+      replays the commits that its todo picks, edits or fixes up (`RebaseTodo.replayed`, twins included), not the ones
+      that git would list. Before, it ran with the filter only, and a download that failed stopped it halfway.
     - Which objects (`lfsFilesToDownload`): the files that the operation's trees don't all have alike, the sets that a
       partial clone downloads first too (`mergeTrees`, `cherryPickTrees`, `rebaseTreeSets` in `PartialCloneFetch.kt`,
-      shared since), that are LFS pointers by git-lfs's rules without extension lines (the filter passes those
-      through), at a path that the attributes of the pointer's own tree give the LFS filter, whose objects the store
-      lacks. JGit's `TreeWalk.getAttributes(index)` reads one tree's `.gitattributes` and `info/attributes`, and agrees
-      with `git check-attr --source` (a test). So a test fixture that only looks like a pointer doesn't block a merge.
-      A blob that a partial clone lacks is left out (git downloads it, the filter its object), and a lookup that fails
-      (a tree that a treeless clone lacks) downloads nothing first.
+      shared since, and `replayTreeSets` for the commit editor, which `rebaseTreeSets` now builds on), that are LFS
+      pointers by git-lfs's rules without extension lines (the filter passes those through), at a path that the
+      attributes of the pointer's own tree give the LFS filter, whose objects the store lacks. JGit's
+      `TreeWalk.getAttributes(index)` reads one tree's `.gitattributes` and `info/attributes`, and agrees with
+      `git check-attr --source` (a test). So a test fixture that only looks like a pointer doesn't block a merge. A blob
+      that a partial clone lacks is left out (git downloads it, the filter its object), and a lookup that fails (a tree
+      that a treeless clone lacks) downloads nothing first.
     - Where git-lfs is set up, nothing is downloaded first: git-lfs does it, with its own settings (`lfs.storage`).
     - Tests: `LfsDownloadFirstTest` (git with the built helper and `FakeLfsServer`: a merge in one batch, a refused
-      object changing nothing for a merge, a cherry-pick, several cherry-picks, a revert and a rebase, a pointer at a
-      path without the filter, objects already in the store, two paths of one object, git-lfs left alone, progress and
-      Cancel before git, the attributes against `git check-attr`, a missing blob), `LfsErrorTextTest` (both errors'
-      texts). 16 mutations were each caught by a named test.
+      object changing nothing for a merge, a cherry-pick, several cherry-picks, a revert and a rebase, a commit editor's
+      plan onto main from another branch, a pointer at a path without the filter, objects already in the store, two
+      paths of one object, git-lfs left alone, progress and Cancel before git, the attributes against
+      `git check-attr`, a missing blob), `LfsErrorTextTest` (both errors' texts), `RebaseTodoTest` (`replayed`). 16
+      mutations were each caught by a named test, and 6 more of the commit editor's.
   - **Local commands (stage 4, 2026-10-27):** the git commands that talk to no remote but may check out or stage files
     run through `GitCliRemoteCommand.executeLocal` and `runLocal` (stdout, or `CommandFailed`, as `GitCli.run`), so they
     get the filter, Leaf's dialogs, and the processing screen's progress and Cancel. Without the askpass helper, git runs

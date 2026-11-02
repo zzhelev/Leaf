@@ -399,6 +399,13 @@ Found while building stage 5 (2026-10-28):
   objects", and git shows its checkout's ("Updating files", and "Filtering content" for the files that a filter
   delays) only once it has taken 2 s. `GIT_PROGRESS_DELAY=0` shows them from the start, also without a terminal.
 
+Found after stage 5 (2026-11-02):
+- The commit editor came to `main` after stage 2, and its plan that stops runs `git rebase -i` through
+  `GitCliOperations.run` with Leaf's filter but without the download first. It now downloads first too, from its own
+  todo: the onto that git checks out from the HEAD of the worktree that the rebase runs in, then each commit that the
+  todo picks, edits or fixes up (`replayTreeSets`, which `rebaseTreeSets` now builds on). A twin has its group's first
+  commit's tree and parent, so it reads the same versions.
+
 ## 7. Tests
 
 Temp repositories only. `FakeLfsServer` serves the objects: the batch API, the basic transfer, Basic authentication.

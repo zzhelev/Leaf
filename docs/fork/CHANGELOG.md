@@ -2,6 +2,16 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## LFS without git-lfs: the commit editor's plan downloads first (2026-11-02)
+
+- **Request:** found while rebasing the LFS stages onto `main`, which had the commit editor by then.
+- **Before:** where git-lfs isn't set up, "Start rebase" of a plan that stops ran `git rebase -i` with Leaf's LFS
+  filter, but didn't download the LFS files first, as merge, cherry-pick, revert and rebase do. A download that failed
+  stopped the rebase halfway.
+- **Now:** it downloads the LFS files that its rebase checks out first, in one batch, with the processing screen's
+  progress and Cancel. One that fails stops it before git starts, with nothing changed, and names the files.
+- Details: CLAUDE.md, "Leaf's LFS client as git's filter", Downloaded first.
+
 ## LFS without git-lfs, stage 5: a clone checks its files out with git (2026-10-28)
 
 - **Request:** stage 5 of `docs/fork/lfs-filter.md`, optional in the plan, to follow stages 0 to 4 (open question 7).
