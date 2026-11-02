@@ -26,6 +26,7 @@ import dev.app.leaf.data.git.log.ResetToCommitGitAction
 import dev.app.leaf.data.git.log.RevertCommitGitAction
 import dev.app.leaf.data.git.rebase.RebaseBranchGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
+import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.mappers.JGitBranchMapper
@@ -183,7 +184,7 @@ class PartialCloneTest {
     fun `checking out a branch downloads its files first`(): Unit = runBlocking {
         git.run(clone, "branch", "other", "origin/other")
 
-        CheckoutBranchGitAction(jgit, partialClone)(gitDir, branch("other")).ok()
+        CheckoutBranchGitAction(jgit, partialClone, testSparseCheckoutGit(jgit))(gitDir, branch("other")).ok()
 
         assertEquals("other's d\n", File(clone, "d.txt").readText())
         assertEquals("other\n", File(clone, "a.txt").readText())
@@ -195,7 +196,7 @@ class PartialCloneTest {
         git.run(clone, "branch", "other", "origin/other")
         git.run(clone, "remote", "set-url", "origin", File(tempDir, "gone").absolutePath)
 
-        val error = CheckoutBranchGitAction(jgit, partialClone)(gitDir, branch("other")).err()
+        val error = CheckoutBranchGitAction(jgit, partialClone, testSparseCheckoutGit(jgit))(gitDir, branch("other")).err()
 
         assertTrue(assertInstanceOf(PartialCloneFetchError::class.java, error).nothingChanged)
         assertEquals("refs/heads/main", git.run(clone, "symbolic-ref", "HEAD").trim())
@@ -215,7 +216,7 @@ class PartialCloneTest {
 
     @Test
     fun `a hard reset downloads the commit's files first`(): Unit = runBlocking {
-        ResetToCommitGitAction(jgit, partialClone)(gitDir, commit(one), ResetType.HARD).ok()
+        ResetToCommitGitAction(jgit, partialClone, testSparseCheckoutGit(jgit))(gitDir, commit(one), ResetType.HARD).ok()
 
         assertEquals("v1\n", File(clone, "a.txt").readText())
         assertTrue(File(clone, "b.txt").isFile)

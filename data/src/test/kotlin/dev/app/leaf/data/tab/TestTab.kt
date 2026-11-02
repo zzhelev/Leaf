@@ -49,6 +49,7 @@ import dev.app.leaf.data.git.repository.OpenRepositoryGitAction
 import dev.app.leaf.data.git.repository.PersistCommitMessageGitAction
 import dev.app.leaf.data.git.repository.ResetRepositoryStateGitAction
 import dev.app.leaf.data.git.signers.GitSigningConfigs
+import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
 import dev.app.leaf.data.git.stash.CreateSnapshotStashGitAction
 import dev.app.leaf.data.git.stash.DeleteStashGitAction
 import dev.app.leaf.data.git.stash.GetStashListGitAction
@@ -382,7 +383,7 @@ class TestTab(
 
     val resetRepositoryState = ResetRepositoryStateUseCase(
         useCaseExecutor = useCaseExecutor,
-        resetRepositoryStateGitAction = ResetRepositoryStateGitAction(jgit),
+        resetRepositoryStateGitAction = ResetRepositoryStateGitAction(jgit, testSparseCheckoutGit(jgit, gitCli)),
         putBackMergeAutostashGitAction = PutBackMergeAutostashGitAction(autostashes, jgit),
     )
 

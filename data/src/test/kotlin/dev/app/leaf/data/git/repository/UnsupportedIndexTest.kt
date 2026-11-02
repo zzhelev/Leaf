@@ -20,6 +20,7 @@ import dev.app.leaf.data.git.diff.GetDiffEntryFromDiffTypeGitAction
 import dev.app.leaf.data.git.diff.GetDiffEntryFromStatusEntryGitAction
 import dev.app.leaf.data.git.diff.TextDiffFromDiffLinesGitAction
 import dev.app.leaf.data.git.log.BlameFileGitAction
+import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.testJGit
@@ -161,7 +162,7 @@ class UnsupportedIndexTest {
         val expected = UnsupportedIndexError(UnsupportedIndex.Split(workTree, splitIndexConfigured = false))
 
         val staged = StageEntryGitAction(jgit)(gitDir, StatusEntry("a/f1", StatusType.MODIFIED, EntryType.UNSTAGED))
-        val checkedOut = CheckoutBranchGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, branch("other"))
+        val checkedOut = CheckoutBranchGitAction(jgit, testPartialCloneFetch(jgit), testSparseCheckoutGit(jgit))(gitDir, branch("other"))
         val blamed = BlameFileGitAction(jgit, testPartialCloneFetch(jgit))(gitDir, "a/f1")
 
         assertEquals(Either.Err(expected), staged)

@@ -12,6 +12,7 @@ import dev.app.leaf.data.git.branches.MergeBranchGitAction
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.repository.ResetRepositoryStateGitAction
+import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.mappers.JGitBranchMapper
@@ -189,7 +190,7 @@ class ConflictDiffTest {
         branchesChangingNotes(main = "main's line\n", feature = "feature's line\n")
         git.runFailing(repository, "merge", "feature")
 
-        assertEquals(Either.Ok(Unit), ResetRepositoryStateGitAction(jgit)(gitDir()))
+        assertEquals(Either.Ok(Unit), ResetRepositoryStateGitAction(jgit, testSparseCheckoutGit(jgit))(gitDir()))
 
         val error = assertInstanceOf(GenericError::class.java, (format("notes.txt") as Either.Err).error)
         assertInstanceOf(MissingDiffEntryException::class.java, error.exception)

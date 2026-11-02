@@ -1,6 +1,7 @@
 package dev.app.leaf.data.git.stash
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.interfaces.IPopStashGitAction
 import dev.app.leaf.domain.models.Commit
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +16,7 @@ class PopStashGitAction @Inject constructor(
     private val jgit: JGit,
 ) : IPopStashGitAction {
     override suspend operator fun invoke(repositoryPath: String, stash: Commit) = jgit.provide(repositoryPath) { git ->
-        applyStashGitAction(git, stash)
+        applyStashGitAction(git, stash).bind()
         deleteStashGitAction(git.repository.directory.absolutePath, stash)
 
         Unit

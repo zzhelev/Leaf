@@ -7,6 +7,7 @@ import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.isolatedGitCli
+import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.mappers.JGitCommitMapper
 import dev.app.leaf.data.mappers.JGitIdentityMapper
@@ -92,7 +93,7 @@ class StashMessagesTest {
 
     @Test
     fun `a stash keeps the message that the user typed as it is`(): Unit = runBlocking {
-        val stash = StashChangesGitAction(jgit, GitIdentities(isolatedGitCli(globalConfig)))(gitDir, QUOTES_AND_BRACES)
+        val stash = StashChangesGitAction(jgit, GitIdentities(isolatedGitCli(globalConfig)), testSparseCheckoutGit(jgit))(gitDir, QUOTES_AND_BRACES)
 
         assertInstanceOf(Either.Ok::class.java, stash, stash.toString())
         assertEquals(QUOTES_AND_BRACES, stashListEntry())
@@ -104,7 +105,7 @@ class StashMessagesTest {
         git.run(repository, "switch", "-c", "it's{0}")
         val head = git.run(repository, "rev-parse", "--short=7", "HEAD").trim()
 
-        val stash = StashChangesGitAction(jgit, GitIdentities(isolatedGitCli(globalConfig)))(gitDir, null)
+        val stash = StashChangesGitAction(jgit, GitIdentities(isolatedGitCli(globalConfig)), testSparseCheckoutGit(jgit))(gitDir, null)
 
         assertInstanceOf(Either.Ok::class.java, stash, stash.toString())
         assertEquals("WIP on it's{0}: $head Initial commit", message("refs/stash"))

@@ -9,6 +9,7 @@ import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
 import dev.app.leaf.data.git.log.CherryPickCommitGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.signers.GitSigningConfigs
+import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
 import dev.app.leaf.data.git.stash.StashChangesGitAction
 import dev.app.leaf.data.git.tags.CreateTagGitAction
 import dev.app.leaf.data.git.testGitCli
@@ -240,7 +241,7 @@ class CommitIdentityTest {
             Commit(head, "First", identity, identity, 0, emptyList()),
         )
         File(repository, "a.txt").writeText("changed\n")
-        val stash = StashChangesGitAction(jgit, GitIdentities(gitCli))(gitDir(repository), "Saved")
+        val stash = StashChangesGitAction(jgit, GitIdentities(gitCli), testSparseCheckoutGit(jgit, gitCli))(gitDir(repository), "Saved")
 
         assertInstanceOf(Either.Ok::class.java, tag)
         assertInstanceOf(Either.Ok::class.java, stash)

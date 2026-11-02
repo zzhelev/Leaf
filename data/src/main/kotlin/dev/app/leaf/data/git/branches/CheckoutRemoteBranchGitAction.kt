@@ -5,8 +5,11 @@ package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.remote.PartialCloneFetch
+import dev.app.leaf.data.git.sparse.SparseCheckoutGit
 import dev.app.leaf.data.git.worktrees.refuseIfUsedByOtherWorktree
 import dev.app.leaf.domain.errors.CheckoutBranchError
+import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.ICheckoutRemoteBranchGitAction
@@ -19,6 +22,7 @@ import org.eclipse.jgit.api.errors.RefNotFoundException
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.Ref
 import org.eclipse.jgit.lib.RefUpdate
+import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
 import java.io.IOException
 import javax.inject.Inject
@@ -26,6 +30,7 @@ import javax.inject.Inject
 class CheckoutRemoteBranchGitAction @Inject constructor(
     private val jgit: JGit,
     private val partialClone: PartialCloneFetch,
+    private val sparseCheckout: SparseCheckoutGit,
 ) : ICheckoutRemoteBranchGitAction {
     override suspend operator fun invoke(
         repositoryPath: String,
@@ -51,12 +56,17 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
                 // JGit can't download what a partial clone lacks, and would stop halfway
                 partialClone.prefetchCheckout(repository, remoteBranch.name).bind()
 
-                git.checkout()
-                    .setCreateBranch(true)
-                    .setName(remoteBranch.simpleName)
-                    .setStartPoint(remoteBranch.name)
-                    .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
-                    .call()
+                // Fork-only: JGit would write the files that a sparse checkout leaves out, and take them out of it
+                if (sparseCheckout.applies(repository)) {
+                    sparseCheckout.run(repository, *switchToNewTrackingArguments(remoteBranch)).bind()
+                } else {
+                    git.checkout()
+                        .setCreateBranch(true)
+                        .setName(remoteBranch.simpleName)
+                        .setStartPoint(remoteBranch.name)
+                        .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
+                        .call()
+                }
             }
 
             // Already checked out, so only the fast-forward has something to do
@@ -65,8 +75,16 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
                     partialClone.prefetchCheckout(repository, remoteBranch.name).bind()
                 }
 
-                if (fastForward && !git.fastForwardCurrentBranch(remoteRef())) {
-                    cannotFastForward()
+                if (fastForward) {
+                    val fastForwarded = if (sparseCheckout.applies(repository)) {
+                        fastForwardCurrentBranchWithGit(repository, remoteRef()).bind()
+                    } else {
+                        git.fastForwardCurrentBranch(remoteRef())
+                    }
+
+                    if (!fastForwarded) {
+                        cannotFastForward()
+                    }
                 }
             }
 
@@ -80,7 +98,11 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
                 }
 
                 // If the checkout fails, a fast-forward stays done, which loses nothing
-                git.checkout().setName(localName).call()
+                if (sparseCheckout.applies(repository)) {
+                    sparseCheckout.run(repository, "switch", remoteBranch.simpleName).bind()
+                } else {
+                    git.checkout().setName(localName).call()
+                }
             }
         }
 
@@ -96,6 +118,37 @@ class CheckoutRemoteBranchGitAction @Inject constructor(
 
         return result.mergeStatus != MergeResult.MergeStatus.ABORTED
     }
+
+    /**
+     * [fastForwardCurrentBranch] with `git merge --ff-only` (fork-only), which keeps a sparse checkout's skipped files
+     * skipped. The ancestry is read first, as JGit reports it: a branch that can't fast-forward is a `false`, not an
+     * error, and nothing to move is a success.
+     */
+    private suspend fun fastForwardCurrentBranchWithGit(repository: Repository, remoteRef: Ref): Either<Boolean, GitError> {
+        val head = repository.resolve(Constants.HEAD) ?: return Either.Ok(false)
+
+        val relation = RevWalk(repository).use { walk ->
+            val local = walk.parseCommit(head)
+            val remote = walk.parseCommit(remoteRef.objectId)
+
+            when {
+                walk.isMergedInto(remote, local) -> FastForward.NOTHING_TO_MOVE
+                walk.isMergedInto(local, remote) -> FastForward.POSSIBLE
+                else -> FastForward.IMPOSSIBLE
+            }
+        }
+
+        return when (relation) {
+            FastForward.NOTHING_TO_MOVE -> Either.Ok(true)
+            FastForward.IMPOSSIBLE -> Either.Ok(false)
+            FastForward.POSSIBLE -> when (val merged = sparseCheckout.run(repository, "merge", "--ff-only", remoteRef.name)) {
+                is Either.Err -> merged
+                is Either.Ok -> Either.Ok(true)
+            }
+        }
+    }
+
+    private enum class FastForward { NOTHING_TO_MOVE, POSSIBLE, IMPOSSIBLE }
 
     /**
      * Moves [localRef], a branch that isn't checked out, to [remoteRef] if that's a fast-forward, as

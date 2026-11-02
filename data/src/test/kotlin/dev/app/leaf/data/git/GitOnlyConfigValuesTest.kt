@@ -26,6 +26,7 @@ import dev.app.leaf.data.git.log.RevertCommitGitAction
 import dev.app.leaf.data.git.rebase.ContinueRebaseGitAction
 import dev.app.leaf.data.git.rebase.RebaseBranchGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
+import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
 import dev.app.leaf.data.git.stash.ApplyStashGitAction
 import dev.app.leaf.data.git.submodules.GetSubmodulesGitAction
 import dev.app.leaf.data.mappers.JGitBranchMapper
@@ -265,7 +266,7 @@ class GitOnlyConfigValuesTest {
     fun `a stash applies with conflicts in zdiff3's layout`(): Unit = runBlocking {
         val stash = stashOnOtherChange(Conflict)
 
-        val result = keepingConfig(ZDIFF3) { ApplyStashGitAction(jgit)(gitDir, stash) }
+        val result = keepingConfig(ZDIFF3) { ApplyStashGitAction(jgit, testSparseCheckoutGit(jgit))(gitDir, stash) }
 
         assertEquals("Applying stashed changes resulted in a conflict", message(result))
         assertEquals(Conflict.result, conflictIn(work))
@@ -276,7 +277,7 @@ class GitOnlyConfigValuesTest {
     fun `a stash applies`(algorithm: String): Unit = runBlocking {
         val stash = stashOnOtherChange(Clean)
 
-        val result = keepingConfig("diff.algorithm=$algorithm") { ApplyStashGitAction(jgit)(gitDir, stash) }
+        val result = keepingConfig("diff.algorithm=$algorithm") { ApplyStashGitAction(jgit, testSparseCheckoutGit(jgit))(gitDir, stash) }
 
         assertEquals(Either.Ok(Unit), result)
 
