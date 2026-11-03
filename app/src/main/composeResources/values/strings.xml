@@ -2055,4 +2055,22 @@
     <string name="amended_files_title">In the last commit</string>
     <string name="amended_files_failed">Couldn't list the files</string>
     <string name="amended_files_try_again">Try again</string>
+    <string name="log_branch_filter_tooltip">Branches in the log</string>
+    <string name="log_branch_filter_all">All branches</string>
+    <string name="log_branch_filter_current">Current branch</string>
+    <string name="log_branch_filter_all_but_one">All but %1$s</string>
+    <plurals name="log_branch_filter_all_but">
+        <item quantity="one">All but %1$d branch</item>
+        <item quantity="other">All but %1$d branches</item>
+    </plurals>
+    <string name="log_branch_filter_and_more">%1$s +%2$d</string>
+    <string name="log_branch_filter_show_all">Show all branches</string>
+    <string name="log_branch_filter_search_hint">Filter branches</string>
+    <string name="log_branch_filter_local">Local</string>
+    <string name="log_branch_filter_remote">Remote</string>
+    <string name="log_branch_filter_none">No branch matches</string>
+    <string name="branch_context_menu_show_only_in_log">Show only this branch in the log</string>
+    <string name="branch_context_menu_hide_in_log">Hide in the log</string>
+    <string name="branch_context_menu_show_in_log">Show in the log</string>
+    <string name="branch_context_menu_show_only_selected_in_log">Show only these in the log</string>
 </resources>

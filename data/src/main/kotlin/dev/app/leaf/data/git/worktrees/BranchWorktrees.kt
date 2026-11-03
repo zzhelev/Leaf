@@ -139,7 +139,7 @@ private fun linkedWorktreePath(gitDir: File): String? {
 }
 
 /** Reads the [WorktreeHead] of the worktree whose git dir is [gitDir] and whose folder is [path]. */
-private fun worktreeHead(gitDir: File, path: String): WorktreeHead {
+internal fun worktreeHead(gitDir: File, path: String): WorktreeHead {
     val head = symbolicHead(gitDir)
 
     if (head != null) {

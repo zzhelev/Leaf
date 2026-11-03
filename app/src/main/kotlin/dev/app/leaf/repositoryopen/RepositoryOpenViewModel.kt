@@ -28,6 +28,7 @@ import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.extensions.openFileInFolder
 import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
+import dev.app.leaf.domain.log.LogBranchFilter
 import dev.app.leaf.domain.log.LogMove
 import dev.app.leaf.domain.log.MAX_SEARCH_DEPTH
 import dev.app.leaf.domain.log.SearchStep
@@ -163,6 +164,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val increaseLogCountUseCase: IncreaseLogCountUseCase,
     private val loadLogUntilCommitUseCase: LoadLogUntilCommitUseCase,
     private val searchLogUseCase: SearchLogUseCase,
+    private val setLogBranchFilterUseCase: SetLogBranchFilterUseCase,
     private val blameFileUseCase: BlameFileUseCase,
     updatesRepository: UpdatesRepository,
     watchRegistrations: WatchRegistrations,
@@ -844,6 +846,38 @@ class RepositoryOpenViewModel @Inject constructor(
         focus = { commit -> _focusCommit.emit(commit) },
     )
 
+
+    // Fork-only: which branches the log shows (upstream issue 207)
+    private val logBranchFilterController = LogBranchFilterController(
+        scope = viewModelScope,
+        logFilter = repositoryDataRepository.log.map { (it as? DataState.Loaded)?.data?.branchFilter }.filterNotNull(),
+        apply = { filter ->
+            setLogBranchFilterUseCase(filter)
+
+            // The search's hits were of the log as it was
+            if (logSearchFilterResults.value is LogSearch.SearchResults && savedSearchFilter.isNotBlank()) {
+                logSearch.search(savedSearchFilter)
+            }
+        },
+    )
+
+    val logBranchFilter: StateFlow<LogBranchFilterState> = combine(
+        logBranchFilterController.filter,
+        branches,
+        remotes,
+        currentBranch,
+    ) { filter, branches, remotes, currentBranch ->
+        LogBranchFilterState.of(
+            filter = filter,
+            localBranches = branches.data.orEmpty(),
+            remoteBranches = remotes.data.orEmpty().flatMap { it.branchesList },
+            currentBranch = currentBranch.data,
+        )
+    }
+        .stateIn(LogBranchFilterState())
+
+    /** Shows the branches of [filter] in the log, saved for every worktree of the repository. */
+    fun setLogBranchFilter(filter: LogBranchFilter) = logBranchFilterController.set(filter)
 
     /** How Files changed, Staged and Unstaged sort and show files. They share one setting. */
     private val filesViewState = appSettings.filesChangedView.stateIn(FilesViewState())

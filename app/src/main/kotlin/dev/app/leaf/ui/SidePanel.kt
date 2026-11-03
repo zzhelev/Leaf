@@ -99,6 +99,11 @@ fun SidePanel(
     val refPanelSettings by viewModel.refPanelSettings.collectAsState()
     val branchesAhead by viewModel.branchesAhead.collectAsState()
     val branchSelection by viewModel.branchSelection.collectAsState()
+    // Fork-only: which branches the log shows (upstream issue 207)
+    val logBranchFilter by viewModel.logBranchFilter.collectAsState()
+    val logBranchFilterMenu = remember(logBranchFilter, viewModel) {
+        LogBranchFilterMenu(logBranchFilter, viewModel::setLogBranchFilter)
+    }
     // Fork-only: the branch menus' cherry-pick item
     val cherryPick = BranchCherryPick(branchesAhead, branchesState.currentBranch) { branch, item ->
         viewModel.cherryPickFromBranch(branch, item) { onNavigate(Screen.CherryPickBranch(it)) }
@@ -178,6 +183,7 @@ fun SidePanel(
                 commitRewrite = commitRewrite,
                 branchSelection = branchSelection,
                 onDeleteBranches = { onNavigate(Screen.BranchesDelete(it)) },
+                logBranchFilter = logBranchFilterMenu,
             )
 
             worktrees(
@@ -224,6 +230,7 @@ fun SidePanel(
                 selectedItem = selectedItem,
                 branchSelection = branchSelection,
                 onDeleteBranches = { onNavigate(Screen.BranchesDelete(it)) },
+                logBranchFilter = logBranchFilterMenu,
             )
 
             tags(
@@ -315,6 +322,8 @@ fun LazyListScope.localBranches(
     // Fork-only: the branches selected for deleting several at once (upstream issue 116)
     branchSelection: BranchSelection = BranchSelection(),
     onDeleteBranches: (BranchesDeletionRequest) -> Unit = {},
+    // Fork-only: which branches the log shows (upstream issue 207)
+    logBranchFilter: LogBranchFilterMenu? = null,
 ) {
     val isExpanded = branchesState.isExpanded
     val branches = branchesState.branches
@@ -405,6 +414,11 @@ fun LazyListScope.localBranches(
                         },
                         onDeleteSelected = { onDeleteBranches(viewModel.selectedBranchesDeletionRequest()) },
                         onClearSelection = { viewModel.clearBranchSelection() },
+                        isHiddenInLog = logBranchFilter?.state?.shows(branch) == false,
+                        logFilterItems = logBranchFilter?.let { logBranchFilterMenuItems(branch, it) }.orEmpty(),
+                        onShowSelectedOnlyInLog = logBranchFilter?.let { menu ->
+                            { menu.onSet(menu.state.showingOnly(branchSelection.selected)) }
+                        },
                         onCheckoutBranch = { viewModel.checkoutBranch(it) },
                         onMergeBranch = { viewModel.mergeBranch(it) },
                         onRebaseBranch = { viewModel.rebaseBranch(it) },
@@ -446,6 +460,8 @@ fun LazyListScope.remotes(
     selectedItem: SelectedItem? = null,
     branchSelection: BranchSelection = BranchSelection(),
     onDeleteBranches: (BranchesDeletionRequest) -> Unit = {},
+    // Fork-only: which branches the log shows (upstream issue 207)
+    logBranchFilter: LogBranchFilterMenu? = null,
 ) {
     val isExpanded = remotesState.isExpanded
     val remotes = remotesState.remotes
@@ -563,6 +579,12 @@ fun LazyListScope.remotes(
                                 remoteName = remoteName,
                                 onDeleteSelected = { onDeleteBranches(viewModel.selectedBranchesDeletionRequest()) },
                                 onClearSelection = { viewModel.clearBranchSelection() },
+                                isHiddenInLog = logBranchFilter?.state?.shows(remoteBranch) == false,
+                                logFilterItems = logBranchFilter?.let { logBranchFilterMenuItems(remoteBranch, it) }
+                                    .orEmpty(),
+                                onShowSelectedOnlyInLog = logBranchFilter?.let { menu ->
+                                    { menu.onSet(menu.state.showingOnly(branchSelection.selected)) }
+                                },
                                 onCheckoutBranch = { viewModel.checkoutRemoteBranch(it) },
                                 onDeleteBranch = {
                                     onConfirmAction(ConfirmableAction.DeleteRemoteBranch(it)) {
@@ -871,6 +893,10 @@ internal fun Branch(
     onCopyBranchNameToClipboard: (Branch) -> Unit,
     // Fork-only: "Squash branch into one commit…"
     commitRewrite: CommitRewrite? = null,
+    // Fork-only: the log's branch filter leaves the branch out, and its menu items (upstream issue 207)
+    isHiddenInLog: Boolean = false,
+    logFilterItems: List<ContextMenuElement> = emptyList(),
+    onShowSelectedOnlyInLog: (() -> Unit)? = null,
 ) {
     val isCurrentBranch = currentBranch?.name == branch.name
     val clickNow = rememberClickNow()
@@ -878,7 +904,12 @@ internal fun Branch(
     ContextMenu(
         items = {
             if (selectedCount >= 2) {
-                return@ContextMenu selectedBranchesContextMenuItems(selectedCount, onDeleteSelected, onClearSelection)
+                return@ContextMenu selectedBranchesContextMenuItems(
+                    count = selectedCount,
+                    onDelete = onDeleteSelected,
+                    onClearSelection = onClearSelection,
+                    onShowOnlyInLog = onShowSelectedOnlyInLog,
+                )
             }
 
             branchContextMenuItems(
@@ -907,6 +938,7 @@ internal fun Branch(
                 onCherryPick = onCherryPick,
                 squashBranch = commitRewrite?.branchItem(branch.name),
                 editBranch = commitRewrite?.branchEditorItem(branch.name),
+                logFilter = logFilterItems,
             )
         }
     ) {
@@ -917,6 +949,7 @@ internal fun Branch(
             fontWeight = fontWeight,
             iconResourcePath = Res.drawable.branch,
             isSelected = isSelectedItem,
+            isDimmed = isHiddenInLog,
             extraPadding = FOLDER_DEPTH_PADDING * depth,
             onClick = { onBranchClicked(clickNow()) },
             // Checking a branch out takes a plain double-click: with Ctrl, Cmd or Shift it's two selecting clicks
@@ -1020,6 +1053,10 @@ internal fun RemoteBranches(
     cherryPickItem: BranchCherryPickItem?,
     onCherryPick: (BranchCherryPickItem) -> Unit,
     onCopyBranchNameToClipboard: (Branch) -> Unit,
+    // Fork-only: the log's branch filter leaves the branch out, and its menu items (upstream issue 207)
+    isHiddenInLog: Boolean = false,
+    logFilterItems: List<ContextMenuElement> = emptyList(),
+    onShowSelectedOnlyInLog: (() -> Unit)? = null,
 ) {
     val clickNow = rememberClickNow()
 
@@ -1031,6 +1068,7 @@ internal fun RemoteBranches(
                     onDelete = onDeleteSelected,
                     onClearSelection = onClearSelection,
                     remote = remoteName,
+                    onShowOnlyInLog = onShowSelectedOnlyInLog,
                 )
             }
 
@@ -1057,6 +1095,7 @@ internal fun RemoteBranches(
                 onCompareWithWorkingTree = onCompareWithWorkingTree,
                 cherryPick = cherryPickItem,
                 onCherryPick = onCherryPick,
+                logFilter = logFilterItems,
             )
         }
     ) {
@@ -1064,6 +1103,7 @@ internal fun RemoteBranches(
             text = displayName,
             extraPadding = REMOTE_BRANCH_PADDING + FOLDER_DEPTH_PADDING * depth,
             isSelected = isSelectedItem,
+            isDimmed = isHiddenInLog,
             iconResourcePath = Res.drawable.branch,
             onClick = { onBranchClicked(clickNow()) },
             // Checking a branch out takes a plain double-click: with Ctrl, Cmd or Shift it's two selecting clicks

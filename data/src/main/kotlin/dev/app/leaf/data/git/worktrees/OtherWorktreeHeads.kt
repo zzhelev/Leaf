@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.worktrees
 
+import dev.app.leaf.domain.interfaces.OtherWorktreeHead
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.ObjectId
 import org.eclipse.jgit.lib.Repository
@@ -18,10 +19,12 @@ private const val REFTABLE_HEAD_STUB = "ref: refs/heads/.invalid"
  * The commits that the other worktrees have checked out with a detached HEAD, read from their `HEAD` files as
  * [worktreeHeads] reads them (see [Repository.otherWorktreeHeads]).
  *
- * @param commits the commits, each once.
+ * @param heads the commits, each once, with the branch that the worktree rebases or bisects (fork-only, issue 207).
  * @param needsGit whether a `HEAD` file is the reftable's stub, so that these files can't tell and git has to.
  */
-internal data class OtherWorktreeHeads(val commits: List<String>, val needsGit: Boolean)
+internal data class OtherWorktreeHeads(val heads: List<OtherWorktreeHead>, val needsGit: Boolean) {
+    val commits: List<String> get() = heads.map { it.commit }
+}
 
 /**
  * The commits that this repository's other worktrees have detached, as the log has to start from them: no ref points to
@@ -36,7 +39,7 @@ internal data class OtherWorktreeHeads(val commits: List<String>, val needsGit: 
  */
 internal fun Repository.otherWorktreeHeads(): OtherWorktreeHeads {
     val ownGitDir = directory.canonicalFile
-    val commits = LinkedHashSet<String>()
+    val heads = LinkedHashMap<String, OtherWorktreeHead>()
     var needsGit = false
 
     for ((gitDir, path) in worktreeGitDirs()) {
@@ -49,9 +52,13 @@ internal fun Repository.otherWorktreeHeads(): OtherWorktreeHeads {
             // On a branch
             head.startsWith("ref:") -> Unit
             ObjectId.isId(head) && File(path, Constants.DOT_GIT).exists() && objectDatabase.has(ObjectId.fromString(head)) ->
-                commits.add(head)
+                heads.getOrPut(head) {
+                    val state = worktreeHead(gitDir, path)
+
+                    OtherWorktreeHead(head, state.rebasingBranch ?: state.bisectingBranch)
+                }
         }
     }
 
-    return OtherWorktreeHeads(commits.toList(), needsGit)
+    return OtherWorktreeHeads(heads.values.toList(), needsGit)
 }

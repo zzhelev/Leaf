@@ -147,7 +147,7 @@ fun BranchNameWithWorktree(
  * branch is left out, and the tag of the tool that made the worktree ([originLabel]) shows in its place (fork-only).
  */
 @Composable
-private fun WorktreeMark(name: String?, originLabel: String?) {
+internal fun WorktreeMark(name: String?, originLabel: String?) {
     Layout(
         contents = listOf(
             { BranchWorktreeIcon() },

@@ -321,8 +321,8 @@ private fun ChoiceRow(choice: BranchChoice, isHighlighted: Boolean, onPick: () -
 }
 
 /**
- * A row of a list that a field keeps the focus for, with [name] and what was typed in bold, then [trailing]. It's
- * picked by a tap, not a `clickable`, which would take the focus from the field.
+ * A row of a list that a field keeps the focus for, with [leading], then [name] and what was typed in bold, then
+ * [trailing]. It's picked by a tap, not a `clickable`, which would take the focus from the field.
  */
 @Composable
 internal fun PickRow(
@@ -331,6 +331,8 @@ internal fun PickRow(
     matchLength: Int,
     isHighlighted: Boolean,
     onPick: () -> Unit,
+    fontWeight: FontWeight = FontWeight.Normal,
+    leading: @Composable RowScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -360,6 +362,8 @@ internal fun PickRow(
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        leading()
+
         Text(
             text = buildAnnotatedString {
                 append(name)
@@ -369,6 +373,7 @@ internal fun PickRow(
                 }
             },
             style = MaterialTheme.typography.body2,
+            fontWeight = fontWeight,
             color = MaterialTheme.colors.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -388,7 +388,7 @@ private fun MenuDivider() {
     )
 }
 
-private class BelowRightAlignedPositionProvider(private val gap: Int) : PopupPositionProvider {
+internal class BelowRightAlignedPositionProvider(private val gap: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,

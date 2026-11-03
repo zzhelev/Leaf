@@ -17,7 +17,19 @@ fun selectedBranchesContextMenuItems(
     onDelete: () -> Unit,
     onClearSelection: () -> Unit,
     remote: String? = null,
+    // Fork-only: shows the selected branches alone in the log (upstream issue 207)
+    onShowOnlyInLog: (() -> Unit)? = null,
 ): List<ContextMenuElement> = buildList {
+    if (onShowOnlyInLog != null) {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.branch_context_menu_show_only_selected_in_log) },
+            icon = { painterResource(Res.drawable.visibility) },
+            onClick = onShowOnlyInLog,
+        )
+
+        add(ContextMenuElement.ContextSeparator)
+    }
+
     addContextMenu(
         composableLabel = {
             if (remote != null) {

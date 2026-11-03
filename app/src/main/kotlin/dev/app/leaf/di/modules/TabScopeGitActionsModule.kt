@@ -4,6 +4,9 @@ import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
 import dev.app.leaf.data.git.cherrypick.GetBranchCherryPickCommitsGitAction
+import dev.app.leaf.data.git.config.GetLogBranchFilterGitAction
+import dev.app.leaf.data.git.config.SaveLogBranchFilterGitAction
+import dev.app.leaf.data.git.log.GetCommitsReachableGitAction
 import dev.app.leaf.data.git.rewrite.CheckRebasePlanGitAction
 import dev.app.leaf.data.git.rewrite.GetBranchLinesGitAction
 import dev.app.leaf.data.git.rewrite.GetOntoBaseCheckGitAction
@@ -552,6 +555,19 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsFindCommitsGitAction(action: FindCommitsGitAction): IFindCommitsGitAction
+
+    // Fork-only: the log's branch filter (upstream issue 207)
+    @Binds
+    @TabScope
+    fun bindsGetLogBranchFilterGitAction(action: GetLogBranchFilterGitAction): IGetLogBranchFilterGitAction
+
+    @Binds
+    @TabScope
+    fun bindsSaveLogBranchFilterGitAction(action: SaveLogBranchFilterGitAction): ISaveLogBranchFilterGitAction
+
+    @Binds
+    @TabScope
+    fun bindsGetCommitsReachableGitAction(action: GetCommitsReachableGitAction): IGetCommitsReachableGitAction
 
     @Binds
     @TabScope

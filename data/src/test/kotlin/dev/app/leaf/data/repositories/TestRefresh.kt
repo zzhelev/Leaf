@@ -25,7 +25,10 @@ import dev.app.leaf.domain.interfaces.IGetCurrentBranchGitAction
 import dev.app.leaf.domain.interfaces.IGetPersistedCommitMessagesGitAction
 import dev.app.leaf.domain.interfaces.IGetRemoteBranchesGitAction
 import dev.app.leaf.domain.interfaces.IGetRemotesGitAction
+import dev.app.leaf.domain.interfaces.IGetCommitsReachableGitAction
+import dev.app.leaf.domain.interfaces.IGetLogBranchFilterGitAction
 import dev.app.leaf.domain.interfaces.IGetOtherWorktreeHeadsGitAction
+import dev.app.leaf.domain.log.NO_LOG_BRANCH_FILTER
 import dev.app.leaf.domain.interfaces.IGetStashListGitAction
 import dev.app.leaf.domain.interfaces.IGetStatusGitAction
 import dev.app.leaf.domain.interfaces.IGetTagsGitAction
@@ -118,6 +121,8 @@ fun testRefreshDataUseCase(
             mockk<IGetOtherWorktreeHeadsGitAction> { coEvery { this@mockk(any()) } returns Either.Ok(emptyList()) },
             getStatus,
             getCurrentBranch,
+            mockk<IGetLogBranchFilterGitAction> { coEvery { this@mockk(any()) } returns Either.Ok(NO_LOG_BRANCH_FILTER) },
+            mockk<IGetCommitsReachableGitAction>(),
             GraphLogGenerator(Provider { NoCommits() }),
             dataRepository,
         ),

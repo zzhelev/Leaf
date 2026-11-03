@@ -2,6 +2,7 @@ package dev.app.leaf.data.git.branches
 
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.config.LogBranchFilterConfig
 import dev.app.leaf.data.git.config.WorktreeBaseBranchConfig
 import dev.app.leaf.data.git.worktrees.worktreesUsing
 import dev.app.leaf.data.mappers.JGitBranchMapper
@@ -109,5 +110,12 @@ private fun moveWorktreeBaseBranch(repository: Repository, oldName: String, newN
         WorktreeBaseBranchConfig.renamed(repository, oldName, newName)
     } catch (ex: IOException) {
         printError(TAG, "Choosing $newName as the worktrees' base branch failed", ex)
+    }
+
+    // Fork-only: the log's branch filter names the new name too (upstream issue 207)
+    try {
+        LogBranchFilterConfig.renamed(repository, oldName, newName)
+    } catch (ex: IOException) {
+        printError(TAG, "Naming $newName in the log's branch filter failed", ex)
     }
 }

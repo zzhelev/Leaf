@@ -152,6 +152,10 @@ import dev.app.leaf.domain.usecases.GetWorktreeUseCase
 import dev.app.leaf.domain.usecases.IncreaseLogCountUseCase
 import dev.app.leaf.domain.usecases.LoadLogUntilCommitUseCase
 import dev.app.leaf.domain.usecases.SearchLogUseCase
+import dev.app.leaf.domain.usecases.SetLogBranchFilterUseCase
+import dev.app.leaf.data.git.config.GetLogBranchFilterGitAction
+import dev.app.leaf.data.git.config.SaveLogBranchFilterGitAction
+import dev.app.leaf.data.git.log.GetCommitsReachableGitAction
 import dev.app.leaf.domain.usecases.GetWorktreeCleanupUseCase
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
 import dev.app.leaf.domain.usecases.MergeBranchUseCase
@@ -262,10 +266,21 @@ class TestTab(
         getOtherWorktreeHeadsGitAction = GetOtherWorktreeHeadsGitAction(gitCli, jgit),
         getStatusGitAction = getStatus,
         getCurrentBranchAction = getCurrentBranch,
+        getLogBranchFilterGitAction = GetLogBranchFilterGitAction(jgit),
+        getCommitsReachableGitAction = GetCommitsReachableGitAction(jgit),
         graphLogGenerator = GraphLogGenerator(Provider { JGitGraphRevWalker(jgit, commitMapper) }),
         repositoryDataRepository = repositoryData,
     )
     private val dataRefreshRunner = DataRefreshRunner()
+
+    // Fork-only: the log's branch filter (upstream issue 207)
+    val setLogBranchFilter = SetLogBranchFilterUseCase(
+        SaveLogBranchFilterGitAction(jgit),
+        getLog,
+        repositoryData,
+        dataRefreshRunner,
+        useCaseExecutor,
+    )
 
     val refreshData = RefreshDataUseCase(
         useCaseExecutor = useCaseExecutor,

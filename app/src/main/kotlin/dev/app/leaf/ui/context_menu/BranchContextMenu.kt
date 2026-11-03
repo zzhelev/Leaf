@@ -42,6 +42,8 @@ fun branchContextMenuItems(
     squashBranch: ContextMenuElement? = null,
     // Fork-only: opens the commit editor with the branch's own commits
     editBranch: ContextMenuElement? = null,
+    // Fork-only: shows the branch alone in the log, or hides it there (upstream issue 207)
+    logFilter: List<ContextMenuElement> = emptyList(),
 ): List<ContextMenuElement> {
     // Leaves out what the worktree guards would refuse (fork-only)
     val canCheckout = worktreeUsers?.canCheckout != false
@@ -108,6 +110,11 @@ fun branchContextMenuItems(
                 addCompareWithWorkingTree(onCompareWithWorkingTree)
             }
 
+            add(ContextMenuElement.ContextSeparator)
+        }
+
+        if (logFilter.isNotEmpty()) {
+            addAll(logFilter)
             add(ContextMenuElement.ContextSeparator)
         }
         if (!isLocal && currentBranch != null && currentBranch.name != "HEAD") { // TODO currentBranch.name != "HEAD" as function or even extension function?

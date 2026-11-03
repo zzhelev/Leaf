@@ -14,6 +14,7 @@ import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.interfaces.IGetBranchesGitAction
 import dev.app.leaf.domain.interfaces.IGetCurrentBranchGitAction
 import dev.app.leaf.domain.interfaces.IGetOtherWorktreeHeadsGitAction
+import dev.app.leaf.domain.log.NO_LOG_BRANCH_FILTER
 import dev.app.leaf.domain.interfaces.IGetRemoteBranchesGitAction
 import dev.app.leaf.domain.interfaces.IGetRemotesGitAction
 import dev.app.leaf.domain.interfaces.IGetStashListGitAction
@@ -98,6 +99,10 @@ class GetLogStartCommitsTest {
             getOtherWorktreeHeadsGitAction = otherHeads,
             getStatusGitAction = getStatus,
             getCurrentBranchAction = getCurrentBranch,
+            getLogBranchFilterGitAction = mockk {
+                coEvery { this@mockk(any()) } returns Either.Ok(NO_LOG_BRANCH_FILTER)
+            },
+            getCommitsReachableGitAction = mockk(),
             graphLogGenerator = GraphLogGenerator(Provider { walker }),
             repositoryDataRepository = InMemoryRepositoryDataRepository(),
         )

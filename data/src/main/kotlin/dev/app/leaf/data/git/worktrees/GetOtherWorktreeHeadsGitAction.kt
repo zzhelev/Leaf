@@ -10,6 +10,7 @@ import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.bind
 import dev.app.leaf.domain.errors.either
 import dev.app.leaf.domain.interfaces.IGetOtherWorktreeHeadsGitAction
+import dev.app.leaf.domain.interfaces.OtherWorktreeHead
 import dev.app.leaf.domain.models.Worktree
 import java.io.File
 import javax.inject.Inject
@@ -23,7 +24,7 @@ class GetOtherWorktreeHeadsGitAction @Inject constructor(
     private val gitCli: GitCli,
     private val jgit: JGit,
 ) : IGetOtherWorktreeHeadsGitAction {
-    override suspend operator fun invoke(repositoryPath: String): Either<List<String>, GitError> = either {
+    override suspend fun withBranches(repositoryPath: String): Either<List<OtherWorktreeHead>, GitError> = either {
         val (heads, currentFolder) = jgit.provide(repositoryPath) { git ->
             val repository = git.repository
 
@@ -31,15 +32,17 @@ class GetOtherWorktreeHeadsGitAction @Inject constructor(
         }.bind()
 
         if (!heads.needsGit) {
-            Either.Ok(heads.commits)
+            Either.Ok(heads.heads)
         } else {
             val output = gitCli.run(File(repositoryPath), listOf("worktree", "list", "--porcelain", "-z")).bind()
 
             Either.Ok(
                 parseWorktreeList(output)
                     .filter { it.isOtherDetachedWorktree(currentFolder) }
-                    .mapNotNull { it.headSha }
-                    .distinct()
+                    .mapNotNull { worktree ->
+                        worktree.headSha?.let { OtherWorktreeHead(it, worktree.rebasingBranch ?: worktree.bisectingBranch) }
+                    }
+                    .distinctBy { it.commit }
             )
         }
     }

@@ -170,6 +170,12 @@ fun Log(
     // Fork-only: the commits selected with Shift (docs/fork/squash-and-rebase.md, A2)
     val selectedCommits by viewModel.selectedCommits.collectAsState()
 
+    // Fork-only: which branches the log shows (upstream issue 207)
+    val logBranchFilter by viewModel.logBranchFilter.collectAsState()
+    val logBranchFilterMenu = remember(logBranchFilter, viewModel) {
+        LogBranchFilterMenu(logBranchFilter, viewModel::setLogBranchFilter)
+    }
+
     // Fork-only: the menus' squash and reword items (A3)
     val commitRewrite = rememberCommitRewrite(viewModel, logStatus.currentBranch, onRewrite, onDropCommit)
 
@@ -225,6 +231,7 @@ fun Log(
             LocalBranchCherryPick provides branchCherryPick,
             LocalSelectedCommits provides selectedCommits?.hashes.orEmpty(),
             LocalCommitRewrite provides commitRewrite,
+            LocalLogBranchFilter provides logBranchFilterMenu,
         ) {
             LogView(
                 logState = logStatus,
@@ -250,7 +257,10 @@ fun Log(
                         searchFilterResults = it,
                         searchFocused = { viewModel.addSearchToCloseableView() },
                     )
-                }
+                },
+                branchFilterControl = {
+                    LogBranchFilterButton(logBranchFilter, branchWorktrees, viewModel::setLogBranchFilter)
+                },
             )
         }
 
@@ -280,6 +290,8 @@ private fun LogView(
     onMoveSelection: (LogMove, pageSize: Int, hasUncommittedRow: Boolean) -> Int?,
     onExtendSelection: (step: Int, hasUncommittedRow: Boolean) -> Int?,
     searchView: @Composable (LogSearch.SearchResults) -> Unit,
+    // Fork-only: which branches the log shows (upstream issue 207)
+    branchFilterControl: @Composable () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val hasUncommittedChanges = logState.hasUncommittedChanges
@@ -368,7 +380,8 @@ private fun LogView(
             },
             onShowSearch = {
                 onAction(LogAction.SearchValueChange(""))
-            }
+            },
+            branchFilterControl = branchFilterControl,
         )
 
         Box {
@@ -924,6 +937,7 @@ fun GraphHeader(
     onColumnResize: (LogColumn, delta: Float) -> Unit,
     onColumnResizeFinished: (LogColumn) -> Unit,
     onShowSearch: () -> Unit,
+    branchFilterControl: @Composable () -> Unit = {},
 ) {
     LogColumnsHeaderMenu(columnsMenuItems) {
     Box(
@@ -967,6 +981,8 @@ fun GraphHeader(
                 style = MaterialTheme.typography.body2,
                 maxLines = 1,
             )
+
+            branchFilterControl()
 
             LogColumnsMenuButton(columnsMenuItems)
 
@@ -1688,6 +1704,7 @@ fun BranchChip(
     val compareWithCurrent = LocalCompareWithCurrent.current
     val branchCherryPick = LocalBranchCherryPick.current
     val commitRewrite = LocalCommitRewrite.current
+    val logBranchFilter = LocalLogBranchFilter.current
 
     val contextMenuItemsList = {
         branchContextMenuItems(
@@ -1723,6 +1740,8 @@ fun BranchChip(
             onCherryPick = { item -> branchCherryPick?.onCherryPick?.invoke(branch, item) },
             squashBranch = commitRewrite?.takeIf { branch.isLocal }?.branchItem(branch.name),
             editBranch = commitRewrite?.takeIf { branch.isLocal }?.branchEditorItem(branch.name),
+            logFilter = logBranchFilter?.takeIf { branch.name != Constants.HEAD }
+                ?.let { logBranchFilterMenuItems(branch, it) }.orEmpty(),
         ) + sharedRemotesMenuItems().let { items ->
             if (items.isEmpty()) items else listOf(ContextMenuElement.ContextSeparator) + items
         }
