@@ -9,7 +9,7 @@ agents create many git worktrees. The core idea: a worktree is a branch with its
 worktrees as a property of branches, not as separate repositories, and support their whole lifecycle: see, review, merge
 or squash back, discard.
 
-Secondary goal: fix easy open upstream issues in the fork.
+Secondary goal: fix open upstream issues in the fork (Phase 5).
 
 Leaf sends no pull requests upstream (decided on 2026-10-09). It keeps merging `upstream/main` to take
 upstream's fixes, so changes to the files that come from upstream stay small, which keeps those merges cheap.
@@ -191,25 +191,55 @@ squash-merge one, rebase one, discard one. Afterwards no stale entries remain in
 3. Stale indicators: Mark worktrees whose branch is already merged into base, and worktrees untouched for N days. Offer
    a "Clean up merged worktrees" action that lists candidates and asks for confirmation.
 
-## Phase 5 — Easy upstream issues
+## Phase 5 — Upstream issues
 
-1. List open issues: `gh issue list -R <upstream's owner/repo> --state open --limit 200 --json number,title,labels,body,createdAt`.
-2. Triage into `docs/fork/issue-triage.md` with columns: number, title, still reproducible on 2.0 (yes/no/untested),
-   estimated effort (S/M/L), notes.
-3. Starting candidates to verify first, judged only by their titles, so the size estimates are unconfirmed:
-    * #345 separate untracked and modified files in the unstaged area: possibly S.
-    * #349 macOS tab-switch shortcut conflicting with text editing: possibly S.
-    * #343 show a commit's file changes in a separate panel: possibly M.
-    * #347 better handling of moved files: unknown.
-    * Defer the large ones: #331 system SSH client, #336 sparse checkout, #186 conditional gitconfig includes (a JGit
-      limitation).
-    * #186, done on 2026-10-15: Leaf's own commits, tags and stashes take the identity and signing settings that git
-      uses, `includeIf` included (branch `fix/includeif-identity`); hooks are found where git finds them (branch
-      `fix/hooks-from-git`); a resolved cherry-pick keeps its author (branch `fix/cherry-pick-author`); and JGit's
-      repository config has the files that `includeIf` names, for the commits that JGit makes itself and its other
-      settings (branch `fix/includeif-config`). Merge, cherry-pick, revert and rebase run the git CLI, for git's
-      merge engine (renames) and hooks (branch `fix/git-cli-operations`).
-4. Fixing: Fix S items one branch each, with tests where feasible.
+Status on 2026-11-03.
+
+1. Triage, done on 2026-10-16: upstream's 89 open issues, read against Leaf's `main` (still reproducible, effort S, M
+   or L for Leaf's code, notes from the code and from probes with JGit 7.7 and git 2.54). 60 still applied (18 S,
+   27 M, 15 L), 21 were already fixed or replaced in Leaf, and 8 need a platform that this machine lacks. The triage
+   is kept with the sessions' notes, outside the repository. Issues opened since aren't in it.
+2. Fixed, one branch each, with tests and a `docs/fork/CHANGELOG.md` entry that names the issue:
+    * Before the triage: #186 (git's identity, signing, hooks and config, `includeIf` included, 2026-10-15), #331 and
+      #294 (SSH through OpenSSH), #194 and #293 (signing with gpg itself), #236, #321 and #298 (hooks get the login
+      shell's environment). #349 was fixed upstream, and came with a sync.
+    * 2026-10-19: #120 and #124 (Merge, Commit and Continue with unstaged files, and why a button is disabled), #347's
+      commit and review lists (renames), #175 (Ignore from Unstaged), #208 (Terminal on macOS), #224 (Discard all),
+      #209 (clone a branch or a tag, and Choose…).
+    * 2026-10-20: #309 (the System theme), #149 and #146 (file history's row menu), #278 (the log search wraps around),
+      #270 (parents in the commit details), #231 and #255 (an avatar colour per person, HEAD's row), #344 (the commit
+      message's title row).
+    * 2026-10-21: #343, #136 and #128 (the diff above the log), #138, #139 and #140 (the diff's View menu: whitespace
+      and wrapping), #206 and #283 (compare two commits, branches or tags).
+    * 2026-10-22 to 2026-10-26: #136 again (fold the branches pane away), #116 (delete several branches, local and a
+      remote's), #73 (squash, fix up and reword; the commit editor).
+    * 2026-11-02 and 2026-11-03: #277 (the log search covers the whole history), #336's bug (Leaf no longer widens a
+      sparse checkout), #260 (Amend lists the last commit's files), #345 (Unstaged's untracked files in a group),
+      #207 (the log's branch filter), #242 (tab names and colours).
+3. Partly done:
+    * #347: Staged still lists a moved file as a deletion and an addition. L: a rename status type, and every stage,
+      unstage, discard and diff action keyed by path.
+    * #336: no UI to set up or change the sparse set (`git sparse-checkout set`, `add`, `disable`). M.
+    * #128: the font and avatar sizes, and Staged and Unstaged in one pane.
+4. Still open from the triage:
+    * S: #197 (`--version` and `--help`, and a path argument that selects a tab which has it), #251 (a setting that
+      turns off the file watcher), #330 (the identity dialog writes `~/.gitconfig` where only an XDG config exists),
+      #364 (a winget manifest: a pull request to Microsoft's repository, an outward step).
+    * M: #24 (colour branches by remote), #39 (undo a discard), #71 (blame and history from a file picker), #98 (push
+      to a new remote branch name), #105 (a repository settings screen), #164 (stage a range of lines by dragging),
+      #202 (push after each commit, as a setting), #226 (credentials per repository), #230 (open in an editor), #261
+      (find the repositories in the default folder), #272 (blame marks one commit's lines), #275 with #312 (search,
+      select all and go to line in the diff and blame), #282 (an external diff tool, `git difftool`), #292 (an avatar
+      URL template).
+    * L: #30 (error messages, an umbrella), #31 (keys that can be remapped), #40 (move the panes), #199 (revert part
+      of a commit), #225 with #356 (translations), #252 (Windows on arm), #329 (SHA-256 repositories, which JGit can't
+      read).
+    * Out of scope: #70 (Gitflow), #117 and #205 (hosting services' accounts and pull requests).
+    * Untested, as they need another platform: #151 with #357 (Windows' dark title bar), #159 (scaling on Linux), #180
+      (Pageant), #184 (Unicode names on Linux), #241 (Flatpak on Wayland), #311 (Shift-click in text), #333 (Sway).
+5. Taking one: the working rules apply. One that changes what the user sees is proposed with options and a mockup, and
+   the user picks. Changes to upstream's files stay small (rule 3): upstream may fix the same issue, and the next sync
+   then has to merge both. Leaf posts nothing upstream: no pull requests, comments or reports.
 
 ## Keeping in sync with upstream
 
