@@ -26,8 +26,8 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
     `tmp/`);
   - `~/Library/Logs/io.github.zzhelev.leaf/leaf.log`;
   - the per-repository file `<git dir>/leaf` (sign-off, per worktree) and `<common git dir>/leaf` (side panel folder
-    state, the worktrees' base branch, where new worktrees go, and the tabs' name and colour, shared by the worktrees).
-    They are the same file in a repository's main worktree;
+    state, the worktrees' base branch, and where new worktrees go, shared by the worktrees). They are the same file in
+    a repository's main worktree;
   - the per-worktree file `<git dir>/LEAF_COMMIT_DRAFT`, the commit field's draft, and during a rebase
     `<git dir>/rebase-merge/leaf-amend-message-<commit>`, its message for an edit stop (see The plain draft).
 
@@ -3279,55 +3279,56 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   tree, so it replaces a linked worktree's tab too. The name comes from `tabNamesOf` (fork-only): a linked worktree's
   tab is named after its repository, the main worktree's folder (a bare repository's without `.git`), and
   `TabInformationProvider.worktreeName` is the worktree's folder, which the tab shows lighter after a `·`, as does the
-  window title. Other tabs are named after their working tree's folder, as before. A name that the user gave the
-  repository takes the folder's place (next bullet).
+  window title. Other tabs are named after their working tree's folder, as before. A name that the user gave the tab
+  takes the place of both (next bullet).
 - **A tab's name and colour (fork-only, upstream issue 242, 2026-11-03, `domain/tabs/`,
-  `data/git/config/TabLookConfig.kt`, `ui/components/TabLookParts.kt`):** a repository's tabs can show a name of the
-  user's in place of its folder's, and a colour. Chosen with the user from mockups: both belong to the repository, so
-  every tab of it shows them, whichever worktree it has (1a); a right-click menu, and a double-click that renames in
-  place (2(1)); a 3 dp stripe along the tab's top (3A, over a tint and a dot).
-  - **Stored** in `<common git dir>/leaf` as `[tab] name` and `color` (`TabLookConfig`, behind the domain's
-    `TabLookStore`). The colour is a graph lane's number, 1 to 6, so it follows the style: Teal's lane 2 is orange,
-    Tonal's red. A value that can't be read is none, and so is a file that isn't a config file, which the next save
-    replaces. No name and no colour take the section out.
+  `ui/components/TabLookParts.kt`):** a tab can have a name of the user's and a colour. Both belong to the tab: every
+  tab of a repository opens with its folder's name, and a rename or a colour changes that tab only. Chosen with the user
+  from mockups: a right-click menu, and a double-click that renames in place; a 3 dp stripe along the tab's top (over a
+  tint and a dot); a renamed tab shows its name alone (B1, over keeping the worktree after it and a colour shared by the
+  repository's tabs). The first version kept them per repository, in `<common git dir>/leaf`; the user found it strange
+  that renaming one tab renamed the repository's other tabs (2026-11-03).
+  - **What a tab shows** (`titleWith`, `TabTitle`): the user's name alone, or else the repository's folder and the
+    linked worktree after it. The tooltip stays the path, so it still says which worktree a renamed tab shows, and so
+    does the worktree picker. `tabName` and `worktreeName` give the shown title, so the window title and the quit dialog
+    follow.
   - **Names** (`tabNameOf`): on one line, runs of white space as one space, trimmed, at most 100 characters. A blank
     name or the repository's folder name is no name, so typing the folder's name resets it.
-  - **`TabLooks`** (domain, app singleton): one look per repository, keyed by `repositoryGitDirOf` (the common git dir's
-    real path) and read once, when a tab first asks. A change made in one tab reaches every tab of the repository at
-    once, a linked worktree's and one from "Open in new tab" too. `update` saves first: a failure changes nothing and
-    returns a `GenericError` that names the file.
-  - **The tab** (`RepositoryTabViewModel.tabLabel`) reads the names and the look together, so a renamed tab doesn't show
-    its folder's name first. `tabName` is the user's name or the folder's, so the window title and the quit dialog
-    follow; a linked worktree's part after `·` stays. The tooltip stays the path, and the worktree picker, the Worktrees
-    section and the Welcome page's recent list are as before. A worktree switch keeps the look (the same common git
-    dir), and the saved tabs (git dirs) find it again after a restart.
+  - **Colours:** a graph lane's number, 1 to 6, so a colour follows the style: Teal's lane 2 is orange, Tonal's red.
+  - **The tab's state** (`RepositoryTabViewModel.look`, made from the factory's `initialLook`): kept through a worktree
+    switch, lost when the tab closes or "Open another repository" replaces it. A change saves the tabs
+    (`AppViewModel.tabLookChanged`). "Open in new tab" opens without it, unless a tab of that worktree is open, which it
+    selects as before.
+  - **Saved** in the prefs node as `latestRepositoriesTabsLooks`, next to `latestRepositoriesTabsOpened`: a JSON list
+    with each saved tab's path, name and colour, in the same order (`savedTabLooksJson`). At the start, a tab gets the
+    look saved in its place for its path (`savedTabLooks`), so a tab list that an older Leaf saved again (it doesn't
+    know the key) gives a tab its own look or none, never another tab's. A list or a value that can't be read is none.
+    The list of paths keeps its format, which older versions read as before.
   - **The menu** (`tabContextMenuItems`, through `ContextMenu` around each tab in `TabsRow`): "Rename tab…" with the
     hint "Double-click", a row of colours (`TabColorsRow`: no colour, then the style's six lanes, with a ring on the one
     set), "Reset name" while the tab has a name of the user's, a separator, "Close tab". A Welcome page's tab has only
     Close tab, and a double-click on it does nothing. The colour row is the fork-only
     `ContextMenuElement.ContextCustomEntry`, a row of its own that gets the function that closes the menu.
-  - **Renaming** (`TabNameField`, in place of the title, with the name selected): Enter and a click elsewhere keep what
-    was typed, Esc doesn't, and Tab and Ctrl+Tab do nothing (they moved the focus on, which ended it). While it shows,
-    `App.AppTabs` leaves the tab bar's keys (the next and previous tab, Cmd+T, Cmd+W) to the field, and
-    `AppChrome.isTabBeingRenamed` keeps the tab's content from taking the focus on its own: a tab that loads after the
-    double-click that selected it would close the field. After Enter or Esc the current tab's content takes the focus
+  - **Renaming** (`TabNameField`, in place of the title, with the name selected): the field holds the whole title, with
+    no worktree after it, as the renamed tab will show. Enter and a click elsewhere keep what was typed, Esc doesn't,
+    and Tab and Ctrl+Tab do nothing (they moved the focus on, which ended it). While it shows, `App.AppTabs` leaves the
+    tab bar's keys (the next and previous tab, Cmd+T, Cmd+W) to the field, and `AppChrome.isTabBeingRenamed` keeps the
+    tab's content from taking the focus on its own: a tab that loads after the double-click that selected it would close
+    the field. After Enter or Esc the current tab's content takes the focus
     (`RepositoryTabViewModel.contentFocusRequests`), as the tab's shortcuts need it.
-  - **A failed save** (`TaskType.SaveTabLook`) goes to that tab's `ErrorDialog` and selects the tab
-    (`AppViewModel.selectTabOf`): a right-clicked tab may not be the current one.
-  - Tests: `TabLookTest`, `TabLooksTest` (domain); `TabLookConfigTest` (data: the file against `git config -f`, other
-    sections kept, values that can't be read, a damaged file, a git dir that is gone), `RenamingTabsTest` (data: a
-    linked worktree's tab, a switch, a restart through the saved tabs, two repositories named `app`, a bare repository);
-    `TabLookMenuTest` (app, the real `TabsRow` rendered: each kind of tab's menu, picking a colour, Reset name and Close
-    tab, a double-click with Enter, Esc, a click elsewhere and Tab, the menu's Rename, the stripe's pixels in three
-    styles; PNGs of the tab bar, its menu and a rename in four styles and both themes with `LEAF_RENDER_DIR`). The view
-    model ran through the Dagger graph in a temporary harness against `/tmp/leaf-tab-names-demo.sh`'s repositories:
-    rename, colour, Open in new tab, a worktree switch, a rename from the worktree's tab reaching the other, Reset name,
-    a failed save on a read-only git dir, the saved tabs. Not covered by a kept test: `App.AppTabs`' key guard and the
-    content's focus, which need the window. 18 mutations of the rules, the cache, the file, the menu, the field and the
-    stripe were each caught by a named test.
+  - Tests: `TabLookTest` and `SavedTabLooksTest` (domain: the names, the title, the saved list, an older Leaf's list,
+    values that can't be read); `TabLookMenuTest` (app, the real `TabsRow` rendered: each kind of tab's menu, picking a
+    colour, Reset name and Close tab, a double-click with Enter, Esc, a click elsewhere and Tab, a renamed worktree's
+    tab, the menu's Rename, the stripe's pixels in three styles; PNGs of the tab bar, its menu and a rename in four
+    styles and both themes with `LEAF_RENDER_DIR`). The view model ran through the Dagger graph in a temporary harness
+    against `/tmp/leaf-tab-names-demo.sh`'s repositories: a rename and a colour, another tab of the repository opening
+    with its folder's name, a worktree switch, Reset name, and the tabs saved and loaded again. Not covered by a kept
+    test: the view model's look (it needs the Dagger graph), `App.AppTabs`' key guard and the content's focus, which
+    need the window. 18 mutations of the names, the title, the saved list, the menu, the field and the stripe were each
+    caught by a named test.
 - Persisted keys in the prefs node (`LeafConfig`, see Name): `latestRepositoriesTabsOpened` (JSON),
   `latestRepositoryTabSelected`, and
-  `lastOpenedRepositoriesList`.
+  `lastOpenedRepositoriesList`. Fork-only: `latestRepositoriesTabsLooks`, the tabs' names and colours (above).
 - What is saved: open tabs as their git dir (`Open.path`), and tabs that haven't loaded yet as the path they were
   created with (`RepositoryTabViewModel.initialPath`). Tabs on the welcome page (`None`) are skipped.
 - Never save `repositoryPath.value`. It is started lazily and stays `null` until something collects it, which tabs
