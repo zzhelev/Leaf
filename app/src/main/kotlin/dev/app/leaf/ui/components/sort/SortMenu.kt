@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -45,6 +44,12 @@ import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.isDark
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.ui.components.menu.MENU_WINDOW_MARGIN
+import dev.app.leaf.ui.components.menu.MenuScrollColumn
+import dev.app.leaf.ui.components.menu.fitsWindowHeight
+import dev.app.leaf.ui.components.menu.fittedStart
+import dev.app.leaf.ui.components.menu.menuTopBelowOrAbove
+import dev.app.leaf.ui.components.menu.movesInMenu
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -172,8 +177,9 @@ internal fun Modifier.hiddenWhenTruncated() = layout { measurable, constraints -
 }
 
 /**
- * A popup anchored below its parent, right-aligned with it, unless a [positionProvider] places it. Arrow keys move
- * between options; Esc closes it.
+ * A popup anchored below its parent, right-aligned with it, unless a [positionProvider] places it. It stays a margin
+ * from the window's edges, and scrolls when it's taller than the window ([MenuScrollColumn]). ↑ and ↓ move between
+ * options, Home and End go to the first and the last; Esc closes it.
  */
 @Composable
 internal fun SortMenuPopup(
@@ -181,8 +187,10 @@ internal fun SortMenuPopup(
     onDismissRequest: () -> Unit,
     positionProvider: PopupPositionProvider? = null,
 ) {
-    val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
-    val belowRightAligned = remember(gap) { BelowRightAlignedPositionProvider(gap) }
+    val density = LocalDensity.current
+    val gap = with(density) { 4.dp.roundToPx() }
+    val margin = with(density) { MENU_WINDOW_MARGIN.roundToPx() }
+    val belowRightAligned = remember(gap, margin) { BelowRightAlignedPositionProvider(gap, margin) }
 
     Popup(
         properties = PopupProperties(focusable = true),
@@ -191,13 +199,17 @@ internal fun SortMenuPopup(
     ) {
         val focusRequester = remember { FocusRequester() }
         val focusManager = LocalFocusManager.current
+        val optionRequesters = remember(items) {
+            items.filter { it is SortMenuItem.Option && it.isEnabled }.associateWith { FocusRequester() }
+        }
 
         LaunchedEffect(Unit) {
             focusRequester.requestFocus()
         }
 
-        Column(
+        Box(
             modifier = Modifier
+                .fitsWindowHeight()
                 .dropShadow(
                     shape = RoundedCornerShape(4.dp),
                     shadow = Shadow(radius = 5.dp, spread = 6.dp, color = Color(0x20000000)),
@@ -213,7 +225,6 @@ internal fun SortMenuPopup(
                 }
                 .width(IntrinsicSize.Max)
                 .widthIn(min = 220.dp)
-                .padding(vertical = 4.dp)
                 .focusRequester(focusRequester)
                 .focusable()
                 .onPreviewKeyEvent { keyEvent ->
@@ -224,34 +235,48 @@ internal fun SortMenuPopup(
                             true
                         }
 
-                        keyEvent.matchesBinding(KeybindingOption.DOWN) -> focusManager.moveFocus(FocusDirection.Next)
-                        keyEvent.matchesBinding(KeybindingOption.UP) -> focusManager.moveFocus(FocusDirection.Previous)
-                        else -> false
+                        else -> keyEvent.movesInMenu(
+                            focusManager,
+                            first = optionRequesters.values.firstOrNull(),
+                            last = optionRequesters.values.lastOrNull(),
+                        )
                     }
                 },
         ) {
-            for (item in items) {
-                when (item) {
-                    is SortMenuItem.Title -> MenuTitle(item.text)
-                    is SortMenuItem.Option -> MenuOption(
-                        option = item,
-                        onClick = onClick@{
-                            if (!item.isEnabled) {
-                                return@onClick
-                            }
-
-                            item.onClick()
-
-                            if (item.closesMenu) {
-                                onDismissRequest()
-                            }
-                        },
-                    )
-
-                    SortMenuItem.Divider -> MenuDivider()
-                    is SortMenuItem.Note -> MenuNote(item.text)
-                }
+            MenuScrollColumn(contentPadding = PaddingValues(vertical = 4.dp)) {
+                MenuItems(items, optionRequesters, onDismissRequest)
             }
+        }
+    }
+}
+
+@Composable
+private fun MenuItems(
+    items: List<SortMenuItem>,
+    optionRequesters: Map<SortMenuItem, FocusRequester>,
+    onDismissRequest: () -> Unit,
+) {
+    for (item in items) {
+        when (item) {
+            is SortMenuItem.Title -> MenuTitle(item.text)
+            is SortMenuItem.Option -> MenuOption(
+                option = item,
+                modifier = optionRequesters[item]?.let { Modifier.focusRequester(it) } ?: Modifier,
+                onClick = onClick@{
+                    if (!item.isEnabled) {
+                        return@onClick
+                    }
+
+                    item.onClick()
+
+                    if (item.closesMenu) {
+                        onDismissRequest()
+                    }
+                },
+            )
+
+            SortMenuItem.Divider -> MenuDivider()
+            is SortMenuItem.Note -> MenuNote(item.text)
         }
     }
 }
@@ -272,12 +297,13 @@ private fun MenuTitle(text: String) {
 private fun MenuOption(
     option: SortMenuItem.Option,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(if (isFocused) MaterialTheme.colors.onBackground.copy(alpha = 0.08f) else Color.Transparent)
             .onPreviewKeyEvent { keyEvent ->
@@ -388,25 +414,24 @@ private fun MenuDivider() {
     )
 }
 
-internal class BelowRightAlignedPositionProvider(private val gap: Int) : PopupPositionProvider {
+/**
+ * Below its button, right-aligned with it, or above it when there's no room below, [margin] from the window's edges;
+ * moved up just enough to fit when there's room neither way.
+ */
+internal class BelowRightAlignedPositionProvider(private val gap: Int, private val margin: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
-    ): IntOffset {
-        val x = (anchorBounds.right - popupContentSize.width)
-            .coerceAtMost(windowSize.width - popupContentSize.width)
-            .coerceAtLeast(0)
-
-        val below = anchorBounds.bottom + gap
-        val y = if (below + popupContentSize.height > windowSize.height) {
-            // Not enough room below: open above the button, or stick to the bottom of the window
-            (anchorBounds.top - gap - popupContentSize.height).coerceAtLeast(0)
-        } else {
-            below
-        }
-
-        return IntOffset(x, y)
-    }
+    ): IntOffset = IntOffset(
+        x = fittedStart(anchorBounds.right - popupContentSize.width, popupContentSize.width, windowSize.width, margin),
+        y = menuTopBelowOrAbove(
+            below = anchorBounds.bottom + gap,
+            aboveEnd = anchorBounds.top - gap,
+            height = popupContentSize.height,
+            windowHeight = windowSize.height,
+            margin = margin,
+        ),
+    )
 }

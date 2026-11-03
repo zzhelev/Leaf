@@ -30,6 +30,7 @@ import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalLocalization
@@ -46,9 +47,13 @@ import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.isDark
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.ui.components.menu.MENU_WINDOW_MARGIN
+import dev.app.leaf.ui.components.menu.MenuScrollColumn
+import dev.app.leaf.ui.components.menu.fitsWindowHeight
+import dev.app.leaf.ui.components.menu.menuPositionAt
+import dev.app.leaf.ui.components.menu.movesInMenu
 import org.jetbrains.compose.resources.painterResource
 import java.awt.event.KeyEvent
-import kotlin.math.abs
 
 private var lastCheck: Long = 0
 private const val MIN_TIME_BETWEEN_POPUPS_IN_MS = 20
@@ -214,6 +219,9 @@ fun showPopup(
     contextMenuElements: List<ContextMenuElement>,
     onDismissRequest: () -> Unit,
 ) {
+    // Fork-only: the menu stays a margin from the window's edges, and one taller than the window scrolls
+    val margin = with(LocalDensity.current) { MENU_WINDOW_MARGIN.roundToPx() }
+
     Popup(
         properties = PopupProperties(
             focusable = true,
@@ -224,32 +232,18 @@ fun showPopup(
                 windowSize: IntSize,
                 layoutDirection: LayoutDirection,
                 popupContentSize: IntSize,
-            ): IntOffset {
-                val resultY = if (popupContentSize.height > windowSize.height) {
-                    0 // If the popup is taller than the window itself
-                } else if (y + popupContentSize.height > windowSize.height) {
-                    // If the end of the popup would go out of bounds.
-                    // Move the Y a bit to the top to make it fit
-                    y - abs(windowSize.height - (y + popupContentSize.height))
-                } else {
-                    y
-                }
-
-                val resultX = if (x + popupContentSize.width > windowSize.width && popupContentSize.width < x) {
-                    // If the end of the popup would go out of bounds.
-                    // Move the X a bit to the left to make it fit
-                    x - abs(windowSize.width - (x + popupContentSize.width))
-                } else {
-                    x
-                }
-
-                return IntOffset(resultX, resultY)
-            }
+            ): IntOffset = menuPositionAt(IntOffset(x, y), windowSize, popupContentSize, margin)
         },
         onDismissRequest = onDismissRequest
     ) {
 
         val focusRequester = remember { FocusRequester() }
+        val focusManager = LocalFocusManager.current
+        // Fork-only: Home and End go to the first and the last entry that can be picked
+        val entryRequesters = remember(contextMenuElements) {
+            contextMenuElements.filter { it is ContextMenuElement.ContextTextEntry && it.isEnabled }
+                .associateWith { FocusRequester() }
+        }
 
         LaunchedEffect(Unit) {
             focusRequester.requestFocus()
@@ -257,6 +251,7 @@ fun showPopup(
 
         Box(
             modifier = Modifier
+                .fitsWindowHeight()
                 .dropShadow(
                     shape = RoundedCornerShape(4.dp),
                     shadow = Shadow(
@@ -286,16 +281,21 @@ fun showPopup(
                         onDismissRequest()
                         true
                     } else
-                        false
+                        keyEvent.movesInMenu(
+                            focusManager,
+                            first = entryRequesters.values.firstOrNull(),
+                            last = entryRequesters.values.lastOrNull(),
+                        )
                 },
         ) {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            MenuScrollColumn {
                 for (item in contextMenuElements) {
                     when (item) {
                         is ContextMenuElement.ContextTextEntry -> TextEntry(
                             showIcons,
                             item,
-                            onDismissRequest = onDismissRequest
+                            onDismissRequest = onDismissRequest,
+                            modifier = entryRequesters[item]?.let { Modifier.focusRequester(it) } ?: Modifier,
                         )
 
                         ContextMenuElement.ContextSeparator -> Separator()
@@ -325,11 +325,12 @@ fun TextEntry(
     showIcons: Boolean,
     contextTextEntry: ContextMenuElement.ContextTextEntry,
     onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val icon = contextTextEntry.icon
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .clickable(enabled = contextTextEntry.isEnabled) {
                 onDismissRequest()
                 contextTextEntry.onClick()

@@ -63,6 +63,8 @@ import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.extensions.toSystemTimeString
 import dev.app.leaf.repositoryopen.LogAction
 import dev.app.leaf.theme.monoTypography
+import dev.app.leaf.ui.components.menu.MENU_WINDOW_MARGIN
+import dev.app.leaf.ui.components.menu.menuPositionAt
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.sort.SortMenuItem
@@ -489,30 +491,26 @@ fun LogColumnsHeaderMenu(
         val offset = menuOffset
 
         if (offset != null) {
+            val margin = with(LocalDensity.current) { MENU_WINDOW_MARGIN.roundToPx() }
+
             SortMenuPopup(
                 items = menuItems,
                 onDismissRequest = { menuOffset = null },
-                positionProvider = remember(offset) { AtOffsetPositionProvider(offset) },
+                positionProvider = remember(offset, margin) { AtOffsetPositionProvider(offset, margin) },
             )
         }
     }
 }
 
-/** Places a popup's top-left corner at [offset] inside its anchor, moved back into the window if it would leave it. */
-private class AtOffsetPositionProvider(private val offset: IntOffset) : PopupPositionProvider {
+/**
+ * Places a popup's top-left corner at [offset] inside its anchor, moved back into the window, [margin] from its edges,
+ * if it would leave it.
+ */
+private class AtOffsetPositionProvider(private val offset: IntOffset, private val margin: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
-    ): IntOffset {
-        val x = (anchorBounds.left + offset.x)
-            .coerceAtMost(windowSize.width - popupContentSize.width)
-            .coerceAtLeast(0)
-        val y = (anchorBounds.top + offset.y)
-            .coerceAtMost(windowSize.height - popupContentSize.height)
-            .coerceAtLeast(0)
-
-        return IntOffset(x, y)
-    }
+    ): IntOffset = menuPositionAt(anchorBounds.topLeft + offset, windowSize, popupContentSize, margin)
 }

@@ -56,6 +56,7 @@ import dev.app.leaf.repositoryopen.LogBranchFilterState
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.BranchWorktreesState
 import dev.app.leaf.ui.WorktreeMark
+import dev.app.leaf.ui.components.menu.MENU_WINDOW_MARGIN
 import dev.app.leaf.ui.components.sort.BelowRightAlignedPositionProvider
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.dialogs.ChoiceGroupHeader
@@ -329,10 +330,11 @@ fun LogBranchFilterButton(
 
         if (showList) {
             val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
+            val margin = with(LocalDensity.current) { MENU_WINDOW_MARGIN.roundToPx() }
 
             Popup(
                 properties = PopupProperties(focusable = true),
-                popupPositionProvider = remember(gap) { BelowRightAlignedPositionProvider(gap) },
+                popupPositionProvider = remember(gap, margin) { BelowRightAlignedPositionProvider(gap, margin) },
                 onDismissRequest = {
                     showList = false
                     dismissedAt = System.currentTimeMillis()
