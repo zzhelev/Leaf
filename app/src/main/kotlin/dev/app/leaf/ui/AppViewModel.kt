@@ -119,6 +119,11 @@ class AppViewModel @Inject constructor(
         persistTabSelected(tab)
     }
 
+    /** Selects the tab that [data] belongs to, if it's still open (fork-only). */
+    fun selectTabOf(data: RepositoryTabViewModel) {
+        tabs.value.firstOrNull { it.data === data }?.let { selectTab(it) }
+    }
+
     private fun persistTabSelected(tab: TabInformation<RepositoryTabViewModel>) {
         appSettingsRepository.latestRepositoryTabSelected = tabs.value.indexOf(tab)
     }

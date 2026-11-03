@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -28,10 +29,12 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.close
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.handOnHover
+import dev.app.leaf.extensions.onDoubleClick
 import dev.app.leaf.extensions.onMiddleMouseButtonClick
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
+import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.drag_sorting.HorizontalDraggableItem
 import dev.app.leaf.ui.drag_sorting.horizontalDragContainer
 import dev.app.leaf.ui.drag_sorting.rememberHorizontalDragDropState
@@ -50,6 +53,10 @@ fun <T : TabInformationProvider> TabsRow(
     onTabClosed: (TabInformation<T>) -> Unit,
     onMoveTab: (Int, Int) -> Unit,
     onAddNewTab: () -> Unit,
+    // Fork-only: the tab whose name is being edited in place, and what Enter or Esc there does after (upstream issue 242)
+    renamingTab: TabInformation<T>? = null,
+    onRenamingTabChange: (TabInformation<T>?) -> Unit = {},
+    onRenamedFromKeyboard: () -> Unit = {},
 ) {
     val stateHorizontal = rememberLazyListState()
     val scrollAdapter = rememberScrollbarAdapter(stateHorizontal)
@@ -120,21 +127,53 @@ fun <T : TabInformationProvider> TabsRow(
                         val tooltip by tab.extraInfo.collectAsState()
                         val tabName by tab.name.collectAsState()
                         val worktreeName by tab.worktreeName.collectAsState()
+                        val look by tab.look.collectAsState()
 
 
                         InstantTooltip(tooltip) {
-                            Tab(
-                                modifier = Modifier,
-                                title = tabName ?: defaultTabName,
-                                worktreeName = worktreeName,
-                                isSelected = currentTab == tab,
-                                onClick = {
-                                    onTabSelected(tab)
+                            // Fork-only: rename the tab's repository, give it a colour (upstream issue 242)
+                            ContextMenu(
+                                items = {
+                                    tabContextMenuItems(
+                                        look = look,
+                                        onRename = { onRenamingTabChange(tab) },
+                                        onSetColor = { tab.data.setTabColor(it) },
+                                        onResetName = { tab.data.resetTabName() },
+                                        onClose = { onTabClosed(tab) },
+                                    )
                                 },
-                                onCloseTab = {
-                                    onTabClosed(tab)
-                                }
-                            )
+                            ) {
+                                Tab(
+                                    modifier = Modifier,
+                                    title = tabName ?: defaultTabName,
+                                    worktreeName = worktreeName,
+                                    isSelected = currentTab == tab,
+                                    onClick = {
+                                        onTabSelected(tab)
+                                    },
+                                    onCloseTab = {
+                                        onTabClosed(tab)
+                                    },
+                                    color = tabColor(look?.color),
+                                    isRenaming = renamingTab == tab,
+                                    onDoubleClick = if (look != null) {
+                                        { onRenamingTabChange(tab) }
+                                    } else {
+                                        null
+                                    },
+                                    onRenameDone = { typed, byKey ->
+                                        onRenamingTabChange(null)
+
+                                        if (typed != null) {
+                                            tab.data.renameTab(typed)
+                                        }
+
+                                        if (byKey) {
+                                            onRenamedFromKeyboard()
+                                        }
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -180,6 +219,11 @@ fun Tab(
     isSelected: Boolean,
     onClick: () -> Unit,
     onCloseTab: () -> Unit,
+    // Fork-only (upstream issue 242): the colour of its stripe, and its name edited in place
+    color: Color? = null,
+    isRenaming: Boolean = false,
+    onDoubleClick: (() -> Unit)? = null,
+    onRenameDone: (typed: String?, byKey: Boolean) -> Unit = { _, _ -> },
 ) {
     val backgroundColor = if (isSelected)
         MaterialTheme.colors.surface
@@ -196,6 +240,7 @@ fun Tab(
             .fillMaxHeight()
             .hoverable(hoverInteraction)
             .handMouseClickable { onClick() }
+            .run { if (onDoubleClick != null && !isRenaming) onDoubleClick(onDoubleClick) else this }
             .onMiddleMouseButtonClick {
                 onCloseTab()
             }
@@ -221,19 +266,41 @@ fun Tab(
                 }
             }
 
-            Text(
-                text = text,
-                modifier = Modifier
-                    .padding(start = 16.dp)
-                    .weight(1f)
-                    .widthIn(max = 720.dp),
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.body2,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colors.onBackground,
-                maxLines = 1,
-                softWrap = false,
-            )
+            if (isRenaming) {
+                Row(
+                    // The field's border and padding take 7 dp, so the name stays where it was
+                    modifier = Modifier
+                        .padding(start = 9.dp)
+                        .weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TabNameField(name = title, onDone = onRenameDone)
+
+                    if (worktreeName != null) {
+                        Text(
+                            text = " · $worktreeName",
+                            style = MaterialTheme.typography.body2,
+                            color = worktreeColor,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = text,
+                    modifier = Modifier
+                        .padding(start = 16.dp)
+                        .weight(1f)
+                        .widthIn(max = 720.dp),
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.body2,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colors.onBackground,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
 
             IconButton(
                 onClick = onCloseTab,
@@ -249,6 +316,16 @@ fun Tab(
                     tint = MaterialTheme.colors.onBackground
                 )
             }
+        }
+
+        if (color != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(TAB_COLOR_STRIPE_HEIGHT)
+                    .background(color)
+            )
         }
 
         if (isSelected) {

@@ -30,6 +30,12 @@ import dev.app.leaf.domain.repositories.RepositoryStateRepository
 import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.SetRepositorySelectionStateToNoneUseCase
 import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
+import dev.app.leaf.domain.tabs.TabLook
+import dev.app.leaf.domain.tabs.TabLooks
+import dev.app.leaf.domain.tabs.tabColorOf
+import dev.app.leaf.domain.tabs.tabNameOf
+import dev.app.leaf.domain.tabs.titleWith
+import dev.app.leaf.domain.worktrees.TabNames
 import dev.app.leaf.domain.worktrees.tabNamesOf
 import dev.app.leaf.domain.worktrees.workTreeOf
 import dev.app.leaf.extensions.stateIn
@@ -51,12 +57,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val MIN_TIME_AFTER_GIT_OPERATION = 2000L
 
 private const val TAG = "RepositoryTabViewModel"
+
+/** What a tab shows as its title (fork-only). */
+private data class TabLabel(val names: TabNames, val look: TabLook)
 
 /**
  * Contains all the information related to a tab and its subcomponents (smaller composables like the log, branches,
@@ -81,6 +91,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val cherryPickCommitsUseCase: CherryPickCommitsUseCase,
     private val deleteRemoteBranchUseCase: DeleteRemoteBranchUseCase,
     private val stoppedWaitingCheck: StoppedWaitingCheck,
+    private val tabLooks: TabLooks,
     @Assisted val initialPath: String?,
     updatesRepository: UpdatesRepository,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
@@ -163,21 +174,35 @@ class RepositoryTabViewModel @AssistedInject constructor(
         .flowOn(Dispatchers.IO)
         .stateIn(null)
 
-    /** The repository's name, and the linked worktree's that the tab shows (fork-only). */
-    private val tabNames = repositoryDataRepository
+    /**
+     * The repository's name, the linked worktree's that the tab shows, and the name and colour that the user gave the
+     * repository's tabs (fork-only), read together so that a renamed tab doesn't show its folder's name first.
+     */
+    private val tabLabel: StateFlow<TabLabel?> = repositoryDataRepository
         .repositorySelectionState
-        .map { state ->
-            ((state as? RepositorySelectionState.Open)?.path ?: initialPath)?.let { tabNamesOf(it) }
+        .map { state -> (state as? RepositorySelectionState.Open)?.path ?: initialPath }
+        .distinctUntilChanged()
+        .flatMapLatest { path ->
+            if (path == null) {
+                flowOf(null)
+            } else {
+                val names = tabNamesOf(path)
+                tabLooks.lookOf(path).map { look -> TabLabel(names, look) }
+            }
         }
         .flowOn(Dispatchers.IO)
         .stateIn(null)
 
-    override val tabName: StateFlow<String?> = tabNames
-        .map { it?.repository }
+    override val tabName: StateFlow<String?> = tabLabel
+        .map { it?.names?.titleWith(it.look) }
         .stateIn(null)
 
-    override val worktreeName: StateFlow<String?> = tabNames
-        .map { it?.worktree }
+    override val worktreeName: StateFlow<String?> = tabLabel
+        .map { it?.names?.worktree }
+        .stateIn(null)
+
+    override val tabLook: StateFlow<TabLook?> = tabLabel
+        .map { it?.look }
         .stateIn(null)
 
     override val extraInfo: StateFlow<String?> = repositoryPath
@@ -210,6 +235,42 @@ class RepositoryTabViewModel @AssistedInject constructor(
         viewModelScope.launch {
             repositorySelectionState.worktreeSwitches().collect { appViewModel.worktreeSwitched() }
         }
+    }
+
+    /** Fork-only: names the repository's tabs [typed], or after their folder again when it's blank (upstream issue 242). */
+    override fun renameTab(typed: String) = updateTabLook { look, names -> look.copy(name = tabNameOf(typed, names.repository)) }
+
+    /** Fork-only: names the repository's tabs after their folder again. */
+    override fun resetTabName() = updateTabLook { look, _ -> look.copy(name = null) }
+
+    /** Fork-only: gives the repository's tabs the colour of graph lane [color], or none. */
+    override fun setTabColor(color: Int?) = updateTabLook { look, _ -> look.copy(color = tabColorOf(color)) }
+
+    /**
+     * Saves the change to the repository's tab look. A failure shows in the tab's error dialog, so the tab is selected:
+     * it may be a tab that the user right-clicked without selecting it.
+     */
+    private fun updateTabLook(change: (TabLook, TabNames) -> TabLook) {
+        val path = (repositorySelectionState.value as? RepositorySelectionState.Open)?.path ?: initialPath ?: return
+
+        viewModelScope.launch {
+            val names = withContext(Dispatchers.IO) { tabNamesOf(path) }
+
+            val result = tabLooks.update(path) { look -> change(look, names) }
+
+            if (result is Either.Err) {
+                repositoryStateRepository.addCompletedTaskFailed(TaskType.SaveTabLook, result.error, FailureSeverity.HIGH)
+                appViewModel.selectTabOf(this@RepositoryTabViewModel)
+            }
+        }
+    }
+
+    /** Asks the tab's content to take the focus (fork-only), as after renaming a tab from the keyboard. */
+    val contentFocusRequests: SharedFlow<Unit>
+        field = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    fun requestContentFocus() {
+        contentFocusRequests.tryEmit(Unit)
     }
 
     /** Switches the tab to the worktree whose folder is [path] (fork-only). */

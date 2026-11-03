@@ -392,6 +392,11 @@ class App @Inject constructor(
         val currentTab = appViewModel.currentTab.collectAsState().value
         // Fork-only: the conflict resolver's Focus hides the tab bar
         val chrome = remember { AppChrome() }
+        // Fork-only: the tab whose name is being edited, which takes the keys that would change or close tabs
+        var renamingTab by remember { mutableStateOf<TabInformation<RepositoryTabViewModel>?>(null) }
+        val isRenamingTab = renamingTab != null && renamingTab in tabs
+
+        SideEffect { chrome.isTabBeingRenamed = isRenamingTab }
 
         if (currentTab != null) {
             Column(
@@ -399,6 +404,8 @@ class App @Inject constructor(
                     .background(MaterialTheme.colors.background)
                     .onPreviewKeyEvent {
                         when {
+                            isRenamingTab -> false
+
                             it.matchesBinding(KeybindingOption.OPEN_NEW_TAB) -> {
                                 appViewModel.addNewEmptyTab()
                                 true
@@ -438,7 +445,9 @@ class App @Inject constructor(
                         },
                         onCloseTab = { tab ->
                             appViewModel.closeTab(tab)
-                        }
+                        },
+                        renamingTab = renamingTab,
+                        onRenamingTabChange = { renamingTab = it },
                     )
                 }
 
@@ -455,6 +464,8 @@ class App @Inject constructor(
         currentTab: TabInformation<RepositoryTabViewModel>?,
         onAddedTab: () -> Unit,
         onCloseTab: (TabInformation<RepositoryTabViewModel>) -> Unit,
+        renamingTab: TabInformation<RepositoryTabViewModel>?,
+        onRenamingTabChange: (TabInformation<RepositoryTabViewModel>?) -> Unit,
     ) {
         Row(
             modifier = Modifier
@@ -473,6 +484,10 @@ class App @Inject constructor(
                 onMoveTab = { fromIndex, toIndex ->
                     appViewModel.onMoveTab(fromIndex, toIndex)
                 },
+                renamingTab = renamingTab,
+                onRenamingTabChange = onRenamingTabChange,
+                // The tab's shortcuts need something in the tab to have the focus, which the field had
+                onRenamedFromKeyboard = { currentTab?.data?.requestContentFocus() },
             )
         }
     }

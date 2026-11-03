@@ -78,6 +78,17 @@ fun indexOfRepository(path: String, tabPaths: List<String?>): Int {
     return tabPaths.indexOfFirst { it != null && gitDirOf(it) == gitDir }
 }
 
+/**
+ * The git dir that the worktrees of the repository at [path] share (fork-only): a linked worktree's common git dir, or
+ * else [gitDirOf] the path, as a real path. A tab of any of the worktrees finds the repository's own settings there.
+ */
+fun repositoryGitDirOf(path: String): String {
+    val gitDir = gitDirOf(path)
+    val commonGitDir = if (isLinkedWorktreeGitDir(gitDir)) commonGitDirOf(gitDir) else null
+
+    return commonGitDir?.let { realPath(it) } ?: gitDir
+}
+
 /** Whether [gitDir] is a linked worktree's git dir (`<common git dir>/worktrees/<name>`): it has a `commondir` file. */
 fun isLinkedWorktreeGitDir(gitDir: String): Boolean = File(gitDir, COMMON_DIR_FILE).isFile
 

@@ -208,6 +208,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.ResolveConflict -> "Resolving conflicts"
         TaskType.ConvertIndex -> "Converting the index"
         TaskType.SetUpGitLfs -> "Setting up git-lfs"
+        TaskType.SaveTabLook -> "Saving the tab's name and colour"
         TaskType.ResetRepoState -> "Resetting repository state"
         TaskType.ResetToCommit -> "Resetting to commit"
         TaskType.RevertCommit -> "Reverting commit"

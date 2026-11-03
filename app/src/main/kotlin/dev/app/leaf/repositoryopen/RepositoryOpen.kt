@@ -107,7 +107,7 @@ fun RepositoryOpenPage(
         if (isBranchesPaneFolded || !isChangesPaneShown) {
             withFrameNanos { }
 
-            if (!tabHasFocus) {
+            if (!tabHasFocus && !chrome.isTabBeingRenamed) {
                 try {
                     focusRequester.requestFocus()
                 } catch (_: IllegalStateException) {
@@ -390,7 +390,15 @@ fun RepositoryOpenPage(
     }
 
     LaunchedEffect(repositoryOpenViewModel) {
-        focusRequester.requestFocus()
+        // Fork-only: not from a tab bar's field, as when a double-click on a tab that hadn't loaded renames it
+        if (!chrome.isTabBeingRenamed) {
+            focusRequester.requestFocus()
+        }
+    }
+
+    // Fork-only: after a tab is renamed from the keyboard, as the field in the tab bar had the focus (upstream issue 242)
+    LaunchedEffect(tab) {
+        tab.contentFocusRequests.collect { focusRequester.requestFocus() }
     }
 
     // Fork-only: the conflict resolver has the focus while it shows, so the tab takes it back when it closes, however it

@@ -109,4 +109,7 @@ sealed interface TaskType {
     data object ResolveConflict : TaskType
     data object ConvertIndex : TaskType
     data object SetUpGitLfs : TaskType
+
+    // Fork-only: a tab's name and colour, saved for its repository (upstream issue 242). Only a failure is shown.
+    data object SaveTabLook : TaskType
 }

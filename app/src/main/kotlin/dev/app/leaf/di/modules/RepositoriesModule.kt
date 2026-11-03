@@ -5,7 +5,9 @@ import dev.app.leaf.data.repositories.InMemoryNotificationsRepository
 import dev.app.leaf.data.repositories.NetworkLfsRepository
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.data.repositories.configuration.DataStoreAppSettingsRepository
+import dev.app.leaf.data.git.config.TabLookConfig
 import dev.app.leaf.data.styles.FileStyleLibraryRepository
+import dev.app.leaf.domain.tabs.TabLookStore
 import dev.app.leaf.domain.repositories.CredentialsRepository
 import dev.app.leaf.domain.repositories.LfsRepository
 import dev.app.leaf.domain.repositories.NotificationsRepository
@@ -34,4 +36,8 @@ interface RepositoriesModule {
     @Singleton
     @Binds
     fun styleLibraryRepository(repository: FileStyleLibraryRepository): StyleLibraryRepository
+
+    // Fork-only: the names and colours of the repositories' tabs (upstream issue 242)
+    @Binds
+    fun tabLookStore(store: TabLookConfig): TabLookStore
 }

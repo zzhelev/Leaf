@@ -299,6 +299,8 @@ fun showPopup(
                         )
 
                         ContextMenuElement.ContextSeparator -> Separator()
+
+                        is ContextMenuElement.ContextCustomEntry -> item.content(onDismissRequest)
                     }
 
                 }
@@ -413,6 +415,11 @@ sealed class ContextMenuElement(
     }
 
     object ContextSeparator : ContextMenuElement("", {})
+
+    /** Fork-only: a row of its own, such as a tab's colours, which gets the function that closes the menu. */
+    class ContextCustomEntry(
+        val content: @Composable (onDismissRequest: () -> Unit) -> Unit,
+    ) : ContextMenuElement("", {})
 }
 
 

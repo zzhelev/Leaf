@@ -17,6 +17,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 @Stable
 class AppChrome {
     var tabBarHidden by mutableStateOf(false)
+
+    /**
+     * Whether a tab's name is being edited in the tab bar (upstream issue 242). The tab's content doesn't take the
+     * focus on its own meanwhile: a tab that loads after the double-click that selected it would close the field.
+     */
+    var isTabBeingRenamed by mutableStateOf(false)
 }
 
 val LocalAppChrome = staticCompositionLocalOf { AppChrome() }

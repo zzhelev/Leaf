@@ -100,6 +100,7 @@ fun TaskType.successTitle(): String? {
         TaskType.OpenMergeTool, TaskType.ResolveConflict -> "Conflict resolved"
         TaskType.ConvertIndex -> "Index converted"
         TaskType.SetUpGitLfs -> "git-lfs set up"
+        TaskType.SaveTabLook -> "Tab saved"
         TaskType.ResolveConflictsInMergeTool -> "Conflicts resolved"
         else -> null
     }

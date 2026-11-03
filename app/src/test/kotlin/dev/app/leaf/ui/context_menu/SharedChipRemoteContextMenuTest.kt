@@ -109,6 +109,7 @@ class SharedChipRemoteContextMenuTest {
                 when (item) {
                     is ContextMenuElement.ContextTextEntry -> item.composableLabel()
                     ContextMenuElement.ContextSeparator -> "-"
+                    is ContextMenuElement.ContextCustomEntry -> "custom"
                 }
             }
         }

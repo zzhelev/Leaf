@@ -2076,4 +2076,10 @@
     <string name="branch_context_menu_hide_folder_in_log">Hide %1$s/ in the log</string>
     <string name="branch_context_menu_show_folder_in_log">Show %1$s/ in the log</string>
     <string name="branch_context_menu_show_only_folder_in_log">Show only %1$s/ in the log</string>
+    <string name="tab_menu_rename">Rename tab…</string>
+    <string name="tab_menu_rename_hint">Double-click</string>
+    <string name="tab_menu_reset_name">Reset name</string>
+    <string name="tab_menu_close">Close tab</string>
+    <string name="tab_color_none">No colour</string>
+    <string name="tab_color">Colour %1$d</string>
 </resources>
