@@ -2,6 +2,25 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Tabs can be renamed and given a colour (2026-11-03)
+
+- **Request:** upstream issue 242, "let the user rename a tab and give it a colour", to find a tab at a glance and to
+  tell apart two repositories whose folders have the same name. Chosen with the user from mockups of the tab bar in
+  Tonal and Classic, light and dark, and in Solarized and Teal: the name and colour belong to the repository, a
+  right-click menu with a double-click that renames in place, and a stripe along the tab's top (over a tint and a dot).
+- **Now:** a tab's right-click menu has "Rename tab…", a row of colours (none, then the style's six graph lanes), "Reset
+  name" once the tab has a name of the user's, and "Close tab". A double-click on a tab renames it in place: Enter or a
+  click elsewhere keeps the name, Esc doesn't, and Tab does nothing. Every tab of the repository shows the name and the
+  stripe, whichever worktree it has: a linked worktree's tab is "Acme app · fix-login". The window title and the quit
+  dialog use the name; the tooltip stays the path. A Welcome page's tab can only be closed.
+- **Stored** in `<common git dir>/leaf`, `[tab] name` and `color`, the colour as a lane's number so that it follows the
+  style. A worktree switch keeps them, and they come back after a restart. A value that can't be read, or a damaged
+  file, shows the folder's name. A name that can't be saved, as in a read-only git dir, changes nothing and opens that
+  tab's error dialog.
+- **Also:** the context menu takes a row of its own (`ContextMenuElement.ContextCustomEntry`), and the tab bar's keys
+  (the next and previous tab, Cmd+T, Cmd+W) stay with the field while a tab is being renamed.
+- Details: CLAUDE.md, "Repository tabs", A tab's name and colour.
+
 ## The log shows chosen branches only (2026-11-03)
 
 - **Request:** upstream issue 207, filtering the commit graph by branch. With several agents' branches and worktrees in
