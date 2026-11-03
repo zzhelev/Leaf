@@ -6,6 +6,9 @@ import dev.app.leaf.di.TabComponent
 import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.models.pathToPersist
 import dev.app.leaf.domain.repositories.AppSettingsRepository
+import dev.app.leaf.domain.tabs.TabLook
+import dev.app.leaf.domain.tabs.savedTabLooks
+import dev.app.leaf.domain.tabs.savedTabLooksJson
 import dev.app.leaf.domain.usecases.CleanRepositoriesResourcesUseCase
 import dev.app.leaf.domain.worktrees.indexOfRepository
 import dev.app.leaf.ui.components.TabInformation
@@ -35,16 +38,20 @@ class AppViewModel @Inject constructor(
     fun loadPersistedTabs() {
         val repositoriesSaved = appSettingsRepository.latestTabsOpened
 
-        val repositoriesList = if (repositoriesSaved.isNotEmpty())
-            Json.decodeFromString<List<String?>>(repositoriesSaved)
-                .filterNotNull()
-                .map { path ->
-                    newAppTab2(
-                        path = path,
-                    )
-                }
+        val paths = if (repositoriesSaved.isNotEmpty())
+            Json.decodeFromString<List<String?>>(repositoriesSaved).filterNotNull()
         else
             listOf()
+
+        // Fork-only: each tab's name and colour, saved next to the paths (upstream issue 242)
+        val looks = savedTabLooks(paths, appSettingsRepository.latestTabsLooks)
+
+        val repositoriesList = paths.mapIndexed { index, path ->
+            newAppTab2(
+                path = path,
+                look = looks[index],
+            )
+        }
 
         tabs.value = repositoriesList.ifEmpty { listOf(newAppTab2()) }
 
@@ -117,11 +124,6 @@ class AppViewModel @Inject constructor(
         currentTab.value = tab
 
         persistTabSelected(tab)
-    }
-
-    /** Selects the tab that [data] belongs to, if it's still open (fork-only). */
-    fun selectTabOf(data: RepositoryTabViewModel) {
-        tabs.value.firstOrNull { it.data === data }?.let { selectTab(it) }
     }
 
     private fun persistTabSelected(tab: TabInformation<RepositoryTabViewModel>) {
@@ -217,6 +219,11 @@ class AppViewModel @Inject constructor(
         updatePersistedTabs()
     }
 
+    /** Saves the tabs once one of them has another name or colour (fork-only, upstream issue 242). */
+    fun tabLookChanged() = viewModelScope.launch {
+        updatePersistedTabs()
+    }
+
     /** The git dirs that the tabs have open, the keys of the JGit cache. */
     private fun openGitDirs(): List<String> =
         tabs.value.mapNotNull { (it.data.repositorySelectionState.value as? RepositorySelectionState.Open)?.path }
@@ -231,6 +238,9 @@ class AppViewModel @Inject constructor(
             }
 
         appSettingsRepository.latestTabsOpened = Json.encodeToString(tabsToPersist.map { it.second })
+        appSettingsRepository.latestTabsLooks = savedTabLooksJson(
+            tabsToPersist.map { (tab, path) -> path to tab.data.tabLookToSave }
+        )
         appSettingsRepository.latestRepositoryTabSelected = tabsToPersist.indexOfFirst { it.first == currentTab.value }
     }
 
@@ -246,11 +256,11 @@ class AppViewModel @Inject constructor(
         currentTab.value = newTab
     }
 
-    private fun newAppTab2(path: String? = null): TabInformation<RepositoryTabViewModel> {
+    private fun newAppTab2(path: String? = null, look: TabLook = TabLook()): TabInformation<RepositoryTabViewModel> {
         val tabComponent: TabComponent = tabComponentFactory.create()
         val viewModel = tabComponent
             .repositoryTabViewModelFactory()
-            .create(path)
+            .create(path, look)
 
         return TabInformation(viewModel)
     }

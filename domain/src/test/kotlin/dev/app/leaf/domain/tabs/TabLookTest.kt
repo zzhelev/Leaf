@@ -54,11 +54,14 @@ class TabLookTest {
     }
 
     @Test
-    fun `the title is the name, or the repository's folder`() {
-        val names = TabNames(repository = "app", worktree = "fix-login")
+    fun `a renamed tab shows its name alone, any other its repository's folder and worktree`() {
+        val linked = TabNames(repository = "app", worktree = "fix-login")
+        val main = TabNames(repository = "app", worktree = null)
 
-        assertEquals("Acme app", names.titleWith(TabLook(name = "Acme app")))
-        assertEquals("app", names.titleWith(TabLook(color = 3)))
-        assertEquals("app", names.titleWith(null))
+        assertEquals(TabTitle("review", worktree = null), linked.titleWith(TabLook(name = "review")))
+        assertEquals(TabTitle("app", worktree = "fix-login"), linked.titleWith(TabLook(color = 3)))
+        assertEquals(TabTitle("app", worktree = "fix-login"), linked.titleWith(null))
+        assertEquals(TabTitle("review", worktree = null), main.titleWith(TabLook(name = "review")))
+        assertEquals(TabTitle("app", worktree = null), main.titleWith(TabLook()))
     }
 }

@@ -79,7 +79,7 @@ val TAB_COLOR_STRIPE_HEIGHT = 3.dp
 fun tabColor(color: Int?): Color? = color?.let { MaterialTheme.graphLanes.getOrNull(it - 1) }
 
 /**
- * A tab's right-click menu (fork-only, upstream issue 242): rename it, give it a colour, give it its folder's name
+ * A tab's right-click menu (fork-only, upstream issue 242): rename it, give it a colour, name it after its repository
  * again, and close it. A tab without a repository ([look] null) can only be closed.
  */
 fun tabContextMenuItems(

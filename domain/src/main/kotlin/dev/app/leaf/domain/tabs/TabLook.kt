@@ -12,11 +12,14 @@ const val TAB_COLOR_COUNT = 6
 const val MAX_TAB_NAME_LENGTH = 100
 
 /**
- * What the user set for a repository's tabs (fork-only, upstream issue 242): a [name] that they show in place of the
- * repository's folder, and a [color], the number of one of the style's graph lanes, from 1 to [TAB_COLOR_COUNT], so
- * that it follows the style. Every tab of the repository shows them, whichever worktree it has.
+ * What the user set for one tab (fork-only, upstream issue 242): a [name] that it shows in place of its repository's
+ * folder and worktree, and a [color], the number of one of the style's graph lanes, from 1 to [TAB_COLOR_COUNT], so
+ * that it follows the style. Another tab of the same repository opens without them.
  */
 data class TabLook(val name: String? = null, val color: Int? = null)
+
+/** What a tab shows: its name, and the linked worktree after it, lighter. */
+data class TabTitle(val name: String, val worktree: String?)
 
 /**
  * The name to keep for [typed]: on one line, with runs of white space as one space, trimmed, and at most
@@ -44,8 +47,15 @@ fun tabNameOf(typed: String?, folderName: String? = null): String? {
 /** [value] when it's the number of a tab colour, or else none. */
 fun tabColorOf(value: Int?): Int? = value?.takeIf { it in 1..TAB_COLOR_COUNT }
 
-/** The tab's title: the name that the user gave the repository, or else its folder's. */
-fun TabNames.titleWith(look: TabLook?): String = look?.name ?: repository
+/**
+ * What the tab shows: the name that the user gave it, alone, or else the repository's folder and the linked worktree
+ * that it has. The worktree is in the tab's tooltip either way.
+ */
+fun TabNames.titleWith(look: TabLook?): TabTitle {
+    val name = look?.name ?: return TabTitle(repository, worktree)
+
+    return TabTitle(name, worktree = null)
+}
 
 private const val LINE_SEPARATOR = ' '
 private const val PARAGRAPH_SEPARATOR = ' '

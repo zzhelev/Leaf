@@ -32,6 +32,7 @@ import java.util.prefs.Preferences as LegacyPreferences
 
 private const val PREF_LATEST_REPOSITORIES_TABS_OPENED = "latestRepositoriesTabsOpened"
 private const val PREF_LATEST_REPOSITORY_TAB_SELECTED = "latestRepositoryTabSelected"
+private const val PREF_LATEST_REPOSITORIES_TABS_LOOKS = "latestRepositoriesTabsLooks"
 private const val PREF_LAST_OPENED_REPOSITORIES_PATH = "lastOpenedRepositoriesList"
 private const val PREF_WINDOW_PLACEMENT = "windowsPlacement"
 private const val PREF_FIRST_PANE_WIDTH = "firstPaneWidth"
@@ -269,6 +270,12 @@ class DataStoreAppSettingsRepository @Inject constructor(
         get() = preferencesLegacy.get(PREF_LATEST_REPOSITORIES_TABS_OPENED, "")
         set(value) {
             preferencesLegacy.put(PREF_LATEST_REPOSITORIES_TABS_OPENED, value)
+        }
+
+    override var latestTabsLooks: String
+        get() = preferencesLegacy.get(PREF_LATEST_REPOSITORIES_TABS_LOOKS, "")
+        set(value) {
+            preferencesLegacy.put(PREF_LATEST_REPOSITORIES_TABS_LOOKS, value)
         }
 
     override var latestRepositoryTabSelected: Int

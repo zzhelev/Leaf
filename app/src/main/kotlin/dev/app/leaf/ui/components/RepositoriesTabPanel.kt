@@ -267,24 +267,14 @@ fun Tab(
             }
 
             if (isRenaming) {
-                Row(
-                    // The field's border and padding take 7 dp, so the name stays where it was
+                // The field holds the whole title, as a renamed tab shows no worktree. Its border and padding take 7 dp,
+                // so the name stays where it was.
+                Box(
                     modifier = Modifier
                         .padding(start = 9.dp)
                         .weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TabNameField(name = title, onDone = onRenameDone)
-
-                    if (worktreeName != null) {
-                        Text(
-                            text = " · $worktreeName",
-                            style = MaterialTheme.typography.body2,
-                            color = worktreeColor,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                    }
                 }
             } else {
                 Text(

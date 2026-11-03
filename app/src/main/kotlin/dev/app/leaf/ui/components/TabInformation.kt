@@ -21,17 +21,17 @@ interface TabInformationProvider {
     val extraInfo: StateFlow<String?>
 
     /**
-     * The name and colour that the user gave the tab's repository, or null for a tab without a repository (fork-only,
-     * upstream issue 242). [tabName] already has the name.
+     * The name and colour that the user gave this tab, or null for a tab without a repository (fork-only, upstream
+     * issue 242). [tabName] already has the name, and a renamed tab has no [worktreeName].
      */
     val tabLook: StateFlow<TabLook?>
 
-    /** Names the tab's repository [typed], or after its folder again when it's blank. */
+    /** Names the tab [typed], or after its repository again when it's blank. */
     fun renameTab(typed: String)
 
     fun resetTabName()
 
-    /** Gives the tab's repository the colour of graph lane [color], from 1, or none. */
+    /** Gives the tab the colour of graph lane [color], from 1, or none. */
     fun setTabColor(color: Int?)
 
     fun dispose()

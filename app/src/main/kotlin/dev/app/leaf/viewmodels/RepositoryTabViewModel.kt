@@ -31,7 +31,6 @@ import dev.app.leaf.domain.usecases.OpenRepositoryUseCase
 import dev.app.leaf.domain.usecases.SetRepositorySelectionStateToNoneUseCase
 import dev.app.leaf.domain.usecases.SwitchWorktreeUseCase
 import dev.app.leaf.domain.tabs.TabLook
-import dev.app.leaf.domain.tabs.TabLooks
 import dev.app.leaf.domain.tabs.tabColorOf
 import dev.app.leaf.domain.tabs.tabNameOf
 import dev.app.leaf.domain.tabs.titleWith
@@ -57,7 +56,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -91,15 +89,15 @@ class RepositoryTabViewModel @AssistedInject constructor(
     private val cherryPickCommitsUseCase: CherryPickCommitsUseCase,
     private val deleteRemoteBranchUseCase: DeleteRemoteBranchUseCase,
     private val stoppedWaitingCheck: StoppedWaitingCheck,
-    private val tabLooks: TabLooks,
     @Assisted val initialPath: String?,
+    @Assisted initialLook: TabLook,
     updatesRepository: UpdatesRepository,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel(),
     TabInformationProvider {
     @AssistedFactory
     interface Factory {
-        fun create(initialPath: String?): RepositoryTabViewModel
+        fun create(initialPath: String?, initialLook: TabLook): RepositoryTabViewModel
     }
 
     var isLoaded = false
@@ -175,30 +173,33 @@ class RepositoryTabViewModel @AssistedInject constructor(
         .stateIn(null)
 
     /**
-     * The repository's name, the linked worktree's that the tab shows, and the name and colour that the user gave the
-     * repository's tabs (fork-only), read together so that a renamed tab doesn't show its folder's name first.
+     * The name and colour that the user gave this tab (fork-only, upstream issue 242). The tab keeps them when it
+     * switches worktrees; another tab of the repository opens without them.
      */
-    private val tabLabel: StateFlow<TabLabel?> = repositoryDataRepository
-        .repositorySelectionState
-        .map { state -> (state as? RepositorySelectionState.Open)?.path ?: initialPath }
-        .distinctUntilChanged()
-        .flatMapLatest { path ->
-            if (path == null) {
-                flowOf(null)
-            } else {
-                val names = tabNamesOf(path)
-                tabLooks.lookOf(path).map { look -> TabLabel(names, look) }
-            }
-        }
-        .flowOn(Dispatchers.IO)
+    private val look = MutableStateFlow(TabLook(name = tabNameOf(initialLook.name), color = tabColorOf(initialLook.color)))
+
+    /** The look that the tab is saved with. */
+    val tabLookToSave: TabLook
+        get() = look.value
+
+    /** The repository's name and the linked worktree's that the tab shows, with its look (fork-only). */
+    private val tabLabel: StateFlow<TabLabel?> = combine(
+        repositoryDataRepository
+            .repositorySelectionState
+            .map { state -> (state as? RepositorySelectionState.Open)?.path ?: initialPath }
+            .distinctUntilChanged()
+            .map { path -> path?.let { tabNamesOf(it) } }
+            .flowOn(Dispatchers.IO),
+        look,
+    ) { names, look -> names?.let { TabLabel(it, look) } }
         .stateIn(null)
 
     override val tabName: StateFlow<String?> = tabLabel
-        .map { it?.names?.titleWith(it.look) }
+        .map { it?.names?.titleWith(it.look)?.name }
         .stateIn(null)
 
     override val worktreeName: StateFlow<String?> = tabLabel
-        .map { it?.names?.worktree }
+        .map { it?.names?.titleWith(it.look)?.worktree }
         .stateIn(null)
 
     override val tabLook: StateFlow<TabLook?> = tabLabel
@@ -237,31 +238,28 @@ class RepositoryTabViewModel @AssistedInject constructor(
         }
     }
 
-    /** Fork-only: names the repository's tabs [typed], or after their folder again when it's blank (upstream issue 242). */
-    override fun renameTab(typed: String) = updateTabLook { look, names -> look.copy(name = tabNameOf(typed, names.repository)) }
+    /** Fork-only: names the tab [typed], or after its repository again when it's blank or the folder's name. */
+    override fun renameTab(typed: String) {
+        val names = tabLabel.value?.names ?: return
 
-    /** Fork-only: names the repository's tabs after their folder again. */
-    override fun resetTabName() = updateTabLook { look, _ -> look.copy(name = null) }
+        changeLook { it.copy(name = tabNameOf(typed, names.repository)) }
+    }
 
-    /** Fork-only: gives the repository's tabs the colour of graph lane [color], or none. */
-    override fun setTabColor(color: Int?) = updateTabLook { look, _ -> look.copy(color = tabColorOf(color)) }
+    /** Fork-only: names the tab after its repository again. */
+    override fun resetTabName() = changeLook { it.copy(name = null) }
 
-    /**
-     * Saves the change to the repository's tab look. A failure shows in the tab's error dialog, so the tab is selected:
-     * it may be a tab that the user right-clicked without selecting it.
-     */
-    private fun updateTabLook(change: (TabLook, TabNames) -> TabLook) {
-        val path = (repositorySelectionState.value as? RepositorySelectionState.Open)?.path ?: initialPath ?: return
+    /** Fork-only: gives the tab the colour of graph lane [color], or none. */
+    override fun setTabColor(color: Int?) = changeLook { it.copy(color = tabColorOf(color)) }
 
-        viewModelScope.launch {
-            val names = withContext(Dispatchers.IO) { tabNamesOf(path) }
+    /** Changes the look of a tab that has a repository, and saves the tabs. */
+    private fun changeLook(change: (TabLook) -> TabLook) {
+        if (tabLabel.value == null) return
 
-            val result = tabLooks.update(path) { look -> change(look, names) }
+        val before = look.value
+        val after = look.updateAndGet(change)
 
-            if (result is Either.Err) {
-                repositoryStateRepository.addCompletedTaskFailed(TaskType.SaveTabLook, result.error, FailureSeverity.HIGH)
-                appViewModel.selectTabOf(this@RepositoryTabViewModel)
-            }
+        if (after != before) {
+            appViewModel.tabLookChanged()
         }
     }
 

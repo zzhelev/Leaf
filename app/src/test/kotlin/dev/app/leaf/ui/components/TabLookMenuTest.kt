@@ -43,6 +43,8 @@ import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.tabs.TabLook
 import dev.app.leaf.domain.tabs.tabNameOf
+import dev.app.leaf.domain.tabs.titleWith
+import dev.app.leaf.domain.worktrees.TabNames
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.graphLanes
 import dev.app.leaf.ui.context_menu.ContextMenuElement
@@ -62,7 +64,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 private const val ELSEWHERE = "elsewhere"
-private const val COLOURS = 7
 
 /**
  * A tab's name and colour (fork-only, upstream issue 242), rendered offscreen in the real tab bar: its right-click menu,
@@ -77,7 +78,7 @@ class TabLookMenuTest {
     }
 
     @Test
-    fun `a renamed repository's tab has Rename, the colours, Reset name and Close`(): Unit = runBlocking(Dispatchers.Swing) {
+    fun `a renamed tab has Rename, the colours, Reset name and Close`(): Unit = runBlocking(Dispatchers.Swing) {
         val host = Host(FakeTab(folder = "app", look = TabLook(name = "Acme app", color = 4)))
 
         host.rightClick("Acme app")
@@ -114,7 +115,7 @@ class TabLookMenuTest {
     }
 
     @Test
-    fun `picking a colour gives the repository's tabs that colour, and closes the menu`(): Unit =
+    fun `picking a colour gives the tab that colour, and closes the menu`(): Unit =
         runBlocking(Dispatchers.Swing) {
             val tab = FakeTab(folder = "app", look = TabLook(color = 1))
             val host = Host(tab)
@@ -221,15 +222,29 @@ class TabLookMenuTest {
     }
 
     @Test
-    fun `a linked worktree's tab is renamed without its worktree`(): Unit = runBlocking(Dispatchers.Swing) {
-        val tab = FakeTab(folder = "app", look = TabLook(name = "Acme app"), worktree = "fix-login")
-        val host = Host(tab)
+    fun `a renamed tab shows its name alone, and Reset name brings its worktree back`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val tab = FakeTab(folder = "app", look = TabLook(), worktree = "fix-login")
+            val host = Host(tab)
 
-        host.doubleClick("Acme app")
+            assertEquals(listOf("app · fix-login"), host.tabTitles())
 
-        assertEquals("Acme app", host.fieldText())
-        assertTrue(" · fix-login" in host.texts(), host.texts().toString())
-    }
+            host.doubleClick("app")
+
+            // The field holds the whole title, as the renamed tab will show
+            assertEquals("app", host.fieldText())
+            assertFalse(host.texts().any { "fix-login" in it }, host.texts().toString())
+
+            host.type("review")
+            host.press(Key.Enter)
+
+            assertEquals(listOf("review"), host.tabTitles())
+
+            host.rightClick("review")
+            host.click("Reset name")
+
+            assertEquals(listOf("app · fix-login"), host.tabTitles())
+        }
 
     @Test
     fun `a tab with a colour has a stripe along its top in that lane's colour, in every style`(): Unit =
@@ -312,9 +327,10 @@ class TabLookMenuTest {
     /** A tab whose repository's folder is [folder], or a Welcome page's when null, as the tab view model behaves. */
     private class FakeTab(folder: String?, look: TabLook?, worktree: String? = null) : TabInformationProvider {
         private val folderName = folder
+        private val names = folder?.let { TabNames(it, worktree) }
         override val tabLook = MutableStateFlow(look)
-        override val tabName = MutableStateFlow(folder?.let { look?.name ?: it })
-        override val worktreeName = MutableStateFlow(worktree)
+        override val tabName = MutableStateFlow(names?.titleWith(look)?.name)
+        override val worktreeName = MutableStateFlow(names?.titleWith(look)?.worktree)
         override val extraInfo = MutableStateFlow(folder?.let { "/repos/$it" })
 
         val renames = mutableListOf<String>()
@@ -337,8 +353,10 @@ class TabLookMenuTest {
         }
 
         private fun setName(name: String?) {
-            tabLook.value = tabLook.value?.copy(name = name)
-            tabName.value = name ?: folderName
+            val look = tabLook.value?.copy(name = name)
+            tabLook.value = look
+            tabName.value = names?.titleWith(look)?.name
+            worktreeName.value = names?.titleWith(look)?.worktree
         }
 
         override fun dispose() {}
@@ -351,8 +369,8 @@ class TabLookMenuTest {
 
         fun tabs() = arrayOf(
             FakeTab(folder = "leaf", look = TabLook()),
-            FakeTab(folder = "app", look = TabLook(name = "Acme app", color = 5)),
-            FakeTab(folder = "app", look = TabLook(name = "Acme app", color = 5), worktree = "fix-login"),
+            FakeTab(folder = "app", look = TabLook(name = "review", color = 5), worktree = "fix-login"),
+            FakeTab(folder = "app", look = TabLook(), worktree = "fix-login"),
             FakeTab(folder = "app", look = TabLook(name = "Globex app", color = 2)),
             FakeTab(folder = "dotfiles", look = TabLook(color = 1)),
         )

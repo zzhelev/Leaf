@@ -73,6 +73,9 @@ interface AppSettingsRepository {
     suspend fun setConfiguration(appConfig: AppConfig)
 
     var latestTabsOpened: String
+
+    /** Fork-only: the names and colours of the saved tabs, next to [latestTabsOpened] (upstream issue 242). */
+    var latestTabsLooks: String
     var latestRepositoryTabSelected: Int
     var latestOpenedRepositoriesPath: String
     var firstPaneWidth: Float
