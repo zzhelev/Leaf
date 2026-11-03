@@ -10,11 +10,16 @@ import dev.app.leaf.domain.tabs.TabLook
 import dev.app.leaf.domain.tabs.savedTabLooks
 import dev.app.leaf.domain.tabs.savedTabLooksJson
 import dev.app.leaf.domain.usecases.CleanRepositoriesResourcesUseCase
+import dev.app.leaf.domain.worktrees.OpenTab
 import dev.app.leaf.domain.worktrees.indexOfRepository
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -117,6 +122,42 @@ class AppViewModel @Inject constructor(
             selectTab(tab)
         } else {
             addNewTabFromPath(directory, selectTab = true)
+        }
+    }
+
+    /** Opens the repository at [directory] in a new tab, and selects it (fork-only), whatever the other tabs show. */
+    fun openNewTab(directory: String) = viewModelScope.launch {
+        addNewTabFromPath(directory, selectTab = true)
+    }
+
+    /**
+     * Every tab, with its path as [selectOrOpenTab] compares them and its title as the tab bar shows it (fork-only), for
+     * a worktree's "Go to tab".
+     */
+    val openTabs: Flow<List<OpenTab<TabInformation<RepositoryTabViewModel>>>> = tabs.flatMapLatest { tabsList ->
+        if (tabsList.isEmpty()) {
+            flowOf(emptyList())
+        } else {
+            combine(
+                tabsList.map { tab ->
+                    combine(tab.data.repositorySelectionState, tab.name, tab.worktreeName) { state, name, worktree ->
+                        name?.let {
+                            OpenTab(
+                                path = state.pathToPersist(initialPath = tab.data.initialPath),
+                                title = listOfNotNull(name, worktree).joinToString(" · "),
+                                tab = tab,
+                            )
+                        }
+                    }
+                }
+            ) { openTabs -> openTabs.filterNotNull() }
+        }
+    }
+
+    /** Selects [tab] when it's still open (fork-only), as a worktree's "Go to tab" does. */
+    fun selectTabIfOpen(tab: TabInformation<RepositoryTabViewModel>) {
+        if (tab in tabs.value) {
+            selectTab(tab)
         }
     }
 

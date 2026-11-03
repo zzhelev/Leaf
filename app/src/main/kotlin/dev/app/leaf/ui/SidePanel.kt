@@ -96,6 +96,8 @@ fun SidePanel(
     val stashesState by viewModel.stashesState.collectAsState()
     val submodulesState by viewModel.submodulesState.collectAsState()
     val worktreesState by viewModel.worktreesState.collectAsState()
+    val worktreeTabs by viewModel.worktreeTabs.collectAsState()
+    val worktreeTabTitles = remember(worktreeTabs) { worktreeTabs.mapValues { (_, tabs) -> tabs.map { it.title } } }
     val branchWorktrees by viewModel.branchWorktrees.collectAsState()
     val refPanelSettings by viewModel.refPanelSettings.collectAsState()
     val branchesAhead by viewModel.branchesAhead.collectAsState()
@@ -193,6 +195,8 @@ fun SidePanel(
                 onWorktreeClicked = { viewModel.selectWorktree(it.worktree) },
                 onSwitchToWorktree = { viewModel.switchToWorktree(it.worktree) },
                 onOpenInNewTab = { viewModel.openWorktreeInNewTab(it.worktree) },
+                tabTitles = worktreeTabTitles,
+                onGoToTab = { info, index -> viewModel.goToWorktreeTab(info.worktree, index) },
                 onCopyPath = { scope.launch { clipboard.setClipboardText(it.worktree.path) } },
                 onChooseBase = { viewModel.chooseWorktreesBase(it) },
                 actions = WorktreeActions(

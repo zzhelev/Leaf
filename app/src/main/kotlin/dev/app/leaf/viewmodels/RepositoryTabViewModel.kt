@@ -56,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -238,11 +239,23 @@ class RepositoryTabViewModel @AssistedInject constructor(
         }
     }
 
-    /** Fork-only: names the tab [typed], or after its repository again when it's blank or the folder's name. */
+    /**
+     * Fork-only: names the tab [typed], or after its repository again when it's blank or the folder's name. The folder's
+     * name is read from the path when nothing has shown the tab's title yet, as for a tab scrolled out of the tab bar.
+     */
     override fun renameTab(typed: String) {
-        val names = tabLabel.value?.names ?: return
+        val names = tabLabel.value?.names
 
-        changeLook { it.copy(name = tabNameOf(typed, names.repository)) }
+        if (names != null) {
+            changeLook { it.copy(name = tabNameOf(typed, names.repository)) }
+        } else {
+            val path = tabPath() ?: return
+
+            viewModelScope.launch {
+                val folder = withContext(Dispatchers.IO) { tabNamesOf(path).repository }
+                changeLook { it.copy(name = tabNameOf(typed, folder)) }
+            }
+        }
     }
 
     /** Fork-only: names the tab after its repository again. */
@@ -251,9 +264,12 @@ class RepositoryTabViewModel @AssistedInject constructor(
     /** Fork-only: gives the tab the colour of graph lane [color], or none. */
     override fun setTabColor(color: Int?) = changeLook { it.copy(color = tabColorOf(color)) }
 
+    /** The path that the tab names itself after: its git dir, or the path it was opened with until it loads. */
+    private fun tabPath(): String? = (repositorySelectionState.value as? RepositorySelectionState.Open)?.path ?: initialPath
+
     /** Changes the look of a tab that has a repository, and saves the tabs. */
     private fun changeLook(change: (TabLook) -> TabLook) {
-        if (tabLabel.value == null) return
+        if (tabPath() == null) return
 
         val before = look.value
         val after = look.updateAndGet(change)

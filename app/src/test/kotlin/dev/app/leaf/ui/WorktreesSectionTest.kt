@@ -55,6 +55,69 @@ class WorktreesSectionTest {
     }
 
     @Test
+    fun `offers to go to each tab that shows the worktree, before opening another`() {
+        val wentToTab = mutableListOf<Int>()
+        var openedInNewTab = 0
+        val items = worktreeContextMenuItems(
+            worktree("/wt"),
+            onSwitchTo = {},
+            onOpenInNewTab = { openedInNewTab++ },
+            onCopyPath = {},
+            openTabs = listOf("review", "hotfix"),
+            onGoToTab = { wentToTab += it },
+        )
+
+        assertEquals(
+            listOf(
+                "Switch to worktree", "Go to tab “review”", "Go to tab “hotfix”", "Open in new tab",
+                "Lock…", "Remove…", "Discard…", "Copy path",
+            ),
+            labels(items),
+        )
+
+        items[2].onClick()
+        items[1].onClick()
+        assertEquals(listOf(1, 0), wentToTab)
+        assertEquals(0, openedInNewTab)
+
+        items[3].onClick()
+        assertEquals(listOf(1, 0), wentToTab)
+        assertEquals(1, openedInNewTab)
+    }
+
+    @Test
+    fun `offers the first five tabs of a worktree`() {
+        val tabs = (1..7).map { "tab $it" }
+        val labels = labels(worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, openTabs = tabs))
+
+        assertEquals((1..5).map { "Go to tab “tab $it”" }, labels.filter { it.startsWith("Go to tab") })
+    }
+
+    @Test
+    fun `cuts a long tab title in Go to tab`() {
+        val title = "Acme app with a name long enough to make the menu wide"
+        val items = worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, openTabs = listOf(title))
+
+        assertEquals("Go to tab “Acme app with a name long enough to…”", labels(items)[1])
+
+        // A title of one long word is cut in it
+        val word = "a".repeat(60)
+        assertEquals(
+            "Go to tab “${"a".repeat(39)}…”",
+            labels(worktreeContextMenuItems(worktree("/wt"), {}, {}, {}, openTabs = listOf(word)))[1],
+        )
+    }
+
+    @Test
+    fun `offers no Go to tab for the tab's own worktree`() {
+        val current = worktree("/wt").copy(isCurrent = true)
+
+        assertFalse(
+            labels(worktreeContextMenuItems(current, {}, {}, {}, openTabs = listOf("review"))).any { it.startsWith("Go to tab") }
+        )
+    }
+
+    @Test
     fun `doesn't offer to switch to or open the tab's worktree, a missing one or a bare repository`() {
         val worktrees = listOf(
             worktree("/repo").copy(isCurrent = true, isMain = true),

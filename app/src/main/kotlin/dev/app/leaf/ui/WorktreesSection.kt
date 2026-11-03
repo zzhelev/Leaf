@@ -95,6 +95,9 @@ fun LazyListScope.worktrees(
     onCopyPath: (WorktreeInfo) -> Unit,
     onChooseBase: (branch: String?) -> Unit,
     actions: WorktreeActions = WorktreeActions(),
+    // Fork-only: the titles of the tabs that show a worktree, by its folder, and going to one of them
+    tabTitles: Map<String, List<String>> = emptyMap(),
+    onGoToTab: (WorktreeInfo, index: Int) -> Unit = { _, _ -> },
 ) {
     stickyHeader(key = "header:worktrees") {
         val baseChoice = worktreesState.baseChoice
@@ -132,6 +135,8 @@ fun LazyListScope.worktrees(
                 onOpenInNewTab = { onOpenInNewTab(row.info) },
                 onCopyPath = { onCopyPath(row.info) },
                 actions = actions,
+                openTabs = tabTitles[row.info.worktree.path].orEmpty(),
+                onGoToTab = { index -> onGoToTab(row.info, index) },
             )
         }
     }
@@ -205,6 +210,8 @@ private fun WorktreeItem(
     onOpenInNewTab: () -> Unit,
     onCopyPath: () -> Unit,
     actions: WorktreeActions,
+    openTabs: List<String>,
+    onGoToTab: (index: Int) -> Unit,
 ) {
     val worktree = row.info.worktree
     val isPrunable = worktree.prunable != null
@@ -222,6 +229,8 @@ private fun WorktreeItem(
                 baseBranch,
                 mergeTarget,
                 canCleanUp,
+                openTabs,
+                onGoToTab,
             )
         }
     ) {
@@ -353,10 +362,27 @@ internal fun WorktreeRowLines(row: WorktreeRow, modifier: Modifier = Modifier) {
     }
 }
 
+/** The longest tab title that "Go to tab" names in full; a longer one ends in "…". */
+private const val MAX_TAB_TITLE_IN_MENU = 40
+
+/** How many tabs of one worktree get a "Go to tab" each, in the tab bar's order. */
+private const val MAX_GO_TO_TAB_ITEMS = 5
+
+/** [title], or for a longer one the words of it that fit [MAX_TAB_TITLE_IN_MENU] with "…" (a long word is cut). */
+private fun shortTabTitle(title: String): String {
+    if (title.length <= MAX_TAB_TITLE_IN_MENU) return title
+
+    val cut = title.take(MAX_TAB_TITLE_IN_MENU - 1)
+    val lastSpace = cut.lastIndexOf(' ')
+    val words = if (lastSpace > MAX_TAB_TITLE_IN_MENU / 2) cut.take(lastSpace) else cut
+
+    return words.trimEnd() + "…"
+}
+
 /**
  * The menu of [worktree]'s row: reviewing its changes when its branch isn't [baseBranch], squash-merging or merging it
- * into [mergeTarget] when it isn't that either, and rebasing it onto [baseBranch]; switching the tab to it, or opening
- * it in a new tab, when the tab can switch to it; for a linked worktree, locking or unlocking it, removing or
+ * into [mergeTarget] when it isn't that either, and rebasing it onto [baseBranch]; switching the tab to it, going to
+ * each of [openTabs], the tabs that show it, and opening it in a new tab, when the tab can switch to it; for a linked worktree, locking or unlocking it, removing or
  * discarding it, cleaning up merged worktrees when [canCleanUp] (its work is in the base, and something can be
  * removed), and pruning when its folder is missing; and copying its path.
  */
@@ -369,6 +395,8 @@ internal fun worktreeContextMenuItems(
     baseBranch: String? = null,
     mergeTarget: String? = null,
     canCleanUp: Boolean = false,
+    openTabs: List<String> = emptyList(),
+    onGoToTab: (index: Int) -> Unit = {},
 ): List<ContextMenuElement> = mutableListOf<ContextMenuElement>().apply {
     if (worktree.branchToReview(baseBranch) != null) {
         addContextMenu(
@@ -411,6 +439,17 @@ internal fun worktreeContextMenuItems(
             icon = { painterResource(Res.drawable.start) },
             onClick = onSwitchTo,
         )
+
+        // Fork-only: the tabs that show it already, which "Open in new tab" leaves as they are
+        openTabs.take(MAX_GO_TO_TAB_ITEMS).forEachIndexed { index, openTab ->
+            val title = shortTabTitle(openTab)
+
+            addContextMenu(
+                composableLabel = { stringResource(Res.string.side_pane_worktree_go_to_tab, title) },
+                icon = { painterResource(Res.drawable.arrow_forward) },
+                onClick = { onGoToTab(index) },
+            )
+        }
 
         addContextMenu(
             composableLabel = { stringResource(Res.string.side_pane_worktree_open_in_new_tab) },

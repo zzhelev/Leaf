@@ -92,6 +92,7 @@
     <string name="side_pane_worktree_merge">Merge into %1$s…</string>
     <string name="side_pane_worktree_rebase">Rebase onto %1$s…</string>
     <string name="side_pane_worktree_open_in_new_tab">Open in new tab</string>
+    <string name="side_pane_worktree_go_to_tab">Go to tab “%1$s”</string>
     <string name="side_pane_worktree_lock">Lock…</string>
     <string name="side_pane_worktree_unlock">Unlock</string>
     <string name="side_pane_worktree_remove">Remove…</string>

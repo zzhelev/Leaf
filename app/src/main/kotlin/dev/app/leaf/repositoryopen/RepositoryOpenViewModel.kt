@@ -76,6 +76,9 @@ import dev.app.leaf.domain.sorting.RefSortState
 import dev.app.leaf.domain.highlighting.HighlightedText
 import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.domain.usecases.*
+import dev.app.leaf.domain.worktrees.OpenTab
+import dev.app.leaf.ui.components.TabInformation
+import dev.app.leaf.domain.worktrees.tabsOfWorktrees
 import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
 import dev.app.leaf.domain.models.WorktreeList
 import dev.app.leaf.domain.worktrees.withIdle
@@ -512,6 +515,14 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val worktreesState: StateFlow<WorktreesState> =
         combineWorktreesState(worktrees, isExpandedWorktrees, filter, branches).stateIn(WorktreesState())
+
+    /** The tabs that show each worktree, by its folder (fork-only), for the "Go to tab" items in its menu. */
+    val worktreeTabs: StateFlow<Map<String, List<OpenTab<TabInformation<RepositoryTabViewModel>>>>> = combine(
+        worktrees.map { state -> state.data?.worktrees?.map { it.worktree.path }.orEmpty() }.distinctUntilChanged(),
+        appViewModel.openTabs.distinctUntilChanged(),
+    ) { paths, tabs -> tabsOfWorktrees(paths, tabs) }
+        .flowOn(Dispatchers.IO)
+        .stateIn(emptyMap())
 
     /** Whether the side panel shows the worktree list, which refreshes on an interval meanwhile. */
     private val worktreesVisibility = MutableStateFlow(WorktreesVisibility.Hidden)
@@ -1533,11 +1544,21 @@ class RepositoryOpenViewModel @Inject constructor(
         }
     }
 
-    /** Selects the tab that shows [worktree], or opens it in a new tab (fork-only), when the tab can switch to it. */
+    /**
+     * Opens [worktree] in a new tab (fork-only), when the tab can switch to it, even when another tab shows it: tabs have
+     * names of their own, so two tabs of one worktree can be told apart.
+     */
     fun openWorktreeInNewTab(worktree: Worktree) {
         if (worktree.canSwitchTo) {
-            appViewModel.selectOrOpenTab(worktree.path)
+            appViewModel.openNewTab(worktree.path)
         }
+    }
+
+    /** Selects the tab at [index] of those that show [worktree] (fork-only), as a "Go to tab" in its menu. */
+    fun goToWorktreeTab(worktree: Worktree, index: Int) {
+        val tab = worktreeTabs.value[worktree.path]?.getOrNull(index)?.tab ?: return
+
+        appViewModel.selectTabIfOpen(tab)
     }
 
     /** Unlocks [worktree] (fork-only). It loses nothing, so it doesn't ask first. */
