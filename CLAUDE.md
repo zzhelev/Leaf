@@ -3178,6 +3178,36 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     header, rendered and clicked), the dialog cases in `ConfirmActionDialogTest`, and two in
     `DiscardEntriesGitActionTest`.
 
+**Menus taller than the window (fork-only, 2026-11-03, `ui/components/menu/MenuFit.kt`):** a right-click menu
+(`showPopup`, behind `ContextMenu` and `DropDownMenu`) and a header menu (`SortMenuPopup`: the ⋯, sort, columns, View and
+style menus) stay 8 dp from the window's edges (`MENU_WINDOW_MARGIN`), and scroll when they're taller than that. Option A
+of the Design canvas "Leaf long context menus", chosen with the user: a log chip's menu with its remote branch's items
+(25 entries, about 880 dp) doesn't fit the default 1280 × 720 window's 692 dp.
+- **Before:** a right-click menu taller than the window was pinned to its top and bottom and scrolled with the wheel,
+  with nothing to say so (its edge often fell between two rows), and took no key but Esc. A header menu didn't scroll:
+  its rows past the window's edge were measured at 0 dp and couldn't be reached.
+- **Where it opens:** at the pointer when it fits, else moved left or up just enough (`menuPositionAt`, `fittedStart`);
+  a header menu below its button, else above it, else moved up (`menuTopBelowOrAbove`, in
+  `BelowRightAlignedPositionProvider`, which the log's branch filter list uses too). `fitsWindowHeight` cuts the menu to
+  the window's height less the margins: a popup is measured with the window's size as its constraints.
+- **Scrolling** (`MenuScrollColumn`): a 4 dp scrollbar 3 dp in from the right edge (`scrollbarNormal`, `scrollbarHover`
+  while dragged) and a 16 dp fade at each end that has more entries, drawn over the viewport. Not Compose's
+  `VerticalScrollbar`: the menus size to their widest entry (`IntrinsicSize.Max`), and it throws when asked for its
+  intrinsic size. A press in the 10 dp strip at the right edge goes to the scrollbar (`PointerEventPass.Initial`), not
+  to the entry under it: on the thumb it drags, on the track it pages.
+- **Keys** (`movesInMenu`): ↑ and ↓ move the focus between entries, Home and End to the first and the last that can be
+  picked (a `FocusRequester` per entry), Enter picks (the entry's `clickable`), Esc closes. The focused entry scrolls
+  into view 16 dp clear of the fades (`ClearOfFades`, a `BringIntoViewSpec` given as `LocalBringIntoViewSpec`). The
+  `clickable`'s own focus indication highlights a right-click menu's focused entry.
+- **Not changed:** the text fields' Copy and Paste menu (`AppContextMenuRepresentation`), and the lists that have their
+  own height (the worktree picker, the branch filter's list, the clone dialog's choices). No submenus (option B).
+- Tests: `MenuFitTest` (placement, the thumb), `LongMenusTest` (rendered in a 400 × 300 window: a 30-entry right-click
+  menu cut to 8 px from the edges with every entry whole, the wheel, ↑ ↓ through every entry clear of the fades, Home
+  and End past disabled entries, the focused entry's highlight, Enter and Esc, a menu at the pointer and one moved to
+  fit, the scrollbar's pixels, dragging it without picking, a real right-click, and a 30-option header menu). 13
+  mutations: 12 caught by a named test; the 13th took out a focus highlight of Leaf's own, which the `clickable`'s
+  indication already draws, and that code went.
+
 ## Repository tabs
 
 **Opening a tab:**

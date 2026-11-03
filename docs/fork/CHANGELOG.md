@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Menus taller than the window fit it and scroll (2026-11-03)
+
+- **Found:** a log chip's right-click menu, with its remote branch's items, has 25 entries, about 880 dp, and Leaf's
+  default 1280 × 720 window has 692 dp under its title bar. The menu was pinned to the window's top and bottom and
+  scrolled with the wheel, with nothing to say so: its edge fell between two rows, so the remote branch's Delete and
+  Copy were out of sight. ↑ and ↓ did nothing. The ⋯, sort, columns and View menus didn't scroll at all: in a short
+  window, their rows past the edge were 0 dp tall and couldn't be reached.
+- **Now:** both kinds of menu stay 8 dp from the window's edges. One that's taller than that scrolls, with a thin
+  scrollbar that can be dragged and a fade at each end that has more entries. A menu opens at the pointer when it fits,
+  else moves just enough to fit; a header menu opens below its button, else above it. ↑ and ↓ move through the entries,
+  Home and End go to the first and the last, and the entry they reach scrolls into view clear of the fades. Enter
+  picks, Esc closes.
+- **Chosen with the user** from a mockup (the Design canvas "Leaf long context menus"): option A, against scroll arrows
+  at the menu's ends as macOS draws them (A2), and submenus for Compare and the remote branch's items (B), which could
+  still come on top of A.
+- Details: CLAUDE.md, "DI, coroutines, state", Menus taller than the window.
+
 ## Tabs can be renamed and given a colour (2026-11-03)
 
 - **Request:** upstream issue 242, "let the user rename a tab and give it a colour", to find a tab at a glance and to
