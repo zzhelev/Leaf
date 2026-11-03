@@ -3705,6 +3705,41 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
 - `combineStatusState` builds the two panes' lists (`StatusLists`: entries, rows, searches, view settings) in a
   `combine` of their own. The commit message, selection and the rest join them afterwards, so a letter typed in the
   commit message no longer sorts and groups every changed file again (`StatusStateTest`).
+- **Unstaged in groups (fork-only, upstream issue 345, 2026-11-03, `FileGroup`, `buildGroupedFileRows` and
+  `CollapsedGroups` in `FileRows.kt`, `ui/FilesGroupHeader.kt`):** "Group untracked files" at the end of Unstaged's sort
+  and view menu lists Unstaged's files under "Conflicts", "Changes" and "Untracked", each a header with a count. Option B
+  of three, chosen with the user from a mockup: always grouped, grouped on request (off by default), or hiding untracked
+  files, which a folded Untracked group does without losing the count.
+  - **The setting** is `FilesViewState.groupUntracked` (in `AppConfig.FilesChangedView`'s JSON, global, off by default;
+    a view saved before it reads as off). Only Unstaged's menu offers it (`FilesSortMenuButton`'s `offersGrouping`), as
+    Staged has no untracked files. `isDefault` doesn't count it, so the other panes' buttons aren't lit by it; Unstaged's
+    is while it's on.
+  - **The groups** (`StatusEntry.fileGroup`): `CONFLICTING` is Conflicts, `ADDED` is Untracked (in Unstaged, a file git
+    doesn't track; a staged new file edited again is `MODIFIED` there), `MODIFIED` and `REMOVED` are Changes. In that
+    order, each only while it has files (a search's matches). The list's sort and view apply inside each group.
+  - **Rows:** `FileRow.Group` (key `group:<name>`) heads its rows. `FilesGroupHeader` draws it, and the Amend group's
+    header too (`AmendedGroupHeader`): a band with a chevron, the name and a `CountPill`. A click folds or opens the group
+    (`StatusAction.ToggleUnstagedGroup`). Pointing at it shows Stage, as on a folder row, which stages the files it stands
+    for (`StageGroup`, `StatusState.unstagedEntriesShownIn`: its files, those of a folded group or folder included, or its
+    search matches).
+  - **The tree:** each group has its own tree, so a folder with a changed and a new file has a row in each.
+    `FileRow.Folder.group` keeps their keys apart (`dir:<group>:<path>`) and goes with every folder action
+    (`TreeDirectoryToggle`, `FolderRowAction`, `DirectoryAction`, through `ChangedFilesList`'s `onGroupFolderToggle` and
+    the row): its Stage, Discard and Ignore act on that group's files only (`entriesShownUnder(path, entryType, group)`),
+    staged as a list of entries rather than with `stageByDirectory`, which would take the other group's files too.
+  - **What is folded** (`CollapsedGroups`, `unstagedCollapsedGroups` in `StatusViewModelExtender`): the groups by name and
+    each group's folders, apart from the folders of the list without groups. As with folders, a search opens everything,
+    what folds during it goes when it ends, and a worktree switch clears it.
+  - **Across the groups, the list works as one:** Up and Down pass over the headers (`stepped`), and Left can't reach
+    them, as a nested row meets its folder first. Shift-click takes the range in the order shown, across headers, without
+    a folded group's files (`SelectEntry.diffEntries` are the rows' files). Stage all, "Stage selected" and Discard all
+    act on both groups, as before (`bulkTarget`, `entriesShown`).
+  - Tests: `GroupedFileRowsTest`, `SortSettingsCodecTest` (domain), `UnstagedGroupsStateTest` (the setting, a search,
+    folding, Staged unchanged, what a group's Stage and a group's folder stand for), `UnstagedGroupsTest` (rendered at
+    330 dp: the headers, the menu item in Unstaged only and its lit button, a header's click and Stage, the Shift range,
+    Stage all, the keys, a folder in two groups and its menu; PNGs in two styles and both themes with `LEAF_RENDER_DIR`).
+    14 mutations were each caught by a named test. The view model's part (folding, a folder of a group, a header's Stage, checked against git) ran through
+    the Dagger graph in a temporary harness against the notes folder's `unstaged-groups-345-demo.sh`.
 - **Status pane sections (fork-only):** two 8 dp handles resize Staged, Unstaged and the commit field.
   - `StatusSectionSizes` (`domain/models/`) holds Staged's share of the lists and the commit field's height. `fitTo`
     fits them to the pane: each list keeps 100 dp and the commit field 140 dp. The drag functions start from the

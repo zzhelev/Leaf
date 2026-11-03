@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Unstaged can list untracked files in a group of their own (2026-11-03)
+
+- **Request:** upstream issue 345, "Separate Untracked and Modified files in the Unstaged area". With an agent writing
+  new files next to its edits, the two kinds mixed in one list. Chosen with the user from three options (always grouped,
+  grouped on request, hiding untracked files): grouped on request, with conflicts in a group of their own.
+- **Before:** Unstaged was one list. Sorting by change type put the new files together, and they had a green + against
+  the pencil of modified files.
+- **Now:** "Group untracked files" at the end of Unstaged's sort and view menu (off by default, kept after a restart)
+  lists the files under Conflicts, Changes and Untracked, each with a count; a group without files has no header. A click
+  on a header folds the group, and pointing at it shows Stage, which stages that group. In the tree each group has its
+  own folders, so a folder can be in two groups, and its row's actions take that group's files only.
+- **Unchanged:** Stage all, Discard all, the search, Shift and Ctrl selection and the arrow keys work across the groups
+  as in one list, and the keys pass over the headers. Staged and Files changed have no groups.
+- Details: CLAUDE.md, "Sidebar and branch list", Sorting and grouping.
+
 ## The log search finds commits that the log hasn't loaded (2026-11-02)
 
 - **Request:** upstream issue 277, "the search in the commit graph doesn't find commits that aren't loaded yet".
