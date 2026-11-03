@@ -454,8 +454,8 @@ All verified in source. Leaf sends no pull requests upstream, so this only recor
   so that ignore check never matches. Fixed by `25426ef9` (2026-10-19): the paths are taken relative to the working
   tree.
 - `A/repositoryopen/RepositoryOpenViewModel.kt:1037-1046`: `openSubmodule` builds `"$repositoryPath/$path"` from
-  the git dir, which gives `/repo/.git/<sub>`. It should use the working tree, and its own TODO says so. Still as
-  found (now at line 2370), not tried in a run.
+  the git dir, which gives `/repo/.git/<sub>`. It should use the working tree, and its own TODO says so. Fixed on
+  2026-11-03: it takes the working tree, as the side panel's "Open in new tab" does.
 - `app/build.gradle.kts`: Rust build failures are ignored (`isIgnoreExitValue = true`). Fixed by `2cfdcc64`
   (2026-10-15): a cargo failure fails the build.
 - `app/build.gradle.kts` (from upstream `a9a0f318`): inside `macOS { }`, `bundleID = packageName` read the DSL's null

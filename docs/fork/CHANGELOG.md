@@ -2,6 +2,16 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The diff pane's "Open submodule" opens the submodule (2026-11-03)
+
+- **Before** (upstream's code, listed in `architecture-notes.md` since Phase 0): the button under a submodule's diff
+  opened a tab at `<git dir>/<path>`, such as `/repo/.git/lib`, as the tab's repository path is its git dir. No such
+  folder exists, so the new tab showed the Welcome page and an error that the folder wasn't found. Upstream still has
+  it.
+- **Now:** it opens `<working tree>/<path>`, as the side panel's "Open in new tab" on a submodule always did
+  (`RepositoryOpenViewModel.openSubmodule` calls `onOpenSubmoduleInTab`). In a linked worktree, that is the worktree's
+  own copy of the submodule.
+
 ## Menus taller than the window fit it and scroll (2026-11-03)
 
 - **Found:** a log chip's right-click menu, with its remote branch's items, has 25 entries, about 880 dp, and Leaf's
