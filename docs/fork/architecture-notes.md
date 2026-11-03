@@ -424,9 +424,10 @@ doesn't cover this; (d)'s second change would.
   - `persistTabSelected` (`:88-90`) writes an index into the unfiltered tab list, while `:134` writes an index into
     the filtered one.
 - **No duplicate-tab focusing.** Opening the same path twice creates two tabs, each with its own watcher, sharing one
-  cached `Git`. Since Phase 2a, "Open in new tab" on a worktree selects the tab that has it
-  (`AppViewModel.selectOrOpenTab`), but the Welcome page and the CLI argument still open a second tab. Since Phase 2b,
-  switching to a worktree switches the current tab instead.
+  cached `Git`. Phase 2a made "Open in new tab" on a worktree select the tab that has it, but the Welcome page and the
+  CLI argument still open a second tab. Since Phase 2b, switching to a worktree switches the current tab instead. Since
+  2026-11-03, "Open in new tab" always opens one, as tabs have names of their own, and the worktree's menu has a "Go to
+  tab" item for each tab that shows it.
 - **No polling and no refresh on window focus.** File watching was the only automatic refresh. Since Phase 1.5 the
   worktree list also refreshes on an interval while it's shown, and when the window gets the focus.
 - **#335 (UI freezes), a hypothesis I have not tested.**
@@ -438,22 +439,28 @@ doesn't cover this; (d)'s second change would.
 - **No serialisation of git operations.** There is no mutex around them, and the `JGit` cache is a plain
   `mutableMapOf` (`G/JGit.kt:18`).
 
-### Bugs to fix or report upstream (Phase 5)
+### Bugs found in upstream's code (Phase 0)
 
-All verified in source.
-- `A/ui/dialogs/settings/SettingsDialog.kt:297`: the proxy **Login** field saves `AppConfig.ProxyHostPassword`.
+All verified in source. Leaf sends no pull requests upstream, so this only records what became of them (checked on
+2026-11-03).
+- `A/ui/dialogs/settings/SettingsDialog.kt:297`: the proxy **Login** field saves `AppConfig.ProxyHostPassword`. Gone
+  with the proxy settings (2026-10-10).
 - `A/ui/dialogs/settings/SettingsDialog.kt:406`: the "Do not verify SSL" toggle saves `AppConfig.CacheCredentialsInMemory`.
+  Gone with the setting (2026-10-10).
 - `D/usecases/ObserveRepositoryToRefreshUseCase.kt:74`: `startsWith(repositoryPath)` without a separator also matches
   `.gitignore`, `.gitattributes` and `.github/`, so editing them triggers a full refresh. Fixed in Phase 1.5
-  (`WatchedRepository`), not reported upstream.
+  (`WatchedRepository`).
 - `D/usecases/ObserveRepositoryToRefreshUseCase.kt:113`: strips the git-dir prefix instead of the working-tree prefix,
-  so that ignore check never matches.
+  so that ignore check never matches. Fixed by `25426ef9` (2026-10-19): the paths are taken relative to the working
+  tree.
 - `A/repositoryopen/RepositoryOpenViewModel.kt:1037-1046`: `openSubmodule` builds `"$repositoryPath/$path"` from
-  the git dir, which gives `/repo/.git/<sub>`. It should use the working tree, and its own TODO says so.
-- `app/build.gradle.kts`: Rust build failures are ignored (`isIgnoreExitValue = true`).
+  the git dir, which gives `/repo/.git/<sub>`. It should use the working tree, and its own TODO says so. Still as
+  found (now at line 2370), not tried in a run.
+- `app/build.gradle.kts`: Rust build failures are ignored (`isIgnoreExitValue = true`). Fixed by `2cfdcc64`
+  (2026-10-15): a cargo failure fails the build.
 - `app/build.gradle.kts` (from upstream `a9a0f318`): inside `macOS { }`, `bundleID = packageName` read the DSL's null
   `packageName`, and `sign.set(true)` blocked the `compose.desktop.mac.sign` opt-out. In the fork, the Leaf rename's
-  literal bundle ID fixes the first and `fix/macos-bundle-id` fixes the second. Both are candidates for an upstream PR.
+  literal bundle ID fixes the first and `fix/macos-bundle-id` fixes the second.
 - `D/TempFilesManager.kt` (`AppFilesManager`): the macOS app folder is `~/Library/Application/<app name>`, which is
   missing "Support". The fork fixed it as part of `feature/leaf-own-storage`.
 - `DEVELOPMENT.md` is outdated: it says JDK 17+ (25 is needed) and that `cargo-kotars` is required (uniffi is used now).

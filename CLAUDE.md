@@ -3271,15 +3271,15 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   (`AppViewModel.openNewTab`), even when another tab shows that worktree: tabs have names of their own (next bullets),
   so two tabs of one worktree can be told apart. Before it, each tab that shows the worktree has an item of its own,
   "Go to tab “review”", in the tab bar's order, five at most, each naming its tab (cut after a word past 40 characters)
-  and selecting it (`AppViewModel.selectTabIfOpen`). Until 2026-11-03 "Open in new tab" selected the first such tab
-  (`AppViewModel.selectOrOpenTab`, which the Welcome page and the CLI don't use), which the user found misleading.
+  and selecting it (`AppViewModel.selectTabIfOpen`). Until 2026-11-03 "Open in new tab" selected the first such tab,
+  which the user found misleading.
   - Which tabs: `RepositoryOpenViewModel.worktreeTabs`, on `Dispatchers.IO`, from the worktree list and
     `AppViewModel.openTabs` (each tab with its path and its title as the tab bar shows it), through `tabsOfWorktrees`
     (`domain/worktrees/WorktreeTabs.kt`).
-  - `indexOfRepository` (`domain/worktrees/RepositoryPaths.kt`) compares real paths of git dirs: `gitDirOf` turns a
-    working tree into its `.git` folder or the git dir its `.git` file points to (absolute or relative), and keeps a git
-    dir as it is. A tab gives `pathToPersist`, so an open tab gives its git dir and one that hasn't loaded the path it
-    was created with.
+  - Tabs and worktrees are compared by the real paths of their git dirs: `gitDirOf`
+    (`domain/worktrees/RepositoryPaths.kt`) turns a working tree into its `.git` folder or the git dir its `.git` file
+    points to (absolute or relative), and keeps a git dir as it is. A tab gives `pathToPersist`, so an open tab gives
+    its git dir and one that hasn't loaded the path it was created with.
   - Tests: `WorktreeTabsTest` (domain, folders laid out as git does), the menu in `WorktreesSectionTest`. The view model
     ran through the Dagger graph in a temporary harness: three more tabs of one worktree, two renamed, and each Go to
     tab selecting its own. 6 mutations were each caught by a named test.

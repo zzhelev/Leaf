@@ -171,6 +171,10 @@ the same thing. "Open in new tab" goes to that other tab instead.
 
 `AppViewModel.selectOrOpenTab` and `indexOfRepository` stay, for "Open in new tab".
 
+Superseded on 2026-11-03: "Open in new tab" always opens a new tab, as tabs have names of their own, and the worktree's
+menu has a "Go to tab" item for each tab that shows it (`CLAUDE.md`, Identity and persistence). `selectOrOpenTab` and
+`indexOfRepository` went; `tabsOfWorktrees` finds those tabs, by `gitDirOf`.
+
 ### 3.7 The picker
 
 - **Where:** in the toolbar, right of Open.
