@@ -13,11 +13,13 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * The sort and view button of the Files changed pane. Muted at the defaults (split columns, file name, A → Z),
  * accent-colored otherwise, with the sort name when the sort isn't the default and a folder icon in tree view.
+ * [offersGrouping] adds "Group untracked files" (Unstaged's, upstream issue 345), which lights the button while it's on.
  */
 @Composable
 fun FilesSortMenuButton(
     viewState: FilesViewState,
     onViewStateChange: (FilesViewState) -> Unit,
+    offersGrouping: Boolean = false,
 ) {
     val (ascendingLabel, descendingLabel) = if (viewState.sortKey == FileSortKey.ChangeType) {
         stringResource(Res.string.files_changed_sort_added_first) to
@@ -72,10 +74,17 @@ fun FilesSortMenuButton(
                 )
             )
         }
+
+        if (offersGrouping) {
+            add(SortMenuItem.Divider)
+            add(SortMenuItem.Option(stringResource(Res.string.files_changed_group_untracked), viewState.groupUntracked) {
+                onViewStateChange(viewState.copy(groupUntracked = !viewState.groupUntracked))
+            })
+        }
     }
 
     SortMenuButton(
-        isActive = !viewState.isDefault,
+        isActive = !viewState.isDefault || (offersGrouping && viewState.groupUntracked),
         activeLabel = if (viewState.isSortDefault) null else fileSortKeyLabel(viewState.sortKey),
         showFolderIcon = viewState.viewMode == FilesViewMode.FolderTree,
         menuItems = items,

@@ -18,9 +18,13 @@ import dev.app.leaf.domain.extensions.lowercaseContains
 import dev.app.leaf.domain.rebase.RebaseStop
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.sorting.CollapsedFolders
+import dev.app.leaf.domain.sorting.CollapsedGroups
+import dev.app.leaf.domain.sorting.FileGroup
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.buildFileRows
+import dev.app.leaf.domain.sorting.buildGroupedFileRows
+import dev.app.leaf.domain.sorting.fileGroup
 import dev.app.leaf.domain.sorting.inFolder
 import dev.app.leaf.domain.sorting.toFileItems
 import dev.app.leaf.ui.UiDataState
@@ -47,7 +51,10 @@ data class StatusState(
     val staged: List<StatusEntry> = emptyList(),
     /** Every unstaged entry, one per path, keeping the conflicting one when git reports a path twice. */
     val unstaged: List<StatusEntry> = emptyList(),
-    /** The rows of the Staged and Unstaged panes, filtered by their searches. */
+    /**
+     * The rows of the Staged and Unstaged panes, filtered by their searches. Fork-only (upstream issue 345): Unstaged's
+     * are in groups while [FilesViewState.groupUntracked] is on.
+     */
     val stagedRows: List<FileRow<StatusEntry>> = emptyList(),
     val unstagedRows: List<FileRow<StatusEntry>> = emptyList(),
     val swapUncommittedChanges: Boolean = false,
@@ -147,9 +154,9 @@ data class StatusState(
 
     /**
      * The files a folder row stands for: every file under [folderPath], including those inside closed folders, or only
-     * the search matches while the pane is searching.
+     * the search matches while the pane is searching. Fork-only: a folder row of a [group] stands for that group's files.
      */
-    fun entriesShownUnder(folderPath: String, entryType: EntryType): List<StatusEntry> {
+    fun entriesShownUnder(folderPath: String, entryType: EntryType, group: FileGroup? = null): List<StatusEntry> {
         val searchFilter = when (entryType) {
             EntryType.STAGED -> activeSearch(showSearchStaged, searchFilterStaged)
             EntryType.UNSTAGED -> activeSearch(showSearchUnstaged, searchFilterUnstaged)
@@ -157,8 +164,15 @@ data class StatusState(
 
         return getEntriesByEntryType(entryType)
             .filteredBySearch(searchFilter)
+            .inGroup(group)
             .inFolder(folderPath)
     }
+
+    /**
+     * The files that a group's header stands for (fork-only, upstream issue 345): Unstaged's files in [group], including
+     * those of a closed group or folder, or only the search matches while the pane is searching.
+     */
+    fun unstagedEntriesShownIn(group: FileGroup): List<StatusEntry> = entriesShown(EntryType.UNSTAGED).inGroup(group)
 
     val hasStagedFiles = staged.isNotEmpty()
     val hasUnstagedFiles = unstaged.isNotEmpty()
@@ -221,6 +235,7 @@ fun combineStatusState(
     amendedCollapsed: Flow<Boolean> = flowOf(false),
     amendedCollapsedFolders: Flow<CollapsedFolders> = flowOf(CollapsedFolders()),
     selectedAmendedEntry: Flow<DiffEntry?> = flowOf(null),
+    unstagedCollapsedGroups: Flow<CollapsedGroups> = flowOf(CollapsedGroups()),
 ): Flow<StatusState> {
     val lists = combine(
         status,
@@ -234,6 +249,7 @@ fun combineStatusState(
         amendedFiles,
         amendedCollapsed,
         amendedCollapsedFolders,
+        unstagedCollapsedGroups,
     ) {
             statusDataState,
             showSearchStaged,
@@ -246,6 +262,7 @@ fun combineStatusState(
             amendedFiles,
             amendedCollapsed,
             amendedCollapsedFolders,
+            unstagedCollapsedGroups,
         ->
         val status = statusDataState.data ?: Status()
         val staged = status.staged.prioritizeConflicts()
@@ -266,6 +283,8 @@ fun combineStatusState(
                 viewState,
                 searchFilter = activeSearch(showSearchUnstaged, searchFilterUnstaged),
                 unstagedCollapsedFolders,
+                // Fork-only (upstream issue 345): Staged has no untracked files to group
+                groups = unstagedCollapsedGroups.takeIf { viewState.groupUntracked },
             ),
             // Fork-only: the group follows Staged's search and view
             amended = amendedGroup(
@@ -379,16 +398,31 @@ fun combineStatusState(
     }
 }
 
-/** The rows of one pane. [searchFilter] is the search text, or null when the pane isn't searching. */
+/**
+ * The rows of one pane. [searchFilter] is the search text, or null when the pane isn't searching. Fork-only: in groups
+ * when [groups] says what is closed in them, with [collapsedFolders] left for the list without groups.
+ */
 private fun statusPaneRows(
     entries: List<StatusEntry>,
     viewState: FilesViewState,
     searchFilter: String?,
     collapsedFolders: CollapsedFolders,
+    groups: CollapsedGroups? = null,
 ): List<FileRow<StatusEntry>> {
     val isSearching = searchFilter != null
+    val files = entries.filteredBySearch(searchFilter).toFileItems()
 
-    return buildFileRows(entries.filteredBySearch(searchFilter).toFileItems(), viewState) { path ->
+    if (groups != null) {
+        return buildGroupedFileRows(
+            files,
+            groupOf = { it.item.fileGroup },
+            state = viewState,
+            isGroupCollapsed = { group -> groups.isGroupCollapsed(group, isSearching) },
+            isCollapsed = { group, path -> groups.isFolderCollapsed(group, path, isSearching) },
+        )
+    }
+
+    return buildFileRows(files, viewState) { path ->
         collapsedFolders.isCollapsed(path, isSearching)
     }
 }
@@ -399,6 +433,9 @@ private fun activeSearch(showSearch: Boolean, searchFilter: TextFieldValue): Str
 
 private fun List<StatusEntry>.filteredBySearch(searchFilter: String?): List<StatusEntry> =
     if (searchFilter == null) this else filter { it.filePath.lowercaseContains(searchFilter) }
+
+private fun List<StatusEntry>.inGroup(group: FileGroup?): List<StatusEntry> =
+    if (group == null) this else filter { it.fileGroup == group }
 
 private fun List<StatusEntry>.prioritizeConflicts(): List<StatusEntry> {
     return this.groupBy { it.filePath }

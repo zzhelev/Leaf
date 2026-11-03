@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.sorting.DiscardAllPlan
+import dev.app.leaf.domain.sorting.FileGroup
 import dev.app.leaf.domain.sorting.FilesViewState
 import org.eclipse.jgit.diff.DiffEntry
 
@@ -32,12 +33,20 @@ sealed interface StatusAction {
     data class DiscardAll(val plan: DiscardAllPlan, val deleteNewFiles: Boolean) : StatusAction
     data class SelectedEntriesAction(val entryType: EntryType) : StatusAction
     data class OpenInFolder(val path: String) : StatusAction
-    data class TreeDirectoryToggle(val path: String, val entryType: EntryType) : StatusAction
+    /** Fork-only: [group] is the group of the folder's row, in a list in groups. */
+    data class TreeDirectoryToggle(
+        val path: String,
+        val entryType: EntryType,
+        val group: FileGroup? = null,
+    ) : StatusAction
     data class ViewStateChanged(val viewState: FilesViewState) : StatusAction
-    data class DirectoryAction(val path: String, val entryType: EntryType) : StatusAction
+    data class DirectoryAction(val path: String, val entryType: EntryType, val group: FileGroup? = null) : StatusAction
 
-    /** Stages or unstages what a folder row shows: the whole directory, or its search matches during a search. */
-    data class FolderRowAction(val path: String, val entryType: EntryType) : StatusAction
+    /**
+     * Stages or unstages what a folder row shows: the whole directory, or its search matches during a search. Fork-only:
+     * a folder row of a [group] shows that group's files only.
+     */
+    data class FolderRowAction(val path: String, val entryType: EntryType, val group: FileGroup? = null) : StatusAction
     data class SearchFilterChanged(val filter: TextFieldValue, val entryType: EntryType) : StatusAction
     data class Commit(val message: String) : StatusAction
     data class ContinueRebase(val message: String) : StatusAction
@@ -97,4 +106,10 @@ sealed interface StatusAction {
 
     /** Reads the amended commit's files again after a failure (fork-only). */
     data object RetryAmendedFiles : StatusAction
+
+    /** Fork-only (upstream issue 345): a click on the header of one of Unstaged's groups, which closes or opens it. */
+    data class ToggleUnstagedGroup(val group: FileGroup) : StatusAction
+
+    /** Fork-only (upstream issue 345): the Stage button of a group's header, for the files it stands for. */
+    data class StageGroup(val group: FileGroup) : StatusAction
 }

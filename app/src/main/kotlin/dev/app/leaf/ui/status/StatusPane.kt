@@ -367,12 +367,13 @@ fun StatusChangesList(
         EntryType.UNSTAGED -> statusState.unstagedRows
     }
 
-    // Unstaged only, and only for a folder with something to restore
-    val folderDiscardAction: (folderPath: String) -> (() -> Unit)? = { folderPath ->
-        val discard = statusState.entriesShownUnder(folderPath, entryType).folderDiscard()
+    // Unstaged only, and only for a folder with something to restore. Fork-only: a folder of a group restores that
+    // group's files
+    val folderDiscardAction: (FileRow.Folder) -> (() -> Unit)? = { folder ->
+        val discard = statusState.entriesShownUnder(folder.path, entryType, folder.group).folderDiscard()
 
         if (entryType == EntryType.UNSTAGED && discard.entries.isNotEmpty()) {
-            { onDiscardFolderChanges(folderPath, discard) }
+            { onDiscardFolderChanges(folder.path, discard) }
         } else {
             null
         }
@@ -409,9 +410,10 @@ fun StatusChangesList(
     }
 
     // Unstaged only, and only for a folder that shows a new (untracked) file, which is what ignoring hides
-    val folderIgnoreAction: (folderPath: String) -> (() -> Unit)? = { folderPath ->
-        ignoreRequestForFolder(statusState.entriesShownUnder(folderPath, entryType), entryType, folderPath)
-            ?.let { request -> { onIgnore(request) } }
+    val folderIgnoreAction: (FileRow.Folder) -> (() -> Unit)? = { folder ->
+        val entries = statusState.entriesShownUnder(folder.path, entryType, folder.group)
+
+        ignoreRequestForFolder(entries, entryType, folder.path)?.let { request -> { onIgnore(request) } }
     }
 
     // Fork-only (upstream issue 260): the files of the commit that Amend rewrites, after Staged's own rows
@@ -489,9 +491,9 @@ fun ChangesList(
     /** The items of the header's "⋯" menu, none for no menu (fork-only). */
     moreItems: List<SortMenuItem>,
     /** What discarding a folder does, or null when its menu shouldn't offer it. */
-    folderDiscardAction: (folderPath: String) -> (() -> Unit)?,
+    folderDiscardAction: (FileRow.Folder) -> (() -> Unit)?,
     /** Opens the ignore dialog for a folder, or null when its menu shouldn't offer it (fork-only). */
-    folderIgnoreAction: (folderPath: String) -> (() -> Unit)?,
+    folderIgnoreAction: (FileRow.Folder) -> (() -> Unit)?,
     /** Opens the ignore dialog for untracked files (fork-only). */
     onIgnore: (IgnoreRequest) -> Unit,
     viewState: FilesViewState,
@@ -596,6 +598,8 @@ fun ChangesList(
                 FilesSortMenuButton(
                     viewState = viewState,
                     onViewStateChange = { onAction(StatusAction.ViewStateChanged(it)) },
+                    // Fork-only (upstream issue 345): Staged has no untracked files
+                    offersGrouping = entryType == EntryType.UNSTAGED,
                 )
             },
             searchFilter = searchFilter,
@@ -639,9 +643,9 @@ fun ChangesList(
             onGenerateFolderContextMenu = { folder ->
                 statusDirEntriesContextMenuItems(
                     entryType = entryType,
-                    onStageChanges = { onAction(StatusAction.DirectoryAction(folder.path, entryType)) },
-                    onDiscardDirectoryChanges = folderDiscardAction(folder.path),
-                    onIgnoreFolder = folderIgnoreAction(folder.path),
+                    onStageChanges = { onAction(StatusAction.DirectoryAction(folder.path, entryType, folder.group)) },
+                    onDiscardDirectoryChanges = folderDiscardAction(folder),
+                    onIgnoreFolder = folderIgnoreAction(folder),
                 )
             },
             fileTrailingAction = { statusEntry, isHovered ->
@@ -649,10 +653,16 @@ fun ChangesList(
             },
             folderTrailingAction = { folder, isHovered ->
                 EntryHoverAction(isHovered, actionInfo) {
-                    onAction(StatusAction.FolderRowAction(folder.path, entryType))
+                    onAction(StatusAction.FolderRowAction(folder.path, entryType, folder.group))
                 }
             },
             section = section,
+            // Fork-only (upstream issue 345): Unstaged's groups
+            onGroupToggle = { group -> onAction(StatusAction.ToggleUnstagedGroup(group)) },
+            onGroupFolderToggle = { group, path -> onAction(StatusAction.TreeDirectoryToggle(path, entryType, group)) },
+            groupTrailingAction = { group, isHovered ->
+                EntryHoverAction(isHovered, actionInfo) { onAction(StatusAction.StageGroup(group.group)) }
+            },
         )
     }
 }

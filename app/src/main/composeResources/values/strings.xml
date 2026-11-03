@@ -184,6 +184,10 @@
     <string name="files_changed_view_split_columns_hint">File name | directory</string>
     <string name="files_changed_view_folder_tree">Folder tree</string>
     <string name="files_changed_view_folder_tree_hint">Nested, chains collapsed</string>
+    <string name="files_changed_group_untracked">Group untracked files</string>
+    <string name="files_group_conflicts">Conflicts</string>
+    <string name="files_group_changes">Changes</string>
+    <string name="files_group_untracked">Untracked</string>
     <string name="files_changed_column_file">File</string>
     <string name="files_changed_column_directory">Directory</string>
     <string name="files_changed_renamed_from_unchanged">Renamed from %1$s (content unchanged)</string>

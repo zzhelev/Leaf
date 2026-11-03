@@ -50,6 +50,7 @@ import dev.app.leaf.app.generated.resources.files_changed_renamed_from_similar
 import dev.app.leaf.app.generated.resources.files_changed_renamed_from_unchanged
 import dev.app.leaf.app.generated.resources.files_changed_untracked
 import dev.app.leaf.app.generated.resources.files_changed_untracked_tooltip
+import dev.app.leaf.domain.sorting.FileGroup
 import dev.app.leaf.domain.sorting.FileItem
 import dev.app.leaf.domain.sorting.FileRow
 import dev.app.leaf.domain.sorting.FileSortKey
@@ -126,7 +127,7 @@ class FilesSection<S>(
 /**
  * Changed files as a flat list, split columns or a folder tree, for the Files changed, Staged and Unstaged panes.
  * Up and Down move the selection; in the tree, Left and Right close and open folders or move to the parent or first
- * child.
+ * child. Fork-only: [FileRow.Group] rows head groups of rows (Unstaged's, upstream issue 345), which the keys pass over.
  *
  * @param selectedEntries The selected files. The keyboard moves from the last one.
  * @param onKeyboardSelect Selects a file the keyboard moved to, [onFileClick] by default.
@@ -154,6 +155,12 @@ fun <T> ChangedFilesList(
     folderTrailingAction: (@Composable BoxScope.(folder: FileRow.Folder, isHovered: Boolean) -> Unit)? = null,
     /** Rows after the list's own, under a header of their own (fork-only). */
     section: FilesSection<*>? = null,
+    /** Closes or opens a group's rows (fork-only). */
+    onGroupToggle: (FileGroup) -> Unit = {},
+    /** Closes or opens a folder of a group, which can be in two groups (fork-only). [onFolderToggle] by default. */
+    onGroupFolderToggle: ((group: FileGroup, path: String) -> Unit)? = null,
+    /** Drawn over the end of a group's header while it is hovered (fork-only). */
+    groupTrailingAction: (@Composable BoxScope.(group: FileRow.Group, isHovered: Boolean) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
@@ -177,8 +184,10 @@ fun <T> ChangedFilesList(
     }
     val cursorIndex = folderCursorKey?.let { indexByKey[it] } ?: cursorKey?.let { indexByKey[it] }
 
-    // The list keeps the first visible row by its key, which lands mid-list once the rows are ordered differently
-    val layoutKey = Triple(viewState.viewMode, viewState.sortKey, viewState.ascending)
+    // The list keeps the first visible row by its key, which lands mid-list once the rows are ordered differently.
+    // Fork-only: grouping the rows orders them differently too
+    val isGrouped = rows.any { it is FileRow.Group }
+    val layoutKey = listOf(viewState.viewMode, viewState.sortKey, viewState.ascending, isGrouped)
     var shownLayoutKey by remember { mutableStateOf(layoutKey) }
 
     LaunchedEffect(layoutKey) {
@@ -187,6 +196,21 @@ fun <T> ChangedFilesList(
             listState.scrollToItem(cursorIndex ?: 0)
         }
     }
+
+    fun toggle(folder: FileRow.Folder) {
+        val group = folder.group
+
+        if (group != null && onGroupFolderToggle != null) {
+            onGroupFolderToggle(group, folder.path)
+        } else {
+            onFolderToggle(folder.path)
+        }
+    }
+
+    /** The row that [step] goes to from [index], passing over groups' headers (fork-only), or null past the end. */
+    fun stepped(index: Int, step: Int): Int? = generateSequence(index + step) { it + step }
+        .takeWhile { it in rows.indices }
+        .firstOrNull { rows[it] !is FileRow.Group }
 
     fun moveTo(index: Int) {
         val row = rows.getOrNull(index) ?: return
@@ -198,6 +222,9 @@ fun <T> ChangedFilesList(
             }
 
             is FileRow.Folder -> folderCursorKey = row.key
+
+            // The keys pass over them
+            is FileRow.Group -> return
         }
 
         scope.launch {
@@ -225,12 +252,12 @@ fun <T> ChangedFilesList(
 
         return when {
             keyEvent.matchesBinding(KeybindingOption.DOWN) -> {
-                moveTo(if (index == null) 0 else (index + 1).coerceAtMost(rows.lastIndex))
+                (if (index == null) stepped(-1, 1) else stepped(index, 1) ?: index)?.let(::moveTo)
                 true
             }
 
             keyEvent.matchesBinding(KeybindingOption.UP) -> {
-                moveTo(if (index == null) 0 else (index - 1).coerceAtLeast(0))
+                (if (index == null) stepped(-1, 1) else stepped(index, -1) ?: index)?.let(::moveTo)
                 true
             }
 
@@ -238,7 +265,7 @@ fun <T> ChangedFilesList(
                 val next = rows.getOrNull(index + 1)
 
                 if (!row.isExpanded) {
-                    onFolderToggle(row.path)
+                    toggle(row)
                 } else if (next != null && next.depth > row.depth) {
                     moveTo(index + 1)
                 }
@@ -248,7 +275,7 @@ fun <T> ChangedFilesList(
 
             isTree && keyEvent.key == Key.DirectionLeft && index != null && row != null -> {
                 if (row is FileRow.Folder && row.isExpanded) {
-                    onFolderToggle(row.path)
+                    toggle(row)
                 } else {
                     val parent = (index - 1 downTo 0).firstOrNull { rows[it].depth == row.depth - 1 }
 
@@ -306,7 +333,7 @@ fun <T> ChangedFilesList(
                         onClick = {
                             folderCursorKey = row.key
                             focusRequester.requestFocus()
-                            onFolderToggle(row.path)
+                            toggle(row)
                         },
                         onGenerateContextMenu = onGenerateFolderContextMenu?.let { generate -> { generate(row) } },
                         trailingAction = folderTrailingAction?.let { action ->
@@ -336,6 +363,20 @@ fun <T> ChangedFilesList(
                     ) {
                         FileRowContent(row.file, viewState, splitRatio)
                     }
+
+                    is FileRow.Group -> FilesGroupHeader(
+                        title = fileGroupTitle(row.group),
+                        count = row.fileCount,
+                        isCollapsed = !row.isExpanded,
+                        onToggle = {
+                            folderCursorKey = null
+                            focusRequester.requestFocus()
+                            onGroupToggle(row.group)
+                        },
+                        trailingAction = groupTrailingAction?.let { action ->
+                            { isHovered -> action(row, isHovered) }
+                        },
+                    )
                 }
             }
 
@@ -449,6 +490,9 @@ private fun <S> LazyListScope.sectionItems(
                 ) {
                     FileRowContent(row.file, viewState, splitRatio)
                 }
+
+                // A section's rows aren't grouped
+                is FileRow.Group -> Unit
             }
         }
     }

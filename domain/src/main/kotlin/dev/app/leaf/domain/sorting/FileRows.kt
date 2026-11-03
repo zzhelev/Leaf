@@ -24,12 +24,20 @@ data class FilesViewState(
     val viewMode: FilesViewMode = FilesViewMode.SplitColumns,
     /** Share of the row width taken by the file name column in [FilesViewMode.SplitColumns]. */
     val splitRatio: Float = DEFAULT_FILES_SPLIT_RATIO,
+    /** Fork-only (upstream issue 345): Unstaged lists its files in [FileGroup]s. The other panes ignore it. */
+    val groupUntracked: Boolean = false,
 ) {
     val isSortDefault: Boolean get() = sortKey == FileSortKey.FileName && ascending
 
-    /** Sort and view are at their defaults. The split ratio doesn't count. */
+    /** Sort and view are at their defaults. The split ratio and [groupUntracked], which only Unstaged has, don't count. */
     val isDefault: Boolean get() = isSortDefault && viewMode == FilesViewMode.SplitColumns
 }
+
+/**
+ * The groups that Unstaged lists its files in while [FilesViewState.groupUntracked] is on (fork-only, upstream issue
+ * 345), in their order: files with conflicts, changes to tracked files, and new files that git doesn't track yet.
+ */
+enum class FileGroup { Conflicts, Changes, Untracked }
 
 /** Change types in their "Added first" order. Conflicts block a commit, so they come first in both orders. */
 enum class FileChangeKind { Conflicting, Added, Modified, Renamed, Deleted }
@@ -69,8 +77,10 @@ sealed interface FileRow<out T> {
         val fileCount: Int,
         val isExpanded: Boolean,
         override val depth: Int,
+        /** Fork-only: the group the folder's row is in, which a folder in two groups has a row for each. */
+        val group: FileGroup? = null,
     ) : FileRow<Nothing> {
-        override val key: String get() = "dir:$path"
+        override val key: String get() = if (group == null) "dir:$path" else "dir:${group.name}:$path"
     }
 
     data class File<T>(
@@ -78,6 +88,16 @@ sealed interface FileRow<out T> {
         override val depth: Int,
     ) : FileRow<T> {
         override val key: String get() = "file:${file.key}"
+    }
+
+    /** A group's header (fork-only, upstream issue 345): the rows of its [fileCount] files follow unless it's closed. */
+    data class Group(
+        val group: FileGroup,
+        val fileCount: Int,
+        val isExpanded: Boolean,
+    ) : FileRow<Nothing> {
+        override val depth: Int get() = 0
+        override val key: String get() = "group:${group.name}"
     }
 }
 
@@ -211,6 +231,64 @@ fun <T> buildFileRows(
 
     FilesViewMode.FlatList, FilesViewMode.SplitColumns -> sortFiles(files, state.sortKey, state.ascending)
         .map { FileRow.File(it, depth = 0) }
+}
+
+/**
+ * The rows for [state] in groups (fork-only, upstream issue 345): each group that has files gets a header, in
+ * [FileGroup]'s order, then its own rows as [buildFileRows] builds them, unless [isGroupCollapsed]. In the tree each
+ * group has its own folders, so a folder can be in two groups, and [isCollapsed] gets the group with its path.
+ */
+fun <T> buildGroupedFileRows(
+    files: List<FileItem<T>>,
+    groupOf: (FileItem<T>) -> FileGroup,
+    state: FilesViewState,
+    isGroupCollapsed: (FileGroup) -> Boolean,
+    isCollapsed: (group: FileGroup, path: String) -> Boolean,
+): List<FileRow<T>> {
+    val filesByGroup = files.groupBy(groupOf)
+    val rows = mutableListOf<FileRow<T>>()
+
+    for (group in FileGroup.entries) {
+        val groupFiles = filesByGroup[group].orEmpty()
+
+        if (groupFiles.isEmpty()) continue
+
+        val isExpanded = !isGroupCollapsed(group)
+
+        rows.add(FileRow.Group(group, groupFiles.size, isExpanded))
+
+        if (isExpanded) {
+            buildFileRows(groupFiles, state) { path -> isCollapsed(group, path) }.mapTo(rows) { row ->
+                if (row is FileRow.Folder) row.copy(group = group) else row
+            }
+        }
+    }
+
+    return rows
+}
+
+/**
+ * What is closed in Unstaged's groups (fork-only, upstream issue 345): the groups, by name, and each group's own folders.
+ * As in [CollapsedFolders], what closes during a search is kept apart, to be dropped when the search ends.
+ */
+data class CollapsedGroups(
+    val groups: CollapsedFolders = CollapsedFolders(),
+    val folders: Map<FileGroup, CollapsedFolders> = emptyMap(),
+) {
+    fun isGroupCollapsed(group: FileGroup, isSearching: Boolean): Boolean =
+        groups.isCollapsed(group.name, isSearching)
+
+    fun isFolderCollapsed(group: FileGroup, path: String, isSearching: Boolean): Boolean =
+        folders[group]?.isCollapsed(path, isSearching) == true
+
+    fun groupToggled(group: FileGroup, isSearching: Boolean): CollapsedGroups =
+        copy(groups = groups.toggled(group.name, isSearching))
+
+    fun folderToggled(group: FileGroup, path: String, isSearching: Boolean): CollapsedGroups =
+        copy(folders = folders + (group to (folders[group] ?: CollapsedFolders()).toggled(path, isSearching)))
+
+    fun withoutSearch(): CollapsedGroups =
+        CollapsedGroups(groups.withoutSearch(), folders.mapValues { (_, collapsed) -> collapsed.withoutSearch() })
 }
 
 private fun changeRank(kind: FileChangeKind, addedFirst: Boolean): Int = when {

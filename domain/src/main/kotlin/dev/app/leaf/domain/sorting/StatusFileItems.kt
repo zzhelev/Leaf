@@ -16,6 +16,17 @@ val StatusType.fileChangeKind: FileChangeKind
         StatusType.CONFLICTING -> FileChangeKind.Conflicting
     }
 
+/**
+ * The group of an Unstaged entry (fork-only, upstream issue 345). Unstaged's added files are the ones git doesn't track:
+ * a new file that is staged is in Staged, which has no groups.
+ */
+val StatusEntry.fileGroup: FileGroup
+    get() = when (statusType) {
+        StatusType.CONFLICTING -> FileGroup.Conflicts
+        StatusType.ADDED -> FileGroup.Untracked
+        StatusType.MODIFIED, StatusType.REMOVED -> FileGroup.Changes
+    }
+
 /** The entries of a Staged or Unstaged pane as files to sort, keyed by path, with `#2` and so on for a repeated path. */
 fun List<StatusEntry>.toFileItems(): List<FileItem<StatusEntry>> {
     val pathCounts = HashMap<String, Int>()

@@ -34,6 +34,26 @@ class SortSettingsCodecTest {
     }
 
     @Test
+    fun `round-trips grouping Unstaged's untracked files, which a view saved before it existed reads as off`() {
+        val grouped = FilesViewState(viewMode = FilesViewMode.FolderTree, groupUntracked = true)
+
+        assertEquals(grouped, SortSettingsCodec.decodeFilesViewState(SortSettingsCodec.encodeFilesViewState(grouped)))
+
+        val saved = """{"sortKey":"Path","ascending":true,"viewMode":"FolderTree","splitRatio":0.4}"""
+
+        assertEquals(
+            FilesViewState(FileSortKey.Path, viewMode = FilesViewMode.FolderTree),
+            SortSettingsCodec.decodeFilesViewState(saved),
+        )
+        assertEquals(false, FilesViewState().groupUntracked)
+    }
+
+    @Test
+    fun `grouping doesn't make the view anything but its default, which the other panes' button reads`() {
+        assertEquals(true, FilesViewState(groupUntracked = true).isDefault)
+    }
+
+    @Test
     fun `missing or unreadable text gives the defaults`() {
         assertEquals(RefPanelSettings(), SortSettingsCodec.decodeRefPanelSettings(null))
         assertEquals(RefPanelSettings(), SortSettingsCodec.decodeRefPanelSettings("not json"))

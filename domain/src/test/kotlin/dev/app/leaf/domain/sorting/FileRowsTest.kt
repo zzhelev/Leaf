@@ -15,6 +15,7 @@ private fun List<FileRow<String>>.labels() = map { row ->
     when (row) {
         is FileRow.Folder -> "  ".repeat(row.depth) + "[${row.label}] ${row.fileCount}" + if (row.isExpanded) "" else " +"
         is FileRow.File -> "  ".repeat(row.depth) + row.file.fileName
+        is FileRow.Group -> "== ${row.group} ${row.fileCount}" + if (row.isExpanded) "" else " +"
     }
 }
 

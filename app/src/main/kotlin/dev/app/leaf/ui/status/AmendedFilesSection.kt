@@ -3,29 +3,21 @@
 
 package dev.app.leaf.ui.status
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.amended_files_failed
 import dev.app.leaf.app.generated.resources.amended_files_title
 import dev.app.leaf.app.generated.resources.amended_files_try_again
-import dev.app.leaf.app.generated.resources.chevron_right
-import dev.app.leaf.app.generated.resources.expand_more
 import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.extensions.handMouseClickable
@@ -33,11 +25,10 @@ import dev.app.leaf.extensions.icon
 import dev.app.leaf.extensions.iconColor
 import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.ui.FilesGroupHeader
 import dev.app.leaf.ui.FilesSection
-import dev.app.leaf.ui.components.CountPill
 import dev.app.leaf.ui.context_menu.committedChangesEntriesContextMenuItems
 import org.eclipse.jgit.diff.DiffEntry
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -76,47 +67,12 @@ internal fun amendedFilesSection(
 /** `[chevron] In the last commit ........ [count]`: a click closes the group or opens it. */
 @Composable
 internal fun AmendedGroupHeader(group: AmendedGroup, onToggle: () -> Unit) {
-    Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(MaterialTheme.colors.onBackground.copy(alpha = 0.08f))
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(MaterialTheme.linesHeight.fileHeight)
-                .background(MaterialTheme.colors.surface)
-                .handMouseClickable { onToggle() },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                painter = painterResource(if (group.isCollapsed) Res.drawable.chevron_right else Res.drawable.expand_more),
-                contentDescription = null,
-                tint = MaterialTheme.colors.onBackgroundSecondary,
-                modifier = Modifier
-                    .padding(start = 10.dp, end = 8.dp)
-                    .size(14.dp),
-            )
-
-            Text(
-                text = stringResource(Res.string.amended_files_title),
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.body2,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colors.onBackground,
-            )
-
-            if (group.showsCount) {
-                CountPill(group.count, modifier = Modifier.padding(start = 8.dp, end = 16.dp))
-            }
-        }
-    }
+    FilesGroupHeader(
+        title = stringResource(Res.string.amended_files_title),
+        count = group.count.takeIf { group.showsCount },
+        isCollapsed = group.isCollapsed,
+        onToggle = onToggle,
+    )
 }
 
 /** The group's rows when the commit's files couldn't be read, with the one thing to do about it. */

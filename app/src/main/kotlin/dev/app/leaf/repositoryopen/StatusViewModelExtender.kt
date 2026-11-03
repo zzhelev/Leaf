@@ -28,6 +28,8 @@ import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.CollapsedFolders
+import dev.app.leaf.domain.sorting.CollapsedGroups
+import dev.app.leaf.domain.sorting.FileGroup
 import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.selectionDiscard
 import dev.app.leaf.domain.usecases.*
@@ -127,6 +129,9 @@ class StatusViewModelExtender @AssistedInject constructor(
     /** Folders closed in each pane's folder tree. Kept while the tab is open. */
     private val stagedCollapsedFolders = MutableStateFlow(CollapsedFolders())
     private val unstagedCollapsedFolders = MutableStateFlow(CollapsedFolders())
+
+    /** Fork-only (upstream issue 345): what is closed in Unstaged's groups. */
+    private val unstagedCollapsedGroups = MutableStateFlow(CollapsedGroups())
 
     val swapUncommittedChanges = appSettings.swapStatusPanes
 
@@ -470,6 +475,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         amendedCollapsed,
         amendedCollapsedFolders,
         selectedAmendedEntry,
+        unstagedCollapsedGroups,
     )
         .stateIn(StatusState())
 
@@ -502,6 +508,7 @@ class StatusViewModelExtender @AssistedInject constructor(
             isAmend.value = false
             stagedCollapsedFolders.value = CollapsedFolders()
             unstagedCollapsedFolders.value = CollapsedFolders()
+            unstagedCollapsedGroups.value = CollapsedGroups()
         }
 
         showSearchStaged.collectLatestInCoroutineScope {
@@ -535,6 +542,7 @@ class StatusViewModelExtender @AssistedInject constructor(
 
         isSearchingFlow(EntryType.UNSTAGED).collectLatestInCoroutineScope {
             unstagedCollapsedFolders.update(CollapsedFolders::withoutSearch)
+            unstagedCollapsedGroups.update(CollapsedGroups::withoutSearch)
         }
 
 
@@ -584,12 +592,14 @@ class StatusViewModelExtender @AssistedInject constructor(
         }
 
         is StatusAction.Delete -> deleteFile(action.statusEntry)
-        is StatusAction.DirectoryAction -> when (action.entryType) {
-            EntryType.STAGED -> unstageByDirectory(action.path)
-            EntryType.UNSTAGED -> stageByDirectory(action.path)
+        // Fork-only: a folder of a group stands for the group's files only, as its row shows
+        is StatusAction.DirectoryAction -> when {
+            action.group != null -> folderRowAction(action.path, action.entryType, action.group)
+            action.entryType == EntryType.STAGED -> unstageByDirectory(action.path)
+            else -> stageByDirectory(action.path)
         }
 
-        is StatusAction.FolderRowAction -> folderRowAction(action.path, action.entryType)
+        is StatusAction.FolderRowAction -> folderRowAction(action.path, action.entryType, action.group)
 
         is StatusAction.OpenInFolder -> onOpenFileInFolder(action.path)
         is StatusAction.SearchFilterChanged -> when (action.entryType) {
@@ -607,7 +617,13 @@ class StatusViewModelExtender @AssistedInject constructor(
         )
 
         is StatusAction.ViewStateChanged -> onViewStateChanged(action.viewState)
-        is StatusAction.TreeDirectoryToggle -> toggleTreeDirectoryVisibility(action.path, action.entryType)
+        is StatusAction.TreeDirectoryToggle -> when (val group = action.group) {
+            null -> toggleTreeDirectoryVisibility(action.path, action.entryType)
+            else -> unstagedCollapsedGroups.update {
+                it.folderToggled(group, action.path, isSearching(EntryType.UNSTAGED))
+            }
+        }
+
         is StatusAction.DiscardSelected -> when (action.entryType) {
             EntryType.STAGED -> discardSelectedStaged()
             EntryType.UNSTAGED -> discardSelectedUnstaged()
@@ -665,6 +681,21 @@ class StatusViewModelExtender @AssistedInject constructor(
             amendedCollapsedFolders.update { it.toggled(action.path, isSearching(EntryType.STAGED)) }
 
         StatusAction.RetryAmendedFiles -> amendedFilesController.retry()
+
+        is StatusAction.ToggleUnstagedGroup ->
+            unstagedCollapsedGroups.update { it.groupToggled(action.group, isSearching(EntryType.UNSTAGED)) }
+
+        is StatusAction.StageGroup -> stageGroup(action.group)
+    }
+
+    /** Fork-only (upstream issue 345): stages the files that a group's header stands for. */
+    private fun stageGroup(group: FileGroup) {
+        val entries = statusState.value.unstagedEntriesShownIn(group)
+
+        // An empty list would mean every file
+        if (entries.isNotEmpty()) {
+            stageAllUseCase(entries)
+        }
     }
 
     /** Fork-only: the commit message's "Add Signed-off-by" switches the repository's setting, and keeps its format. */
@@ -795,8 +826,9 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     private fun stageByDirectory(dir: String) = stageByDirectoryUseCase(dir)
 
-    private fun folderRowAction(path: String, entryType: EntryType) {
-        if (!isSearching(entryType)) {
+    private fun folderRowAction(path: String, entryType: EntryType, group: FileGroup?) {
+        // Fork-only: a folder of a group stands for that group's files, as a search's stands for its matches
+        if (group == null && !isSearching(entryType)) {
             when (entryType) {
                 EntryType.STAGED -> unstageByDirectory(path)
                 EntryType.UNSTAGED -> stageByDirectory(path)
@@ -806,7 +838,7 @@ class StatusViewModelExtender @AssistedInject constructor(
         }
 
         // During a search the folder shows only its matching files, so only those are staged or unstaged
-        val entries = statusState.value.entriesShownUnder(path, entryType)
+        val entries = statusState.value.entriesShownUnder(path, entryType, group)
 
         // An empty list would mean every file
         if (entries.isEmpty()) return
