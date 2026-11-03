@@ -583,6 +583,8 @@ class UnstagedGroupsTest {
     private fun rightClickAt(position: Offset) {
         val scene = scene!!
 
+        // A menu ignores a right-click that comes within 20 ms of the last one, in any test
+        Thread.sleep(50)
         scene.sendPointerEvent(PointerEventType.Move, position)
         scene.sendPointerEvent(
             PointerEventType.Press,
