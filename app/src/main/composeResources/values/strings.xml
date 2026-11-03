@@ -2073,4 +2073,7 @@
     <string name="branch_context_menu_hide_in_log">Hide in the log</string>
     <string name="branch_context_menu_show_in_log">Show in the log</string>
     <string name="branch_context_menu_show_only_selected_in_log">Show only these in the log</string>
+    <string name="branch_context_menu_hide_folder_in_log">Hide %1$s/ in the log</string>
+    <string name="branch_context_menu_show_folder_in_log">Show %1$s/ in the log</string>
+    <string name="branch_context_menu_show_only_folder_in_log">Show only %1$s/ in the log</string>
 </resources>

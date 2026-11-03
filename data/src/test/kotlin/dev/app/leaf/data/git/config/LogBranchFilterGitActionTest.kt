@@ -69,6 +69,9 @@ class LogBranchFilterGitActionTest {
             LogBranchFilter.Only(setOf("refs/heads/main", agent, originBlame)),
             LogBranchFilter.Only(emptySet()),
             LogBranchFilter.All(setOf(agent, originBlame)),
+            LogBranchFilter.All(setOf(originBlame), setOf("claude", "codex"), setOf(agent)),
+            LogBranchFilter.Only(setOf("refs/heads/main"), setOf("claude"), setOf(agent)),
+            LogBranchFilter.Only(emptySet(), setOf("claude")),
             LogBranchFilter.Current,
             NO_LOG_BRANCH_FILTER,
         )
@@ -92,6 +95,31 @@ class LogBranchFilterGitActionTest {
         assertEquals("all", leafConfig("log.branches"))
         assertEquals(agent, leafConfig("--get-all", "log.hide"))
         assertFalse(leafFile.readText().contains("show ="), leafFile.readText())
+
+        save(gitDir, LogBranchFilter.All(hiddenFolders = setOf("claude"), shownInHiddenFolders = setOf(agent)))
+
+        assertEquals("claude", leafConfig("log.hideFolder"))
+        assertEquals(agent, leafConfig("log.show"))
+        assertFalse(leafFile.readText().contains("hide ="), leafFile.readText())
+    }
+
+    @Test
+    fun `a folder with a slash or a space isn't one, and a renamed exception is renamed`(): Unit = runBlocking {
+        leafConfig("log.branches", "all")
+        leafConfig("--add", "log.hideFolder", "claude")
+        leafConfig("--add", "log.hideFolder", "claude/sub")
+        leafConfig("--add", "log.hideFolder", "two words")
+        leafConfig("--add", "log.show", agent)
+
+        assertEquals(Either.Ok(LogBranchFilter.All(emptySet(), setOf("claude"), setOf(agent))), get(gitDir))
+
+        Git.open(repository).use { git ->
+            assertTrue(LogBranchFilterConfig.renamed(git.repository, agent, "refs/heads/claude/cache"))
+            assertEquals(
+                LogBranchFilter.All(emptySet(), setOf("claude"), setOf("refs/heads/claude/cache")),
+                LogBranchFilterConfig.load(git.repository),
+            )
+        }
     }
 
     @Test

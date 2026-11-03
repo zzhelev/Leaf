@@ -171,4 +171,128 @@ class LogBranchFilterTest {
         assertEquals(null, stashBranchOf("wip on main"))
         assertEquals(null, stashBranchOf("Some text: On main: not at the start"))
     }
+
+    // Folders
+
+    private val watcher = local("claude/fix-watcher")
+    private val originWatcher = remote("origin", "claude/fix-watcher")
+    private val withFolders = all + listOf(watcher, originWatcher)
+
+    private fun LogBranchFilter.shownOf(branches: List<Branch>, current: Branch? = main) =
+        branches.filter { shows(it, current) }
+
+    @Test
+    fun `a branch's folder is its short name's part before the first slash, a remote's too`() {
+        assertEquals("claude", agent.logFolder)
+        assertEquals("claude", originAgent.logFolder)
+        assertEquals(null, main.logFolder)
+        assertEquals(null, detached.logFolder)
+        assertEquals("claude", logFolderOf("refs/heads/claude/parser-cache"))
+        assertEquals("claude", logFolderOf("refs/remotes/origin/claude/parser-cache"))
+        assertEquals(null, logFolderOf("refs/remotes/origin/main"))
+        assertEquals(null, logFolderOf("refs/tags/claude/v1"))
+    }
+
+    @Test
+    fun `a hidden folder leaves out its local and remote branches, the ones made later too, but its exceptions`() {
+        val filter = LogBranchFilter.All(hiddenFolders = setOf("claude"))
+        val later = local("claude/made-later")
+
+        assertEquals(listOf(main, spike, originMain, upstreamMain, originOther), filter.shownOf(withFolders))
+        assertFalse(filter.shows(later, main))
+        assertTrue(filter.copy(shownInHiddenFolders = setOf(watcher.name)).shows(watcher, main))
+        assertFalse(filter.copy(shownInHiddenFolders = setOf(watcher.name)).shows(originWatcher, main))
+    }
+
+    @Test
+    fun `a shown folder shows its branches, the ones made later too, but its exceptions`() {
+        val filter = LogBranchFilter.Only(emptySet(), shownFolders = setOf("claude"))
+
+        assertEquals(listOf(main, agent, originAgent, watcher, originWatcher), filter.shownOf(withFolders))
+        assertTrue(filter.shows(local("claude/made-later"), main))
+        assertFalse(filter.copy(hiddenInShownFolders = setOf(agent.name)).shows(agent, main))
+    }
+
+    @Test
+    fun `hiding a folder replaces what was said of its branches, and showing it again too`() {
+        val filter = LogBranchFilter.All(hidden = setOf(agent.name, spike.name))
+        val hidden = filter.hidingFolder("claude", emptySet())
+
+        assertEquals(LogBranchFilter.All(setOf(spike.name), setOf("claude")), hidden)
+        assertEquals(LogBranchFilter.All(setOf(spike.name)), hidden.showingFolder("claude", emptySet()))
+
+        val only = LogBranchFilter.Only(setOf(agent.name, main.name), hiddenInShownFolders = setOf(watcher.name))
+        assertEquals(LogBranchFilter.Only(setOf(main.name), setOf("claude")), only.showingFolder("claude", emptySet()))
+        assertEquals(LogBranchFilter.Only(setOf(main.name)), only.hidingFolder("claude", emptySet()))
+    }
+
+    @Test
+    fun `a branch shown from a hidden folder is its exception, and hiding it again takes the exception out`() {
+        val filter = LogBranchFilter.All(hiddenFolders = setOf("claude"))
+        val withAgent = filter.toggled(agent, withFolders, main)
+
+        assertEquals(filter.copy(shownInHiddenFolders = setOf(agent.name)), withAgent)
+        assertTrue(withAgent.shows(agent, main))
+        assertEquals(filter, withAgent.toggled(agent, withFolders, main))
+    }
+
+    @Test
+    fun `a branch hidden from a shown folder is its exception, and showing it again takes it out`() {
+        val filter = LogBranchFilter.Only(emptySet(), shownFolders = setOf("claude"))
+        val withoutAgent = filter.toggled(agent, withFolders, main)
+
+        assertEquals(filter.copy(hiddenInShownFolders = setOf(agent.name)), withoutAgent)
+        assertEquals(filter, withoutAgent.toggled(agent, withFolders, main))
+    }
+
+    @Test
+    fun `a folder's box hides it while it shows any branch, and shows it whole when it shows none`() {
+        assertEquals(
+            LogBranchFilter.All(hiddenFolders = setOf("claude")),
+            NO_LOG_BRANCH_FILTER.toggledFolder("claude", withFolders, main),
+        )
+        // Some shown, one by one: hidden whole
+        assertEquals(
+            LogBranchFilter.Only(setOf(main.name)),
+            LogBranchFilter.Only(setOf(main.name, agent.name)).toggledFolder("claude", withFolders, main),
+        )
+        assertEquals(
+            LogBranchFilter.Only(emptySet(), setOf("claude")),
+            LogBranchFilter.Only(emptySet()).toggledFolder("claude", withFolders, main),
+        )
+        // The checked-out branch shows anyway, so a folder that only it shows counts as showing none
+        assertEquals(
+            LogBranchFilter.Only(emptySet(), setOf("claude")),
+            LogBranchFilter.Only(emptySet()).toggledFolder("claude", withFolders, agent),
+        )
+        assertEquals(
+            LogBranchFilter.Only(setOf(main.name, originMain.name, upstreamMain.name), setOf("claude")),
+            LogBranchFilter.Current.toggledFolder("claude", withFolders, main),
+        )
+    }
+
+    @Test
+    fun `folders stay in what the filter says, names that are gone don't`() {
+        val gone = "refs/heads/claude/gone"
+
+        assertEquals(
+            LogBranchFilter.All(hiddenFolders = setOf("claude")),
+            LogBranchFilter.All(hiddenFolders = setOf("claude"), shownInHiddenFolders = setOf(gone)).withExisting(all),
+        )
+        assertEquals(
+            LogBranchFilter.Only(emptySet(), setOf("claude")),
+            LogBranchFilter.Only(emptySet(), setOf("claude"), setOf(gone)).withExisting(all),
+        )
+    }
+
+    @Test
+    fun `a hidden branch keeps no chip, also on a shown commit, and the checked out one keeps its`() {
+        val merged = local("claude/merged").copy(hash = main.hash)
+        val byCommit = mapOf(main.hash to listOf(main, merged, originMain), spike.hash to listOf(spike))
+        val filter = LogBranchFilter.All(hiddenFolders = setOf("claude"), hidden = setOf(spike.name))
+
+        assertEquals(mapOf(main.hash to listOf(main, originMain)), filter.chips(byCommit, main))
+        assertSame(byCommit, NO_LOG_BRANCH_FILTER.chips(byCommit, main))
+        assertEquals(mapOf(main.hash to listOf(main)), LogBranchFilter.Only(emptySet()).chips(byCommit, main))
+    }
 }

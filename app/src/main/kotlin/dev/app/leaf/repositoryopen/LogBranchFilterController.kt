@@ -7,10 +7,15 @@ import androidx.compose.runtime.Immutable
 import dev.app.leaf.domain.log.LogBranchFilter
 import dev.app.leaf.domain.log.NO_LOG_BRANCH_FILTER
 import dev.app.leaf.domain.log.hiding
+import dev.app.leaf.domain.log.hidingFolder
+import dev.app.leaf.domain.log.isCheckedOut
+import dev.app.leaf.domain.log.logFolder
 import dev.app.leaf.domain.log.showing
+import dev.app.leaf.domain.log.showingFolder
 import dev.app.leaf.domain.log.shownNames
 import dev.app.leaf.domain.log.shows
 import dev.app.leaf.domain.log.toggled
+import dev.app.leaf.domain.log.toggledFolder
 import dev.app.leaf.domain.log.withExisting
 import dev.app.leaf.domain.log.withRemotesOfItsName
 import dev.app.leaf.domain.models.Branch
@@ -67,6 +72,9 @@ class LogBranchFilterController(
     }
 }
 
+/** How much of a folder the log shows. */
+enum class FolderShows { ALL, SOME, NONE }
+
 /**
  * The filter with the branches that it is about: what the log's header shows, and what a branch's menu and box change.
  * [filter] is as saved; [effective] leaves out the names that no branch has any more.
@@ -104,6 +112,37 @@ data class LogBranchFilterState(
 
     fun showing(branch: Branch): LogBranchFilter =
         filter.showing(branch.withRemotesOfItsName(remoteBranches), filter.shownNames(branches, currentBranch))
+
+    // Folders: the side panel's, as patterns for their local and remote branches, the ones made later too
+
+    /** Whether the log shows any branch of [folder]. */
+    fun showsAnyIn(folder: String): Boolean = branches.any { it.logFolder == folder && shows(it) }
+
+    /**
+     * A folder's box: on while the log shows all of its branches, off while it shows none, and partly in between. The
+     * checked-out branch shows whatever the filter says, so it doesn't count.
+     */
+    fun folderShows(folder: String): FolderShows {
+        val inFolder = branches.filter { it.logFolder == folder && !it.isCheckedOut(currentBranch) }
+        val shown = inFolder.count { shows(it) }
+
+        return when (shown) {
+            inFolder.size -> FolderShows.ALL
+            0 -> FolderShows.NONE
+            else -> FolderShows.SOME
+        }
+    }
+
+    /** The filter after the folder's box in the list is clicked. */
+    fun toggledFolder(folder: String): LogBranchFilter = filter.toggledFolder(folder, branches, currentBranch)
+
+    fun hidingFolder(folder: String): LogBranchFilter =
+        filter.hidingFolder(folder, filter.shownNames(branches, currentBranch))
+
+    fun showingFolder(folder: String): LogBranchFilter =
+        filter.showingFolder(folder, filter.shownNames(branches, currentBranch))
+
+    fun showingOnlyFolder(folder: String): LogBranchFilter = LogBranchFilter.Only(emptySet(), shownFolders = setOf(folder))
 
     companion object {
         /**

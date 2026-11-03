@@ -17,17 +17,22 @@ import org.eclipse.jgit.storage.file.FileBasedConfig
  * [log]
  *     branches = only
  *     show = refs/heads/main
- *     show = refs/heads/claude/parser-cache
+ *     showFolder = claude
+ *     hide = refs/heads/claude/old-try
  * ```
  *
- * `branches` is `all` (with a `hide` per branch left out), `current` or `only` (with a `show` per branch). No section is
- * every branch. A value it doesn't know, or a name that isn't a local or remote branch, is left out.
+ * `branches` is `all` (with a `hide` per branch left out, a `hideFolder` per folder, and a `show` per branch of such a
+ * folder shown all the same), `current`, or `only` (with a `show` per branch, a `showFolder` per folder, and a `hide`
+ * per branch of such a folder left out). No section is every branch. A value it doesn't know, a name that isn't a local
+ * or remote branch, or a folder with a `/` or a space, is left out.
  */
 internal object LogBranchFilterConfig {
     private const val SECTION = "log"
     private const val BRANCHES = "branches"
     private const val HIDE = "hide"
     private const val SHOW = "show"
+    private const val HIDE_FOLDER = "hideFolder"
+    private const val SHOW_FOLDER = "showFolder"
 
     private const val ALL = "all"
     private const val CURRENT = "current"
@@ -44,11 +49,12 @@ internal object LogBranchFilterConfig {
         if (!config.loadOrStartEmpty()) return NO_LOG_BRANCH_FILTER
 
         fun names(key: String) = config.getStringList(SECTION, null, key).filterTo(LinkedHashSet()) { isBranch(it) }
+        fun folders(key: String) = config.getStringList(SECTION, null, key).filterTo(LinkedHashSet()) { isFolder(it) }
 
         return when (config.getString(SECTION, null, BRANCHES)) {
             CURRENT -> LogBranchFilter.Current
-            ONLY -> LogBranchFilter.Only(names(SHOW))
-            ALL -> LogBranchFilter.All(names(HIDE))
+            ONLY -> LogBranchFilter.Only(names(SHOW), folders(SHOW_FOLDER), names(HIDE))
+            ALL -> LogBranchFilter.All(names(HIDE), folders(HIDE_FOLDER), names(SHOW))
             else -> NO_LOG_BRANCH_FILTER
         }
     }
@@ -70,12 +76,16 @@ internal object LogBranchFilterConfig {
             LogBranchFilter.Current -> config.setString(SECTION, null, BRANCHES, CURRENT)
             is LogBranchFilter.Only -> {
                 config.setString(SECTION, null, BRANCHES, ONLY)
-                config.setStringList(SECTION, null, SHOW, filter.shown.filter { isBranch(it) })
+                config.setNames(SHOW, filter.shown)
+                config.setFolders(SHOW_FOLDER, filter.shownFolders)
+                config.setNames(HIDE, filter.hiddenInShownFolders)
             }
 
             is LogBranchFilter.All -> {
                 config.setString(SECTION, null, BRANCHES, ALL)
-                config.setStringList(SECTION, null, HIDE, filter.hidden.filter { isBranch(it) })
+                config.setNames(HIDE, filter.hidden)
+                config.setFolders(HIDE_FOLDER, filter.hiddenFolders)
+                config.setNames(SHOW, filter.shownInHiddenFolders)
             }
         }
 
@@ -87,21 +97,43 @@ internal object LogBranchFilterConfig {
      * [oldName], as git moves a branch's `branch.<name>` config along. Returns whether it did.
      */
     fun renamed(repository: Repository, oldName: String, newName: String): Boolean {
-        val renamed = when (val filter = load(repository)) {
-            is LogBranchFilter.All -> filter.takeIf { oldName in it.hidden }?.let {
-                LogBranchFilter.All(it.hidden.map { name -> if (name == oldName) newName else name }.toSet())
-            }
+        fun Set<String>.renamed() = mapTo(LinkedHashSet()) { name -> if (name == oldName) newName else name }
 
-            is LogBranchFilter.Only -> filter.takeIf { oldName in it.shown }?.let {
-                LogBranchFilter.Only(it.shown.map { name -> if (name == oldName) newName else name }.toSet())
-            }
+        val filter = load(repository)
+        val renamed = when (filter) {
+            is LogBranchFilter.All -> filter.copy(
+                hidden = filter.hidden.renamed(),
+                shownInHiddenFolders = filter.shownInHiddenFolders.renamed(),
+            )
 
-            LogBranchFilter.Current -> null
-        } ?: return false
+            is LogBranchFilter.Only -> filter.copy(
+                shown = filter.shown.renamed(),
+                hiddenInShownFolders = filter.hiddenInShownFolders.renamed(),
+            )
+
+            LogBranchFilter.Current -> filter
+        }
+
+        if (renamed == filter) return false
 
         save(repository, renamed)
         return true
     }
+
+    private fun FileBasedConfig.setNames(key: String, names: Set<String>) {
+        val valid = names.filter { isBranch(it) }
+
+        if (valid.isNotEmpty()) setStringList(SECTION, null, key, valid)
+    }
+
+    private fun FileBasedConfig.setFolders(key: String, folders: Set<String>) {
+        val valid = folders.filter { isFolder(it) }
+
+        if (valid.isNotEmpty()) setStringList(SECTION, null, key, valid)
+    }
+
+    /** The side panel's folders are one level: a name's part before its first `/`. */
+    private fun isFolder(name: String) = name.isNotEmpty() && name.none { it == '/' || it.isWhitespace() }
 
     private fun isBranch(name: String) = listOf(Constants.R_HEADS, Constants.R_REMOTES).any { prefix ->
         name.length > prefix.length && name.startsWith(prefix)

@@ -56,3 +56,34 @@ fun logBranchFilterMenuItems(branch: Branch, menu: LogBranchFilterMenu): List<Co
         }
     }
 }
+
+/**
+ * A folder's items in the side panel, for its local and remote branches alike, the ones made later too: "Hide claude/ in
+ * the log", or "Show claude/ in the log" while the log shows none of them, then "Show only claude/ in the log".
+ */
+fun logBranchFolderMenuItems(folder: String, menu: LogBranchFilterMenu): List<ContextMenuElement> = buildList {
+    val state = menu.state
+    val onlyFolder = state.showingOnlyFolder(folder)
+
+    if (state.showsAnyIn(folder)) {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.branch_context_menu_hide_folder_in_log, folder) },
+            icon = { painterResource(Res.drawable.visibility_off) },
+            onClick = { menu.onSet(state.hidingFolder(folder)) },
+        )
+    } else {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.branch_context_menu_show_folder_in_log, folder) },
+            icon = { painterResource(Res.drawable.visibility) },
+            onClick = { menu.onSet(state.showingFolder(folder)) },
+        )
+    }
+
+    if (onlyFolder != state.filter) {
+        addContextMenu(
+            composableLabel = { stringResource(Res.string.branch_context_menu_show_only_folder_in_log, folder) },
+            icon = { painterResource(Res.drawable.visibility) },
+            onClick = { menu.onSet(onlyFolder) },
+        )
+    }
+}

@@ -29,6 +29,7 @@ import dev.app.leaf.domain.extensions.openFileInFolder
 import dev.app.leaf.domain.extensions.toMutableSetAndAdd
 import dev.app.leaf.domain.extensions.toMutableSetAndRemove
 import dev.app.leaf.domain.log.LogBranchFilter
+import dev.app.leaf.domain.log.chips
 import dev.app.leaf.domain.log.LogMove
 import dev.app.leaf.domain.log.MAX_SEARCH_DEPTH
 import dev.app.leaf.domain.log.SearchStep
@@ -819,34 +820,6 @@ class RepositoryOpenViewModel @Inject constructor(
     val logSearchFilterResults: StateFlow<LogSearch>
         field = MutableStateFlow<LogSearch>(LogSearch.NotSearching)
 
-    val logState = combineLogState(
-        log,
-        hasUncommittedChanges,
-        currentBranch,
-        branches = logBranchesByCommitHash,
-        tags = tagsByCommitHash,
-        stashes = stashesHashes,
-        statusSummary,
-        logSearchFilterResults,
-        verticalListState,
-        horizontalListState,
-    )
-        .stateIn(LogState(true))
-
-
-    // Fork-only: the log's search of the whole history, not only the commits that it has loaded (upstream issue 277)
-    private val logSearch = LogSearchController(
-        scope = viewModelScope,
-        results = logSearchFilterResults,
-        loadedCommits = { logState.value.commitList },
-        searchHistory = { term -> searchLogUseCase(term).okOrNull() },
-        loadLogUntilCommit = { hash, depth ->
-            loadLogUntilCommitUseCase(hash, maxCommits = MAX_SEARCH_DEPTH, expectedDepth = depth)
-        },
-        focus = { commit -> _focusCommit.emit(commit) },
-    )
-
-
     // Fork-only: which branches the log shows (upstream issue 207)
     private val logBranchFilterController = LogBranchFilterController(
         scope = viewModelScope,
@@ -875,6 +848,41 @@ class RepositoryOpenViewModel @Inject constructor(
         )
     }
         .stateIn(LogBranchFilterState())
+
+    val logState: StateFlow<LogState> = combineLogState(
+        log,
+        hasUncommittedChanges,
+        currentBranch,
+        // Fork-only: a branch that the filter hides keeps no chip (upstream issue 207)
+        branches = combine(
+            logBranchesByCommitHash,
+            logBranchFilterController.filter,
+            currentBranch,
+        ) { chips, filter, current ->
+            filter.chips(chips, current.data)
+        },
+        tags = tagsByCommitHash,
+        stashes = stashesHashes,
+        statusSummary,
+        logSearchFilterResults,
+        verticalListState,
+        horizontalListState,
+    )
+        .stateIn(LogState(true))
+
+
+    // Fork-only: the log's search of the whole history, not only the commits that it has loaded (upstream issue 277)
+    private val logSearch: LogSearchController = LogSearchController(
+        scope = viewModelScope,
+        results = logSearchFilterResults,
+        loadedCommits = { logState.value.commitList },
+        searchHistory = { term -> searchLogUseCase(term).okOrNull() },
+        loadLogUntilCommit = { hash, depth ->
+            loadLogUntilCommitUseCase(hash, maxCommits = MAX_SEARCH_DEPTH, expectedDepth = depth)
+        },
+        focus = { commit -> _focusCommit.emit(commit) },
+    )
+
 
     /** Shows the branches of [filter] in the log, saved for every worktree of the repository. */
     fun setLogBranchFilter(filter: LogBranchFilter) = logBranchFilterController.set(filter)

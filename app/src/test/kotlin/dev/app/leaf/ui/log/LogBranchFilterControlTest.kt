@@ -39,6 +39,7 @@ import dev.app.leaf.domain.models.WorktreeOrigin
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
+import dev.app.leaf.repositoryopen.FolderShows
 import dev.app.leaf.repositoryopen.LogBranchFilterState
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.app.generated.resources.Res
@@ -49,6 +50,7 @@ import org.jetbrains.skia.Bitmap
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.LogBranchFilterMenu
 import dev.app.leaf.ui.context_menu.logBranchFilterMenuItems
+import dev.app.leaf.ui.context_menu.logBranchFolderMenuItems
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -123,13 +125,50 @@ class LogBranchFilterControlTest {
     // The rows and the label, worked out
 
     @Test
-    fun `the list has the two ways, then local branches with the checked out one first, then remote ones`() {
+    fun `the list has the two ways, then local and remote branches grouped by folder, the checked out one first`() {
         val rows = logBranchFilterRows(state(NO_LOG_BRANCH_FILTER), "")
 
         assertEquals(listOf(LogBranchFilterRow.AllBranches, LogBranchFilterRow.CurrentBranch), rows.modes)
-        assertEquals(listOf(main, watcher, agent, spike), rows.local.map { it.branch })
-        assertEquals(listOf(originAgent, originBlame, originMain), rows.remote.map { it.branch })
+        assertEquals(
+            listOf(
+                LogBranchFilterRow.BranchBox(main),
+                LogBranchFilterRow.FolderBox("claude"),
+                LogBranchFilterRow.BranchBox(watcher, isInFolder = true),
+                LogBranchFilterRow.BranchBox(agent, isInFolder = true),
+                LogBranchFilterRow.FolderBox("wip"),
+                LogBranchFilterRow.BranchBox(spike, isInFolder = true),
+            ),
+            rows.local,
+        )
+        assertEquals(
+            listOf(
+                LogBranchFilterRow.FolderBox("claude"),
+                LogBranchFilterRow.BranchBox(originAgent, isInFolder = true),
+                LogBranchFilterRow.FolderBox("feat"),
+                LogBranchFilterRow.BranchBox(originBlame, isInFolder = true),
+                LogBranchFilterRow.BranchBox(originMain),
+            ),
+            rows.remote,
+        )
         assertEquals(-1, logBranchFilterRows(state(NO_LOG_BRANCH_FILTER), "zzz").firstBranch)
+    }
+
+    @Test
+    fun `typing lists the folders and branches that have it, without the grouping`() {
+        val rows = logBranchFilterRows(state(NO_LOG_BRANCH_FILTER), "clau")
+
+        assertEquals(
+            listOf(
+                LogBranchFilterRow.FolderBox("claude", 0, 4),
+                LogBranchFilterRow.BranchBox(watcher, 0, 4),
+                LogBranchFilterRow.BranchBox(agent, 0, 4),
+            ),
+            rows.local,
+        )
+        assertEquals(
+            listOf(LogBranchFilterRow.FolderBox("claude", 0, 4), LogBranchFilterRow.BranchBox(originAgent, 7, 4)),
+            rows.remote,
+        )
     }
 
     @Test
@@ -151,7 +190,7 @@ class LogBranchFilterControlTest {
         assertEquals(0, rows.itemIndexOf(0))
         assertEquals(1, rows.itemIndexOf(1))
         assertEquals(3, rows.itemIndexOf(2))
-        assertEquals(3 + 4 + 1, rows.itemIndexOf(2 + 4))
+        assertEquals(3 + rows.local.size + 1, rows.itemIndexOf(2 + rows.local.size))
 
         val typed = logBranchFilterRows(state(NO_LOG_BRANCH_FILTER), "origin")
         assertEquals(1, typed.itemIndexOf(0))
@@ -177,6 +216,60 @@ class LogBranchFilterControlTest {
             LogBranchFilterLabel.Names("claude/parser-cache, main", 1),
             logBranchFilterLabel(state(LogBranchFilter.Only(setOf(agent.name, main.name, originBlame.name)))),
         )
+    }
+
+    @Test
+    fun `the control names folders first, with a slash`() {
+        assertEquals(
+            LogBranchFilterLabel.AllBut("claude/"),
+            logBranchFilterLabel(state(LogBranchFilter.All(hiddenFolders = setOf("claude")))),
+        )
+        assertEquals(
+            LogBranchFilterLabel.AllBut("claude/", 1),
+            logBranchFilterLabel(state(LogBranchFilter.All(setOf(spike.name), setOf("claude"), setOf(agent.name)))),
+        )
+        assertEquals(
+            LogBranchFilterLabel.Names("claude/", 0),
+            logBranchFilterLabel(state(LogBranchFilter.Only(emptySet(), setOf("claude")))),
+        )
+        assertEquals(
+            LogBranchFilterLabel.Names("claude/, main", 0),
+            logBranchFilterLabel(state(LogBranchFilter.Only(setOf(main.name), setOf("claude")))),
+        )
+    }
+
+    @Test
+    fun `a folder's box is on, off, or partly, and clicking it hides or shows it as a pattern`() {
+        val hidden = LogBranchFilter.All(hiddenFolders = setOf("claude"))
+
+        assertEquals(FolderShows.ALL, state(NO_LOG_BRANCH_FILTER).folderShows("claude"))
+        assertEquals(FolderShows.NONE, state(hidden).folderShows("claude"))
+        assertEquals(FolderShows.SOME, state(hidden.copy(shownInHiddenFolders = setOf(agent.name))).folderShows("claude"))
+
+        assertEquals(hidden, state(NO_LOG_BRANCH_FILTER).picked(LogBranchFilterRow.FolderBox("claude")))
+        assertEquals(NO_LOG_BRANCH_FILTER, state(hidden).picked(LogBranchFilterRow.FolderBox("claude")))
+        assertEquals(
+            hidden,
+            state(hidden.copy(shownInHiddenFolders = setOf(agent.name))).picked(LogBranchFilterRow.FolderBox("claude")),
+        )
+    }
+
+    @Test
+    fun `a folder's menu hides it or shows it again, and shows it alone`() {
+        fun choices(filter: LogBranchFilter): List<LogBranchFilter> {
+            val chosen = mutableListOf<LogBranchFilter>()
+            logBranchFolderMenuItems("claude", LogBranchFilterMenu(state(filter)) { chosen += it })
+                .filterIsInstance<ContextMenuElement.ContextTextEntry>()
+                .forEach { it.onClick() }
+
+            return chosen
+        }
+
+        val only = LogBranchFilter.Only(emptySet(), setOf("claude"))
+
+        assertEquals(listOf(LogBranchFilter.All(hiddenFolders = setOf("claude")), only), choices(NO_LOG_BRANCH_FILTER))
+        assertEquals(listOf(NO_LOG_BRANCH_FILTER, only), choices(LogBranchFilter.All(hiddenFolders = setOf("claude"))))
+        assertEquals(listOf<LogBranchFilter>(LogBranchFilter.Only(emptySet())), choices(only))
     }
 
     @Test
@@ -370,6 +463,22 @@ class LogBranchFilterControlTest {
     }
 
     @Test
+    fun `a hidden folder's box is off, partly with an exception, and its branches' boxes say which`() {
+        renderList(LogBranchFilter.All(hiddenFolders = setOf("claude"), shownInHiddenFolders = setOf(agent.name)), mutableListOf())
+
+        val folderBoxes = nodes().filter { node ->
+            node.config.getOrNull(SemanticsActions.OnClick) != null &&
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text == "claude/" }
+        }
+
+        assertEquals(2, folderBoxes.size, "a folder row in Local and in Remote")
+        assertEquals(ToggleableState.Indeterminate, folderBoxes.first().config.getOrNull(SemanticsProperties.ToggleableState))
+        assertEquals(ToggleableState.On, box("claude/parser-cache"))
+        assertEquals(ToggleableState.Off, box("claude/fix-watcher"))
+        assertEquals(ToggleableState.Off, box("origin/claude/parser-cache"))
+    }
+
+    @Test
     fun `picking a row changes the filter, and the list stays open`() {
         val chosen = mutableListOf<LogBranchFilter>()
         val closes = mutableListOf<Unit>()
@@ -468,6 +577,17 @@ class LogBranchFilterControlTest {
                 }
                 writePng(dir, "header-allbut", style, theme, 900, 60) {
                     header(LogBranchFilter.All(setOf(watcher.name, spike.name)))
+                }
+                writePng(dir, "header-folder", style, theme, 900, 60) {
+                    header(LogBranchFilter.All(hiddenFolders = setOf("claude")))
+                }
+                writePng(dir, "list-folder", style, theme, 340, 520) {
+                    Box(Modifier.padding(10.dp)) {
+                        LogBranchFilterList(
+                            state(LogBranchFilter.All(hiddenFolders = setOf("claude"), shownInHiddenFolders = setOf(agent.name))),
+                            worktrees, {}, {},
+                        )
+                    }
                 }
                 writePng(dir, "list", style, theme, 340, 470) {
                     Box(Modifier.padding(10.dp)) {

@@ -72,6 +72,7 @@ import dev.app.leaf.ui.components.sort.RefSortMenuButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.domain.cherrypick.BranchCherryPickItem
 import dev.app.leaf.ui.context_menu.*
+import dev.app.leaf.ui.log.dimmedWhenNotMatching
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.viewmodels.sidepanel.*
 import kotlinx.coroutines.flow.collectLatest
@@ -384,6 +385,8 @@ fun LazyListScope.localBranches(
 
                         viewModel.selectBranches(branchesInFolder(branches, row.label, pinned))
                     },
+                    isHiddenInLog = logBranchFilter?.state?.showsAnyIn(row.label) == false,
+                    logFilterItems = logBranchFilter?.let { logBranchFolderMenuItems(row.label, it) }.orEmpty(),
                 )
                 is RefRow.Item -> {
                     val branch = row.entry.item
@@ -552,6 +555,8 @@ fun LazyListScope.remotes(
                             onSelectBranches = {
                                 viewModel.selectBranches(branchesInFolder(remote.remoteInfo.branchesList, row.label, null))
                             },
+                            isHiddenInLog = logBranchFilter?.state?.showsAnyIn(row.label) == false,
+                            logFilterItems = logBranchFilter?.let { logBranchFolderMenuItems(row.label, it) }.orEmpty(),
                         )
                         is RefRow.Item -> {
                             val remoteBranch = row.entry.item
@@ -817,16 +822,23 @@ private fun RefFolder(
     onClick: () -> Unit,
     // Fork-only: "Select its N branches", for the local branches and a remote's (upstream issue 116)
     onSelectBranches: (() -> Unit)? = null,
+    // Fork-only: the log's branch filter leaves the folder's branches out, and its menu items (upstream issue 207)
+    isHiddenInLog: Boolean = false,
+    logFilterItems: List<ContextMenuElement> = emptyList(),
 ) {
     ContextMenu(
         enabled = onSelectBranches != null,
-        items = { branchFolderContextMenuItems(folder.count, onSelectBranches ?: {}) },
+        items = {
+            branchFolderContextMenuItems(folder.count, onSelectBranches ?: {}) +
+                if (logFilterItems.isEmpty()) emptyList() else listOf(ContextMenuElement.ContextSeparator) + logFilterItems
+        },
     ) {
         Row(
             modifier = Modifier
                 .height(MaterialTheme.linesHeight.sidePanelItemHeight)
                 .fillMaxWidth()
-                .handMouseClickable { onClick() },
+                .handMouseClickable { onClick() }
+                .dimmedWhenNotMatching(if (isHiddenInLog) false else null),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FolderEntryContent(

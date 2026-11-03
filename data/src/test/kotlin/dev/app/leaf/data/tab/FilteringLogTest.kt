@@ -153,6 +153,36 @@ class FilteringLogTest {
     }
 
     @Test
+    fun `a folder is a pattern for its local and remote branches, and one of them can be the exception`(): Unit =
+        runBlocking {
+            createHistory()
+            git.run(main, "switch", "-c", "claude/fix-watcher", "main~1")
+            commit(main, "Retry the watch")
+            git.run(main, "update-ref", "refs/remotes/origin/claude/fix-watcher", "HEAD")
+            commit(main, "Log the lost events")
+            git.run(main, "switch", "main")
+            val watcher = "refs/heads/claude/fix-watcher"
+            val originWatcher = "refs/remotes/origin/claude/fix-watcher"
+            open()
+
+            val others = arrayOf("main", spike, originMain, originBlame, "v1")
+
+            assertEquals(revList(*others), filtered(LogBranchFilter.All(hiddenFolders = setOf("claude"))))
+            assertEquals(
+                revList(*others, agent),
+                filtered(LogBranchFilter.All(hiddenFolders = setOf("claude"), shownInHiddenFolders = setOf(agent))),
+            )
+            assertEquals(
+                revList("main", agent, watcher, originWatcher),
+                filtered(LogBranchFilter.Only(emptySet(), shownFolders = setOf("claude"))),
+            )
+            assertEquals(
+                revList("main", agent, originWatcher),
+                filtered(LogBranchFilter.Only(emptySet(), setOf("claude"), hiddenInShownFolders = setOf(watcher))),
+            )
+        }
+
+    @Test
     fun `no filter is the whole log again`(): Unit = runBlocking {
         createHistory()
         open()
