@@ -14,6 +14,12 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   "Hide in the log" (or "Show in the log"); a local branch's items take the remote branches of its name along. The side
   panel's selection has "Show only these in the log". While a filter is on, the control is lit, says what shows
   ("claude/parser-cache", "All but 2 branches"), and its × shows every branch again.
+- **Folders:** a folder of the side panel, such as `claude/`, has "Hide claude/ in the log" and "Show only claude/ in
+  the log", and a box in the filter's list, which groups branches as the side panel does. A folder is a pattern for its
+  local and remote branches, so an agent's branch made later follows it, and one branch can be shown from a hidden folder
+  (or hidden from a shown one) as its exception. Chosen with the user from a second mockup.
+- **Chips:** a branch that the filter hides has no chip in the log, also where its commit is on a shown line, as a merged
+  branch's is.
 - **What always shows:** the checked-out branch, a detached HEAD too, with the uncommitted changes' row. Tags start the
   walk only under "all but these". A stash goes with the branch that its message names; one whose message names none
   shows when the commit it was made on is in the shown history. Another worktree's detached HEAD shows while it rebases

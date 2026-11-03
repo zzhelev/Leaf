@@ -4054,11 +4054,18 @@ worktree at an older, reachable commit showed it already, which hid the bug.
 `ui/log/LogBranchFilterControl.kt`, `repositoryopen/LogBranchFilterController.kt`):** the log can show chosen branches only.
 Option C of three, chosen with the user from a mockup: a control in the log's header and items in the branch menus, one
 state, no strip (the lit control says what shows). Also chosen: saved per repository, "only these" and "all but these",
-and a hidden branch greyed out in the side panel, whose selection shows its details as before.
-- **The model** (`LogBranchFilter`, full ref names): `All(hidden)` (every branch but those, `NO_LOG_BRANCH_FILTER` is
-  `All()`), `Current` (the checked-out branch and the remote branches of its name) and `Only(shown)`. The checked-out
-  branch always shows (`isCheckedOut`, a detached HEAD's too), as the uncommitted changes' row hangs on it. `withExisting`
-  leaves out names that no branch has, which stay in the file, as a branch of that name may come back.
+and a hidden branch greyed out in the side panel, whose selection shows its details as before. Folders as patterns came
+the same day, from a second mockup: a folder covers local and remote branches, and one branch can be its exception.
+- **The model** (`LogBranchFilter`, full ref names): `All(hidden, hiddenFolders, shownInHiddenFolders)` (every branch but
+  those, `NO_LOG_BRANCH_FILTER` is `All()`), `Current` (the checked-out branch and the remote branches of its name) and
+  `Only(shown, shownFolders, hiddenInShownFolders)`. The checked-out branch always shows (`isCheckedOut`, a detached
+  HEAD's too), as the uncommitted changes' row hangs on it. `withExisting` leaves out names that no branch has, which
+  stay in the file, as a branch of that name may come back; folders stay.
+- **Folders** are the side panel's, one level: the part of a branch's short name before its first `/` (`logFolder`,
+  `logFolderOf`, `refFolderOf`), so `claude` covers `claude/x` and `origin/claude/x` alike. A folder in the filter is a
+  pattern, and the branches made in it later follow it. `hidingFolder`, `showingFolder` and `toggledFolder` replace
+  what was said of its branches one by one. Showing a branch of a hidden folder, or hiding one of a shown folder, makes
+  it the exception (`hiding` and `showing` do it per name), and the other way takes the exception out.
 - **The walk** (`GetLogUseCase.logStart`, which `SearchLogUseCase` uses too, so the search follows the filter): under a
   filter, the branches that it shows, tags only under `All`, another worktree's detached HEAD while it rebases or bisects
   a shown branch, or under `All` without one (`showsWorktreeHead`, `IGetOtherWorktreeHeadsGitAction.withBranches`), and
@@ -4071,8 +4078,13 @@ and a hidden branch greyed out in the side panel, whose selection shows its deta
 
   Each would bring a hidden branch's history along otherwise. `GraphCommits.branchFilter` is the filter that the log was
   walked from, and a page more keeps it. Without a filter, the walk is as it was.
-- **Saved** in `<common git dir>/leaf` (`LogBranchFilterConfig`): `[log] branches = all | current | only`, with a `hide` or
-  a `show` per branch; no section is every branch, and a value it doesn't know too. Leaf's rename renames it
+- **Chips:** a branch that the filter hides keeps no chip, also where its commit is on a shown branch's line, as a
+  merged branch's is (`chips`, in `RepositoryOpenViewModel.logState`); found when a hidden `claude/made-later` at `main`'s
+  commit still showed. The checked-out branch keeps its chip.
+- **Saved** in `<common git dir>/leaf` (`LogBranchFilterConfig`): `[log] branches = all | current | only`. Under `all`, a
+  `hide` per branch, a `hideFolder` per folder and a `show` per exception; under `only`, a `show` per branch, a
+  `showFolder` per folder and a `hide` per exception. No section is every branch, and a value it doesn't know too; a
+  folder with a `/` or a space isn't one. Leaf's rename renames it
   (`RenameBranchGitAction`). It's read with each log, so another tab of the repository has it with its next log (the
   watcher ignores the file).
 - **Changing it** (`SetLogBranchFilterUseCase`): saves, then walks the log alone (`DataRefreshRunner.runAlone`), with no
@@ -4081,33 +4093,39 @@ and a hidden branch greyed out in the side panel, whose selection shows its deta
   shows. An open search runs again.
 - **The control** (`LogBranchFilterButton`, `GraphHeader`'s `branchFilterControl`, before the columns button): "All
   branches", "Current branch", "All but x" or "All but 2 branches", or the names ("claude/parser-cache", "a, b +1"; a
-  remote branch whose local branch is named is left out), lit as a toggled button with an × that shows every branch
-  (`logBranchFilterLabel`). Its list (`LogBranchFilterList`, a focusable popup): a field that filters the branches and
-  hides the two ways, "All branches" and "Current branch", then a box per local and remote branch with the worktree mark.
+  remote branch whose local branch is named is left out; folders first, as `claude/`, "All but claude/ +1"), lit as a
+  toggled button with an × that shows every branch (`logBranchFilterLabel`). Its list (`LogBranchFilterList`, a
+  focusable popup): a field that filters the branches and hides the two ways, "All branches" and "Current branch", then
+  the local and the remote branches grouped as the side panel groups them (`logBranchFilterRows`): the checked-out one
+  first, each folder's box (`FolderBox`, on, off, or partly, `folderShows`; a click hides it while it shows any branch,
+  else shows it whole) with its branches' boxes under it, then the branches without a folder, with the worktree mark.
+  Typing lists the folders and branches that have it, without the grouping.
   A pick applies at once and leaves the list open; ↓ ↑ and Enter as in the clone dialog's list, Esc closes it. The
   checked-out branch's box is checked and faded, and its name bold. `PickRow` has `leading` and `fontWeight` for it.
 - **The menus** (`logBranchFilterMenuItems`, `branchContextMenuItems`'s `logFilter`, a group after Compare): "Show only
   this branch in the log", then "Hide in the log" or "Show in the log"; a local branch's act on the remote branches of
   its name too (`withRemotesOfItsName`), which would show its line on their own. No Hide on the checked-out branch. A
-  side panel selection has "Show only these in the log" (`selectedBranchesContextMenuItems`' `onShowOnlyInLog`). The log
-  gives its chips `LocalLogBranchFilter`.
+  side panel selection has "Show only these in the log" (`selectedBranchesContextMenuItems`' `onShowOnlyInLog`). A
+  folder row, local or a remote's, has "Hide claude/ in the log" (or "Show claude/ in the log" while it shows none of
+  them) and "Show only claude/ in the log" (`logBranchFolderMenuItems`, after "Select its N branches"). The log gives its
+  chips `LocalLogBranchFilter`.
 - **The side panel** greys out a branch that the filter leaves out (`SideMenuSubentry.isDimmed`, the search's non-match
-  alpha), not its highlight. Selecting it, a Worktrees row, Compare or a parent link show the commit's details with no row,
+  alpha), not its highlight, and a folder row whose branches it all leaves out (`RefFolder`'s `isHiddenInLog`). Selecting it, a Worktrees row, Compare or a parent link show the commit's details with no row,
   as for any commit that the log doesn't show; `LoadLogUntilCommitUseCase` says `NotReachable`.
 - **Measured** (2026-11-03, a clone of TensorFlow with 199,587 commits, 2,788 remote branches, 223 tags, 6 worktrees and 2
   stashes; `GetLogUseCase`, medians of 5): no filter 1.63 s, current branch 1.53 s, three branches 1.53 s, all but five
   1.61 s; 35 lanes down to 7, 3,019 starting commits down to 2. The topological sort reads the whole history, so a filter
   barely changes the time. A stash that names no branch, made on a commit of 2017, cost 0.9 s a load before the
   50,000-commit stop and the kept answer: about 0.24 s once now. The search: 1.21 s and 1.13 s.
-- **Not done:** hiding a folder of branches as a prefix, so that an agent's new branches stay hidden; tags in the list; a
-  filter per worktree.
+- **Not done:** nested folders (the side panel's are one level), tags in the list, a filter per worktree.
 - Tests: `LogBranchFilterTest` (domain), `FilteredLogStartTest` (the starting commits, with stand-ins), `FilteringLogTest`
   (a `TestTab`: each kind against `git rev-list`, named and typed stashes, another worktree's rebase, the search, another
   tab and a linked worktree, a rename), `LogBranchFilterGitActionTest` and `GetCommitsReachableGitActionTest` (data),
-  `LogBranchFilterControllerTest` and `LogBranchFilterControlTest` (the labels and rows, the control and its list
-  rendered, keys, the menus, the side panel's greyed row; PNGs in Tonal, Classic and Solarized when `LEAF_RENDER_DIR` is
-  set). The view model, the real `Log` and `SidePanel` ran through the Dagger graph against a demo repository in a
-  temporary harness. 23 mutations were each caught by a named test.
+  `LogBranchFilterControllerTest` and `LogBranchFilterControlTest` (the labels and rows, folders' boxes, the control and
+  its list rendered, keys, the menus, the side panel's greyed row; PNGs in Tonal, Classic and Solarized when
+  `LEAF_RENDER_DIR` is set). The view model, the real `Log` and `SidePanel` ran through the Dagger graph against a demo
+  repository in a temporary harness, folders, a branch made later and the chips included. 23 mutations, then 20 of the
+  folders, were each caught by a named test.
 
 **The log under the diff pane (upstream's b2f9188f):** `MainContentView` keeps the log composed while the diff pane
 shows over it, so closing a diff doesn't compose the log again. Since 2026-10-21 that is the fallback layout (the log
