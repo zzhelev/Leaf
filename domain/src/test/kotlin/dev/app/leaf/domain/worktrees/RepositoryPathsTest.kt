@@ -85,21 +85,6 @@ class RepositoryPathsTest {
     }
 
     @Test
-    fun `finds the first tab that has the repository, however the tab opened it`() {
-        createRepositories()
-        val other = File(tempDir, "other/.git").apply { mkdirs() }.parentFile
-
-        val tabs = listOf(null, other.path, repo.path, linkedGitDir.path, linked.path)
-
-        assertEquals(2, indexOfRepository(repo.path, tabs))
-        assertEquals(2, indexOfRepository(commonDir.path, tabs))
-        assertEquals(3, indexOfRepository(linked.path, tabs))
-        assertEquals(1, indexOfRepository("${other.path}/", tabs))
-        assertEquals(-1, indexOfRepository(File(tempDir, "missing").path, tabs))
-        assertEquals(-1, indexOfRepository(linked.path, listOf(null, repo.path)))
-    }
-
-    @Test
     fun `tells a linked worktree's git dir`() {
         createRepositories()
         val submoduleGitDir = File(commonDir, "modules/lib").apply { mkdirs() }

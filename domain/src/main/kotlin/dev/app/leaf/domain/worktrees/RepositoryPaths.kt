@@ -68,16 +68,6 @@ private fun realPath(file: File): String = try {
     file.absoluteFile.toPath().normalize().toString()
 }
 
-/**
- * The index of the first of [tabPaths] that has the same repository as [path] (see [gitDirOf]), or -1 when none has.
- * The paths can be git dirs or working trees, and a null path never matches.
- */
-fun indexOfRepository(path: String, tabPaths: List<String?>): Int {
-    val gitDir = gitDirOf(path)
-
-    return tabPaths.indexOfFirst { it != null && gitDirOf(it) == gitDir }
-}
-
 /** Whether [gitDir] is a linked worktree's git dir (`<common git dir>/worktrees/<name>`): it has a `commondir` file. */
 fun isLinkedWorktreeGitDir(gitDir: String): Boolean = File(gitDir, COMMON_DIR_FILE).isFile
 

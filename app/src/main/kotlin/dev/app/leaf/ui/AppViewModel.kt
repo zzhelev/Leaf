@@ -11,10 +11,8 @@ import dev.app.leaf.domain.tabs.savedTabLooks
 import dev.app.leaf.domain.tabs.savedTabLooksJson
 import dev.app.leaf.domain.usecases.CleanRepositoriesResourcesUseCase
 import dev.app.leaf.domain.worktrees.OpenTab
-import dev.app.leaf.domain.worktrees.indexOfRepository
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -23,7 +21,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -104,35 +101,14 @@ class AppViewModel @Inject constructor(
         updatePersistedTabs()
     }
 
-    /**
-     * Selects the tab that has the repository at [directory] open, or opens it in a new tab (fork-only). Tabs are
-     * compared by git dir ([indexOfRepository]), so a worktree's folder finds the tab of that worktree, whichever path
-     * the tab was opened from, even before it has loaded.
-     */
-    fun selectOrOpenTab(directory: String) = viewModelScope.launch {
-        val tabsList = tabs.value
-        val tabPaths = tabsList.map { tab ->
-            tab.data.repositorySelectionState.value.pathToPersist(initialPath = tab.data.initialPath)
-        }
-
-        val index = withContext(Dispatchers.IO) { indexOfRepository(directory, tabPaths) }
-        val tab = tabsList.getOrNull(index)
-
-        if (tab != null) {
-            selectTab(tab)
-        } else {
-            addNewTabFromPath(directory, selectTab = true)
-        }
-    }
-
     /** Opens the repository at [directory] in a new tab, and selects it (fork-only), whatever the other tabs show. */
     fun openNewTab(directory: String) = viewModelScope.launch {
         addNewTabFromPath(directory, selectTab = true)
     }
 
     /**
-     * Every tab, with its path as [selectOrOpenTab] compares them and its title as the tab bar shows it (fork-only), for
-     * a worktree's "Go to tab".
+     * Every tab, with its git dir (the path it was created with until it loads) and its title as the tab bar shows it
+     * (fork-only), for a worktree's "Go to tab".
      */
     val openTabs: Flow<List<OpenTab<TabInformation<RepositoryTabViewModel>>>> = tabs.flatMapLatest { tabsList ->
         if (tabsList.isEmpty()) {

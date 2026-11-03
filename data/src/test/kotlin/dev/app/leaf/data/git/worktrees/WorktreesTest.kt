@@ -25,7 +25,7 @@ import dev.app.leaf.domain.models.WorktreeStatus
 import dev.app.leaf.domain.refresh.WatchedRepository
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.usecases.GetWorktreesInfoUseCase
-import dev.app.leaf.domain.worktrees.indexOfRepository
+import dev.app.leaf.domain.worktrees.gitDirOf
 import dev.app.leaf.domain.worktrees.isLinkedWorktreeGitDir
 import dev.app.leaf.domain.worktrees.workTreeOf
 import io.mockk.every
@@ -423,7 +423,7 @@ class WorktreesTest {
     }
 
     @Test
-    fun `a listed worktree finds the tab that has it open, and the tab shows its folder`(): Unit = runBlocking {
+    fun `a listed worktree has its tab's git dir, and the tab shows its folder`(): Unit = runBlocking {
         val relative = File(main, "nested/relative")
         git.run(main, "worktree", "add", "--relative-paths", relative.path, "-b", "relative")
         val folders = listOf(main, feature, agent, relative)
@@ -436,11 +436,13 @@ class WorktreesTest {
             val worktree = listed.single { it.path == folder.canonicalPath }
             val tabPath = tabPaths[index]
 
-            assertEquals(index, indexOfRepository(worktree.path, tabPaths), folder.name)
-            assertEquals(index, indexOfRepository(tabPath, tabPaths), folder.name)
+            assertEquals(gitDirOf(tabPath), gitDirOf(worktree.path), folder.name)
+            assertEquals(gitDirOf(tabPath), gitDirOf(folder.path), folder.name)
             assertEquals(folder.canonicalPath, File(workTreeOf(tabPath)).canonicalPath, folder.name)
             assertEquals(folder != main, isLinkedWorktreeGitDir(tabPath), folder.name)
         }
+
+        assertEquals(folders.size, tabPaths.map { gitDirOf(it) }.toSet().size)
     }
 
     private fun gitDir(worktree: File): String {
