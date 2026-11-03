@@ -4017,10 +4017,11 @@ subject in bold, where one reads the list. The branch chip already came first, w
   repository through the Dagger graph in a temporary harness and rendered in both themes.
 
 **What the log starts from (fork-only, 2026-10-20, `GetLogUseCase`, `data/git/worktrees/OtherWorktreeHeads.kt`):** the
-walk starts at the branches (the tab's own detached HEAD is the branch named `HEAD`), stashes, tags, remote branches, and
-since 2026-10-20 the commit that each **other** worktree has detached. No ref points to such a commit, so an agent's work on
-a detached HEAD was missing from the log (found with a probe: `main` with two commits, `git worktree add --detach`, a commit
-there, the tab on `main`: two rows). A detached worktree at an older, reachable commit showed it already, which hid the bug.
+walk starts (without a branch filter, see The branch filter) at the branches (the tab's own detached HEAD is the branch
+named `HEAD`), stashes, tags, remote branches, and since 2026-10-20 the commit that each **other** worktree has
+detached. No ref points to such a commit, so an agent's work on a detached HEAD was missing from the log (found with a
+probe: `main` with two commits, `git worktree add --detach`, a commit there, the tab on `main`: two rows). A detached
+worktree at an older, reachable commit showed it already, which hid the bug.
 - **Which worktrees** (`IGetOtherWorktreeHeadsGitAction`, `GetOtherWorktreeHeadsGitAction`): every worktree but the tab's
   own, with HEAD detached. A rebase stopped at a conflict and a bisect have a detached HEAD too. Left out: a worktree on a
   branch (its tip is the branch's, an unborn one included), one whose folder or `.git` file is missing (git's prunable,
@@ -4048,6 +4049,65 @@ there, the tab on `main`: two rows). A detached worktree at an older, reachable 
   `TestTab` on real repositories: the log is `git rev-list` over the refs plus those commits; detached, rebase, bisect, a
   linked tab, a branch, a missing folder, the tab's own HEAD and chips, 20 worktrees, and the refresh by the watcher's
   events), one real-watcher test in `RefreshingOnChangesTest`.
+
+**The branch filter (fork-only, upstream issue 207, 2026-11-03, `domain/log/LogBranchFilter.kt`,
+`ui/log/LogBranchFilterControl.kt`, `repositoryopen/LogBranchFilterController.kt`):** the log can show chosen branches only.
+Option C of three, chosen with the user from a mockup: a control in the log's header and items in the branch menus, one
+state, no strip (the lit control says what shows). Also chosen: saved per repository, "only these" and "all but these",
+and a hidden branch greyed out in the side panel, whose selection shows its details as before.
+- **The model** (`LogBranchFilter`, full ref names): `All(hidden)` (every branch but those, `NO_LOG_BRANCH_FILTER` is
+  `All()`), `Current` (the checked-out branch and the remote branches of its name) and `Only(shown)`. The checked-out
+  branch always shows (`isCheckedOut`, a detached HEAD's too), as the uncommitted changes' row hangs on it. `withExisting`
+  leaves out names that no branch has, which stay in the file, as a branch of that name may come back.
+- **The walk** (`GetLogUseCase.logStart`, which `SearchLogUseCase` uses too, so the search follows the filter): under a
+  filter, the branches that it shows, tags only under `All`, another worktree's detached HEAD while it rebases or bisects
+  a shown branch, or under `All` without one (`showsWorktreeHead`, `IGetOtherWorktreeHeadsGitAction.withBranches`), and
+  the stashes:
+  - one whose message names its branch (`stashBranchOf`: git's `WIP on x:` and `On x:`, Leaf's `Snapshot WIP on x:`)
+    goes with that branch;
+  - one that names none (a message typed in JGit's stash, `(no branch)`, `autostash`) shows under `All`, else when the
+    commit it was made on is in the shown history (`GetCommitsReachableGitAction`: in commit time order, stopping a day
+    past the oldest commit asked about or after `MAX_COMMITS_WALKED`, 50,000, and keeping its last answer, per tab).
+
+  Each would bring a hidden branch's history along otherwise. `GraphCommits.branchFilter` is the filter that the log was
+  walked from, and a page more keeps it. Without a filter, the walk is as it was.
+- **Saved** in `<common git dir>/leaf` (`LogBranchFilterConfig`): `[log] branches = all | current | only`, with a `hide` or
+  a `show` per branch; no section is every branch, and a value it doesn't know too. Leaf's rename renames it
+  (`RenameBranchGitAction`). It's read with each log, so another tab of the repository has it with its next log (the
+  watcher ignores the file).
+- **Changing it** (`SetLogBranchFilterUseCase`): saves, then walks the log alone (`DataRefreshRunner.runAlone`), with no
+  task. `LogBranchFilterController` (`RepositoryOpenViewModel.logBranchFilter`, `setLogBranchFilter`) shows a change at
+  once, applies changes one at a time and joins those that come meanwhile; once its walk ended, the log's own filter
+  shows. An open search runs again.
+- **The control** (`LogBranchFilterButton`, `GraphHeader`'s `branchFilterControl`, before the columns button): "All
+  branches", "Current branch", "All but x" or "All but 2 branches", or the names ("claude/parser-cache", "a, b +1"; a
+  remote branch whose local branch is named is left out), lit as a toggled button with an × that shows every branch
+  (`logBranchFilterLabel`). Its list (`LogBranchFilterList`, a focusable popup): a field that filters the branches and
+  hides the two ways, "All branches" and "Current branch", then a box per local and remote branch with the worktree mark.
+  A pick applies at once and leaves the list open; ↓ ↑ and Enter as in the clone dialog's list, Esc closes it. The
+  checked-out branch's box is checked and faded, and its name bold. `PickRow` has `leading` and `fontWeight` for it.
+- **The menus** (`logBranchFilterMenuItems`, `branchContextMenuItems`'s `logFilter`, a group after Compare): "Show only
+  this branch in the log", then "Hide in the log" or "Show in the log"; a local branch's act on the remote branches of
+  its name too (`withRemotesOfItsName`), which would show its line on their own. No Hide on the checked-out branch. A
+  side panel selection has "Show only these in the log" (`selectedBranchesContextMenuItems`' `onShowOnlyInLog`). The log
+  gives its chips `LocalLogBranchFilter`.
+- **The side panel** greys out a branch that the filter leaves out (`SideMenuSubentry.isDimmed`, the search's non-match
+  alpha), not its highlight. Selecting it, a Worktrees row, Compare or a parent link show the commit's details with no row,
+  as for any commit that the log doesn't show; `LoadLogUntilCommitUseCase` says `NotReachable`.
+- **Measured** (2026-11-03, a clone of TensorFlow with 199,587 commits, 2,788 remote branches, 223 tags, 6 worktrees and 2
+  stashes; `GetLogUseCase`, medians of 5): no filter 1.63 s, current branch 1.53 s, three branches 1.53 s, all but five
+  1.61 s; 35 lanes down to 7, 3,019 starting commits down to 2. The topological sort reads the whole history, so a filter
+  barely changes the time. A stash that names no branch, made on a commit of 2017, cost 0.9 s a load before the
+  50,000-commit stop and the kept answer: about 0.24 s once now. The search: 1.21 s and 1.13 s.
+- **Not done:** hiding a folder of branches as a prefix, so that an agent's new branches stay hidden; tags in the list; a
+  filter per worktree.
+- Tests: `LogBranchFilterTest` (domain), `FilteredLogStartTest` (the starting commits, with stand-ins), `FilteringLogTest`
+  (a `TestTab`: each kind against `git rev-list`, named and typed stashes, another worktree's rebase, the search, another
+  tab and a linked worktree, a rename), `LogBranchFilterGitActionTest` and `GetCommitsReachableGitActionTest` (data),
+  `LogBranchFilterControllerTest` and `LogBranchFilterControlTest` (the labels and rows, the control and its list
+  rendered, keys, the menus, the side panel's greyed row; PNGs in Tonal, Classic and Solarized when `LEAF_RENDER_DIR` is
+  set). The view model, the real `Log` and `SidePanel` ran through the Dagger graph against a demo repository in a
+  temporary harness. 23 mutations were each caught by a named test.
 
 **The log under the diff pane (upstream's b2f9188f):** `MainContentView` keeps the log composed while the diff pane
 shows over it, so closing a diff doesn't compose the log again. Since 2026-10-21 that is the fallback layout (the log

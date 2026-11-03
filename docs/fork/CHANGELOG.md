@@ -2,6 +2,32 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The log shows chosen branches only (2026-11-03)
+
+- **Request:** upstream issue 207, filtering the commit graph by branch. With several agents' branches and worktrees in
+  one repository, the log showed every lane at once. Chosen with the user from a mockup, option C of three: a control in
+  the log's header and items in the branch menus, sharing one filter, with no strip above the log. Also chosen: saved per
+  repository, both "only these" and "all but these", and a hidden branch greyed out in the side panel.
+- **Now:** the header has "All branches" before the columns button. Its list has "All branches", "Current branch" (the
+  checked-out branch and the remote branches of its name), and a box per local and remote branch, with a field that
+  filters them. A branch's menu, in the side panel and on the log's chips, has "Show only this branch in the log" and
+  "Hide in the log" (or "Show in the log"); a local branch's items take the remote branches of its name along. The side
+  panel's selection has "Show only these in the log". While a filter is on, the control is lit, says what shows
+  ("claude/parser-cache", "All but 2 branches"), and its × shows every branch again.
+- **What always shows:** the checked-out branch, a detached HEAD too, with the uncommitted changes' row. Tags start the
+  walk only under "all but these". A stash goes with the branch that its message names; one whose message names none
+  shows when the commit it was made on is in the shown history. Another worktree's detached HEAD shows while it rebases
+  or bisects a shown branch.
+- **Saved** in `<common git dir>/leaf` (section `log`), so every worktree's tab shares it, and "Current branch" is each
+  worktree's own branch. Renaming a branch in Leaf renames it there.
+- **Follows the filter:** the log search, paging and the HEAD mark. Selecting a hidden branch, a Worktrees row or a
+  parent link shows the commit's details, as for any commit that the log doesn't show.
+- **Measured** on a repository of 199,587 commits with 2,788 remote branches: the log loads in 1.63 s without a filter
+  and 1.53 s with one (35 lanes down to 7). The topological sort reads the whole history either way. A stash that names
+  no branch, made on a commit from 2017, cost 0.9 s a load at first: the check now stops after 50,000 commits and keeps
+  its answer, so it costs about 0.24 s once.
+- Details: CLAUDE.md, "Log", The branch filter.
+
 ## Unstaged can list untracked files in a group of their own (2026-11-03)
 
 - **Request:** upstream issue 345, "Separate Untracked and Modified files in the Unstaged area". With an agent writing
