@@ -2367,16 +2367,8 @@ class RepositoryOpenViewModel @Inject constructor(
         settings.setConfiguration(AppConfig.ConfirmHunkAndLineDiscards(false))
     }
 
-    fun openSubmodule(path: String) {
-        val repositoryPath = repositoryDataRepository.repositoryPath
-
-        // TODO RepositoryPath point to .git dir instead of worktree? Fix if so
-        if (repositoryPath != null) {
-            viewModelScope.launch {
-                appViewModel.addNewTabFromPath("$repositoryPath/$path", true)
-            }
-        }
-    }
+    // Fork-only: from the working tree, as the side panel's "Open in new tab" does. The git dir gave /repo/.git/<path>
+    fun openSubmodule(path: String) = onOpenSubmoduleInTab(path)
 
     fun addToCloseables() = tabScope.launch {
         addCloseableView(CloseableView.DIFF)
