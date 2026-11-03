@@ -3267,12 +3267,22 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   whose toast says why). The removal itself triggers the read: the file watcher watches the tab's git dir and
   `<common git dir>/worktrees`, and the list fails once the git dir is gone, or lists the worktree as prunable once
   its folder is. Another tab, a terminal or an agent may have removed it.
-- **Opening a worktree in a new tab (fork-only):** "Open in new tab" in a worktree's menu calls
-  `AppViewModel.selectOrOpenTab(folder)`, which selects the first tab with the same git dir, or adds a tab at the end.
-  `indexOfRepository` (`domain/worktrees/RepositoryPaths.kt`) compares real paths of git dirs: `gitDirOf` turns a
-  working tree into its `.git` folder or the git dir its `.git` file points to (absolute or relative), and keeps a git
-  dir as it is. A tab gives `pathToPersist`, so an open tab gives its git dir and one that hasn't loaded the path it
-  was created with.
+- **Opening a worktree in a new tab (fork-only):** "Open in new tab" in a worktree's menu always adds a tab at the end
+  (`AppViewModel.openNewTab`), even when another tab shows that worktree: tabs have names of their own (next bullets),
+  so two tabs of one worktree can be told apart. Before it, each tab that shows the worktree has an item of its own,
+  "Go to tab “review”", in the tab bar's order, five at most, each naming its tab (cut after a word past 40 characters)
+  and selecting it (`AppViewModel.selectTabIfOpen`). Until 2026-11-03 "Open in new tab" selected the first such tab
+  (`AppViewModel.selectOrOpenTab`, which the Welcome page and the CLI don't use), which the user found misleading.
+  - Which tabs: `RepositoryOpenViewModel.worktreeTabs`, on `Dispatchers.IO`, from the worktree list and
+    `AppViewModel.openTabs` (each tab with its path and its title as the tab bar shows it), through `tabsOfWorktrees`
+    (`domain/worktrees/WorktreeTabs.kt`).
+  - `indexOfRepository` (`domain/worktrees/RepositoryPaths.kt`) compares real paths of git dirs: `gitDirOf` turns a
+    working tree into its `.git` folder or the git dir its `.git` file points to (absolute or relative), and keeps a git
+    dir as it is. A tab gives `pathToPersist`, so an open tab gives its git dir and one that hasn't loaded the path it
+    was created with.
+  - Tests: `WorktreeTabsTest` (domain, folders laid out as git does), the menu in `WorktreesSectionTest`. The view model
+    ran through the Dagger graph in a temporary harness: three more tabs of one worktree, two renamed, and each Go to
+    tab selecting its own. 6 mutations were each caught by a named test.
 - **Tab name and tooltip:** `RepositoryTabViewModel.repositoryPath` (the tooltip) is `workTreeOf` the git dir: for a
   linked worktree's git dir, the folder that its `gitdir` file names, not `<common git dir>/worktrees/<name>`;
   otherwise the git dir without `/.git`, as before. "Open another repository" compares this path with the working
@@ -3297,8 +3307,9 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   - **Colours:** a graph lane's number, 1 to 6, so a colour follows the style: Teal's lane 2 is orange, Tonal's red.
   - **The tab's state** (`RepositoryTabViewModel.look`, made from the factory's `initialLook`): kept through a worktree
     switch, lost when the tab closes or "Open another repository" replaces it. A change saves the tabs
-    (`AppViewModel.tabLookChanged`). "Open in new tab" opens without it, unless a tab of that worktree is open, which it
-    selects as before.
+    (`AppViewModel.tabLookChanged`). "Open in new tab" opens a tab without it. A rename reads the folder's name from the
+    path when nothing has shown the tab's title yet (its flows start when collected), as for a tab scrolled out of the
+    tab bar; it was dropped before (found by the harness).
   - **Saved** in the prefs node as `latestRepositoriesTabsLooks`, next to `latestRepositoriesTabsOpened`: a JSON list
     with each saved tab's path, name and colour, in the same order (`savedTabLooksJson`). At the start, a tab gets the
     look saved in its place for its path (`savedTabLooks`), so a tab list that an older Leaf saved again (it doesn't
@@ -3624,12 +3635,12 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
 - The tooltip (`worktreeTooltip`) has the full path, the change counts, the comparison to the base and to the
   upstream, the lock reason, and for a prunable worktree git's reason and `git worktree prune`.
 - A click selects the worktree's commit in the log (its branch when it's on one), and scrolls the log to it. A
-  double-click switches the tab to the worktree (see Identity and persistence), as does "Switch to worktree" in its
-  menu (`worktreeContextMenuItems`), followed by "Open in new tab". The menu starts with "Review changes" for a
-  worktree on a branch other than the base (see Reviewing a worktree), then "Squash-merge into main…" and "Merge into
-  main…" (see Merging a worktree into the base), and "Rebase onto main…" (see Rebasing a worktree onto the base).
-  Switching and opening in a new tab aren't offered for the tab's own worktree, a prunable one or a bare repository's
-  (`Worktree.canSwitchTo`).
+  double-click switches the tab to the worktree (see Identity and persistence), as does "Switch to worktree" in its menu
+  (`worktreeContextMenuItems`), followed by a "Go to tab “…”" for each tab that shows it and "Open in new tab". The menu
+  starts with "Review changes" for a worktree on a branch other than the base (see Reviewing a worktree), then
+  "Squash-merge into main…" and "Merge into main…" (see Merging a worktree into the base), and "Rebase onto main…" (see
+  Rebasing a worktree onto the base). Switching, going to a tab and opening in a new tab aren't offered for the tab's
+  own worktree, a prunable one or a bare repository's (`Worktree.canSwitchTo`).
 - A linked worktree's menu then has, between separators, Lock… or Unlock, Remove…, Discard…, "Clean up merged
   worktrees…" when its work is in the base and something can be removed (see Cleaning up merged worktrees), and "Prune
   missing worktrees…" when its folder is missing (see Worktree actions). `WorktreeActions` carries their callbacks from

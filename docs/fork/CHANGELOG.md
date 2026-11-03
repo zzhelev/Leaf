@@ -18,6 +18,9 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   in a key of their own, so the list keeps the format that older versions read. Closing the tab, or opening another
   repository in it, drops them. The first version kept them per repository, and renaming one tab renamed the
   repository's other tabs.
+- **Open in new tab:** a worktree's "Open in new tab" always opens a new tab. It used to select a tab that showed the
+  worktree already, which the label didn't say. Each such tab now has an item of its own before it, "Go to tab
+  “review”", which names it, five at most.
 - **Also:** the context menu takes a row of its own (`ContextMenuElement.ContextCustomEntry`), and the tab bar's keys
   (the next and previous tab, Cmd+T, Cmd+W) stay with the field while a tab is being renamed.
 - Details: CLAUDE.md, "Repository tabs", A tab's name and colour.
