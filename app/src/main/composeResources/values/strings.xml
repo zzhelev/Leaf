@@ -2083,4 +2083,6 @@
     <string name="tab_menu_close">Close tab</string>
     <string name="tab_color_none">No colour</string>
     <string name="tab_color">Colour %1$d</string>
+    <string name="tabs_scroll_back">Earlier tabs</string>
+    <string name="tabs_scroll_forward">Later tabs</string>
 </resources>

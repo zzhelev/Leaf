@@ -24,6 +24,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.close
@@ -38,6 +39,9 @@ import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.drag_sorting.HorizontalDraggableItem
 import dev.app.leaf.ui.drag_sorting.horizontalDragContainer
 import dev.app.leaf.ui.drag_sorting.rememberHorizontalDragDropState
+import dev.app.leaf.ui.window.TabScrollArrow
+import dev.app.leaf.ui.window.tabsFitTitleBar
+import dev.app.leaf.ui.window.titleBarTabWidth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -57,6 +61,9 @@ fun <T : TabInformationProvider> TabsRow(
     renamingTab: TabInformation<T>? = null,
     onRenamingTabChange: (TabInformation<T>?) -> Unit = {},
     onRenamedFromKeyboard: () -> Unit = {},
+    // Fork-only (docs/fork/window-chrome.md): the room the tabs have in the window's title bar, null elsewhere. There,
+    // tabs shrink before they scroll, and arrows take the place of the scrollbar, which the bar has no room for.
+    titleBarWidth: Dp? = null,
 ) {
     val stateHorizontal = rememberLazyListState()
     val scrollAdapter = rememberScrollbarAdapter(stateHorizontal)
@@ -84,8 +91,12 @@ fun <T : TabInformationProvider> TabsRow(
         }
     }
 
+    // Fork-only: the most each tab may take in the title bar, and whether they still don't fit
+    val titleBarTabWidth = titleBarWidth?.let { titleBarTabWidth(it, tabs.size) }
+    val showsScrollArrows = titleBarWidth != null && !tabsFitTitleBar(titleBarWidth, tabs.size)
+
     Column {
-        if (canBeScrolled) {
+        if (canBeScrolled && titleBarWidth == null) {
             DelayedTooltip(
                 "\"Shift + Mouse wheel\" to scroll"
             ) {
@@ -103,6 +114,10 @@ fun <T : TabInformationProvider> TabsRow(
         }
 
         Row {
+            if (showsScrollArrows) {
+                TabScrollArrow(stateHorizontal, forward = false)
+            }
+
             LazyRow(
                 modifier = Modifier
                     .height(36.dp)
@@ -144,7 +159,11 @@ fun <T : TabInformationProvider> TabsRow(
                                 },
                             ) {
                                 Tab(
-                                    modifier = Modifier,
+                                    modifier = if (titleBarTabWidth != null) {
+                                        Modifier.widthIn(max = titleBarTabWidth)
+                                    } else {
+                                        Modifier
+                                    },
                                     title = tabName ?: defaultTabName,
                                     worktreeName = worktreeName,
                                     isSelected = currentTab == tab,
@@ -177,6 +196,10 @@ fun <T : TabInformationProvider> TabsRow(
                         }
                     }
                 }
+            }
+
+            if (showsScrollArrows) {
+                TabScrollArrow(stateHorizontal, forward = true)
             }
 
             IconButton(

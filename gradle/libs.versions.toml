@@ -19,10 +19,13 @@ datastore = "1.2.1"
 androidx-viewmodel = "2.10.0"
 joni = "2.2.7"
 jcodings = "1.0.64"
+# The version that Compose's foundation-desktop depends on at runtime (fork-only: docs/fork/window-chrome.md)
+jbr-api = "1.9.0"
 
 [libraries]
 compose-desktop-linux-arm64 = { group = "org.jetbrains.compose.desktop", name = "desktop-jvm-linux-arm64", version.ref = "compose" }
 compose-ui-util = { group = "org.jetbrains.compose.ui", name = "ui-util", version.ref = "compose" }
+jbr-api = { group = "org.jetbrains.runtime", name = "jbr-api", version.ref = "jbr-api" }
 compose-components-animatedimage = { group = "org.jetbrains.compose.components", name = "components-animatedimage", version.ref = "compose" }
 compose-components-resources = { group = "org.jetbrains.compose.components", name = "components-resources", version.ref = "compose" }
 compose-material-icons-extended = { group = "org.jetbrains.compose.material", name = "material-icons-extended", version.ref = "materialExtended" }

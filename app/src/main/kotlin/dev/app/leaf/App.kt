@@ -20,9 +20,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,6 +78,10 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.dialogs.QuitDialog
 import dev.app.leaf.ui.styles.StyleEditorStart
+import dev.app.leaf.ui.window.TitleBar
+import dev.app.leaf.ui.window.WindowTitleBar
+import dev.app.leaf.ui.window.titleBarControl
+import dev.app.leaf.ui.window.windowTitleBarOf
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -320,6 +326,9 @@ class App @Inject constructor(
                     }
                 }
 
+                // Fork-only: on macOS, the tabs go in the window's title bar (docs/fork/window-chrome.md)
+                val titleBar = remember(window) { windowTitleBarOf(window) }
+
                 val compositionValues: MutableList<ProvidedValue<*>> =
                     mutableListOf(LocalTextContextMenu provides AppPopupMenu())
 
@@ -356,7 +365,11 @@ class App @Inject constructor(
                         linesHeightType = linesHeightType,
                     ) {
                         Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
-                            AppTabs()
+                            AppTabs(
+                                titleBar = titleBar,
+                                window = window,
+                                isFullscreen = windowState.placement == WindowPlacement.Fullscreen,
+                            )
                         }
 
                         if (quitPrompt != null) {
@@ -387,7 +400,7 @@ class App @Inject constructor(
 
 
     @Composable
-    fun AppTabs() {
+    fun AppTabs(titleBar: WindowTitleBar?, window: ComposeWindow, isFullscreen: Boolean) {
         val tabs by appViewModel.tabs.collectAsState()
         val currentTab = appViewModel.currentTab.collectAsState().value
         // Fork-only: the conflict resolver's Focus hides the tab bar
@@ -436,7 +449,8 @@ class App @Inject constructor(
                         }
                     }
             ) {
-                if (!chrome.tabBarHidden) {
+                @Composable
+                fun TabsOfWindow(modifier: Modifier, titleBarWidth: Dp? = null) {
                     Tabs(
                         tabsInformationList = tabs,
                         currentTab = currentTab,
@@ -448,13 +462,30 @@ class App @Inject constructor(
                         },
                         renamingTab = renamingTab,
                         onRenamingTabChange = { renamingTab = it },
+                        modifier = modifier,
+                        titleBarWidth = titleBarWidth,
                     )
+                }
+
+                if (titleBar != null) {
+                    // Fork-only: the bar stays while Focus hides the tabs, as it holds the window's buttons
+                    TitleBar(titleBar, window, isFullscreen) { controls ->
+                        if (!chrome.tabBarHidden) {
+                            BoxWithConstraints {
+                                TabsOfWindow(Modifier.titleBarControl(controls), titleBarWidth = maxWidth)
+                            }
+                        }
+                    }
+                } else if (!chrome.tabBarHidden) {
+                    TabsOfWindow(Modifier.fillMaxWidth())
                 }
 
                 CompositionLocalProvider(LocalTab provides currentTab.data, LocalAppChrome provides chrome) {
                     TabContent(currentTab.data)
                 }
             }
+        } else if (titleBar != null) {
+            TitleBar(titleBar, window, isFullscreen) {}
         }
     }
 
@@ -466,10 +497,11 @@ class App @Inject constructor(
         onCloseTab: (TabInformation<RepositoryTabViewModel>) -> Unit,
         renamingTab: TabInformation<RepositoryTabViewModel>?,
         onRenamingTabChange: (TabInformation<RepositoryTabViewModel>?) -> Unit,
+        modifier: Modifier,
+        titleBarWidth: Dp?,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TabsRow(
@@ -488,6 +520,7 @@ class App @Inject constructor(
                 onRenamingTabChange = onRenamingTabChange,
                 // The tab's shortcuts need something in the tab to have the focus, which the field had
                 onRenamedFromKeyboard = { currentTab?.data?.requestContentFocus() },
+                titleBarWidth = titleBarWidth,
             )
         }
     }

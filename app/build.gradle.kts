@@ -59,6 +59,8 @@ dependencies {
     implementation(libs.compose.components.resources)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.navigation3)
+    // Fork-only: the title bar that holds the tabs on macOS (docs/fork/window-chrome.md)
+    implementation(libs.jbr.api)
 
     implementation(libs.jgit.core)
     implementation(libs.jgit.lfs)
