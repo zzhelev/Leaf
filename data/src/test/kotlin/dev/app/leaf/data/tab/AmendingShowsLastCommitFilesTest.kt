@@ -325,7 +325,9 @@ class AmendingShowsLastCommitFilesTest {
         write("conflict.txt" to "main\n")
         git.run(repository, "commit", "-am", "main: one")
         git.run(repository, "switch", "topic")
-        git.runFailing(repository, "rebase", "-i", "main")
+        // Keeps the todo as it is. Without an editor, git refuses to start the rebase ("Terminal is dumb, but EDITOR
+        // unset"), as on CI, which also exits with 1
+        git.runFailing(repository, "-c", "sequence.editor=true", "rebase", "-i", "main")
 
         ensureOpen()
 
