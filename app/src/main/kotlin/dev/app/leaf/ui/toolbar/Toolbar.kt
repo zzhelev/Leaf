@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
@@ -66,7 +65,7 @@ import org.jetbrains.compose.resources.stringResource
 /** The toolbar's height (mockup A of the "Leaf window chrome review" board). */
 val TOOLBAR_HEIGHT = 48.dp
 
-/** The height of the toolbar's buttons, groups, switcher and Actions field. */
+/** The height of the toolbar's buttons, groups and switcher. */
 private val CONTROL_HEIGHT = 32.dp
 
 private val CONTROL_SHAPE = RoundedCornerShape(8.dp)
@@ -75,19 +74,17 @@ private const val DISABLED_ALPHA = 0.45f
 
 /**
  * Which labels the toolbar has room for at [width] (fork-only, docs/fork/window-chrome.md): Branch, Stash and Pop lose
- * theirs first, then Pull and Push, then the Actions field gets narrower. Their icons and tooltips stay.
+ * theirs first, then Pull and Push. Their icons and tooltips stay. Actions keeps its label.
  */
 @Immutable
 data class ToolbarLabels(
     val showsBranchAndStashLabels: Boolean,
     val showsPullAndPushLabels: Boolean,
-    val actionsWidth: Dp,
 )
 
 fun toolbarLabelsFor(width: Dp): ToolbarLabels = ToolbarLabels(
     showsBranchAndStashLabels = width >= 1150.dp,
     showsPullAndPushLabels = width >= 1000.dp,
-    actionsWidth = if (width >= 900.dp) 248.dp else 160.dp,
 )
 
 /** What the toolbar's buttons do. */
@@ -108,8 +105,8 @@ class ToolbarActions(
 
 /**
  * The toolbar of a repository's tab (fork-only, docs/fork/window-chrome.md, step 3), on the frame's colours: where
- * you are on the left (the switcher), what you do in the middle (Pull and Push, Branch, Stash and Pop), and the
- * Actions field, Terminal and Settings on the right. It replaced upstream's toolbar, which `Menu.kt` held.
+ * you are on the left (the switcher), what you do in the middle (Pull and Push, Branch, Stash and Pop), and
+ * Actions, Terminal and Settings on the right. It replaced upstream's toolbar, which `Menu.kt` held.
  */
 @Composable
 fun Toolbar(
@@ -225,7 +222,7 @@ fun ToolbarRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ActionsField(width = labels.actionsWidth, onClick = actions.onQuickActions)
+                ActionsButton(onClick = actions.onQuickActions)
 
                 Spacer(Modifier.width(6.dp))
 
@@ -510,52 +507,33 @@ private fun ToolbarIconButton(
     }
 }
 
-/** The Actions field: a button that looks like a search field, with its shortcut, which opens the Actions list. */
+/**
+ * Actions: a button as Branch is, with its shortcut after its label, which opens the Actions list. It was a button that
+ * looked like a search field, which read as a field that could be typed in.
+ */
 @Composable
-private fun ActionsField(width: Dp, onClick: () -> Unit) {
+private fun ActionsButton(onClick: () -> Unit) {
     val frame = MaterialTheme.frameColors
     val keybinding = KeybindingOption.QUICK_ACTIONS.keyBinding
-    val label = stringResource(Res.string.toolbar_actions_field)
+    val label = stringResource(Res.string.menu_actions)
 
     ToolbarTooltip(stringResource(Res.string.toolbar_actions_tooltip), null) {
         Row(
             modifier = Modifier
-                .width(width)
                 .height(CONTROL_HEIGHT)
                 .ignoreKeyEvents()
                 .clip(CONTROL_SHAPE)
                 .background(frame.control)
                 .border(1.dp, frame.controlEdge, CONTROL_SHAPE)
                 .handMouseClickable { onClick() }
-                .padding(start = 10.dp, end = 6.dp)
+                .padding(horizontal = 10.dp)
                 .semantics { contentDescription = label },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painter = painterResource(Res.drawable.bolt),
-                contentDescription = null,
-                tint = frame.secondaryText,
-                modifier = Modifier.size(15.dp),
-            )
-
-            Text(
-                text = label,
-                style = MaterialTheme.typography.body2,
-                color = frame.secondaryText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .weight(1f),
-            )
+            ControlLabel(painterResource(Res.drawable.bolt), label)
 
             if (keybinding != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(frame.background)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
+                Box(Modifier.padding(start = 10.dp)) {
                     KeybindingHint(keybinding, color = frame.secondaryText)
                 }
             }

@@ -24,7 +24,10 @@ import dev.app.leaf.domain.models.PullType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
+import dev.app.leaf.keybindings.KeybindingOption
+import dev.app.leaf.keybindings.keyBinding
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.ui.getParts
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -45,17 +48,17 @@ class ToolbarTest {
 
     @Test
     fun `labels go as the window narrows, Branch and Stash first, then Pull and Push`() {
-        assertEquals(ToolbarLabels(true, true, 248.dp), toolbarLabelsFor(1440.dp))
-        assertEquals(ToolbarLabels(false, true, 248.dp), toolbarLabelsFor(1100.dp))
-        assertEquals(ToolbarLabels(false, false, 248.dp), toolbarLabelsFor(950.dp))
-        assertEquals(ToolbarLabels(false, false, 160.dp), toolbarLabelsFor(800.dp))
+        assertEquals(ToolbarLabels(true, true), toolbarLabelsFor(1440.dp))
+        assertEquals(ToolbarLabels(false, true), toolbarLabelsFor(1100.dp))
+        assertEquals(ToolbarLabels(false, false), toolbarLabelsFor(950.dp))
+        assertEquals(ToolbarLabels(false, false), toolbarLabelsFor(800.dp))
     }
 
     @Test
     fun `at 1440 every button has its label`() {
         render(width = 1440)
 
-        assertTrue(texts().containsAll(listOf("Pull", "Push", "Branch", "Stash", "Pop", "Actions…")), texts().toString())
+        assertTrue(texts().containsAll(listOf("Pull", "Push", "Branch", "Stash", "Pop", "Actions")), texts().toString())
         assertFits(1440)
     }
 
@@ -64,7 +67,7 @@ class ToolbarTest {
         render(width = 1100)
 
         val texts = texts()
-        assertTrue(texts.containsAll(listOf("Pull", "Push", "Actions…")), texts.toString())
+        assertTrue(texts.containsAll(listOf("Pull", "Push", "Actions")), texts.toString())
         assertTrue(texts.none { it in listOf("Branch", "Stash", "Pop") }, texts.toString())
         assertFits(1100)
     }
@@ -79,10 +82,30 @@ class ToolbarTest {
     }
 
     @Test
+    fun `Actions is a button with its label and shortcut, as wide as they are at any width`() {
+        val shortcut = getParts(checkNotNull(KeybindingOption.QUICK_ACTIONS.keyBinding)).joinToString("+")
+        val widths = listOf(1440, 800).map { width ->
+            scene?.close()
+            render(width = width)
+            val actions = boundsOf("Actions")
+            val inside = nodes()
+                .filter { actions.contains(it.boundsInWindow.center) }
+                .flatMap { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } }
+
+            assertEquals(listOf("Actions", shortcut), inside, "at $width")
+            actions.width
+        }
+
+        assertEquals(widths.first(), widths.last())
+        // Narrower than the field it replaced was at its narrowest
+        assertTrue(widths.first() < 160f, "${widths.first()}")
+    }
+
+    @Test
     fun `each button does what it says, and Stash does nothing without changes`() {
         render(width = 1440, canStash = false)
 
-        for (label in listOf("Pull", "Push", "Create a new branch", "Stash", "Pop", "Actions…", "Terminal", "Settings")) {
+        for (label in listOf("Pull", "Push", "Create a new branch", "Stash", "Pop", "Actions", "Terminal", "Settings")) {
             click(label)
         }
 
@@ -94,7 +117,7 @@ class ToolbarTest {
         render(width = 1440)
 
         // A tooltip's popup takes a place in the row it's in, which a row's spacing used to give a gap of its own
-        for (hovered in listOf("Create a new branch", "Actions…", "Terminal")) {
+        for (hovered in listOf("Create a new branch", "Actions", "Terminal")) {
             val before = listOf("Stash", "Pop", "Terminal", "Settings").associateWith { boundsOf(it).left }
 
             hover(hovered)
@@ -136,7 +159,7 @@ class ToolbarTest {
     /** The left group ends before the right one starts, and Settings ends inside the toolbar's padding. */
     private fun assertFits(width: Int) {
         val stashGroupEnd = boundsOf("Pop").right
-        val actionsStart = boundsOf("Actions…").left
+        val actionsStart = boundsOf("Actions").left
         val settingsEnd = boundsOf("Settings").right
 
         assertTrue(stashGroupEnd < actionsStart, "Pop ends at $stashGroupEnd, Actions starts at $actionsStart")

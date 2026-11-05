@@ -168,7 +168,7 @@ fun contrastChecks(look: AccentStyle): List<ContrastCheck> = buildList {
     text(TEXT, listOf(ADDED_LINE, BACKGROUND))
     text(TEXT, listOf(REMOVED_LINE, BACKGROUND))
 
-    // The frame's text on the frame and on its controls, as the selected tab's name and the Actions field
+    // The frame's text on the frame and on its controls, as the selected tab's name and the Actions button's shortcut
     for (layers in listOf(listOf(FRAME), listOf(FRAME_CONTROL, FRAME))) {
         text(FRAME_TEXT, layers)
         text(FRAME_SECONDARY_TEXT, layers)

@@ -213,7 +213,7 @@ class StyleDerivationTest {
             ),
             "success strip" to ratio(StyleSlot.SUCCESS_STRIP_TEXT, StyleSlot.SUCCESS_STRIP_FILL),
             "text on added lines" to ratio(StyleSlot.TEXT, StyleSlot.ADDED_LINE, StyleSlot.BACKGROUND),
-            // The window's frame (docs/fork/window-chrome.md): a tab's name, the toolbar's labels, the Actions field
+            // The window's frame (docs/fork/window-chrome.md): a tab's name, the toolbar's labels, the Actions button's shortcut
             "frame text" to ratio(StyleSlot.FRAME_TEXT, StyleSlot.FRAME),
             "frame's muted text" to ratio(StyleSlot.FRAME_SECONDARY_TEXT, StyleSlot.FRAME),
             "selected tab" to ratio(StyleSlot.FRAME_TEXT, StyleSlot.FRAME_CONTROL, StyleSlot.FRAME),
@@ -415,7 +415,7 @@ class StyleDerivationTest {
             // A dark frame on both sides: light text on it, worked out rather than set by hand
             assertTrue(palette[StyleSlot.FRAME_TEXT].luminance() > 0.8, "$what ${palette[StyleSlot.FRAME_TEXT].hex()}")
             assertTrue(palette[StyleSlot.FRAME_CONTROL].luminance() < 0.1, "$what ${palette[StyleSlot.FRAME_CONTROL].hex()}")
-            // The muted text on the frame's controls, as "Actions…", with Tonal's margin rather than the bare minimum
+            // The muted text on the frame's controls, as the Actions button's shortcut, with Tonal's margin rather than the bare minimum
             val muted = StyleColorMath.contrast(palette[StyleSlot.FRAME_SECONDARY_TEXT].toArgb(), palette[StyleSlot.FRAME_CONTROL].toArgb())
             assertTrue(muted >= 6.0, "$what: $muted")
             // Blue selection, links and lane 1, as green also means "added" (D5)

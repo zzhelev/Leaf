@@ -52,7 +52,6 @@
     <string name="toolbar_pull_options">Pull options</string>
     <string name="toolbar_push_options">Push options</string>
     <string name="toolbar_stash_options">Stash options</string>
-    <string name="toolbar_actions_field">Actions…</string>
     <string name="toolbar_actions_tooltip">Search Leaf's actions</string>
     <string name="toolbar_switcher_tooltip">Switch worktree, or open another repository</string>
     <string name="toolbar_switcher_open">Open a repository…</string>

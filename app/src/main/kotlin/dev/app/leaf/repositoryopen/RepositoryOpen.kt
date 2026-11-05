@@ -207,7 +207,7 @@ fun RepositoryOpenPage(
                         true
                     }
 
-                    // Fork-only: the toolbar's Actions field (docs/fork/window-chrome.md)
+                    // Fork-only: the toolbar's Actions button (docs/fork/window-chrome.md)
                     it.matchesBinding(KeybindingOption.QUICK_ACTIONS) -> {
                         onNavigate(Screen.QuickActions)
                         true
