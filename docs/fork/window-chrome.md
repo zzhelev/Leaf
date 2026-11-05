@@ -370,6 +370,43 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
   height, a name that fits whole, a long one cut in the middle), `MiddleCutTextTest` (the cut keeps both ends and
   always fits, and never splits a character outside the BMP).
 
+**The commit message in the centre pane** (2026-11-05, asked for after step 6): on a laptop the changes pane's message
+field is small, and a message that an agent wrote is long. Chosen with the user from previews of three ways: growing
+the field in the changes pane, which stays 330 dp wide, so a 72-column line still wraps; a dialog, which covers the
+diff and the files that the message is about; and this one.
+
+- **Opening it:** a button in the "Commit message" title row, before ⋯ (`MessageSizeButton`, Material's `open_in_full`
+  and `close_fullscreen`; "Write in a larger view"). Not on a rebase stop that can't be amended, whose field can't be
+  edited. `StatusAction.ExpandMessage` sets `StatusViewModelExtender.isMessageExpanded`, which `RepositoryOpenViewModel`
+  hands on; not in `StatusState`, whose `combine` is near the 30 flows that `common` has overloads for.
+- **Where it goes:** `MainContentView` puts `CommitMessageEditor` in the log's place in `LogAndDiffSplit`, so a file
+  that is clicked in Staged or Unstaged shows its diff under the message, with the split's sizes. A diff never covers
+  the message there (`keepsLog` is on), and the diff's Hide log button isn't shown. At 1440 pt with the side panes at
+  their defaults, the field is about 870 dp wide where the changes pane's is 330, so a 72-column line fits.
+- **The two parts** (`CommitFieldPart`): the centre has the title row, with the subject's count, ⋯ and the button that puts it
+  back, the field with its suggestions, and the hints about the message (`MESSAGE`). The changes pane keeps the title row
+  with the button back and no menu, "Being written in the larger view" in the field's place, the line that says what
+  stops the button, and the buttons (`FINISH`). Its lists get the field's room: the section is the smallest that
+  `StatusSectionSizes` allows while the message is away, and its divider doesn't move or save then. Both parts are
+  `StatusCommitField`, which builds `CommitField`'s parameters from the state, as `StatusPane` did, so they are one
+  message.
+- **The focus:** the centre's field takes it when it opens, with the caret where it was. When the message goes back,
+  however it goes, the changes pane's field takes it (`ChangesPaneCommitField`).
+- **Going back:** the button in either title row, or Esc (`CloseableView.COMMIT_MESSAGE_EDITOR`, which comes after
+  the views that were open before it, and before a diff or the suggestions that open after it: Esc closes a file's
+  diff first). A commit that went through puts it back too, as the message is gone. So does anything else that takes
+  the centre pane or the changes pane: a selected commit, a comparison, the commit editor, expanded blame, or folding
+  the changes pane. File history, the conflict resolver and a comparison's full view cover the whole tab, and the
+  message is in the centre again when they close.
+- Tests: `CommitMessageEditorTest` (the two panes rendered together with the state that the view model keeps: opening
+  it with the focus and the caret; one field, the centre's menu, the changes pane's buttons and line; what is typed in
+  the centre committed from the changes pane; going back from either title row with the focus; no button on a field
+  that can't be edited). Four mutations (the focus on going back, the menu in the changes pane, the buttons in the
+  centre, the button on a read-only stop) were each caught by a named test. The real tab ran through the Dagger graph
+  in a temporary harness against a demo repository, in both themes: opening it, typing, a file's diff under the
+  message, Esc closing the diff then putting the message back with the focus, and ⌘↵ in the centre committing and
+  putting it back. The view model's part (`expandMessage`, Esc, the commit) has no kept test, as it needs the graph.
+
 ## 7. Steps
 
 0. **Spike (macOS).** A dev run with the JBR title bar and the real tab row in it. Check:
