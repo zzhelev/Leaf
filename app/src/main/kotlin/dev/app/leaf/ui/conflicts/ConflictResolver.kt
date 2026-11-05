@@ -99,6 +99,7 @@ import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.roleBorder
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.theme.styleColors
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.SecondaryButton
@@ -540,7 +541,7 @@ private fun Toolbar(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

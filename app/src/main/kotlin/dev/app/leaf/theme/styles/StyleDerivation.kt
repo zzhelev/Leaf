@@ -107,6 +107,14 @@ fun slotRule(slot: StyleSlot, look: AccentStyle, isLight: Boolean): SlotRule {
     }
 }
 
+/**
+ * The slot whose colour [slot] takes in [look], once that is worked out, or null. In Tonal and Quiet the headers are the
+ * panels' colour, with a line under them (`docs/fork/window-chrome.md`, section 4), also in a style whose panels are set
+ * by hand, as Solarized's dark side is.
+ */
+fun sharedColourOf(slot: StyleSlot, look: AccentStyle): StyleSlot? =
+    if (slot == HEADERS && look != AccentStyle.CLASSIC) PANELS else null
+
 private fun stripText(look: AccentStyle, seed: StyleSeed) = when (look) {
     AccentStyle.CLASSIC -> fixed
     AccentStyle.TONAL -> hue(seed)
@@ -246,6 +254,13 @@ fun resolveStyleSide(
     val inPlace = published.orEmpty().mapValues { (_, argb) -> argb?.let { Color(it) } ?: colors.getValue(TEXT) }
     var palette = StylePalette(isLight, colors + inPlace)
 
+    // A colour that takes another's: before the checks, and again after them, as its checks are some of the other's
+    val sharing = StyleSlot.entries.filter { it !in side.setByHand }.mapNotNull { slot ->
+        sharedColourOf(slot, look)?.let { slot to it }
+    }
+    fun shared() = sharing.forEach { (slot, source) -> palette = palette.with(slot, palette[source]) }
+    shared()
+
     val checks = contrastChecks(look)
     val firstColors = mutableMapOf<StyleSlot, Color>()
     val lastChecks = mutableMapOf<StyleSlot, Pair<ContrastCheck, Double>>()
@@ -276,6 +291,9 @@ fun resolveStyleSide(
 
         if (!moved) break
     }
+
+    shared()
+    sharing.forEach { (slot, _) -> firstColors.remove(slot); lastChecks.remove(slot) }
 
     // IntelliJ's types are the text, wherever the checks took it
     published.orEmpty().filterValues { it == null }.keys.forEach { palette = palette.with(it, palette[TEXT]) }

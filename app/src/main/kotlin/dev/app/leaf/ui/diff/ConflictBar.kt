@@ -23,7 +23,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.canOpenInMergeTool
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.status.label
@@ -48,7 +48,7 @@ fun ConflictBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(34.dp)
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -947,7 +948,7 @@ fun GraphHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(34.dp)
-                .background(MaterialTheme.colors.tertiarySurface),
+                .headerBackground(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -1398,20 +1399,27 @@ fun CommitMessage(
 
 @Composable
 fun DividerLog(modifier: Modifier, graphWidth: Dp) {
+    // Fork-only: the line shows while the pointer is on it, to drag it (docs/fork/window-chrome.md, section 4)
+    val hoverInteraction = remember { MutableInteractionSource() }
+    val isHovered by hoverInteraction.collectIsHoveredAsState()
+
     Box(
         modifier = Modifier
             .padding(start = graphWidth)
             .width(DIVIDER_WIDTH.dp)
             .then(modifier)
+            .hoverable(hoverInteraction)
             .pointerHoverIcon(resizePointerIconEast)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(2.dp)
-                .background(color = MaterialTheme.colors.onBackground.copy(alpha = 0.2F))
-                .align(Alignment.Center)
-        )
+        if (isHovered) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(2.dp)
+                    .background(color = MaterialTheme.colors.onBackground.copy(alpha = 0.2F))
+                    .align(Alignment.Center)
+            )
+        }
     }
 }
 

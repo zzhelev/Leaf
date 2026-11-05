@@ -78,7 +78,7 @@ import dev.app.leaf.extensions.toStringWithSpaces
 import dev.app.leaf.theme.addFile
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.onBackgroundSecondary
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
@@ -288,7 +288,7 @@ private fun ColumnHeaders(sides: ConflictSides?, shares: ColumnShares, edges: Co
         modifier = Modifier
             .fillMaxWidth()
             .height(30.dp)
-            .background(MaterialTheme.colors.tertiarySurface),
+            .headerBackground(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Header(
@@ -827,7 +827,7 @@ fun ResolverLegend(stacked: Boolean = false, editing: Boolean = false) {
         modifier = Modifier
             .fillMaxWidth()
             .height(26.dp)
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),

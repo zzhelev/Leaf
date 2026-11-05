@@ -36,7 +36,7 @@ import dev.app.leaf.app.generated.resources.diff_followed_unreadable_title
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.repositoryopen.MissingFollowedFile
 import dev.app.leaf.theme.onBackgroundSecondary
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import org.jetbrains.compose.resources.painterResource
@@ -78,7 +78,7 @@ fun FollowedDiffPlaceholder(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(34.dp)
-                .background(MaterialTheme.colors.tertiarySurface)
+                .headerBackground()
                 .padding(start = 16.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

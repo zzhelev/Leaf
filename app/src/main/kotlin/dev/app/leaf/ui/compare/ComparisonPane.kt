@@ -79,6 +79,7 @@ import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.components.PrimaryButton
@@ -263,7 +264,7 @@ private fun ComparisonHeader(state: ComparisonState, onAction: (ComparisonAction
             .fillMaxWidth()
             .onSizeChanged { headerWidth = it.width }
             .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -818,7 +819,7 @@ internal fun SectionHeader(
             .padding(top = 1.dp)
             .height(SECTION_HEADER_HEIGHT)
             .fillMaxWidth()
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .run { if (isOpen != null) handMouseClickable(onClick = onToggle) else this },
         verticalAlignment = Alignment.CenterVertically,
     ) {

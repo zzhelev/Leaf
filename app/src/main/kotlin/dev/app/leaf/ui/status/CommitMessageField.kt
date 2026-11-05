@@ -80,7 +80,7 @@ import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.styleColors
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.amberText
 import androidx.compose.material.Colors
 import dev.app.leaf.ui.components.HeaderMenuButton
@@ -195,7 +195,7 @@ internal fun CommitMessageTitle(
         modifier = modifier
             .fillMaxWidth()
             .height(STATUS_COMMIT_TITLE_HEIGHT.dp)
-            .background(MaterialTheme.colors.tertiarySurface),
+            .headerBackground(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(

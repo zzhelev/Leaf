@@ -52,7 +52,7 @@ import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.theme.styleColors
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.SecondaryButton
 import org.jetbrains.compose.resources.painterResource
@@ -101,7 +101,7 @@ fun StyleEditorPreview(style: StyleDefinition, isLight: Boolean, modifier: Modif
             }
 
             // A diff's header and a hunk's
-            HeaderRow(colors.tertiarySurface) {
+            HeaderRow(Modifier.headerBackground()) {
                 Text(
                     buildAnnotatedString {
                         withStyle(SpanStyle(color = colors.onBackgroundSecondary)) { append("src/main/kotlin/…/parse/") }
@@ -114,7 +114,7 @@ fun StyleEditorPreview(style: StyleDefinition, isLight: Boolean, modifier: Modif
                 )
                 SecondaryButton(text = stringResource(Res.string.style_editor_preview_stage_file), onClick = {})
             }
-            HeaderRow(colors.secondarySurface) {
+            HeaderRow(Modifier.background(colors.secondarySurface)) {
                 Text(
                     "@@ -48,6 +48,7 @@",
                     color = colors.onBackgroundSecondary,
@@ -165,7 +165,7 @@ fun StyleEditorPreview(style: StyleDefinition, isLight: Boolean, modifier: Modif
             }
 
             // A list's header and two files, the first selected
-            HeaderRow(colors.tertiarySurface) {
+            HeaderRow(Modifier.headerBackground()) {
                 Text(
                     stringResource(Res.string.style_editor_preview_unstaged),
                     color = colors.onBackground,
@@ -216,9 +216,9 @@ fun StyleEditorPreview(style: StyleDefinition, isLight: Boolean, modifier: Modif
 }
 
 @Composable
-private fun HeaderRow(color: Color, content: @Composable RowScope.() -> Unit) {
+private fun HeaderRow(background: Modifier, content: @Composable RowScope.() -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(color).padding(horizontal = 10.dp, vertical = 3.dp),
+        modifier = Modifier.fillMaxWidth().then(background).padding(horizontal = 10.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         content = content,

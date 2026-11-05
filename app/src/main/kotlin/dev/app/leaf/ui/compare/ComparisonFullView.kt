@@ -50,7 +50,7 @@ import dev.app.leaf.repositoryopen.ComparisonState
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.DialogWarning
@@ -222,7 +222,7 @@ private fun FullViewHeader(
         modifier = Modifier
             .fillMaxWidth()
             .height(46.dp)
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

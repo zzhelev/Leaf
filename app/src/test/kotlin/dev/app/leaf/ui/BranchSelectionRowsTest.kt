@@ -33,7 +33,6 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
-import dev.app.leaf.app.generated.resources.branch
 import dev.app.leaf.app.generated.resources.sort
 import dev.app.leaf.domain.branches.BranchClick
 import dev.app.leaf.domain.models.ui.Theme
@@ -298,7 +297,6 @@ class BranchSelectionRowsTest {
                         if (withHeader) {
                             SideMenuHeader(
                                 text = "Local branches",
-                                icon = painterResource(Res.drawable.branch),
                                 itemsCount = branches.size,
                                 isExpanded = true,
                                 sortAction = {

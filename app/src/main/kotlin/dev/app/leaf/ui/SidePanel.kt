@@ -149,7 +149,8 @@ fun SidePanel(
         onDispose { viewModel.onWorktreesVisibilityChanged(WorktreesVisibility.Hidden) }
     }
 
-    Column {
+    // Fork-only: the side panes have the panels' colour, and the log the background's (docs/fork/window-chrome.md)
+    Column(modifier = Modifier.background(MaterialTheme.colors.surface)) {
         FilterTextField(
             value = filter,
             onValueChange = { newValue ->
@@ -345,7 +346,6 @@ fun LazyListScope.localBranches(
             ) {
                 SideMenuHeader(
                     text = stringResource(Res.string.side_pane_local_branches_title),
-                    icon = painterResource(Res.drawable.branch),
                     itemsCount = branches.count(),
                     hoverIcon = null,
                     isExpanded = isExpanded,
@@ -479,7 +479,6 @@ fun LazyListScope.remotes(
         SectionHeaderBackground {
             SideMenuHeader(
                 text = stringResource(Res.string.side_pane_remotes_title),
-                icon = painterResource(Res.drawable.cloud),
                 itemsCount = remotes.count(),
                 hoverIcon = {
                     IconButton(
@@ -646,7 +645,6 @@ fun LazyListScope.tags(
             ) {
                 SideMenuHeader(
                     text = stringResource(Res.string.side_pane_tags_title),
-                    icon = painterResource(Res.drawable.tag),
                     itemsCount = tags.count(),
                     hoverIcon = null,
                     isExpanded = isExpanded,
@@ -714,7 +712,6 @@ fun LazyListScope.stashes(
             ) {
                 SideMenuHeader(
                     text = stringResource(Res.string.side_pane_stashes_title),
-                    icon = painterResource(Res.drawable.stash),
                     itemsCount = stashes.count(),
                     hoverIcon = null,
                     isExpanded = isExpanded,
@@ -757,7 +754,6 @@ fun LazyListScope.submodules(
             ) {
                 SideMenuHeader(
                     text = stringResource(Res.string.side_pane_submodules_title),
-                    icon = painterResource(Res.drawable.topic),
                     itemsCount = submodules.count(),
                     hoverIcon = {
                         IconButton(
@@ -811,10 +807,10 @@ private val REMOTE_BRANCH_PADDING = 24.dp
 /** Extra left padding of refs inside a folder. */
 private val FOLDER_DEPTH_PADDING = 22.dp
 
-/** Opaque background so rows don't show through a pinned section header. */
+/** Opaque background so rows don't show through a pinned section header: the pane's own. */
 @Composable
 internal fun SectionHeaderBackground(content: @Composable () -> Unit) {
-    Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
+    Box(modifier = Modifier.background(MaterialTheme.colors.surface)) {
         content()
     }
 }

@@ -30,7 +30,7 @@ import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.repositoryopen.SelectedCommits
 import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.theme.onBackgroundSecondary
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.compare.CommitMark
 import dev.app.leaf.ui.compare.HeaderButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
@@ -54,7 +54,7 @@ fun SelectedCommitsPane(selected: SelectedCommits, onClear: () -> Unit) {
                 .fillMaxWidth()
                 .height(40.dp)
                 .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                .background(MaterialTheme.colors.tertiarySurface)
+                .headerBackground()
                 .padding(start = 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

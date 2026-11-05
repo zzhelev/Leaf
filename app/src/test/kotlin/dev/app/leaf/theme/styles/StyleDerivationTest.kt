@@ -173,6 +173,9 @@ class StyleDerivationTest {
                         assertTrue(adjustment.ratio >= adjustment.check.minimum, "$adjustment")
                     }
                     assertHoldsTheSpec(resolved.palette, look, "$look $isLight ${StyleSeed.entries.map { StyleColorHex.format(seeds[it]) }}")
+                    if (look != AccentStyle.CLASSIC) {
+                        assertEquals(resolved.palette[StyleSlot.PANELS], resolved.palette[StyleSlot.HEADERS], "$look $isLight")
+                    }
                 }
             }
         }
@@ -245,19 +248,21 @@ class StyleDerivationTest {
         assertEquals(emptyList<ContrastShortfall>(), lightResolved.shortfalls)
         assertEquals("#767676", lightResolved.palette[StyleSlot.TEXT].hex())
         val lightMoved = lightResolved.adjustments.filter { it.check.foreground == StyleSlot.TEXT }
-        assertTrue(lightMoved.map { it.slot }.containsAll(listOf(StyleSlot.PANELS, StyleSlot.BOXES, StyleSlot.HEADERS)), "$lightMoved")
+        assertTrue(lightMoved.map { it.slot }.containsAll(listOf(StyleSlot.PANELS, StyleSlot.BOXES)), "$lightMoved")
+        assertEquals(lightResolved.palette[StyleSlot.PANELS], lightResolved.palette[StyleSlot.HEADERS], "the headers go with the panels")
         for (adjustment in lightMoved) {
             assertTrue(adjustment.to.luminance() > adjustment.from.luminance(), "$adjustment")
             assertTrue(adjustment.ratio >= TEXT_CONTRAST, "$adjustment")
         }
 
-        // Grey text on Tonal's dark navy headers: they get darker
+        // Grey text on Tonal's dark panels: they get darker, and the headers with them
         val dark = StyleSide(seedsOf(AccentStyle.TONAL, isLight = false), mapOf(StyleSlot.TEXT to hex("#808080")))
         val darkResolved = resolveStyleSide(style(AccentStyle.TONAL, dark), isLight = false)
-        val headers = darkResolved.adjustments.single { it.slot == StyleSlot.HEADERS && it.check.foreground == StyleSlot.TEXT }
+        val panels = darkResolved.adjustments.single { it.slot == StyleSlot.PANELS && it.check.foreground == StyleSlot.TEXT }
 
         assertEquals(emptyList<ContrastShortfall>(), darkResolved.shortfalls)
-        assertTrue(headers.to.luminance() < headers.from.luminance(), "$headers")
+        assertTrue(panels.to.luminance() < panels.from.luminance(), "$panels")
+        assertEquals(darkResolved.palette[StyleSlot.PANELS], darkResolved.palette[StyleSlot.HEADERS])
     }
 
     @Test
@@ -332,14 +337,38 @@ class StyleDerivationTest {
     }
 
     @Test
-    fun `Teal's dark headers and boxes are Tonal's navy turned as far as its accent turned`() {
+    fun `the headers have the panels' colour in every built-in style but Classic, Solarized's dark panels set by hand too`() {
+        for (style in BuiltInStyles.ALL) {
+            for (isLight in sides) {
+                val palette = resolveStyleSide(style, isLight).palette
+                val headers = palette[StyleSlot.HEADERS]
+
+                if (style.look == AccentStyle.CLASSIC) {
+                    assertTrue(headers != palette[StyleSlot.PANELS], "Classic's headers are filled: ${headers.hex()}")
+                } else {
+                    assertEquals(palette[StyleSlot.PANELS].hex(), headers.hex(), "${style.id} $isLight")
+                }
+            }
+        }
+        assertEquals("#073642", resolveStyleSide(BuiltInStyles.SOLARIZED, isLight = false).palette[StyleSlot.HEADERS].hex())
+    }
+
+    @Test
+    fun `headers set by hand keep their colour`() {
+        val side = StyleSide(seedsOf(AccentStyle.TONAL, isLight = true), mapOf(StyleSlot.HEADERS to hex("#E9ECEF")))
+
+        assertEquals("#E9ECEF", resolveStyleSide(style(AccentStyle.TONAL, side), isLight = true).palette[StyleSlot.HEADERS].hex())
+    }
+
+    @Test
+    fun `Teal's dark boxes are Tonal's navy turned as far as its accent turned`() {
         fun hue(argb: Int) = StyleColorMath.toOklch(argb).h
         val turn = hue(BuiltInStyles.TEAL.dark.seeds.accent) - hue(BuiltInStyles.TONAL.dark.seeds.accent)
         val teal = resolveStyleSide(BuiltInStyles.TEAL, isLight = false).palette
         val tonal = resolveStyleSide(BuiltInStyles.TONAL, isLight = false).palette
 
         // About 59° from blue to teal; hex rounding moves a colour this grey by a few degrees
-        for (slot in listOf(StyleSlot.HEADERS, StyleSlot.BOXES)) {
+        for (slot in listOf(StyleSlot.BOXES)) {
             val own = StyleColorMath.toOklch(teal[slot].toArgb())
             val tonals = StyleColorMath.toOklch(tonal[slot].toArgb())
 

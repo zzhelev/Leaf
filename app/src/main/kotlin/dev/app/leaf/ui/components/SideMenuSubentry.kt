@@ -17,9 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.app.leaf.extensions.backgroundIf
 import dev.app.leaf.extensions.onDoubleClick
-import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.linesHeight
 import dev.app.leaf.ui.log.dimmedWhenNotMatching
 import org.jetbrains.compose.resources.DrawableResource
@@ -49,6 +47,8 @@ fun SideMenuSubentry(
             .fillMaxWidth()
             // Fork-only: what the highlight says, for tests and screen readers
             .semantics { selected = isSelected }
+            // Fork-only: across the pane, whatever the row's depth (docs/fork/window-chrome.md, section 4)
+            .insetSelection(isSelected)
             .clickable { onClick() }
             .run {
                 if (onDoubleClick != null)
@@ -57,7 +57,6 @@ fun SideMenuSubentry(
                     this
             }
             .padding(start = extraPadding)
-            .backgroundIf(isSelected, MaterialTheme.colors.backgroundSelected)
             .dimmedWhenNotMatching(if (isDimmed) false else null),
         verticalAlignment = Alignment.CenterVertically,
     ) {

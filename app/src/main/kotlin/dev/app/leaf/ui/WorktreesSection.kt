@@ -105,7 +105,6 @@ fun LazyListScope.worktrees(
         SectionHeaderBackground {
             SideMenuHeader(
                 text = stringResource(Res.string.side_pane_worktrees_title),
-                icon = painterResource(Res.drawable.folder),
                 itemsCount = worktreesState.rows.count(),
                 isExpanded = worktreesState.isExpanded,
                 onExpand = onExpand,

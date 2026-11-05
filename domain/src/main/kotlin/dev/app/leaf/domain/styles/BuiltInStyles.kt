@@ -116,18 +116,17 @@ object BuiltInStyles {
     }
 
     /**
-     * Teal's colours set by hand: a text tinted with its hue on the light side, and on the dark side the headers and
-     * boxes, which follow no seed and would stay Tonal's navy. They're Tonal's turned to Teal's hue: #0A335C at the most
-     * chroma sRGB has at its lightness, and #1A2B3D. Lanes 2 to 6 are set apart from lane 1's teal and from each other:
-     * following the seeds, lane 2 would be a rose next to lane 6's pink. The function is the "Syntax Colours" board's
-     * blue: Teal's keyword follows its accent, and the template's function, a cyan, would be next to it.
+     * Teal's colours set by hand: a text tinted with its hue on the light side, and on the dark side the boxes, which
+     * follow no seed and would stay Tonal's navy: Tonal's #1A2B3D turned to Teal's hue. Its headers were set the same
+     * way until the headers took the panels' colour (2026-11-05). Lanes 2 to 6 are set apart from lane 1's teal and
+     * from each other: following the seeds, lane 2 would be a rose next to lane 6's pink. The function is the "Syntax
+     * Colours" board's blue: Teal's keyword follows its accent, and the template's function, a cyan, would be next to it.
      */
     private fun tealByHand(isLight: Boolean): Map<StyleSlot, Int> = buildMap {
         if (isLight) {
             put(StyleSlot.TEXT, 0xFF1D2B2B.toInt())
             put(StyleSlot.FUNCTION, 0xFF1A69B5.toInt())
         } else {
-            put(StyleSlot.HEADERS, 0xFF003B3A.toInt())
             put(StyleSlot.BOXES, 0xFF152F2D.toInt())
             put(StyleSlot.FUNCTION, 0xFF97BBFE.toInt())
         }
@@ -156,7 +155,7 @@ object BuiltInStyles {
         dark = StyleSide(SOLARIZED_DARK_SEEDS, solarizedByHand(isLight = false)),
     )
 
-    /** Teal in the Tonal look: its seeds, a teal-tinted text, and its dark headers and lanes set by hand. */
+    /** Teal in the Tonal look: its seeds, a teal-tinted text, and its dark boxes and lanes set by hand. */
     val TEAL = StyleDefinition(
         id = TEAL_ID,
         name = "Teal",

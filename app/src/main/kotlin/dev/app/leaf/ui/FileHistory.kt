@@ -42,7 +42,7 @@ import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.onBackgroundSecondary
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.components.AvatarImage
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.TooltipText
@@ -153,7 +153,7 @@ private fun Header(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .padding(start = 8.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -86,7 +86,7 @@ class BuiltInStylesTest {
     }
 
     @Test
-    fun `Teal comes last, in the Tonal look, with its seeds, and its text, dark headers, function and lanes by hand`() {
+    fun `Teal comes last, in the Tonal look, with its seeds, and its text, dark boxes, function and lanes by hand`() {
         val teal = BuiltInStyles.TEAL
 
         assertEquals(
@@ -107,7 +107,7 @@ class BuiltInStylesTest {
         val lanes = mapOf("lane2" to "#C87D52", "lane3" to "#5B97D3", "lane4" to "#C4759C", "lane5" to "#60A56B", "lane6" to "#9D82CC")
         assertEquals(mapOf("text" to "#1D2B2B", "function" to "#1A69B5") + lanes, hex(teal.light.setByHand))
         assertEquals(
-            mapOf("headers" to "#003B3A", "boxes" to "#152F2D", "function" to "#97BBFE") + lanes,
+            mapOf("boxes" to "#152F2D", "function" to "#97BBFE") + lanes,
             hex(teal.dark.setByHand),
         )
     }

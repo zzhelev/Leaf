@@ -37,7 +37,7 @@ import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.theme.syntaxColors
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.diff.colouredLine
@@ -216,7 +216,7 @@ private fun Header(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(MaterialTheme.colors.tertiarySurface)
+            .headerBackground()
             .padding(start = 8.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

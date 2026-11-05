@@ -75,15 +75,32 @@ private val NEAR_BLACK = Color(0xFF1E1E1E)
  * switches) is the muted blue, and so is the light theme's `primaryVariant` (links, the tab underline, text fields),
  * which is the same blue as its `primary`. The dark theme's `primaryVariant` is a pale blue for text on the dark
  * background, which the muted blue doesn't hold, so it stays. Classic is the scheme as it is.
+ *
+ * Tonal's and Quiet's panels are mockup A's of the "Leaf window chrome review" board, and their headers have the
+ * panels' colour, with a line under them (`docs/fork/window-chrome.md`, section 4). The dark background stays: mockup A's
+ * #121315 left the code's colours short of 4.5 : 1 on the added lines. Classic keeps its filled headers.
  */
 fun ColorsScheme.styled(style: AccentStyle): ColorsScheme = when (style) {
     AccentStyle.CLASSIC -> this
     AccentStyle.TONAL, AccentStyle.QUIET -> if (isLight) {
-        copy(primary = MUTED_PRIMARY_LIGHT, primaryVariant = MUTED_PRIMARY_LIGHT)
+        copy(
+            primary = MUTED_PRIMARY_LIGHT,
+            primaryVariant = MUTED_PRIMARY_LIGHT,
+            surface = TONAL_PANELS_LIGHT,
+            tertiarySurface = TONAL_PANELS_LIGHT,
+        )
     } else {
-        copy(primary = MUTED_PRIMARY_DARK)
+        copy(
+            primary = MUTED_PRIMARY_DARK,
+            surface = TONAL_PANELS_DARK,
+            tertiarySurface = TONAL_PANELS_DARK,
+        )
     }
 }
+
+private val TONAL_PANELS_LIGHT = Color(0xFFF7F8F9)
+private val TONAL_PANELS_DARK = Color(0xFF18191C)
+
 
 /** The roles of [style] in a built-in theme, [scheme] being [styled] already. */
 fun styleColorsFor(style: AccentStyle, scheme: ColorsScheme): StyleColors = when (style) {

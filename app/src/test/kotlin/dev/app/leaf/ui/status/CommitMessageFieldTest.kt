@@ -39,6 +39,7 @@ import dev.app.leaf.domain.styles.StyleSide
 import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.theme.darkTheme
+import dev.app.leaf.theme.frameColorsFor
 import dev.app.leaf.theme.lightTheme
 import dev.app.leaf.theme.styled
 import dev.app.leaf.ui.components.FilesChangedHeader
@@ -206,10 +207,13 @@ class CommitMessageFieldTest {
     // --- The title row
 
     @Test
-    fun `the title row has the headers' height, surface and text position`(): Unit = runBlocking(Dispatchers.Swing) {
-        for ((theme, scheme) in listOf(Theme.Light to lightTheme, Theme.Dark to darkTheme)) {
+    fun `the title row has the headers' height, surface, line and text position`(): Unit = runBlocking(Dispatchers.Swing) {
+        val cases = listOf(Theme.Light to lightTheme, Theme.Dark to darkTheme).flatMap { (theme, base) ->
+            listOf(AccentStyle.TONAL, AccentStyle.CLASSIC).map { look -> Triple(theme, look, base.styled(look)) }
+        }
+        for ((theme, look, scheme) in cases) {
             val image = ImageComposeScene(width = 400, height = 80, density = Density(1f)) {
-                AppTheme(selectedTheme = theme) {
+                AppTheme(selectedTheme = theme, style = BuiltInStyles.ofLook(look)) {
                     Column(Modifier.fillMaxSize().background(MaterialTheme.colors.surface)) {
                         FilesChangedHeader(
                             title = "Staged",
@@ -238,10 +242,15 @@ class CommitMessageFieldTest {
             assertEquals(staged.height, commit.height, 0.5f, "$theme: the text's size")
 
             for (y in listOf(1, 30, 36, 64)) {
-                assertEquals(scheme.tertiarySurface.toArgb(), bitmap.getColor(300, y), "$theme: the surface at $y")
+                assertEquals(scheme.tertiarySurface.toArgb(), bitmap.getColor(300, y), "$theme $look: the surface at $y")
+            }
+            // Tonal's headers have the pane's colour, and a line along their bottoms; Classic's are filled, with none
+            val line = if (look == AccentStyle.CLASSIC) scheme.tertiarySurface else frameColorsFor(look, scheme).separator
+            for (y in listOf(33, 67)) {
+                assertEquals(line.toArgb(), bitmap.getColor(300, y), "$theme $look: the line at $y")
             }
             // Under both rows, the pane's own surface: the title row is no taller than the header
-            assertEquals(scheme.surface.toArgb(), bitmap.getColor(300, 70), "$theme: below the rows")
+            assertEquals(scheme.surface.toArgb(), bitmap.getColor(300, 70), "$theme $look: below the rows")
 
             scene!!.close()
             scene = null

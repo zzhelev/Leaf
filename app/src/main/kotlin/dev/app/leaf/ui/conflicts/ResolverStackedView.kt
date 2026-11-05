@@ -63,7 +63,7 @@ import dev.app.leaf.extensions.toStringWithSpaces
 import dev.app.leaf.theme.addFile
 import dev.app.leaf.theme.conflictFile
 import dev.app.leaf.theme.onBackgroundSecondary
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.SectionDivider
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
@@ -233,7 +233,7 @@ fun ResolverStackedView(
 
             Column(Modifier.weight(1f)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(30.dp).background(MaterialTheme.colors.tertiarySurface),
+                    modifier = Modifier.fillMaxWidth().height(30.dp).headerBackground(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Header(
@@ -292,7 +292,7 @@ private fun SidesHeaders(sides: ConflictSides?) {
     val explanation = sides?.explanation()
 
     Row(
-        modifier = Modifier.fillMaxWidth().height(30.dp).background(MaterialTheme.colors.tertiarySurface),
+        modifier = Modifier.fillMaxWidth().height(30.dp).headerBackground(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Header(

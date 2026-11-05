@@ -25,7 +25,7 @@ import dev.app.leaf.app.generated.resources.search
 import dev.app.leaf.app.generated.resources.status_header_more_actions
 import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.theme.RoleColors
-import dev.app.leaf.theme.tertiarySurface
+import dev.app.leaf.theme.headerBackground
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -72,7 +72,7 @@ fun FilesChangedHeader(
             modifier = Modifier
                 .height(34.dp)
                 .fillMaxWidth()
-                .background(color = MaterialTheme.colors.tertiarySurface)
+                .headerBackground()
                 .hoverable(headerHoverInteraction),
             verticalAlignment = Alignment.CenterVertically,
         ) {
