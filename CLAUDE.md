@@ -1718,7 +1718,12 @@ built with the defaults proposed to the user (the user was away; the proposal an
   - A word that would make a line something else never starts one (`canStartLine`): one that starts with the comment
     prefix (`Fixes #123` would lose `#123` to git's clean-up), a list marker such as a lone `-`, or a fence. It stays on
     the line before, past 72. A word longer than 72 (a URL) gets a line of its own and isn't broken.
-  - The item is greyed out with "Every line fits" (`canWrapBody`) when wrapping changes nothing. `SortMenuItem.Option`
+  - The item is greyed out when wrapping changes nothing, with the reason of the first line past 72 that git keeps
+    (`wrapBodyBlocker`, `WrapBodyBlocker`; since 2026-11-05): "Every line fits", "Long lines have no spaces" (words longer
+    than 72, which it doesn't break), "Only the subject is long", "No blank line after the subject" (lines that run on
+    from it, the subject's paragraph), "Long lines are indented or code" and "Long lines are trailers". Until then it
+    always said "Every line fits", also for long lines without a space, which a manual run met. `wrapBody` and the
+    reason read the message through one `WrapLayout`. `SortMenuItem.Option`
     gained `isEnabled` for it. The selection stays before the same characters (`offsetAfterWrap`: wrapping only changes
     white space), and Cmd+Z undoes it, as the field's undo keeps the value it is given.
 - **The ticket key** (`ticketKeyIn`): the first `[A-Z][A-Z0-9]+-[1-9][0-9]*` in the current branch's short name, not inside
