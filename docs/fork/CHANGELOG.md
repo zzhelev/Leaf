@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A text size, apart from Scale (2026-11-05)
+
+- **Request:** a user's feedback that Leaf had no way to make its text bigger: Scale makes everything bigger, icons and
+  spacing too, which wasn't what they wanted.
+- **Now:** Settings → Appearance → "Text size", under Scale, from 11 to 20 points (13, the size Leaf has always had, by
+  default). Cmd or Ctrl with `+` makes the text bigger, with `−` smaller, and with `0` gives back the default, wherever
+  the focus is. On macOS a View menu has the same three, with their shortcuts. The size is saved for the whole app.
+- Rows, strips and toolbar buttons that hold text grow with it, and the log's columns widen, so nothing is cut at 20.
+  At 13 Leaf looks exactly as before.
+- **Chosen with the user** from a mockup: one setting for all text, code included, over one for the interface and one
+  for code; points rather than percentages, which would read like Scale; and the View menu.
+- Details: CLAUDE.md, "Conventions", Settings, Text size.
+
 ## The diff pane's "Open submodule" opens the submodule (2026-11-03)
 
 - **Before** (upstream's code, listed in `architecture-notes.md` since Phase 0): the button under a submodule's diff
