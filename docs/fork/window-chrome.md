@@ -93,7 +93,7 @@ once tabs filled the bar):
 - Turned down: (2) the toolbar's empty space moving the window too, which Leaf would have to do itself below the 40 pt
   bar, losing edge snapping from there; (3) leaving only the strip around the window buttons.
 
-**The tabs' look.** Each tab is a pill 28 dp tall. The selected one is filled (`chrome.control`) and keeps its 3 dp
+**The tabs' look.** Each tab is a pill 28 dp tall. The selected one is filled (`frame.control`) and keeps its 3 dp
 colour stripe. The others are plain text.
 
 **Dialogs.** A `MaterialDialog` draws its scrim over the bar as well. While a dialog is open, a click on a tab under the
@@ -101,7 +101,7 @@ scrim must not select it.
 
 ## 3. The toolbar (A2)
 
-One 48 dp row in the frame's colour (`chrome`), with a hairline below. From left to right:
+One 48 dp row in the frame's colour (`frame`), with a hairline below. From left to right:
 
 1. **Switcher**, "Leaf / main ⌄": the repository's name, then the tab's branch. With linked worktrees it shows the
    worktree and its branch. One popup holds today's two:
@@ -130,29 +130,50 @@ switcher. An upstream sync will then show `Menu.kt` as modify/delete: keep the d
 
 ## 4. Surfaces and headers (A3)
 
-**Six new slots** in the Surfaces group:
+**Seven new slots**, in a group of their own, Window frame (built 2026-11-05, step 1). The plan had six; mockup C needs
+the seventh, `frame.icon`, for its leaf green on the frame:
 
-| Slot | Used for |
-|---|---|
-| `chrome` | the title bar and the toolbar |
-| `chrome.text` | text and icons in the frame |
-| `chrome.secondaryText` | muted text in the frame |
-| `chrome.control` | the selected tab, the switcher, button groups |
-| `chrome.controlEdge` | their outlines |
-| `separators` | the hairlines between the panes and under the headers |
+| Slot | Key | Used for |
+|---|---|---|
+| `FRAME` | `frame` | the title bar and the toolbar |
+| `FRAME_TEXT` | `frame.text` | text in the frame |
+| `FRAME_SECONDARY_TEXT` | `frame.secondaryText` | muted text in the frame |
+| `FRAME_ICON` | `frame.icon` | icons that carry the frame's colour, as the repository's |
+| `FRAME_CONTROL` | `frame.control` | the selected tab, the switcher, button groups |
+| `FRAME_CONTROL_EDGE` | `frame.control.edge` | their outlines |
+| `SEPARATORS` | `separators` | the hairlines between the panes and under the toolbar and the headers |
 
-A style file without these keys reads its look's values, as it already does for any missing slot.
+- A style file without these keys reads its look's values, as it already does for any missing slot.
+- The theme provides them as `FrameColors` (`A/theme/FrameColors.kt`, `MaterialTheme.frameColors`). The title bar draws
+  its background with `frameColors.background`.
+- The style editor's Advanced table has them under Window frame, after Surfaces: "Title bar and toolbar" (fill, text,
+  icon), "Muted text in the frame", "Selected tab and buttons" (fill, edge), "Lines between panes".
 
-**Worked out from Background**, with values from mockup A:
+**The looks' values** (`frameColorsFor`):
+
+| | Classic | Tonal and Quiet, light | Tonal and Quiet, dark |
+|---|---|---|---|
+| `frame` | the panels' colour (`surface`), as its toolbar has | #F1F2F4 | #1D1E21 |
+| `frame.text` | the text colour | the text colour | the text colour |
+| `frame.secondaryText` | the secondary text colour | #5B616B | #A3A8B0 |
+| `frame.icon` | the links' colour | the links' colour | the links' colour |
+| `frame.control` | the background, as its selected tab has | #FFFFFF | #2A2C30 |
+| `frame.control.edge` | #D3D7DD, dark #3A3D43 | #D3D7DD | #3A3D43 |
+| `separators` | #E3E6EA, dark #2B2D31 | #E3E6EA | #2B2D31 |
+
+Step 4 changes the panels and the content of Tonal and Quiet to mockup A's:
 
 | | Light | Dark |
 |---|---|---|
-| Frame (`chrome`) | #F1F2F4 | #1D1E21 |
 | Side panes (`panels`) | #F7F8F9 | #18191C |
 | Content (`background`) | #FFFFFF | #121315 |
 
-**Contrast checks.** `chrome.text` and `chrome.secondaryText` must hold 4.5 : 1 on `chrome` and on `chrome.control`,
-moved by the existing rounds like any other text. Separators are decoration and aren't checked.
+**Seeds.** The frame, its controls and the separators follow Background, its text follows Background as text does, and
+its icon follows Accent. Step 5's Frame seed (D6) takes Background's place for them.
+
+**Contrast checks.** `frame.text` and `frame.secondaryText` hold 4.5 : 1 on `frame` and on `frame.control` over it, and
+`frame.icon` 3 : 1, moved by the existing rounds like any other colour. Separators are decoration and aren't checked.
+Solarized's dark muted frame text held 3.98 on its controls without the check, and is moved now.
 
 **Headers.**
 
@@ -191,13 +212,13 @@ default.
 - **(b) Recommended: a green frame and main action, with Tonal's blue for selection, links and lane 1.** Green also
   means "added" in the file lists and diffs. A green selection next to green "added" icons reads as one thing.
 
-**A Frame seed (D6, recommended):** a sixth seed in the style editor that the six chrome slots follow. Then:
+**A Frame seed (D6, recommended):** a sixth seed in the style editor that the seven frame slots follow. Then:
 
 - Leaf is simply Tonal with a green frame;
 - any user style can colour its frame with one swatch;
 - a frame equal to the look's own keeps the look's values exactly, as the other seeds do.
 
-Without the seed, Leaf sets its chrome slots by hand, and user styles change them one by one in Advanced.
+Without the seed, Leaf sets its frame slots by hand, and user styles change them one by one in Advanced.
 
 ## 6. Smaller changes from the mockup (D7, each on its own)
 
@@ -227,8 +248,9 @@ Without the seed, Leaf sets its chrome slots by hand, and user styles change the
      made JBR drop a resize event ("invokeAndWait is discarded as the EventDispatch thread is currently blocked").
      Full screen now only removes the left padding.
    - A full tab bar left no room to move the window, which led to the free strip above.
-1. **Style slots.** The six slots, codec keys, derivation rules, contrast checks, and a "Window" group in the editor's
-   Advanced table. Nothing on screen changes yet.
+1. **Style slots.** Done 2026-11-05: the seven slots of section 4, their keys, derivation rules, contrast checks, and the
+   Window frame group in the editor's Advanced table. Nothing on screen changes but the title bar's background, which is
+   the frame's colour.
 2. **Title bar with the tabs.** macOS, with the fallback for every other case.
 3. **Toolbar** (section 3).
 4. **Surfaces and headers** (section 4).
