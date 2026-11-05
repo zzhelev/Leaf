@@ -17,6 +17,9 @@ sealed interface ColourTarget {
     /** A seed: the background has a colour per side, the others one for both, which sets both sides. */
     data class Seed(val seed: StyleSeed, val isLight: Boolean? = null) : ColourTarget
 
+    /** The frame's colour on one side, which may follow the background. */
+    data class Frame(val isLight: Boolean) : ColourTarget
+
     /** A colour of the Advanced table, on one side. */
     data class Slot(val slot: StyleSlot, val isLight: Boolean) : ColourTarget
 }
@@ -53,6 +56,12 @@ data class StyleEditorState(
                 dark = if (isLight != true) draft.dark.with() else draft.dark,
             ),
         )
+    }
+
+    /** Sets the frame's colour on one side, or with null lets it follow the background again. */
+    fun withFrame(isLight: Boolean, argb: Int?): StyleEditorState {
+        val side = draft.side(isLight)
+        return copy(draft = draft.withSide(isLight, side.copy(seeds = side.seeds.copy(frame = argb?.let { it or OPAQUE }))))
     }
 
     /** Sets [slot] by hand on one side: it's used as given, whatever the seeds. */

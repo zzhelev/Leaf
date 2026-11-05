@@ -19,6 +19,7 @@ object BuiltInStyles {
     const val QUIET_ID = "quiet"
     const val SOLARIZED_ID = "solarized"
     const val TEAL_ID = "teal"
+    const val LEAF_ID = "leaf"
 
     /** The style for no choice, and for a choice that can't be read. */
     const val DEFAULT_ID = TONAL_ID
@@ -136,6 +137,30 @@ object BuiltInStyles {
         StyleSlot.LANES.drop(1).zip(lanes).forEach { (slot, argb) -> put(slot, argb.toInt()) }
     }
 
+    // Leaf: Tonal's seeds, a forest green frame, and the darker green content of mockup C of the window chrome review
+    // (docs/fork/window-chrome.md, section 5)
+    private val LEAF_LIGHT_SEEDS = TONAL_LIGHT_SEEDS.copy(frame = 0xFF0F3B27.toInt())
+    private val LEAF_DARK_SEEDS = TONAL_DARK_SEEDS.copy(background = 0xFF0C120F.toInt(), frame = 0xFF0E2419.toInt())
+
+    /**
+     * Leaf's colours set by hand: the green of its main action, mockup C's green-tinted panels, the leaf green of the
+     * selected tab's and the switcher's icon, and a muted green for the frame's quieter text, chosen with the user
+     * (2026-11-05): 6.3 : 1 on the frame's controls, Tonal's margin there, where the worked-out one held only 4.5.
+     * Selection, links and lane 1 keep Tonal's blue, as green also means "added" (D5). The rest of the frame is worked
+     * out from the Frame seed.
+     */
+    private fun leafByHand(isLight: Boolean): Map<StyleSlot, Int> = buildMap {
+        put(StyleSlot.FRAME_ICON, 0xFF8EDC72.toInt())
+        put(StyleSlot.FRAME_SECONDARY_TEXT, 0xFFB4D6C2.toInt())
+        if (isLight) {
+            put(StyleSlot.PANELS, 0xFFF3F6F3.toInt())
+            put(StyleSlot.MAIN_ACTION_FILL, 0xFF1F6B45.toInt())
+        } else {
+            put(StyleSlot.PANELS, 0xFF101A15.toInt())
+            put(StyleSlot.MAIN_ACTION_FILL, 0xFF2F7D52.toInt())
+        }
+    }
+
     /** The seeds that [look]'s light or dark colours are built around. */
     fun templateSeeds(look: AccentStyle, isLight: Boolean): StyleSeeds = when (look) {
         AccentStyle.CLASSIC -> if (isLight) CLASSIC_LIGHT_SEEDS else CLASSIC_DARK_SEEDS
@@ -164,8 +189,17 @@ object BuiltInStyles {
         dark = StyleSide(TEAL_DARK_SEEDS, tealByHand(isLight = false)),
     )
 
+    /** Tonal with a forest green frame and main action: the style named after the app. */
+    val LEAF = StyleDefinition(
+        id = LEAF_ID,
+        name = "Leaf",
+        look = AccentStyle.TONAL,
+        light = StyleSide(LEAF_LIGHT_SEEDS, leafByHand(isLight = true)),
+        dark = StyleSide(LEAF_DARK_SEEDS, leafByHand(isLight = false)),
+    )
+
     /** In the order Settings lists them. */
-    val ALL: List<StyleDefinition> = listOf(TONAL, CLASSIC, QUIET, SOLARIZED, TEAL)
+    val ALL: List<StyleDefinition> = listOf(TONAL, CLASSIC, QUIET, SOLARIZED, TEAL, LEAF)
 
     val DEFAULT: StyleDefinition get() = TONAL
 

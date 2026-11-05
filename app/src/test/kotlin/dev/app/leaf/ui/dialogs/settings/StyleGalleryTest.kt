@@ -103,13 +103,16 @@ class StyleGalleryTest {
         runBlocking(Dispatchers.Swing) {
             show(state(styles = BuiltInStyles.ALL + lagoon))
 
-            val names = listOf("Tonal", "Classic", "Quiet", "Solarized", "Teal", "Lagoon", "+ New style", "starts from Tonal", "Import style…", "a .json file")
+            val names = listOf("Tonal", "Classic", "Quiet", "Solarized", "Teal", "Leaf", "Lagoon", "+ New style", "starts from Tonal", "Import style…", "a .json file")
             for (name in names) {
                 assertTrue(name in texts(), "$name in ${texts()}")
             }
-            assertEquals(5, texts().count { it == "built in" })
-            assertTrue(boundsOf("Import style…").top > boundsOf("Tonal").top, "Import is on the second row")
-            assertTrue(boundsOf("Import style…").left > boundsOf("+ New style").left, "after New")
+            assertEquals(6, texts().count { it == "built in" })
+            // Last, in reading order: to the right of New, or on a row below it
+            val import = boundsOf("Import style…")
+            val new = boundsOf("+ New style")
+            assertTrue(import.top > boundsOf("Tonal").top, "Import is below the first row")
+            assertTrue(import.top > new.bottom || (import.top == new.top && import.left > new.left), "after New")
         }
 
     @Test

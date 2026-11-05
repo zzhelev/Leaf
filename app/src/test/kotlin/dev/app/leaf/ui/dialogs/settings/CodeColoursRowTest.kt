@@ -76,7 +76,9 @@ class CodeColoursRowTest {
     @Test
     fun `picking a choice sets it`(): Unit = runBlocking(Dispatchers.Swing) {
         show(CodeColours.LEAF)
-        click(nodes().first { "Leaf" in it.texts() && it.boundsInRoot.top > boundsOf("Code colours").top - 40 })
+        // The drop-down, right of the row's title: the Leaf style's card in the gallery above has the name too
+        val title = boundsOf("Code colours")
+        click(nodes().first { "Leaf" in it.texts() && it.boundsInRoot.left > title.right && it.boundsInRoot.bottom > title.top })
 
         // The menu lists the three, in this order
         val items = listOf("Leaf", "VS Code", "IntelliJ").map { name -> nodes().last { name in it.texts() } }

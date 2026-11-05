@@ -36,6 +36,7 @@ sealed interface StyleEditorAction {
     data class Rename(val name: String) : StyleEditorAction
     data class SetLook(val look: AccentStyle) : StyleEditorAction
     data class SetSeed(val seed: StyleSeed, val argb: Int, val isLight: Boolean? = null) : StyleEditorAction
+    data class SetFrame(val isLight: Boolean, val argb: Int?) : StyleEditorAction
     data class SetColour(val slot: StyleSlot, val isLight: Boolean, val argb: Int) : StyleEditorAction
     data class UseWorkedOutColour(val slot: StyleSlot, val isLight: Boolean) : StyleEditorAction
     data class OpenPicker(val target: ColourTarget?) : StyleEditorAction
@@ -91,6 +92,7 @@ class StyleEditorViewModel @AssistedInject constructor(
             is StyleEditorAction.Rename -> state.update { it.renamed(action.name) }
             is StyleEditorAction.SetLook -> state.update { it.withLook(action.look) }
             is StyleEditorAction.SetSeed -> state.update { it.withSeed(action.seed, action.argb, action.isLight) }
+            is StyleEditorAction.SetFrame -> state.update { it.withFrame(action.isLight, action.argb) }
             is StyleEditorAction.SetColour -> state.update { it.withColourSetByHand(action.slot, action.isLight, action.argb) }
             is StyleEditorAction.UseWorkedOutColour -> state.update { it.withWorkedOutColour(action.slot, action.isLight) }
             is StyleEditorAction.OpenPicker -> state.update { it.withPicker(action.target) }

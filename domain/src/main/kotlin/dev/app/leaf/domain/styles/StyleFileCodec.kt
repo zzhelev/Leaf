@@ -48,6 +48,7 @@ sealed interface StyleFileRead {
  *   "look": "tonal",
  *   "light": {
  *     "seeds": { "background": "#FFFFFF", "accent": "#007475", "danger": "#B4405A", "warning": "#E0A03A", "success": "#3F8F52" },
+ *     (and "frame": "#0F3B27" in a style that sets the frame's colour)
  *     "setByHand": { "text": "#1D2B2B" }
  *   },
  *   "dark": { … }
@@ -68,6 +69,7 @@ object StyleFileCodec {
     private const val LIGHT_KEY = "light"
     private const val DARK_KEY = "dark"
     private const val SEEDS_KEY = "seeds"
+    private const val FRAME_KEY = "frame"
     private const val SET_BY_HAND_KEY = "setByHand"
 
     private val json = Json {
@@ -90,6 +92,7 @@ object StyleFileCodec {
     private fun encodeSide(side: StyleSide): JsonObject = buildJsonObject {
         putJsonObject(SEEDS_KEY) {
             for (seed in StyleSeed.entries) put(seed.key, StyleColorHex.format(side.seeds[seed]))
+            side.seeds.frame?.let { put(FRAME_KEY, StyleColorHex.format(it)) }
         }
         putJsonObject(SET_BY_HAND_KEY) {
             // In the slots' order, so that a file changes only where a colour does
@@ -181,7 +184,19 @@ object StyleFileCodec {
                 else -> seeds = seeds.with(seed, argb)
             }
         }
-        seedsObject?.keys?.filter { StyleSeed.fromKey(it) == null }?.forEach {
+        // The frame is optional: without it, the frame follows the background
+        val frameValue = seedsObject?.get(FRAME_KEY)
+        if (frameValue != null) {
+            val frameText = (frameValue as? JsonPrimitive)?.takeIf { it.isString }?.content
+            val argb = frameText?.let(StyleColorHex::parse)
+            if (argb == null) {
+                problems += "its $sideName frame $frameValue isn't a colour, so it follows the background"
+            } else {
+                if (argb ushr 24 != 0xFF) problems += "its $sideName frame is see-through, so it's used opaque"
+                seeds = seeds.copy(frame = argb or OPAQUE)
+            }
+        }
+        seedsObject?.keys?.filter { StyleSeed.fromKey(it) == null && it != FRAME_KEY }?.forEach {
             problems += "its $sideName seed \"$it\" isn't known, so it's left out"
         }
 

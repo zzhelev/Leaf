@@ -10,6 +10,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.text.font.FontWeight
@@ -22,7 +23,11 @@ import dev.app.leaf.theme.onBackgroundSecondary
 // (docs/fork/window-chrome.md); the keyboard hints stay, as the tooltips and the Actions list show them.
 
 @Composable
-fun KeybindingHint(keybinding: Keybinding) {
+fun KeybindingHint(
+    keybinding: Keybinding,
+    // Fork-only: the toolbar's is on the window's frame (docs/fork/window-chrome.md)
+    color: Color = MaterialTheme.colors.onBackgroundSecondary,
+) {
     val parts = remember(keybinding) { getParts(keybinding) }.joinToString("+")
 
     Text(
@@ -30,7 +35,7 @@ fun KeybindingHint(keybinding: Keybinding) {
         fontFamily = monoTypography(),
         fontSize = MaterialTheme.typography.caption.fontSize,
         fontWeight = FontWeight.Medium,
-        color = MaterialTheme.colors.onBackgroundSecondary,
+        color = color,
     )
 }
 

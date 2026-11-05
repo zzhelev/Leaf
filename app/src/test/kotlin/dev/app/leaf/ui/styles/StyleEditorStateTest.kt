@@ -55,6 +55,17 @@ class StyleEditorStateTest {
     }
 
     @Test
+    fun `the frame is set one side at a time, opaque, and following the background again takes it away`() {
+        val set = tonalCopy.withFrame(isLight = true, 0x800F3B27.toInt())
+
+        assertEquals(0xFF0F3B27.toInt(), set.draft.light.seeds.frame)
+        assertEquals(null, set.draft.dark.seeds.frame)
+        assertTrue(set.hasChanges)
+
+        assertEquals(tonalCopy.draft, set.withFrame(isLight = true, null).draft)
+    }
+
+    @Test
     fun `a colour set by hand is on one side, and working it out again takes it away`() {
         val set = tonalCopy.withColourSetByHand(StyleSlot.TEXT, isLight = true, 0xFF586E75.toInt())
 

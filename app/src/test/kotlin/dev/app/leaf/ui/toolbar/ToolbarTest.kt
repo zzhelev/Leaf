@@ -115,11 +115,11 @@ class ToolbarTest {
     }
 
     @Test
-    fun `renders the toolbar in four styles at 1440 and 900, to look at`() {
+    fun `renders the toolbar in five styles at 1440 and 900, to look at`() {
         val folder = System.getenv("LEAF_RENDER_DIR")?.let(::File) ?: return
         folder.mkdirs()
 
-        for (style in listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.SOLARIZED, BuiltInStyles.TEAL)) {
+        for (style in listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.SOLARIZED, BuiltInStyles.TEAL, BuiltInStyles.LEAF)) {
             for (theme in listOf(Theme.Light, Theme.Dark)) {
                 for (width in listOf(1440, 900)) {
                     render(width = width, theme = theme, style = style, density = 2f)

@@ -102,7 +102,7 @@ class TitleBarTabsTest {
         }
 
     @Test
-    fun `renders the title bar's tabs in four styles, to look at`(): Unit = runBlocking(Dispatchers.Swing) {
+    fun `renders the title bar's tabs in five styles, to look at`(): Unit = runBlocking(Dispatchers.Swing) {
         val folder = System.getenv("LEAF_RENDER_DIR")?.let(::File) ?: return@runBlocking
         folder.mkdirs()
 
@@ -114,7 +114,7 @@ class TitleBarTabsTest {
             TabInformation(FakeTab(null, look = null)),
         )
 
-        for (style in listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.SOLARIZED, BuiltInStyles.TEAL)) {
+        for (style in listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.SOLARIZED, BuiltInStyles.TEAL, BuiltInStyles.LEAF)) {
             for (theme in listOf(Theme.Light, Theme.Dark)) {
                 TabsScene(tabs, barWidth = 1000, theme = theme, style = style, density = 2f).use { scene ->
                     scene.settle()

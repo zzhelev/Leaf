@@ -86,11 +86,11 @@ class BuiltInStylesTest {
     }
 
     @Test
-    fun `Teal comes last, in the Tonal look, with its seeds, and its text, dark boxes, function and lanes by hand`() {
+    fun `Teal comes after Solarized, in the Tonal look, with its seeds, and its text, dark boxes, function and lanes by hand`() {
         val teal = BuiltInStyles.TEAL
 
         assertEquals(
-            listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.QUIET, BuiltInStyles.SOLARIZED, teal),
+            listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.QUIET, BuiltInStyles.SOLARIZED, teal, BuiltInStyles.LEAF),
             BuiltInStyles.ALL,
         )
         assertEquals(teal, BuiltInStyles.byId("teal"))
@@ -110,6 +110,41 @@ class BuiltInStylesTest {
             mapOf("boxes" to "#152F2D", "function" to "#97BBFE") + lanes,
             hex(teal.dark.setByHand),
         )
+    }
+
+    @Test
+    fun `Leaf comes last, as Tonal's seeds with a green frame, and its main action, panels and frame's icon and muted text by hand`() {
+        val leaf = BuiltInStyles.LEAF
+
+        assertEquals(leaf, BuiltInStyles.ALL.last())
+        assertEquals(leaf, BuiltInStyles.byId("leaf"))
+        assertEquals("Leaf", leaf.name)
+        assertEquals(AccentStyle.TONAL, leaf.look)
+        assertTrue(leaf.isBuiltIn)
+        assertEquals(BuiltInStyles.TONAL, BuiltInStyles.DEFAULT, "Leaf isn't the default")
+
+        // Selection, links and lane 1 follow the accent, which stays Tonal's blue (D5)
+        val tonalLight = BuiltInStyles.templateSeeds(AccentStyle.TONAL, isLight = true)
+        val tonalDark = BuiltInStyles.templateSeeds(AccentStyle.TONAL, isLight = false)
+        assertEquals(tonalLight.copy(frame = 0xFF0F3B27.toInt()), leaf.light.seeds)
+        assertEquals(tonalDark.copy(background = 0xFF0C120F.toInt(), frame = 0xFF0E2419.toInt()), leaf.dark.seeds)
+
+        assertEquals(
+            mapOf("panels" to "#F3F6F3", "frame.secondaryText" to "#B4D6C2", "frame.icon" to "#8EDC72", "mainAction.fill" to "#1F6B45"),
+            hex(leaf.light.setByHand),
+        )
+        assertEquals(
+            mapOf("panels" to "#101A15", "frame.secondaryText" to "#B4D6C2", "frame.icon" to "#8EDC72", "mainAction.fill" to "#2F7D52"),
+            hex(leaf.dark.setByHand),
+        )
+    }
+
+    @Test
+    fun `only Leaf has a frame of its own, and the others' frames follow their backgrounds`() {
+        for (style in BuiltInStyles.ALL - BuiltInStyles.LEAF) {
+            assertNull(style.light.seeds.frame, style.id)
+            assertNull(style.dark.seeds.frame, style.id)
+        }
     }
 
     @Test

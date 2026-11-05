@@ -41,6 +41,11 @@ class StyleDerivationTest {
 
     private fun seedsOf(look: AccentStyle, isLight: Boolean) = BuiltInStyles.templateSeeds(look, isLight)
 
+    private val FRAME_SLOTS = listOf(
+        StyleSlot.FRAME, StyleSlot.FRAME_TEXT, StyleSlot.FRAME_SECONDARY_TEXT, StyleSlot.FRAME_ICON, StyleSlot.FRAME_CONTROL,
+        StyleSlot.FRAME_CONTROL_EDGE,
+    )
+
     @Test
     fun `Classic, Tonal and Quiet give their look's colours exactly, lanes included, and move nothing`() {
         for (style in listOf(BuiltInStyles.CLASSIC, BuiltInStyles.TONAL, BuiltInStyles.QUIET)) {
@@ -161,7 +166,8 @@ class StyleDerivationTest {
                         val l = if (isLight) random.nextDouble(0.85, 1.0) else random.nextDouble(0.1, 0.35)
                         StyleColorMath.fromOklch(Oklch(l, random.nextDouble(0.0, 0.06), random.nextDouble(360.0)))
                     }
-                    val seeds = StyleSeeds(background, any(), any(), any(), any())
+                    // A frame of its own now and then, of any colour
+                    val seeds = StyleSeeds(background, any(), any(), any(), any(), frame = any().takeIf { random.nextInt(3) == 0 })
                     val resolved = resolveStyleSide(style(look, StyleSide(seeds)), isLight)
 
                     assertEquals(
@@ -351,6 +357,73 @@ class StyleDerivationTest {
             }
         }
         assertEquals("#073642", resolveStyleSide(BuiltInStyles.SOLARIZED, isLight = false).palette[StyleSlot.HEADERS].hex())
+    }
+
+    @Test
+    fun `a frame equal to the look's own keeps the look's frame colours, on either side`() {
+        for (look in AccentStyle.entries) {
+            for (isLight in sides) {
+                val template = StylePalette.template(look, isLight)
+                val side = StyleSide(seedsOf(look, isLight).copy(frame = template[StyleSlot.FRAME].toArgb()))
+                val palette = resolveStyleSide(style(look, side), isLight).palette
+
+                for (slot in FRAME_SLOTS) assertEquals(template[slot], palette[slot], "$look $isLight $slot")
+            }
+        }
+    }
+
+    @Test
+    fun `a dark frame on the light side starts from the dark side's frame colours, and a light one the other way`() {
+        for (look in AccentStyle.entries) {
+            for (isLight in sides) {
+                val other = StylePalette.template(look, !isLight)
+                val side = StyleSide(seedsOf(look, isLight).copy(frame = other[StyleSlot.FRAME].toArgb()))
+                val resolved = resolveStyleSide(style(look, side), isLight)
+
+                // The icon follows the accent, which is the other side's own in a look
+                for (slot in FRAME_SLOTS - StyleSlot.FRAME_ICON) {
+                    assertEquals(other[slot], resolved.palette[slot], "$look $isLight $slot")
+                }
+                assertEquals(emptyList<ContrastShortfall>(), resolved.shortfalls, "$look $isLight")
+            }
+        }
+    }
+
+    @Test
+    fun `a side without a frame of its own has its frame follow the background, as before the Frame seed`() {
+        val seeds = seedsOf(AccentStyle.TONAL, isLight = true).with(StyleSeed.BACKGROUND, hex("#FDF6E3"))
+        val withFrame = resolveStyleSide(style(AccentStyle.TONAL, StyleSide(seeds.copy(frame = hex("#0F3B27")))), true)
+        val without = resolveStyleSide(style(AccentStyle.TONAL, StyleSide(seeds)), true)
+        val template = StylePalette.template(AccentStyle.TONAL, isLight = true)
+
+        assertTrue(without.palette[StyleSlot.FRAME] != template[StyleSlot.FRAME], "the frame moved with the background")
+        assertEquals("#0F3B27", withFrame.palette[StyleSlot.FRAME].hex())
+        // The separators are in the content too, so they follow the background either way
+        assertEquals(without.palette[StyleSlot.SEPARATORS], withFrame.palette[StyleSlot.SEPARATORS])
+    }
+
+    @Test
+    fun `Leaf is Tonal with a green frame and main action, holding every check`() {
+        for (isLight in sides) {
+            val leaf = resolveStyleSide(BuiltInStyles.LEAF, isLight)
+            val tonal = resolveStyleSide(BuiltInStyles.TONAL, isLight).palette
+            val palette = leaf.palette
+            val what = if (isLight) "light" else "dark"
+
+            assertEquals(emptyList<ContrastShortfall>(), leaf.shortfalls, what)
+            assertEquals(StyleColorHex.format(checkNotNull(BuiltInStyles.LEAF.side(isLight).seeds.frame)), palette[StyleSlot.FRAME].hex())
+            // A dark frame on both sides: light text on it, worked out rather than set by hand
+            assertTrue(palette[StyleSlot.FRAME_TEXT].luminance() > 0.8, "$what ${palette[StyleSlot.FRAME_TEXT].hex()}")
+            assertTrue(palette[StyleSlot.FRAME_CONTROL].luminance() < 0.1, "$what ${palette[StyleSlot.FRAME_CONTROL].hex()}")
+            // The muted text on the frame's controls, as "Actions…", with Tonal's margin rather than the bare minimum
+            val muted = StyleColorMath.contrast(palette[StyleSlot.FRAME_SECONDARY_TEXT].toArgb(), palette[StyleSlot.FRAME_CONTROL].toArgb())
+            assertTrue(muted >= 6.0, "$what: $muted")
+            // Blue selection, links and lane 1, as green also means "added" (D5)
+            for (slot in listOf(StyleSlot.SELECTED_ROW, StyleSlot.LINKS, StyleSlot.LANE_1, StyleSlot.ADDED_FILE)) {
+                if (isLight) assertEquals(tonal[slot], palette[slot], "$what $slot")
+            }
+            assertEquals(palette[StyleSlot.PANELS], palette[StyleSlot.HEADERS], what)
+        }
     }
 
     @Test

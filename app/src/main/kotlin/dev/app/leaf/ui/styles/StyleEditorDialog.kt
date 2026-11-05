@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -44,6 +45,7 @@ import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.styles.StyleColorHex
 import dev.app.leaf.domain.styles.StyleSeed
+import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.theme.backgroundSelected
 import dev.app.leaf.theme.monoTypography
@@ -123,7 +125,7 @@ internal fun StyleEditorContent(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     LookSwitch(state.draft.look, onAction)
-                    SeedRows(state, onAction)
+                    SeedRows(state, resolved, onAction)
                     Advanced(state, resolved, onAction)
                 }
 
@@ -292,7 +294,7 @@ private val SEED_ROWS = listOf(
 )
 
 @Composable
-private fun SeedRows(state: StyleEditorState, onAction: (StyleEditorAction) -> Unit) {
+private fun SeedRows(state: StyleEditorState, resolved: ResolvedDraft, onAction: (StyleEditorAction) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         SectionTitle(stringResource(Res.string.style_editor_colours))
 
@@ -313,6 +315,34 @@ private fun SeedRows(state: StyleEditorState, onAction: (StyleEditorAction) -> U
                     use = null,
                     state = state,
                     onPick = { onAction(StyleEditorAction.SetSeed(StyleSeed.BACKGROUND, it, isLight)) },
+                    onAction = onAction,
+                )
+            }
+        }
+
+        // The frame: one colour per side, which follows the background until one is picked
+        val frames = listOf(true, false).map { isLight ->
+            resolved.side(isLight).palette[StyleSlot.FRAME].toArgb()
+        }
+        SeedLine(
+            title = stringResource(Res.string.style_editor_frame),
+            use = stringResource(Res.string.style_editor_frame_use),
+            hex = frames.joinToString("\n") { StyleColorHex.format(it) },
+        ) {
+            for ((isLight, argb) in listOf(true, false).zip(frames)) {
+                SeedSwatch(
+                    target = ColourTarget.Frame(isLight),
+                    colors = listOf(argb),
+                    title = stringResource(Res.string.style_editor_frame) + " · " +
+                        stringResource(if (isLight) Res.string.style_editor_light else Res.string.style_editor_dark),
+                    use = null,
+                    state = state,
+                    onPick = { onAction(StyleEditorAction.SetFrame(isLight, it)) },
+                    onUseWorkedOut = if (state.draft.side(isLight).seeds.frame != null) {
+                        { onAction(StyleEditorAction.SetFrame(isLight, null)) }
+                    } else {
+                        null
+                    },
                     onAction = onAction,
                 )
             }
@@ -370,6 +400,7 @@ private fun SeedSwatch(
     use: String?,
     state: StyleEditorState,
     onPick: (Int) -> Unit,
+    onUseWorkedOut: (() -> Unit)? = null,
     onAction: (StyleEditorAction) -> Unit,
 ) {
     val shape = RoundedCornerShape(6.dp)
@@ -392,7 +423,7 @@ private fun SeedSwatch(
                 use = use,
                 color = colors.first(),
                 onPick = onPick,
-                onUseWorkedOut = null,
+                onUseWorkedOut = onUseWorkedOut,
                 onDismiss = { onAction(StyleEditorAction.OpenPicker(null)) },
             )
         }

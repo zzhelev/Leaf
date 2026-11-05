@@ -1494,6 +1494,8 @@
     <string name="style_editor_colours">Colours</string>
     <string name="style_editor_background">Background</string>
     <string name="style_editor_background_use">Light and dark</string>
+    <string name="style_editor_frame">Frame</string>
+    <string name="style_editor_frame_use">Title bar and toolbar</string>
     <string name="style_editor_accent">Accent</string>
     <string name="style_editor_accent_use">Commit, Stage, links</string>
     <string name="style_editor_danger">Danger</string>

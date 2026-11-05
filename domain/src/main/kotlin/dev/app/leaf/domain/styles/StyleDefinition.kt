@@ -26,13 +26,18 @@ enum class StyleSeed(val key: String) {
     }
 }
 
-/** One side's seed colours, as ARGB. */
+/**
+ * One side's seed colours, as ARGB. [frame], the title bar's and the toolbar's colour, is optional: without it the
+ * frame's colours follow the background, as they did before it existed (`docs/fork/window-chrome.md`, D6). It isn't a
+ * [StyleSeed], as every one of those has a colour.
+ */
 data class StyleSeeds(
     val background: Int,
     val accent: Int,
     val danger: Int,
     val warning: Int,
     val success: Int,
+    val frame: Int? = null,
 ) {
     operator fun get(seed: StyleSeed): Int = when (seed) {
         StyleSeed.BACKGROUND -> background

@@ -198,11 +198,12 @@ fun ToolbarRow(
                     modifier = Modifier.weight(1f, fill = false),
                 )
 
+                // The frame's own edge: the separators are the content's, which a dark frame on the light side isn't
                 Box(
                     Modifier
                         .padding(horizontal = 4.dp)
                         .size(width = 1.dp, height = 20.dp)
-                        .background(frame.separator)
+                        .background(frame.controlEdge)
                 )
 
                 RemoteGroup(state, labels.showsPullAndPushLabels, actions)
@@ -555,7 +556,7 @@ private fun ActionsField(width: Dp, onClick: () -> Unit) {
                         .background(frame.background)
                         .padding(horizontal = 6.dp, vertical = 2.dp),
                 ) {
-                    KeybindingHint(keybinding)
+                    KeybindingHint(keybinding, color = frame.secondaryText)
                 }
             }
         }

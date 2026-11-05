@@ -5,6 +5,7 @@ package dev.app.leaf.domain.styles
 
 import dev.app.leaf.domain.models.ui.AccentStyle
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -96,7 +97,7 @@ class StyleFileCodecTest {
         repeat(500) { round ->
             fun opaque() = random.nextInt() or 0xFF000000.toInt()
             fun side() = StyleSide(
-                StyleSeeds(opaque(), opaque(), opaque(), opaque(), opaque()),
+                StyleSeeds(opaque(), opaque(), opaque(), opaque(), opaque(), frame = opaque().takeIf { random.nextBoolean() }),
                 StyleSlot.entries.filter { random.nextInt(4) == 0 }.associateWith { random.nextInt() },
             )
 
@@ -240,6 +241,40 @@ class StyleFileCodecTest {
         for (word in listOf("danger", "see-through", "shade", "background", "success", "dark")) {
             assertTrue(word in problems, "$word in\n$problems")
         }
+    }
+
+    @Test
+    fun `a frame is written only when a side has one, and a file without one follows the background`() {
+        val leaf = BuiltInStyles.LEAF
+        val text = StyleFileCodec.encode(leaf)
+
+        assertTrue("\"frame\": \"#0F3B27\"" in text, text)
+        assertTrue("\"frame\": \"#0E2419\"" in text, text)
+        assertEquals(leaf, read(text, id = "leaf").definition)
+        assertFalse("\"frame\"" in StyleFileCodec.encode(teal), "Teal's frame follows its background")
+        assertEquals(null, read(StyleFileCodec.encode(teal)).definition.light.seeds.frame)
+    }
+
+    @Test
+    fun `a broken frame follows the background, and a see-through one is made opaque`() {
+        val result = read(
+            """
+            {
+              "leafStyle": 1,
+              "name": "Frames",
+              "look": "tonal",
+              "light": { "seeds": { "frame": "green" } },
+              "dark": { "seeds": { "frame": "#0E241980" } }
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(null, result.definition.light.seeds.frame)
+        assertEquals(0xFF0E2419.toInt(), result.definition.dark.seeds.frame)
+        val problems = result.problems.joinToString("\n")
+        assertTrue("light frame \"green\" isn't a colour" in problems, problems)
+        assertTrue("dark frame is see-through" in problems, problems)
+        assertFalse("seed \"frame\" isn't known" in problems, problems)
     }
 
     @Test

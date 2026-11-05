@@ -246,8 +246,10 @@ fun resolveStyleSide(
     val side = definition.side(isLight)
     val seeds = side.seeds.with(StyleSeed.BACKGROUND, fittedBackground(template, templateSeeds, side.seeds.background, isLight))
 
+    val frame = side.seeds.frame?.let { FrameStart(look, it) }
     val colors = StyleSlot.entries.associateWith { slot ->
         side.setByHand[slot]?.let { Color(it) }
+            ?: frame?.takeIf { slot in FRAME_SLOTS }?.colourOf(slot, seeds)
             ?: followed(template[slot], slotRule(slot, look, isLight), templateSeeds, seeds)
     }
     val published = codeColours.published(isLight)
@@ -332,6 +334,62 @@ private fun StylePalette.awayFromForeground(check: ContrastCheck, mover: StyleSl
     val isLighter = StyleColorMath.relativeLuminance(under) >= StyleColorMath.relativeLuminance(over)
 
     return if (isLighter) StyleColorMath.LIGHTER else StyleColorMath.DARKER
+}
+
+/**
+ * The colours that a side's Frame seed, when it has one, works out in place of the background. Not the separators,
+ * which are in the content too.
+ */
+private val FRAME_SLOTS = setOf(FRAME, FRAME_TEXT, FRAME_SECONDARY_TEXT, FRAME_ICON, FRAME_CONTROL, FRAME_CONTROL_EDGE)
+
+/**
+ * Where a frame seed's colours start from (`docs/fork/window-chrome.md`, D6): the look's frame on the side whose frame
+ * is as dark as this one, so that a dark frame on the light side, as the Leaf style's green, starts from the dark side's
+ * light text and dark controls. Each colour then moves as far as the frame moved from that side's own, as colours on the
+ * background follow the background, and a frame equal to the look's own keeps the look's colours. A mid-tone frame is
+ * first made lighter or darker, as a mid-tone background is ([fittedFrame]).
+ */
+private class FrameStart(look: AccentStyle, seed: Int) {
+    private val templates: Map<Boolean, StylePalette> = listOf(true, false).associateWith { StylePalette.template(look, it) }
+    private val frame: Int = fittedFrame(seed, templates)
+    private val isLight: Boolean = isLightFrame(frame)
+    private val template: StylePalette = templates.getValue(isLight)
+    private val templateSeeds: StyleSeeds = BuiltInStyles.templateSeeds(look, isLight)
+    private val from: Int = template[FRAME].toArgb()
+
+    fun colourOf(slot: StyleSlot, seeds: StyleSeeds): Color {
+        val color = template[slot]
+        if (slot == FRAME_ICON) return followed(color, SlotRule(Follow.HUE, StyleSeed.ACCENT), templateSeeds, seeds)
+        if (from == frame) return color
+
+        return Color(
+            when (slot) {
+                FRAME -> frame
+                FRAME_TEXT, FRAME_SECONDARY_TEXT -> StyleShifts.followBackgroundAsText(color.toArgb(), from, frame)
+                else -> StyleShifts.followBackground(color.toArgb(), from, frame)
+            },
+        )
+    }
+}
+
+// Black and white hold the same contrast on a luminance of 0.179: a frame below it has light text
+private fun isLightFrame(frame: Int) = StyleColorMath.relativeLuminance(frame) > 0.179
+
+/**
+ * [frame], or as near to it as leaves room for black text (on a light frame) or white text (on a dark one) on the frame
+ * and on its controls: a mid-tone frame has neither, so it becomes lighter or darker, keeping its hue.
+ */
+private fun fittedFrame(frame: Int, templates: Map<Boolean, StylePalette>): Int {
+    fun holds(candidate: Int): Boolean {
+        val isLight = isLightFrame(candidate)
+        val template = templates.getValue(isLight)
+        val control = StyleShifts.followBackground(template[FRAME_CONTROL].toArgb(), template[FRAME].toArgb(), candidate)
+        val text = if (isLight) BLACK else WHITE
+
+        return listOf(candidate, control).all { StyleColorMath.contrast(text, it) >= TEXT_CONTRAST + MARGIN }
+    }
+
+    return StyleColorMath.movedForContrast(frame, minimum = 1.0) { if (holds(it)) 1.0 else 0.0 } ?: frame
 }
 
 /** The surfaces that follow the background, which text is on. */
