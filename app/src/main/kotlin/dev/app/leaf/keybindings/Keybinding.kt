@@ -112,6 +112,11 @@ enum class KeybindingOption {
      * Used to fold the changes pane away, and to show it again (fork-only)
      */
     CHANGES_PANE,
+
+    /**
+     * Used to open the Actions list (fork-only, docs/fork/window-chrome.md)
+     */
+    QUICK_ACTIONS,
 }
 
 
@@ -180,6 +185,9 @@ private fun baseKeybindings() = mapOf(
     KeybindingOption.CHANGES_PANE to listOf(
         Keybinding(key = Key.C, control = true, shift = true),
     ),
+    KeybindingOption.QUICK_ACTIONS to listOf(
+        Keybinding(key = Key.K, control = true),
+    ),
 )
 
 private fun linuxKeybindings(): Map<KeybindingOption, List<Keybinding>> = baseKeybindings()
@@ -202,6 +210,7 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         KeybindingOption.SETTINGS,
         KeybindingOption.BRANCHES_PANE,
         KeybindingOption.CHANGES_PANE,
+        KeybindingOption.QUICK_ACTIONS,
     )
 
     for (key in keysToReplaceControlWithCommand) {

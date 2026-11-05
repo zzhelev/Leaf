@@ -48,6 +48,16 @@
     <string name="menu_actions_tooltip">Additional actions</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_settings_tooltip">Leaf's settings</string>
+    <string name="toolbar_pop">Pop</string>
+    <string name="toolbar_pull_options">Pull options</string>
+    <string name="toolbar_push_options">Push options</string>
+    <string name="toolbar_stash_options">Stash options</string>
+    <string name="toolbar_actions_field">Actions…</string>
+    <string name="toolbar_actions_tooltip">Search Leaf's actions</string>
+    <string name="toolbar_switcher_tooltip">Switch worktree, or open another repository</string>
+    <string name="toolbar_switcher_open">Open a repository…</string>
+    <string name="toolbar_switcher_recent">Recent repositories</string>
+    <string name="toolbar_switcher_description">Repository %1$s, %2$s. Switch worktree or repository</string>
 
 
     <!-- Bottom info bar -->

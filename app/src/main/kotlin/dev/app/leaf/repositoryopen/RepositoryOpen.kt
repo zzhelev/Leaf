@@ -54,6 +54,9 @@ import dev.app.leaf.ui.commiteditor.CommitEditorPanel
 import dev.app.leaf.ui.log.Log
 import dev.app.leaf.ui.log.LocalLogFocusRequester
 import dev.app.leaf.ui.status.OperationInProgressBanner
+import dev.app.leaf.ui.toolbar.SwitcherActions
+import dev.app.leaf.ui.toolbar.Toolbar
+import dev.app.leaf.ui.toolbar.ToolbarActions
 import dev.app.leaf.ui.status.UnsupportedIndexBanner
 import dev.app.leaf.ui.LocalAppChrome
 import dev.app.leaf.ui.status.StatusPane
@@ -202,6 +205,12 @@ fun RepositoryOpenPage(
                         true
                     }
 
+                    // Fork-only: the toolbar's Actions field (docs/fork/window-chrome.md)
+                    it.matchesBinding(KeybindingOption.QUICK_ACTIONS) -> {
+                        onNavigate(Screen.QuickActions)
+                        true
+                    }
+
                     else -> false
                 }
 
@@ -212,39 +221,49 @@ fun RepositoryOpenPage(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 if (!resolverFocused) {
-                    Menu(
+                    // Fork-only: Leaf's toolbar (docs/fork/window-chrome.md), in place of upstream's Menu
+                    val repositoryNames by tab.repositoryNames.collectAsState()
+
+                    Toolbar(
                         viewModel = repositoryOpenViewModel,
-                        modifier = Modifier
-                            .padding(
-                                vertical = 4.dp
-                            )
-                            .fillMaxWidth(),
-                        onCreateBranch = { onNavigate(Screen.BranchCreate(null)) },
-                        onNewWorktree = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
-                        onStashWithMessage = { onNavigate(Screen.StashWithMessage) },
-                        onOpenAnotherRepository = { repositoryOpenViewModel.openAnotherRepository(it, tab) },
-                        onOpenAnotherRepositoryFromPicker = {
-                            val repoToOpen = repositoryOpenViewModel.openDirectoryPicker()
+                        repositoryNames = repositoryNames,
+                        showSwitcher = showOpenPopup,
+                        onShowSwitcherChange = { showOpenPopup = it },
+                        actions = ToolbarActions(
+                            onPull = { repositoryOpenViewModel.pull(it) },
+                            onFetchAll = { repositoryOpenViewModel.fetchAll() },
+                            onPush = { pushTags -> repositoryOpenViewModel.push(force = false, pushTags = pushTags) },
+                            onForcePush = {
+                                val branchName = repositoryOpenViewModel.branchesState.value.currentBranch?.simpleName.orEmpty()
+                                val action = ConfirmableAction.ForcePush(branchName)
 
-                            if (repoToOpen != null) {
-                                repositoryOpenViewModel.openAnotherRepository(repoToOpen, tab)
-                            }
-                        },
-                        onQuickActions = { onNavigate(Screen.QuickActions) },
-                        onShowSettingsDialog = { onNavigate(Screen.Settings) },
-                        onForcePush = {
-                            val branchName = repositoryOpenViewModel.branchesState.value.currentBranch?.simpleName.orEmpty()
-                            val action = ConfirmableAction.ForcePush(branchName)
-
-                            onNavigate(
-                                Screen.ConfirmAction(
-                                    action = action,
-                                    onConfirm = { repositoryOpenViewModel.push(force = true, pushTags = false) },
+                                onNavigate(
+                                    Screen.ConfirmAction(
+                                        action = action,
+                                        onConfirm = { repositoryOpenViewModel.push(force = true, pushTags = false) },
+                                    )
                                 )
-                            )
-                        },
-                        showOpenPopup = showOpenPopup,
-                        onShowOpenPopupChange = { showOpenPopup = it }
+                            },
+                            onCreateBranch = { onNavigate(Screen.BranchCreate(null)) },
+                            onStash = { repositoryOpenViewModel.stash() },
+                            onStashWithMessage = { onNavigate(Screen.StashWithMessage) },
+                            onPopStash = { repositoryOpenViewModel.popStash() },
+                            onQuickActions = { onNavigate(Screen.QuickActions) },
+                            onTerminal = { repositoryOpenViewModel.openTerminal() },
+                            onSettings = { onNavigate(Screen.Settings) },
+                            switcher = SwitcherActions(
+                                onSwitchToWorktree = { repositoryOpenViewModel.switchToWorktree(it) },
+                                onNewWorktree = { onNavigate(Screen.WorktreeCreate(NewWorktreeStart.Base)) },
+                                onOpenRepository = { repositoryOpenViewModel.openAnotherRepository(it, tab) },
+                                onOpenRepositoryFromPicker = {
+                                    val repoToOpen = repositoryOpenViewModel.openDirectoryPicker()
+
+                                    if (repoToOpen != null) {
+                                        repositoryOpenViewModel.openAnotherRepository(repoToOpen, tab)
+                                    }
+                                },
+                            ),
+                        ),
                     )
                 }
 

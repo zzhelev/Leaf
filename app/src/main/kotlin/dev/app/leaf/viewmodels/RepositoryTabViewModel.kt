@@ -199,6 +199,11 @@ class RepositoryTabViewModel @AssistedInject constructor(
         .map { it?.names?.titleWith(it.look)?.name }
         .stateIn(null)
 
+    /** The repository's name and the linked worktree's, whatever name the user gave the tab: the toolbar's switcher's. */
+    val repositoryNames: StateFlow<TabNames?> = tabLabel
+        .map { it?.names }
+        .stateIn(null)
+
     override val worktreeName: StateFlow<String?> = tabLabel
         .map { it?.names?.titleWith(it.look)?.worktree }
         .stateIn(null)

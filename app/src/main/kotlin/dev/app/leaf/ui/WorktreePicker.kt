@@ -81,206 +81,24 @@ import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
-/** Height of the toolbar's buttons, which the picker matches. */
-private val PICKER_HEIGHT = 56.dp
-
-private val PICKER_LIST_WIDTH = 340.dp
-
 /** Height of a worktree in the list, which has two lines, as in the side panel. */
 private val PICKER_ROW_HEIGHT = 46.dp
 
 /** Height of the list's "New worktree…" row, which has one line. */
 private val NEW_WORKTREE_ROW_HEIGHT = 32.dp
 
-/** A click on the picker right after a click outside closed its list doesn't open it again. */
-private const val REOPEN_GUARD_MS = 300
-
 /**
- * The repository's worktrees, for the toolbar's picker (fork-only). [baseBranch] is what they're compared to, for the
- * tooltips.
+ * The repository's worktrees, for the toolbar's switcher (fork-only, `ui/toolbar/RepositorySwitcher.kt`). [baseBranch]
+ * is what they're compared to, for the tooltips.
  */
 data class WorktreePickerState(val rows: List<WorktreeRow>, val baseBranch: String?)
 
 /**
- * The toolbar's worktree picker (fork-only): the worktree that the tab shows, with what it has checked out, and a list
- * of the repository's worktrees that switches the tab to the one picked.
- */
-@Composable
-fun WorktreePicker(
-    state: WorktreePickerState,
-    onSwitchTo: (Worktree) -> Unit,
-    modifier: Modifier = Modifier,
-    onNewWorktree: () -> Unit = {},
-) {
-    val current = state.rows.firstOrNull { it.info.worktree.isCurrent } ?: return
-    var showList by remember { mutableStateOf(false) }
-    var dismissedAt by remember { mutableLongStateOf(0L) }
-
-    Box(modifier = modifier) {
-        InstantTooltip(
-            text = stringResource(Res.string.menu_worktree_tooltip),
-            enabled = !showList,
-        ) {
-            Row(
-                modifier = Modifier
-                    .height(PICKER_HEIGHT)
-                    .widthIn(min = 120.dp, max = 240.dp)
-                    .ignoreKeyEvents()
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colors.surface)
-                    .handMouseClickable {
-                        if (System.currentTimeMillis() - dismissedAt > REOPEN_GUARD_MS) {
-                            showList = !showList
-                        }
-                    }
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                WorktreeIcon(current.info.worktree, modifier = Modifier.padding(end = 8.dp))
-
-                Column(modifier = Modifier.weight(1f, fill = false)) {
-                    Text(
-                        text = current.name,
-                        style = MaterialTheme.typography.body2,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colors.onBackground,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-
-                    Text(
-                        text = current.head.text(),
-                        style = MaterialTheme.typography.caption,
-                        color = MaterialTheme.colors.onBackgroundSecondary,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                Icon(
-                    painter = painterResource(Res.drawable.expand_more),
-                    contentDescription = null,
-                    tint = MaterialTheme.colors.onBackgroundSecondary,
-                    modifier = Modifier
-                        .padding(start = 4.dp)
-                        .size(16.dp),
-                )
-            }
-        }
-
-        if (showList) {
-            WorktreePickerList(
-                state = state,
-                onSwitchTo = onSwitchTo,
-                onNewWorktree = onNewWorktree,
-                onDismissRequest = {
-                    showList = false
-                    dismissedAt = System.currentTimeMillis()
-                },
-            )
-        }
-    }
-}
-
-/** The list of the picker, below it. Arrow keys move between worktrees, Enter switches to one, and Esc closes it. */
-@Composable
-private fun WorktreePickerList(
-    state: WorktreePickerState,
-    onSwitchTo: (Worktree) -> Unit,
-    onNewWorktree: () -> Unit,
-    onDismissRequest: () -> Unit,
-) {
-    val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
-    val positionProvider = remember(gap) { BelowLeftAlignedPositionProvider(gap) }
-
-    Popup(
-        properties = PopupProperties(focusable = true),
-        popupPositionProvider = positionProvider,
-        onDismissRequest = onDismissRequest,
-    ) {
-        val focusRequester = remember { FocusRequester() }
-        val focusManager = LocalFocusManager.current
-
-        LaunchedEffect(Unit) {
-            focusRequester.requestFocus()
-        }
-
-        Column(
-            modifier = Modifier
-                .dropShadow(
-                    shape = RoundedCornerShape(4.dp),
-                    shadow = Shadow(radius = 5.dp, spread = 6.dp, color = Color(0x20000000)),
-                )
-                .clip(MaterialTheme.shapes.small)
-                .background(MaterialTheme.colors.background)
-                .run {
-                    if (MaterialTheme.colors.isDark) {
-                        border(2.dp, MaterialTheme.colors.onBackground.copy(alpha = 0.2f), MaterialTheme.shapes.small)
-                    } else {
-                        this
-                    }
-                }
-                .width(PICKER_LIST_WIDTH)
-                .heightIn(max = 480.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 4.dp)
-                .focusRequester(focusRequester)
-                .focusable()
-                .onPreviewKeyEvent { keyEvent ->
-                    when {
-                        keyEvent.type != KeyEventType.KeyDown -> false
-                        keyEvent.matchesBinding(KeybindingOption.EXIT) -> {
-                            onDismissRequest()
-                            true
-                        }
-
-                        keyEvent.matchesBinding(KeybindingOption.DOWN) -> focusManager.moveFocus(FocusDirection.Next)
-                        keyEvent.matchesBinding(KeybindingOption.UP) -> focusManager.moveFocus(FocusDirection.Previous)
-                        else -> false
-                    }
-                },
-        ) {
-            Text(
-                text = stringResource(Res.string.side_pane_worktrees_title),
-                style = MaterialTheme.typography.caption,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colors.onBackgroundSecondary,
-                maxLines = 1,
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 4.dp),
-            )
-
-            for (row in state.rows) {
-                DelayedTooltip(worktreeTooltip(row.info, state.baseBranch)) {
-                    WorktreePickerRow(
-                        row = row,
-                        onClick = {
-                            onSwitchTo(row.info.worktree)
-                            onDismissRequest()
-                        },
-                    )
-                }
-            }
-
-            Divider(modifier = Modifier.padding(vertical = 4.dp))
-
-            NewWorktreeRow(
-                onClick = {
-                    onDismissRequest()
-                    onNewWorktree()
-                },
-            )
-        }
-    }
-}
-
-/**
- * A worktree in the picker's list. The tab's has a check mark, and closes the list. One the tab can't switch to (its
+ * A worktree in the switcher's list. The tab's has a check mark, and closes the list. One the tab can't switch to (its
  * folder is missing, or it's a bare repository's) is greyed out and does nothing.
  */
 @Composable
-private fun WorktreePickerRow(row: WorktreeRow, onClick: () -> Unit) {
+internal fun WorktreePickerRow(row: WorktreeRow, onClick: () -> Unit) {
     val worktree = row.info.worktree
     val isEnabled = worktree.canSwitchTo || worktree.isCurrent
     val interactionSource = remember { MutableInteractionSource() }
@@ -334,9 +152,9 @@ private fun WorktreePickerRow(row: WorktreeRow, onClick: () -> Unit) {
     }
 }
 
-/** The list's last row, which opens the new worktree dialog from the base branch. */
+/** The worktrees' last row, which opens the new worktree dialog from the base branch. */
 @Composable
-private fun NewWorktreeRow(onClick: () -> Unit) {
+internal fun NewWorktreeRow(onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
