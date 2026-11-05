@@ -343,6 +343,33 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
 - The Open button goes. "+" in the title bar opens a new tab with the Welcome page, as today, and the switcher has
   "Open…".
 
+**As built** (2026-11-05, step 6; ⌘K and the Open button went in step 3):
+
+- **"Commit to main":** `UncommittedChangesButtons` names the branch that the commit goes on, which `RepositoryOpen`
+  passes down (`StatusPane`'s and `CommitField`'s `branchName`, from `branchesState.currentBranch`), on a second,
+  smaller line under "Commit" (`ConfirmationButton`'s `secondLine`, the caption style at 85% of the label's colour):
+  "Commit" over "to main", and "Amend" over "on main" while amending, so that switching Amend doesn't move the field.
+  The button is 46 dp then (`TWO_LINE_BUTTON_HEIGHT`), 10 dp taller, and takes them from the message field. On a
+  detached HEAD, whose branch is named HEAD, it's "Commit" on one line, 36 dp, as before. A merge's, a cherry-pick's
+  and a rebase's buttons are as they were.
+  - **A long name** (chosen with the user from renders at 330 dp: cut at the end, cut in the middle, or this): one
+    line on its own leaves the name about 45 characters at the pane's default width, where "Commit to" on one line
+    left about 30, and an agent's branch name often didn't fit. A name that still doesn't fit is cut in the middle
+    (`MiddleCutText`, `middleCut`), keeping its start, a ticket key included, and its end, where agents' names often
+    differ (`…-on-safari`, `…-on-firefox`); its tooltip has the whole name. Compose's `TextOverflow.MiddleEllipsis`
+    cuts at the end on desktop (1.12.1).
+  - With the text size from `main`, the 46 dp has to grow by two lines' growth (`withText`), as the label and the
+    branch are two lines of text.
+- **Empty lists** (`EmptyListNote.kt`): in the middle of an empty list, in the secondary text colour, "Nothing staged"
+  for Staged, and for Unstaged "Working tree clean" with a check when Staged is empty too, else "No unstaged changes",
+  as files are still to be committed. A search that hides every file says "No files match". Nothing is said before a
+  status has been read (`StatusState.hasStatus`; `isLoading` turns on during any refresh longer than 300 ms, and the
+  note would blink), nor in Staged while Amend lists the last commit's files under it.
+- Tests: `EmptyListNoteTest` (each note's rule, a search, before a status, Amend's files, and the notes in the lists;
+  PNGs in both themes with `LEAF_RENDER_DIR`), `CommitFieldTest` (the branch, a detached HEAD, Amend keeping the
+  height, a name that fits whole, a long one cut in the middle), `MiddleCutTextTest` (the cut keeps both ends and
+  always fits, and never splits a character outside the BMP).
+
 ## 7. Steps
 
 0. **Spike (macOS).** A dev run with the JBR title bar and the real tab row in it. Check:
@@ -372,7 +399,7 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
 3. **Toolbar** (section 3). Built 2026-11-05.
 4. **Surfaces and headers** (section 4). Built 2026-11-05.
 5. **The Leaf style** (section 5), and the Frame seed if D6 is yes. Built 2026-11-05, with the seed.
-6. **The smaller changes** that D7 keeps.
+6. **The smaller changes** that D7 keeps. Built 2026-11-05.
 7. **Docs:** CLAUDE.md, `docs/fork/CHANGELOG.md`, and the README's screenshots if they show the window.
 8. **Windows** (D1), once steps 0 to 7 are approved on macOS: the same title bar, with the caption buttons on the right
    (`rightInset`), checked on a Windows machine.
