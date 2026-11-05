@@ -20,6 +20,9 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.app.leaf.domain.models.ui.TextSize
+import dev.app.leaf.theme.textGrowth
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
@@ -310,6 +313,25 @@ class CommitFieldTest {
         }
 
     @Test
+    fun `at a bigger text size the Commit button grows by both its lines, which keep their room`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val ready = status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")
+            val scale = TextSize.scaleOf(20)
+
+            Field(ready, branchName = "main", textSize = 20).use { field ->
+                // The label is body1, 14 sp, and the branch's line caption, 11 sp
+                val grown = TWO_LINE_BUTTON_HEIGHT + textGrowth(scale, 14.sp) + textGrowth(scale, 11.sp)
+
+                assertTrue("to main" in field.texts(), field.texts().toString())
+                assertEquals(grown.value, field.bounds("Commit").height, 0.5f)
+            }
+
+            Field(ready, branchName = "main", textSize = 11).use { field ->
+                assertEquals(TWO_LINE_BUTTON_HEIGHT.value, field.bounds("Commit").height, 0.5f, "Smaller text gives nothing back")
+            }
+        }
+
+    @Test
     fun `a branch name that fits shows whole, and a longer one is cut in the middle, keeping both its ends`(): Unit =
         runBlocking(Dispatchers.Swing) {
             val ready = status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")
@@ -490,7 +512,7 @@ class CommitFieldTest {
     /**
      * The commit field for [state], with what `StatusPane` passes it. Counts what its buttons and its shortcut do.
      */
-    private class Field(state: StatusState, branchName: String? = null) : AutoCloseable {
+    private class Field(state: StatusState, branchName: String? = null, textSize: Int = TextSize.DEFAULT) : AutoCloseable {
         var commits = 0
         var continues = 0
         var skips = 0
@@ -498,7 +520,7 @@ class CommitFieldTest {
         val amendToggles = mutableListOf<Boolean>()
         val rebaseAmendToggles = mutableListOf<Boolean>()
 
-        private val scene = ImageComposeScene(width = 400, height = 220, density = Density(1f)) {
+        private val scene = ImageComposeScene(width = 400, height = 260, density = Density(1f, TextSize.scaleOf(textSize))) {
             AppTheme {
                 CommitField(
                     canCommit = state.canCommit,

@@ -54,6 +54,7 @@ import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.onDoubleClick
 import dev.app.leaf.extensions.onMiddleMouseButtonClick
 import dev.app.leaf.theme.frameColors
+import dev.app.leaf.theme.withText
 import dev.app.leaf.ui.components.TAB_COLOR_STRIPE_HEIGHT
 import dev.app.leaf.ui.components.TabNameField
 import kotlinx.coroutines.launch
@@ -72,7 +73,7 @@ val TITLE_BAR_MIN_TAB_WIDTH = 120.dp
 /** A tab's width in the title bar when it has room: mockup A's. */
 private val TITLE_BAR_TAB_WIDTH = 168.dp
 
-/** The height of a tab, of the + button and of the arrows in the title bar. */
+/** The height of a tab, of the + button and of the arrows in the title bar; a tab grows with the text size. */
 val TITLE_BAR_TAB_HEIGHT = 28.dp
 
 /** The space between two tabs, and before the + button. */
@@ -141,7 +142,7 @@ fun TitleBarTab(
             .widthIn(min = TITLE_BAR_TAB_WIDTH)
             // A tab in the LazyRow has no width to fill: its own content's, with the name cut by the width it's given
             .width(IntrinsicSize.Max)
-            .height(TITLE_BAR_TAB_HEIGHT)
+            .height(TITLE_BAR_TAB_HEIGHT.withText())
             .run { if (isSelected && isLight) shadow(1.dp, TAB_SHAPE, clip = false) else this }
             .clip(TAB_SHAPE)
             .background(fill)

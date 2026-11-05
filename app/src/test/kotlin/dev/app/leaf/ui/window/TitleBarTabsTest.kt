@@ -17,7 +17,14 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.use
+import dev.app.leaf.domain.models.ui.TextSize
+import dev.app.leaf.theme.textGrowth
+import dev.app.leaf.theme.withText
+import org.junit.jupiter.api.Assumptions.assumeFalse
+import java.awt.GraphicsEnvironment
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
@@ -102,6 +109,57 @@ class TitleBarTabsTest {
         }
 
     @Test
+    fun `at a bigger text size a tab is taller by a line, and smaller text gives nothing back`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val growth = textGrowth(TextSize.scaleOf(20))
+
+            for ((size, expected) in listOf(20 to TITLE_BAR_TAB_HEIGHT + growth, 11 to TITLE_BAR_TAB_HEIGHT)) {
+                TabsScene(tabCount = 2, barWidth = 836, textSize = size).use { scene ->
+                    scene.settle()
+
+                    val heights = scene.tabHeights()
+                    assertEquals(2, heights.size, "at $size")
+                    // Laid out in whole pixels
+                    for (height in heights) assertEquals(expected.value, height, 1f, "at $size")
+                }
+            }
+        }
+
+    @Test
+    fun `the bar asks the window for a height a line taller at a bigger text size`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            assumeFalse(GraphicsEnvironment.isHeadless(), "A ComposeWindow needs a display")
+            val window = ComposeWindow()
+
+            try {
+                val windowScale = window.graphicsConfiguration?.defaultTransform?.scaleX?.toFloat() ?: 1f
+                val growth = textGrowth(TextSize.scaleOf(20))
+
+                for ((size, height) in listOf(13 to TITLE_BAR_HEIGHT, 20 to TITLE_BAR_HEIGHT + growth)) {
+                    val bar = RecordingTitleBar()
+
+                    ImageComposeScene(400, 80, Density(1f, TextSize.scaleOf(size)), coroutineContext = Dispatchers.Swing) {
+                        AppTheme { TitleBar(bar, window, isFullscreen = false) {} }
+                    }.use { it.render() }
+
+                    assertEquals(height.value / windowScale, bar.heights.last(), 0.01f, "at $size")
+                }
+            } finally {
+                window.dispose()
+            }
+        }
+
+    private class RecordingTitleBar : WindowTitleBar {
+        val heights = mutableListOf<Float>()
+        override val leftInset = 80f
+        override val rightInset = 0f
+        override fun setHeight(height: Float) {
+            heights += height
+        }
+        override fun forceHitTest(leafTakesIt: Boolean) {}
+    }
+
+    @Test
     fun `renders the title bar's tabs in five styles, to look at`(): Unit = runBlocking(Dispatchers.Swing) {
         val folder = System.getenv("LEAF_RENDER_DIR")?.let(::File) ?: return@runBlocking
         folder.mkdirs()
@@ -145,18 +203,20 @@ class TitleBarTabsTest {
         theme: Theme = Theme.Light,
         style: StyleDefinition = BuiltInStyles.TONAL,
         density: Float = 1f,
+        textSize: Int = TextSize.DEFAULT,
     ) : AutoCloseable {
-        constructor(tabCount: Int, barWidth: Int) : this(List(tabCount) { TabInformation(FakeTab("tab $it")) }, barWidth)
+        constructor(tabCount: Int, barWidth: Int, textSize: Int = TextSize.DEFAULT) :
+            this(List(tabCount) { TabInformation(FakeTab("tab $it")) }, barWidth, textSize = textSize)
 
         private val scene = ImageComposeScene(
             width = ((barWidth + 200) * density).toInt(),
-            height = (40 * density).toInt(),
-            density = Density(density),
+            height = (60 * density).toInt(),
+            density = Density(density, TextSize.scaleOf(textSize)),
             coroutineContext = Dispatchers.Swing,
         ) {
             AppTheme(theme, style = style) {
                 Box(Modifier.background(MaterialTheme.frameColors.background).fillMaxSize()) {
-                    Box(Modifier.width(barWidth.dp).height(40.dp), contentAlignment = Alignment.CenterStart) {
+                    Box(Modifier.width(barWidth.dp).height(TITLE_BAR_HEIGHT.withText()), contentAlignment = Alignment.CenterStart) {
                         TabsRow(
                             tabs = tabs,
                             defaultTabName = "New tab",
@@ -201,6 +261,12 @@ class TitleBarTabsTest {
             .distinct()
             .filter { it.boundsInRoot.width > 0f }
             .map { it.size.width.toFloat() }
+
+        fun tabHeights(): List<Float> = nodes()
+            .filter { node -> textOf(node)?.startsWith("tab ") == true }
+            .mapNotNull { title -> generateSequence(title) { it.parent }.firstOrNull { it.config.contains(SemanticsActions.OnClick) } }
+            .distinct()
+            .map { it.size.height.toFloat() }
 
         fun shownTitles(): List<String> = nodes()
             .filter { node -> textOf(node)?.startsWith("tab ") == true && node.boundsInRoot.left >= 0f && node.boundsInRoot.width > 0f }

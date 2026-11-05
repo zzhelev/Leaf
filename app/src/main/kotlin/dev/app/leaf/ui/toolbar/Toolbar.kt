@@ -52,6 +52,7 @@ import dev.app.leaf.keybindings.keyBinding
 import dev.app.leaf.repositoryopen.RepositoryOpenViewModel
 import dev.app.leaf.theme.bottomEdge
 import dev.app.leaf.theme.frameColors
+import dev.app.leaf.theme.withText
 import dev.app.leaf.ui.KeybindingHint
 import dev.app.leaf.ui.WorktreePickerState
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
@@ -62,10 +63,10 @@ import dev.app.leaf.ui.context_menu.stashContextMenuItems
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
-/** The toolbar's height (mockup A of the "Leaf window chrome review" board). */
+/** The toolbar's height (mockup A of the "Leaf window chrome review" board), at the default text size. */
 val TOOLBAR_HEIGHT = 48.dp
 
-/** The height of the toolbar's buttons, groups and switcher. */
+/** The height of the toolbar's buttons, groups and switcher, at the default text size. */
 private val CONTROL_HEIGHT = 32.dp
 
 private val CONTROL_SHAPE = RoundedCornerShape(8.dp)
@@ -74,7 +75,8 @@ private const val DISABLED_ALPHA = 0.45f
 
 /**
  * Which labels the toolbar has room for at [width] (fork-only, docs/fork/window-chrome.md): Branch, Stash and Pop lose
- * theirs first, then Pull and Push. Their icons and tooltips stay. Actions keeps its label.
+ * theirs first, then Pull and Push. Their icons and tooltips stay. Actions keeps its label. The rule holds at every text
+ * size: at 20, the row still has about 90 dp to spare where the labels come back.
  */
 @Immutable
 data class ToolbarLabels(
@@ -169,7 +171,7 @@ fun ToolbarRow(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(TOOLBAR_HEIGHT)
+            .height(TOOLBAR_HEIGHT.withText())
             .background(frame.background)
             .bottomEdge(frame.separator),
     ) {
@@ -350,7 +352,7 @@ private fun ToolbarGroup(content: @Composable RowScope.() -> Unit) {
 
     Row(
         modifier = Modifier
-            .height(CONTROL_HEIGHT)
+            .height(CONTROL_HEIGHT.withText())
             .clip(CONTROL_SHAPE)
             .background(frame.control)
             .border(1.dp, frame.controlEdge, CONTROL_SHAPE),
@@ -433,7 +435,7 @@ private fun ToolbarButton(
     ToolbarTooltip(tooltip, keybinding) {
         Row(
             modifier = Modifier
-                .height(CONTROL_HEIGHT)
+                .height(CONTROL_HEIGHT.withText())
                 .ignoreKeyEvents()
                 .clip(CONTROL_SHAPE)
                 .background(frame.control)
@@ -520,7 +522,7 @@ private fun ActionsButton(onClick: () -> Unit) {
     ToolbarTooltip(stringResource(Res.string.toolbar_actions_tooltip), null) {
         Row(
             modifier = Modifier
-                .height(CONTROL_HEIGHT)
+                .height(CONTROL_HEIGHT.withText())
                 .ignoreKeyEvents()
                 .clip(CONTROL_SHAPE)
                 .background(frame.control)

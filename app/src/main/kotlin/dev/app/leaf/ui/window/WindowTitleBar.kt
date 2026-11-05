@@ -35,10 +35,11 @@ import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
 import dev.app.leaf.theme.frameColors
+import dev.app.leaf.theme.withText
 
 private const val TAG = "WindowTitleBar"
 
-/** The height of the title bar that holds the tabs (docs/fork/window-chrome.md). */
+/** The height of the title bar that holds the tabs (docs/fork/window-chrome.md), at the default text size. */
 val TITLE_BAR_HEIGHT = 40.dp
 
 /**
@@ -182,7 +183,9 @@ fun TitleBar(
     val density = LocalDensity.current
     // Points to pixels: the window's scale; pixels to dp: Compose's density, which Leaf's UI scale may change
     val windowScale = window.graphicsConfiguration?.defaultTransform?.scaleX?.toFloat() ?: 1f
-    val heightInPoints = with(density) { TITLE_BAR_HEIGHT.toPx() } / windowScale
+    // Taller by a line's growth at a bigger text size, as the tabs are
+    val barHeight = TITLE_BAR_HEIGHT.withText()
+    val heightInPoints = with(density) { barHeight.toPx() } / windowScale
 
     // Not set again when full screen starts or ends: macOS resizes the window then, and setting the bar at the same
     // time made JBR drop a resize event ("invokeAndWait is discarded as the EventDispatch thread is currently blocked")
@@ -197,7 +200,7 @@ fun TitleBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(TITLE_BAR_HEIGHT)
+            .height(barHeight)
             .background(MaterialTheme.frameColors.background)
             .onGloballyPositioned { holder.coordinates = it }
             .pointerInput(titleBar) {

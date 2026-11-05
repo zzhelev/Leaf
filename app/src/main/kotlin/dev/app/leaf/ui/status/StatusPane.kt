@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.app.generated.resources.*
@@ -73,6 +74,7 @@ import dev.app.leaf.theme.RoleColors
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.roleBorder
 import dev.app.leaf.theme.styleColors
+import dev.app.leaf.theme.textGrowth
 import dev.app.leaf.ui.ChangedFilesList
 import dev.app.leaf.ui.FilesSection
 import dev.app.leaf.ui.components.*
@@ -1148,7 +1150,7 @@ fun UncommittedChangesButtons(
                 text = buttonText,
                 modifier = Modifier
                     .weight(1f)
-                    .height(if (branchLine != null) TWO_LINE_BUTTON_HEIGHT else 36.dp),
+                    .height(if (branchLine != null) twoLineButtonHeight() else 36.dp),
                 onClick = {
                     onCommit()
                 },
@@ -1163,6 +1165,12 @@ fun UncommittedChangesButtons(
 
 /** The Commit button with the branch under its label (fork-only, docs/fork/window-chrome.md, section 6). */
 internal val TWO_LINE_BUTTON_HEIGHT = 46.dp
+
+/** [TWO_LINE_BUTTON_HEIGHT], taller by what a bigger text size adds to its label and to the line under it. */
+@Composable
+private fun twoLineButtonHeight(): Dp = TWO_LINE_BUTTON_HEIGHT +
+    textGrowth(MaterialTheme.typography.body1.fontSize) +
+    textGrowth(MaterialTheme.typography.caption.fontSize)
 
 /** In the field's place while the message is in the centre pane (fork-only, docs/fork/window-chrome.md, section 6). */
 @Composable

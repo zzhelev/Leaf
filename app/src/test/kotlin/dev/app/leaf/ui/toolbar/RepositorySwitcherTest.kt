@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
@@ -20,10 +21,12 @@ import androidx.compose.ui.unit.Density
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Worktree
 import dev.app.leaf.domain.models.WorktreeInfo
+import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.worktrees.WorktreeHeadLabel
 import dev.app.leaf.domain.worktrees.WorktreeRow
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.theme.textGrowth
 import dev.app.leaf.ui.WorktreePickerState
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.AfterEach
@@ -122,6 +125,18 @@ class RepositorySwitcherTest {
     }
 
     @Test
+    fun `at a bigger text size the switcher and its Open row are taller by a line`() {
+        val growth = textGrowth(TextSize.scaleOf(20)).value
+        render(worktrees = null, worktreeName = null, branchLabel = "main", textSize = 20)
+
+        assertEquals(32f + growth, clickableHolding("repo").height, 0.5f)
+
+        click("repo")
+
+        assertEquals(32f + growth, clickableHolding("Open a repository…").height, 0.5f)
+    }
+
+    @Test
     fun `Open a repository opens the folder picker, and a recent repository opens it, closing the popup`() {
         render(worktrees = null, worktreeName = null, branchLabel = "main")
 
@@ -194,10 +209,15 @@ class RepositorySwitcherTest {
         theme: Theme = Theme.Dark,
         density: Float = 1f,
         isOpen: Boolean = false,
+        textSize: Int = TextSize.DEFAULT,
     ) {
         var isOpen by mutableStateOf(isOpen)
 
-        scene = ImageComposeScene(width = (900 * density).toInt(), height = (800 * density).toInt(), density = Density(density)) {
+        scene = ImageComposeScene(
+            width = (900 * density).toInt(),
+            height = (800 * density).toInt(),
+            density = Density(density, TextSize.scaleOf(textSize)),
+        ) {
             AppTheme(theme) {
                 RepositorySwitcher(
                     state = SwitcherState(
@@ -241,6 +261,11 @@ class RepositorySwitcherTest {
     }
 
     private fun nodes(): List<SemanticsNode> = scene!!.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }
+
+    /** The bounds of the clickable element that holds the text [text]. */
+    private fun clickableHolding(text: String) = generateSequence(nodes().first { it.texts().contains(text) }) { it.parent }
+        .first { it.config.contains(SemanticsActions.OnClick) }
+        .boundsInWindow
 
     private fun texts(): List<String> = nodes().flatMap { it.texts() }
 

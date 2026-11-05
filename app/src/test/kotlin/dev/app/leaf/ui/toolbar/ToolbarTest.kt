@@ -21,12 +21,14 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.models.PullType
+import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.keyBinding
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.theme.textGrowth
 import dev.app.leaf.ui.getParts
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.AfterEach
@@ -52,6 +54,23 @@ class ToolbarTest {
         assertEquals(ToolbarLabels(false, true), toolbarLabelsFor(1100.dp))
         assertEquals(ToolbarLabels(false, false), toolbarLabelsFor(950.dp))
         assertEquals(ToolbarLabels(false, false), toolbarLabelsFor(800.dp))
+    }
+
+    @Test
+    fun `at a bigger text size the controls grow by a line, and everything fits at every width with the same labels`() {
+        val growth = textGrowth(TextSize.scaleOf(20)).value
+
+        for (width in 800..1600 step 25) {
+            scene?.close()
+            render(width = width, textSize = 20)
+
+            assertFits(width)
+            for (control in listOf("Actions", "Create a new branch", "Repository repo, main. Switch worktree or repository")) {
+                assertEquals(32f + growth, boundsOf(control).height, 0.5f, "$control at $width")
+                // In the middle of the row, which grows by the same line: 8 dp above, as at the default size
+                assertEquals(8f, boundsOf(control).top, 0.5f, "$control at $width")
+            }
+        }
     }
 
     @Test
@@ -174,11 +193,12 @@ class ToolbarTest {
         theme: Theme = Theme.Light,
         style: StyleDefinition = BuiltInStyles.TONAL,
         density: Float = 1f,
+        textSize: Int = TextSize.DEFAULT,
     ) {
         scene = ImageComposeScene(
             width = (width * density).toInt(),
-            height = (60 * density).toInt(),
-            density = Density(density),
+            height = (80 * density).toInt(),
+            density = Density(density, TextSize.scaleOf(textSize)),
         ) {
             AppTheme(theme, style = style) {
                 Column(Modifier.background(MaterialTheme.colors.background).fillMaxSize()) {

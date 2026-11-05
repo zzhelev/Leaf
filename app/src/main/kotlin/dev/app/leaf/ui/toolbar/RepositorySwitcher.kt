@@ -60,6 +60,7 @@ import dev.app.leaf.extensions.ignoreKeyEvents
 import dev.app.leaf.theme.frameColors
 import dev.app.leaf.theme.isDark
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.theme.withText
 import dev.app.leaf.ui.BelowLeftAlignedPositionProvider
 import dev.app.leaf.ui.NewWorktreeRow
 import dev.app.leaf.ui.RecentRepositoriesList
@@ -134,7 +135,7 @@ fun RepositorySwitcher(
         InstantTooltip(text = stringResource(Res.string.toolbar_switcher_tooltip), enabled = !isOpen) {
             Row(
                 modifier = Modifier
-                    .height(32.dp)
+                    .height(32.dp.withText())
                     .widthIn(max = 360.dp)
                     .ignoreKeyEvents()
                     .clip(shape)
@@ -342,7 +343,7 @@ private fun OpenRepositoryRow(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(32.dp)
+            .height(32.dp.withText())
             .background(if (isFocused) MaterialTheme.colors.onBackground.copy(alpha = 0.08f) else Color.Transparent)
             .onPreviewKeyEvent { keyEvent ->
                 val isActivationKey = keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter
