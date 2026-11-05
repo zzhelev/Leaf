@@ -766,6 +766,8 @@ fun MainContentView(
                 val comparisonState = viewModel.comparisonState.collectAsState().value
                 // Fork-only: the commits selected in the log with Shift (docs/fork/squash-and-rebase.md, A2)
                 val selectedCommits = viewModel.selectedCommits.collectAsState().value
+                // Fork-only: the branch that the Commit button names
+                val branchesState = viewModel.branchesState.collectAsState().value
 
                 val editor = commitEditorState
 
@@ -794,6 +796,8 @@ fun MainContentView(
                         },
                         onIgnore = { request -> onNavigate(Screen.Ignore(request)) },
                         onConfirmAction = { action, onConfirm -> onNavigate(Screen.ConfirmAction(action, onConfirm)) },
+                        // Fork-only: "Commit to main"; a detached HEAD's branch is named HEAD
+                        branchName = branchesState.currentBranch?.takeUnless { it.name == "HEAD" }?.simpleName,
                     )
                 }
             }

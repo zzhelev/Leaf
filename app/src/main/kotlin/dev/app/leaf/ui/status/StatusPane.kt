@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.app.generated.resources.*
@@ -101,6 +102,8 @@ fun StatusPane(
     onIgnore: (IgnoreRequest) -> Unit,
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     completedTasks: StateFlow<List<CompletedTask>>,
+    /** The branch that a commit goes on, which the Commit button names; null on a detached HEAD (fork-only). */
+    branchName: String? = null,
 ) {
     val swapUncommittedChanges = statusState.swapUncommittedChanges
     // Kept for the tab, not for the lists' contents: staging a file must not scroll the lists back to the top
@@ -325,6 +328,7 @@ fun StatusPane(
                             onAction(StatusAction.SkipCherryPick)
                         }
                     },
+                    branchName = branchName,
                     scopeKey = statusState.scopeKey,
                 )
             }
@@ -477,6 +481,7 @@ fun StatusChangesList(
         },
         modifier = modifier,
         section = amendedSection,
+        emptyNote = statusState.emptyListNote(entryType),
     )
 }
 
@@ -516,6 +521,8 @@ fun ChangesList(
     modifier: Modifier = Modifier,
     /** Rows after the list's own, under a header of their own (fork-only). */
     section: FilesSection<*>? = null,
+    /** What the list says while it has no rows (fork-only). */
+    emptyNote: EmptyListNote? = null,
 ) {
     fun entriesContextMenu(): (StatusEntry) -> List<ContextMenuElement> = { statusEntry ->
         statusEntryContextMenuItems(
@@ -610,60 +617,67 @@ fun ChangesList(
             showActionForSelected = showActionForSelected,
         )
 
-        ChangedFilesList(
-            rows = rows,
-            viewState = viewState,
-            selectedEntries = selectedStatusEntries,
-            listState = listState,
-            resetKey = null,
-            modifier = Modifier.background(MaterialTheme.colors.background),
-            fileIcon = { it.icon },
-            fileIconColor = { it.iconColor },
-            onFileClick = { statusEntry ->
-                selectEntry(
-                    statusEntry,
-                    isCtrlPressed = keyboardModifiers.isCtrlPressed,
-                    isMetaPressed = keyboardModifiers.isMetaPressed,
-                    isShiftPressed = keyboardModifiers.isShiftPressed,
-                )
-            },
-            onKeyboardSelect = { statusEntry ->
-                selectEntry(statusEntry, isCtrlPressed = false, isMetaPressed = false, isShiftPressed = false)
-            },
-            onFolderToggle = { path -> onAction(StatusAction.TreeDirectoryToggle(path, entryType)) },
-            onSplitRatioChange = { onAction(StatusAction.ViewStateChanged(viewState.copy(splitRatio = it))) },
-            onGenerateContextMenu = { statusEntry ->
-                if (selectedEntries.count() > 1 && statusEntry in selectedStatusEntries) {
-                    selectedEntriesContextMenu()(statusEntry)
-                } else {
-                    entriesContextMenu()(statusEntry)
-                }
-            },
-            onFileDoubleClick = { statusEntry -> onAction(StatusAction.EntryAction(statusEntry)) },
-            onGenerateFolderContextMenu = { folder ->
-                statusDirEntriesContextMenuItems(
-                    entryType = entryType,
-                    onStageChanges = { onAction(StatusAction.DirectoryAction(folder.path, entryType, folder.group)) },
-                    onDiscardDirectoryChanges = folderDiscardAction(folder),
-                    onIgnoreFolder = folderIgnoreAction(folder),
-                )
-            },
-            fileTrailingAction = { statusEntry, isHovered ->
-                EntryHoverAction(isHovered, actionInfo) { onAction(StatusAction.EntryAction(statusEntry)) }
-            },
-            folderTrailingAction = { folder, isHovered ->
-                EntryHoverAction(isHovered, actionInfo) {
-                    onAction(StatusAction.FolderRowAction(folder.path, entryType, folder.group))
-                }
-            },
-            section = section,
-            // Fork-only (upstream issue 345): Unstaged's groups
-            onGroupToggle = { group -> onAction(StatusAction.ToggleUnstagedGroup(group)) },
-            onGroupFolderToggle = { group, path -> onAction(StatusAction.TreeDirectoryToggle(path, entryType, group)) },
-            groupTrailingAction = { group, isHovered ->
-                EntryHoverAction(isHovered, actionInfo) { onAction(StatusAction.StageGroup(group.group)) }
-            },
-        )
+        // Fork-only: an empty list says so, in its middle
+        Box(modifier = Modifier.fillMaxSize()) {
+            ChangedFilesList(
+                rows = rows,
+                viewState = viewState,
+                selectedEntries = selectedStatusEntries,
+                listState = listState,
+                resetKey = null,
+                modifier = Modifier.background(MaterialTheme.colors.background),
+                fileIcon = { it.icon },
+                fileIconColor = { it.iconColor },
+                onFileClick = { statusEntry ->
+                    selectEntry(
+                        statusEntry,
+                        isCtrlPressed = keyboardModifiers.isCtrlPressed,
+                        isMetaPressed = keyboardModifiers.isMetaPressed,
+                        isShiftPressed = keyboardModifiers.isShiftPressed,
+                    )
+                },
+                onKeyboardSelect = { statusEntry ->
+                    selectEntry(statusEntry, isCtrlPressed = false, isMetaPressed = false, isShiftPressed = false)
+                },
+                onFolderToggle = { path -> onAction(StatusAction.TreeDirectoryToggle(path, entryType)) },
+                onSplitRatioChange = { onAction(StatusAction.ViewStateChanged(viewState.copy(splitRatio = it))) },
+                onGenerateContextMenu = { statusEntry ->
+                    if (selectedEntries.count() > 1 && statusEntry in selectedStatusEntries) {
+                        selectedEntriesContextMenu()(statusEntry)
+                    } else {
+                        entriesContextMenu()(statusEntry)
+                    }
+                },
+                onFileDoubleClick = { statusEntry -> onAction(StatusAction.EntryAction(statusEntry)) },
+                onGenerateFolderContextMenu = { folder ->
+                    statusDirEntriesContextMenuItems(
+                        entryType = entryType,
+                        onStageChanges = { onAction(StatusAction.DirectoryAction(folder.path, entryType, folder.group)) },
+                        onDiscardDirectoryChanges = folderDiscardAction(folder),
+                        onIgnoreFolder = folderIgnoreAction(folder),
+                    )
+                },
+                fileTrailingAction = { statusEntry, isHovered ->
+                    EntryHoverAction(isHovered, actionInfo) { onAction(StatusAction.EntryAction(statusEntry)) }
+                },
+                folderTrailingAction = { folder, isHovered ->
+                    EntryHoverAction(isHovered, actionInfo) {
+                        onAction(StatusAction.FolderRowAction(folder.path, entryType, folder.group))
+                    }
+                },
+                section = section,
+                // Fork-only (upstream issue 345): Unstaged's groups
+                onGroupToggle = { group -> onAction(StatusAction.ToggleUnstagedGroup(group)) },
+                onGroupFolderToggle = { group, path -> onAction(StatusAction.TreeDirectoryToggle(path, entryType, group)) },
+                groupTrailingAction = { group, isHovered ->
+                    EntryHoverAction(isHovered, actionInfo) { onAction(StatusAction.StageGroup(group.group)) }
+                },
+            )
+
+            if (emptyNote != null) {
+                EmptyListNoteView(emptyNote, Modifier.align(Alignment.Center))
+            }
+        }
     }
 }
 
@@ -737,6 +751,8 @@ internal fun CommitField(
     rebaseSkipOtherChanges: Int = 0,
     onContinueCherryPick: () -> Unit = {},
     onSkipCherryPick: () -> Unit = {},
+    /** The branch that a commit goes on, which the button names; null on a detached HEAD (fork-only). */
+    branchName: String? = null,
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
@@ -984,6 +1000,7 @@ internal fun CommitField(
                 canAmend = canAmend,
                 isAmend = isAmend,
                 onCommit = doCommit,
+                branchName = branchName,
             )
         }
     }
@@ -995,11 +1012,21 @@ fun UncommittedChangesButtons(
     canAmend: Boolean,
     isAmend: Boolean,
     onCommit: () -> Unit,
+    // Fork-only: "Commit" over "to main", as mockup A has it; null on a detached HEAD
+    branchName: String? = null,
 ) {
-    val buttonText = if (isAmend)
+    val buttonText = if (isAmend) {
         stringResource(Res.string.uncommited_changes_primary_button_amend)
-    else
+    } else {
         stringResource(Res.string.uncommited_changes_primary_button_commit)
+    }
+
+    // Amend keeps the second line, so that the button keeps its height when Amend is switched
+    val branchLine = when {
+        branchName == null -> null
+        isAmend -> stringResource(Res.string.uncommited_changes_primary_button_on_branch, branchName)
+        else -> stringResource(Res.string.uncommited_changes_primary_button_to_branch, branchName)
+    }
 
     Column {
         // Fork-only: Amend is in the commit message title row's menu now (upstream issue 344)
@@ -1011,16 +1038,21 @@ fun UncommittedChangesButtons(
                 text = buttonText,
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp),
+                    .height(if (branchLine != null) TWO_LINE_BUTTON_HEIGHT else 36.dp),
                 onClick = {
                     onCommit()
                 },
                 enabled = canCommit || (canAmend && isAmend),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                secondLine = branchLine,
+                secondLineTooltip = branchName,
             )
         }
     }
 }
+
+/** The Commit button with the branch under its label (fork-only, docs/fork/window-chrome.md, section 6). */
+internal val TWO_LINE_BUTTON_HEIGHT = 46.dp
 
 @Composable
 fun MergeButtons(
@@ -1230,6 +1262,10 @@ fun ConfirmationButton(
     enabled: Boolean = true,
     shape: Shape = MaterialTheme.shapes.small,
     onClick: () -> Unit,
+    // Fork-only: a smaller line under the label ("to main"), cut in the middle when it doesn't fit, with
+    // [secondLineTooltip] as its tooltip then
+    secondLine: String? = null,
+    secondLineTooltip: String? = null,
 ) {
     val (backgroundColor, contentColor) = if (enabled) {
         (MaterialTheme.styleColors.mainAction.background to MaterialTheme.styleColors.mainAction.content)
@@ -1237,21 +1273,46 @@ fun ConfirmationButton(
         (MaterialTheme.colors.onSurface.copy(alpha = 0.12f)
             .compositeOver(MaterialTheme.colors.surface) to MaterialTheme.colors.onSurface.copy(alpha = ContentAlpha.disabled))
     }
+    var isSecondLineCut by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = modifier
-            .handMouseClickable { if (enabled) onClick() }
-            .focusable(false) // TODO this and the abort button should be focusable (show some kind of border when focused?)
-            .clip(shape)
-            .background(backgroundColor),
-        contentAlignment = Alignment.Center,
+    DelayedTooltip(
+        text = secondLineTooltip.takeIf { secondLine != null && isSecondLineCut },
+        modifier = modifier,
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.body1.copy(color = contentColor),
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .handMouseClickable { if (enabled) onClick() }
+                .focusable(false) // TODO this and the abort button should be focusable (show some kind of border when focused?)
+                .clip(shape)
+                .background(backgroundColor),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            ) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.body1.copy(color = contentColor),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                if (secondLine != null) {
+                    MiddleCutText(
+                        text = secondLine,
+                        style = MaterialTheme.typography.caption,
+                        color = contentColor.copy(alpha = contentColor.alpha * SECOND_LINE_ALPHA),
+                        onCut = { isSecondLineCut = it },
+                    )
+                }
+            }
+        }
     }
 }
+
+private const val SECOND_LINE_ALPHA = 0.85f
 
 /** The header button's label while a search narrows the list: "Stage 3 matches" (fork-only, see [BulkTarget]). */
 @Composable

@@ -249,6 +249,11 @@
     <string name="uncommited_changes_staged_one_match_action">Unstage 1 match</string>
     <string name="uncommited_changes_staged_no_matches_action">Unstage 0 matches</string>
 
+    <string name="status_empty_nothing_staged">Nothing staged</string>
+    <string name="status_empty_working_tree_clean">Working tree clean</string>
+    <string name="status_empty_no_unstaged_changes">No unstaged changes</string>
+    <string name="status_empty_no_matches">No files match</string>
+
     <string name="uncommited_changes_message_title">Commit message</string>
     <string name="uncommited_changes_message_title_merge">Merge message</string>
     <string name="uncommited_changes_message_read_only">read-only</string>
@@ -256,6 +261,8 @@
     <string name="uncommited_changes_amend_menu_item">Amend last commit</string>
     <string name="uncommited_changes_text_input_label_message">Write your commit message here</string>
     <string name="uncommited_changes_primary_button_commit">Commit</string>
+    <string name="uncommited_changes_primary_button_to_branch">to %1$s</string>
+    <string name="uncommited_changes_primary_button_on_branch">on %1$s</string>
     <string name="uncommited_changes_primary_button_amend">Amend</string>
     <string name="uncommited_changes_primary_button_merge">Merge</string>
     <string name="uncommited_changes_primary_button_continue">Continue</string>

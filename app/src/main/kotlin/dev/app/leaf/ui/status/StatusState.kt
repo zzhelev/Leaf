@@ -47,6 +47,8 @@ sealed interface SelectionType<T> {
 @Immutable
 data class StatusState(
     val isLoading: Boolean = true,
+    /** Whether a status has been read, which an empty list's note waits for (fork-only, [emptyListNote]). */
+    val hasStatus: Boolean = false,
     /** Every staged entry, one per path. */
     val staged: List<StatusEntry> = emptyList(),
     /** Every unstaged entry, one per path, keeping the conflicting one when git reports a path twice. */
@@ -360,6 +362,7 @@ fun combineStatusState(
 
         StatusState(
             isLoading = isLoading,
+            hasStatus = lists.statusDataState.data != null,
             staged = lists.staged,
             unstaged = lists.unstaged,
             stagedRows = lists.stagedRows,

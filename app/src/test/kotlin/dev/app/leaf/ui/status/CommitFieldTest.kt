@@ -280,6 +280,56 @@ class CommitFieldTest {
             }
         }
 
+    // --- The branch it commits to (docs/fork/window-chrome.md, section 6)
+
+    @Test
+    fun `the Commit button names the branch on a second line, Amend keeps it, and a detached HEAD has none`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val ready = status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")
+
+            Field(ready, branchName = "main").use { field ->
+                assertTrue("Commit" in field.texts() && "to main" in field.texts(), field.texts().toString())
+                assertEquals(TWO_LINE_BUTTON_HEIGHT.value, field.bounds("Commit").height, 0.5f)
+                assertEquals(220f, field.bounds("Commit").bottom, 0.5f, "The button still ends the section")
+
+                field.click("Commit")
+
+                assertEquals(1, field.commits)
+            }
+
+            Field(ready.copy(isAmend = true), branchName = "main").use { field ->
+                assertTrue("Amend" in field.texts() && "on main" in field.texts(), field.texts().toString())
+                assertEquals(TWO_LINE_BUTTON_HEIGHT.value, field.bounds("Amend").height, 0.5f, "Switching Amend moves nothing")
+            }
+
+            Field(ready, branchName = null).use { field ->
+                assertTrue("Commit" in field.texts(), field.texts().toString())
+                assertFalse(field.texts().any { it.startsWith("to ") || it.startsWith("on ") }, field.texts().toString())
+                assertEquals(36f, field.bounds("Commit").height, 0.5f)
+            }
+        }
+
+    @Test
+    fun `a branch name that fits shows whole, and a longer one is cut in the middle, keeping both its ends`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val ready = status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")
+
+            Field(ready, branchName = "claude/fix-login-redirect-on-safari").use { field ->
+                assertTrue("to claude/fix-login-redirect-on-safari" in field.texts(), field.texts().toString())
+            }
+
+            val long = "feature/JIRA-4821-move-the-payment-retry-queue-to-the-new-scheduler-for-agents"
+
+            Field(ready, branchName = long).use { field ->
+                val line = field.texts().single { it.startsWith("to ") }
+
+                assertTrue("…" in line, line)
+                assertTrue(line.startsWith("to feature/JIRA-4821"), line)
+                assertTrue(line.endsWith("for-agents"), line)
+                assertEquals(TWO_LINE_BUTTON_HEIGHT.value, field.bounds("Commit").height, 0.5f)
+            }
+        }
+
     // --- The shortcut
 
     @Test
@@ -440,7 +490,7 @@ class CommitFieldTest {
     /**
      * The commit field for [state], with what `StatusPane` passes it. Counts what its buttons and its shortcut do.
      */
-    private class Field(state: StatusState) : AutoCloseable {
+    private class Field(state: StatusState, branchName: String? = null) : AutoCloseable {
         var commits = 0
         var continues = 0
         var skips = 0
@@ -472,6 +522,7 @@ class CommitFieldTest {
                     onAmendChecked = { amendToggles += it },
                     onAmendRebaseInteractiveChecked = { rebaseAmendToggles += it },
                     modifier = Modifier.height(220.dp),
+                    branchName = branchName,
                 )
             }
         }
