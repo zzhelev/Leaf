@@ -18,7 +18,7 @@ C, each in light and dark. All three are one component, `Window.dc.html`, with a
 - **A, for every style:**
   - The tabs move into the title bar, next to the window buttons. macOS first.
   - The toolbar becomes one compact row: a repository switcher, Pull and Push as one group, Branch, Stash and Pop as
-    one group, an "Actions…" field, and icon buttons for Terminal and Settings.
+    one group, an Actions button, and icon buttons for Terminal and Settings.
   - The panes get layered surfaces: the frame, the side panes and the content each have their own shade.
   - Headers lose their fill and the log header loses its column lines. Tonal's dark navy headers go.
 - **C, as an option:** a new built-in style, "Leaf", with the frame in the logo's forest green. Tonal stays the default.
@@ -128,7 +128,7 @@ One 48 dp row in the frame's colour (`frame`), with a hairline below. From left 
 5. **Stash ⌄ | Pop** as one group.
 6. A spacer.
 7. **Actions…**, a button that looks like a field, showing ⌘K at its right. ⌘K (Ctrl+K elsewhere) is a new binding;
-   nothing uses K in `Keybinding.kt` today (D3).
+   nothing uses K in `Keybinding.kt` today (D3). Built as a plain button instead (see As built).
 8. **Terminal** and **Settings** as icon buttons. Their tooltips name them and give their shortcuts.
 
 **Buttons.** 32 dp tall, the icon left of the label, 13 sp, medium weight.
@@ -143,7 +143,7 @@ switcher. An upstream sync will then show `Menu.kt` as modify/delete: keep the d
 **As built** (2026-11-05, step 3):
 
 - `A/ui/toolbar/Toolbar.kt`: `Toolbar` reads the tab's state, and `ToolbarRow` draws it from a `ToolbarState` and
-  `ToolbarActions`, which its tests render. Frame colours throughout: groups, Branch and the Actions field are filled
+  `ToolbarActions`, which its tests render. Frame colours throughout: groups, Branch and Actions are filled
   with `frame.control` and outlined with `frame.control.edge`; Terminal and Settings are icons in
   `frame.secondaryText`, filled on hover; a disabled part is at 45%. The row has `separators` along its bottom.
 - The switcher (`A/ui/toolbar/RepositorySwitcher.kt`) shows the repository and the linked worktree
@@ -153,9 +153,15 @@ switcher. An upstream sync will then show `Menu.kt` as modify/delete: keep the d
   now `internal` in `A/ui/WorktreePicker.kt`, whose button and list went), then "Open a repository…" and the recent
   repositories, whose search field has the focus. ⌘O opens it, as it opened the Open popup.
 - The labels' rule (`toolbarLabelsFor`): Branch, Stash and Pop show theirs from 1,150 dp, Pull and Push from
-  1,000 dp, and the Actions field is 248 dp wide from 900 dp, 160 dp below.
-- ⌘K (Ctrl+K elsewhere) is `KeybindingOption.QUICK_ACTIONS`, which the tab's keys open the Actions list with. The
-  field shows it with `KeybindingHint` ("⌘+K").
+  1,000 dp. Actions keeps its label at every width.
+- ⌘K (Ctrl+K elsewhere) is `KeybindingOption.QUICK_ACTIONS`, which the tab's keys open the Actions list with.
+- **Actions is a button** (`ActionsButton`), outlined as Branch is: the bolt, "Actions" (upstream's `menu_actions`) and
+  the shortcut after it in the frame's muted text (`KeybindingHint`, "⌘+K"), as wide as they are, which is narrower than
+  the field was at its narrowest. It was first built as the mockup had it, a button that looked like a search field,
+  reading "Actions…" with the shortcut in a chip, 248 dp wide from 900 dp and 160 dp below. The user found that it read
+  as a search box. From renders of the field, this button and a field reading "Find an action…", in light and dark at
+  1,280 and 900 dp, the user chose the button (2026-11-05): nothing else in the toolbar looks like a field, and the
+  Actions list's own field is where one types.
 - `Menu.kt` isn't deleted: upstream's `KeybindingHint` and `getParts` in it are used by the pane toggles' tooltips
   and the Actions list. `Menu`, `MenuButton` and `ExtendedMenuButton` went. An upstream sync that changes them shows
   a conflict there: keep them out.
@@ -163,8 +169,8 @@ switcher. An upstream sync will then show `Menu.kt` as modify/delete: keep the d
   The toolbar's rows space their children, so a showing tooltip got a gap of its own and moved the controls after it
   (Stash and Pop by 10 dp when Branch was hovered, found by the user). `ToolbarTooltip` puts it in a box of its own.
 - Tests: `ToolbarTest` (the rule, the labels at 1,440, 1,100 and 800 dp, nothing overlapping or past the edge, each
-  button's action, disabled Stash and remotes, a hovered button's tooltip moving nothing; PNGs in four styles at 1,440
-  and 900 dp with `LEAF_RENDER_DIR`) and
+  button's action, disabled Stash and remotes, a hovered button's tooltip moving nothing, Actions' label and shortcut
+  and the same width at 1,440 and 800 dp; PNGs in five styles at 1,440 and 900 dp with `LEAF_RENDER_DIR`) and
   `RepositorySwitcherTest` (the worktree picker's tests, moved: the label, the list, switching, a missing folder, New
   worktree; and a repository with one worktree, Open, a recent repository, the label's rule; PNGs of the open popup).
 
@@ -313,11 +319,11 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
   #101A15), the leaf green #8EDC72 of the frame's icon, and the frame's muted text #B4D6C2. Selection, links and lane 1
   are Tonal's blue (D5). The rest of the frame is worked out: controls #1E4B37 and edges #305D4A against the mockup's
   #1A4D34 and #2C6247, and white text.
-- **The muted text** (inactive tabs, a worktree's name in the selected tab, "/" in the switcher, "Actions…" and its
-  key) was worked out as #9AB5AE, which held only the minimum 4.5 : 1 on the frame's controls, where Tonal has 6.2.
-  Chosen with the user from renders of the tab bar and the toolbar with four greens (2026-11-05): #B4D6C2, 6.3 : 1 on
-  the controls and 8.0 on the frame, still clearly dimmer than the white text. The mockup's #A9CDB7 held 5.7, and a
-  lighter #C8E3D3 made the other tabs look as bright as the selected one.
+- **The muted text** (inactive tabs, a worktree's name in the selected tab, "/" in the switcher, the Actions field's
+  text and key, now the Actions button's key) was worked out as #9AB5AE, which held only the minimum 4.5 : 1 on the
+  frame's controls, where Tonal has 6.2. Chosen with the user from renders of the tab bar and the toolbar with four
+  greens (2026-11-05): #B4D6C2, 6.3 : 1 on the controls and 8.0 on the frame, still clearly dimmer than the white text.
+  The mockup's #A9CDB7 held 5.7, and a lighter #C8E3D3 made the other tabs look as bright as the selected one.
 - **`controls.dark`**, which the plan listed, is a property of JBR's custom title bar that only Windows reads. It's for
   step 8, where it can follow the frame's darkness.
 - **The editor:** a Frame row after Background, with a swatch per side showing the worked-out colour until one is
