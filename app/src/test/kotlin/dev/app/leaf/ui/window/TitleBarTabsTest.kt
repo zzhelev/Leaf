@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.MaterialTheme
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
@@ -18,8 +19,11 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.models.ui.Theme
+import dev.app.leaf.domain.styles.BuiltInStyles
+import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.tabs.TabLook
 import dev.app.leaf.theme.AppTheme
+import dev.app.leaf.theme.frameColors
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.components.TabInformationProvider
 import dev.app.leaf.ui.components.TabsRow
@@ -31,22 +35,29 @@ import kotlinx.coroutines.swing.Swing
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.jetbrains.skia.EncodedImageFormat
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /** The tabs in the window's title bar (docs/fork/window-chrome.md): they shrink, then scroll with arrows. */
 class TitleBarTabsTest {
     @Test
-    fun `tabs get an equal share of the bar, and never less than the minimum`() {
+    fun `tabs get an equal share of the bar, gaps and the + button left out, and never less than the minimum`() {
+        // 836 - 32 for the + button and its gap - 4 between the two tabs
         assertEquals(400.dp, titleBarTabWidth(836.dp, 2))
-        assertEquals(160.dp, titleBarTabWidth(836.dp, 5))
+        // 836 - 32 - 4 × 4 = 788, over five
+        assertEquals(157.6.dp, titleBarTabWidth(836.dp, 5))
         assertEquals(TITLE_BAR_MIN_TAB_WIDTH, titleBarTabWidth(836.dp, 12))
         assertEquals(836.dp, titleBarTabWidth(836.dp, 0))
     }
 
     @Test
-    fun `tabs fit while each can have the minimum`() {
-        assertTrue(tabsFitTitleBar(TITLE_BAR_MIN_TAB_WIDTH * 6 + ADD_TAB_BUTTON_WIDTH, 6))
-        assertFalse(tabsFitTitleBar(TITLE_BAR_MIN_TAB_WIDTH * 6 + ADD_TAB_BUTTON_WIDTH, 7))
+    fun `tabs fit while each can have the minimum, with the gaps between them`() {
+        val sixTabs = TITLE_BAR_MIN_TAB_WIDTH * 6 + TITLE_BAR_TAB_GAP * 5 + ADD_TAB_BUTTON_WIDTH
+
+        assertTrue(tabsFitTitleBar(sixTabs, 6))
+        assertFalse(tabsFitTitleBar(sixTabs - 1.dp, 6))
+        assertFalse(tabsFitTitleBar(sixTabs, 7))
         assertTrue(tabsFitTitleBar(100.dp, 0))
     }
 
@@ -55,7 +66,7 @@ class TitleBarTabsTest {
         TabsScene(tabCount = 2, barWidth = 836).use { scene ->
             scene.settle()
 
-            assertEquals(listOf(200f, 200f), scene.tabWidths())
+            assertEquals(listOf(168f, 168f), scene.tabWidths())
             assertTrue(scene.arrows().isEmpty())
         }
     }
@@ -65,7 +76,8 @@ class TitleBarTabsTest {
         TabsScene(tabCount = 5, barWidth = 836).use { scene ->
             scene.settle()
 
-            assertEquals(List(5) { 160f }, scene.tabWidths())
+            assertTrue(scene.tabWidths().all { it in 157f..158f }, scene.tabWidths().toString())
+            assertEquals(5, scene.tabWidths().size)
             assertTrue(scene.arrows().isEmpty())
         }
     }
@@ -89,29 +101,62 @@ class TitleBarTabsTest {
             }
         }
 
-    private class FakeTab(name: String) : TabInformationProvider {
-        override val tabName = MutableStateFlow<String?>(name)
-        override val worktreeName = MutableStateFlow<String?>(null)
-        override val extraInfo = MutableStateFlow<String?>("/repos/$name")
-        override val tabLook = MutableStateFlow<TabLook?>(TabLook())
+    @Test
+    fun `renders the title bar's tabs in four styles, to look at`(): Unit = runBlocking(Dispatchers.Swing) {
+        val folder = System.getenv("LEAF_RENDER_DIR")?.let(::File) ?: return@runBlocking
+        folder.mkdirs()
+
+        val tabs = listOf(
+            TabInformation(FakeTab("Leaf")),
+            TabInformation(FakeTab("app", worktree = "fix-login")),
+            TabInformation(FakeTab("Globex app", look = TabLook(name = "Globex app", color = 2))),
+            TabInformation(FakeTab("dotfiles", look = TabLook(color = 5))),
+            TabInformation(FakeTab(null, look = null)),
+        )
+
+        for (style in listOf(BuiltInStyles.TONAL, BuiltInStyles.CLASSIC, BuiltInStyles.SOLARIZED, BuiltInStyles.TEAL)) {
+            for (theme in listOf(Theme.Light, Theme.Dark)) {
+                TabsScene(tabs, barWidth = 1000, theme = theme, style = style, density = 2f).use { scene ->
+                    scene.settle()
+                    scene.writePng(File(folder, "title-bar-tabs-${style.id}-${theme.name.lowercase()}.png"))
+                }
+            }
+        }
+    }
+
+    private class FakeTab(
+        name: String?,
+        worktree: String? = null,
+        look: TabLook? = TabLook(),
+    ) : TabInformationProvider {
+        override val tabName = MutableStateFlow(name)
+        override val worktreeName = MutableStateFlow(worktree)
+        override val extraInfo = MutableStateFlow(name?.let { "/repos/$it" })
+        override val tabLook = MutableStateFlow(look)
         override fun renameTab(typed: String) {}
         override fun resetTabName() {}
         override fun setTabColor(color: Int?) {}
         override fun dispose() {}
     }
 
-    private class TabsScene(tabCount: Int, barWidth: Int) : AutoCloseable {
-        private val tabs = List(tabCount) { TabInformation(FakeTab("tab $it")) }
+    private class TabsScene(
+        private val tabs: List<TabInformation<FakeTab>>,
+        barWidth: Int,
+        theme: Theme = Theme.Light,
+        style: StyleDefinition = BuiltInStyles.TONAL,
+        density: Float = 1f,
+    ) : AutoCloseable {
+        constructor(tabCount: Int, barWidth: Int) : this(List(tabCount) { TabInformation(FakeTab("tab $it")) }, barWidth)
 
         private val scene = ImageComposeScene(
-            width = barWidth + 200,
-            height = 40,
-            density = Density(1f),
+            width = ((barWidth + 200) * density).toInt(),
+            height = (40 * density).toInt(),
+            density = Density(density),
             coroutineContext = Dispatchers.Swing,
         ) {
-            AppTheme(Theme.Light) {
-                Box(Modifier.background(MaterialTheme.colors.background).fillMaxSize()) {
-                    Box(Modifier.width(barWidth.dp).height(40.dp)) {
+            AppTheme(theme, style = style) {
+                Box(Modifier.background(MaterialTheme.frameColors.background).fillMaxSize()) {
+                    Box(Modifier.width(barWidth.dp).height(40.dp), contentAlignment = Alignment.CenterStart) {
                         TabsRow(
                             tabs = tabs,
                             defaultTabName = "New tab",
@@ -180,6 +225,10 @@ class TitleBarTabsTest {
             val button = generateSequence(node) { it.parent }.first { it.config.contains(SemanticsActions.OnClick) }
 
             button.config[SemanticsActions.OnClick].action?.invoke()
+        }
+
+        fun writePng(file: File) {
+            file.writeBytes(scene.render(System.nanoTime()).encodeToData(EncodedImageFormat.PNG)!!.bytes)
         }
 
         override fun close() = scene.close()

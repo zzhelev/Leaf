@@ -39,7 +39,11 @@ import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.drag_sorting.HorizontalDraggableItem
 import dev.app.leaf.ui.drag_sorting.horizontalDragContainer
 import dev.app.leaf.ui.drag_sorting.rememberHorizontalDragDropState
+import dev.app.leaf.theme.frameColors
+import dev.app.leaf.ui.window.TITLE_BAR_TAB_GAP
+import dev.app.leaf.ui.window.TITLE_BAR_TAB_HEIGHT
 import dev.app.leaf.ui.window.TabScrollArrow
+import dev.app.leaf.ui.window.TitleBarTab
 import dev.app.leaf.ui.window.tabsFitTitleBar
 import dev.app.leaf.ui.window.titleBarTabWidth
 import kotlinx.coroutines.delay
@@ -133,6 +137,9 @@ fun <T : TabInformationProvider> TabsRow(
                         },
                     ),
                 state = stateHorizontal,
+                // Fork-only: the title bar's tabs are apart and centred in it
+                horizontalArrangement = if (titleBarWidth != null) Arrangement.spacedBy(TITLE_BAR_TAB_GAP) else Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 itemsIndexed(
                     items = tabs,
@@ -174,6 +181,8 @@ fun <T : TabInformationProvider> TabsRow(
                                         onTabClosed(tab)
                                     },
                                     color = tabColor(look?.color),
+                                    inTitleBar = titleBarWidth != null,
+                                    hasRepository = look != null,
                                     isRenaming = renamingTab == tab,
                                     onDoubleClick = if (look != null) {
                                         { onRenamingTabChange(tab) }
@@ -207,14 +216,14 @@ fun <T : TabInformationProvider> TabsRow(
                     onAddNewTab()
                 },
                 modifier = Modifier
-                    .size(36.dp)
+                    .run { if (titleBarWidth != null) padding(start = TITLE_BAR_TAB_GAP).size(TITLE_BAR_TAB_HEIGHT) else size(36.dp) }
                     .handOnHover()
                     .align(Alignment.CenterVertically),
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    tint = MaterialTheme.colors.primaryVariant,
+                    tint = if (titleBarWidth != null) MaterialTheme.frameColors.secondaryText else MaterialTheme.colors.primaryVariant,
                 )
             }
         }
@@ -244,10 +253,22 @@ fun Tab(
     onCloseTab: () -> Unit,
     // Fork-only (upstream issue 242): the colour of its stripe, and its name edited in place
     color: Color? = null,
+    // Fork-only (docs/fork/window-chrome.md): a tab in the window's title bar, which has a look of its own
+    inTitleBar: Boolean = false,
+    hasRepository: Boolean = true,
     isRenaming: Boolean = false,
     onDoubleClick: (() -> Unit)? = null,
     onRenameDone: (typed: String?, byKey: Boolean) -> Unit = { _, _ -> },
 ) {
+    if (inTitleBar) {
+        TitleBarTab(
+            modifier, title, worktreeName, isSelected, hasRepository, onClick, onCloseTab, color, isRenaming,
+            onDoubleClick, onRenameDone,
+        )
+
+        return
+    }
+
     val backgroundColor = if (isSelected)
         MaterialTheme.colors.surface
     else

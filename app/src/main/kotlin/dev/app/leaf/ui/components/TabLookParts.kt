@@ -216,7 +216,13 @@ private fun ColorSwatch(description: String, isSelected: Boolean, onClick: () ->
  * a key ended it.
  */
 @Composable
-fun TabNameField(name: String, onDone: (typed: String?, byKey: Boolean) -> Unit, modifier: Modifier = Modifier) {
+fun TabNameField(
+    name: String,
+    onDone: (typed: String?, byKey: Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    // The title bar's tabs (docs/fork/window-chrome.md) are drawn on the frame's colours
+    textColor: Color = MaterialTheme.colors.onBackground,
+) {
     var value by remember { mutableStateOf(TextFieldValue(name, selection = TextRange(0, name.length))) }
     var isDone by remember { mutableStateOf(false) }
     var hadFocus by remember { mutableStateOf(false) }
@@ -228,8 +234,6 @@ fun TabNameField(name: String, onDone: (typed: String?, byKey: Boolean) -> Unit,
             onDone(typed, byKey)
         }
     }
-
-    val textColor = MaterialTheme.colors.onBackground
 
     BasicTextField(
         value = value,
