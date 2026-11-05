@@ -8,11 +8,13 @@ import androidx.compose.ui.graphics.Color
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.theme.ColorsScheme
+import dev.app.leaf.theme.FrameColors
 import dev.app.leaf.theme.RoleColors
 import dev.app.leaf.theme.StripColors
 import dev.app.leaf.theme.StyleColors
 import dev.app.leaf.theme.SyntaxColors
 import dev.app.leaf.theme.darkTheme
+import dev.app.leaf.theme.frameColorsFor
 import dev.app.leaf.theme.lightTheme
 import dev.app.leaf.theme.styleColorsFor
 import dev.app.leaf.theme.styled
@@ -140,6 +142,16 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
         attribute = this[StyleSlot.ATTRIBUTE],
     )
 
+    fun toFrameColors() = FrameColors(
+        background = this[StyleSlot.FRAME],
+        text = this[StyleSlot.FRAME_TEXT],
+        secondaryText = this[StyleSlot.FRAME_SECONDARY_TEXT],
+        icon = this[StyleSlot.FRAME_ICON],
+        control = this[StyleSlot.FRAME_CONTROL],
+        controlEdge = this[StyleSlot.FRAME_CONTROL_EDGE],
+        separator = this[StyleSlot.SEPARATORS],
+    )
+
     private fun role(fill: StyleSlot, text: StyleSlot, edge: StyleSlot) = RoleColors(this[fill], this[text], this[edge])
 
     override fun equals(other: Any?): Boolean =
@@ -149,13 +161,14 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
 
     companion object {
         /**
-         * The palette of [scheme], [roles], [lanes] and [syntax], which is how the built-in looks are kept. The syntax
-         * colours' keyword, annotation and comment are the scheme's, which upstream's code reads.
+         * The palette of [scheme], [roles], [lanes], [frame] and [syntax], which is how the built-in looks are kept. The
+         * syntax colours' keyword, annotation and comment are the scheme's, which upstream's code reads.
          */
         fun of(
             scheme: ColorsScheme,
             roles: StyleColors,
             lanes: List<Color>,
+            frame: FrameColors,
             syntax: SyntaxColors = syntaxTemplate(scheme),
         ): StylePalette {
             require(lanes.size == StyleSlot.LANES.size)
@@ -169,6 +182,13 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
                 StyleSlot.DIALOG_OVERLAY to scheme.dialogOverlay,
                 StyleSlot.SCROLLBAR to scheme.normalScrollbar,
                 StyleSlot.SCROLLBAR_HOVER to scheme.hoverScrollbar,
+                StyleSlot.FRAME to frame.background,
+                StyleSlot.FRAME_TEXT to frame.text,
+                StyleSlot.FRAME_SECONDARY_TEXT to frame.secondaryText,
+                StyleSlot.FRAME_ICON to frame.icon,
+                StyleSlot.FRAME_CONTROL to frame.control,
+                StyleSlot.FRAME_CONTROL_EDGE to frame.controlEdge,
+                StyleSlot.SEPARATORS to frame.separator,
                 StyleSlot.TEXT to scheme.onBackground,
                 StyleSlot.SECONDARY_TEXT to scheme.onBackgroundSecondary,
                 StyleSlot.LINKS to scheme.primaryVariant,
@@ -229,7 +249,7 @@ class StylePalette(val isLight: Boolean, private val colors: Map<StyleSlot, Colo
         fun template(look: AccentStyle, isLight: Boolean): StylePalette {
             val scheme = (if (isLight) lightTheme else darkTheme).styled(look)
 
-            return of(scheme, styleColorsFor(look, scheme), lanesOf(look))
+            return of(scheme, styleColorsFor(look, scheme), lanesOf(look), frameColorsFor(look, scheme))
         }
     }
 }

@@ -34,6 +34,7 @@ import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
+import dev.app.leaf.theme.frameColors
 
 private const val TAG = "WindowTitleBar"
 
@@ -197,7 +198,7 @@ fun TitleBar(
         modifier = modifier
             .fillMaxWidth()
             .height(TITLE_BAR_HEIGHT)
-            .background(MaterialTheme.colors.surface)
+            .background(MaterialTheme.frameColors.background)
             .onGloballyPositioned { holder.coordinates = it }
             .pointerInput(titleBar) {
                 awaitPointerEventScope {

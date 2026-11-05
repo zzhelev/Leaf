@@ -1506,6 +1506,7 @@
     <string name="style_editor_picker_hex">Hex</string>
     <string name="style_editor_picker_worked_out">Use the worked-out colour</string>
     <string name="style_editor_group_surfaces">Surfaces</string>
+    <string name="style_editor_group_frame">Window frame</string>
     <string name="style_editor_group_text">Text</string>
     <string name="style_editor_group_files">Files</string>
     <string name="style_editor_group_diff">Diff</string>
@@ -1520,6 +1521,10 @@
     <string name="style_editor_row_dialog_overlay">Shade behind dialogs</string>
     <string name="style_editor_row_scrollbar">Scrollbar</string>
     <string name="style_editor_row_scrollbar_hover">Scrollbar on hover</string>
+    <string name="style_editor_row_frame">Title bar and toolbar</string>
+    <string name="style_editor_row_frame_secondary_text">Muted text in the frame</string>
+    <string name="style_editor_row_frame_controls">Selected tab and buttons</string>
+    <string name="style_editor_row_separators">Lines between panes</string>
     <string name="style_editor_row_text">Text</string>
     <string name="style_editor_row_secondary_text">Secondary text</string>
     <string name="style_editor_row_links">Links</string>

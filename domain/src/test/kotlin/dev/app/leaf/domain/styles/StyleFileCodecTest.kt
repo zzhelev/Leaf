@@ -128,6 +128,7 @@ class StyleFileCodecTest {
         // A key that changes makes every file that sets that colour lose it
         val keys = listOf(
             "background", "panels", "boxes", "headers", "selectedRow", "dialogOverlay", "scrollbar", "scrollbarHover",
+            "frame", "frame.text", "frame.secondaryText", "frame.icon", "frame.control", "frame.control.edge", "separators",
             "text", "secondaryText", "links", "highlight", "onHighlight", "error", "onError",
             "addedFile", "modifiedFile", "deletedFile", "conflictedFile",
             "addedLine", "addedWords", "removedLine", "removedWords",

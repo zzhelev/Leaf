@@ -16,6 +16,7 @@ import dev.app.leaf.domain.styles.StyleSeeds
 import dev.app.leaf.domain.styles.StyleSide
 import dev.app.leaf.domain.styles.StyleSlot
 import dev.app.leaf.theme.darkTheme
+import dev.app.leaf.theme.frameColorsFor
 import dev.app.leaf.theme.lightTheme
 import dev.app.leaf.theme.styleColorsFor
 import dev.app.leaf.theme.styled
@@ -203,8 +204,18 @@ class StyleDerivationTest {
             ),
             "success strip" to ratio(StyleSlot.SUCCESS_STRIP_TEXT, StyleSlot.SUCCESS_STRIP_FILL),
             "text on added lines" to ratio(StyleSlot.TEXT, StyleSlot.ADDED_LINE, StyleSlot.BACKGROUND),
+            // The window's frame (docs/fork/window-chrome.md): a tab's name, the toolbar's labels, the Actions field
+            "frame text" to ratio(StyleSlot.FRAME_TEXT, StyleSlot.FRAME),
+            "frame's muted text" to ratio(StyleSlot.FRAME_SECONDARY_TEXT, StyleSlot.FRAME),
+            "selected tab" to ratio(StyleSlot.FRAME_TEXT, StyleSlot.FRAME_CONTROL, StyleSlot.FRAME),
+            "muted text in a frame control" to ratio(StyleSlot.FRAME_SECONDARY_TEXT, StyleSlot.FRAME_CONTROL, StyleSlot.FRAME),
         )
         for ((name, ratio) in pairs) assertTrue(ratio >= TEXT_CONTRAST, "$what $name: $ratio")
+
+        for (under in listOf(listOf(StyleSlot.FRAME), listOf(StyleSlot.FRAME_CONTROL, StyleSlot.FRAME))) {
+            val icon = ratio(StyleSlot.FRAME_ICON, *under.toTypedArray())
+            assertTrue(icon >= ICON_CONTRAST, "$what frame icon on $under: $icon")
+        }
 
         if (look != AccentStyle.CLASSIC) {
             val icon = ratio(StyleSlot.WARNING_ICON, StyleSlot.BACKGROUND)
@@ -394,11 +405,13 @@ class StyleDerivationTest {
             StyleSeed.BACKGROUND to setOf(
                 StyleSlot.BACKGROUND, StyleSlot.PANELS, StyleSlot.BOXES, StyleSlot.HEADERS, StyleSlot.SCROLLBAR,
                 StyleSlot.TEXT, StyleSlot.SECONDARY_TEXT, StyleSlot.NEUTRAL_FILL, StyleSlot.NEUTRAL_TEXT,
+                StyleSlot.FRAME, StyleSlot.FRAME_TEXT, StyleSlot.FRAME_SECONDARY_TEXT, StyleSlot.FRAME_CONTROL,
+                StyleSlot.FRAME_CONTROL_EDGE, StyleSlot.SEPARATORS,
             ),
             StyleSeed.ACCENT to setOf(
                 StyleSlot.MAIN_ACTION_FILL, StyleSlot.LINKS, StyleSlot.MODIFIED_FILE, StyleSlot.KEYWORD, StyleSlot.TAG,
                 StyleSlot.LANE_1, StyleSlot.SELECTED_ROW, StyleSlot.SCROLLBAR_HOVER, StyleSlot.ACTION_FILL,
-                StyleSlot.ACTION_TEXT, StyleSlot.ACTION_EDGE,
+                StyleSlot.ACTION_TEXT, StyleSlot.ACTION_EDGE, StyleSlot.FRAME_ICON,
             ),
             StyleSeed.DANGER to setOf(
                 StyleSlot.ERROR, StyleSlot.DELETED_FILE, StyleSlot.REMOVED_LINE, StyleSlot.REMOVED_WORDS, StyleSlot.LANE_2,
@@ -447,11 +460,13 @@ class StyleDerivationTest {
             for (isLight in sides) {
                 val scheme = (if (isLight) lightTheme else darkTheme).styled(look)
                 val roles = styleColorsFor(look, scheme)
-                val palette = StylePalette.of(scheme, roles, lanesOf(look))
+                val frame = frameColorsFor(look, scheme)
+                val palette = StylePalette.of(scheme, roles, lanesOf(look), frame)
 
                 assertEquals(scheme, palette.toColorsScheme())
                 assertEquals(roles, palette.toStyleColors())
                 assertEquals(lanesOf(look), palette.lanes)
+                assertEquals(frame, palette.toFrameColors())
                 assertEquals(palette, StylePalette.template(look, isLight))
             }
         }

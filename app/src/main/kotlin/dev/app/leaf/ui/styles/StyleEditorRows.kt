@@ -36,7 +36,7 @@ private fun row(label: StringResource, vararg slots: Pair<StyleSlot, SlotPart>) 
 
 /**
  * The Advanced table (fork-only, option 3c of the "Style Library" board): every colour a style sets, once, grouped as
- * Surfaces, Text, Files, Diff, Syntax, Graph lanes, and Buttons and notices.
+ * Surfaces, Window frame, Text, Files, Diff, Syntax, Graph lanes, and Buttons and notices.
  */
 val ADVANCED_GROUPS: List<AdvancedGroup> = listOf(
     AdvancedGroup(
@@ -50,6 +50,16 @@ val ADVANCED_GROUPS: List<AdvancedGroup> = listOf(
             row(Res.string.style_editor_row_dialog_overlay, DIALOG_OVERLAY),
             row(Res.string.style_editor_row_scrollbar, SCROLLBAR),
             row(Res.string.style_editor_row_scrollbar_hover, SCROLLBAR_HOVER),
+        ),
+    ),
+    // The title bar, the toolbar and the lines between the panes (docs/fork/window-chrome.md)
+    AdvancedGroup(
+        Res.string.style_editor_group_frame,
+        listOf(
+            row(Res.string.style_editor_row_frame, FRAME to SlotPart.FILL, FRAME_TEXT to SlotPart.TEXT, FRAME_ICON to SlotPart.ICON),
+            row(Res.string.style_editor_row_frame_secondary_text, FRAME_SECONDARY_TEXT),
+            row(Res.string.style_editor_row_frame_controls, FRAME_CONTROL to SlotPart.FILL, FRAME_CONTROL_EDGE to SlotPart.EDGE),
+            row(Res.string.style_editor_row_separators, SEPARATORS),
         ),
     ),
     AdvancedGroup(

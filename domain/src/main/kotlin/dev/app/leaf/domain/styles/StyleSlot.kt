@@ -8,6 +8,9 @@ import dev.app.leaf.domain.highlighting.SyntaxCategory
 /** Where a colour is used, which groups the rows of the style editor's Advanced table. */
 enum class StyleSlotGroup {
     SURFACES,
+
+    /** The title bar, the toolbar and the lines between the panes (`docs/fork/window-chrome.md`). */
+    WINDOW_FRAME,
     TEXT,
     FILES,
     DIFF,
@@ -41,6 +44,21 @@ enum class StyleSlot(val key: String, val group: StyleSlotGroup) {
     DIALOG_OVERLAY("dialogOverlay", StyleSlotGroup.SURFACES),
     SCROLLBAR("scrollbar", StyleSlotGroup.SURFACES),
     SCROLLBAR_HOVER("scrollbarHover", StyleSlotGroup.SURFACES),
+
+    /** The title bar's and the toolbar's background. */
+    FRAME("frame", StyleSlotGroup.WINDOW_FRAME),
+    FRAME_TEXT("frame.text", StyleSlotGroup.WINDOW_FRAME),
+    FRAME_SECONDARY_TEXT("frame.secondaryText", StyleSlotGroup.WINDOW_FRAME),
+
+    /** Icons in the frame that carry its colour, as the repository's. */
+    FRAME_ICON("frame.icon", StyleSlotGroup.WINDOW_FRAME),
+
+    /** The selected tab, and the frame's buttons and fields. */
+    FRAME_CONTROL("frame.control", StyleSlotGroup.WINDOW_FRAME),
+    FRAME_CONTROL_EDGE("frame.control.edge", StyleSlotGroup.WINDOW_FRAME),
+
+    /** The lines between the panes, and under the toolbar and the headers. */
+    SEPARATORS("separators", StyleSlotGroup.WINDOW_FRAME),
 
     TEXT("text", StyleSlotGroup.TEXT),
     SECONDARY_TEXT("secondaryText", StyleSlotGroup.TEXT),

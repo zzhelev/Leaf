@@ -61,6 +61,9 @@ fun slotRule(slot: StyleSlot, look: AccentStyle, isLight: Boolean): SlotRule {
     return when (slot) {
         BACKGROUND -> SlotRule(Follow.SEED, StyleSeed.BACKGROUND)
         PANELS, BOXES, HEADERS, SCROLLBAR -> onBackground
+        FRAME, FRAME_CONTROL, FRAME_CONTROL_EDGE, SEPARATORS -> onBackground
+        FRAME_TEXT, FRAME_SECONDARY_TEXT -> asText
+        FRAME_ICON -> hue(StyleSeed.ACCENT)
         SCROLLBAR_HOVER -> if (isLight) hue(StyleSeed.ACCENT) else onBackground
         TEXT, SECONDARY_TEXT -> asText
         DIALOG_OVERLAY, HIGHLIGHT, ON_HIGHLIGHT, ON_ERROR, MAIN_ACTION_TEXT, LANE_3, LANE_6 -> fixed
@@ -156,6 +159,13 @@ fun contrastChecks(look: AccentStyle): List<ContrastCheck> = buildList {
     }
     text(TEXT, listOf(ADDED_LINE, BACKGROUND))
     text(TEXT, listOf(REMOVED_LINE, BACKGROUND))
+
+    // The frame's text on the frame and on its controls, as the selected tab's name and the Actions field
+    for (layers in listOf(listOf(FRAME), listOf(FRAME_CONTROL, FRAME))) {
+        text(FRAME_TEXT, layers)
+        text(FRAME_SECONDARY_TEXT, layers)
+        add(ContrastCheck(FRAME_ICON, layers, ICON_CONTRAST, listOf(FRAME_ICON)))
+    }
 
     fun button(fill: StyleSlot, text: StyleSlot, filled: Boolean, on: List<StyleSlot>) {
         val movers = if (filled) listOf(fill, text) else listOf(text, fill)

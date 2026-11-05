@@ -79,6 +79,7 @@ fun AppTheme(
     val styleColors = palette.toStyleColors()
     val lanes = palette.lanes
     val syntaxColors = palette.toSyntaxColors()
+    val frameColors = palette.toFrameColors()
 
     val lineHeight = when (linesHeightType) {
         LinesHeightType.SPACED -> spacedLineHeight
@@ -93,6 +94,7 @@ fun AppTheme(
         LocalColorsScheme provides theme,
         LocalGraphLanes provides lanes,
         LocalSyntaxColors provides syntaxColors,
+        LocalFrameColors provides frameColors,
         LocalCodeColours provides codeColours,
     )
 
