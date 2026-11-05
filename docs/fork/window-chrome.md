@@ -290,6 +290,51 @@ default.
 
 Without the seed, Leaf sets its frame slots by hand, and user styles change them one by one in Advanced.
 
+**As built** (2026-11-05, step 5):
+
+- **The Frame seed** is `StyleSeeds.frame`, one per side and optional. Without it, the frame's colours follow the
+  background as before, so the other built-in styles and every user file stay as they were. It isn't a `StyleSeed`, as
+  each of those always has a colour. Files write it as `"frame"` in a side's seeds only when it's set; one that isn't a
+  colour follows the background, and a see-through one is made opaque. An older Leaf reads such a file and leaves the
+  frame out.
+- **What it moves** (`FrameStart` in `StyleDerivation.kt`): the frame, its text and muted text, its controls and their
+  edge start from the look's frame on the side whose frame is as dark as the seed (luminance 0.179, where black and
+  white text hold the same contrast), and move as far as the frame moved from that side's own. So Leaf's green on the
+  light side starts from the dark side's light text and dark controls. A frame equal to the look's own keeps the look's
+  colours exactly. The frame's icon follows the accent. A mid-tone frame is first made lighter or darker until black or
+  white text holds on it and its controls (`fittedFrame`, as the background is fitted); 2,000 random seed sets per look
+  and side, a third with a frame, found the case.
+- **The separators keep following the background**, not the frame: since step 4 they draw the headers' lines in the
+  content too. So the toolbar's divider after the switcher takes `frame.control.edge`, and the ⌘K hint in the Actions
+  field `frame.secondaryText` (`KeybindingHint` has a colour parameter, whose default the tooltips keep): on Leaf's
+  light side both were the content's colours, pale and dark on dark green.
+- **The Leaf style** (`BuiltInStyles.LEAF`, after Teal): Tonal's seeds with the frame #0F3B27 (dark #0E2419) and the
+  dark background #0C120F. Set by hand: the main action #1F6B45 (dark #2F7D52), mockup C's panels #F3F6F3 (dark
+  #101A15), the leaf green #8EDC72 of the frame's icon, and the frame's muted text #B4D6C2. Selection, links and lane 1
+  are Tonal's blue (D5). The rest of the frame is worked out: controls #1E4B37 and edges #305D4A against the mockup's
+  #1A4D34 and #2C6247, and white text.
+- **The muted text** (inactive tabs, a worktree's name in the selected tab, "/" in the switcher, "Actions…" and its
+  key) was worked out as #9AB5AE, which held only the minimum 4.5 : 1 on the frame's controls, where Tonal has 6.2.
+  Chosen with the user from renders of the tab bar and the toolbar with four greens (2026-11-05): #B4D6C2, 6.3 : 1 on
+  the controls and 8.0 on the frame, still clearly dimmer than the white text. The mockup's #A9CDB7 held 5.7, and a
+  lighter #C8E3D3 made the other tabs look as bright as the selected one.
+- **`controls.dark`**, which the plan listed, is a property of JBR's custom title bar that only Windows reads. It's for
+  step 8, where it can follow the frame's darkness.
+- **The editor:** a Frame row after Background, with a swatch per side showing the worked-out colour until one is
+  picked, and "Use the worked-out colour" in the picker to follow the background again (`StyleEditorState.withFrame`).
+  The preview has no frame: a strip of it at the top of each side pushed the dark side's files and Commit out of the
+  dialog, which is 680 dp tall to fit Leaf's default window. The Advanced table's Window frame rows show its colours.
+- **Settings' gallery** needed nothing: its cards don't show the frame, and Leaf's stands apart by its green main
+  action. Import moved to a third row, which `StyleGalleryTest` now allows, and `CodeColoursRowTest` looks for its
+  drop-down's "Leaf" right of the row's title, as the style's card above has the name too.
+- Tests: `BuiltInStylesTest` (Leaf's place, seeds and colours set by hand; only Leaf has a frame), `StyleFileCodecTest`
+  (the key written only when set, read back, broken and see-through frames, frames in the random round trips),
+  `StyleDerivationTest` (a frame equal to the look's own, the other side's frame giving that side's colours, no frame
+  following the background, Leaf holding every check with light text on its frame, 6 : 1 for its muted text on the
+  controls and Tonal's blue, random frames),
+  `StyleEditorStateTest` (the frame per side, opaque, and back to the background). `ToolbarTest` and `TitleBarTabsTest`
+  render Leaf too.
+
 ## 6. Smaller changes from the mockup (D7, each on its own)
 
 - ⌘K for Actions (section 3).
@@ -326,7 +371,7 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
    `LEAF_RENDER_DIR` is set.
 3. **Toolbar** (section 3). Built 2026-11-05.
 4. **Surfaces and headers** (section 4). Built 2026-11-05.
-5. **The Leaf style** (section 5), and the Frame seed if D6 is yes.
+5. **The Leaf style** (section 5), and the Frame seed if D6 is yes. Built 2026-11-05, with the seed.
 6. **The smaller changes** that D7 keeps.
 7. **Docs:** CLAUDE.md, `docs/fork/CHANGELOG.md`, and the README's screenshots if they show the window.
 8. **Windows** (D1), once steps 0 to 7 are approved on macOS: the same title bar, with the caption buttons on the right
