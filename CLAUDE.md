@@ -842,11 +842,12 @@ its lines, with colours while editing (section 11).
   - Tests drive the handles and the wheel with `ImageComposeScene.sendPointerEvent` (`drag`, `doubleClick` in
     `ConflictResolverTest`). A drag's deltas start past the touch slop, but `draggable` hands over the whole movement.
 - **Focus:** the toolbar's last button and ⇧⌘F (Ctrl+Shift+F elsewhere, `isFocusShortcut`) hide everything around the
-  resolver: `RepositoryOpenPage` leaves out its toolbar (`Menu`), the operation banner and the bottom bar, and hides
-  `App`'s tab bar through the fork-only `LocalAppChrome` (`ui/AppChrome.kt`, a flag that `App.AppTabs` reads). The
-  resolver hides its file list, and the toolbar's file name becomes a menu of the files (`FileMenu`), followed by
-  "2 of 3 files" (`FileCounter`, the files resolved here first). Esc goes to
-  `ConflictResolverViewModel.escape`, which leaves Focus before closing. Kept in `ConflictResolverSession`.
+  resolver: `RepositoryOpenPage` leaves out its toolbar (`Toolbar`), the operation banner and the bottom bar, and hides
+  `App`'s tabs through the fork-only `LocalAppChrome` (`ui/AppChrome.kt`, a flag that `App.AppTabs` reads). On macOS the
+  title bar stays, empty, as it holds the window's buttons. The resolver hides its file list, and the toolbar's file
+  name becomes a menu of the files (`FileMenu`), followed by "2 of 3 files" (`FileCounter`, the files resolved here
+  first). Esc goes to `ConflictResolverViewModel.escape`, which leaves Focus before closing. Kept in
+  `ConflictResolverSession`.
   - Semantics actions run even on a disabled item, so tests check `SemanticsProperties.Disabled` rather than clicking
     it. A clickable node merges its children's text into its own config in the merged tree that `semanticsOwners`
     gives.
@@ -3071,10 +3072,11 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
 **Dialogs** are Navigation3 destinations:
 - `sealed interface Screen` in `App.kt`, `entry<Screen.X>` in `ui/AppTab.kt`.
 - Opened with `backStack.add(...)`, through an `onNavigate` lambda.
-- The Actions list (`QuickActionsDialog`) closes itself before it runs an action, so an action that opens a dialog only
-  adds it. Closing afterwards would remove the new dialog, the top of the back stack. Upstream fixed the same bug the
-  other way (1cac7a00: its `AppTab` callbacks remove the list, then add theirs). Leaf keeps its own, so its callbacks
-  only add: both together close the screen under the list, the tab's repository.
+- The Actions list (`QuickActionsDialog`) opens from the toolbar's Actions button and ⌘K (Ctrl+K elsewhere,
+  `KeybindingOption.QUICK_ACTIONS`, fork-only). It closes itself before it runs an action, so an action that opens a
+  dialog only adds it. Closing afterwards would remove the new dialog, the top of the back stack. Upstream fixed the
+  same bug the other way (1cac7a00: its `AppTab` callbacks remove the list, then add theirs). Leaf keeps its own, so its
+  callbacks only add: both together close the screen under the list, the tab's repository.
 - `ui/dialogs/base/IconBasedDialog.kt` is the base for confirm-style dialogs.
 - Every dialog renders through `ui/dialogs/base/MaterialDialog.kt`. `DialogSceneStrategy` uses Compose's common
   `Dialog`, which on desktop draws on the main window's canvas, not in an OS window, and only takes clicks inside its
@@ -3216,10 +3218,10 @@ of the Design canvas "Leaf long context menus", chosen with the user: a log chip
 ## Repository tabs
 
 **Opening a tab:**
-- Paths in: `App.start` restores tabs from prefs (`AppViewModel.loadPersistedTabs`) and handles the CLI argument;
-  the Welcome page (picker or recent repos) calls `RepositoryTabViewModel.openRepository`; the menu's "open another
-  repository" replaces the current tab; "Open in new tab" on a worktree (fork-only, see Identity) selects or adds
-  one.
+- Paths in: `App.start` restores tabs from prefs (`AppViewModel.loadPersistedTabs`) and handles the CLI argument; the
+  Welcome page (picker or recent repos) calls `RepositoryTabViewModel.openRepository`; the toolbar switcher's "Open a
+  repository…" and its recent repositories replace the current tab (upstream's Open menu did); "Open in new tab" on a
+  worktree (fork-only, see Identity) selects or adds one.
 - `AppViewModel.addNewTabFromPath` only adds a tab. Replacing goes through `replaceTab(tab, path)` (fork-only), with the
   tab from `LocalTab`, and disposes the old one (see DI, coroutines, state). The tab used to be found by path, which
   matched any tab without one: the Welcome page, or a tab whose path nothing had collected yet (a lazy `stateIn`),
@@ -3250,8 +3252,8 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
 `FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
 - Fork-only: that branch leaves file history's two versions (`escapeHistory`) or closes file history, then an expanded
   blame, then the last closeable view (`CloseableView`:
-  the diff, the searches, the commit field's co-author suggestions, a comparison, its full view, a commit's changes in
-  it and its list of refs, in the order they opened).
+  the diff, the searches, the commit field's co-author suggestions, the commit message in the centre pane, a
+  comparison, its full view, a commit's changes in it and its list of refs, in the order they opened).
 - Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
   while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
   back to the tab (fork-only). Closing the diff gives it to the log's list instead, which stays visible beside it (see
@@ -3295,7 +3297,7 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
 
   Entry points: a double-click on a Worktrees row, on a local branch that another worktree uses (side panel and log),
   "Switch to worktree" in those menus, the checkout refusal's button (`RepositoryTabViewModel.switchToWorktree`), and
-  the toolbar's picker. A switch happens even when another tab shows that worktree.
+  the toolbar's switcher. A switch happens even when another tab shows that worktree.
 - **A tab whose worktree was removed (fork-only):** `FollowRemovedWorktreeUseCase`, started by
   `RepositoryOpenViewModel`, checks each time the worktree list is read. When `repositoryOfRemovedWorktree` says that
   the tab's git dir or its folder is gone, the tab switches to the main worktree (`TaskType.FollowRemovedWorktree`,
@@ -3332,11 +3334,12 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   from mockups: a right-click menu, and a double-click that renames in place; a 3 dp stripe along the tab's top (over a
   tint and a dot); a renamed tab shows its name alone (B1, over keeping the worktree after it and a colour shared by the
   repository's tabs). The first version kept them per repository, in `<common git dir>/leaf`; the user found it strange
-  that renaming one tab renamed the repository's other tabs (2026-11-03).
+  that renaming one tab renamed the repository's other tabs (2026-11-03). On macOS the tabs are in the title bar since
+  2026-11-05, where the fill marks the selected one (see The window).
   - **What a tab shows** (`titleWith`, `TabTitle`): the user's name alone, or else the repository's folder and the
     linked worktree after it. The tooltip stays the path, so it still says which worktree a renamed tab shows, and so
-    does the worktree picker. `tabName` and `worktreeName` give the shown title, so the window title and the quit dialog
-    follow.
+    does the toolbar's switcher. `tabName` and `worktreeName` give the shown title, so the window title and the quit
+    dialog follow.
   - **Names** (`tabNameOf`): on one line, runs of white space as one space, trimmed, at most 100 characters. A blank
     name or the repository's folder name is no name, so typing the folder's name resets it.
   - **Colours:** a graph lane's number, 1 to 6, so a colour follows the style: Teal's lane 2 is orange, Tonal's red.
@@ -3381,6 +3384,98 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   scrolled out of the tab bar never do. `loadPersistedTabs` skips a `null` in the saved list (upstream's 2040386b), so
   that tab is lost; it used to throw at startup.
 
+## The window
+
+Fork-only, 2026-11-04 and 05, `docs/fork/window-chrome.md`: direction A of the Design artifact "Leaf window chrome
+review" for every style, and C as the Leaf style (see Styles under Conventions). The decisions, chosen with the user,
+are in section 8 of the doc. Windows, step 8, comes once macOS is approved.
+
+**The title bar (macOS, `ui/window/WindowTitleBar.kt`):** the tabs are in the window's own title bar, which Leaf draws
+through JetBrains Runtime's custom title bar (`JBR.getWindowDecorations()`, the API that IntelliJ and Jewel use), behind
+the `WindowTitleBar` interface.
+- `windowTitleBarOf(window)` gives one on macOS when the runtime has it (`JBR.isWindowDecorationsSupported()`), else
+  null: Windows (until step 8), Linux, and a runtime other than JetBrains' keep the system's bar, with the tab row under
+  it in the new look. `org.jetbrains.runtime:jbr-api` 1.9.0 is an `implementation` dependency of `app`, at the version
+  that Compose's `foundation-desktop` already brings at runtime, so nothing new ships. Not Jewel, whose
+  `DecoratedWindow` needs its own theme in place of Material.
+- `TitleBar` (`App.AppTabs`) is 40 dp (`TITLE_BAR_HEIGHT`), given to JBR in points, and set again only when that or the
+  display's scale changes. Setting it again as full screen started made JBR drop a resize event, so full screen only
+  takes away the left padding, the window buttons' `leftInset` (80 pt, 0 in full screen).
+- **Clicks:** the bar is macOS's (a drag moves the window, a double-click zooms it, edge snapping and tiling work),
+  except where `Modifier.titleBarControl` marks a control: the whole tab row (`TabsRow`). At each pointer event, in
+  `PointerEventPass.Initial`, `TitleBarPointer` decides and `TitleBar` calls `forceHitTest`: a press on a control and
+  everything until its release are Leaf's, so dragging a tab never moves the window, and a drag from the empty bar stays
+  the window's.
+- **A full tab bar** (option 1 of 3, chosen with the user after the spike): the bar's last 110 dp
+  (`TITLE_BAR_FREE_STRIP`) never hold a tab, so the window can always be moved from there. Tabs share the bar down to
+  120 dp each (`titleBarTabWidth`, after the gaps and the + button), then scroll, with ‹ and › (`TabScrollArrow`) in
+  place of the scrollbar that the row shows above itself elsewhere.
+- **The tabs** (`TitleBarTab` in `ui/window/TitleBarTabs.kt`, which upstream's `Tab` hands over to with `inTitleBar`;
+  `TabsRow`'s `titleBarWidth`): 28 dp tall, 168 dp when there's room, 4 dp apart, the repository's icon before the name
+  (a Welcome page's tab has none). The selected tab is filled with `frame.control`, outlined with `frame.control.edge`,
+  with a 1 dp shadow on a light frame, its name in `frame.text`, medium; the others are plain, in `frame.secondaryText`,
+  half filled on hover. A tab's colour stays a stripe along its top; the selected tab's underline went. Renaming, the
+  menu, reordering and the keys are as before.
+- The conflict resolver's Focus hides the tabs, and the empty bar stays, as it holds the window's buttons. A
+  `MaterialDialog`'s scrim covers the bar too. The window's title is still set, for macOS's Window menu, the Dock and
+  Mission Control, but isn't drawn.
+- Tests: `TitleBarPointerTest` (a press on a control or on the empty bar, a drag out of the tabs or onto them, no
+  controls), `TitleBarTabsTest` (the width rule, a few tabs, tabs that shrink, tabs that scroll with arrows; PNGs in
+  five styles, light and dark, with `LEAF_RENDER_DIR`). The real window was tried in dev runs by the user: clicks,
+  reordering, renaming, moving the window, full screen.
+
+**The toolbar (`ui/toolbar/Toolbar.kt`):** one 48 dp row on the frame's colours, in place of upstream's `Menu`: the
+repository switcher, a divider, Pull ⌄ | Push ⌄ as one group, Branch, Stash ⌄ | Pop as one group, then Actions, Terminal
+and Settings at the right.
+- `Toolbar` reads the tab's state, and `ToolbarRow` draws it from a `ToolbarState` and `ToolbarActions`, which its tests
+  render. Controls are 32 dp, the icon left of a 13 sp medium label. Groups, Branch and Actions are filled with
+  `frame.control` and outlined with `frame.control.edge`; Terminal and Settings are icons in `frame.secondaryText`,
+  filled on hover; a disabled part is at 45%. A group's label and its ⌄ are separate clicks. The row has a line in
+  `separators` along its bottom.
+- Labels go as the window narrows (`toolbarLabelsFor`): Branch, Stash and Pop show theirs from 1,150 dp, Pull and Push
+  from 1,000 dp. Their icons and tooltips stay. Actions keeps its label.
+- **Actions** (`ActionsButton`): a button as Branch is, with the bolt, "Actions" and the shortcut after it
+  (`KeybindingHint`, in `frame.secondaryText`). ⌘K (Ctrl+K elsewhere, `KeybindingOption.QUICK_ACTIONS`) opens the
+  Actions list from the tab's keys. It was built as the mockup had it, a button that looked like a search field
+  ("Actions…" with the key in a chip), which read as a box to type in; the user picked the button from renders of three
+  (2026-11-05).
+- `ToolbarTooltip` puts each `InstantTooltip` in a box of its own: its popup takes a place of no size in the layout
+  around it, which the row's spacing gave a gap that moved the controls after it while the tooltip showed.
+- `Menu.kt` keeps only upstream's `KeybindingHint` and `getParts`, which the toolbar, the pane toggles' tooltips and the
+  Actions list use. `Menu`, `MenuButton` and `ExtendedMenuButton` went: an upstream sync that changes them conflicts
+  there, so keep them out and port what changed.
+- Tests: `ToolbarTest` (the labels at 1,440, 1,100 and 800 dp, nothing overlapping or past the edge, each button's
+  action, Stash without changes and Pull and Push without a remote, a hovered button's tooltip moving nothing, Actions'
+  label and shortcut at the same width at any width; PNGs in five styles at 1,440 and 900 dp).
+
+**The repository switcher (`ui/toolbar/RepositorySwitcher.kt`):** "orbit-api / main ⌄", in place of upstream's Open
+button and the worktree picker. It shows the repository and the linked worktree
+(`RepositoryTabViewModel.repositoryNames`, so not a renamed tab's name), "/", then what is checked out
+(`switcherBranchLabel`: the worktree list's words, as "rebasing x", else the branch, else "detached at 0123456").
+- Its popup lists the worktrees while there are more than one (see Worktree picker, under Sidebar and branch list), then
+  "Open a repository…" (a folder picker) and the recent repositories, whose search field has the focus. Picking a
+  repository replaces the tab's, as upstream's Open did. ⌘O (`KeybindingOption.OPEN_REPOSITORY`) opens it.
+- Tests: `RepositorySwitcherTest` (the label's rule, the list, switching, a missing folder, New worktree, a repository
+  with one worktree, Open, a recent repository; PNGs of the open popup).
+
+**Surfaces and headers:**
+- Tonal and Quiet, and so every built-in style but Classic: the panels are mockup A's #F7F8F9 (dark #18191C), and the
+  headers have the panels' colour (`ColorsScheme.styled`; in a style, `sharedColourOf` in `StyleDerivation.kt` gives
+  them the panels' worked-out colour unless they're set by hand), with a line in `separators` under them. Tonal's dark
+  navy headers went. The dark background stays #0F0F0F: on mockup A's #121315 the code's annotation colour held 4.47 : 1
+  on the added lines. Classic keeps its filled headers.
+- `Modifier.headerBackground()` (`theme/HeaderBackground.kt`) fills a header, and draws the line when the headers'
+  colour is the panels'. The status pane's headers and the commit message's title, the log's header, the diff's header
+  and its conflict bar, the followed-file placeholder, blame's and file history's headers, the selected commits' header,
+  the comparison's headers, and the conflict resolver's headers and legend use it.
+- The branches pane is on the panels' colour. Its section headers (`SideMenuHeader`) are a 14 dp chevron, the label in
+  capitals at 11 sp, semibold, 0.06 em apart, in the secondary text colour, and the count at 11 sp; the sections' icons
+  went. A selected row (`insetSelection`, `ui/components/InsetSelection.kt`) is rounded, 6 dp, 4 dp in from the pane's
+  sides and 1 dp from the rows around it, whatever the row's depth. The log keeps its full-width rows, and its column
+  lines show only on hover (see Columns, under Log).
+- Tests: `StyleDerivationTest` (the headers are the panels' in every built-in style but Classic and for 2,000 random
+  seed sets per look and side), `CommitMessageFieldTest` (the line in Tonal, none in Classic), `BuiltInStylesTest`.
+
 ## Sidebar and branch list
 
 **Side panel** (`app/.../ui/SidePanel.kt`): a filter field plus one `LazyColumn` with a `LazyListScope` extension per
@@ -3395,6 +3490,9 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   `onDoubleClick`, and the fork-only `textContent` slot, which replaces the text and `additionalInfo`).
   `additionalInfo` must stay the last parameter: upstream's calls pass it as a trailing lambda, which would otherwise
   bind to the parameter after it, without a compile error.
+- Fork-only (2026-11-05, see The window): `SideMenuHeader` is a 14 dp chevron, the label in capitals at 11 sp and the
+  count, without the section's icon, and `SideMenuSubentry` highlights a selected row with `insetSelection`, rounded and
+  inset from the pane's sides.
 - Tooltips: `ui/components/tooltip/DelayedTooltip.kt` and `InstantTooltip.kt`. Fork-only (`TooltipLayers.kt`): a
   tooltip shows only in the topmost layer, and a press, left or right, hides an element's tooltip until the pointer
   leaves it. `MaterialDialog` is a `TooltipLayer`: a dialog takes the pointer only inside its box, so the rows beneath
@@ -3683,23 +3781,21 @@ section. The state classes are in `viewmodels/sidepanel/SidePaneStates.kt`. `Sid
   "Copy path".
 - The side panel's filter matches the folder name, the path, the branches and the origin's tag. When git can't list
   the worktrees, one line says so, with the error in its tooltip.
-- The row's two lines are `WorktreeRowLines`, which the toolbar's picker shows too.
+- The row's two lines are `WorktreeRowLines`, which the toolbar's switcher shows too.
 - The header's button (`WorktreesMenuButton`, the sort button's `SortMenuButton` with the `more_horiz` icon, ⋯) is the
   section's menu. It's muted while the base is automatic, and shows the chosen branch's name otherwise. Its menu shows
   what Automatic picks, the chosen branch (with "Not found" when it's missing), a note pointing to the branch menus,
   and "Clean up merged worktrees…" with how many can go, while any can (`WorktreesState.cleanupCount`).
 
-**Worktree picker (fork-only, `ui/WorktreePicker.kt`):** in the toolbar, right of Open, only while the repository
-has more than one worktree (`worktreePickerRows`, `RepositoryOpenViewModel.worktreePickerState`).
-- The button shows the tab's worktree (the row that `isCurrent`) and what it has checked out, with a chevron. Nothing
-  shows until the list has the tab's worktree.
-- Its list has every worktree with the side panel's two lines and tooltip, the tab's one checked. A click, or Enter
-  after the arrow keys, switches the tab and closes the list; Esc closes it. A worktree the tab can't switch to is
-  greyed out. It's below the button, or above when there's no room (`BelowLeftAlignedPositionProvider`). Its last
-  row, "New worktree…", opens the new worktree dialog.
+**Worktree picker (fork-only, `ui/WorktreePicker.kt`):** the toolbar's switcher lists the worktrees while the repository
+has more than one (`worktreePickerRows`, `RepositoryOpenViewModel.worktreePickerState`, see The window). Its rows
+(`WorktreePickerRow`) have the side panel's two lines and tooltip, the tab's one checked; a click switches the tab and
+closes the popup, and a worktree the tab can't switch to is greyed out. The last row, "New worktree…"
+(`NewWorktreeRow`), opens the new worktree dialog. Until 2026-11-05 the picker was a button of its own, right of Open,
+with its own list and keys.
 
 **Origin labels (fork-only, Phase 4.1, `docs/fork/agent-awareness.md`):** a linked worktree that an agent's tool made
-gets a small tag after its folder name (`AgentTag`: `Claude`, `Codex`, `Cursor`, …), in the side panel and the picker,
+gets a small tag after its folder name (`AgentTag`: `Claude`, `Codex`, `Cursor`, …), in the side panel and the switcher,
 and on its branch's badge in place of a worktree name that repeats the branch.
 - `WorktreeList.withOrigins` (`domain/worktrees/WorktreeOrigins.kt`) sets `WorktreeInfo.origin`: the user's rules
   first (Settings → Worktrees → "Worktree labels", `AppConfig.WorktreeLabels`, `worktree_labels` in `user_prefs.json`,
@@ -3878,6 +3974,44 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
   - They are global: `StatusSectionsConfig` (app singleton) → `AppSettingsRepository.statusSectionSizes`, stored in the
     prefs node as `statusStagedShare` and `statusCommitFieldHeight`, like the pane widths. `StatusPane` keeps a local
     copy during a drag and sends `StatusAction.SectionSizesChanged` when it ends.
+- **The Commit button names the branch** (2026-11-05, `UncommittedChangesButtons`): "Commit" over "to main", and "Amend"
+  over "on main" while amending, so that switching Amend doesn't move the field. The second line is the caption style at
+  85% of the label's colour (`ConfirmationButton`'s `secondLine`), and the button is 46 dp (`TWO_LINE_BUTTON_HEIGHT`),
+  10 dp more, taken from the message field. The branch is `branchesState.currentBranch`, which `RepositoryOpen` passes
+  down (`StatusPane`'s and `CommitField`'s `branchName`). On a detached HEAD it's "Commit" on one line, 36 dp. A
+  merge's, a cherry-pick's and a rebase's buttons are as they were. A name that doesn't fit is cut in the middle
+  (`MiddleCutText`, `middleCut`), keeping its start, a ticket key included, and its end, where agents' names differ; the
+  tooltip has the whole name. Compose's `TextOverflow.MiddleEllipsis` cuts at the end on desktop (1.12.1). Chosen with
+  the user from renders at 330 dp: one line on its own leaves about 45 characters for the name, "Commit to" on one line
+  about 30.
+- **Empty lists say so** (2026-11-05, `ui/status/EmptyListNote.kt`): "Nothing staged" in an empty Staged; in Unstaged,
+  "Working tree clean" with a check when Staged is empty too, else "No unstaged changes"; "No files match" when a search
+  hides every file. Nothing before a status has been read (`StatusState.hasStatus`: `isLoading` turns on during any
+  refresh longer than 300 ms, and the note would blink), nor in Staged while Amend lists the last commit's files under
+  it.
+- **The commit message in the centre pane** (2026-11-05, `ui/status/CommitMessageEditor.kt`, after step 6 of the doc):
+  "Write in a larger view" in the title row, before ⋯ (`MessageSizeButton`), puts the message in the log's place in
+  `LogAndDiffSplit`, where a 72-column line fits, and a file clicked in Staged or Unstaged shows its diff under it. Not
+  on a rebase stop whose field can't be edited. Chosen with the user over growing the field in the changes pane, still
+  330 dp wide, and a dialog, which would cover the diff and the files.
+  - `StatusAction.ExpandMessage` sets `StatusViewModelExtender.isMessageExpanded`, outside `StatusState`, whose
+    `combine` is near the 30 flows that `common` has overloads for. `MainContentView` shows the editor only while the
+    changes pane shows the status pane (no commit, comparison, commit editor or expanded blame), and puts the message
+    back otherwise (`messageInCentre`); a diff never covers it, and the diff's Hide log isn't shown.
+  - Two parts (`CommitFieldPart`, both `StatusCommitField`, so one message): the centre has the title row with the
+    subject's count, ⋯ and the button back, the field with its suggestions and its hints (`MESSAGE`); the changes pane
+    keeps the title row with the button back and no menu, "Being written in the larger view", the line that says what
+    stops the button, and the buttons (`FINISH`). Its lists get the field's room: the section is the smallest that
+    `StatusSectionSizes` allows, and its divider doesn't move or save.
+  - The centre's field takes the focus, with the caret where it was; going back, however it goes, gives it to the
+    changes pane's field (`ChangesPaneCommitField`). It goes back with either title row's button, Esc
+    (`CloseableView.COMMIT_MESSAGE_EDITOR`, after the views open before it: Esc closes a file's diff first), a commit
+    that went through, and anything that takes the centre pane or the changes pane, folding the changes pane included.
+  - Tests: `CommitMessageEditorTest` (the two panes with the state that the view model keeps: opening with the focus and
+    the caret, one field, the centre's menu, the changes pane's buttons, typing in the centre and committing from the
+    changes pane, going back from either row, no button on a read-only stop), `CommitFieldTest` (the branch, a detached
+    HEAD, Amend keeping the height, a long name), `MiddleCutTextTest`, `EmptyListNoteTest`. The view model's part has no
+    kept test, as it needs the Dagger graph; it ran through it in a temporary harness.
 - **The amended commit's files under Staged (fork-only, upstream issue 260, 2026-11-02, `ui/status/AmendedFiles.kt`,
   `AmendedFilesSection.kt`, `repositoryopen/AmendedFilesController.kt`):** while Amend is on, Staged lists the files that
   the commit being amended changes after its own rows, under "In the last commit" and a count (`CountPill`). An amend
@@ -3972,6 +4106,14 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     change shows in the semantics at once, but the screenshot keeps the old pixels of an `AnimatedVisibility` or a
     check box. Pass `System.nanoTime()` and let a dozen frames run with a `delay` between them before encoding the
     PNG (found with the Clone dialog's "Only this branch" note, 2026-10-19).
+  - The whole tab renders as `AppTab(tab)`: compose it with `LocalTab` first, then call `openRepository`, as a tab
+    composed without a path goes back to the Welcome page. Its `RepositoryOpenViewModel` is the one in
+    `tab.viewModelsMap`: `tabComponent.repositoryOpenViewModel()` makes another.
+  - A real window, with the title bar that JBR draws, is a dev run: `CGWindowListCopyWindowInfo` (a Swift script) finds
+    the window (owner `java`, layer 0, named `Leaf - …`), and `screencapture -x -o -l <id>` takes it, without its
+    shadow. Leaf opens maximized (`App.kt`), so a capture of a given size runs with `WindowPlacement.Floating` and a
+    size, changed for that run only. The README's screenshots were taken that way (2026-11-05), at 1600 × 900 with the
+    default settings, the window placed away from the pointer so that no row shows a hover.
 
 ## Log
 
@@ -3985,9 +4127,10 @@ resets them. By default only Date is on, as before.
   `LogColumnsCodec`, which never fails to read. A column missing from the saved list, such as one a later version
   added, goes right after the column before it in the default order (`withMissingColumns`): Committer lands after
   Author.
-- Widths are in dp. A column's divider in the header resizes the column on its right, and Message takes what's
-  left. A divider stops where Message would drop below 200 dp (`maxWidthFor`). `LogView` keeps a local copy while a
-  divider is dragged and sends `LogAction.ResizeColumn` or `SetGraphMaxWidth` when the drag ends.
+- Widths are in dp. A column's divider in the header resizes the column on its right, and Message takes what's left.
+  Fork-only (2026-11-05): the dividers (`DividerLog`) show only while the pointer is on them. A divider stops where
+  Message would drop below 200 dp (`maxWidthFor`). `LogView` keeps a local copy while a divider is dragged and sends
+  `LogAction.ResizeColumn` or `SetGraphMaxWidth` when the drag ends.
 - When the log is too narrow, `fitting` leaves out checked columns until Message has 200 dp: Committer first, then
   Commit, then Author, then Date. The menu marks them "Needs more room". `Log` measures its width with `BoxWithConstraints`.
 - The graph is as wide as its lanes, up to `graphMaxWidth` (120 dp by default, the old fixed limit), and at least
@@ -4901,20 +5044,22 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 - **Styles (fork-only, 2026-10-22, `docs/fork/custom-styles.md`, `domain/styles/`, `theme/styles/`, `ui/styles/`):**
   Settings → Appearance → Style is a library of styles, under Theme. A style has a light and a dark side and sets every
   colour Leaf draws with: the scheme, the roles below and the graph's six lanes. Built in: Tonal (the default, a new
-  install's too), Classic (Leaf's look until 2026-10-21), Quiet, Solarized and Teal, which can be duplicated, not
-  changed. The user's own are JSON files. It replaced the JSON custom theme (Theme's Custom, removed 2026-10-22, with no
-  migration: `custom_theme` is in `REMOVED_SETTINGS`, and a stored `custom` theme reads as Dark). Chosen with the user
-  on the Claude Design project `5fe7f140-cd30-47ab-a95a-1994cadae8d9`: the "Leaf Colours" board (turn 1: Classic 1a,
-  Tonal 1d, Quiet 1f, muted lanes 1g; chosen on 2026-10-21 as Classic's button blue #0070D8 and red #C93838, OKLCH
-  chroma 0.18, were too bright next to the diff tints, 0.02 to 0.03), "Custom Style" (turn 2: 2a with 2b's table, the
-  palette) and "Style Library" (turn 3: gallery 3b, editor 3c, Solarized).
+  install's too), Classic (Leaf's look until 2026-10-21), Quiet, Solarized, Teal and Leaf (2026-11-05), which can be
+  duplicated, not changed. The user's own are JSON files. It replaced the JSON custom theme (Theme's Custom, removed
+  2026-10-22, with no migration: `custom_theme` is in `REMOVED_SETTINGS`, and a stored `custom` theme reads as Dark).
+  Chosen with the user on the Claude Design project `5fe7f140-cd30-47ab-a95a-1994cadae8d9`: the "Leaf Colours" board
+  (turn 1: Classic 1a, Tonal 1d, Quiet 1f, muted lanes 1g; chosen on 2026-10-21 as Classic's button blue #0070D8 and red
+  #C93838, OKLCH chroma 0.18, were too bright next to the diff tints, 0.02 to 0.03), "Custom Style" (turn 2: 2a with
+  2b's table, the palette) and "Style Library" (turn 3: gallery 3b, editor 3c, Solarized).
   - **The model** (`domain/styles/`): `StyleDefinition(id, name, look: AccentStyle, light, dark)`, a side being
     `StyleSide(seeds: StyleSeeds, setByHand: Map<StyleSlot, Int>)` and the seeds Background, Accent, Danger, Warning and
-    Success (ARGB ints, so domain needs no Compose). `StyleSlot` has 64 colours with stable file keys (`background`,
-    `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary` and `onPrimary` are Main action's), the roles' 26,
-    six lanes, and since 2026-10-25 six more syntax colours, which with the scheme's keyword, annotation and comment make
-    the group Syntax (`StyleSlot.SYNTAX`, see Syntax colours below). `BuiltInStyles` holds the five, in Settings' order;
-    the looks' ids (`tonal`, `classic`, `quiet`) are what `accent_style` held before, so an old choice still reads.
+    Success (ARGB ints, so domain needs no Compose), and an optional Frame (see The window's frame, below). `StyleSlot`
+    has 71 colours with stable file keys (`background`, `mainAction.fill`, `lane3`, …): `ColorsScheme`'s 26 (`primary`
+    and `onPrimary` are Main action's), the roles' 26, six lanes, and since 2026-10-25 six more syntax colours, which
+    with the scheme's keyword, annotation and comment make the group Syntax (`StyleSlot.SYNTAX`, see Syntax colours
+    below), and since 2026-11-05 seven for the window's frame, the group Window frame. `BuiltInStyles` holds the six, in
+    Settings' order; the looks' ids (`tonal`, `classic`, `quiet`) are what `accent_style` held before, so an old choice
+    still reads.
   - **Working a side out** (`resolveStyleSide`, `theme/styles/StyleDerivation.kt`, into a `StylePalette` that gives the
     `ColorsScheme`, the `StyleColors` and the lanes): each colour not set by hand starts as its look's
     (`StylePalette.template(look, isLight)`: `lightTheme.styled(look)` or `darkTheme`'s, `styleColorsFor` and
@@ -4937,13 +5082,13 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     - The nine syntax colours hold 4.5 : 1 on the background and both line tints, each moving itself (since
       2026-10-25). Classic's warning icon keeps its 1.75 : 1 amber.
   - **`AppTheme(selectedTheme, linesHeightType, style, codeColours)`** (`theme/Theme.kt`) resolves the side
-    (`remember(style, isLight, codeColours)`) and provides `LocalColorsScheme` (a `CompositionLocal`, where upstream kept
-    the scheme in a global flow, so an `AppTheme` inside another colours only what it holds: the editor's previews),
-    `LocalStyleColors`, `LocalGraphLanes` (`MaterialTheme.graphLanes`, which the log reads), `LocalSyntaxColors`
-    (`MaterialTheme.syntaxColors`) and `LocalCodeColours`, which an `AppTheme` inside another takes as its default, so
-    the editor's previews follow the setting. Outside any `AppTheme` the lanes are
-    `CLASSIC_LANES`, and `styleColors` falls back to Classic's from `MaterialTheme.colors`. `style` defaults to Tonal,
-    so a test that renders `AppTheme(theme)` gets Tonal.
+    (`remember(style, isLight, codeColours)`) and provides `LocalColorsScheme` (a `CompositionLocal`, where upstream
+    kept the scheme in a global flow, so an `AppTheme` inside another colours only what it holds: the editor's
+    previews), `LocalStyleColors`, `LocalGraphLanes` (`MaterialTheme.graphLanes`, which the log reads),
+    `LocalSyntaxColors` (`MaterialTheme.syntaxColors`), `LocalFrameColors` (`MaterialTheme.frameColors`) and
+    `LocalCodeColours`, which an `AppTheme` inside another takes as its default, so the editor's previews follow the
+    setting. Outside any `AppTheme` the lanes are `CLASSIC_LANES`, and `styleColors` falls back to Classic's from
+    `MaterialTheme.colors`. `style` defaults to Tonal, so a test that renders `AppTheme(theme)` gets Tonal.
   - **Lanes:** Classic keeps Leaf's old six (`CLASSIC_LANES`, the grey written `0xFFe78909c`, which Compose reads as
     `#78909C` at alpha 0xFE); Tonal and Quiet have `MUTED_LANES` (#5B97D3, #CD7670, #7D97A4, #C87D52, #60A56B, #C4759C,
     chosen with the user from renders of the log): about 3 : 1 each on the light background, where Classic's green holds
@@ -4960,18 +5105,42 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - **Teal** (`BuiltInStyles.TEAL`, 2026-10-23): the Tonal look with a teal accent (#007475), a raspberry danger
     (#B4405A), amber (#E0A03A) and green (#3F8F52), on the looks' white and #0F0F0F. First a style in the styles demo,
     which the user asked to have built in; refined from renders. Set by hand are the light text (#1D2B2B); the dark
-    headers and boxes, which follow no seed and stayed Tonal's navy next to teal buttons, as Tonal's turned to Teal's
-    hue (#003B3A, at the most chroma sRGB has at that lightness, and #152F2D); and lanes 2 to 6 (orange, blue, pink,
-    green, violet, in the muted lanes' lightness), as following the seeds made lane 2 a rose 0.039 from lane 6's pink
-    in OKLab, closer than any pair of Tonal's (0.048). The closest pair is now 0.074. Lane 1 follows the accent. Every
-    check holds on both sides with nothing moved.
+    boxes, which follow no seed and stayed Tonal's navy next to teal buttons, turned to Teal's hue (#152F2D; the dark
+    headers' #003B3A, at the most chroma sRGB has at that lightness, went on 2026-11-05, when the headers took the
+    panels' colour); and lanes 2 to 6 (orange, blue, pink, green, violet, in the muted lanes' lightness), as following
+    the seeds made lane 2 a rose 0.039 from lane 6's pink in OKLab, closer than any pair of Tonal's (0.048). The closest
+    pair is now 0.074. Lane 1 follows the accent. Every check holds on both sides with nothing moved.
+  - **The window's frame** (2026-11-05, `docs/fork/window-chrome.md`, sections 4 and 5): seven slots in the group Window
+    frame: `frame` (the title bar and the toolbar), `frame.text`, `frame.secondaryText`, `frame.icon` (icons that carry
+    the frame's colour, as the repository's), `frame.control` (the selected tab, the switcher, the toolbar's buttons),
+    `frame.control.edge` (their outlines) and `separators` (the lines between the panes and under the toolbar and the
+    headers). `AppTheme` provides them as `FrameColors` (`theme/FrameColors.kt`). The looks' values are
+    `frameColorsFor`'s: Classic's panels, text and background, and for Tonal and Quiet a frame of #F1F2F4 (dark #1D1E21)
+    with white controls (dark #2A2C30). They follow Background, the frame's text as text does, and the icon follows
+    Accent. `frame.text` and `frame.secondaryText` hold 4.5 : 1 on `frame` and on `frame.control` over it, and
+    `frame.icon` 3 : 1; separators are decoration and aren't checked.
+    - **The Frame seed** (`StyleSeeds.frame`, optional, per side): without it the frame follows the background, so the
+      other built-in styles and every user file stay as they were. It isn't a `StyleSeed`, as each of those always has a
+      colour. With it (`FrameStart` in `StyleDerivation.kt`), the frame's colours start from the look's frame on the
+      side whose frame is as dark as the seed (luminance 0.179, where black and white text hold the same contrast) and
+      move as far as the frame did from that side's own, so a dark green frame on the light side gets light text and
+      dark controls. A frame equal to the look's own keeps the look's colours exactly, and a mid-tone one is first made
+      lighter or darker until text holds on it (`fittedFrame`). `separators` keep following the background, as they draw
+      the headers' lines in the content too. Files write `"frame"` in a side's seeds only when it's set; one that isn't
+      a colour follows the background, a see-through one is made opaque, and an older Leaf leaves it out.
+  - **Leaf** (`BuiltInStyles.LEAF`, after Teal, 2026-11-05, mockup C of the "Leaf window chrome review" board): Tonal's
+    seeds with the frame #0F3B27 (dark #0E2419) and the dark background #0C120F. Set by hand: the main action #1F6B45
+    (dark #2F7D52), the panels #F3F6F3 (dark #101A15), the leaf green #8EDC72 of the frame's icon, and the frame's muted
+    text #B4D6C2, 6.3 : 1 on its controls, chosen with the user from renders of four greens (the worked-out #9AB5AE held
+    only 4.5). Selection, links and lane 1 are Tonal's blue, as green also means "added" in the file lists and diffs.
+    Tonal stays the default.
   - **Files and storage:** one JSON file per user style, `<id>.json`, in `<app data>/styles/`
     (`AppStorage.STYLES_FOLDER_NAME`; `leaf-dev/styles/` for dev runs): `leafStyle` (the format's version), `name`,
-    `look`, and per side `seeds` and `setByHand`, colours as `#RRGGBB` or `#RRGGBBAA` (`StyleFileCodec`). The id is the
-    file's name, never written in it. Reading is lenient where it can be (an unknown look reads as Tonal, a missing seed
-    as the look's, a bad key or colour is left out and logged); a file that isn't JSON, has no `leafStyle` (an old
-    custom theme), would hide a built-in's id or can't be opened is unreadable (`UnreadableStyle`), and is named under
-    the gallery with its reason.
+    `look`, and per side `seeds` (`frame` only when it's set) and `setByHand`, colours as `#RRGGBB` or `#RRGGBBAA`
+    (`StyleFileCodec`). The id is the file's name, never written in it. Reading is lenient where it can be (an unknown
+    look reads as Tonal, a missing seed as the look's, a bad key or colour is left out and logged); a file that isn't
+    JSON, has no `leafStyle` (an old custom theme), would hide a built-in's id or can't be opened is unreadable
+    (`UnreadableStyle`), and is named under the gallery with its reason.
     - `FileStyleLibraryRepository` (`data/styles/`, behind `StyleLibraryRepository`) keeps the list, reads files up to 1
       MB, writes through a temporary file moved into place, and reads the folder again whenever Settings opens
       (`StylesService.reload`), so a file edited outside Leaf shows then. Ids come from names (`StyleIds`: lower case,
@@ -4993,13 +5162,15 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     `LocalStyleGalleryHost`.
   - **The editor** (`ui/styles/`, `Screen.StyleEditor(StyleEditorStart)`, a dialog over Settings, option 3c):
     `StyleEditorState` is a plain reducer (the saved style, the draft, the open picker), `StyleEditorViewModel` saves,
-    exports and deletes. On the left: the name, the button look, Background as a light and a dark swatch, Accent,
-    Danger, Warning and Success (each sets both sides), then Advanced, folded: every colour for light and dark
-    (`ADVANCED_GROUPS`: Surfaces, Text, Files, Diff, Graph lanes, Buttons and notices), with a dot on those set by hand.
-    A swatch opens `ColourPicker`: 12 hues by 6 shades in OKLCH and a row of greys, a hex field, and "Use the worked-out
-    colour" for one set by hand. On the right, `StyleEditorPreview`: a slice of Leaf in the draft's light and dark
-    colours, each in an `AppTheme` of its own, so Leaf's own buttons draw it. Save writes the file (a new style gets an
-    id from its name and is selected); Revert changes goes back to the style as saved; Cancel or Esc with changes asks
+    exports and deletes. On the left: the name, the button look, Background as a light and a dark swatch, Frame (a
+    swatch per side, showing the worked-out colour until one is picked; "Use the worked-out colour" in the picker
+    follows the background again, `StyleEditorState.withFrame`), Accent, Danger, Warning and Success (each sets both
+    sides), then Advanced, folded: every colour for light and dark (`ADVANCED_GROUPS`: Surfaces, Window frame, Text,
+    Files, Diff, Syntax, Graph lanes, Buttons and notices), with a dot on those set by hand. A swatch opens
+    `ColourPicker`: 12 hues by 6 shades in OKLCH and a row of greys, a hex field, and "Use the worked-out colour" for
+    one set by hand. On the right, `StyleEditorPreview`: a slice of Leaf in the draft's light and dark colours, each in
+    an `AppTheme` of its own, so Leaf's own buttons draw it. Save writes the file (a new style gets an id from its name
+    and is selected); Revert changes goes back to the style as saved; Cancel or Esc with changes asks
     (`ConfirmableAction.DiscardStyleChanges`).
     - **It explains nothing** (decided with the user, 2026-10-23): no notes on what Leaf moved, no warnings on colours
       set by hand that leave text hard to read, no contrast ratios in the palette. The previews show the result, and

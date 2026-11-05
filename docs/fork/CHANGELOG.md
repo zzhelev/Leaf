@@ -2,6 +2,40 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The window: tabs in the title bar, a compact toolbar, quieter headers, and a Leaf style (2026-11-05)
+
+- **Request:** the window looked dull: a system title bar that repeated the tab's name, a tab bar under it, a tall
+  toolbar of icons over labels spread across the width, and a filled band for every header (dark navy in Tonal's dark
+  theme). Chosen with the user from three directions on the Design artifact "Leaf window chrome review", with
+  screenshots of 1.7.0 and a critique: A for every style, C as a new style, not B (floating panes on a tinted
+  background, which cost about 16 dp of width). The plan and its decisions are in `docs/fork/window-chrome.md`.
+- **Now, on macOS:** the tabs are in the window's own title bar, next to the window buttons, drawn through JetBrains
+  Runtime's custom title bar. Dragging the empty bar moves the window and a double-click zooms it, as before; the bar's
+  last 110 dp never hold a tab, so the window can always be moved. Tabs shrink to share the bar, then scroll with
+  arrows. Windows and Linux keep the system's bar, with the tabs under it in the new look; Windows is the next step,
+  once this is approved.
+- **The toolbar** is one 48 dp row: a switcher ("orbit-api / main ⌄") that holds the worktrees, "Open a repository…" and
+  the recent repositories, in place of the Open button and the worktree picker (⌘O opens it); Pull and Push as one
+  group, Branch, Stash and Pop as one group; then Actions with ⌘K, a new shortcut for the Actions list, and Terminal and
+  Settings as icons. Labels go as the window narrows. Actions was first built as the mockup had it, a button that looked
+  like a search field, which the user found read as a box to type in; it's a button now, chosen from renders of three.
+- **Surfaces and headers:** Tonal and Quiet, and the styles built on them, have mockup A's lighter panels, and headers
+  in the panels' colour with a hairline under them; Tonal's navy headers went. The branches pane's section headers are
+  small capitals with their counts, a selected branch is a rounded, inset highlight, and the log's column lines show
+  only on hover. Classic keeps its filled headers.
+- **Styles:** seven new colours for the window's frame (the title bar and the toolbar, their text, icons, controls and
+  outlines, and the lines between the panes), in a Window frame group in the editor's Advanced table; a Frame seed, so
+  one swatch colours a style's frame; and a sixth built-in style, Leaf, with the frame in the logo's forest green, a
+  green main action and Tonal's blue for selection and links, as green also means "added". Tonal stays the default. A
+  style file from before reads as it did.
+- **Smaller changes from the mockup:** the Commit button names the branch, "Commit" over "to main" (a long name is cut
+  in the middle, where agents' names differ at the end); empty lists say so ("Nothing staged", "Working tree clean").
+  After them, at the user's request: the commit message can be written in the centre pane, in the log's place, where a
+  72-column line fits and the files' diffs show under it; and Wrap body's greyed out item says why it can't wrap (no
+  spaces, only the subject, no blank line after it, indented or code, trailers).
+- **The README's screenshots** were taken again, from a real window, as they showed the old toolbar and headers.
+- Details: CLAUDE.md, "The window", and Styles under Conventions, Settings.
+
 ## The diff pane's "Open submodule" opens the submodule (2026-11-03)
 
 - **Before** (upstream's code, listed in `architecture-notes.md` since Phase 0): the button under a submodule's diff

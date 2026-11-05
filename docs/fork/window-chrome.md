@@ -443,7 +443,9 @@ diff and the files that the message is about; and this one.
 4. **Surfaces and headers** (section 4). Built 2026-11-05.
 5. **The Leaf style** (section 5), and the Frame seed if D6 is yes. Built 2026-11-05, with the seed.
 6. **The smaller changes** that D7 keeps. Built 2026-11-05.
-7. **Docs:** CLAUDE.md, `docs/fork/CHANGELOG.md`, and the README's screenshots if they show the window.
+7. **Docs:** CLAUDE.md, `docs/fork/CHANGELOG.md`, and the README's screenshots if they show the window. Done
+   2026-11-05: CLAUDE.md's "The window" and its Styles, the changelog, and the README's two screenshots, taken again
+   from a dev run's window at 1600 × 900 (how: CLAUDE.md, Offscreen UI checks) against a demo like the old one's.
 8. **Windows** (D1), once steps 0 to 7 are approved on macOS: the same title bar, with the caption buttons on the right
    (`rightInset`), checked on a Windows machine.
 
