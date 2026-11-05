@@ -93,8 +93,20 @@ once tabs filled the bar):
 - Turned down: (2) the toolbar's empty space moving the window too, which Leaf would have to do itself below the 40 pt
   bar, losing edge snapping from there; (3) leaving only the strip around the window buttons.
 
-**The tabs' look.** Each tab is a pill 28 dp tall. The selected one is filled (`frame.control`) and keeps its 3 dp
-colour stripe. The others are plain text.
+**The tabs' look** (built 2026-11-05, step 2: `TitleBarTab` in `A/ui/window/TitleBarTabs.kt`, which upstream's `Tab`
+hands over to with `inTitleBar`):
+
+- Mockup A's sizes: 28 dp tall, 168 dp wide when there's room, corners of 7 dp, 4 dp apart. The repository's icon
+  (`topic`), 15 dp, comes before the name; a Welcome page's tab has none.
+- The selected tab is filled with `frame.control`, outlined with `frame.control.edge`, and on a light frame has a 1 dp
+  shadow. Its name is `frame.text`, medium, and its icon `frame.icon`.
+- The others are plain: name and icon in `frame.secondaryText`. A hover fills them with `frame.control` at half its
+  strength.
+- A tab with a colour keeps its 3 dp stripe along its top, cut to the corners. The underline that marked the selected
+  tab is gone, as the fill marks it.
+- Its × shows on hover and on the selected tab, as before. The rename field writes in `frame.text`.
+- The + button is 28 dp, in `frame.secondaryText`, 4 dp after the tabs, and the arrows are 28 dp tall.
+- The width rule counts the gaps: each tab's share is the bar less the + button and the gaps.
 
 **Dialogs.** A `MaterialDialog` draws its scrim over the bar as well. While a dialog is open, a click on a tab under the
 scrim must not select it.
@@ -251,7 +263,9 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
 1. **Style slots.** Done 2026-11-05: the seven slots of section 4, their keys, derivation rules, contrast checks, and the
    Window frame group in the editor's Advanced table. Nothing on screen changes but the title bar's background, which is
    the frame's colour.
-2. **Title bar with the tabs.** macOS, with the fallback for every other case.
+2. **Title bar with the tabs.** macOS, with the fallback for every other case. Built 2026-11-05: the spike above, and the
+   tabs' look. `TitleBarTabsTest` renders them in Tonal, Classic, Solarized and Teal, light and dark, when
+   `LEAF_RENDER_DIR` is set.
 3. **Toolbar** (section 3).
 4. **Surfaces and headers** (section 4).
 5. **The Leaf style** (section 5), and the Frame seed if D6 is yes.
