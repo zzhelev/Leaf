@@ -226,6 +226,36 @@ Solarized's dark muted frame text held 3.98 on its controls without the check, a
 **The branches pane's selected row:** an inset highlight with rounded corners, 4 dp in from each side. The log keeps
 its full-width rows.
 
+**As built** (2026-11-05, step 4):
+
+- **Colours:** `ColorsScheme.styled` gives Tonal and Quiet mockup A's panels (#F7F8F9, dark #18191C), and headers of
+  the same colour. The dark background stays #0F0F0F: on mockup A's #121315 the code's annotation colour held 4.47 : 1
+  on the added lines, and five code colours would have moved a shade in every style, Classic's included.
+- **Headers follow the panels:** in Tonal and Quiet, the headers take the panels' worked-out colour unless a style sets
+  them by hand (`sharedColourOf` in `StyleDerivation.kt`), so they match where the panels are set by hand too, as on
+  Solarized's dark side (base02). The headers' checks are some of the panels', so they hold. Teal's dark headers set
+  by hand (#003B3A) went; its boxes stay.
+- **The line:** `Modifier.headerBackground()` (`A/theme/HeaderBackground.kt`) fills a header and, when the headers'
+  colour is the panels', draws a line in `separators` along its bottom. Classic's filled headers get none. Used by the
+  status pane's headers and the commit message's title, the log's header, the diff's header and its conflict bar, the
+  followed-file placeholder, blame's and file history's headers, the selected commits' header, the comparison's
+  headers, and the conflict resolver's headers and legend. The commit details footer, the comparison's footer, and the
+  resolver's file list and its edge keep a plain fill.
+- **The branches pane** is on the panels' colour, with its pinned section headers. It was on the background, not on the
+  panels as section 1 said.
+- **Section headers** (`SideMenuHeader`): a 14 dp chevron, the label in capitals at 11 sp, semibold with 0.06 em
+  between letters, in the secondary text colour, and the count at 11 sp. The sections' icons went, as in the mockup.
+- **The log's column lines** (`DividerLog`) show while the pointer is on them, in the header and along the graph's
+  edge.
+- **The selected row** (`insetSelection`, `A/ui/components/InsetSelection.kt`): rounded 6 dp, 4 dp in from the pane's
+  sides and 1 dp from the rows above and below, across the pane whatever the row's depth.
+- In Classic, the headers keep their fill and get no line; the section headers, the log's lines, the selected row and
+  the branches pane's colour change as in the other looks.
+- Tests: `StyleDerivationTest` (the headers are the panels' in every built-in style but Classic and for 2,000 random
+  seed sets per look and side; headers set by hand stay; a surface that text set by hand fails on moves, the headers
+  with it), `CommitMessageFieldTest` (the line under the status pane's header and the commit message's title in Tonal,
+  none in Classic), `BuiltInStylesTest` (Teal's colours set by hand).
+
 ## 5. The Leaf style (C)
 
 **What it is:** a built-in style, id `leaf`, with the Tonal look. It comes after Teal in the gallery and is not the
@@ -295,7 +325,7 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
    tabs' look. `TitleBarTabsTest` renders them in Tonal, Classic, Solarized and Teal, light and dark, when
    `LEAF_RENDER_DIR` is set.
 3. **Toolbar** (section 3). Built 2026-11-05.
-4. **Surfaces and headers** (section 4).
+4. **Surfaces and headers** (section 4). Built 2026-11-05.
 5. **The Leaf style** (section 5), and the Frame seed if D6 is yes.
 6. **The smaller changes** that D7 keeps.
 7. **Docs:** CLAUDE.md, `docs/fork/CHANGELOG.md`, and the README's screenshots if they show the window.
