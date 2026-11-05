@@ -316,6 +316,9 @@
     <string name="finish_hint_nothing_staged">Stage some changes to commit.</string>
     <string name="commit_message_wrap_body">Wrap body at %1$d columns</string>
     <string name="commit_message_wrap_body_nothing">Every line fits</string>
+    <string name="commit_message_expand">Write in a larger view</string>
+    <string name="commit_message_collapse">Back to the changes pane (Esc)</string>
+    <string name="commit_message_in_larger_view">Being written in the larger view</string>
     <string name="commit_message_start_key">Tab adds %1$s from the branch name</string>
     <string name="commit_message_start_template">Tab starts from the commit template</string>
     <string name="commit_message_start_key_and_template">Tab adds %1$s and the commit template</string>

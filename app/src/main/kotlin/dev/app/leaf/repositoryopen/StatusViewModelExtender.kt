@@ -117,6 +117,10 @@ class StatusViewModelExtender @AssistedInject constructor(
     val showSearchUnstaged: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
+    /** Fork-only: the commit message is in the centre pane, in the log's place (docs/fork/window-chrome.md, section 6). */
+    val isMessageExpanded: StateFlow<Boolean>
+        field = MutableStateFlow(false)
+
     val showSearchStaged: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
@@ -686,6 +690,7 @@ class StatusViewModelExtender @AssistedInject constructor(
             unstagedCollapsedGroups.update { it.groupToggled(action.group, isSearching(EntryType.UNSTAGED)) }
 
         is StatusAction.StageGroup -> stageGroup(action.group)
+        is StatusAction.ExpandMessage -> expandMessage(action.expanded)
     }
 
     /** Fork-only (upstream issue 345): stages the files that a group's header stands for. */
@@ -719,6 +724,19 @@ class StatusViewModelExtender @AssistedInject constructor(
 
         updateCommitMessage(TextFieldValue(after, TextRange(caret)))
         coAuthorInsertion.value = CoAuthorInsertion(++coAuthorInsertions, before, after)
+    }
+
+    /** Fork-only: the message goes to the centre pane, which Esc closes as a view, or back to the changes pane. */
+    fun expandMessage(expanded: Boolean) {
+        if (isMessageExpanded.value == expanded) return
+
+        isMessageExpanded.value = expanded
+
+        if (expanded) {
+            addCloseableView(CloseableView.COMMIT_MESSAGE_EDITOR)
+        } else {
+            removeCloseableView(CloseableView.COMMIT_MESSAGE_EDITOR)
+        }
     }
 
     /** Fork-only: Esc closed the co-author suggestions, which the field then hides until its text changes. */
@@ -1122,6 +1140,8 @@ class StatusViewModelExtender @AssistedInject constructor(
             // the source has now would drop the draft that a merge, cherry-pick or revert had kept out of view.
             messageFlowOf(source).value = TextFieldValue("")
             isAmend.value = false
+            // Fork-only: the message was written, so the centre pane has the log again
+            expandMessage(false)
         } else {
             // If committing failed and the message was going to be persisted before the commit, restart the
             // persistence task

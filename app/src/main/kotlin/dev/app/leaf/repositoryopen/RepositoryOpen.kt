@@ -59,6 +59,8 @@ import dev.app.leaf.ui.toolbar.Toolbar
 import dev.app.leaf.ui.toolbar.ToolbarActions
 import dev.app.leaf.ui.status.UnsupportedIndexBanner
 import dev.app.leaf.ui.LocalAppChrome
+import dev.app.leaf.ui.status.CommitMessageEditor
+import dev.app.leaf.ui.status.StatusAction
 import dev.app.leaf.ui.status.StatusPane
 import dev.app.leaf.ui.status.abortOperationInProgress
 import dev.app.leaf.ui.status.operationInProgress
@@ -606,6 +608,24 @@ fun MainContentView(
     val scope = rememberCoroutineScope()
 
     val statusState by viewModel.statusState.collectAsState()
+    val commitChangesState = viewModel.commitChangesState.collectAsState().value
+    val comparisonState = viewModel.comparisonState.collectAsState().value
+    // Fork-only: the commits selected in the log with Shift (docs/fork/squash-and-rebase.md, A2)
+    val selectedCommits = viewModel.selectedCommits.collectAsState().value
+    // Fork-only: the commit message in the log's place, while the changes pane shows the uncommitted changes and nothing
+    // else takes the centre pane (docs/fork/window-chrome.md, section 6)
+    val isMessageExpanded by viewModel.isMessageExpanded.collectAsState()
+    val showsStatusPane = changesPane.isShown && commitEditorState == null && comparisonState == null &&
+        selectedCommits == null && commitChangesState == null
+    val isBlameExpanded = blameState is BlameState.Loaded && !blameState.isMinimized
+    val messageInCentre = isMessageExpanded && showsStatusPane && !isBlameExpanded
+
+    // Anything else in the centre or the changes pane puts the message back
+    LaunchedEffect(isMessageExpanded, messageInCentre) {
+        if (isMessageExpanded && !messageInCentre) {
+            viewModel.onAction(StatusAction.ExpandMessage(false))
+        }
+    }
 
     // We create 2 mutableStates here because using directly the flow makes compose lose some drag events for some reason
     var firstWidth by remember(viewModel) { mutableStateOf(viewModel.firstPaneWidth.value) }
@@ -684,7 +704,8 @@ fun MainContentView(
                         LogAndDiffSplit(
                             modifier = Modifier.weight(1f, true),
                             sizes = splitSizes,
-                            keepsLog = keepsLog,
+                            // Fork-only: a diff never covers the message
+                            keepsLog = keepsLog || messageInCentre,
                             isDiffShown = showDiff || missingFile != null,
                             onSizesChange = { splitSizes = it },
                             onSizesChangeFinished = { viewModel.saveCenterSplitSizes(splitSizes) },
@@ -693,7 +714,16 @@ fun MainContentView(
                                 viewModel.saveCenterSplitSizes(splitSizes)
                             },
                             log = { logModifier ->
-                                CompositionLocalProvider(LocalLogFocusRequester provides logFocusRequester) {
+                                if (messageInCentre) {
+                                    CommitMessageEditor(
+                                        statusState = statusState,
+                                        onAction = { viewModel.onAction(it) },
+                                        onConfirmAction = { action, onConfirm ->
+                                            onNavigate(Screen.ConfirmAction(action, onConfirm))
+                                        },
+                                        modifier = logModifier,
+                                    )
+                                } else CompositionLocalProvider(LocalLogFocusRequester provides logFocusRequester) {
                                     Log(
                                         modifier = logModifier,
                                         viewModel = viewModel,
@@ -725,7 +755,7 @@ fun MainContentView(
                                         onConfirmAction = { action, onConfirm, onStopAsking ->
                                             onNavigate(Screen.ConfirmAction(action, onConfirm, onStopAsking))
                                         },
-                                        logToggle = logToggle,
+                                        logToggle = if (messageInCentre) ({}) else logToggle,
                                     )
                                 } else {
                                     missingFile?.let { missing ->
@@ -739,7 +769,7 @@ fun MainContentView(
                                                 viewModel.forgetFollowedFile()
                                                 focusAfterClosingDiff()
                                             },
-                                            logToggle = logToggle,
+                                            logToggle = if (messageInCentre) ({}) else logToggle,
                                         )
                                     }
                                 }
@@ -762,10 +792,6 @@ fun MainContentView(
                 modifier = Modifier
                     .fillMaxHeight()
             ) {
-                val commitChangesState = viewModel.commitChangesState.collectAsState().value
-                val comparisonState = viewModel.comparisonState.collectAsState().value
-                // Fork-only: the commits selected in the log with Shift (docs/fork/squash-and-rebase.md, A2)
-                val selectedCommits = viewModel.selectedCommits.collectAsState().value
                 // Fork-only: the branch that the Commit button names
                 val branchesState = viewModel.branchesState.collectAsState().value
 
@@ -798,6 +824,7 @@ fun MainContentView(
                         onConfirmAction = { action, onConfirm -> onNavigate(Screen.ConfirmAction(action, onConfirm)) },
                         // Fork-only: "Commit to main"; a detached HEAD's branch is named HEAD
                         branchName = branchesState.currentBranch?.takeUnless { it.name == "HEAD" }?.simpleName,
+                        isMessageExpanded = messageInCentre,
                     )
                 }
             }

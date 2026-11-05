@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
@@ -43,7 +44,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.close_fullscreen
 import dev.app.leaf.app.generated.resources.commit_message_add_co_author
+import dev.app.leaf.app.generated.resources.commit_message_collapse
+import dev.app.leaf.app.generated.resources.commit_message_expand
+import dev.app.leaf.app.generated.resources.open_in_full
 import dev.app.leaf.app.generated.resources.commit_message_sign_off_menu_item
 import dev.app.leaf.app.generated.resources.commit_message_signed_off
 import dev.app.leaf.app.generated.resources.person
@@ -84,6 +89,7 @@ import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.amberText
 import androidx.compose.material.Colors
 import dev.app.leaf.ui.components.HeaderMenuButton
+import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.sort.SortMenuItem
 import org.jetbrains.compose.resources.painterResource
@@ -169,6 +175,11 @@ internal fun CommitMessageTitle(
     onToggleSignOff: () -> Unit = {},
     /** The menu's "Wrap body at 72 columns" (fork-only). */
     onWrapBody: () -> Unit = {},
+    /** Moves the message to the centre pane, or back while [isExpanded]; null for no button (fork-only). */
+    onToggleExpanded: (() -> Unit)? = null,
+    isExpanded: Boolean = false,
+    /** The changes pane's row while the message is in the centre pane has no menu: the centre's row has it. */
+    showsMenu: Boolean = true,
 ) {
     val title = if (header.isMergeMessage) {
         stringResource(Res.string.uncommited_changes_message_title_merge)
@@ -232,15 +243,21 @@ internal fun CommitMessageTitle(
             }
         }
 
+        val hasMenu = header.hasMenu && showsMenu
+
         if (subjectCount != null) {
             SubjectCountText(
                 subjectCount,
-                // The menu button has room of its own around its icon
-                modifier = Modifier.padding(start = 4.dp, end = if (header.hasMenu) 0.dp else 16.dp),
+                // The buttons have room of their own around their icons
+                modifier = Modifier.padding(start = 4.dp, end = if (hasMenu || onToggleExpanded != null) 0.dp else 16.dp),
             )
         }
 
-        if (header.hasMenu) {
+        if (onToggleExpanded != null) {
+            MessageSizeButton(isExpanded = isExpanded, onClick = onToggleExpanded)
+        }
+
+        if (hasMenu) {
             HeaderMenuButton(
                 items = commitMessageMenuItems(
                     header,
@@ -255,6 +272,29 @@ internal fun CommitMessageTitle(
                     onWrapBody = onWrapBody,
                 ),
                 tooltip = stringResource(Res.string.status_header_more_actions),
+            )
+        }
+    }
+}
+
+/**
+ * Opens the message in the centre pane, in the log's place, or puts it back (fork-only, docs/fork/window-chrome.md,
+ * section 6).
+ */
+@Composable
+private fun MessageSizeButton(isExpanded: Boolean, onClick: () -> Unit) {
+    val tooltip = stringResource(if (isExpanded) Res.string.commit_message_collapse else Res.string.commit_message_expand)
+
+    DelayedTooltip(tooltip) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.handOnHover(),
+        ) {
+            Icon(
+                painter = painterResource(if (isExpanded) Res.drawable.close_fullscreen else Res.drawable.open_in_full),
+                contentDescription = tooltip,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colors.onBackground,
             )
         }
     }

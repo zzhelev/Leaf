@@ -1048,6 +1048,9 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val statusState = statusViewModelExtender.statusState
 
+    /** Fork-only: the commit message is in the centre pane, in the log's place. */
+    val isMessageExpanded = statusViewModelExtender.isMessageExpanded
+
     /**
      * The changes pane (fork-only): the user's fold, the same for every tab, and what holds the pane open anyway: a merge,
      * rebase, cherry-pick, revert or squash merge in progress, whose Merge, Continue and Commit are in the pane, and a
@@ -1159,6 +1162,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.BRANCH_SELECTION -> branchSelectionController.clear()
                 CloseableView.LOG_SELECTION -> logSelectionController.clear()
                 CloseableView.COMMIT_EDITOR -> commitEditor.cancel()
+                CloseableView.COMMIT_MESSAGE_EDITOR -> statusViewModelExtender.expandMessage(false)
 
             }
         }

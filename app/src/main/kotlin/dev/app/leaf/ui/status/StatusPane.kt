@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.LocalTabFocusRequester
@@ -69,6 +70,7 @@ import dev.app.leaf.extensions.setClipboardText
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.theme.RoleColors
+import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.roleBorder
 import dev.app.leaf.theme.styleColors
 import dev.app.leaf.ui.ChangedFilesList
@@ -104,6 +106,8 @@ fun StatusPane(
     completedTasks: StateFlow<List<CompletedTask>>,
     /** The branch that a commit goes on, which the Commit button names; null on a detached HEAD (fork-only). */
     branchName: String? = null,
+    /** The commit message is in the centre pane, and this pane keeps the buttons (fork-only). */
+    isMessageExpanded: Boolean = false,
 ) {
     val swapUncommittedChanges = statusState.swapUncommittedChanges
     // Kept for the tab, not for the lists' contents: staging a file must not scroll the lists back to the top
@@ -114,10 +118,6 @@ fun StatusPane(
         LazyListState()
     }
 
-    val commitMessage = statusState.commitMessage
-
-    val isAmend = statusState.isAmend
-    val isAmendRebaseInteractive = statusState.isAmendRebaseInteractive
     val committerDataRequestState = statusState.committerDataRequestState
     val selectedUnstagedDiffEntries = statusState.selectedUnstagedDiffEntries
     val selectedStagedDiffEntries = statusState.selectedStagedDiffEntries
@@ -127,20 +127,6 @@ fun StatusPane(
     val showSearchUnstaged = statusState.showSearchUnstaged
     val searchFilterUnstaged = statusState.searchFilterUnstaged
 
-    val isAmenableRebaseInteractive = statusState.isAmenableRebaseInteractive
-
-    val doCommit = {
-        onAction(StatusAction.Commit(commitMessage.text))
-        Unit
-    }
-
-    // Fork-only: git refuses to commit while files have conflicts, as after a squash merge that stopped at some
-    val canCommit = statusState.canCommit
-    val canAmend = statusState.canAmend
-    // Fork-only: what stops the primary button, and what the field says about it (see FinishBlockers.kt)
-    val finishBlocker = statusState.finishBlocker()
-    val finishHint = statusState.finishHint()
-    val showsContinue = statusState.showsContinue()
     val tabFocusRequester = LocalTabFocusRequester.current
 
     // Only when a search opens or closes, not at each change of the state, such as each letter typed in the search
@@ -186,7 +172,13 @@ fun StatusPane(
             modifier = Modifier.weight(1f),
         ) {
             val paneHeight = maxHeight.value
-            val heights = sectionSizes.fitTo(paneHeight)
+            // Fork-only: while the message is in the centre pane, the lists get the field's room, and the saved sizes
+            // come back with it
+            val heights = if (isMessageExpanded) {
+                sectionSizes.copy(commitFieldHeight = STATUS_MIN_COMMIT_FIELD_HEIGHT).fitTo(paneHeight)
+            } else {
+                sectionSizes.fitTo(paneHeight)
+            }
             val stagedOnTop = !swapUncommittedChanges
 
             fun saveSectionSizes(sizes: StatusSectionSizes) {
@@ -251,89 +243,176 @@ fun StatusPane(
 
                 SectionDivider(
                     onDrag = { delta ->
-                        sectionSizes = sectionSizes.withCommitDividerMoved(paneHeight, delta, stagedOnTop)
+                        if (!isMessageExpanded) {
+                            sectionSizes = sectionSizes.withCommitDividerMoved(paneHeight, delta, stagedOnTop)
+                        }
                     },
-                    onDragStopped = { saveSectionSizes(sectionSizes) },
+                    onDragStopped = { if (!isMessageExpanded) saveSectionSizes(sectionSizes) },
                     onDoubleClick = {
-                        saveSectionSizes(sectionSizes.copy(commitFieldHeight = STATUS_DEFAULT_COMMIT_FIELD_HEIGHT))
+                        if (!isMessageExpanded) {
+                            saveSectionSizes(sectionSizes.copy(commitFieldHeight = STATUS_DEFAULT_COMMIT_FIELD_HEIGHT))
+                        }
                     },
                 )
 
-                CommitField(
-                    canCommit,
-                    isAmend,
-                    canAmend,
-                    doCommit,
-                    commitMessage,
-                    previousCommitMessage = statusState.previousCommitMessage,
-                    statusState.repositoryState,
-                    isAmenableRebaseInteractive,
-                    showsContinue,
-                    finishBlocker,
-                    isAmendRebaseInteractive,
-                    finishHint,
-                    statusState.isLoading,
-                    setCommitMessage = {
-                        onAction(StatusAction.UpdateCommitMessage(it))
-                    },
-                    // The same as the banner's Abort (fork-only)
-                    onResetRepoState = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
-                    onAbortRebase = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
-                    onAmendChecked = { amend ->
-                        if (amend && commitMessage.text.isEmpty()) {
-                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
-                        }
-                        onAction(StatusAction.ToggleAmend(amend))
-                    },
-                    onContinueRebase = { onAction(StatusAction.ContinueRebase(commitMessage.text)) },
-                    onSkipRebase = {
-                        // Fork-only: names the commit; one with changes is listed once the rebase ends
-                        val stop = statusState.rebaseStop
-                        val discards = statusState.skipDiscards
-                        val skipped = stop
-                            ?.takeIf { discards > 0 }
-                            ?.let { SkippedRebaseCommit(it.commit, it.subject, it.branch) }
-
-                        onConfirmAction(
-                            ConfirmableAction.SkipRebaseCommit(stop?.shortHash, stop?.subject, stop?.branch, discards)
-                        ) {
-                            onAction(StatusAction.SkipRebase(skipped))
-                        }
-                    },
-                    onAmendRebaseInteractiveChecked = { amend ->
-                        if (amend && commitMessage.text.isEmpty()) {
-                            onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
-                        }
-
-                        onAction(StatusAction.ToggleAmendRebaseInteractive(amend))
-                    },
+                ChangesPaneCommitField(
+                    statusState = statusState,
+                    onAction = onAction,
+                    onConfirmAction = onConfirmAction,
+                    isMessageExpanded = isMessageExpanded,
                     // Fork-only: the title row comes on top of the saved field height
                     modifier = Modifier.height(heights.commitSection.dp),
-                    messageCleanup = statusState.messageCleanup,
-                    messageHints = statusState.messageHints,
-                    coAuthors = statusState.coAuthors,
-                    onCoAuthorAction = { onAction(StatusAction.CoAuthors(it)) },
-                    isSignOff = statusState.isSignOff,
-                    onToggleSignOff = { onAction(StatusAction.ToggleSignOff) },
-                    conventionalHistory = statusState.conventionalHistory,
-                    commitlintRules = statusState.commitlintRules,
-                    messageStart = statusState.messageStart,
-                    cherryPickSequence = statusState.cherryPickSequence,
-                    canSkipCherryPick = statusState.canSkipCherryPick,
-                    canSkipRebaseCommit = statusState.canSkipRebaseCommit,
-                    rebaseSkipOtherChanges = statusState.rebaseSkipOtherChanges,
-                    onContinueCherryPick = { onAction(StatusAction.ContinueCherryPick(commitMessage.text)) },
-                    onSkipCherryPick = {
-                        onConfirmAction(ConfirmableAction.SkipCherryPickCommit(statusState.skipDiscards)) {
-                            onAction(StatusAction.SkipCherryPick)
-                        }
-                    },
                     branchName = branchName,
-                    scopeKey = statusState.scopeKey,
                 )
             }
         }
     }
+}
+
+/**
+ * The changes pane's commit field (fork-only): all of it, or while the message is in the centre pane, the rest of it.
+ * When the message comes back, its field has the focus again (docs/fork/window-chrome.md, section 6).
+ */
+@Composable
+fun ChangesPaneCommitField(
+    statusState: StatusState,
+    onAction: (StatusAction) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
+    isMessageExpanded: Boolean,
+    modifier: Modifier = Modifier,
+    branchName: String? = null,
+) {
+    val fieldFocusRequester = remember { FocusRequester() }
+    var wasExpanded by remember { mutableStateOf(isMessageExpanded) }
+
+    LaunchedEffect(isMessageExpanded) {
+        if (wasExpanded && !isMessageExpanded) {
+            try {
+                fieldFocusRequester.requestFocus()
+            } catch (_: IllegalStateException) {
+            }
+        }
+
+        wasExpanded = isMessageExpanded
+    }
+
+    StatusCommitField(
+        statusState = statusState,
+        onAction = onAction,
+        onConfirmAction = onConfirmAction,
+        part = if (isMessageExpanded) CommitFieldPart.FINISH else CommitFieldPart.WHOLE,
+        modifier = modifier,
+        branchName = branchName,
+        focusRequester = fieldFocusRequester,
+    )
+}
+
+/**
+ * The commit field with what [StatusPane] gives it from [statusState] (fork-only): the changes pane's, and while the
+ * message is in the centre pane, that pane's [CommitFieldPart.MESSAGE] (docs/fork/window-chrome.md, section 6).
+ */
+@Composable
+fun StatusCommitField(
+    statusState: StatusState,
+    onAction: (StatusAction) -> Unit,
+    onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
+    part: CommitFieldPart,
+    modifier: Modifier = Modifier,
+    branchName: String? = null,
+    focusRequester: FocusRequester? = null,
+) {
+    val commitMessage = statusState.commitMessage
+    val isAmend = statusState.isAmend
+    val isAmendRebaseInteractive = statusState.isAmendRebaseInteractive
+    val isAmenableRebaseInteractive = statusState.isAmenableRebaseInteractive
+
+    val doCommit = {
+        onAction(StatusAction.Commit(commitMessage.text))
+        Unit
+    }
+
+    // Fork-only: git refuses to commit while files have conflicts, as after a squash merge that stopped at some
+    val canCommit = statusState.canCommit
+    val canAmend = statusState.canAmend
+    // Fork-only: what stops the primary button, and what the field says about it (see FinishBlockers.kt)
+    val finishBlocker = statusState.finishBlocker()
+    val finishHint = statusState.finishHint()
+    val showsContinue = statusState.showsContinue()
+
+    CommitField(
+        canCommit,
+        isAmend,
+        canAmend,
+        doCommit,
+        commitMessage,
+        previousCommitMessage = statusState.previousCommitMessage,
+        statusState.repositoryState,
+        isAmenableRebaseInteractive,
+        showsContinue,
+        finishBlocker,
+        isAmendRebaseInteractive,
+        finishHint,
+        statusState.isLoading,
+        setCommitMessage = {
+            onAction(StatusAction.UpdateCommitMessage(it))
+        },
+        // The same as the banner's Abort (fork-only)
+        onResetRepoState = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
+        onAbortRebase = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
+        onAmendChecked = { amend ->
+            if (amend && commitMessage.text.isEmpty()) {
+                onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
+            }
+            onAction(StatusAction.ToggleAmend(amend))
+        },
+        onContinueRebase = { onAction(StatusAction.ContinueRebase(commitMessage.text)) },
+        onSkipRebase = {
+            // Fork-only: names the commit; one with changes is listed once the rebase ends
+            val stop = statusState.rebaseStop
+            val discards = statusState.skipDiscards
+            val skipped = stop
+                ?.takeIf { discards > 0 }
+                ?.let { SkippedRebaseCommit(it.commit, it.subject, it.branch) }
+
+            onConfirmAction(
+                ConfirmableAction.SkipRebaseCommit(stop?.shortHash, stop?.subject, stop?.branch, discards)
+            ) {
+                onAction(StatusAction.SkipRebase(skipped))
+            }
+        },
+        onAmendRebaseInteractiveChecked = { amend ->
+            if (amend && commitMessage.text.isEmpty()) {
+                onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
+            }
+
+            onAction(StatusAction.ToggleAmendRebaseInteractive(amend))
+        },
+        modifier = modifier,
+        messageCleanup = statusState.messageCleanup,
+        messageHints = statusState.messageHints,
+        coAuthors = statusState.coAuthors,
+        onCoAuthorAction = { onAction(StatusAction.CoAuthors(it)) },
+        isSignOff = statusState.isSignOff,
+        onToggleSignOff = { onAction(StatusAction.ToggleSignOff) },
+        conventionalHistory = statusState.conventionalHistory,
+        commitlintRules = statusState.commitlintRules,
+        messageStart = statusState.messageStart,
+        cherryPickSequence = statusState.cherryPickSequence,
+        canSkipCherryPick = statusState.canSkipCherryPick,
+        canSkipRebaseCommit = statusState.canSkipRebaseCommit,
+        rebaseSkipOtherChanges = statusState.rebaseSkipOtherChanges,
+        onContinueCherryPick = { onAction(StatusAction.ContinueCherryPick(commitMessage.text)) },
+        onSkipCherryPick = {
+            onConfirmAction(ConfirmableAction.SkipCherryPickCommit(statusState.skipDiscards)) {
+                onAction(StatusAction.SkipCherryPick)
+            }
+        },
+        branchName = branchName,
+        scopeKey = statusState.scopeKey,
+        part = part,
+        onToggleExpanded = { onAction(StatusAction.ExpandMessage(part == CommitFieldPart.WHOLE)) },
+        focusRequester = focusRequester,
+    )
 }
 
 @Composable
@@ -701,6 +780,20 @@ private fun BoxScope.EntryHoverAction(isHovered: Boolean, actionInfo: ActionInfo
     }
 }
 
+/**
+ * What a [CommitField] shows (fork-only, docs/fork/window-chrome.md, section 6): all of it, or, while the message is in
+ * the centre pane, the message there ([MESSAGE]) and the rest in the changes pane ([FINISH]).
+ */
+enum class CommitFieldPart {
+    WHOLE,
+
+    /** The title row, the field and the hints about the message, without the buttons. */
+    MESSAGE,
+
+    /** The title row, a line that says where the message is, and what stops the button and the buttons. */
+    FINISH,
+}
+
 @Composable
 internal fun CommitField(
     canCommit: Boolean,
@@ -753,6 +846,12 @@ internal fun CommitField(
     onSkipCherryPick: () -> Unit = {},
     /** The branch that a commit goes on, which the button names; null on a detached HEAD (fork-only). */
     branchName: String? = null,
+    /** Which part to show, while the message is in the centre pane (fork-only). */
+    part: CommitFieldPart = CommitFieldPart.WHOLE,
+    /** Moves the message to the centre pane or back; null for no button (fork-only). */
+    onToggleExpanded: (() -> Unit)? = null,
+    /** The field's, for a caller that focuses it (fork-only). */
+    focusRequester: FocusRequester? = null,
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
@@ -763,7 +862,8 @@ internal fun CommitField(
     // Fork-only: suggestions while the caret is on a Co-authored-by line (CoAuthorSuggestions.kt), or typing a
     // Conventional Commits type or scope at the subject's start (CommitTypeSuggestions.kt). Esc hides them, through the
     // tab, until the text changes.
-    val fieldFocusRequester = remember { FocusRequester() }
+    val ownFocusRequester = remember { FocusRequester() }
+    val fieldFocusRequester = focusRequester ?: ownFocusRequester
     var isFieldFocused by remember { mutableStateOf(false) }
     var fieldWidth by remember { mutableStateOf(0) }
     var dismissedText by remember { mutableStateOf<String?>(null) }
@@ -814,7 +914,8 @@ internal fun CommitField(
 
     // "Add co-author" came from the menu, which had the focus: the caret waits in the new line
     LaunchedEffect(coAuthors.insertion?.id) {
-        if (coAuthors.insertion != null) {
+        // Fork-only: the changes pane's part has no field while the message is in the centre pane
+        if (coAuthors.insertion != null && part != CommitFieldPart.FINISH) {
             fieldFocusRequester.requestFocus()
         }
     }
@@ -848,13 +949,19 @@ internal fun CommitField(
             onToggleAmend = {
                 if (repositoryState.isRebasing) onAmendRebaseInteractiveChecked(!isAmendRebaseInteractive) else onAmendChecked(!isAmend)
             },
-            subjectCount = messageLayout?.let { subjectCount(it, messageHints) },
+            subjectCount = messageLayout?.takeIf { part != CommitFieldPart.FINISH }?.let { subjectCount(it, messageHints) },
             onAddCoAuthor = { onCoAuthorAction(CoAuthorAction.AddLine) },
             onToggleSignOff = onToggleSignOff,
             onWrapBody = { setCommitMessage(commitMessage.withWrappedBody(messageCleanup)) },
+            // Fork-only: a field that can't be edited has nothing to write in a larger view
+            onToggleExpanded = onToggleExpanded.takeUnless { isReadOnlyRebase },
+            isExpanded = part != CommitFieldPart.WHOLE,
+            showsMenu = part != CommitFieldPart.FINISH,
         )
 
-        Box(
+        if (part == CommitFieldPart.FINISH) {
+            MessageElsewhere(Modifier.fillMaxWidth().weight(1f))
+        } else Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(weight = 1f, fill = true),
@@ -940,11 +1047,14 @@ internal fun CommitField(
         }
 
         // Fork-only: a subject that runs on into the next line, which git log would show as one
-        if (messageLayout?.blankLineAt != null) {
+        if (messageLayout?.blankLineAt != null && part != CommitFieldPart.FINISH) {
             SubjectRunsOnHint(
                 onInsertBlankLine = { setCommitMessage(commitMessage.withBlankLineAfterSubject(messageCleanup)) },
             )
         }
+
+        // Fork-only: the buttons stay in the changes pane while the message is in the centre pane
+        if (part == CommitFieldPart.MESSAGE) return@Column
 
         // Fork-only: why the primary button below is disabled
         if (finishHint != null) {
@@ -1053,6 +1163,23 @@ fun UncommittedChangesButtons(
 
 /** The Commit button with the branch under its label (fork-only, docs/fork/window-chrome.md, section 6). */
 internal val TWO_LINE_BUTTON_HEIGHT = 46.dp
+
+/** In the field's place while the message is in the centre pane (fork-only, docs/fork/window-chrome.md, section 6). */
+@Composable
+private fun MessageElsewhere(modifier: Modifier) {
+    Box(
+        modifier = modifier.background(MaterialTheme.colors.background),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(Res.string.commit_message_in_larger_view),
+            style = MaterialTheme.typography.body2,
+            color = MaterialTheme.colors.onBackgroundSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+}
 
 @Composable
 fun MergeButtons(

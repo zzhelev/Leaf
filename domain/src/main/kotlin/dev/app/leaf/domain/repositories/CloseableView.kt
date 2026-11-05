@@ -16,4 +16,5 @@ enum class CloseableView {
     BRANCH_SELECTION, // Fork-only: the branches selected in the side panel for deleting several at once
     LOG_SELECTION, // Fork-only: a range of commits selected in the log with Shift
     COMMIT_EDITOR, // Fork-only: the commit editor, which Esc cancels, keeping its plan
+    COMMIT_MESSAGE_EDITOR, // Fork-only: the commit message in the centre pane, which Esc puts back in the changes pane
 }

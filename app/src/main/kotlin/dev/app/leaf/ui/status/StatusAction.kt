@@ -112,4 +112,10 @@ sealed interface StatusAction {
 
     /** Fork-only (upstream issue 345): the Stage button of a group's header, for the files it stands for. */
     data class StageGroup(val group: FileGroup) : StatusAction
+
+    /**
+     * Fork-only: opens the commit message in the centre pane, in the log's place, or puts it back in the changes pane
+     * (docs/fork/window-chrome.md, section 6).
+     */
+    data class ExpandMessage(val expanded: Boolean) : StatusAction
 }
