@@ -68,13 +68,19 @@ import dev.app.leaf.app.generated.resources.uncommited_changes_message_title
 import dev.app.leaf.app.generated.resources.uncommited_changes_message_title_merge
 import dev.app.leaf.app.generated.resources.uncommited_changes_text_input_label_message
 import dev.app.leaf.app.generated.resources.commit_message_wrap_body
+import dev.app.leaf.app.generated.resources.commit_message_wrap_body_indented
+import dev.app.leaf.app.generated.resources.commit_message_wrap_body_long_subject
+import dev.app.leaf.app.generated.resources.commit_message_wrap_body_no_spaces
 import dev.app.leaf.app.generated.resources.commit_message_wrap_body_nothing
+import dev.app.leaf.app.generated.resources.commit_message_wrap_body_subject_runs_on
+import dev.app.leaf.app.generated.resources.commit_message_wrap_body_trailers
 import dev.app.leaf.domain.commitmessage.BODY_WRAP_COLUMN
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitMessageLayout
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.SUBJECT_LIMIT
 import dev.app.leaf.domain.commitmessage.SUBJECT_SOFT_LIMIT
+import dev.app.leaf.domain.commitmessage.WrapBodyBlocker
 import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.commitmessage.offsetAfterWrap
 import dev.app.leaf.domain.commitmessage.withBlankLineAfterSubject
@@ -123,8 +129,13 @@ internal data class CommitMessageHeader(
     val hasMenu: Boolean get() = amend != null || signOff != null || canAddCoAuthor || wrapBody != null
 }
 
-/** The row's "Wrap body at 72 columns" item (fork-only), greyed out while every line of the body fits. */
-internal data class WrapBodyItem(val canWrap: Boolean)
+/**
+ * The row's "Wrap body at 72 columns" item (fork-only), greyed out while wrapping would change nothing, saying why
+ * ([blocker]).
+ */
+internal data class WrapBodyItem(val blocker: WrapBodyBlocker?) {
+    val canWrap: Boolean get() = blocker == null
+}
 
 /** The row's "Add Signed-off-by" item (fork-only), [isOn] when Leaf adds `Signed-off-by` as it commits. */
 internal data class SignOffItem(val isOn: Boolean)
@@ -138,7 +149,7 @@ internal fun commitMessageHeader(
     isAmend: Boolean,
     isAmendRebaseInteractive: Boolean,
     isSignOff: Boolean = false,
-    canWrapBody: Boolean = false,
+    wrapBodyBlocker: WrapBodyBlocker? = WrapBodyBlocker.EVERY_LINE_FITS,
 ): CommitMessageHeader {
     val isReadOnly = repositoryState.isRebasing && !isAmenableRebaseInteractive
 
@@ -153,7 +164,7 @@ internal fun commitMessageHeader(
         },
         canAddCoAuthor = !isReadOnly,
         signOff = SignOffItem(isSignOff).takeUnless { isReadOnly },
-        wrapBody = WrapBodyItem(canWrapBody).takeUnless { isReadOnly },
+        wrapBody = WrapBodyItem(wrapBodyBlocker).takeUnless { isReadOnly },
     )
 }
 
@@ -268,13 +279,32 @@ internal fun CommitMessageTitle(
                     signOffLabel = stringResource(Res.string.commit_message_sign_off_menu_item),
                     onToggleSignOff = onToggleSignOff,
                     wrapBodyLabel = stringResource(Res.string.commit_message_wrap_body, BODY_WRAP_COLUMN),
-                    wrapBodyHint = stringResource(Res.string.commit_message_wrap_body_nothing),
+                    wrapBodyHint = wrapBodyHints(),
                     onWrapBody = onWrapBody,
                 ),
                 tooltip = stringResource(Res.string.status_header_more_actions),
             )
         }
     }
+}
+
+/** What the greyed-out "Wrap body" item says, for each reason that wrapping would change nothing (fork-only). */
+@Composable
+private fun wrapBodyHints(): (WrapBodyBlocker) -> String {
+    val hints = WrapBodyBlocker.entries.associateWith { blocker ->
+        stringResource(
+            when (blocker) {
+                WrapBodyBlocker.EVERY_LINE_FITS -> Res.string.commit_message_wrap_body_nothing
+                WrapBodyBlocker.NO_SPACES -> Res.string.commit_message_wrap_body_no_spaces
+                WrapBodyBlocker.LONG_SUBJECT -> Res.string.commit_message_wrap_body_long_subject
+                WrapBodyBlocker.SUBJECT_RUNS_ON -> Res.string.commit_message_wrap_body_subject_runs_on
+                WrapBodyBlocker.INDENTED -> Res.string.commit_message_wrap_body_indented
+                WrapBodyBlocker.TRAILERS -> Res.string.commit_message_wrap_body_trailers
+            }
+        )
+    }
+
+    return { hints.getValue(it) }
 }
 
 /**
@@ -314,7 +344,7 @@ internal fun commitMessageMenuItems(
     signOffLabel: String = "",
     onToggleSignOff: () -> Unit = {},
     wrapBodyLabel: String = "",
-    wrapBodyHint: String = "",
+    wrapBodyHint: (WrapBodyBlocker) -> String = { "" },
     onWrapBody: () -> Unit = {},
 ): List<SortMenuItem> = buildList {
     header.amend?.let { addAll(amendMenuItems(it, amendLabel, onToggleAmend)) }
@@ -348,7 +378,7 @@ internal fun commitMessageMenuItems(
             SortMenuItem.Option(
                 label = wrapBodyLabel,
                 isChecked = false,
-                hint = wrapBodyHint.takeUnless { wrapBody.canWrap },
+                hint = wrapBody.blocker?.let(wrapBodyHint),
                 closesMenu = true,
                 isEnabled = wrapBody.canWrap,
                 onClick = onWrapBody,

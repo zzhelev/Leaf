@@ -5,6 +5,7 @@ package dev.app.leaf.domain.commitmessage
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
@@ -15,6 +16,59 @@ private val LONG = "The branch field only listed branches, so a tag had to be ty
     "once git failed to find it."
 
 class BodyWrapTest {
+    // --- Why it would change nothing, which the greyed-out menu item says
+
+    @Test
+    fun `says nothing when it would wrap, and every line fits when none is long`() {
+        assertNull(wrapBodyBlocker("Subject\n\n$LONG", MessageCleanup.DEFAULT))
+        assertEquals(WrapBodyBlocker.EVERY_LINE_FITS, wrapBodyBlocker("Subject\n\nShort body.\n", MessageCleanup.DEFAULT))
+        assertEquals(WrapBodyBlocker.EVERY_LINE_FITS, wrapBodyBlocker("", MessageCleanup.DEFAULT))
+        // git leaves out comments, and what follows the scissors line
+        assertEquals(WrapBodyBlocker.EVERY_LINE_FITS, wrapBodyBlocker("Subject\n\n# $LONG\n", MessageCleanup.DEFAULT))
+        assertEquals(
+            WrapBodyBlocker.EVERY_LINE_FITS,
+            wrapBodyBlocker("Subject\n\nBody.\n# $SCISSORS_LINE\n${"x".repeat(90)}\n", MessageCleanup(CleanupMode.SCISSORS, "#")),
+        )
+    }
+
+    @Test
+    fun `long lines without a space to break at are words it never breaks`() {
+        // Found in a manual run: lines typed as one long word each
+        val typed = "Hello here my friend\n\n${"sdlkfj".repeat(19)}\n${"sdlfmd".repeat(14)}\n\n${"sdlkfn".repeat(15)}"
+
+        assertEquals(WrapBodyBlocker.NO_SPACES, wrapBodyBlocker(typed, MessageCleanup.DEFAULT))
+        assertEquals(WrapBodyBlocker.NO_SPACES, wrapBodyBlocker("Subject\n\nSee\nhttps://example.com/${"a".repeat(80)}", MessageCleanup.DEFAULT))
+        assertEquals(WrapBodyBlocker.NO_SPACES, wrapBodyBlocker("Subject\n\n- ${"x".repeat(90)}", MessageCleanup.DEFAULT))
+    }
+
+    @Test
+    fun `a long subject, or long lines that run on from it, are the subject's`() {
+        assertEquals(WrapBodyBlocker.LONG_SUBJECT, wrapBodyBlocker("${"Subject ".repeat(12)}\n\nShort.", MessageCleanup.DEFAULT))
+        assertEquals(WrapBodyBlocker.SUBJECT_RUNS_ON, wrapBodyBlocker("Subject\n$LONG", MessageCleanup.DEFAULT))
+        // With the blank line that the subject needs, the same lines wrap
+        assertNull(wrapBodyBlocker("Subject\n\n$LONG", MessageCleanup.DEFAULT))
+    }
+
+    @Test
+    fun `long lines that are indented, in fenced code or trailers are left as they are`() {
+        assertEquals(WrapBodyBlocker.INDENTED, wrapBodyBlocker("Subject\n\n    $LONG", MessageCleanup.DEFAULT))
+        assertEquals(WrapBodyBlocker.INDENTED, wrapBodyBlocker("Subject\n\n```\n$LONG\n```\n", MessageCleanup.DEFAULT))
+        assertEquals(
+            WrapBodyBlocker.TRAILERS,
+            wrapBodyBlocker(
+                "Subject\n\nBody.\n\nCo-authored-by: A Person With A Very Long Name Indeed <a.person@example.com>",
+                MessageCleanup.DEFAULT,
+            ),
+        )
+    }
+
+    @Test
+    fun `the first long line gives the reason`() {
+        val text = "Subject\n\n    $LONG\n\n${"x".repeat(90)}\n"
+
+        assertEquals(WrapBodyBlocker.INDENTED, wrapBodyBlocker(text, MessageCleanup.DEFAULT))
+    }
+
     @Test
     fun `wraps a long paragraph at 72 columns between words`() {
         assertEquals(
@@ -215,6 +269,9 @@ class BodyWrapTest {
                 }
             }
             val wrapped = wrap(text)
+
+            // Greyed out, with a reason, exactly when it would change nothing
+            assertEquals(wrapped == text, wrapBodyBlocker(text, MessageCleanup.DEFAULT) != null, text)
 
             assertEquals(text.filterNot(Char::isWhitespace), wrapped.filterNot(Char::isWhitespace), text)
             assertEquals(wrapped, wrap(wrapped), text)

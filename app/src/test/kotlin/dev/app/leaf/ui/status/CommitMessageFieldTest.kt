@@ -30,6 +30,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.domain.commitmessage.WrapBodyBlocker
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.ui.AccentStyle
 import dev.app.leaf.domain.models.ui.Theme
@@ -343,14 +344,14 @@ class CommitMessageFieldTest {
         for (state in listOf(RepositoryState.SAFE, RepositoryState.BISECTING, RepositoryState.APPLY)) {
             val header = commitMessageHeader(state, isAmenableRebaseInteractive = false, isAmend = true, isAmendRebaseInteractive = false)
 
-            assertEquals(CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)), header, "$state")
+            assertEquals(CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(WrapBodyBlocker.EVERY_LINE_FITS)), header, "$state")
             assertEquals(AmendItem(false), commitMessageHeader(state, false, isAmend = false, isAmendRebaseInteractive = true).amend, "$state")
         }
 
         // Merging: git's message, and nothing to amend
         for (state in listOf(RepositoryState.MERGING, RepositoryState.MERGING_RESOLVED)) {
             assertEquals(
-                CommitMessageHeader(isMergeMessage = true, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)),
+                CommitMessageHeader(isMergeMessage = true, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(WrapBodyBlocker.EVERY_LINE_FITS)),
                 commitMessageHeader(state, false, isAmend = true, isAmendRebaseInteractive = true),
                 "$state",
             )
@@ -362,7 +363,7 @@ class CommitMessageFieldTest {
             RepositoryState.REVERTING, RepositoryState.REVERTING_RESOLVED,
         )) {
             assertEquals(
-                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)),
+                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = null, canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(WrapBodyBlocker.EVERY_LINE_FITS)),
                 commitMessageHeader(state, false, isAmend = true, isAmendRebaseInteractive = true),
                 "$state",
             )
@@ -379,7 +380,7 @@ class CommitMessageFieldTest {
                 "$state",
             )
             assertEquals(
-                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(false)),
+                CommitMessageHeader(isMergeMessage = false, isReadOnly = false, amend = AmendItem(true), canAddCoAuthor = true, signOff = SignOffItem(false), wrapBody = WrapBodyItem(WrapBodyBlocker.EVERY_LINE_FITS)),
                 commitMessageHeader(state, isAmenableRebaseInteractive = true, isAmend = false, isAmendRebaseInteractive = true),
                 "$state",
             )

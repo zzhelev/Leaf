@@ -316,6 +316,11 @@
     <string name="finish_hint_nothing_staged">Stage some changes to commit.</string>
     <string name="commit_message_wrap_body">Wrap body at %1$d columns</string>
     <string name="commit_message_wrap_body_nothing">Every line fits</string>
+    <string name="commit_message_wrap_body_no_spaces">Long lines have no spaces</string>
+    <string name="commit_message_wrap_body_long_subject">Only the subject is long</string>
+    <string name="commit_message_wrap_body_subject_runs_on">No blank line after the subject</string>
+    <string name="commit_message_wrap_body_indented">Long lines are indented or code</string>
+    <string name="commit_message_wrap_body_trailers">Long lines are trailers</string>
     <string name="commit_message_expand">Write in a larger view</string>
     <string name="commit_message_collapse">Back to the changes pane (Esc)</string>
     <string name="commit_message_in_larger_view">Being written in the larger view</string>

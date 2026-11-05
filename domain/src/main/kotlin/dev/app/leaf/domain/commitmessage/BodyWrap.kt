@@ -24,6 +24,109 @@ private val FENCE = Regex("""^[ \t]*(```|~~~)""")
  * `1. `) is a paragraph of its own whose next lines line up after its marker.
  */
 fun wrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLUMN): String {
+    val layout = wrapLayout(text, cleanup) ?: return text
+    val lines = layout.lines
+    val wrapped = ArrayList<String>(lines.size)
+
+    lines.subList(0, layout.bodyStart).forEach(wrapped::add)
+
+    for (part in layout.parts) {
+        val partLines = lines.subList(part.start, part.end)
+        val isLong = partLines.any { it.isLongerThan(column) }
+
+        wrapped += when {
+            part.kind == BodyPartKind.LIST_ITEM && isLong -> {
+                val words = partLines.flatMap { it.words() }.drop(1)
+                fill(words, partLines.first().substring(0, part.markerEnd), " ".repeat(part.markerEnd), column, layout.commentPrefix)
+            }
+
+            part.kind == BodyPartKind.PARAGRAPH && isLong ->
+                fill(partLines.flatMap { it.words() }, firstPrefix = "", nextPrefix = "", column, layout.commentPrefix)
+
+            else -> partLines
+        }
+    }
+
+    lines.subList(layout.bodyEnd, lines.size).forEach(wrapped::add)
+
+    return wrapped.joinToString("\n") + text.substring(layout.cut)
+}
+
+/** Whether "Wrap body" would change [text]. */
+fun canWrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLUMN): Boolean =
+    wrapBody(text, cleanup, column) != text
+
+/** Why "Wrap body" would change nothing, which its greyed-out menu item says (fork-only). */
+enum class WrapBodyBlocker {
+    /** No line that git keeps is longer than the column. */
+    EVERY_LINE_FITS,
+
+    /** The long lines are words longer than the column, which it never breaks, such as URLs. */
+    NO_SPACES,
+
+    /** The subject's line is the long one, which git tools take whole. */
+    LONG_SUBJECT,
+
+    /** The long lines run on from the subject without a blank line, so they are the subject's paragraph. */
+    SUBJECT_RUNS_ON,
+
+    /** The long lines are indented or in fenced code, which it leaves as they are. */
+    INDENTED,
+
+    /** The long lines are the message's trailers. */
+    TRAILERS,
+}
+
+/**
+ * Why [wrapBody] would leave [text] as it is, or null when it would wrap something: the reason of its first line that is
+ * longer than [column], comments and what follows git's scissors line left out.
+ */
+fun wrapBodyBlocker(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLUMN): WrapBodyBlocker? {
+    if (canWrapBody(text, cleanup, column)) return null
+
+    val layout = wrapLayout(text, cleanup) ?: return WrapBodyBlocker.EVERY_LINE_FITS
+    val lines = layout.lines
+    val firstLong = (layout.subjectStart until lines.size).firstOrNull { index ->
+        !layout.isComment(lines[index]) && lines[index].isLongerThan(column)
+    } ?: return WrapBodyBlocker.EVERY_LINE_FITS
+
+    return when {
+        firstLong < layout.bodyStart ->
+            if (layout.bodyStart - layout.subjectStart > 1) WrapBodyBlocker.SUBJECT_RUNS_ON else WrapBodyBlocker.LONG_SUBJECT
+
+        firstLong >= layout.bodyEnd -> WrapBodyBlocker.TRAILERS
+
+        else -> when (layout.parts.first { firstLong >= it.start && firstLong < it.end }.kind) {
+            BodyPartKind.CODE, BodyPartKind.INDENTED -> WrapBodyBlocker.INDENTED
+            else -> WrapBodyBlocker.NO_SPACES
+        }
+    }
+}
+
+/** What a run of the body's lines is, which says whether [wrapBody] may wrap it. */
+private enum class BodyPartKind { BLANK_OR_COMMENT, CODE, LIST_ITEM, INDENTED, PARAGRAPH }
+
+/** Lines [start] to [end] (exclusive) of the body; a list item's text starts at [markerEnd]. */
+private class BodyPart(val kind: BodyPartKind, val start: Int, val end: Int, val markerEnd: Int = 0)
+
+/**
+ * A message's lines up to git's scissors line ([cut]) as [wrapBody] reads them: the subject's paragraph from
+ * [subjectStart], the body from [bodyStart] to the trailers at [bodyEnd], and the body's [parts].
+ */
+private class WrapLayout(
+    val lines: List<String>,
+    val cut: Int,
+    val commentPrefix: String?,
+    val subjectStart: Int,
+    val bodyStart: Int,
+    val bodyEnd: Int,
+    val parts: List<BodyPart>,
+) {
+    fun isComment(line: String) = commentPrefix != null && line.startsWith(commentPrefix)
+}
+
+/** [text]'s layout, or null when it has no line that git keeps. */
+private fun wrapLayout(text: String, cleanup: MessageCleanup): WrapLayout? {
     val cut = scissorsCut(text, cleanup)
     val lines = text.substring(0, cut).split('\n')
     val commentPrefix = cleanup.commentPrefixFor(text)
@@ -34,7 +137,7 @@ fun wrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLU
     val subjectStart = lines.indexOfFirst { !isComment(it) && !isBlank(it) }
 
     if (subjectStart < 0) {
-        return text
+        return null
     }
 
     var bodyStart = subjectStart
@@ -44,10 +147,7 @@ fun wrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLU
     }
 
     val bodyEnd = trailerBlockStart(lines, bodyStart, ::isComment, ::isBlank)
-    val wrapped = ArrayList<String>(lines.size)
-
-    lines.subList(0, bodyStart).forEach(wrapped::add)
-
+    val parts = mutableListOf<BodyPart>()
     var index = bodyStart
 
     while (index < bodyEnd) {
@@ -56,7 +156,7 @@ fun wrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLU
 
         when {
             isBlank(line) || isComment(line) -> {
-                wrapped += line
+                parts += BodyPart(BodyPartKind.BLANK_OR_COMMENT, index, index + 1)
                 index++
             }
 
@@ -69,7 +169,7 @@ fun wrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLU
                 }
 
                 end = minOf(end + 1, bodyEnd)
-                lines.subList(index, end).forEach(wrapped::add)
+                parts += BodyPart(BodyPartKind.CODE, index, end)
                 index = end
             }
 
@@ -82,18 +182,12 @@ fun wrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLU
                     end++
                 }
 
-                val item = lines.subList(index, end)
-                wrapped += if (item.any { it.isLongerThan(column) }) {
-                    val words = item.flatMap { it.words() }.drop(1)
-                    fill(words, line.substring(0, markerEnd), hanging, column, commentPrefix)
-                } else {
-                    item
-                }
+                parts += BodyPart(BodyPartKind.LIST_ITEM, index, end, markerEnd)
                 index = end
             }
 
             line[0] == ' ' || line[0] == '\t' -> {
-                wrapped += line
+                parts += BodyPart(BodyPartKind.INDENTED, index, index + 1)
                 index++
             }
 
@@ -104,25 +198,14 @@ fun wrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLU
                     end++
                 }
 
-                val paragraph = lines.subList(index, end)
-                wrapped += if (paragraph.any { it.isLongerThan(column) }) {
-                    fill(paragraph.flatMap { it.words() }, firstPrefix = "", nextPrefix = "", column, commentPrefix)
-                } else {
-                    paragraph
-                }
+                parts += BodyPart(BodyPartKind.PARAGRAPH, index, end)
                 index = end
             }
         }
     }
 
-    lines.subList(bodyEnd, lines.size).forEach(wrapped::add)
-
-    return wrapped.joinToString("\n") + text.substring(cut)
+    return WrapLayout(lines, cut, commentPrefix, subjectStart, bodyStart, bodyEnd, parts)
 }
-
-/** Whether "Wrap body" would change [text]. */
-fun canWrapBody(text: String, cleanup: MessageCleanup, column: Int = BODY_WRAP_COLUMN): Boolean =
-    wrapBody(text, cleanup, column) != text
 
 /**
  * Where an offset of [before] is in [after], which differs from it only in white space, as [wrapBody] leaves it: before

@@ -49,7 +49,7 @@ import dev.app.leaf.domain.commitmessage.CommitlintRules
 import dev.app.leaf.domain.commitmessage.ConventionalHistory
 import dev.app.leaf.domain.commitmessage.MessageCleanup
 import dev.app.leaf.domain.commitmessage.MessageStart
-import dev.app.leaf.domain.commitmessage.canWrapBody
+import dev.app.leaf.domain.commitmessage.wrapBodyBlocker
 import dev.app.leaf.domain.commitmessage.commitMessageLayout
 import dev.app.leaf.domain.extensions.parentDirectoryPath
 import dev.app.leaf.domain.ignore.IgnoreRequest
@@ -884,7 +884,7 @@ internal fun CommitField(
     // Fork-only: the branch's ticket key and the commit template, which the empty field shows and Tab writes
     val offeredStart = messageStart.takeIf { !isReadOnlyRebase && isFieldFocused && commitMessage.text.isEmpty() }
     // Fork-only: "Wrap body at 72 columns" is greyed out while every line fits
-    val canWrapBody = remember(commitMessage.text, messageCleanup) { canWrapBody(commitMessage.text, messageCleanup) }
+    val wrapBodyBlocker = remember(commitMessage.text, messageCleanup) { wrapBodyBlocker(commitMessage.text, messageCleanup) }
     val suggestionCount = coAuthorSuggestion?.choices?.size ?: typeSuggestion?.choices?.size
     val typed = coAuthorSuggestion?.line?.value ?: typeSuggestion?.typed
     var highlighted by remember(coAuthorSuggestion?.choices, typeSuggestion?.choices, typed.isNullOrEmpty()) {
@@ -944,7 +944,7 @@ internal fun CommitField(
                 isAmend,
                 isAmendRebaseInteractive,
                 isSignOff = isSignOff,
-                canWrapBody = canWrapBody,
+                wrapBodyBlocker = wrapBodyBlocker,
             ),
             onToggleAmend = {
                 if (repositoryState.isRebasing) onAmendRebaseInteractiveChecked(!isAmendRebaseInteractive) else onAmendChecked(!isAmend)

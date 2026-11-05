@@ -213,22 +213,24 @@ class MessageStartAndWrapTest {
     // --- Wrap body
 
     @Test
-    fun `Wrap body is greyed out, saying why, while every line fits`() {
+    fun `Wrap body is greyed out, saying why, while wrapping would change nothing`() {
         fun wrapItem(message: String) = commitMessageMenuItems(
             commitMessageHeader(
                 RepositoryState.SAFE, false, isAmend = false, isAmendRebaseInteractive = false,
-                canWrapBody = dev.app.leaf.domain.commitmessage.canWrapBody(message, state().messageCleanup),
+                wrapBodyBlocker = dev.app.leaf.domain.commitmessage.wrapBodyBlocker(message, state().messageCleanup),
             ),
             amendLabel = "Amend last commit",
             coAuthorLabel = "Add co-author",
             onToggleAmend = {},
             onAddCoAuthor = {},
             wrapBodyLabel = "Wrap body at 72 columns",
-            wrapBodyHint = "Every line fits",
+            wrapBodyHint = { it.name },
         ).filterIsInstance<SortMenuItem.Option>().single { it.label == "Wrap body at 72 columns" }
 
         assertFalse(wrapItem("Fix the parser\n\nShort.").isEnabled)
-        assertEquals("Every line fits", wrapItem("Fix the parser\n\nShort.").hint)
+        assertEquals("EVERY_LINE_FITS", wrapItem("Fix the parser\n\nShort.").hint)
+        assertFalse(wrapItem("Fix the parser\n\n${"x".repeat(90)}").isEnabled)
+        assertEquals("NO_SPACES", wrapItem("Fix the parser\n\n${"x".repeat(90)}").hint)
         assertTrue(wrapItem(LONG_BODY).isEnabled)
         assertNull(wrapItem(LONG_BODY).hint)
     }
@@ -271,6 +273,30 @@ class MessageStartAndWrapTest {
 
             assertEquals("Fix the parser\n\nShort.", host.value.text)
             assertTrue("Every line fits" in host.texts())
+        }
+    }
+
+    @Test
+    fun `the greyed-out Wrap says why for each reason`(): Unit = runBlocking(Dispatchers.Swing) {
+        val long = "x".repeat(90)
+
+        for ((message, hint) in listOf(
+            "Fix the parser\n\nShort." to "Every line fits",
+            // Found in a manual run: lines typed as one long word each
+            "Fix the parser\n\n$long\n$long" to "Long lines have no spaces",
+            "${"Fix the parser ".repeat(6)}\n\nShort." to "Only the subject is long",
+            "Fix the parser\n${LONG_BODY.substringAfter("\n\n")}" to "No blank line after the subject",
+            "Fix the parser\n\n    ${LONG_BODY.substringAfter("\n\n")}" to "Long lines are indented or code",
+            "Fix the parser\n\nBody.\n\nCo-authored-by: A Person With A Very Long Name Indeed <a.person@example.com>" to
+                "Long lines are trailers",
+        )) {
+            Host(state(message)).use { host ->
+                host.clickDescription("More actions")
+                host.click("Wrap body at 72 columns")
+
+                assertEquals(message, host.value.text, hint)
+                assertTrue(hint in host.texts(), "$hint in ${host.texts()}")
+            }
         }
     }
 
