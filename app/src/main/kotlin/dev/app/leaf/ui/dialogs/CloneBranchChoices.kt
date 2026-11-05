@@ -90,6 +90,7 @@ import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.getErrorText
 import dev.app.leaf.viewmodels.BranchChoicesState
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 // The Clone dialog's "Choose…": a button beside the Branch field and the list under it (layout A of 2026-10-19).
 // Nothing here asks the remote: the view model does, once per click on the button.
@@ -105,7 +106,7 @@ internal fun ChooseBranchButton(modifier: Modifier = Modifier, onClick: () -> Un
         text = stringResource(Res.string.clone_choose_branch),
         modifier = modifier
             .width(96.dp)
-            .height(38.dp)
+            .height(38.dp.withText())
             .border(1.dp, MaterialTheme.colors.onBackground.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
         backgroundColor = Color.Transparent,
         textColor = MaterialTheme.colors.onBackground,
@@ -343,7 +344,7 @@ internal fun PickRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ROW_HEIGHT)
+            .height(ROW_HEIGHT.withText())
             .background(
                 if (isHighlighted || isHovered) {
                     MaterialTheme.colors.onBackground.copy(alpha = FADED_BACKGROUND)

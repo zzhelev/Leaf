@@ -75,6 +75,8 @@ import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
+import androidx.compose.ui.unit.sp
 
 /** Width of the change icon with its padding, where the file name starts. */
 private val ICON_AREA_WIDTH = 32.dp
@@ -525,7 +527,7 @@ private fun SplitColumnsHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(24.dp)
+                .height(24.dp.withText(11.sp))
                 .padding(start = ICON_AREA_WIDTH, end = ROW_END_PADDING)
                 .onSizeChanged { columnsWidthPx = it.width.toFloat() },
             verticalAlignment = Alignment.CenterVertically,

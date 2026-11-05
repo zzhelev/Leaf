@@ -74,6 +74,7 @@ import dev.app.leaf.ui.status.label
 import dev.app.leaf.viewmodels.DEFAULT_STACKED_SPLIT
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /** The top pair keeps its headers and a few lines, and the result a few more. */
 private val MinSidesHeight = 90.dp
@@ -233,7 +234,7 @@ fun ResolverStackedView(
 
             Column(Modifier.weight(1f)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(30.dp).headerBackground(),
+                    modifier = Modifier.fillMaxWidth().height(30.dp.withText()).headerBackground(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Header(
@@ -292,7 +293,7 @@ private fun SidesHeaders(sides: ConflictSides?) {
     val explanation = sides?.explanation()
 
     Row(
-        modifier = Modifier.fillMaxWidth().height(30.dp).headerBackground(),
+        modifier = Modifier.fillMaxWidth().height(30.dp.withText()).headerBackground(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Header(

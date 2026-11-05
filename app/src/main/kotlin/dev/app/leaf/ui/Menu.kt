@@ -107,6 +107,10 @@ fun getParts(keybinding: Keybinding): List<String> {
         Key.Y -> "Y"
         Key.Z -> "Z"
         Key.Tab -> "Tab"
+        Key.Equals -> "="
+        Key.Plus, Key.NumPadAdd -> "+"
+        Key.Minus, Key.NumPadSubtract -> "−"
+        Key.Zero, Key.NumPad0 -> "0"
         else -> throw NotImplementedError("Key not implemented")
     }
 

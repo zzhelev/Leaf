@@ -59,6 +59,7 @@ import dev.app.leaf.ui.getErrorText
 import kotlinx.coroutines.flow.filterIsInstance
 import org.eclipse.jgit.diff.DiffEntry
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /** The commits sections take at most this share of the column's height, so the files keep room. */
 private const val COMMITS_MAX_SHARE = 0.4f
@@ -373,7 +374,7 @@ private fun SideLabels(state: ComparisonState, isSplit: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(26.dp)
+            .height(26.dp.withText())
             .background(MaterialTheme.colors.secondarySurface),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -417,7 +418,7 @@ internal fun SideLabelsRow(aName: String, aCommit: String, bName: String, bCommi
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(26.dp)
+            .height(26.dp.withText())
             .background(MaterialTheme.colors.secondarySurface),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -20,6 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.common.OS
+import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.AppConfig
@@ -34,6 +36,7 @@ import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.domain.models.ui.LinesHeightType
+import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.toSmartSystemString
@@ -65,6 +68,7 @@ import org.jetbrains.compose.resources.stringResource
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import dev.app.leaf.theme.widenedForText
 
 private const val TAG = "SettingsDialog"
 
@@ -153,6 +157,18 @@ val linesHeightTypesList = listOf(
     DropDownOption(LinesHeightType.DENSE, "Dense"),
 )
 
+/** Fork-only: the sizes of the main text, in points. */
+internal val textSizeOptions = TextSize.CHOICES.map { size ->
+    DropDownOption(size, if (size == TextSize.DEFAULT) "$size (default)" else "$size")
+}
+
+/** Fork-only: the shortcuts that change the text size, as this system names them. */
+internal fun textSizeShortcuts() = if (currentOs == OS.MAC) {
+    "⌘+ and ⌘− change it, ⌘0 goes back to the default"
+} else {
+    "Ctrl with + or − changes it, Ctrl+0 goes back to the default"
+}
+
 @Composable
 fun SettingsDialog(
     settingsViewModel: SettingsViewModel,
@@ -194,7 +210,8 @@ fun SettingsDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .width(200.dp)
+                    // Fork-only: the sections' names keep their room at a bigger text size
+                    .width(200.dp.widenedForText(textPart = 140.dp))
                     .fillMaxHeight()
                     .background(MaterialTheme.colors.background)
             ) {
@@ -778,11 +795,22 @@ internal fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (Set
 
     SettingDropDown(
         title = "Scale",
-        subtitle = "Adapt the size the UI to your preferred scale",
+        subtitle = "The size of everything: text, icons and spacing",
         dropDownOptions = options,
         currentOption = scaleUi,
         onOptionSelected = { newValue ->
             onAction(SettingsAction.SetConfig(AppConfig.ScaleUi(newValue.value)))
+        }
+    )
+
+    // Fork-only: the text alone, which the shortcuts change too
+    SettingDropDown(
+        title = "Text size",
+        subtitle = "The size of the text only. ${textSizeShortcuts()}",
+        dropDownOptions = textSizeOptions,
+        currentOption = settingsViewState.textSize,
+        onOptionSelected = { newValue ->
+            onAction(SettingsAction.SetConfig(AppConfig.TextSize(newValue.value)))
         }
     )
 

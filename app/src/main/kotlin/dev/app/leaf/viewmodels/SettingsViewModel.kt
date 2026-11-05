@@ -18,6 +18,7 @@ import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
+import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.styles.BuiltInStyles
@@ -125,8 +126,9 @@ class SettingsViewModel @Inject constructor(
             stylesService.library,
             styleNotice,
             appSettingsService.codeColours,
-        ) { theme, style, styles, library, notice, codeColours ->
-            Appearance(theme, style, styles, library.unreadable, notice, codeColours)
+            appSettingsService.textSize,
+        ) { theme, style, styles, library, notice, codeColours, textSize ->
+            Appearance(theme, style, styles, library.unreadable, notice, codeColours, textSize)
         }
 
         return combine(
@@ -195,6 +197,7 @@ class SettingsViewModel @Inject constructor(
                 appearance.unreadableStyles,
                 appearance.styleNotice,
                 appearance.codeColours,
+                appearance.textSize,
                 linesHeightType,
                 dateFormatUseDefault,
                 dateFormatCustomFormat,
@@ -236,6 +239,7 @@ internal fun emptySettingsState(): SettingsViewState {
         unreadableStyles = emptyList(),
         styleNotice = null,
         codeColours = CodeColours.DEFAULT,
+        textSize = TextSize.DEFAULT,
         linesHeightType = LinesHeightType.SPACED,
         dateFormatUseDefault = false,
         dateFormatCustomFormat = "",
@@ -277,6 +281,8 @@ data class SettingsViewState(
     val styleNotice: StyleNotice?,
     /** Whose colours code is drawn in (fork-only). */
     val codeColours: CodeColours,
+    /** The size of the main text in points (fork-only). */
+    val textSize: Int,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,
     val dateFormatCustomFormat: String,
@@ -331,4 +337,5 @@ data class Appearance(
     val unreadableStyles: List<UnreadableStyleFile>,
     val styleNotice: StyleNotice?,
     val codeColours: CodeColours,
+    val textSize: Int,
 )

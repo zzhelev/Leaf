@@ -65,6 +65,7 @@ import dev.app.leaf.ui.dialogs.branchChoicesKeys
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 // The log's branch filter (fork-only, upstream issue 207): a control in the log's header, which names what the log
 // shows, and its list of branches.
@@ -266,12 +267,13 @@ fun LogBranchFilterButton(
         Row(
             modifier = Modifier
                 .padding(end = 4.dp)
-                .height(24.dp)
+                .height(24.dp.withText())
                 .clip(RoundedCornerShape(4.dp))
                 .run { if (state.isOn) background(MaterialTheme.colors.onSurface.copy(alpha = 0.2f)) else this },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DelayedTooltip(tooltip) {
+            // Fork-only: in a narrow log at a bigger text size, the label ends in "…" before the × is pushed out
+            DelayedTooltip(tooltip, modifier = Modifier.weight(1f, fill = false)) {
                 Row(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -298,7 +300,10 @@ fun LogBranchFilterButton(
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 6.dp).widthIn(max = LABEL_MAX_WIDTH),
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .widthIn(max = LABEL_MAX_WIDTH)
+                            .weight(1f, fill = false),
                     )
 
                     Icon(

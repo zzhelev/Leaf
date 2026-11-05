@@ -35,7 +35,15 @@ class LinesHeight internal constructor(
     val sidePanelItemHeight: Dp,
     /** The padding around the icon of a branch or tag chip in the log, which sets the chip's height. */
     val refChipIconPadding: Dp = 6.dp,
-)
+) {
+    /** Fork-only: the rows taller by what a bigger text size adds to their line, so that the text keeps its room. */
+    internal fun grownBy(growth: Dp) = if (growth == 0.dp) this else LinesHeight(
+        fileHeight = fileHeight + growth,
+        logCommitHeight = logCommitHeight + growth,
+        sidePanelItemHeight = sidePanelItemHeight + growth,
+        refChipIconPadding = refChipIconPadding,
+    )
+}
 
 val spacedLineHeight = LinesHeight(
     fileHeight = 38.dp,
@@ -85,7 +93,7 @@ fun AppTheme(
         LinesHeightType.SPACED -> spacedLineHeight
         LinesHeightType.COMPACT -> compactLineHeight
         LinesHeightType.DENSE -> denseLineHeight
-    }
+    }.grownBy(textGrowth())
 
     val composeColors = theme.toComposeColors()
     val compositionValues = arrayOf(

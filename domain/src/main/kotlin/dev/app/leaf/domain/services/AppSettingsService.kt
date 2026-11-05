@@ -15,6 +15,7 @@ import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
 import dev.app.leaf.domain.models.ui.LinesHeightType
+import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -24,6 +25,7 @@ import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.CodeColours
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class AppSettingsService @Inject constructor(
@@ -34,6 +36,9 @@ class AppSettingsService @Inject constructor(
     }
 
     val scaleUi: Flow<Float?> get() = appSettingsRepository.scaleUi
+
+    /** Fork-only: the size of the main text in points, one of [TextSize.CHOICES]. */
+    val textSize: Flow<Int> get() = appSettingsRepository.textSize.map(TextSize::of)
     val theme: Flow<Theme> get() = appSettingsRepository.theme.defaultIfNull { DEFAULT_THEME }
 
     /** Fork-only: the id of the style that draws Leaf, Tonal's when none was chosen. See `StylesService`. */

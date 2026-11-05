@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 interface AppSettingsRepository {
     // UI
     val scaleUi: Flow<Float?>
+    val textSize: Flow<Int?>
     val theme: Flow<Theme?>
     val styleId: Flow<String?>
     val codeColours: Flow<CodeColours?>

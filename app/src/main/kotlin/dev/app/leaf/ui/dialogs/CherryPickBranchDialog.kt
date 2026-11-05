@@ -44,6 +44,7 @@ import dev.app.leaf.ui.getStyledErrorText
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 private val CONTENT_WIDTH = 480.dp
 
@@ -253,7 +254,7 @@ private fun CommitRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = rowModifier
             .fillMaxWidth()
-            .height(COMMIT_ROW_HEIGHT)
+            .height(COMMIT_ROW_HEIGHT.withText())
             .padding(start = 2.dp, end = 10.dp),
     ) {
         Checkbox(

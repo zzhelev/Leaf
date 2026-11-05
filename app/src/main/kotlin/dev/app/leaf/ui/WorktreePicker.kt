@@ -80,6 +80,7 @@ import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /** Height of a worktree in the list, which has two lines, as in the side panel. */
 private val PICKER_ROW_HEIGHT = 46.dp
@@ -107,7 +108,7 @@ internal fun WorktreePickerRow(row: WorktreeRow, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(PICKER_ROW_HEIGHT)
+            .height(PICKER_ROW_HEIGHT.withText(lines = 2))
             .background(if (isFocused) MaterialTheme.colors.onBackground.copy(alpha = 0.08f) else Color.Transparent)
             .onPreviewKeyEvent { keyEvent ->
                 val isActivationKey = keyEvent.key == Key.Enter ||
@@ -161,7 +162,7 @@ internal fun NewWorktreeRow(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(NEW_WORKTREE_ROW_HEIGHT)
+            .height(NEW_WORKTREE_ROW_HEIGHT.withText())
             .background(if (isFocused) MaterialTheme.colors.onBackground.copy(alpha = 0.08f) else Color.Transparent)
             .onPreviewKeyEvent { keyEvent ->
                 val isActivationKey = keyEvent.key == Key.Enter ||

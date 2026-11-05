@@ -54,6 +54,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 private const val DISABLED_BUTTON_ALPHA = 0.3F
 
@@ -80,7 +81,7 @@ fun FileHistoryCommitStrip(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(52.dp.withText(lines = 2))
             .background(MaterialTheme.colors.surface)
             .padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

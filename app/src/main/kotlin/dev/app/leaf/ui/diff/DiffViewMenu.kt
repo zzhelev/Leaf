@@ -71,6 +71,7 @@ import dev.app.leaf.ui.components.sort.SortMenuPopup
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /** A press on the button while the menu is open first dismisses it as an outside click: don't open it again at once. */
 private const val REOPEN_GUARD_MS = 300
@@ -292,7 +293,7 @@ fun WhitespaceIgnoredStrip(mode: DiffWhitespaceMode, actionsOff: String?, onShow
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(24.dp)
+            .height(24.dp.withText())
             .background(MaterialTheme.colors.secondarySurface)
             // A hairline under it, as the hunk header below has the same background
             .drawBehind {

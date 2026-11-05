@@ -52,6 +52,13 @@ data class LogColumnsSettings(
         copy(graphMaxWidth = clampGraphWidth(width, DEFAULT_GRAPH_MAX_WIDTH))
 
     /**
+     * Fork-only: the columns as wide as their text needs at a bigger text size, each width times [fontScale] when it is
+     * over 1. The widths that are saved, and that the dividers set, are the default text size's.
+     */
+    fun scaledForText(fontScale: Float): LogColumnsSettings =
+        if (fontScale <= 1f) this else copy(columns = columns.map { it.copy(width = it.width * fontScale) })
+
+    /**
      * The visible columns that fit in [availableWidth] next to a message at least [messageMinWidth] wide, each column
      * taking [spacing] more for its divider. Columns that don't fit are left out in [HIDE_ORDER], whatever their
      * position.
@@ -130,18 +137,31 @@ data class FittedLogColumns(
     val leftOut: Set<LogColumn>,
 )
 
-/** The graph column's width: as wide as its lanes ([lanesWidth]), up to [maxWidth], and never below the minimum. */
-fun graphColumnWidth(lanesWidth: Float, maxWidth: Float): Float =
-    minOf(lanesWidth, maxWidth).coerceAtLeast(LogColumnsSettings.MIN_GRAPH_WIDTH)
+/** The graph column's width: as wide as its lanes ([lanesWidth]), up to [maxWidth], and never below [minWidth]. */
+fun graphColumnWidth(lanesWidth: Float, maxWidth: Float, minWidth: Float = LogColumnsSettings.MIN_GRAPH_WIDTH): Float =
+    minOf(lanesWidth, maxWidth).coerceAtLeast(minWidth)
+
+/**
+ * Fork-only: the graph column's narrowest, which leaves its "Graph" header room at a bigger text size: 16 dp before it,
+ * and about 40 dp for the word at the default size, times [fontScale]. [LogColumnsSettings.MIN_GRAPH_WIDTH] at the
+ * default size and below.
+ */
+fun minGraphWidth(fontScale: Float): Float = maxOf(LogColumnsSettings.MIN_GRAPH_WIDTH, 16f + 40f * fontScale)
 
 /**
  * The graph's widest size after dragging its divider by [delta] from [shownWidth], which [graphColumnWidth] gave. The
  * column can't get wider than its lanes or narrower than the minimum. At the lanes' width, a wider [maxWidth], which
  * may have been set in a busier repository, is kept.
  */
-fun draggedGraphMaxWidth(maxWidth: Float, shownWidth: Float, lanesWidth: Float, delta: Float): Float {
-    val fullWidth = maxOf(lanesWidth, LogColumnsSettings.MIN_GRAPH_WIDTH)
-    val newWidth = (shownWidth + delta).coerceIn(LogColumnsSettings.MIN_GRAPH_WIDTH, fullWidth)
+fun draggedGraphMaxWidth(
+    maxWidth: Float,
+    shownWidth: Float,
+    lanesWidth: Float,
+    delta: Float,
+    minWidth: Float = LogColumnsSettings.MIN_GRAPH_WIDTH,
+): Float {
+    val fullWidth = maxOf(lanesWidth, minWidth)
+    val newWidth = (shownWidth + delta).coerceIn(minWidth, fullWidth)
 
     return if (newWidth == fullWidth) maxOf(maxWidth, fullWidth) else newWidth
 }

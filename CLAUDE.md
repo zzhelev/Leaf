@@ -5245,6 +5245,55 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     file rows do; they were a fixed 28 dp. File history's rows (two lines and a 40 dp avatar, 72 dp) don't.
   - Tests: `LinesHeightSettingTest` (data), the row heights in `ComparisonPaneTest`. Putting back the throw and the
     28 dp each failed a named test.
+- **Text size (fork-only, 2026-11-05, `domain/models/ui/TextSize.kt`, `ui/TextSizeController.kt`,
+  `theme/TextGrowth.kt`):** Settings → Appearance → "Text size", under Scale, sizes the text alone, where Scale sizes
+  text, icons and spacing together (a user's feedback: Scale wasn't what they wanted). Chosen with the user from a
+  mockup: one setting for all text, code included; shown as the size of the main text in points; Cmd or Ctrl with `+`,
+  `−` and `0`; and on macOS a View menu.
+  - **The setting:** `AppConfig.TextSize`, key `text_size` (an int), app-wide. `TextSize.CHOICES` are 11 to 18 and 20,
+    13 the default (the lists' `body2`, the size Leaf has always had); a stored value that isn't a choice reads as 13
+    (`TextSize.of`). The drop-down labels the default "13 (default)" (`textSizeOptions`), and its subtitle names this
+    system's shortcuts (`textSizeShortcuts`). The Scale row's subtitle became "The size of everything: text, icons and
+    spacing" (upstream's said "Adapt the size the UI to your preferred scale").
+  - **How:** `App.kt` provides `LocalDensity` as `Density(scale ?: the window's, TextSize.scaleOf(size))`, so every
+    `sp` follows (the typography and the 26 sizes written in the code), and `dp` doesn't. It used to provide a font
+    scale of 1 only when Scale was set.
+  - **The shortcuts** (`KeybindingOption.TEXT_BIGGER`, `TEXT_SMALLER`, `TEXT_DEFAULT_SIZE`, Ctrl replaced with Cmd on
+    macOS): bigger is `=` with or without Shift, `+` (a key of its own on some layouts) and the number pad's `+`;
+    smaller is `−` and the number pad's; `0` and the number pad's go back to 13. The `Window`'s `onPreviewKeyEvent`
+    takes them, so they work wherever the focus is, the Welcome page and dialogs included (`textSizeStep`).
+  - **The macOS View menu**, before Help: Bigger Text ⌘=, Smaller Text ⌘−, Default Text Size ⌘0, each greyed out where
+    it would change nothing. A menu item's shortcut can reach the menu and the window both, so `TextSizeController`
+    takes a step from the other source within 250 ms of the same step as the same press (`SAME_PRESS_NANOS`); holding
+    the key still steps, as presses from one source always count. Not checked in a window: whether macOS delivers such
+    a press twice.
+  - **`TextSizeController`** (app singleton): `size` follows the setting (read before the window shows, `start`), a step
+    shows at once and is written in order through a conflated channel, and while a write is pending the setting's
+    older values don't take the size back.
+  - **What grows with the text** (only above 13; at 13 and below every size is as before: the window at 13 matched
+    `main`'s pixel for pixel in both themes, but for the new row in Settings): `textGrowth(fontSize, lines)` is what a
+    bigger size adds to a line (1.25 times the font size, times the scale over 1), and `Dp.withText()` adds it to a
+    height. `AppTheme` grows the `LinesHeight` rows by a line (`grownBy`), so Lists spacing's three stay apart. Rows and
+    strips under about 34 dp that hold text take `withText()`: parent rows, worktree rows and the picker's (two lines),
+    the field suggestions, the dialogs' commit rows, the clone dialog's choices, the commit editor's rows, the
+    resolver's headers and legend, the full comparison's labels, the whitespace strip, the split columns' header, the
+    branch filter's button, blame's, file history's and its two versions' headers (two lines), and the processing
+    screen's button place. Headers of 34 dp and more fit 20 as they are.
+  - **What widens:** toolbar buttons (`MenuButton` at least 56 dp, `ExtendedMenuButton` 64, with `textGrowth` as their
+    label's side padding), the log's graph column (`minGraphWidth`, room for "Graph"), the log's columns
+    (`scaledForText`: the saved widths are 13's, shown times the scale; a divider's drag is divided back), and the
+    Settings sidebar (`Dp.widenedForText`). In a narrow log, the branch filter's label gives way first (its button is
+    in a box that takes what's left, `weight(1f, fill = false)` on the label), so "Message" keeps its room; "Graph" and
+    "Message" end in "…" only when even that isn't enough.
+  - **Not done:** the macOS title bar's tabs (the window-chrome work, not on `main` yet) should take the text size's
+    growth too; the style gallery's card names end in "…" at 20.
+  - Tests: `TextSizeTest`, two in `LogColumnsTest` (domain), `TextSizeSettingTest` (data: a restart, values that aren't
+    choices, apart from Scale), `TextSizeKeybindingTest`, `TextSizeControllerTest` (steps, the same press from the menu
+    and the window, key repeat, a write still running, Settings), `TextGrowthTest` (the rows at every spacing, the
+    toolbar buttons at 13 and 20), `TextSizeRowTest` (the row rendered and picked from). 12 mutations were each caught
+    by a named test, one after its test was made to hold a later write while an earlier one came back. The whole
+    window was rendered at 11, 13, 16 and 20 through the Dagger graph in a temporary harness against
+    `/tmp/leaf-text-size-demo.sh`'s repository.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in

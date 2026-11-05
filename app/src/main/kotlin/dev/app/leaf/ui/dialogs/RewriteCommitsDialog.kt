@@ -64,6 +64,7 @@ import dev.app.leaf.ui.dialogs.base.IconBasedDialog
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 private val CONTENT_WIDTH = 520.dp
 
@@ -234,7 +235,7 @@ private fun CommitList(request: RewriteRequest) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(COMMIT_ROW_HEIGHT)
+                        .height(COMMIT_ROW_HEIGHT.withText())
                         .semantics(mergeDescendants = true) {}
                         .padding(horizontal = 10.dp),
                 ) {
