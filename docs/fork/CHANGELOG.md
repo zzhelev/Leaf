@@ -34,6 +34,9 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   72-column line fits and the files' diffs show under it; and Wrap body's greyed out item says why it can't wrap (no
   spaces, only the subject, no blank line after it, indented or code, trailers).
 - **The README's screenshots** were taken again, from a real window, as they showed the old toolbar and headers.
+- **With the text size** (the entry below, merged in the same day): the title bar, its tabs, the toolbar and the
+  two-line Commit button grow by a line, and the toolbar keeps its labels at the same window widths, which at 20 still
+  leave room to spare. Checked at 20 in a real window.
 - Details: CLAUDE.md, "The window", and Styles under Conventions, Settings.
 
 ## A text size, apart from Scale (2026-11-05)

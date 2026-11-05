@@ -364,8 +364,8 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
     (`MiddleCutText`, `middleCut`), keeping its start, a ticket key included, and its end, where agents' names often
     differ (`…-on-safari`, `…-on-firefox`); its tooltip has the whole name. Compose's `TextOverflow.MiddleEllipsis`
     cuts at the end on desktop (1.12.1).
-  - With the text size from `main`, the 46 dp has to grow by two lines' growth (`withText`), as the label and the
-    branch are two lines of text.
+  - At a bigger text size (merged from `main` on 2026-11-05) the 46 dp grows by both its lines' growth
+    (`twoLineButtonHeight`), and so do the title bar, its tabs, the toolbar's row and controls, and the switcher.
 - **Empty lists** (`EmptyListNote.kt`): in the middle of an empty list, in the secondary text colour, "Nothing staged"
   for Staged, and for Unstaged "Working tree clean" with a check when Staged is empty too, else "No unstaged changes",
   as files are still to be committed. A search that hides every file says "No files match". Nothing is said before a

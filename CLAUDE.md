@@ -3398,9 +3398,10 @@ the `WindowTitleBar` interface.
   it in the new look. `org.jetbrains.runtime:jbr-api` 1.9.0 is an `implementation` dependency of `app`, at the version
   that Compose's `foundation-desktop` already brings at runtime, so nothing new ships. Not Jewel, whose
   `DecoratedWindow` needs its own theme in place of Material.
-- `TitleBar` (`App.AppTabs`) is 40 dp (`TITLE_BAR_HEIGHT`), given to JBR in points, and set again only when that or the
-  display's scale changes. Setting it again as full screen started made JBR drop a resize event, so full screen only
-  takes away the left padding, the window buttons' `leftInset` (80 pt, 0 in full screen).
+- `TitleBar` (`App.AppTabs`) is 40 dp (`TITLE_BAR_HEIGHT`), and a line taller at a bigger text size (`withText`, as its
+  28 dp tabs), given to JBR in points, and set again only when that, the text size or the display's scale changes.
+  Setting it again as full screen started made JBR drop a resize event, so full screen only takes away the left padding,
+  the window buttons' `leftInset` (80 pt, 0 in full screen).
 - **Clicks:** the bar is macOS's (a drag moves the window, a double-click zooms it, edge snapping and tiling work),
   except where `Modifier.titleBarControl` marks a control: the whole tab row (`TabsRow`). At each pointer event, in
   `PointerEventPass.Initial`, `TitleBarPointer` decides and `TitleBar` calls `forceHitTest`: a press on a control and
@@ -3428,10 +3429,10 @@ the `WindowTitleBar` interface.
 repository switcher, a divider, Pull ⌄ | Push ⌄ as one group, Branch, Stash ⌄ | Pop as one group, then Actions, Terminal
 and Settings at the right.
 - `Toolbar` reads the tab's state, and `ToolbarRow` draws it from a `ToolbarState` and `ToolbarActions`, which its tests
-  render. Controls are 32 dp, the icon left of a 13 sp medium label. Groups, Branch and Actions are filled with
-  `frame.control` and outlined with `frame.control.edge`; Terminal and Settings are icons in `frame.secondaryText`,
-  filled on hover; a disabled part is at 45%. A group's label and its ⌄ are separate clicks. The row has a line in
-  `separators` along its bottom.
+  render. Controls are 32 dp, the icon left of a 13 sp medium label; the row and its controls grow by a line at a bigger
+  text size. Groups, Branch and Actions are filled with `frame.control` and outlined with `frame.control.edge`; Terminal
+  and Settings are icons in `frame.secondaryText`, filled on hover; a disabled part is at 45%. A group's label and its ⌄
+  are separate clicks. The row has a line in `separators` along its bottom.
 - Labels go as the window narrows (`toolbarLabelsFor`): Branch, Stash and Pop show theirs from 1,150 dp, Pull and Push
   from 1,000 dp. Their icons and tooltips stay. Actions keeps its label.
 - **Actions** (`ActionsButton`): a button as Branch is, with the bolt, "Actions" and the shortcut after it
@@ -3977,13 +3978,13 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
 - **The Commit button names the branch** (2026-11-05, `UncommittedChangesButtons`): "Commit" over "to main", and "Amend"
   over "on main" while amending, so that switching Amend doesn't move the field. The second line is the caption style at
   85% of the label's colour (`ConfirmationButton`'s `secondLine`), and the button is 46 dp (`TWO_LINE_BUTTON_HEIGHT`),
-  10 dp more, taken from the message field. The branch is `branchesState.currentBranch`, which `RepositoryOpen` passes
-  down (`StatusPane`'s and `CommitField`'s `branchName`). On a detached HEAD it's "Commit" on one line, 36 dp. A
-  merge's, a cherry-pick's and a rebase's buttons are as they were. A name that doesn't fit is cut in the middle
-  (`MiddleCutText`, `middleCut`), keeping its start, a ticket key included, and its end, where agents' names differ; the
-  tooltip has the whole name. Compose's `TextOverflow.MiddleEllipsis` cuts at the end on desktop (1.12.1). Chosen with
-  the user from renders at 330 dp: one line on its own leaves about 45 characters for the name, "Commit to" on one line
-  about 30.
+  10 dp more, taken from the message field, and grows by both its lines at a bigger text size. The branch is
+  `branchesState.currentBranch`, which `RepositoryOpen` passes down (`StatusPane`'s and `CommitField`'s `branchName`).
+  On a detached HEAD it's "Commit" on one line, 36 dp. A merge's, a cherry-pick's and a rebase's buttons are as they
+  were. A name that doesn't fit is cut in the middle (`MiddleCutText`, `middleCut`), keeping its start, a ticket key
+  included, and its end, where agents' names differ; the tooltip has the whole name. Compose's
+  `TextOverflow.MiddleEllipsis` cuts at the end on desktop (1.12.1). Chosen with the user from renders at 330 dp: one
+  line on its own leaves about 45 characters for the name, "Commit to" on one line about 30.
 - **Empty lists say so** (2026-11-05, `ui/status/EmptyListNote.kt`): "Nothing staged" in an empty Staged; in Unstaged,
   "Working tree clean" with a check when Staged is empty too, else "No unstaged changes"; "No files match" when a search
   hides every file. Nothing before a status has been read (`StatusState.hasStatus`: `isLoading` turns on during any
@@ -5278,22 +5279,27 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     the field suggestions, the dialogs' commit rows, the clone dialog's choices, the commit editor's rows, the
     resolver's headers and legend, the full comparison's labels, the whitespace strip, the split columns' header, the
     branch filter's button, blame's, file history's and its two versions' headers (two lines), and the processing
-    screen's button place. Headers of 34 dp and more fit 20 as they are.
-  - **What widens:** toolbar buttons (`MenuButton` at least 56 dp, `ExtendedMenuButton` 64, with `textGrowth` as their
-    label's side padding), the log's graph column (`minGraphWidth`, room for "Graph"), the log's columns
-    (`scaledForText`: the saved widths are 13's, shown times the scale; a divider's drag is divided back), and the
-    Settings sidebar (`Dp.widenedForText`). In a narrow log, the branch filter's label gives way first (its button is
-    in a box that takes what's left, `weight(1f, fill = false)` on the label), so "Message" keeps its room; "Graph" and
-    "Message" end in "…" only when even that isn't enough.
-  - **Not done:** the macOS title bar's tabs (the window-chrome work, not on `main` yet) should take the text size's
-    growth too; the style gallery's card names end in "…" at 20.
+    screen's button place. Since the window chrome (2026-11-05): the title bar (40 dp, whose height JBR is given again)
+    and its tabs (28 dp), the toolbar's row (48 dp), its buttons, groups and switcher (32 dp) and the switcher's "Open a
+    repository…" row, and the two-line Commit button (46 dp), by both its lines (`twoLineButtonHeight`: body1 and
+    caption). Headers of 34 dp and more fit 20 as they are.
+  - **What widens:** the toolbar's buttons and groups, which are as wide as their labels (upstream's `MenuButton` and
+    `ExtendedMenuButton` widened until the window chrome replaced them; their labels go at the same widths at every text
+    size, which at 20 leaves about 90 dp to spare where they come back), the log's graph column (`minGraphWidth`, room
+    for "Graph"), the log's columns (`scaledForText`: the saved widths are 13's, shown times the scale; a divider's drag
+    is divided back), and the Settings sidebar (`Dp.widenedForText`). In a narrow log, the branch filter's label gives
+    way first (its button is in a box that takes what's left, `weight(1f, fill = false)` on the label), so "Message"
+    keeps its room; "Graph" and "Message" end in "…" only when even that isn't enough.
+  - **Not done:** the style gallery's card names end in "…" at 20.
   - Tests: `TextSizeTest`, two in `LogColumnsTest` (domain), `TextSizeSettingTest` (data: a restart, values that aren't
     choices, apart from Scale), `TextSizeKeybindingTest`, `TextSizeControllerTest` (steps, the same press from the menu
-    and the window, key repeat, a write still running, Settings), `TextGrowthTest` (the rows at every spacing, the
-    toolbar buttons at 13 and 20), `TextSizeRowTest` (the row rendered and picked from). 12 mutations were each caught
-    by a named test, one after its test was made to hold a later write while an earlier one came back. The whole
-    window was rendered at 11, 13, 16 and 20 through the Dagger graph in a temporary harness against
-    `/tmp/leaf-text-size-demo.sh`'s repository.
+    and the window, key repeat, a write still running, Settings), `TextGrowthTest` (the rows at every spacing),
+    `TextSizeRowTest` (the row rendered and picked from), and at 20 `ToolbarTest` (every width from 800 to 1,600 dp
+    fits, and the controls grow), `RepositorySwitcherTest`, `TitleBarTabsTest` (the tabs, and the height JBR is given)
+    and `CommitFieldTest`. 12 mutations were each caught by a named test, one after its test was made to hold a later
+    write while an earlier one came back; then 9 of the window chrome's growth, of which the one that survived (labels
+    going at wider windows) showed that rule wasn't needed, and it went. The whole window was rendered at 11, 13, 16 and
+    20 through the Dagger graph in a temporary harness against `/tmp/leaf-text-size-demo.sh`'s repository.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
