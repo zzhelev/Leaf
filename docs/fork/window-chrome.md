@@ -140,6 +140,34 @@ The switcher keeps at least the repository's name. The row is rendered at 800, 1
 unused, as was done with the interactive rebase list. Its Open popup (the `RecentRepositoriesList` part) moves into the
 switcher. An upstream sync will then show `Menu.kt` as modify/delete: keep the deletion and port what upstream changed.
 
+**As built** (2026-11-05, step 3):
+
+- `A/ui/toolbar/Toolbar.kt`: `Toolbar` reads the tab's state, and `ToolbarRow` draws it from a `ToolbarState` and
+  `ToolbarActions`, which its tests render. Frame colours throughout: groups, Branch and the Actions field are filled
+  with `frame.control` and outlined with `frame.control.edge`; Terminal and Settings are icons in
+  `frame.secondaryText`, filled on hover; a disabled part is at 45%. The row has `separators` along its bottom.
+- The switcher (`A/ui/toolbar/RepositorySwitcher.kt`) shows the repository and the linked worktree
+  (`RepositoryTabViewModel.repositoryNames`, so a renamed tab's name isn't used), "/", then what is checked out:
+  the worktree list's words ("rebasing x") when there's one, else the branch, else "detached at 0123456"
+  (`switcherBranchLabel`). Its popup has the worktrees with the picker's rows (`WorktreePickerRow`, `NewWorktreeRow`,
+  now `internal` in `A/ui/WorktreePicker.kt`, whose button and list went), then "Open a repository…" and the recent
+  repositories, whose search field has the focus. ⌘O opens it, as it opened the Open popup.
+- The labels' rule (`toolbarLabelsFor`): Branch, Stash and Pop show theirs from 1,150 dp, Pull and Push from
+  1,000 dp, and the Actions field is 248 dp wide from 900 dp, 160 dp below.
+- ⌘K (Ctrl+K elsewhere) is `KeybindingOption.QUICK_ACTIONS`, which the tab's keys open the Actions list with. The
+  field shows it with `KeybindingHint` ("⌘+K").
+- `Menu.kt` isn't deleted: upstream's `KeybindingHint` and `getParts` in it are used by the pane toggles' tooltips
+  and the Actions list. `Menu`, `MenuButton` and `ExtendedMenuButton` went. An upstream sync that changes them shows
+  a conflict there: keep them out.
+- `InstantTooltip` puts its popup next to its content, in the layout around it, where it takes a place of no size.
+  The toolbar's rows space their children, so a showing tooltip got a gap of its own and moved the controls after it
+  (Stash and Pop by 10 dp when Branch was hovered, found by the user). `ToolbarTooltip` puts it in a box of its own.
+- Tests: `ToolbarTest` (the rule, the labels at 1,440, 1,100 and 800 dp, nothing overlapping or past the edge, each
+  button's action, disabled Stash and remotes, a hovered button's tooltip moving nothing; PNGs in four styles at 1,440
+  and 900 dp with `LEAF_RENDER_DIR`) and
+  `RepositorySwitcherTest` (the worktree picker's tests, moved: the label, the list, switching, a missing folder, New
+  worktree; and a repository with one worktree, Open, a recent repository, the label's rule; PNGs of the open popup).
+
 ## 4. Surfaces and headers (A3)
 
 **Seven new slots**, in a group of their own, Window frame (built 2026-11-05, step 1). The plan had six; mockup C needs
@@ -266,7 +294,7 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
 2. **Title bar with the tabs.** macOS, with the fallback for every other case. Built 2026-11-05: the spike above, and the
    tabs' look. `TitleBarTabsTest` renders them in Tonal, Classic, Solarized and Teal, light and dark, when
    `LEAF_RENDER_DIR` is set.
-3. **Toolbar** (section 3).
+3. **Toolbar** (section 3). Built 2026-11-05.
 4. **Surfaces and headers** (section 4).
 5. **The Leaf style** (section 5), and the Frame seed if D6 is yes.
 6. **The smaller changes** that D7 keeps.
