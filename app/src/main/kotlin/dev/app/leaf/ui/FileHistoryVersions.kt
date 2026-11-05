@@ -41,6 +41,7 @@ import dev.app.leaf.ui.context_menu.compareClickName
 import dev.app.leaf.viewmodels.FileVersions
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /**
  * What file history needs to compare two versions of the file (fork-only, `docs/fork/compare.md`, 7.3): the two shown,
@@ -71,7 +72,7 @@ fun FileVersionsStrip(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(52.dp.withText(lines = 2))
             .background(MaterialTheme.colors.surface)
             .padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

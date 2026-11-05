@@ -90,6 +90,7 @@ import dev.app.leaf.ui.drag_sorting.verticalDragContainer
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /** A row of the editor's list. */
 private val ROW_HEIGHT = 34.dp
@@ -405,7 +406,7 @@ private fun PlanRowView(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ROW_HEIGHT)
+            .height(ROW_HEIGHT.withText())
             .background(background)
             .semantics(mergeDescendants = false) { selected = isSelected }
             .handMouseClickable(onClick = onClick)
@@ -541,7 +542,7 @@ private fun ActionPill(
         Row(
             modifier = Modifier
                 .width(PILL_WIDTH)
-                .height(22.dp)
+                .height(22.dp.withText())
                 .clip(shape)
                 .background(look.fill, shape)
                 .border(1.dp, look.outline, shape)

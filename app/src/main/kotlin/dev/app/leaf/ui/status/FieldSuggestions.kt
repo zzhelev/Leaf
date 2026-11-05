@@ -63,6 +63,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import dev.app.leaf.theme.onBackgroundSecondary
+import dev.app.leaf.theme.withText
 
 /*
  * Fork-only: what the commit field's suggestions share, the co-authors' (CoAuthorSuggestions.kt) and the Conventional
@@ -170,7 +171,7 @@ internal fun SuggestionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ROW_HEIGHT)
+            .height(ROW_HEIGHT.withText())
             .background(
                 if (isHighlighted) MaterialTheme.colors.onBackground.copy(alpha = FADED_BACKGROUND) else Color.Transparent
             )

@@ -43,6 +43,7 @@ import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.diff.colouredLine
 import org.eclipse.jgit.blame.BlameResult
 import org.jetbrains.compose.resources.painterResource
+import dev.app.leaf.theme.withText
 
 @Composable
 fun Blame(
@@ -165,7 +166,7 @@ fun MinimizedBlame(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(52.dp.withText(lines = 2))
             .background(MaterialTheme.colors.surface),
         verticalAlignment = Alignment.CenterVertically,
     ) {

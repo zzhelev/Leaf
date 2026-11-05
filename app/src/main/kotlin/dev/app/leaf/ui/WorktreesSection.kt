@@ -71,6 +71,7 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.eclipse.jgit.lib.Repository
 import org.jetbrains.compose.resources.stringResource
 import java.util.concurrent.TimeUnit
+import dev.app.leaf.theme.withText
 
 /** Height of a worktree's row, which has two lines. */
 private val WORKTREE_ROW_HEIGHT = 46.dp
@@ -237,7 +238,7 @@ private fun WorktreeItem(
         DelayedTooltip(worktreeTooltip(row.info, baseBranch)) {
             Row(
                 modifier = Modifier
-                    .height(WORKTREE_ROW_HEIGHT)
+                    .height(WORKTREE_ROW_HEIGHT.withText(lines = 2))
                     .fillMaxWidth()
                     .clickable { onClick() }
                     .run { if (worktree.canSwitchTo) onDoubleClick { currentOnSwitchTo() } else this }

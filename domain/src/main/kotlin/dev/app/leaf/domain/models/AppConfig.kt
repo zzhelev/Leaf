@@ -6,6 +6,12 @@ import dev.app.leaf.domain.sorting.RefPanelSettings
 
 sealed interface AppConfig {
     data class ScaleUi(val value: Float?) : AppConfig
+
+    /**
+     * The size of the main text in points, which every text follows (fork-only). See
+     * [dev.app.leaf.domain.models.ui.TextSize].
+     */
+    data class TextSize(val value: Int) : AppConfig
     data class LinesHeight(val value: LinesHeightType?) : AppConfig
     data class PullWithRebase(val value: Boolean) : AppConfig
     data class PushWithLease(val value: Boolean) : AppConfig

@@ -80,6 +80,7 @@ import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /** Height of the toolbar's buttons, which the picker matches. */
 private val PICKER_HEIGHT = 56.dp
@@ -289,7 +290,7 @@ private fun WorktreePickerRow(row: WorktreeRow, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(PICKER_ROW_HEIGHT)
+            .height(PICKER_ROW_HEIGHT.withText(lines = 2))
             .background(if (isFocused) MaterialTheme.colors.onBackground.copy(alpha = 0.08f) else Color.Transparent)
             .onPreviewKeyEvent { keyEvent ->
                 val isActivationKey = keyEvent.key == Key.Enter ||
@@ -343,7 +344,7 @@ private fun NewWorktreeRow(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(NEW_WORKTREE_ROW_HEIGHT)
+            .height(NEW_WORKTREE_ROW_HEIGHT.withText())
             .background(if (isFocused) MaterialTheme.colors.onBackground.copy(alpha = 0.08f) else Color.Transparent)
             .onPreviewKeyEvent { keyEvent ->
                 val isActivationKey = keyEvent.key == Key.Enter ||

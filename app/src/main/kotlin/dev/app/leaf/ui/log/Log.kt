@@ -339,15 +339,18 @@ private fun LogView(
             MIN_GRAPH_LANES
 
         val lanesWidth = (maxLinePosition + MARGIN_GRAPH_LANES) * LANE_WIDTH
-        val graphWidthValue = graphColumnWidth(lanesWidth, columnSettings.graphMaxWidth)
+        // Fork-only: room for the "Graph" header at a bigger text size
+        val minGraphWidth = minGraphWidth(LocalDensity.current.fontScale)
+        val graphWidthValue = graphColumnWidth(lanesWidth, columnSettings.graphMaxWidth, minGraphWidth)
 
         // Using remember(graphRealWidth, graphWidth) makes the selected background color glitch when changing tabs
         val graphWidth = graphWidthValue.dp
         val graphRealWidth = maxOf(lanesWidth, graphWidthValue).dp
 
         val onGraphDrag: (Float) -> Unit = { delta ->
-            val shownWidth = graphColumnWidth(lanesWidth, columnSettings.graphMaxWidth)
-            val maxWidth = draggedGraphMaxWidth(columnSettings.graphMaxWidth, shownWidth, lanesWidth, delta)
+            val shownWidth = graphColumnWidth(lanesWidth, columnSettings.graphMaxWidth, minGraphWidth)
+            val maxWidth =
+                draggedGraphMaxWidth(columnSettings.graphMaxWidth, shownWidth, lanesWidth, delta, minGraphWidth)
 
             columnSettings = columnSettings.withGraphMaxWidth(maxWidth)
         }
@@ -355,7 +358,10 @@ private fun LogView(
 
         // What's left for the message and the columns
         val columnsWidth = logWidth - graphWidthValue - LOG_ROW_END_PADDING.value
-        val fittedColumns = columnSettings.fitting(columnsWidth, spacing = LOG_COLUMN_SPACING)
+        // Fork-only: the saved widths are the default text size's, and widen with a bigger text
+        val columnScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+        val shownColumns = columnSettings.scaledForText(columnScale)
+        val fittedColumns = shownColumns.fitting(columnsWidth, spacing = LOG_COLUMN_SPACING)
         val columnsLayout = LogColumnsLayout(fittedColumns.shown, columnSettings.dateShowsTime)
         val columnsMenuItems = logColumnsMenuItems(columnSettings, fittedColumns.leftOut, onAction)
 
@@ -370,10 +376,10 @@ private fun LogView(
             onGraphDrag = onGraphDrag,
             onGraphDragStopped = onGraphDragStopped,
             onColumnResize = { column, delta ->
-                val maxWidth = columnSettings.maxWidthFor(column, columnsWidth, spacing = LOG_COLUMN_SPACING)
-                val width = (columnSettings.entry(column).width - delta).coerceAtMost(maxWidth)
+                val maxWidth = shownColumns.maxWidthFor(column, columnsWidth, spacing = LOG_COLUMN_SPACING)
+                val width = (shownColumns.entry(column).width - delta).coerceAtMost(maxWidth)
 
-                columnSettings = columnSettings.resized(column, width)
+                columnSettings = columnSettings.resized(column, width / columnScale)
             },
             onColumnResizeFinished = { column ->
                 onAction(LogAction.ResizeColumn(column, columnSettings.entry(column).width))
@@ -958,6 +964,7 @@ fun GraphHeader(
                 color = MaterialTheme.colors.onBackground,
                 style = MaterialTheme.typography.body2,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
 
             val density = LocalDensity.current.density
@@ -974,15 +981,18 @@ fun GraphHeader(
 
             Text(
                 modifier = Modifier
-                    .padding(start = 16.dp)
-                    .weight(1f),
+                    .padding(start = 16.dp),
                 text = "Message",
                 color = MaterialTheme.colors.onBackground,
                 style = MaterialTheme.typography.body2,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
 
-            branchFilterControl()
+            // Fork-only: the branch filter's label gives way before "Message" does, at a bigger text size
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                branchFilterControl()
+            }
 
             LogColumnsMenuButton(columnsMenuItems)
 

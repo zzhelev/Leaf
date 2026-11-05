@@ -64,6 +64,10 @@
     <string name="quick_actions_clean_up_worktrees">Clean up merged worktrees</string>
     <string name="app_menu_help">Help</string>
     <string name="app_menu_check_for_updates">Check for Updates…</string>
+    <string name="app_menu_view">View</string>
+    <string name="app_menu_bigger_text">Bigger Text</string>
+    <string name="app_menu_smaller_text">Smaller Text</string>
+    <string name="app_menu_default_text_size">Default Text Size</string>
     <string name="check_for_updates_dialog_title">Check for updates</string>
     <string name="check_for_updates_dialog_checking">Checking for updates…</string>
     <string name="check_for_updates_dialog_available">Leaf %1$s is available. You have %2$s.</string>

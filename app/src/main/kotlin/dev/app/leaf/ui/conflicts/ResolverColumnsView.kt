@@ -93,6 +93,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.log10
 import kotlin.math.roundToInt
+import dev.app.leaf.theme.withText
 
 /** Changes from theirs. The theme has no colour of its own for them; it reads on both the light and the dark theme. */
 internal val TheirsColor = Color(0xFF9C6ADE)
@@ -287,7 +288,7 @@ private fun ColumnHeaders(sides: ConflictSides?, shares: ColumnShares, edges: Co
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(30.dp)
+            .height(30.dp.withText())
             .background(MaterialTheme.colors.tertiarySurface),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -826,7 +827,7 @@ fun ResolverLegend(stacked: Boolean = false, editing: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(26.dp)
+            .height(26.dp.withText())
             .background(MaterialTheme.colors.tertiarySurface)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

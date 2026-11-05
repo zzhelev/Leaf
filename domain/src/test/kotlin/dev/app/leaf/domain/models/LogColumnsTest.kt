@@ -177,6 +177,37 @@ class LogColumnsTest {
     }
 
     @Test
+    fun `the graph's narrowest leaves its header room at a bigger text size, and is 56 dp up to the default`() {
+        assertEquals(56f, minGraphWidth(fontScale = 1f))
+        assertEquals(56f, minGraphWidth(fontScale = 11f / 13f))
+        assertEquals(16f + 40f * 20f / 13f, minGraphWidth(fontScale = 20f / 13f), 0.001f)
+
+        val min = minGraphWidth(fontScale = 20f / 13f)
+        assertEquals(min, graphColumnWidth(lanesWidth = 42f, maxWidth = 120f, minWidth = min))
+        assertEquals(
+            min,
+            draggedGraphMaxWidth(maxWidth = 120f, shownWidth = 90f, lanesWidth = 300f, delta = -60f, minWidth = min),
+        )
+    }
+
+    @Test
+    fun `the columns widen with a bigger text, and keep their widths at the default size and below`() {
+        val settings = all.resized(LogColumn.Date, 120f)
+
+        assertEquals(settings, settings.scaledForText(1f))
+        assertEquals(settings, settings.scaledForText(11f / 13f))
+
+        val bigger = settings.scaledForText(1.5f)
+        assertEquals(180f, bigger.entry(LogColumn.Date).width)
+        assertEquals(LogColumn.Author.defaultWidth * 1.5f, bigger.entry(LogColumn.Author).width)
+        assertEquals(
+            settings.columns.map { it.column to it.isVisible },
+            bigger.columns.map { it.column to it.isVisible },
+        )
+        assertEquals(settings.graphMaxWidth, bigger.graphMaxWidth)
+    }
+
+    @Test
     fun `a column can widen only as far as the other shown columns leave room`() {
         // 600 - 200 for the message - the others
         assertEquals(210f, all.maxWidthFor(LogColumn.Author, availableWidth = 600f))

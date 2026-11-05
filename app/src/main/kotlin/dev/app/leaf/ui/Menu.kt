@@ -39,6 +39,7 @@ import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.context_menu.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.textGrowth
 
 private const val DISABLED_BUTTON_ALPHA = 0.5F
 
@@ -327,7 +328,9 @@ fun MenuButton(
                 .clip(RoundedCornerShape(4.dp))
                 .background(MaterialTheme.colors.surface)
                 .handMouseClickable(enabled) { onClick() }
-                .size(56.dp),
+                // Fork-only: a longer label, at a bigger text size, widens the button rather than being cut
+                .widthIn(min = 56.dp)
+                .height(56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -344,6 +347,8 @@ fun MenuButton(
                 maxLines = 1,
                 textAlign = TextAlign.Center,
                 color = color,
+                // Fork-only: keeps a longer label off its neighbours at a bigger text size, and nothing at the default
+                modifier = Modifier.padding(horizontal = textGrowth(MaterialTheme.typography.caption.fontSize)),
             )
         }
     }
@@ -430,6 +435,10 @@ fun getParts(keybinding: Keybinding): List<String> {
         Key.Y -> "Y"
         Key.Z -> "Z"
         Key.Tab -> "Tab"
+        Key.Equals -> "="
+        Key.Plus, Key.NumPadAdd -> "+"
+        Key.Minus, Key.NumPadSubtract -> "−"
+        Key.Zero, Key.NumPad0 -> "0"
         else -> throw NotImplementedError("Key not implemented")
     }
 
@@ -454,7 +463,8 @@ fun ExtendedMenuButton(
 
     Row(
         modifier = modifier
-            .size(width = 64.dp, height = 56.dp)
+            // Fork-only: as wide as its label needs, 64 dp at least
+            .height(56.dp)
             .ignoreKeyEvents()
             .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colors.surface)
@@ -463,8 +473,7 @@ fun ExtendedMenuButton(
         InstantTooltip(
             text = tooltipText,
             modifier = Modifier
-                .fillMaxHeight()
-                .weight(1f),
+                .fillMaxHeight(),
             trailingContent = if (keybinding != null) {
                 { KeybindingHint(keybinding) }
             } else {
@@ -473,7 +482,8 @@ fun ExtendedMenuButton(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxHeight()
+                    .widthIn(min = 48.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -489,6 +499,7 @@ fun ExtendedMenuButton(
                     style = MaterialTheme.typography.caption,
                     color = color,
                     maxLines = 1,
+                    modifier = Modifier.padding(horizontal = textGrowth(MaterialTheme.typography.caption.fontSize)),
                 )
             }
         }

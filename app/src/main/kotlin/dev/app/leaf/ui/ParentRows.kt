@@ -42,6 +42,7 @@ import dev.app.leaf.ui.context_menu.parentContextMenu
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 private val PARENT_ROW_HEIGHT = 22.dp
 
@@ -69,7 +70,7 @@ fun ParentRows(
 
     Column(modifier) {
         if (links.isRoot) {
-            Row(Modifier.height(PARENT_ROW_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.height(PARENT_ROW_HEIGHT.withText()), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(Res.string.commit_parents_root),
                     color = MaterialTheme.colors.onBackgroundSecondary,
@@ -86,7 +87,7 @@ fun ParentRows(
         val rows = if (state.isExpanded) links.all else links.shown
         val rowsModifier = if (state.isExpanded) {
             Modifier
-                .heightIn(max = PARENT_ROW_HEIGHT * MAX_ROWS_BEFORE_SCROLL)
+                .heightIn(max = PARENT_ROW_HEIGHT.withText() * MAX_ROWS_BEFORE_SCROLL)
                 .verticalScroll(rememberScrollState())
         } else {
             Modifier
@@ -145,7 +146,7 @@ private fun ParentRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(PARENT_ROW_HEIGHT)
+                    .height(PARENT_ROW_HEIGHT.withText())
                     .handMouseClickable(onClick = onClick),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -273,7 +274,7 @@ private fun MoreParentsRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(PARENT_ROW_HEIGHT)
+                .height(PARENT_ROW_HEIGHT.withText())
                 .handMouseClickable(onClick = onClick),
             verticalAlignment = Alignment.CenterVertically,
         ) {

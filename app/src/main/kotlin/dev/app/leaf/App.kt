@@ -20,6 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyShortcut
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -35,8 +37,12 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.navigation3.runtime.NavKey
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.app_menu_bigger_text
 import dev.app.leaf.app.generated.resources.app_menu_check_for_updates
+import dev.app.leaf.app.generated.resources.app_menu_default_text_size
 import dev.app.leaf.app.generated.resources.app_menu_help
+import dev.app.leaf.app.generated.resources.app_menu_smaller_text
+import dev.app.leaf.app.generated.resources.app_menu_view
 import dev.app.leaf.app.generated.resources.logo
 import dev.app.leaf.avatarproviders.GravatarAvatarProvider
 import dev.app.leaf.avatarproviders.NoneAvatarProvider
@@ -52,6 +58,7 @@ import dev.app.leaf.domain.credentials.CredentialsRequest
 import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.ignore.IgnoreRequest
 import dev.app.leaf.domain.models.*
+import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.DiscardedFiles
@@ -68,6 +75,10 @@ import dev.app.leaf.ui.AppTab
 import dev.app.leaf.ui.AppViewModel
 import dev.app.leaf.ui.LocalAppChrome
 import dev.app.leaf.ui.LocalWindowMinimized
+import dev.app.leaf.ui.TextSizeController
+import dev.app.leaf.ui.TextSizeStep
+import dev.app.leaf.ui.TextSizeStepSource
+import dev.app.leaf.ui.textSizeStep
 import dev.app.leaf.ui.components.TabsRow
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.ui.context_menu.AppPopupMenu
@@ -199,6 +210,7 @@ class App @Inject constructor(
     private val sshSigner: SshProgramSigner,
     private val lfsFactory: AppLfsFactory,
     private val loginShellEnvironment: LoginShellEnvironment,
+    private val textSizes: TextSizeController,
 ) {
     @OptIn(ExperimentalFoundationApi::class)
     suspend fun start(args: Array<String>) {
@@ -225,6 +237,7 @@ class App @Inject constructor(
         val styleInitial = stylesService.selected.first()
         val codeColoursInitial = appSettings.codeColours.first()
         val scaleInitial = appSettings.scaleUi.firstOrNull()
+        textSizes.start()
         val linesHeightTypeInitial = appSettings.linesHeightType.first()
         val avatarProviderTypeInitial = appSettings.avatarProvider.first()
         val dateFormatUseDefaultInitial = appSettings.dateFormatUseDefault.first()
@@ -237,6 +250,7 @@ class App @Inject constructor(
             val style by stylesService.selected.collectAsState(styleInitial)
             val codeColours by appSettings.codeColours.collectAsState(codeColoursInitial)
             val scale = appSettings.scaleUi.collectAsState(scaleInitial).value
+            val textSize by textSizes.size.collectAsState()
             val linesHeightType by appSettings.linesHeightType.collectAsState(linesHeightTypeInitial)
             val avatarProviderType by appSettings.avatarProvider.collectAsState(avatarProviderTypeInitial)
             val dateFormatUseDefault by appSettings.dateFormatUseDefault.collectAsState(dateFormatUseDefaultInitial)
@@ -300,11 +314,39 @@ class App @Inject constructor(
                 onCloseRequest = { appViewModel.quit(onQuit = quitNow) },
                 state = windowState,
                 icon = painterResource(Res.drawable.logo),
+                // Fork-only: the text size's shortcuts, wherever the focus is
+                onPreviewKeyEvent = { event ->
+                    val step = event.textSizeStep()
+                    step?.let { textSizes.step(it, TextSizeStepSource.KEY) }
+                    step != null
+                },
             ) {
                 // Windows and Linux would show a Swing menu bar inside the window, which doesn't look like the rest of
                 // Leaf. macOS shows it in the system menu bar, where apps usually let you check for updates.
                 if (currentOs == OS.MAC) {
                     MenuBar {
+                        // Fork-only: the text size, with its shortcuts
+                        Menu(stringResource(Res.string.app_menu_view)) {
+                            Item(
+                                text = stringResource(Res.string.app_menu_bigger_text),
+                                shortcut = KeyShortcut(Key.Equals, meta = true),
+                                enabled = TextSize.bigger(textSize) != textSize,
+                                onClick = { textSizes.step(TextSizeStep.BIGGER, TextSizeStepSource.MENU) },
+                            )
+                            Item(
+                                text = stringResource(Res.string.app_menu_smaller_text),
+                                shortcut = KeyShortcut(Key.Minus, meta = true),
+                                enabled = TextSize.smaller(textSize) != textSize,
+                                onClick = { textSizes.step(TextSizeStep.SMALLER, TextSizeStepSource.MENU) },
+                            )
+                            Item(
+                                text = stringResource(Res.string.app_menu_default_text_size),
+                                shortcut = KeyShortcut(Key.Zero, meta = true),
+                                enabled = textSize != TextSize.DEFAULT,
+                                onClick = { textSizes.step(TextSizeStep.DEFAULT, TextSizeStepSource.MENU) },
+                            )
+                        }
+
                         Menu(stringResource(Res.string.app_menu_help)) {
                             Item(
                                 text = stringResource(Res.string.app_menu_check_for_updates),
@@ -323,9 +365,11 @@ class App @Inject constructor(
                 val compositionValues: MutableList<ProvidedValue<*>> =
                     mutableListOf(LocalTextContextMenu provides AppPopupMenu())
 
-                if (scale != null) {
-                    compositionValues.add(LocalDensity provides Density(scale, 1f))
-                }
+                // Fork-only: Text size changes the text alone, through Compose's font scale
+                val windowDensity = LocalDensity.current
+                compositionValues.add(
+                    LocalDensity provides Density(scale ?: windowDensity.density, TextSize.scaleOf(textSize))
+                )
 
                 val avatarProvider = when (avatarProviderType) {
                     AvatarProviderType.Gravatar -> GravatarAvatarProvider()

@@ -30,6 +30,7 @@ import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.SecondaryButton
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /** As tall as the button, which a task that can't be stopped for now leaves out. */
 private val BUTTON_PLACE_HEIGHT = 24.dp
@@ -128,7 +129,7 @@ fun ProcessingScreen(
                 )
 
                 // Keeps the progress where it was
-                null -> if (progress != null) Spacer(Modifier.height(BUTTON_PLACE_HEIGHT))
+                null -> if (progress != null) Spacer(Modifier.height(BUTTON_PLACE_HEIGHT.withText()))
             }
         }
     }

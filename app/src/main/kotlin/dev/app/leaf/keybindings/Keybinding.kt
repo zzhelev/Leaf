@@ -112,6 +112,13 @@ enum class KeybindingOption {
      * Used to fold the changes pane away, and to show it again (fork-only)
      */
     CHANGES_PANE,
+
+    /**
+     * Used to make the text bigger, smaller, and the default size again, in the whole window (fork-only)
+     */
+    TEXT_BIGGER,
+    TEXT_SMALLER,
+    TEXT_DEFAULT_SIZE,
 }
 
 
@@ -180,6 +187,22 @@ private fun baseKeybindings() = mapOf(
     KeybindingOption.CHANGES_PANE to listOf(
         Keybinding(key = Key.C, control = true, shift = true),
     ),
+    // `+` is Shift and `=` on many keyboards, a key of its own on others, and on the number pad
+    KeybindingOption.TEXT_BIGGER to listOf(
+        Keybinding(key = Key.Equals, control = true),
+        Keybinding(key = Key.Equals, control = true, shift = true),
+        Keybinding(key = Key.Plus, control = true),
+        Keybinding(key = Key.Plus, control = true, shift = true),
+        Keybinding(key = Key.NumPadAdd, control = true),
+    ),
+    KeybindingOption.TEXT_SMALLER to listOf(
+        Keybinding(key = Key.Minus, control = true),
+        Keybinding(key = Key.NumPadSubtract, control = true),
+    ),
+    KeybindingOption.TEXT_DEFAULT_SIZE to listOf(
+        Keybinding(key = Key.Zero, control = true),
+        Keybinding(key = Key.NumPad0, control = true),
+    ),
 )
 
 private fun linuxKeybindings(): Map<KeybindingOption, List<Keybinding>> = baseKeybindings()
@@ -202,6 +225,9 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         KeybindingOption.SETTINGS,
         KeybindingOption.BRANCHES_PANE,
         KeybindingOption.CHANGES_PANE,
+        KeybindingOption.TEXT_BIGGER,
+        KeybindingOption.TEXT_SMALLER,
+        KeybindingOption.TEXT_DEFAULT_SIZE,
     )
 
     for (key in keysToReplaceControlWithCommand) {

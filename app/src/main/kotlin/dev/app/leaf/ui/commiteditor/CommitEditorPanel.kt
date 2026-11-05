@@ -66,6 +66,7 @@ import dev.app.leaf.ui.dialogs.StartSwitch
 import dev.app.leaf.ui.dialogs.textWithCaretAfterSubject
 import org.eclipse.jgit.diff.DiffEntry
 import org.jetbrains.compose.resources.stringResource
+import dev.app.leaf.theme.withText
 
 /**
  * The commit editor's panel (fork-only, B5 of `docs/fork/commit-editor.md`), in the right pane: for the selected row,
@@ -251,7 +252,7 @@ private fun FileRow(file: PlanFile, isConflict: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(26.dp)
+            .height(26.dp.withText())
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
