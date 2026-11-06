@@ -33,14 +33,14 @@ class AppStorageTest {
     }
 
     @Test
-    fun `no name refers to the original app`() {
+    fun `every name is Leaf's own, so none is the original app's`() {
         val names = listOf(packaged, dev).flatMap {
             listOf(it.preferencesNode, it.directoryName, it.macLogsDirectoryName)
         } + AppStorage.LOG_FILE_NAME + AppStorage.REPOSITORY_CONFIG_FILE_NAME + AppStorage.COMMIT_DRAFT_FILE_NAME +
             AppStorage.REBASE_EDIT_MESSAGE_FILE_PREFIX
 
         names.forEach { name ->
-            assertFalse(name.contains("gitnuro", ignoreCase = true), "\"$name\" refers to the original app")
+            assertTrue(name.contains("leaf", ignoreCase = true), "\"$name\" isn't one of Leaf's names")
         }
     }
 

@@ -153,11 +153,11 @@ Example for windows (you may want to edit `C:\Program Files\Git\etc\gitconfig`):
 
 ## License
 
-Leaf is a modified version of [Gitnuro](https://github.com/JetpackDuba/Gitnuro), forked from its 2.0 development branch
-in October 2026. It combines code under three licenses:
+Leaf is a modified version of an open-source git client, forked from its 2.0 development branch in October 2026. It
+combines code under three licenses:
 
-- **Files that come from Gitnuro** are licensed under the [GNU General Public License v3.0](LICENSE)
-  (GPL-3.0-only).
+- **Files that come from the original project** are licensed under the
+  [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
 - **Files written for Leaf** are licensed under the
   [GNU Affero General Public License v3.0](LICENSES/AGPL-3.0-only.txt) (AGPL-3.0-only). They start with an
   `SPDX-License-Identifier: AGPL-3.0-only` header.
