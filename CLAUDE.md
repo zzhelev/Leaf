@@ -328,6 +328,9 @@ asking.
   - Between the repository's own file and that layer, an in-memory layer holds what Leaf decides for JGit:
     `refreshIncludedConfig` turns JGit's built-in LFS filters on there unless git-lfs is set up (`useBuiltinLfs`, see
     One LFS store under Remote operations).
+  - Both run git, and a caller cancelled meanwhile gets its cancellation: `refreshIncludedConfig` rethrows it, and
+    logs only real failures. Until 2026-11-06 it logged "StandaloneCoroutine was cancelled" as an error, and `provide`
+    went on to run the caller's block (`CancelledRefreshTest`).
   - Tests: `IncludedConfigTest` checks the entries against git's own list, `IncludedConfigRepositoryTest` JGit's
     merge, revert, cherry-pick, rebase and pull, a snapshot stash, a signed merge, a hook and the
     reflog against git.

@@ -12,6 +12,7 @@ import dev.app.leaf.data.git.signers.gpgSigningError
 import dev.app.leaf.data.git.signers.sshSigningError
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.errors.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.util.FS
@@ -189,6 +190,9 @@ class JGit(
                         repository.useIncludedConfig(source.read(repository))
                     }
                 }
+            } catch (ex: CancellationException) {
+                // The caller was cancelled while git ran: it goes no further, and nothing failed
+                throw ex
             } catch (ex: Exception) {
                 printError(TAG, "Reading the config as JGit does, as git's includes couldn't be read: ${ex.message}")
             }
@@ -197,6 +201,8 @@ class JGit(
         gitLfsSetup?.let { setup ->
             try {
                 repository.useBuiltinLfs(!setup.jgitRunsGitLfs(repository))
+            } catch (ex: CancellationException) {
+                throw ex
             } catch (ex: Exception) {
                 printError(TAG, "Could not tell whether git-lfs is set up: ${ex.message}")
             }
