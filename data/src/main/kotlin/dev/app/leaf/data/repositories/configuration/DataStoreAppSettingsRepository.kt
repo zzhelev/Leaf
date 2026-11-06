@@ -48,6 +48,7 @@ private const val DEFAULT_THIRD_PANE_WIDTH = 330f
 
 private val scaleUiPreference get() = floatPreferencesKey("scale_ui")
 private val textSizePreference get() = intPreferencesKey("text_size")
+private val linuxTitleBarPreference get() = booleanPreferencesKey("linux_title_bar")
 private val themePreference get() = stringPreferencesKey("theme")
 private val accentStylePreference get() = stringPreferencesKey("accent_style")
 private val codeColoursPreference get() = stringPreferencesKey("code_colours")
@@ -123,6 +124,9 @@ class DataStoreAppSettingsRepository @Inject constructor(
 
     /** Fork-only: the size of the main text in points. */
     override val textSize get() = preferences.data[textSizePreference]
+
+    /** Fork-only: whether Leaf draws the window's frame on Linux. */
+    override val linuxTitleBar get() = preferences.data[linuxTitleBarPreference]
 
     override val theme = preferences.data[themePreference].map { themeMapper.toDomain(it) }
 
@@ -238,6 +242,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.PushWithLease -> setValue(pushWithLeasePreference, appConfig.value)
                 is AppConfig.ScaleUi -> setValue(scaleUiPreference, appConfig.value)
                 is AppConfig.TextSize -> setValue(textSizePreference, appConfig.value)
+                is AppConfig.LinuxTitleBar -> setValue(linuxTitleBarPreference, appConfig.value)
                 is AppConfig.CacheCredentialsInMemory -> setValue(cacheCredentialsPreference, appConfig.value)
                 is AppConfig.AvatarProvider -> setValue(
                     avatarProviderPreference,

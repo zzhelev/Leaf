@@ -2120,4 +2120,18 @@
     <string name="tab_color">Colour %1$d</string>
     <string name="tabs_scroll_back">Earlier tabs</string>
     <string name="tabs_scroll_forward">Later tabs</string>
+
+    <!-- Fork-only: Leaf's own window frame on Linux (docs/fork/window-chrome.md, section 10) -->
+    <string name="window_button_minimize">Minimize</string>
+    <string name="window_button_maximize">Maximize</string>
+    <string name="window_button_restore">Restore</string>
+    <string name="window_button_close">Close</string>
+    <string name="settings_linux_title_bar_title">Tabs in the title bar</string>
+    <string name="settings_linux_title_bar_subtitle">Leaf draws the window's frame, with the tabs in its title bar and its own window buttons, as on macOS and Windows.</string>
+    <string name="settings_linux_title_bar_restart">Restart Leaf to apply it.</string>
+    <string name="settings_linux_title_bar_not_jetbrains_runtime">Not available on this Java, which can't move a window for Leaf. The .deb package's runtime can.</string>
+    <string name="settings_linux_title_bar_other_toolkit">Not available: Leaf's window system is neither X11 nor Wayland.</string>
+    <string name="settings_linux_title_bar_wsl">Not available under WSL.</string>
+    <string name="settings_linux_title_bar_tiling">Not available with a tiling window manager, which places windows itself.</string>
+    <string name="settings_linux_title_bar_unknown_desktop">Not available on a desktop that Leaf doesn't know.</string>
 </resources>

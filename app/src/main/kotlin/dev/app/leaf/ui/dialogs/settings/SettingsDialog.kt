@@ -55,6 +55,8 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.base.MaterialDialog
 import dev.app.leaf.ui.dropdowns.DropDownOption
 import dev.app.leaf.ui.getErrorText
+import dev.app.leaf.ui.window.linux.LinuxFrame
+import dev.app.leaf.ui.window.linux.LinuxTitleBarRow
 import dev.app.leaf.viewmodels.SettingsAction
 import dev.app.leaf.viewmodels.SettingsViewModel
 import dev.app.leaf.viewmodels.SettingsViewState
@@ -813,6 +815,16 @@ internal fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (Set
             onAction(SettingsAction.SetConfig(AppConfig.TextSize(newValue.value)))
         }
     )
+
+    // Fork-only: Leaf's own window frame, with the tabs in its title bar, on Linux (docs/fork/window-chrome.md)
+    if (currentOs == OS.LINUX) {
+        LinuxTitleBarRow(
+            isOn = settingsViewState.linuxTitleBar,
+            support = LinuxFrame.support,
+            isDrawnNow = LinuxFrame.isDrawn,
+            onChange = { onAction(SettingsAction.SetConfig(AppConfig.LinuxTitleBar(it))) },
+        )
+    }
 
     SettingDropDown(
         title = "Avatar provider",

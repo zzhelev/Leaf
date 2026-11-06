@@ -12,6 +12,12 @@ sealed interface AppConfig {
      * [dev.app.leaf.domain.models.ui.TextSize].
      */
     data class TextSize(val value: Int) : AppConfig
+
+    /**
+     * Whether Leaf draws the window's frame on Linux, with the tabs in its title bar, as on macOS and Windows (fork-only,
+     * `docs/fork/window-chrome.md`). Read when Leaf starts.
+     */
+    data class LinuxTitleBar(val value: Boolean) : AppConfig
     data class LinesHeight(val value: LinesHeightType?) : AppConfig
     data class PullWithRebase(val value: Boolean) : AppConfig
     data class PushWithLease(val value: Boolean) : AppConfig

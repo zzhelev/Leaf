@@ -91,6 +91,8 @@ import dev.app.leaf.ui.dialogs.QuitDialog
 import dev.app.leaf.ui.styles.StyleEditorStart
 import dev.app.leaf.ui.window.TitleBar
 import dev.app.leaf.ui.window.WindowTitleBar
+import dev.app.leaf.ui.window.linux.LinuxFrame
+import dev.app.leaf.ui.window.linux.LinuxWindowFrame
 import dev.app.leaf.ui.window.titleBarControl
 import dev.app.leaf.ui.window.windowTitleBarOf
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
@@ -250,6 +252,8 @@ class App @Inject constructor(
         val dateFormatCustomFormatInitial = appSettings.dateFormatCustomFormat.first()
         val dateFormatIs24hInitial = appSettings.dateFormatIs24h.first()
         val dateFormatUseRelativeInitial = appSettings.dateFormatUseRelative.first()
+        // Fork-only: on Linux, Leaf's own window frame when chosen in Settings, decided before the window exists
+        val linuxFrame = LinuxFrame.atStart(appSettings.linuxTitleBar.first())
 
         application {
             val theme by appSettings.theme.collectAsState(themeInitial)
@@ -320,6 +324,7 @@ class App @Inject constructor(
                 onCloseRequest = { appViewModel.quit(onQuit = quitNow) },
                 state = windowState,
                 icon = painterResource(Res.drawable.logo),
+                undecorated = linuxFrame != null,
                 // Fork-only: the text size's shortcuts, wherever the focus is
                 onPreviewKeyEvent = { event ->
                     val step = event.textSizeStep()
@@ -368,8 +373,9 @@ class App @Inject constructor(
                     }
                 }
 
-                // Fork-only: on macOS and Windows, the tabs go in the window's title bar (docs/fork/window-chrome.md)
-                val titleBar = remember(window) { windowTitleBarOf(window) }
+                // Fork-only: the tabs go in the window's title bar on macOS and Windows, and on Linux when Leaf draws its
+                // frame (docs/fork/window-chrome.md)
+                val titleBar = remember(window) { windowTitleBarOf(window) ?: linuxFrame?.titleBar(window) }
 
                 val compositionValues: MutableList<ProvidedValue<*>> =
                     mutableListOf(LocalTextContextMenu provides AppPopupMenu())
@@ -408,12 +414,14 @@ class App @Inject constructor(
                         codeColours = codeColours,
                         linesHeightType = linesHeightType,
                     ) {
-                        Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
-                            AppTabs(
-                                titleBar = titleBar,
-                                window = window,
-                                isFullscreen = windowState.placement == WindowPlacement.Fullscreen,
-                            )
+                        LinuxWindowFrame(linuxFrame, window) {
+                            Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
+                                AppTabs(
+                                    titleBar = titleBar,
+                                    window = window,
+                                    isFullscreen = windowState.placement == WindowPlacement.Fullscreen,
+                                )
+                            }
                         }
 
                         if (quitPrompt != null) {

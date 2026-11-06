@@ -6,6 +6,9 @@ package dev.app.leaf.ui.window
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,6 +25,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
@@ -73,6 +77,17 @@ interface WindowTitleBar {
      * a drag and zooms or maximizes it on a double-click.
      */
     fun forceHitTest(leafTakesIt: Boolean)
+
+    /**
+     * The events of a press of the primary button on the bar that Leaf doesn't take, until its release: the press, the
+     * moves and the release, at [position] in the window's root, for a bar that moves the window itself (Linux). The
+     * runtime's bar does nothing: the window moves it.
+     */
+    fun pointerOnBar(type: PointerEventType, position: Offset) {}
+
+    /** Window buttons that Leaf draws (Linux), at the bar's start and at its end; null where the system draws them. */
+    val startButtons: (@Composable (TitleBarControls) -> Unit)? get() = null
+    val endButtons: (@Composable (TitleBarControls) -> Unit)? get() = null
 }
 
 /** JetBrains Runtime's custom title bar, the one IntelliJ and Jewel use. */
@@ -102,7 +117,8 @@ private class JbrWindowTitleBar(
 
 /**
  * [window]'s own title bar, or null where Leaf keeps the system's: on Linux, where JetBrains Runtime has no custom title
- * bar (it allows Windows and macOS only), and on a runtime other than JetBrains', which has no API for it.
+ * bar (it allows Windows and macOS only; Leaf draws its own frame there when chosen, see `ui/window/linux/`), and on a
+ * runtime other than JetBrains', which has no API for it.
  */
 fun windowTitleBarOf(window: ComposeWindow): WindowTitleBar? {
     if (currentOs != OS.MAC && currentOs != OS.WINDOWS) return null
@@ -243,19 +259,47 @@ fun TitleBar(
             .onGloballyPositioned { holder.coordinates = it }
             .pointerInput(titleBar) {
                 awaitPointerEventScope {
+                    // Whether the primary button went down on the bar itself, not on a control
+                    var pressedOnBar = false
+
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val position = event.changes.firstOrNull()?.position ?: continue
                         val inRoot = holder.coordinates?.takeIf { it.isAttached }?.localToRoot(position) ?: position
+                        val leafTakesIt = pointer.leafTakes(event.type, inRoot, controls.all)
 
-                        titleBar.forceHitTest(pointer.leafTakes(event.type, inRoot, controls.all))
+                        titleBar.forceHitTest(leafTakesIt)
+
+                        if (event.type == PointerEventType.Press) {
+                            pressedOnBar = !leafTakesIt && event.buttons.isPrimaryPressed
+                        }
+
+                        if (pressedOnBar) {
+                            titleBar.pointerOnBar(event.type, inRoot)
+                        }
+
+                        if (event.type == PointerEventType.Release) {
+                            pressedOnBar = false
+                        }
                     }
                 }
-            }
-            .padding(titleBarPadding(leftInset, buttonsInsets.second)),
-        contentAlignment = Alignment.CenterStart,
+            },
     ) {
-        content(controls)
+        Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            titleBar.startButtons?.invoke(controls)
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(titleBarPadding(leftInset, buttonsInsets.second)),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                content(controls)
+            }
+
+            titleBar.endButtons?.invoke(controls)
+        }
     }
 }
 

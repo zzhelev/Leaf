@@ -39,6 +39,9 @@ class AppSettingsService @Inject constructor(
 
     /** Fork-only: the size of the main text in points, one of [TextSize.CHOICES]. */
     val textSize: Flow<Int> get() = appSettingsRepository.textSize.map(TextSize::of)
+
+    /** Fork-only: whether Leaf draws the window's frame on Linux, off by default. See [AppConfig.LinuxTitleBar]. */
+    val linuxTitleBar: Flow<Boolean> get() = appSettingsRepository.linuxTitleBar.defaultIfNull { false }
     val theme: Flow<Theme> get() = appSettingsRepository.theme.defaultIfNull { DEFAULT_THEME }
 
     /** Fork-only: the id of the style that draws Leaf, Tonal's when none was chosen. See `StylesService`. */

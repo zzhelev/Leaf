@@ -127,8 +127,9 @@ class SettingsViewModel @Inject constructor(
             styleNotice,
             appSettingsService.codeColours,
             appSettingsService.textSize,
-        ) { theme, style, styles, library, notice, codeColours, textSize ->
-            Appearance(theme, style, styles, library.unreadable, notice, codeColours, textSize)
+            appSettingsService.linuxTitleBar,
+        ) { theme, style, styles, library, notice, codeColours, textSize, linuxTitleBar ->
+            Appearance(theme, style, styles, library.unreadable, notice, codeColours, textSize, linuxTitleBar)
         }
 
         return combine(
@@ -198,6 +199,7 @@ class SettingsViewModel @Inject constructor(
                 appearance.styleNotice,
                 appearance.codeColours,
                 appearance.textSize,
+                appearance.linuxTitleBar,
                 linesHeightType,
                 dateFormatUseDefault,
                 dateFormatCustomFormat,
@@ -240,6 +242,7 @@ internal fun emptySettingsState(): SettingsViewState {
         styleNotice = null,
         codeColours = CodeColours.DEFAULT,
         textSize = TextSize.DEFAULT,
+        linuxTitleBar = false,
         linesHeightType = LinesHeightType.SPACED,
         dateFormatUseDefault = false,
         dateFormatCustomFormat = "",
@@ -283,6 +286,8 @@ data class SettingsViewState(
     val codeColours: CodeColours,
     /** The size of the main text in points (fork-only). */
     val textSize: Int,
+    /** Whether Leaf draws the window's frame on Linux, as of the next start (fork-only). */
+    val linuxTitleBar: Boolean,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,
     val dateFormatCustomFormat: String,
@@ -338,4 +343,5 @@ data class Appearance(
     val styleNotice: StyleNotice?,
     val codeColours: CodeColours,
     val textSize: Int,
+    val linuxTitleBar: Boolean,
 )
