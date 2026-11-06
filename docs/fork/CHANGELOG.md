@@ -2,6 +2,34 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The log's filter bar (2026-11-06)
+
+- **Request:** the branch filter, the search and the columns button sat at the end of the Message column's header,
+  where they read as column headers and took its room. Explore user-friendly options; option A was chosen from a mockup
+  of four.
+- **Now:** a bar above the column headers has the branch filter, a search field that is always there, and at its end
+  the columns button; the header row has only the column titles. Typing in the field searches, so searching adds no row,
+  and Ctrl+F (⌘F) puts the focus in it. Esc and × end the search and give the focus back to the log.
+- Details: CLAUDE.md, "The filter bar" under "Log".
+
+## Staged, Unstaged and the commit message fold (2026-11-06)
+
+- **Request:** make Staged, Unstaged and Commit message collapsible. Mockup 2 of four was chosen.
+- **Now:** a click on a section's header folds it to the header, and the open sections share the room. A folded list
+  keeps its file count, now on every header, and its Stage all or Unstage all; a folded commit message keeps the
+  message's subject in its title row and its buttons, so committing still works. Folds are kept for every tab and after
+  a restart, and the sections' sizes come back when they open.
+- Details: CLAUDE.md, "Status pane sections".
+
+## Ctrl+, (⌘,) opens Settings (2026-11-06)
+
+- **Request:** the standard Mac shortcut for Settings, and the same on Windows and Linux where there is one.
+- **Now:** Ctrl+, opens Settings from anywhere in Leaf, ⌘, on macOS, where Leaf's app menu has an enabled Settings…
+  item with it (it was there, greyed out). GNOME's guidelines and most cross-platform apps use Ctrl+,; Windows has no
+  standard. Upstream's Ctrl+Alt+S (⌘+Alt+S) stays, and tooltips show the new key. A key that reaches both the menu and
+  the tab opens Settings once.
+- Details: CLAUDE.md, "Dialogs".
+
 ## The original project's name is out of the README and the tests too (2026-11-06)
 
 - **Request:** stop naming the original project wherever that's possible.

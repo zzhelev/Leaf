@@ -3077,6 +3077,12 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   dialog only adds it. Closing afterwards would remove the new dialog, the top of the back stack. Upstream fixed the
   same bug the other way (1cac7a00: its `AppTab` callbacks remove the list, then add theirs). Leaf keeps its own, so its
   callbacks only add: both together close the screen under the list, the tab's repository.
+- Settings opens from the toolbar, upstream's Ctrl+Alt+S (⌘+Alt+S), and Ctrl+, (⌘, on macOS, fork-only,
+  2026-11-06), the first of `KeybindingOption.SETTINGS`' keys, so that tooltips show it. GNOME's guidelines and most
+  cross-platform apps use Ctrl+,; Windows has no standard. On macOS the app menu's Settings item has ⌘, too: `App.kt`
+  turns it on with `Desktop.setPreferencesHandler` (without a handler it's greyed out). A menu item's key can reach the
+  tab's keys too, so both go through `RepositoryTabViewModel.showSettings`, which adds Settings only when it isn't on
+  the back stack. Test: `SettingsKeybindingTest`.
 - `ui/dialogs/base/IconBasedDialog.kt` is the base for confirm-style dialogs.
 - Every dialog renders through `ui/dialogs/base/MaterialDialog.kt`. `DialogSceneStrategy` uses Compose's common
   `Dialog`, which on desktop draws on the main window's canvas, not in an OS window, and only takes clicks inside its
@@ -4029,8 +4035,34 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     cherry-pick): the geometry against `fitTo`, typing into the field, the draft file, Amend through the menu and
     Cmd+Enter amending the commit. The scene doesn't draw a `Popup`, so an open menu is only in the semantics.
   - They are global: `StatusSectionsConfig` (app singleton) → `AppSettingsRepository.statusSectionSizes`, stored in the
-    prefs node as `statusStagedShare` and `statusCommitFieldHeight`, like the pane widths. `StatusPane` keeps a local
-    copy during a drag and sends `StatusAction.SectionSizesChanged` when it ends.
+    prefs node as `statusStagedShare` and `statusCommitFieldHeight`, like the pane widths. `StatusSections` keeps a
+    local copy during a drag and sends `StatusAction.SectionSizesChanged` when it ends.
+  - **Folding (fork-only, 2026-11-06, `ui/status/StatusSections.kt`, `ui/components/SectionFold.kt`):** a click on
+    Staged's, Unstaged's or the commit message's header, but on its buttons, folds the section or opens it. Each header
+    has a chevron at its start (`FoldChevron`, as the branches pane's sections) and says "Folded" or "Open" to screen
+    readers (`foldsSection`). Mockup 2 of four, chosen with the user.
+    - **What a folded section shows:** a list, its header with the file count (`CountPill`, on the open header too), and
+      Stage all or Unstage all and the ⋯ menu, but no sort menu or search, which act on the rows (`FilesChangedHeader`'s
+      `fold` and `count`). The commit message, its title row with the subject as git will commit it, muted after the
+      title (`foldedSubject`), then what stops the button and the buttons (`CommitFieldPart.FOLDED`): no field, menu,
+      count or larger-view button. It wins over the larger view's `FINISH`, whose centre pane keeps its own button
+      back.
+    - **Layout (`StatusSections`):** the open sections share the pane, and a folded one is as tall as its header (and
+      its buttons). Two open lists split their room as saved; one open list takes all of it; with both lists folded,
+      an open commit message takes what their headers leave; with everything folded, the headers stack at the top. Only
+      a handle with something to resize on both sides shows. The model (`StatusSectionSizes`) has `folds`
+      (`StatusSectionFolds`), `commitFieldIn`/`commitSectionIn` (the commit field's height with folds: each open list
+      keeps 100 dp and each folded one `STATUS_FOLDED_HEADER_HEIGHT`, 34 dp; null while it's folded or both lists are),
+      `splitLists` and `withListsDividerMovedIn` for what two open lists share, and `withFoldToggled`. `fitTo` stays the
+      layout with every section open. A fold keeps the sizes, which come back when the section opens.
+    - **Saved** with the sizes, global, as `statusStagedFolded`, `statusUnstagedFolded` and `statusCommitMessageFolded`
+      in the prefs node.
+    - **Focus:** folding the section that had the focus (a list's rows, the message field) gives it to the tab a frame
+      later, so that the tab's shortcuts go on working; a focus elsewhere stays.
+    - Tests: `StatusSectionSizesTest` (domain: the folds, 5,000 random panes), `StatusSectionsTest` (the layout of each
+      mix of folds with boxes for sections, a click, a drag, the focus), `SectionFoldHeadersTest` (the headers, the
+      folded commit message and its subject, the changes pane's part). 15 mutations were each caught by a named test,
+      two after a test was added.
 - **The Commit button names the branch** (2026-11-05, `UncommittedChangesButtons`): "Commit" over "to main", and "Amend"
   over "on main" while amending, so that switching Amend doesn't move the field. The second line is the caption style at
   85% of the label's colour (`ConfirmationButton`'s `secondLine`), and the button is 46 dp (`TWO_LINE_BUTTON_HEIGHT`),
@@ -4175,7 +4207,7 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
 ## Log
 
 **Columns (fork-only):** after Graph and Message, the log can show Author, Committer, Date and Commit. The columns
-menu (the header's columns button, or a right-click anywhere on the header) checks them, adds the time to dates, and
+menu (the filter bar's columns button, or a right-click anywhere on the header) checks them, adds the time to dates, and
 resets them. By default only Date is on, as before.
 - `LogColumnsSettings` (`domain/.../models/LogColumns.kt`) holds an ordered list of `(column, isVisible, width)`,
   `dateShowsTime` and `graphMaxWidth`. The list's order is the display order, so reordering can come later without
@@ -4383,17 +4415,17 @@ the same day, from a second mockup: a folder covers local and remote branches, a
   task. `LogBranchFilterController` (`RepositoryOpenViewModel.logBranchFilter`, `setLogBranchFilter`) shows a change at
   once, applies changes one at a time and joins those that come meanwhile; once its walk ended, the log's own filter
   shows. An open search runs again.
-- **The control** (`LogBranchFilterButton`, `GraphHeader`'s `branchFilterControl`, before the columns button): "All
-  branches", "Current branch", "All but x" or "All but 2 branches", or the names ("claude/parser-cache", "a, b +1"; a
-  remote branch whose local branch is named is left out; folders first, as `claude/`, "All but claude/ +1"), lit as a
+- **The control** (`LogBranchFilterButton`, first in the log's filter bar, outlined as the search field next to it):
+  "All branches", "Current branch", "All but x" or "All but 2 branches", or the names ("claude/parser-cache", "a, b +1";
+  a remote branch whose local branch is named is left out; folders first, as `claude/`, "All but claude/ +1"), lit as a
   toggled button with an × that shows every branch (`logBranchFilterLabel`). Its list (`LogBranchFilterList`, a
   focusable popup): a field that filters the branches and hides the two ways, "All branches" and "Current branch", then
   the local and the remote branches grouped as the side panel groups them (`logBranchFilterRows`): the checked-out one
   first, each folder's box (`FolderBox`, on, off, or partly, `folderShows`; a click hides it while it shows any branch,
   else shows it whole) with its branches' boxes under it, then the branches without a folder, with the worktree mark.
-  Typing lists the folders and branches that have it, without the grouping.
-  A pick applies at once and leaves the list open; ↓ ↑ and Enter as in the clone dialog's list, Esc closes it. The
-  checked-out branch's box is checked and faded, and its name bold. `PickRow` has `leading` and `fontWeight` for it.
+  Typing lists the folders and branches that have it, without the grouping. A pick applies at once and leaves the list
+  open; ↓ ↑ and Enter as in the clone dialog's list, Esc closes it. The checked-out branch's box is checked and faded,
+  and its name bold. `PickRow` has `leading` and `fontWeight` for it.
 - **The menus** (`logBranchFilterMenuItems`, `branchContextMenuItems`'s `logFilter`, a group after Compare): "Show only
   this branch in the log", then "Hide in the log" or "Show in the log"; a local branch's act on the remote branches of
   its name too (`withRemotesOfItsName`), which would show its line on their own. No Hide on the checked-out branch. A
@@ -4705,12 +4737,35 @@ Up, Down, Page Up, Page Down, Home and End. Left and Right do nothing (decided w
   the view model method and the focus on click, which need the Dagger graph and a window. Three mutations (the scroll's
   sign, the modifier check, wrap-around) were each caught.
 
-**Log search (fork-only changes, 2026-10-20; over the whole history since 2026-11-02):** the bar is `SearchFilter`
-(`ui/log/Log.kt`), over `RepositoryOpenViewModel.logSearchFilterResults`: `LogSearch.SearchResults(hits, index, hasTerm,
-isSearching, isCapped)`, where `hits` (`SearchHits`) are `SearchHit(hash, depth)` in the log's order, `index` is the
-counter's number, starting at 1, and 0 means no result. `LogSearchController` (`repositoryopen/`, made by the view model,
-whose `onSearchValueChanged`, `selectNextFilterCommit`, `selectPreviousFilterCommit` and `closeSearch` only call it) holds
-the logic.
+**The filter bar (fork-only, 2026-11-06, `ui/log/LogFilterBar.kt`):** a 36 dp bar above the column headers
+(`LogFilterBar`): the branch filter, the search field, and at its end the columns button. Option A of four, chosen with
+the user from a mockup: the three controls sat at the end of the Message column's header, where they read as column
+headers and took its room (B moved them past the last column, C put each where it acts, D folded them into a View
+menu).
+- The header row (`GraphHeader`) has only the column titles and their dividers, and Message takes what's left.
+- **The search field** (`LogSearchField`) is always there: "Search commits", with Ctrl+F (⌘F) at its end while it hasn't
+  the focus, 320 dp at most after the branch filter, narrower in a narrow log. Typing searches (the first letter opens
+  the search), and while the field has text it shows the counter, ↑, ↓ and ×; Enter and Shift+Enter step. Before, the
+  search was a 56 dp row that a button in the header opened above it.
+- **Ending it:** Esc (the tab's, through `CloseableView.LOG_SEARCH`, which the field adds when it takes the focus) and ×
+  end the search, and the field empties and gives the focus to the log's list (`LogView` provides its requester as
+  `LocalLogFocusRequester` to `CommitsList`), so the arrows go on. Leaving an empty field ends it too; `closeSearch`
+  also takes `LOG_SEARCH` out, for a field that took the focus without searching, where Esc would first close nothing.
+- **Ctrl+F (⌘F, `KeybindingOption.LOG_SEARCH`)** is in the tab's keys: `RepositoryOpenViewModel.focusLogSearch` emits
+  `logSearchFocusRequests`, which the field collects, and a search that the field has is selected, to type another. The
+  diff's and blame's find (upstream issues 275 and 312, another session's work) will want the key while the focus is in
+  them.
+- Tests: `LogFilterBarTest` (the bar's order and widths at 900 and 360 px, typing, the counter and its buttons, the
+  keys, an ended search, Ctrl+F, leaving the field, the shortcut's binding; PNGs with `LEAF_RENDER_DIR`). 9 mutations
+  were each caught by a named test.
+
+**Log search (fork-only changes, 2026-10-20; over the whole history since 2026-11-02):** the field is `LogSearchField`
+(`ui/log/LogFilterBar.kt`, see The filter bar; upstream's `SearchFilter` row until 2026-11-06), over
+`RepositoryOpenViewModel.logSearchFilterResults`: `LogSearch.SearchResults(hits, index, hasTerm, isSearching,
+isCapped)`, where `hits` (`SearchHits`) are `SearchHit(hash, depth)` in the log's order, `index` is the counter's
+number, starting at 1, and 0 means no result. `LogSearchController` (`repositoryopen/`, made by the view model, whose
+`onSearchValueChanged`, `selectNextFilterCommit`, `selectPreviousFilterCommit` and `closeSearch` only call it) holds the
+logic.
 - **What builds it:** typing (`LogSearchController.search`; the newest term wins), in the two steps of The whole history,
   below. A refresh doesn't run it again, so the hits are those of the log as it was when the term was typed. An empty
   field is `hasTerm = false` (`SearchResults.NoTerm`): `matchingHashes` is then null and no row is dimmed. An empty list
@@ -5334,18 +5389,18 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     strips under about 34 dp that hold text take `withText()`: parent rows, worktree rows and the picker's (two lines),
     the field suggestions, the dialogs' commit rows, the clone dialog's choices, the commit editor's rows, the
     resolver's headers and legend, the full comparison's labels, the whitespace strip, the split columns' header, the
-    branch filter's button, blame's, file history's and its two versions' headers (two lines), and the processing
-    screen's button place. Since the window chrome (2026-11-05): the title bar (40 dp, whose height JBR is given again)
-    and its tabs (28 dp), the toolbar's row (48 dp), its buttons, groups and switcher (32 dp) and the switcher's "Open a
-    repository…" row, and the two-line Commit button (46 dp), by both its lines (`twoLineButtonHeight`: body1 and
-    caption). Headers of 34 dp and more fit 20 as they are.
+    log's filter bar (36 dp) with its branch filter and search field (28 dp), blame's, file history's and its two
+    versions' headers (two lines), and the processing screen's button place. Since the window chrome (2026-11-05): the
+    title bar (40 dp, whose height JBR is given again) and its tabs (28 dp), the toolbar's row (48 dp), its buttons,
+    groups and switcher (32 dp) and the switcher's "Open a repository…" row, and the two-line Commit button (46 dp), by
+    both its lines (`twoLineButtonHeight`: body1 and caption). Headers of 34 dp and more fit 20 as they are.
   - **What widens:** the toolbar's buttons and groups, which are as wide as their labels (upstream's `MenuButton` and
     `ExtendedMenuButton` widened until the window chrome replaced them; their labels go at the same widths at every text
     size, which at 20 leaves about 90 dp to spare where they come back), the log's graph column (`minGraphWidth`, room
     for "Graph"), the log's columns (`scaledForText`: the saved widths are 13's, shown times the scale; a divider's drag
-    is divided back), and the Settings sidebar (`Dp.widenedForText`). In a narrow log, the branch filter's label gives
-    way first (its button is in a box that takes what's left, `weight(1f, fill = false)` on the label), so "Message"
-    keeps its room; "Graph" and "Message" end in "…" only when even that isn't enough.
+    is divided back), and the Settings sidebar (`Dp.widenedForText`). In a narrow log, the filter bar's search field
+    gives way first, then the branch filter's label (`weight(1f, fill = false)` on it); "Graph" and "Message" end in
+    "…" only when the columns leave them no room.
   - **Not done:** the style gallery's card names end in "…" at 20.
   - Tests: `TextSizeTest`, two in `LogColumnsTest` (domain), `TextSizeSettingTest` (data: a restart, values that aren't
     choices, apart from Scale), `TextSizeKeybindingTest`, `TextSizeControllerTest` (steps, the same press from the menu
