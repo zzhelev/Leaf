@@ -24,6 +24,7 @@ interface AppSettingsRepository {
     val scaleUi: Flow<Float?>
     val textSize: Flow<Int?>
     val linuxTitleBar: Flow<Boolean?>
+    val toolbarLabels: Flow<Boolean?>
     val theme: Flow<Theme?>
     val styleId: Flow<String?>
     val codeColours: Flow<CodeColours?>

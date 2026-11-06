@@ -816,6 +816,14 @@ internal fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (Set
         }
     )
 
+    // Fork-only: the toolbar's buttons as icons alone
+    SettingToggle(
+        title = stringResource(Res.string.settings_toolbar_labels_title),
+        subtitle = stringResource(Res.string.settings_toolbar_labels_subtitle),
+        value = settingsViewState.toolbarLabels,
+        onValueChanged = { onAction(SettingsAction.SetConfig(AppConfig.ToolbarLabels(it))) },
+    )
+
     // Fork-only: Leaf's own window frame, with the tabs in its title bar, on Linux (docs/fork/window-chrome.md)
     if (currentOs == OS.LINUX) {
         LinuxTitleBarRow(

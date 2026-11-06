@@ -57,6 +57,41 @@ class ToolbarTest {
     }
 
     @Test
+    fun `with Toolbar labels off, no button has a label at any width, and Actions keeps its shortcut`() {
+        for (width in listOf(1600, 1440, 1100, 800)) {
+            assertEquals(ToolbarLabels(false, false, showsActionsLabel = false), toolbarLabelsFor(width.dp, showsLabels = false))
+        }
+
+        val shortcut = getParts(checkNotNull(KeybindingOption.QUICK_ACTIONS.keyBinding)).joinToString("+")
+        val withLabels = run {
+            render(width = 1440)
+            boundsOf("Actions").width
+        }
+
+        scene?.close()
+        render(width = 1440, showsLabels = false)
+
+        val texts = texts()
+        assertTrue(texts.none { it in listOf("Pull", "Push", "Branch", "Stash", "Pop", "Actions") }, texts.toString())
+        assertTrue(shortcut in texts, texts.toString())
+        // The switcher keeps where you are
+        assertTrue("repo" in texts.joinToString(" "), texts.toString())
+        assertTrue(boundsOf("Actions").width < withLabels - 30f, "${boundsOf("Actions").width} against $withLabels")
+        assertFits(1440)
+    }
+
+    @Test
+    fun `with Toolbar labels off, each button still does what it says`() {
+        render(width = 1440, showsLabels = false)
+
+        for (label in listOf("Pull", "Push", "Create a new branch", "Stash", "Pop", "Actions", "Terminal", "Settings")) {
+            click(label)
+        }
+
+        assertEquals(listOf("pull DEFAULT", "push", "branch", "stash", "pop", "actions", "terminal", "settings"), calls)
+    }
+
+    @Test
     fun `at a bigger text size the controls grow by a line, and everything fits at every width with the same labels`() {
         val growth = textGrowth(TextSize.scaleOf(20)).value
 
@@ -194,6 +229,7 @@ class ToolbarTest {
         style: StyleDefinition = BuiltInStyles.TONAL,
         density: Float = 1f,
         textSize: Int = TextSize.DEFAULT,
+        showsLabels: Boolean = true,
     ) {
         scene = ImageComposeScene(
             width = (width * density).toInt(),
@@ -232,6 +268,7 @@ class ToolbarTest {
                             onSettings = { calls += "settings" },
                             switcher = SwitcherActions({}, {}, {}, {}),
                         ),
+                        showsLabels = showsLabels,
                     )
                 }
             }

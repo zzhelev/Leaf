@@ -128,8 +128,9 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.codeColours,
             appSettingsService.textSize,
             appSettingsService.linuxTitleBar,
-        ) { theme, style, styles, library, notice, codeColours, textSize, linuxTitleBar ->
-            Appearance(theme, style, styles, library.unreadable, notice, codeColours, textSize, linuxTitleBar)
+            appSettingsService.toolbarLabels,
+        ) { theme, style, styles, library, notice, codeColours, textSize, linuxTitleBar, toolbarLabels ->
+            Appearance(theme, style, styles, library.unreadable, notice, codeColours, textSize, linuxTitleBar, toolbarLabels)
         }
 
         return combine(
@@ -200,6 +201,7 @@ class SettingsViewModel @Inject constructor(
                 appearance.codeColours,
                 appearance.textSize,
                 appearance.linuxTitleBar,
+                appearance.toolbarLabels,
                 linesHeightType,
                 dateFormatUseDefault,
                 dateFormatCustomFormat,
@@ -243,6 +245,7 @@ internal fun emptySettingsState(): SettingsViewState {
         codeColours = CodeColours.DEFAULT,
         textSize = TextSize.DEFAULT,
         linuxTitleBar = false,
+        toolbarLabels = true,
         linesHeightType = LinesHeightType.SPACED,
         dateFormatUseDefault = false,
         dateFormatCustomFormat = "",
@@ -288,6 +291,8 @@ data class SettingsViewState(
     val textSize: Int,
     /** Whether Leaf draws the window's frame on Linux, as of the next start (fork-only). */
     val linuxTitleBar: Boolean,
+    /** Whether the toolbar's buttons show their names (fork-only). */
+    val toolbarLabels: Boolean,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,
     val dateFormatCustomFormat: String,
@@ -344,4 +349,5 @@ data class Appearance(
     val codeColours: CodeColours,
     val textSize: Int,
     val linuxTitleBar: Boolean,
+    val toolbarLabels: Boolean,
 )

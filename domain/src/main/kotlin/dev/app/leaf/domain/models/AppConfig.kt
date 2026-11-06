@@ -18,6 +18,9 @@ sealed interface AppConfig {
      * `docs/fork/window-chrome.md`). Read when Leaf starts.
      */
     data class LinuxTitleBar(val value: Boolean) : AppConfig
+
+    /** Whether the toolbar's buttons show their names next to their icons, on by default (fork-only). */
+    data class ToolbarLabels(val value: Boolean) : AppConfig
     data class LinesHeight(val value: LinesHeightType?) : AppConfig
     data class PullWithRebase(val value: Boolean) : AppConfig
     data class PushWithLease(val value: Boolean) : AppConfig

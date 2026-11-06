@@ -2135,6 +2135,8 @@
     <string name="window_button_maximize">Maximize</string>
     <string name="window_button_restore">Restore</string>
     <string name="window_button_close">Close</string>
+    <string name="settings_toolbar_labels_title">Toolbar labels</string>
+    <string name="settings_toolbar_labels_subtitle">Show the names of the toolbar's buttons next to their icons. They still hide in a narrow window.</string>
     <string name="settings_linux_title_bar_title">Tabs in the title bar</string>
     <string name="settings_linux_title_bar_subtitle">Leaf draws the window's frame, with the tabs in its title bar and its own window buttons, as on macOS and Windows.</string>
     <string name="settings_linux_title_bar_restart">Restart Leaf to apply it.</string>

@@ -77,16 +77,21 @@ private const val DISABLED_ALPHA = 0.45f
  * Which labels the toolbar has room for at [width] (fork-only, docs/fork/window-chrome.md): Branch, Stash and Pop lose
  * theirs first, then Pull and Push. Their icons and tooltips stay. Actions keeps its label. The rule holds at every text
  * size: at 20, the row still has about 90 dp to spare where the labels come back.
+ *
+ * With Settings' "Toolbar labels" off ([showsLabels] false), no button has a label, at any width: Actions keeps its
+ * shortcut, as it's the way into everything else.
  */
 @Immutable
 data class ToolbarLabels(
     val showsBranchAndStashLabels: Boolean,
     val showsPullAndPushLabels: Boolean,
+    val showsActionsLabel: Boolean = true,
 )
 
-fun toolbarLabelsFor(width: Dp): ToolbarLabels = ToolbarLabels(
-    showsBranchAndStashLabels = width >= 1150.dp,
-    showsPullAndPushLabels = width >= 1000.dp,
+fun toolbarLabelsFor(width: Dp, showsLabels: Boolean = true): ToolbarLabels = ToolbarLabels(
+    showsBranchAndStashLabels = showsLabels && width >= 1150.dp,
+    showsPullAndPushLabels = showsLabels && width >= 1000.dp,
+    showsActionsLabel = showsLabels,
 )
 
 /** What the toolbar's buttons do. */
@@ -126,6 +131,7 @@ fun Toolbar(
     val remotes by viewModel.remoteState.collectAsState()
     val worktreePickerState by viewModel.worktreePickerState.collectAsState()
     val branchesState by viewModel.branchesState.collectAsState()
+    val showsLabels by viewModel.toolbarLabels.collectAsState()
 
     ToolbarRow(
         state = ToolbarState(
@@ -145,6 +151,7 @@ fun Toolbar(
         onShowSwitcherChange = onShowSwitcherChange,
         actions = actions,
         modifier = modifier,
+        showsLabels = showsLabels,
     )
 }
 
@@ -165,6 +172,8 @@ fun ToolbarRow(
     onShowSwitcherChange: (Boolean) -> Unit,
     actions: ToolbarActions,
     modifier: Modifier = Modifier,
+    /** Settings' "Toolbar labels": false leaves every button an icon (fork-only). */
+    showsLabels: Boolean = true,
 ) {
     val frame = MaterialTheme.frameColors
 
@@ -175,7 +184,7 @@ fun ToolbarRow(
             .background(frame.background)
             .bottomEdge(frame.separator),
     ) {
-        val labels = toolbarLabelsFor(maxWidth)
+        val labels = toolbarLabelsFor(maxWidth, showsLabels)
 
         Row(
             modifier = Modifier
@@ -224,7 +233,7 @@ fun ToolbarRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ActionsButton(onClick = actions.onQuickActions)
+                ActionsButton(showsLabel = labels.showsActionsLabel, onClick = actions.onQuickActions)
 
                 Spacer(Modifier.width(6.dp))
 
@@ -514,7 +523,7 @@ private fun ToolbarIconButton(
  * looked like a search field, which read as a field that could be typed in.
  */
 @Composable
-private fun ActionsButton(onClick: () -> Unit) {
+private fun ActionsButton(showsLabel: Boolean, onClick: () -> Unit) {
     val frame = MaterialTheme.frameColors
     val keybinding = KeybindingOption.QUICK_ACTIONS.keyBinding
     val label = stringResource(Res.string.menu_actions)
@@ -532,10 +541,10 @@ private fun ActionsButton(onClick: () -> Unit) {
                 .semantics { contentDescription = label },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ControlLabel(painterResource(Res.drawable.bolt), label)
+            ControlLabel(painterResource(Res.drawable.bolt), label.takeIf { showsLabel })
 
             if (keybinding != null) {
-                Box(Modifier.padding(start = 10.dp)) {
+                Box(Modifier.padding(start = if (showsLabel) 10.dp else 6.dp)) {
                     KeybindingHint(keybinding, color = frame.secondaryText)
                 }
             }

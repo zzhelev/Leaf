@@ -42,6 +42,9 @@ class AppSettingsService @Inject constructor(
 
     /** Fork-only: whether Leaf draws the window's frame on Linux, off by default. See [AppConfig.LinuxTitleBar]. */
     val linuxTitleBar: Flow<Boolean> get() = appSettingsRepository.linuxTitleBar.defaultIfNull { false }
+
+    /** Fork-only: whether the toolbar's buttons show their names, on by default. See [AppConfig.ToolbarLabels]. */
+    val toolbarLabels: Flow<Boolean> get() = appSettingsRepository.toolbarLabels.defaultIfNull { true }
     val theme: Flow<Theme> get() = appSettingsRepository.theme.defaultIfNull { DEFAULT_THEME }
 
     /** Fork-only: the id of the style that draws Leaf, Tonal's when none was chosen. See `StylesService`. */

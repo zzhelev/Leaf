@@ -941,6 +941,9 @@ class RepositoryOpenViewModel @Inject constructor(
     // Fork-only: the log stays above an open diff, and the diff follows the selected commit (upstream issues 343, 136, 128)
     val diffKeepsLog: StateFlow<Boolean> = settings.diffKeepsLog.stateIn(true)
 
+    /** Settings' "Toolbar labels" (fork-only): false leaves the toolbar's buttons as icons. */
+    val toolbarLabels: StateFlow<Boolean> = settings.toolbarLabels.stateIn(true)
+
     fun changeDiffKeepsLog(keeps: Boolean) = tabScope.launch {
         settings.setConfiguration(AppConfig.DiffKeepsLog(keeps))
     }
