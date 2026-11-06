@@ -3500,7 +3500,7 @@ and Settings at the right.
   are separate clicks. The row has a line in `separators` along its bottom.
 - Labels go as the window narrows (`toolbarLabelsFor`): Branch, Stash and Pop show theirs from 1,150 dp, Pull and Push
   from 1,000 dp. Their icons and tooltips stay. Actions keeps its label.
-- **Toolbar labels** (fork-only, 2026-11-06, Settings → Appearance after Text size, `AppConfig.ToolbarLabels`,
+- **Toolbar labels** (fork-only, 2026-11-06, Settings → Appearance after the font rows, `AppConfig.ToolbarLabels`,
   `toolbar_labels`, on by default): off, no button has a label at any width (`toolbarLabelsFor`'s `showsLabels`,
   `ToolbarLabels.showsActionsLabel`), and Actions is its bolt and its shortcut, as it's the way into everything else.
   The switcher keeps its text, and every button its tooltip. `RepositoryOpenViewModel.toolbarLabels` gives the setting
@@ -5421,6 +5421,59 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     write while an earlier one came back; then 9 of the window chrome's growth, of which the one that survived (labels
     going at wider windows) showed that rule wasn't needed, and it went. The whole window was rendered at 11, 13, 16 and
     20 through the Dagger graph in a temporary harness against `/tmp/leaf-text-size-demo.sh`'s repository.
+- **Fonts (fork-only, 2026-11-06, `domain/models/ui/Fonts.kt`, `theme/AppFonts.kt`, `ui/dialogs/settings/FontRows.kt`):**
+  Settings → Appearance, after Text size: "Interface font", "Code font" with a preview of a diff under it, and "Ligatures
+  in code". Two settings, not one font for everything: a monospaced interface is wider than the widths Leaf is laid out
+  for, and proportional code breaks indentation, the ruler and the split diff. Chosen with the user from a mockup (the
+  Design artifact "Leaf font settings"), as the git clients and editors do it: any installed monospaced font for code,
+  a short list for the interface.
+  - **The settings** (`FontSettings`, read as one flow, `AppSettingsService.fonts`): `interface_font` (`inter`, the
+    default, or `system`; a value this version doesn't know reads as Inter), `code_font` (an installed family's name,
+    trimmed; no key is the bundled Noto Sans Mono, and picking it takes the key out) and `code_ligatures` (off by
+    default). Each applies at once. One text size for both, as decided for Text size.
+  - **Where they apply:** `AppTheme(fonts = …)`, which `App.kt` gives the setting, passes the interface family to
+    `typography()` (upstream's, which took Inter only) and provides a `CodeFont` (`LocalCodeFont`): its family and the
+    features its text takes. An `AppTheme` inside another follows the outer one's (`LocalFontSettings`).
+    `monoTypography()` returns the code font's family, so its 40 callers (hashes, paths, commands, keys) follow without a
+    change. Code takes `TextStyle.inCodeFont()`, which adds the ligature setting: the diff's lines (`DiffText`) and its
+    sideways measure, blame's lines, the resolver's measure, editor and kept-changes preview, the commit message with its
+    ruler, and the style editor's preview.
+  - **Ligatures off** is `NO_LIGATURES`, `liga 0, calt 0`, as Skia's `FontFeature.parseW3` takes it: CSS's quoted
+    `"liga" 0` parses to no feature at all, and the first version drew JetBrains Mono's ligatures with the switch off
+    (`AppFontsTest` compares the pixels). Off by default, as VS Code has it: a diff should show the characters in the
+    file, and `!=` drawn as `≠` doesn't. Fonts like Fira Code and JetBrains Mono draw theirs through `calt`.
+  - **Fonts come from Skia** (`SystemFonts`), which draws Compose's text: `FontMgr.default`'s families, without the
+    hidden ones whose names start with a dot. A family is monospaced (`isMonospaced`) when it has `iMW0.` and either says
+    it's fixed pitch or draws them all as wide. On this Mac: Andale Mono, Ayuthaya, Courier New, Menlo, Monaco, PT Mono
+    and any installed by the user; not SF Mono, which comes with Terminal. Listing opens every family, so the row loads it
+    on `Dispatchers.IO`. Compose loads an installed font by name (`SystemFont`, experimental, `installedFontFamily`, four
+    weights and both styles).
+  - **The system font** (`SystemFonts.interfaceFont`): `.AppleSystemUIFont` on macOS, which Skia resolves to SF Pro (bold
+    too), shown as "SF Pro"; Segoe UI on Windows; fontconfig's `sans-serif` on Linux, shown by the family it resolves to.
+    Where none is found, the row offers Inter alone, and a stored `system` draws Inter. Not checked on Windows or Linux.
+  - **A code font that isn't installed** (settings from another machine, a font removed) draws the bundled font, and the
+    row says so in amber ("JetBrains Mono isn't installed, so Leaf uses Noto Sans Mono."), keeping the choice.
+  - **The rows:** the interface font is a `SettingDropDown` 240 dp wide (`SettingDropDown`'s and upstream's
+    `DropDownMenuText`'s new `width`). The code font is a button of the same look that opens `CodeFontList` in a
+    focusable `Popup` (`BelowRightAlignedPositionProvider`, so above the button when there's no room under it): a field
+    that keeps the focus and filters, "Bundled with Leaf" with Noto Sans Mono and "default", then "Installed" in natural
+    order, each name in its own font (`PickRow`'s new `fontFamily`) with a check on the chosen one. ↓ ↑ and Enter as in the
+    clone dialog's list (`branchChoicesKeys`), Esc closes it, a pick applies and closes it. Monospaced fonts only; no
+    "Show all fonts". `CodeFontPreview` is four lines of a diff with `->`, `!=`, `&&` and `>=`, in the theme's diff and
+    syntax colours.
+  - **Not done:** a separate code size; choosing the interface font from every installed font (widths are laid out for
+    Inter, and the Date and hash columns need tabular digits); fonts in a style's file (a font may not be installed where
+    the style is imported).
+  - Tests: `FontsTest` (domain), `FontSettingsTest` (data: the defaults, a restart, the bundled font as no key, trimming,
+    an unknown value), `AppFontsTest` (the bundled Noto Sans Mono monospaced and Inter not, from their files; the
+    installed list; an uninstalled font; an installed one by name in eight styles; the features with ligatures on and
+    off, and inside a nested `AppTheme`; and, where JetBrains Mono, Fira Code or Cascadia Code is installed, pixels that
+    differ with the switch and don't with the bundled font; the system font's pixels), `FontRowsTest` (rendered: the
+    order, the labels, the not-installed line, the list opening from the button and its pick, the groups and the check,
+    filtering, Enter, the bundled font as no name, the arrows across groups, Esc, the switch, the rows' places; PNGs of
+    the rows and the list in both themes with `LEAF_RENDER_DIR`). 16 mutations were each caught by a named test, the
+    check mark's two after a test was added; a 17th, sorting with case, survived because `naturalCompare` ignores case,
+    and the `lowercase()` calls went.
 
 **Tests:**
 - Upstream's tests were removed in the 2.0 refactor (commit `36a92c60`). The fork's tests live in
