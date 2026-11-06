@@ -88,10 +88,12 @@ fun DropDownMenuText(
     showIcons: Boolean = true,
     currentValue: String,
     items: () -> List<ContextMenuElement>,
+    // Fork-only: wider for names such as the fonts'
+    width: Dp = 180.dp,
 ) {
     DropDownMenu(enabled, showIcons, items) {
         Row(
-            modifier = Modifier.width(180.dp)
+            modifier = Modifier.width(width)
                 .border(
                     width = 2.dp,
                     color = MaterialTheme.colors.onBackground.copy(alpha = 0.1F),

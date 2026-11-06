@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.domain.models.ui.FontSettings
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.models.ui.resolved
@@ -78,6 +79,8 @@ fun AppTheme(
     // Fork-only: read only when the System theme is selected. Compose polls the operating system's setting, so a
     // change recomposes this, and the colours with it
     systemIsDark: Boolean = selectedTheme == Theme.System && isSystemInDarkTheme(),
+    // Fork-only: the interface font, the code font and its ligatures. An AppTheme inside another follows the outer one's
+    fonts: FontSettings = LocalFontSettings.current,
     content: @Composable () -> Unit,
 ) {
     // resolved() never returns System
@@ -95,8 +98,17 @@ fun AppTheme(
         LinesHeightType.DENSE -> denseLineHeight
     }.grownBy(textGrowth())
 
+    val interfaceFamily = remember(fonts.interfaceFont) { interfaceFontFamily(fonts.interfaceFont) }
+    val bundledMono = bundledMonoTypography()
+    val codeFamily = remember(fonts.codeFont) { codeFontFamily(fonts.codeFont) } ?: bundledMono
+    val codeFont = remember(codeFamily, fonts.codeLigatures) {
+        CodeFont(codeFamily, if (fonts.codeLigatures) null else NO_LIGATURES)
+    }
+
     val composeColors = theme.toComposeColors()
     val compositionValues = arrayOf(
+        LocalFontSettings provides fonts,
+        LocalCodeFont provides codeFont,
         LocalLinesHeight provides lineHeight,
         LocalStyleColors provides styleColors,
         LocalColorsScheme provides theme,
@@ -110,7 +122,7 @@ fun AppTheme(
         MaterialTheme(
             colors = composeColors,
             content = content,
-            typography = typography(composeColors),
+            typography = typography(composeColors, interfaceFamily),
         )
     }
 

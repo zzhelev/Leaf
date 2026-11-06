@@ -17,6 +17,7 @@ import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
+import dev.app.leaf.domain.models.ui.FontSettings
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.models.ui.Theme
@@ -129,8 +130,11 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.textSize,
             appSettingsService.linuxTitleBar,
             appSettingsService.toolbarLabels,
-        ) { theme, style, styles, library, notice, codeColours, textSize, linuxTitleBar, toolbarLabels ->
-            Appearance(theme, style, styles, library.unreadable, notice, codeColours, textSize, linuxTitleBar, toolbarLabels)
+            appSettingsService.fonts,
+        ) { theme, style, styles, library, notice, codeColours, textSize, linuxTitleBar, toolbarLabels, fonts ->
+            Appearance(
+                theme, style, styles, library.unreadable, notice, codeColours, textSize, linuxTitleBar, toolbarLabels, fonts,
+            )
         }
 
         return combine(
@@ -202,6 +206,7 @@ class SettingsViewModel @Inject constructor(
                 appearance.textSize,
                 appearance.linuxTitleBar,
                 appearance.toolbarLabels,
+                appearance.fonts,
                 linesHeightType,
                 dateFormatUseDefault,
                 dateFormatCustomFormat,
@@ -246,6 +251,7 @@ internal fun emptySettingsState(): SettingsViewState {
         textSize = TextSize.DEFAULT,
         linuxTitleBar = false,
         toolbarLabels = true,
+        fonts = FontSettings(),
         linesHeightType = LinesHeightType.SPACED,
         dateFormatUseDefault = false,
         dateFormatCustomFormat = "",
@@ -293,6 +299,8 @@ data class SettingsViewState(
     val linuxTitleBar: Boolean,
     /** Whether the toolbar's buttons show their names (fork-only). */
     val toolbarLabels: Boolean,
+    /** The interface font, the code font and its ligatures (fork-only). */
+    val fonts: FontSettings,
     val linesHeightType: LinesHeightType,
     val dateFormatUseDefault: Boolean,
     val dateFormatCustomFormat: String,
@@ -350,4 +358,5 @@ data class Appearance(
     val textSize: Int,
     val linuxTitleBar: Boolean,
     val toolbarLabels: Boolean,
+    val fonts: FontSettings,
 )

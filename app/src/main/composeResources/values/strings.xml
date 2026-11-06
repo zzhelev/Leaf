@@ -2137,6 +2137,24 @@
     <string name="window_button_close">Close</string>
     <string name="settings_toolbar_labels_title">Toolbar labels</string>
     <string name="settings_toolbar_labels_subtitle">Show the names of the toolbar's buttons next to their icons. They still hide in a narrow window.</string>
+    <string name="settings_interface_font_title">Interface font</string>
+    <string name="settings_interface_font_subtitle">The font of everything but code</string>
+    <string name="settings_interface_font_inter">Inter (default)</string>
+    <string name="settings_interface_font_system">System font (%1$s)</string>
+    <string name="settings_interface_font_system_missing">System font</string>
+    <string name="settings_code_font_title">Code font</string>
+    <string name="settings_code_font_subtitle">Diffs, blame, the conflict resolver, commit hashes and git commands</string>
+    <string name="settings_code_font_bundled_label">Noto Sans Mono (default)</string>
+    <string name="settings_code_font_missing">%1$s isn't installed, so Leaf uses Noto Sans Mono.</string>
+    <string name="settings_code_font_bundled">Bundled with Leaf</string>
+    <string name="settings_code_font_installed">Installed</string>
+    <string name="settings_code_font_default_tag">default</string>
+    <string name="settings_code_font_chosen">Chosen</string>
+    <string name="settings_code_font_filter_hint">Filter fonts</string>
+    <string name="settings_code_font_none">No font matches</string>
+    <string name="settings_code_font_preview">Code font preview</string>
+    <string name="settings_code_ligatures_title">Ligatures in code</string>
+    <string name="settings_code_ligatures_subtitle">Draws != as ≠, and other pairs of characters as one sign, in fonts that have them, such as Fira Code</string>
     <string name="settings_linux_title_bar_title">Tabs in the title bar</string>
     <string name="settings_linux_title_bar_subtitle">Leaf draws the window's frame, with the tabs in its title bar and its own window buttons, as on macOS and Windows.</string>
     <string name="settings_linux_title_bar_restart">Restart Leaf to apply it.</string>

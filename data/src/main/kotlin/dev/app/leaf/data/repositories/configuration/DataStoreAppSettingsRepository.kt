@@ -24,6 +24,8 @@ import dev.app.leaf.domain.models.WorktreeLabelRulesCodec
 import dev.app.leaf.domain.models.StatusSectionFolds
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
+import dev.app.leaf.domain.models.ui.InterfaceFont
+import dev.app.leaf.domain.models.ui.codeFontName
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.SortSettingsCodec
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +56,9 @@ private val scaleUiPreference get() = floatPreferencesKey("scale_ui")
 private val textSizePreference get() = intPreferencesKey("text_size")
 private val linuxTitleBarPreference get() = booleanPreferencesKey("linux_title_bar")
 private val toolbarLabelsPreference get() = booleanPreferencesKey("toolbar_labels")
+private val interfaceFontPreference get() = stringPreferencesKey("interface_font")
+private val codeFontPreference get() = stringPreferencesKey("code_font")
+private val codeLigaturesPreference get() = booleanPreferencesKey("code_ligatures")
 private val themePreference get() = stringPreferencesKey("theme")
 private val accentStylePreference get() = stringPreferencesKey("accent_style")
 private val codeColoursPreference get() = stringPreferencesKey("code_colours")
@@ -133,6 +138,11 @@ class DataStoreAppSettingsRepository @Inject constructor(
     /** Fork-only: whether Leaf draws the window's frame on Linux. */
     override val linuxTitleBar get() = preferences.data[linuxTitleBarPreference]
     override val toolbarLabels get() = preferences.data[toolbarLabelsPreference]
+
+    /** Fork-only: the fonts. A value that this version doesn't know reads as no choice. */
+    override val interfaceFont get() = preferences.data[interfaceFontPreference].map(InterfaceFont::fromKey)
+    override val codeFont get() = preferences.data[codeFontPreference]
+    override val codeLigatures get() = preferences.data[codeLigaturesPreference]
 
     override val theme = preferences.data[themePreference].map { themeMapper.toDomain(it) }
 
@@ -250,6 +260,10 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.TextSize -> setValue(textSizePreference, appConfig.value)
                 is AppConfig.LinuxTitleBar -> setValue(linuxTitleBarPreference, appConfig.value)
                 is AppConfig.ToolbarLabels -> setValue(toolbarLabelsPreference, appConfig.value)
+                is AppConfig.InterfaceFont -> setValue(interfaceFontPreference, appConfig.value.key)
+                // The bundled font is no key, so that a later default applies
+                is AppConfig.CodeFont -> setValue(codeFontPreference, codeFontName(appConfig.value))
+                is AppConfig.CodeLigatures -> setValue(codeLigaturesPreference, appConfig.value)
                 is AppConfig.CacheCredentialsInMemory -> setValue(cacheCredentialsPreference, appConfig.value)
                 is AppConfig.AvatarProvider -> setValue(
                     avatarProviderPreference,

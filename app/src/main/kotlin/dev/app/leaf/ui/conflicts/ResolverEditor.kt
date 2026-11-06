@@ -68,6 +68,7 @@ import dev.app.leaf.extensions.toStringWithSpaces
 import dev.app.leaf.domain.conflicts.EditorSyntax
 import dev.app.leaf.domain.conflicts.spansFor
 import dev.app.leaf.theme.SyntaxColors
+import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
@@ -332,8 +333,7 @@ internal fun PartEditor(
     val focusRequester = remember { FocusRequester() }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val onFinish by rememberUpdatedState(editing.actions.onFinish)
-    val style = MaterialTheme.typography.body2.copy(
-        fontFamily = monoTypography(),
+    val style = MaterialTheme.typography.body2.inCodeFont().copy(
         color = MaterialTheme.colors.onBackground,
     )
     val colours = EditorColours(edit.syntax, MaterialTheme.syntaxColors)

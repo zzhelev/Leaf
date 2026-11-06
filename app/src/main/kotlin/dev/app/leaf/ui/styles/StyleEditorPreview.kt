@@ -48,6 +48,7 @@ import dev.app.leaf.theme.diffLineAdded
 import dev.app.leaf.theme.diffLineRemoved
 import dev.app.leaf.theme.graphLanes
 import dev.app.leaf.theme.modifyFile
+import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.secondarySurface
@@ -230,7 +231,7 @@ private fun DiffLine(line: Color?, text: AnnotatedString.Builder.() -> Unit) {
     Text(
         text = buildAnnotatedString(text),
         color = MaterialTheme.colors.onBackground,
-        style = MaterialTheme.typography.body2.copy(fontFamily = monoTypography(), fontSize = 12.sp),
+        style = MaterialTheme.typography.body2.inCodeFont().copy(fontSize = 12.sp),
         maxLines = 1,
         overflow = TextOverflow.Clip,
         modifier = Modifier

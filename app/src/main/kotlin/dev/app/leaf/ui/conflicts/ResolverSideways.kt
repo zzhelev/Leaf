@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import dev.app.leaf.domain.extensions.replaceTabs
 import dev.app.leaf.domain.highlighting.SyntaxSpan
 import dev.app.leaf.domain.models.TextMerge
+import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.ui.components.LocalSidewaysScroll
 import dev.app.leaf.ui.components.SidewaysEndMargin
@@ -57,7 +58,7 @@ internal fun FitSideways(sideways: SidewaysScroll?, merge: TextMerge, narrowestC
     }
 
     val measurer = rememberTextMeasurer()
-    val style = MaterialTheme.typography.body2.copy(fontFamily = monoTypography())
+    val style = MaterialTheme.typography.body2.inCodeFont()
     val longest = remember(merge) { longestLine(merge) }
     val lineWidth = remember(longest, style) { measurer.measure(longest, style, softWrap = false).size.width }
     // As LineNumber lays them out: the digits, with 8 dp before and 4 after

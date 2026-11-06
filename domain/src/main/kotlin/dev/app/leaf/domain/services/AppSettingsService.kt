@@ -14,8 +14,11 @@ import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.WorktreesRefreshIntervals
 import dev.app.leaf.domain.models.WorktreesUntouchedDays
+import dev.app.leaf.domain.models.ui.FontSettings
+import dev.app.leaf.domain.models.ui.InterfaceFont
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.TextSize
+import dev.app.leaf.domain.models.ui.codeFontName
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -45,6 +48,20 @@ class AppSettingsService @Inject constructor(
 
     /** Fork-only: whether the toolbar's buttons show their names, on by default. See [AppConfig.ToolbarLabels]. */
     val toolbarLabels: Flow<Boolean> get() = appSettingsRepository.toolbarLabels.defaultIfNull { true }
+
+    /** Fork-only: the interface font, the code font and its ligatures, as one setting. See [FontSettings]. */
+    val fonts: Flow<FontSettings>
+        get() = combine(
+            appSettingsRepository.interfaceFont,
+            appSettingsRepository.codeFont,
+            appSettingsRepository.codeLigatures,
+        ) { interfaceFont, codeFont, codeLigatures ->
+            FontSettings(
+                interfaceFont = interfaceFont ?: InterfaceFont.DEFAULT,
+                codeFont = codeFontName(codeFont),
+                codeLigatures = codeLigatures ?: false,
+            )
+        }
     val theme: Flow<Theme> get() = appSettingsRepository.theme.defaultIfNull { DEFAULT_THEME }
 
     /** Fork-only: the id of the style that draws Leaf, Tonal's when none was chosen. See `StylesService`. */

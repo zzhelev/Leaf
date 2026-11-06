@@ -244,6 +244,7 @@ class App @Inject constructor(
         val themeInitial = appSettings.theme.first()
         val styleInitial = stylesService.selected.first()
         val codeColoursInitial = appSettings.codeColours.first()
+        val fontsInitial = appSettings.fonts.first()
         val scaleInitial = appSettings.scaleUi.firstOrNull()
         textSizes.start()
         val linesHeightTypeInitial = appSettings.linesHeightType.first()
@@ -259,6 +260,7 @@ class App @Inject constructor(
             val theme by appSettings.theme.collectAsState(themeInitial)
             val style by stylesService.selected.collectAsState(styleInitial)
             val codeColours by appSettings.codeColours.collectAsState(codeColoursInitial)
+            val fonts by appSettings.fonts.collectAsState(fontsInitial)
             val scale = appSettings.scaleUi.collectAsState(scaleInitial).value
             val textSize by textSizes.size.collectAsState()
             val linesHeightType by appSettings.linesHeightType.collectAsState(linesHeightTypeInitial)
@@ -424,6 +426,7 @@ class App @Inject constructor(
                         style = style,
                         codeColours = codeColours,
                         linesHeightType = linesHeightType,
+                        fonts = fonts,
                     ) {
                         LinuxWindowFrame(linuxFrame, window) {
                             Box(modifier = Modifier.background(MaterialTheme.colors.background)) {

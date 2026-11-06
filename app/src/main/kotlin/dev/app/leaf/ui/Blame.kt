@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +39,7 @@ import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.secondarySurface
 import dev.app.leaf.theme.syntaxColors
 import dev.app.leaf.theme.headerBackground
+import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.diff.colouredLine
@@ -130,7 +132,8 @@ fun Blame(
                             },
                             color = MaterialTheme.colors.onBackground,
                             modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
-                            fontFamily = monoTypography(),
+                            // Fork-only: with the code font's ligatures as Settings has them
+                            style = LocalTextStyle.current.inCodeFont(),
                             maxLines = 1,
                         )
                     }

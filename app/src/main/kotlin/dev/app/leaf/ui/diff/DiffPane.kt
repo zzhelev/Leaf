@@ -1424,8 +1424,8 @@ fun DiffText(
             .padding(start = startPadding)
             .fillMaxWidth()
             .then(whitespace?.modifier ?: Modifier),
-        fontFamily = monoTypography(),
-        style = MaterialTheme.typography.body2,
+        // Fork-only: with the code font's ligatures as Settings has them
+        style = MaterialTheme.typography.body2.inCodeFont(),
         color = MaterialTheme.colors.onBackground,
         overflow = TextOverflow.Visible,
         softWrap = true,

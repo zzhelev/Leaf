@@ -12,6 +12,7 @@ import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreeLabelRule
+import dev.app.leaf.domain.models.ui.InterfaceFont
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.sorting.FilesViewState
@@ -25,6 +26,9 @@ interface AppSettingsRepository {
     val textSize: Flow<Int?>
     val linuxTitleBar: Flow<Boolean?>
     val toolbarLabels: Flow<Boolean?>
+    val interfaceFont: Flow<InterfaceFont?>
+    val codeFont: Flow<String?>
+    val codeLigatures: Flow<Boolean?>
     val theme: Flow<Theme?>
     val styleId: Flow<String?>
     val codeColours: Flow<CodeColours?>

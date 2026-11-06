@@ -21,6 +21,15 @@ sealed interface AppConfig {
 
     /** Whether the toolbar's buttons show their names next to their icons, on by default (fork-only). */
     data class ToolbarLabels(val value: Boolean) : AppConfig
+
+    /** The font of everything but code, Inter by default (fork-only). See [dev.app.leaf.domain.models.ui.FontSettings]. */
+    data class InterfaceFont(val value: dev.app.leaf.domain.models.ui.InterfaceFont) : AppConfig
+
+    /** An installed font's family name for code, or null for the bundled Noto Sans Mono (fork-only). */
+    data class CodeFont(val value: String?) : AppConfig
+
+    /** Whether a code font may join `!=`, `->` and the like into one sign, off by default (fork-only). */
+    data class CodeLigatures(val value: Boolean) : AppConfig
     data class LinesHeight(val value: LinesHeightType?) : AppConfig
     data class PullWithRebase(val value: Boolean) : AppConfig
     data class PushWithLease(val value: Boolean) : AppConfig

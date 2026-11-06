@@ -816,6 +816,9 @@ internal fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (Set
         }
     )
 
+    // Fork-only: the interface font, the code font and its ligatures
+    FontRows(settingsViewState.fonts, onAction)
+
     // Fork-only: the toolbar's buttons as icons alone
     SettingToggle(
         title = stringResource(Res.string.settings_toolbar_labels_title),
@@ -880,6 +883,8 @@ fun <T> SettingDropDown(
     currentOption: T,
     // Fork-only: false greys the row out and keeps the menu closed
     enabled: Boolean = true,
+    // Fork-only: wider for names such as the fonts'
+    width: Dp = 180.dp,
 ) {
     Row(
         modifier = Modifier.padding(vertical = 8.dp),
@@ -894,6 +899,7 @@ fun <T> SettingDropDown(
                 enabled = enabled,
                 showIcons = false,
                 currentValue = dropDownOptions.first { it.value == currentOption }.optionName,
+                width = width,
                 items = {
                     dropDownOptions.map {
                         ContextMenuElement.ContextTextEntry(it.optionName, onClick = { onOptionSelected(it) })

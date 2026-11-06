@@ -64,6 +64,7 @@ import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.theme.diffLineAdded
 import dev.app.leaf.theme.diffLineRemoved
+import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.status.label
@@ -607,7 +608,7 @@ private fun VersionBody(
 /** The kept version's diff against the base, as the diff pane colours it. */
 @Composable
 private fun DiffPreview(changes: KeptChanges) {
-    val style = MaterialTheme.typography.body2.copy(fontFamily = monoTypography())
+    val style = MaterialTheme.typography.body2.inCodeFont()
 
     if (changes.lines.isEmpty()) {
         Muted(stringResource(Res.string.conflict_resolver_card_no_changes))

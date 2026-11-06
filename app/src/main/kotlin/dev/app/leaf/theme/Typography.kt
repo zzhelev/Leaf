@@ -27,8 +27,12 @@ import org.jetbrains.compose.resources.Font
 const val LETTER_SPACING = 0.5
 
 @Composable
-fun typography(composeColors: Colors): Typography {
-    val interFontFamily = FontFamily(
+fun typography(
+    composeColors: Colors,
+    // Fork-only: the interface font chosen in Settings, Inter when null
+    interfaceFontFamily: FontFamily? = null,
+): Typography {
+    val interFontFamily = interfaceFontFamily ?: FontFamily(
         Font(Res.font.Inter_18pt_Regular, FontWeight.Normal, FontStyle.Normal),
         Font(Res.font.Inter_18pt_Italic, FontWeight.Normal, FontStyle.Italic),
         Font(Res.font.Inter_18pt_Medium, FontWeight.Medium, FontStyle.Normal),
@@ -80,8 +84,12 @@ fun typography(composeColors: Colors): Typography {
     )
 }
 
+/** Fork-only: the code font chosen in Settings (see [codeFont]), for hashes, paths and commands. Code takes [inCodeFont]. */
 @Composable
-fun monoTypography(): FontFamily {
+fun monoTypography(): FontFamily = codeFont().family
+
+@Composable
+internal fun bundledMonoTypography(): FontFamily {
     val notoSansMonoFontFamily = FontFamily(
         Font(Res.font.NotoSansMono_Regular, FontWeight.Normal, FontStyle.Normal),
         Font(Res.font.NotoSansMono_Medium, FontWeight.Medium, FontStyle.Normal),

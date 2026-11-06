@@ -88,6 +88,7 @@ import dev.app.leaf.domain.commitmessage.wrapBody
 import dev.app.leaf.domain.models.RepositoryState
 import dev.app.leaf.domain.models.STATUS_COMMIT_TITLE_HEIGHT
 import dev.app.leaf.theme.conflictFile
+import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.theme.styleColors
@@ -444,7 +445,7 @@ internal fun CommitMessageTextField(
     val ruler = hints.ruler
     // Fork-only: a ruler counts columns, which only a monospace font lines up with
     val textStyle = if (ruler != null) {
-        MaterialTheme.typography.body2.copy(fontFamily = monoTypography())
+        MaterialTheme.typography.body2.inCodeFont()
     } else {
         MaterialTheme.typography.body1
     }

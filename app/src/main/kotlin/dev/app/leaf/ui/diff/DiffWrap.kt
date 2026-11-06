@@ -22,6 +22,7 @@ import dev.app.leaf.domain.extensions.replaceTabs
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
+import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.ui.components.LocalSidewaysScroll
 import dev.app.leaf.ui.components.SidewaysEndMargin
@@ -83,7 +84,7 @@ private fun FitDiffSideways(
     viewport: Dp,
 ) {
     val measurer = rememberTextMeasurer()
-    val style = MaterialTheme.typography.body2.copy(fontFamily = monoTypography())
+    val style = MaterialTheme.typography.body2.inCodeFont()
     val hunks = remember(diffResult) { diffResult.sourceHunks() }
     val longest = remember(hunks) { longestDiffLine(hunks.asSequence().flatMap { it.lines }) }
     val numberDigits = remember(hunks) { lineNumberDigits(hunks) }
