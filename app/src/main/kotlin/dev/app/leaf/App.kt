@@ -368,7 +368,7 @@ class App @Inject constructor(
                     }
                 }
 
-                // Fork-only: on macOS, the tabs go in the window's title bar (docs/fork/window-chrome.md)
+                // Fork-only: on macOS and Windows, the tabs go in the window's title bar (docs/fork/window-chrome.md)
                 val titleBar = remember(window) { windowTitleBarOf(window) }
 
                 val compositionValues: MutableList<ProvidedValue<*>> =

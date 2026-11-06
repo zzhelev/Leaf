@@ -5,11 +5,13 @@ package dev.app.leaf.ui.window
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -34,6 +37,7 @@ import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
+import dev.app.leaf.theme.FrameColors
 import dev.app.leaf.theme.frameColors
 import dev.app.leaf.theme.withText
 
@@ -42,28 +46,40 @@ private const val TAG = "WindowTitleBar"
 /** The height of the title bar that holds the tabs (docs/fork/window-chrome.md), at the default text size. */
 val TITLE_BAR_HEIGHT = 40.dp
 
+/** Where the tabs keep from the window's edge where its buttons leave none, as the toolbar does: Windows' left edge. */
+val TITLE_BAR_EDGE_PADDING = 12.dp
+
 /**
  * The window's own title bar, which Leaf draws in place of the system's (fork-only, docs/fork/window-chrome.md). Sizes
- * are in the window's units: points on macOS.
+ * are in the window's units: points on macOS, and on Windows pixels at 100% scaling.
  */
 interface WindowTitleBar {
-    /** The room that the window's buttons take at the left. */
+    /** The room that the window's buttons take at the left: macOS's. */
     val leftInset: Float
 
-    /** The room that the window's buttons take at the right. */
+    /** The room that the window's buttons take at the right: Windows'. */
     val rightInset: Float
 
     fun setHeight(height: Float)
 
     /**
+     * Whether the window's buttons are drawn for a dark bar. The runtime draws Windows' over Leaf's bar; macOS's follow
+     * the system's appearance, so this does nothing there.
+     */
+    fun setButtonsDark(dark: Boolean)
+
+    /**
      * For the mouse event being handled: true when Leaf takes it, false when the window does, which moves the window on
-     * a drag and zooms it on a double-click.
+     * a drag and zooms or maximizes it on a double-click.
      */
     fun forceHitTest(leafTakesIt: Boolean)
 }
 
 /** JetBrains Runtime's custom title bar, the one IntelliJ and Jewel use. */
-private class JbrWindowTitleBar(private val window: ComposeWindow) : WindowTitleBar {
+private class JbrWindowTitleBar(
+    private val window: ComposeWindow,
+    private val drawsButtons: Boolean,
+) : WindowTitleBar {
     private val decorations: WindowDecorations = JBR.getWindowDecorations()
     private val bar: WindowDecorations.CustomTitleBar = decorations.createCustomTitleBar()
 
@@ -76,19 +92,24 @@ private class JbrWindowTitleBar(private val window: ComposeWindow) : WindowTitle
         decorations.setCustomTitleBar(window, bar)
     }
 
+    override fun setButtonsDark(dark: Boolean) {
+        // JBR sets the bar on its window again when the value changes, and Windows reads it there
+        if (drawsButtons) bar.putProperty("controls.dark", dark)
+    }
+
     override fun forceHitTest(leafTakesIt: Boolean) = bar.forceHitTest(leafTakesIt)
 }
 
 /**
- * [window]'s own title bar, or null where Leaf keeps the system's: on systems other than macOS (Windows comes later,
- * D1), and on a runtime other than JetBrains', which has no API for it.
+ * [window]'s own title bar, or null where Leaf keeps the system's: on Linux, where JetBrains Runtime has no custom title
+ * bar (it allows Windows and macOS only), and on a runtime other than JetBrains', which has no API for it.
  */
 fun windowTitleBarOf(window: ComposeWindow): WindowTitleBar? {
-    if (currentOs != OS.MAC) return null
+    if (currentOs != OS.MAC && currentOs != OS.WINDOWS) return null
 
     return try {
         if (JBR.isWindowDecorationsSupported()) {
-            JbrWindowTitleBar(window)
+            JbrWindowTitleBar(window, drawsButtons = currentOs == OS.WINDOWS)
         } else {
             printLog(TAG, "The runtime can't draw a custom title bar, so the system's stays")
             null
@@ -166,8 +187,18 @@ class TitleBarPointer {
 }
 
 /**
- * The title bar: [TITLE_BAR_HEIGHT] tall, starting after the window's buttons and ending [TITLE_BAR_FREE_STRIP] before
- * the right edge. [content] marks its controls with [titleBarControl]; the rest of the bar moves the window.
+ * The room around the tabs: after macOS's buttons ([leftInset]) but at least [TITLE_BAR_EDGE_PADDING] from the edge, and
+ * [TITLE_BAR_FREE_STRIP] before Windows' buttons ([rightInset]), or before the edge on macOS.
+ */
+internal fun titleBarPadding(leftInset: Dp, rightInset: Dp): PaddingValues =
+    PaddingValues(start = maxOf(leftInset, TITLE_BAR_EDGE_PADDING), end = rightInset + TITLE_BAR_FREE_STRIP)
+
+/** Whether the window's buttons go on a dark bar: one whose text is lighter than it is. */
+internal fun hasDarkBar(frame: FrameColors): Boolean = frame.text.luminance() > frame.background.luminance()
+
+/**
+ * The title bar: [TITLE_BAR_HEIGHT] tall, with its content between the window's buttons and [TITLE_BAR_FREE_STRIP]
+ * (see [titleBarPadding]). [content] marks its controls with [titleBarControl]; the rest of the bar moves the window.
  */
 @Composable
 fun TitleBar(
@@ -187,21 +218,28 @@ fun TitleBar(
     val barHeight = TITLE_BAR_HEIGHT.withText()
     val heightInPoints = with(density) { barHeight.toPx() } / windowScale
 
+    val frame = MaterialTheme.frameColors
+
     // Not set again when full screen starts or ends: macOS resizes the window then, and setting the bar at the same
     // time made JBR drop a resize event ("invokeAndWait is discarded as the EventDispatch thread is currently blocked")
-    val buttonsInset: Dp = remember(titleBar, heightInPoints, windowScale) {
+    val buttonsInsets: Pair<Dp, Dp> = remember(titleBar, heightInPoints, windowScale) {
         titleBar.setHeight(heightInPoints)
         printLog(TAG, "Title bar: height ${heightInPoints}pt, insets ${titleBar.leftInset} and ${titleBar.rightInset}")
-        with(density) { (titleBar.leftInset * windowScale).toDp() }
+        with(density) { (titleBar.leftInset * windowScale).toDp() to (titleBar.rightInset * windowScale).toDp() }
     }
-    // Full screen hides the window's buttons, as JBR reports (an inset of 0)
-    val leftInset = if (isFullscreen) 0.dp else buttonsInset
+    // Full screen hides macOS's buttons, as JBR reports (an inset of 0)
+    val leftInset = if (isFullscreen) 0.dp else buttonsInsets.first
+    val buttonsDark = hasDarkBar(frame)
+
+    LaunchedEffect(titleBar, buttonsDark) {
+        titleBar.setButtonsDark(buttonsDark)
+    }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(barHeight)
-            .background(MaterialTheme.frameColors.background)
+            .background(frame.background)
             .onGloballyPositioned { holder.coordinates = it }
             .pointerInput(titleBar) {
                 awaitPointerEventScope {
@@ -214,7 +252,7 @@ fun TitleBar(
                     }
                 }
             }
-            .padding(start = leftInset, end = TITLE_BAR_FREE_STRIP),
+            .padding(titleBarPadding(leftInset, buttonsInsets.second)),
         contentAlignment = Alignment.CenterStart,
     ) {
         content(controls)

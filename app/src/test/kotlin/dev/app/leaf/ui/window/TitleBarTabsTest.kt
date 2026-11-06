@@ -156,6 +156,7 @@ class TitleBarTabsTest {
         override fun setHeight(height: Float) {
             heights += height
         }
+        override fun setButtonsDark(dark: Boolean) {}
         override fun forceHitTest(leafTakesIt: Boolean) {}
     }
 
