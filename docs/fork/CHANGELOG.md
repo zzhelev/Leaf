@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The original project's name is out of the README and the tests too (2026-11-06)
+
+- **Request:** stop naming the original project wherever that's possible.
+- **Why it's possible:** the GPL v3 doesn't ask for the original's name. Section 5a asks for prominent notices that the
+  work was modified, with a relevant date. The original added no attribution terms under section 7(b), and none of its
+  files have a copyright notice, so its `LICENSE` file is the only notice there is to keep intact (section 4). The
+  2026-10-20 entry below kept the README's sentence on the opposite reading of 5a.
+- **README:** the License section says that Leaf is "a modified version of an open-source git client, forked from its
+  2.0 development branch in October 2026", and that the files from "the original project" are GPL-3.0-only. No name, no
+  link.
+- **`AppStorageTest`:** its check is turned around. It used to fail when a storage name had the original app's name in
+  it, so it had to spell that name; it now fails when a storage name doesn't have "leaf" in it, which none of the
+  original app's names do.
+- **`CLAUDE.md`:** the Name section says so, and the merge checklist's search must now find no file.
+- **Stays:** the address of the `upstream` remote in `.git/config` (not tracked) and commit messages already pushed.
+- **Checked:** the merge checklist's search finds no path and no file, and `AppStorageTest` passes.
+
 ## Linux: tabs in the title bar, as an option (2026-11-06)
 
 - **Request:** the same title bar on Linux, after an estimate of the work and an answer on how the Linux code would be

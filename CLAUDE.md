@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Fork of an open-source git client (Kotlin, Compose Desktop, JGit; the README's License section names it) that adds
+Fork of an open-source git client (Kotlin, Compose Desktop, JGit; the `upstream` remote has its address) that adds
 first-class git worktree support for AI-agent workflows. The fork plan and working rules are in `docs/fork/PLAN.md`.
 Read them before starting any work item. Findings about JGit and worktrees are in `docs/fork/architecture-notes.md`.
 
@@ -32,14 +32,15 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
     `<git dir>/rebase-merge/leaf-amend-message-<commit>`, its message for an edit stop (see The plain draft).
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
-- **The original project, and its author, are named only where GPL-3.0 needs it:** the README's License section says,
-  in one dated sentence, that Leaf is a modified version of it (section 5a), links its repository (whose address has
-  the author's name) and says which files keep its license. The app's About text doesn't name it (2026-10-09). Both
-  stay as long as any code from it is in Leaf. Everything else says "upstream" (its code and tags, the `upstream`
-  remote) or "the original app" (an installed copy), and an issue is "upstream issue 186". The one other place with
-  the project's name is `AppStorageTest`, whose check that no storage name contains it needs the string. Swept from the
-  rest of the repository on 2026-10-20, the author's name too; the check is under Branches and remotes. Old commit
-  messages keep both, as `main` is published.
+- **Neither the original project nor its author is named in the repository** (since 2026-11-06). The README's License
+  section says, in one dated sentence, that Leaf is a modified version of an open-source git client, and which files
+  keep its license. That is what section 5a of the GPL v3 asks for: a dated notice of the changes, not the original's
+  name. The original added no attribution terms under section 7(b), and its files have no copyright notices to keep.
+  The app's About text doesn't name it either (2026-10-09). Everything else says "upstream" (its code and tags, the
+  `upstream` remote) or "the original app" (an installed copy), and an issue is "upstream issue 186". `AppStorageTest`
+  checks that every storage name has "leaf" in it, rather than looking for the original's name. Swept from the
+  repository on 2026-10-20, and from the README and that test on 2026-11-06; the check is under Branches and remotes.
+  Old commit messages keep both names, as `main` is published.
 
 ## Branches and remotes
 
@@ -56,15 +57,14 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
   - A file the fork rewrote comes up as modify/delete, and upstream's change has to be ported by hand.
 
   After resolving, new files need `dev.app.leaf` packages, and the names of the project and its author must be in no
-  path and in no file but the README's License section and `AppStorageTest`. The check reads both names from the
-  remote, so that the repository doesn't have to spell them:
+  path and no file. The check reads both names from the remote, so that the repository doesn't have to spell them:
 
   ```bash
   url=$(git remote get-url upstream)
   owner=$(basename "$(dirname "$url")" | sed 's/.*://' | tr '[:upper:]' '[:lower:]')
   repo=$(basename "$url" .git | tr '[:upper:]' '[:lower:]')
   git ls-files "*${owner}*" "*${repo}*"          # must print nothing: no folder or file under upstream's names
-  git grep -I -i -l -e "$owner" -e "$repo"       # must print README.md and AppStorageTest.kt, nothing else
+  git grep -I -i -l -e "$owner" -e "$repo"       # must print nothing: no file has either name
   ```
 
   Also read what git merged without a conflict in files the fork changed: on 2026-10-16 it merged upstream's fix of
