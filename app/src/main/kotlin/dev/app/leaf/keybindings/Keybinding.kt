@@ -183,7 +183,10 @@ private fun baseKeybindings() = mapOf(
         Keybinding(key = Key.DirectionRight, alt = true),
         Keybinding(key = Key.Tab, control = true),
     ),
+    // Fork-only: Ctrl+, (⌘, on macOS) opens Settings, as in most apps, and the app menu's Settings item has it on
+    // macOS. It comes first, so that tooltips show it.
     KeybindingOption.SETTINGS to listOf(
+        Keybinding(key = Key.Comma, control = true),
         Keybinding(key = Key.S, control = true, alt = true),
     ),
     KeybindingOption.BRANCHES_PANE to listOf(

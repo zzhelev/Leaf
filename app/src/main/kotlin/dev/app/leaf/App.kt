@@ -317,6 +317,17 @@ class App @Inject constructor(
                 onDispose { desktop?.setQuitHandler(null) }
             }
 
+            DisposableEffect(Unit) {
+                // Fork-only, macOS: the app menu's Settings item, with ⌘,. Without a handler, the item is greyed out.
+                val desktop = desktopSupporting(Desktop.Action.APP_PREFERENCES)
+
+                desktop?.setPreferencesHandler {
+                    SwingUtilities.invokeLater { appViewModel.currentTab.value?.data?.showSettings() }
+                }
+
+                onDispose { desktop?.setPreferencesHandler(null) }
+            }
+
             val quitPrompt = appViewModel.quitPrompt.collectAsState().value
 
             Window(

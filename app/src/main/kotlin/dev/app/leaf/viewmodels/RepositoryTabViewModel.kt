@@ -222,6 +222,16 @@ class RepositoryTabViewModel @AssistedInject constructor(
         }
     )
 
+    /**
+     * Opens Settings, unless it's open already (fork-only): on macOS, ⌘, reaches the app menu's Settings item, and may
+     * reach the tab's keys too.
+     */
+    fun showSettings() {
+        if (Screen.Settings !in backStack) {
+            backStack.add(Screen.Settings)
+        }
+    }
+
     val processingTask = repositoryStateRepository.currentTask
         .debounce(300L.milliseconds)
         .stateIn(initialValue = null)
