@@ -3388,16 +3388,18 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
 
 Fork-only, 2026-11-04 and 05, `docs/fork/window-chrome.md`: direction A of the Design artifact "Leaf window chrome
 review" for every style, and C as the Leaf style (see Styles under Conventions). The decisions, chosen with the user,
-are in section 8 of the doc. Windows came last (step 8), and hasn't been run on Windows yet.
+are in section 8 of the doc. Windows came last (step 8), and hasn't been run on Windows yet. Linux has it as an option
+since 2026-11-06 (section 10, and Leaf's own frame on Linux below).
 
 **The title bar (macOS and Windows, `ui/window/WindowTitleBar.kt`):** the tabs are in the window's own title bar, which
 Leaf draws through JetBrains Runtime's custom title bar (`JBR.getWindowDecorations()`, the API that IntelliJ and Jewel
 use), behind the `WindowTitleBar` interface.
 - `windowTitleBarOf(window)` gives one on macOS and Windows when the runtime has it
-  (`JBR.isWindowDecorationsSupported()`), else null: Linux and a runtime other than JetBrains' keep the system's bar,
-  with the tab row under it in the new look. JBR's custom title bar is for Windows and macOS only (its
-  `Window.CustomTitleBar` says so); Linux would need an undecorated window with buttons, resize edges and moving of
-  Leaf's own, as Jewel does. `org.jetbrains.runtime:jbr-api` 1.9.0 is an `implementation` dependency of `app`, at the
+  (`JBR.isWindowDecorationsSupported()`), else null: a runtime other than JetBrains' keeps the system's bar, with the
+  tab row under it in the new look, and so does Linux unless Leaf draws its own frame there (below). JBR's custom title
+  bar is for Windows and macOS only (its `Window.CustomTitleBar` says so). `App.kt` takes the Linux bar when there's no
+  JBR one (`windowTitleBarOf(window) ?: linuxFrame?.titleBar(window)`). `org.jetbrains.runtime:jbr-api` 1.9.0 is an
+  `implementation` dependency of `app`, at the
   version that Compose's `foundation-desktop` already brings at runtime, so nothing new ships. Not Jewel, whose
   `DecoratedWindow` needs its own theme in place of Material.
 - `TitleBar` (`App.AppTabs`) is 40 dp (`TITLE_BAR_HEIGHT`), and a line taller at a bigger text size (`withText`, as its
@@ -3435,6 +3437,49 @@ use), behind the `WindowTitleBar` interface.
   `TitleBarTabsTest` (the width rule, a few tabs, tabs that shrink, tabs that scroll with arrows; PNGs in five styles,
   light and dark, with `LEAF_RENDER_DIR`). The real window was tried in dev runs by the user: clicks, reordering,
   renaming, moving the window, full screen.
+
+**Leaf's own frame on Linux (an option, `ui/window/linux/`, 2026-11-06, section 10 of the doc):** Settings → Appearance
+→ "Tabs in the title bar", on Linux only and off by default (`AppConfig.LinuxTitleBar`, `linux_title_bar`), gives the
+window an undecorated frame of Leaf's, with the tabs in its title bar as on macOS and Windows. Built as IntelliJ does
+it behind an option. Everything Linux-only is in the package; the shared title bar has two hooks with defaults that do
+nothing (`WindowTitleBar.pointerOnBar`, `startButtons` and `endButtons`), and `App.kt` about ten lines.
+- **When Leaf starts** (`LinuxFrame.atStart`, before the window exists, as a frame can't come or go while it's open):
+  with the setting on and `LinuxFrame.support` saying `Supported`, the `Window` is `undecorated`, `LinuxFrame` reads the
+  desktop's button layout, and `LinuxFrame.isDrawn` is set. The row says "Restart Leaf to apply it." while the setting
+  and the window differ.
+- **Where it's allowed** (`linuxFrameSupport`, `LinuxFrameSupport.Reason`): JetBrains Runtime's `WindowMove`
+  (`JBR.isWindowMoveSupported()`, which the Linux `.jar` run on another Java lacks), AWT's X11 or Wayland toolkit, not
+  WSL, no tiling window manager (i3, Sway, Hyprland, Regolith and others, before the stacking ones: Regolith calls
+  itself `Regolith:GNOME`), and a desktop it knows stacks windows (`XDG_CURRENT_DESKTOP`, `XDG_SESSION_DESKTOP`,
+  `DESKTOP_SESSION`: GNOME, KDE, Xfce, Cinnamon, MATE, Budgie, Pantheon, LXQt and others). Elsewhere the system's frame
+  stays, logged, and the row is greyed out with the reason.
+- **The bar** (`LinuxWindowTitleBar`): a drag from the empty bar past 4 px asks the window manager to move the window
+  (`JBR.getWindowMove().startMovingTogetherWithMouse`, `_NET_WM_MOVERESIZE` on X11), which keeps its snapping. Not on
+  the press: the window manager takes the pointer then, and after a quick click, whose release came first, xfwm4 went on
+  moving the window until the next click (found in the container). `TitleBar` passes the press, the moves and the
+  release of a press that began off the controls. A second press within the desktop's double-click time
+  (`awt.multiClickInterval`, 500 ms without one) maximizes or restores. The free strip and the controls are as on macOS.
+- **The buttons** (`WindowButtons`, `WindowButtonLayout`): the desktop's own layout (`readWindowButtonLayout`): GNOME's,
+  Cinnamon's and MATE's `button-layout` through `gsettings`, KDE's `ButtonsOnLeft` and `ButtonsOnRight` through
+  `kreadconfig6` or `kreadconfig5`, Xfce's `button_layout` through `xfconf-query`, else minimize, maximize and close at
+  the right. GNOME's default is close alone. 34 × 28 dp, a glyph in `frame.text` (`frame.secondaryText` while another
+  window is active), filled as the tabs are on hover, close red (`#C42B1C`). Minimize sets `ICONIFIED`, maximize toggles
+  `MAXIMIZED_BOTH`, close dispatches `WINDOW_CLOSING`, so quitting asks as before. In the bar's row, before and after
+  the content (`TitleBar` is a `Row` now; without buttons it lays out as before).
+- **The frame** (`LinuxWindowFrame`, around the window's content in `App.kt`): a 1 dp line in `frame.controlEdge`, none
+  while maximized, and a smallest size of 640 × 400. Compose resizes an undecorated window from its edges itself
+  (`UndecoratedWindowResizer`, a layer over the content), so Leaf has no resize code: its own handles, first built,
+  were never reached. Without the smallest size, the bottom edge left the window 1 px tall.
+- **Checked in a container** (Ubuntu 24.04 arm64, Xvfb, JBR 25.0.4.1 for Linux, Leaf's jars with skiko's Linux runtime;
+  driven with xdotool): xfwm4 and Mutter on X11, and KWin (see section 10 of the doc). Not checked: a Wayland session
+  (Leaf runs under XWayland), real scaling, how it feels.
+- **Lost against the system's frame:** the window menu on a right-click on the bar, the desktop's own button look,
+  rounded corners and the shadow.
+- Tests: `LinuxFrameSupportTest`, `WindowButtonLayoutTest` (each desktop's values and tools, with a fake),
+  `LinuxWindowTitleBarTest` (the drag rule, double-clicks, the buttons' places and clicks rendered, a press on a tab or
+  with the secondary button; PNGs in Tonal, Classic and Leaf with `LEAF_RENDER_DIR`), `LinuxWindowFrameTest`,
+  `LinuxTitleBarRowTest` (each reason, the restart note, Linux only), `LinuxTitleBarSettingTest` (data). The macOS and
+  Windows title bar tests pass unchanged. 12 mutations were each caught by a named test.
 
 **The toolbar (`ui/toolbar/Toolbar.kt`):** one 48 dp row on the frame's colours, in place of upstream's `Menu`: the
 repository switcher, a divider, Pull ⌄ | Push ⌄ as one group, Branch, Stash ⌄ | Pop as one group, then Actions, Terminal

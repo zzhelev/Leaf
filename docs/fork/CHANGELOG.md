@@ -2,6 +2,26 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Linux: tabs in the title bar, as an option (2026-11-06)
+
+- **Request:** the same title bar on Linux, after an estimate of the work and an answer on how the Linux code would be
+  kept apart from the rest.
+- **Now:** Settings → Appearance → "Tabs in the title bar", on Linux only and off by default. From Leaf's next start the
+  window has no system frame: the tabs are in its title bar, a drag on the empty bar moves the window through the
+  window manager, a double-click maximizes or restores it, and Leaf draws minimize, maximize and close where the desktop
+  puts them (GNOME's default is close alone). A 1 dp line goes around the window, and its edges resize it, down to
+  640 × 400.
+- **Only where it can work:** on JetBrains Runtime (the `.deb`'s), not under WSL, not with a tiling window manager, and on
+  a desktop that Leaf knows. Elsewhere the row is greyed out and says why, and the system's frame stays.
+- **Kept apart:** the Linux code is in `ui/window/linux/`. The shared title bar has two hooks that do nothing on macOS
+  and Windows, whose tests pass unchanged, and `App.kt` about ten lines.
+- **Found in the container,** where Leaf ran under xfwm4, Mutter and KWin on X11: starting the move on the press, as
+  Jewel does, left xfwm4 moving the window after a quick click, so the move starts once a drag passes 4 px; and Compose
+  already resizes an undecorated window from its edges, so Leaf's own resize code went, and only the smallest size
+  stayed, without which a drag on the bottom edge left the window 1 px tall.
+- **Not yet checked:** a Wayland session, real scaling, and a real desktop by hand.
+- Details: CLAUDE.md, "The window", Leaf's own frame on Linux, and section 10 of `docs/fork/window-chrome.md`.
+
 ## The window: tabs in the title bar, a compact toolbar, quieter headers, and a Leaf style (2026-11-05)
 
 - **Request:** the window looked dull: a system title bar that repeated the tab's name, a tab bar under it, a tall
