@@ -12,8 +12,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Now, on macOS:** the tabs are in the window's own title bar, next to the window buttons, drawn through JetBrains
   Runtime's custom title bar. Dragging the empty bar moves the window and a double-click zooms it, as before; the bar's
   last 110 dp never hold a tab, so the window can always be moved. Tabs shrink to share the bar, then scroll with
-  arrows. Windows and Linux keep the system's bar, with the tabs under it in the new look; Windows is the next step,
-  once this is approved.
+  arrows. Linux keeps the system's bar, with the tabs under it in the new look.
 - **The toolbar** is one 48 dp row: a switcher ("orbit-api / main ⌄") that holds the worktrees, "Open a repository…" and
   the recent repositories, in place of the Open button and the worktree picker (⌘O opens it); Pull and Push as one
   group, Branch, Stash and Pop as one group; then Actions with ⌘K, a new shortcut for the Actions list, and Terminal and
@@ -37,6 +36,10 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **With the text size** (the entry below, merged in the same day): the title bar, its tabs, the toolbar and the
   two-line Commit button grow by a line, and the toolbar keeps its labels at the same window widths, which at 20 still
   leave room to spare. Checked at 20 in a real window.
+- **On Windows too** (step 8): the same title bar, with Windows' minimize, maximize and close buttons at its right,
+  drawn by the runtime light or dark to suit the frame, and the 110 dp to move the window from just before them. The
+  first tab keeps 12 dp from the window's left edge, as Windows leaves no buttons there; so does macOS's in full screen,
+  where it touched the edge. Built and tested on macOS; not yet run on Windows.
 - Details: CLAUDE.md, "The window", and Styles under Conventions, Settings.
 
 ## A text size, apart from Scale (2026-11-05)

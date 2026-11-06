@@ -3388,25 +3388,34 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
 
 Fork-only, 2026-11-04 and 05, `docs/fork/window-chrome.md`: direction A of the Design artifact "Leaf window chrome
 review" for every style, and C as the Leaf style (see Styles under Conventions). The decisions, chosen with the user,
-are in section 8 of the doc. Windows, step 8, comes once macOS is approved.
+are in section 8 of the doc. Windows came last (step 8), and hasn't been run on Windows yet.
 
-**The title bar (macOS, `ui/window/WindowTitleBar.kt`):** the tabs are in the window's own title bar, which Leaf draws
-through JetBrains Runtime's custom title bar (`JBR.getWindowDecorations()`, the API that IntelliJ and Jewel use), behind
-the `WindowTitleBar` interface.
-- `windowTitleBarOf(window)` gives one on macOS when the runtime has it (`JBR.isWindowDecorationsSupported()`), else
-  null: Windows (until step 8), Linux, and a runtime other than JetBrains' keep the system's bar, with the tab row under
-  it in the new look. `org.jetbrains.runtime:jbr-api` 1.9.0 is an `implementation` dependency of `app`, at the version
-  that Compose's `foundation-desktop` already brings at runtime, so nothing new ships. Not Jewel, whose
+**The title bar (macOS and Windows, `ui/window/WindowTitleBar.kt`):** the tabs are in the window's own title bar, which
+Leaf draws through JetBrains Runtime's custom title bar (`JBR.getWindowDecorations()`, the API that IntelliJ and Jewel
+use), behind the `WindowTitleBar` interface.
+- `windowTitleBarOf(window)` gives one on macOS and Windows when the runtime has it
+  (`JBR.isWindowDecorationsSupported()`), else null: Linux and a runtime other than JetBrains' keep the system's bar,
+  with the tab row under it in the new look. JBR's custom title bar is for Windows and macOS only (its
+  `Window.CustomTitleBar` says so); Linux would need an undecorated window with buttons, resize edges and moving of
+  Leaf's own, as Jewel does. `org.jetbrains.runtime:jbr-api` 1.9.0 is an `implementation` dependency of `app`, at the
+  version that Compose's `foundation-desktop` already brings at runtime, so nothing new ships. Not Jewel, whose
   `DecoratedWindow` needs its own theme in place of Material.
 - `TitleBar` (`App.AppTabs`) is 40 dp (`TITLE_BAR_HEIGHT`), and a line taller at a bigger text size (`withText`, as its
   28 dp tabs), given to JBR in points, and set again only when that, the text size or the display's scale changes.
   Setting it again as full screen started made JBR drop a resize event, so full screen only takes away the left padding,
   the window buttons' `leftInset` (80 pt, 0 in full screen).
-- **Clicks:** the bar is macOS's (a drag moves the window, a double-click zooms it, edge snapping and tiling work),
-  except where `Modifier.titleBarControl` marks a control: the whole tab row (`TabsRow`). At each pointer event, in
-  `PointerEventPass.Initial`, `TitleBarPointer` decides and `TitleBar` calls `forceHitTest`: a press on a control and
-  everything until its release are Leaf's, so dragging a tab never moves the window, and a drag from the empty bar stays
-  the window's.
+- **Room for the window's buttons** (`titleBarPadding`): the content starts after `leftInset` (macOS's buttons), but at
+  least 12 dp from the edge (`TITLE_BAR_EDGE_PADDING`, as the toolbar's, for Windows and macOS's full screen), and ends
+  `TITLE_BAR_FREE_STRIP` before `rightInset` (Windows' buttons; 0 on macOS). Insets are in the window's units, points on
+  macOS and pixels at 100% on Windows, so the scale converts them as it does the height.
+- **Windows' buttons** are drawn by JBR over Leaf's bar: `setButtonsDark` sets JBR's `controls.dark` while the frame's
+  text is lighter than the frame (`hasDarkBar`: dark themes and the Leaf style), and JBR sets the bar again when it
+  changes. macOS's buttons follow the system's appearance, so it does nothing there.
+- **Clicks:** the bar is the system's (a drag moves the window, a double-click zooms or maximizes it, edge snapping and
+  tiling work), except where `Modifier.titleBarControl` marks a control: the whole tab row (`TabsRow`). At each pointer
+  event, in `PointerEventPass.Initial`, `TitleBarPointer` decides and `TitleBar` calls `forceHitTest`: a press on a
+  control and everything until its release are Leaf's, so dragging a tab never moves the window, and a drag from the
+  empty bar stays the window's.
 - **A full tab bar** (option 1 of 3, chosen with the user after the spike): the bar's last 110 dp
   (`TITLE_BAR_FREE_STRIP`) never hold a tab, so the window can always be moved from there. Tabs share the bar down to
   120 dp each (`titleBarTabWidth`, after the gaps and the + button), then scroll, with ‹ and › (`TabScrollArrow`) in
@@ -3421,9 +3430,11 @@ the `WindowTitleBar` interface.
   `MaterialDialog`'s scrim covers the bar too. The window's title is still set, for macOS's Window menu, the Dock and
   Mission Control, but isn't drawn.
 - Tests: `TitleBarPointerTest` (a press on a control or on the empty bar, a drag out of the tabs or onto them, no
-  controls), `TitleBarTabsTest` (the width rule, a few tabs, tabs that shrink, tabs that scroll with arrows; PNGs in
-  five styles, light and dark, with `LEAF_RENDER_DIR`). The real window was tried in dev runs by the user: clicks,
-  reordering, renaming, moving the window, full screen.
+  controls), `TitleBarInsetsTest` (the room for macOS's and Windows' buttons, the buttons' darkness for every built-in
+  style, and a bar rendered with Windows' insets that follows a theme change; 5 mutations each caught),
+  `TitleBarTabsTest` (the width rule, a few tabs, tabs that shrink, tabs that scroll with arrows; PNGs in five styles,
+  light and dark, with `LEAF_RENDER_DIR`). The real window was tried in dev runs by the user: clicks, reordering,
+  renaming, moving the window, full screen.
 
 **The toolbar (`ui/toolbar/Toolbar.kt`):** one 48 dp row on the frame's colours, in place of upstream's `Menu`: the
 repository switcher, a divider, Pull ⌄ | Push ⌄ as one group, Branch, Stash ⌄ | Pop as one group, then Actions, Terminal

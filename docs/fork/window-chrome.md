@@ -5,7 +5,7 @@
 | Question | Can Leaf's window look less dull without changing how it works? |
 | Verified against | `main` at `6cd2994b` (Leaf 1.7.0) |
 | Date | 2026-11-04 |
-| Status | Plan. Directions A and C, and the decisions in section 8, chosen with the user on 2026-11-04 |
+| Status | Built on 2026-11-05: steps 0 to 7 on macOS; step 8, Windows, built but not yet run on Windows. Directions A and C, and the decisions in section 8, chosen with the user on 2026-11-04 |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`.
 
@@ -71,10 +71,11 @@ which replaces Material. Leaf uses Material, so it calls the same JBR API itself
 **Platforms.**
 
 - **macOS:** first, and tested here.
-- **Windows:** JBR supports it, as IntelliJ uses it, but Leaf has never been run on Windows here. It comes after the
-  macOS work is done and approved (D1, step 8), and keeps the system bar until then.
-- **Linux:** JBR draws no custom bar there. Jewel makes its own window on Linux (undecorated, with its own buttons, and
-  moved through `WindowMove`), which brings resizing and Wayland problems. Linux keeps the system bar.
+- **Windows:** JBR supports it, as IntelliJ uses it, but Leaf has never been run on Windows here. It came after the
+  macOS work (D1, step 8).
+- **Linux:** JBR draws no custom bar there: its `Window.CustomTitleBar` refuses anything but Windows and macOS ("Only
+  supported on Windows and macOS", JBR 25.0.4.1). Jewel makes its own window on Linux (undecorated, with its own
+  buttons, and moved through `WindowMove`), which brings resizing and Wayland problems. Linux keeps the system bar.
 
 **What the tabs keep:**
 
@@ -324,8 +325,8 @@ Without the seed, Leaf sets its frame slots by hand, and user styles change them
   frame's controls, where Tonal has 6.2. Chosen with the user from renders of the tab bar and the toolbar with four
   greens (2026-11-05): #B4D6C2, 6.3 : 1 on the controls and 8.0 on the frame, still clearly dimmer than the white text.
   The mockup's #A9CDB7 held 5.7, and a lighter #C8E3D3 made the other tabs look as bright as the selected one.
-- **`controls.dark`**, which the plan listed, is a property of JBR's custom title bar that only Windows reads. It's for
-  step 8, where it can follow the frame's darkness.
+- **`controls.dark`**, which the plan listed, is a property of JBR's custom title bar that only Windows reads. Step 8
+  sets it from the frame's darkness.
 - **The editor:** a Frame row after Background, with a swatch per side showing the worked-out colour until one is
   picked, and "Use the worked-out colour" in the picker to follow the background again (`StyleEditorState.withFrame`).
   The preview has no frame: a strip of it at the top of each side pushed the dark side's files and Commit out of the
@@ -447,7 +448,24 @@ diff and the files that the message is about; and this one.
    2026-11-05: CLAUDE.md's "The window" and its Styles, the changelog, and the README's two screenshots, taken again
    from a dev run's window at 1600 × 900 (how: CLAUDE.md, Offscreen UI checks) against a demo like the old one's.
 8. **Windows** (D1), once steps 0 to 7 are approved on macOS: the same title bar, with the caption buttons on the right
-   (`rightInset`), checked on a Windows machine.
+   (`rightInset`), checked on a Windows machine. Built 2026-11-05, and tested on macOS only (`TitleBarInsetsTest`):
+   - `windowTitleBarOf` gives Windows the JBR bar too.
+   - The content ends `TITLE_BAR_FREE_STRIP` before `rightInset`, Windows' buttons, so the window still moves from the
+     110 dp next to them. It starts at least 12 dp from the left edge (`TITLE_BAR_EDGE_PADDING`, the toolbar's), as
+     Windows leaves no buttons there; macOS in full screen gets the same, where the first tab touched the screen's edge.
+   - `controls.dark` follows the frame (`hasDarkBar`: its text lighter than it), so the buttons are light on dark
+     themes and on the Leaf style's green. JBR sets the bar again when the value changes; on macOS nothing is set.
+
+   **Still to check on a Windows machine** (Windows 10 and 11, at 100% and 150% scaling, light and dark, and the Leaf
+   style):
+   - the buttons: drawn at the right, light or dark as the frame needs, hover and the red close, Windows 11's snap
+     layouts on the maximize button;
+   - the bar: dragging from the free strip and from the empty bar, a double-click maximizing and restoring, dragging to
+     the screen's top or sides to snap, a right-click or Alt+Space giving the system menu;
+   - the tabs: clicks, the × and +, reordering, renaming, the menu, the arrows with many tabs;
+   - a maximized window: the bar's top not cut off, and the buttons in place;
+   - an open dialog's scrim over the bar, and a click on a tab under it doing nothing;
+   - the window's title in the taskbar and Alt+Tab.
 
 **Tests:**
 
