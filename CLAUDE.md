@@ -3497,6 +3497,13 @@ and Settings at the right.
   are separate clicks. The row has a line in `separators` along its bottom.
 - Labels go as the window narrows (`toolbarLabelsFor`): Branch, Stash and Pop show theirs from 1,150 dp, Pull and Push
   from 1,000 dp. Their icons and tooltips stay. Actions keeps its label.
+- **Toolbar labels** (fork-only, 2026-11-06, Settings → Appearance after Text size, `AppConfig.ToolbarLabels`,
+  `toolbar_labels`, on by default): off, no button has a label at any width (`toolbarLabelsFor`'s `showsLabels`,
+  `ToolbarLabels.showsActionsLabel`), and Actions is its bolt and its shortcut, as it's the way into everything else.
+  The switcher keeps its text, and every button its tooltip. `RepositoryOpenViewModel.toolbarLabels` gives the setting
+  to `ToolbarRow`. Option A of two, chosen with the user (B made Actions an icon too). Tests: `ToolbarTest` (the
+  labels, the shortcut, the clicks, the fit with them off), `ToolbarLabelsRowTest`, `ToolbarLabelsSettingTest`. 8
+  mutations were each caught by a named test.
 - **Actions** (`ActionsButton`): a button as Branch is, with the bolt, "Actions" and the shortcut after it
   (`KeybindingHint`, in `frame.secondaryText`). ⌘K (Ctrl+K elsewhere, `KeybindingOption.QUICK_ACTIONS`) opens the
   Actions list from the tab's keys. It was built as the mockup had it, a button that looked like a search field

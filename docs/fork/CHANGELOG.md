@@ -2,6 +2,14 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Toolbar labels can be turned off (2026-11-06)
+
+- **Request:** an option in Settings to show or hide the labels of the toolbar's buttons, showing them by default.
+  Option A of two was chosen from a mockup.
+- **Now:** Settings → Appearance → "Toolbar labels", after Text size, on by default. Turned off, every toolbar button
+  is its icon, at any width, and Actions keeps its shortcut (⌘K, Ctrl+K elsewhere) next to its bolt. Tooltips stay.
+- Details: CLAUDE.md, "The toolbar".
+
 ## The log's filter bar (2026-11-06)
 
 - **Request:** the branch filter, the search and the columns button sat at the end of the Message column's header,
