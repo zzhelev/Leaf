@@ -289,6 +289,10 @@ class RepositoryOpenViewModel @Inject constructor(
     val freeSearchFocusFlow: SharedFlow<Unit>
         field = MutableSharedFlow<Unit>()
 
+    /** Ctrl+F (⌘F): the log's search field takes the focus (fork-only). */
+    val logSearchFocusRequests: SharedFlow<Unit>
+        field = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
     /** Remote branches being checked out whose local branch can be fast-forwarded first, if the user wants to. */
     val fastForwardOffers: SharedFlow<FastForwardOffer>
         field = MutableSharedFlow<FastForwardOffer>()
@@ -2161,7 +2165,15 @@ class RepositoryOpenViewModel @Inject constructor(
 
     suspend fun selectNextFilterCommit() = logSearch.step(SearchStep.NEXT)
 
-    fun closeSearch() = logSearch.close()
+    // Fork-only: also when the search field had the focus without a search, where Esc would first close nothing
+    fun closeSearch() {
+        logSearch.close()
+        removeSearchFromCloseableView()
+    }
+
+    fun focusLogSearch() {
+        logSearchFocusRequests.tryEmit(Unit)
+    }
 
     fun addSearchToCloseableView() = tabScope.launch {
         addCloseableView(CloseableView.LOG_SEARCH)

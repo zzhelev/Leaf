@@ -213,6 +213,12 @@ fun RepositoryOpenPage(
                         true
                     }
 
+                    // Fork-only: the log's search field, in the bar above the log's columns
+                    it.matchesBinding(KeybindingOption.LOG_SEARCH) -> {
+                        repositoryOpenViewModel.focusLogSearch()
+                        true
+                    }
+
                     else -> false
                 }
 

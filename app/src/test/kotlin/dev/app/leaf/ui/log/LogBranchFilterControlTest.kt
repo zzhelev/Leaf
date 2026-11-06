@@ -41,6 +41,7 @@ import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.StyleDefinition
 import dev.app.leaf.repositoryopen.FolderShows
 import dev.app.leaf.repositoryopen.LogBranchFilterState
+import dev.app.leaf.repositoryopen.LogSearch
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.branch
@@ -603,6 +604,13 @@ class LogBranchFilterControlTest {
         val columns = LogColumnsSettings().fitting(600f, LOG_COLUMN_SPACING).shown
 
         Column(Modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
+            LogFilterBar(
+                branchFilterControl = { LogBranchFilterButton(state(filter), worktrees) {} },
+                searchField = { modifier ->
+                    LogSearchField(LogSearch.NotSearching, "", {}, {}, {}, {}, {}, modifier)
+                },
+                columnsMenuItems = emptyList(),
+            )
             GraphHeader(
                 graphWidth = 120.dp,
                 columns = columns,
@@ -611,8 +619,6 @@ class LogBranchFilterControlTest {
                 onGraphDragStopped = {},
                 onColumnResize = { _, _ -> },
                 onColumnResizeFinished = {},
-                onShowSearch = {},
-                branchFilterControl = { LogBranchFilterButton(state(filter), worktrees) {} },
             )
         }
     }

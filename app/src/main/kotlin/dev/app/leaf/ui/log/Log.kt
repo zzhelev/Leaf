@@ -141,6 +141,7 @@ fun Log(
     // Fork-only: the Drop dialog of a plan that drops a commit (docs/fork/commit-editor.md)
     onDropCommit: ((RebasePlan) -> Unit)? = null,
 ) {
+    val scope = rememberCoroutineScope()
     val logStatusState = viewModel.logState.collectAsState()
     val logStatus = logStatusState.value
     val logColumns by viewModel.logColumns.collectAsState()
@@ -252,11 +253,18 @@ fun Log(
                 onAction = { viewModel.onAction(it) },
                 onMoveSelection = viewModel::moveLogSelection,
                 onExtendSelection = viewModel::extendLogSelection,
-                searchView = {
-                    SearchFilter(
-                        logViewModel = viewModel,
-                        searchFilterResults = it,
-                        searchFocused = { viewModel.addSearchToCloseableView() },
+                searchField = { fieldModifier, focusAfterClose ->
+                    LogSearchField(
+                        search = logStatus.searchFilter,
+                        initialText = viewModel.savedSearchFilter,
+                        onTextChange = { viewModel.onSearchValueChanged(it) },
+                        onPrevious = { scope.launch { viewModel.selectPreviousFilterCommit() } },
+                        onNext = { scope.launch { viewModel.selectNextFilterCommit() } },
+                        onClose = { viewModel.closeSearch() },
+                        onFocused = { viewModel.addSearchToCloseableView() },
+                        modifier = fieldModifier,
+                        focusAfterClose = focusAfterClose,
+                        focusRequests = viewModel.logSearchFocusRequests,
                     )
                 },
                 branchFilterControl = {
@@ -290,11 +298,14 @@ private fun LogView(
     onAction: (LogAction) -> Unit,
     onMoveSelection: (LogMove, pageSize: Int, hasUncommittedRow: Boolean) -> Int?,
     onExtendSelection: (step: Int, hasUncommittedRow: Boolean) -> Int?,
-    searchView: @Composable (LogSearch.SearchResults) -> Unit,
+    // Fork-only: the search field in the filter bar, and where the focus goes when the search ends
+    searchField: @Composable (Modifier, focusAfterClose: FocusRequester) -> Unit,
     // Fork-only: which branches the log shows (upstream issue 207)
     branchFilterControl: @Composable () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    // Fork-only: the list's, which the search field gives the focus to when the search ends
+    val listFocusRequester = LocalLogFocusRequester.current ?: remember { FocusRequester() }
     val hasUncommittedChanges = logState.hasUncommittedChanges
     val commitList = logState.commitList
 
@@ -366,9 +377,13 @@ private fun LogView(
         val columnsLayout = LogColumnsLayout(fittedColumns.shown, columnSettings.dateShowsTime)
         val columnsMenuItems = logColumnsMenuItems(columnSettings, fittedColumns.leftOut, onAction)
 
-        if (searchFilterValue is LogSearch.SearchResults) {
-            searchView(searchFilterValue)
-        }
+        // Fork-only: the branch filter, the search and the columns button in a bar above the column headers, where they
+        // no longer read as headers of the Message column
+        LogFilterBar(
+            branchFilterControl = branchFilterControl,
+            searchField = { fieldModifier -> searchField(fieldModifier, listFocusRequester) },
+            columnsMenuItems = columnsMenuItems,
+        )
 
         GraphHeader(
             graphWidth = graphWidth,
@@ -385,10 +400,6 @@ private fun LogView(
             onColumnResizeFinished = { column ->
                 onAction(LogAction.ResizeColumn(column, columnSettings.entry(column).width))
             },
-            onShowSearch = {
-                onAction(LogAction.SearchValueChange(""))
-            },
-            branchFilterControl = branchFilterControl,
         )
 
         Box {
@@ -408,34 +419,36 @@ private fun LogView(
                 )
             }
 
-            CommitsList(
-                scrollState = verticalScrollState,
-                horizontalScrollState = horizontalScrollState,
-                hasUncommittedChanges = hasUncommittedChanges,
-                searchFilter = (searchFilterValue as? LogSearch.SearchResults)?.matchingHashes,
-                focusedSearchMatch = (searchFilterValue as? LogSearch.SearchResults)?.focusedHit?.hash,
-                selectedCommit = selectedCommit,
-                logState = logState,
-                repositoryState = repositoryState,
-                selectedItem = selectedItem,
-                commitList = commitList,
-                branches = logState.branches,
-                tags = logState.tags,
-                stashes = logState.stashes,
-                graphWidth = graphWidth,
-                columnsLayout = columnsLayout,
-                onCreateBranch = onCreateBranch,
-                onResetBranch = onResetBranch,
-                onCreateTag = onCreateTag,
-                onChangeUpstreamBranch = onChangeUpstreamBranch,
-                onRenameBranch = onRenameBranch,
-                onDeleteBranch = onDeleteBranch,
-                onDeleteTag = onDeleteTag,
-                onConfirmAction = onConfirmAction,
-                onAction = onAction,
-                onMoveSelection = onMoveSelection,
-                onExtendSelection = onExtendSelection,
-            )
+            CompositionLocalProvider(LocalLogFocusRequester provides listFocusRequester) {
+                CommitsList(
+                    scrollState = verticalScrollState,
+                    horizontalScrollState = horizontalScrollState,
+                    hasUncommittedChanges = hasUncommittedChanges,
+                    searchFilter = (searchFilterValue as? LogSearch.SearchResults)?.matchingHashes,
+                    focusedSearchMatch = (searchFilterValue as? LogSearch.SearchResults)?.focusedHit?.hash,
+                    selectedCommit = selectedCommit,
+                    logState = logState,
+                    repositoryState = repositoryState,
+                    selectedItem = selectedItem,
+                    commitList = commitList,
+                    branches = logState.branches,
+                    tags = logState.tags,
+                    stashes = logState.stashes,
+                    graphWidth = graphWidth,
+                    columnsLayout = columnsLayout,
+                    onCreateBranch = onCreateBranch,
+                    onResetBranch = onResetBranch,
+                    onCreateTag = onCreateTag,
+                    onChangeUpstreamBranch = onChangeUpstreamBranch,
+                    onRenameBranch = onRenameBranch,
+                    onDeleteBranch = onDeleteBranch,
+                    onDeleteTag = onDeleteTag,
+                    onConfirmAction = onConfirmAction,
+                    onAction = onAction,
+                    onMoveSelection = onMoveSelection,
+                    onExtendSelection = onExtendSelection,
+                )
+            }
 
             val density = LocalDensity.current.density
             DividerLog(
@@ -529,114 +542,6 @@ suspend fun scrollToUncommittedChanges(
 ) {
     if (commitList.isNotEmpty())
         verticalScrollState.scrollToItem(0)
-}
-
-@Composable
-fun SearchFilter(
-    logViewModel: RepositoryOpenViewModel,
-    searchFilterResults: LogSearch.SearchResults,
-    searchFocused: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    var searchFilterText by remember { mutableStateOf(logViewModel.savedSearchFilter) }
-    val textFieldFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        textFieldFocusRequester.requestFocus()
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TextField(
-            value = searchFilterText,
-            onValueChange = {
-                searchFilterText = it
-                scope.launch {
-                    logViewModel.onSearchValueChanged(it)
-                }
-            },
-            maxLines = 1,
-            modifier = Modifier
-                .fillMaxSize()
-                .focusRequester(textFieldFocusRequester)
-                .onFocusChanged {
-                    if (it.isFocused) {
-                        searchFocused()
-                    }
-                }
-                .onPreviewKeyEvent { keyEvent ->
-                    when {
-                        keyEvent.matchesBinding(KeybindingOption.SIMPLE_ACCEPT) -> {
-                            scope.launch {
-                                logViewModel.selectNextFilterCommit()
-                            }
-                            true
-                        }
-
-                        keyEvent.matchesBinding(KeybindingOption.SEARCH_PREVIOUS_RESULT) -> {
-                            scope.launch {
-                                logViewModel.selectPreviousFilterCommit()
-                            }
-                            true
-                        }
-
-                        else -> false
-                    }
-                },
-            label = {
-                Text("Search by message, author name or commit ID")
-            },
-            colors = textFieldColors(),
-            textStyle = MaterialTheme.typography.body1,
-            trailingIcon = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxHeight(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (searchFilterText.isNotEmpty()) {
-                        Text(
-                            "${searchFilterResults.index}/${searchFilterResults.totalText}",
-                            color = MaterialTheme.colors.onBackgroundSecondary,
-                        )
-                    }
-
-                    IconButton(
-                        modifier = Modifier
-                            .handOnHover(),
-                        onClick = {
-                            scope.launch { logViewModel.selectPreviousFilterCommit() }
-                        }
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = null)
-                    }
-
-                    IconButton(
-                        modifier = Modifier
-                            .handOnHover(),
-                        onClick = {
-                            scope.launch { logViewModel.selectNextFilterCommit() }
-                        }
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
-                    }
-
-                    IconButton(
-                        modifier = Modifier
-                            .handOnHover()
-                            .padding(end = 4.dp),
-                        onClick = { logViewModel.closeSearch() }
-                    ) {
-                        Icon(painterResource(Res.drawable.close), contentDescription = null)
-                    }
-                }
-            }
-        )
-    }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -943,8 +848,6 @@ fun GraphHeader(
     onGraphDragStopped: () -> Unit,
     onColumnResize: (LogColumn, delta: Float) -> Unit,
     onColumnResizeFinished: (LogColumn) -> Unit,
-    onShowSearch: () -> Unit,
-    branchFilterControl: @Composable () -> Unit = {},
 ) {
     LogColumnsHeaderMenu(columnsMenuItems) {
     Box(
@@ -980,8 +883,10 @@ fun GraphHeader(
                 ),
             )
 
+            // Fork-only: the branch filter, the columns button and the search are in the filter bar above
             Text(
                 modifier = Modifier
+                    .weight(1f)
                     .padding(start = 16.dp),
                 text = "Message",
                 color = MaterialTheme.colors.onBackground,
@@ -989,27 +894,6 @@ fun GraphHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-
-            // Fork-only: the branch filter's label gives way before "Message" does, at a bigger text size
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                branchFilterControl()
-            }
-
-            LogColumnsMenuButton(columnsMenuItems)
-
-            IconButton(
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .handOnHover(),
-                onClick = onShowSearch
-            ) {
-                Icon(
-                    painterResource(Res.drawable.search),
-                    modifier = Modifier.size(18.dp),
-                    contentDescription = null,
-                    tint = MaterialTheme.colors.onBackground,
-                )
-            }
 
             LogColumnHeaders(columns, onColumnResize, onColumnResizeFinished)
 

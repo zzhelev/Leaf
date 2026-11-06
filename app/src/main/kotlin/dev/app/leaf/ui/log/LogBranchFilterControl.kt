@@ -264,12 +264,14 @@ fun LogBranchFilterButton(
     val label = logBranchFilterLabel(state).text()
 
     Box {
+        // Fork-only: outlined, as the search field next to it in the log's filter bar
         Row(
             modifier = Modifier
-                .padding(end = 4.dp)
-                .height(24.dp.withText())
-                .clip(RoundedCornerShape(4.dp))
-                .run { if (state.isOn) background(MaterialTheme.colors.onSurface.copy(alpha = 0.2f)) else this },
+                .height(LOG_FILTER_CONTROL_HEIGHT.withText())
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colors.background)
+                .run { if (state.isOn) background(MaterialTheme.colors.onSurface.copy(alpha = 0.2f)) else this }
+                .border(1.dp, MaterialTheme.colors.onBackgroundSecondary.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Fork-only: in a narrow log at a bigger text size, the label ends in "…" before the × is pushed out
@@ -283,7 +285,7 @@ fun LogBranchFilterButton(
                             }
                         }
                         .semantics(mergeDescendants = true) { contentDescription = tooltip }
-                        .padding(start = 6.dp, end = if (state.isOn) 0.dp else 2.dp),
+                        .padding(start = 8.dp, end = if (state.isOn) 0.dp else 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(

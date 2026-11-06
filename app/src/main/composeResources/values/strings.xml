@@ -2095,6 +2095,12 @@
     <string name="amended_files_failed">Couldn't list the files</string>
     <string name="amended_files_try_again">Try again</string>
     <string name="log_branch_filter_tooltip">Branches in the log</string>
+    <!-- Fork-only: the log's search field, in the bar above the columns -->
+    <string name="log_search_placeholder">Search commits</string>
+    <string name="log_search_tooltip">Search by message, author name or commit ID</string>
+    <string name="log_search_previous">Previous result (Shift+Enter)</string>
+    <string name="log_search_next">Next result (Enter)</string>
+    <string name="log_search_close">End the search (Esc)</string>
     <string name="log_branch_filter_all">All branches</string>
     <string name="log_branch_filter_current">Current branch</string>
     <string name="log_branch_filter_all_but_one">All but %1$s</string>

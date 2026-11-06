@@ -124,6 +124,11 @@ enum class KeybindingOption {
      * Used to open the Actions list (fork-only, docs/fork/window-chrome.md)
      */
     QUICK_ACTIONS,
+
+    /**
+     * Used to put the focus in the log's search field (fork-only)
+     */
+    LOG_SEARCH,
 }
 
 
@@ -214,6 +219,9 @@ private fun baseKeybindings() = mapOf(
     KeybindingOption.QUICK_ACTIONS to listOf(
         Keybinding(key = Key.K, control = true),
     ),
+    KeybindingOption.LOG_SEARCH to listOf(
+        Keybinding(key = Key.F, control = true),
+    ),
 )
 
 private fun linuxKeybindings(): Map<KeybindingOption, List<Keybinding>> = baseKeybindings()
@@ -240,6 +248,7 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         KeybindingOption.TEXT_SMALLER,
         KeybindingOption.TEXT_DEFAULT_SIZE,
         KeybindingOption.QUICK_ACTIONS,
+        KeybindingOption.LOG_SEARCH,
     )
 
     for (key in keysToReplaceControlWithCommand) {
