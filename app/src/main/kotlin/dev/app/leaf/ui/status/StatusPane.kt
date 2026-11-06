@@ -150,13 +150,6 @@ fun StatusPane(
         )
     }
 
-    // A drag changes this copy at once; the saved sizes only change when the drag ends, and come back through the state.
-    var sectionSizes by remember { mutableStateOf(statusState.sectionSizes) }
-
-    LaunchedEffect(statusState.sectionSizes) {
-        sectionSizes = statusState.sectionSizes
-    }
-
     Column(
         modifier = Modifier
             .padding(end = 8.dp, bottom = 8.dp)
@@ -170,26 +163,13 @@ fun StatusPane(
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colors.primaryVariant)
         }
 
-        BoxWithConstraints(
+        StatusSections(
+            sizes = statusState.sectionSizes,
+            stagedOnTop = !swapUncommittedChanges,
+            isMessageExpanded = isMessageExpanded,
+            onSizesChanged = { onAction(StatusAction.SectionSizesChanged(it)) },
             modifier = Modifier.weight(1f),
-        ) {
-            val paneHeight = maxHeight.value
-            // Fork-only: while the message is in the centre pane, the lists get the field's room, and the saved sizes
-            // come back with it
-            val heights = if (isMessageExpanded) {
-                sectionSizes.copy(commitFieldHeight = STATUS_MIN_COMMIT_FIELD_HEIGHT).fitTo(paneHeight)
-            } else {
-                sectionSizes.fitTo(paneHeight)
-            }
-            val stagedOnTop = !swapUncommittedChanges
-
-            fun saveSectionSizes(sizes: StatusSectionSizes) {
-                sectionSizes = sizes
-                onAction(StatusAction.SectionSizesChanged(sizes))
-            }
-
-            @Composable
-            fun staged() {
+            staged = { modifier, fold ->
                 StatusChangesList(
                     entryType = EntryType.STAGED,
                     statusState,
@@ -205,12 +185,11 @@ fun StatusPane(
                     onIgnore = onIgnore,
                     onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
-                    modifier = Modifier.height(heights.staged.dp),
+                    modifier = modifier,
+                    fold = fold,
                 )
-            }
-
-            @Composable
-            fun unstaged() {
+            },
+            unstaged = { modifier, fold ->
                 StatusChangesList(
                     entryType = EntryType.UNSTAGED,
                     statusState = statusState,
@@ -226,48 +205,22 @@ fun StatusPane(
                     onIgnore = onIgnore,
                     onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
-                    modifier = Modifier.height(heights.unstaged.dp),
+                    modifier = modifier,
+                    fold = fold,
                 )
-            }
-
-            Column {
-                if (stagedOnTop) staged() else unstaged()
-
-                SectionDivider(
-                    onDrag = { delta ->
-                        sectionSizes = sectionSizes.withListsDividerMoved(paneHeight, delta, stagedOnTop)
-                    },
-                    onDragStopped = { saveSectionSizes(sectionSizes) },
-                    onDoubleClick = { saveSectionSizes(sectionSizes.copy(stagedShare = STATUS_DEFAULT_STAGED_SHARE)) },
-                )
-
-                if (stagedOnTop) unstaged() else staged()
-
-                SectionDivider(
-                    onDrag = { delta ->
-                        if (!isMessageExpanded) {
-                            sectionSizes = sectionSizes.withCommitDividerMoved(paneHeight, delta, stagedOnTop)
-                        }
-                    },
-                    onDragStopped = { if (!isMessageExpanded) saveSectionSizes(sectionSizes) },
-                    onDoubleClick = {
-                        if (!isMessageExpanded) {
-                            saveSectionSizes(sectionSizes.copy(commitFieldHeight = STATUS_DEFAULT_COMMIT_FIELD_HEIGHT))
-                        }
-                    },
-                )
-
+            },
+            commitMessage = { modifier, fold ->
                 ChangesPaneCommitField(
                     statusState = statusState,
                     onAction = onAction,
                     onConfirmAction = onConfirmAction,
                     isMessageExpanded = isMessageExpanded,
-                    // Fork-only: the title row comes on top of the saved field height
-                    modifier = Modifier.height(heights.commitSection.dp),
+                    modifier = modifier,
                     branchName = branchName,
+                    fold = fold,
                 )
-            }
-        }
+            },
+        )
     }
 }
 
@@ -283,6 +236,8 @@ fun ChangesPaneCommitField(
     isMessageExpanded: Boolean,
     modifier: Modifier = Modifier,
     branchName: String? = null,
+    /** The commit message folds to its title row and the buttons (fork-only). */
+    fold: SectionFold? = null,
 ) {
     val fieldFocusRequester = remember { FocusRequester() }
     var wasExpanded by remember { mutableStateOf(isMessageExpanded) }
@@ -302,10 +257,16 @@ fun ChangesPaneCommitField(
         statusState = statusState,
         onAction = onAction,
         onConfirmAction = onConfirmAction,
-        part = if (isMessageExpanded) CommitFieldPart.FINISH else CommitFieldPart.WHOLE,
+        part = when {
+            // Fork-only: folded, whether the message is in the centre pane or not
+            fold?.isFolded == true -> CommitFieldPart.FOLDED
+            isMessageExpanded -> CommitFieldPart.FINISH
+            else -> CommitFieldPart.WHOLE
+        },
         modifier = modifier,
         branchName = branchName,
         focusRequester = fieldFocusRequester,
+        fold = fold,
     )
 }
 
@@ -322,6 +283,8 @@ fun StatusCommitField(
     modifier: Modifier = Modifier,
     branchName: String? = null,
     focusRequester: FocusRequester? = null,
+    /** The commit message folds to its title row and the buttons (fork-only). */
+    fold: SectionFold? = null,
 ) {
     val commitMessage = statusState.commitMessage
     val isAmend = statusState.isAmend
@@ -414,6 +377,7 @@ fun StatusCommitField(
         part = part,
         onToggleExpanded = { onAction(StatusAction.ExpandMessage(part == CommitFieldPart.WHOLE)) },
         focusRequester = focusRequester,
+        fold = fold,
     )
 }
 
@@ -435,6 +399,8 @@ fun StatusChangesList(
     onConfirmAction: (ConfirmableAction, onConfirm: () -> Unit) -> Unit,
     onAction: (StatusAction) -> Unit,
     modifier: Modifier = Modifier,
+    /** The list folds to its header (fork-only). */
+    fold: SectionFold? = null,
 ) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -563,6 +529,11 @@ fun StatusChangesList(
         modifier = modifier,
         section = amendedSection,
         emptyNote = statusState.emptyListNote(entryType),
+        fold = fold,
+        count = when (entryType) {
+            EntryType.STAGED -> statusState.staged.size
+            EntryType.UNSTAGED -> statusState.unstaged.size
+        },
     )
 }
 
@@ -604,6 +575,9 @@ fun ChangesList(
     section: FilesSection<*>? = null,
     /** What the list says while it has no rows (fork-only). */
     emptyNote: EmptyListNote? = null,
+    /** The list folds to its header, which shows [count] files (fork-only). */
+    fold: SectionFold? = null,
+    count: Int? = null,
 ) {
     fun entriesContextMenu(): (StatusEntry) -> List<ContextMenuElement> = { statusEntry ->
         statusEntryContextMenuItems(
@@ -696,7 +670,12 @@ fun ChangesList(
             onSearchFocused = onSearchFocused,
             showSearch = showSearch,
             showActionForSelected = showActionForSelected,
+            fold = fold,
+            count = count,
         )
+
+        // Fork-only: a folded list is its header
+        if (fold?.isFolded == true) return@Column
 
         // Fork-only: an empty list says so, in its middle
         Box(modifier = Modifier.fillMaxSize()) {
@@ -794,6 +773,12 @@ enum class CommitFieldPart {
 
     /** The title row, a line that says where the message is, and what stops the button and the buttons. */
     FINISH,
+
+    /** Fork-only: the title row with the message's subject, what stops the button and the buttons. */
+    FOLDED;
+
+    /** This part has the field, where the message is written. */
+    val hasField: Boolean get() = this == WHOLE || this == MESSAGE
 }
 
 @Composable
@@ -854,6 +839,8 @@ internal fun CommitField(
     onToggleExpanded: (() -> Unit)? = null,
     /** The field's, for a caller that focuses it (fork-only). */
     focusRequester: FocusRequester? = null,
+    /** The commit message folds to its title row and the buttons, [CommitFieldPart.FOLDED] (fork-only). */
+    fold: SectionFold? = null,
 ) {
     val isReadOnlyRebase = repositoryState.isRebasing && !isAmenableRebaseInteractive
     // Fork-only: the subject's length and whether it runs on, from the message as git will commit it. A read-only field
@@ -916,8 +903,8 @@ internal fun CommitField(
 
     // "Add co-author" came from the menu, which had the focus: the caret waits in the new line
     LaunchedEffect(coAuthors.insertion?.id) {
-        // Fork-only: the changes pane's part has no field while the message is in the centre pane
-        if (coAuthors.insertion != null && part != CommitFieldPart.FINISH) {
+        // Fork-only: the changes pane's part has no field while the message is in the centre pane, or folded
+        if (coAuthors.insertion != null && part.hasField) {
             fieldFocusRequester.requestFocus()
         }
     }
@@ -951,19 +938,24 @@ internal fun CommitField(
             onToggleAmend = {
                 if (repositoryState.isRebasing) onAmendRebaseInteractiveChecked(!isAmendRebaseInteractive) else onAmendChecked(!isAmend)
             },
-            subjectCount = messageLayout?.takeIf { part != CommitFieldPart.FINISH }?.let { subjectCount(it, messageHints) },
+            subjectCount = messageLayout?.takeIf { part.hasField }?.let { subjectCount(it, messageHints) },
             onAddCoAuthor = { onCoAuthorAction(CoAuthorAction.AddLine) },
             onToggleSignOff = onToggleSignOff,
             onWrapBody = { setCommitMessage(commitMessage.withWrappedBody(messageCleanup)) },
             // Fork-only: a field that can't be edited has nothing to write in a larger view
             onToggleExpanded = onToggleExpanded.takeUnless { isReadOnlyRebase },
             isExpanded = part != CommitFieldPart.WHOLE,
-            showsMenu = part != CommitFieldPart.FINISH,
+            showsMenu = part.hasField,
+            fold = fold,
+            foldedSubject = if (part == CommitFieldPart.FOLDED) foldedSubject(
+                text = if (isReadOnlyRebase) previousCommitMessage.orEmpty() else commitMessage.text,
+                cleanup = messageCleanup,
+            ) else null,
         )
 
         if (part == CommitFieldPart.FINISH) {
             MessageElsewhere(Modifier.fillMaxWidth().weight(1f))
-        } else Box(
+        } else if (part.hasField) Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(weight = 1f, fill = true),
@@ -1049,7 +1041,7 @@ internal fun CommitField(
         }
 
         // Fork-only: a subject that runs on into the next line, which git log would show as one
-        if (messageLayout?.blankLineAt != null && part != CommitFieldPart.FINISH) {
+        if (messageLayout?.blankLineAt != null && part.hasField) {
             SubjectRunsOnHint(
                 onInsertBlankLine = { setCommitMessage(commitMessage.withBlankLineAfterSubject(messageCleanup)) },
             )

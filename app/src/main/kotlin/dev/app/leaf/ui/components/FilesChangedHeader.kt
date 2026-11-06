@@ -57,7 +57,15 @@ fun FilesChangedHeader(
     onSearchFocused: () -> Unit,
     searchFilter: TextFieldValue,
     onSearchFilterChanged: (TextFieldValue) -> Unit,
+    /**
+     * Fork-only: the list folds to this header, with a chevron at its start. While folded, the header has no sort menu or
+     * search, which act on the rows.
+     */
+    fold: SectionFold? = null,
+    /** Fork-only: how many files the list has, after the title. */
+    count: Int? = null,
 ) {
+    val isFolded = fold?.isFolded == true
     val searchFocusRequester = remember { FocusRequester() }
 
     /**
@@ -73,24 +81,38 @@ fun FilesChangedHeader(
                 .height(34.dp)
                 .fillMaxWidth()
                 .headerBackground()
-                .hoverable(headerHoverInteraction),
+                .hoverable(headerHoverInteraction)
+                .foldsSection(fold),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            @Composable
-            fun Title(modifier: Modifier) {
-                Text(
-                    modifier = modifier.padding(start = 16.dp, end = 8.dp),
-                    text = title,
-                    fontWeight = FontWeight.Normal,
-                    textAlign = TextAlign.Left,
-                    color = MaterialTheme.colors.onBackground,
-                    style = MaterialTheme.typography.body2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            if (fold != null) {
+                FoldChevron(fold.isFolded)
             }
 
-            if (sortAction != null) {
+            @Composable
+            fun Title(modifier: Modifier) {
+                Row(
+                    modifier = modifier.padding(start = if (fold != null) 0.dp else 16.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        modifier = Modifier.weight(1f, fill = false),
+                        text = title,
+                        fontWeight = FontWeight.Normal,
+                        textAlign = TextAlign.Left,
+                        color = MaterialTheme.colors.onBackground,
+                        style = MaterialTheme.typography.body2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+
+                    if (count != null) {
+                        CountPill(count, modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
+            }
+
+            if (sortAction != null && !isFolded) {
                 TitleWithTrailingAction(
                     title = { Title(Modifier) },
                     action = sortAction,
@@ -100,21 +122,23 @@ fun FilesChangedHeader(
                 Title(Modifier.weight(1f))
             }
 
-            IconButton(
-                onClick = {
-                    onSearchFilterToggled(!showSearch)
+            if (!isFolded) {
+                IconButton(
+                    onClick = {
+                        onSearchFilterToggled(!showSearch)
 
-                    if (!showSearch)
-                        requestFocus = true
-                },
-                modifier = Modifier.handOnHover()
-            ) {
-                Icon(
-                    painter = painterResource(Res.drawable.search),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colors.onBackground,
-                )
+                        if (!showSearch)
+                            requestFocus = true
+                    },
+                    modifier = Modifier.handOnHover()
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.search),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colors.onBackground,
+                    )
+                }
             }
 
             if (moreItems.isNotEmpty()) {
@@ -133,7 +157,7 @@ fun FilesChangedHeader(
             }
         }
 
-        if (showSearch) {
+        if (showSearch && !isFolded) {
             SearchTextField(
                 searchFilter = searchFilter,
                 onSearchFilterChanged = onSearchFilterChanged,

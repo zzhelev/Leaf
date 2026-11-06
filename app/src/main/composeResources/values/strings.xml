@@ -1376,6 +1376,9 @@
         <item quantity="other">%1$d submodules that moved on are left as they are.</item>
     </plurals>
     <string name="status_header_more_actions">More actions</string>
+    <!-- Fork-only: a status pane section that folds to its header, as screen readers say it -->
+    <string name="section_folded">Folded</string>
+    <string name="section_open">Open</string>
     <string name="status_header_discard_all">Discard all changes…</string>
     <string name="status_header_nothing_to_discard">Nothing to discard</string>
     <string name="use_ours_dialog_title">Use ours</string>

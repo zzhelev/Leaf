@@ -204,6 +204,110 @@ class StatusSectionSizesTest {
     }
 
     @Test
+    fun `with a list folded, the commit field keeps its size, and leaves the open list its minimum and the folded one its header`() {
+        val stagedFolded = StatusSectionSizes(folds = StatusSectionFolds(staged = true))
+
+        // 850 - one 8 dp handle - the 34 dp title row - the 34 dp folded header = 774 for Unstaged and the field
+        assertEquals(192f, stagedFolded.commitFieldIn(PANE)!!, DELTA)
+        assertEquals(192f + STATUS_COMMIT_TITLE_HEIGHT, stagedFolded.commitSectionIn(PANE)!!, DELTA)
+        assertEquals(674f, stagedFolded.copy(commitFieldHeight = 900f).commitFieldIn(PANE)!!, DELTA)
+        assertEquals(STATUS_MIN_COMMIT_FIELD_HEIGHT, stagedFolded.copy(commitFieldHeight = 10f).commitFieldIn(PANE)!!, DELTA)
+    }
+
+    @Test
+    fun `a folded commit message, or two folded lists, give the commit field no height of its own`() {
+        assertEquals(null, StatusSectionSizes(folds = StatusSectionFolds(commitMessage = true)).commitFieldIn(PANE))
+        assertEquals(null, StatusSectionSizes(folds = StatusSectionFolds(staged = true, unstaged = true)).commitFieldIn(PANE))
+        assertEquals(null, StatusSectionSizes(folds = StatusSectionFolds(staged = true, unstaged = true)).commitSectionIn(PANE))
+    }
+
+    @Test
+    fun `with a list folded, the commit divider moves the field alone, between its minimum and the open list's`() {
+        val unstagedFolded = StatusSectionSizes(stagedShare = 0.3f, folds = StatusSectionFolds(unstaged = true))
+
+        val up = unstagedFolded.withCommitDividerMoved(PANE, delta = -100f, stagedOnTop = true)
+        assertEquals(292f, up.commitFieldHeight, DELTA)
+        assertEquals(0.3f, up.stagedShare, DELTA, "The share is the two open lists', and stays")
+        assertEquals(unstagedFolded.folds, up.folds)
+
+        assertEquals(674f, unstagedFolded.withCommitDividerMoved(PANE, -2_000f, true).commitFieldHeight, DELTA)
+        assertEquals(140f, unstagedFolded.withCommitDividerMoved(PANE, 2_000f, true).commitFieldHeight, DELTA)
+    }
+
+    @Test
+    fun `the commit divider doesn't move while the commit message is folded`() {
+        val sizes = StatusSectionSizes(folds = StatusSectionFolds(commitMessage = true))
+
+        assertSame(sizes, sizes.withCommitDividerMoved(PANE, delta = 50f, stagedOnTop = true))
+    }
+
+    @Test
+    fun `two open lists split what they share, and their divider moves within it`() {
+        val sizes = StatusSectionSizes(stagedShare = 0.25f)
+
+        assertEquals(150f to 450f, sizes.splitLists(600f))
+        assertEquals(75f to 75f, sizes.splitLists(150f), "Half each when there is no room for both minimums")
+
+        val moved = sizes.withListsDividerMovedIn(600f, delta = 50f, stagedOnTop = true)
+        assertEquals(200f to 400f, moved.splitLists(600f))
+        assertEquals(100f to 500f, sizes.withListsDividerMovedIn(600f, delta = -500f, stagedOnTop = true).splitLists(600f))
+        assertSame(sizes, sizes.withListsDividerMovedIn(150f, delta = 20f, stagedOnTop = true))
+    }
+
+    @Test
+    fun `fitTo is the open layout, whatever is folded`() {
+        val folds = StatusSectionFolds(staged = true, commitMessage = true)
+
+        assertEquals(StatusSectionSizes().fitTo(PANE), StatusSectionSizes(folds = folds).fitTo(PANE))
+    }
+
+    @Test
+    fun `a fold is kept by every change of size, and toggling it twice gives it back`() {
+        val folds = StatusSectionFolds(unstaged = true)
+        val sizes = StatusSectionSizes(folds = folds)
+
+        assertEquals(folds, sizes.withListsDividerMoved(PANE, 30f, true).folds)
+        assertEquals(folds, sizes.withListsDividerMovedIn(500f, 30f, true).folds)
+        assertEquals(folds, sizes.withCommitDividerMoved(PANE, 30f, true).folds)
+        assertEquals(folds, StatusSectionSizes(Float.NaN, Float.NaN, folds).orDefaults().folds)
+
+        for (section in StatusSection.entries) {
+            val toggled = sizes.withFoldToggled(section)
+
+            assertEquals(!folds.isFolded(section), toggled.folds.isFolded(section), "$section")
+            assertEquals(sizes, toggled.withFoldToggled(section), "$section")
+            StatusSection.entries.filter { it != section }.forEach {
+                assertEquals(folds.isFolded(it), toggled.folds.isFolded(it), "$section leaves $it")
+            }
+        }
+    }
+
+    @Test
+    fun `the open lists and the commit section fit the pane with any folds, leaving each folded list its header`() {
+        val random = java.util.Random(345)
+
+        repeat(5_000) {
+            val pane = random.nextFloat() * 1_400f + 16f
+            val folds = StatusSectionFolds(random.nextBoolean(), random.nextBoolean(), random.nextBoolean())
+            val sizes = StatusSectionSizes(random.nextFloat(), random.nextFloat() * 900f + 1f, folds)
+                .withCommitDividerMoved(pane, random.nextFloat() * 600f - 300f, random.nextBoolean())
+            val commitSection = sizes.commitSectionIn(pane) ?: return@repeat
+            val handles = (if (folds.openLists == 2) 2 else 1) * SECTION_DIVIDER_HEIGHT
+            val folded = (2 - folds.openLists) * STATUS_FOLDED_HEADER_HEIGHT
+            val lists = pane - commitSection - handles - folded
+            val available = pane - handles - STATUS_COMMIT_TITLE_HEIGHT - folded
+
+            assertTrue(sizes.commitFieldIn(pane)!! >= STATUS_MIN_COMMIT_FIELD_HEIGHT.coerceAtMost(available) - DELTA)
+            if (available >= folds.openLists * STATUS_MIN_LIST_HEIGHT + STATUS_MIN_COMMIT_FIELD_HEIGHT) {
+                assertTrue(lists >= folds.openLists * STATUS_MIN_LIST_HEIGHT - DELTA, "pane $pane, $sizes: lists $lists")
+            }
+            if (available >= 0f) {
+                assertTrue(lists >= -DELTA, "pane $pane, $sizes: lists $lists")
+            }
+        }
+    }
+
+    @Test
     fun `damaged values fall back to their defaults`() {
         assertEquals(StatusSectionSizes(), StatusSectionSizes(Float.NaN, Float.NaN).orDefaults())
         assertEquals(StatusSectionSizes(), StatusSectionSizes(-0.1f, Float.POSITIVE_INFINITY).orDefaults())

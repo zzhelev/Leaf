@@ -94,7 +94,10 @@ import dev.app.leaf.theme.styleColors
 import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.ui.amberText
 import androidx.compose.material.Colors
+import dev.app.leaf.ui.components.FoldChevron
 import dev.app.leaf.ui.components.HeaderMenuButton
+import dev.app.leaf.ui.components.SectionFold
+import dev.app.leaf.ui.components.foldsSection
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.sort.SortMenuItem
@@ -191,7 +194,14 @@ internal fun CommitMessageTitle(
     isExpanded: Boolean = false,
     /** The changes pane's row while the message is in the centre pane has no menu: the centre's row has it. */
     showsMenu: Boolean = true,
+    /**
+     * Fork-only: the commit message folds to this row, with a chevron at its start. While folded, the row shows the
+     * message's subject ([foldedSubject]) after the title, and nothing at its end: the buttons stay below it.
+     */
+    fold: SectionFold? = null,
+    foldedSubject: String? = null,
 ) {
+    val isFolded = fold?.isFolded == true
     val title = if (header.isMergeMessage) {
         stringResource(Res.string.uncommited_changes_message_title_merge)
     } else {
@@ -199,6 +209,11 @@ internal fun CommitMessageTitle(
     }
     // Fork-only: "with Signed-off-by" follows, muted, as the line is added when committing, out of the field's sight
     val tags = buildList {
+        if (isFolded) {
+            foldedSubject?.let { add(it to MaterialTheme.colors.onBackgroundSecondary) }
+            return@buildList
+        }
+
         when {
             header.isReadOnly ->
                 add(stringResource(Res.string.uncommited_changes_message_read_only) to MaterialTheme.colors.onBackgroundSecondary)
@@ -217,15 +232,20 @@ internal fun CommitMessageTitle(
         modifier = modifier
             .fillMaxWidth()
             .height(STATUS_COMMIT_TITLE_HEIGHT.dp)
-            .headerBackground(),
+            .headerBackground()
+            .foldsSection(fold),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (fold != null) {
+            FoldChevron(fold.isFolded)
+        }
+
         Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                modifier = Modifier.padding(start = 16.dp, end = 8.dp),
+                modifier = Modifier.padding(start = if (fold != null) 0.dp else 16.dp, end = 8.dp),
                 text = title,
                 fontWeight = FontWeight.Normal,
                 textAlign = TextAlign.Left,
@@ -253,6 +273,9 @@ internal fun CommitMessageTitle(
                 )
             }
         }
+
+        // Fork-only: a folded row has the subject alone
+        if (isFolded) return@Row
 
         val hasMenu = header.hasMenu && showsMenu
 
@@ -287,6 +310,10 @@ internal fun CommitMessageTitle(
         }
     }
 }
+
+/** The message's subject as git will commit it, which a folded commit message's title row shows (fork-only). */
+internal fun foldedSubject(text: String, cleanup: MessageCleanup): String? =
+    commitMessageLayout(text, cleanup).subject?.let { text.substring(it.start, it.end) }
 
 /** What the greyed-out "Wrap body" item says, for each reason that wrapping would change nothing (fork-only). */
 @Composable

@@ -21,6 +21,7 @@ import dev.app.leaf.domain.models.DiffWhitespaceMode
 import dev.app.leaf.domain.styles.CodeColours
 import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.WorktreeLabelRulesCodec
+import dev.app.leaf.domain.models.StatusSectionFolds
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -42,6 +43,9 @@ private const val PREF_CENTER_LOG_SHARE = "centerLogShare"
 private const val PREF_BRANCHES_PANE_FOLDED = "branchesPaneFolded"
 private const val PREF_CHANGES_PANE_FOLDED = "changesPaneFolded"
 private const val PREF_STATUS_COMMIT_FIELD_HEIGHT = "statusCommitFieldHeight"
+private const val PREF_STATUS_STAGED_FOLDED = "statusStagedFolded"
+private const val PREF_STATUS_UNSTAGED_FOLDED = "statusUnstagedFolded"
+private const val PREF_STATUS_COMMIT_MESSAGE_FOLDED = "statusCommitMessageFolded"
 private const val PREF_COMMIT_MESSAGE_HEIGHT = "commitMessageHeight"
 private const val DEFAULT_FIRST_PANE_WIDTH = 220f
 private const val DEFAULT_THIRD_PANE_WIDTH = 330f
@@ -323,11 +327,20 @@ class DataStoreAppSettingsRepository @Inject constructor(
             return StatusSectionSizes(
                 stagedShare = preferencesLegacy.getFloat(PREF_STATUS_STAGED_SHARE, defaults.stagedShare),
                 commitFieldHeight = preferencesLegacy.getFloat(PREF_STATUS_COMMIT_FIELD_HEIGHT, defaults.commitFieldHeight),
+                // Fork-only
+                folds = StatusSectionFolds(
+                    staged = preferencesLegacy.getBoolean(PREF_STATUS_STAGED_FOLDED, false),
+                    unstaged = preferencesLegacy.getBoolean(PREF_STATUS_UNSTAGED_FOLDED, false),
+                    commitMessage = preferencesLegacy.getBoolean(PREF_STATUS_COMMIT_MESSAGE_FOLDED, false),
+                ),
             ).orDefaults()
         }
         set(value) {
             preferencesLegacy.putFloat(PREF_STATUS_STAGED_SHARE, value.stagedShare)
             preferencesLegacy.putFloat(PREF_STATUS_COMMIT_FIELD_HEIGHT, value.commitFieldHeight)
+            preferencesLegacy.putBoolean(PREF_STATUS_STAGED_FOLDED, value.folds.staged)
+            preferencesLegacy.putBoolean(PREF_STATUS_UNSTAGED_FOLDED, value.folds.unstaged)
+            preferencesLegacy.putBoolean(PREF_STATUS_COMMIT_MESSAGE_FOLDED, value.folds.commitMessage)
         }
 
     override var centerSplitSizes: CenterSplitSizes
