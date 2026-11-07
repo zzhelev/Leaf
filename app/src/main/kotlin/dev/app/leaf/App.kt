@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.LocalWindowExceptionHandlerFactory
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
@@ -223,6 +224,7 @@ class App @Inject constructor(
     @OptIn(ExperimentalFoundationApi::class)
     suspend fun start(args: Array<String>) {
         logsRepository.initLogging()
+        logUncaughtErrors()
         // In the background, so that the shell has usually finished before the first hook needs its PATH
         loginShellEnvironment.prewarm()
 
@@ -332,122 +334,127 @@ class App @Inject constructor(
 
             val quitPrompt = appViewModel.quitPrompt.collectAsState().value
 
-            Window(
-                title = "${System.getenv("title") ?: AppConstants.APP_NAME} - $currentTabName",
-                onCloseRequest = { appViewModel.quit(onQuit = quitNow) },
-                state = windowState,
-                icon = painterResource(Res.drawable.logo),
-                undecorated = linuxFrame != null,
-                // Fork-only: the text size's shortcuts, wherever the focus is
-                onPreviewKeyEvent = { event ->
-                    val step = event.textSizeStep()
-                    step?.let { textSizes.step(it, TextSizeStepSource.KEY) }
-                    step != null
-                },
-            ) {
-                // Windows and Linux would show a Swing menu bar inside the window, which doesn't look like the rest of
-                // Leaf. macOS shows it in the system menu bar, where apps usually let you check for updates.
-                if (currentOs == OS.MAC) {
-                    MenuBar {
-                        // Fork-only: the text size, with its shortcuts
-                        Menu(stringResource(Res.string.app_menu_view)) {
-                            Item(
-                                text = stringResource(Res.string.app_menu_bigger_text),
-                                shortcut = KeyShortcut(Key.Equals, meta = true),
-                                enabled = TextSize.bigger(textSize) != textSize,
-                                onClick = { textSizes.step(TextSizeStep.BIGGER, TextSizeStepSource.MENU) },
-                            )
-                            Item(
-                                text = stringResource(Res.string.app_menu_smaller_text),
-                                shortcut = KeyShortcut(Key.Minus, meta = true),
-                                enabled = TextSize.smaller(textSize) != textSize,
-                                onClick = { textSizes.step(TextSizeStep.SMALLER, TextSizeStepSource.MENU) },
-                            )
-                            Item(
-                                text = stringResource(Res.string.app_menu_default_text_size),
-                                shortcut = KeyShortcut(Key.Zero, meta = true),
-                                enabled = textSize != TextSize.DEFAULT,
-                                onClick = { textSizes.step(TextSizeStep.DEFAULT, TextSizeStepSource.MENU) },
-                            )
-                        }
+            // Fork-only: errors that Compose catches in the window go to Leaf's log with their stack traces
+            val windowErrors = remember { LoggingWindowExceptionHandlerFactory() }
 
-                        Menu(stringResource(Res.string.app_menu_help)) {
-                            Item(
-                                text = stringResource(Res.string.app_menu_check_for_updates),
-                                onClick = {
-                                    val backStack = currentTab?.data?.backStack
-
-                                    if (backStack != null && Screen.CheckForUpdates !in backStack) {
-                                        backStack.add(Screen.CheckForUpdates)
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-
-                // Fork-only: the tabs go in the window's title bar on macOS and Windows, and on Linux when Leaf draws its
-                // frame (docs/fork/window-chrome.md)
-                val titleBar = remember(window) { windowTitleBarOf(window) ?: linuxFrame?.titleBar(window) }
-
-                val compositionValues: MutableList<ProvidedValue<*>> =
-                    mutableListOf(LocalTextContextMenu provides AppPopupMenu())
-
-                // Fork-only: Text size changes the text alone, through Compose's font scale
-                val windowDensity = LocalDensity.current
-                compositionValues.add(
-                    LocalDensity provides Density(scale ?: windowDensity.density, TextSize.scaleOf(textSize))
-                )
-
-                val avatarProvider = when (avatarProviderType) {
-                    AvatarProviderType.Gravatar -> GravatarAvatarProvider()
-                    AvatarProviderType.None -> NoneAvatarProvider()
-                }
-
-                compositionValues.add(LocalAvatarProvider provides avatarProvider)
-                compositionValues.add(LocalDateTimeFormat provides dateFormat)
-                compositionValues.add(LocalWindowMinimized provides windowState.isMinimized)
-
-                // A quit from the Dock or a logout can come while Leaf is minimized or in the background
-                LaunchedEffect(quitPrompt != null) {
-                    if (quitPrompt != null) {
-                        windowState.isMinimized = false
-                        window.toFront()
-
-                        desktopSupporting(Desktop.Action.APP_REQUEST_FOREGROUND)?.requestForeground(false)
-                    }
-                }
-
-                CompositionLocalProvider(
-                    values = compositionValues.toTypedArray()
+            CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides windowErrors) {
+                Window(
+                    title = "${System.getenv("title") ?: AppConstants.APP_NAME} - $currentTabName",
+                    onCloseRequest = { appViewModel.quit(onQuit = quitNow) },
+                    state = windowState,
+                    icon = painterResource(Res.drawable.logo),
+                    undecorated = linuxFrame != null,
+                    // Fork-only: the text size's shortcuts, wherever the focus is
+                    onPreviewKeyEvent = { event ->
+                        val step = event.textSizeStep()
+                        step?.let { textSizes.step(it, TextSizeStepSource.KEY) }
+                        step != null
+                    },
                 ) {
-                    AppTheme(
-                        selectedTheme = theme,
-                        style = style,
-                        codeColours = codeColours,
-                        linesHeightType = linesHeightType,
-                        fonts = fonts,
-                    ) {
-                        LinuxWindowFrame(linuxFrame, window) {
-                            Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
-                                AppTabs(
-                                    titleBar = titleBar,
-                                    window = window,
-                                    isFullscreen = windowState.placement == WindowPlacement.Fullscreen,
+                    // Windows and Linux would show a Swing menu bar inside the window, which doesn't look like the rest of
+                    // Leaf. macOS shows it in the system menu bar, where apps usually let you check for updates.
+                    if (currentOs == OS.MAC) {
+                        MenuBar {
+                            // Fork-only: the text size, with its shortcuts
+                            Menu(stringResource(Res.string.app_menu_view)) {
+                                Item(
+                                    text = stringResource(Res.string.app_menu_bigger_text),
+                                    shortcut = KeyShortcut(Key.Equals, meta = true),
+                                    enabled = TextSize.bigger(textSize) != textSize,
+                                    onClick = { textSizes.step(TextSizeStep.BIGGER, TextSizeStepSource.MENU) },
+                                )
+                                Item(
+                                    text = stringResource(Res.string.app_menu_smaller_text),
+                                    shortcut = KeyShortcut(Key.Minus, meta = true),
+                                    enabled = TextSize.smaller(textSize) != textSize,
+                                    onClick = { textSizes.step(TextSizeStep.SMALLER, TextSizeStepSource.MENU) },
+                                )
+                                Item(
+                                    text = stringResource(Res.string.app_menu_default_text_size),
+                                    shortcut = KeyShortcut(Key.Zero, meta = true),
+                                    enabled = textSize != TextSize.DEFAULT,
+                                    onClick = { textSizes.step(TextSizeStep.DEFAULT, TextSizeStepSource.MENU) },
+                                )
+                            }
+
+                            Menu(stringResource(Res.string.app_menu_help)) {
+                                Item(
+                                    text = stringResource(Res.string.app_menu_check_for_updates),
+                                    onClick = {
+                                        val backStack = currentTab?.data?.backStack
+
+                                        if (backStack != null && Screen.CheckForUpdates !in backStack) {
+                                            backStack.add(Screen.CheckForUpdates)
+                                        }
+                                    },
                                 )
                             }
                         }
+                    }
 
+                    // Fork-only: the tabs go in the window's title bar on macOS and Windows, and on Linux when Leaf draws its
+                    // frame (docs/fork/window-chrome.md)
+                    val titleBar = remember(window) { windowTitleBarOf(window) ?: linuxFrame?.titleBar(window) }
+
+                    val compositionValues: MutableList<ProvidedValue<*>> =
+                        mutableListOf(LocalTextContextMenu provides AppPopupMenu())
+
+                    // Fork-only: Text size changes the text alone, through Compose's font scale
+                    val windowDensity = LocalDensity.current
+                    compositionValues.add(
+                        LocalDensity provides Density(scale ?: windowDensity.density, TextSize.scaleOf(textSize))
+                    )
+
+                    val avatarProvider = when (avatarProviderType) {
+                        AvatarProviderType.Gravatar -> GravatarAvatarProvider()
+                        AvatarProviderType.None -> NoneAvatarProvider()
+                    }
+
+                    compositionValues.add(LocalAvatarProvider provides avatarProvider)
+                    compositionValues.add(LocalDateTimeFormat provides dateFormat)
+                    compositionValues.add(LocalWindowMinimized provides windowState.isMinimized)
+
+                    // A quit from the Dock or a logout can come while Leaf is minimized or in the background
+                    LaunchedEffect(quitPrompt != null) {
                         if (quitPrompt != null) {
-                            Dialog(
-                                onDismissRequest = { appViewModel.answerQuit(null) },
-                                properties = DialogProperties(
-                                    scrimColor = MaterialTheme.colors.dialogOverlay,
-                                    dismissOnClickOutside = false,
-                                    usePlatformDefaultWidth = false,
-                                ),
-                            ) {
-                                QuitDialog(quitPrompt, onAnswer = appViewModel::answerQuit)
+                            windowState.isMinimized = false
+                            window.toFront()
+
+                            desktopSupporting(Desktop.Action.APP_REQUEST_FOREGROUND)?.requestForeground(false)
+                        }
+                    }
+
+                    CompositionLocalProvider(
+                        values = compositionValues.toTypedArray()
+                    ) {
+                        AppTheme(
+                            selectedTheme = theme,
+                            style = style,
+                            codeColours = codeColours,
+                            linesHeightType = linesHeightType,
+                            fonts = fonts,
+                        ) {
+                            LinuxWindowFrame(linuxFrame, window) {
+                                Box(modifier = Modifier.background(MaterialTheme.colors.background)) {
+                                    AppTabs(
+                                        titleBar = titleBar,
+                                        window = window,
+                                        isFullscreen = windowState.placement == WindowPlacement.Fullscreen,
+                                    )
+                                }
+                            }
+
+                            if (quitPrompt != null) {
+                                Dialog(
+                                    onDismissRequest = { appViewModel.answerQuit(null) },
+                                    properties = DialogProperties(
+                                        scrimColor = MaterialTheme.colors.dialogOverlay,
+                                        dismissOnClickOutside = false,
+                                        usePlatformDefaultWidth = false,
+                                    ),
+                                ) {
+                                    QuitDialog(quitPrompt, onAnswer = appViewModel::answerQuit)
+                                }
                             }
                         }
                     }

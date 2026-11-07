@@ -15,7 +15,7 @@ fun printDebug(tag: String, message: String) {
     logger.debug { "$tag - $message" }
 }
 
-fun printError(tag: String, message: String, e: Exception? = null) {
+fun printError(tag: String, message: String, e: Throwable? = null) {
     println("[ERROR] $tag - $message")
     logger.error(e) { "$tag - $message" }
 }
