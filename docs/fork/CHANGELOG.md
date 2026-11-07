@@ -2,6 +2,16 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Leaf logs the errors that make it quit (2026-11-06)
+
+- **Request:** the installed Leaf quit after a dialog that said "RootNodeOwner is already disposed", and its log had
+  nothing about it. Find out what happened, then log such errors.
+- **Found:** Compose's own handler for an error in the window shows only the error's message, then closes the window,
+  which quits Leaf. Nothing wrote the stack trace anywhere. No worktree had been removed.
+- **Now:** errors that nothing catches, in the window or on any other thread, go to `leaf.log` with their stack traces.
+  The dialog and the quit are as before.
+- Details: CLAUDE.md, "Logging" under "Conventions".
+
 ## Toolbar labels can be turned off (2026-11-06)
 
 - **Request:** an option in Settings to show or hide the labels of the toolbar's buttons, showing them by default.

@@ -429,8 +429,8 @@ code, "worktree" means the working directory, not linked worktrees.
 - There is no mutex around git operations. Foreground tasks only block UI input. A tab's refreshes take turns (see
   Refresh).
 - There is no `CoroutineExceptionHandler`. An exception that escapes as a throw, rather than as `Either.Err`, kills
-  its coroutine silently, with only a stderr stack trace. Return errors from git actions; don't throw them. Opening a
-  linked worktree used to hit this.
+  its coroutine silently, with only a stack trace in the log (see Logging, under Conventions). Return errors from git
+  actions; don't throw them. Opening a linked worktree used to hit this.
 - `UseCaseExecutor` turns a throw inside its block into `GenericError`, and logs it (fork-only): callers that ignore
   the result, such as refreshes, used to drop it without a trace.
 
@@ -5115,6 +5115,21 @@ shows up through `PollWorktreesUseCase` (`worktreePollTicks` in `refresh/Worktre
   at 16 dp.
 
 **Logging:** `printLog` / `printDebug` / `printError(TAG, ...)`, with `private const val TAG = "ClassName"`.
+`printError` takes any `Throwable` (fork-only), and the log file gets its stack trace.
+- **Errors that nothing catches (fork-only, 2026-11-06, `UncaughtErrors.kt`):** they go to `leaf.log` with their stack
+  traces, under the tag `UncaughtErrors`, then on as before. A packaged Leaf has no console, so they went nowhere.
+  - **In the window** (composition, layout, drawing, input): `App.kt` provides `LoggingWindowExceptionHandlerFactory` as
+    `LocalWindowExceptionHandlerFactory` around `Window`. It logs, then hands the error to Compose's
+    `DefaultWindowExceptionHandlerFactory`, which shows the error's message alone in a dialog, then sends the window a
+    close request, so Leaf quits as when its window is closed. On 2026-11-06 an installed Leaf quit that way after
+    "RootNodeOwner is already disposed" (Compose closed a popup's or a dialog's layer twice), with nothing in its log.
+  - **On any other thread,** coroutines that a throw escapes included: `App.start` calls `logUncaughtErrors()` right
+    after `initLogging()`. It sets the default uncaught exception handler, which logs, then calls the handler that was
+    there before, or prints the error to stderr as the JVM does without one.
+  - Tests: `UncaughtErrorsTest` (both handlers, the order, logging that fails, the stack trace in the log file's layout,
+    a thread and a coroutine once installed). 7 mutations were each caught by a named test. Not covered by a kept
+    test: the provider around `Window`, which needs a real window. Compose's `Window` reads the local when it creates
+    its `ComposeWindow` (ui-desktop 1.12.1).
 
 **Deleting files:** never use Kotlin's `File.deleteRecursively`, or a delete built on `File.walk`. They follow symbolic
 links to folders, even when called on the link itself, and delete the files in the folder that a link points to,
