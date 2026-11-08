@@ -5382,6 +5382,36 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     file rows do; they were a fixed 28 dp. File history's rows (two lines and a 40 dp avatar, 72 dp) don't.
   - Tests: `LinesHeightSettingTest` (data), the row heights in `ComparisonPaneTest`. Putting back the throw and the
     28 dp each failed a named test.
+- **Scale is on top of the screen's own scale (fork-only, 2026-11-08, `domain/models/ui/UiScale.kt`,
+  `ui/dialogs/settings/ScaleRow.kt`, `AbsoluteScaleMigration.kt`):** Settings → Appearance → Scale is how much bigger or
+  smaller than the screen's own scale Leaf draws everything: "100% (default)" is the screen's scale on every screen,
+  and the choices go from 75% to 300%. `App.kt` provides `Density(UiScale.densityOf(scale, the window's density), …)`,
+  and the window's density follows it to another screen. As IntelliJ's Zoom, VS Code's zoom level and browsers' zoom
+  do. Decided with the user over per-monitor settings, which would need monitors told apart, and over an Automatic
+  choice next to fixed scales (built first, not kept).
+  - **Until 2026-11-08 Scale was the scale itself** (`scale_ui`): 100% was one pixel a point, the normal size on a 1x
+    monitor and half size on a Mac's Retina screen (2.0), and once one was picked the list had no way back to the
+    screen's own. A 100% picked on a 1x monitor, where it changed nothing, left Leaf half size on the laptop's screen
+    once the monitor was unplugged (reported 2026-11-08).
+  - **Stored** as `relative_scale` (`AppConfig.ScaleUi`, `AppSettingsService.scaleUi`, `UiScale.of`: none, or a value
+    outside 0.25 to 4, reads as 100%). A stored scale that the list lacks is offered in its place ("83%").
+  - **The old setting, once** (`AbsoluteScaleMigration`, after `RemovedSettingsMigration` in `DatastoreModule`): when
+    the settings are first read, `scale_ui` becomes `relative_scale` = the old scale over the main screen's scale
+    (`GraphicsEnvironment`'s default screen, where the window opens), to the whole percent (`UiScale.fromAbsolute`), so
+    Leaf keeps the size it had on that screen; `scale_ui` goes. A `relative_scale` already there wins. Without a screen
+    (headless) `scale_ui` stays, unread. An older Leaf then finds no `scale_ui` and follows the screen.
+  - **Where the screen's scale comes from:** on macOS, the display's backing scale (1 or 2); on Windows, the display's
+    scaling (100%, 125%, 150%…). On Linux, JBR's `X11GraphicsDevice` takes the desktop's scale factor, else `Xft.dpi`
+    over 96, multiplied by `GDK_SCALE` and `GDK_DPI_SCALE`, and rounds it to a whole number: a desktop at 125% reads as
+    1, so Leaf at 100% is smaller than the desktop's other apps there, and 125% puts it right (read from JBR's sources
+    on 2026-11-08; which desktop setting the native part reads wasn't checked, and none of it was run on Linux or
+    Windows).
+  - Tests: `UiScaleTest` (domain), `AbsoluteScaleMigrationTest` (data: old scales on screens at 1x and 2x through a
+    real settings store, once only, a newer setting winning, no screen, picking a scale, values that can't be right),
+    `ScaleRowTest` (app: the choices, a stored one in its place, the row rendered and picked from). 4 mutations (the
+    density ignoring the screen, the old scale not divided, the old one winning, the old key kept) were each caught by a
+    named test. Not covered by a kept test: `App.kt`'s density and the migration's screen; a dev run on the Retina
+    screen showed an old `scale_ui` of 1.0 becoming 0.5 with the same 20 pt title bar, and 150% giving a 60 pt one.
 - **Text size (fork-only, 2026-11-05, `domain/models/ui/TextSize.kt`, `ui/TextSizeController.kt`,
   `theme/TextGrowth.kt`):** Settings → Appearance → "Text size", under Scale, sizes the text alone, where Scale sizes
   text, icons and spacing together (a user's feedback: Scale wasn't what they wanted). Chosen with the user from a
@@ -5392,7 +5422,7 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     (`TextSize.of`). The drop-down labels the default "13 (default)" (`textSizeOptions`), and its subtitle names this
     system's shortcuts (`textSizeShortcuts`). The Scale row's subtitle became "The size of everything: text, icons and
     spacing" (upstream's said "Adapt the size the UI to your preferred scale").
-  - **How:** `App.kt` provides `LocalDensity` as `Density(scale ?: the window's, TextSize.scaleOf(size))`, so every
+  - **How:** `App.kt` provides `LocalDensity` as `Density(the window's × Scale, TextSize.scaleOf(size))`, so every
     `sp` follows (the typography and the 26 sizes written in the code), and `dp` doesn't. It used to provide a font
     scale of 1 only when Scale was set.
   - **The shortcuts** (`KeybindingOption.TEXT_BIGGER`, `TEXT_SMALLER`, `TEXT_DEFAULT_SIZE`, Ctrl replaced with Cmd on

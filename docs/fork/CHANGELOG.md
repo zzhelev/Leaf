@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Scale is on top of the screen's own scale (2026-11-08)
+
+- **Request:** with the external monitor unplugged, Leaf was very small on the laptop's screen while Settings said
+  Scale was 100%. Then: should such settings be tied to the monitor? Decided with the user to make Scale relative
+  instead, as other apps' zoom is.
+- **Found:** Scale was the scale itself, the same on every screen: 100% was the normal size on a 1x monitor and half
+  size on a Mac's Retina screen, where the normal size is 200%. The settings file had 100%, most likely picked on the
+  external monitor, where it changed nothing. Once a scale was picked, the list had no way back to the screen's own.
+- **Now:** Scale is how much bigger or smaller than each screen's own scale Leaf draws: "100% (default)" is the
+  normal size on every screen, and 150% is half again bigger on each. A scale stored before is turned into this once,
+  keeping the size it had on the screen Leaf starts on.
+- Details: CLAUDE.md, "Scale is on top of the screen's own scale" under "Settings".
+
 ## Leaf logs the errors that make it quit (2026-11-06)
 
 - **Request:** the installed Leaf quit after a dialog that said "RootNodeOwner is already disposed", and its log had
