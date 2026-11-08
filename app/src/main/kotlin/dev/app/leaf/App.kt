@@ -62,6 +62,7 @@ import dev.app.leaf.domain.index.UnsupportedIndex
 import dev.app.leaf.domain.ignore.IgnoreRequest
 import dev.app.leaf.domain.models.*
 import dev.app.leaf.domain.models.ui.TextSize
+import dev.app.leaf.domain.models.ui.UiScale
 import dev.app.leaf.domain.repositories.CompletedTask
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.sorting.DiscardedFiles
@@ -98,7 +99,6 @@ import dev.app.leaf.ui.window.titleBarControl
 import dev.app.leaf.ui.window.windowTitleBarOf
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import org.eclipse.jgit.lib.GpgConfig
 import org.eclipse.jgit.lib.Signers
 import org.eclipse.jgit.util.LfsFactory
@@ -247,7 +247,7 @@ class App @Inject constructor(
         val styleInitial = stylesService.selected.first()
         val codeColoursInitial = appSettings.codeColours.first()
         val fontsInitial = appSettings.fonts.first()
-        val scaleInitial = appSettings.scaleUi.firstOrNull()
+        val scaleInitial = appSettings.scaleUi.first()
         textSizes.start()
         val linesHeightTypeInitial = appSettings.linesHeightType.first()
         val avatarProviderTypeInitial = appSettings.avatarProvider.first()
@@ -399,10 +399,14 @@ class App @Inject constructor(
                     val compositionValues: MutableList<ProvidedValue<*>> =
                         mutableListOf(LocalTextContextMenu provides AppPopupMenu())
 
-                    // Fork-only: Text size changes the text alone, through Compose's font scale
+                    // Fork-only: Scale is on top of the screen's own scale, which follows the window to another screen,
+                    // and Text size changes the text alone, through Compose's font scale
                     val windowDensity = LocalDensity.current
                     compositionValues.add(
-                        LocalDensity provides Density(scale ?: windowDensity.density, TextSize.scaleOf(textSize))
+                        LocalDensity provides Density(
+                            UiScale.densityOf(scale, windowDensity.density),
+                            TextSize.scaleOf(textSize),
+                        )
                     )
 
                     val avatarProvider = when (avatarProviderType) {

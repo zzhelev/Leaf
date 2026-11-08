@@ -52,7 +52,6 @@ private const val PREF_COMMIT_MESSAGE_HEIGHT = "commitMessageHeight"
 private const val DEFAULT_FIRST_PANE_WIDTH = 220f
 private const val DEFAULT_THIRD_PANE_WIDTH = 330f
 
-private val scaleUiPreference get() = floatPreferencesKey("scale_ui")
 private val textSizePreference get() = intPreferencesKey("text_size")
 private val linuxTitleBarPreference get() = booleanPreferencesKey("linux_title_bar")
 private val toolbarLabelsPreference get() = booleanPreferencesKey("toolbar_labels")
@@ -130,7 +129,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
     private val preferences = userSettingsDataStore.preferences
 
     // UI
-    override val scaleUi = preferences.data[scaleUiPreference]
+    /** Fork-only since 2026-11-08: on top of the screen's own scale (`relative_scale`; `AbsoluteScaleMigration`). */
+    override val scaleUi = preferences.data[relativeScalePreference]
 
     /** Fork-only: the size of the main text in points. */
     override val textSize get() = preferences.data[textSizePreference]
@@ -256,7 +256,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.LinesHeight -> setValue(linesHeightPreference, linesHeightMapper.toData(appConfig.value))
                 is AppConfig.PullWithRebase -> setValue(pullWithRebasePreference, appConfig.value)
                 is AppConfig.PushWithLease -> setValue(pushWithLeasePreference, appConfig.value)
-                is AppConfig.ScaleUi -> setValue(scaleUiPreference, appConfig.value)
+                is AppConfig.ScaleUi -> setValue(relativeScalePreference, appConfig.value)
                 is AppConfig.TextSize -> setValue(textSizePreference, appConfig.value)
                 is AppConfig.LinuxTitleBar -> setValue(linuxTitleBarPreference, appConfig.value)
                 is AppConfig.ToolbarLabels -> setValue(toolbarLabelsPreference, appConfig.value)

@@ -18,6 +18,7 @@ import dev.app.leaf.domain.models.ui.FontSettings
 import dev.app.leaf.domain.models.ui.InterfaceFont
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.TextSize
+import dev.app.leaf.domain.models.ui.UiScale
 import dev.app.leaf.domain.models.ui.codeFontName
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.repositories.AppSettingsRepository
@@ -38,7 +39,8 @@ class AppSettingsService @Inject constructor(
         appSettingsRepository.setConfiguration(appConfig)
     }
 
-    val scaleUi: Flow<Float?> get() = appSettingsRepository.scaleUi
+    /** Fork-only: on top of the screen's own scale since 2026-11-08, 1 by default. See [UiScale]. */
+    val scaleUi: Flow<Float> get() = appSettingsRepository.scaleUi.map(UiScale::of)
 
     /** Fork-only: the size of the main text in points, one of [TextSize.CHOICES]. */
     val textSize: Flow<Int> get() = appSettingsRepository.textSize.map(TextSize::of)

@@ -5,6 +5,7 @@ import dev.app.leaf.domain.sorting.FilesViewState
 import dev.app.leaf.domain.sorting.RefPanelSettings
 
 sealed interface AppConfig {
+    /** Fork-only since 2026-11-08: on top of the screen's own scale. See [dev.app.leaf.domain.models.ui.UiScale]. */
     data class ScaleUi(val value: Float?) : AppConfig
 
     /**

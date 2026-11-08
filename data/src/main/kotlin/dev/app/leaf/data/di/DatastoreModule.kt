@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.emptyPreferences
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.UserSettingsDataStore
+import dev.app.leaf.data.repositories.configuration.AbsoluteScaleMigration
 import dev.app.leaf.data.repositories.configuration.JsonPreferencesSerializer
 import dev.app.leaf.data.repositories.configuration.ProtobufPreferencesMigration
 import dev.app.leaf.data.repositories.configuration.RemovedSettingsMigration
@@ -39,6 +40,8 @@ class DatastoreModule {
                 ProtobufPreferencesMigration(getProtobufPreferencesPath().toPath()),
                 // After it, so that the settings it moves are cleaned up too
                 RemovedSettingsMigration(),
+                // Fork-only: Scale on top of the screen's own scale since 2026-11-08
+                AbsoluteScaleMigration(),
             ),
         )
 

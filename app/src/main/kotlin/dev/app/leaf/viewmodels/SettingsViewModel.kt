@@ -21,6 +21,7 @@ import dev.app.leaf.domain.models.ui.FontSettings
 import dev.app.leaf.domain.models.ui.LinesHeightType
 import dev.app.leaf.domain.models.ui.TextSize
 import dev.app.leaf.domain.models.ui.Theme
+import dev.app.leaf.domain.models.ui.UiScale
 import dev.app.leaf.domain.services.AppSettingsService
 import dev.app.leaf.domain.styles.BuiltInStyles
 import dev.app.leaf.domain.styles.CodeColours
@@ -241,7 +242,7 @@ class SettingsViewModel @Inject constructor(
 /** The settings before the stored ones are read (fork-only: top level, for tests). */
 internal fun emptySettingsState(): SettingsViewState {
     return SettingsViewState(
-        scaleUi = null,
+        scaleUi = UiScale.DEFAULT,
         theme = Theme.Light,
         style = BuiltInStyles.DEFAULT,
         styles = BuiltInStyles.ALL,
@@ -283,7 +284,7 @@ internal fun emptySettingsState(): SettingsViewState {
 
 @Immutable
 data class SettingsViewState(
-    val scaleUi: Float?,
+    val scaleUi: Float,
     val theme: Theme,
     /** The style that draws Leaf, and every style there is (fork-only). */
     val style: StyleDefinition,

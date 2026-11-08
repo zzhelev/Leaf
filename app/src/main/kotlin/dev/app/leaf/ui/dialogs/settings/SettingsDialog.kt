@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -771,39 +770,8 @@ internal fun AppearanceRows(settingsViewState: SettingsViewState, onAction: (Set
         }
     )
 
-    val density = LocalDensity.current.density
-    // Follows the setting, so that the dropdown shows the scale just picked
-    val scaleUi = settingsViewState.scaleUi ?: density
-    val options = remember(scaleUi) {
-        val standardOptions = listOf(
-            DropDownOption(0.75f, "75%"),
-            DropDownOption(1f, "100%"),
-            DropDownOption(1.25f, "125%"),
-            DropDownOption(1.5f, "150%"),
-            DropDownOption(1.75f, "175%"),
-            DropDownOption(2f, "200%"),
-            DropDownOption(2.25f, "225%"),
-            DropDownOption(2.5f, "250%"),
-            DropDownOption(2.75f, "275%"),
-            DropDownOption(3f, "300%"),
-        )
-
-        if (standardOptions.any { it.value == scaleUi }) {
-            standardOptions
-        } else { // A scale that the list doesn't have, such as the screen's own
-            (standardOptions + DropDownOption(scaleUi, "${(scaleUi * 100).toInt()}%")).sortedBy { it.value }
-        }
-    }
-
-    SettingDropDown(
-        title = "Scale",
-        subtitle = "The size of everything: text, icons and spacing",
-        dropDownOptions = options,
-        currentOption = scaleUi,
-        onOptionSelected = { newValue ->
-            onAction(SettingsAction.SetConfig(AppConfig.ScaleUi(newValue.value)))
-        }
-    )
+    // Fork-only: on top of the screen's own scale, in ScaleRow.kt
+    ScaleRow(settingsViewState.scaleUi, onAction)
 
     // Fork-only: the text alone, which the shortcuts change too
     SettingDropDown(
