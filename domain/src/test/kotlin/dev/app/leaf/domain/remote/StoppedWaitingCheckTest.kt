@@ -16,10 +16,12 @@ import dev.app.leaf.domain.usecases.RefreshDataUseCase
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
@@ -152,6 +154,35 @@ class StoppedWaitingCheckTest {
         check.start(delete)
 
         assertEquals(StoppedWaitingState.NotDone(delete, "d".repeat(40)), awaitAnswer())
+    }
+
+    @Test
+    fun `a check that another replaced writes nothing, however late it gets to`(): Unit = runBlocking {
+        val delete = ServerHandOff("origin", "refs/heads/old", "refs/remotes/origin/old", pushed = null, before = "d".repeat(40))
+        val shown = CopyOnWriteArrayList<StoppedWaitingState?>()
+        // Runs inside each write. Holding up the write of the new check's "Asking" gives the replaced check, cancelled
+        // a moment before, all the time it needs to write, as a busy machine can
+        val watching = launch(Dispatchers.Unconfined) {
+            check.state.collect {
+                shown += it
+                if (it == StoppedWaitingState.Asking(delete)) Thread.sleep(200)
+            }
+        }
+
+        server.hold = CompletableDeferred()
+        check.start(handOff)
+        withTimeout(5.seconds) { while (server.asked.isEmpty()) delay(5) }
+
+        server.hold = null
+        server.answers += Either.Ok(HandOffOutcome.CantTell)
+        check.start(delete)
+
+        assertEquals(StoppedWaitingState.Unknown(delete), awaitAnswer())
+        watching.cancel()
+        assertEquals(
+            listOf(StoppedWaitingState.Asking(delete), StoppedWaitingState.Unknown(delete)),
+            shown.dropWhile { it != StoppedWaitingState.Asking(delete) },
+        )
     }
 
     private suspend fun awaitAnswer(): StoppedWaitingState? = withTimeout(5.seconds) {

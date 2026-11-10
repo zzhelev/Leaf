@@ -67,11 +67,13 @@ class StoppedWaitingCheck @Inject constructor(
     internal var checkAgainEvery = CHECK_AGAIN_EVERY
     internal var rounds = CHECK_ROUNDS
 
+    /** The check under way. Replacing it and a check's writes take [lock], so a check once replaced writes nothing. */
     @Volatile
     private var job: Job? = null
+    private val lock = Any()
 
     /** Starts asking about [handOff], in place of what was shown before. */
-    fun start(handOff: ServerHandOff) {
+    fun start(handOff: ServerHandOff) = synchronized(lock) {
         job?.cancel()
         state.value = StoppedWaitingState.Asking(handOff)
         job = tabScope.launch { ask(handOff) }
@@ -87,12 +89,19 @@ class StoppedWaitingCheck @Inject constructor(
         job?.cancel()
     }
 
-    fun dismiss() {
+    fun dismiss() = synchronized(lock) {
         val asking = job
 
         job = null
         asking?.cancel()
         state.value = null
+    }
+
+    /** Shows [shown] while [me] is the check under way: one that was replaced or dismissed writes nothing. */
+    private fun show(me: Job?, shown: StoppedWaitingState?) = synchronized(lock) {
+        if (job === me) {
+            state.value = shown
+        }
     }
 
     private suspend fun ask(handOff: ServerHandOff) {
@@ -108,7 +117,7 @@ class StoppedWaitingCheck @Inject constructor(
                 val outcome = when (result) {
                     // Asked again, the last answer stays
                     is Either.Err -> {
-                        state.value = answer ?: StoppedWaitingState.Failed(handOff, result.error)
+                        show(me, answer ?: StoppedWaitingState.Failed(handOff, result.error))
                         return
                     }
 
@@ -117,13 +126,13 @@ class StoppedWaitingCheck @Inject constructor(
 
                 when (outcome) {
                     HandOffOutcome.Done -> {
-                        state.value = StoppedWaitingState.Done(handOff)
+                        show(me, StoppedWaitingState.Done(handOff))
                         refreshDataUseCase.get()(DataToRefresh.REMOTES, DataToRefresh.BRANCHES, DataToRefresh.LOG)
                         return
                     }
 
                     HandOffOutcome.CantTell -> {
-                        state.value = StoppedWaitingState.Unknown(handOff)
+                        show(me, StoppedWaitingState.Unknown(handOff))
                         return
                     }
 
@@ -131,12 +140,10 @@ class StoppedWaitingCheck @Inject constructor(
                 }
             }
 
-            state.value = answer
+            show(me, answer)
         } catch (e: CancellationException) {
             // "Stop checking"; dismissing, or asking about something else, has replaced it already
-            if (job === me) {
-                state.value = answer ?: StoppedWaitingState.Unknown(handOff)
-            }
+            show(me, answer ?: StoppedWaitingState.Unknown(handOff))
 
             throw e
         }
