@@ -113,7 +113,9 @@ fun AppTab(
         }
     }
 
-    LaunchedEffect(repositorySelectionStatusValue) {
+    // Fork-only: keyed on the tab too, as every tab is shown in this one AppTab. Two tabs of one worktree have equal
+    // states, and the second one's back stack would not get its screen.
+    LaunchedEffect(repositoryTabViewModel, repositorySelectionStatusValue) {
         val screen = when (repositorySelectionStatusValue) {
             RepositorySelectionState.None -> Screen.Welcome
 
