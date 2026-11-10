@@ -109,18 +109,32 @@ fun RepositoryOpenPage(
     // Fork-only: folding the branches pane or the changes pane removes whatever in it had the focus, and the tab's
     // shortcuts need something in the tab to have it. So one frame after a fold, when the focus is nowhere in the tab, the
     // tab takes it.
-    LaunchedEffect(isBranchesPaneFolded, isChangesPaneShown) {
-        if (isBranchesPaneFolded || !isChangesPaneShown) {
-            withFrameNanos { }
+    suspend fun takeFocusIfNothingHasIt() {
+        withFrameNanos { }
 
-            if (!tabHasFocus && !chrome.isTabBeingRenamed) {
-                try {
-                    focusRequester.requestFocus()
-                } catch (_: IllegalStateException) {
-                    // The tab is gone
-                }
+        if (!tabHasFocus && !chrome.isTabBeingRenamed) {
+            try {
+                focusRequester.requestFocus()
+            } catch (_: IllegalStateException) {
+                // The tab is gone
             }
         }
+    }
+
+    LaunchedEffect(isBranchesPaneFolded, isChangesPaneShown) {
+        if (isBranchesPaneFolded || !isChangesPaneShown) {
+            takeFocusIfNothingHasIt()
+        }
+    }
+
+    // Fork-only: so does closing the Staged or the Unstaged search, with Esc or its ×, which takes its field away
+    LaunchedEffect(repositoryOpenViewModel) {
+        repositoryOpenViewModel.statusState
+            .map { it.showSearchStaged || it.showSearchUnstaged }
+            .distinctUntilChanged()
+            .drop(1)
+            .filter { isOpen -> !isOpen }
+            .collect { takeFocusIfNothingHasIt() }
     }
 
     Column(

@@ -39,7 +39,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.app.leaf.LocalTabFocusRequester
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.compose.rememberInTab
@@ -126,17 +125,6 @@ fun StatusPane(
     val searchFilterStaged = statusState.searchFilterStaged
     val showSearchUnstaged = statusState.showSearchUnstaged
     val searchFilterUnstaged = statusState.searchFilterUnstaged
-
-    val tabFocusRequester = LocalTabFocusRequester.current
-
-    // Only when a search opens or closes, not at each change of the state, such as each letter typed in the search
-    LaunchedEffect(statusState.showSearchUnstaged, statusState.showSearchStaged) {
-        launch {
-            if (statusState.showSearchUnstaged || statusState.showSearchStaged) {
-                tabFocusRequester.requestFocus()
-            }
-        }
-    }
 
     Column(
         modifier = Modifier
