@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Old toasts don't come back (2026-11-10)
+
+- **Request:** while resolving a rebase's conflicts, toasts of earlier operations ("Rebase completed") showed again,
+  one after another.
+- **Found:** a tab keeps its last 50 completed tasks, and shows a toast for each that it hasn't marked as shown. The
+  marked tasks were a list of their own, also cut to its last 50, and a task is marked when its toast goes: at once
+  without a toast, later for a longer one or one under the pointer. So the two lists drifted apart once a tab had had
+  50 tasks, and a task that the tab still had dropped out of the marked ones and showed again. Marking it dropped the
+  next. A simulation of the two lists showed hundreds of old toasts an hour while tasks went on. Old error dialogs
+  could come back the same way.
+- **Now:** a task stays marked as long as the tab has it. Nothing else about toasts changed.
+- Details: CLAUDE.md, the toasts under "Use cases".
+
 ## Scale is on top of the screen's own scale (2026-11-08)
 
 - **Request:** with the external monitor unplugged, Leaf was very small on the laptop's screen while Settings said

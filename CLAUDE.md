@@ -396,6 +396,10 @@ code, "worktree" means the working directory, not linked worktrees.
   - Fork-only: a toast stays as long as its text takes to read (`notificationDuration`: 2 s plus 60 ms a character,
     4 to 12 s, and at least 6 s for a warning or an error), and while the pointer is over it. Upstream's went after
     2 s, before a longer message could be read.
+  - Fork-only (2026-11-10): the tasks whose toast or error dialog the tab has shown are kept while the tab still has
+    them (`shownTasksAfter`, `viewmodels/ShownTasks.kt`). Upstream kept the last 50 shown apart from the last 50
+    completed, and a task is marked when its toast goes, not in the order they complete, so once a tab had had 50
+    tasks old toasts came back one after another. Test: `ShownTasksTest`.
   - Fork-only: a task that succeeded but left the user's set-aside changes in the stash list also shows a dialog,
     `AutostashNoticeDialog` (see Changes that git sets aside).
   - The toast is gone after a few seconds, so `OperationInProgressBanner` (fork-only, `ui/status/`) shows an amber strip under
