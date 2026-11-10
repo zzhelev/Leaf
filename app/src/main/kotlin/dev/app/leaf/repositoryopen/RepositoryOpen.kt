@@ -683,7 +683,7 @@ fun MainContentView(
                             // Fork-only: blame had the focus, so the tab takes it back, as when the diff closes
                             tabFocusRequester.requestFocus()
                         },
-                        onSelectCommit = { viewModel.selectCommit(it, isStash = false) }
+                        onSelectCommit = { viewModel.selectBlamedCommit(it) }
                     )
                 } else {
                     Column {

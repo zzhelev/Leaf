@@ -171,6 +171,7 @@ class RepositoryOpenViewModel @Inject constructor(
     private val searchLogUseCase: SearchLogUseCase,
     private val setLogBranchFilterUseCase: SetLogBranchFilterUseCase,
     private val blameFileUseCase: BlameFileUseCase,
+    private val resolveCommitUseCase: ResolveCommitUseCase,
     updatesRepository: UpdatesRepository,
     watchRegistrations: WatchRegistrations,
     private val fetchRemotesUseCase: FetchRemotesUseCase,
@@ -1843,6 +1844,16 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun resetBlameState() {
         _blameState.value = BlameState.None
+    }
+
+    /**
+     * Selects the commit that a blamed line comes from (fork-only), and scrolls the log to it, which shows when blame is
+     * minimized. Blame names the commit by its id; one that the log hasn't loaded still shows its details.
+     */
+    fun selectBlamedCommit(hash: String) = viewModelScope.launch {
+        val commit = resolveCommitUseCase(hash).okOrNull() ?: return@launch
+
+        applyCommitSelection(commit, isStash = false, scrollToItem = true)
     }
 
     fun expandBlame() {

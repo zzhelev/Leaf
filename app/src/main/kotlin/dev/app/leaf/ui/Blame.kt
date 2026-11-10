@@ -30,7 +30,6 @@ import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.close
 import dev.app.leaf.domain.extensions.lineAt
 import dev.app.leaf.domain.highlighting.HighlightedText
-import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.extensions.handOnHover
 import dev.app.leaf.extensions.toStringWithSpaces
 import dev.app.leaf.keybindings.KeybindingOption
@@ -51,7 +50,8 @@ import dev.app.leaf.theme.withText
 fun Blame(
     filePath: String,
     blameResult: BlameResult,
-    onSelectCommit: (Commit) -> Unit,
+    /** The commit a line comes from, by its id. */
+    onSelectCommit: (hash: String) -> Unit,
     onClose: () -> Unit,
     /** The file's colours (fork-only), null while it's coloured or when nothing colours it. */
     highlighted: HighlightedText? = null,
@@ -108,7 +108,7 @@ fun Blame(
                                     .width(200.dp)
                                     .fillMaxHeight()
                                     .background(MaterialTheme.colors.secondarySurface)
-                                    .clickable { /* TODO Reenable this once blame has been refactored: if (commit != null) onSelectCommit(commit)*/ },
+                                    .clickable(enabled = commit != null) { commit?.let { onSelectCommit(it.name) } },
                                 verticalArrangement = Arrangement.Center,
                             ) {
                                 Text(
