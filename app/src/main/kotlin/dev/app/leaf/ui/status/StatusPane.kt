@@ -87,7 +87,6 @@ import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntriesContextMenuItems
 import dev.app.leaf.ui.context_menu.statusEntryContextMenuItems
 import dev.app.leaf.ui.dialogs.ConfirmableAction
-import dev.app.leaf.ui.dialogs.CommitAuthorDialog
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
@@ -120,7 +119,6 @@ fun StatusPane(
         LazyListState()
     }
 
-    val committerDataRequestState = statusState.committerDataRequestState
     val selectedUnstagedDiffEntries = statusState.selectedUnstagedDiffEntries
     val selectedStagedDiffEntries = statusState.selectedStagedDiffEntries
 
@@ -138,16 +136,6 @@ fun StatusPane(
                 tabFocusRequester.requestFocus()
             }
         }
-    }
-
-    if (committerDataRequestState is CommitterDataRequestState.WaitingInput) {
-        CommitAuthorDialog(
-            committerDataRequestState.authorInfo,
-            onClose = { onAction(StatusAction.RejectCommitterData) },
-            onAccept = { newAuthorInfo, persist ->
-                onAction(StatusAction.AcceptCommitterData(newAuthorInfo, persist))
-            },
-        )
     }
 
     Column(

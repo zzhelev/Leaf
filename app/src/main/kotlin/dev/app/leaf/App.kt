@@ -151,6 +151,15 @@ sealed interface Screen : NavKey {
     data object CheckForUpdates : Screen
     /** What Leaf is, its version and its links (fork-only: a dialog of its own, as the Welcome page drew it in place). */
     data object AppInfo : Screen
+    /**
+     * Asks for the identity to commit with (fork-only), as neither git nor JGit has one. [onAccept] or [onReject] answers
+     * the commit that waits for it. The tab shows one at a time.
+     */
+    data class CommitIdentity(
+        val authorInfo: AuthorInfo,
+        val onAccept: (authorInfo: AuthorInfo, persist: Boolean) -> Unit,
+        val onReject: () -> Unit,
+    ) : Screen
     /** The style editor (fork-only, docs/fork/custom-styles.md), over Settings. */
     data class StyleEditor(val start: StyleEditorStart) : Screen
     /**

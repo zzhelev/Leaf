@@ -60,6 +60,7 @@ import dev.app.leaf.ui.toolbar.ToolbarActions
 import dev.app.leaf.ui.status.UnsupportedIndexBanner
 import dev.app.leaf.ui.LocalAppChrome
 import dev.app.leaf.ui.status.CommitMessageEditor
+import dev.app.leaf.ui.status.CommitterDataRequestState
 import dev.app.leaf.ui.status.StatusAction
 import dev.app.leaf.ui.status.StatusPane
 import dev.app.leaf.ui.status.abortOperationInProgress
@@ -444,6 +445,27 @@ fun RepositoryOpenPage(
             .drop(1)
             .filter { !it }
             .collect { focusRequester.requestFocus() }
+    }
+
+    // Fork-only: a commit that waits for an identity asks in a dialog of the tab's. The status pane drew it in its own
+    // bounds, where it was cut to the pane's width and had no scrim.
+    LaunchedEffect(repositoryOpenViewModel) {
+        repositoryOpenViewModel.statusState
+            .map { it.committerDataRequestState }
+            .distinctUntilChanged()
+            .collect { request ->
+                if (request is CommitterDataRequestState.WaitingInput) {
+                    onNavigate(
+                        Screen.CommitIdentity(
+                            authorInfo = request.authorInfo,
+                            onAccept = { authorInfo, persist ->
+                                repositoryOpenViewModel.onAction(StatusAction.AcceptCommitterData(authorInfo, persist))
+                            },
+                            onReject = { repositoryOpenViewModel.onAction(StatusAction.RejectCommitterData) },
+                        )
+                    )
+                }
+            }
     }
 
     LaunchedEffect(repositoryOpenViewModel) {

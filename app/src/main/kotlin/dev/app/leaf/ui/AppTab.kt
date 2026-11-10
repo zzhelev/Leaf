@@ -195,6 +195,10 @@ fun AppTab(
                                 onNavigate = { screen ->
                                     when (screen) {
                                         Screen.Settings -> repositoryTabViewModel.showSettings()
+                                        // Fork-only: asked again when the page comes back while one waits for its answer
+                                        is Screen.CommitIdentity -> if (backStack.none { it is Screen.CommitIdentity }) {
+                                            backStack.add(screen)
+                                        }
                                         else -> backStack.add(screen)
                                     }
                                 }
@@ -680,6 +684,21 @@ fun AppTab(
                             AppInfoDialog(
                                 onClose = { backStack.remove(entry) },
                                 onOpenUrlInBrowser = { repositoryTabViewModel.openUrlInBrowser(it) },
+                            )
+                        }
+                        entry<Screen.CommitIdentity>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            CommitAuthorDialog(
+                                authorInfo = entry.authorInfo,
+                                onClose = {
+                                    backStack.remove(entry)
+                                    entry.onReject()
+                                },
+                                onAccept = { authorInfo, persist ->
+                                    backStack.remove(entry)
+                                    entry.onAccept(authorInfo, persist)
+                                },
                             )
                         }
                         entry<Screen.Author>(
