@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## CI passes again: the monospaced check on Linux, and a race after Stop waiting (2026-11-10)
+
+- **Request:** check CI after the push of the upstream fixes, then fix what failed.
+- **Found:** CI had been red since the font settings (2026-11-06), 1.9.0 included. On Linux, Leaf decided that its own
+  Noto Sans Mono isn't monospaced: the font's fixed-pitch flag isn't set, and FreeType hints the widths of `iMW0.` to
+  7, 8, 8, 8 and 7 px at 13 px, where the font has them all at 600 units. A probe in an Ubuntu container showed both.
+  An installed font without the flag could be left out of the code font list on Linux the same way; the probe's
+  installed fonts all have it. Once, `StoppedWaitingCheckTest` failed too: a check that a new one replaced could write
+  "Unknown" for the old push over the new check's "Asking".
+- **Now:** the check measures the font's own widths, unhinted, so the bundled font is monospaced on Linux and Inter
+  still isn't. Replacing the check and every write of a check take one lock, and a replaced check writes nothing.
+- Details: CLAUDE.md, the fonts under "Settings" and "Stop waiting" under "Remote operations".
+
 ## Old toasts don't come back (2026-11-10)
 
 - **Request:** while resolving a rebase's conflicts, toasts of earlier operations ("Rebase completed") showed again,

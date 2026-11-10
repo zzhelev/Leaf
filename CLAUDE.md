@@ -2694,6 +2694,10 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     the pushed commit while it's still at the one before (a fetch since keeps its own), sets the upstream unless the
     branch has one by then, or removes a deleted branch's remote-tracking branch, then refreshes the remote branches,
     the branches and the log.
+  - **A check that another replaced writes nothing:** `start` and `dismiss` replace the check under way, and every write
+    of a check (`show`) takes the same lock and writes only while its check is the one under way. Until 2026-11-10 a
+    check that `start` cancelled could still write "Unknown" for the old push over the new check's "Asking"
+    (`StoppedWaitingCheckTest` failed on CI once).
   - **The strip** (`StoppedWaitingStrip`, under the toolbar after the unsupported index banner, until closed):
     "Stopped waiting. Asking origin whether it took the push of main…" with Stop checking; "origin took the push: main
     is at 7b6ee23." (success); "origin hasn't taken the push of main: it's still at 8180de8." with Fetch; Fetch when
@@ -5530,7 +5534,10 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     file, and `!=` drawn as `≠` doesn't. Fonts like Fira Code and JetBrains Mono draw theirs through `calt`.
   - **Fonts come from Skia** (`SystemFonts`), which draws Compose's text: `FontMgr.default`'s families, without the
     hidden ones whose names start with a dot. A family is monospaced (`isMonospaced`) when it has `iMW0.` and either says
-    it's fixed pitch or draws them all as wide. On this Mac: Andale Mono, Ayuthaya, Courier New, Menlo, Monaco, PT Mono
+    it's fixed pitch or has them all as wide in the font itself: unhinted, with linear metrics (since 2026-11-10).
+    FreeType hints widths to pixels on Linux, where the bundled Noto Sans Mono, whose fixed-pitch flag isn't set, came
+    out 7, 8, 8, 8 and 7 px at 13 px, so it wasn't monospaced there, and CI was red from 2026-11-06 to 2026-11-10. On
+    macOS the hinted widths are equal. On this Mac: Andale Mono, Ayuthaya, Courier New, Menlo, Monaco, PT Mono
     and any installed by the user; not SF Mono, which comes with Terminal. Listing opens every family, so the row loads it
     on `Dispatchers.IO`. Compose loads an installed font by name (`SystemFont`, experimental, `installedFontFamily`, four
     weights and both styles).
@@ -5579,6 +5586,10 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
     `libfontconfig1` and rustup, the repository copied in (not mounted, as the build writes Linux outputs) with its
     fonts, and Gradle run as a user other than root, which ignores folder permissions. A few process and login shell
     tests fail only in a container.
+  - What Skia does on Linux needs no build: a Java class compiled against `skiko-awt`, `kotlin-stdlib` and
+    `kotlinx-coroutines-core-jvm` from the Gradle cache, run in that container with skiko's Linux runtime jar
+    (`skiko-awt-runtime-linux-arm64` from Maven Central) and `libfontconfig1`, `libgl1` and `libegl1` (2026-11-10, the
+    monospaced check).
 - JUnit 5 and MockK are already declared in `app`, `data` and `domain`. The `buildsrc` convention plugin enables the
   JUnit platform, so new test files need no build changes. `kotlinx-coroutines-test` is not a dependency; use
   `runBlocking`.
