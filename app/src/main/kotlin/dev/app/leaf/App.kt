@@ -51,6 +51,7 @@ import dev.app.leaf.avatarproviders.GravatarAvatarProvider
 import dev.app.leaf.avatarproviders.NoneAvatarProvider
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
+import dev.app.leaf.common.printLog
 import dev.app.leaf.common.systemSeparator
 import dev.app.leaf.data.git.signers.GpgProgramSigner
 import dev.app.leaf.data.git.signers.SshProgramSigner
@@ -236,6 +237,8 @@ class App @Inject constructor(
     suspend fun start(args: Array<String>) {
         logsRepository.initLogging()
         logUncaughtErrors()
+        // Fork-only: what this run is on, for bug reports that attach leaf.log
+        printLog(TAG, runtimeDescription())
         // In the background, so that the shell has usually finished before the first hook needs its PATH
         loginShellEnvironment.prewarm()
 
