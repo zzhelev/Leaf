@@ -4594,16 +4594,20 @@ the branches pane's does (previous section), with one difference: some things ca
   - a merge, rebase, cherry-pick, revert or squash merge in progress (`operationInProgress(statusState)`, the banner's own
     test): Merge, Continue and Commit are in the commit box and the conflicted files in Unstaged;
   - a comparison or a worktree review (`comparisonState != null`), which show only in this pane. A ⌘-click on a second commit
-    with the pane folded would otherwise show nothing.
+    with the pane folded would otherwise show nothing;
+  - amending the last commit while the uncommitted changes are selected (`isAmendingUncommittedChanges`, 2026-11-10):
+    "Amend this commit…" in the log's menu on HEAD (upstream's "Show status to amend this commit", renamed) selects them
+    and turns Amend on, and with the pane folded nothing showed. A commit selected, or the amend made or turned off, lets
+    the pane fold again.
 
-  An operation comes before a comparison. Selecting the uncommitted changes while folded doesn't unfold it: the point of folding
-  is to see the log and the diff, and the log's row shows the selection.
+  An operation comes before a comparison, and both before amending. Selecting the uncommitted changes while folded doesn't
+  unfold it, unless Amend is on: the point of folding is to see the log and the diff, and the log's row shows the selection.
 - **While held**, the icon shows as open with an amber dot (`styleColors.warningIcon`, in a ring of the bar's colour), its tooltip
-  says why ("Changes pane: shown while a merge is in progress", "…while comparing"), and a click, the shortcut and the Actions
-  entry do nothing: `ChangesPaneNeeds.toggleUnlessHeld`. `ChangesPaneNeeds` is a tab-scoped holder that
-  `RepositoryOpenViewModel` writes (a collector started in its `init`) and `QuickActionsViewModel` reads, as the Actions list is
-  a view model of its own and leaves the entry out while the pane is held. `RepositoryOpenViewModel.changesPane` is the state
-  that the screen reads.
+  says why ("Changes pane: shown while a merge is in progress", "…while comparing", "…while amending the last commit"),
+  and a click, the shortcut and the Actions entry do nothing: `ChangesPaneNeeds.toggleUnlessHeld`. `ChangesPaneNeeds` is a
+  tab-scoped holder that `RepositoryOpenViewModel` writes (a collector started in its `init`) and `QuickActionsViewModel`
+  reads, as the Actions list is a view model of its own and leaves the entry out while the pane is held.
+  `RepositoryOpenViewModel.changesPane` is the state that the screen reads.
 - **Focus:** folding removes whatever in the pane had the focus, the commit message field's included, so `RepositoryOpenPage`'s
   effect that gives the focus back to the tab a frame later runs for this pane too. Checked in the real tab: folded with the
   focus in the commit message field, the next shortcut (New branch) still reaches the tab.
