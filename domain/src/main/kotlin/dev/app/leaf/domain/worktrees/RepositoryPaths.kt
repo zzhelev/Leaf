@@ -61,6 +61,17 @@ fun WorktreeList.withCurrentWorktree(folder: String): WorktreeList {
     )
 }
 
+/**
+ * [recent] without the repository whose git dir is [gitDir] (fork-only), as opening it again from the list would only
+ * open it in place. A linked worktree's git dir belongs to the repository whose git dir the worktrees share: the list has
+ * that repository, as Leaf doesn't keep linked worktrees there. Paths are compared as real paths.
+ */
+fun recentRepositoriesOtherThan(recent: List<String>, gitDir: String): List<String> {
+    val repository = realPath(commonGitDirOf(gitDir) ?: File(gitDir))
+
+    return recent.filter { path -> gitDirOf(path) != repository }
+}
+
 /** The real path of [file], or its absolute normalized path when it can't be found. */
 private fun realPath(file: File): String = try {
     file.canonicalPath

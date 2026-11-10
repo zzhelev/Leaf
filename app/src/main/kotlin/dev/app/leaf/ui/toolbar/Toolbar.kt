@@ -125,7 +125,7 @@ fun Toolbar(
     modifier: Modifier = Modifier,
 ) {
     val isPullWithRebaseDefault by viewModel.isPullWithRebaseDefault.collectAsState(false)
-    val lastLoadedTabs by viewModel.lastLoadedTabs.collectAsState()
+    val recentRepositories by viewModel.recentRepositoriesElsewhere.collectAsState()
     val hasUncommittedChanges by viewModel.hasUncommittedChanges.collectAsState()
     val stashesState by viewModel.stashesState.collectAsState()
     val remotes by viewModel.remoteState.collectAsState()
@@ -140,7 +140,7 @@ fun Toolbar(
                 worktreeName = repositoryNames?.worktree,
                 branchLabel = switcherBranchLabel(branchesState.currentBranch, worktreePickerState),
                 worktrees = worktreePickerState,
-                recentRepositories = lastLoadedTabs,
+                recentRepositories = recentRepositories,
             ),
             hasRemotes = remotes.remotes.isNotEmpty(),
             isPullWithRebaseDefault = isPullWithRebaseDefault,

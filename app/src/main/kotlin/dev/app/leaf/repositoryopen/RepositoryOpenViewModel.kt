@@ -77,6 +77,7 @@ import dev.app.leaf.domain.highlighting.HighlightedText
 import dev.app.leaf.domain.highlighting.HighlightedVersions
 import dev.app.leaf.domain.usecases.*
 import dev.app.leaf.domain.worktrees.OpenTab
+import dev.app.leaf.domain.worktrees.recentRepositoriesOtherThan
 import dev.app.leaf.ui.components.TabInformation
 import dev.app.leaf.domain.worktrees.tabsOfWorktrees
 import dev.app.leaf.domain.worktrees.unlockWorktreeSteps
@@ -246,7 +247,18 @@ class RepositoryOpenViewModel @Inject constructor(
 
     val isPullWithRebaseDefault = settings.pullWithRebase
 
-    val lastLoadedTabs = appStateManager.latestOpenedRepositoriesPaths
+    /** Fork-only: the recent repositories that the switcher lists, without the tab's own. */
+    val recentRepositoriesElsewhere: StateFlow<List<String>> = combine(
+        appStateManager.latestOpenedRepositoriesPaths,
+        repositoryDataRepository.repositorySelectionState,
+    ) { recent, selection ->
+        when (selection) {
+            is RepositorySelectionState.Open -> recentRepositoriesOtherThan(recent, selection.path)
+            else -> recent
+        }
+    }
+        .flowOn(Dispatchers.IO)
+        .stateIn(emptyList())
 
     val repositoryState: StateFlow<RepositoryState> =
         repositoryDataRepository.repositoryState.toUiDataState()

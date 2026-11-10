@@ -42,6 +42,33 @@ class RepositoryPathsTest {
     }
 
     @Test
+    fun `the recent repositories leave out the tab's own, opened from either worktree`() {
+        createRepositories()
+        val other = File(tempDir, "other").apply { File(this, ".git/refs").mkdirs() }
+        val recent = listOf(other.path, repo.path, File(tempDir, "gone").path)
+
+        val expected = listOf(other.path, File(tempDir, "gone").path)
+        assertEquals(expected, recentRepositoriesOtherThan(recent, commonDir.path))
+        assertEquals(expected, recentRepositoriesOtherThan(recent, linkedGitDir.path))
+    }
+
+    @Test
+    fun `the tab's own repository is found by its real path, however the list spells it`() {
+        createRepositories()
+        // A path through a folder and back, as a link or macOS's /var for /private/var gives another spelling
+        val spelledOtherwise = File(tempDir, "repo/../repo").path
+
+        assertEquals(emptyList<String>(), recentRepositoriesOtherThan(listOf(spelledOtherwise), commonDir.path))
+    }
+
+    @Test
+    fun `a bare repository's entry is its git dir`() {
+        val bare = File(tempDir, "bare.git").apply { File(this, "refs").mkdirs() }
+
+        assertEquals(emptyList<String>(), recentRepositoriesOtherThan(listOf(bare.path), bare.path))
+    }
+
+    @Test
     fun `a working tree and its git dir have the same git dir`() {
         createRepositories()
 
