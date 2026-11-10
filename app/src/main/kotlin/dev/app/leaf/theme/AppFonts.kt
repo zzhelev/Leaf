@@ -18,6 +18,7 @@ import dev.app.leaf.common.printError
 import dev.app.leaf.domain.models.ui.FontSettings
 import dev.app.leaf.domain.models.ui.InterfaceFont
 import org.jetbrains.skia.Font
+import org.jetbrains.skia.FontHinting
 import org.jetbrains.skia.FontMgr
 import org.jetbrains.skia.Typeface
 
@@ -140,7 +141,13 @@ internal fun isMonospaced(typeface: Typeface): Boolean {
     if (glyphs.any { it.toInt() == 0 }) return false
     if (typeface.isFixedPitch) return true
 
-    val widths = Font(typeface, 13f).use { it.getWidths(glyphs) }
+    // The widths in the font itself. Hinted to pixels, as FreeType hints them on Linux, letters of one width can come
+    // out a pixel apart, and a font whose fixed-pitch flag isn't set, as Noto Sans Mono's isn't, was left out
+    val widths = Font(typeface, 13f).use { font ->
+        font.hinting = FontHinting.NONE
+        font.isLinearMetrics = true
+        font.getWidths(glyphs)
+    }
 
     return widths.all { it == widths.first() }
 }
