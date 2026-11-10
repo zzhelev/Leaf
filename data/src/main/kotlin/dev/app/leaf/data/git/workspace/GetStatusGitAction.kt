@@ -14,6 +14,8 @@ import dev.app.leaf.domain.models.Status
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import org.eclipse.jgit.api.Status as JGitStatus
@@ -28,8 +30,24 @@ private data class StatusParts(
 class GetStatusGitAction @Inject constructor(
     private val jgit: JGit,
 ) : IGetStatusGitAction {
+    /**
+     * Fork-only: one status at a time per tab. A tab's refreshes already take turns, but the file watcher reads the
+     * status on its own, when it starts and when folders appear, and two walks of the working tree at once only share
+     * its disk and the CPU for no gain.
+     */
+    private val reading = Mutex()
+
     override suspend operator fun invoke(repository: String, paths: List<String>) = either {
-        val (status, conflicts, submodules, nested) = withContext(Dispatchers.IO) {
+        val (status, conflicts, submodules, nested) = reading.withLock { readStatus(repository, paths) }.bind()
+
+        val staged = getStaged(status)
+        val unstaged = getUnstaged(status, conflicts, submodules, nested)
+
+        Either.Ok(Status(staged, unstaged, status.ignoredNotInIndex.toList()))
+    }
+
+    private suspend fun readStatus(repository: String, paths: List<String>) =
+        withContext(Dispatchers.IO) {
             jgit.provide(repository) { git ->
                 val status = git
                     .status()
@@ -51,13 +69,7 @@ class GetStatusGitAction @Inject constructor(
                     nested,
                 )
             }
-        }.bind()
-
-        val staged = getStaged(status)
-        val unstaged = getUnstaged(status, conflicts, submodules, nested)
-
-        Either.Ok(Status(staged, unstaged, status.ignoredNotInIndex.toList()))
-    }
+        }
 
     private fun getUnstaged(
         status: JGitStatus,
