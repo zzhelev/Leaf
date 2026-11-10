@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.v2.maxScrollOffset
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -46,9 +45,7 @@ import dev.app.leaf.ui.window.TabScrollArrow
 import dev.app.leaf.ui.window.TitleBarTab
 import dev.app.leaf.ui.window.tabsFitTitleBar
 import dev.app.leaf.ui.window.titleBarTabWidth
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import org.jetbrains.compose.resources.painterResource
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -71,8 +68,6 @@ fun <T : TabInformationProvider> TabsRow(
 ) {
     val stateHorizontal = rememberLazyListState()
     val scrollAdapter = rememberScrollbarAdapter(stateHorizontal)
-    val scope = rememberCoroutineScope()
-    var latestTabCount by remember { mutableStateOf(tabs.count()) }
 
     val canBeScrolled by remember {
         derivedStateOf {
@@ -115,6 +110,19 @@ fun <T : TabInformationProvider> TabsRow(
 
         val dragDropState = rememberHorizontalDragDropState(stateHorizontal) { fromIndex, toIndex ->
             onMoveTab(fromIndex, toIndex)
+        }
+
+        // Fork-only (upstream issue 368): the selected tab shows whole, however it was selected: a click, the keys, a
+        // tab added or one that a menu went to. It used to scroll only when a tab was added, and then to the end. A tab
+        // selected by dragging it is left where the drag takes it.
+        val selectedIndex = tabs.indexOf(currentTab)
+
+        LaunchedEffect(currentTab, tabs.size) {
+            if (selectedIndex < 0 || dragDropState.draggingItemIndex != null) return@LaunchedEffect
+
+            // A tab just added isn't laid out yet
+            snapshotFlow { stateHorizontal.layoutInfo.totalItemsCount }.first { it == tabs.size }
+            stateHorizontal.revealItem(selectedIndex)
         }
 
         Row {
@@ -227,19 +235,6 @@ fun <T : TabInformationProvider> TabsRow(
                 )
             }
         }
-    }
-
-    LaunchedEffect(tabs.count()) {
-        // Scroll to the end if a new tab has been added & it's empty (so it's not a new submodule tab)
-        // TODO Use TabInformationProvider to know if the app should scroll to the tab or not instead of relying on extra info
-        if (latestTabCount < tabs.count() && currentTab?.extraInfo?.firstOrNull() == null) {
-            scope.launch {
-                delay(50) // add small delay to wait until [scrollAdapter.maxScrollOffset] is recalculated. Seems more like a hack of some kind...
-                scrollAdapter.scrollTo(scrollAdapter.maxScrollOffset)
-            }
-        }
-
-        latestTabCount = tabs.count()
     }
 }
 
