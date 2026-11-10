@@ -2952,7 +2952,10 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     `CHERRY_PICK_HEAD`), as `git commit` does, unless it amends. JGit's `CommitCommand` took the committer.
 - `LoadAuthorGitAction` puts git's author in `AuthorInfo.gitIdentity`. `identityToUse()` prefers it (the bottom bar,
   the sign-off line), and `isIdentityMissing()`, which decides the dialog (`StatusViewModelExtender.getIdentity`), is
-  false whenever git has one.
+  false whenever git has one. Without it, a name or email that neither config sets, or sets empty (git refuses that
+  too), stays null, so that the bottom bar says "Name not set"; it read as `""` until 2026-11-09.
+- The identity dialog (`CommitAuthorDialog`) is `Screen.CommitIdentity`, opened by `RepositoryOpenPage` when a commit
+  waits for an answer (see Dialogs, under DI, coroutines, state).
 - `GitSigningConfigs.of(gitDir)` reads `git config --list -z` into a JGit `Config` (`configOf`), wrapped in
   `GitGpgConfig`. `DoCommitGitAction` and `CreateTagGitAction` pass it to JGit's commands (`setGpgConfig`), so
   `commit.gpgSign`, `tag.gpgSign`, `user.signingKey`, `gpg.format` and `gpg.program` come from git's view, and
@@ -3096,6 +3099,15 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   content's bounds. So `MaterialDialog` fills the space it's given and places the dialog itself, centered plus the drag
   offset. Its top 16 dp are a drag strip, so keep controls out of them; `Modifier.dialogDragHandle()` (from
   `MaterialDialogScope`) adds more handles, like the Settings title.
+- **A dialog is a back stack entry** (fork-only, 2026-11-09): one that a pane's composable draws itself is laid out in
+  that pane's bounds, without the scrim, and the rest of the window still takes clicks. The identity dialog was drawn in
+  `StatusPane`, cut to the 330 dp changes pane, and About in the Welcome page's layout. Now:
+  - `Screen.AppInfo`, which the Welcome page's "Additional information" adds;
+  - `Screen.CommitIdentity`, which carries its answers as callbacks, as `Screen.ConfirmAction` does. `RepositoryOpenPage`
+    opens it when the status state's `committerDataRequestState` becomes `WaitingInput`, and `AppTab`'s `onNavigate`
+    adds it only while none is on the back stack, as the page asks again when it comes back while one waits.
+  - Each closes with `backStack.remove(entry)` rather than `removeLastOrNull`, which would close another dialog opened
+    over it.
 - **Confirmations (fork-only):** actions that can lose work open a dialog first.
   - Deleting a branch or a tag goes through `DeleteRefDialog`: without force first, then "Delete anyway" once git
     refuses. A branch that a worktree uses is refused even with force (`DeleteBranchError`, see Delete and rename
@@ -3271,6 +3283,10 @@ before the views inside it and consumes the ones it matches. So a view's own Esc
   while shown, so closing either, with Esc or its X (the `onClose` in `RepoContent` and `MainContentView`), gives it
   back to the tab (fork-only). Closing the diff gives it to the log's list instead, which stays visible beside it (see
   The diff above the log). Selecting a file's diff, which minimizes blame, needs nothing: the click focuses the file's row.
+- Fork-only (2026-11-09): closing the Staged or the Unstaged search, with Esc or its ×, takes its field away, so one
+  frame later the tab takes the focus if nothing in it has it (`takeFocusIfNothingHasIt`, which the panes' folds use
+  too). `StatusPane` used to ask for the tab's focus when either search opened, which took it from the search field
+  that had just asked for it, so typing went nowhere (upstream's code, reproduced in a harness).
 - A view that covers others is checked there by what is shown, not added to `CloseableView`: the log search adds
   itself again whenever its results change, and would then come before it.
 - Fork-only: folding the branches pane (Ctrl or Cmd+Shift+B) or the changes pane (Ctrl or Cmd+Shift+C) removes what had the focus
@@ -3435,6 +3451,11 @@ use), behind the `WindowTitleBar` interface.
   (`TITLE_BAR_FREE_STRIP`) never hold a tab, so the window can always be moved from there. Tabs share the bar down to
   120 dp each (`titleBarTabWidth`, after the gaps and the + button), then scroll, with ‹ and › (`TabScrollArrow`) in
   place of the scrollbar that the row shows above itself elsewhere.
+- **The selected tab shows whole** (fork-only, upstream issue 368, 2026-11-09, `ui/components/RevealInView.kt`), here and
+  in the plain tab row, however it was selected: a click, Ctrl+Tab, a tab added, "Go to tab". `TabsRow` scrolls the
+  least that shows it (`revealItem`, `revealScrollDelta`): one cut at an edge slides in, one out of sight jumps in at the
+  edge it was beyond. It used to scroll only when a tab was added, to the end, so Ctrl+Tab could select a tab out of
+  sight. Tests: `SelectedTabInViewTest`.
 - **The tabs** (`TitleBarTab` in `ui/window/TitleBarTabs.kt`, which upstream's `Tab` hands over to with `inTitleBar`;
   `TabsRow`'s `titleBarWidth`): 28 dp tall, 168 dp when there's room, 4 dp apart, the repository's icon before the name
   (a Welcome page's tab has none). The selected tab is filled with `frame.control`, outlined with `frame.control.edge`,
@@ -3532,6 +3553,10 @@ button and the worktree picker. It shows the repository and the linked worktree
 - Its popup lists the worktrees while there are more than one (see Worktree picker, under Sidebar and branch list), then
   "Open a repository…" (a folder picker) and the recent repositories, whose search field has the focus. Picking a
   repository replaces the tab's, as upstream's Open did. ⌘O (`KeybindingOption.OPEN_REPOSITORY`) opens it.
+- The recent repositories leave out the tab's own (`RepositoryOpenViewModel.recentRepositoriesElsewhere`,
+  `recentRepositoriesOtherThan` in `domain/worktrees/RepositoryPaths.kt`, 2026-11-09): the one whose git dir is the
+  tab's, or for a linked worktree the git dir that the worktrees share, as real paths. Picking it opened it again in
+  place.
 - Tests: `RepositorySwitcherTest` (the label's rule, the list, switching, a missing folder, New worktree, a repository
   with one worktree, Open, a recent repository; PNGs of the open popup).
 
@@ -4473,8 +4498,12 @@ hidden, or no room for both), `LogAndDiffSplit`'s overlay (see The diff above th
   input, so without it a click on its empty parts would select a log row under it, and hovering would show that row's
   tooltips (`CoveringWhatIsBelowTest` shows it for any view over another).
 - The log scrolls to a selected branch or tag, and to a selected commit only when `SelectedItem.CommitItem.scrollToItem`
-  says so: a stash from the side panel, a detached worktree's row. A commit picked in the log, blame or the rebase list
-  doesn't scroll it. `LogAction.CommitSelected` says whether the commit is a stash, which the side panel highlights.
+  says so: a stash from the side panel, a detached worktree's row, a blamed line's commit (blame covers the log, which
+  shows it once blame is minimized). A commit picked in the log or the rebase list doesn't scroll it.
+- **Blame selects a line's commit** (fork-only, 2026-11-09): a click on a line's author and subject passes the commit's
+  id (`Blame`'s `onSelectCommit`), and `RepositoryOpenViewModel.selectBlamedCommit` resolves it (`ResolveCommitUseCase`)
+  and selects it. The click did nothing since upstream's refactor (a TODO in its place). A line that no commit has yet
+  can't be clicked. Tests: `BlameSelectsCommitTest`. `LogAction.CommitSelected` says whether the commit is a stash, which the side panel highlights.
 - `scrollToCommit` doesn't scroll when the commit's line is already on screen. A line's key starts with its commit's
   hash (fork-only fix: upstream looked for the commit's message, which no key has).
 
@@ -5078,6 +5107,8 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
 - Loading more commits (`IncreaseLogCountUseCase`) runs between refreshes (`runAlone`), as it adds to the log they
   replace.
 - The worktree list stays outside: it has its own runner, and a call for WORKTREES alone skips this one.
+- The status itself is read one at a time per tab (`GetStatusGitAction`'s mutex, 2026-11-09): the file watcher reads it
+  on its own, when it starts and when folders appear, besides the refreshes.
 
 **Polling (fork-only):** nothing watches the other worktrees' working trees, so what an agent changes in their files
 shows up through `PollWorktreesUseCase` (`worktreePollTicks` in `refresh/WorktreesPolling.kt`).
@@ -5124,6 +5155,8 @@ shows up through `PollWorktreesUseCase` (`worktreePollTicks` in `refresh/Worktre
 
 **Logging:** `printLog` / `printDebug` / `printError(TAG, ...)`, with `private const val TAG = "ClassName"`.
 `printError` takes any `Throwable` (fork-only), and the log file gets its stack trace.
+- Each run starts its log with what it runs on (fork-only, 2026-11-09, `runtimeDescription`): Leaf's version, the system
+  with its version and CPU, and the Java runtime, for bug reports that attach `leaf.log`.
 - **Errors that nothing catches (fork-only, 2026-11-06, `UncaughtErrors.kt`):** they go to `leaf.log` with their stack
   traces, under the tag `UncaughtErrors`, then on as before. A packaged Leaf has no console, so they went nowhere.
   - **In the window** (composition, layout, drawing, input): `App.kt` provides `LoggingWindowExceptionHandlerFactory` as

@@ -15,6 +15,27 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 - **Now:** a task stays marked as long as the tab has it. Nothing else about toasts changed.
 - Details: CLAUDE.md, the toasts under "Use cases".
 
+## Fixes for what upstream's 2.0 and 2.1 fixed, written for Leaf (2026-11-09)
+
+- **Request:** review what upstream changed since the last sync (`docs/fork/upstream-sync-2026-11.md`), then fix what
+  applies to Leaf, each fix written for Leaf rather than taken from upstream's code.
+- **Now:**
+  - The selected tab shows whole in the tab bar, however it was selected; Ctrl+Tab could select one out of sight
+    (upstream issue 368).
+  - A click on a blamed line's author selects its commit again, and scrolls the log to it.
+  - The identity dialog, which a commit asks when neither git nor JGit has an identity, and About on the Welcome page
+    open as real dialogs, centred over the dimmed window. The identity dialog was drawn inside the changes pane, cut to
+    its 330 dp.
+  - The bottom bar says "Name not set" and "Email not set" again.
+  - Opening the Staged or Unstaged search leaves the focus in its field, and closing it gives the focus back to the tab.
+  - The repository switcher's recent repositories leave out the tab's own.
+  - A tab keeps its screen when another tab of the same worktree was shown before it; a status is read one at a time
+    per tab; Compose is 1.12.2; each run's log starts with Leaf's version, the system and the Java runtime.
+- **Not taken:** upstream's settings storage, which resets every setting, the processing screen's subtitle, and a
+  setting for the shared log chips (see the review).
+- Details: CLAUDE.md, under "The window", "Dialogs", "Keys", "Log", "Identity and signing settings from git", "Refresh"
+  and "Logging".
+
 ## Scale is on top of the screen's own scale (2026-11-08)
 
 - **Request:** with the external monitor unplugged, Leaf was very small on the laptop's screen while Settings said
