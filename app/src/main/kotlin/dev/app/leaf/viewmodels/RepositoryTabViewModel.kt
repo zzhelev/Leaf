@@ -11,7 +11,6 @@ import dev.app.leaf.domain.rebase.SkippedCommitsNotice
 import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.usecases.CherryPickCommitsUseCase
 import dev.app.leaf.domain.usecases.DeleteRemoteBranchUseCase
-import dev.app.leaf.domain.MAX_COMPLETED_TASKS_KEPT
 import dev.app.leaf.domain.TabCoroutineScope
 import dev.app.leaf.domain.credentials.CredentialsState
 import dev.app.leaf.domain.credentials.CredentialsStateManager
@@ -339,10 +338,7 @@ class RepositoryTabViewModel @AssistedInject constructor(
 
     fun completedTaskAlreadyShown(task: CompletedTask) {
         alreadyDisplayedCompletedTasks.update {
-            it
-                .toMutableList()
-                .apply { add(task) }
-                .takeLast(MAX_COMPLETED_TASKS_KEPT)
+            shownTasksAfter(it, task, repositoryStateRepository.completedTasks.value)
         }
     }
 
