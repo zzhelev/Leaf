@@ -176,6 +176,7 @@ fun AppTab(
                                 onShowCloneDialog = { backStack.add(Screen.CloneRepository) },
                                 onShowSettings = repositoryTabViewModel::showSettings,
                                 onCheckForUpdates = { backStack.add(Screen.CheckForUpdates) },
+                                onShowAppInfo = { backStack.add(Screen.AppInfo) },
                             )
                         }
                         entry<Screen.RepositoryLoading> {
@@ -671,6 +672,14 @@ fun AppTab(
                                 onCheckForUpdates = { backStack.add(Screen.CheckForUpdates) },
                                 onCleanUpWorktrees = { backStack.add(Screen.WorktreesCleanUp) },
                                 onCompare = { repositoryTabViewModel.compareFromCurrentBranch() },
+                            )
+                        }
+                        entry<Screen.AppInfo>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            AppInfoDialog(
+                                onClose = { backStack.remove(entry) },
+                                onOpenUrlInBrowser = { repositoryTabViewModel.openUrlInBrowser(it) },
                             )
                         }
                         entry<Screen.Author>(

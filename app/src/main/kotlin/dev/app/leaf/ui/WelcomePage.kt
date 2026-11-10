@@ -47,7 +47,6 @@ import dev.app.leaf.ui.components.AdjustableOutlinedTextField
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
-import dev.app.leaf.ui.dialogs.AppInfoDialog
 import dev.app.leaf.updates.Update
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.launch
@@ -61,6 +60,7 @@ fun WelcomePage(
     onShowCloneDialog: () -> Unit,
     onShowSettings: () -> Unit,
     onCheckForUpdates: () -> Unit,
+    onShowAppInfo: () -> Unit,
 ) {
     val recentlyOpenedRepositories by repositoryTabViewModel.appStateManager.latestOpenedRepositoriesPaths.collectAsState()
     val newUpdate by repositoryTabViewModel.update.collectAsState()
@@ -71,6 +71,7 @@ fun WelcomePage(
         onShowCloneDialog = onShowCloneDialog,
         onShowSettings = onShowSettings,
         onCheckForUpdates = onCheckForUpdates,
+        onShowAppInfo = onShowAppInfo,
         onOpenRepository = {
             val repo = repositoryTabViewModel.openDirectoryPicker()
 
@@ -105,6 +106,7 @@ fun WelcomeViewPreview() {
             onShowCloneDialog = {},
             onShowSettings = {},
             onCheckForUpdates = {},
+            onShowAppInfo = {},
             onOpenRepository = {},
             onOpenKnownRepository = {},
             onStartRepository = {},
@@ -121,6 +123,8 @@ fun WelcomeView(
     onShowCloneDialog: () -> Unit,
     onShowSettings: () -> Unit,
     onCheckForUpdates: () -> Unit,
+    // Fork-only: a dialog of the tab's, as the page drew it in its own layout, without the dialogs' scrim
+    onShowAppInfo: () -> Unit,
     onOpenRepository: () -> Unit,
     onOpenKnownRepository: (String) -> Unit,
     onStartRepository: () -> Unit,
@@ -128,7 +132,6 @@ fun WelcomeView(
     onRemoveRepositoryFromRecent: (String) -> Unit,
 ) {
 
-    var showAdditionalInfo by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
     val welcomeViewFocusRequester = remember { FocusRequester() }
 
@@ -175,7 +178,7 @@ fun WelcomeView(
                     onOpenRepository = onOpenRepository,
                     onStartRepository = onStartRepository,
                     onShowCloneView = onShowCloneDialog,
-                    onShowAdditionalInfo = { showAdditionalInfo = true },
+                    onShowAdditionalInfo = onShowAppInfo,
                     onShowSettings = onShowSettings,
                     onCheckForUpdates = onCheckForUpdates,
                     onOpenUrlInBrowser = onOpenUrlInBrowser,
@@ -210,13 +213,6 @@ fun WelcomeView(
         } else {
             searchFocusRequester.requestFocus()
         }
-    }
-
-    if (showAdditionalInfo) {
-        AppInfoDialog(
-            onClose = { showAdditionalInfo = false },
-            onOpenUrlInBrowser = onOpenUrlInBrowser
-        )
     }
 }
 

@@ -149,6 +149,8 @@ sealed interface Screen : NavKey {
     data object Author : Screen
     data object StashWithMessage : Screen
     data object CheckForUpdates : Screen
+    /** What Leaf is, its version and its links (fork-only: a dialog of its own, as the Welcome page drew it in place). */
+    data object AppInfo : Screen
     /** The style editor (fork-only, docs/fork/custom-styles.md), over Settings. */
     data class StyleEditor(val start: StyleEditorStart) : Screen
     /**
