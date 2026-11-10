@@ -3,6 +3,9 @@
 
 package dev.app.leaf.ui
 
+import dev.app.leaf.domain.models.Commit
+import dev.app.leaf.domain.models.Identity
+import dev.app.leaf.domain.models.ui.SelectedItem
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.ui.dialogs.ConfirmableAction.AbortOperation.Operation
 import io.mockk.every
@@ -79,6 +82,32 @@ class ChangesPaneStateTest {
         assertEquals(merging, changesPaneNeed(Operation.MERGE, isComparing = true))
     }
 
+    @Test
+    fun `amending is a need`() {
+        assertEquals(ChangesPaneNeed.Amending, changesPaneNeed(operation = null, isComparing = false, isAmending = true))
+    }
+
+    @Test
+    fun `the commit editor, an operation and a comparison come before amending`() {
+        assertEquals(
+            ChangesPaneNeed.CommitEditor,
+            changesPaneNeed(operation = null, isComparing = false, isEditingCommits = true, isAmending = true),
+        )
+        assertEquals(merging, changesPaneNeed(Operation.MERGE, isComparing = false, isAmending = true))
+        assertEquals(ChangesPaneNeed.Comparison, changesPaneNeed(operation = null, isComparing = true, isAmending = true))
+    }
+
+    @Test
+    fun `the pane is needed for amending only while Amend is on and the uncommitted changes are selected`() {
+        val someone = Identity(name = "Ana", email = "ana@example.com")
+        val commit = Commit("a".repeat(40), "Subject", someone, someone, date = 1_760_000_000, parentsHashes = emptyList())
+
+        assertTrue(isAmendingUncommittedChanges(isAmend = true, SelectedItem.UncommittedChanges))
+        assertFalse(isAmendingUncommittedChanges(isAmend = false, SelectedItem.UncommittedChanges))
+        assertFalse(isAmendingUncommittedChanges(isAmend = true, SelectedItem.None))
+        assertFalse(isAmendingUncommittedChanges(isAmend = true, SelectedItem.CommitItem(commit, isStash = false, scrollToItem = false)))
+    }
+
     private fun config(saved: Boolean): Pair<ChangesPaneConfig, AppSettingsRepository> {
         val repository = mockk<AppSettingsRepository>(relaxed = true) { every { changesPaneFolded } returns saved }
 
@@ -102,7 +131,7 @@ class ChangesPaneStateTest {
 
     @Test
     fun `toggling does nothing while something holds the pane, and saves nothing`() {
-        for (need in listOf(merging, ChangesPaneNeed.Comparison)) {
+        for (need in listOf(merging, ChangesPaneNeed.Comparison, ChangesPaneNeed.Amending)) {
             for (saved in listOf(false, true)) {
                 val (config, repository) = config(saved)
                 val needs = ChangesPaneNeeds().apply { set(need) }

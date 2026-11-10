@@ -180,6 +180,14 @@ class ChangesPaneToggleTest {
     }
 
     @Test
+    fun `while amending holds the pane the tooltip says so`() {
+        state = ChangesPaneState(isFolded = true, need = ChangesPaneNeed.Amending)
+        render()
+
+        assertEquals(listOf("Changes pane: shown while amending the last commit"), descriptions())
+    }
+
+    @Test
     fun `a held pane takes no click, whether the user folded it or not`() {
         for (folded in listOf(true, false)) {
             clicks = 0

@@ -97,6 +97,7 @@ import dev.app.leaf.ui.ChangesPaneConfig
 import dev.app.leaf.ui.ChangesPaneNeeds
 import dev.app.leaf.ui.ChangesPaneState
 import dev.app.leaf.ui.changesPaneNeed
+import dev.app.leaf.ui.isAmendingUncommittedChanges
 import dev.app.leaf.ui.IVerticalSplitPaneConfig
 import dev.app.leaf.ui.VerticalSplitPaneConfig
 import dev.app.leaf.ui.WorktreePickerState
@@ -1060,8 +1061,9 @@ class RepositoryOpenViewModel @Inject constructor(
 
     /**
      * The changes pane (fork-only): the user's fold, the same for every tab, and what holds the pane open anyway: a merge,
-     * rebase, cherry-pick, revert or squash merge in progress, whose Merge, Continue and Commit are in the pane, and a
-     * comparison or a worktree review, which show only there. The fold is kept while the pane is held.
+     * rebase, cherry-pick, revert or squash merge in progress, whose Merge, Continue and Commit are in the pane, a
+     * comparison or a worktree review, which show only there, the commit editor, and amending the last commit while the
+     * uncommitted changes are selected. The fold is kept while the pane is held.
      */
     val changesPane: StateFlow<ChangesPaneState> = combine(changesPaneConfig.isFolded, changesPaneNeeds.need, ::ChangesPaneState)
         .stateIn(ChangesPaneState(changesPaneConfig.isFolded.value, changesPaneNeeds.need.value))
@@ -1131,6 +1133,9 @@ class RepositoryOpenViewModel @Inject constructor(
                 statusState.map { operationInProgress(it)?.operation }.distinctUntilChanged(),
                 comparisonState.map { it != null }.distinctUntilChanged(),
                 commitEditorState.map { it != null }.distinctUntilChanged(),
+                combine(statusState, selectedItem) { status, selected ->
+                    isAmendingUncommittedChanges(status.isAmend, selected)
+                }.distinctUntilChanged(),
                 ::changesPaneNeed,
             ).distinctUntilChanged().collect { changesPaneNeeds.set(it) }
         }

@@ -2084,6 +2084,7 @@
     <string name="changes_pane_held_operation">Changes pane: shown while a %1$s is in progress</string>
     <string name="changes_pane_held_comparison">Changes pane: shown while comparing</string>
     <string name="changes_pane_held_commit_editor">Changes pane: shown while the commit editor is open</string>
+    <string name="changes_pane_held_amend">Changes pane: shown while amending the last commit</string>
     <string name="changes_pane_operation_merge">merge</string>
     <string name="changes_pane_operation_rebase">rebase</string>
     <string name="changes_pane_operation_cherry_pick">cherry-pick</string>
