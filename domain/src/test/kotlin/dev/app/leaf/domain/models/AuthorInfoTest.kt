@@ -28,6 +28,18 @@ class AuthorInfoTest {
     }
 
     @Test
+    fun `a value that nothing sets stays unset, so that the bottom bar can say so`() {
+        assertEquals(NONE, AuthorInfo(NONE, NONE).identityToUse())
+        assertEquals(Identity("Personal Name", null), AuthorInfo(Identity("Personal Name", null), NONE).identityToUse())
+    }
+
+    @Test
+    fun `an empty value counts as unset, as git refuses it, and the next config's value is used`() {
+        assertEquals(GLOBAL, AuthorInfo(GLOBAL, Identity("", "")).identityToUse())
+        assertEquals(NONE, AuthorInfo(Identity("", ""), NONE).identityToUse())
+    }
+
+    @Test
     fun `no identity is asked for when git has one that JGit doesn't see`() {
         assertFalse(AuthorInfo(NONE, NONE, gitIdentity = GIT).isIdentityMissing())
     }

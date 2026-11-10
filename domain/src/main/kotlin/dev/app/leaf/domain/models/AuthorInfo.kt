@@ -9,9 +9,13 @@ data class AuthorInfo(
      */
     val gitIdentity: Identity? = null,
 ) {
+    /**
+     * The identity that commits get: git's, else the repository's values over the user's. A value that neither sets is
+     * null (fork-only), as an empty one, which git refuses too, so that the bottom bar can say it isn't set.
+     */
     fun identityToUse() = gitIdentity ?: Identity(
-        repositoryIdentity.name ?: globalIdentity.name ?: "",
-        repositoryIdentity.email ?: globalIdentity.email ?: "",
+        repositoryIdentity.name.ifSet() ?: globalIdentity.name.ifSet(),
+        repositoryIdentity.email.ifSet() ?: globalIdentity.email.ifSet(),
     )
 
     /** Fork-only: whether Leaf has to ask for an identity to commit with, as neither git nor JGit has one. */
@@ -21,4 +25,4 @@ data class AuthorInfo(
         )
 }
 
-
+private fun String?.ifSet(): String? = this?.takeIf { it.isNotEmpty() }
