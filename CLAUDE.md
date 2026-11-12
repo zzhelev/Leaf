@@ -2638,7 +2638,7 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
   JGit's fetch of all remotes reports each remote that failed, the SSH ones with `SshNeedsGitError.describe()`; it
   used to drop every failure, as `HandleTransportGitAction` returns them instead of throwing.
 - **Running:** `GitCliRemoteCommand` runs git with no timeout, the askpass variables, Leaf's in-memory cache as git's
-  last credential helper (`-c credential.helper=!'<helper>' credential`, only with "Cache HTTP credentials in
+  last credential helper (`-c credential.helper=!'<helper>' credential`, only with "Cache credentials in
   memory"), and git's progress in `RepositoryStateRepository.taskProgress`. Never set `GIT_SSH_COMMAND`: the user's
   `core.sshCommand` must apply. `GitCli` hides a URL's password (`redactUrlPassword`) in the command it logs and puts in
   errors, as a clone's URL may hold one.
@@ -2654,7 +2654,7 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     to the URL (the cache setting off, no helper of the user's) it asks itself: `Username for "https://host"`, with
     double quotes and no colon;
   - ssh's host key question: `SshHostKeyDialog`, answered `yes`, and ssh adds the key to known_hosts;
-  - `Enter passphrase for key`: `SshPasswordDialog`. The passphrase is kept per key file for the session once the
+  - `Enter passphrase for key`: `SshPasswordDialog`. The passphrase is kept per key file until Leaf quits once the
     command authenticated, and dropped when ssh asks for it again. ssh-keygen asks `Enter passphrase for "<path>": `
     (OpenSSH 10) or `Enter passphrase: ` (before), which is about the key that `AskpassAnswers` was given;
   - anything else: `AskpassPromptDialog`, and `AskpassConfirmDialog` for `SSH_ASKPASS_PROMPT=confirm`. Notices
@@ -2662,6 +2662,24 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
 
   git's prompts are in English (`LC_ALL=C`) and ssh doesn't translate its own. OpenSSH 10 writes `key fingerprint
   is: SHA256:...`, older versions `is SHA256:....`.
+- **Caching credentials (fork-only, 2026-11-12, upstream review item 11):** Settings → Authentication's switch, "Cache
+  credentials in memory" (`AppConfig.CacheCredentialsInMemory`, still `cache_credentials_in_memory` in
+  `user_prefs.json`; "Cache HTTP credentials in memory" until 2026-11-12, chosen with the user), covers SSH key
+  passphrases as well as HTTPS credentials. Until then, passphrases were kept until Leaf quit whatever it said.
+  - Every passphrase goes through `AskpassAnswers`: git's ssh (`GitCliRemoteCommand`), ssh-keygen when it signs
+    (`SshProgramSigner`) and the built-in LFS client's ssh (`AuthenticateLfsServerWithSshGitAction`), the last two
+    through `AskpassProcessRunner.answers`. Its `cachesCredentials` reads the setting each time it matters: off, no
+    passphrase is taken from the cache or kept, and its credential helper gives and stores nothing (for a command that
+    started with the helper). So each command asks; a second ask within one command still says the passphrase was
+    wrong, as before.
+  - Turning it off forgets everything kept, passphrases and HTTPS credentials alike
+    (`ForgetCredentialsWhenCachingStops`, started in `App.start`, through
+    `CredentialsRepository.removeAllCachedCredentials`), so that turning it on again doesn't bring back what was typed
+    before. gpg's passphrases are gpg-agent's, and ssh-agent's keys its own.
+  - Tests: `AskpassAnswersTest`, `ForgettingCachedCredentialsTest`, the cases with the setting off in `GitCliSshTest`
+    (sshd: git's ssh and the LFS client's) and `SshProgramSignerTest`, and `CredentialsCacheRowTest`. 10 mutations were
+    each caught by a named test. Not covered by a kept test: `App.start` starting the watch, which needs the Dagger
+    graph.
 - **Errors:** `RemoteOperationError` (`domain/errors/`), from the porcelain's `!` lines (`RefsRejected`) or classified
   from stderr (`remoteOperationError`), always with git's output (`readableGitOutput`). ssh ends its stderr lines
   with `\r\n`, which isn't a progress rewrite. When the user closed one of the dialogs, git's failure is
@@ -2854,7 +2872,7 @@ Dock or a Linux desktop launcher inherits a minimal PATH, so hooks can't find no
     `credential_reject`. Like git, Leaf stores credentials only once a request succeeds with them (see `approve`
     below), so rejected ones were never stored.
   - Without a helper, `get` gives credentials from Leaf's in-memory cache (`CredentialsCacheRepository`, app singleton)
-    or asks. With "Cache HTTP credentials in memory" off, it always asks and caches nothing, and so does LFS without a
+    or asks. With "Cache credentials in memory" off, it always asks and caches nothing, and so does LFS without a
     helper, as git's remote operations do without Leaf's cache helper. `reset` removes the ones it took from the cache, but only while they are still the URL's cached ones,
     like `git credential-store erase`. Typed credentials are cached, replacing the URL's entry, once a request
     succeeds with them (`credentialsAccepted`, see `approve` below), and `reset` removes them if a later request
@@ -5190,6 +5208,8 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
 - DataStore keeps them in `user_prefs.json` (`getPreferencesPath()`), written by `JsonPreferencesSerializer`. Each
   key stores its type and value. A damaged file is logged and replaced with the defaults.
 - `TerminalPath` is the closest precedent for a "git executable path" setting.
+- **"Cache credentials in memory"** (Settings → Authentication) covers SSH key passphrases too since 2026-11-12, when it
+  lost "HTTP" from its name; its key is unchanged. See Caching credentials, under Remote operations.
 - **Removed (2026-10-10):** the proxy settings and "Do not verify SSL security". Neither was ever applied: the code that
   set the JVM's proxy was commented out, and the SSL switch wrote the credential cache setting while nothing read
   `verify_ssl`. git's own `http.proxy` and `http.sslVerify` apply to the git commands Leaf runs.

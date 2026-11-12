@@ -2,6 +2,17 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## "Cache credentials in memory" covers SSH key passphrases (2026-11-12)
+
+- **Request:** item 11 of the upstream review: Leaf kept SSH key passphrases until it quit, whatever "Cache HTTP
+  credentials in memory" said. The user chose to let the setting cover them, renamed.
+- **Now:** Settings → Authentication's switch is "Cache credentials in memory", "HTTPS credentials and SSH key
+  passphrases are remembered until Leaf is closed". Off, Leaf asks for a key's passphrase for each command: git's ssh,
+  ssh-keygen when it signs commits and tags, and the built-in LFS client's ssh. The setting is read each time, so
+  turning it off applies to the next command, and turning it off also forgets what was kept, passphrases and HTTPS
+  credentials alike. The settings file keeps the same key, so nobody's choice changes.
+- Details: CLAUDE.md, "Caching credentials" under "Remote operations".
+
 ## CI passes again: the monospaced check on Linux, and a race after Stop waiting (2026-11-10)
 
 - **Request:** check CI after the push of the upstream fixes, then fix what failed.
