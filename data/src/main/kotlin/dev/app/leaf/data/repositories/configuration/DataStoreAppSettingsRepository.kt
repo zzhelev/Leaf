@@ -23,11 +23,11 @@ import dev.app.leaf.domain.models.LogColumnsCodec
 import dev.app.leaf.domain.models.WorktreeLabelRulesCodec
 import dev.app.leaf.domain.models.StatusSectionFolds
 import dev.app.leaf.domain.models.StatusSectionSizes
-import dev.app.leaf.domain.models.ui.AppWindowPlacement
 import dev.app.leaf.domain.models.ui.InterfaceFont
 import dev.app.leaf.domain.models.ui.codeFontName
 import dev.app.leaf.domain.repositories.AppSettingsRepository
 import dev.app.leaf.domain.sorting.SortSettingsCodec
+import dev.app.leaf.domain.window.SavedWindow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -37,7 +37,6 @@ private const val PREF_LATEST_REPOSITORIES_TABS_OPENED = "latestRepositoriesTabs
 private const val PREF_LATEST_REPOSITORY_TAB_SELECTED = "latestRepositoryTabSelected"
 private const val PREF_LATEST_REPOSITORIES_TABS_LOOKS = "latestRepositoriesTabsLooks"
 private const val PREF_LAST_OPENED_REPOSITORIES_PATH = "lastOpenedRepositoriesList"
-private const val PREF_WINDOW_PLACEMENT = "windowsPlacement"
 private const val PREF_FIRST_PANE_WIDTH = "firstPaneWidth"
 private const val PREF_THIRD_PANE_WIDTH = "thirdPaneWidth"
 private const val PREF_STATUS_STAGED_SHARE = "statusStagedShare"
@@ -392,16 +391,11 @@ class DataStoreAppSettingsRepository @Inject constructor(
             preferencesLegacy.putFloat(PREF_COMMIT_MESSAGE_HEIGHT, value.messageHeight)
         }
 
-
-    var windowPlacement: AppWindowPlacement
-        get() {
-            // FIXME Preference doing nothing here
-            val placement = preferencesLegacy.getInt(PREF_WINDOW_PLACEMENT, 0)
-
-            return AppWindowPlacement.MAXIMIZED
-        }
-        set(placement) {
-            //preferences.putInt(PREF_WINDOW_PLACEMENT, placement.value)
+    // Fork-only
+    override var savedWindow: SavedWindow?
+        get() = preferencesLegacy.readSavedWindow()
+        set(value) {
+            preferencesLegacy.writeSavedWindow(value)
         }
 }
 

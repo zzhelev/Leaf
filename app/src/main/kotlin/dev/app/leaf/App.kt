@@ -28,8 +28,6 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -38,7 +36,6 @@ import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
-import androidx.compose.ui.window.rememberWindowState
 import androidx.navigation3.runtime.NavKey
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.app_menu_bigger_text
@@ -93,12 +90,16 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.dialogs.FastForwardOffer
 import dev.app.leaf.ui.dialogs.QuitDialog
 import dev.app.leaf.ui.styles.StyleEditorStart
+import dev.app.leaf.ui.window.KeepWindowPlacement
 import dev.app.leaf.ui.window.TitleBar
 import dev.app.leaf.ui.window.WindowTitleBar
+import dev.app.leaf.ui.window.WindowPlacements
 import dev.app.leaf.ui.window.linux.LinuxFrame
 import dev.app.leaf.ui.window.linux.LinuxWindowFrame
 import dev.app.leaf.ui.window.titleBarControl
+import dev.app.leaf.ui.window.usableScreenAreas
 import dev.app.leaf.ui.window.windowTitleBarOf
+import dev.app.leaf.ui.window.windowStateOf
 import dev.app.leaf.viewmodels.RepositoryTabViewModel
 import kotlinx.coroutines.flow.first
 import org.eclipse.jgit.lib.GpgConfig
@@ -234,6 +235,7 @@ class App @Inject constructor(
     private val forgetCredentialsWhenCachingStops: ForgetCredentialsWhenCachingStops,
     private val loginShellEnvironment: LoginShellEnvironment,
     private val textSizes: TextSizeController,
+    private val windowPlacements: WindowPlacements,
 ) {
     @OptIn(ExperimentalFoundationApi::class)
     suspend fun start(args: Array<String>) {
@@ -249,7 +251,6 @@ class App @Inject constructor(
         Signers.set(GpgConfig.GpgFormat.OPENPGP, gpgSigner)
         Signers.set(GpgConfig.GpgFormat.SSH, sshSigner)
 
-        val windowPlacement = WindowPlacement.Maximized //appSettingsRepository.windowPlacement.toWindowPlacement
         val dirToOpen = getDirToOpen(args)
 
         appEnvInfo.isFlatpak = args.contains("--flatpak")
@@ -301,13 +302,8 @@ class App @Inject constructor(
                 )
             }
 
-            val windowState = rememberWindowState(
-                placement = windowPlacement,
-                size = DpSize(1280.dp, 720.dp)
-            )
-
-            // Save window state for next time the Window is started
-            // TODO appSettings.windowPlacement = windowState.placement.preferenceValue
+            // Fork-only: the window opens as it was when Leaf last closed (The window, in CLAUDE.md)
+            val windowState = remember { windowStateOf(windowPlacements.opening(usableScreenAreas())) }
 
             val currentTab = appViewModel.currentTab.collectAsState().value
             val tabName = currentTab?.name?.collectAsState()?.value
@@ -413,6 +409,9 @@ class App @Inject constructor(
                     // Fork-only: the tabs go in the window's title bar on macOS and Windows, and on Linux when Leaf draws its
                     // frame (docs/fork/window-chrome.md)
                     val titleBar = remember(window) { windowTitleBarOf(window) ?: linuxFrame?.titleBar(window) }
+
+                    // Fork-only: keeps where the window is, for the next run
+                    KeepWindowPlacement(window, windowState, windowPlacements)
 
                     val compositionValues: MutableList<ProvidedValue<*>> =
                         mutableListOf(LocalTextContextMenu provides AppPopupMenu())

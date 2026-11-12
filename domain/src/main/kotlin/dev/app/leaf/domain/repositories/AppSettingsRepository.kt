@@ -10,6 +10,7 @@ import dev.app.leaf.domain.models.CenterSplitSizes
 import dev.app.leaf.domain.models.LogColumnsSettings
 import dev.app.leaf.domain.models.StatusSectionSizes
 import dev.app.leaf.domain.models.ConflictOpener
+import dev.app.leaf.domain.window.SavedWindow
 import dev.app.leaf.domain.models.ConflictResolverLayout
 import dev.app.leaf.domain.models.WorktreeLabelRule
 import dev.app.leaf.domain.models.ui.InterfaceFont
@@ -96,4 +97,7 @@ interface AppSettingsRepository {
     /** Whether the changes pane (Files changed, or Staged, Unstaged and the commit box) is folded away, for every tab (fork-only). */
     var changesPaneFolded: Boolean
     var commitChangesSectionSizes: CommitChangesSectionSizes
+
+    /** Fork-only: how the window was when Leaf last ran, and where it last floated, or null before the first run. */
+    var savedWindow: SavedWindow?
 }
