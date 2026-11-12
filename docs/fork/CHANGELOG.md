@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Leaf's own HTTP requests go through the proxy (2026-11-12)
+
+- **Request:** item 15 of the upstream review (`docs/fork/upstream-sync-2026-11.md`): give Leaf's own HTTP requests the
+  proxy that git-lfs would use for their URL, written for Leaf rather than taken from upstream's code.
+- **Found:** Leaf's own requests used no proxy. Behind one, the built-in LFS client, which is git's LFS filter wherever
+  git-lfs isn't set up, failed to download and upload, so clones, pulls and merges with LFS files failed there, and the
+  update check never answered. Probes also showed that Ktor's CIO engine, which those requests run on, sends a proxy's
+  password to the server too, inside the tunnel of an HTTPS request, and goes around a SOCKS proxy without a word.
+- **Now:** each LFS request and the update check take the proxy that git-lfs 3.8 picks: git's `http.<url>.proxy` or
+  `http.proxy` (with `includeIf`), else `HTTPS_PROXY` and `HTTP_PROXY` from the login shell's environment, except
+  for the hosts that `NO_PROXY` lists and loopback addresses. A test runs git-lfs itself through 31 cases and checks
+  that Leaf picks the same. Proxied requests run on OkHttp, which sends the password to the proxy alone, and SOCKS5
+  proxies work. A proxy that Leaf can't use (an HTTPS proxy, a SOCKS proxy with a password) stops the request with an
+  error that says why. The OkHttp that Leaf ships is 5.2.1 (was 4.12), which the avatars use too.
+- **Unlike the plan:** `ALL_PROXY` isn't read, as git-lfs doesn't read it.
+- Details: CLAUDE.md, "Leaf's own requests through a proxy" under "Remote operations".
+
 ## "Cache credentials in memory" covers SSH key passphrases (2026-11-12)
 
 - **Request:** item 11 of the upstream review: Leaf kept SSH key passphrases until it quit, whatever "Cache HTTP
@@ -12,6 +29,7 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   turning it off applies to the next command, and turning it off also forgets what was kept, passphrases and HTTPS
   credentials alike. The settings file keeps the same key, so nobody's choice changes.
 - Details: CLAUDE.md, "Caching credentials" under "Remote operations".
+
 
 ## CI passes again: the monospaced check on Linux, and a race after Stop waiting (2026-11-10)
 

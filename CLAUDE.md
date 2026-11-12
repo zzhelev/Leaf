@@ -256,7 +256,9 @@ asking.
   JGit→domain mappers.
   - The fork-only `network/HttpClients.kt` builds the Ktor clients for LFS and the update check. They check TLS
     certificates against the JVM's trust store. An LFS request skips the check only when `http.sslVerify` is false
-    for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does.
+    for its URL (`Config.isSslVerify`, through JGit's `HttpConfig`), as git-lfs does. A request through a proxy goes
+    on OkHttp (`ProxiedHttpClients`), the others on CIO (see Leaf's own requests through a proxy, under Remote
+    operations).
 - `ui`: empty placeholder module (only `build.gradle.kts`).
 - `textmate` (fork-only, 2026-10-23): the engine that colours code (see Syntax highlighting), a copy of
   kotlin-textmate's (MIT, a Kotlin port of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings.
@@ -2614,6 +2616,61 @@ adding and updating submodules run the git CLI, and git-lfs downloads LFS files 
     with `git config`, for `includeIf`, and from JGit's config when git can't.
   - It runs through `AskpassProcessRunner` (see Askpass). Success is ssh's exit code: ssh writes warnings to stderr
     when it succeeds too.
+- **Leaf's own requests through a proxy (fork-only, 2026-11-12, item 15 of `docs/fork/upstream-sync-2026-11.md`,
+  `domain/network/HttpProxy.kt`, `data/network/ProxySettings.kt`, `data/network/HttpClients.kt`):** the built-in LFS
+  client's requests (the batch API, downloads, uploads and verify) and the update check take the proxy that git-lfs
+  would use for their URL. The git commands that Leaf runs use git's own `http.proxy`, as before.
+  - **The rules** (`proxyFor`), from git-lfs 3.8's `lfshttp/proxy.go`, and checked against git-lfs itself in 31 cases
+    (`GitLfsProxyChoiceTest`, with two recording proxies):
+    - an `https` request takes `HTTPS_PROXY`, else `https_proxy`, else what an `http` request takes: `HTTP_PROXY`,
+      else `http_proxy`. A variable set to nothing counts as not set. `ALL_PROXY` doesn't count, as git-lfs reads it
+      nowhere (git, through curl, does);
+    - git's `http.<url>.proxy` for the URL that matches best, else `http.proxy`, comes before both, unless it's empty.
+      An empty `http.<url>.proxy` also hides `http.proxy`;
+    - the URL match is git-lfs's (`URLConfig.Get`): the scheme and the port are the request's, the host has as many
+      labels, with `*` for one, the path is a start of the request's in whole segments (`repo` stands for `repo.git`
+      before `info/lfs`), and a user name in the key wants the request's. Names compare with their case;
+    - `NO_PROXY`, else `no_proxy`, as Go's `httpproxy` reads it: `*`; `example.com` for it and its subdomains;
+      `.example.com` and `*.example.com` for subdomains only; addresses and CIDR ranges; a `:port`. It applies to git's
+      proxy too. `localhost` and loopback addresses always go directly.
+  - **Where they come from** (`ProxySettings`): `forRequest(config, url)` reads the repository's config as JGit opens
+    it in Leaf (`IncludedConfigRepository`, so `includeIf` counts), `http.proxy` and each `http.<url>.proxy`, with
+    `getNames` for an entry with an empty value, which JGit reads as having none. `forRequestWithoutRepository`, for
+    the update check, reads the user's and the system's config with `git config --list` and a git dir that doesn't
+    exist, as `CredentialHelpers` does, else JGit's user config. The variables are Leaf's with the login shell's on
+    top (`LoginShellEnvironment`), as an app opened from the Finder lacks the shell's. Read again for each request.
+  - **What Leaf can use:** an HTTP proxy (`http://`, or a bare `host:port`; port 80 by default), with a user name and
+    password from its URL, `%`-decoded, sent as Basic of their UTF-8 bytes; a SOCKS5 proxy (`socks5://`, `socks5h://`;
+    port 1080), without a user name or password, which looks the server's name up. Anything else is
+    `ProxyChoice.Unusable`: an HTTPS proxy, a SOCKS proxy with credentials (git-lfs can use both), another scheme, an
+    address that can't be read. The LFS actions return `LfsError.UnusableProxy` before sending anything, whose text
+    says why and that git-lfs can use it where it can, and the update check fails with the reason. Leaf never goes
+    around a proxy that is set.
+  - **On OkHttp** (`ProxiedHttpClients`, one client per proxy and `http.sslVerify`, kept while Leaf runs; requests
+    without a proxy stay on CIO, unchanged): Ktor's CIO engine (3.3.2, and Ktor's `main` as of 2026-11-12) writes the
+    request's `Proxy-Authorization` to the server too, inside the tunnel of an HTTPS request, and goes around a SOCKS
+    proxy without a word (both probed). The JDK's `HttpClient` drops a Basic `Proxy-Authorization` from a `CONNECT`
+    unless `jdk.http.auth.tunneling.disabledSchemes` is changed for the whole JVM. OkHttp sends the credentials to the
+    proxy alone: before each `CONNECT` (its `proxyAuthenticator`, asked first), and with each plain HTTP request (a
+    network interceptor). A proxy that refuses them gets no second try: a plain HTTP request gives the 407, a tunnel an
+    `IOException`. Reads and writes wait 30 s. `ktor-client-okhttp` raised the OkHttp that Leaf ships, Coil's for the
+    avatars included, from 4.12 to 5.2.1 (`AvatarDownloadTest`).
+  - Uploads give their body's length (`LfsNetworkDataSource.uploadObject`): OkHttp drops a `Content-Length` header
+    and would send the file in chunks, which servers such as S3 refuse.
+  - **No password in a log or an error:** `ProxyCredentials.toString` hides them, `ProxyChoice.Unusable` names the
+    proxy without its user name or password, and the one log line, when a client is made, says the proxy's kind,
+    address and source, and whether it has credentials.
+  - **Not done:** a redirect is followed with the same client, so one to a host that `NO_PROXY` lists still goes
+    through the proxy; proxy authentication other than Basic (NTLM, Kerberos), which git-lfs doesn't do either; the
+    system's proxy settings (macOS, Windows), which git and git-lfs don't read; avatars (Coil) go directly.
+  - Tests: `HttpProxyTest` (domain: the rules, case by case), `GitLfsProxyChoiceTest` (skipped without git-lfs),
+    `ProxySettingsTest` (the repository's config and the user's under it, an empty entry, `includeIf`, the user's
+    config through git and through JGit, the login shell's variables), `ProxiedLfsRequestsTest` (end to end, to names
+    that nothing resolves, through `TestProxy`, an HTTP proxy that forwards and tunnels, and `TestSocksServer`: a
+    download, credentials on plain HTTP, a tunnel whose `CONNECT` alone has them and whose server gets the request in
+    origin form, a refused password, an upload's length, SOCKS5, loopback and `NO_PROXY` going directly, git's
+    proxy, a proxy per request URL, unusable proxies, no password in an error), and in the app `UpdatesRepositoryTest`
+    (a check through a proxy by name, an unusable proxy's reason, the injected settings) and `AvatarDownloadTest`.
 - Submodules: "Initialize" and "Update" run `git submodule update --init --recursive --progress -- <path>`
   (`GitCliUpdateSubmoduleGitAction`), so nested submodules are cloned too, which JGit didn't do. Adding one runs
   `git submodule add --progress --name <name> -- <url> <path>` (`GitCliAddSubmoduleGitAction`). git checks submodules
@@ -5212,7 +5269,8 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   lost "HTTP" from its name; its key is unchanged. See Caching credentials, under Remote operations.
 - **Removed (2026-10-10):** the proxy settings and "Do not verify SSL security". Neither was ever applied: the code that
   set the JVM's proxy was commented out, and the SSL switch wrote the credential cache setting while nothing read
-  `verify_ssl`. git's own `http.proxy` and `http.sslVerify` apply to the git commands Leaf runs.
+  `verify_ssl`. git's own `http.proxy` and `http.sslVerify` apply to the git commands Leaf runs, and since 2026-11-12
+  to Leaf's own HTTP requests (see Leaf's own requests through a proxy, under Remote operations).
   `RemovedSettingsMigration` deletes their keys from `user_prefs.json`, the plain-text proxy password included. A
   setting removed later goes into `REMOVED_SETTINGS`.
 - **The System theme (fork-only, upstream issue 309, 2026-10-20):** Settings → Appearance → Theme is Light, Dark or
