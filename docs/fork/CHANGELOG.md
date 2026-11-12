@@ -2,6 +2,22 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Leaf opens as it was when it closed (2026-11-12)
+
+- **Request:** item 10 of the upstream review of November 2026 (`docs/fork/upstream-sync-2026-11.md`): keep the
+  window's placement, maximized or floating, and a floating window's size and place too, which upstream doesn't. Written
+  for Leaf from the problem, not taken from upstream's code.
+- **Found:** Leaf always opened maximized. `App.kt` set it, and upstream's code to keep the placement had been left as a
+  stub that always read maximized and wrote nothing.
+- **Now:** Leaf opens maximized or floating, as it closed, and a floating window at its size and place; a maximized
+  window goes back to where it floated when it's restored. A window whose screen is gone opens centred on the main
+  screen, one larger than its screen is shrunk to it, and one partly off its screen moves onto it. Full screen on macOS
+  isn't restored: Leaf opens as it was before it went full screen. The first run opens maximized, as before.
+- **Known:** with the system's window frame under Xfce's window manager, the window grows 4 px taller at each restart, as
+  Java guesses the frame's borders before Xfce gives them. Leaf's own frame, and the system's frame under GNOME, keep
+  the size.
+- Details: CLAUDE.md, "Where the window opens" under "The window".
+
 ## Files added with `git add -N` are new files, and the commit leaves them out (2026-11-12)
 
 - **Request:** found while probing for the renames in Staged (`docs/fork/status-renames.md`, case 4b, decision D5): an

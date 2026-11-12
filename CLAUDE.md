@@ -3645,6 +3645,70 @@ nothing (`WindowTitleBar.pointerOnBar`, `startButtons` and `endButtons`), and `A
   `LinuxTitleBarRowTest` (each reason, the restart note, Linux only), `LinuxTitleBarSettingTest` (data). The macOS and
   Windows title bar tests pass unchanged. 12 mutations were each caught by a named test.
 
+**Where the window opens (fork-only, 2026-11-12, `domain/window/SavedWindow.kt`, `ui/window/WindowPlacements.kt`, item 10
+of `docs/fork/upstream-sync-2026-11.md`):** Leaf opens as it was when it closed: maximized or floating, and a floating
+window at its size and place. It always opened maximized before. Upstream keeps maximized or floating only; this was
+written for Leaf from the problem.
+- **Kept** in the prefs node, with the pane widths (`SavedWindowPreferences.kt`, `AppSettingsRepository.savedWindow`):
+  `windowPlacement` (`floating` or `maximized`), and `windowX`, `windowY`, `windowWidth` and `windowHeight`, where the
+  window last was while it floated, which a maximized window goes back to when it's restored. In AWT's units: points on
+  macOS, pixels at 100% on Windows and Linux. A mode that this version doesn't know reads as maximized; bounds missing a
+  value, or that can't be a window (`isPlausible`: 1 to 100,000 wide and tall, within a million of the origin), as none.
+- **When** (`KeepWindowPlacement`, in `App.kt`'s window): 500 ms after Compose's `WindowState` last changed
+  (`KEEP_WINDOW_DELAY_MS`: a drag and the system's animations change it many times a second), and once more as the window
+  closes when Leaf quits, so a move just before Cmd+Q counts. The bounds are the AWT window's own. Until the window
+  shows, its bounds are AWT's first ones (80 × 28 at the top left on macOS), so nothing is kept until it has been seen
+  showing, and the closing save only after that: as Leaf quits, the window no longer counts as showing, but keeps its
+  bounds. `WindowPlacements` (app singleton) writes only what changed, and reads the node once. The JVM writes the node
+  to disk at exit.
+- **What** (`after`): a floating window keeps its bounds, and a maximized one the bounds it had while it floated. A
+  minimized window changes nothing (Windows moves it to -32,000), and neither does full screen.
+- **macOS full screen isn't restored** (decided 2026-11-12, as the task left it open): Leaf opens as it was before it
+  went full screen, maximized or floating at its bounds. A full-screen window opens in a Space of its own, with an
+  animation, at every launch, and the title bar's room for the window's buttons changes as full screen starts (see The
+  title bar). Restoring it would be a third mode in the model and in `windowStateOf`.
+- **Where it opens** (`windowOpening`, `fittedToScreens`, on `usableScreenAreas()`: each screen's bounds less
+  `Toolkit.getScreenInsets`, the menu bar, the Dock and the taskbar, the main screen first). The first run opens
+  maximized, at 1280 × 720 at the system's place under it (`DEFAULT_WINDOW_SIZE`), as before. A saved floating rectangle
+  goes on the screen that it overlaps most, the main one on a tie, no larger than that screen's usable area. Across and
+  down apart, it keeps its place where it lies on that area, or within 16 points past its left, right or bottom edge
+  (`EDGE_ALLOWANCE`: Windows counts its invisible resize borders, about 7 px at 100%, in a window's bounds, so a window
+  flush against an edge is a little past it), and otherwise moves the least that puts it wholly on the area: never above
+  its top, so the title bar is on the screen. On no screen, as after a monitor was unplugged, it's centred on the main
+  screen. A window that spanned two screens opens on the one that had most of it. A maximized window opens maximized on
+  the screen that its fitted rectangle is on, and goes back to that rectangle when it's restored (Compose sets a new
+  window's size and position before it maximizes it).
+- **A floating window as big as the screen's usable area counts as maximized** on macOS (AWT reports a window whose
+  frame is the zoomed one as zoomed) and under Mutter (which maximizes it), so it's kept as maximized.
+- **Checked on this Mac:** dev runs with keys seeded in `LeafDevConfig` (floating, on a screen that is gone, maximized,
+  the first run), the window's bounds read with `CGWindowListCopyWindowInfo`; and a temporary harness that drove a real,
+  unfocusable Compose window through maximize, restore, full screen and back, a move and a quit right after it, and a
+  quit before the window showed, each start floating and maximized.
+- **Checked on Linux** (the `leaf-x11` container: Ubuntu 24.04 arm64, Xvfb at 1600 × 1000, JBR for Linux, the fat jar
+  with skiko's Linux runtime; xdotool, xwininfo, xprop, wmctrl). Leaf's own frame, under xfwm4 and Mutter on X11: the
+  window opens at its bounds, the same across restarts; a move is kept; a maximized start restores to its rectangle with a
+  double-click on the bar; a window too large is fitted. The system's frame: under Mutter, the same across restarts;
+  under xfwm4 (Xfce) **the window grows 4 px taller at each restart**, as AWT sizes a new decorated window with its own
+  guess of the frame's borders and reports the larger size once xfwm4 sets its own; it stops at the screen's height. A
+  minimized window kept nothing. Not checked: a Wayland session (XWayland), KWin, real scaling.
+- **Windows** (not run; from the code): the bounds of a minimized window (-32,000) change nothing, and would be moved
+  onto a screen anyway; the invisible borders are in the edge allowance; a window snapped to half the screen reports
+  floating at its snapped bounds, and opens there as a plain window; a maximized window that Win+Shift+arrow moved to
+  another monitor opens maximized on the screen of its last floating rectangle, as AWT doesn't give Windows' restore
+  bounds. The screens' and the window's bounds come from the same AWT coordinates, which weren't seen with screens of
+  different scales.
+- **Removed:** upstream's `AppWindowPlacement`, its conversions (`extensions/WindowPlacement.kt`) and the settings
+  repository's stub, which always read maximized and wrote nothing. A sync shows modify/delete for the two files: keep
+  the deletion.
+- Tests: `SavedWindowTest` (domain: reading the stored values, what each placement keeps, where it opens, the edges and
+  the allowance, two screens and ties, a gone and a broken screen, 5,000 random layouts), `SavedWindowPreferencesTest`
+  (data, on a node in memory: the keys and values, taking keys out, values that aren't numbers, other keys left alone),
+  `WindowPlacementsTest` (app: the state Compose opens with, keeping only changes and reading once, the usable areas,
+  and the composable with a frame that never opens: a drag kept once it stops, a quit right after a change, full screen,
+  a window that shows late, nothing before it shows). 35 mutations were each caught by a named test, one (opening
+  without fitting to the screens) once the model's own test checked it. Not covered by a kept test: `App.kt` passing the
+  state and calling `KeepWindowPlacement`, which the dev runs checked.
+
 **The toolbar (`ui/toolbar/Toolbar.kt`):** one 48 dp row on the frame's colours, in place of upstream's `Menu`: the
 repository switcher, a divider, Pull ⌄ | Push ⌄ as one group, Branch, Stash ⌄ | Pop as one group, then Actions, Terminal
 and Settings at the right.
@@ -4370,9 +4434,11 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     `tab.viewModelsMap`: `tabComponent.repositoryOpenViewModel()` makes another.
   - A real window, with the title bar that JBR draws, is a dev run: `CGWindowListCopyWindowInfo` (a Swift script) finds
     the window (owner `java`, layer 0, named `Leaf - …`), and `screencapture -x -o -l <id>` takes it, without its
-    shadow. Leaf opens maximized (`App.kt`), so a capture of a given size runs with `WindowPlacement.Floating` and a
-    size, changed for that run only. The README's screenshots were taken that way (2026-11-05), at 1600 × 900 with the
-    default settings, the window placed away from the pointer so that no row shows a hover.
+    shadow. Leaf opens as it last closed (see Where the window opens, under The window), so a capture of a given size
+    sets `windowPlacement` to `floating` and the window's bounds in `LeafDevConfig` first, and takes them out afterwards.
+    The README's screenshots were taken at 1600 × 900 (2026-11-05, with `App.kt` changed for that run, before the
+    placement was kept), with the default settings, the window placed away from the pointer so that no row shows a
+    hover.
 
 ## Log
 
