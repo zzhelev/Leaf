@@ -1,5 +1,6 @@
 package dev.app.leaf.domain.errors
 
+import dev.app.leaf.domain.network.ProxyChoice
 import io.ktor.http.HttpStatusCode
 
 sealed interface LfsError {
@@ -33,4 +34,7 @@ sealed interface LfsError {
 
     /** The user closed the dialog that asked for the LFS server's credentials (fork-only). */
     data object CredentialsDenied : LfsError
+
+    /** The request's proxy is one that Leaf can't use (fork-only), so it wasn't sent. */
+    data class UnusableProxy(val proxy: ProxyChoice.Unusable) : LfsError
 }

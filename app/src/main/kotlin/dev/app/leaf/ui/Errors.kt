@@ -94,6 +94,10 @@ import dev.app.leaf.app.generated.resources.error_gpg_signing_start_failed
 import dev.app.leaf.app.generated.resources.error_gpg_signing_timed_out
 import dev.app.leaf.app.generated.resources.error_hook_rejection
 import dev.app.leaf.app.generated.resources.error_lfs_object_credentials_denied
+import dev.app.leaf.app.generated.resources.error_lfs_object_proxy_https
+import dev.app.leaf.app.generated.resources.error_lfs_object_proxy_socks_credentials
+import dev.app.leaf.app.generated.resources.error_lfs_object_proxy_unknown_kind
+import dev.app.leaf.app.generated.resources.error_lfs_object_proxy_unreadable
 import dev.app.leaf.app.generated.resources.error_lfs_download_first_failed
 import dev.app.leaf.app.generated.resources.error_lfs_filter_failed
 import dev.app.leaf.app.generated.resources.error_lfs_filter_files_written
@@ -149,6 +153,7 @@ import dev.app.leaf.app.generated.resources.error_whitespace_ignored_hunk_unstag
 import dev.app.leaf.app.generated.resources.error_stash_no_data
 import dev.app.leaf.domain.conflicts.formatFileSize
 import dev.app.leaf.domain.errors.*
+import dev.app.leaf.domain.network.UnusableProxyReason
 import dev.app.leaf.domain.models.MergeToolRefusal
 import dev.app.leaf.domain.models.WorktreeBranchUse
 import dev.app.leaf.theme.monoTypography
@@ -580,6 +585,18 @@ private fun LfsError.getLfsObjectErrorText(): String = when (this) {
 
     is LfsError.RequestFailed -> stringResource(Res.string.error_lfs_object_request_failed, message)
     LfsError.CredentialsDenied -> stringResource(Res.string.error_lfs_object_credentials_denied)
+    is LfsError.UnusableProxy -> when (proxy.reason) {
+        UnusableProxyReason.HTTPS_PROXY ->
+            stringResource(Res.string.error_lfs_object_proxy_https, proxy.source, proxy.proxy)
+
+        UnusableProxyReason.SOCKS_CREDENTIALS ->
+            stringResource(Res.string.error_lfs_object_proxy_socks_credentials, proxy.source, proxy.proxy)
+
+        UnusableProxyReason.UNKNOWN_KIND ->
+            stringResource(Res.string.error_lfs_object_proxy_unknown_kind, proxy.source, proxy.proxy)
+
+        UnusableProxyReason.UNREADABLE -> stringResource(Res.string.error_lfs_object_proxy_unreadable, proxy.source)
+    }
 }
 
 /** The explanation, then what git printed, which often has the server's own message. */

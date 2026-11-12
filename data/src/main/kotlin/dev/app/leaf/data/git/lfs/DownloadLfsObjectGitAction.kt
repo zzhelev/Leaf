@@ -1,6 +1,6 @@
 package dev.app.leaf.data.git.lfs
 
-import dev.app.leaf.data.network.isSslVerify
+import dev.app.leaf.data.network.ProxySettings
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IDownloadLfsObjectGitAction
@@ -24,6 +24,7 @@ import javax.inject.Inject
 class DownloadLfsObjectGitAction @Inject constructor(
     private val lfsRepository: LfsRepository,
     private val provideLfsCredentialsGitAction: ProvideLfsCredentialsGitAction,
+    private val proxySettings: ProxySettings,
 ) : IDownloadLfsObjectGitAction {
     /**
      * Downloads [lfsObject] to a temporary file next to its place in `lfs/objects`, and moves it there once its size
@@ -39,7 +40,10 @@ class DownloadLfsObjectGitAction @Inject constructor(
     ): Either<Unit, LfsError> {
         val downloadUrl = lfsObject.actions?.download?.href ?: return Either.Ok(Unit)
         val headers = lfsObject.actions?.download?.header.orEmpty()
-        val sslVerify = repository.config.isSslVerify(downloadUrl)
+        val settings = when (val result = proxySettings.lfsRequestSettings(repository, downloadUrl)) {
+            is Either.Ok -> result.value
+            is Either.Err -> return result
+        }
 
         val mediaFile = repository.lfsStore().mediaFile(oid)
         // In the same folder, so that the move is a rename
@@ -53,7 +57,7 @@ class DownloadLfsObjectGitAction @Inject constructor(
                     headers = headers,
                     username = null,
                     password = null,
-                    sslVerify = sslVerify,
+                    settings = settings,
                     onProgress = onProgress,
                 )
             } else {
@@ -64,7 +68,7 @@ class DownloadLfsObjectGitAction @Inject constructor(
                         headers = headers,
                         username = user,
                         password = password,
-                        sslVerify = sslVerify,
+                        settings = settings,
                         onProgress = onProgress,
                     )
                 }

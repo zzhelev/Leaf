@@ -3,6 +3,7 @@
 
 package dev.app.leaf.lfs
 
+import dev.app.leaf.data.network.ProxySettings
 import com.sun.net.httpserver.HttpServer
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
@@ -149,9 +150,9 @@ class LfsPrePushHookTest {
                 GetRemotesGitAction(RemoteConfigToRemoteMapper(), jgit),
                 GetLfsUrlSettingGitAction(withoutGit),
             ),
-            GetLfsObjectsGitAction(lfsRepository, credentials),
-            UploadLfsObjectGitAction(lfsRepository, credentials),
-            VerifyUploadLfsObjectGitAction(lfsRepository, credentials),
+            GetLfsObjectsGitAction(lfsRepository, credentials, ProxySettings({ emptyMap() }, { emptyList() })),
+            UploadLfsObjectGitAction(lfsRepository, credentials, ProxySettings({ emptyMap() }, { emptyList() })),
+            VerifyUploadLfsObjectGitAction(lfsRepository, credentials, ProxySettings({ emptyMap() }, { emptyList() })),
             AuthenticateLfsServerWithSshGitAction(
                 AskpassProcessRunner(
                     ProcessRunner(),

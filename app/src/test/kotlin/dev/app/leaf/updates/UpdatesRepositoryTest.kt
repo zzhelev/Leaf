@@ -4,6 +4,10 @@
 package dev.app.leaf.updates
 
 import com.sun.net.httpserver.HttpServer
+import dev.app.leaf.data.network.ProxiedHttpClients
+import dev.app.leaf.data.network.ProxySettings
+import dev.app.leaf.domain.network.ProxyChoice
+import dev.app.leaf.domain.network.UnusableProxyReason
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +29,9 @@ import org.junit.jupiter.api.Test
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
@@ -44,6 +50,9 @@ class UpdatesRepositoryTest {
     private val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0)
     private val requests = AtomicInteger()
 
+    /** The URI of each request, as sent: absolute when it came to the server as to a proxy. */
+    private val requestUris = CopyOnWriteArrayList<String>()
+
     /** What the server answers to each request in turn. The last answer repeats. */
     @Volatile
     private var answers: List<Answer> = emptyList()
@@ -55,6 +64,7 @@ class UpdatesRepositoryTest {
     fun setUp() {
         server.createContext("/latest.json") { exchange ->
             val index = requests.getAndIncrement()
+            requestUris += exchange.requestURI.toString()
 
             when (val answer = answers[minOf(index, answers.lastIndex)]) {
                 Answer.Drop -> exchange.close()
@@ -239,17 +249,75 @@ class UpdatesRepositoryTest {
         assertEquals(update(CURRENT_VERSION_CODE + 1), repository.update.value)
     }
 
+    @Test
+    fun `a check through a proxy reaches the server by its name`(): Unit = runBlocking {
+        answers = listOf(release(appCode = CURRENT_VERSION_CODE + 1))
+        // The test's server answers as the proxy would, for a name that nothing resolves
+        val proxy = ProxyChoice.Http("127.0.0.1", server.address.port, null, "HTTP_PROXY")
+        val repository = repository(
+            checkInterval = 1.hours,
+            versionCheckUrl = "http://updates.invalid/latest.json",
+            proxyFor = { url -> if (url == "http://updates.invalid/latest.json") proxy else ProxyChoice.Direct },
+        )
+
+        assertEquals(UpdateCheck.Available(update(CURRENT_VERSION_CODE + 1)), repository.checkNow())
+        assertEquals(listOf("http://updates.invalid/latest.json"), requestUris.toList())
+    }
+
+    @Test
+    fun `a proxy that Leaf can't use fails the check, saying why`(): Unit = runBlocking {
+        answers = listOf(release(appCode = CURRENT_VERSION_CODE + 1))
+        val unusable = ProxyChoice.Unusable(
+            "socks5://proxy.example.com:1080",
+            "HTTPS_PROXY",
+            UnusableProxyReason.SOCKS_CREDENTIALS,
+        )
+        val repository = repository(checkInterval = 1.hours, proxyFor = { unusable })
+
+        assertEquals(
+            UpdateCheck.Failed(
+                "Couldn't use the proxy socks5://proxy.example.com:1080 that HTTPS_PROXY names: Leaf can't send a " +
+                    "user name and password to a SOCKS proxy"
+            ),
+            repository.checkNow(),
+        )
+        assertEquals(0, requests.get())
+    }
+
+    @Test
+    fun `Leaf's check goes through the proxy of the user's settings`(): Unit = runBlocking {
+        val firstLines = CopyOnWriteArrayList<String>()
+        ServerSocket(0, 0, InetAddress.getLoopbackAddress()).use { proxy ->
+            thread(isDaemon = true) {
+                runCatching {
+                    proxy.accept().use { firstLines += it.getInputStream().bufferedReader().readLine() }
+                }
+            }
+            val settings = ProxySettings(
+                environment = { mapOf("HTTPS_PROXY" to "127.0.0.1:${proxy.localPort}") },
+                userConfigEntries = { emptyList() },
+            )
+            val repository = UpdatesRepository(httpClient, settings, ProxiedHttpClients())
+
+            assertInstanceOf(UpdateCheck.Failed::class.java, repository.checkNow())
+        }
+
+        assertEquals(listOf("CONNECT raw.githubusercontent.com:443 HTTP/1.1"), firstLines.toList())
+    }
+
     private val versionCheckUrl get() = "http://127.0.0.1:${server.address.port}/latest.json"
 
     private fun repository(
         checkInterval: Duration = 20.milliseconds,
         versionCheckUrl: String = this.versionCheckUrl,
+        proxyFor: suspend (String) -> ProxyChoice = { ProxyChoice.Direct },
     ) = UpdatesRepository(
         httpClient = httpClient,
         versionCheckUrl = versionCheckUrl,
         currentVersionCode = CURRENT_VERSION_CODE,
         checkInterval = checkInterval,
         scope = scope,
+        proxyFor = proxyFor,
     )
 
     private fun assertCouldNotReach(check: UpdateCheck) {

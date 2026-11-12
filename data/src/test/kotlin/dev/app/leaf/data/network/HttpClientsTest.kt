@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.network
 
+import dev.app.leaf.data.git.noProxies
 import com.sun.net.httpserver.HttpsConfigurator
 import com.sun.net.httpserver.HttpsServer
 import dev.app.leaf.data.git.IsolatedSystemReader
@@ -26,7 +27,9 @@ import dev.app.leaf.domain.lfs.LfsObjects
 import dev.app.leaf.domain.lfs.LfsServer
 import dev.app.leaf.domain.lfs.RemoteObjectAccessInfo
 import dev.app.leaf.domain.models.OperationType
+import dev.app.leaf.domain.network.HttpRequestSettings
 import dev.app.leaf.domain.network.NetworkConstants
+import dev.app.leaf.domain.network.ProxyChoice
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -53,12 +56,8 @@ import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.nio.file.Files
-import java.security.KeyStore
 import java.security.GeneralSecurityException
-import javax.net.ssl.KeyManagerFactory
-import javax.net.ssl.SSLContext
 
-private const val KEY_STORE_PASSWORD = "leaf-test"
 private const val BATCH_RESPONSE = """{"objects":[]}"""
 
 /** TLS for Leaf's own HTTP requests, against a local HTTPS server whose certificate no trust store holds. */
@@ -77,7 +76,7 @@ class HttpClientsTest {
     @BeforeAll
     fun startServer() {
         server = HttpsServer.create(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 0)
-        server.httpsConfigurator = HttpsConfigurator(selfSignedSslContext())
+        server.httpsConfigurator = HttpsConfigurator(selfSignedSslContext(serverDir))
         server.createContext("/") { exchange ->
             val body = BATCH_RESPONSE.toByteArray()
             exchange.sendResponseHeaders(200, body.size.toLong())
@@ -126,7 +125,10 @@ class HttpClientsTest {
         val lfs = NetworkLfsRepository(LfsNetworkDataSource(createHttpClient()))
 
         suspend fun postBatch(sslVerify: Boolean) =
-            lfs.getLfsObjects(serverUrl, OperationType.DOWNLOAD, "main", emptyList(), null, null, emptyMap(), sslVerify)
+            lfs.getLfsObjects(
+                serverUrl, OperationType.DOWNLOAD, "main", emptyList(), null, null, emptyMap(),
+                HttpRequestSettings(sslVerify, ProxyChoice.Direct),
+            )
 
         assertRefusesCertificate { postBatch(sslVerify = true) }
         assertEquals(Either.Ok(LfsObjects(arrayListOf())), postBatch(sslVerify = false))
@@ -164,7 +166,7 @@ class HttpClientsTest {
 
     @Test
     fun `an LFS action reads sslVerify for its URL from the repository's config`(): Unit = runBlocking {
-        val action = GetLfsObjectsGitAction(lfsRepository(), provideLfsCredentials())
+        val action = GetLfsObjectsGitAction(lfsRepository(), provideLfsCredentials(), noProxies())
 
         suspend fun getObjects() = action(
             git.repository, lfsServer, OperationType.DOWNLOAD, "main", listOf(LfsObjectBatch("0".repeat(64), 1)), headers,
@@ -187,7 +189,7 @@ class HttpClientsTest {
 
     @Test
     fun `an LFS download reads sslVerify for the download URL, not the server's`(): Unit = runBlocking {
-        val action = DownloadLfsObjectGitAction(lfsRepository(), provideLfsCredentials())
+        val action = DownloadLfsObjectGitAction(lfsRepository(), provideLfsCredentials(), noProxies())
         // Downloads are checked against it
         val oid = LongObjectId.fromRaw(Constants.newMessageDigest().digest(BATCH_RESPONSE.toByteArray()))
         val lfsObject = LfsObject(
@@ -247,28 +249,5 @@ class HttpClientsTest {
         assertTrue(causes.any { it is GeneralSecurityException }) {
             "Expected a certificate error, got: ${causes.joinToString(" <- ") { "${it.javaClass.name}: ${it.message}" }}"
         }
-    }
-
-    /** A key pair with a self-signed certificate for 127.0.0.1, made with the JDK's keytool. */
-    private fun selfSignedSslContext(): SSLContext {
-        val keyStoreFile = File(serverDir, "server.p12")
-        val keytool = File(System.getProperty("java.home"), "bin/keytool").path
-        val process = ProcessBuilder(
-            keytool, "-genkeypair", "-alias", "server", "-keyalg", "RSA", "-keysize", "2048",
-            "-dname", "CN=127.0.0.1", "-ext", "SAN=ip:127.0.0.1", "-validity", "2",
-            "-storetype", "PKCS12", "-keystore", keyStoreFile.path,
-            "-storepass", KEY_STORE_PASSWORD, "-keypass", KEY_STORE_PASSWORD,
-        ).redirectErrorStream(true).start()
-        val output = process.inputStream.readBytes().decodeToString()
-        check(process.waitFor() == 0) { "keytool failed: $output" }
-
-        val keyStore = KeyStore.getInstance("PKCS12")
-        keyStoreFile.inputStream().use { keyStore.load(it, KEY_STORE_PASSWORD.toCharArray()) }
-
-        val keyManagers = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
-            .apply { init(keyStore, KEY_STORE_PASSWORD.toCharArray()) }
-            .keyManagers
-
-        return SSLContext.getInstance("TLS").apply { init(keyManagers, null, null) }
     }
 }

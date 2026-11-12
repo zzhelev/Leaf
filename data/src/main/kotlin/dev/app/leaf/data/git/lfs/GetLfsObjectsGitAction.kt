@@ -1,6 +1,6 @@
 package dev.app.leaf.data.git.lfs
 
-import dev.app.leaf.data.network.isSslVerify
+import dev.app.leaf.data.network.ProxySettings
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.LfsError
 import dev.app.leaf.domain.interfaces.IGetLfsObjectsGitAction
@@ -16,6 +16,7 @@ import javax.inject.Inject
 class GetLfsObjectsGitAction @Inject constructor(
     private val lfsRepository: LfsRepository,
     private val provideLfsCredentialsGitAction: ProvideLfsCredentialsGitAction,
+    private val proxySettings: ProxySettings,
 ) : IGetLfsObjectsGitAction {
     override suspend operator fun invoke(
         repository: Repository,
@@ -25,7 +26,10 @@ class GetLfsObjectsGitAction @Inject constructor(
         lfsObjectBatches: List<LfsObjectBatch>,
         headers: Map<String, String>,
     ): Either<LfsObjects, LfsError> {
-        val sslVerify = repository.config.isSslVerify(lfsServer.url)
+        val settings = when (val result = proxySettings.lfsRequestSettings(repository, lfsServer.url)) {
+            is Either.Ok -> result.value
+            is Either.Err -> return result
+        }
 
         return if (headers.containsKey(NetworkConstants.AUTH_HEADER)) {
             lfsRepository.getLfsObjects(
@@ -36,7 +40,7 @@ class GetLfsObjectsGitAction @Inject constructor(
                 headers = headers,
                 username = null,
                 password = null,
-                sslVerify = sslVerify,
+                settings = settings,
             )
         } else {
             provideLfsCredentialsGitAction(repository, lfsServer) { user, password ->
@@ -48,7 +52,7 @@ class GetLfsObjectsGitAction @Inject constructor(
                     headers = headers,
                     username = user,
                     password = password,
-                    sslVerify = sslVerify,
+                    settings = settings,
                 )
             }
         }

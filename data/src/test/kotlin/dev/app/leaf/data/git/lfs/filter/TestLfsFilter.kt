@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.lfs.filter
 
+import dev.app.leaf.data.git.noProxies
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
 import dev.app.leaf.data.git.cli.ProcessRunner
@@ -115,9 +116,9 @@ private fun testFetchLfsObjects(
     )
 
     return FetchLfsObjectsGitAction(
-        GetLfsObjectsGitAction(lfsRepository, credentials),
+        GetLfsObjectsGitAction(lfsRepository, credentials, noProxies()),
         ssh,
-        DownloadLfsObjectGitAction(lfsRepository, credentials),
+        DownloadLfsObjectGitAction(lfsRepository, credentials, noProxies()),
     )
 }
 

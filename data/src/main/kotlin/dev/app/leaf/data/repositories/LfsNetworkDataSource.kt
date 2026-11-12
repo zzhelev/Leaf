@@ -1,5 +1,6 @@
 package dev.app.leaf.data.repositories
 
+import dev.app.leaf.data.network.ProxiedHttpClients
 import dev.app.leaf.data.network.createHttpClientWithoutTlsVerification
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.network.NetworkConstants
@@ -8,12 +9,14 @@ import dev.app.leaf.domain.lfs.LfsObjectBatch
 import dev.app.leaf.domain.lfs.LfsObjects
 import dev.app.leaf.domain.lfs.LfsPrepareUploadObjectBatch
 import dev.app.leaf.domain.models.OperationType
+import dev.app.leaf.domain.network.HttpRequestSettings
 import dev.app.leaf.domain.repositories.LfsRepository
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.util.cio.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
@@ -31,13 +34,16 @@ private const val DOWNLOAD_BUFFER_SIZE = 64 * 1024
 
 class LfsNetworkDataSource @Inject constructor(
     private val client: HttpClient,
+    private val proxiedClients: ProxiedHttpClients = ProxiedHttpClients(),
 ) : LfsRepository {
     private val json = Json { ignoreUnknownKeys = true }
 
     // Created only for a server whose http.sslVerify is false
     private val clientWithoutTlsVerification by lazy { createHttpClientWithoutTlsVerification() }
 
-    private fun client(sslVerify: Boolean) = if (sslVerify) client else clientWithoutTlsVerification
+    private fun client(settings: HttpRequestSettings): HttpClient =
+        proxiedClients.clientFor(settings.proxy, settings.sslVerify)
+            ?: if (settings.sslVerify) client else clientWithoutTlsVerification
 
     override suspend fun postBatchObjects(
         remoteUrl: String,
@@ -45,9 +51,9 @@ class LfsNetworkDataSource @Inject constructor(
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<LfsObjects, LfsError> {
-        val response = client(sslVerify).post("${remoteUrl.removeSuffix("/")}/objects/batch") {
+        val response = client(settings).post("${remoteUrl.removeSuffix("/")}/objects/batch") {
             setHeadersAndBasicAuth(headers, username, password)
 
             this.contentType(ContentType("application", "vnd.git-lfs+json"))
@@ -70,14 +76,20 @@ class LfsNetworkDataSource @Inject constructor(
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<Unit, LfsError> {
-        val response = client(sslVerify).put(uploadUrl) {
+        val response = client(settings).put(uploadUrl) {
             setHeadersAndBasicAuth(headers, username, password)
 
             this.headers[NetworkConstants.CONTENT_LENGTH_HEADER] = size.toString()
 
-            setBody(file.readChannel())
+            // With its length (fork-only): OkHttp, which proxied requests use, leaves the header out, and would send
+            // the file in chunks, which servers such as S3 refuse
+            setBody(object : OutgoingContent.ReadChannelContent() {
+                override val contentLength = size
+
+                override fun readFrom() = file.readChannel()
+            })
         }
 
         return if (response.status != HttpStatusCode.OK) {
@@ -94,9 +106,9 @@ class LfsNetworkDataSource @Inject constructor(
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<Unit, LfsError> {
-        val response = client(sslVerify).post(url) {
+        val response = client(settings).post(url) {
             setHeadersAndBasicAuth(headers, username, password)
 
             val body = LfsObjectBatch(oid, size)
@@ -116,11 +128,11 @@ class LfsNetworkDataSource @Inject constructor(
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
         onProgress: (Long) -> Unit,
     ): Either<Unit, LfsError> {
         // Streamed to the file (fork-only): get() reads the whole body into memory first
-        return client(sslVerify).prepareGet(downloadUrl) {
+        return client(settings).prepareGet(downloadUrl) {
             setHeadersAndBasicAuth(headers, username, password)
         }.execute { response ->
             if (response.status != HttpStatusCode.OK) {
@@ -166,7 +178,7 @@ class LfsNetworkDataSource @Inject constructor(
         username: String?,
         password: String?,
         headers: Map<String, String>,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<dev.app.leaf.domain.lfs.LfsObjects, LfsError> {
         TODO("Not yet implemented")
     }

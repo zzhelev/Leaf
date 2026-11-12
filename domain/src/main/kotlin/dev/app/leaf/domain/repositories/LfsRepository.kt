@@ -6,11 +6,12 @@ import dev.app.leaf.domain.lfs.LfsObjectBatch
 import dev.app.leaf.domain.lfs.LfsObjects
 import dev.app.leaf.domain.lfs.LfsPrepareUploadObjectBatch
 import dev.app.leaf.domain.models.OperationType
+import dev.app.leaf.domain.network.HttpRequestSettings
 import java.nio.file.Path
 
 /**
- * Requests to a Git LFS server. `sslVerify` is git's `http.sslVerify` for the request's URL: when false, the server's TLS
- * certificate isn't checked.
+ * Requests to a Git LFS server. `settings` are for the request's URL: git's `http.sslVerify` (when false, the server's
+ * TLS certificate isn't checked) and the proxy.
  */
 interface LfsRepository {
     suspend fun postBatchObjects(
@@ -19,7 +20,7 @@ interface LfsRepository {
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<LfsObjects, LfsError>
 
     suspend fun uploadObject(
@@ -30,7 +31,7 @@ interface LfsRepository {
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<Unit, LfsError>
 
     suspend fun verify(
@@ -40,7 +41,7 @@ interface LfsRepository {
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<Unit, LfsError>
 
     /** [onProgress] gets the bytes written to [outPath] so far (fork-only). */
@@ -50,7 +51,7 @@ interface LfsRepository {
         headers: Map<String, String>,
         username: String?,
         password: String?,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
         onProgress: (Long) -> Unit = {},
     ): Either<Unit, LfsError>
 
@@ -62,6 +63,6 @@ interface LfsRepository {
         username: String?,
         password: String?,
         headers: Map<String, String>,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<LfsObjects, LfsError>
 }

@@ -7,6 +7,7 @@ import dev.app.leaf.domain.lfs.LfsObjects
 import dev.app.leaf.domain.lfs.LfsPrepareUploadObjectBatch
 import dev.app.leaf.domain.lfs.LfsRef
 import dev.app.leaf.domain.models.OperationType
+import dev.app.leaf.domain.network.HttpRequestSettings
 import dev.app.leaf.domain.repositories.LfsRepository
 import javax.inject.Inject
 
@@ -23,7 +24,7 @@ class NetworkLfsRepository @Inject constructor(
         username: String?,
         password: String?,
         headers: Map<String, String>,
-        sslVerify: Boolean,
+        settings: HttpRequestSettings,
     ): Either<LfsObjects, LfsError> {
         return postBatchObjects(
             lfsServerUrl,
@@ -35,7 +36,7 @@ class NetworkLfsRepository @Inject constructor(
             headers = headers,
             username,
             password,
-            sslVerify,
+            settings,
         )
     }
 

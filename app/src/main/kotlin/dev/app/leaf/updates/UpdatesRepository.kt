@@ -3,6 +3,11 @@ package dev.app.leaf.updates
 import dev.app.leaf.AppConstants
 import dev.app.leaf.common.printError
 import dev.app.leaf.common.printLog
+import dev.app.leaf.data.network.ProxiedHttpClients
+import dev.app.leaf.data.network.ProxySettings
+import dev.app.leaf.data.network.UnusableProxyException
+import dev.app.leaf.domain.network.ProxyChoice
+import dev.app.leaf.domain.network.UnusableProxyReason
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -41,14 +46,19 @@ class UpdatesRepository(
     private val currentVersionCode: Int,
     private val checkInterval: Duration,
     scope: CoroutineScope,
+    // The proxy for the check (fork-only): the user's git config and the environment, read for each check
+    private val proxyFor: suspend (url: String) -> ProxyChoice = { ProxyChoice.Direct },
+    private val proxiedClients: ProxiedHttpClients = ProxiedHttpClients(),
 ) {
     @Inject
-    constructor(httpClient: HttpClient) : this(
+    constructor(httpClient: HttpClient, proxySettings: ProxySettings, proxiedClients: ProxiedHttpClients) : this(
         httpClient = httpClient,
         versionCheckUrl = AppConstants.VERSION_CHECK_URL,
         currentVersionCode = AppConstants.APP_VERSION_CODE,
         checkInterval = 5.minutes,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        proxyFor = proxySettings::forRequestWithoutRepository,
+        proxiedClients = proxiedClients,
     )
 
     private val foundByHand = MutableSharedFlow<Update>(replay = 1)
@@ -104,7 +114,8 @@ class UpdatesRepository(
     private suspend fun fetchLatestRelease(): Update? {
         printLog(TAG, "Checking for new updates in $versionCheckUrl")
 
-        val response = httpClient.get(versionCheckUrl)
+        val client = proxiedClients.clientFor(proxyFor(versionCheckUrl), sslVerify = true) ?: httpClient
+        val response = client.get(versionCheckUrl)
 
         if (!response.status.isSuccess()) {
             throw UnexpectedAnswerException("$versionCheckUrl answered ${response.status}")
@@ -122,11 +133,24 @@ class UpdatesRepository(
 
         return when (e) {
             is UnexpectedAnswerException -> e.reason
+            is UnusableProxyException -> unusableProxyReason(e.proxy)
             // Also what happens offline. The exception has no message.
             is UnresolvedAddressException, is UnknownHostException -> "Couldn't find the address of $host"
             else -> "Couldn't reach $host: ${e.message ?: e::class.simpleName}"
         }
     }
+}
+
+/** Why the check couldn't go through [proxy] (fork-only). */
+private fun unusableProxyReason(proxy: ProxyChoice.Unusable): String {
+    val why = when (proxy.reason) {
+        UnusableProxyReason.HTTPS_PROXY -> "Leaf talks to proxies over plain HTTP only"
+        UnusableProxyReason.SOCKS_CREDENTIALS -> "Leaf can't send a user name and password to a SOCKS proxy"
+        UnusableProxyReason.UNKNOWN_KIND -> "Leaf uses HTTP and SOCKS5 proxies only"
+        UnusableProxyReason.UNREADABLE -> return "${proxy.source} doesn't name a proxy that Leaf can read"
+    }
+
+    return "Couldn't use the proxy ${proxy.proxy} that ${proxy.source} names: $why"
 }
 
 /** The server answered, but not with a release. */

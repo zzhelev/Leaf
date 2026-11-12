@@ -3,6 +3,7 @@
 
 package dev.app.leaf.data.git.conflicts
 
+import dev.app.leaf.data.git.noProxies
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.cli.ProcessRunner
@@ -273,9 +274,9 @@ class DownloadLfsVersionGitActionTest {
             testJGit(),
             getLfsUrl,
             FetchLfsObjectGitAction(
-                GetLfsObjectsGitAction(lfsRepository, credentials),
+                GetLfsObjectsGitAction(lfsRepository, credentials, noProxies()),
                 ssh,
-                DownloadLfsObjectGitAction(lfsRepository, credentials),
+                DownloadLfsObjectGitAction(lfsRepository, credentials, noProxies()),
             ),
         )
 

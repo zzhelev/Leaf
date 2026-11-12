@@ -50,6 +50,13 @@ class FakeLfsServer(private val storage: File) : AutoCloseable {
 
     val url: String get() = "http://127.0.0.1:${server.address.port}/lfs"
 
+    /** The URL that the batch API's actions point at, [url] unless set: a name that a proxy routes, say. */
+    @Volatile
+    var actionsUrl: String? = null
+
+    /** The port it listens on, on 127.0.0.1. */
+    val port: Int get() = server.address.port
+
     init {
         storage.mkdirs()
         server.createContext("/lfs") { exchange -> exchange.use { handle(it) } }
@@ -116,7 +123,7 @@ class FakeLfsServer(private val storage: File) : AutoCloseable {
                 operation == "upload" && stored -> {}
                 else -> putJsonObject("actions") {
                     putJsonObject(operation) {
-                        put("href", "$url/objects/$oid")
+                        put("href", "${actionsUrl ?: url}/objects/$oid")
                         putJsonObject("header") {
                             authorization?.let { put("Authorization", it) }
                         }

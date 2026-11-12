@@ -1925,6 +1925,10 @@
     <string name="error_lfs_object_wrong_content">Couldn't download the LFS object: what arrived has another SHA-256 than the pointer's, so it wasn't kept.</string>
     <string name="error_lfs_object_request_failed">Couldn't download the LFS object: %1$s</string>
     <string name="error_lfs_object_credentials_denied">Couldn't download the LFS object: the LFS server's credentials weren't given.</string>
+    <string name="error_lfs_object_proxy_https">Couldn't download the LFS object: %1$s names the HTTPS proxy %2$s, and Leaf talks to proxies over plain HTTP only. git-lfs can use it, once it's installed and set up.</string>
+    <string name="error_lfs_object_proxy_socks_credentials">Couldn't download the LFS object: %1$s names the SOCKS proxy %2$s with a user name and password, which Leaf can't send. git-lfs can use it, once it's installed and set up.</string>
+    <string name="error_lfs_object_proxy_unknown_kind">Couldn't download the LFS object: %1$s names the proxy %2$s, of a kind that Leaf doesn't know. Leaf uses HTTP and SOCKS5 proxies.</string>
+    <string name="error_lfs_object_proxy_unreadable">Couldn't download the LFS object: %1$s doesn't name a proxy that Leaf can read.</string>
     <string name="error_lfs_filter_failed">git stopped, as Leaf couldn't download the Git LFS files it was writing.</string>
     <string name="error_lfs_filter_more_files">and %1$d more</string>
     <string name="error_lfs_download_first_failed">Leaf couldn't download the Git LFS files that this needs, so it didn't start, and nothing changed.</string>

@@ -3,6 +3,7 @@
 
 package dev.app.leaf.lfs
 
+import dev.app.leaf.data.network.ProxySettings
 import com.sun.net.httpserver.HttpServer
 import dev.app.leaf.data.git.IncludedConfigRepository
 import dev.app.leaf.data.git.JGit
@@ -330,7 +331,7 @@ class BuiltinLfsFiltersTest {
             GetLfsUrlSettingGitAction(withoutGit),
         )
         val fetch = FetchLfsObjectGitAction(
-            GetLfsObjectsGitAction(lfsRepository, credentials),
+            GetLfsObjectsGitAction(lfsRepository, credentials, ProxySettings({ emptyMap() }, { emptyList() })),
             AuthenticateLfsServerWithSshGitAction(
                 AskpassProcessRunner(
                     ProcessRunner(),
@@ -342,7 +343,7 @@ class BuiltinLfsFiltersTest {
                 withoutGit,
                 shellEnvironment,
             ),
-            DownloadLfsObjectGitAction(lfsRepository, credentials),
+            DownloadLfsObjectGitAction(lfsRepository, credentials, ProxySettings({ emptyMap() }, { emptyList() })),
         )
 
         return AppLfsFactory(

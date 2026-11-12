@@ -207,3 +207,6 @@ fun createHookTool(directory: File): File {
 
 /** A hook that runs `leaf-hook-tool` and fails, as `sh` does, when it isn't found. */
 const val HOOK_RUNNING_TOOL = "#!/bin/sh\nleaf-hook-tool\n"
+
+/** Proxy settings with nothing set, whatever the machine's environment or git config has. */
+fun noProxies() = dev.app.leaf.data.network.ProxySettings(environment = { emptyMap() }, userConfigEntries = { emptyList() })
