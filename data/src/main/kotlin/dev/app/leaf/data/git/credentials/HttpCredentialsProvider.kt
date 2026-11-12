@@ -89,7 +89,7 @@ class HttpCredentialsProvider @AssistedInject constructor(
         val helperSettings = runBlocking { credentialHelpers.find(git?.repository, uri) }
 
         if (helperSettings.helpers.isEmpty()) {
-            // "Cache HTTP credentials in memory", which the git CLI's remote operations follow too
+            // "Cache credentials in memory", which the git CLI's remote operations follow too
             val cacheInMemory = runBlocking { appSettingsService.cacheCredentialsInMemory.first() }
             val cachedCredentials = if (cacheInMemory) {
                 credentialsCacheRepository.getCachedHttpCredentials(url = uri.toString(), isLfs = false)

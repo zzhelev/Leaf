@@ -64,7 +64,7 @@ fun testGitSettings(configuredPath: String? = null) = AppSettingsService(
     }
 )
 
-/** Leaf's settings for tests, with "Cache HTTP credentials in memory" set to [cacheCredentialsInMemory]. */
+/** Leaf's settings for tests, with "Cache credentials in memory" set to [cacheCredentialsInMemory]. */
 fun testAppSettings(cacheCredentialsInMemory: Boolean = true) = AppSettingsService(
     mockk<AppSettingsRepository> {
         every { this@mockk.cacheCredentialsInMemory } returns flowOf(cacheCredentialsInMemory)

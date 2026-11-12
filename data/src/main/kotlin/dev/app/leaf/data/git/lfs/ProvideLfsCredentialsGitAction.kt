@@ -116,8 +116,8 @@ class ProvideLfsCredentialsGitAction @Inject constructor(
     /**
      * Without a helper: the credentials that Leaf cached for [url], then the user's, asked only for the password when
      * git knows the [user] name. Cached credentials that the server rejects are removed, and the ones the user typed
-     * are cached once the server takes them. With "Cache HTTP credentials in memory" off, the user is asked every
-     * time and nothing is cached.
+     * are cached once the server takes them. With "Cache credentials in memory" off, the user is asked every time
+     * and nothing is cached.
      */
     private suspend fun <T> withCachedCredentials(
         url: String,

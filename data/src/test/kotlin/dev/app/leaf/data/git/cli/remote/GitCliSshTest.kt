@@ -12,6 +12,7 @@ import dev.app.leaf.data.git.cli.askpass.AskpassProcessRunner
 import dev.app.leaf.data.git.cli.askpass.answeringDialogs
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.lfs.AuthenticateLfsServerWithSshGitAction
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.credentials.CredentialsRequest
@@ -257,6 +258,22 @@ class GitCliSshTest {
     }
 
     @Test
+    fun `with caching off, a key's passphrase is asked for each push`(): Unit = runBlocking {
+        remote = TestRemoteCommand(helper, globalConfig, cacheCredentials = false)
+        useKey("dave")
+        val passphrase: CredentialsStateManager.(CredentialsRequest) -> Unit = { sshCredentialsAccepted(PASSPHRASE) }
+
+        val (results, dialogs) = remote.credentialsStateManager.answeringDialogs(passphrase, passphrase) {
+            val first = push()
+            commit("second")
+            listOf(first, push())
+        }
+
+        assertEquals(List(2) { Either.Ok(Unit) }, results)
+        assertEquals(List(2) { CredentialsRequest.SshCredentialsRequest(isRetry = false, password = "") }, dialogs)
+    }
+
+    @Test
     fun `a wrong passphrase is asked for again`(): Unit = runBlocking {
         useKey("dave")
 
@@ -372,6 +389,22 @@ class GitCliSshTest {
         }
 
     @Test
+    fun `with caching off, Leaf's built-in LFS client asks for the passphrase each time`(): Unit = runBlocking {
+        useKey("dave")
+        val authenticate = authenticateLfsServer(cacheCredentials = false)
+        val passphrase: CredentialsStateManager.(CredentialsRequest) -> Unit = { sshCredentialsAccepted(PASSPHRASE) }
+
+        val (results, dialogs) = remote.credentialsStateManager.answeringDialogs(passphrase, passphrase) {
+            Git.open(work).use { git ->
+                List(2) { authenticate(git.repository, remoteUrl(), OperationType.UPLOAD) }
+            }
+        }
+
+        assertEquals(List(2) { LfsSshAuthenticateResult(lfsServer.url, emptyMap()) }, results)
+        assertEquals(List(2) { CredentialsRequest.SshCredentialsRequest(isRetry = false, password = "") }, dialogs)
+    }
+
+    @Test
     fun `Leaf's built-in LFS client reports the server's message when it refuses the key`(): Unit = runBlocking {
         useKey("bob")
 
@@ -386,8 +419,14 @@ class GitCliSshTest {
         assertTrue(exception.message!!.contains("denied to bob"), exception.message)
     }
 
-    private fun authenticateLfsServer() = AuthenticateLfsServerWithSshGitAction(
-        AskpassProcessRunner(ProcessRunner(), AskpassHelper { helper }, remote.credentialsStateManager, remote.credentialsCache),
+    private fun authenticateLfsServer(cacheCredentials: Boolean = true) = AuthenticateLfsServerWithSshGitAction(
+        AskpassProcessRunner(
+            ProcessRunner(),
+            AskpassHelper { helper },
+            remote.credentialsStateManager,
+            remote.credentialsCache,
+            testAppSettings(cacheCredentials),
+        ),
         remote.gitCli,
         LoginShellEnvironment { emptyMap() },
     )

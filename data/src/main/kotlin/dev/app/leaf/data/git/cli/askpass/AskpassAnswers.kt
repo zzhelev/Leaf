@@ -21,17 +21,21 @@ private const val GIT_CREDENTIAL_CACHE_PREFIX = "git-credential:"
  * - HTTPS: git asks for the user name and the password one at a time. Leaf asks for both in one dialog when git asks
  *   for the user name, and gives the password when git asks for it next. When git already knows the user name, only
  *   the password is asked for. git itself sends what the server took to every credential helper, Leaf's cache last.
- * - SSH passphrases are kept per key file for the session, as Leaf does with JGit. A passphrase that ssh asks for again
- *   was wrong, so it's dropped, and the user is asked again. A typed passphrase is kept only once the command
- *   [authenticated][commit].
+ * - SSH passphrases are kept per key file until Leaf quits, while [cachesCredentials] says so. A passphrase that ssh
+ *   asks for again was wrong, so it's dropped, and the user is asked again. A typed passphrase is kept only once the
+ *   command [authenticated][commit].
  * - The SSH host key question has a dialog of its own, and other prompts a generic one.
  *
+ * @param cachesCredentials Settings' "Cache credentials in memory" (fork-only), read each time it matters, so that
+ * turning it off applies at once: while it's off, no passphrase is kept or taken from the cache, and the credential
+ * helper gives and stores nothing.
  * @param passphraseKeyPath the key file that a passphrase prompt without a key is about: ssh-keygen before OpenSSH 10
  * asks `Enter passphrase: ` for the key it signs with.
  */
 class AskpassAnswers(
     private val credentialsStateManager: CredentialsStateManager,
     private val credentialsRepository: CredentialsRepository,
+    private val cachesCredentials: suspend () -> Boolean,
     private val passphraseKeyPath: String? = null,
 ) {
     /** The password typed together with a user name, for git's next prompt, which names that user. */
@@ -62,6 +66,8 @@ class AskpassAnswers(
 
     /** Keeps the passphrases that the user typed, once the command got past authentication with them. */
     suspend fun commit() = mutex.withLock {
+        if (!cachesCredentials()) return@withLock
+
         for ((keyPath, passphrase) in passphrasesGiven) {
             if (keyPath !in passphrasesFromCache) {
                 credentialsRepository.cacheSshCredentials(SSH_KEY_CACHE_PREFIX + keyPath, passphrase)
@@ -110,7 +116,7 @@ class AskpassAnswers(
             if (passphrasesFromCache.remove(keyPath)) {
                 credentialsRepository.removeCachedSshCredentials(cacheKey)
             }
-        } else {
+        } else if (cachesCredentials()) {
             val cached = credentialsRepository.getCachedSshCredentials(cacheKey)
 
             if (cached != null) {
@@ -144,6 +150,9 @@ class AskpassAnswers(
      * sends one).
      */
     private suspend fun answerCredentialHelper(operation: String, input: String): String {
+        // Turned off after git started with the helper
+        if (!cachesCredentials()) return ""
+
         val credential = input.lineSequence()
             .filter { it.contains('=') }
             .associate { it.substringBefore('=') to it.substringAfter('=') }

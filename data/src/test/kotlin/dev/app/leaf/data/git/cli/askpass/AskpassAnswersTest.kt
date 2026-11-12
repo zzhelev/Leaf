@@ -23,7 +23,11 @@ class AskpassAnswersTest {
     private val credentialsStateManager = CredentialsStateManager()
     private val cache = CredentialsCacheRepository()
 
-    private fun newCommand() = AskpassAnswers(credentialsStateManager, cache)
+    /** Settings' "Cache credentials in memory", which a test may turn off while the "app" runs. */
+    private var cachesCredentials = true
+
+    private fun newCommand(passphraseKeyPath: String? = null) =
+        AskpassAnswers(credentialsStateManager, cache, { cachesCredentials }, passphraseKeyPath)
 
     @Test
     fun `git's two HTTPS prompts take one dialog`(): Unit = runBlocking {
@@ -143,7 +147,7 @@ class AskpassAnswersTest {
     @Test
     fun `ssh-keygen's passphrase prompt without a key is about the key it signs with, and kept for it`(): Unit =
         runBlocking {
-            val signing = AskpassAnswers(credentialsStateManager, cache, passphraseKeyPath = KEY)
+            val signing = newCommand(passphraseKeyPath = KEY)
 
             val (given, dialogs) = credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("phrase") }) {
                 signing.answer(AskpassRequest.Prompt("Enter passphrase: "))
@@ -184,6 +188,84 @@ class AskpassAnswersTest {
         }
 
         assertEquals(1, dialogsAgain.size)
+    }
+
+    @Test
+    fun `with caching off, a passphrase is asked for each command, and nothing is kept`(): Unit = runBlocking {
+        cachesCredentials = false
+
+        val (given, dialogs) = credentialsStateManager.answeringDialogs(
+            { sshCredentialsAccepted("phrase") },
+            { sshCredentialsAccepted("phrase") },
+        ) {
+            List(2) {
+                val answers = newCommand()
+                answers.answer(AskpassRequest.Prompt(PASSPHRASE_PROMPT)).also { answers.commit() }
+            }
+        }
+
+        assertEquals(listOf("phrase", "phrase"), given)
+        assertEquals(List(2) { CredentialsRequest.SshCredentialsRequest(isRetry = false, password = "") }, dialogs)
+        assertNull(cache.getCachedSshCredentials("ssh-key:$KEY"))
+    }
+
+    @Test
+    fun `with caching off, ssh-keygen's passphrase isn't kept for the key it signs with`(): Unit = runBlocking {
+        cachesCredentials = false
+        val signing = newCommand(passphraseKeyPath = KEY)
+
+        credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("phrase") }) {
+            signing.answer(AskpassRequest.Prompt("Enter passphrase: "))
+        }
+        signing.commit()
+
+        assertNull(cache.getCachedSshCredentials("ssh-key:$KEY"))
+    }
+
+    @Test
+    fun `turned off while Leaf runs, a passphrase kept before isn't given, and the user is asked`(): Unit =
+        runBlocking {
+            cache.cacheSshCredentials("ssh-key:$KEY", "kept")
+            cachesCredentials = false
+
+            val (given, dialogs) = credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("typed") }) {
+                newCommand().answer(AskpassRequest.Prompt(PASSPHRASE_PROMPT))
+            }
+
+            assertEquals("typed", given)
+            assertEquals(listOf(CredentialsRequest.SshCredentialsRequest(isRetry = false, password = "")), dialogs)
+        }
+
+    @Test
+    fun `turned off before the command authenticated, the typed passphrase isn't kept`(): Unit = runBlocking {
+        val answers = newCommand()
+
+        credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("phrase") }) {
+            answers.answer(AskpassRequest.Prompt(PASSPHRASE_PROMPT))
+        }
+        cachesCredentials = false
+        answers.commit()
+
+        assertNull(cache.getCachedSshCredentials("ssh-key:$KEY"))
+    }
+
+    @Test
+    fun `turned on again, a passphrase is kept from the next command on`(): Unit = runBlocking {
+        cachesCredentials = false
+        val first = newCommand()
+        credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("phrase") }) {
+            first.answer(AskpassRequest.Prompt(PASSPHRASE_PROMPT))
+        }
+        first.commit()
+
+        cachesCredentials = true
+        val second = newCommand()
+        credentialsStateManager.answeringDialogs({ sshCredentialsAccepted("phrase") }) {
+            second.answer(AskpassRequest.Prompt(PASSPHRASE_PROMPT))
+        }
+        second.commit()
+
+        assertEquals("phrase", cache.getCachedSshCredentials("ssh-key:$KEY")?.password)
     }
 
     @Test
@@ -228,6 +310,19 @@ class AskpassAnswersTest {
 
         answers.answer(credential("erase", "protocol=https\nhost=example.com\nusername=bob\npassword=new\n"))
         assertEquals("", answers.answer(credential("get", "protocol=https\nhost=example.com\n")))
+    }
+
+    @Test
+    fun `with caching off, the credential helper gives and stores nothing`(): Unit = runBlocking {
+        val answers = newCommand()
+        answers.answer(credential("store", "protocol=https\nhost=example.com\nusername=bob\npassword=kept\n"))
+
+        // Turned off after git started with Leaf's helper
+        cachesCredentials = false
+
+        assertEquals("", answers.answer(credential("get", "protocol=https\nhost=example.com\n")))
+        answers.answer(credential("store", "protocol=https\nhost=example.org\nusername=bob\npassword=new\n"))
+        assertNull(cache.getCachedHttpCredentials("git-credential:https://example.org", isLfs = false))
     }
 
     private fun credential(operation: String, input: String) = AskpassRequest.Credential(operation, "$input\n")

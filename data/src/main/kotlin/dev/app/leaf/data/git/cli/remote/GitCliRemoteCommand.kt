@@ -36,7 +36,8 @@ import kotlin.time.Duration
  * - git and ssh ask through Leaf's dialogs, with the askpass helper ([AskpassAnswers]). The user's own credential
  *   helpers, ssh config, agent and known_hosts apply as in a terminal. `core.sshCommand` too, as Leaf never sets
  *   `GIT_SSH_COMMAND`.
- * - Leaf's in-memory cache is added as git's last credential helper, when "Cache HTTP credentials in memory" is on.
+ * - Leaf's in-memory cache is added as git's last credential helper, and keeps SSH passphrases, when "Cache
+ *   credentials in memory" is on.
  * - git's progress goes to the processing screen, which can then cancel the command: cancelling the coroutine kills
  *   git and the programs it started. There is no timeout, as a push can take long.
  * - Where git-lfs isn't set up, Leaf's built-in LFS client is git's LFS filter ([LfsFilter], fork-only), so that git
@@ -80,8 +81,9 @@ class GitCliRemoteCommand @Inject constructor(
             GitCliError.StartFailed("git ${args.joinToString(" ")}", "Leaf's askpass helper is missing")
         )
 
-        val answers = AskpassAnswers(credentialsStateManager, credentialsRepository)
-        val cacheHelper = if (appSettingsService.cacheCredentialsInMemory.first()) {
+        val cachesCredentials = suspend { appSettingsService.cacheCredentialsInMemory.first() }
+        val answers = AskpassAnswers(credentialsStateManager, credentialsRepository, cachesCredentials)
+        val cacheHelper = if (cachesCredentials()) {
             listOf("-c", "credential.helper=${credentialHelperCommand(helper)}")
         } else {
             emptyList()

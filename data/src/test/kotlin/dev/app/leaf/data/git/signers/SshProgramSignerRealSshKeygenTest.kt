@@ -16,6 +16,7 @@ import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
 import dev.app.leaf.data.git.isolatedGitCli
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.tags.CreateTagGitAction
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.mappers.JGitCommitMapper
@@ -331,6 +332,7 @@ class SshProgramSignerRealSshKeygenTest {
             AskpassHelper { helper },
             credentialsStateManager,
             CredentialsCacheRepository(),
+            testAppSettings(),
         )
 
         return SshProgramSigner(askpass, processRunner, LoginShellEnvironment { environment })

@@ -254,6 +254,7 @@ class DownloadLfsVersionGitActionTest {
                 AskpassHelper { null },
                 credentialsStateManager,
                 CredentialsCacheRepository(),
+                testAppSettings(),
             ),
             testGitCli(shellVariables),
             LoginShellEnvironment { shellVariables },

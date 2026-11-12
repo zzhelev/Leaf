@@ -10,6 +10,7 @@ import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.AskpassProcessRunner
 import dev.app.leaf.data.git.cli.askpass.answeringDialogs
 import dev.app.leaf.data.git.cli.askpass.builtAskpassHelper
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
@@ -267,6 +268,39 @@ class SshProgramSignerTest {
         }
 
     @Test
+    @DisabledOnOs(JUnitOS.WINDOWS)
+    fun `with caching off, asks for the passphrase each time it signs`(): Unit = runBlocking {
+        val helper = builtAskpassHelper()
+        assumeTrue(helper != null) { "leaf-askpass isn't built, run ./gradlew :app:rustTasks" }
+        val sshKeygen = fakeSshKeygen(File(tempDir, "bin"), ASKING_SSH_KEYGEN)
+        val credentialsStateManager = CredentialsStateManager()
+        val signer = signer(
+            askpassHelper = helper,
+            credentialsStateManager = credentialsStateManager,
+            cacheCredentials = false,
+        )
+        val settings = SshSigningSettings("/keys/id_ed25519.pub", sshKeygen.path)
+
+        val (results, dialogs) = credentialsStateManager.answeringDialogs(
+            { sshCredentialsAccepted("wrong") },
+            { sshCredentialsAccepted("phrase") },
+            { sshCredentialsAccepted("phrase") },
+        ) {
+            listOf(signer.sign(settings, data, null), signer.sign(settings, data, null))
+        }
+
+        assertTrue(results.all { it is Either.Ok }, "$results")
+        assertEquals(
+            listOf(
+                CredentialsRequest.SshCredentialsRequest(isRetry = false, password = ""),
+                CredentialsRequest.SshCredentialsRequest(isRetry = true, password = ""),
+                CredentialsRequest.SshCredentialsRequest(isRetry = false, password = ""),
+            ),
+            dialogs,
+        )
+    }
+
+    @Test
     fun `reads gpg ssh program, not gpg program, which git only uses for OpenPGP`() {
         val config = Config().apply {
             setString("gpg", null, "program", "leaf-gpg")
@@ -347,6 +381,7 @@ class SshProgramSignerTest {
         shellVariables: Map<String, String> = emptyMap(),
         askpassHelper: File? = null,
         credentialsStateManager: CredentialsStateManager = CredentialsStateManager(),
+        cacheCredentials: Boolean = true,
     ): SshProgramSigner {
         val processRunner = ProcessRunner()
         val askpass = AskpassProcessRunner(
@@ -354,6 +389,7 @@ class SshProgramSignerTest {
             AskpassHelper { askpassHelper },
             credentialsStateManager,
             CredentialsCacheRepository(),
+            testAppSettings(cacheCredentials),
         )
 
         return SshProgramSigner(askpass, processRunner, LoginShellEnvironment { shellVariables })

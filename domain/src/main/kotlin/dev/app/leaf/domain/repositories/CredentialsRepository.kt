@@ -21,4 +21,7 @@ interface CredentialsRepository {
 
     /** Removes the SSH credentials cached for [url], which turned out to be wrong. */
     suspend fun removeCachedSshCredentials(url: String)
+
+    /** Forgets everything cached (fork-only), when "Cache credentials in memory" is turned off. */
+    suspend fun removeAllCachedCredentials()
 }

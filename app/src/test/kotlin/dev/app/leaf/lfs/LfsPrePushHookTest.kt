@@ -158,6 +158,7 @@ class LfsPrePushHookTest {
                     AskpassHelper { null },
                     credentialsStateManager,
                     CredentialsCacheRepository(),
+                    AppSettingsService(settings),
                 ),
                 withoutGit,
                 shellEnvironment,

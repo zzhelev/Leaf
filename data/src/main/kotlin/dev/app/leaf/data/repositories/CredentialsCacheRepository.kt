@@ -87,6 +87,12 @@ class CredentialsCacheRepository @Inject constructor() : CredentialsRepository {
         }
     }
 
+    override suspend fun removeAllCachedCredentials() {
+        credentialsLock.withLock {
+            credentialsCached.clear()
+        }
+    }
+
     private fun String.cipherEncrypt(): String {
         val secretKeySpec = SecretKeySpec(encryptionKey, "AES")
         val ivParameterSpec = IvParameterSpec(encryptionKey)

@@ -494,12 +494,12 @@ private fun Conflicts(settingsViewState: SettingsViewState, onAction: (SettingsA
 }
 
 @Composable
-private fun Authentication(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
+internal fun Authentication(settingsViewState: SettingsViewState, onAction: (SettingsAction) -> Unit) {
     val cacheCredentialsInMemory = settingsViewState.cacheCredentialsInMemory
 
     SettingToggle(
-        title = "Cache HTTP credentials in memory",
-        subtitle = "If active, HTTP Credentials will be remembered until Leaf is closed",
+        title = "Cache credentials in memory",
+        subtitle = "HTTPS credentials and SSH key passphrases are remembered until Leaf is closed",
         value = cacheCredentialsInMemory,
         onValueChanged = { value ->
             onAction(SettingsAction.SetConfig(AppConfig.CacheCredentialsInMemory(value)))

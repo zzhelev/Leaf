@@ -8,6 +8,7 @@ import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.askpass.AskpassHelper
 import dev.app.leaf.data.git.cli.askpass.AskpassProcessRunner
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testGitCli
 import dev.app.leaf.data.git.writeExecutable
 import dev.app.leaf.data.repositories.CredentialsCacheRepository
@@ -189,6 +190,7 @@ class AuthenticateLfsServerWithSshGitActionTest {
             AskpassHelper { null },
             CredentialsStateManager(),
             CredentialsCacheRepository(),
+            testAppSettings(),
         )
         val action = AuthenticateLfsServerWithSshGitAction(
             askpass,

@@ -3,6 +3,7 @@
 package dev.app.leaf
 
 import dev.app.leaf.domain.commitmessage.MessageCleanup
+import dev.app.leaf.domain.credentials.ForgetCredentialsWhenCachingStops
 import dev.app.leaf.domain.rewrite.OntoBase
 import dev.app.leaf.domain.rewrite.OntoBaseCheck
 import dev.app.leaf.domain.rewrite.PlanCheck
@@ -230,6 +231,7 @@ class App @Inject constructor(
     private val gpgSigner: GpgProgramSigner,
     private val sshSigner: SshProgramSigner,
     private val lfsFactory: AppLfsFactory,
+    private val forgetCredentialsWhenCachingStops: ForgetCredentialsWhenCachingStops,
     private val loginShellEnvironment: LoginShellEnvironment,
     private val textSizes: TextSizeController,
 ) {
@@ -241,6 +243,8 @@ class App @Inject constructor(
         printLog(TAG, runtimeDescription())
         // In the background, so that the shell has usually finished before the first hook needs its PATH
         loginShellEnvironment.prewarm()
+        // Fork-only: turning "Cache credentials in memory" off forgets what was kept
+        forgetCredentialsWhenCachingStops.start()
 
         Signers.set(GpgConfig.GpgFormat.OPENPGP, gpgSigner)
         Signers.set(GpgConfig.GpgFormat.SSH, sshSigner)

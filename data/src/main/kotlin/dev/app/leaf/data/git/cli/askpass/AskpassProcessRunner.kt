@@ -8,6 +8,8 @@ import dev.app.leaf.data.git.cli.ProcessRunner
 import dev.app.leaf.data.git.cli.remote.askpassEnvironment
 import dev.app.leaf.domain.credentials.CredentialsStateManager
 import dev.app.leaf.domain.repositories.CredentialsRepository
+import dev.app.leaf.domain.services.AppSettingsService
+import kotlinx.coroutines.flow.first
 import java.io.File
 import javax.inject.Inject
 import kotlin.time.Duration
@@ -15,13 +17,14 @@ import kotlin.time.Duration
 /**
  * Runs OpenSSH's programs, ssh and ssh-keygen, so that what they ask through `SSH_ASKPASS` gets Leaf's dialogs, as with
  * the git commands of [dev.app.leaf.data.git.cli.remote.GitCliRemoteCommand]: host keys, passphrases (kept per key
- * file for the session), security key PINs.
+ * file while "Cache credentials in memory" is on), security key PINs.
  */
 class AskpassProcessRunner @Inject constructor(
     private val processRunner: ProcessRunner,
     private val askpassHelper: AskpassHelper,
     private val credentialsStateManager: CredentialsStateManager,
     private val credentialsRepository: CredentialsRepository,
+    private val appSettingsService: AppSettingsService,
 ) {
     /**
      * Answers for one command. Running the command again with the same answers makes its passphrase prompts retries,
@@ -30,7 +33,12 @@ class AskpassProcessRunner @Inject constructor(
      * @param passphraseKeyPath see [AskpassAnswers].
      */
     fun answers(passphraseKeyPath: String? = null) =
-        AskpassAnswers(credentialsStateManager, credentialsRepository, passphraseKeyPath)
+        AskpassAnswers(
+            credentialsStateManager,
+            credentialsRepository,
+            cachesCredentials = { appSettingsService.cacheCredentialsInMemory.first() },
+            passphraseKeyPath = passphraseKeyPath,
+        )
 
     /**
      * Runs [command] with [environment] and the variables of the askpass helper, whose requests [answers] answers.

@@ -108,6 +108,7 @@ private fun testFetchLfsObjects(
             AskpassHelper { null },
             credentialsStateManager,
             CredentialsCacheRepository(),
+            testAppSettings(),
         ),
         gitCli,
         shellEnvironment,

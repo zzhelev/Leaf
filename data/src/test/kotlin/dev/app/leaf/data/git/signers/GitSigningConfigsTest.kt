@@ -11,6 +11,7 @@ import dev.app.leaf.data.git.cli.askpass.AskpassProcessRunner
 import dev.app.leaf.data.git.credentials.parseConfigList
 import dev.app.leaf.data.git.isolatedGitCli
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
+import dev.app.leaf.data.git.testAppSettings
 import dev.app.leaf.data.git.testJGit
 import dev.app.leaf.data.git.workspace.DoCommitGitAction
 import dev.app.leaf.data.git.writeExecutable
@@ -231,6 +232,7 @@ class GitSigningConfigsTest {
             AskpassHelper { null },
             CredentialsStateManager(),
             CredentialsCacheRepository(),
+            testAppSettings(),
         )
 
         return SshProgramSigner(askpass, processRunner, LoginShellEnvironment { emptyMap() })
