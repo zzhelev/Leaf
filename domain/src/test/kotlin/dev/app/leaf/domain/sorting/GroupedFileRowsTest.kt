@@ -57,6 +57,12 @@ class GroupedFileRowsTest {
     }
 
     @Test
+    fun `a file added with git add -N is in Changes, where git status lists it`() {
+        assertEquals(FileGroup.Changes, StatusEntry("a", StatusType.ADDED, isIntentToAdd = true).fileGroup)
+        assertEquals(FileGroup.Changes, StatusEntry("a", StatusType.REMOVED, isIntentToAdd = true).fileGroup)
+    }
+
+    @Test
     fun `each group gets a header with its count, then its files sorted as the list sorts`() {
         assertEquals(
             listOf(

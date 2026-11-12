@@ -10,6 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.FileMode
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import javax.inject.Inject
 
 class DiscardEntriesGitAction @Inject constructor(
@@ -39,7 +42,15 @@ class DiscardEntriesGitAction @Inject constructor(
             // Fork-only: JGit can't check out a submodule whose commit moved ("Missing unknown ..."), which failed the
             // whole discard. git's checkout leaves submodules alone too.
             val index = git.repository.readDirCache()
-            val files = paths.filter { index.getEntry(it)?.fileMode != FileMode.GITLINK }
+            val workTree = git.repository.workTree
+            val files = paths.filter { path ->
+                val entry = index.getEntry(path)
+
+                // Fork-only: a file added with `git add -N` is new, and its index entry has the empty blob, which the
+                // checkout would write over it, as git restore does. Leaf leaves new files alone (see IntentToAdd).
+                entry?.fileMode != FileMode.GITLINK &&
+                    !(entry?.isIntentToAdd == true && Files.exists(File(workTree, path).toPath(), LinkOption.NOFOLLOW_LINKS))
+            }
 
             if (files.isNotEmpty()) {
                 checkoutPaths(git, files)

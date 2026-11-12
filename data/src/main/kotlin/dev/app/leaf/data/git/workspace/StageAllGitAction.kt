@@ -34,6 +34,10 @@ class StageAllGitAction @Inject constructor(
 
             addAllExceptNew(git, unstaged.filter { it.statusType != StatusType.ADDED })
             addNewFiles(git, unstaged.filter { it.statusType == StatusType.ADDED })
+
+            // Fork-only: the files added with `git add -N` are staged as git add stages them (see IntentToAdd)
+            val paths = unstaged.mapTo(mutableSetOf()) { it.filePath }
+            git.repository.stageIntentToAdd { it in paths }
         }
     }
 

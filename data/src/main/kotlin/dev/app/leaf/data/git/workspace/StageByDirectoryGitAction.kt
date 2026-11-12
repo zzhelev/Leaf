@@ -23,6 +23,8 @@ class StageByDirectoryGitAction @Inject constructor(
             .addFilepattern(dir)
             .call()
 
-        Unit
+        // Fork-only: the files added with `git add -N` are staged as git add stages them (see IntentToAdd)
+        val folder = dir.trimEnd('/')
+        git.repository.stageIntentToAdd { it == folder || it.startsWith("$folder/") }
     }
 }

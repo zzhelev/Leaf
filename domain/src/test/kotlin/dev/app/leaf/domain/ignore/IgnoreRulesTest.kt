@@ -169,6 +169,19 @@ class IgnoreRulesTest {
     }
 
     @Test
+    fun `a file added with git add -N isn't offered, as an ignore rule doesn't apply to a file the index has`() {
+        // git 2.54: with the file in .gitignore, git status still lists it as " A"
+        val intentToAdd = StatusEntry("a/new.txt", StatusType.ADDED, isIntentToAdd = true)
+
+        assertNull(ignoreRequestFor(listOf(intentToAdd, StatusEntry("a/x", StatusType.MODIFIED)), EntryType.UNSTAGED))
+        assertEquals(
+            IgnoreRequest.Files(listOf("a/y")),
+            ignoreRequestFor(listOf(intentToAdd, StatusEntry("a/y", StatusType.ADDED)), EntryType.UNSTAGED),
+        )
+        assertNull(ignoreRequestForFolder(listOf(intentToAdd), EntryType.UNSTAGED, "a"))
+    }
+
+    @Test
     fun `the rules to add are those the file doesn't have, each once`() {
         assertEquals(listOf("/b", "/c"), rulesToAdd(listOf("/a", "# /b", "/a"), listOf("/a", "/b", "/c", "/b")))
         assertEquals(emptyList<String>(), rulesToAdd(listOf("/a"), listOf("/a")))

@@ -7,6 +7,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.canOpenInMergeTool
 import dev.app.leaf.domain.models.hasConflicts
+import dev.app.leaf.domain.models.isUntracked
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -89,11 +90,12 @@ fun statusEntryContextMenuItems(
             )
         }
 
-        // Fork-only: ignoring a tracked file changes nothing until it's removed from the index, so only new files
+        // Fork-only: ignoring a tracked file changes nothing until it's removed from the index, so only untracked files
+        // (not one added with git add -N)
         if (
             onIgnore != null &&
             entryType == EntryType.UNSTAGED &&
-            statusEntry.statusType == StatusType.ADDED
+            statusEntry.isUntracked
         ) {
             addContextMenu(
                 composableLabel = { stringResource(Res.string.status_entries_context_menu_ignore) },

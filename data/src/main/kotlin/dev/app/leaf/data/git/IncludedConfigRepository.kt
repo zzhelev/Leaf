@@ -6,8 +6,10 @@ package dev.app.leaf.data.git
 import dev.app.leaf.common.printError
 import dev.app.leaf.data.git.config.IncludedConfig
 import dev.app.leaf.data.git.signers.configText
+import dev.app.leaf.data.git.workspace.leaveIntentToAddOut
 import kotlinx.coroutines.sync.Mutex
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.dircache.DirCache
 import org.eclipse.jgit.errors.ConfigInvalidException
 import org.eclipse.jgit.errors.RepositoryNotFoundException
 import org.eclipse.jgit.internal.storage.file.FileRepository
@@ -36,6 +38,8 @@ private const val TAG = "IncludedConfigRepository"
  * for the same file, on [included], which is on the user's config. JGit's constructor reads the config before this
  * class is set up, and gets JGit's own then. Its config object is used afterwards only by JGit's conversions of the
  * ref storage, which Leaf never runs, and for the object database's pack settings.
+ *
+ * It also lets Leaf's commit leave the files added with `git add -N` out of its tree ([leavingIntentToAddOut]).
  */
 class IncludedConfigRepository(options: BaseRepositoryBuilder<*, *>) : FileRepository(options) {
     /** What git reads through `includeIf`, on the user's and the system's config. */
@@ -56,6 +60,9 @@ class IncludedConfigRepository(options: BaseRepositoryBuilder<*, *>) : FileRepos
 
     /** Lets one refresh at a time read git's config ([JGit.provide]). */
     val includedConfigLock = Mutex()
+
+    /** Set on the thread that runs [leavingIntentToAddOut], until it locks the index. */
+    private val intentToAddLeftOut = ThreadLocal<Boolean>()
 
     init {
         ownConfig = FileBasedConfig(leafSettings, File(commonDirectory, Constants.CONFIG), fs).apply {
@@ -81,6 +88,39 @@ class IncludedConfigRepository(options: BaseRepositoryBuilder<*, *>) : FileRepos
         }
 
         return config
+    }
+
+    /**
+     * Runs [block], in which the first lock of the index on this thread leaves out the intent-to-add entries, in memory
+     * ([leaveIntentToAddOut]). For JGit's commit, which writes its tree from the index that it locks once and writes
+     * nothing back, so that the tree leaves them out and the index keeps them, as with `git commit`. The hooks that the
+     * commit runs see the index as it is.
+     */
+    fun <T> leavingIntentToAddOut(block: () -> T): T {
+        intentToAddLeftOut.set(true)
+
+        try {
+            return block()
+        } finally {
+            intentToAddLeftOut.remove()
+        }
+    }
+
+    override fun lockDirCache(): DirCache {
+        val dirCache = super.lockDirCache()
+
+        if (intentToAddLeftOut.get() == true) {
+            intentToAddLeftOut.remove()
+
+            try {
+                dirCache.leaveIntentToAddOut()
+            } catch (e: RuntimeException) {
+                dirCache.unlock()
+                throw e
+            }
+        }
+
+        return dirCache
     }
 
     /** Whether git's config was never read, or one of the files it depends on changed since. */

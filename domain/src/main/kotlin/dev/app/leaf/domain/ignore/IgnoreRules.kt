@@ -6,7 +6,7 @@ package dev.app.leaf.domain.ignore
 import dev.app.leaf.domain.errors.IgnoreError
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.StatusEntry
-import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.models.isUntracked
 
 /** Where an ignore rule is written (fork-only). */
 enum class IgnorePlace {
@@ -54,14 +54,14 @@ data class IgnoreContext(val remembered: IgnorePlace, val files: Map<IgnorePlace
 
 /**
  * What "Ignore…" takes from [entries], the files that a menu acts on: the untracked ones, which are the new files of the
- * Unstaged pane. Ignoring a tracked file changes nothing until it's removed from the index. Null when there is none,
- * and for the Staged pane, whose files are in the index.
+ * Unstaged pane but those added with `git add -N`, which the index has. Ignoring a tracked file changes nothing until
+ * it's removed from the index. Null when there is none, and for the Staged pane, whose files are in the index.
  */
 fun ignoreRequestFor(entries: List<StatusEntry>, entryType: EntryType): IgnoreRequest.Files? {
     if (entryType != EntryType.UNSTAGED) return null
 
     return entries
-        .filter { it.statusType == StatusType.ADDED }
+        .filter { it.isUntracked }
         .map { it.filePath }
         .takeIf { it.isNotEmpty() }
         ?.let { IgnoreRequest.Files(it) }
@@ -73,7 +73,7 @@ fun ignoreRequestFor(entries: List<StatusEntry>, entryType: EntryType): IgnoreRe
  */
 fun ignoreRequestForFolder(entriesUnder: List<StatusEntry>, entryType: EntryType, folderPath: String): IgnoreRequest.Folder? =
     IgnoreRequest.Folder(folderPath).takeIf {
-        entryType == EntryType.UNSTAGED && entriesUnder.any { it.statusType == StatusType.ADDED }
+        entryType == EntryType.UNSTAGED && entriesUnder.any { it.isUntracked }
     }
 
 /**

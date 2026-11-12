@@ -6,6 +6,8 @@ import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.domain.errors.okOrNull
 import dev.app.leaf.domain.interfaces.IGetDiffEntryFromStatusEntryGitAction
 import dev.app.leaf.domain.models.StatusEntry
+import dev.app.leaf.domain.models.StatusType
+import org.eclipse.jgit.diff.DiffEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
@@ -24,6 +26,12 @@ class GetDiffEntryFromStatusEntryGitAction @Inject constructor(
     ) = withContext(Dispatchers.IO) {
         if (!isCached) {
             unmergedDiffEntry(git, statusEntry.filePath)?.let { return@withContext it }
+
+            // Fork-only: a file added with `git add -N` is new, as git diff shows it, where JGit compares it with the
+            // empty blob that the index has for it, and has no entry at all while the file is empty
+            if (statusEntry.isIntentToAdd && statusEntry.statusType == StatusType.ADDED) {
+                return@withContext newFileDiffEntry(git, statusEntry.filePath)
+            }
         }
 
         val firstDiffEntry = git.diff()
@@ -48,3 +56,12 @@ class GetDiffEntryFromStatusEntryGitAction @Inject constructor(
         return@withContext firstDiffEntry
     }
 }
+
+/** The whole working file [path] as added. */
+private fun newFileDiffEntry(git: Git, path: String): DiffEntry = git.diff()
+    .setOldTree(EmptyTreeIterator())
+    .setPathFilter(PathFilter.create(path))
+    .setShowNameAndStatusOnly(true)
+    .call()
+    .firstOrNull()
+    ?: throw MissingDiffEntryException("Diff entry not found")

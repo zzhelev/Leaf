@@ -39,6 +39,7 @@ class RebaseSkipStatusTest {
     private val other = StatusEntry("c.txt", StatusType.MODIFIED)
     private val removed = StatusEntry("d.txt", StatusType.REMOVED)
     private val untracked = StatusEntry("notes.txt", StatusType.ADDED)
+    private val intentToAdd = StatusEntry("new.txt", StatusType.ADDED, isIntentToAdd = true)
 
     private fun state(
         repositoryState: RepositoryState = RepositoryState.REBASING_MERGE,
@@ -68,6 +69,11 @@ class RebaseSkipStatusTest {
         assertEquals(0, state(staged = listOf(staged), unstaged = listOf(conflicting, stagedThenEdited, untracked)).rebaseSkipOtherChanges)
         assertEquals(2, state(staged = listOf(staged), unstaged = listOf(conflicting, other, removed)).rebaseSkipOtherChanges)
         assertEquals(2, state(staged = listOf(staged), unstaged = listOf(conflicting)).skipDiscards)
+    }
+
+    @Test
+    fun `a file added with git add -N blocks it, as git rebase --skip deletes it`() {
+        assertEquals(1, state(staged = listOf(staged), unstaged = listOf(conflicting, intentToAdd, untracked)).rebaseSkipOtherChanges)
     }
 
     @Test

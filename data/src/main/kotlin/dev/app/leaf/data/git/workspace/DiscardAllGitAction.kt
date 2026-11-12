@@ -61,13 +61,22 @@ class DiscardAllGitAction @Inject constructor(
         jgit.provide(repositoryPath) { git ->
             withContext(Dispatchers.IO) {
                 val workTree = git.repository.workTree.toPath().toRealPath()
+                val deleted = mutableListOf<String>()
 
-                for (entry in entries) {
-                    try {
-                        deleteNewFile(workTree, entry.filePath)
-                    } catch (e: IOException) {
-                        raiseError(GenericError("Deleting ${entry.filePath} failed", e))
+                try {
+                    for (entry in entries) {
+                        try {
+                            if (deleteNewFile(workTree, entry.filePath)) {
+                                deleted += entry.filePath
+                            }
+                        } catch (e: IOException) {
+                            raiseError(GenericError("Deleting ${entry.filePath} failed", e))
+                        }
                     }
+                } finally {
+                    // Fork-only: the files added with `git add -N` that were deleted go from the index too, as with
+                    // git rm -f, also when a later one failed (see IntentToAdd)
+                    git.repository.forgetIntentToAdd(entries.filter { it.isIntentToAdd && it.filePath in deleted }.map { it.filePath })
                 }
             }
         }
@@ -76,23 +85,23 @@ class DiscardAllGitAction @Inject constructor(
      * Deletes the untracked file at [path], and the folders that it leaves empty, as `git clean -fd` removes them. Never
      * a folder: an untracked entry that is one holds another repository, such as a linked worktree inside this one,
      * and the files of a folder with new files in it are listed one by one. A link is deleted as a link. Anything
-     * that isn't inside the working tree is skipped.
+     * that isn't inside the working tree is skipped. Returns whether it deleted the file.
      */
-    private fun deleteNewFile(workTree: Path, path: String) {
+    private fun deleteNewFile(workTree: Path, path: String): Boolean {
         val file = workTree.resolve(path)
 
         if (".git" in path.split('/') ||
             !Files.exists(file, LinkOption.NOFOLLOW_LINKS) ||
             Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)
         ) {
-            return
+            return false
         }
 
         // A link in a folder of the path could lead out of the working tree
         val parent = file.parent.toRealPath()
 
         if (!parent.startsWith(workTree)) {
-            return
+            return false
         }
 
         Files.delete(file)
@@ -103,6 +112,8 @@ class DiscardAllGitAction @Inject constructor(
             Files.delete(folder)
             folder = folder.parent
         }
+
+        return true
     }
 
     private fun isEmpty(folder: Path) = Files.newDirectoryStream(folder).use { !it.iterator().hasNext() }

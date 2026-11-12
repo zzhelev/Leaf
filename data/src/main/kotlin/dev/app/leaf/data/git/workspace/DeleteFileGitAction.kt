@@ -37,6 +37,9 @@ class DeleteFileGitAction @Inject constructor(
             // JGit's delete doesn't follow symbolic links. Kotlin's deleteRecursively does, even when called on the
             // link itself, and would empty the folder that a link points to, possibly outside the repository.
             FileUtils.delete(fileToDelete, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING)
+
+            // Fork-only: a file added with `git add -N` goes from the index too, as with git rm -f (see IntentToAdd)
+            git.repository.forgetIntentToAdd(listOf(filePath))
         } catch (e: IOException) {
             raiseError(GenericError("Delete file recursively failed", e))
         }

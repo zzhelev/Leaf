@@ -17,6 +17,7 @@ class StageEntryGitAction @Inject constructor(
                 .setUpdate(statusEntry.statusType == StatusType.REMOVED)
                 .call()
 
-            Unit
+            // Fork-only: a file added with `git add -N` is staged as git add stages it (see IntentToAdd)
+            git.repository.stageIntentToAdd { it == statusEntry.filePath }
         }
 }

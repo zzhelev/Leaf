@@ -11,7 +11,9 @@ import dev.app.leaf.domain.models.hasConflicts
  * What "Discard all" does with the unstaged files that the pane shows (see [allDiscard]).
  *
  * It restores [restored], the tracked files that were changed or deleted. The [newFiles] aren't in git, so discarding
- * doesn't touch them: they are deleted only when the user ticks the box that says so, and the dialog counts them. The
+ * doesn't touch them: they are deleted only when the user ticks the box that says so, and the dialog counts them.
+ * Fork-only: the files added with `git add -N` are new files too, as their content isn't in git (git's restore would
+ * empty them), and deleting one drops its index entry, as `git rm -f` does. The
  * [keptConflicted] files with conflicts are always left as they are, as in a folder's or a selection's discard, and so
  * are the [keptSubmodules] that moved on: git leaves a submodule alone when it checks the files out, and JGit fails.
  */

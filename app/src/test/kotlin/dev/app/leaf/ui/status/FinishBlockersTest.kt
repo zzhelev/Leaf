@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 private fun untracked(path: String = "build.log") = StatusEntry(path, StatusType.ADDED)
+private fun intentToAdd(path: String = "new.txt") = StatusEntry(path, StatusType.ADDED, isIntentToAdd = true)
 private fun modified(path: String = "README.md") = StatusEntry(path, StatusType.MODIFIED)
 private fun removed(path: String = "old.txt") = StatusEntry(path, StatusType.REMOVED)
 private fun conflicting(path: String = "notes.txt") = StatusEntry(path, StatusType.CONFLICTING)
@@ -214,6 +215,17 @@ class FinishBlockersTest {
     }
 
     @Test
+    fun `a rebase's Continue is blocked by a file added with git add -N, as git refuses it`() {
+        // `git rebase --continue` says "You must edit all merge conflicts and then mark them as resolved" (git 2.54)
+        for (repositoryState in rebasing) {
+            val state = state(repositoryState, staged = listOf(staged()), unstaged = listOf(intentToAdd(), untracked()))
+
+            assertEquals(FinishBlocker.UnstagedChanges(1), state.finishBlocker(), "$repositoryState")
+            assertTrue(state(repositoryState, unstaged = listOf(intentToAdd())).showsContinue(), "not Skip")
+        }
+    }
+
+    @Test
     fun `a rebase's Continue says conflicts before unstaged changes, and counts each`() {
         for (repositoryState in rebasing) {
             assertEquals(
@@ -372,6 +384,8 @@ class FinishBlockersTest {
         listOf(removed()),
         listOf(conflicting()),
         listOf(untracked(), modified(), conflicting()),
+        listOf(intentToAdd()),
+        listOf(untracked(), intentToAdd()),
     )
     private val sampleStaged = listOf(emptyList(), listOf(staged()))
     private val sampleMessages = listOf("", "  ", "Fix", "# only a comment\n\n")
@@ -410,7 +424,7 @@ class FinishBlockersTest {
         }
 
         everyState(rebasing) { state ->
-            val works = state.unstaged.none { it.statusType != StatusType.ADDED }
+            val works = state.unstaged.none { it.statusType != StatusType.ADDED || it.isIntentToAdd }
 
             assertEquals(works, state.finishBlocker() == null, "${state.repositoryState} ${state.unstaged}")
         }
@@ -431,7 +445,7 @@ class FinishBlockersTest {
         everyState(merging + cherryPicking + reverting + rebasing + RepositoryState.SAFE) { state ->
             val conflicts = state.unstaged.count { it.statusType == StatusType.CONFLICTING }
             val tracked = state.unstaged.count {
-                it.statusType == StatusType.MODIFIED || it.statusType == StatusType.REMOVED
+                it.statusType == StatusType.MODIFIED || it.statusType == StatusType.REMOVED || it.isIntentToAdd
             }
 
             when (val blocker = state.finishBlocker()) {

@@ -6,6 +6,7 @@ package dev.app.leaf.domain.sorting
 import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.hasConflicts
+import dev.app.leaf.domain.models.isIntentToAddFile
 
 /** How a Staged or Unstaged entry sorts by change type. */
 val StatusType.fileChangeKind: FileChangeKind
@@ -18,12 +19,13 @@ val StatusType.fileChangeKind: FileChangeKind
 
 /**
  * The group of an Unstaged entry (fork-only, upstream issue 345). Unstaged's added files are the ones git doesn't track:
- * a new file that is staged is in Staged, which has no groups.
+ * a new file that is staged is in Staged, which has no groups. A file added with `git add -N` is in Changes, where
+ * `git status` lists it ("Changes not staged for commit: new file"), as the index has its path.
  */
 val StatusEntry.fileGroup: FileGroup
     get() = when (statusType) {
         StatusType.CONFLICTING -> FileGroup.Conflicts
-        StatusType.ADDED -> FileGroup.Untracked
+        StatusType.ADDED -> if (isIntentToAdd) FileGroup.Changes else FileGroup.Untracked
         StatusType.MODIFIED, StatusType.REMOVED -> FileGroup.Changes
     }
 
@@ -48,9 +50,10 @@ fun List<StatusEntry>.inFolder(folderPath: String): List<StatusEntry> =
     filter { it.filePath.startsWith("$folderPath/") }
 
 /**
- * The unstaged entries that discarding changes restores. A new (untracked) file has no earlier version to go back to,
- * so it is left alone, as a single new file offers "Delete file" instead of discarding. So is a file with conflicts
- * ([hasConflicts]), which "Use ours" and "Use theirs" resolve.
+ * The unstaged entries that discarding changes restores. A new file has no earlier version to go back to, so it is left
+ * alone, as a single new file offers "Delete file" instead of discarding: an untracked one, and one added with
+ * `git add -N`, which git's restore would empty. So is a file with conflicts ([hasConflicts]), which "Use ours" and
+ * "Use theirs" resolve.
  */
 fun List<StatusEntry>.discardable(): List<StatusEntry> = filter { it.statusType != StatusType.ADDED && !it.hasConflicts }
 
@@ -69,10 +72,11 @@ fun List<StatusEntry>.folderDiscard() = DiscardedFiles(
 
 /**
  * What discarding these entries, the selected unstaged files, does: the files with conflicts are left as they are. New
- * files go along, as before, and checking them out changes nothing.
+ * files go along, as before, and checking them out changes nothing, but for those added with `git add -N`, which it
+ * would empty (fork-only): they are left as they are, as a single one has no Discard.
  */
 fun List<StatusEntry>.selectionDiscard() = DiscardedFiles(
-    entries = filterNot { it.hasConflicts },
+    entries = filterNot { it.hasConflicts || it.isIntentToAddFile },
     keptNewFiles = 0,
     keptConflicted = count { it.hasConflicts },
 )

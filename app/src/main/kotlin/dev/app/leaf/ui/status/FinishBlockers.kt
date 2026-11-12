@@ -5,6 +5,7 @@ package dev.app.leaf.ui.status
 
 import dev.app.leaf.domain.models.RebaseInteractiveState
 import dev.app.leaf.domain.models.RepositoryState
+import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 
 /**
@@ -39,13 +40,18 @@ private fun StatusState.conflicts(): FinishBlocker.Conflicts? =
         ?.let { FinishBlocker.Conflicts(it) }
 
 /**
- * Unstaged changes to files git tracks: modified and deleted ones. [StatusType.ADDED] in the Unstaged list is an
+ * Unstaged changes to files git tracks: modified and deleted ones, and fork-only the new files added with `git add -N`,
+ * which `git rebase --continue` refuses too (git 2.54). Any other [StatusType.ADDED] in the Unstaged list is an
  * untracked file, and [StatusType.CONFLICTING] is [conflicts].
  */
 private fun StatusState.unstagedChanges(): FinishBlocker.UnstagedChanges? =
-    unstaged.count { it.statusType == StatusType.MODIFIED || it.statusType == StatusType.REMOVED }
+    unstaged.count { it.isTrackedChange }
         .takeIf { it > 0 }
         ?.let { FinishBlocker.UnstagedChanges(it) }
+
+/** An unstaged change to a file that the index has: modified, deleted, or added with `git add -N` (fork-only). */
+private val StatusEntry.isTrackedChange: Boolean
+    get() = statusType == StatusType.MODIFIED || statusType == StatusType.REMOVED || isIntentToAdd
 
 /**
  * The message would leave the commit without one once git cleans it up: blank, or only comment lines (fork-only). git
@@ -152,16 +158,13 @@ val StatusState.canSkipRebaseCommit: Boolean
 /**
  * The tracked files with unstaged changes that aren't the stopped commit's (fork-only), which block a rebase's Skip:
  * git's `rebase --skip` and JGit's reset every tracked file, so it would lose them too, and they're in no commit.
- * Untracked files are kept.
+ * Untracked files are kept. A file added with `git add -N` counts: `git rebase --skip` deletes it (git 2.54).
  */
 val StatusState.rebaseSkipOtherChanges: Int
     get() {
         val commitFiles = stoppedCommitFiles
 
-        return unstaged.count { entry ->
-            (entry.statusType == StatusType.MODIFIED || entry.statusType == StatusType.REMOVED) &&
-                entry.filePath !in commitFiles
-        }
+        return unstaged.count { entry -> entry.isTrackedChange && entry.filePath !in commitFiles }
     }
 
 /**

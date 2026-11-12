@@ -1,6 +1,7 @@
 package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.common.use
+import dev.app.leaf.data.git.IncludedConfigRepository
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.author.GitIdentities
 import dev.app.leaf.data.git.author.cherryPickedAuthor
@@ -73,7 +74,7 @@ class DoCommitGitAction @Inject constructor(
         }
 
         use(output, printStream) {
-            val commit = git
+            val command = git
                 .commit()
                 .setMessage(cleanedMessage)
                 .setAllowEmpty(amend || isMerging) // Only allow empty commits when amending
@@ -90,7 +91,16 @@ class DoCommitGitAction @Inject constructor(
                 }
                 .apply { pickedAuthor?.let { setAuthor(it) } }
                 .setGpgConfig(gpgConfig)
-                .call()
+
+            // Fork-only: the files added with `git add -N` stay out of the commit, and intent to add in the index, as
+            // with git commit. JGit's would store them as empty files (see IntentToAdd). Leaf opens every repository as
+            // an IncludedConfigRepository; only tests that open them as JGit does commit as JGit does.
+            val repository = git.repository
+            val commit = if (repository is IncludedConfigRepository) {
+                repository.leavingIntentToAddOut { command.call() }
+            } else {
+                command.call()
+            }
 
             commitMapper.toDomain(commit)
         }

@@ -38,6 +38,15 @@ class DiscardAllTest {
     }
 
     @Test
+    fun `a file added with git add -N is a new file, offered for deletion and never restored`() {
+        val intentToAdd = StatusEntry("added-n.kt", StatusType.ADDED, EntryType.UNSTAGED, isIntentToAdd = true)
+        val plan = (entries + intentToAdd).allDiscard()
+
+        assertEquals(listOf("new.kt", "src/new/c.kt", "added-n.kt"), plan.newFiles.map { it.filePath })
+        assertFalse(intentToAdd in plan.restored)
+    }
+
+    @Test
     fun `leaves files with conflicts, which no list restores or deletes`() {
         val plan = entries.allDiscard()
 

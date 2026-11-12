@@ -135,4 +135,16 @@ class StatusFileItemsTest {
         assertTrue(onlyConflicts.entries.isEmpty(), "Nothing to discard, so the menu leaves Discard out")
         assertEquals(2, onlyConflicts.keptConflicted)
     }
+
+    @Test
+    fun `a file added with git add -N is a new file that no discard touches, as git's restore would empty it`() {
+        val intentToAdd = StatusEntry("src/new.kt", StatusType.ADDED, EntryType.UNSTAGED, isIntentToAdd = true)
+        val deleted = StatusEntry("src/gone.kt", StatusType.REMOVED, EntryType.UNSTAGED, isIntentToAdd = true)
+        val entries = listOf(intentToAdd, deleted, unstaged("src/modified.kt", StatusType.MODIFIED))
+
+        assertEquals(listOf("src/gone.kt", "src/modified.kt"), entries.discardable().map { it.filePath })
+        assertEquals(1, entries.folderDiscard().keptNewFiles)
+        assertEquals(listOf("src/gone.kt", "src/modified.kt"), entries.selectionDiscard().entries.map { it.filePath })
+        assertTrue(listOf(intentToAdd).selectionDiscard().entries.isEmpty(), "Alone, it leaves Discard out")
+    }
 }
