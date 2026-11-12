@@ -2,6 +2,24 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Files added with `git add -N` are new files, and the commit leaves them out (2026-11-12)
+
+- **Request:** found while probing for the renames in Staged (`docs/fork/status-renames.md`, case 4b, decision D5): an
+  agent's or a terminal's `git add -N` file showed in Staged, and Leaf's commit stored it as an empty file. Fix it as git
+  does, before the renames.
+- **Found:** JGit 7.7 reads the intent-to-add flag of an index entry and nothing in it uses it. Its status listed such a
+  file as added and modified, so Leaf showed it in both lists; its commit put the entry's empty blob in the tree, where
+  git's commit leaves it out and keeps it intent to add (`DA` in `git status` afterwards); its add kept the flag, so Stage
+  left the file as it was.
+- **Now:** such a file is a new file in Unstaged, in the Changes group, as `git status` lists it. Leaf's commit and amend
+  leave it out and keep it in the index, the same commit as `git commit` makes. Stage, Stage all and a folder's Stage
+  stage it as `git add` does. It has no Discard, as git's restore would empty it, and Delete and Discard all's "Also
+  delete" drop its index entry with the file, as `git rm -f` does (both chosen with the user). No Ignore, as a
+  `.gitignore` rule doesn't apply to it. A rebase's Continue and Skip wait while one is there: git refuses to continue,
+  and its skip deletes it.
+- **Not done:** Leaf's Stash and the Abort of a merge, cherry-pick or revert with such a file around, where git refuses.
+- Details: CLAUDE.md, "Intent-to-add files" under "Git operations".
+
 ## Leaf's own HTTP requests go through the proxy (2026-11-12)
 
 - **Request:** item 15 of the upstream review (`docs/fork/upstream-sync-2026-11.md`): give Leaf's own HTTP requests the
@@ -29,7 +47,6 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   turning it off applies to the next command, and turning it off also forgets what was kept, passphrases and HTTPS
   credentials alike. The settings file keeps the same key, so nobody's choice changes.
 - Details: CLAUDE.md, "Caching credentials" under "Remote operations".
-
 
 ## CI passes again: the monospaced check on Linux, and a race after Stop waiting (2026-11-10)
 

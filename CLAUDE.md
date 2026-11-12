@@ -620,9 +620,10 @@ conflicts compares the working file with ours (stage 2). For a file that both si
 `ui/dialogs/IgnoreDialog.kt`, upstream issue 175):** "Ignore…" in the Unstaged menus of an untracked file (after "Delete
 file"), of a selection (`Ignore N files…`) and of a folder row (`Ignore folder…`) opens `IgnoreDialog`
 (`Screen.Ignore`).
-- **Who offers it:** `ignoreRequestFor` (the untracked files, `StatusType.ADDED`, of an Unstaged selection) and
+- **Who offers it:** `ignoreRequestFor` (the untracked files, `StatusEntry.isUntracked`, of an Unstaged selection) and
   `ignoreRequestForFolder` (a folder row that shows one), both in `IgnoreRules.kt` and used by `StatusPane`. A tracked
-  file isn't offered: ignoring it changes nothing until `git rm --cached`. Staged has none.
+  file isn't offered: ignoring it changes nothing until `git rm --cached`. Nor is a file added with `git add -N` (see
+  Intent-to-add files). Staged has none.
 - **The dialog** (`IgnoreViewModel`, `IgnoreState`): what to ignore (`ignoreOptions`: the files, their folders, their
   extensions; or a custom pattern, one rule per line, written as typed, starting from the first option's rules), where
   (`IgnorePlace.GITIGNORE`: `<working tree>/.gitignore`, `EXCLUDE`: `<common git dir>/info/exclude`, shared by the
@@ -653,6 +654,53 @@ file"), of a selection (`Ignore N files…`) and of a folder row (`Ignore folder
   states and the places, against `git ls-files --others --exclude-standard` and Leaf's JGit status, which must agree),
   `AddGlobalIgnoreRulesGitActionTest` (the global list), `IgnoringFilesTest` (a `TestTab`), `IgnoreContextMenuTest`,
   `IgnoreDialogTest`.
+
+**Intent-to-add files (fork-only, 2026-11-12, `data/git/workspace/IntentToAdd.kt`):** a file added with `git add -N`, as
+agents and terminals do, has an index entry with the empty blob and a flag. git takes it as a file that the index doesn't
+have yet (probed with git 2.54): `git status` lists it as new in the working tree (` A`, "Changes not staged for commit:
+new file"), `git diff` shows it whole and `git diff --cached` not at all, and `git commit` leaves it out of the tree and
+keeps it in the index; with nothing else staged it refuses ("no changes added to commit"). JGit 7.7 reads the flag
+(`DirCacheEntry.isIntentToAdd`) and nothing in it uses it: its status listed the file as added and modified, so Leaf showed
+it in Staged and Unstaged; its commit stored it as an empty file (`DA` in `git status` afterwards); its add kept the flag
+on the entry it updated, so Stage left the file intent to add. Fixed on its own before the renames in Staged
+(`docs/fork/status-renames.md`, D5), whose candidates, Staged's added and removed paths, now never have such an entry.
+- **Status** (`GetStatusGitAction`, `Repository.intentToAddPaths`): not in Staged; in Unstaged as `StatusType.ADDED` with
+  `StatusEntry.isIntentToAdd`, or as `REMOVED` with it once the file is gone from the disk (` D`). One over a path that
+  HEAD has is staged as `REMOVED`, as git's `DA`. JGit lists an empty one in no set, so they come from the index. An index
+  in version 2 of the format can't hold the flag and is read no further than its header (git writes version 3 while
+  there is one).
+- **Commit and amend** (`DoCommitGitAction`, `IncludedConfigRepository.leavingIntentToAddOut`): the first lock of the
+  index on the commit's thread drops them from JGit's in-memory index (`DirCache.leaveIntentToAddOut`). JGit's commit
+  writes its tree from the index that it locks once, and writes nothing back, so the tree leaves them out, the index file
+  keeps them, and the hooks see the index as git's do. Only an `IncludedConfigRepository` does this: Leaf opens every
+  repository as one, and a test that opens repositories as JGit does (`testJGit()` without `includedConfig`) commits as
+  JGit does. A commit with nothing else staged is empty, which JGit refuses, as git does.
+- **Staging** (`stageIntentToAdd`, after JGit's add in Stage, Stage all and a folder's Stage): clears the flag, so the
+  file is staged as new, as `git add` stages it, an empty one too, which JGit's add leaves as it is.
+- **Unstaged** (decided with the user on 2026-11-13, both choices as recommended): in Changes when grouped
+  (`fileGroup`), where `git status` lists it. A new file to every action, as untracked ones are:
+  - no Discard: git's `git restore` and `git checkout --` write the empty blob over it. A selection's discard leaves it
+    (`selectionDiscard`, `StatusEntry.isIntentToAddFile`), and so does `DiscardEntriesGitAction` for one on the disk, a
+    folder's discard keeps it, and Discard all counts it with the new files;
+  - "Delete file", and Discard all's "Also delete N new files", delete the file and drop its entry
+    (`forgetIntentToAdd`), as `git rm -f` does; deleting the file alone would leave ` D`;
+  - no Ignore (`StatusEntry.isUntracked`): a `.gitignore` rule doesn't apply to a file the index has.
+
+  One deleted from the disk is restored empty by Discard, as `git restore` does, and Stage drops its entry, as `git add`
+  does. Unstage all makes them untracked again, as `git reset` does. The diff shows the whole file as added
+  (`GetDiffEntryFromStatusEntryGitAction`), an empty one too, where JGit compared it with the empty blob.
+- **Rebase:** Continue is blocked by one (`FinishBlocker.UnstagedChanges`), as `git rebase --continue` refuses, and Skip
+  too (`rebaseSkipOtherChanges`), as `git rebase --skip` deletes it.
+- **Not done:** Leaf's Stash (JGit's) stashes it and brings it back staged as an empty file, where `git stash` refuses
+  ("Cannot save the current worktree state"). Abort of a merge, cherry-pick or revert (JGit's hard reset) may delete it,
+  where `git merge --abort` refuses; a rebase's Abort deletes it, as `git rebase --abort` does.
+- Tests: `IntentToAddTest` (data: every kind of file in the status against `git status`, with the index in versions 3 and
+  4; Leaf's commit and amend against `git commit` in twin repositories, the commit apart from its dates, the index and
+  the status; what the hooks see; Stage, Stage all and a folder's Stage against `git add`; Delete against `git rm -f`;
+  the discards; the diff), `IntentToAddInTabTest` (a `TestTab`), `IntentToAddMenuTest`, and cases in `FinishBlockersTest`,
+  `RebaseSkipStatusTest`, `IgnoreRulesTest`, `GroupedFileRowsTest`, `StatusFileItemsTest` and `DiscardAllTest`. 22
+  mutations of the status, the commit, staging, the diff, the discards, Delete, the group, Ignore and the rebase's
+  buttons were each caught by a named test.
 
 **Resolving conflicts (fork-only, `data/git/conflicts/`, models in `domain/models/FileConflict.kt`):** "Open in merge
 tool" runs `git mergetool`, and "Use ours" / "Use theirs" take one side. Findings from git 2.54 are in the tests.
@@ -1461,7 +1509,8 @@ branch that is neither the base nor the branch merged into (`branchToMerge`). Th
     enabled). A rebase's Continue needs no conflicts and no unstaged changes to tracked files: git refuses those, in both
     backends, and ignores untracked ones (`has_unstaged_changes` in builtin/rebase.c; it ignores submodules, where Leaf's
     status lists a changed one as modified, so Leaf may block where git wouldn't). In the Unstaged list, `MODIFIED` and
-    `REMOVED` are tracked changes and `ADDED` is an untracked file. Outside an operation, Commit needs a message, staged
+    `REMOVED` are tracked changes and `ADDED` is an untracked file, but for one added with `git add -N`, which counts as
+    a tracked change (see Intent-to-add files). Outside an operation, Commit needs a message, staged
     files and no conflicts (a squash merge's), and Amend a message and a commit to amend, as before. "A message" is one
     that git's clean-up leaves something of (`CommitMessageLayout.isEmpty`, see Commit message conventions): not blank,
     and not only comment lines, which says so (`EmptyMessage.commentsOnly`).
@@ -1995,6 +2044,7 @@ cherry-pick's, with the five guards that the discussion proposed:
   every tracked file, so an edit to another file, in no commit, went too (both probed: git 2.54, JGit 7.7; untracked files
   are kept). While such files have unstaged changes, Skip is disabled, and its tooltip says "Stash or discard the changes to
   2 other files first". A file of the commit, staged or with conflicts, edited again, is the commit's and doesn't block it.
+  A file added with `git add -N` blocks it, as `git rebase --skip` deletes it (see Intent-to-add files).
   `SkippingRebaseCommitsTest` pins both engines' reset, so the block can go if either stops.
 - **The confirmation names the commit** (`ConfirmableAction.SkipRebaseCommit`, now with the commit, subject, branch and
   files): "Leave a4880d1 "Show the unread bar" out of fix/unread-bar?", and with changes "Its changes in 2 files are
@@ -3251,6 +3301,7 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
   - **It never deleted a new file before, and still doesn't by default.** `DiscardEntriesGitAction` checks paths out,
     which does nothing for an untracked file (probed 2026-10-19: a selection with new files left them, and discarding a
     staged new file only unstaged it), and the folder discard says "N new files are kept". Deleting is "Delete file".
+    A file added with `git add -N` is a new file here too (see Intent-to-add files).
     So the dialog's box "Also delete N new files" is the one new way to lose files. It starts unticked every time
     (`ConfirmOption`, never remembered), changes the warning ("Neither the changes nor the 9 new files can be
     restored") and the button ("Discard and delete"), and with only new files and the box unticked the button is
@@ -4084,7 +4135,8 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     Staged has no untracked files. `isDefault` doesn't count it, so the other panes' buttons aren't lit by it; Unstaged's
     is while it's on.
   - **The groups** (`StatusEntry.fileGroup`): `CONFLICTING` is Conflicts, `ADDED` is Untracked (in Unstaged, a file git
-    doesn't track; a staged new file edited again is `MODIFIED` there), `MODIFIED` and `REMOVED` are Changes. In that
+    doesn't track; a staged new file edited again is `MODIFIED` there; one added with `git add -N` is in Changes, see
+    Intent-to-add files), `MODIFIED` and `REMOVED` are Changes. In that
     order, each only while it has files (a search's matches). The list's sort and view apply inside each group.
   - **Rows:** `FileRow.Group` (key `group:<name>`) heads its rows. `FilesGroupHeader` draws it, and the Amend group's
     header too (`AmendedGroupHeader`): a band with a chevron, the name and a `CountPill`. A click folds or opens the group
