@@ -7,7 +7,7 @@
 | Last sync | `406f5c05` (2026-10-16) merged upstream up to `1cac7a00` (2026-10-11) |
 | Releases since | 2.0.0 (2026-10-26) and 2.1.0 (2026-11-01). Everything in them is in the range above |
 | Issues closed upstream since | 368 (tab bar keys), 372 (terminal in a submodule), 347 (moved files), 128 (compact view), 366 (Flatpak runtime) |
-| Status | Items 1 to 9, 12 and 14 done on 2026-11-09, each written for Leaf rather than taken from upstream's code (the user's ask, so that no upstream code comes in). Item 13 done on 2026-11-12, the same way. Items 10, 11, 15 and 16 are open, and the sync isn't recorded yet |
+| Status | Items 1 to 9, 12 and 14 done on 2026-11-09, each written for Leaf rather than taken from upstream's code (the user's ask, so that no upstream code comes in). Item 13 done on 2026-11-12, and items 10, 11, 15 and 16 on 2026-11-13, the same way. The sync isn't recorded yet |
 
 ## How it was checked
 
@@ -43,8 +43,8 @@ upstream's code can't come in as it is; each fix has to be ported.
 | 7 | `6bba1dc2` | The repository switcher lists the tab's own repository among the recent ones; picking it opens the same repository again [code] | Leave out the main worktree of the tab's repository | S |
 | 8 | `51756519` | `AppTab`'s screen effect is keyed on the selection state only, and every tab shares one `AppTab`: two tabs of one worktree, which Leaf allows, have equal states. Not seen in Leaf [code] | Key it on the tab's view model too (one line) | S |
 | 9 | `9c36b80c` | Leaf's refreshes take turns, but the file watcher reads the status on its own when it starts and when folders appear, at the same time as a refresh [code] | A mutex around `GetStatusGitAction`, as upstream | S |
-| 10 | `df42f6c4` (its window part) | Leaf always opens maximized: `App.kt` sets `WindowPlacement.Maximized` and nothing saves the window's placement [code] | Save the placement in the prefs node, and the size and position of a floating window, which upstream doesn't | S |
-| 11 | `15f34ea6` | Leaf keeps ssh key passphrases for the session whatever "Cache HTTP credentials in memory" says (`AskpassAnswers`) [code] | Decision: let the setting cover passphrases too, renamed "Cache credentials in memory" (recommended), or leave passphrases always cached | S |
+| 10 | `df42f6c4` (its window part) | Leaf always opens maximized: `App.kt` sets `WindowPlacement.Maximized` and nothing saves the window's placement [code] | Done (`960d2971`): the placement in the prefs node, with a floating window's size and position, which upstream doesn't keep, fitted to the screens there are when Leaf opens. macOS full screen isn't restored | S |
+| 11 | `15f34ea6` | Leaf keeps ssh key passphrases for the session whatever "Cache HTTP credentials in memory" says (`AskpassAnswers`) [code] | Done (`1e6ae394`): the setting covers passphrases too, renamed "Cache credentials in memory", as chosen with the user. Turning it off forgets what was kept | S |
 | 12 | `587bd58d` | Compose 1.12.1. 1.12.2's only desktop fix is a shadow flicker; it doesn't touch the "RootNodeOwner is already disposed" crash of 2026-11-06 | Take it with the rest, for parity, and run every test | S |
 | 13 | `7c861511` | Settings' subtitles are in the text colour, as strong as the titles | Done (`a894ba55`): `FieldTitles` draws them in the secondary text colour, 4.5 : 1 or more in every built-in style, chosen with the user from renders over the text colour at 70%, which fell to 2.7 : 1 in Solarized | S |
 | 14 | `483a1c0d` | `OS.kt` doesn't log the OS (a TODO) | Done as one line at the top of each run's log: Leaf's version, the system with its version and CPU, and the Java runtime (`runtimeDescription`) | S |
@@ -63,6 +63,10 @@ Plan: give each request the proxy that git-lfs would use for its URL: `http.<url
 `git config`, for `includeIf`), then `HTTPS_PROXY`, `HTTP_PROXY` and `ALL_PROXY` with `NO_PROXY`, from the login shell's
 environment; the update check, which has no repository, reads the user's config and the environment. No settings UI.
 Tests against a local proxy (a JDK `HttpServer` that forwards). Size M.
+
+Done (`fe0c4060`), with git-lfs's rules checked against git-lfs itself. Two changes from the plan: `ALL_PROXY` doesn't
+count, as git-lfs reads it nowhere, and a request through a proxy goes on OkHttp, as Ktor's CIO engine sent the proxy's
+password to the server and went around a SOCKS proxy.
 
 ### 16. Renames in Staged and Unstaged (`65ff0f91`, issue 347)
 
@@ -84,6 +88,9 @@ Decisions to make there:
   also take the new file out of the Untracked group.
 - The cost: `diffWithRenames`' stages and its 2 s budget, and no content reading of untracked files above a size, as
   the status refreshes while agents write.
+
+Done (`b50d11b5`) in Staged only, as `git status` does, from the design in `docs/fork/status-renames.md`. Files added
+with `git add -N` were fixed first, on their own (`db942a46`).
 
 ## Skip
 
