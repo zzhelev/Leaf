@@ -7,7 +7,7 @@
 | Last sync | `406f5c05` (2026-10-16) merged upstream up to `1cac7a00` (2026-10-11) |
 | Releases since | 2.0.0 (2026-10-26) and 2.1.0 (2026-11-01). Everything in them is in the range above |
 | Issues closed upstream since | 368 (tab bar keys), 372 (terminal in a submodule), 347 (moved files), 128 (compact view), 366 (Flatpak runtime) |
-| Status | Items 1 to 9, 12 and 14 done on 2026-11-09, each written for Leaf rather than taken from upstream's code (the user's ask, so that no upstream code comes in). Items 10, 11, 13, 15 and 16 are open, and the sync isn't recorded yet |
+| Status | Items 1 to 9, 12 and 14 done on 2026-11-09, each written for Leaf rather than taken from upstream's code (the user's ask, so that no upstream code comes in). Item 13 done on 2026-11-12, the same way. Items 10, 11, 15 and 16 are open, and the sync isn't recorded yet |
 
 ## How it was checked
 
@@ -46,7 +46,7 @@ upstream's code can't come in as it is; each fix has to be ported.
 | 10 | `df42f6c4` (its window part) | Leaf always opens maximized: `App.kt` sets `WindowPlacement.Maximized` and nothing saves the window's placement [code] | Save the placement in the prefs node, and the size and position of a floating window, which upstream doesn't | S |
 | 11 | `15f34ea6` | Leaf keeps ssh key passphrases for the session whatever "Cache HTTP credentials in memory" says (`AskpassAnswers`) [code] | Decision: let the setting cover passphrases too, renamed "Cache credentials in memory" (recommended), or leave passphrases always cached | S |
 | 12 | `587bd58d` | Compose 1.12.1. 1.12.2's only desktop fix is a shadow flicker; it doesn't touch the "RootNodeOwner is already disposed" crash of 2026-11-06 | Take it with the rest, for parity, and run every test | S |
-| 13 | `7c861511` | Settings' subtitles are in the text colour, as strong as the titles | The secondary text colour; a UI change, so before and after renders first | S |
+| 13 | `7c861511` | Settings' subtitles are in the text colour, as strong as the titles | Done (`a894ba55`): `FieldTitles` draws them in the secondary text colour, 4.5 : 1 or more in every built-in style, chosen with the user from renders over the text colour at 70%, which fell to 2.7 : 1 in Solarized | S |
 | 14 | `483a1c0d` | `OS.kt` doesn't log the OS (a TODO) | Done as one line at the top of each run's log: Leaf's version, the system with its version and CPU, and the Java runtime (`runtimeDescription`) | S |
 
 ## Applies, in Leaf's own way
