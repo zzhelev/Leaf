@@ -17,6 +17,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
@@ -66,8 +67,9 @@ class CommitParentsControllerTest {
     private val log = MutableStateFlow(GraphCommits())
     private val stashes = MutableStateFlow(emptySet<String>())
 
-    private val selections = CopyOnWriteArrayList<Commit>()
-    private val searches = CopyOnWriteArrayList<String>()
+    /** The commits selected and the parents searched for, in order: both happen in the background, so tests wait. */
+    private val selections = MutableStateFlow(emptyList<Commit>())
+    private val searches = MutableStateFlow(emptyList<String>())
 
     private var search: suspend (String, (Int) -> Unit) -> LoadLogResult = { _, _ -> error("The log wasn't to be searched") }
 
@@ -83,10 +85,10 @@ class CommitParentsControllerTest {
         loadedCommits = log,
         stashes = stashes,
         loadLogUntilCommit = { hash, onProgress ->
-            searches += hash
+            searches.update { it + hash }
             search(hash, onProgress)
         },
-        select = { selections += it },
+        select = { commit -> selections.update { it + commit } },
         logStateTimeout = 300.milliseconds,
     )
 
@@ -111,6 +113,18 @@ class CommitParentsControllerTest {
         awaitState { it.jump == jump }
     }
 
+    /**
+     * Waits until [count] searches have started. A click shows that it is looking at once, and starts the search in
+     * the background: one stopped before it ran has nothing to stop, so a test that stops a search waits for it first.
+     */
+    private suspend fun awaitSearches(count: Int) {
+        withTimeout(5.seconds) { searches.first { it.size >= count } }
+    }
+
+    /** The commits selected, once there are [count]: a parent that was looked for is selected in the background. */
+    private suspend fun awaitSelections(count: Int): List<Commit> =
+        withTimeout(5.seconds) { selections.first { it.size >= count } }
+
     @Test
     fun `no commit selected, nothing to show`(): Unit = runBlocking {
         assertNull(controller.state.value)
@@ -125,7 +139,9 @@ class CommitParentsControllerTest {
         log.value = logOf(older, merge)
         show(merge)
 
-        val state = awaitState { it.links.shown.size == 2 }
+        // The selected commit and the log reach the state each on its own: the first state of the commit may not
+        // have the log yet
+        val state = awaitState { it.links.shown.any { link -> link.isLoaded } }
 
         assertEquals(merge, state.commit)
         assertEquals(listOf(older.hash, merged.hash), state.links.shown.map { it.hash })
@@ -152,8 +168,8 @@ class CommitParentsControllerTest {
 
         controller.onParentClicked(older.hash)
 
-        assertEquals(listOf(older), selections.toList())
-        assertTrue(searches.isEmpty())
+        assertEquals(listOf(older), selections.value)
+        assertTrue(searches.value.isEmpty())
         assertEquals(ParentJump.None, controller.state.value!!.jump)
     }
 
@@ -176,14 +192,15 @@ class CommitParentsControllerTest {
         controller.onParentClicked(merged.hash)
 
         awaitJump(ParentJump.Looking(merged.hash, loaded = 500))
-        assertTrue(selections.isEmpty())
+        assertTrue(selections.value.isEmpty())
 
         step.complete(Unit)
         found.await()
         awaitJump(ParentJump.None)
 
-        assertEquals(listOf(merged), selections.toList())
-        assertEquals(listOf(merged.hash), searches.toList())
+        // The search ends the jump, then selects the parent
+        assertEquals(listOf(merged), awaitSelections(1))
+        assertEquals(listOf(merged.hash), searches.value)
     }
 
     @Test
@@ -195,7 +212,7 @@ class CommitParentsControllerTest {
         controller.onParentClicked(merged.hash)
 
         awaitJump(ParentJump.NotFound(merged.hash, LoadLogResult.LogUnavailable))
-        assertTrue(selections.isEmpty())
+        assertTrue(selections.value.isEmpty())
     }
 
     @Test
@@ -216,7 +233,7 @@ class CommitParentsControllerTest {
             awaitJump(ParentJump.NotFound(merged.hash, answer))
             delay(50)
             assertEquals(ParentJump.NotFound(merged.hash, answer), controller.state.value!!.jump, "stays")
-            assertTrue(selections.isEmpty())
+            assertTrue(selections.value.isEmpty())
 
             show(unrelated)
             awaitJump(ParentJump.None)
@@ -237,18 +254,20 @@ class CommitParentsControllerTest {
 
         controller.onParentClicked(merged.hash)
         awaitJump(ParentJump.Looking(merged.hash))
+        awaitSearches(1)
 
         controller.onParentClicked(merged.hash)
 
         awaitJump(ParentJump.None)
         withTimeout(5.seconds) { while (!cancelled.get()) delay(5) }
-        assertTrue(selections.isEmpty())
+        assertTrue(selections.value.isEmpty())
 
         cancelled.set(false)
         controller.onParentClicked(merged.hash)
 
         awaitJump(ParentJump.Looking(merged.hash))
-        assertEquals(listOf(merged.hash, merged.hash), searches.toList())
+        awaitSearches(2)
+        assertEquals(listOf(merged.hash, merged.hash), searches.value)
     }
 
     @Test
@@ -264,30 +283,36 @@ class CommitParentsControllerTest {
         }
         controller.onParentClicked(merged.hash)
         awaitJump(ParentJump.Looking(merged.hash))
+        awaitSearches(1)
 
         show(unrelated)
 
         awaitJump(ParentJump.None)
         withTimeout(5.seconds) { while (!cancelled.get()) delay(5) }
-        assertTrue(selections.isEmpty())
+        assertTrue(selections.value.isEmpty())
     }
 
     @Test
     fun `a step that ends after the user moved on doesn't bring the row back`(): Unit = runBlocking {
         show(merge)
+        val reported = CompletableDeferred<Unit>()
         search = { _, onProgress ->
             try {
                 awaitCancellation()
             } finally {
                 // The step that was running when the search was stopped ends, and reports as it always does
                 onProgress(900)
+                reported.complete(Unit)
             }
         }
         controller.onParentClicked(merged.hash)
         awaitJump(ParentJump.Looking(merged.hash))
+        awaitSearches(1)
 
         show(unrelated)
         awaitJump(ParentJump.None)
+        withTimeout(5.seconds) { reported.await() }
+        // Time for the state to follow a row that the report brought back
         delay(150)
 
         assertEquals(ParentJump.None, controller.state.value!!.jump)
@@ -309,6 +334,7 @@ class CommitParentsControllerTest {
 
         controller.onParentClicked(merged.hash)
         awaitJump(ParentJump.Looking(merged.hash))
+        awaitSearches(1)
 
         controller.onParentClicked(third.hash)
 
@@ -325,7 +351,9 @@ class CommitParentsControllerTest {
         log.value = logOf(older, stash)
         show(stash)
 
-        val state = awaitState { it.commit == stash }
+        // The stashes reach the state on their own, after the selected commit or before it: until they do, the stash
+        // is a merge of two parents
+        val state = awaitState { it.commit == stash && it.links.all.size == 1 }
 
         assertEquals(listOf(older.hash), state.links.shown.map { it.hash })
         assertFalse(state.links.isNumbered)
@@ -362,6 +390,6 @@ class CommitParentsControllerTest {
 
         controller.onParentClicked(state.links.hidden.first { it.isLoaded }.hash)
 
-        assertEquals(listOf(sixth), selections.toList())
+        assertEquals(listOf(sixth), selections.value)
     }
 }

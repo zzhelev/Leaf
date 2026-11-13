@@ -34,10 +34,16 @@ import java.util.Collections
 import kotlin.time.Duration.Companion.seconds
 
 class DiffHighlightsLoaderTest {
-    /** Colours each text with a result of its own, once [gate] lets it, and notes what it was asked and what stopped. */
+    /**
+     * Colours each text with a result of its own, once [gate] lets it, and notes what it was asked and what stopped. A
+     * test that checks what shows before the colours closes the gate first: the colouring runs on other threads, and
+     * an open gate lets it finish before the check.
+     */
     private class GatedAction : IHighlightTextAction {
         val asked: MutableList<String> = Collections.synchronizedList(mutableListOf())
         val cancelled: MutableList<String> = Collections.synchronizedList(mutableListOf())
+
+        @Volatile
         var gate = CompletableDeferred(Unit)
 
         override suspend fun invoke(scopeName: String, text: String): HighlightedText {
@@ -129,15 +135,19 @@ class DiffHighlightsLoaderTest {
         awaitColoured(first)
 
         val renamed = diff("val a = 1\n", "val a = 2\n", path = "Other.kt")
+        action.gate = CompletableDeferred()
         loader.show(renamed)
         assertEquals(emptyList<HighlightedText>(), loader.versions.value.coloured(renamed))
+        action.gate.complete(Unit)
         awaitColoured(renamed)
 
         // The new version changed, the old one didn't
         val edited = diff("val a = 1\n", "val a = 3\n", path = "Other.kt")
+        action.gate = CompletableDeferred()
         loader.show(edited)
         assertNotNull(loader.versions.value.versionOf(edited.hunk.oldText)!!.highlighted)
         assertNull(loader.versions.value.versionOf(edited.hunk.newText)!!.highlighted)
+        action.gate.complete(Unit)
         awaitColoured(edited)
         assertEquals(listOf("val a = 1\n", "val a = 1\n", "val a = 2\n", "val a = 2\n", "val a = 3\n"), action.asked.sorted())
     }
