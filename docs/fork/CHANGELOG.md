@@ -2,6 +2,18 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Settings' subtitles in the secondary text colour (2026-11-12)
+
+- **Request:** item 13 of the upstream review (`docs/fork/upstream-sync-2026-11.md`): Settings' subtitles were drawn
+  in the text colour, as strong as their titles.
+- **Chosen:** with the user, from renders of the Appearance, Commits, Worktrees and Remote actions pages in the six
+  built-in styles, light and dark: the style's secondary text colour, over the text colour at 70%, which fell to
+  2.7 : 1 in Solarized light and 3.1 : 1 in Solarized dark.
+- **Now:** a subtitle is in the secondary text colour, 4.5 : 1 or more on the dialog in every built-in style and theme,
+  and the title keeps the text colour. A greyed-out row dims both, as before. In Solarized the subtitles look as
+  they did, as its secondary text is about as dark as its text.
+- Details: CLAUDE.md, the subtitles under "Settings".
+
 ## A moved file is one row in Staged (2026-11-12)
 
 - **Request:** upstream issue 347, item 16 of the November upstream review: show a moved file as one rename row in

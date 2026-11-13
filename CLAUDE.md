@@ -5425,6 +5425,18 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   `AppSettingsService` (defaults) → `SettingsViewModel` / `SettingsDialog.kt`.
 - Each row of `SettingsDialog` gives its title and subtitle (`FieldTitles`) `weight(1f)`, so a long subtitle wraps
   and the control keeps its room. Before, the subtitle took the whole row and hid the control (`SettingsRowsTest`).
+- **Subtitles in the secondary text colour (fork-only, 2026-11-12, item 13 of `docs/fork/upstream-sync-2026-11.md`):**
+  `FieldTitles` draws the subtitle in `onBackgroundSecondary` and the title in `onBackground`, both at 60% in a
+  greyed-out row. Until then the subtitle had the text colour, as strong as the title. Every row's subtitle goes through
+  `FieldTitles` (the font, Scale, Text size and Linux title bar rows, and the style gallery's), so nothing else changed.
+  - Chosen with the user from renders over the text colour at 70%, which held 5.3 : 1 or more in five built-in styles
+    but 2.7 : 1 in Solarized light and 3.1 : 1 in Solarized dark. Secondary text on `surface` (`StyleSlot.PANELS`) is
+    one of the styles' contrast checks: 6.5 : 1 or more in the built-in styles but Solarized (5.2 light, 4.5 dark).
+  - Solarized's secondary text (#516770) is darker than its text (#586E75) on the light side, so its subtitles look as
+    they did. The title's weight and size still set it apart.
+  - Tests: `SettingsSubtitlesTest` (the subtitle's and title's pixels in every built-in style and theme, the contrast,
+    a greyed-out row, the Appearance page's rows, the Linux title bar's row). Putting the text colour back failed all
+    four tests.
 - DataStore keeps them in `user_prefs.json` (`getPreferencesPath()`), written by `JsonPreferencesSerializer`. Each
   key stores its type and value. A damaged file is logged and replaced with the defaults.
 - `TerminalPath` is the closest precedent for a "git executable path" setting.
