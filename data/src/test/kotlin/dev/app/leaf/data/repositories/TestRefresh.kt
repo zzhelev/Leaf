@@ -29,6 +29,7 @@ import dev.app.leaf.domain.interfaces.IGetCommitsReachableGitAction
 import dev.app.leaf.domain.interfaces.IGetLogBranchFilterGitAction
 import dev.app.leaf.domain.interfaces.IGetOtherWorktreeHeadsGitAction
 import dev.app.leaf.domain.log.NO_LOG_BRANCH_FILTER
+import dev.app.leaf.domain.interfaces.IGetStagedRenamesGitAction
 import dev.app.leaf.domain.interfaces.IGetStashListGitAction
 import dev.app.leaf.domain.interfaces.IGetStatusGitAction
 import dev.app.leaf.domain.interfaces.IGetTagsGitAction
@@ -106,6 +107,10 @@ fun testRefreshDataUseCase(
         getStashListGitAction = getStashes,
         loadAuthorGitAction = mockk(),
         getStatusGitAction = getStatus,
+        // Fork-only: no renames, the staged list as it is
+        getStagedRenamesGitAction = mockk<IGetStagedRenamesGitAction> {
+            coEvery { this@mockk(any(), any()) } answers { Either.Ok(secondArg()) }
+        },
         getRemotesUseCase = getRemotesUseCase,
         getSubmodulesGitAction = mockk(),
         getTagsGitAction = getTags,

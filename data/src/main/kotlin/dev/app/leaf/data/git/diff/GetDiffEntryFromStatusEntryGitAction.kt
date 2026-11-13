@@ -34,6 +34,13 @@ class GetDiffEntryFromStatusEntryGitAction @Inject constructor(
             }
         }
 
+        // Fork-only: a staged rename, from its old path in HEAD to its new one in the index
+        val renamedFrom = statusEntry.renamedFrom
+
+        if (isCached && renamedFrom != null) {
+            stagedRenameEntry(git.repository, renamedFrom, statusEntry.filePath)?.let { return@withContext it }
+        }
+
         val firstDiffEntry = git.diff()
             .setPathFilter(PathFilter.create(statusEntry.filePath))
             .setCached(isCached).apply {

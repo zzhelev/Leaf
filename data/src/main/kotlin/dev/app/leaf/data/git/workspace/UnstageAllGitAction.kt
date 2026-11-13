@@ -24,8 +24,9 @@ class UnstageAllGitAction @Inject constructor(
             git
                 .reset()
                 .apply {
+                    // Fork-only: both paths of a rename
                     entries?.forEach { entry ->
-                        addPath(entry.filePath)
+                        entry.paths.forEach(::addPath)
                     }
                 }
                 .call()

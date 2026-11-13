@@ -86,28 +86,22 @@ suspend fun Repository.withRenames(
     entries: List<DiffEntry>,
     timeLimit: Duration = MAX_RENAME_DETECTION_TIME,
     newSource: ContentSource? = null,
+    settings: RenameSettings = diffRenameSettings(),
 ): List<DiffEntry> {
     val diffConfig = config.get(DiffConfig.KEY)
-    val renamesDisabled = config.getString(ConfigConstants.CONFIG_DIFF_SECTION, null, "renames") != null &&
-            !diffConfig.isRenameDetectionEnabled
     val added = entries.filter { it.changeType == ChangeType.ADD }
     val deleted = entries.filter { it.changeType == ChangeType.DELETE }
     // Taken now: JGit changes the type of the entries that it pairs, as it did to a deleted file that it renamed
     val others = entries.filter { it.changeType != ChangeType.ADD && it.changeType != ChangeType.DELETE }
 
-    if (renamesDisabled || added.isEmpty() || deleted.isEmpty()) {
+    if (!settings.isEnabled || added.isEmpty() || deleted.isEmpty()) {
         return entries
     }
 
-    val limit = if (config.getString(ConfigConstants.CONFIG_DIFF_SECTION, null, "renameLimit") != null) {
-        diffConfig.renameLimit
-    } else {
-        DEFAULT_RENAME_LIMIT
-    }
     val progress = TimeAndCancellation(currentCoroutineContext()[Job], timeLimit)
 
     val renamed = newObjectReader().use { reader ->
-        RenameStages(this, reader, diffConfig, limit, progress, added, newSource).run(added + deleted)
+        RenameStages(this, reader, diffConfig, settings.limit, progress, added, newSource).run(added + deleted)
     }
 
     // A cancelled call throws, instead of returning what it had
@@ -115,6 +109,47 @@ suspend fun Repository.withRenames(
 
     return others + renamed
 }
+
+/**
+ * Whether to look for renames, and how many added and how many deleted files the stage that compares any two of them
+ * may take ([DEFAULT_RENAME_LIMIT] unless the config says).
+ */
+data class RenameSettings(val isEnabled: Boolean, val limit: Int)
+
+/** git's false values for a boolean key; a key without `=`, which JGit reads as "", is true. */
+private val FALSE_VALUES = setOf("false", "no", "off", "0")
+
+/**
+ * `diff.renames` and `diff.renameLimit`, as a commit's list reads them. JGit reads an unset `diff.renames` as off, where
+ * git's default is on, so only a value that says false turns it off.
+ */
+fun Repository.diffRenameSettings(): RenameSettings {
+    val diffConfig = config.get(DiffConfig.KEY)
+    val isRenamesSet = config.getString(ConfigConstants.CONFIG_DIFF_SECTION, null, "renames") != null
+    val isLimitSet = config.getString(ConfigConstants.CONFIG_DIFF_SECTION, null, "renameLimit") != null
+
+    return RenameSettings(
+        isEnabled = !isRenamesSet || diffConfig.isRenameDetectionEnabled,
+        limit = if (isLimitSet) diffConfig.renameLimit else DEFAULT_RENAME_LIMIT,
+    )
+}
+
+/**
+ * `status.renames` and `status.renameLimit`, as `git status` reads them: each falls back to its `diff.` key. `copies`
+ * finds renames, as a copy shows as an addition anyway.
+ */
+fun Repository.statusRenameSettings(): RenameSettings {
+    val diff = diffRenameSettings()
+    val renames = config.getString(STATUS_SECTION, null, "renames")
+    val isLimitSet = config.getString(STATUS_SECTION, null, "renameLimit") != null
+
+    return RenameSettings(
+        isEnabled = renames?.let { it.trim().lowercase() !in FALSE_VALUES } ?: diff.isEnabled,
+        limit = if (isLimitSet) config.getInt(STATUS_SECTION, "renameLimit", diff.limit) else diff.limit,
+    )
+}
+
+private const val STATUS_SECTION = "status"
 
 private class RenameStages(
     private val repository: Repository,

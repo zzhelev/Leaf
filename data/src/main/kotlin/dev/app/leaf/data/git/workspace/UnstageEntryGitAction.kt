@@ -10,9 +10,10 @@ class UnstageEntryGitAction @Inject constructor(
 ) : IUnstageEntryGitAction {
     override suspend operator fun invoke(repositoryPath: String, statusEntry: StatusEntry) =
         jgit.provide(repositoryPath) { git ->
+            // Fork-only: a rename's two paths, so that the move leaves the index whole
             git
                 .reset()
-                .addPath(statusEntry.filePath)
+                .apply { statusEntry.paths.forEach(::addPath) }
                 .call()
 
             Unit

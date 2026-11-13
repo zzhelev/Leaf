@@ -15,6 +15,7 @@ val StatusType.fileChangeKind: FileChangeKind
         StatusType.MODIFIED -> FileChangeKind.Modified
         StatusType.REMOVED -> FileChangeKind.Deleted
         StatusType.CONFLICTING -> FileChangeKind.Conflicting
+        StatusType.RENAMED -> FileChangeKind.Renamed
     }
 
 /**
@@ -26,10 +27,13 @@ val StatusEntry.fileGroup: FileGroup
     get() = when (statusType) {
         StatusType.CONFLICTING -> FileGroup.Conflicts
         StatusType.ADDED -> if (isIntentToAdd) FileGroup.Changes else FileGroup.Untracked
-        StatusType.MODIFIED, StatusType.REMOVED -> FileGroup.Changes
+        StatusType.MODIFIED, StatusType.REMOVED, StatusType.RENAMED -> FileGroup.Changes
     }
 
-/** The entries of a Staged or Unstaged pane as files to sort, keyed by path, with `#2` and so on for a repeated path. */
+/**
+ * The entries of a Staged or Unstaged pane as files to sort, keyed by path, with `#2` and so on for a repeated path. A
+ * staged rename's row shows where it came from, as a commit's does (`docs/fork/status-renames.md`).
+ */
 fun List<StatusEntry>.toFileItems(): List<FileItem<StatusEntry>> {
     val pathCounts = HashMap<String, Int>()
 
@@ -41,6 +45,7 @@ fun List<StatusEntry>.toFileItems(): List<FileItem<StatusEntry>> {
             key = if (count == 1) entry.filePath else "${entry.filePath}#$count",
             path = entry.filePath,
             kind = entry.statusType.fileChangeKind,
+            renamedFrom = entry.renamedFrom,
         )
     }
 }

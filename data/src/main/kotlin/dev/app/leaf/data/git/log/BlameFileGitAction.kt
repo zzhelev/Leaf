@@ -13,18 +13,23 @@ class BlameFileGitAction @Inject constructor(
     // Fork-only: in a partial clone, git downloads the file's versions that JGit doesn't find, and blame runs again
     override suspend fun invoke(
         repositoryPath: String,
-        filePath: String
-    ) = partialClone.retryingMissing(repositoryPath, alsoNeeded = { fileVersions(it, filePath) }) {
-        blame(repositoryPath, filePath)
+        filePath: String,
+        movedFrom: String?,
+    ) = partialClone.retryingMissing(repositoryPath, alsoNeeded = { fileVersions(it, movedFrom ?: filePath) }) {
+        blame(repositoryPath, filePath, movedFrom)
     }
 
     private suspend fun blame(
         repositoryPath: String,
-        filePath: String
+        filePath: String,
+        movedFrom: String?,
     ) = jgit.provide(repositoryPath) { git ->
-        git.blame()
-            .setFilePath(filePath)
-            .setFollowFileRenames(true)
-            .call() ?: throw Exception("File is no longer present in the workspace and can't be blamed")
+        // Fork-only: a staged move's new path has no history, so its lines come from the old one
+        movedFrom?.let { blameMovedFile(git.repository, filePath, it) }
+            ?: git.blame()
+                .setFilePath(filePath)
+                .setFollowFileRenames(true)
+                .call()
+            ?: throw Exception("File is no longer present in the workspace and can't be blamed")
     }
 }

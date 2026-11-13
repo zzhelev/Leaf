@@ -29,6 +29,8 @@ val StatusType.icon: ImageVector
             StatusType.MODIFIED -> Icons.Default.Edit
             StatusType.REMOVED -> Icons.Default.Delete
             StatusType.CONFLICTING -> Icons.Default.Warning
+            // Fork-only: a staged rename, as a commit's (DiffEntry.icon)
+            StatusType.RENAMED -> Icons.Default.ArrowForward
         }
     }
 
@@ -53,6 +55,7 @@ val StatusType.iconColor: Color
             StatusType.MODIFIED -> MaterialTheme.colors.modifyFile
             StatusType.REMOVED -> MaterialTheme.colors.error
             StatusType.CONFLICTING -> MaterialTheme.styleColors.warningIcon
+            StatusType.RENAMED -> MaterialTheme.colors.modifyFile
         }
     }
 

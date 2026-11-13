@@ -3,6 +3,9 @@ package dev.app.leaf.data.git.workspace
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.conflicts.conflictedPaths
 import dev.app.leaf.domain.errors.ConflictError
+import dev.app.leaf.domain.errors.EitherContext
+import dev.app.leaf.domain.errors.GenericError
+import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.raiseError
 import dev.app.leaf.domain.interfaces.IDiscardEntriesGitAction
 import dev.app.leaf.domain.models.StatusEntry
@@ -11,6 +14,7 @@ import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.FileMode
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import javax.inject.Inject
@@ -20,7 +24,9 @@ class DiscardEntriesGitAction @Inject constructor(
 ) : IDiscardEntriesGitAction {
     override suspend operator fun invoke(repositoryPath: String, statusEntries: List<StatusEntry>, staged: Boolean) =
         jgit.provide(repositoryPath) { git ->
-            val paths = statusEntries.map { it.filePath }
+            // Fork-only: a staged rename stands for its old path and its new one
+            val paths = statusEntries.flatMap { it.paths }.distinct()
+            val movedFiles = statusEntries.filter { it.renamedFrom != null }.map { it.filePath }
 
             // Fork-only: without paths, JGit's reset would reset the whole index, and its checkout fails
             if (paths.isEmpty()) {
@@ -48,12 +54,32 @@ class DiscardEntriesGitAction @Inject constructor(
 
                 // Fork-only: a file added with `git add -N` is new, and its index entry has the empty blob, which the
                 // checkout would write over it, as git restore does. Leaf leaves new files alone (see IntentToAdd).
-                entry?.fileMode != FileMode.GITLINK &&
+                path !in movedFiles &&
+                    entry?.fileMode != FileMode.GITLINK &&
                     !(entry?.isIntentToAdd == true && Files.exists(File(workTree, path).toPath(), LinkOption.NOFOLLOW_LINKS))
             }
 
             if (files.isNotEmpty()) {
                 checkoutPaths(git, files)
+            }
+
+            // Fork-only: undoing a move (`docs/fork/status-renames.md`, D3). The old file is back from HEAD, and the
+            // new one, which the reset left untracked, goes, as `git restore --source=HEAD --staged --worktree` does
+            if (staged && movedFiles.isNotEmpty()) {
+                deleteMovedFiles(git, movedFiles)
+            }
+        }
+
+    private suspend fun EitherContext<GitError>.deleteMovedFiles(git: Git, movedFiles: List<String>) =
+        withContext(Dispatchers.IO) {
+            val workTree = git.repository.workTree.toPath().toRealPath()
+
+            for (path in movedFiles) {
+                try {
+                    deleteNewFile(workTree, path)
+                } catch (e: IOException) {
+                    raiseError(GenericError("Deleting $path failed", e))
+                }
             }
         }
 

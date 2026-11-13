@@ -43,9 +43,17 @@ enum class LineAction(val label: StringResource, val icon: DrawableResource) {
     DISCARD(Res.string.diff_line_discard, Res.drawable.undo),
 }
 
+/**
+ * Whether the hunks and lines of this diff can be staged, unstaged or discarded: a modified file's, and a staged
+ * rename's (fork-only), whose patches name its new path on both sides, which keeps the move
+ * (`docs/fork/status-renames.md`).
+ */
+val DiffType.UncommittedDiff.hasHunkActions: Boolean
+    get() = statusType == StatusType.MODIFIED || (statusType == StatusType.RENAMED && entryType == EntryType.STAGED)
+
 /** The actions that a changed line of [diffType] has while the repository is in a safe state, as for hunks. */
 fun lineActionsOf(diffType: DiffType): List<LineAction> =
-    if (diffType is DiffType.UncommittedDiff && diffType.statusType == StatusType.MODIFIED) {
+    if (diffType is DiffType.UncommittedDiff && diffType.hasHunkActions) {
         when (diffType.entryType) {
             EntryType.STAGED -> listOf(LineAction.UNSTAGE)
             EntryType.UNSTAGED -> listOf(LineAction.STAGE, LineAction.DISCARD)

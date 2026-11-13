@@ -345,6 +345,8 @@
     <string name="status_entries_context_menu_file_history">File history</string>
     <string name="status_entries_context_menu_blame_file">Blame file</string>
     <string name="status_entries_context_menu_discard_file_changes">Discard file changes</string>
+    <string name="status_entries_context_menu_undo_move">Undo the move…</string>
+    <string name="status_entries_context_menu_file_history_before_move">before the move</string>
     <string name="status_entries_context_menu_open_file_in_folder">Open file in folder</string>
     <string name="status_entries_context_menu_copy_file_absolute_path">Copy path</string>
     <string name="status_entries_context_menu_copy_file_relative_path">Copy relative path</string>
@@ -698,6 +700,10 @@
     <plurals name="discard_dialog_conflicted_files_kept">
         <item quantity="one">%1$d file with conflicts is left as it is.</item>
         <item quantity="other">%1$d files with conflicts are left as they are.</item>
+    </plurals>
+    <plurals name="discard_dialog_moves_undone">
+        <item quantity="one">%1$d move is undone: the file at its new path is deleted.</item>
+        <item quantity="other">%1$d moves are undone: the files at their new paths are deleted.</item>
     </plurals>
     <string name="discard_folder_dialog_discard">Discard</string>
     <plurals name="diff_line_more_characters">
@@ -1331,6 +1337,9 @@
     <string name="discard_file_dialog_subtitle_unstaged">Discard the unstaged changes to "%1$s"?</string>
     <string name="discard_file_dialog_subtitle_staged">Discard the changes to "%1$s"?</string>
     <string name="discard_file_dialog_warning_staged">Both its staged and unstaged changes are discarded. They can't be restored.</string>
+    <string name="undo_move_dialog_title">Undo the move</string>
+    <string name="undo_move_dialog_subtitle">Move "%1$s" back to "%2$s", as it is in the last commit? The file at its new path is deleted.</string>
+    <string name="undo_move_dialog_warning">Its changes since the last commit are lost, staged or not. They can't be restored.</string>
     <string name="discard_files_dialog_title">Discard changes</string>
     <plurals name="discard_files_dialog_subtitle_unstaged">
         <item quantity="one">Discard the unstaged changes to %1$d file?</item>

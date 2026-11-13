@@ -5,5 +5,10 @@ import dev.app.leaf.domain.errors.GitError
 import org.eclipse.jgit.blame.BlameResult
 
 interface IBlameFileGitAction {
-    suspend operator fun invoke(repositoryPath: String, filePath: String): Either<BlameResult, GitError>
+    /** Fork-only: [movedFrom] is where a staged rename's [filePath] was, whose history its lines have. */
+    suspend operator fun invoke(
+        repositoryPath: String,
+        filePath: String,
+        movedFrom: String? = null,
+    ): Either<BlameResult, GitError>
 }

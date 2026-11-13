@@ -951,7 +951,7 @@ fun HunkHeader(
         // Hunks options are only visible when repository is a normal state (not during merge/rebase)
         if (
             (diffType is DiffType.UncommittedDiff && canUseHunkActions) &&
-            diffType.statusType == StatusType.MODIFIED
+            diffType.hasHunkActions
         ) {
             val buttonText: String
             val colors: RoleColors

@@ -79,6 +79,7 @@ import dev.app.leaf.data.git.workspace.GetPersistedCommitMessagesGitAction
 import dev.app.leaf.data.git.workspace.GlobalIgnoreFile
 import dev.app.leaf.data.git.workspace.IgnoreTargets
 import dev.app.leaf.data.shell.LoginShellEnvironment
+import dev.app.leaf.data.git.workspace.GetStagedRenamesGitAction
 import dev.app.leaf.data.git.workspace.GetStatusGitAction
 import dev.app.leaf.data.git.worktrees.CopyWorktreeFilesGitAction
 import dev.app.leaf.data.git.worktrees.GetAheadBehindGitAction
@@ -291,6 +292,7 @@ class TestTab(
         getStashListGitAction = getStashList,
         loadAuthorGitAction = LoadAuthorGitAction(jgit, GitIdentities(gitCli)),
         getStatusGitAction = SlowStatus(getStatus, statusDelay),
+        getStagedRenamesGitAction = GetStagedRenamesGitAction(jgit),
         getRemotesUseCase = getRemotes,
         getSubmodulesGitAction = GetSubmodulesGitAction(jgit, JGitSubmoduleMapper()),
         getTagsGitAction = getTags,

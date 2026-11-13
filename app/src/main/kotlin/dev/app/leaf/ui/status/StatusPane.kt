@@ -485,7 +485,12 @@ fun StatusChangesList(
         onDiscardSelected = {
             // Files with conflicts are left as they are (fork-only)
             val discard = selectedEntries.map { it.statusEntry }.selectionDiscard()
-            val action = ConfirmableAction.DiscardFiles(discard.entries.size, entryType, discard.keptConflicted)
+            val action = ConfirmableAction.DiscardFiles(
+                discard.entries.size,
+                entryType,
+                discard.keptConflicted,
+                movesUndone = discard.entries.count { it.renamedFrom != null },
+            )
 
             onConfirmAction(action) {
                 onAction(StatusAction.DiscardSelected(entryType))
@@ -560,7 +565,8 @@ fun ChangesList(
             statusEntry = statusEntry,
             entryType = entryType,
             onBlame = { onBlameFile(statusEntry.filePath) },
-            onHistory = { onHistoryFile(statusEntry.filePath) },
+            // Fork-only: a staged rename's history is its old path's
+            onHistory = { onHistoryFile(statusEntry.renamedFrom?.path ?: statusEntry.filePath) },
             onReset = { onDiscardFile(statusEntry) },
             onDelete = { onDeleteFile(statusEntry) },
             onOpenFileInFolder = { onAction(StatusAction.OpenInFolder(statusEntry.parentDirectoryPath)) },

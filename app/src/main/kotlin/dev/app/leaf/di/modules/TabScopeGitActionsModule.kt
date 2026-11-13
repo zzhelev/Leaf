@@ -364,6 +364,11 @@ interface TabScopeGitActionsModule {
     @TabScope
     fun bindsGetStatusGitAction(action: GetStatusGitAction): IGetStatusGitAction
 
+    // Fork-only: Staged's renames, kept per tab
+    @Binds
+    @TabScope
+    fun bindsGetStagedRenamesGitAction(action: GetStagedRenamesGitAction): IGetStagedRenamesGitAction
+
     @Binds
     @TabScope
     fun bindsGetTagsGitAction(action: GetTagsGitAction): IGetTagsGitAction

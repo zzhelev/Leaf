@@ -121,7 +121,13 @@ sealed interface ConfirmableAction {
      * Discards the changes of [count] selected files of the [entryType] list. [keptConflicted] more selected files have
      * conflicts, and are left as they are.
      */
-    data class DiscardFiles(val count: Int, val entryType: EntryType, val keptConflicted: Int = 0) : ConfirmableAction
+    data class DiscardFiles(
+        val count: Int,
+        val entryType: EntryType,
+        val keptConflicted: Int = 0,
+        /** Fork-only: how many of them are staged renames, whose moves are undone (`docs/fork/status-renames.md`). */
+        val movesUndone: Int = 0,
+    ) : ConfirmableAction
 
     /**
      * Discards the unstaged changes of the files that [plan] lists ("Discard all", fork-only): the pane's files, or
@@ -574,6 +580,19 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
         }
 
         // DiscardEntriesGitAction resets a staged file in the index and then checks it out
+        // Fork-only: discarding a staged rename undoes the move (`docs/fork/status-renames.md`, D3)
+        is ConfirmableAction.DiscardFile if entry.renamedFrom != null -> ConfirmationTexts(
+            icon = undo,
+            title = stringResource(Res.string.undo_move_dialog_title),
+            subtitle = stringResource(
+                Res.string.undo_move_dialog_subtitle,
+                entry.filePath,
+                entry.renamedFrom?.path.orEmpty(),
+            ),
+            warning = stringResource(Res.string.undo_move_dialog_warning),
+            primaryAction = stringResource(Res.string.undo_move_dialog_title),
+        )
+
         is ConfirmableAction.DiscardFile -> ConfirmationTexts(
             icon = undo,
             title = stringResource(Res.string.discard_file_dialog_title),
@@ -603,10 +622,13 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 EntryType.UNSTAGED -> stringResource(Res.string.discard_changes_dialog_warning)
             },
             primaryAction = stringResource(Res.string.confirm_dialog_discard),
-            note = if (keptConflicted > 0) {
-                pluralStringResource(Res.plurals.discard_dialog_conflicted_files_kept, keptConflicted, keptConflicted)
-            } else {
-                null
+            note = when {
+                // Fork-only: Staged has no files with conflicts, which Unstaged lists
+                movesUndone > 0 -> pluralStringResource(Res.plurals.discard_dialog_moves_undone, movesUndone, movesUndone)
+                keptConflicted > 0 ->
+                    pluralStringResource(Res.plurals.discard_dialog_conflicted_files_kept, keptConflicted, keptConflicted)
+
+                else -> null
             },
         )
 

@@ -55,10 +55,21 @@ fun statusEntryContextMenuItems(
         }
 
         if (statusEntry.statusType != StatusType.ADDED) {
+            // Fork-only: discarding a staged rename undoes the move (`docs/fork/status-renames.md`)
+            val isMove = statusEntry.statusType == StatusType.RENAMED
+
             // Fork-only: not for a file with conflicts, which "Use ours" and "Use theirs" resolve
             if (!statusEntry.hasConflicts) {
                 addContextMenu(
-                    composableLabel = { stringResource(Res.string.status_entries_context_menu_discard_file_changes) },
+                    composableLabel = {
+                        stringResource(
+                            if (isMove) {
+                                Res.string.status_entries_context_menu_undo_move
+                            } else {
+                                Res.string.status_entries_context_menu_discard_file_changes
+                            },
+                        )
+                    },
                     icon = { painterResource(Res.drawable.undo) },
                     onClick = onReset,
                 )
@@ -71,10 +82,16 @@ fun statusEntryContextMenuItems(
                     onClick = onBlame,
                 )
 
+                // Fork-only: a moved file's history is its old path's, which the caller opens
                 addContextMenu(
                     composableLabel = { stringResource(Res.string.status_entries_context_menu_file_history) },
                     icon = { painterResource(Res.drawable.history) },
                     onClick = onHistory,
+                    hint = if (isMove) {
+                        { stringResource(Res.string.status_entries_context_menu_file_history_before_move) }
+                    } else {
+                        null
+                    },
                 )
             }
         }

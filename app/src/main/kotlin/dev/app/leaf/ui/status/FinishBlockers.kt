@@ -138,7 +138,8 @@ val StatusState.canSkipCherryPick: Boolean
 
 /** The files of the commit that a cherry-pick or a rebase stopped at: staged, or with conflicts (fork-only). */
 private val StatusState.stoppedCommitFiles: Set<String>
-    get() = (staged + unstaged.filter { it.statusType == StatusType.CONFLICTING }).map { it.filePath }.toSet()
+    get() = (staged.flatMap { it.paths } + unstaged.filter { it.statusType == StatusType.CONFLICTING }.map { it.filePath })
+        .toSet()
 
 /**
  * The files whose changes Skip discards (fork-only): the stopped commit's, staged or with conflicts. A cherry-pick's

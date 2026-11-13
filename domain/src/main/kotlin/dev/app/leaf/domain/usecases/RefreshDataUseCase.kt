@@ -30,6 +30,7 @@ class RefreshDataUseCase @Inject constructor(
     private val getStashListGitAction: IGetStashListGitAction,
     private val loadAuthorGitAction: ILoadAuthorGitAction,
     private val getStatusGitAction: IGetStatusGitAction,
+    private val getStagedRenamesGitAction: IGetStagedRenamesGitAction,
     private val getRemotesUseCase: GetRemotesUseCase,
     private val getSubmodulesGitAction: IGetSubmodulesGitAction,
     private val getTagsGitAction: IGetTagsGitAction,
@@ -162,7 +163,11 @@ class RefreshDataUseCase @Inject constructor(
     private suspend fun refreshStatus() {
         useCaseExecutor.executeWithoutResult() { repositoryPath ->
             repositoryDataRepository.updateStatus(repositoryPath) {
-                getStatusGitAction(repositoryPath)
+                // Fork-only: Staged pairs the files that the index moved. A failure leaves them unpaired
+                getStatusGitAction(repositoryPath).mapOk { status ->
+                    val staged = getStagedRenamesGitAction(repositoryPath, status.staged).okOrNull() ?: status.staged
+                    status.copy(staged = staged)
+                }
             }
         }
     }

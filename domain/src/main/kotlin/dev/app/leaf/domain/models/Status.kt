@@ -1,6 +1,7 @@
 package dev.app.leaf.domain.models
 
 import androidx.compose.runtime.Immutable
+import dev.app.leaf.domain.sorting.RenamedFrom
 
 data class Status(
     val staged: List<StatusEntry> = emptyList(),
@@ -16,6 +17,8 @@ data class Status(
  * [isIntentToAdd] is set for an Unstaged entry of a file added with `git add -N` (fork-only): the index has the path but
  * not its content, so the file is new in the working tree ([StatusType.ADDED], or [StatusType.REMOVED] once it's deleted
  * from the disk), and a commit leaves it out, as `git status` and `git commit` have it.
+ * [renamedFrom] is set for a [StatusType.RENAMED] entry, a staged file that the index moved from another path, which
+ * [filePath] is the new one of (fork-only).
  */
 data class StatusEntry(
     val filePath: String,
@@ -25,7 +28,12 @@ data class StatusEntry(
     val isSubmodule: Boolean = false,
     val nestedRepository: NestedRepository? = null,
     val isIntentToAdd: Boolean = false,
-)
+    val renamedFrom: RenamedFrom? = null,
+) {
+    /** The paths that the entry stands for (fork-only): a rename's old path and its new one, else its own. */
+    val paths: List<String>
+        get() = listOfNotNull(renamedFrom?.path, filePath)
+}
 
 /**
  * Whether this is an Unstaged file that git doesn't track: a new file, but not one added with `git add -N`, which the
@@ -58,6 +66,9 @@ enum class StatusType {
     MODIFIED,
     REMOVED,
     CONFLICTING,
+
+    /** Fork-only: a staged file moved from another path, as `git status` shows `R old -> new`. Staged only. */
+    RENAMED,
 }
 
 @Immutable

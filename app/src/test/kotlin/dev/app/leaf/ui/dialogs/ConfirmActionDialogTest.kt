@@ -27,6 +27,7 @@ import dev.app.leaf.domain.models.StatusEntry
 import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.restore.CurrentFile
 import dev.app.leaf.domain.restore.FileRestorePlan
+import dev.app.leaf.domain.sorting.RenamedFrom
 import dev.app.leaf.domain.sorting.DiscardAllPlan
 import dev.app.leaf.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
@@ -225,6 +226,37 @@ class ConfirmActionDialogTest {
 
         DialogScene(ConfirmableAction.DiscardFiles(3, EntryType.UNSTAGED)).use { dialog ->
             assertFalse(dialog.texts().any { "conflicts" in it }, dialog.texts().toString())
+        }
+    }
+
+    @Test
+    fun `discarding a staged rename undoes the move, naming both paths`(): Unit = runBlocking(Dispatchers.Swing) {
+        val moved = StatusEntry(
+            "src/changes/Foo.kt",
+            StatusType.RENAMED,
+            EntryType.STAGED,
+            renamedFrom = RenamedFrom("src/status/Foo.kt", 92),
+        )
+
+        DialogScene(ConfirmableAction.DiscardFile(moved)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("Undo the move" in texts, texts.toString())
+            assertTrue(
+                "Move \"src/changes/Foo.kt\" back to \"src/status/Foo.kt\", as it is in the last commit? " +
+                        "The file at its new path is deleted." in texts,
+                texts.toString(),
+            )
+            assertTrue(
+                "Its changes since the last commit are lost, staged or not. They can't be restored." in texts,
+                texts.toString(),
+            )
+        }
+
+        DialogScene(ConfirmableAction.DiscardFiles(3, EntryType.STAGED, movesUndone = 2)).use { dialog ->
+            val texts = dialog.texts()
+
+            assertTrue("2 moves are undone: the files at their new paths are deleted." in texts, texts.toString())
         }
     }
 

@@ -616,6 +616,7 @@ class IntentToAddTest {
         StatusType.MODIFIED -> "M"
         StatusType.REMOVED -> "D"
         StatusType.CONFLICTING -> "U"
+        StatusType.RENAMED -> "R"
     }
 
     private fun indexVersion(repository: File): Int =

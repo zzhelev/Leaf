@@ -20,7 +20,9 @@ class GetSummaryFromStatusUseCase @Inject constructor() {
         val deletedCount = groupedChanges[StatusType.REMOVED].countOrZero()
         val addedCount = groupedChanges[StatusType.ADDED].countOrZero()
 
-        val modifiedCount = groupedChanges[StatusType.MODIFIED].countOrZero()
+        // Fork-only: a moved file counts as a changed one
+        val modifiedCount = groupedChanges[StatusType.MODIFIED].countOrZero() +
+                groupedChanges[StatusType.RENAMED].countOrZero()
         val conflictingCount = groupedChanges[StatusType.CONFLICTING].countOrZero()
 
         return StatusSummary(

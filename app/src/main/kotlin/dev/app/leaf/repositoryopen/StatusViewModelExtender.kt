@@ -27,6 +27,7 @@ import dev.app.leaf.domain.repositories.DataState
 import dev.app.leaf.domain.repositories.RepositoryDataRepository
 import dev.app.leaf.domain.repositories.dataOrNull
 import dev.app.leaf.domain.services.AppSettingsService
+import dev.app.leaf.domain.sorting.inFolder
 import dev.app.leaf.domain.sorting.CollapsedFolders
 import dev.app.leaf.domain.sorting.CollapsedGroups
 import dev.app.leaf.domain.sorting.FileGroup
@@ -867,7 +868,23 @@ class StatusViewModelExtender @AssistedInject constructor(
         }
     }
 
-    private fun unstageByDirectory(dir: String) = unstageByDirectoryUseCase(dir)
+    private fun unstageByDirectory(dir: String) {
+        val staged = statusState.value.staged
+
+        // Fork-only: the folder as a pathspec would split a staged rename that has one of its paths outside it, so its
+        // files go by their paths then, each rename with both of its own (`docs/fork/status-renames.md`)
+        if (staged.any { entry -> entry.renamedFrom != null && entry.paths.any { it.startsWith("$dir/") } }) {
+            val entries = staged.inFolder(dir)
+
+            if (entries.isNotEmpty()) {
+                unstageAllUseCase(entries)
+            }
+
+            return
+        }
+
+        unstageByDirectoryUseCase(dir)
+    }
 
     fun selectEntries(
         isCtrlPressed: Boolean,

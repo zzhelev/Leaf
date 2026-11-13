@@ -80,41 +80,42 @@ class DiscardAllGitAction @Inject constructor(
                 }
             }
         }
+}
 
-    /**
-     * Deletes the untracked file at [path], and the folders that it leaves empty, as `git clean -fd` removes them. Never
-     * a folder: an untracked entry that is one holds another repository, such as a linked worktree inside this one,
-     * and the files of a folder with new files in it are listed one by one. A link is deleted as a link. Anything
-     * that isn't inside the working tree is skipped. Returns whether it deleted the file.
-     */
-    private fun deleteNewFile(workTree: Path, path: String): Boolean {
-        val file = workTree.resolve(path)
+/**
+ * Deletes the untracked file at [path], and the folders that it leaves empty, as `git clean -fd` removes them. Never
+ * a folder: an untracked entry that is one holds another repository, such as a linked worktree inside this one,
+ * and the files of a folder with new files in it are listed one by one. A link is deleted as a link. Anything
+ * that isn't inside the working tree is skipped. Returns whether it deleted the file. Also used for a staged move's new
+ * file, once discarding the move took it out of the index ([DiscardEntriesGitAction]).
+ */
+internal fun deleteNewFile(workTree: Path, path: String): Boolean {
+    val file = workTree.resolve(path)
 
-        if (".git" in path.split('/') ||
-            !Files.exists(file, LinkOption.NOFOLLOW_LINKS) ||
-            Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)
-        ) {
-            return false
-        }
-
-        // A link in a folder of the path could lead out of the working tree
-        val parent = file.parent.toRealPath()
-
-        if (!parent.startsWith(workTree)) {
-            return false
-        }
-
-        Files.delete(file)
-
-        var folder: Path? = parent
-
-        while (folder != null && folder != workTree && folder.startsWith(workTree) && isEmpty(folder)) {
-            Files.delete(folder)
-            folder = folder.parent
-        }
-
-        return true
+    if (".git" in path.split('/') ||
+        !Files.exists(file, LinkOption.NOFOLLOW_LINKS) ||
+        Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)
+    ) {
+        return false
     }
 
-    private fun isEmpty(folder: Path) = Files.newDirectoryStream(folder).use { !it.iterator().hasNext() }
+    // A link in a folder of the path could lead out of the working tree
+    val parent = file.parent.toRealPath()
+
+    if (!parent.startsWith(workTree)) {
+        return false
+    }
+
+    Files.delete(file)
+
+    var folder: Path? = parent
+
+    while (folder != null && folder != workTree && folder.startsWith(workTree) && isEmpty(folder)) {
+        Files.delete(folder)
+        folder = folder.parent
+    }
+
+    return true
 }
+
+private fun isEmpty(folder: Path) = Files.newDirectoryStream(folder).use { !it.iterator().hasNext() }
