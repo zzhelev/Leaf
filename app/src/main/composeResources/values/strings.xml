@@ -2164,6 +2164,16 @@
     <string name="log_search_previous">Previous result (Shift+Enter)</string>
     <string name="log_search_next">Next result (Enter)</string>
     <string name="log_search_close">End the search (Esc)</string>
+    <!-- Fork-only: find and go to line in the diff and blame (upstream issues 275 and 312) -->
+    <string name="find_placeholder">Find</string>
+    <string name="find_counter">%1$s of %2$s</string>
+    <string name="find_previous">Previous match (%1$s)</string>
+    <string name="find_next">Next match (%1$s)</string>
+    <string name="find_match_case">Match case</string>
+    <string name="find_line_placeholder">Line</string>
+    <string name="find_go_to_line">Go to line</string>
+    <string name="find_line_count">of %1$s</string>
+    <string name="find_close">Close (Esc)</string>
     <string name="log_branch_filter_all">All branches</string>
     <string name="log_branch_filter_current">Current branch</string>
     <string name="log_branch_filter_all_but_one">All but %1$s</string>

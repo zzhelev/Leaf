@@ -69,6 +69,16 @@ class SidewaysScroll {
         offset = value.coerceIn(0f, max)
     }
 
+    /**
+     * Scrolls so that [range], a part of a line from its text's start, shows whole, with a third of the view before it,
+     * unless it shows already: find's current match.
+     */
+    fun reveal(range: ClosedFloatingPointRange<Float>) {
+        if (range.start >= offset && range.endInclusive <= offset + viewport) return
+
+        scrollTo(range.start - viewport / 3)
+    }
+
     /** The longest line is [contentWidth] wide, and the narrowest column shows [viewport] of it. */
     fun fit(contentWidth: Float, viewport: Float) {
         this.viewport = viewport.coerceAtLeast(0f)

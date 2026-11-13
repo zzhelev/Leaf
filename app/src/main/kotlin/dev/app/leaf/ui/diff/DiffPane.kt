@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -59,6 +60,23 @@ import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
+import dev.app.leaf.ui.find.addFindStyles
+import dev.app.leaf.ui.find.currentMatchOutline
+import dev.app.leaf.ui.find.DiffFind
+import dev.app.leaf.ui.find.DiffFindText
+import dev.app.leaf.ui.find.findableView
+import dev.app.leaf.ui.find.FindBar
+import dev.app.leaf.ui.find.FindColors
+import dev.app.leaf.ui.find.findColors
+import dev.app.leaf.ui.find.FindState
+import dev.app.leaf.ui.find.FindTarget
+import dev.app.leaf.ui.find.goToLine
+import dev.app.leaf.ui.find.goToLineMark
+import dev.app.leaf.ui.find.horizontalBoundsOf
+import dev.app.leaf.ui.find.LIGHT_FIND_COLORS
+import dev.app.leaf.ui.find.LineFindMarks
+import dev.app.leaf.ui.find.LocalDiffFindMarks
+import dev.app.leaf.ui.find.selectionBackground
 import dev.app.leaf.ui.status.StatusAction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -153,6 +171,8 @@ private fun DiffPaneContent(
     val isRepositoryInSafeState by viewModel.isRepositoryInSafeState.collectAsState(false)
     val conflictSides by viewModel.conflictSides.collectAsState()
     val focusRequester = remember { FocusRequester() }
+    // Fork-only: find and go to line (upstream issues 275 and 312), kept while the pane shows any file
+    val find = remember { FindState() }
 
     fun closeDiffView(forgetFile: Boolean = true) {
         viewModel.clearDiff()
@@ -193,6 +213,7 @@ private fun DiffPaneContent(
                     viewModel.addToCloseables()
                 }
             }
+            .findableView(find)
     ) {
         when (viewDiffResult) {
             is ViewDiffResult.DiffNotFound -> {
@@ -234,6 +255,31 @@ private fun DiffPaneContent(
 
                 // Fork-only: says that lines are hidden, and why the hunks and lines have no buttons
                 val onlyWhitespaceChanged = diffResult is DiffResult.TextDiff && diffResult.onlyWhitespaceChanged
+                // Fork-only: a rename without changes has no hunks, which left the pane blank
+                // (and for a diff that hides whitespace changes, it is the whitespace that changed)
+                val renamedWithoutChanges = if (onlyWhitespaceChanged) null else diffResult.renamedWithoutChanges()
+
+                // Fork-only: find searches the lines, and goes to them
+                val findText = remember(diffResult) {
+                    (diffResult as? DiffResult.TextDiff)
+                        ?.takeIf { !onlyWhitespaceChanged && renamedWithoutChanges == null }
+                        ?.let(::DiffFindText)
+                }
+
+                FindTarget(find, isAvailable = findText != null)
+
+                if (findText != null && find.isOpen) {
+                    FindBar(
+                        state = find,
+                        lineCount = findText.lineCount,
+                        onGoToLine = { line ->
+                            val showCompleteFile: () -> Unit = { viewModel.changeDisplayFullFile(true) }
+
+                            find.goToLine(line, findText, showCompleteFile.takeIf { !isDisplayFullFile })
+                        },
+                        focusAfterClose = focusRequester,
+                    )
+                }
 
                 if (whitespaceMode.ignoresWhitespace && diffResult is DiffResult.TextDiff && canIgnoreWhitespace(diffType)) {
                     WhitespaceIgnoredStrip(
@@ -267,9 +313,7 @@ private fun DiffPaneContent(
                 }
 
                 val scrollState by viewModel.lazyListState.collectAsState()
-                // Fork-only: a rename without changes has no hunks, which left the pane blank
-                // (and for a diff that hides whitespace changes, it is the whitespace that changed)
-                val renamedWithoutChanges = if (onlyWhitespaceChanged) null else diffResult.renamedWithoutChanges()
+                val diffFind = findText?.let { DiffFind(find, it, scrollState, source = diffType.filePath) }
                 // Fork-only: lines that don't wrap scroll sideways together, back to their start in another file
                 val sideways = remember(wrapLines, diffType.filePath) { if (wrapLines) null else SidewaysScroll() }
 
@@ -278,7 +322,7 @@ private fun DiffPaneContent(
                 } else if (renamedWithoutChanges != null) {
                     RenamedWithoutChanges(renamedWithoutChanges)
                 } else when (diffResult) {
-                    is DiffResult.TextSplit -> DiffLines(sideways, diffResult, lineTextStart(diffType)) {
+                    is DiffResult.TextSplit -> DiffLines(sideways, diffResult, lineTextStart(diffType), diffFind) {
                         HunkSplitTextDiff(
                             diffType = diffType,
                             scrollState = scrollState,
@@ -304,7 +348,7 @@ private fun DiffPaneContent(
                         )
                     }
 
-                    is DiffResult.Text -> DiffLines(sideways, diffResult, lineTextStart(diffType)) {
+                    is DiffResult.Text -> DiffLines(sideways, diffResult, lineTextStart(diffType), diffFind) {
                         HunkUnifiedTextDiff(
                             diffType = diffType,
                             scrollState = scrollState,
@@ -1270,9 +1314,13 @@ fun DiffLine(
         LineType.CONTEXT -> MaterialTheme.colors.background
     }
 
+    // Fork-only: the row that go to line went to (upstream issues 275 and 312)
+    val isGoToLine = LocalDiffFindMarks.current?.isGoToLine(line) == true
+
     Row(
         modifier = Modifier
             .background(backgroundColor)
+            .goToLineMark(isGoToLine)
             .height(IntrinsicSize.Min),
     ) {
         val oldLineText = if (line.lineType == LineType.REMOVED || line.lineType == LineType.CONTEXT) {
@@ -1289,11 +1337,13 @@ fun DiffLine(
             LineNumber(
                 text = oldLineText,
                 remarked = line.lineType != LineType.CONTEXT,
+                isBold = isGoToLine,
             )
 
             LineNumber(
                 text = newLineText,
                 remarked = line.lineType != LineType.CONTEXT,
+                isBold = isGoToLine,
             )
         }
 
@@ -1317,15 +1367,20 @@ fun SplitDiffLine(
         LineType.REMOVED -> MaterialTheme.colors.diffLineRemoved
         LineType.CONTEXT -> MaterialTheme.colors.background
     }
+    // Fork-only: the row that go to line went to (upstream issues 275 and 312)
+    val isGoToLine = LocalDiffFindMarks.current?.isGoToLine(line) == true
+
     Row(
         modifier = Modifier
             .background(backgroundColor)
+            .goToLineMark(isGoToLine)
             .fillMaxHeight(),
     ) {
         DisableSelection {
             LineNumber(
                 text = lineNumber.toStringWithSpaces(highestLineNumberLength),
                 remarked = line.lineType != LineType.CONTEXT,
+                isBold = isGoToLine,
             )
         }
 
@@ -1346,6 +1401,12 @@ fun DiffLineText(
     val highlights = LocalDiffHighlights.current
     val spans = remember(line, highlights, isOldSide) { highlights?.spansOf(line, isOldSide).orEmpty() }
 
+    // Fork-only: what find marks in the line (upstream issues 275 and 312)
+    val findMarks = LocalDiffFindMarks.current
+    val lineMarks = findMarks?.marksOf(line, isOldSide) ?: LineFindMarks.NONE
+    val onCurrentMatchShown = findMarks?.takeIf { it.isSidewaysRevealPending && lineMarks.current != null }
+        ?.onSidewaysRevealed
+
     val text = line.text
     val matchLine = line.textDiffed
     val hoverInteraction = remember { MutableInteractionSource() }
@@ -1362,10 +1423,16 @@ fun DiffLineText(
 
         // Fork-only: on one row that scrolls sideways while the lines don't wrap, after the buttons' room
         if (sideways == null) {
-            DiffText(text, matchLine, spans, startPadding = textStart)
+            DiffText(
+                text, matchLine, spans, startPadding = textStart, findMarks = lineMarks,
+                onCurrentMatchShown = onCurrentMatchShown,
+            )
         } else {
             UnwrappedLine(sideways, start = textStart) {
-                DiffText(text, matchLine, spans, startPadding = textStart)
+                DiffText(
+                    text, matchLine, spans, startPadding = textStart, findMarks = lineMarks,
+                    onCurrentMatchShown = onCurrentMatchShown,
+                )
             }
         }
     }
@@ -1375,6 +1442,8 @@ fun DiffLineText(
  * [spans]: [text]'s syntax colours, in its own offsets (fork-only), left out where [matchLine] isn't cut from [text].
  * [insertedColor]: the background of [matchLine]'s inserted text, the diff pane's green unless given (fork-only).
  * [startPadding]: the room before the text, where the diff pane puts a line's buttons (fork-only).
+ * [findMarks]: what find marks in the line (fork-only, upstream issues 275 and 312), and [onCurrentMatchShown], when
+ * the current match waits to be scrolled into sight sideways, says that it was.
  */
 @Composable
 fun DiffText(
@@ -1383,6 +1452,8 @@ fun DiffText(
     spans: List<SyntaxSpan> = emptyList(),
     insertedColor: Color = MaterialTheme.colors.diffContentAdded,
     startPadding: Dp = 16.dp,
+    findMarks: LineFindMarks = LineFindMarks.NONE,
+    onCurrentMatchShown: (() -> Unit)? = null,
 ) {
     val line = matchLine ?: MatchLine(listOf(DiffMatchPatch.Diff(DiffMatchPatch.Operation.EQUAL, text)))
     val fittingSpans = remember(text, matchLine, spans) { if (spansFit(text, matchLine)) spans else emptyList() }
@@ -1403,7 +1474,12 @@ fun DiffText(
         null
     }
 
-    val annotatedString = remember(line, fittingSpans, syntaxColors, hiddenCharactersText, diffContentAdded) {
+    val findColors = MaterialTheme.findColors
+    val selectionColor = selectionBackground
+
+    val annotatedString = remember(
+        line, fittingSpans, syntaxColors, hiddenCharactersText, diffContentAdded, findMarks, findColors, selectionColor,
+    ) {
         formatDiff(
             line = line,
             spans = fittingSpans,
@@ -1412,36 +1488,59 @@ fun DiffText(
             contentRemovedColor = diffContentRemoved,
             hiddenCharactersText = hiddenCharactersText,
             mutedColor = mutedColor,
+            findMarks = findMarks,
+            findColors = findColors,
+            selectionColor = selectionColor,
         )
     }
 
     // Fork-only: marks of the spaces, tabs and line ending, drawn over the text while the View menu asks for them
     val whitespace = rememberWhitespaceOverlay(line.diffs.map { it.text })
+    // Fork-only: the current match's outline, and where it is, to scroll it into sight sideways
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val sideways = LocalSidewaysScroll.current
+
+    if (onCurrentMatchShown != null && findMarks.current != null) {
+        LaunchedEffect(findMarks.current, layout, sideways) {
+            val textLayout = layout ?: return@LaunchedEffect
+
+            if (sideways != null) {
+                horizontalBoundsOf(textLayout, findMarks.current)?.let { sideways.reveal(it) }
+            }
+
+            onCurrentMatchShown()
+        }
+    }
 
     Text(
         text = annotatedString,
         modifier = Modifier
             .padding(start = startPadding)
             .fillMaxWidth()
-            .then(whitespace?.modifier ?: Modifier),
+            .then(whitespace?.modifier ?: Modifier)
+            .currentMatchOutline(findMarks.current, { layout }, findColors.outline),
         // Fork-only: with the code font's ligatures as Settings has them
         style = MaterialTheme.typography.body2.inCodeFont(),
         color = MaterialTheme.colors.onBackground,
         overflow = TextOverflow.Visible,
         softWrap = true,
-        onTextLayout = whitespace?.onTextLayout ?: {},
+        onTextLayout = {
+            whitespace?.onTextLayout?.invoke(it)
+            if (findMarks.current != null) layout = it
+        },
     )
 }
 
 @Composable
-fun LineNumber(text: String, remarked: Boolean) {
+fun LineNumber(text: String, remarked: Boolean, isBold: Boolean = false) {
     Text(
         text = text,
         modifier = Modifier
             .padding(start = 8.dp, end = 4.dp),
         fontFamily = monoTypography(),
         style = MaterialTheme.typography.body2,
-        color = if (remarked) MaterialTheme.colors.onBackground else MaterialTheme.colors.onBackgroundSecondary,
+        color = if (remarked || isBold) MaterialTheme.colors.onBackground else MaterialTheme.colors.onBackgroundSecondary,
+        fontWeight = if (isBold) FontWeight.Bold else null,
     )
 }
 
@@ -1462,7 +1561,7 @@ private fun MatchLine.shownText(): String =
 /**
  * The line as the diff draws it, coloured with [spans] (fork-only), in the offsets of the line's own text. Past
  * [MAX_DIFF_LINE_CHARACTERS] it ends with [hiddenCharactersText] in [mutedColor], and only its first
- * [MAX_HIGHLIGHTED_LINE_CHARACTERS] are coloured.
+ * [MAX_HIGHLIGHTED_LINE_CHARACTERS] are coloured. [findMarks]' backgrounds go over the rest (fork-only).
  */
 fun formatDiff(
     line: MatchLine,
@@ -1472,6 +1571,9 @@ fun formatDiff(
     contentRemovedColor: Color,
     hiddenCharactersText: String? = null,
     mutedColor: Color = Color.Gray,
+    findMarks: LineFindMarks = LineFindMarks.NONE,
+    findColors: FindColors = LIGHT_FIND_COLORS,
+    selectionColor: Color = Color.Unspecified,
 ): AnnotatedString {
     val isAllSameType = line.diffs
         .filter { it.text != "\n" }
@@ -1514,6 +1616,7 @@ fun formatDiff(
     return buildAnnotatedString {
         append(shown)
         addSyntaxStyles(spans, diffs.map { it.text }, highlightedLength, syntaxColors)
+        addFindStyles(findMarks, shown.length, findColors, selectionColor)
 
         if (shown.length < annotatedString.length && hiddenCharactersText != null) {
             withStyle(SpanStyle(color = mutedColor)) {

@@ -64,6 +64,15 @@ import dev.app.leaf.ui.diff.WhitespaceViewOptions
 import dev.app.leaf.ui.diff.canIgnoreWhitespace
 import dev.app.leaf.ui.diff.HunkSplitTextDiff
 import dev.app.leaf.ui.diff.HunkUnifiedTextDiff
+import dev.app.leaf.ui.find.DiffFind
+import dev.app.leaf.ui.find.DiffFindText
+import dev.app.leaf.ui.find.FindBar
+import dev.app.leaf.ui.find.FindState
+import dev.app.leaf.ui.find.FindTarget
+import dev.app.leaf.ui.find.FindableDiff
+import dev.app.leaf.ui.find.HistoryFind
+import dev.app.leaf.ui.find.findableView
+import dev.app.leaf.ui.find.goToLine
 import dev.app.leaf.ui.getStyledErrorText
 import dev.app.leaf.viewmodels.HistoryState
 import dev.app.leaf.viewmodels.HistoryViewModel
@@ -88,6 +97,8 @@ fun FileHistory(
     val versions by historyViewModel.versions.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
+    // Fork-only: find and go to line in the diff (upstream issues 275 and 312)
+    val find = remember { FindState() }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -97,6 +108,7 @@ fun FileHistory(
         modifier = Modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
+            .findableView(find)
             .focusable()
             .onKeyEvent { keyEvent ->
                 if (keyEvent.matchesBinding(KeybindingOption.EXIT) && keyEvent.type == KeyEventType.KeyDown) {
@@ -140,6 +152,7 @@ fun FileHistory(
                 onSwap = { historyViewModel.swapVersions() },
                 onEnd = { historyViewModel.endVersions() },
             ),
+            find = HistoryFind(find, onShowCompleteFile = { historyViewModel.showCompleteFile() }, focusRequester),
         )
     }
 }
@@ -188,6 +201,7 @@ private fun HistoryContent(
     onSelectAdjacentCommit: (offset: Int) -> Unit,
     onRestoreVersion: ((Commit) -> Unit)?,
     versionsActions: FileVersionsActions,
+    find: HistoryFind,
 ) {
     val textScrollState by historyViewModel.lazyListState.collectAsState()
     val viewDiffResult by historyViewModel.viewDiffResult.collectAsState()
@@ -217,6 +231,7 @@ private fun HistoryContent(
                 onShowWhitespaceChanged = { historyViewModel.changeDiffShowWhitespace(it) },
             ),
             highlights = highlights,
+            find = find,
         )
 
         is HistoryState.Loading -> Box { }
@@ -252,6 +267,8 @@ fun HistoryContentLoaded(
     onTryAgain: () -> Unit = { selectedCommit?.let(onCommitSelected) },
     /** The colours of the diff's versions (fork-only), null while neither is coloured. */
     highlights: DiffHighlights? = null,
+    /** Find and go to line in the diff (fork-only, upstream issues 275 and 312). Null leaves them out. */
+    find: HistoryFind? = null,
 ) {
     // Fork-only: the selected commit's row, kept in view when ↑ and ↓ select another
     val commitsListState = rememberLazyListState()
@@ -355,6 +372,28 @@ fun HistoryContentLoaded(
                 )
             }
 
+            // Fork-only: find and go to line in the shown diff (upstream issues 275 and 312)
+            val loadedDiff = (viewDiffResult as? ViewDiffResult.Loaded)?.diffResult as? DiffResult.TextDiff
+            val findText = remember(loadedDiff) { loadedDiff?.takeIf { !it.onlyWhitespaceChanged }?.let(::DiffFindText) }
+            val diffFind = if (find != null && findText != null) {
+                DiffFind(find.state, findText, scrollState, source = versions ?: selectedCommit?.hash)
+            } else {
+                null
+            }
+
+            if (find != null) {
+                FindTarget(find.state, isAvailable = findText != null)
+
+                if (findText != null && find.state.isOpen) {
+                    FindBar(
+                        state = find.state,
+                        lineCount = findText.lineCount,
+                        onGoToLine = { line -> find.state.goToLine(line, findText, find.onShowCompleteFile) },
+                        focusAfterClose = find.focusAfterClose,
+                    )
+                }
+            }
+
             // Fork-only: says that lines are hidden
             if (
                 whitespace?.whitespace?.ignoresWhitespace == true &&
@@ -399,7 +438,7 @@ fun HistoryContentLoaded(
                             onShowChanges = { whitespace?.onWhitespaceChanged?.invoke(DiffWhitespaceMode.SHOW_ALL) },
                         )
 
-                        is DiffResult.Text -> {
+                        is DiffResult.Text -> FindableDiff(diffFind) {
                             HunkUnifiedTextDiff(
                                 diffType = viewDiffResult.diffType,
                                 scrollState = scrollState,
@@ -413,7 +452,7 @@ fun HistoryContentLoaded(
                             )
                         }
 
-                        is DiffResult.TextSplit -> {
+                        is DiffResult.TextSplit -> FindableDiff(diffFind) {
                             HunkSplitTextDiff(
                                 diffType = viewDiffResult.diffType,
                                 scrollState = scrollState,

@@ -264,7 +264,7 @@ internal fun LogSearchField(
                 FieldButton(Icons.Default.KeyboardArrowDown, stringResource(Res.string.log_search_next), onNext)
                 FieldButton(Res.drawable.close, stringResource(Res.string.log_search_close), onClose)
             } else if (!isFocused) {
-                KeybindingOption.LOG_SEARCH.keyBinding?.let { keybinding ->
+                KeybindingOption.FIND.keyBinding?.let { keybinding ->
                     Box(modifier = Modifier.padding(horizontal = 4.dp)) {
                         KeybindingHint(keybinding)
                     }

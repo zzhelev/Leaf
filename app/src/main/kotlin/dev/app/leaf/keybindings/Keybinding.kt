@@ -126,9 +126,27 @@ enum class KeybindingOption {
     QUICK_ACTIONS,
 
     /**
-     * Used to put the focus in the log's search field (fork-only)
+     * Used to find in the diff, file history or blame while one shows, and to put the focus in the log's search field
+     * while the log has it, or nothing else can find (fork-only, upstream issues 275 and 312)
      */
-    LOG_SEARCH,
+    FIND,
+
+    /**
+     * Used to go to the next and the previous match of find (fork-only)
+     */
+    FIND_NEXT,
+    FIND_PREVIOUS,
+
+    /**
+     * Used to go to a line of the diff or blame (fork-only)
+     */
+    GO_TO_LINE,
+
+    /**
+     * Used to select all the lines of the diff or blame, and to copy them (fork-only). Text fields handle their own.
+     */
+    SELECT_ALL,
+    COPY,
 }
 
 
@@ -219,8 +237,24 @@ private fun baseKeybindings() = mapOf(
     KeybindingOption.QUICK_ACTIONS to listOf(
         Keybinding(key = Key.K, control = true),
     ),
-    KeybindingOption.LOG_SEARCH to listOf(
+    KeybindingOption.FIND to listOf(
         Keybinding(key = Key.F, control = true),
+    ),
+    KeybindingOption.FIND_NEXT to listOf(
+        Keybinding(key = Key.F3),
+    ),
+    KeybindingOption.FIND_PREVIOUS to listOf(
+        Keybinding(key = Key.F3, shift = true),
+    ),
+    KeybindingOption.GO_TO_LINE to listOf(
+        Keybinding(key = Key.G, control = true),
+    ),
+    KeybindingOption.SELECT_ALL to listOf(
+        Keybinding(key = Key.A, control = true),
+    ),
+    KeybindingOption.COPY to listOf(
+        Keybinding(key = Key.C, control = true),
+        Keybinding(key = Key.Insert, control = true),
     ),
 )
 
@@ -248,7 +282,8 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         KeybindingOption.TEXT_SMALLER,
         KeybindingOption.TEXT_DEFAULT_SIZE,
         KeybindingOption.QUICK_ACTIONS,
-        KeybindingOption.LOG_SEARCH,
+        KeybindingOption.FIND,
+        KeybindingOption.SELECT_ALL,
     )
 
     for (key in keysToReplaceControlWithCommand) {
@@ -266,7 +301,20 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         ),
         KeybindingOption.CHANGE_CURRENT_TAB_RIGHT to listOf(
             Keybinding(key = Key.Tab, control = true),
-        )
+        ),
+        // Fork-only: ⌘G and ⇧⌘G step through the matches in every Mac app, and F3 does elsewhere. Go to line stays ⌃G, as
+        // in VS Code and Sublime Text: macOS can take ⌘L for itself (it opened the apps launcher on the user's Mac).
+        KeybindingOption.FIND_NEXT to listOf(
+            Keybinding(key = Key.G, meta = true),
+            Keybinding(key = Key.F3),
+        ),
+        KeybindingOption.FIND_PREVIOUS to listOf(
+            Keybinding(key = Key.G, meta = true, shift = true),
+            Keybinding(key = Key.F3, shift = true),
+        ),
+        KeybindingOption.COPY to listOf(
+            Keybinding(key = Key.C, meta = true),
+        ),
     )
 
     for (key in bindingsToReplace) {

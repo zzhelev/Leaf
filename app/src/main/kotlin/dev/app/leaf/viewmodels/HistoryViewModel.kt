@@ -133,6 +133,17 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch { settings.setConfiguration(AppConfig.DiffShowWhitespace(show)) }
     }
 
+    /**
+     * Fork-only: shows the whole file, as the diff pane's "View the complete file" does, for go to line to reach a line
+     * that the hunks leave out (upstream issues 275 and 312).
+     */
+    fun showCompleteFile() {
+        viewModelScope.launch {
+            settings.setConfiguration(AppConfig.DiffDisplayFullFile(true))
+            reloadDiff()
+        }
+    }
+
     private fun updateDiffType(newDiffType: DiffTextViewType) {
         val viewDiffResult = this.viewDiffResult.value
 

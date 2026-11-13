@@ -196,12 +196,12 @@ class LogFilterBarTest {
         val isMac = currentOs == OS.MAC
         val press = KeyEvent(Key.F, KeyEventType.KeyDown, isCtrlPressed = !isMac, isMetaPressed = isMac)
 
-        assertTrue(press.matchesBinding(KeybindingOption.LOG_SEARCH))
+        assertTrue(press.matchesBinding(KeybindingOption.FIND))
         assertEquals(
-            listOf(KeybindingOption.LOG_SEARCH),
+            listOf(KeybindingOption.FIND),
             KeybindingOption.entries.filter { press.matchesBinding(it) },
         )
-        assertEquals(KEY_HINT, getParts(KeybindingOption.LOG_SEARCH.keyBinding!!).joinToString("+"))
+        assertEquals(KEY_HINT, getParts(KeybindingOption.FIND.keyBinding!!).joinToString("+"))
     }
 
     @Test

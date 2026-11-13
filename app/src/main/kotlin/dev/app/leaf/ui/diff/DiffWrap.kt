@@ -29,6 +29,8 @@ import dev.app.leaf.ui.components.SidewaysEndMargin
 import dev.app.leaf.ui.components.SidewaysScroll
 import dev.app.leaf.ui.components.SidewaysScrollbar
 import dev.app.leaf.ui.components.scrollsSideways
+import dev.app.leaf.ui.find.DiffFind
+import dev.app.leaf.ui.find.FindableDiff
 import kotlin.math.max
 
 /** The room that [LineNumber] adds around its digits: 8 dp before and 4 after. */
@@ -47,8 +49,12 @@ fun DiffLines(
     sideways: SidewaysScroll?,
     diffResult: DiffResult.TextDiff,
     textStart: Dp,
-    content: @Composable () -> Unit,
+    /** Find in the lines (upstream issues 275 and 312), null for none. */
+    find: DiffFind? = null,
+    lines: @Composable () -> Unit,
 ) {
+    val content: @Composable () -> Unit = if (find == null) lines else ({ FindableDiff(find, lines) })
+
     if (sideways == null) {
         content()
         return

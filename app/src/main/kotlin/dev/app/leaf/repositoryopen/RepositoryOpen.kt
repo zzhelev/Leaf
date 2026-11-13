@@ -49,6 +49,9 @@ import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.diff.DiffLogToggle
 import dev.app.leaf.ui.diff.DiffPane
 import dev.app.leaf.ui.diff.FollowedDiffPlaceholder
+import dev.app.leaf.ui.find.FindTargets
+import dev.app.leaf.ui.find.LocalFindTargets
+import dev.app.leaf.ui.find.findsInLogWhileFocused
 import dev.app.leaf.ui.context_menu.dropCommitScreen
 import dev.app.leaf.ui.context_menu.rewriteCommitsScreen
 import dev.app.leaf.ui.commiteditor.CommitEditor
@@ -100,6 +103,8 @@ fun RepositoryOpenPage(
     }
 
     val focusRequester = remember { FocusRequester() }
+    // Fork-only: the views that find searches (upstream issues 275 and 312)
+    val findTargets = remember { FindTargets() }
     var showOpenPopup by remember { mutableStateOf(false) }
 
     // Fork-only: whether the tab, or anything in it, has the focus
@@ -180,8 +185,11 @@ fun RepositoryOpenPage(
                         // Fork-only: this handler sees Esc before file history and blame, whose own handlers so never
                         // ran. The tab takes the focus back, as when the diff closes, so that the next key reaches it.
                         // The resolver shows in place of file history, so it goes first, and leaves its Focus first.
+                        // The find strip of the view that has the focus closes before anything else.
                         val blame = blameState
-                        if (showConflictResolver) {
+                        if (findTargets.closeFocusedFind()) {
+                            // Its view keeps the focus
+                        } else if (showConflictResolver) {
                             repositoryOpenViewModel.escapeConflictResolver()
                         } else if (showHistory) {
                             // Two versions of the file go back to one commit first, and file history keeps the focus
@@ -230,11 +238,9 @@ fun RepositoryOpenPage(
                         true
                     }
 
-                    // Fork-only: the log's search field, in the bar above the log's columns
-                    it.matchesBinding(KeybindingOption.LOG_SEARCH) -> {
-                        repositoryOpenViewModel.focusLogSearch()
-                        true
-                    }
+                    // Fork-only: find in the diff, file history or blame (upstream issues 275 and 312), or else the log's
+                    // search field, in the bar above the log's columns
+                    findTargets.onKeyEvent(it, onFindInLog = { repositoryOpenViewModel.focusLogSearch() }) -> true
 
                     else -> false
                 }
@@ -242,7 +248,8 @@ fun RepositoryOpenPage(
             }
     ) {
         CompositionLocalProvider(
-            LocalTabFocusRequester provides focusRequester
+            LocalTabFocusRequester provides focusRequester,
+            LocalFindTargets provides findTargets,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 if (!resolverFocused) {
@@ -794,7 +801,8 @@ fun MainContentView(
                                     )
                                 } else CompositionLocalProvider(LocalLogFocusRequester provides logFocusRequester) {
                                     Log(
-                                        modifier = logModifier,
+                                        // Fork-only: Ctrl+F (⌘F) searches the log while it has the focus
+                                        modifier = logModifier.findsInLogWhileFocused(),
                                         viewModel = viewModel,
                                         selectedItem = selectedItem,
                                         repositoryState = repositoryState,
