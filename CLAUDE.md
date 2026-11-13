@@ -29,7 +29,9 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
     state, the worktrees' base branch, and where new worktrees go, shared by the worktrees). They are the same file in
     a repository's main worktree;
   - the per-worktree file `<git dir>/LEAF_COMMIT_DRAFT`, the commit field's draft, and during a rebase
-    `<git dir>/rebase-merge/leaf-amend-message-<commit>`, its message for an edit stop (see The plain draft).
+    `<git dir>/rebase-merge/leaf-amend-message-<commit>`, its message for an edit stop (see The plain draft);
+  - the per-worktree folder `<git dir>/leaf-discarded/`, what discards threw away, for two weeks (see Undo of a
+    discard).
 
   Dev runs use `LeafDevConfig`, `leaf-dev` and `io.github.zzhelev.leaf-dev` instead (see Build gotchas).
 - **Neither the original project nor its author is named in the repository** (since 2026-11-06). The README's License
@@ -3297,9 +3299,10 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     closing the style editor with changes that aren't saved.
     Discarding a folder has its own `DiscardChangesDialog`. The reset dialog warns when Hard would discard
     uncommitted changes.
-  - Discards show what is lost: a hunk's header, the line. A file or a selection in the Staged list loses its unstaged
-    changes too, as `DiscardEntriesGitAction` resets the index entry and then checks the file out. Putting back
-    removed lines (a line, or a hunk that adds none) or a deleted file loses nothing, so those get no warning.
+  - Discards show what they act on: a hunk's header, the line. A file or a selection in the Staged list loses its
+    unstaged changes too, as `DiscardEntriesGitAction` resets the index entry and then checks the file out, and its
+    dialog says so. Since 2026-11-13 a discard can be undone (see Undo of a discard), so the discard dialogs no longer
+    say that the changes can't be restored.
   - **Delete file on a folder that holds another repository (fork-only, 2026-10-20):** JGit lists such an untracked
     folder as one row (a linked worktree inside the repository, a nested clone). `GetStatusGitAction` sets
     `StatusEntry.nestedRepository` (`nestedRepositoryOf`: a `.git` folder or file in the folder; a `.git` file that
@@ -3348,9 +3351,9 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     staged new file only unstaged it), and the folder discard says "N new files are kept". Deleting is "Delete file".
     A file added with `git add -N` is a new file here too (see Intent-to-add files).
     So the dialog's box "Also delete N new files" is the one new way to lose files. It starts unticked every time
-    (`ConfirmOption`, never remembered), changes the warning ("Neither the changes nor the 9 new files can be
-    restored") and the button ("Discard and delete"), and with only new files and the box unticked the button is
-    disabled.
+    (`ConfirmOption`, never remembered), changes the button ("Discard and delete"), and with only new files and the box
+    unticked the button is disabled. Its warning that nothing could be restored went with Undo (2026-11-13): the new
+    files are moved into the discard's record (see Undo of a discard).
   - **What it acts on:** the files that the list shows (`StatusState.entriesShown`): all of them, or only the search
     matches while the box is open and not blank, and the dialog says so ("…to 3 files matching "parser""). Stage all
     follows the search too since 2026-10-20 (see Stage all and Unstage all follow the search). The selection is
@@ -3384,6 +3387,77 @@ ends as `DataState.Error`, logged (fork-only); it used to stay Loading, without 
     checkout -- .` and `git clean -fd` on a twin), `DiscardingAllTest` (a `TestTab`), `DiscardAllMenuTest` (the
     header, rendered and clicked), the dialog cases in `ConfirmActionDialogTest`, and two in
     `DiscardEntriesGitActionTest`.
+- **Undo of a discard (fork-only, upstream issue 39, 2026-11-13, `domain/discards/`, `data/git/discards/`,
+  `ui/DiscardStrip.kt`, `ui/dialogs/RecentlyDiscardedDialog.kt`):** every discard keeps what it throws away; a strip under
+  the toolbar offers Undo, and "Recently discarded…" lists the last two weeks. Option B of three (an Undo strip alone;
+  this; each discard as a stash entry), chosen with the user from offscreen mockups, together with Leaf's own folder over
+  git objects and merging a file that changed since.
+  - **What is kept** (`DiscardStore`, `PendingDiscard`, `keepingDiscarded`): before a discard runs, copies of its files
+    (`COPY_ATTRIBUTES`: the mode, and a link as a link) and, for a Staged discard, their index entries with the blobs,
+    which git's gc may remove once the index no longer has them. They go into `<git dir>/leaf-discarded/<time>-<random>/files`.
+    A file or folder that the discard deletes (Discard all's new files, Delete file) is moved there, which is the
+    deletion, at no cost on one file system. `finish`, in a `finally` as a discard that fails half way changed files
+    too, writes `record.json` with each path whose file or index entry changed, before and after, keeps a copy of what
+    the discard left (up to `MAX_MERGE_BASE_SIZE`, 8 MB) as a merge base, and sets the tab's `DiscardNotices`. A discard
+    that changed nothing keeps no record. A copy that fails stops the discard before it runs
+    (`DiscardRecordError.NotKept`).
+  - **Where it hooks in:** `DiscardEntriesGitAction` (a file, a selection, a folder; an unstaged discard doesn't copy
+    untracked files, which it leaves alone; "Undo the move" of a staged move keeps both its paths, and the new file that
+    it deletes is the copy's), `DiscardAllGitAction` (one record for the restored files and the deleted
+    new files: a `keepingDiscarded` inside another joins its record, through the coroutine context's `OuterDiscard`),
+    `ApplyHunkGitAction` for `HunkAction.Discard` (`DiscardKind.HUNK` or
+    `LINE`), and `DeleteFileGitAction`. A folder that can't be moved, as into a git dir on another file system, is
+    deleted as before and can't be undone.
+  - **Why a folder of Leaf's:** unreferenced objects go at git's next gc after `gc.pruneExpire`, or at once with
+    `git gc --prune=now`, JGit doesn't freshen an object that exists, and a big file would be compressed into the object
+    database. A ref shows in `git log --all`, and the stash list is shared by every worktree, where an agent's
+    `git stash pop` could apply a discard. The folder is invisible to git, and the file watcher ignores it and doesn't
+    watch it (found in a dev run: as git doesn't ignore what's in the git dir, the folder got a recursive watch of its own).
+  - **How long:** `DISCARD_KEPT_DAYS` (14), pruned when a discard is kept and when the list is read; past
+    `MAX_DISCARDED_BYTES` (1 GiB) the oldest go, never the newest. A folder without `record.json`, a discard that never
+    finished, goes after a day. Record times only go up (`lastTime`), so the folders sort as they were made. A linked
+    worktree's records go with its git dir.
+  - **Undo** (`DiscardRestorer`, `PlanDiscardRestoreGitAction`, `RestoreDiscardGitAction`), path by path
+    (`RestoreWay`): a file and its index entry that are as the discard left them go back as they were (`AS_IT_WAS`: the
+    copy is moved back, and the index entry gets no stat data, so git and JGit compare the content). Its blob is written
+    again with `git hash-object -w`: JGit caches the loose objects it has seen, so after git's gc removed the blob, JGit
+    still said it was there and its inserter wrote nothing (found by a test). Without git, JGit's inserter writes it. A
+    file that changed
+    since gets the discarded lines back by `git merge-file` of the file, the discard's result and the discarded version
+    (`MERGED`), when the merge is clean, and the executable bit that the discard changed (found by the harness: a
+    discarded `chmod +x` was lost when the file had been edited since). One that is as it was before the discard is `ALREADY_BACK`. Anything else
+    (overlapping edits, a binary file, a file made where a deleted one was, an index entry changed since, a folder of the
+    path that is a link out of the working tree) is `CHANGED_SINCE` and stays. The index is locked while it's compared and
+    written. The paths that come back leave the record, which goes once none is left; the others wait for a later Undo.
+    With nothing that can come back: `DiscardRecordError.ChangedSince`, and nothing changes.
+  - **The strip** (`DiscardStrip`, `successStrip`, after the rewrite strip): "Discarded the changes to Parser.kt." (or
+    N files, a hunk, a line, Delete file's "Deleted build.log.", Discard all's "…and deleted 3 new files."), Undo right
+    after the text, and ×. It stays until it's closed, the next discard, or a worktree switch. After Undo: "Parser.kt is
+    back.", "The 3 files are back.", "2 of the 3 files are back.". Undo (`undoDiscard`) plans first, and asks
+    (`ConfirmableAction.RestoreDiscardPartly`: "Restore 3 of the 4 files?", naming those that stay) only when some files
+    changed since and others can come back. Otherwise the task runs (`TaskType.RestoreDiscard`, `RestoreDiscardUseCase`),
+    whose `ErrorDialog` names the files that changed. The discards' toasts ("File discarded" and the like) went, as the
+    strip says it.
+  - **Recently discarded** (`Screen.RecentlyDiscarded`, `RecentlyDiscardedViewModel`), in Unstaged's ⋯ menu and the
+    Actions list: the worktree's records, newest first, each with its file's name or count, its kind and folder, its age
+    and Restore, which goes through `undoDiscard`.
+  - **Not covered:** a hard reset, Abort, Skip, dropping a stash, Use ours and Use theirs, and file history's Restore,
+    which keep their warnings. A file added with `git add -N` that Delete file or Discard all deleted comes back as an
+    untracked file: its intent-to-add entry, which they drop, isn't kept, and JGit can't write one.
+  - Tests: `UndoDiscardTest` (data: each discard path and its Undo against a snapshot of the working tree, the index and
+    `git status`, CRLF with `core.autocrlf`, a binary file, the executable bit, a link, a deleted file, a staged change, a
+    staged new file and deletion, an undone move, a submodule's commit, Discard all's new files and folders, a hunk and a line, two hunks
+    with the first merged back, an agent's edit kept, overlapping and binary edits refused, partial Undo, already back,
+    Delete file of a file and a nested repository, a linked worktree, a copy that fails, retention, a blob that git's gc
+    removed, with and without git, a link or a file in place of a folder, a stale status, an unstaged discard with a
+    moved submodule, an unreadable untracked file, an index entry staged since, the stat data put back),
+    `UndoingDiscardsTest` (a `TestTab`), `DiscardNoticesTest`, the watcher in `WatchedRepositoryTest` and `RefreshingOnChangesTest`,
+    `DiscardStripTest`, `RecentlyDiscardedDialogTest`, the dialog in `ConfirmActionDialogTest`, the menu in
+    `DiscardAllMenuTest`. 31 mutations: 30 were each caught by a named test, six of them after a test was added. The
+    31st kept the old stat data in a restored index entry, and survived: git compares the inode, and JGit's racily
+    clean check caught it in the test. The reset stays, as `git update-index --cacheinfo` writes none either. The real
+    tab ran through the Dagger graph in a temporary harness against the demo's repository: a strip and its Undo,
+    Discard all asking about the one file that changed, a nested repository back from "Recently discarded".
 
 **Menus taller than the window (fork-only, 2026-11-03, `ui/components/menu/MenuFit.kt`):** a right-click menu
 (`showPopup`, behind `ContextMenu` and `DropDownMenu`) and a header menu (`SortMenuPopup`: the ⋯, sort, columns, View and
@@ -5317,8 +5391,9 @@ change about 200 ms after it. Linux uses inotify, Windows ReadDirectoryChangesW.
   - WORKTREES for anything else in another worktree's git dir under `<common>/worktrees/`, and in a linked worktree for
     the main worktree's other files in the common git dir (`index`, …);
   - nothing for Leaf's `leaf` file (and `leaf.lock`) and JGit's `.probe-` files in either git dir, for any worktree's
-    `LEAF_COMMIT_DRAFT` and `rebase-merge/leaf-amend-message-<commit>`, which a tab saves a second after each edit, or
-    for `COMMIT_EDITMSG`, `MERGE_MSG` and `SQUASH_MSG` in the tab's git dir.
+    `LEAF_COMMIT_DRAFT` and `rebase-merge/leaf-amend-message-<commit>`, which a tab saves a second after each edit, for
+    anything in any worktree's `leaf-discarded` folder (see Undo of a discard), or for `COMMIT_EDITMSG`, `MERGE_MSG` and
+    `SQUASH_MSG` in the tab's git dir.
 
   Paths are compared as given and as real paths (macOS reports `/private/var/...`), and a folder only contains what
   is under it with a separator. The old `startsWith(gitDir)` also matched `.gitignore` and `.github/`, which

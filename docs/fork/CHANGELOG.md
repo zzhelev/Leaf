@@ -2,6 +2,28 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A discard can be undone (2026-11-13)
+
+- **Request:** upstream issue 39, "Option to undo the reset of a file". Every discard asked first, but nothing could
+  bring back what it threw away, and hunks and lines could stop asking.
+- **Now:** every discard keeps what it throws away: a file, a selection or a folder in Unstaged or Staged, Discard all
+  with its new files, a hunk, a line, and Delete file, a nested repository's folder included. A strip under the toolbar
+  says what was discarded, with Undo, until it's closed or the next discard. "Recently discarded…", in Unstaged's ⋯
+  menu and the Actions list, lists the last two weeks of the worktree, each with Restore.
+- **Undo doesn't write over what changed since:** a file that is as the discard left it goes back as it was, its index
+  entry too. A file that an agent edited since gets the discarded lines back when the edits don't overlap (a 3-way merge,
+  as `git merge-file`), and the executable bit that the discard changed. Anything else stays as it is: Undo asks whether
+  to restore the rest, or says which files changed when none can come back, and keeps them for later.
+- **Kept in a folder of Leaf's,** `<git dir>/leaf-discarded/`, for two weeks, the oldest going past 1 GiB: not in git's
+  objects, which its gc removes, nor in a ref or the stash list, which `git log --all` and an agent's `git stash pop`
+  see. A deleted file or folder is moved there, at no cost.
+- **Chosen with the user** from offscreen mockups in Tonal and Classic, light and dark: the strip with the list (B),
+  against the strip alone (A) and stash entries (C); Leaf's folder over git objects; merging a file that changed since,
+  over refusing it.
+- **Also:** the discard dialogs no longer say that the changes can't be restored, and the discards' toasts went, as the
+  strip says it.
+- Details: CLAUDE.md, "DI, coroutines, state", Undo of a discard.
+
 ## Settings' subtitles in the secondary text colour (2026-11-12)
 
 - **Request:** item 13 of the upstream review (`docs/fork/upstream-sync-2026-11.md`): Settings' subtitles were drawn
