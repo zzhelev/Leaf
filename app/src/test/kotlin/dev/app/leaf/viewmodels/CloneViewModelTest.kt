@@ -23,10 +23,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
@@ -46,18 +48,28 @@ import java.util.concurrent.atomic.AtomicInteger
 class CloneViewModelTest {
     private val refs = RemoteRefs("main", listOf("feature/x", "main"), listOf("v1"))
 
-    /** Records each request and answers when the test says so; notes the ones that were cancelled. */
+    /**
+     * Records each request and answers when the test says so; notes the ones that were cancelled. A click shows that
+     * it is asking at once, and asks in the background, so tests wait for a request with [awaitRequests].
+     */
     private class FakeList : IListRemoteRefsGitAction {
-        val urls: MutableList<String> = Collections.synchronizedList(mutableListOf())
+        /** The URLs asked, in order. A request is recorded once it has taken its answer. */
+        val urls = MutableStateFlow(emptyList<String>())
         val cancelled = AtomicInteger()
-        var answers = ArrayDeque<CompletableDeferred<Either<RemoteRefs, GitError>>>()
+        private val answers = ArrayDeque<CompletableDeferred<Either<RemoteRefs, GitError>>>()
 
         fun answerNext(): CompletableDeferred<Either<RemoteRefs, GitError>> =
-            CompletableDeferred<Either<RemoteRefs, GitError>>().also { answers.addLast(it) }
+            CompletableDeferred<Either<RemoteRefs, GitError>>().also { synchronized(answers) { answers.addLast(it) } }
+
+        /** The URLs asked, once there are [count]. */
+        suspend fun awaitRequests(count: Int): List<String> = withTimeout(5_000) { urls.first { it.size >= count } }
 
         override suspend fun invoke(url: String): Either<RemoteRefs, GitError> {
-            urls += url
-            val answer = answers.removeFirst()
+            // Taken and recorded together: a test that sees the request and clicks again can't have the next click
+            // take this request's answer
+            val answer = synchronized(answers) {
+                answers.removeFirst().also { urls.update { it + url } }
+            }
 
             try {
                 return answer.await()
@@ -108,7 +120,7 @@ class CloneViewModelTest {
         viewModel.onBranchChanged(TextFieldValue("feature"))
         delay(100)
 
-        assertEquals(emptyList<String>(), list.urls)
+        assertEquals(emptyList<String>(), list.urls.value)
         assertEquals(BranchChoicesState.Closed, viewModel.branchChoices.value)
     }
 
@@ -119,7 +131,7 @@ class CloneViewModelTest {
         viewModel.chooseBranch("https://github.com/zzhelev/Leaf.git")
 
         assertEquals(BranchChoicesState.Loading("github.com"), awaitState { it is BranchChoicesState.Loading })
-        assertEquals(listOf("https://github.com/zzhelev/Leaf.git"), list.urls.toList())
+        assertEquals(listOf("https://github.com/zzhelev/Leaf.git"), list.awaitRequests(1))
 
         answer.complete(Either.Ok(refs))
 
@@ -127,7 +139,7 @@ class CloneViewModelTest {
         // Typing now filters what was loaded, and asks nothing
         viewModel.onBranchChanged(TextFieldValue("feat"))
         delay(100)
-        assertEquals(1, list.urls.size)
+        assertEquals(1, list.urls.value.size)
     }
 
     @Test
@@ -137,7 +149,7 @@ class CloneViewModelTest {
         viewModel.chooseBranch("  https://example.com/r.git ")
         awaitState { it is BranchChoicesState.Loaded }
 
-        assertEquals(listOf("https://example.com/r.git"), list.urls.toList())
+        assertEquals(listOf("https://example.com/r.git"), list.urls.value)
     }
 
     @Test
@@ -155,7 +167,7 @@ class CloneViewModelTest {
         delay(100)
 
         assertEquals(CloneUiError.EmptyUrl, viewModel.error.value)
-        assertEquals(emptyList<String>(), list.urls)
+        assertEquals(emptyList<String>(), list.urls.value)
         assertEquals(BranchChoicesState.Closed, viewModel.branchChoices.value)
     }
 
@@ -171,7 +183,7 @@ class CloneViewModelTest {
         // Try again is another click
         viewModel.chooseBranch("https://example.com/r.git")
         assertEquals(BranchChoicesState.Loaded(refs), awaitState { it is BranchChoicesState.Loaded })
-        assertEquals(2, list.urls.size)
+        assertEquals(2, list.urls.value.size)
     }
 
     @Test
@@ -181,7 +193,7 @@ class CloneViewModelTest {
 
         viewModel.chooseBranch("https://example.com/a.git")
         awaitState { it is BranchChoicesState.Loading }
-        withTimeout(5_000) { while (list.urls.isEmpty()) delay(10) }
+        list.awaitRequests(1)
         viewModel.chooseBranch("https://example.com/b.git")
 
         assertEquals(BranchChoicesState.Loaded(refs), awaitState { it is BranchChoicesState.Loaded })
@@ -194,7 +206,7 @@ class CloneViewModelTest {
         list.answerNext()
 
         viewModel.chooseBranch("https://example.com/r.git")
-        withTimeout(5_000) { while (list.urls.isEmpty()) delay(10) }
+        list.awaitRequests(1)
         viewModel.closeBranchChoices()
 
         withTimeout(5_000) { while (list.cancelled.get() == 0) delay(10) }
