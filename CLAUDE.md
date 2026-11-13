@@ -604,6 +604,103 @@ speaker couldn't place "in amount"), so the row says "Ignore different amounts o
   test. The real `DiffPane` ran against a demo repository through the Dagger graph in a temporary harness, in both
   themes at 760 and 534 dp: every state above, the split view, and wide lines wrapped and not.
 
+**Find, go to line and Select all in the diff and blame (fork-only, upstream issues 275 and 312, 2026-11-11,
+`ui/find/`, `domain/find/`):** a strip under the diff's header, file history's commit strip and blame's header finds in
+the lines and goes to a line, and Select all and Copy take every line, not only those on screen. Option A of two, chosen
+with the user from a mockup (a strip, against a floating box at the top right, which covered the first lines' ends),
+with
+the recommended answers to the rest: a line that the hunks leave out shows the whole file, Copy gives the lines as
+shown,
+and Ctrl+F (⌘F) keeps the log search while the log has the focus.
+- **The strip** (`FindBar`, 36 dp) shows find or go to line, as the key that opened it last asked (`FindState.mode`, a
+  `FindField`), with × at the end. Find: the find field (at most 280 dp, at least 120) with "3 of 9" ("0 of 0" and a red
+  edge for none, "10,000+" past `MAX_FIND_MATCHES`; at most 84 dp, so what is typed keeps room), ↑ ↓, Aa (match case).
+  Go to line: "Go to line", then the line field (140 dp) with "of 1,501". Both fit the narrowest pane, the diff under
+  the log beside both side panes (about 325 dp in a 1,400 px window). Each field keeps what was typed in it when the
+  other shows; going to a line puts find's matches and marks away, and back on find they are found again from the list's
+  top row. Until 2026-11-13 both showed side by side, and the user found ⌃G and ⌘F opened "the same thing": only a focus
+  ring at the far right told them apart (option A of three, chosen with the user; the others kept both with a label, or
+  put go to line in a box over the lines). Enter and Shift+Enter in the find field step, Enter in the line field goes.
+  `FindState` holds it, one per view (`remember` in `DiffPaneContent`, `FileHistory` and `Blame`), above what the view
+  loads, so it stays open, with its text, from file to file. The strip and the list handle each focus and scroll request
+  once (`takeFocusRequest`, `takeReveal`): a strip that comes back after a binary file leaves the focus where it is, and
+  lines drawn anew (unified to split) don't scroll back.
+- **Keys** (`KeybindingOption.FIND`, which was `LOG_SEARCH`, `FIND_NEXT`, `FIND_PREVIOUS`, `GO_TO_LINE`, `SELECT_ALL`,
+  `COPY`): Ctrl+F (⌘F); F3 and Shift+F3, and on macOS ⌘G and ⇧⌘G, as every Mac app has them (so go to line can't be ⌘G);
+  go to line Ctrl+G everywhere, ⌃G on macOS too, as in VS Code and Sublime Text. ⌘L (Xcode, IntelliJ) was the first
+  macOS key, until it opened the apps launcher on the user's Mac: macOS takes it before Leaf sees it (2026-11-13). They
+  are in the tab's handler, which sees every key first, through `FindTargets` (`LocalFindTargets`, one per tab): the
+  views that find can search register while composed (`FindTarget`), the last one wins (they take each other's place),
+  and `findsInLogWhileFocused` on the log tells it where the focus is. Ctrl+F goes to the log's search field while the
+  log has the focus or no view can find, and opens the view's strip otherwise, a file list having the focus included. F3
+  (⌘G) opens find when the strip is closed, shows go to line or has nothing typed (the user kept that, 2026-11-13, over
+  doing nothing as Mac apps do). Esc closes the strip of the view that has the focus (`findableView`, on the view's
+  root), before the tab's other Esc handling; elsewhere Esc is what it was. A strip that closes with the focus gives it
+  to its view.
+- **What it finds** (`findMatches`, `domain/find/TextFind.kt`): the text as drawn, in every row of the model, not only
+  the composed ones: `unifiedFindRows` and `splitFindRows` (`FindRows.kt`) lay the rows out as the list does (a header
+  row per hunk, then a row per line or pair of sides), with the word diff's pieces, tabs as four spaces, cut at
+  `MAX_DIFF_LINE_CHARACTERS`; `blameFindRows`, one per line. Case is ignored until Aa; a match starts after the one
+  before ends; a split diff finds both sides, row by row, the old side first, so an unchanged line counts twice. It runs
+  off the UI thread (`RunFind`). A new query starts at the first match at or below the list's top row
+  (`firstMatchFrom`), or keeps the match it had while typing on (`matchKeptFrom`); a changed text (a refresh) keeps its
+  place without scrolling.
+- **Scrolling** (`revealRow`): a match or line out of sight comes with a third of the list above it, counted in rows.
+  With "Wrap long lines" off, the current match is scrolled into sight sideways once per step (`SidewaysScroll.reveal`,
+  from `DiffText`'s layout, `sidewaysRevealPending`), so scrolling back by hand stays, and go to line scrolls back to
+  the lines' start. Blame's lines are cut at the pane's edge, as before, so a match past it can't be seen.
+- **Marks** (`FindMarks.kt`): `LocalDiffFindMarks` gives `DiffLineText` its line's marks by the `Line` it draws
+  (identity, and the side for a split diff's unchanged lines, which both sides draw), so upstream's composables in
+  between don't change; blame takes `RowFindMarks` by row. `formatDiff` and blame add the backgrounds after the syntax
+  colours (`addFindStyles`), and the current match gets an outline from the text's layout (`currentMatchOutline`). Fixed
+  colours, as the compare badges' (`LIGHT_FIND_COLORS`, `DARK_FIND_COLORS`): pale amber matches, a stronger amber
+  current one with a darker (light) or brighter (dark) outline. In every built-in style and code colours choice, text
+  and code hold 4.5 : 1 on a match and 3 : 1 on the current one (3.45 at worst, Solarized dark with VS Code's colours),
+  and the outline 3 : 1 on the current fill and the lines (`FindColorsTest`). The first dark fills held 3.6 : 1.
+- **Go to line** (`targetOfLine`, `FindState.goToLine`): the new version's numbers (`lineSideOf`: the old ones in a
+  deleted file), from 1 to the version's length, which the hunks carry whole (`Hunk.newText`, so "of 1,501" in the hunks
+  view too); a number past either end is the first or the last line. The row gets a 3 dp bar and bold numbers
+  (`goToLineMark`; in a split diff the new side's line, and an unchanged line on both sides). A line that the hunks
+  leave out turns "View the complete file" on (`changeDisplayFullFile`, the saved setting; file history's
+  `HistoryViewModel.showCompleteFile` also loads its diff again) and goes there once the whole file shows
+  (`pendingLine`, `goToPendingLine`). Neither pane shows a loading state for a diff loaded again, so the strip and its
+  focus stay.
+- **Select all and Copy** (`selectAllKeys`, through `findableView` on the view's root, and `selectableLines` on the
+  lines' container, which notes their text and the side pressed): the lines' own Compose selection only knew the items
+  on screen, and Ctrl+A (⌘A) did nothing at all (probed: a drag over 13 lines of 400, then ⌘A and ⌘C, copied the 13).
+  Ctrl+A now selects every line, drawn with the text selection's background, and Ctrl+C copies them from the model
+  (`FindableText.copyText`): each line's own text, tabs and all, without its line ending, joined with line feeds, no +/-
+  or numbers, hunk headers left out; a split diff's side that the last press was on (the new one at first); blame's code
+  without the authors. A press or another key ends it. The root sees the keys wherever the view's focus is: in the
+  lines, on its own frame, which the strip gives the focus to when it closes, and which blame and file history take when
+  they open. The strip's fields keep them for their own text (`FindState.isBarFocused`). They were on the lines'
+  container until 2026-11-13, and did nothing after Esc closed the strip (found when the user tried it on macOS).
+- **Where:** the diff pane (`DiffLines` takes a `DiffFind`, `FindableDiff`, so `DiffPane.kt` only passes it), a
+  comparison's full view (the same pane), file history (`HistoryContentLoaded`'s `find`, a `HistoryFind`), blame. Not
+  the conflict resolver, which has its own view.
+- Tests: `TextFindTest` and `FindRowsTest` (domain: matching, case, overlaps, the limit, 500 random texts against a
+  plain search, where find starts and keeps its place, steps, the rows and numbers of both views and blame, the drawn
+  text, go to line, the line field's number), `FindKeybindingTest` (each key per system, none shared),
+  `DiffFindTextTest` (the rows and their lines, the line count of added, deleted and longer files, a split diff's marks,
+  Copy), `FindInDiffTest` (rendered in a tab's key handler: the keys, the counter, the marks' pixels in both themes and
+  gone after Esc, scrolling, steps that wrap, the log keeping Ctrl+F, Esc only with the focus, go to line unified and
+  split, a line the hunks leave out, past the end, Select all and Copy in both views, after Esc, with the focus on the
+  view's frame and not in the find field, a match sideways and go to line back to the start, the strip in a narrow pane,
+  find and go to line taking turns, typing on from a match, lines drawn anew not scrolling back, a strip back after a
+  binary file not taking the focus), `FindInBlameAndHistoryTest` (blame and file history, Select all with the focus that
+  blame opens with, the arrows in the field not stepping file history's commits), `FindColorsTest`, `FindRenderTest`
+  (PNGs in Tonal and Classic, both themes, at 534 and 900 px with `LEAF_RENDER_DIR`). Not covered by a kept test:
+  `RepositoryOpenPage`'s wiring (the provider, the keys, the log's focus) and the real `DiffPane`, which ran through the
+  Dagger graph in a temporary harness against the demo: ⌘F with the focus in the diff, the counter against git's own
+  hunks, ⌘G, go to a line the hunks leave out turning the complete file on, Esc, and ⌘F in the log going to its search.
+  That run found the field squeezed in a narrow pane, when both shared the strip, and the sideways scroll that go to
+  line kept. A second run (2026-11-13) clicked the log's uncommitted changes and a file in Unstaged, then tried every
+  key with the focus in the file list, the find field, the line field, the lines and the view after Esc: all worked but
+  Select all after Esc, which led to the root's keys. 41 mutations: 40 were caught by a named test; the last took out a
+  focus request after the whole file loads, which changed nothing, and that code went. Of three more for the root's
+  keys, two were caught; the third took out a reset of `isBarFocused` when the strip closes, which the row's own focus
+  event already does, and that code went. Three for the strip's two modes were each caught.
+
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
 `git diff --ours` shows.
@@ -3524,8 +3621,9 @@ of the Design canvas "Leaf long context menus", chosen with the user: a log chip
 **Keys:** the tab's shortcuts are an `onPreviewKeyEvent` on `RepositoryOpenPage`'s column, which sees every key
 before the views inside it and consumes the ones it matches. So a view's own Esc handler there never runs (upstream's
 `FileHistory` and `Blame` have one), and a view that should close on Esc goes in the tab's EXIT branch.
-- Fork-only: that branch leaves file history's two versions (`escapeHistory`) or closes file history, then an expanded
-  blame, then the last closeable view (`CloseableView`:
+- Fork-only: that branch first closes the find strip of the view that has the focus (`FindTargets.closeFocusedFind`,
+  see Find, go to line and Select all), then leaves file history's two versions (`escapeHistory`) or closes file
+  history, then an expanded blame, then the last closeable view (`CloseableView`:
   the diff, the searches, the commit field's co-author suggestions, the commit message in the centre pane, a
   comparison, its full view, a commit's changes in it and its list of refs, in the order they opened).
 - Keys reach the tab's handler only while something in it has the focus. File history and an expanded blame take it
@@ -5114,10 +5212,10 @@ menu).
   end the search, and the field empties and gives the focus to the log's list (`LogView` provides its requester as
   `LocalLogFocusRequester` to `CommitsList`), so the arrows go on. Leaving an empty field ends it too; `closeSearch`
   also takes `LOG_SEARCH` out, for a field that took the focus without searching, where Esc would first close nothing.
-- **Ctrl+F (⌘F, `KeybindingOption.LOG_SEARCH`)** is in the tab's keys: `RepositoryOpenViewModel.focusLogSearch` emits
-  `logSearchFocusRequests`, which the field collects, and a search that the field has is selected, to type another. The
-  diff's and blame's find (upstream issues 275 and 312, another session's work) will want the key while the focus is in
-  them.
+- **Ctrl+F (⌘F, `KeybindingOption.FIND`)** is in the tab's keys: `RepositoryOpenViewModel.focusLogSearch` emits
+  `logSearchFocusRequests`, which the field collects, and a search that the field has is selected, to type another. It
+  is the log's while the log has the focus, or nothing else can find; otherwise it opens the find strip of the diff, file
+  history or blame (see Find, go to line and Select all in the diff and blame).
 - Tests: `LogFilterBarTest` (the bar's order and widths at 900 and 360 px, typing, the counter and its buttons, the
   keys, an ended search, Ctrl+F, leaving the field, the shortcut's binding; PNGs with `LEAF_RENDER_DIR`). 9 mutations
   were each caught by a named test.

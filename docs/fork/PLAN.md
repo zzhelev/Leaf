@@ -193,7 +193,7 @@ squash-merge one, rebase one, discard one. Afterwards no stale entries remain in
 
 ## Phase 5 — Upstream issues
 
-Status on 2026-11-13.
+Status on 2026-11-14.
 
 1. Triage, done on 2026-10-16: upstream's 89 open issues, read against Leaf's `main` (still reproducible, effort S, M
    or L for Leaf's code, notes from the code and from probes with JGit 7.7 and git 2.54). 60 still applied (18 S,
@@ -216,6 +216,7 @@ Status on 2026-11-13.
     * 2026-11-02 and 2026-11-03: #277 (the log search covers the whole history), #336's bug (Leaf no longer widens a
       sparse checkout), #260 (Amend lists the last commit's files), #345 (Unstaged's untracked files in a group),
       #207 (the log's branch filter), #242 (tab names and colours).
+    * 2026-11-11 to 2026-11-14: #275 and #312 (find, go to line and Select all in the diff, file history and blame).
     * 2026-11-13: #39 (a discard can be undone).
 3. Partly done:
     * #347: Staged still lists a moved file as a deletion and an addition. L: a rename status type, and every stage,
@@ -229,9 +230,8 @@ Status on 2026-11-13.
     * M: #24 (colour branches by remote), #71 (blame and history from a file picker), #98 (push
       to a new remote branch name), #105 (a repository settings screen), #164 (stage a range of lines by dragging),
       #202 (push after each commit, as a setting), #226 (credentials per repository), #230 (open in an editor), #261
-      (find the repositories in the default folder), #272 (blame marks one commit's lines), #275 with #312 (search,
-      select all and go to line in the diff and blame), #282 (an external diff tool, `git difftool`), #292 (an avatar
-      URL template).
+      (find the repositories in the default folder), #272 (blame marks one commit's lines), #282 (an external diff tool,
+      `git difftool`), #292 (an avatar URL template).
     * L: #30 (error messages, an umbrella), #31 (keys that can be remapped), #40 (move the panes), #199 (revert part
       of a commit), #225 with #356 (translations), #252 (Windows on arm), #329 (SHA-256 repositories, which JGit can't
       read).

@@ -115,6 +115,44 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   credentials alike. The settings file keeps the same key, so nobody's choice changes.
 - Details: CLAUDE.md, "Caching credentials" under "Remote operations".
 
+## Find, go to line and Select all in the diff and blame (upstream issues 275 and 312, 2026-11-11)
+
+- **Request:** upstream issues 275, "Add ability to search (Ctrl+F) and go to line (Ctrl+G) in editor", and 312, "Add
+  ability to select all/copy/search/goto in editors". The diff and blame had neither find nor go to line, and nothing
+  bound Ctrl+F there (since 2026-11-06 it put the focus in the log's search field).
+- **Found:** Select all did nothing at all: in a 400-line diff, a drag over 13 lines, then ⌘A and ⌘C, copied the same 13
+  lines. The lines' Compose selection only knows the rows on screen, so it couldn't have selected the rest anyway.
+- **Chosen with the user** (from a mockup of two layouts in Tonal and Classic, light and dark): a strip under the header,
+  with find, its counter, ↑ ↓, Aa, then a line field and ×. The other layout, a floating box at the top right, covered
+  the first lines' ends. The recommended answers to the rest: a line that the hunks leave out shows the whole file, Copy
+  gives the lines as shown, and Ctrl+F (⌘F) stays the log search's while the log has the focus.
+- **Now:**
+  - Ctrl+F (⌘F) opens the strip in the diff pane, a comparison's full view, file history and blame, wherever the focus
+    is but the log. Typing finds in every line of the diff or file, not only those on screen, and scrolls to the first
+    match below the top of the list. Enter and Shift+Enter, F3 and Shift+F3, and on macOS ⌘G and ⇧⌘G step through the
+    matches, and wrap. Matches are pale amber, the current one stronger, with an outline. Aa matches case. A split diff
+    finds on both sides. With "Wrap long lines" off, a match off to the side is scrolled into sight.
+  - Go to line is Ctrl+G (⌃G on macOS too). The strip then shows "Go to line" and the line field in place of find, and
+    Ctrl+F (⌘F) brings find back; each field keeps what was typed. It takes the new version's numbers ("of 1,501"),
+    marks the row, and a line that the hunks leave out turns "View the complete file" on and goes there.
+  - Ctrl+A (⌘A) selects every line, wherever the focus is in the diff or blame but the strip's fields, and Ctrl+C (⌘C)
+    copies them: each line's own text, without +/-, numbers or hunk headers; in a split diff, the side that was clicked
+    last; in blame, the code without the authors.
+  - Esc closes the strip of the view that has the focus.
+- **Not done:** blame's long lines are still cut at the pane's edge, so a match past it can't be seen; regular
+  expressions and whole words; find in the conflict resolver.
+- Tests: the matching, the rows and go to line (domain), the keys per system, the colours against every built-in style,
+  and the strip, the marks, scrolling, go to line, Select all and Copy rendered in the diff (unified and split), file
+  history and blame. 44 mutations, 42 caught by a named test; the other two took out code that changed nothing, which
+  went. The real tab ran through the Dagger graph against a demo repository, which found the narrow strip. When the user
+  tried it on macOS (2026-11-13), Select all did nothing after Esc closed the strip, as the keys were on the lines and
+  the focus went to the pane: they are on the view's root now, and a second run tried every key from each place the
+  focus can be. ⌘L, the first macOS key for go to line, opened the apps launcher: macOS takes it before Leaf. And with
+  both fields side by side in one strip, ⌃G looked like ⌘F (a focus ring at the far right told them apart), so the strip
+  shows one or the other (option A of three, chosen with the user). ⌘G and ⇧⌘G still open find when there's nothing to
+  step through, which the user kept.
+- Details: CLAUDE.md, "Find, go to line and Select all in the diff and blame", "Keys" and "The filter bar".
+
 ## CI passes again: the monospaced check on Linux, and a race after Stop waiting (2026-11-10)
 
 - **Request:** check CI after the push of the upstream fixes, then fix what failed.
