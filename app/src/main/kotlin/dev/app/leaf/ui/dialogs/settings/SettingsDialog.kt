@@ -1045,7 +1045,8 @@ internal fun FieldTitles(
 
         Text(
             text = subtitle,
-            color = MaterialTheme.colors.onBackground.copy(alpha = if (enabled) 1F else 0.6F),
+            // Fork-only: the secondary text colour, so that the title stands out. 4.5 : 1 in every built-in style
+            color = MaterialTheme.colors.onBackgroundSecondary.copy(alpha = if (enabled) 1F else 0.6F),
             modifier = Modifier.padding(top = 4.dp),
             style = MaterialTheme.typography.body2,
         )
