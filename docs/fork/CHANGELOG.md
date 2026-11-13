@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## A moved file is one row in Staged (2026-11-12)
+
+- **Request:** upstream issue 347, item 16 of the November upstream review: show a moved file as one rename row in
+  Staged, and maybe in Unstaged, as the commit lists already do.
+- **Found:** probes against git 2.54 (`docs/fork/status-renames.md`): git pairs only staged files, never a deleted
+  tracked file with an untracked one. JGit's status has no renames; its rename detector, on HEAD against the index, finds
+  git's pairs in every case. Blame of a moved file gave every line as not committed. In passing: JGit lists an
+  intent-to-add file as staged, and its commit stores it empty (fixed first, on its own: see "Files added with
+  `git add -N`" below).
+- **Now:** a staged move is one row in Staged, with `← old path` after its name and its diff from the old file to the
+  new one. Unstage takes both paths out of the index, hunk and line actions keep the move, "Undo the move…" brings the
+  old file back and deletes the new one, blame keeps the commits of the lines that the move kept, and File history shows
+  the old path's. Unstaged is as before, as in `git status`. A move whose old path `git add -N` added again is still one
+  row, as git shows it. Detection runs only for the shown status, and its result is kept until what is staged changes.
+- Details: CLAUDE.md, "Renames in Staged" under "Git operations"; the design, probes and decisions in
+  `docs/fork/status-renames.md`.
+
 ## Leaf opens as it was when it closed (2026-11-12)
 
 - **Request:** item 10 of the upstream review of November 2026 (`docs/fork/upstream-sync-2026-11.md`): keep the

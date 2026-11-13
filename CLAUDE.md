@@ -476,7 +476,7 @@ upstream actions (`StageHunkGitAction`, `DiscardUnstagedHunkLineGitAction`, …)
   or changing the lines.
 - A patch with the whole of an added file creates it (with its mode), and reversed removes it from the index, which
   leaves it untracked. The same goes for a deleted file. Part of one changes the file instead. The diff pane offers
-  hunk and line actions for modified files only.
+  hunk and line actions for modified files and staged renames only (see Renames in Staged).
 - File names are quoted as git quotes them (`patchName`): a tab would end an unquoted name.
 - Without a usable git, the actions fail with `GitCliError` and change nothing. There is no JGit fallback: the old
   JGit code decoded and re-encoded the text as UTF-8, and discarded lines by number without checking them.
@@ -1389,9 +1389,8 @@ user on 2026-10-21, from mockups (Claude Design, "Leaf compare commits and branc
 finds renames only when `diff.renames` is set, as JGit reads the unset key as off, where git's default is on.
 `GetCommitDiffEntriesGitAction` and `GetComparisonGitAction` call `Repository.diffWithRenames` instead, so a
 commit's list and a worktree review's show a moved file as one `RENAME` entry (`DiffEntry.filePath` is the new path,
-`oldPath` the old one, `score` how much is alike). The Staged and Unstaged lists show none: they come from JGit's status
-and the index, where git's `R  old -> new` needs a rename status type and every stage, unstage, discard and diff action
-keyed by path to handle it.
+`oldPath` the old one, `score` how much is alike). Staged shows renames since 2026-11-12, Unstaged none (see Renames
+in Staged, next).
 - **Detection:** a plain scan with `DiffFormatter` (renames off), then JGit's `RenameDetector` on its added and deleted
   files, at git's score of 50 (JGit's own is 60), in stages, each on what the one before left:
   1. exact renames, the same blob: found by id, no blob read (1,500 moved files, a few ms);
@@ -1445,6 +1444,52 @@ keyed by path to handle it.
   cancelled, a blobless partial clone and a commit made in one), `GetComparisonGitActionTest` (the review, and the
   diff of a moved file), `RenamedFromTest`, `CommitChangesRenamesTest`, `ChangedFilesListRenamesTest`,
   `RenamedDiffTest`, `HistoryViewModelTest`.
+
+**Renames in Staged (fork-only, upstream issue 347, 2026-11-12, `docs/fork/status-renames.md`):** a file that the index
+moved is one row in Staged, as `git status` shows `R  old -> new`; Unstaged pairs nothing, as git doesn't (a file moved
+with plain `mv` stays a deleted file and an untracked one until both are staged). Decided with the user from the doc's
+probes and a mockup (Design artifact "Leaf renames in Staged"): Staged only, "Undo the move…" in place of Discard, blame
+and file history from the old path. Intent-to-add files were fixed first, on their own (see Intent-to-add files).
+- **The model:** `StatusType.RENAMED` and `StatusEntry.renamedFrom` (a `RenamedFrom`, the commit lists'), with
+  `filePath` the new path. `StatusEntry.paths` is both paths, which every action that goes by path takes. `toFileItems`
+  sets `FileItem.renamedFrom`, so the row, its tooltip, sorting, the views and the search are a commit's row's.
+- **Detection** (`GetStagedRenamesGitAction`, `data/git/workspace/`, tab-scoped): only for the status that the lists
+  show, as a step after it in `RefreshDataUseCase` (`refreshStatus`); a failure leaves the list unpaired. The file
+  watcher's, the log's, Stage all's and Discard all's own status reads don't run it. The candidates are Staged's added and
+  deleted paths, and their ids come from a `DiffFormatter` scan of HEAD against the index for those paths only, read
+  without its intent-to-add entries (`leaveIntentToAddOut`), as git compares them: a move whose old path `git add -N`
+  added again (Staged's deletion, see Intent-to-add files) is still a rename, `R  a -> b` and ` A a` in `git status`.
+  The rename's diff reads the index the same way. Then `withRenames` with `statusRenameSettings()`:
+  `status.renames` and `status.renameLimit`, each falling back to its `diff.` key, as git reads them (`RenameSettings`;
+  `withRenames` takes them as a parameter, `diffRenameSettings()` by default). Conflicted paths are in Unstaged, so never
+  candidates.
+  - **Kept per tab** while the candidates (path, blob id and mode of each, and the settings) don't change: saving files
+  in the working tree changes none, so the refreshes while an agent writes read nothing. A result that ran out of the
+  2 s budget is kept too, so rows don't change between two refreshes of the same index. Measured on a busy machine
+  (load 168 on 14 cores): 3 ms for 252 exact moves, 762 ms for 252 moves with an edited `package` line, once per index
+  change (`docs/fork/status-renames.md`, section 3, which says to measure again on a quiet machine).
+- **The diff** (`stagedRenameEntry`, `data/git/diff/StagedRenameEntry.kt`): a RENAME entry from the old path in HEAD to
+  the new one in the index, read by blob id as a commit's file; the header shows `← old path · 92% similar`.
+- **Unstage** (the row's button, double-click, Enter, a selection, Unstage all, the search's matches) resets both paths,
+  as `git restore --staged old new`: Unstaged then shows the old file deleted and the new one untracked. A folder's
+  Unstage in the tree goes by the paths of its rows, each rename with both, when a staged rename has a path under the
+  folder (`StatusViewModelExtender.unstageByDirectory`): the folder as a pathspec would split a rename whose other path
+  is outside it.
+- **Hunk and line actions** work on a staged rename (`hasHunkActions`, `ui/diff/DiffLineActions.kt`): `hunkPatch` names
+  the new path on both sides, and `git apply --cached -R` keeps the move.
+- **"Undo the move…"** (the menu's Discard; `DiscardEntriesGitAction` with staged entries): resets both paths, checks
+  the old one out, and deletes the new file (`deleteNewFile`, shared with Discard all), as `git restore --source=HEAD
+  --staged --worktree -- old new`. Its dialog names both paths and says the changes since the last commit are lost; a
+  selection's Discard says how many moves it undoes (`DiscardFiles.movesUndone`).
+- **Blame** (`blameMovedFile`, `data/git/log/MovedFileBlame.kt`): JGit's blame of the new path gave every line as not
+  committed, as HEAD has no such path. `BlameFileUseCase` finds the old path in the shown status, and the blame starts
+  from it at HEAD with the new file on disk (read as `git add` would, through a check-in tree walk) as the uncommitted
+  version, so the lines that the move kept show their commits. **File history** from the row opens the old path's
+  history, with "before the move" in the menu.
+- Tests: `StagedRenamesTest` (data: every case of the doc's probes against `git status --porcelain=v2`, the settings, the
+  kept result, and unstage, Unstage all, Undo the move, the diff, a hunk and blame against git in twin repositories),
+  `StagedRenamesInTabTest`, `StagedRenameEntriesTest` (domain), `StagedRenameRowTest` (app: the row rendered at 330 px,
+  the menu, the line actions; PNGs with `LEAF_RENDER_DIR`) and the dialog in `ConfirmActionDialogTest`.
 
 **Merging a worktree into the base (fork-only, Phase 3.4, `MergeWorktreeDialog`, `WorktreeMergeSteps.kt`):**
 "Squash-merge into main…" and "Merge into main…" follow "Review changes" in a worktree row's menu, for a worktree on a
