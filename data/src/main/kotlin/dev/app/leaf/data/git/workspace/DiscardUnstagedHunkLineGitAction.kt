@@ -1,5 +1,6 @@
 package dev.app.leaf.data.git.workspace
 
+import dev.app.leaf.domain.discards.DiscardKind
 import dev.app.leaf.domain.errors.HunkAction
 import dev.app.leaf.domain.interfaces.IDiscardUnstagedHunkLineGitAction
 import dev.app.leaf.domain.models.Hunk
@@ -11,5 +12,5 @@ class DiscardUnstagedHunkLineGitAction @Inject constructor(
     private val applyHunkGitAction: ApplyHunkGitAction,
 ) : IDiscardUnstagedHunkLineGitAction {
     override suspend operator fun invoke(repositoryPath: String, diffEntry: DiffEntry, hunk: Hunk, line: Line) =
-        applyHunkGitAction(repositoryPath, diffEntry, hunk, HunkAction.Discard) { isSameLine(it, line) }
+        applyHunkGitAction(repositoryPath, diffEntry, hunk, HunkAction.Discard, DiscardKind.LINE) { isSameLine(it, line) }
 }

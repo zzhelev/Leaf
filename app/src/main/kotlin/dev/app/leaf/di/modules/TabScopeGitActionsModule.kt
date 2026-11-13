@@ -1,5 +1,11 @@
 package dev.app.leaf.di.modules
 
+import dev.app.leaf.data.git.discards.GetDiscardRecordsGitAction
+import dev.app.leaf.data.git.discards.PlanDiscardRestoreGitAction
+import dev.app.leaf.data.git.discards.RestoreDiscardGitAction
+import dev.app.leaf.domain.interfaces.IGetDiscardRecordsGitAction
+import dev.app.leaf.domain.interfaces.IPlanDiscardRestoreGitAction
+import dev.app.leaf.domain.interfaces.IRestoreDiscardGitAction
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
@@ -259,6 +265,19 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsRestoreFileVersionGitAction(action: RestoreFileVersionGitAction): IRestoreFileVersionGitAction
+
+    // Fork-only: Undo of a discard (upstream issue 39)
+    @Binds
+    @TabScope
+    fun bindsGetDiscardRecordsGitAction(action: GetDiscardRecordsGitAction): IGetDiscardRecordsGitAction
+
+    @Binds
+    @TabScope
+    fun bindsPlanDiscardRestoreGitAction(action: PlanDiscardRestoreGitAction): IPlanDiscardRestoreGitAction
+
+    @Binds
+    @TabScope
+    fun bindsRestoreDiscardGitAction(action: RestoreDiscardGitAction): IRestoreDiscardGitAction
 
     @Binds
     @TabScope

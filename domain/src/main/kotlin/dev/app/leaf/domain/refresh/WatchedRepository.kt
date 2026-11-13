@@ -86,6 +86,9 @@ class WatchedRepository(gitDir: File, commonDir: File) {
             // Any worktree's message for a rebase's edit stop, saved like the draft
             isInRebaseDir && name.startsWith(AppStorage.REBASE_EDIT_MESSAGE_FILE_PREFIX) -> WatchedChange.NONE
 
+            // What discards threw away, which Leaf keeps for Undo in any worktree's git dir
+            isInDiscardedFolder(File(path)) -> WatchedChange.NONE
+
             isInGitDir && name in EDITED_MESSAGE_FILES -> WatchedChange.NONE
             isLinkedWorktree && path.isIn(gitDirs) -> WatchedChange.REPOSITORY
             // Another worktree's HEAD. Its git dir being created or removed counts too: on Linux the files of a new
@@ -121,6 +124,23 @@ class WatchedRepository(gitDir: File, commonDir: File) {
             WatchedChange.OTHER_WORKTREES in changes -> listOf(DataToRefresh.WORKTREES)
             else -> emptyList()
         }
+    }
+
+    /** Whether [file] is the folder of kept discards in a worktree's git dir, or in it, which nothing needs to watch. */
+    fun isInDiscardedFolder(file: File): Boolean {
+        var folder: File? = file
+
+        while (folder != null) {
+            if (folder.name == AppStorage.DISCARDED_FOLDER_NAME) {
+                val gitDir = folder.parent
+
+                return gitDir in gitDirs || gitDir in commonDirs || folder.parentFile?.parent in worktreesDirs
+            }
+
+            folder = folder.parentFile
+        }
+
+        return false
     }
 
     /** Whether [path] is the folder of the linked worktrees' git dirs, which the watcher adds once it exists. */

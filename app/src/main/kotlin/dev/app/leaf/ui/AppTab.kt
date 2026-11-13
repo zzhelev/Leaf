@@ -1,5 +1,6 @@
 package dev.app.leaf.ui
 
+import dev.app.leaf.ui.dialogs.RecentlyDiscardedDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -678,6 +679,18 @@ fun AppTab(
                                 onCheckForUpdates = { backStack.add(Screen.CheckForUpdates) },
                                 onCleanUpWorktrees = { backStack.add(Screen.WorktreesCleanUp) },
                                 onCompare = { repositoryTabViewModel.compareFromCurrentBranch() },
+                                onRecentlyDiscarded = { backStack.add(Screen.RecentlyDiscarded) },
+                            )
+                        }
+                        entry<Screen.RecentlyDiscarded>(
+                            metadata = dialogsMetadata
+                        ) { entry ->
+                            RecentlyDiscardedDialog(
+                                viewModel = tabViewModel(entry) { it.recentlyDiscardedViewModel() },
+                                onConfirmAction = { action, onConfirm ->
+                                    backStack.add(Screen.ConfirmAction(action, onConfirm))
+                                },
+                                onDismiss = { backStack.removeLastOrNull() },
                             )
                         }
                         entry<Screen.AppInfo>(

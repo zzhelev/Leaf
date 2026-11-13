@@ -5,6 +5,9 @@ package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.data.git.JGit
 import dev.app.leaf.data.git.cli.GitCli
+import dev.app.leaf.data.git.discards.DiscardStore
+import dev.app.leaf.data.git.discards.keepingDiscarded
+import dev.app.leaf.domain.discards.DiscardKind
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GitCliError
 import dev.app.leaf.domain.errors.GitError
@@ -18,6 +21,7 @@ import dev.app.leaf.domain.extensions.filePath
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
 import org.eclipse.jgit.diff.DiffEntry
+import java.io.File
 import javax.inject.Inject
 
 /** What `git apply` prints (with `LC_ALL=C`) when the index or the file doesn't have what the patch expects. */
@@ -34,17 +38,20 @@ private val STALE_TARGET_MESSAGES = listOf(
  * `git checkout -p` do: `git apply` applies their patch ([hunkPatch]) to the index, reversed to the index, or reversed
  * to the working tree. git writes nothing when the index or the file no longer has the lines that the diff showed
  * ([StaleHunkError]). A hunk of a diff that ignored whitespace is refused before git runs
- * ([WhitespaceIgnoredHunkError]): the lines that it shows as context differ between the two versions.
+ * ([WhitespaceIgnoredHunkError]): the lines that it shows as context differ between the two versions. A discard keeps
+ * the file as it was, for Undo ([DiscardStore]), as a [discardKind].
  */
 class ApplyHunkGitAction @Inject constructor(
     private val jgit: JGit,
     private val gitCli: GitCli,
+    private val discardStore: DiscardStore,
 ) {
     suspend operator fun invoke(
         repositoryPath: String,
         diffEntry: DiffEntry,
         hunk: Hunk,
         action: HunkAction,
+        discardKind: DiscardKind = DiscardKind.HUNK,
         selected: (Line) -> Boolean,
     ): Either<Unit, GitError> = either {
         if (hunk.ignoresWhitespace) {
@@ -54,8 +61,25 @@ class ApplyHunkGitAction @Inject constructor(
         val patch = hunkPatch(diffEntry, hunk, reverse = action != HunkAction.Stage, selected)
             ?: return@either Either.Ok(Unit)
 
+        if (action == HunkAction.Discard) {
+            return@either jgit.provide(repositoryPath) { git ->
+                keepingDiscarded(discardStore, repositoryPath, git.repository, discardKind, listOf(diffEntry.filePath)) {
+                    applyPatch(git.repository.workTree, diffEntry, patch, action).bind()
+                }
+            }
+        }
+
         val workTree = jgit.provide(repositoryPath) { git -> git.repository.workTree }.bind()
 
+        applyPatch(workTree, diffEntry, patch, action)
+    }
+
+    private suspend fun applyPatch(
+        workTree: File,
+        diffEntry: DiffEntry,
+        patch: ByteArray,
+        action: HunkAction,
+    ): Either<Unit, GitError> = either {
         val args = listOf(
             // Context has to match exactly, whatever apply.ignoreWhitespace says
             "-c", "apply.ignoreWhitespace=no",

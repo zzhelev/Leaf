@@ -51,6 +51,12 @@ data class AppStorage(
         /** The folder of the user's styles, in the app's folder: one `<id>.json` file per style. */
         const val STYLES_FOLDER_NAME = "styles"
 
+        /**
+         * What discards threw away, in each worktree's git dir, so that they can be undone: a folder per discard, with
+         * its `record.json` and copies of the files.
+         */
+        const val DISCARDED_FOLDER_NAME = "leaf-discarded"
+
         val current: AppStorage by lazy {
             val loadedFrom = AppStorage::class.java.protectionDomain?.codeSource?.location
                 ?.let { runCatching { File(it.toURI()) }.getOrNull() }

@@ -252,7 +252,9 @@ class ObserveRepositoryToRefreshUseCase @Inject constructor(
                     if (
                         status != null &&
                         !status.ignored.contains(dir.path.removePrefix(worktreeDirPath)) &&
-                        !watchedRepository.isLinkedWorktreeFolder(File(dir.path))
+                        !watchedRepository.isLinkedWorktreeFolder(File(dir.path)) &&
+                        // Fork-only: the kept discards' folder, which git doesn't ignore, as it's in the git dir
+                        !watchedRepository.isInDiscardedFolder(File(dir.path))
                     ) {
                         // The folders created inside it too, which no event reports once it has files
                         workingTreeWatches.watchNew(File(dir.path), status.ignored)

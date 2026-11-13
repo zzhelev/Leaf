@@ -3,6 +3,23 @@
 
 package dev.app.leaf.data.tab
 
+import dev.app.leaf.data.git.discards.DiscardRestorer
+import dev.app.leaf.data.git.discards.DiscardStore
+import dev.app.leaf.data.git.discards.GetDiscardRecordsGitAction
+import dev.app.leaf.data.git.discards.PlanDiscardRestoreGitAction
+import dev.app.leaf.data.git.discards.RestoreDiscardGitAction
+import dev.app.leaf.data.git.workspace.ApplyHunkGitAction
+import dev.app.leaf.data.git.workspace.DeleteFileGitAction
+import dev.app.leaf.data.git.workspace.DiscardUnstagedHunkLineGitAction
+import dev.app.leaf.data.git.workspace.ResetHunkGitAction
+import dev.app.leaf.domain.discards.DiscardNotices
+import dev.app.leaf.domain.usecases.DeleteFileUseCase
+import dev.app.leaf.domain.usecases.DiscardEntriesUseCase
+import dev.app.leaf.domain.usecases.DiscardHunkLineUseCase
+import dev.app.leaf.domain.usecases.GetDiscardRecordsUseCase
+import dev.app.leaf.domain.usecases.PlanDiscardRestoreUseCase
+import dev.app.leaf.domain.usecases.ResetHunkUseCase
+import dev.app.leaf.domain.usecases.RestoreDiscardUseCase
 import dev.app.leaf.data.git.cli.remote.testGitCliRemoteCommand
 import dev.app.leaf.data.git.cli.remote.testRemoteOperationsBackend
 import dev.app.leaf.data.git.cli.remote.CheckRemoteBranchesGitAction
@@ -502,9 +519,26 @@ class TestTab(
         runWorktreeStepsUseCase = runWorktreeSteps,
     )
 
+    /** Fork-only: the tab's latest discard, which the discards set as they keep what they threw away (issue 39). */
+    val discardNotices = DiscardNotices()
+    private val discardStore = DiscardStore(discardNotices)
+    private val discardRestorer = DiscardRestorer(gitCli)
+    private val applyHunk = ApplyHunkGitAction(jgit, gitCli, discardStore)
+
     val discardAll = DiscardAllUseCase(
         useCaseExecutor,
-        DiscardAllGitAction(GetStatusGitAction(jgit), DiscardEntriesGitAction(jgit), jgit),
+        DiscardAllGitAction(GetStatusGitAction(jgit), DiscardEntriesGitAction(jgit, discardStore), jgit, discardStore),
+    )
+    val discardEntries = DiscardEntriesUseCase(useCaseExecutor, DiscardEntriesGitAction(jgit, discardStore))
+    val deleteFile = DeleteFileUseCase(useCaseExecutor, DeleteFileGitAction(jgit, discardStore))
+    val resetHunk = ResetHunkUseCase(ResetHunkGitAction(applyHunk), useCaseExecutor)
+    val discardHunkLine = DiscardHunkLineUseCase(DiscardUnstagedHunkLineGitAction(applyHunk), useCaseExecutor)
+    val getDiscardRecords = GetDiscardRecordsUseCase(useCaseExecutor, GetDiscardRecordsGitAction(jgit, discardStore))
+    val planDiscardRestore = PlanDiscardRestoreUseCase(useCaseExecutor, PlanDiscardRestoreGitAction(jgit, discardRestorer))
+    val restoreDiscard = RestoreDiscardUseCase(
+        useCaseExecutor,
+        RestoreDiscardGitAction(jgit, discardRestorer),
+        discardNotices,
     )
 
     /** "Restore this version of the file" in file history, with git running through the built askpass helper. */

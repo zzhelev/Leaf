@@ -211,6 +211,32 @@ class RefreshingOnChangesTest {
     }
 
     @Test
+    fun `the folder of kept discards isn't watched when a discard creates it`(): Unit = runBlocking {
+        val tab = openTab(realFileWatcher = false)
+        val watcher = tab.awaitWatch(1)
+        val gitDir = File(awaitWatching(watcher, File(main, ".git")))
+        val workingTree = File(awaitWatching(watcher, File(main, "src"))).parentFile
+
+        val discarded = File(gitDir, "leaf-discarded")
+        val record = File(discarded, "1794577049922-78d5/files").apply { mkdirs() }
+        val created = File(workingTree, "created").apply { mkdir() }
+        watcher.events.send(
+            WatcherEvent.ChangesDetected(
+                listOf(
+                    FileChanged(discarded.path, FileType.DIRECTORY),
+                    FileChanged(record.parentFile.path, FileType.DIRECTORY),
+                    FileChanged(record.path, FileType.DIRECTORY),
+                    FileChanged(created.path, FileType.DIRECTORY),
+                )
+            )
+        )
+
+        // The batch's folders are watched together, so once this one is, the others would have been
+        awaitWatching(watcher, created)
+        assertFalse(watcher.watchedPaths.any { File(it).canonicalPath.startsWith(discarded.canonicalPath) })
+    }
+
+    @Test
     fun `lost changes while an operation runs watch the folders created meanwhile, and refresh nothing`(): Unit =
         runBlocking {
             // git removes the folder of the linked worktrees' git dirs with the last one

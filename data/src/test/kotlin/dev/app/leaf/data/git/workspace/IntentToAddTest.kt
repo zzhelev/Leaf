@@ -6,10 +6,10 @@ package dev.app.leaf.data.git.workspace
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.RawFileManager
 import dev.app.leaf.data.git.author.GitIdentities
-import dev.app.leaf.data.git.config.GitIncludedConfig
 import dev.app.leaf.data.git.branches.GetBranchesGitAction
 import dev.app.leaf.data.git.branches.GetCurrentBranchGitAction
 import dev.app.leaf.data.git.cli.remote.testPartialCloneFetch
+import dev.app.leaf.data.git.config.GitIncludedConfig
 import dev.app.leaf.data.git.diff.CanGenerateTextDiffGitAction
 import dev.app.leaf.data.git.diff.FormatDiffGitAction
 import dev.app.leaf.data.git.diff.FormatHunksGitAction
@@ -17,6 +17,7 @@ import dev.app.leaf.data.git.diff.GetDiffContentGitAction
 import dev.app.leaf.data.git.diff.GetDiffEntryFromDiffTypeGitAction
 import dev.app.leaf.data.git.diff.GetDiffEntryFromStatusEntryGitAction
 import dev.app.leaf.data.git.diff.TextDiffFromDiffLinesGitAction
+import dev.app.leaf.data.git.discards.DiscardStore
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.signers.GitSigningConfigs
 import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
@@ -32,6 +33,7 @@ import dev.app.leaf.data.mappers.RepositoryStateMapper
 import dev.app.leaf.data.shell.LoginShellEnvironment
 import dev.app.leaf.domain.AppFilesManager
 import dev.app.leaf.domain.TempFilesManager
+import dev.app.leaf.domain.discards.DiscardNotices
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffType
@@ -330,7 +332,7 @@ class IntentToAddTest {
             setUpIntentToAdd(leafRepository, name, "dir/")
             setUpIntentToAdd(gitRepository, name, "dir/")
 
-            assertEquals(Either.Ok(Unit), DeleteFileGitAction(jgit)(gitDir(leafRepository), "dir/$name.txt"))
+            assertEquals(Either.Ok(Unit), DeleteFileGitAction(jgit, DiscardStore(DiscardNotices()))(gitDir(leafRepository), "dir/$name.txt"))
             git(gitRepository, "rm", "-q", "-f", "dir/$name.txt")
 
             assertSameIndex(leafRepository, gitRepository, name)
@@ -342,7 +344,7 @@ class IntentToAddTest {
     fun `deleting a tracked file still leaves its entry, so it shows as deleted`(): Unit = runBlocking {
         val repository = repositoryWithEveryKind("delete-tracked", indexVersion = null)
 
-        assertEquals(Either.Ok(Unit), DeleteFileGitAction(jgit)(gitDir(repository), "modified.txt"))
+        assertEquals(Either.Ok(Unit), DeleteFileGitAction(jgit, DiscardStore(DiscardNotices()))(gitDir(repository), "modified.txt"))
 
         assertEquals(" D", gitStatus(repository)["modified.txt"])
         assertEquals(" A", gitStatus(repository)["new.txt"], "the intent-to-add files stay")
@@ -355,7 +357,7 @@ class IntentToAddTest {
             val entries = leafStatus(repository).unstaged.filter { it.filePath in listOf("new.txt", "modified.txt") }
 
             // As a stale selection would pass it: the menus leave it out
-            assertEquals(Either.Ok(Unit), DiscardEntriesGitAction(jgit)(gitDir(repository), entries, staged = false))
+            assertEquals(Either.Ok(Unit), DiscardEntriesGitAction(jgit, DiscardStore(DiscardNotices()))(gitDir(repository), entries, staged = false))
 
             assertEquals("new\n", File(repository, "new.txt").readText())
             assertEquals(" A", gitStatus(repository)["new.txt"])
@@ -370,7 +372,7 @@ class IntentToAddTest {
         val entry = leafStatus(leafRepository).unstaged.single { it.filePath == "new-deleted.txt" }
 
         assertEquals(StatusType.REMOVED, entry.statusType)
-        assertEquals(Either.Ok(Unit), DiscardEntriesGitAction(jgit)(gitDir(leafRepository), listOf(entry), staged = false))
+        assertEquals(Either.Ok(Unit), DiscardEntriesGitAction(jgit, DiscardStore(DiscardNotices()))(gitDir(leafRepository), listOf(entry), staged = false))
         git(gitRepository, "restore", "new-deleted.txt")
 
         assertSameIndex(leafRepository, gitRepository, "deleted")
@@ -385,7 +387,7 @@ class IntentToAddTest {
             val plan = unstaged.allDiscard()
             val before = gitStatus(repository)
 
-            val result = DiscardAllGitAction(getStatus, DiscardEntriesGitAction(jgit), jgit)(
+            val result = DiscardAllGitAction(getStatus, DiscardEntriesGitAction(jgit, DiscardStore(DiscardNotices())), jgit, DiscardStore(DiscardNotices()))(
                 gitDir(repository),
                 plan.restored,
                 if (deleteNewFiles) plan.newFiles else emptyList(),

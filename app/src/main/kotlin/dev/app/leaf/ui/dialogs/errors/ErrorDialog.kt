@@ -241,6 +241,7 @@ fun TaskType.errorTitle(): String {
         TaskType.DiscardAllFiles -> "Discarding all changes failed"
         TaskType.DeleteFile -> "Delete file failed"
         TaskType.RestoreFileVersion -> "Restore file failed"
+        TaskType.RestoreDiscard -> "Undo of the discard failed"
         TaskType.AddIgnoreRules -> "Adding ignore rules failed"
         TaskType.BlameFile -> "File blaming failed"
         TaskType.HistoryFile -> "Could not load file history"

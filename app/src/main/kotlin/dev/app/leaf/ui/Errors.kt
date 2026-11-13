@@ -10,6 +10,9 @@ import dev.app.leaf.domain.worktrees.shellLines
 import dev.app.leaf.ui.status.consequence
 import dev.app.leaf.ui.status.summary
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.error_discard_changed_since
+import dev.app.leaf.app.generated.resources.error_discard_not_found
+import dev.app.leaf.app.generated.resources.error_discard_not_kept
 import dev.app.leaf.app.generated.resources.error_rewrite_branch_moved
 import dev.app.leaf.app.generated.resources.error_rewrite_not_on_line
 import dev.app.leaf.app.generated.resources.error_rewrite_joins_merge
@@ -193,6 +196,8 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is CheckoutBranchError.BranchUsedByWorktree -> listOf(worktreePath)
     is DeleteBranchError.BranchUsedByWorktree -> listOf(worktreePath)
     is DeleteFileError.LinkedWorktree -> listOf(path)
+    is DiscardRecordError.NotKept -> listOf(path)
+    is DiscardRecordError.ChangedSince -> paths
     is RestoreFileError.NotInCommit -> listOf(path, commit.take(7))
     is RestoreFileError.Conflicted -> listOf(path)
     is RestoreFileError.FolderInPlace -> listOf(path)
@@ -260,6 +265,13 @@ fun AppError.getErrorText(): String {
 
         is DeleteFileError -> when (this) {
             is DeleteFileError.LinkedWorktree -> stringResource(Res.string.error_delete_file_linked_worktree, path)
+        }
+
+        is DiscardRecordError -> when (this) {
+            is DiscardRecordError.NotKept -> stringResource(Res.string.error_discard_not_kept, path, reason)
+            DiscardRecordError.NotFound -> stringResource(Res.string.error_discard_not_found)
+            is DiscardRecordError.ChangedSince ->
+                stringResource(Res.string.error_discard_changed_since, paths.joinToString(", "))
         }
 
         is RestoreFileError -> when (this) {

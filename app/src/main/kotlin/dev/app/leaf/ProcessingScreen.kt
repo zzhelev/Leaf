@@ -158,6 +158,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.DeleteBranch -> "Deleting branch"
         TaskType.DeleteFile -> "Deleting file"
         TaskType.RestoreFileVersion -> "Restoring file"
+        TaskType.RestoreDiscard -> "Undoing the discard"
         TaskType.DeleteRemote -> "Deleting remote"
         TaskType.DeleteRemoteBranch -> "Deleting remote branch"
         TaskType.DeleteStash -> "Deleting stash"

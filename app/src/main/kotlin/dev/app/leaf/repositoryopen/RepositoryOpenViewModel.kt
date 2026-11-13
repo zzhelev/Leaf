@@ -1,5 +1,11 @@
 package dev.app.leaf.repositoryopen
 
+import dev.app.leaf.domain.discards.DiscardNotice
+import dev.app.leaf.domain.discards.DiscardNotices
+import dev.app.leaf.domain.discards.DiscardRecord
+import dev.app.leaf.domain.discards.DiscardRestorePlan
+import dev.app.leaf.domain.usecases.PlanDiscardRestoreUseCase
+import dev.app.leaf.domain.usecases.RestoreDiscardUseCase
 import androidx.compose.foundation.ScrollState
 import dev.app.leaf.TabViewModel
 import dev.app.leaf.app.generated.resources.Res
@@ -241,6 +247,10 @@ class RepositoryOpenViewModel @Inject constructor(
     // Fork-only: the strip that says git outside Leaf lacks git-lfs
     private val setUpGitLfsUseCase: SetUpGitLfsUseCase,
     private val dismissGitLfsNoticeUseCase: DismissGitLfsNoticeUseCase,
+    // Fork-only: Undo of a discard (upstream issue 39)
+    private val discardNotices: DiscardNotices,
+    private val planDiscardRestoreUseCase: PlanDiscardRestoreUseCase,
+    private val restoreDiscardUseCase: RestoreDiscardUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -631,6 +641,22 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun dismissRewriteNotice() {
         rewriteNotice.value = null
+    }
+
+    /** Fork-only: the tab's latest discard, which the strip under the toolbar shows with Undo, until it's closed. */
+    val discardNotice: StateFlow<DiscardNotice?> = discardNotices.latest
+
+    /** How Undo would bring back each file of [record], or null when it can't tell, as when the record is gone. */
+    suspend fun planDiscardRestore(record: DiscardRecord): DiscardRestorePlan? =
+        planDiscardRestoreUseCase(record).okOrNull()
+
+    /** Undo of [record]: a task, whose error dialog says which files changed since when none can come back. */
+    fun restoreDiscard(record: DiscardRecord) {
+        restoreDiscardUseCase(record)
+    }
+
+    fun dismissDiscardNotice() {
+        discardNotices.dismiss()
     }
 
     /** Selects [hash] in the log once the refresh after a rewrite has it, as the commit to look at. */
@@ -1248,6 +1274,8 @@ class RepositoryOpenViewModel @Inject constructor(
             comparisonViewModelExtender.end()
             // Its picks aren't saved: they were made in the other worktree's file
             conflictResolverViewModel?.closeNow()
+            // Its Undo would be in the other worktree; "Recently discarded" there still has it
+            discardNotices.dismiss()
         }
     }
 

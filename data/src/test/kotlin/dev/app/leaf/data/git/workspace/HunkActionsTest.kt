@@ -3,6 +3,8 @@
 
 package dev.app.leaf.data.git.workspace
 
+import dev.app.leaf.data.git.discards.DiscardStore
+import dev.app.leaf.domain.discards.DiscardNotices
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.RawFileManager
 import dev.app.leaf.data.git.TestGitCli
@@ -71,7 +73,7 @@ class HunkActionsTest {
     // Keeps the git that Leaf runs away from the developer's config, such as core.autocrlf
     private val gitCli by lazy { testGitCli(shellVariables = isolatedGit) }
     private val jgit = testJGit()
-    private val applyHunk by lazy { ApplyHunkGitAction(jgit, gitCli) }
+    private val applyHunk by lazy { ApplyHunkGitAction(jgit, gitCli, DiscardStore(DiscardNotices())) }
 
     private val formatDiff by lazy {
         val getCurrentBranch = GetCurrentBranchGitAction(GetBranchesGitAction(JGitBranchMapper(), jgit), jgit)
@@ -421,7 +423,11 @@ class HunkActionsTest {
         write("list.txt", "one\nTWO\n")
 
         val diff = diff("list.txt", EntryType.UNSTAGED)
-        val withoutGit = ApplyHunkGitAction(jgit, testGitCli(isolatedGit, configuredPath = "${tempDir}/missing/git"))
+        val withoutGit = ApplyHunkGitAction(
+            jgit,
+            testGitCli(isolatedGit, configuredPath = "${tempDir}/missing/git"),
+            DiscardStore(DiscardNotices()),
+        )
 
         val result = StageHunkGitAction(withoutGit)(gitDir(), diff.diffEntry, diff.hunks.single())
 

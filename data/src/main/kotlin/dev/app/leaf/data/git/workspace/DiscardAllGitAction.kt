@@ -4,7 +4,12 @@
 package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.discards.DiscardStore
+import dev.app.leaf.data.git.discards.PendingDiscard
+import dev.app.leaf.data.git.discards.keepingDiscarded
+import dev.app.leaf.domain.discards.DiscardKind
 import dev.app.leaf.domain.errors.Either
+import dev.app.leaf.domain.errors.EitherContext
 import dev.app.leaf.domain.errors.GenericError
 import dev.app.leaf.domain.errors.GitError
 import dev.app.leaf.domain.errors.bind
@@ -16,6 +21,7 @@ import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.hasConflicts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.eclipse.jgit.lib.Repository
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -27,11 +33,14 @@ import javax.inject.Inject
  * here, as an agent may have worked in the worktree while the dialog was open: only an entry that the status still
  * lists as it was is touched, as [StageAllGitAction] does. A file that was staged, committed or conflicted since, and
  * every file that appeared after the dialog opened, is left alone. Nothing here runs `checkout .` or `reset --hard`.
+ * What it throws away is kept for Undo ([DiscardStore]): the restored files are copied, and new files are moved into
+ * the record rather than deleted.
  */
 class DiscardAllGitAction @Inject constructor(
     private val getStatusGitAction: GetStatusGitAction,
     private val discardEntriesGitAction: DiscardEntriesGitAction,
     private val jgit: JGit,
+    private val discardStore: DiscardStore,
 ) : IDiscardAllGitAction {
     override suspend operator fun invoke(
         repositoryPath: String,
@@ -45,41 +54,55 @@ class DiscardAllGitAction @Inject constructor(
         }
         val toDelete = newFiles.filter { it in unstaged && it.statusType == StatusType.ADDED }
 
-        // The restore goes first and refuses files with conflicts: nothing is deleted when it fails
-        if (toRestore.isNotEmpty()) {
-            discardEntriesGitAction(repositoryPath, toRestore, staged = false).bind()
+        if (toRestore.isEmpty() && toDelete.isEmpty()) {
+            return@either Either.Ok(Unit)
         }
 
-        if (toDelete.isNotEmpty()) {
-            deleteNewFiles(repositoryPath, toDelete).bind()
-        }
+        jgit.provide(repositoryPath) { git ->
+            val restorePaths = toRestore.map { it.filePath }
+
+            keepingDiscarded(discardStore, repositoryPath, git.repository, DiscardKind.ALL, restorePaths) { pending ->
+                // The restore goes first and refuses files with conflicts: nothing is deleted when it fails. It joins
+                // this discard's record.
+                if (toRestore.isNotEmpty()) {
+                    discardEntriesGitAction(repositoryPath, toRestore, staged = false).bind()
+                }
+
+                if (toDelete.isNotEmpty()) {
+                    deleteNewFiles(git.repository, toDelete, pending)
+                }
+            }
+        }.bind()
 
         Either.Ok(Unit)
     }
 
-    private suspend fun deleteNewFiles(repositoryPath: String, entries: List<StatusEntry>) =
-        jgit.provide(repositoryPath) { git ->
-            withContext(Dispatchers.IO) {
-                val workTree = git.repository.workTree.toPath().toRealPath()
-                val deleted = mutableListOf<String>()
+    private suspend fun EitherContext<GitError>.deleteNewFiles(
+        repository: Repository,
+        entries: List<StatusEntry>,
+        pending: PendingDiscard,
+    ) = withContext(Dispatchers.IO) {
+        val workTree = repository.workTree.toPath().toRealPath()
+        val deleted = mutableListOf<String>()
 
+        try {
+            for (entry in entries) {
                 try {
-                    for (entry in entries) {
-                        try {
-                            if (deleteNewFile(workTree, entry.filePath)) {
-                                deleted += entry.filePath
-                            }
-                        } catch (e: IOException) {
-                            raiseError(GenericError("Deleting ${entry.filePath} failed", e))
-                        }
+                    if (deleteNewFile(workTree, entry.filePath, pending)) {
+                        deleted += entry.filePath
                     }
-                } finally {
-                    // Fork-only: the files added with `git add -N` that were deleted go from the index too, as with
-                    // git rm -f, also when a later one failed (see IntentToAdd)
-                    git.repository.forgetIntentToAdd(entries.filter { it.isIntentToAdd && it.filePath in deleted }.map { it.filePath })
+                } catch (e: IOException) {
+                    raiseError(GenericError("Deleting ${entry.filePath} failed", e))
                 }
             }
+        } finally {
+            // Fork-only: the files added with `git add -N` that were deleted go from the index too, as with
+            // git rm -f, also when a later one failed (see IntentToAdd)
+            repository.forgetIntentToAdd(
+                entries.filter { it.isIntentToAdd && it.filePath in deleted }.map { it.filePath }
+            )
         }
+    }
 }
 
 /**
@@ -87,9 +110,10 @@ class DiscardAllGitAction @Inject constructor(
  * a folder: an untracked entry that is one holds another repository, such as a linked worktree inside this one,
  * and the files of a folder with new files in it are listed one by one. A link is deleted as a link. Anything
  * that isn't inside the working tree is skipped. Returns whether it deleted the file. Also used for a staged move's new
- * file, once discarding the move took it out of the index ([DiscardEntriesGitAction]).
+ * file, once discarding the move took it out of the index ([DiscardEntriesGitAction]). With [pending], the file is
+ * moved into that discard's record rather than deleted, for Undo.
  */
-internal fun deleteNewFile(workTree: Path, path: String): Boolean {
+internal fun deleteNewFile(workTree: Path, path: String, pending: PendingDiscard? = null): Boolean {
     val file = workTree.resolve(path)
 
     if (".git" in path.split('/') ||
@@ -106,7 +130,11 @@ internal fun deleteNewFile(workTree: Path, path: String): Boolean {
         return false
     }
 
-    Files.delete(file)
+    if (pending == null) {
+        Files.delete(file)
+    } else {
+        pending.moveOut(path)
+    }
 
     var folder: Path? = parent
 

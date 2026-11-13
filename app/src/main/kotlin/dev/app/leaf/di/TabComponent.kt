@@ -1,5 +1,6 @@
 package dev.app.leaf.di
 
+import dev.app.leaf.ui.dialogs.RecentlyDiscardedViewModel
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.di.modules.FileWatcherModule
 import dev.app.leaf.di.modules.TabModule
@@ -38,6 +39,7 @@ interface TabComponent {
     fun authorViewModel(): AuthorViewModel
     fun stashWithMessageViewModel(): StashWithMessageViewModel
     fun quickActionsViewModel(): QuickActionsViewModel
+    fun recentlyDiscardedViewModel(): RecentlyDiscardedViewModel
     fun checkForUpdatesViewModel(): CheckForUpdatesViewModel
     fun setUpstreamBranchDialogViewModelFactory(): SetUpstreamBranchDialogViewModel.Factory
     fun renameBranchDialogViewModelFactory(): RenameBranchDialogViewModel.Factory

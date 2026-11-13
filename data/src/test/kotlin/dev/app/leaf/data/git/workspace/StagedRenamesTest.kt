@@ -16,6 +16,7 @@ import dev.app.leaf.data.git.diff.GetDiffContentGitAction
 import dev.app.leaf.data.git.diff.GetDiffEntryFromDiffTypeGitAction
 import dev.app.leaf.data.git.diff.GetDiffEntryFromStatusEntryGitAction
 import dev.app.leaf.data.git.diff.TextDiffFromDiffLinesGitAction
+import dev.app.leaf.data.git.discards.DiscardStore
 import dev.app.leaf.data.git.log.BlameFileGitAction
 import dev.app.leaf.data.git.repository.GetRepositoryStateGitAction
 import dev.app.leaf.data.git.sparse.testSparseCheckoutGit
@@ -27,6 +28,7 @@ import dev.app.leaf.data.mappers.JGitSubmoduleMapper
 import dev.app.leaf.data.mappers.RepositoryStateMapper
 import dev.app.leaf.domain.AppFilesManager
 import dev.app.leaf.domain.TempFilesManager
+import dev.app.leaf.domain.discards.DiscardNotices
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffType
@@ -353,7 +355,7 @@ class StagedRenamesTest {
                 File(repository, "src/b.txt").appendText("not staged\n")
             }
 
-            assertOk(DiscardEntriesGitAction(jgit)(gitDir(leaf), staged(leaf), staged = true))
+            assertOk(DiscardEntriesGitAction(jgit, DiscardStore(DiscardNotices()))(gitDir(leaf), staged(leaf), staged = true))
             git.run(twin, "restore", "--source=HEAD", "--staged", "--worktree", "--", "a.txt", "src/b.txt")
 
             assertEquals(emptyList<String>(), shortStatus(leaf))
@@ -393,7 +395,7 @@ class StagedRenamesTest {
         val rename = staged(repository).single()
         val diff = formatDiff(gitDir(repository), DiffType.UncommittedDiff(rename, EntryType.STAGED), false).ok()
             as DiffResult.Text
-        val applyHunk = ApplyHunkGitAction(jgit, gitCli)
+        val applyHunk = ApplyHunkGitAction(jgit, gitCli, DiscardStore(DiscardNotices()))
 
         assertEquals(2, diff.hunks.size)
         assertOk(UnstageHunkGitAction(applyHunk)(gitDir(repository), diff.diffEntry, diff.hunks.first()))

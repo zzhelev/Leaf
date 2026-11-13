@@ -63,7 +63,7 @@ class DiscardChangesDialogTest {
 
         val texts = texts(discard)
 
-        assertTrue("Discard the unstaged changes to 2 files in src? This can't be undone." in texts, texts.toString())
+        assertTrue("Discard the unstaged changes to 2 files in src?" in texts, texts.toString())
         assertTrue("1 new file is kept." in texts, texts.toString())
         assertTrue("2 files with conflicts are left as they are." in texts, texts.toString())
     }

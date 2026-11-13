@@ -185,6 +185,27 @@ class WatchedRepositoryTest {
     }
 
     @Test
+    fun `what discards threw away, which Leaf keeps for Undo, needs nothing, in any worktree's git dir`() {
+        for (tab in listOf(mainTab, linkedTab)) {
+            for (gitDir in listOf(arrayOf("repo", ".git"), arrayOf("repo", ".git", "worktrees", "agent"))) {
+                for (kept in listOf(
+                    path(*gitDir, "leaf-discarded"),
+                    path(*gitDir, "leaf-discarded", "1762250000000-0a1b"),
+                    path(*gitDir, "leaf-discarded", "1762250000000-0a1b", "files", "c0"),
+                )) {
+                    assertEquals(WatchedChange.NONE, tab.changeOf(kept), kept)
+                }
+            }
+        }
+
+        // A folder of the working tree with the same name
+        assertEquals(WatchedChange.WORKING_TREE, mainTab.changeOf(path("repo", "leaf-discarded", "notes.txt")))
+        assertEquals(WatchedChange.WORKING_TREE, mainTab.changeOf(path("repo", "src", "leaf-discarded")))
+        // And a ref of that name is a ref
+        assertEquals(WatchedChange.REPOSITORY, mainTab.changeOf(path("repo", ".git", "refs", "heads", "leaf-discarded")))
+    }
+
+    @Test
     fun `the message for a rebase's edit stop needs nothing, in any worktree's git dir`() {
         // Saved like the draft, in the rebase's folder. In a linked worktree, the recursive watch of the worktrees'
         // git dirs sees it, and refreshed everything at each save.

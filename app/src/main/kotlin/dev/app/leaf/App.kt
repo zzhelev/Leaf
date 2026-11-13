@@ -163,6 +163,8 @@ sealed interface Screen : NavKey {
         val onAccept: (authorInfo: AuthorInfo, persist: Boolean) -> Unit,
         val onReject: () -> Unit,
     ) : Screen
+    /** The discards that Leaf keeps for Undo, with Restore (fork-only, upstream issue 39). */
+    data object RecentlyDiscarded : Screen
     /** The style editor (fork-only, docs/fork/custom-styles.md), over Settings. */
     data class StyleEditor(val start: StyleEditorStart) : Screen
     /**

@@ -690,8 +690,8 @@
 
     <string name="discard_folder_dialog_title">Discard changes</string>
     <plurals name="discard_folder_dialog_subtitle">
-        <item quantity="one">Discard the unstaged changes to %1$d file in %2$s? This can't be undone.</item>
-        <item quantity="other">Discard the unstaged changes to %1$d files in %2$s? This can't be undone.</item>
+        <item quantity="one">Discard the unstaged changes to %1$d file in %2$s?</item>
+        <item quantity="other">Discard the unstaged changes to %1$d files in %2$s?</item>
     </plurals>
     <plurals name="discard_folder_dialog_new_files_kept">
         <item quantity="one">%1$d new file is kept.</item>
@@ -1221,11 +1221,9 @@
     <string name="delete_submodule_dialog_warning">Its folder and its repository are deleted, with any changes, commits and stashes that aren't pushed.</string>
     <string name="delete_file_dialog_title">Delete file</string>
     <string name="delete_file_dialog_subtitle">Delete "%1$s"?</string>
-    <string name="delete_file_dialog_warning_untracked">The file isn't in git, so it can't be restored.</string>
     <string name="delete_repository_dialog_title">Delete repository</string>
-    <string name="delete_repository_dialog_warning">It's another git repository, with its own history. Neither the history nor any work in it that isn't committed can be restored.</string>
+    <string name="delete_repository_dialog_warning">It's another git repository, with its own history.</string>
     <string name="delete_repository_dialog_primary">Delete repository</string>
-    <string name="delete_file_dialog_warning_tracked">Its changes that aren't staged can't be restored.</string>
     <string name="abort_dialog_title_merge">Abort merge</string>
     <string name="abort_dialog_subtitle_merge">Abort the merge in progress?</string>
     <string name="abort_dialog_title_rebase">Abort rebase</string>
@@ -1322,24 +1320,18 @@
     </plurals>
     <string name="confirm_dialog_discard">Discard</string>
     <string name="confirm_dialog_stop_asking_hunks_and_lines">Don't ask again for hunks and lines</string>
-    <string name="discard_changes_dialog_warning">They can't be restored.</string>
     <string name="discard_hunk_dialog_title">Discard hunk</string>
     <string name="discard_hunk_dialog_subtitle">Discard this hunk in "%1$s"?</string>
-    <plurals name="discard_hunk_dialog_warning">
-        <item quantity="one">Its %1$d added line isn't staged, so it can't be restored.</item>
-        <item quantity="other">Its %1$d added lines aren't staged, so they can't be restored.</item>
-    </plurals>
     <string name="discard_line_dialog_title">Discard line</string>
     <string name="discard_line_dialog_subtitle_added">Discard this added line in "%1$s"?</string>
     <string name="discard_line_dialog_subtitle_removed">Put this removed line back into "%1$s"?</string>
-    <string name="discard_line_dialog_warning_added">It isn't staged, so it can't be restored.</string>
     <string name="discard_file_dialog_title">Discard file changes</string>
     <string name="discard_file_dialog_subtitle_unstaged">Discard the unstaged changes to "%1$s"?</string>
     <string name="discard_file_dialog_subtitle_staged">Discard the changes to "%1$s"?</string>
-    <string name="discard_file_dialog_warning_staged">Both its staged and unstaged changes are discarded. They can't be restored.</string>
+    <string name="discard_file_dialog_warning_staged">Both its staged and unstaged changes are discarded.</string>
     <string name="undo_move_dialog_title">Undo the move</string>
     <string name="undo_move_dialog_subtitle">Move "%1$s" back to "%2$s", as it is in the last commit? The file at its new path is deleted.</string>
-    <string name="undo_move_dialog_warning">Its changes since the last commit are lost, staged or not. They can't be restored.</string>
+    <string name="undo_move_dialog_warning">Its changes since the last commit are discarded, staged or not.</string>
     <string name="discard_files_dialog_title">Discard changes</string>
     <plurals name="discard_files_dialog_subtitle_unstaged">
         <item quantity="one">Discard the unstaged changes to %1$d file?</item>
@@ -1349,7 +1341,7 @@
         <item quantity="one">Discard the changes to %1$d file?</item>
         <item quantity="other">Discard the changes to %1$d files?</item>
     </plurals>
-    <string name="discard_files_dialog_warning_staged">Both their staged and unstaged changes are discarded. They can't be restored.</string>
+    <string name="discard_files_dialog_warning_staged">Both their staged and unstaged changes are discarded.</string>
     <string name="restore_file_dialog_title">Restore this version of the file?</string>
     <string name="restore_file_dialog_subtitle">"%1$s" as it was in %2$s "%3$s".</string>
     <string name="restore_file_dialog_restore">Restore</string>
@@ -1365,20 +1357,77 @@
         <item quantity="one">Discard the unstaged changes to %1$d file matching "%2$s"?</item>
         <item quantity="other">Discard the unstaged changes to %1$d files matching "%2$s"?</item>
     </plurals>
-    <plurals name="discard_all_dialog_warning_with_new">
-        <item quantity="one">Neither the changes nor the new file can be restored.</item>
-        <item quantity="other">Neither the changes nor the %1$d new files can be restored.</item>
-    </plurals>
-    <plurals name="discard_all_dialog_warning_only_new">
-        <item quantity="one">The new file can't be restored.</item>
-        <item quantity="other">The %1$d new files can't be restored.</item>
-    </plurals>
     <plurals name="discard_all_dialog_delete_new_files">
         <item quantity="one">Also delete %1$d new file</item>
         <item quantity="other">Also delete %1$d new files</item>
     </plurals>
-    <string name="discard_all_dialog_new_files_hint">They aren't in git, so they can't be restored either.</string>
     <string name="discard_all_dialog_discard_and_delete">Discard and delete</string>
+
+    <!-- Undo of a discard (fork-only, upstream issue 39) -->
+    <string name="discard_strip_changes_of">Discarded the changes to %1$s.</string>
+    <plurals name="discard_strip_changes">
+        <item quantity="one">Discarded the changes to %1$d file.</item>
+        <item quantity="other">Discarded the changes to %1$d files.</item>
+    </plurals>
+    <string name="discard_strip_hunk">Discarded a hunk of %1$s.</string>
+    <string name="discard_strip_line">Discarded a line of %1$s.</string>
+    <string name="discard_strip_deleted_one">Deleted %1$s.</string>
+    <plurals name="discard_strip_deleted">
+        <item quantity="one">Deleted %1$d new file.</item>
+        <item quantity="other">Deleted %1$d new files.</item>
+    </plurals>
+    <string name="discard_strip_changes_and_deleted">Discarded the changes to %1$s and deleted %2$s.</string>
+    <plurals name="discard_strip_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <plurals name="discard_strip_new_files">
+        <item quantity="one">%1$d new file</item>
+        <item quantity="other">%1$d new files</item>
+    </plurals>
+    <string name="discard_strip_back_one">%1$s is back.</string>
+    <plurals name="discard_strip_back">
+        <item quantity="one">The %1$d file is back.</item>
+        <item quantity="other">The %1$d files are back.</item>
+    </plurals>
+    <string name="discard_strip_back_partly">%1$d of the %2$d files are back.</string>
+    <string name="discard_strip_undo">Undo</string>
+    <string name="discard_strip_dismiss">Dismiss</string>
+    <plurals name="restore_discard_dialog_title">
+        <item quantity="one">Restore %1$d of the %2$d file?</item>
+        <item quantity="other">Restore %1$d of the %2$d files?</item>
+    </plurals>
+    <plurals name="restore_discard_dialog_changed">
+        <item quantity="one">%1$s changed since, and stays as it is.</item>
+        <item quantity="other">%1$s changed since, and stay as they are.</item>
+    </plurals>
+    <plurals name="restore_discard_dialog_restore">
+        <item quantity="one">Restore %1$d file</item>
+        <item quantity="other">Restore %1$d files</item>
+    </plurals>
+    <string name="recently_discarded_title">Recently discarded</string>
+    <string name="recently_discarded_menu">Recently discarded…</string>
+    <string name="recently_discarded_empty">Nothing was discarded in the last two weeks.</string>
+    <string name="recently_discarded_restore">Restore</string>
+    <string name="recently_discarded_close">Close</string>
+    <plurals name="recently_discarded_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="recently_discarded_kind_changes">Changes</string>
+    <string name="recently_discarded_kind_staged_changes">Staged changes</string>
+    <string name="recently_discarded_kind_all">Discard all</string>
+    <string name="recently_discarded_kind_hunk">A hunk</string>
+    <string name="recently_discarded_kind_line">A line</string>
+    <string name="recently_discarded_kind_deleted">Deleted</string>
+    <plurals name="recently_discarded_deleted_new_files">
+        <item quantity="one">%1$d new file deleted</item>
+        <item quantity="other">%1$d new files deleted</item>
+    </plurals>
+    <string name="quick_actions_recently_discarded">Recently discarded</string>
+    <string name="error_discard_not_kept">Leaf couldn't keep a copy of %1$s, so it discarded nothing: %2$s</string>
+    <string name="error_discard_not_found">The discard is no longer kept: it was undone already, or is more than two weeks old.</string>
+    <string name="error_discard_changed_since">These files changed since the discard, in the lines it threw away, so they stay as they are: %1$s</string>
     <string name="discard_all_dialog_and_more">and %1$d more</string>
     <plurals name="discard_all_dialog_submodules_kept">
         <item quantity="one">%1$d submodule that moved on is left as it is.</item>

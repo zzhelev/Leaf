@@ -73,15 +73,15 @@ class ConfirmActionDialogTest {
     }
 
     @Test
-    fun `deleting an untracked file keeps the usual dialog`(): Unit = runBlocking(Dispatchers.Swing) {
-        val entry = StatusEntry("notes.txt", StatusType.ADDED)
+    fun `deleting an untracked file keeps the usual dialog, which warns of nothing as it can be undone`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val entry = StatusEntry("notes.txt", StatusType.ADDED)
 
-        DialogScene(ConfirmableAction.DeleteFile(entry)).use { dialog ->
-            assertTrue(dialog.texts().any { it.contains("can't be restored") })
-            assertTrue(dialog.isClickable("Delete"))
-            assertFalse(dialog.texts().any { it.contains("another git repository") })
+            DialogScene(ConfirmableAction.DeleteFile(entry)).use { dialog ->
+                assertEquals(listOf("Delete file", "Delete \"notes.txt\"?", "Cancel", "Delete"), dialog.texts())
+                assertTrue(dialog.isClickable("Delete"))
+            }
         }
-    }
 
     @Test
     fun `discarding with the box checked stops asking, then discards`(): Unit = runBlocking(Dispatchers.Swing) {
@@ -149,13 +149,14 @@ class ConfirmActionDialogTest {
     }
 
     @Test
-    fun `an added line can't be restored, a removed line comes back`(): Unit = runBlocking(Dispatchers.Swing) {
+    fun `a line's discard shows the line, and warns of nothing as it can be undone`(): Unit =
+        runBlocking(Dispatchers.Swing) {
         DialogScene(ConfirmableAction.DiscardLine(FILE, addedLine)).use { dialog ->
             val texts = dialog.texts()
 
             assertTrue("Discard this added line in \"$FILE\"?" in texts, texts.toString())
             assertTrue("+ println(\"debug\")" in texts, texts.toString())
-            assertTrue("It isn't staged, so it can't be restored." in texts, texts.toString())
+            assertFalse(texts.any { it.contains("can't be restored") }, texts.toString())
         }
 
         DialogScene(ConfirmableAction.DiscardLine(FILE, removedLine)).use { dialog ->
@@ -168,7 +169,8 @@ class ConfirmActionDialogTest {
     }
 
     @Test
-    fun `a hunk warns about its added lines only`(): Unit = runBlocking(Dispatchers.Swing) {
+    fun `a hunk's discard shows its header, and warns of nothing as it can be undone`(): Unit =
+        runBlocking(Dispatchers.Swing) {
         val secondAdded = addedLine.copy(newLineNumber = 6)
         val withAdded = hunk("@@ -4,3 +4,5 @@ fun foo()\n", contextLine, addedLine, secondAdded, removedLine)
 
@@ -176,7 +178,7 @@ class ConfirmActionDialogTest {
             val texts = dialog.texts()
 
             assertTrue("@@ -4,3 +4,5 @@ fun foo()" in texts, texts.toString())
-            assertTrue("Its 2 added lines aren't staged, so they can't be restored." in texts, texts.toString())
+            assertFalse(texts.any { it.contains("can't be restored") }, texts.toString())
         }
 
         val removalsOnly = hunk("@@ -4,3 +4,2 @@", contextLine, removedLine)
@@ -194,17 +196,14 @@ class ConfirmActionDialogTest {
             val texts = dialog.texts()
 
             assertTrue("Discard the changes to \"$FILE\"?" in texts, texts.toString())
-            assertTrue(
-                "Both its staged and unstaged changes are discarded. They can't be restored." in texts,
-                texts.toString(),
-            )
+            assertTrue("Both its staged and unstaged changes are discarded." in texts, texts.toString())
         }
 
         DialogScene(ConfirmableAction.DiscardFiles(3, EntryType.UNSTAGED)).use { dialog ->
             val texts = dialog.texts()
 
             assertTrue("Discard the unstaged changes to 3 files?" in texts, texts.toString())
-            assertTrue("They can't be restored." in texts, texts.toString())
+            assertFalse(texts.any { it.contains("can't be restored") }, texts.toString())
         }
     }
 
@@ -248,7 +247,7 @@ class ConfirmActionDialogTest {
                 texts.toString(),
             )
             assertTrue(
-                "Its changes since the last commit are lost, staged or not. They can't be restored." in texts,
+                "Its changes since the last commit are discarded, staged or not." in texts,
                 texts.toString(),
             )
         }
@@ -376,15 +375,14 @@ class ConfirmActionDialogTest {
     ) = ConfirmableAction.DiscardAll(DiscardAllPlan(restored, newFiles, conflicts, submodules), search)
 
     @Test
-    fun `discard all counts the files and says that they can't be restored`(): Unit = runBlocking(Dispatchers.Swing) {
+    fun `discard all counts the files, and warns of nothing as it can be undone`(): Unit = runBlocking(Dispatchers.Swing) {
         DialogScene(discardAll(changed(12))).use { dialog ->
             val texts = dialog.texts()
 
             assertTrue("Discard all changes" in texts, texts.toString())
             assertTrue("Discard the unstaged changes to 12 files?" in texts, texts.toString())
-            assertTrue("They can't be restored." in texts, texts.toString())
+            assertFalse(texts.any { it.contains("can't be restored") }, texts.toString())
             assertFalse(texts.any { it.startsWith("Also delete") }, "Without new files there is no box")
-            assertFalse(texts.any { it.contains("aren't in git") }, texts.toString())
             assertFalse(DISCARD_AND_DELETE in texts)
             assertTrue(dialog.isClickable("Discard"))
         }
@@ -408,8 +406,7 @@ class ConfirmActionDialogTest {
             val texts = dialog.texts()
 
             assertTrue("Also delete 9 new files" in texts, texts.toString())
-            assertTrue("They aren't in git, so they can't be restored either." in texts, texts.toString())
-            assertTrue("They can't be restored." in texts, texts.toString())
+            assertFalse(texts.any { it.contains("can't be restored") }, texts.toString())
             assertFalse(action.deleteNewFiles.isChecked, "The box starts unticked")
 
             dialog.click("Discard")
@@ -429,8 +426,6 @@ class ConfirmActionDialogTest {
             val texts = dialog.texts()
 
             assertTrue(action.deleteNewFiles.isChecked)
-            assertTrue("Neither the changes nor the 9 new files can be restored." in texts, texts.toString())
-            assertFalse("They can't be restored." in texts, texts.toString())
             assertTrue(DISCARD_AND_DELETE in texts, texts.toString())
             assertFalse(dialog.isClickable("Discard"), "The button reads Discard and delete now")
 
@@ -450,7 +445,6 @@ class ConfirmActionDialogTest {
             dialog.click("Also delete 3 new files")
 
             assertFalse(action.deleteNewFiles.isChecked)
-            assertTrue("They can't be restored." in dialog.texts())
             assertTrue(dialog.isClickable("Discard"))
         }
     }
@@ -485,12 +479,10 @@ class ConfirmActionDialogTest {
             val texts = dialog.texts()
 
             assertTrue("No file has changes to restore." in texts, texts.toString())
-            assertFalse(texts.any { it.contains("can't be restored") && !it.contains("aren't in git") }, texts.toString())
             assertFalse(dialog.isClickable("Discard"), "Nothing to discard without the box")
 
             dialog.click("Also delete 4 new files")
 
-            assertTrue("The 4 new files can't be restored." in dialog.texts(), dialog.texts().toString())
             assertTrue(dialog.isClickable(DISCARD_AND_DELETE))
         }
     }
@@ -510,6 +502,43 @@ class ConfirmActionDialogTest {
             )
         }
     }
+
+    @Test
+    fun `Undo of a discard whose files changed since names them, and restores the others`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val action = ConfirmableAction.RestoreDiscardPartly(
+                restorable = listOf("src/Lexer.kt", "README.md", "build.gradle.kts"),
+                changedSince = listOf("app/src/main/kotlin/dev/app/leaf/parse/Parser.kt"),
+            )
+
+            DialogScene(action).use { dialog ->
+                assertEquals(
+                    listOf("Restore 3 of the 4 files?", "Parser.kt changed since, and stays as it is.", "Cancel", "Restore 3 files"),
+                    dialog.texts(),
+                )
+
+                dialog.click("Restore 3 files")
+
+                assertEquals(listOf("confirm"), dialog.calls)
+            }
+
+            val many = ConfirmableAction.RestoreDiscardPartly(
+                restorable = listOf("a.txt"),
+                changedSince = (1..7).map { "src/f$it.txt" },
+            )
+
+            DialogScene(many).use { dialog ->
+                assertEquals(
+                    listOf(
+                        "Restore 1 of the 8 files?",
+                        "f1.txt, f2.txt, f3.txt, f4.txt, f5.txt and 2 more changed since, and stay as they are.",
+                        "Cancel",
+                        "Restore 1 file",
+                    ),
+                    dialog.texts(),
+                )
+            }
+        }
 
     @Test
     fun `discard all names the files with conflicts that it leaves`(): Unit = runBlocking(Dispatchers.Swing) {

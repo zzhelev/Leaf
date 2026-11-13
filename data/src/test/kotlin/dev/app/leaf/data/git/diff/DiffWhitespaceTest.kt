@@ -3,6 +3,8 @@
 
 package dev.app.leaf.data.git.diff
 
+import dev.app.leaf.data.git.discards.DiscardStore
+import dev.app.leaf.domain.discards.DiscardNotices
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.RawFileManager
 import dev.app.leaf.data.git.TestGitCli
@@ -326,7 +328,7 @@ class DiffWhitespaceTest {
 
     private suspend fun refuseHunkActionsOfDiffIgnoring(ignoring: DiffWhitespaceMode) {
         val gitCli = testGitCli(mapOf("GIT_CONFIG_GLOBAL" to globalConfig.path, "GIT_CONFIG_NOSYSTEM" to "1"))
-        val applyHunk = ApplyHunkGitAction(jgit, gitCli)
+        val applyHunk = ApplyHunkGitAction(jgit, gitCli, DiscardStore(DiscardNotices()))
         val path = "real-and-ws.txt"
 
         commitAll("Old versions") { it.first }

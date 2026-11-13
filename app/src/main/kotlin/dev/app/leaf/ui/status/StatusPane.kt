@@ -108,6 +108,8 @@ fun StatusPane(
     branchName: String? = null,
     /** The commit message is in the centre pane, and this pane keeps the buttons (fork-only). */
     isMessageExpanded: Boolean = false,
+    /** Opens the discards that Leaf keeps for Undo (fork-only, upstream issue 39). */
+    onRecentlyDiscarded: () -> Unit = {},
 ) {
     val swapUncommittedChanges = statusState.swapUncommittedChanges
     // Kept for the tab, not for the lists' contents: staging a file must not scroll the lists back to the top
@@ -161,6 +163,7 @@ fun StatusPane(
                     onIgnore = onIgnore,
                     onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
+                    onRecentlyDiscarded = onRecentlyDiscarded,
                     modifier = modifier,
                     fold = fold,
                 )
@@ -181,6 +184,7 @@ fun StatusPane(
                     onIgnore = onIgnore,
                     onConfirmAction = onConfirmAction,
                     onAction = { onAction(it) },
+                    onRecentlyDiscarded = onRecentlyDiscarded,
                     modifier = modifier,
                     fold = fold,
                 )
@@ -377,6 +381,8 @@ fun StatusChangesList(
     modifier: Modifier = Modifier,
     /** The list folds to its header (fork-only). */
     fold: SectionFold? = null,
+    /** Opens the discards that Leaf keeps for Undo, from Unstaged's ⋯ menu (fork-only, upstream issue 39). */
+    onRecentlyDiscarded: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -410,8 +416,16 @@ fun StatusChangesList(
     val search = statusState.activeSearchOf(entryType)
     val discardAllLabel = stringResource(Res.string.status_header_discard_all)
     val nothingToDiscardLabel = stringResource(Res.string.status_header_nothing_to_discard)
+    val recentlyDiscardedLabel = stringResource(Res.string.recently_discarded_menu)
     val moreItems = if (entryType == EntryType.UNSTAGED) {
         val plan = remember(statusState.unstaged, search) { statusState.entriesShown(entryType).allDiscard() }
+        val recentlyDiscarded = SortMenuItem.Option(
+            label = recentlyDiscardedLabel,
+            isChecked = false,
+            closesMenu = true,
+            icon = Res.drawable.history,
+            onClick = onRecentlyDiscarded,
+        )
 
         if (plan.hasWork) {
             listOf(
@@ -427,10 +441,11 @@ fun StatusChangesList(
                     onConfirmAction(action) {
                         onAction(StatusAction.DiscardAll(plan, action.deleteNewFiles.isChecked))
                     }
-                }
+                },
+                recentlyDiscarded,
             )
         } else {
-            listOf(SortMenuItem.Note(nothingToDiscardLabel))
+            listOf(SortMenuItem.Note(nothingToDiscardLabel), recentlyDiscarded)
         }
     } else {
         emptyList()

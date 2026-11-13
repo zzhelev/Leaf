@@ -40,6 +40,8 @@ fun QuickActionsDialog(
     onCleanUpWorktrees: () -> Unit,
     // Fork-only: compares the current branch with a branch, tag or commit picked in the comparison's list
     onCompare: () -> Unit = {},
+    // Fork-only: the discards that Leaf keeps for Undo (upstream issue 39)
+    onRecentlyDiscarded: () -> Unit = {},
 ) {
     val textFieldFocusRequester = remember { FocusRequester() }
     val checkForUpdates = stringResource(Res.string.quick_actions_check_for_updates)
@@ -55,6 +57,7 @@ fun QuickActionsDialog(
     val hideChangesPane = stringResource(Res.string.quick_actions_hide_changes_pane)
     val showChangesPane = stringResource(Res.string.quick_actions_show_changes_pane)
     val compare = stringResource(Res.string.quick_actions_compare)
+    val recentlyDiscarded = stringResource(Res.string.quick_actions_recently_discarded)
 
     // TODO Extract list of actions strings
     val items = remember(
@@ -65,12 +68,14 @@ fun QuickActionsDialog(
         isChangesPaneFolded,
         isChangesPaneHeld,
         compare,
+        recentlyDiscarded,
     ) {
         listOfNotNull(
             QuickAction(Res.drawable.code, "Open repository in file manager", QuickActionType.OPEN_DIR_IN_FILE_MANAGER),
             QuickAction(Res.drawable.download, "Clone new repository", QuickActionType.CLONE),
             QuickAction(Res.drawable.refresh, "Refresh repository data", QuickActionType.REFRESH),
             QuickAction(Res.drawable.compare_arrows, compare, QuickActionType.COMPARE),
+            QuickAction(Res.drawable.history, recentlyDiscarded, QuickActionType.RECENTLY_DISCARDED),
             QuickAction(Res.drawable.sign, "Signoff config", QuickActionType.SIGN_OFF),
             QuickAction(Res.drawable.update, checkForUpdates, QuickActionType.CHECK_FOR_UPDATES),
             QuickAction(Res.drawable.delete, cleanUpWorktrees, QuickActionType.CLEAN_UP_WORKTREES)
@@ -109,6 +114,7 @@ fun QuickActionsDialog(
                 QuickActionType.TOGGLE_BRANCHES_PANE -> viewModel.toggleBranchesPane()
                 QuickActionType.TOGGLE_CHANGES_PANE -> viewModel.toggleChangesPane()
                 QuickActionType.COMPARE -> onCompare()
+                QuickActionType.RECENTLY_DISCARDED -> onRecentlyDiscarded()
             }
         },
         searchFilter = searchFilter,
@@ -242,4 +248,5 @@ enum class QuickActionType {
     TOGGLE_BRANCHES_PANE,
     TOGGLE_CHANGES_PANE,
     COMPARE, // Fork-only
+    RECENTLY_DISCARDED, // Fork-only
 }

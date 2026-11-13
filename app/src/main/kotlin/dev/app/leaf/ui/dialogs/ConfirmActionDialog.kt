@@ -39,7 +39,6 @@ import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
 import dev.app.leaf.domain.models.StatusEntry
-import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.restore.CurrentFile
 import dev.app.leaf.domain.restore.FileRestorePlan
 import dev.app.leaf.domain.sorting.DiscardAllPlan
@@ -145,6 +144,12 @@ sealed interface ConfirmableAction {
      * fork-only). [plan] says what the file is now, which is replaced, or why it can't be restored.
      */
     data class RestoreFileVersion(val filePath: String, val commit: Commit, val plan: FileRestorePlan) : ConfirmableAction
+
+    /**
+     * Undo of a discard whose [changedSince] files changed in ways that Leaf can't merge (fork-only, upstream issue 39):
+     * the [restorable] ones come back, and those stay as they are.
+     */
+    data class RestoreDiscardPartly(val restorable: List<String>, val changedSince: List<String>) : ConfirmableAction
 
     /**
      * Resolves the conflicts of [entries] with [side]'s version, which loses the other side's changes and any edits
@@ -393,11 +398,11 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 else Res.string.delete_file_dialog_title,
             ),
             subtitle = stringResource(Res.string.delete_file_dialog_subtitle, entry.filePath),
-            // Unstaged ADDED entries are the untracked files. A nested repository is a folder (fork-only)
-            warning = when {
-                entry.nestedRepository != null -> stringResource(Res.string.delete_repository_dialog_warning)
-                entry.statusType == StatusType.ADDED -> stringResource(Res.string.delete_file_dialog_warning_untracked)
-                else -> stringResource(Res.string.delete_file_dialog_warning_tracked)
+            // A nested repository is a folder (fork-only). What is deleted can be undone (upstream issue 39)
+            warning = if (entry.nestedRepository != null) {
+                stringResource(Res.string.delete_repository_dialog_warning)
+            } else {
+                null
             },
             primaryAction = stringResource(
                 if (entry.nestedRepository != null) Res.string.delete_repository_dialog_primary
@@ -538,24 +543,16 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             primaryAction = stringResource(Res.string.confirm_dialog_delete),
         )
 
-        is ConfirmableAction.DiscardHunk -> {
-            val addedLines = hunk.lines.count { it.lineType == LineType.ADDED }
-
-            ConfirmationTexts(
-                icon = undo,
-                title = stringResource(Res.string.discard_hunk_dialog_title),
-                subtitle = stringResource(Res.string.discard_hunk_dialog_subtitle, filePath),
-                // A hunk that only removes lines puts them back, which loses nothing
-                warning = if (addedLines > 0) {
-                    pluralStringResource(Res.plurals.discard_hunk_dialog_warning, addedLines, addedLines)
-                } else {
-                    null
-                },
-                primaryAction = stringResource(Res.string.confirm_dialog_discard),
-                code = CodeSnippet(hunk.header.trim(), MaterialTheme.colors.secondarySurface),
-                stopAsking = stringResource(Res.string.confirm_dialog_stop_asking_hunks_and_lines),
-            )
-        }
+        // Fork-only: a discard can be undone (upstream issue 39), so these warn of nothing
+        is ConfirmableAction.DiscardHunk -> ConfirmationTexts(
+            icon = undo,
+            title = stringResource(Res.string.discard_hunk_dialog_title),
+            subtitle = stringResource(Res.string.discard_hunk_dialog_subtitle, filePath),
+            warning = null,
+            primaryAction = stringResource(Res.string.confirm_dialog_discard),
+            code = CodeSnippet(hunk.header.trim(), MaterialTheme.colors.secondarySurface),
+            stopAsking = stringResource(Res.string.confirm_dialog_stop_asking_hunks_and_lines),
+        )
 
         is ConfirmableAction.DiscardLine -> {
             val isAdded = line.lineType == LineType.ADDED
@@ -568,8 +565,7 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 } else {
                     stringResource(Res.string.discard_line_dialog_subtitle_removed, filePath)
                 },
-                // Putting a removed line back loses nothing
-                warning = if (isAdded) stringResource(Res.string.discard_line_dialog_warning_added) else null,
+                warning = null,
                 primaryAction = stringResource(Res.string.confirm_dialog_discard),
                 code = CodeSnippet(
                     text = (if (isAdded) "+ " else "- ") + line.text.trim(),
@@ -600,11 +596,9 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 EntryType.STAGED -> stringResource(Res.string.discard_file_dialog_subtitle_staged, entry.filePath)
                 EntryType.UNSTAGED -> stringResource(Res.string.discard_file_dialog_subtitle_unstaged, entry.filePath)
             },
-            warning = when {
-                entry.entryType == EntryType.STAGED -> stringResource(Res.string.discard_file_dialog_warning_staged)
-                // Discarding the deletion of a file brings it back, which loses nothing
-                entry.statusType == StatusType.REMOVED -> null
-                else -> stringResource(Res.string.discard_changes_dialog_warning)
+            warning = when (entry.entryType) {
+                EntryType.STAGED -> stringResource(Res.string.discard_file_dialog_warning_staged)
+                EntryType.UNSTAGED -> null
             },
             primaryAction = stringResource(Res.string.confirm_dialog_discard),
         )
@@ -619,7 +613,7 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             },
             warning = when (entryType) {
                 EntryType.STAGED -> stringResource(Res.string.discard_files_dialog_warning_staged)
-                EntryType.UNSTAGED -> stringResource(Res.string.discard_changes_dialog_warning)
+                EntryType.UNSTAGED -> null
             },
             primaryAction = stringResource(Res.string.confirm_dialog_discard),
             note = when {
@@ -663,6 +657,22 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
             )
         }
 
+        is ConfirmableAction.RestoreDiscardPartly -> {
+            val count = restorable.size
+            val total = count + changedSince.size
+            val more = changedSince.size - MAX_NAMED_FILES
+            val names = changedSince.take(MAX_NAMED_FILES).joinToString(", ") { it.substringAfterLast('/') } +
+                    if (more > 0) " " + stringResource(Res.string.discard_all_dialog_and_more, more) else ""
+
+            ConfirmationTexts(
+                icon = undo,
+                title = pluralStringResource(Res.plurals.restore_discard_dialog_title, total, count, total),
+                subtitle = pluralStringResource(Res.plurals.restore_discard_dialog_changed, changedSince.size, names),
+                warning = null,
+                primaryAction = pluralStringResource(Res.plurals.restore_discard_dialog_restore, count, count),
+            )
+        }
+
         is ConfirmableAction.DiscardAll -> {
             val restored = plan.restored.size
             val newFiles = plan.newFiles.size
@@ -679,14 +689,7 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
 
                     else -> pluralStringResource(Res.plurals.discard_files_dialog_subtitle_unstaged, restored, restored)
                 },
-                warning = when {
-                    deleting && !plan.restoresNothing ->
-                        pluralStringResource(Res.plurals.discard_all_dialog_warning_with_new, newFiles, newFiles)
-
-                    deleting -> pluralStringResource(Res.plurals.discard_all_dialog_warning_only_new, newFiles, newFiles)
-                    plan.restoresNothing -> null
-                    else -> stringResource(Res.string.discard_changes_dialog_warning)
-                },
+                warning = null,
                 primaryAction = if (deleting) {
                     stringResource(Res.string.discard_all_dialog_discard_and_delete)
                 } else {
@@ -715,7 +718,7 @@ private fun ConfirmableAction.texts(): ConfirmationTexts {
                 option = if (newFiles > 0) {
                     OptionTexts(
                         label = pluralStringResource(Res.plurals.discard_all_dialog_delete_new_files, newFiles, newFiles),
-                        hint = stringResource(Res.string.discard_all_dialog_new_files_hint),
+                        hint = null,
                         option = deleteNewFiles,
                     )
                 } else {

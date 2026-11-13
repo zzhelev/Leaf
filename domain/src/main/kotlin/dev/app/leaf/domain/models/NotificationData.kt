@@ -36,9 +36,6 @@ fun TaskType.successTitle(): String? {
     return when (this) {
         TaskType.StageLine -> "File line staged"
         TaskType.UnstageLine -> "File line unstaged"
-        TaskType.DiscardFile -> "File discarded"
-        TaskType.DiscardAllFiles -> "Changes discarded"
-        TaskType.DeleteFile -> "File deleted"
         TaskType.RestoreFileVersion -> "File restored"
         TaskType.AddIgnoreRules -> "Ignore rules added"
         TaskType.RevertCommit -> "Commit reverted"

@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test
 private const val MORE_ACTIONS = "More actions"
 private const val DISCARD_ALL = "Discard all changes…"
 private const val NOTHING = "Nothing to discard"
+private const val RECENTLY_DISCARDED = "Recently discarded…"
 
 private val unstaged = listOf(
     StatusEntry("a.kt", StatusType.MODIFIED),
@@ -47,6 +48,7 @@ private val unstaged = listOf(
 class DiscardAllMenuTest {
     private val confirmations = mutableListOf<Pair<ConfirmableAction, () -> Unit>>()
     private val actions = mutableListOf<StatusAction>()
+    private var recentlyDiscardedOpened = 0
     private var scene: ImageComposeScene? = null
 
     @AfterEach
@@ -216,6 +218,31 @@ class DiscardAllMenuTest {
         assertTrue(NOTHING in texts(), texts().toString())
     }
 
+    @Test
+    fun `the menu opens Recently discarded, with or without something to discard`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            render(EntryType.UNSTAGED, StatusState(isLoading = false, unstaged = unstaged))
+            clickDescription(MORE_ACTIONS)
+
+            assertEquals(listOf(DISCARD_ALL, RECENTLY_DISCARDED), texts().filter { it == DISCARD_ALL || it == RECENTLY_DISCARDED })
+
+            clickText(RECENTLY_DISCARDED)
+
+            assertEquals(1, recentlyDiscardedOpened)
+            assertFalse(RECENTLY_DISCARDED in texts(), "The menu closed")
+            assertEquals(emptyList<ConfirmableAction>(), confirmations.map { it.first })
+            close()
+
+            render(EntryType.UNSTAGED, StatusState(isLoading = false))
+            clickDescription(MORE_ACTIONS)
+
+            assertTrue(NOTHING in texts(), texts().toString())
+
+            clickText(RECENTLY_DISCARDED)
+
+            assertEquals(2, recentlyDiscardedOpened)
+        }
+
     private fun render(entryType: EntryType, state: StatusState) {
         scene = ImageComposeScene(width = 420, height = 400) {
             AppTheme {
@@ -234,6 +261,7 @@ class DiscardAllMenuTest {
                     onIgnore = {},
                     onConfirmAction = { action, onConfirm -> confirmations += action to onConfirm },
                     onAction = { actions += it },
+                    onRecentlyDiscarded = { recentlyDiscardedOpened++ },
                 )
             }
         }.also { it.render() }

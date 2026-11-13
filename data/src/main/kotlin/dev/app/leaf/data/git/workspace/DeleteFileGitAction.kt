@@ -1,6 +1,9 @@
 package dev.app.leaf.data.git.workspace
 
 import dev.app.leaf.data.git.JGit
+import dev.app.leaf.data.git.discards.DiscardStore
+import dev.app.leaf.data.git.discards.keepingDiscarded
+import dev.app.leaf.domain.discards.DiscardKind
 import dev.app.leaf.domain.errors.DeleteFileError
 import dev.app.leaf.domain.errors.Either
 import dev.app.leaf.domain.errors.GenericError
@@ -19,6 +22,8 @@ import javax.inject.Inject
 
 class DeleteFileGitAction @Inject constructor(
     private val jgit: JGit,
+    // Fork-only: keeps what is deleted, for Undo (upstream issue 39)
+    private val discardStore: DiscardStore,
 ) : IDeleteFileGitAction {
     override suspend fun invoke(
         repositoryPath: String,
@@ -33,15 +38,23 @@ class DeleteFileGitAction @Inject constructor(
             raiseError(DeleteFileError.LinkedWorktree(filePath))
         }
 
-        try {
-            // JGit's delete doesn't follow symbolic links. Kotlin's deleteRecursively does, even when called on the
-            // link itself, and would empty the folder that a link points to, possibly outside the repository.
-            FileUtils.delete(fileToDelete, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING)
+        keepingDiscarded(discardStore, repositoryPath, git.repository, DiscardKind.DELETE, emptyList()) { pending ->
+            try {
+                // Fork-only: moved into the discard's record. A folder that can't be moved there, as into a git dir on
+                // another file system, is deleted, and can't be undone.
+                if (!withContext(Dispatchers.IO) { pending.moveOut(filePath) }) {
+                    // JGit's delete doesn't follow symbolic links. Kotlin's deleteRecursively does, even when called on
+                    // the link itself, and would empty the folder that a link points to, possibly outside the
+                    // repository.
+                    FileUtils.delete(fileToDelete, FileUtils.RECURSIVE or FileUtils.SKIP_MISSING)
+                }
 
-            // Fork-only: a file added with `git add -N` goes from the index too, as with git rm -f (see IntentToAdd)
-            git.repository.forgetIntentToAdd(listOf(filePath))
-        } catch (e: IOException) {
-            raiseError(GenericError("Delete file recursively failed", e))
+                // Fork-only: a file added with `git add -N` goes from the index too, as with git rm -f (see
+                // IntentToAdd)
+                git.repository.forgetIntentToAdd(listOf(filePath))
+            } catch (e: IOException) {
+                raiseError(GenericError("Delete file recursively failed", e))
+            }
         }
     }
 }

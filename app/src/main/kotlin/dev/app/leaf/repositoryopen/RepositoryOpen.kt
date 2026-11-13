@@ -39,6 +39,8 @@ import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.BranchesPaneToggle
 import dev.app.leaf.ui.components.ChangesPaneToggle
 import dev.app.leaf.ui.GitLfsNoticeStrip
+import dev.app.leaf.ui.DiscardStrip
+import dev.app.leaf.ui.undoDiscard
 import dev.app.leaf.ui.StoppedWaitingStrip
 import dev.app.leaf.ui.ChangesPaneState
 import dev.app.leaf.ui.components.TripleVerticalSplitPanel
@@ -346,6 +348,31 @@ fun RepositoryOpenPage(
                             },
                             onUndo = { repositoryOpenViewModel.undoRewrite() },
                             onDismiss = { repositoryOpenViewModel.dismissRewriteNotice() },
+                        )
+                    }
+                }
+
+                // Fork-only: what the latest discard threw away, with Undo, until it's closed (upstream issue 39)
+                val discardNotice by repositoryOpenViewModel.discardNotice.collectAsState()
+                val undoScope = rememberCoroutineScope()
+
+                discardNotice?.let { notice ->
+                    if (!resolverFocused) {
+                        DiscardStrip(
+                            notice = notice,
+                            onUndo = {
+                                undoScope.launch {
+                                    undoDiscard(
+                                        record = notice.record,
+                                        plan = repositoryOpenViewModel::planDiscardRestore,
+                                        restore = repositoryOpenViewModel::restoreDiscard,
+                                        onConfirmAction = { action, onConfirm ->
+                                            onNavigate(Screen.ConfirmAction(action, onConfirm))
+                                        },
+                                    )
+                                }
+                            },
+                            onDismiss = { repositoryOpenViewModel.dismissDiscardNotice() },
                         )
                     }
                 }
@@ -867,6 +894,7 @@ fun MainContentView(
                         // Fork-only: "Commit to main"; a detached HEAD's branch is named HEAD
                         branchName = branchesState.currentBranch?.takeUnless { it.name == "HEAD" }?.simpleName,
                         isMessageExpanded = messageInCentre,
+                        onRecentlyDiscarded = { onNavigate(Screen.RecentlyDiscarded) },
                     )
                 }
             }

@@ -3,6 +3,8 @@
 
 package dev.app.leaf.data.git.workspace
 
+import dev.app.leaf.data.git.discards.DiscardStore
+import dev.app.leaf.domain.discards.DiscardNotices
 import dev.app.leaf.data.git.IsolatedSystemReader
 import dev.app.leaf.data.git.TestGitCli
 import dev.app.leaf.data.git.conflicts.mergeWithConflicts
@@ -39,7 +41,8 @@ class DiscardAllGitActionTest {
     private val git by lazy { TestGitCli(File(tempDir, "config/global.gitconfig")) }
     private val jgit = testJGit()
     private val getStatus = GetStatusGitAction(jgit)
-    private val discardAll = DiscardAllGitAction(getStatus, DiscardEntriesGitAction(jgit), jgit)
+    private val store = DiscardStore(DiscardNotices())
+    private val discardAll = DiscardAllGitAction(getStatus, DiscardEntriesGitAction(jgit, store), jgit, store)
 
     @BeforeEach
     fun isolateJGitConfig() {

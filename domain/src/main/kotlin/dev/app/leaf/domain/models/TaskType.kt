@@ -16,6 +16,7 @@ sealed interface TaskType {
     data object DiscardAllFiles : TaskType
     data object DeleteFile : TaskType
     data object RestoreFileVersion : TaskType
+    data object RestoreDiscard : TaskType
     data object AddIgnoreRules : TaskType
     data object BlameFile : TaskType
     data object HistoryFile : TaskType
