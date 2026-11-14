@@ -3953,6 +3953,10 @@ and Settings at the right.
 - `Menu.kt` keeps only upstream's `KeybindingHint` and `getParts`, which the toolbar, the pane toggles' tooltips and the
   Actions list use. `Menu`, `MenuButton` and `ExtendedMenuButton` went: an upstream sync that changes them conflicts
   there, so keep them out and port what changed.
+- `getParts` throws for a key that its `when` has no name for, and Compose catches that in the composition and leaves
+  the view out without a word: find's strip never showed on Linux and Windows, whose tooltips name F3, until 2026-11-14.
+  A key that the UI names needs a name there. `KeyNamesTest` checks every system's keys (`keybindingsOf`) on any
+  system, for the options in its list: add an option there when the UI starts naming its key.
 - Tests: `ToolbarTest` (the labels at 1,440, 1,100 and 800 dp, nothing overlapping or past the edge, each button's
   action, Stash without changes and Pull and Push without a remote, a hovered button's tooltip moving nothing, Actions'
   label and shortcut at the same width at any width; PNGs in five styles at 1,440 and 900 dp).

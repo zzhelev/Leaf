@@ -2,6 +2,18 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Find works on Linux and Windows (2026-11-14)
+
+- **Found:** CI on Linux failed 19 of find's tests once find was on `main` (`1e5035f8`, upstream issues 275 and 312).
+  Ctrl+F opened the strip, but the strip never showed. Its ↑ and ↓ tooltips name their keys, Shift+F3 and F3 on Linux
+  and Windows, and `getParts` (`Menu.kt`) throws for a key it has no name for. Compose caught the exception in the
+  composition and left the strip out without a word. On macOS the tooltips name ⇧⌘G and ⌘G, so no test there saw it.
+- **Now:** `getParts` names F3. `keybindingsOf(os)` gives each system's keys, and `KeyNamesTest` checks, whatever system
+  runs it, that each system has a name for every key that the toolbar, the panes' toggles, the Actions list, the log's
+  search and find's strip show.
+- **Reproduced on macOS** with `currentOs` reading Linux in a throwaway build: the same 19 tests failed, and passed with
+  the fix. Taking F3's name out again fails `KeyNamesTest` on macOS.
+
 ## A discard can be undone (2026-11-13)
 
 - **Request:** upstream issue 39, "Option to undo the reset of a file". Every discard asked first, but nothing could
