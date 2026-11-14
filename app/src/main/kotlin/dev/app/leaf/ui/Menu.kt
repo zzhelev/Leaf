@@ -106,6 +106,7 @@ fun getParts(keybinding: Keybinding): List<String> {
         Key.X -> "X"
         Key.Y -> "Y"
         Key.Z -> "Z"
+        Key.F3 -> "F3"
         Key.Tab -> "Tab"
         Key.Equals -> "="
         Key.Plus, Key.NumPadAdd -> "+"

@@ -324,13 +324,14 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
     return macBindings
 }
 
-val keybindings by lazy {
-    return@lazy when (currentOs) {
-        OS.LINUX -> linuxKeybindings()
-        OS.WINDOWS -> windowsKeybindings()
-        OS.MAC -> macKeybindings()
-        OS.UNKNOWN -> baseKeybindings()
-    }
+val keybindings by lazy { keybindingsOf(currentOs) }
+
+/** The keys of [os], which tests read for every system (fork-only). */
+internal fun keybindingsOf(os: OS) = when (os) {
+    OS.LINUX -> linuxKeybindings()
+    OS.WINDOWS -> windowsKeybindings()
+    OS.MAC -> macKeybindings()
+    OS.UNKNOWN -> baseKeybindings()
 }
 
 fun KeyEvent.matchesBinding(keybindingOption: KeybindingOption): Boolean {
