@@ -304,12 +304,8 @@ fun StatusCommitField(
         // The same as the banner's Abort (fork-only)
         onResetRepoState = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
         onAbortRebase = { abortOperationInProgress(statusState, onAction, onConfirmAction) },
-        onAmendChecked = { amend ->
-            if (amend && commitMessage.text.isEmpty()) {
-                onAction(StatusAction.UpdateCommitMessage(TextFieldValue(statusState.previousCommitMessage.orEmpty())))
-            }
-            onAction(StatusAction.ToggleAmend(amend))
-        },
+        // Fork-only: the view model fills the field with the last commit's message, and empties it again when Amend ends
+        onAmendChecked = { amend -> onAction(StatusAction.ToggleAmend(amend)) },
         onContinueRebase = { onAction(StatusAction.ContinueRebase(commitMessage.text)) },
         onSkipRebase = {
             // Fork-only: names the commit; one with changes is listed once the rebase ends
@@ -1102,6 +1098,7 @@ internal fun CommitField(
                 isAmend = isAmend,
                 onCommit = doCommit,
                 branchName = branchName,
+                onDontAmend = { onAmendChecked(false) },
             )
         }
     }
@@ -1115,6 +1112,8 @@ fun UncommittedChangesButtons(
     onCommit: () -> Unit,
     // Fork-only: "Commit" over "to main", as mockup A has it; null on a detached HEAD
     branchName: String? = null,
+    // Fork-only: turns Amend off, before the Amend button while it is on
+    onDontAmend: () -> Unit = {},
 ) {
     val buttonText = if (isAmend) {
         stringResource(Res.string.uncommited_changes_primary_button_amend)
@@ -1129,17 +1128,32 @@ fun UncommittedChangesButtons(
         else -> stringResource(Res.string.uncommited_changes_primary_button_to_branch, branchName)
     }
 
+    val buttonHeight = if (branchLine != null) twoLineButtonHeight() else 36.dp
+
     Column {
-        // Fork-only: Amend is in the commit message title row's menu now (upstream issue 344)
+        // Fork-only: Amend is in the commit message title row's menu now (upstream issue 344), and while it is on,
+        // "Don't amend" turns it off next to the button that says so
         Row(
             modifier = Modifier
                 .padding(top = 8.dp)
         ) {
+            if (isAmend) {
+                RoleButton(
+                    text = stringResource(Res.string.uncommited_changes_secondary_button_dont_amend),
+                    colors = MaterialTheme.styleColors.neutral,
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .height(buttonHeight),
+                    onClick = onDontAmend,
+                    horizontalPadding = 14.dp,
+                )
+            }
+
             ConfirmationButton(
                 text = buttonText,
                 modifier = Modifier
                     .weight(1f)
-                    .height(if (branchLine != null) twoLineButtonHeight() else 36.dp),
+                    .height(buttonHeight),
                 onClick = {
                     onCommit()
                 },
@@ -1362,6 +1376,8 @@ private fun RoleButton(
     modifier: Modifier,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    // Fork-only: room on either side of the label, for a button as wide as its label
+    horizontalPadding: Dp = 0.dp,
 ) {
     Box(
         modifier = modifier
@@ -1375,6 +1391,8 @@ private fun RoleButton(
         Text(
             text = text,
             style = MaterialTheme.typography.body1.copy(color = colors.content),
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = horizontalPadding),
         )
     }
 }

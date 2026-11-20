@@ -451,6 +451,54 @@ class CommitFieldTest {
         }
 
     @Test
+    fun `Don't amend shows only while amending, before the Amend button and as tall, and turns Amend off`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            val state = status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix")
+
+            Field(state, branchName = "main").use { field ->
+                assertFalse("Don't amend" in field.texts(), field.texts().toString())
+            }
+
+            Field(state.copy(isAmend = true), branchName = "claude/fix-login-redirect-on-safari").use { field ->
+                val dontAmend = field.bounds("Don't amend")
+                val amend = field.bounds("Amend")
+
+                assertTrue(dontAmend.right <= amend.left, "Don't amend ends at ${dontAmend.right}, Amend starts at ${amend.left}")
+                assertEquals(amend.top, dontAmend.top, 0.5f)
+                assertEquals(amend.height, dontAmend.height, 0.5f)
+                assertTrue(amend.width > dontAmend.width, "Amend keeps the most room, for the branch: ${amend.width}")
+                assertTrue(field.texts().any { it.startsWith("on claude/") }, field.texts().toString())
+
+                field.click("Don't amend")
+
+                assertEquals(listOf(false), field.amendToggles)
+                assertEquals(0, field.commits)
+            }
+
+            // Nothing staged, so Amend is the only thing the button can do: Don't amend still works
+            Field(status(RepositoryState.SAFE, message = "Fix").copy(isAmend = true), branchName = "main").use { field ->
+                field.click("Don't amend")
+
+                assertEquals(listOf(false), field.amendToggles)
+            }
+        }
+
+    @Test
+    fun `at a bigger text size Don't amend keeps its label whole next to Amend`(): Unit = runBlocking(Dispatchers.Swing) {
+        val state = status(RepositoryState.SAFE, staged = listOf(stagedFile), message = "Fix").copy(isAmend = true)
+
+        Field(state, branchName = "main", textSize = 20).use { field ->
+            val dontAmend = field.bounds("Don't amend")
+            val amend = field.bounds("Amend")
+
+            assertTrue(dontAmend.right <= amend.left)
+            assertTrue(amend.right <= 400f, "Amend ends at ${amend.right}")
+            assertEquals(amend.height, dontAmend.height, 0.5f)
+            assertTrue("on main" in field.texts(), field.texts().toString())
+        }
+    }
+
+    @Test
     fun `at a rebase stop that can be amended the menu is there, and it is the rebase's amend switch`(): Unit =
         runBlocking(Dispatchers.Swing) {
             val stop = RebaseInteractiveState.ProcessingCommits(commitToAmendId = "abc1234")

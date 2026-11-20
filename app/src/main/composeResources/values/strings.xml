@@ -267,6 +267,7 @@
     <string name="uncommited_changes_primary_button_to_branch">to %1$s</string>
     <string name="uncommited_changes_primary_button_on_branch">on %1$s</string>
     <string name="uncommited_changes_primary_button_amend">Amend</string>
+    <string name="uncommited_changes_secondary_button_dont_amend">Don't amend</string>
     <string name="uncommited_changes_primary_button_merge">Merge</string>
     <string name="uncommited_changes_primary_button_continue">Continue</string>
     <string name="uncommited_changes_primary_button_skip">Skip</string>

@@ -5,7 +5,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import dev.app.leaf.collectLatestInCoroutineScope
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
+import dev.app.leaf.domain.commitmessage.AmendHead
+import dev.app.leaf.domain.commitmessage.AmendStart
 import dev.app.leaf.domain.commitmessage.CoAuthor
+import dev.app.leaf.domain.commitmessage.amendStart
 import dev.app.leaf.domain.commitmessage.CommitlintRules
 import dev.app.leaf.domain.commitmessage.ConventionalHistory
 import dev.app.leaf.domain.commitmessage.conventionalHistory
@@ -270,6 +273,13 @@ class StatusViewModelExtender @AssistedInject constructor(
     val isAmend: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
+    /** Fork-only: what turning Amend on did, which ending it puts back; null while Amend is off. */
+    private val amending = MutableStateFlow<AmendStart?>(null)
+
+    /** Fork-only: the checked-out branch and its commit, as last loaded, which Amend belongs to while it is on. */
+    @Volatile
+    private var currentHead: AmendHead? = null
+
     val isAmendRebaseInteractive: StateFlow<Boolean>
         field = rebaseInteractiveState
             .map {
@@ -510,11 +520,29 @@ class StatusViewModelExtender @AssistedInject constructor(
         // is saved there, and a commit or the next message doesn't cancel it.
         repositoryDataRepository.repositorySelectionState.worktreeSwitches().collectLatestInCoroutineScope {
             persistMessageJob = null
-            isAmend.value = false
+            // The field gets the new worktree's messages, so nothing is put back
+            stopAmending()
             stagedCollapsedFolders.value = CollapsedFolders()
             unstagedCollapsedFolders.value = CollapsedFolders()
             unstagedCollapsedGroups.value = CollapsedGroups()
         }
+
+        // Fork-only: Amend rewrites the commit that it was turned on at. Another branch, a commit from a terminal or a
+        // reset ends it, as the field shows the message of a commit that the next commit wouldn't rewrite.
+        repositoryDataRepository.currentBranch
+            .filter { it is DataState.Loaded }
+            .map { state -> state.dataOrNull()?.let { branch -> AmendHead(branch.name, branch.hash) } }
+            .collectLatestInCoroutineScope { head ->
+                currentHead = head
+
+                val start = amending.value ?: return@collectLatestInCoroutineScope
+
+                if (start.isEndedBy(head)) {
+                    amend(false)
+                } else {
+                    amending.compareAndSet(start, start.withHeadKnown(head))
+                }
+            }
 
         showSearchStaged.collectLatestInCoroutineScope {
             if (it) {
@@ -794,6 +822,9 @@ class StatusViewModelExtender @AssistedInject constructor(
             // Fork-only: a squash merge's message is in SQUASH_MSG, which neither JGit nor upstream wrote
             if (source == CommitMessageSource.SQUASH) {
                 persistSquashMessageUseCase(repositoryPath, newMessage.orEmpty())
+            } else if (source == CommitMessageSource.NORMAL) {
+                // Fork-only: the draft is what the field says with Amend off, which a restart turns off
+                persistCommitMessageUseCase(repositoryPath, newMessage?.let { amending.value?.draftFor(it) ?: it })
             } else {
                 persistCommitMessageUseCase(repositoryPath, newMessage)
             }
@@ -1114,14 +1145,36 @@ class StatusViewModelExtender @AssistedInject constructor(
 
     private fun deleteFile(statusEntry: StatusEntry) = deleteFileUseCase(statusEntry.filePath)
 
+    /**
+     * Turns Amend on or off. On, an empty field gets the last commit's message. Fork-only: off puts the field back as it
+     * was, when the message that Amend loaded wasn't edited: "Don't amend" and the menu's switch both come here, and so
+     * does another branch or commit, which ends Amend.
+     */
     fun amend(isAmend: Boolean) {
-        this.isAmend.value = isAmend
+        if (isAmend) {
+            if (this.isAmend.value) return
 
-        if (this.commitMessage.value.text.isEmpty()) {
-            val previousCommitMessage = this.statusState.value.previousCommitMessage.orEmpty()
+            val field = currentCommitMessage()
+            val start = amendStart(field.text, statusState.value.previousCommitMessage, currentHead)
+            amending.value = start
+            this.isAmend.value = true
 
-            updateCommitMessage(TextFieldValue(previousCommitMessage, selection = TextRange(previousCommitMessage.count())))
+            start.loadedMessage?.let { message ->
+                updateCommitMessage(TextFieldValue(message, selection = TextRange(message.length)))
+            }
+        } else {
+            val start = amending.getAndUpdate { null }
+            this.isAmend.value = false
+
+            val field = currentCommitMessage()
+            start?.fieldAfterEnd(field.text)?.let { text -> updateCommitMessage(TextFieldValue(text)) }
         }
+    }
+
+    /** Fork-only: Amend ends without putting the field back, as the field changes anyway. */
+    private fun stopAmending() {
+        amending.value = null
+        isAmend.value = false
     }
 
     fun amendRebaseInteractive(isAmend: Boolean) {
@@ -1156,7 +1209,7 @@ class StatusViewModelExtender @AssistedInject constructor(
             // Fork-only: clears the message that was committed. The commit removed its file, and clearing the field
             // the source has now would drop the draft that a merge, cherry-pick or revert had kept out of view.
             messageFlowOf(source).value = TextFieldValue("")
-            isAmend.value = false
+            stopAmending()
             // Fork-only: the message was written, so the centre pane has the log again
             expandMessage(false)
         } else {
