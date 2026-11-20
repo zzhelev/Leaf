@@ -39,6 +39,8 @@ import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.theme.monoTypography
 import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.components.CheckboxText
+import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import dev.app.leaf.ui.authorDateTooltip
 import dev.app.leaf.ui.dialogs.base.IconBasedDialog
 import dev.app.leaf.ui.getStyledErrorText
 import org.jetbrains.compose.resources.painterResource
@@ -283,18 +285,21 @@ private fun CommitRow(
             modifier = Modifier.weight(1f),
         )
 
-        Text(
-            text = when (leftOut) {
-                CherryPickLeftOut.MERGE -> stringResource(Res.string.cherry_pick_dialog_left_out_merge)
-                // Not "Already on <branch>": a branch's long name left the subject a few letters
-                CherryPickLeftOut.ALREADY_APPLIED -> stringResource(Res.string.cherry_pick_dialog_left_out_applied)
+        // Fork-only: the author date, which the copies keep, and the commit date in the tooltip when it differs
+        DelayedTooltip(text = if (leftOut == null) authorDateTooltip(commit) else null) {
+            Text(
+                text = when (leftOut) {
+                    CherryPickLeftOut.MERGE -> stringResource(Res.string.cherry_pick_dialog_left_out_merge)
+                    // Not "Already on <branch>": a branch's long name left the subject a few letters
+                    CherryPickLeftOut.ALREADY_APPLIED -> stringResource(Res.string.cherry_pick_dialog_left_out_applied)
 
-                null -> commit.date.toSmartSystemString()
-            },
-            style = MaterialTheme.typography.caption,
-            color = MaterialTheme.colors.onBackgroundSecondary,
-            maxLines = 1,
-        )
+                    null -> commit.authorDate.toSmartSystemString()
+                },
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.onBackgroundSecondary,
+                maxLines = 1,
+            )
+        }
     }
 }
 

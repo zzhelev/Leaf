@@ -15,15 +15,25 @@ import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import dev.app.leaf.domain.cherrypick.BranchCherryPick
+import dev.app.leaf.domain.cherrypick.CherryPickCandidate
+import dev.app.leaf.domain.cherrypick.CherryPickLeftOut
+import dev.app.leaf.domain.models.Branch
 import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Identity
+import dev.app.leaf.domain.models.RepositoryState
+import dev.app.leaf.domain.models.WorktreeStatus
+import dev.app.leaf.domain.log.ParentLink
 import dev.app.leaf.domain.models.ui.Theme
 import dev.app.leaf.domain.rewrite.BranchLine
 import dev.app.leaf.domain.rewrite.RebasePlan
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.repositoryopen.CommitEditorState
+import dev.app.leaf.repositoryopen.ParentJump
 import dev.app.leaf.theme.AppTheme
 import dev.app.leaf.ui.commiteditor.CommitEditor
+import dev.app.leaf.ui.dialogs.CherryPickBranchDialogContent
+import dev.app.leaf.ui.dialogs.CherryPickBranchState
 import dev.app.leaf.viewmodels.HistoryState
 import dev.app.leaf.domain.models.ViewDiffResult
 import org.jetbrains.skia.EncodedImageFormat
@@ -115,6 +125,23 @@ class AuthorDateRowsTest {
     }
 
     @Test
+    fun `the cherry-pick dialog's rows show the author date`() {
+        var authored = emptyList<String>()
+        var committed = ""
+
+        render(900, 900) {
+            authored = listOf(plain, rebased).map { it.authorDate.toSmartSystemString() }
+            committed = rebased.date.toSmartSystemString()
+            CherryPick()
+        }
+
+        val texts = texts()
+
+        for (date in authored) assertTrue(date in texts, "$date in $texts")
+        assertFalse(committed in texts, "The commit date isn't shown: $texts")
+    }
+
+    @Test
     fun `the tooltip has the whole author date, and when and by whom it was committed when that differs`() {
         val tooltips = mutableMapOf<Commit, String>()
         var rebasedDates = emptyList<String>()
@@ -134,6 +161,32 @@ class AuthorDateRowsTest {
             tooltips[merged],
         )
         assertEquals(plainDate, tooltips[plain])
+    }
+
+    @Test
+    fun `a parent's tooltip has its author date, and when and by whom it was committed when that differs`() {
+        val tooltips = mutableMapOf<Commit, String>()
+        val dates = mutableMapOf<Commit, List<String>>()
+
+        render(400, 100) {
+            for (commit in listOf(rebased, merged, plain)) {
+                tooltips[commit] = parentTooltip(ParentLink(commit.hash, 1, commit), false, ParentJump.None)
+                dates[commit] = listOf(commit.authorDate, commit.date)
+                    .map { it.toSmartSystemString(false, showTime = true) }
+            }
+        }
+
+        assertEquals(
+            "Cache the parsed files\nAda Lovelace · ${dates[rebased]!![0]}\n" +
+                "Committed ${dates[rebased]!![1]}\n${rebased.hash}",
+            tooltips[rebased],
+        )
+        assertEquals(
+            "Merge the lexer\nAda Lovelace · ${dates[merged]!![0]}\n" +
+                "Committed by GitHub <noreply@github.com>, ${dates[merged]!![1]}\n${merged.hash}",
+            tooltips[merged],
+        )
+        assertEquals("Add the parser\nAda Lovelace · ${dates[plain]!![0]}\n${plain.hash}", tooltips[plain])
     }
 
     @Test
@@ -176,6 +229,35 @@ class AuthorDateRowsTest {
             CommitEditorState(plan = RebasePlan.of(line, listOf(plain, merged, rebased)), selected = rebased.hash),
             onAction = {},
             modifier = Modifier.width(1100.dp).fillMaxHeight(),
+        )
+    }
+
+    /** The two commits that a cherry-pick copies, oldest first, and the merge between them, which it leaves out. */
+    @Composable
+    private fun CherryPick() {
+        val branch = Branch("f".repeat(40), RewriteFixtures.BRANCH, isLocal = true)
+        val pick = BranchCherryPick(
+            branch = branch,
+            currentBranch = "refs/heads/main",
+            workingTree = "/repo",
+            candidates = listOf(
+                CherryPickCandidate(plain),
+                CherryPickCandidate(merged, CherryPickLeftOut.MERGE),
+                CherryPickCandidate(rebased),
+            ),
+            commitCount = 3,
+            repositoryState = RepositoryState.SAFE,
+            isSequenceInProgress = false,
+            status = WorktreeStatus(0, 0, 0, 0, null, null),
+        )
+
+        CherryPickBranchDialogContent(
+            branch = branch,
+            state = CherryPickBranchState(pick = pick, selected = setOf(plain.hash, rebased.hash), asOneCommit = false),
+            onToggle = {},
+            onAsOneCommitChanged = {},
+            onConfirm = {},
+            onDismiss = {},
         )
     }
 

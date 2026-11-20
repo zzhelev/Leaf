@@ -83,10 +83,22 @@ fun CommittedLine(
 fun authorDateTooltip(commit: Commit): String {
     val authored = commit.authorDate.toSmartSystemString(allowRelative = false, showTime = true)
 
-    if (!commit.isCommittedApartFromAuthoring) return authored
+    val committedLine = committedApartLine(commit) ?: return authored
+
+    return stringResource(Res.string.log_column_date_authored, authored) + "\n" + committedLine
+}
+
+/**
+ * Fork-only: "Committed …" or "Committed by GitHub …" with the commit date, for a commit committed at another minute or
+ * by someone else, and null otherwise.
+ */
+@Composable
+fun committedApartLine(commit: Commit): String? {
+    if (!commit.isCommittedApartFromAuthoring) return null
 
     val committed = commit.date.toSmartSystemString(allowRelative = false, showTime = true)
-    val committedLine = if (commit.isCommittedBySomeoneElse) {
+
+    return if (commit.isCommittedBySomeoneElse) {
         stringResource(
             Res.string.log_column_author_committed_by,
             commit.committer.name.orEmpty(),
@@ -96,8 +108,6 @@ fun authorDateTooltip(commit: Commit): String {
     } else {
         stringResource(Res.string.log_column_date_committed, committed)
     }
-
-    return stringResource(Res.string.log_column_date_authored, authored) + "\n" + committedLine
 }
 
 /** [label] at the start and [date] at the end of one line, or [date] at the end of a second line when they don't fit. */

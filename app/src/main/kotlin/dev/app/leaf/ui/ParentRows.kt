@@ -230,9 +230,12 @@ private fun parentDetail(link: ParentLink, jump: ParentJump): ParentDetail = whe
     }
 }
 
-/** The tooltip of a row: which parent it is in a merge, its message, who and when, and the hash. */
+/**
+ * The tooltip of a row: which parent it is in a merge, its message, who and when, and the hash. Fork-only: when is the
+ * author date, with the commit date under it when it differs, as in file history.
+ */
 @Composable
-private fun parentTooltip(link: ParentLink, isNumbered: Boolean, jump: ParentJump): String {
+internal fun parentTooltip(link: ParentLink, isNumbered: Boolean, jump: ParentJump): String {
     val position = when {
         link.position == 1 -> stringResource(Res.string.commit_parents_tooltip_first, link.position)
         else -> stringResource(Res.string.commit_parents_tooltip_other, link.position)
@@ -252,7 +255,9 @@ private fun parentTooltip(link: ParentLink, isNumbered: Boolean, jump: ParentJum
         commit == null -> stringResource(Res.string.commit_parents_tooltip_not_loaded)
         else -> listOf(
             commit.message.forTooltip(maxLines = 8),
-            "${commit.author.name.orEmpty()} · ${commit.date.toSmartSystemString(allowRelative = false, showTime = true)}",
+            "${commit.author.name.orEmpty()} · " +
+                commit.authorDate.toSmartSystemString(allowRelative = false, showTime = true),
+            committedApartLine(commit).orEmpty(),
         ).filter { it.isNotBlank() }.joinToString("\n")
     }
 
