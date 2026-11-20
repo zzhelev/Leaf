@@ -530,15 +530,14 @@ fun HistoryCommit(
                 )
                 Spacer(modifier = Modifier.weight(1f))
 
-                val date = commit.date.toSmartSystemString()
-
+                // Fork-only: the author date, and the commit date in the tooltip when it differs
                 TooltipText(
-                    text = date,
+                    text = commit.authorDate.toSmartSystemString(),
                     color = MaterialTheme.colors.onBackgroundSecondary,
                     maxLines = 1,
                     modifier = Modifier.padding(horizontal = 16.dp),
                     style = MaterialTheme.typography.body2,
-                    tooltipTitle = date
+                    tooltipTitle = authorDateTooltip(commit),
                 )
             }
         }

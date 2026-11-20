@@ -109,17 +109,20 @@ fun FileHistoryCommitStrip(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CopyableHash(hash = commit.hash, shortHash = commit.shortHash)
 
-                Text(
-                    text = listOf(
-                        commit.author.name.orEmpty(),
-                        commit.date.toSmartSystemString(showTime = true),
-                    ).filter { it.isNotEmpty() }.joinToString(" · ", prefix = "· "),
-                    style = MaterialTheme.typography.body2,
-                    color = MaterialTheme.colors.onBackgroundSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 6.dp),
-                )
+                // The author and when they wrote the change; the tooltip adds the commit date when it differs
+                DelayedTooltip(text = authorDateTooltip(commit)) {
+                    Text(
+                        text = listOf(
+                            commit.author.name.orEmpty(),
+                            commit.authorDate.toSmartSystemString(showTime = true),
+                        ).filter { it.isNotEmpty() }.joinToString(" · ", prefix = "· "),
+                        style = MaterialTheme.typography.body2,
+                        color = MaterialTheme.colors.onBackgroundSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
             }
         }
 

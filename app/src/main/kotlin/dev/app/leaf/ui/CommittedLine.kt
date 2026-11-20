@@ -12,8 +12,11 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
+import dev.app.leaf.domain.models.Commit
 import dev.app.leaf.domain.models.Identity
 import dev.app.leaf.domain.models.isCommittedApart
+import dev.app.leaf.domain.models.isCommittedApartFromAuthoring
+import dev.app.leaf.domain.models.isCommittedBySomeoneElse
 import dev.app.leaf.domain.models.isSamePersonAs
 import dev.app.leaf.extensions.toSmartSystemString
 import dev.app.leaf.theme.onBackgroundSecondary
@@ -70,6 +73,31 @@ fun CommittedLine(
             )
         },
     )
+}
+
+/**
+ * Fork-only: the tooltip of a commit's author date where a list shows it, as file history and the commit editor do: the
+ * whole date, and when the commit was committed at another minute or by someone else, when and by whom too.
+ */
+@Composable
+fun authorDateTooltip(commit: Commit): String {
+    val authored = commit.authorDate.toSmartSystemString(allowRelative = false, showTime = true)
+
+    if (!commit.isCommittedApartFromAuthoring) return authored
+
+    val committed = commit.date.toSmartSystemString(allowRelative = false, showTime = true)
+    val committedLine = if (commit.isCommittedBySomeoneElse) {
+        stringResource(
+            Res.string.log_column_author_committed_by,
+            commit.committer.name.orEmpty(),
+            commit.committer.email.orEmpty(),
+            committed,
+        )
+    } else {
+        stringResource(Res.string.log_column_date_committed, committed)
+    }
+
+    return stringResource(Res.string.log_column_date_authored, authored) + "\n" + committedLine
 }
 
 /** [label] at the start and [date] at the end of one line, or [date] at the end of a second line when they don't fit. */

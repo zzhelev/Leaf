@@ -83,6 +83,7 @@ import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.ui.components.sort.SortMenuItem
 import dev.app.leaf.ui.components.sort.SortMenuPopup
+import dev.app.leaf.ui.authorDateTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.drag_sorting.VerticalDraggableItem
 import dev.app.leaf.ui.drag_sorting.rememberVerticalDragDropState
@@ -513,14 +514,17 @@ private fun PlanRowView(
             }
         }
 
-        Text(
-            text = row.commit.date.toSmartSystemString(),
-            style = MaterialTheme.typography.body2,
-            color = colors.onBackgroundSecondary,
-            textAlign = TextAlign.End,
-            maxLines = 1,
-            modifier = Modifier.width(90.dp),
-        )
+        // The author date, which the rebase keeps; the tooltip adds the commit date when it differs
+        InstantTooltip(text = authorDateTooltip(row.commit), maxLines = 2) {
+            Text(
+                text = row.commit.authorDate.toSmartSystemString(),
+                style = MaterialTheme.typography.body2,
+                color = colors.onBackgroundSecondary,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                modifier = Modifier.width(90.dp),
+            )
+        }
     }
 }
 
