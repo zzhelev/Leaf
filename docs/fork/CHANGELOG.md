@@ -13,6 +13,9 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   often all be the same minute, and a file's history answers when the file changed. Other tools: git log, git blame,
   IntelliJ, GitLens, GitLab and lazygit show the author date in a file's history; GitHub, VS Code's Timeline and
   SourceTree the commit date. While rebasing, GitLens and lazygit show the author date, git and IntelliJ none.
+- **Then the last two:** the cherry-pick dialog's rows, whose copies keep the author date, and the parents' rows'
+  tooltips in the commit details, asked for by the user so that a date next to the author is always the author date.
+  The commit date shows only in the log's Commit date column and in the "Committed" lines.
 - Details: CLAUDE.md, "Log", Columns.
 
 ## Amend can be turned off (2026-11-20)

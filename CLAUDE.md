@@ -4741,13 +4741,18 @@ to dates, and resets them. By default only Commit date is on, as before.
     Chosen with the user after a look at other tools: in a file's history, git log, git blame, IntelliJ, GitLens, GitLab
     and lazygit show the author date, GitHub, VS Code's Timeline and SourceTree the commit date; while rebasing, GitLens
     and lazygit show the author date, git and IntelliJ none.
-  - Not changed: the cherry-pick dialog and the parents' rows still pair the author's name with the commit date.
+  - **The cherry-pick dialog and the parents' rows** too (asked by the user the same day, so that a date next to the
+    author is always the author date): the cherry-pick dialog's rows (`CherryPickBranchDialog`), whose copies keep it,
+    with `authorDateTooltip`, and the parents' rows' tooltips (`parentTooltip`, `ui/ParentRows.kt`): the author's name
+    and the author date, then `committedApartLine` (`ui/CommittedLine.kt`), the line that `authorDateTooltip` adds. The
+    commit date now shows only in the log's Commit date column and in those "Committed" lines.
   - Tests: `LogColumnsTest`, `LogColumnsCodecTest` (domain), `CommitDatesTest` (app: both columns and their times, the
     headers, the menu, the footer's lines and where its dates end; PNGs with `LEAF_RENDER_DIR`). 4 mutations were each
-    caught by a named test. `AuthorDateRowsTest` (app: file history's rows and strip, the commit editor's rows, the
-    tooltip's text; PNGs with `LEAF_RENDER_DIR`). 5 mutations (each of the three places back on the commit date, and the
-    tooltip's two choices) were each caught by a named test. Not covered by a kept test: that the rows' and the strip's
-    tooltips are `authorDateTooltip`, as tooltips don't show offscreen.
+    caught by a named test. `AuthorDateRowsTest` (app: file history's rows and strip, the commit editor's and the
+    cherry-pick dialog's rows, the tooltip's text and a parent's; PNGs with `LEAF_RENDER_DIR`). 8 mutations (each of the
+    five places back on the commit date, a parent's "Committed" line, and the tooltip's two choices) were each caught by
+    a named test. Not covered by a kept test: that the rows', the strip's and the cherry-pick dialog's tooltips are
+    `authorDateTooltip`, as tooltips don't show offscreen.
 - The UI is in `ui/log/LogColumns.kt`. The menu reuses the sort menu's `SortMenuPopup`, which takes a position.
 - The commit row's menu has "Copy commit hash".
 
