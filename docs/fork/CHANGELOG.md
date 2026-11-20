@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## File history and the commit editor show the author date (2026-11-20)
+
+- **Request:** the user's, after the log's Author date column: file history's rows, the strip above its diff and the
+  commit editor's rows showed the commit date next to the author's name.
+- **Now:** they show the author date. Their tooltips have the whole author date, and when the commit was made at another
+  minute or by someone else, "Committed" or "Committed by GitHub" with the commit date. File history's list stays in
+  commit-date order.
+- **Why the author date:** a rebase gives every commit it rewrites a new commit date, so the commit editor's dates would
+  often all be the same minute, and a file's history answers when the file changed. Other tools: git log, git blame,
+  IntelliJ, GitLens, GitLab and lazygit show the author date in a file's history; GitHub, VS Code's Timeline and
+  SourceTree the commit date. While rebasing, GitLens and lazygit show the author date, git and IntelliJ none.
+- Details: CLAUDE.md, "Log", Columns.
+
 ## Amend can be turned off (2026-11-20)
 
 - **Request:** the user's. After turning Amend on, the commit field kept the last commit's message and the Amend

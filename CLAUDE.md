@@ -4733,11 +4733,21 @@ to dates, and resets them. By default only Commit date is on, as before.
     where it showed the commit date. Under it, while `isCommittedApart` (another committer, or another minute), a line
     "Committed" or "Committed by GitHub" with the commit date, which ends where the author date does; a label and a
     date that don't fit side by side (a long name in the 330 dp pane) put the date on a line of its own.
-  - Not changed: file history's rows, the commit editor's rows, the cherry-pick dialog and the parents' rows still pair
-    the author's name with the commit date.
+  - **File history and the commit editor** show the author date too: file history's rows and the strip above its diff
+    (`HistoryCommit`, `FileHistoryCommitStrip`), and the commit editor's rows (`PlanRowView`). Their tooltips are
+    `authorDateTooltip` (`ui/CommittedLine.kt`): the whole author date, then "Committed …" or "Committed by GitHub …"
+    with the commit date while `isCommittedApartFromAuthoring`. File history's list stays in commit-date order, as the
+    log's rows do. A rebase gives every commit it rewrites a new commit date, so the editor's would often be one minute.
+    Chosen with the user after a look at other tools: in a file's history, git log, git blame, IntelliJ, GitLens, GitLab
+    and lazygit show the author date, GitHub, VS Code's Timeline and SourceTree the commit date; while rebasing, GitLens
+    and lazygit show the author date, git and IntelliJ none.
+  - Not changed: the cherry-pick dialog and the parents' rows still pair the author's name with the commit date.
   - Tests: `LogColumnsTest`, `LogColumnsCodecTest` (domain), `CommitDatesTest` (app: both columns and their times, the
     headers, the menu, the footer's lines and where its dates end; PNGs with `LEAF_RENDER_DIR`). 4 mutations were each
-    caught by a named test.
+    caught by a named test. `AuthorDateRowsTest` (app: file history's rows and strip, the commit editor's rows, the
+    tooltip's text; PNGs with `LEAF_RENDER_DIR`). 5 mutations (each of the three places back on the commit date, and the
+    tooltip's two choices) were each caught by a named test. Not covered by a kept test: that the rows' and the strip's
+    tooltips are `authorDateTooltip`, as tooltips don't show offscreen.
 - The UI is in `ui/log/LogColumns.kt`. The menu reuses the sort menu's `SortMenuPopup`, which takes a position.
 - The commit row's menu has "Copy commit hash".
 
@@ -5112,7 +5122,7 @@ the branches pane's does (previous section), with one difference: some things ca
 **File history's selected commit (fork-only, `ui/FileHistorySelection.kt`, `viewmodels/FileHistoryCommits.kt`):**
 `HistoryViewModel.selectedCommit` is the commit whose diff is shown. The list highlights its row
 (`backgroundSelected`, as the log does), and `FileHistoryCommitStrip` above the diff names it: subject, short hash,
-author, date and time, and "3 of 12".
+author, author date and time (see Dates, under Log), and "3 of 12".
 - File history opens on the newest commit. ↑ and ↓ (`FileHistory`'s own `onKeyEvent`, which the tab's shortcuts let
   through) and the strip's chevrons call `selectAdjacentCommit`. The list keeps the row in view (`keepInView`, as the
   status pane's lists do), and a click on "3 of 12" scrolls it back to the middle (`showInMiddle`). A click on the hash
