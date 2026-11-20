@@ -2,6 +2,20 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## The log shows the author date too (2026-11-20)
+
+- **Request:** the user's. git records two dates on a commit, and the log's one Date column was the commit date, which
+  an amend or a rebase changes. The commit details' footer showed that date next to the author's name, so it read as
+  the author date.
+- **Now:** the columns menu has "Author date" after Author, and "Date" is "Commit date". Either or both can show, and
+  "Show time" applies to both. Saved column settings keep the commit date; the author date comes hidden after Author.
+- **The footer** shows the author date beside the author, and under it, when the commit was made at another minute or
+  by someone else, "Committed" or "Committed by GitHub" with the commit date.
+- **Chosen with the user** from two options, after a look at other clients: git, gitk, GitLab, IntelliJ, Fork, GitHub
+  Desktop and lazygit show the author date; GitHub, Bitbucket, SourceTree, Sublime Merge, GitKraken and tig the commit
+  date; several have a switch. Two columns (B) over one column with a choice (A).
+- Details: CLAUDE.md, "Log", Columns.
+
 ## Find works on Linux and Windows (2026-11-14)
 
 - **Found:** CI on Linux failed 19 of find's tests once find was on `main` (`1e5035f8`, upstream issues 275 and 312).
