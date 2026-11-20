@@ -2,6 +2,21 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Amend can be turned off (2026-11-20)
+
+- **Request:** the user's. After turning Amend on, the commit field kept the last commit's message and the Amend
+  button, also on a new branch with new changes, and there was no way to cancel it.
+- **Found:** turning Amend off (the ⋯ menu) only flipped the switch, and left the last commit's message in the field,
+  where it was also saved as the draft, so it outlived other branches and restarts. Amend itself went on through
+  checkouts, new branches and commits from a terminal: only Leaf's own commit or a worktree switch ended it, so the next
+  commit could amend another commit with the old message.
+- **Now:** "Don't amend" before the Amend button turns it off. Off empties the field when it still has the message that
+  Amend loaded, and keeps an edited one. Another branch, or another commit, ends Amend the same way. While Amend is on,
+  the draft is what the field would say with Amend off.
+- **Chosen with the user** from three options: an × on the "amending last commit" tag, a button next to Amend (C), or
+  the menu alone.
+- Details: CLAUDE.md, "Status pane sections", Ending Amend.
+
 ## The log shows the author date too (2026-11-20)
 
 - **Request:** the user's. git records two dates on a commit, and the log's one Date column was the commit date, which

@@ -4473,6 +4473,26 @@ implementation, `RefreshDataUseCase` (a new `DataToRefresh`), `SidePaneStates.kt
     see Co-authors; at a read-only stop it has none). The checkbox under the field is gone (`UncommittedChangesButtons`, `RebasingButtons`), and the button
     has the 8 dp above it that Merge's and the others have. It costs a click more than the checkbox did. Chosen with
     the user from three mockups (title row only, Amend in the row, Amend in a menu).
+  - **Ending Amend (2026-11-20, `domain/commitmessage/AmendStart.kt`):** while Amend is on, "Don't amend" sits before
+    the Amend button (`UncommittedChangesButtons`' `onDontAmend`, the neutral role, as wide as its label and as tall as
+    the button; red in Classic, whose neutral role is). Option C of three, chosen with the user (A: an × on the title
+    row's tag; B: the menu alone): Amend used to look impossible to cancel, as turning it off kept the last commit's
+    message.
+    - `StatusViewModelExtender.amend` does the filling, which `StatusPane`'s `onAmendChecked` did before, and keeps an
+      `AmendStart`: the message that Amend loaded into the empty field (none when the field had text) and the branch and
+      commit (`AmendHead`) it was turned on at. Off, the menu's switch or Don't amend, empties the field when it still
+      has the loaded message (`fieldAfterEnd`), and keeps an edited one or a message that was there before, as
+      IntelliJ does.
+    - Another branch, or another commit on it, ends Amend the same way (`isEndedBy`, from `currentBranch`): a new or
+      checked-out branch, a commit from a terminal, a reset. It went on before, and the next commit would have amended
+      the new HEAD with the old commit's message. A worktree switch and Leaf's own commit end it without putting
+      anything back (`stopAmending`), as the field changes anyway.
+    - While Amend is on, the plain draft (`LEAF_COMMIT_DRAFT`) is what the field would say with Amend off
+      (`draftFor`): the loaded message, untouched, used to stay as the draft after a restart, which turns Amend off.
+    - Tests: `AmendStartTest` (domain), the button in `CommitFieldTest`. Not covered by a kept test: the view model's
+      part, which ran through the Dagger graph in a temporary harness (on, off, an edit kept, a draft kept, a new branch
+      and a commit from a terminal ending it, Leaf's own amend, "Amend this commit…", the draft file at each step). Two
+      mutations (the commit alone ending Amend, the button shown without Amend) were each caught by a named test.
   - **The field** (`CommitMessageTextField`) is still Material's `TextField`, so undo, Cmd+Enter, the focus and the draft
     are as they were, but with no label: a hint "Write your commit message here" while it is empty, at 60% of the text
     colour (`COMMIT_MESSAGE_PLACEHOLDER_ALPHA`; the reporter asked for 30 to 50% transparency; contrast 4.1:1 on white,
