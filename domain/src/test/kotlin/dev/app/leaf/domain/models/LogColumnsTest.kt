@@ -19,14 +19,15 @@ class LogColumnsTest {
         val settings = LogColumnsSettings()
 
         assertEquals(
-            listOf(LogColumn.Author, LogColumn.Committer, LogColumn.Date, LogColumn.Commit),
+            listOf(LogColumn.Author, LogColumn.AuthorDate, LogColumn.Committer, LogColumn.CommitDate, LogColumn.Commit),
             settings.columns.map { it.column },
         )
         assertFalse(settings.isVisible(LogColumn.Author))
+        assertFalse(settings.isVisible(LogColumn.AuthorDate))
         assertFalse(settings.isVisible(LogColumn.Committer))
-        assertTrue(settings.isVisible(LogColumn.Date))
+        assertTrue(settings.isVisible(LogColumn.CommitDate))
         assertFalse(settings.isVisible(LogColumn.Commit))
-        assertEquals(listOf(150f, 150f, 110f, 80f), settings.columns.map { it.width })
+        assertEquals(listOf(150f, 110f, 150f, 110f, 80f), settings.columns.map { it.width })
         assertFalse(settings.dateShowsTime)
         assertEquals(120f, settings.graphMaxWidth)
     }
@@ -36,7 +37,7 @@ class LogColumnsTest {
         val shown = LogColumnsSettings().toggled(LogColumn.Commit)
 
         assertTrue(shown.isVisible(LogColumn.Commit))
-        assertTrue(shown.isVisible(LogColumn.Date))
+        assertTrue(shown.isVisible(LogColumn.CommitDate))
         assertFalse(shown.isVisible(LogColumn.Author))
         assertEquals(LogColumnsSettings(), shown.toggled(LogColumn.Commit))
     }
@@ -47,7 +48,24 @@ class LogColumnsTest {
         assertEquals(48f, LogColumnsSettings().resized(LogColumn.Author, 10f).entry(LogColumn.Author).width)
         assertEquals(600f, LogColumnsSettings().resized(LogColumn.Author, 5000f).entry(LogColumn.Author).width)
         assertEquals(150f, LogColumnsSettings().resized(LogColumn.Author, Float.NaN).entry(LogColumn.Author).width)
-        assertEquals(110f, LogColumnsSettings().resized(LogColumn.Author, 10f).entry(LogColumn.Date).width)
+        assertEquals(110f, LogColumnsSettings().resized(LogColumn.Author, 10f).entry(LogColumn.CommitDate).width)
+    }
+
+    @Test
+    fun `the time applies while either date column is shown`() {
+        assertTrue(LogColumnsSettings().showsDate)
+        assertTrue(LogColumnsSettings().toggled(LogColumn.CommitDate).toggled(LogColumn.AuthorDate).showsDate)
+        assertFalse(LogColumnsSettings().toggled(LogColumn.CommitDate).showsDate)
+    }
+
+    @Test
+    fun `showing the time widens both date columns, shown or not, unless they're wider`() {
+        val withTime = LogColumnsSettings().resized(LogColumn.AuthorDate, 200f).withDateShowingTime(true)
+
+        assertEquals(180f, withTime.entry(LogColumn.CommitDate).width)
+        assertEquals(200f, withTime.entry(LogColumn.AuthorDate).width)
+        assertEquals(180f, LogColumnsSettings().withDateShowingTime(true).entry(LogColumn.AuthorDate).width)
+        assertEquals(150f, withTime.entry(LogColumn.Author).width)
     }
 
     @Test
@@ -55,16 +73,16 @@ class LogColumnsTest {
         val withTime = LogColumnsSettings().withDateShowingTime(true)
 
         assertTrue(withTime.dateShowsTime)
-        assertEquals(180f, withTime.entry(LogColumn.Date).width)
+        assertEquals(180f, withTime.entry(LogColumn.CommitDate).width)
 
-        val wide = LogColumnsSettings().resized(LogColumn.Date, 180f).withDateShowingTime(true)
+        val wide = LogColumnsSettings().resized(LogColumn.CommitDate, 180f).withDateShowingTime(true)
 
-        assertEquals(180f, wide.entry(LogColumn.Date).width)
+        assertEquals(180f, wide.entry(LogColumn.CommitDate).width)
 
         val withoutTime = withTime.withDateShowingTime(false)
 
         assertFalse(withoutTime.dateShowsTime)
-        assertEquals(180f, withoutTime.entry(LogColumn.Date).width)
+        assertEquals(180f, withoutTime.entry(LogColumn.CommitDate).width)
     }
 
     @Test
@@ -80,37 +98,57 @@ class LogColumnsTest {
         // 200 for the message + 150 + 110 + 80
         val fitted = all.fitting(availableWidth = 540f)
 
-        assertEquals(listOf(LogColumn.Author, LogColumn.Date, LogColumn.Commit), fitted.shown.map { it.column })
+        assertEquals(listOf(LogColumn.Author, LogColumn.CommitDate, LogColumn.Commit), fitted.shown.map { it.column })
         assertTrue(fitted.leftOut.isEmpty())
     }
 
     @Test
     fun `columns give way in the order committer, commit, author, date`() {
-        // 200 for the message + 150 + 150 + 110 + 80
+        // 200 for the message + 150 + 150 + 110 + 80; the author date is hidden
         assertTrue(everyColumn.fitting(availableWidth = 690f).leftOut.isEmpty())
         assertEquals(
-            FittedLogColumns(everyColumn.columns.filter { it.column != LogColumn.Committer }, setOf(LogColumn.Committer)),
+            FittedLogColumns(
+                everyColumn.columns.filter { it.isVisible && it.column != LogColumn.Committer },
+                setOf(LogColumn.Committer),
+            ),
             everyColumn.fitting(availableWidth = 689f),
         )
         assertEquals(
             FittedLogColumns(
-                everyColumn.columns.filter { it.column == LogColumn.Author || it.column == LogColumn.Date },
+                everyColumn.columns.filter { it.column == LogColumn.Author || it.column == LogColumn.CommitDate },
                 setOf(LogColumn.Committer, LogColumn.Commit),
             ),
             everyColumn.fitting(availableWidth = 539f),
         )
         assertEquals(
             FittedLogColumns(
-                everyColumn.columns.filter { it.column == LogColumn.Date },
+                everyColumn.columns.filter { it.column == LogColumn.CommitDate },
                 setOf(LogColumn.Committer, LogColumn.Commit, LogColumn.Author),
             ),
             everyColumn.fitting(availableWidth = 459f),
         )
         assertEquals(
-            FittedLogColumns(emptyList(), LogColumn.entries.toSet()),
+            FittedLogColumns(emptyList(), LogColumn.entries.toSet() - LogColumn.AuthorDate),
             everyColumn.fitting(availableWidth = 309f),
         )
-        assertEquals(listOf(LogColumn.Date), everyColumn.fitting(availableWidth = 310f).shown.map { it.column })
+        assertEquals(listOf(LogColumn.CommitDate), everyColumn.fitting(availableWidth = 310f).shown.map { it.column })
+    }
+
+    @Test
+    fun `the author date gives way after the commit and before the author`() {
+        // 200 for the message + 150 + 110 + 150 + 110 + 80
+        val settings = everyColumn.toggled(LogColumn.AuthorDate)
+
+        assertTrue(settings.fitting(availableWidth = 800f).leftOut.isEmpty())
+        assertEquals(setOf(LogColumn.Committer, LogColumn.Commit), settings.fitting(availableWidth = 570f).leftOut)
+        assertEquals(
+            setOf(LogColumn.Committer, LogColumn.Commit, LogColumn.AuthorDate),
+            settings.fitting(availableWidth = 569f).leftOut,
+        )
+        assertEquals(
+            listOf(LogColumn.Author, LogColumn.CommitDate),
+            settings.fitting(availableWidth = 460f).shown.map { it.column },
+        )
     }
 
     @Test
@@ -118,11 +156,11 @@ class LogColumnsTest {
         // Author is hidden: 200 + 110 + 80
         val settings = LogColumnsSettings().toggled(LogColumn.Commit)
 
-        assertEquals(listOf(LogColumn.Date, LogColumn.Commit), settings.fitting(390f).shown.map { it.column })
+        assertEquals(listOf(LogColumn.CommitDate, LogColumn.Commit), settings.fitting(390f).shown.map { it.column })
 
         val narrow = settings.fitting(389f)
 
-        assertEquals(listOf(LogColumn.Date), narrow.shown.map { it.column })
+        assertEquals(listOf(LogColumn.CommitDate), narrow.shown.map { it.column })
         assertEquals(setOf(LogColumn.Commit), narrow.leftOut)
     }
 
@@ -192,13 +230,13 @@ class LogColumnsTest {
 
     @Test
     fun `the columns widen with a bigger text, and keep their widths at the default size and below`() {
-        val settings = all.resized(LogColumn.Date, 120f)
+        val settings = all.resized(LogColumn.CommitDate, 120f)
 
         assertEquals(settings, settings.scaledForText(1f))
         assertEquals(settings, settings.scaledForText(11f / 13f))
 
         val bigger = settings.scaledForText(1.5f)
-        assertEquals(180f, bigger.entry(LogColumn.Date).width)
+        assertEquals(180f, bigger.entry(LogColumn.CommitDate).width)
         assertEquals(LogColumn.Author.defaultWidth * 1.5f, bigger.entry(LogColumn.Author).width)
         assertEquals(
             settings.columns.map { it.column to it.isVisible },
@@ -211,14 +249,14 @@ class LogColumnsTest {
     fun `a column can widen only as far as the other shown columns leave room`() {
         // 600 - 200 for the message - the others
         assertEquals(210f, all.maxWidthFor(LogColumn.Author, availableWidth = 600f))
-        assertEquals(170f, all.maxWidthFor(LogColumn.Date, availableWidth = 600f))
+        assertEquals(170f, all.maxWidthFor(LogColumn.CommitDate, availableWidth = 600f))
         // The others' dividers and its own
         assertEquals(186f, all.maxWidthFor(LogColumn.Author, availableWidth = 600f, spacing = 8f))
         // Commit doesn't fit at 539, so it takes no room
         assertEquals(229f, all.maxWidthFor(LogColumn.Author, availableWidth = 539f))
         // Never below the minimum or above the maximum
-        assertEquals(48f, all.maxWidthFor(LogColumn.Date, availableWidth = 220f))
-        assertEquals(600f, LogColumnsSettings().maxWidthFor(LogColumn.Date, availableWidth = 5000f))
+        assertEquals(48f, all.maxWidthFor(LogColumn.CommitDate, availableWidth = 220f))
+        assertEquals(600f, LogColumnsSettings().maxWidthFor(LogColumn.CommitDate, availableWidth = 5000f))
     }
 
     @Test
@@ -243,5 +281,24 @@ class LogColumnsTest {
         assertTrue(commit(committer = grace, author = ada).isCommittedBySomeoneElse)
         assertFalse(commit(committer = ada, author = ada).isCommittedBySomeoneElse)
         assertFalse(commit(committer = Identity("Ada", "Ada@Example.com"), author = ada).isCommittedBySomeoneElse)
+    }
+
+    @Test
+    fun `a commit is committed apart from its authoring when the committer or the minute differs`() {
+        val ada = Identity("Ada Lovelace", "ada@example.com")
+        val grace = Identity("Grace Hopper", "grace@example.com")
+
+        fun commit(committer: Identity = ada, date: Long = 600, authorDate: Long = 600) =
+            Commit("abc", "Message", committer, ada, date, emptyList(), authorDate)
+
+        assertFalse(commit().isCommittedApartFromAuthoring)
+        // The same minute, as shown
+        assertFalse(commit(date = 659).isCommittedApartFromAuthoring)
+        assertTrue(commit(date = 660).isCommittedApartFromAuthoring)
+        assertTrue(commit(authorDate = 599).isCommittedApartFromAuthoring)
+        assertTrue(commit(committer = grace).isCommittedApartFromAuthoring)
+        // Before 1970, a minute starts below its seconds
+        assertFalse(commit(date = -1, authorDate = -60).isCommittedApartFromAuthoring)
+        assertTrue(commit(date = -61, authorDate = -60).isCommittedApartFromAuthoring)
     }
 }

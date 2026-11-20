@@ -115,8 +115,9 @@ data class LogColumnsLayout(
 @Composable
 private fun LogColumn.label(): String = when (this) {
     LogColumn.Author -> stringResource(Res.string.log_column_author)
+    LogColumn.AuthorDate -> stringResource(Res.string.log_column_author_date)
     LogColumn.Committer -> stringResource(Res.string.log_column_committer)
-    LogColumn.Date -> stringResource(Res.string.log_column_date)
+    LogColumn.CommitDate -> stringResource(Res.string.log_column_commit_date)
     LogColumn.Commit -> stringResource(Res.string.log_column_commit)
 }
 
@@ -170,8 +171,9 @@ fun LogColumnCells(
             ) {
                 when (entry.column) {
                     LogColumn.Author -> AuthorCell(graphCommit)
+                    LogColumn.AuthorDate -> DateCell(graphCommit, isAuthorDate = true, layout.dateShowsTime)
                     LogColumn.Committer -> CommitterCell(graphCommit)
-                    LogColumn.Date -> DateCell(graphCommit, layout.dateShowsTime)
+                    LogColumn.CommitDate -> DateCell(graphCommit, isAuthorDate = false, layout.dateShowsTime)
                     LogColumn.Commit -> CommitCell(graphCommit)
                 }
             }
@@ -313,23 +315,26 @@ private fun Identity.nameAndEmail() = "${name.orEmpty()} <${email.orEmpty()}>"
 private fun Long.toTooltipDate(): String = toSmartSystemString(allowRelative = false, showTime = true)
 
 /**
- * The commit date, and with [showTime] the time at the cell's end, a shade lighter, so that the times line up in a
- * column of their own. Digits are tabular, so that numbers line up too. When the cell is too narrow, the time is left
- * out rather than cut, and the tooltip still has it. The tooltip adds the date the change was authored when it's
- * different, as after a rebase or an amend.
+ * The commit date, or the author date with [isAuthorDate], and with [showTime] the time at the cell's end, a shade
+ * lighter, so that the times line up in a column of their own. Digits are tabular, so that numbers line up too. When
+ * the cell is too narrow, the time is left out rather than cut, and the tooltip still has it. When the two dates
+ * differ, as after a rebase or an amend, the tooltip has both, the cell's first.
  */
 @Composable
-private fun DateCell(graphCommit: GraphCommit, showTime: Boolean) {
+private fun DateCell(graphCommit: GraphCommit, isAuthorDate: Boolean, showTime: Boolean) {
     val style = MaterialTheme.typography.body2.copy(fontFeatureSettings = TABULAR_DIGITS)
     val color = MaterialTheme.colors.onBackgroundSecondary
+    val date = if (isAuthorDate) graphCommit.commit.authorDate else graphCommit.date
     val committed = graphCommit.date.toTooltipDate()
     val authored = graphCommit.commit.authorDate.toTooltipDate()
 
     val tooltip = if (authored == committed) {
         committed
     } else {
-        stringResource(Res.string.log_column_date_committed, committed) + "\n" +
-                stringResource(Res.string.log_column_date_authored, authored)
+        val committedLine = stringResource(Res.string.log_column_date_committed, committed)
+        val authoredLine = stringResource(Res.string.log_column_date_authored, authored)
+
+        if (isAuthorDate) "$authoredLine\n$committedLine" else "$committedLine\n$authoredLine"
     }
 
     InstantTooltip(
@@ -343,7 +348,7 @@ private fun DateCell(graphCommit: GraphCommit, showTime: Boolean) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = graphCommit.date.toSmartSystemString(),
+                text = date.toSmartSystemString(),
                 style = style,
                 color = color,
                 maxLines = 1,
@@ -352,7 +357,7 @@ private fun DateCell(graphCommit: GraphCommit, showTime: Boolean) {
 
             if (showTime) {
                 Text(
-                    text = graphCommit.date.toSystemTimeString(),
+                    text = date.toSystemTimeString(),
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = DATE_TIME_GAP)
@@ -385,7 +390,7 @@ private fun CommitCell(graphCommit: GraphCommit) {
     }
 }
 
-/** The columns menu: a check for each column, the date's time, and a reset. Toggles keep the menu open. */
+/** The columns menu: a check for each column, the dates' time, and a reset. Toggles keep the menu open. */
 @Composable
 fun logColumnsMenuItems(
     settings: LogColumnsSettings,
@@ -403,7 +408,7 @@ fun logColumnsMenuItems(
         )
     }
 
-    val time = if (settings.isVisible(LogColumn.Date)) {
+    val time = if (settings.showsDate) {
         listOf(
             SortMenuItem.Divider,
             SortMenuItem.Option(

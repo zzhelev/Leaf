@@ -234,8 +234,10 @@ private fun CommitChangesView(
             CommitFooter(
                 shortHash = commit.shortHash,
                 hash = commit.hash,
-                date = commit.date,
+                authorDate = commit.authorDate,
                 author = commit.author,
+                committer = commit.committer,
+                committerDate = commit.date,
                 parents = parentsState?.takeIf { it.commit.hash == commit.hash }?.let { state ->
                     { ParentRows(state, onParentClicked, onToggleMoreParents, Modifier.padding(end = 16.dp)) }
                 },
@@ -269,8 +271,10 @@ private fun CommitMessage(
 fun CommitFooter(
     shortHash: String,
     hash: String,
-    date: Long,
+    authorDate: Long,
     author: Identity,
+    committer: Identity = author,
+    committerDate: Long = authorDate,
     parents: (@Composable () -> Unit)? = null,
 ) {
     var copied by remember(hash) { mutableStateOf(false) }
@@ -333,12 +337,12 @@ fun CommitFooter(
 
                 Spacer(modifier = Modifier.weight(1f, fill = true))
 
-                val smartDate = date.toSmartSystemString(
+                val smartDate = authorDate.toSmartSystemString(
                     allowRelative = true,
                     showTime = true,
                 )
 
-                val smartDateTooltip = date.toSmartSystemString(
+                val smartDateTooltip = authorDate.toSmartSystemString(
                     allowRelative = false,
                     showTime = true,
                 )
@@ -352,6 +356,8 @@ fun CommitFooter(
                     tooltipTitle = smartDateTooltip,
                 )
             }
+
+            CommittedLine(author, authorDate, committer, committerDate)
 
             parents?.invoke()
         }

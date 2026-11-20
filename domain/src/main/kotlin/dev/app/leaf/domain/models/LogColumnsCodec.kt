@@ -23,7 +23,7 @@ object LogColumnsCodec {
 
     fun encode(settings: LogColumnsSettings): String = json.encodeToString(
         StoredLogColumns(
-            columns = settings.columns.map { StoredColumn(it.column.name, it.isVisible, it.width) },
+            columns = settings.columns.map { StoredColumn(it.column.storedName, it.isVisible, it.width) },
             dateShowsTime = settings.dateShowsTime,
             graphMaxWidth = settings.graphMaxWidth,
         )
@@ -34,7 +34,7 @@ object LogColumnsCodec {
 
         val known = stored.columns
             .mapNotNull { entry ->
-                val column = LogColumn.entries.firstOrNull { it.name == entry.column } ?: return@mapNotNull null
+                val column = LogColumn.entries.firstOrNull { it.storedName == entry.column } ?: return@mapNotNull null
                 val width = entry.width ?: column.defaultWidth
 
                 LogColumnEntry(column, entry.visible, LogColumnsSettings.clampColumnWidth(width, column.defaultWidth))
@@ -83,7 +83,8 @@ object LogColumnsCodec {
         }
     }
 
-    // Columns are stored by name, so that a column this version doesn't know is skipped instead of failing the list
+    // Columns are stored by name, so that a column this version doesn't know is skipped instead of failing the list.
+    // The commit date is "Date", its name before the author date column came.
     @Serializable
     private data class StoredColumn(
         val column: String,

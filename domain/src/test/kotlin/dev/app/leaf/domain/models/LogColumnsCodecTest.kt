@@ -4,6 +4,8 @@
 package dev.app.leaf.domain.models
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class LogColumnsCodecTest {
@@ -11,7 +13,7 @@ class LogColumnsCodecTest {
     fun `round-trips the settings`() {
         val settings = LogColumnsSettings()
             .toggled(LogColumn.Author)
-            .toggled(LogColumn.Date)
+            .toggled(LogColumn.CommitDate)
             .resized(LogColumn.Commit, 96f)
             .withDateShowingTime(true)
             .withGraphMaxWidth(240f)
@@ -30,7 +32,7 @@ class LogColumnsCodecTest {
         """
 
         assertEquals(
-            listOf(LogColumn.Commit, LogColumn.Author, LogColumn.Committer, LogColumn.Date),
+            listOf(LogColumn.Commit, LogColumn.Author, LogColumn.AuthorDate, LogColumn.Committer, LogColumn.CommitDate),
             LogColumnsCodec.decode(text).columns.map { it.column },
         )
     }
@@ -59,8 +61,9 @@ class LogColumnsCodecTest {
         assertEquals(
             listOf(
                 LogColumnEntry(LogColumn.Author, isVisible = false, width = 150f),
+                LogColumnEntry(LogColumn.AuthorDate, isVisible = false, width = 110f),
                 LogColumnEntry(LogColumn.Committer, isVisible = false, width = 150f),
-                LogColumnEntry(LogColumn.Date, isVisible = true, width = 110f),
+                LogColumnEntry(LogColumn.CommitDate, isVisible = true, width = 110f),
                 LogColumnEntry(LogColumn.Commit, isVisible = true, width = 70f),
             ),
             settings.columns,
@@ -74,8 +77,9 @@ class LogColumnsCodecTest {
         assertEquals(
             listOf(
                 LogColumnEntry(LogColumn.Author, isVisible = false, width = 150f),
+                LogColumnEntry(LogColumn.AuthorDate, isVisible = false, width = 110f),
                 LogColumnEntry(LogColumn.Committer, isVisible = false, width = 150f),
-                LogColumnEntry(LogColumn.Date, isVisible = false, width = 110f),
+                LogColumnEntry(LogColumn.CommitDate, isVisible = false, width = 110f),
                 LogColumnEntry(LogColumn.Commit, isVisible = false, width = 80f),
             ),
             settings.columns,
@@ -96,14 +100,54 @@ class LogColumnsCodecTest {
             LogColumnsSettings(
                 columns = listOf(
                     LogColumnEntry(LogColumn.Author, isVisible = true, width = 170f),
+                    LogColumnEntry(LogColumn.AuthorDate, isVisible = false, width = 110f),
                     LogColumnEntry(LogColumn.Committer, isVisible = false, width = 150f),
-                    LogColumnEntry(LogColumn.Date, isVisible = true, width = 180f),
+                    LogColumnEntry(LogColumn.CommitDate, isVisible = true, width = 180f),
                     LogColumnEntry(LogColumn.Commit, isVisible = true, width = 80f),
                 ),
                 dateShowsTime = true,
                 graphMaxWidth = 200f,
             ),
             LogColumnsCodec.decode(text),
+        )
+    }
+
+    @Test
+    fun `settings saved before the author date column existed keep their commit date and get it hidden after the author`() {
+        val text = """
+            {"columns": [
+                {"column": "Commit", "visible": true, "width": 80},
+                {"column": "Author", "visible": true, "width": 170},
+                {"column": "Committer", "visible": true, "width": 150},
+                {"column": "Date", "visible": true, "width": 180}
+            ], "dateShowsTime": true}
+        """
+
+        val settings = LogColumnsCodec.decode(text)
+
+        assertEquals(
+            listOf(
+                LogColumnEntry(LogColumn.Commit, isVisible = true, width = 80f),
+                LogColumnEntry(LogColumn.Author, isVisible = true, width = 170f),
+                LogColumnEntry(LogColumn.AuthorDate, isVisible = false, width = 110f),
+                LogColumnEntry(LogColumn.Committer, isVisible = true, width = 150f),
+                LogColumnEntry(LogColumn.CommitDate, isVisible = true, width = 180f),
+            ),
+            settings.columns,
+        )
+        assertTrue(settings.dateShowsTime)
+    }
+
+    @Test
+    fun `the commit date is stored as Date, and a column named CommitDate isn't one`() {
+        val text = LogColumnsCodec.encode(LogColumnsSettings().toggled(LogColumn.AuthorDate))
+
+        assertTrue(""""column":"Date","visible":true""" in text)
+        assertTrue(""""column":"AuthorDate","visible":true""" in text)
+        assertFalse(""""column":"CommitDate"""" in text)
+        assertEquals(
+            LogColumnsSettings(),
+            LogColumnsCodec.decode("""{"columns": [{"column": "CommitDate", "visible": false}]}"""),
         )
     }
 
@@ -119,7 +163,7 @@ class LogColumnsCodecTest {
 
         val settings = LogColumnsCodec.decode(text)
 
-        assertEquals(listOf(48f, 150f, 600f, 80f), settings.columns.map { it.width })
+        assertEquals(listOf(48f, 110f, 150f, 600f, 80f), settings.columns.map { it.width })
         assertEquals(56f, settings.graphMaxWidth)
     }
 
@@ -129,6 +173,7 @@ class LogColumnsCodecTest {
 
         assertEquals(
             """{"columns":[{"column":"Author","visible":false,"width":150.0},""" +
+                """{"column":"AuthorDate","visible":false,"width":110.0},""" +
                 """{"column":"Committer","visible":false,"width":150.0},""" +
                 """{"column":"Date","visible":true,"width":110.0},""" +
                 """{"column":"Commit","visible":false,"width":80.0}],""" +

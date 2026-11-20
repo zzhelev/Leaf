@@ -370,7 +370,7 @@ class CommitFooterParentsTest {
                         CommitFooter(
                             shortHash = "b7e1a90",
                             hash = "b7e1a90".padEnd(40, '0'),
-                            date = 1_760_000_000,
+                            authorDate = 1_760_000_000,
                             author = someone,
                             parents = state?.let { current ->
                                 {

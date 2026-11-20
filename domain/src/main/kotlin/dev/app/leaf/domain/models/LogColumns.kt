@@ -3,12 +3,23 @@
 
 package dev.app.leaf.domain.models
 
-/** The log's optional columns, after Graph and Message, which are always shown. Widths are in dp. */
-enum class LogColumn(val defaultWidth: Float) {
-    Author(150f),
-    Committer(150f),
-    Date(110f),
-    Commit(80f),
+/**
+ * The log's optional columns, after Graph and Message, which are always shown. Widths are in dp. The settings file
+ * stores each by its [storedName], which stays when an entry is renamed.
+ */
+enum class LogColumn(val defaultWidth: Float, val storedName: String) {
+    Author(150f, "Author"),
+
+    /** When the change was written: git's author date, which an amend, a rebase or a cherry-pick keeps. */
+    AuthorDate(110f, "AuthorDate"),
+    Committer(150f, "Committer"),
+
+    /** When this version of the commit was made: git's commit date, by which the log orders its rows. */
+    CommitDate(110f, "Date"),
+    Commit(80f, "Commit"),
+    ;
+
+    val isDate: Boolean get() = this == AuthorDate || this == CommitDate
 }
 
 data class LogColumnEntry(
@@ -37,12 +48,23 @@ data class LogColumnsSettings(
     fun resized(column: LogColumn, width: Float): LogColumnsSettings =
         update(column) { it.copy(width = clampColumnWidth(width, column.defaultWidth)) }
 
-    /** Turning the time on widens the date column to fit it, unless it's already wider. */
+    /** Whether a date column is shown, which the time applies to. */
+    val showsDate: Boolean get() = columns.any { it.column.isDate && it.isVisible }
+
+    /** Turning the time on widens both date columns to fit it, unless they're already wider. */
     fun withDateShowingTime(showTime: Boolean): LogColumnsSettings {
         val settings = copy(dateShowsTime = showTime)
 
-        return if (showTime && entry(LogColumn.Date).width < DATE_WITH_TIME_WIDTH) {
-            settings.resized(LogColumn.Date, DATE_WITH_TIME_WIDTH)
+        return if (showTime) {
+            settings.copy(
+                columns = settings.columns.map { entry ->
+                    if (entry.column.isDate && entry.width < DATE_WITH_TIME_WIDTH) {
+                        entry.copy(width = DATE_WITH_TIME_WIDTH)
+                    } else {
+                        entry
+                    }
+                },
+            )
         } else {
             settings
         }
@@ -106,11 +128,17 @@ data class LogColumnsSettings(
 
     companion object {
         val DEFAULT_COLUMNS = LogColumn.entries.map { column ->
-            LogColumnEntry(column, isVisible = column == LogColumn.Date, width = column.defaultWidth)
+            LogColumnEntry(column, isVisible = column == LogColumn.CommitDate, width = column.defaultWidth)
         }
 
         /** The order in which columns give way when the log is too narrow for all of them. */
-        val HIDE_ORDER = listOf(LogColumn.Committer, LogColumn.Commit, LogColumn.Author, LogColumn.Date)
+        val HIDE_ORDER = listOf(
+            LogColumn.Committer,
+            LogColumn.Commit,
+            LogColumn.AuthorDate,
+            LogColumn.Author,
+            LogColumn.CommitDate,
+        )
 
         const val DATE_WITH_TIME_WIDTH = 180f
         const val MIN_COLUMN_WIDTH = 48f
@@ -172,6 +200,17 @@ fun draggedGraphMaxWidth(
  */
 val Commit.isCommittedBySomeoneElse: Boolean
     get() = !committer.isSamePersonAs(author)
+
+/**
+ * Whether the commit's committer or commit date differs from its author or author date, as after an amend, a rebase or
+ * a cherry-pick. Dates are compared to the minute, as they're shown.
+ */
+val Commit.isCommittedApartFromAuthoring: Boolean
+    get() = isCommittedApart(author, authorDate, committer, date)
+
+/** [Commit.isCommittedApartFromAuthoring] for a commit's identities and dates, in epoch seconds. */
+fun isCommittedApart(author: Identity, authorDate: Long, committer: Identity, committerDate: Long): Boolean =
+    !committer.isSamePersonAs(author) || Math.floorDiv(committerDate, 60L) != Math.floorDiv(authorDate, 60L)
 
 /**
  * Whether two identities are the same person: the same email, ignoring case, or the same name when either has no

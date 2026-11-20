@@ -87,7 +87,10 @@ class LogFilterBarTest {
                 assertEquals(900f - 15f, columns.right, 2f, "The columns button is at the bar's end")
                 assertTrue(columns.bottom <= bar.bounds("Graph").top, "The bar is above the column headers")
                 // The header row has its titles and no control
-                assertEquals(listOf("Graph", "Message", "Date"), bar.texts().filter { it in setOf("Graph", "Message", "Date") })
+                assertEquals(
+                    listOf("Graph", "Message", "Commit date"),
+                    bar.texts().filter { it in setOf("Graph", "Message", "Commit date") },
+                )
             }
         }
 

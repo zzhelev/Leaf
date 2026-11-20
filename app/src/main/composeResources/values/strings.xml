@@ -643,8 +643,9 @@
 
     <!-- Log columns -->
     <string name="log_column_author">Author</string>
+    <string name="log_column_author_date">Author date</string>
     <string name="log_column_committer">Committer</string>
-    <string name="log_column_date">Date</string>
+    <string name="log_column_commit_date">Commit date</string>
     <string name="log_column_commit">Commit</string>
     <string name="log_column_author_authored_by">Authored by %1$s &lt;%2$s&gt;, %3$s</string>
     <string name="log_column_author_committed_by">Committed by %1$s &lt;%2$s&gt;, %3$s</string>
@@ -655,6 +656,8 @@
     <string name="log_columns_menu_needs_room">Needs more room</string>
     <string name="log_columns_menu_show_time">Show time</string>
     <string name="log_columns_menu_reset">Reset columns</string>
+    <string name="commit_footer_committed">Committed</string>
+    <string name="commit_footer_committed_by">Committed by %1$s</string>
     <string name="log_ref_chip_shared_remotes">Also on this commit: %1$s</string>
     <string name="log_ref_chips_branches">Branches</string>
     <string name="log_ref_chips_remote_branches">Remote branches</string>
