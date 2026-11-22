@@ -5,7 +5,7 @@
 | Question | Can Leaf update itself in a click, without making GitHub the only thing that decides what gets installed? What does the user see on each system? |
 | Verified against | `main` at `ec73cdbb`; Leaf 1.10.0 installed in `/Applications`; the files of release `leaf-1.10.0` |
 | Date | 2026-11-22 |
-| Status | Decided with the user on 2026-11-22: the recommended answer to each of D1 to D10, and D11, a key per computer with a signature count built into Leaf (section 9). Nothing built; step 0 comes first |
+| Status | Decided with the user on 2026-11-22: the recommended answer to each of D1 to D10, and D11, a key per computer with a signature count built into Leaf (section 9). Step 0 done the same day (section 10); nothing built in Leaf yet |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`.
 
@@ -26,8 +26,9 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
 - **Cost per release:** one more command and its key's passphrase, on any computer set up to sign, between reviewing the
   draft and publishing it. The
   script downloads the release's files, about 1 GB for 1.10.0.
-- **Open:** whether macOS lets an ad hoc signed app replace itself (step 0), and Windows, which hasn't been run on a real
-  machine yet.
+- **Step 0** (section 10): macOS 27 lets an app signed as Leaf is replace itself, in `/Applications` too, without a
+  prompt, and the files that it downloads get no quarantine flag.
+- **Open:** Windows, which hasn't been run on a real machine yet.
 
 ## 1. What Leaf has today
 
@@ -50,7 +51,7 @@ Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/ma
   | `Leaf-1.10.0-linux-arm64.deb` | 146 MB |
 
 - **The installed macOS app:** signed ad hoc (`Signature=adhoc`, no Team ID). Its `Info.plist` has no
-  `LSFileQuarantineEnabled`, so the files that Leaf itself downloads should get no quarantine flag (step 0 checks it).
+  `LSFileQuarantineEnabled`, so the files that Leaf itself downloads get no quarantine flag (step 0).
   `/Applications/Leaf.app` belongs to the user, every folder in it can be written, 48 files (the JDK's licences) are
   read-only, and macOS gave it a `com.apple.provenance` attribute.
 - **The Windows installer** (`leaf.iss`, Inno Setup): installs into Program Files, so it asks for administrator rights.
@@ -175,13 +176,14 @@ background once it finds an update, so that the bottom bar says "Restart to upda
 | | |
 |---|---|
 | File | `Leaf-1.11.0-macos-arm64.dmg`, 182 MB |
-| Prepared while Leaf runs | Mounted out of sight (`hdiutil attach -nobrowse -readonly`), `Leaf.app` copied with `ditto` next to the installed one as `.Leaf-1.11.0.app` (hidden, and on the same volume, so the swap is a rename), unmounted, checked (section 2, step 5). The DMG is deleted |
-| Installed | Yes, by Leaf. At restart, Leaf starts a small script and quits. The script waits for Leaf to end, renames `Leaf.app` to `.Leaf-1.10.0-old.app` and the new copy to `Leaf.app`, registers it with LaunchServices (as `installMacApp` does), opens it, then deletes the old copy. A rename that fails puts the old copy back and opens it |
-| Prompts | None expected. macOS may ask to let Leaf "modify apps on your Mac" (App Management, macOS 13 and later), as the build has no Developer ID: step 0 finds out |
+| Prepared while Leaf runs | Mounted out of sight (`diskutil image attach --mountOptions nobrowse --readOnly`; `hdiutil attach -nobrowse -readonly` where macOS has no `diskutil image`, as macOS 27 calls it deprecated), `Leaf.app` copied with `ditto` next to the installed one as `.Leaf-1.11.0.app` (hidden, and on the same volume, so the swap is a rename), unmounted, checked (section 2, step 5). The DMG is deleted. About 5 seconds for 1.10.0, whose app takes 294 MB |
+| Installed | Yes, by Leaf. At restart, Leaf starts a small script and quits. The script waits for Leaf to end, renames `Leaf.app` to `.Leaf-1.10.0-old.app` and the new copy to `Leaf.app`, registers it with LaunchServices (as `installMacApp` does) and opens it. The new Leaf deletes the old copy once it has started; when it hasn't started within 30 seconds, the script puts the old copy back and opens that. A rename that fails puts the old copy back too. Deleting the old copy while macOS still looked at it made a restart late once in step 0 (section 10) |
+| Prompts | None. Step 0's test app, signed as Leaf is, replaced itself in `/Applications` with no prompt and nothing in the TCC log (section 10). A later macOS, or a Developer ID signature, could bring macOS's App Management check in |
 | The user sees | Leaf's window closes and opens again a few seconds later, on 1.11.0, with the same tabs. No Finder window, no dragging to Applications, no password, no `xattr` |
 | When it can't | `Leaf.app`'s folder can't be written (installed by another user), macOS refuses (App Management), or Leaf runs from a translocated copy (a quarantined app opened from Downloads): "Open the update" shows the DMG in Finder. The user drags Leaf to Applications as before, without the `xattr` step, as Leaf downloaded the DMG |
 
-Where Leaf is installed doesn't matter: it updates the bundle that runs it, found from `java.home`
+Where Leaf is installed doesn't matter: it updates the bundle that runs it, found from `jpackage.app-path`, which
+jpackage's launcher sets to `<bundle>/Contents/MacOS/Leaf`, or else from `java.home`
 (`<bundle>/Contents/runtime/Contents/Home`).
 
 ### Windows: the installer
@@ -207,7 +209,8 @@ Where Leaf is installed doesn't matter: it updates the bundle that runs it, foun
 | The user sees | Leaf closes and opens again a few seconds later, on 1.11.0 |
 | When it can't | The folder can't be written (unpacked into Program Files): the release page, as today. A file in the folder that something holds open (another program, a virus scan): the helper tries again for 30 seconds, then puts the old folder back and starts it, and Leaf says why |
 
-Leaf tells the two apart by Inno Setup's uninstaller, `unins000.exe`, which only an installed copy has next to `Leaf.exe`.
+Leaf tells the two apart by Inno Setup's uninstaller, `unins000.exe`, which only an installed copy has next to `Leaf.exe`
+(`jpackage.app-path`).
 
 ### Linux: the `.deb`
 
@@ -289,11 +292,11 @@ update themselves.
 
 ## 7. Steps
 
-0. **Spikes on this Mac**, before anything is built: (a) a Leaf build, signed ad hoc as the release is, replaces itself
-   from a script that it started, first in a folder of its own, then in `/Applications` (after asking the user, as it
-   replaces their install), with App Management as macOS ships it; (b) a file that Leaf's Ktor client writes has no
-   `com.apple.quarantine`; (c) `java.home` gives the bundle; (d) `hdiutil attach -nobrowse`, `ditto` and `codesign
-   --verify` on the 1.10.0 DMG. The answers decide macOS's fallbacks.
+0. **Spikes on this Mac**, before anything is built: (a) an app signed ad hoc as the release is replaces itself from a
+   script that it started, first in a folder of its own, then in `/Applications`, with App Management as macOS ships it;
+   (b) a file that the app writes has no `com.apple.quarantine`; (c) `java.home` gives the bundle; (d) mounting, `ditto`
+   and `codesign --verify` on the 1.10.0 DMG. Done on 2026-11-22, with a test app rather than Leaf, so that the user's
+   install stayed as it was (section 10).
 1. **The release side:** the keys, the manifest, the signing program and its tests (real ssh-keygen, a tampered manifest,
    a missing file, a failed attestation through a stand-in for `gh`, a second computer's run that writes the same
    manifest, and one that finds a different one), and the workflow's attestations and pins. It can
@@ -313,8 +316,10 @@ Each step is done as `PLAN.md` defines it: built, tested, run on macOS, logged i
 
 ## 8. Risks
 
-- **App Management** may stop an ad hoc signed app from replacing itself. Then macOS keeps "Open the update", which still
-  saves the `xattr` step, unless the user allows Leaf under Privacy & Security.
+- **App Management** didn't stop an ad hoc signed app from replacing itself on macOS 27.2 (section 10), but a later macOS,
+  or a Developer ID signature, may bring it in. Then macOS keeps "Open the update", which still saves the `xattr` step,
+  unless the user allows Leaf under Privacy & Security. `docs/fork/probes/auto-update-probe.sh` checks it again on a
+  new macOS.
 - **Windows hasn't run Leaf** on a real machine yet: the UAC prompt's wording, SmartScreen, Defender scanning a new
   `.exe`, files held open.
 - **A bad release reaches everyone faster.** The way back is a newer release; older ones stay on the releases page.
@@ -353,3 +358,40 @@ Each with the recommended answer first. The user took every recommended answer o
   both, and the backup as a third key keeps a lost computer from stopping releases); the same key copied to both (it then
   exists twice, and one computer's copy can't be dropped alone); a hardware key that goes from computer to computer
   (ssh-keygen's `ed25519-sk`, a slightly different signature for Leaf to check, a touch at each release).
+
+## 10. Step 0 (2026-11-22)
+
+On macOS 27.2.1, with `docs/fork/probes/auto-update-probe.sh`: a small Java app, packaged and signed as Leaf is
+(jpackage from the JBR SDK 25.0.4.1, ad hoc, hardened runtime, Leaf's three entitlements, no Team ID), built as version
+1 and version 2. Leaf's own install wasn't touched.
+
+- **(a) It replaces itself, in `/Applications` too.** Version 1 copied version 2 next to its own bundle with `ditto`,
+  started a shell script and exited. The script waited for it to end, renamed the bundle aside and version 2 into its
+  place, ran `lsregister -f` and `open`, and removed the old copy. Every step succeeded each time, and macOS showed no
+  prompt: from a folder of its own, and from `/Applications`.
+  - Version 2 started from the same path in 5 of 6 runs in `/Applications`, and in every run from the folder. The sixth
+    run looked for it only 2 seconds after the script ended, and its TCC log had `open` refused Apple Events: the old
+    copy, still responsible for the script, has the hardened runtime without `com.apple.security.automation.apple-events`,
+    and TCC couldn't read its binary ("spooky magic") while the script deleted it. In no other run did TCC check Apple
+    Events. So the new Leaf deletes the old copy once it runs, and the script puts the old copy back when the new one
+    hasn't started within 30 seconds (section 3).
+  - Not tried: a bundle that Finder copied from a DMG, as users install it (the test bundles were copied by `ditto`), one
+    that another user installed, and a build signed with a Developer ID, where App Management compares Team IDs.
+- **(b) No quarantine.** A file that the app wrote and one that it downloaded over HTTPS (`java.net.http`) have
+  `com.apple.provenance` only, no `com.apple.quarantine`, as its `Info.plist` has no `LSFileQuarantineEnabled`. The
+  flag depends on the app, not on the HTTP library, so a DMG that Leaf downloads with Ktor gets none either, and the
+  `xattr` step isn't needed.
+- **(c) The bundle.** `java.home` is `<bundle>/Contents/runtime/Contents/Home`, and jpackage's launcher sets
+  `jpackage.app-path` to `<bundle>/Contents/MacOS/<name>`, though `Leaf.cfg` doesn't list it. Leaf takes
+  `jpackage.app-path`, and `java.home` without it. jpackage's Windows launcher should set it to `Leaf.exe`, which section
+  4 needs: to check on Windows.
+- **(d) The release DMG.** 1.10.0's DMG mounted out of sight, its `Leaf.app` copied with `ditto` and unmounted in about
+  5 seconds; the copy takes 294 MB, passes `codesign --verify --deep --strict` ("valid on disk", "satisfies its
+  Designated Requirement"), and has the bundle ID `io.github.zzhelev.leaf` and the version 1.10.0. macOS 27 warns that
+  `hdiutil attach -nobrowse -readonly -mountpoint` is deprecated, for `diskutil image attach --mountOptions nobrowse
+  --readOnly --mountPoint`, which works the same; Leaf uses `diskutil image` where macOS has it.
+- **Room on the disk:** the prepared copy (294 MB) sits next to the installed app until the swap, and the old copy until
+  the script removes it.
+
+So macOS needs no fallback in the usual case. "Open the update" stays for a folder that can't be written and a
+translocated copy.
