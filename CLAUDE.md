@@ -792,6 +792,61 @@ with their app icons
   exit code check, the first app found winning, a deleted file's items, the picker's box, a commit's lines) were each
   caught by a named test. On this Mac, detection found all 8 installed editors in 0.2 s.
 
+**Editing a hunk in place (fork-only, 2026-11-23, `docs/fork/inline-editing.md`, `domain/editing/`,
+`repositoryopen/HunkEditController.kt`, `ui/diff/HunkEditor.kt`):** in an Unstaged diff, a hunk's header has **Edit**, and
+a line's right-click menu "Edit these lines" (unified only), which turn the hunk's new side, its added and context lines
+as the working file has them, into a text field. Option B1 of the Design artifact "Leaf edit files", built with the
+plan's recommended decisions.
+- **Offered** (`canEditHunk`): Unstaged, a modified or new file (an untracked one, or one added with `git add -N`), a
+  hunk of at most `MAX_HUNK_EDIT_LINES` (1,000) lines, not a hunk of a diff that ignores whitespace. Not Staged, a
+  commit's diff, a conflicted or deleted file. During a merge, rebase, cherry-pick or revert too, unlike the hunk buttons.
+  One hunk at a time: the other hunks' Edit and their hunk and line buttons go while one is edited.
+- **The edit** (`HunkEdit`, `hunkEditOf`): the new side's lines from the hunk's `newText` (its first line's
+  `newLineNumber` is where it starts, a removed line's too), without their line endings, in their charset (UTF-8 when valid, else
+  ISO-8859-1), and the old side's lines, against which `changedTypedLines` (JGit's histogram diff) marks the typed lines
+  that differ with a green bar. `LineFormat` and its helpers moved from `domain/conflicts/ResolverEditing.kt` to
+  `domain/editing/LineFormat.kt`, shared with the resolver.
+- **Done** (`editedFile`, `WriteHunkEditGitAction`, `EditHunkUseCase`, `TaskType.EditHunk`: no processing screen or
+  toast, `ErrorDialog` on failure, then STATUS): the working file's bytes are read, and its lines where the hunk was must
+  be the diff's, apart from a `\r` before the `\n` (`core.autocrlf`); otherwise `HunkEditError.FileChanged`, nothing is
+  written, and the field stays open with what was typed. The typed lines take the replaced lines' line ending, and the
+  last one none where the file ended without one; lines typed after a last line without one give it one. The file is
+  written next to itself (`.<name>.leaf-edit-*.tmp`) and moved into place, keeping its POSIX permissions. A symbolic
+  link, a folder or a missing file is `NotAFile`. The replaced lines are kept in the discard store as
+  `DiscardKind.EDIT` (older Leafs skip such records), so the discard strip says "Edited lines of X." with Undo, which
+  merges them back as a discard's Undo does, and "Recently discarded" lists it ("Lines edited").
+- **While editing** (`HunkEditController`, `HunkEditState`): the diff pane shows the diff that editing started from
+  (`state.diff`) and its list state, whatever refreshes come, and the main view keeps the pane while an edit lasts. Find
+  isn't offered. ⌘↵ (Ctrl+Enter) in the field and ⌘S (the tab's Stash key) are Done; Esc
+  (`CloseableView.HUNK_EDIT`) ends an edit with nothing typed, asks about lines typed, and closes the question when
+  asked again. The field takes the focus when it shows, and the pane takes it back when the edit ends.
+- **Leaving with lines typed** asks in `HunkEditLeaveStrip` (under the diff's header, the warning strip's style): Save,
+  Discard, Keep editing. Another file or commit selected, or the diff closed: the pane keeps showing the edit with the
+  question until answered, and the question goes if the same file is selected again. Closing the tab, a worktree switch
+  and another repository go through `whenConflictResolverLeft`, which asks the hunk edit first, then the resolver; the
+  quit dialog lists the file (`conflictResolverUnsavedFile`) and Save and quit writes it first.
+- **The field** (`HunkEditorField`) reuses the resolver's pieces, made `internal` rather than moved: `EditorLineNumbers`,
+  `EditorColours` (it starts in the diff's colours, `EditorSyntax` from `diffHighlights`), `TabsAsSpaces`,
+  `FieldSidewaysElement` without wrap, and the field's spacing, so its text starts where the diff's lines start theirs.
+  In split view, the edited hunk shows as in unified (B3 would make the right side the field). Upstream's
+  `HunkUnifiedTextDiff` and `HunkSplitTextDiff` read the edit from `LocalHunkEditing`, which the diff pane provides, so
+  their parameters and file history's calls are unchanged; `HunkHeader` and `DiffContextMenu` got optional parameters.
+- **Not done:** colours for lines typed (they keep the colours of the lines they were, and new lines are plain); the
+  view's toggles (hunks or the whole file, unified or split) apply after the edit; "Edit these lines" in the split view's
+  lines; an edit left for blame, file history or the resolver waits, its field gone, until the diff shows again.
+- Tests: `HunkEditTest` (domain: CRLF, Latin-1, no last line ending, a file that changed, all lines deleted, an empty new
+  side, the marks), `WriteHunkEditGitActionTest` (data, against git: the typed lines in `git diff`, `core.autocrlf`,
+  the executable bit, a file that changed, a link out of the repository and one in it, Undo keeping a later edit, a new
+  file), `HunkEditControllerTest`
+  (start, one at a time, what can be edited, typing and the charset, Done, a failure, Cancel, Esc, moving on and back,
+  leaving, quitting), `HunkEditorViewTest` (rendered: Edit, the field and the removed lines, typing and ⌘↵, a real click
+  in the field inside the selectable diff, the other hunks' buttons gone, split, the line menu's action, the question
+  strip; PNGs with `LEAF_RENDER_DIR`). 11 mutations (the check of the file's lines, the line ending, the last line's,
+  the mode, links, an unchanged Done, moving on with nothing typed, a whitespace-ignoring hunk, the charset, the other
+  hunks' buttons, a strip of `\r`) were each caught by a named test, but two: the strip of `\r` was redundant (the line
+  reader drops it before a `\n`, and it would have refused a file ending in a lone `\r`), and went; a link into the
+  repository got a test of its own.
+
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
 `git diff --ours` shows.

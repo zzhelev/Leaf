@@ -2,6 +2,18 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Edit a hunk in place (2026-11-23)
+
+- **Request:** the user's: small edits without leaving Leaf, B1 of the Design artifact "Leaf edit files" (editing a hunk
+  in place), with the plan's recommended decisions (`docs/fork/inline-editing.md`).
+- **Now:** a hunk of an Unstaged diff has Edit, and a line's menu "Edit these lines": the hunk's new side becomes a text
+  field, with its line numbers, the code's colours and a green bar on the lines that differ, under the hunk's removed
+  lines, dimmed. Done (⌘↵, ⌘S) writes the lines into the file, keeping its charset, line endings and mode, and only when
+  the file still has the lines that the diff showed; the discard strip then offers Undo. Cancel leaves the file. Leaving
+  the edit with lines typed, closing the tab or quitting asks Save, Discard or Keep editing.
+- **Then:** B2, the whole file, if the user wants it.
+- Details: CLAUDE.md, "Git operations", Editing a hunk in place.
+
 ## Open a file in an editor (2026-11-23)
 
 - **Request:** the user's: a file's menu had only "Open file in folder", and small edits need an editor.
