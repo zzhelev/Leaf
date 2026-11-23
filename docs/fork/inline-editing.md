@@ -7,8 +7,8 @@ differs from this plan, is in CLAUDE.md, "Git operations", Editing a hunk in pla
 
 ## 1. What it does
 
-- In an Unstaged diff, each hunk's header gets **Edit**, before Discard hunk. A line's right-click menu gets **Edit
-  these lines**, which starts with the caret on that line.
+- In an Unstaged diff, each hunk's header gets **Edit**, before Discard hunk, 8 dp apart as the editing controls are.
+  A line's right-click menu gets **Edit these lines**, which starts with the caret on that line.
 - While a hunk is edited, its header shows "Editing", **Cancel** and **Done**; Stage hunk and Discard hunk go. The
   hunk's removed lines stay above, dimmed, as a reminder of what was there. Its new side, the added and context lines as
   the working file has them, becomes a text field: its line numbers, the code's colours, and a green bar on each line
@@ -89,8 +89,9 @@ on B1's pieces. How it was built is in CLAUDE.md, "Git operations", Editing the 
 
 ## 8. What it does
 
-- The diff pane turns into an editor of the working file: its header has the file's name, an "Edited" dot while
-  something isn't saved, **Back to diff** and **Save**.
+- The diff pane turns into an editor of the working file: its header has the file's name, with an asterisk after it
+  while something isn't saved (as the diff's header has while a hunk's typed lines aren't), **Back to diff** and
+  **Save**. The asterisk replaced an "Edited" dot, which was easy to miss (2026-11-24, at the user's request).
 - Every line of the file, with its numbers and the code's colours, worked out again a moment after typing stops, as the
   conflict resolver's field does.
 - A marker before each line that differs from the index, as the Unstaged diff compares: green for an added line, blue

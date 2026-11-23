@@ -801,6 +801,10 @@ plan's recommended decisions.
   hunk of at most `MAX_HUNK_EDIT_LINES` (1,000) lines, not a hunk of a diff that ignores whitespace. Not Staged, a
   commit's diff, a conflicted or deleted file. During a merge, rebase, cherry-pick or revert too, unlike the hunk buttons.
   One hunk at a time: the other hunks' Edit and their hunk and line buttons go while one is edited.
+- **The header's buttons** (2026-11-24, at the user's request): Edit, Discard hunk and Stage hunk are 8 dp apart, as
+  the editing controls are, the first 16 dp from the header's text, and the last ends 8 dp in, where Done does.
+  Upstream's two were 32 dp apart, and Edit 16 dp from Discard hunk. Chosen with the user from renders over 32 dp for
+  all three, which took about 55 dp more of a narrow pane.
 - **The edit** (`HunkEdit`, `hunkEditOf`): the new side's lines from the hunk's `newText` (its first line's
   `newLineNumber` is where it starts, a removed line's too), without their line endings, in their charset (UTF-8 when valid, else
   ISO-8859-1), and the old side's lines, against which `changedTypedLines` (JGit's histogram diff) marks the typed lines
@@ -819,7 +823,9 @@ plan's recommended decisions.
   (`state.diff`) and its list state, whatever refreshes come, and the main view keeps the pane while an edit lasts. Find
   isn't offered. ⌘↵ (Ctrl+Enter) in the field and ⌘S (the tab's Stash key) are Done; Esc
   (`CloseableView.HUNK_EDIT`) ends an edit with nothing typed, asks about lines typed, and closes the question when
-  asked again. The field takes the focus when it shows, and the pane takes it back when the edit ends.
+  asked again. The field takes the focus when it shows, and the pane takes it back when the edit ends. While the typed
+  lines differ from the file's, the diff's header has an asterisk after the file's name (see Not saved, under Editing the
+  whole file).
 - **Leaving with lines typed** asks in `HunkEditLeaveStrip` (under the diff's header, the warning strip's style): Save,
   Discard, Keep editing. Another file or commit selected, or the diff closed: the pane keeps showing the edit with the
   question until answered, and the question goes if the same file is selected again. Closing the tab, a worktree switch
@@ -841,11 +847,12 @@ plan's recommended decisions.
   (start, one at a time, what can be edited, typing and the charset, Done, a failure, Cancel, Esc, moving on and back,
   leaving, quitting), `HunkEditorViewTest` (rendered: Edit, the field and the removed lines, typing and ⌘↵, a real click
   in the field inside the selectable diff, the other hunks' buttons gone, split, the line menu's action, the question
-  strip; PNGs with `LEAF_RENDER_DIR`). 11 mutations (the check of the file's lines, the line ending, the last line's,
+  strip, the header's buttons 8 dp apart and ending where Done does, the diff header's asterisk; PNGs with
+  `LEAF_RENDER_DIR`). 11 mutations (the check of the file's lines, the line ending, the last line's,
   the mode, links, an unchanged Done, moving on with nothing typed, a whitespace-ignoring hunk, the charset, the other
   hunks' buttons, a strip of `\r`) were each caught by a named test, but two: the strip of `\r` was redundant (the line
   reader drops it before a `\n`, and it would have refused a file ending in a lone `\r`), and went; a link into the
-  repository got a test of its own.
+  repository got a test of its own. Two more of the buttons' spacing (2026-11-24) were each caught by a named test.
 
 **Editing the whole file (fork-only, 2026-11-23, `docs/fork/inline-editing.md` B2, `domain/editing/FileEdit.kt`,
 `repositoryopen/FileEditController.kt`, `ui/diff/FileEditor.kt`):** the working file of an Unstaged text file, modified
@@ -874,6 +881,12 @@ once the file shows. Option B2 of the Design artifact "Leaf edit files", built w
 - **The name under the caret** (`occurrencesAt`: a whole word of letters, digits, `_` and `$`, two characters or more,
   not a number, `MAX_OCCURRENCES`) is marked wherever it's used (`OccurrenceMarks`, over the code's colours, which are
   worked out 80 ms after typing stops with `HighlightTextUseCase`).
+- **Not saved** (2026-11-24, at the user's request): while the field has lines that Save would write, the header has an
+  asterisk after the file's name (`withNotSavedMark`), as editors mark a file, and the name says "Not saved" to screen
+  readers (`notSaved`); typing back to what is saved takes it away. The diff's header does the same for a hunk edited in
+  place (B1, `DiffHeader`'s `isNotSaved`, from `HunkEditState.hasTypedChanges`). It replaced a small grey dot and
+  "Edited", which was easy to miss, and B1 had no sign. Chosen with the user from renders over a dot in the accent
+  colour, as blue already marks a changed line in the editor.
 - **Leaving** as B1 (`HunkEditLeave`, `EditLeaveStripContent`, shared): Back to diff and Esc (`CloseableView.FILE_EDIT`)
   close without lines unsaved, ask with them, and close an open popover first; another file, the tab, a worktree and
   quitting go through the same hooks, after a hunk edit's. The diff pane (`DiffPane`) shows the editor while it's open,
@@ -887,11 +900,13 @@ once the file shows. Option B2 of the Design artifact "Leaf edit files", built w
   index version, `core.autocrlf`, a new file, Save and `git diff`, the mode, a file that changed, a link, Undo),
   `FileEditControllerTest` (open, typing and markers, Save staying, a failure, Back and its question, ⌘↵, Put it back,
   moving on and back, leaving and quitting, a hunk carried over), `FileEditorViewTest` (rendered: the file and its
-  header, Edited, the shortcut, a marker's popover and Put it back, a real click on a marker, the question, occurrence
+  header, the asterisk while something isn't saved and gone once typed back, the shortcut, a marker's popover and Put it back, a real click on a marker, the question, occurrence
   marks; PNGs with `LEAF_RENDER_DIR`, the measurement with `LEAF_MEASURE`), and menu cases in `FileOpeningMenusTest`.
   12 mutations (unchanged lines' endings, the last line's, the markers' kinds, Put it back, whole words, the check of
   the file before Save, the index version, Save staying, Back closing a marker first, moving on with lines unsaved, the
-  marker column's height, the occurrence marks) were each caught by a named test.
+  marker column's height, the occurrence marks) were each caught by a named test, and two of the asterisk and its "Not
+  saved" (2026-11-24) by both editors' tests. Not covered by a kept test: `DiffPane` passing a hunk edit's state to
+  `DiffHeader`, which needs the view model.
 
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what

@@ -11,6 +11,8 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
   whole file's changes down the right edge, the old lines of a change with Put it back, and the name under the caret
   marked wherever it's used. Save (⌘S) writes the file, keeping every unchanged line's bytes, and stays; ⌘↵ saves and
   goes back. Leaving with edits not saved asks, as B1 does. Files of up to 2,000 lines, a limit measured while typing.
+  After a try (2026-11-24): the file's name has an asterisk while edits aren't saved, in both editors, and a hunk's
+  Edit, Discard hunk and Stage hunk are 8 dp apart.
 - Details: CLAUDE.md, "Git operations", Editing the whole file.
 
 ## Edit a hunk in place (2026-11-23)
