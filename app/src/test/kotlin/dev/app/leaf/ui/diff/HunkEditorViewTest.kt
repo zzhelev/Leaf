@@ -33,6 +33,7 @@ import dev.app.leaf.domain.editing.changedTypedLines
 import dev.app.leaf.domain.editing.hunkEditOf
 import dev.app.leaf.domain.models.DiffResult
 import dev.app.leaf.domain.models.DiffType
+import dev.app.leaf.domain.models.DiffTextViewType
 import dev.app.leaf.domain.models.EntryType
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
@@ -220,6 +221,59 @@ class HunkEditorViewTest {
 
         assertEquals(listOf("start null"), calls)
     }
+
+    @Test
+    fun `Edit, Discard hunk and Stage hunk are 8 dp apart, and end where the editing controls do`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            show()
+            settle()
+
+            val edit = clickable("Edit").boundsInRoot
+            val discard = clickable("Discard hunk").boundsInRoot
+            val stage = clickable("Stage hunk").boundsInRoot
+            assertEquals(8f, discard.left - edit.right, 0.5f)
+            assertEquals(8f, stage.left - discard.right, 0.5f)
+
+            clickable("Edit").config[SemanticsActions.OnClick].action!!.invoke()
+            settle()
+            assertEquals(stage.right, clickable("Done").boundsInRoot.right, 0.5f)
+        }
+
+    @Test
+    fun `the diff's header puts an asterisk after the name while typed lines aren't saved`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            var notSaved by mutableStateOf(false)
+            scene = ImageComposeScene(width = 900, height = 60, density = Density(1f), coroutineContext = Dispatchers.Swing) {
+                AppTheme(selectedTheme = Theme.Light) {
+                    DiffHeader(
+                        diffType = diffType,
+                        diffEntry = diffEntry(),
+                        textDiffViewType = DiffTextViewType.Unified,
+                        isDisplayFullFile = false,
+                        isTextDiff = true,
+                        onCloseDiffView = null,
+                        headerActions = null,
+                        onStageFile = {},
+                        onUnstageFile = {},
+                        onChangeDiffType = {},
+                        onDisplayFullFile = {},
+                        viewMenu = {},
+                        logToggle = null,
+                        isNotSaved = notSaved,
+                    )
+                }
+            }
+            settle()
+            assertTrue("RestoreWorkingFile.kt" in texts() && "RestoreWorkingFile.kt*" !in texts(), texts().toString())
+            assertTrue(notSavedNodes().isEmpty())
+
+            notSaved = true
+            settle()
+            assertTrue("RestoreWorkingFile.kt*" in texts() && "RestoreWorkingFile.kt" !in texts(), texts().toString())
+            assertEquals(1, notSavedNodes().size, "read out as not saved")
+        }
+
+    private fun notSavedNodes() = nodes().filter { it.config.getOrNull(SemanticsProperties.StateDescription) == "Not saved" }
 
     @Test
     fun `while editing, the hunk has the field in place of its new side, and its removed lines above`(): Unit =

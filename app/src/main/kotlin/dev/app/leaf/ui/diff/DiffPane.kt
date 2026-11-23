@@ -287,6 +287,8 @@ private fun DiffPaneContent(
                         { viewModel.editWholeFile(uncommitted, viewModel.shownDiffFile()?.second) }
                     },
                     tooLongToEdit = diffResult.newLineCount() > MAX_FILE_EDIT_LINES,
+                    // Fork-only: a hunk edited in place with lines typed that aren't saved
+                    isNotSaved = hunkEdit?.hasTypedChanges == true,
                     viewMenu = {
                         DiffViewMenu(
                             diffType = diffType,
@@ -1142,6 +1144,11 @@ fun HunkHeader(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Fork-only: the buttons are 8 dp apart, as the editing controls are; the first is 16 dp from the header, and
+        // the last ends 8 dp in
+        val showsHunkActions = editing == null && diffType is DiffType.UncommittedDiff && canUseHunkActions &&
+                diffType.hasHunkActions
+
         // Fork-only: a hunk edited in place, and Edit, which is offered during a merge or rebase too
         if (editing != null) {
             HunkEditControls(editing)
@@ -1151,7 +1158,7 @@ fun HunkHeader(
                     text = stringResource(Res.string.hunk_edit),
                     colors = MaterialTheme.styleColors.neutral,
                     onClick = onEdit,
-                    modifier = Modifier.padding(start = 16.dp),
+                    modifier = Modifier.padding(start = 16.dp, end = if (showsHunkActions) 0.dp else 8.dp),
                 )
             }
         }
@@ -1177,14 +1184,17 @@ fun HunkHeader(
                     text = "Discard hunk",
                     colors = MaterialTheme.styleColors.destructive,
                     onClick = onResetHunk,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(start = if (onEdit != null) 8.dp else 16.dp),
                 )
             }
 
             SecondaryButton(
                 text = buttonText,
                 colors = colors,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(
+                    start = if (onEdit != null || diffType.entryType == EntryType.UNSTAGED) 8.dp else 16.dp,
+                    end = 8.dp,
+                ),
                 onClick = {
                     if (diffType.entryType == EntryType.STAGED) {
                         onUnstageHunk()
@@ -1198,7 +1208,7 @@ fun HunkHeader(
 }
 
 @Composable
-private fun DiffHeader(
+internal fun DiffHeader(
     diffType: DiffType,
     diffEntry: DiffEntry,
     textDiffViewType: DiffTextViewType,
@@ -1222,6 +1232,8 @@ private fun DiffHeader(
     /** Fork-only, B2: "Edit the whole file" in the file's menu, greyed out when [tooLongToEdit]. */
     onEditWholeFile: (() -> Unit)? = null,
     tooLongToEdit: Boolean = false,
+    /** Fork-only: an asterisk after the name, for a hunk edited in place with lines that aren't saved. */
+    isNotSaved: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -1265,14 +1277,14 @@ private fun DiffHeader(
                     // Fork-only: the file's name opens its menu: the editor and the file manager
                     DisableSelection {
                         FileNameMenu(
-                            name = fileName,
+                            name = fileName.withNotSavedMark(isNotSaved),
                             path = diffType.filePath,
                             canOpen = canOpenFile,
                             style = MaterialTheme.typography.body2,
                             color = MaterialTheme.colors.onBackground,
                             fontWeight = FontWeight.Medium,
                             line = editorLine,
-                            modifier = Modifier.padding(end = 16.dp),
+                            modifier = Modifier.padding(end = 16.dp).notSaved(isNotSaved),
                             onEditWholeFile = onEditWholeFile,
                             tooLongToEdit = tooLongToEdit,
                         )

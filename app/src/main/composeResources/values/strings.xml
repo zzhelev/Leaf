@@ -2269,7 +2269,7 @@
     <string name="file_edit_from_hunk">Whole file</string>
     <string name="file_edit_back">Back to diff</string>
     <string name="file_edit_save">Save</string>
-    <string name="file_edit_edited">Edited</string>
+    <string name="file_edit_not_saved">Not saved</string>
     <string name="file_edit_field">Text of %1$s</string>
     <string name="file_edit_put_back">Put it back</string>
     <string name="file_edit_removed_here">Removed here:</string>

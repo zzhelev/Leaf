@@ -16,11 +16,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -59,6 +57,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -72,8 +71,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.file_edit_back
-import dev.app.leaf.app.generated.resources.file_edit_edited
 import dev.app.leaf.app.generated.resources.file_edit_field
+import dev.app.leaf.app.generated.resources.file_edit_not_saved
 import dev.app.leaf.app.generated.resources.file_edit_put_back
 import dev.app.leaf.app.generated.resources.file_edit_removed_here
 import dev.app.leaf.app.generated.resources.file_edit_save
@@ -131,10 +130,10 @@ private val OccurrenceColor = Color(0x61E9C754)
 private val MarkersWidth = 14.dp
 
 /**
- * The working file edited whole, in the diff pane's place (fork-only, B2): its header (the name with its menu, "Edited"
- * while something isn't saved, Back to diff and Save), the question about lines not saved when leaving, and the file:
- * line numbers, markers of the changes against the index, the text, and down the right edge the whole file's changes
- * and the name under the caret, with where the view is. [wrapLines] is the diff's own setting.
+ * The working file edited whole, in the diff pane's place (fork-only, B2): its header (the name with its menu, an
+ * asterisk after it while something isn't saved, Back to diff and Save), the question about lines not saved when
+ * leaving, and the file: line numbers, markers of the changes against the index, the text, and down the right edge the
+ * whole file's changes and the name under the caret, with where the view is. [wrapLines] is the diff's own setting.
  */
 @Composable
 fun FileEditorPane(editing: FileEditing, wrapLines: Boolean) {
@@ -185,29 +184,14 @@ private fun FileEditorHeader(editing: FileEditing) {
             }
 
             FileNameMenu(
-                name = path.substringAfterLast('/'),
+                name = path.substringAfterLast('/').withNotSavedMark(state.hasUnsavedChanges),
                 path = path,
                 canOpen = true,
                 style = MaterialTheme.typography.body2,
                 color = MaterialTheme.colors.onBackground,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                modifier = Modifier.notSaved(state.hasUnsavedChanges),
             )
-
-            if (state.hasUnsavedChanges) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
-                    modifier = Modifier.padding(start = 8.dp),
-                ) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.colors.onBackgroundSecondary))
-                    Text(
-                        text = stringResource(Res.string.file_edit_edited),
-                        style = MaterialTheme.typography.caption,
-                        color = MaterialTheme.colors.onBackgroundSecondary,
-                        maxLines = 1,
-                    )
-                }
-            }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -591,4 +575,16 @@ internal fun lineStartsOf(text: String): List<Int> = buildList {
 internal fun lineOf(lineStarts: List<Int>, offset: Int): Int {
     val found = lineStarts.binarySearch(offset)
     return if (found >= 0) found else -found - 2
+}
+
+/** A file's name with an asterisk after it while it has edits that aren't saved, as editors mark them. */
+internal fun String.withNotSavedMark(isNotSaved: Boolean): String = if (isNotSaved) "$this*" else this
+
+/** Says "Not saved" to screen readers, for a name that [withNotSavedMark] marked. */
+@Composable
+internal fun Modifier.notSaved(isNotSaved: Boolean): Modifier {
+    if (!isNotSaved) return this
+
+    val notSaved = stringResource(Res.string.file_edit_not_saved)
+    return semantics { stateDescription = notSaved }
 }

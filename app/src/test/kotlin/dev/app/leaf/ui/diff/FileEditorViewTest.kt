@@ -156,23 +156,33 @@ class FileEditorViewTest {
     }
 
     @Test
-    fun `the editor has the file, its header, and Edited once something isn't saved`(): Unit = runBlocking(Dispatchers.Swing) {
-        state = stateOf()
-        show()
-        settle()
+    fun `the editor has the file, its header, and an asterisk after the name while something isn't saved`(): Unit =
+        runBlocking(Dispatchers.Swing) {
+            state = stateOf()
+            show()
+            settle()
 
-        assertEquals(working, field().config.getOrNull(SemanticsProperties.EditableText)?.text)
-        assertTrue("src/demo/" in texts() && "Parser.kt" in texts(), texts().toString())
-        assertFalse("Edited" in texts(), "nothing typed yet")
+            assertEquals(working, field().config.getOrNull(SemanticsProperties.EditableText)?.text)
+            assertTrue("src/demo/" in texts() && "Parser.kt" in texts(), texts().toString())
+            assertFalse("Parser.kt*" in texts() || notSavedNodes().isNotEmpty(), "nothing typed yet")
 
-        clickable("Save").config[SemanticsActions.OnClick].action!!.invoke()
-        clickable("Back to diff").config[SemanticsActions.OnClick].action!!.invoke()
-        assertEquals(listOf("save", "back"), calls)
+            clickable("Save").config[SemanticsActions.OnClick].action!!.invoke()
+            clickable("Back to diff").config[SemanticsActions.OnClick].action!!.invoke()
+            assertEquals(listOf("save", "back"), calls)
 
-        field().config[SemanticsActions.InsertTextAtCursor].action!!.invoke(AnnotatedString("x"))
-        settle()
-        assertTrue("Edited" in texts())
-    }
+            field().config[SemanticsActions.InsertTextAtCursor].action!!.invoke(AnnotatedString("x"))
+            settle()
+            assertTrue("Parser.kt*" in texts() && "Parser.kt" !in texts(), texts().toString())
+            assertEquals(listOf("Parser.kt*"), notSavedNodes().flatMap { node -> node.texts() }, "read out as not saved")
+
+            state = state!!.copy(value = TextFieldValue(working))
+            settle()
+            assertTrue("Parser.kt" in texts() && "Parser.kt*" !in texts(), "typed back to what is saved")
+        }
+
+    private fun notSavedNodes() = nodes().filter { it.config.getOrNull(SemanticsProperties.StateDescription) == "Not saved" }
+
+    private fun SemanticsNode.texts() = config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text }
 
     @Test
     fun `the shortcut saves and goes back`(): Unit = runBlocking(Dispatchers.Swing) {
