@@ -3,8 +3,20 @@
 
 package dev.app.leaf.ui.editor
 
+import androidx.compose.foundation.Image
+import androidx.compose.material.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.open_in_new
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.skia.Image
 import java.io.File
 import java.io.IOException
@@ -64,4 +76,26 @@ internal fun appIcon(path: String): ImageBitmap? {
     if (bitmap != null) appIcons[path] = bitmap else missingIcons.add(path)
 
     return bitmap
+}
+
+/** The image already read for [path], without reading the disk. */
+internal fun cachedAppIcon(path: String): ImageBitmap? = appIcons[path]
+
+/**
+ * An app's own icon, from its icon file [iconFile] (read off the UI thread), or else, and while it's read, the box with
+ * an arrow that stands for opening something outside Leaf, in [tint].
+ */
+@Composable
+fun AppIconOrOpenIcon(iconFile: String?, tint: Color, modifier: Modifier) {
+    val icon by produceState(iconFile?.let(::cachedAppIcon), iconFile) {
+        value = iconFile?.let { withContext(Dispatchers.IO) { appIcon(it) } }
+    }
+
+    val loaded = icon
+
+    if (loaded != null) {
+        Image(bitmap = loaded, contentDescription = null, modifier = modifier)
+    } else {
+        Icon(painter = painterResource(Res.drawable.open_in_new), contentDescription = null, tint = tint, modifier = modifier)
+    }
 }

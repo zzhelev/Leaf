@@ -37,6 +37,8 @@ import dev.app.leaf.ui.compare.ComparisonFullView
 import dev.app.leaf.ui.editor.EditorPickerPopup
 import dev.app.leaf.ui.editor.FileOpening
 import dev.app.leaf.ui.editor.LocalFileOpening
+import dev.app.leaf.ui.editor.OpenInEditorTarget
+import dev.app.leaf.ui.editor.openInEditorTarget
 import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.BranchesPaneToggle
@@ -252,8 +254,14 @@ fun RepositoryOpenPage(
                         true
                     }
 
-                    // Fork-only: the shown diff's file in the editor, at the line in view
-                    it.matchesBinding(KeybindingOption.OPEN_IN_EDITOR) && repositoryOpenViewModel.shownDiffFile() != null -> {
+                    // Fork-only: the shown diff's file in the editor, at the line in view. Blame opens its own file, and
+                    // nothing that covers the diff opens it.
+                    it.matchesBinding(KeybindingOption.OPEN_IN_EDITOR) && openInEditorTarget(
+                        isResolverShown = showConflictResolver,
+                        isHistoryShown = showHistory,
+                        isBlameExpanded = blameState.let { blame -> blame is BlameState.Loaded && !blame.isMinimized },
+                        hasDiffFile = repositoryOpenViewModel.shownDiffFile() != null,
+                    ) == OpenInEditorTarget.DIFF -> {
                         repositoryOpenViewModel.openShownDiffInEditor()
                         true
                     }

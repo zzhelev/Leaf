@@ -2249,6 +2249,7 @@
     <string name="editor_open_in_editor_at_line">Open in editor at line %1$d</string>
     <string name="editor_choose">Open in editor…</string>
     <string name="editor_open_in_another">Open in another editor…</string>
+    <string name="editor_file_menu">File menu</string>
     <string name="editor_show_in_finder">Show in Finder</string>
     <string name="editor_show_in_explorer">Show in Explorer</string>
     <string name="editor_show_in_file_manager">Show in file manager</string>

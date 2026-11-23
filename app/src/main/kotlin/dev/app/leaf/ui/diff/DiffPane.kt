@@ -56,10 +56,9 @@ import dev.app.leaf.ui.components.SidewaysScroll
 import dev.app.leaf.ui.components.UnwrappedLine
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
-import dev.app.leaf.domain.diff.anchorAt
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.editor.LocalFileOpening
-import dev.app.leaf.ui.editor.OpenInEditorButton
+import dev.app.leaf.ui.editor.FileNameMenu
 import dev.app.leaf.ui.editor.addOpenAtLineItem
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
@@ -246,30 +245,9 @@ private fun DiffPaneContent(
                     onChangeDiffType = { viewModel.changeTextDiffType(it) },
                     onDisplayFullFile = { viewModel.changeDisplayFullFile(it) },
                     logToggle = logToggle,
-                    // Fork-only: a deleted file has nothing to open
-                    editorButton = if (diffType.statusType != StatusType.REMOVED) {
-                        {
-                            val editorChoice by viewModel.editorChoice.collectAsState()
-                            val listState by viewModel.lazyListState.collectAsState()
-                            val line by remember(diffResult, listState, diffType) {
-                                derivedStateOf {
-                                    if (diffType is DiffType.UncommittedDiff && diffResult is DiffResult.TextDiff) {
-                                        diffResult.anchorAt(listState.firstVisibleItemIndex)?.let { it.newLine + 1 }
-                                    } else {
-                                        null
-                                    }
-                                }
-                            }
-
-                            OpenInEditorButton(
-                                choice = editorChoice,
-                                line = line,
-                                onClick = { viewModel.openShownDiffInEditor() },
-                            )
-                        }
-                    } else {
-                        null
-                    },
+                    // Fork-only: the file in the editor, at the line in view; a deleted file has nothing to open
+                    canOpenFile = diffType.statusType != StatusType.REMOVED,
+                    editorLine = { viewModel.shownDiffFile()?.second },
                     viewMenu = {
                         DiffViewMenu(
                             diffType = diffType,
@@ -1110,8 +1088,10 @@ private fun DiffHeader(
     /** The View menu (fork-only), for any text diff: added and deleted files' lines can be long too. */
     viewMenu: @Composable () -> Unit,
     logToggle: (@Composable () -> Unit)?,
-    /** Fork-only: opens the file in the editor, first among the header's buttons. */
-    editorButton: (@Composable () -> Unit)? = null,
+    /** Fork-only: whether the file's menu opens it in the editor, or only shows it in the file manager. */
+    canOpenFile: Boolean = true,
+    /** Fork-only: the line that the editor opens the file at, when the file's menu opens. */
+    editorLine: () -> Int? = { null },
 ) {
     Row(
         modifier = Modifier
@@ -1152,14 +1132,19 @@ private fun DiffHeader(
                             color = MaterialTheme.colors.onBackgroundSecondary,
                         )
                     }
-                    Text(
-                        text = fileName,
-                        style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onBackground,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        modifier = Modifier.padding(end = 16.dp),
-                    )
+                    // Fork-only: the file's name opens its menu: the editor and the file manager
+                    DisableSelection {
+                        FileNameMenu(
+                            name = fileName,
+                            path = diffType.filePath,
+                            canOpen = canOpenFile,
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onBackground,
+                            fontWeight = FontWeight.Medium,
+                            line = editorLine,
+                            modifier = Modifier.padding(end = 16.dp),
+                        )
+                    }
 
                     // Fork-only: where a renamed file came from
                     diffEntry.renamedFrom?.let { RenamedFromHeader(it) }
@@ -1171,8 +1156,6 @@ private fun DiffHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            editorButton?.invoke()
-
             headerActions?.invoke()
 
             if (diffType.statusType != StatusType.ADDED && diffType.statusType != StatusType.REMOVED && isTextDiff) {

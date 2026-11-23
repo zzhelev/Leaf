@@ -24,6 +24,7 @@ import dev.app.leaf.ui.diff.editorLineOf
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.lib.ObjectId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
@@ -143,6 +144,32 @@ class FileOpeningMenusTest {
 
         items.textEntries().single().onClick()
         assertEquals(listOf("open $PATH 47"), calls)
+    }
+
+    @Test
+    fun `a header's items open at the line in view and show the shortcut, which a file list's don't`() {
+        val choice = EditorChoice.Installed(intellij)
+        val header = headerFileItems(opening(choice), PATH, line = 12, canOpen = true)
+        val list = statusMenu(StatusEntry(PATH, StatusType.MODIFIED, EntryType.UNSTAGED), choice)
+
+        assertEquals(listOf("Open in IntelliJ IDEA at line 12", "Open in another editor…", showLabel), labelsOf(header))
+        assertEquals(listOf(openInEditorShortcut(), null, null), composed { header.textEntries().map { it.hint?.invoke() } })
+        assertNull(list.textEntries().first().hint, "in a list, the shortcut may open another file")
+
+        header.textEntries().forEach { it.onClick() }
+        assertEquals(listOf("open $PATH 12", "choose $PATH 12", "show $PATH"), calls)
+
+        assertEquals(listOf("Open in editor…", showLabel), labelsOf(headerFileItems(opening(EditorChoice.None), PATH, 3, true)))
+        assertEquals(listOf(showLabel), labelsOf(headerFileItems(opening(choice), PATH, 3, canOpen = false)))
+    }
+
+    @Test
+    fun `the item that opens a file has the editor's icon, another editor the box with an arrow`() {
+        val items = headerFileItems(opening(EditorChoice.Installed(intellij)), PATH, line = null, canOpen = true).textEntries()
+
+        assertNotNull(items[0].customIcon, "drawn by the editor's icon")
+        assertNull(items[1].customIcon)
+        assertNotNull(items[1].icon)
     }
 
     @Test

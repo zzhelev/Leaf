@@ -3,7 +3,6 @@
 
 package dev.app.leaf.ui.editor
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -16,14 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -32,7 +29,6 @@ import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -60,9 +56,6 @@ import dev.app.leaf.ui.components.menu.menuPositionAt
 import dev.app.leaf.ui.context_menu.lastContextMenuPosition
 import dev.app.leaf.ui.dialogs.PickRow
 import dev.app.leaf.ui.dialogs.branchChoicesKeys
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import java.io.File
 
@@ -229,25 +222,12 @@ private fun Separator() {
     )
 }
 
-/** The editor's own app icon where its app has one, else Leaf's code icon; a folder for the default app. */
+/** The editor's own app icon where its app has one, else the box with an arrow, which the default app has too. */
 @Composable
 private fun EditorIcon(editor: InstalledEditor?) {
-    val iconFile = editor?.icon
-    val icon by produceState<ImageBitmap?>(null, iconFile) {
-        value = iconFile?.let { withContext(Dispatchers.IO) { appIcon(it) } }
-    }
-
-    val modifier = Modifier.padding(end = 8.dp).size(16.dp)
-    val loaded = icon
-
-    if (loaded != null) {
-        Image(bitmap = loaded, contentDescription = null, modifier = modifier)
-    } else {
-        Icon(
-            painter = painterResource(if (editor == null) Res.drawable.open else Res.drawable.code),
-            contentDescription = null,
-            tint = MaterialTheme.colors.onBackgroundSecondary,
-            modifier = modifier,
-        )
-    }
+    AppIconOrOpenIcon(
+        iconFile = editor?.icon,
+        tint = MaterialTheme.colors.onBackgroundSecondary,
+        modifier = Modifier.padding(end = 8.dp).size(16.dp),
+    )
 }

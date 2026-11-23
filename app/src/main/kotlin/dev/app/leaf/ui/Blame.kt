@@ -16,7 +16,7 @@ import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +50,7 @@ import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.editor.LocalFileOpening
-import dev.app.leaf.ui.editor.OpenInEditorButton
+import dev.app.leaf.ui.editor.FileNameMenu
 import dev.app.leaf.ui.diff.colouredLine
 import dev.app.leaf.ui.find.BlameFindText
 import dev.app.leaf.ui.find.FindBar
@@ -87,6 +87,7 @@ fun Blame(
     val find = remember { FindState() }
     val findText = remember(blameResult) { BlameFindText(blameResult.resultContents) }
     val listState = rememberLazyListState()
+    val fileOpening = LocalFileOpening.current
     val findMarks = rememberRowFindMarks(find)
     val findColors = MaterialTheme.findColors
     val selectionColor = selectionBackground
@@ -107,26 +108,23 @@ fun Blame(
                 if (keyEvent.matchesBinding(KeybindingOption.EXIT) && keyEvent.type == KeyEventType.KeyDown) {
                     onClose()
                     true
+                } else if (
+                    // Fork-only: the file in the editor, at the first line in view, as the file's menu opens it
+                    keyEvent.matchesBinding(KeybindingOption.OPEN_IN_EDITOR) && keyEvent.type == KeyEventType.KeyDown &&
+                    fileOpening != null
+                ) {
+                    fileOpening.onOpen(filePath, listState.firstVisibleItemIndex + 1)
+                    true
                 } else
                     false
             },
     ) {
-        // Fork-only: the file in the editor, at the first line in view, which blame shows as the working tree has it
-        val fileOpening = LocalFileOpening.current
-        val firstLine by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex + 1 } }
-
+        // Fork-only: the file's name opens its menu, at the first line in view: blame shows the file as the working tree
+        // has it
         Header(
             filePath,
             onClose = onClose,
-            editorButton = fileOpening?.let { opening ->
-                {
-                    OpenInEditorButton(
-                        choice = opening.choice,
-                        line = firstLine,
-                        onClick = { opening.onOpen(filePath, firstLine) },
-                    )
-                }
-            },
+            editorLine = { listState.firstVisibleItemIndex + 1 },
         )
 
         if (find.isOpen) {
@@ -291,7 +289,7 @@ fun MinimizedBlame(
 private fun Header(
     filePath: String,
     onClose: () -> Unit,
-    editorButton: (@Composable () -> Unit)? = null,
+    editorLine: () -> Int? = { null },
 ) {
     Row(
         modifier = Modifier
@@ -301,15 +299,35 @@ private fun Header(
             .padding(start = 8.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = filePath,
-            style = MaterialTheme.typography.body1,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
+        // Fork-only: the file's name opens its menu (the editor, the file manager)
+        val folder = filePath.substringBeforeLast('/', missingDelimiterValue = "")
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp).weight(1f, fill = false),
+        ) {
+            if (folder.isNotEmpty()) {
+                Text(
+                    text = "$folder/",
+                    style = MaterialTheme.typography.body1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            }
+
+            FileNameMenu(
+                name = filePath.substringAfterLast('/'),
+                path = filePath,
+                canOpen = true,
+                style = MaterialTheme.typography.body1,
+                color = MaterialTheme.colors.onBackground,
+                fontWeight = null,
+                line = editorLine,
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
-
-        editorButton?.invoke()
 
         IconButton(
             onClick = onClose,

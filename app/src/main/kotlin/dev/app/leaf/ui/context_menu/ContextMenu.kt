@@ -209,6 +209,8 @@ private fun Modifier.dropdownMenu(
             setOffset(offsetToBottomOfComponent)
         }
         .handMouseClickable(enabled) {
+            // Fork-only: for a popup that one of its entries opens in its place, as a context menu's
+            offset?.let { lastContextMenuPosition = IntOffset(it.x.toInt(), it.y.toInt()) }
             setIsClicked(true)
         }
 
@@ -360,12 +362,16 @@ fun TextEntry(
                     .padding(end = 8.dp)
                     .size(16.dp)
             ) {
-                if (icon != null) {
+                val customIcon = contextTextEntry.customIcon
+
+                if (customIcon != null) {
+                    customIcon()
+                } else if (icon != null) {
                     Icon(
                         painter = icon(),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        tint = (MaterialTheme.colors.onBackgroundSecondary.copy(alpha = 0.8f))
+                        tint = menuIconTint()
                     )
                 }
             }
@@ -411,6 +417,8 @@ sealed class ContextMenuElement(
         val hint: @Composable (() -> String)? = null,
         /** Fork-only: false for an entry that can't be used now, whose [hint] says why. */
         val isEnabled: Boolean = true,
+        /** Fork-only: drawn in [icon]'s place and as it is, such as an app's own icon. */
+        val customIcon: (@Composable () -> Unit)? = null,
     ) : ContextMenuElement(label, onClick) {
         constructor(
             composableLabel: @Composable (() -> String),
@@ -418,6 +426,7 @@ sealed class ContextMenuElement(
             onClick: () -> Unit = {},
             hint: @Composable (() -> String)? = null,
             isEnabled: Boolean = true,
+            customIcon: (@Composable () -> Unit)? = null,
         ) : this(
             label = "",
             composableLabel,
@@ -425,6 +434,7 @@ sealed class ContextMenuElement(
             onClick,
             hint,
             isEnabled,
+            customIcon,
         )
     }
 
@@ -579,6 +589,7 @@ fun MutableList<ContextMenuElement>.addContextMenu(
     onClick: () -> Unit = {},
     hint: @Composable (() -> String)? = null,
     isEnabled: Boolean = true,
+    customIcon: (@Composable () -> Unit)? = null,
 ) {
     this.add(
         ContextMenuElement.ContextTextEntry(
@@ -587,9 +598,14 @@ fun MutableList<ContextMenuElement>.addContextMenu(
             onClick = onClick,
             hint = hint,
             isEnabled = isEnabled,
+            customIcon = customIcon,
         )
     )
 }
+
+/** The colour of a menu entry's icon (fork-only, for icons drawn in [ContextMenuElement.ContextTextEntry.customIcon]). */
+@Composable
+fun menuIconTint() = MaterialTheme.colors.onBackgroundSecondary.copy(alpha = 0.8f)
 
 /** How faded a menu entry that can't be used is (fork-only). */
 private const val DISABLED_ENTRY_ALPHA = 0.45f

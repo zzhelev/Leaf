@@ -4,30 +4,39 @@
 package dev.app.leaf.ui.editor
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.*
 import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.domain.editor.EditorChoice
 import dev.app.leaf.domain.editor.editorName
-import dev.app.leaf.extensions.handMouseClickable
 import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.keybindings
-import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.context_menu.ContextMenuElement
+import dev.app.leaf.ui.context_menu.DropDownMenu
 import dev.app.leaf.ui.context_menu.addContextMenu
+import dev.app.leaf.ui.context_menu.menuIconTint
 import dev.app.leaf.ui.getParts
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -70,9 +79,44 @@ fun EditorChoice.openLabel(line: Int?): String {
     }
 }
 
-/** The shortcut that opens the shown diff's file, as menus write it: "⌘+E", "Ctrl+E". */
+/** Which file the shortcut that opens a file in the editor opens (fork-only). */
+enum class OpenInEditorTarget {
+    /** The shown diff's, which the tab's keys open. */
+    DIFF,
+
+    /** Blame's, which blame's own keys open: the tab's keys leave the shortcut to it. */
+    BLAME,
+
+    /** None: the conflict resolver or file history covers the diff. */
+    NONE,
+}
+
+/** What the shortcut opens, by what covers the diff pane. */
+fun openInEditorTarget(
+    isResolverShown: Boolean,
+    isHistoryShown: Boolean,
+    isBlameExpanded: Boolean,
+    hasDiffFile: Boolean,
+): OpenInEditorTarget = when {
+    isResolverShown || isHistoryShown -> OpenInEditorTarget.NONE
+    isBlameExpanded -> OpenInEditorTarget.BLAME
+    hasDiffFile -> OpenInEditorTarget.DIFF
+    else -> OpenInEditorTarget.NONE
+}
+
+/** The shortcut that opens the shown diff's file, and blame's, as menus write it: "⌘+E", "Ctrl+E". */
 fun openInEditorShortcut(): String =
     keybindings[KeybindingOption.OPEN_IN_EDITOR]?.firstOrNull()?.let { getParts(it).joinToString("+") }.orEmpty()
+
+/** The icon of the item that opens a file in [choice]: its editor's own icon, else the box with an arrow. */
+@Composable
+fun EditorMenuIcon(choice: EditorChoice) {
+    AppIconOrOpenIcon(
+        iconFile = (choice as? EditorChoice.Installed)?.editor?.icon,
+        tint = menuIconTint(),
+        modifier = Modifier.fillMaxSize(),
+    )
+}
 
 /**
  * The items at the top of a file's menu, then a separator: "Open in …" and "Open in another editor…" while the working
@@ -85,21 +129,48 @@ fun MutableList<ContextMenuElement>.addFileOpeningItems(
     canOpen: Boolean,
     onShowWithoutOpening: () -> Unit,
 ) {
-    if (opening != null && canOpen) {
+    if (opening != null) {
+        addOpeningItems(opening, path, line = null, canOpen = canOpen, withShortcut = false)
+    } else {
+        addContextMenu(
+            composableLabel = { stringResource(showInFileManagerLabel()) },
+            icon = { painterResource(Res.drawable.folder_open) },
+            onClick = onShowWithoutOpening,
+        )
+    }
+
+    add(ContextMenuElement.ContextSeparator)
+}
+
+/**
+ * "Open in …" at [line], "Open in another editor…" (both while the working tree has the file, [canOpen]) and "Show in
+ * Finder". [withShortcut] shows the shortcut that opens the file too, which is true only where it opens this file: the
+ * diff's and blame's headers.
+ */
+private fun MutableList<ContextMenuElement>.addOpeningItems(
+    opening: FileOpening,
+    path: String,
+    line: Int?,
+    canOpen: Boolean,
+    withShortcut: Boolean,
+) {
+    if (canOpen) {
         val choice = opening.choice
+        val shortcut = openInEditorShortcut().takeIf { withShortcut && it.isNotEmpty() }
 
         addContextMenu(
-            composableLabel = { choice.openLabel(line = null) },
-            icon = { painterResource(Res.drawable.code) },
-            onClick = { opening.onOpen(path, null) },
+            composableLabel = { choice.openLabel(line) },
+            customIcon = { EditorMenuIcon(choice) },
+            onClick = { opening.onOpen(path, line) },
+            hint = shortcut?.let { { it } },
         )
 
         // Nothing chosen yet: the item above asks which editor
         if (choice != EditorChoice.None) {
             addContextMenu(
                 composableLabel = { stringResource(Res.string.editor_open_in_another) },
-                icon = { painterResource(Res.drawable.open) },
-                onClick = { opening.onChooseEditor(path, null) },
+                icon = { painterResource(Res.drawable.open_in_new) },
+                onClick = { opening.onChooseEditor(path, line) },
             )
         }
     }
@@ -107,45 +178,66 @@ fun MutableList<ContextMenuElement>.addFileOpeningItems(
     addContextMenu(
         composableLabel = { stringResource(showInFileManagerLabel()) },
         icon = { painterResource(Res.drawable.folder_open) },
-        onClick = if (opening != null) {
-            { opening.onShow(path) }
-        } else {
-            onShowWithoutOpening
-        },
+        onClick = { opening.onShow(path) },
     )
-
-    add(ContextMenuElement.ContextSeparator)
 }
+
+/** The items of a header's file name ([FileNameMenu]). */
+fun headerFileItems(opening: FileOpening, path: String, line: Int?, canOpen: Boolean): List<ContextMenuElement> =
+    buildList { addOpeningItems(opening, path, line, canOpen, withShortcut = true) }
 
 /** A diff line's item that opens [path] at [line] in the repository's editor. */
 fun MutableList<ContextMenuElement>.addOpenAtLineItem(opening: FileOpening, path: String, line: Int) {
+    val choice = opening.choice
+
     addContextMenu(
-        composableLabel = { opening.choice.openLabel(line) },
-        icon = { painterResource(Res.drawable.code) },
+        composableLabel = { choice.openLabel(line) },
+        customIcon = { EditorMenuIcon(choice) },
         onClick = { opening.onOpen(path, line) },
     )
 }
 
-/** The diff's and blame's header button that opens their file in the editor, at [line] when there is one. */
+/**
+ * A header's file name (the diff's, blame's) with a ⌄ after it, which opens the file's items: "Open in …" at the line
+ * that [line] gives when the menu opens, with the shortcut, "Open in another editor…" and "Show in Finder" (fork-only).
+ * [canOpen] is false for a file that the working tree doesn't have, which only "Show in Finder" shows. Outside a tab
+ * (no [LocalFileOpening]), the name alone.
+ */
 @Composable
-fun OpenInEditorButton(choice: EditorChoice, line: Int?, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val label = choice.openLabel(line)
-    val shortcut = openInEditorShortcut()
+fun FileNameMenu(
+    name: String,
+    path: String,
+    canOpen: Boolean,
+    style: TextStyle,
+    color: Color,
+    fontWeight: FontWeight?,
+    modifier: Modifier = Modifier,
+    line: () -> Int? = { null },
+) {
+    val opening = LocalFileOpening.current
 
-    DelayedTooltip(if (shortcut.isEmpty()) label else "$label ($shortcut)") {
-        Box(
-            modifier = modifier
-                .clip(RoundedCornerShape(4.dp))
-                .handMouseClickable { onClick() }
-                .padding(4.dp)
-                .semantics { contentDescription = label },
-        ) {
-            Icon(
-                painter = painterResource(Res.drawable.code),
-                contentDescription = null,
-                tint = MaterialTheme.colors.onSurface,
-                modifier = Modifier.size(20.dp),
-            )
+    if (opening == null) {
+        Text(text = name, style = style, color = color, fontWeight = fontWeight, maxLines = 1, modifier = modifier)
+        return
+    }
+
+    Box(modifier = modifier.clip(RoundedCornerShape(4.dp))) {
+        DropDownMenu(items = { headerFileItems(opening, path, line(), canOpen) }) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(start = 1.dp, end = 2.dp)
+                    .semantics { role = Role.DropdownList },
+            ) {
+                Text(text = name, style = style, color = color, fontWeight = fontWeight, maxLines = 1, softWrap = false)
+
+                Icon(
+                    painter = painterResource(Res.drawable.expand_more),
+                    contentDescription = stringResource(Res.string.editor_file_menu),
+                    tint = MaterialTheme.colors.onBackgroundSecondary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
 }
