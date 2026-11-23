@@ -2,6 +2,17 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Edit the whole file (2026-11-23)
+
+- **Request:** the user's, after B1: B2 of the Design artifact "Leaf edit files", the working file whole, to see how a
+  change sits in the file and where its names are used, with the plan's recommended decisions.
+- **Now:** "Edit the whole file" in the diff header's file name menu, the Unstaged list's menu and a hunk's editing
+  header turns the diff pane into an editor of the file: green, blue and red markers against the index, a strip of the
+  whole file's changes down the right edge, the old lines of a change with Put it back, and the name under the caret
+  marked wherever it's used. Save (⌘S) writes the file, keeping every unchanged line's bytes, and stays; ⌘↵ saves and
+  goes back. Leaving with edits not saved asks, as B1 does. Files of up to 2,000 lines, a limit measured while typing.
+- Details: CLAUDE.md, "Git operations", Editing the whole file.
+
 ## Edit a hunk in place (2026-11-23)
 
 - **Request:** the user's: small edits without leaving Leaf, B1 of the Design artifact "Leaf edit files" (editing a hunk

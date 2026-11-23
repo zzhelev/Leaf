@@ -847,6 +847,52 @@ plan's recommended decisions.
   reader drops it before a `\n`, and it would have refused a file ending in a lone `\r`), and went; a link into the
   repository got a test of its own.
 
+**Editing the whole file (fork-only, 2026-11-23, `docs/fork/inline-editing.md` B2, `domain/editing/FileEdit.kt`,
+`repositoryopen/FileEditController.kt`, `ui/diff/FileEditor.kt`):** the working file of an Unstaged text file, modified
+or new, edited whole in the diff pane's place: "Edit the whole file" first in the diff header's file name menu (at the
+line in view; greyed out with "Too long" past the limit), first in the Unstaged list's right-click menu, and "Whole
+file" in a hunk's editing header (B1), which carries the hunk's lines typed over, not saved yet, and ends the hunk's edit
+once the file shows. Option B2 of the Design artifact "Leaf edit files", built with the plan's recommended decisions.
+- **Reading** (`ReadFileForEditGitAction`, `ReadFileForEditUseCase`, `TaskType.OpenFileEdit`: no processing screen,
+  `ErrorDialog` for a failure): the working file (B1's `editableFile`: a regular file in the working tree, no link), and
+  its index version as text in the file's charset (`FileForEdit.indexText`), which the markers compare with, as the
+  Unstaged diff does: empty for a file that the index doesn't have (every line added), null for an LFS pointer. More than
+  `MAX_FILE_EDIT_LINES` (2,000) is `HunkEditError.TooLong`. The limit is measured (`FileEditorViewTest` with
+  `LEAF_MEASURE`): a keystroke and its frame took 31 ms at 1,000 lines, 53 at 2,500, 112 at 5,000, 232 at 10,000.
+- **The text** (`FileEdit`): the lines without their line endings, joined with `\n`; the charset as B1's.
+- **Save** (⌘S, the tab's Stash key; `WriteFileEditGitAction`, `SaveFileEditUseCase`, `TaskType.SaveFileEdit`) stays in
+  the editor; ⌘↵ saves and goes back. The file must still be the bytes that editing started from, or last saved, else
+  `FileChanged` and nothing is written. `savedBytes` keeps every line that typing didn't change byte for byte, with its
+  own line ending (a histogram diff of the file's lines against the typed ones), and gives typed lines the file's (its
+  first line's); the last line has none where the file's last line had none. Written next to itself and moved, with its
+  mode (B1's `writeInPlace`), and kept for Undo as `DiscardKind.EDIT`.
+- **Markers** (`changeMarkers`, worked out again off the UI thread after each change): a green bar beside added lines, a
+  blue one beside changed lines, a red notch where lines were removed; a click on a changed or removed one shows the
+  index's lines in a popover with **Put it back** (`puttingBack`, not saved until Save). The strip down the right edge
+  (`OverviewRuler`) has the markers and the name's places by their line's place in the file, where the view is, and
+  scrolls where it's clicked.
+- **The name under the caret** (`occurrencesAt`: a whole word of letters, digits, `_` and `$`, two characters or more,
+  not a number, `MAX_OCCURRENCES`) is marked wherever it's used (`OccurrenceMarks`, over the code's colours, which are
+  worked out 80 ms after typing stops with `HighlightTextUseCase`).
+- **Leaving** as B1 (`HunkEditLeave`, `EditLeaveStripContent`, shared): Back to diff and Esc (`CloseableView.FILE_EDIT`)
+  close without lines unsaved, ask with them, and close an open popover first; another file, the tab, a worktree and
+  quitting go through the same hooks, after a hunk edit's. The diff pane (`DiffPane`) shows the editor while it's open,
+  and the main view keeps the pane. An editor's field that had the focus when it went gives it to the diff pane
+  (`EditorFocusReturn`, `returningFocusOnDispose`), and one that lost it to a click elsewhere leaves it there; this
+  replaced B1's own focus return.
+- **Not done:** the find strip and go to line in the editor; undo across Saves (the field's own undo, and the discard
+  strip's Undo of a Save); colours past `MAX_COLOURED_EDIT_CHARACTERS`; files over 2,000 lines.
+- Tests: `FileEditTest` (domain: the text, byte-for-byte round trips with mixed line endings, typed lines' endings, the
+  last line, Latin-1, the limit, markers, Put it back, occurrences), `FileEditGitActionsTest` (data, against git: the
+  index version, `core.autocrlf`, a new file, Save and `git diff`, the mode, a file that changed, a link, Undo),
+  `FileEditControllerTest` (open, typing and markers, Save staying, a failure, Back and its question, ⌘↵, Put it back,
+  moving on and back, leaving and quitting, a hunk carried over), `FileEditorViewTest` (rendered: the file and its
+  header, Edited, the shortcut, a marker's popover and Put it back, a real click on a marker, the question, occurrence
+  marks; PNGs with `LEAF_RENDER_DIR`, the measurement with `LEAF_MEASURE`), and menu cases in `FileOpeningMenusTest`.
+  12 mutations (unchanged lines' endings, the last line's, the markers' kinds, Put it back, whole words, the check of
+  the file before Save, the index version, Save staying, Back closing a marker first, moving on with lines unsaved, the
+  marker column's height, the occurrence marks) were each caught by a named test.
+
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
 `git diff --ours` shows.
