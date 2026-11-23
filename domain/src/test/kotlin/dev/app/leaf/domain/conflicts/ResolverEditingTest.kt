@@ -9,6 +9,7 @@ import dev.app.leaf.domain.models.LineRange
 import dev.app.leaf.domain.models.TextMerge
 import dev.app.leaf.domain.models.TextMerge.Chunk
 import dev.app.leaf.domain.models.TypedLines
+import dev.app.leaf.domain.editing.LineFormat
 import org.eclipse.jgit.diff.RawText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
