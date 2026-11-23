@@ -56,6 +56,9 @@ import dev.app.leaf.ui.components.SidewaysScroll
 import dev.app.leaf.ui.components.UnwrappedLine
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.repositoryopen.canEditHunk
+import dev.app.leaf.repositoryopen.canEditWholeFile
+import dev.app.leaf.repositoryopen.FileEditState
+import dev.app.leaf.domain.editing.MAX_FILE_EDIT_LINES
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
@@ -152,8 +155,23 @@ fun DiffPane(
     val loadedDiff = (diffResult as? ViewDiffResult.Loaded)?.diffResult
     val highlights = remember(loadedDiff, highlightedVersions) { loadedDiff?.let(highlightedVersions::forDiff) }
 
-    CompositionLocalProvider(LocalShowWhitespace provides showWhitespace, LocalDiffHighlights provides highlights) {
-        DiffPaneContent(viewModel, onCloseDiffView, onConfirmAction, isClosable, headerActions, sideLabels, logToggle)
+    // Fork-only: the whole file's editor in the pane's place (B2), and the focus back in the pane after an editor's field
+    val fileEdit by viewModel.fileEdits.state.collectAsState()
+    val wrapLines by viewModel.diffWrapLines.collectAsState()
+    val focusReturn = remember { EditorFocusReturn() }
+
+    CompositionLocalProvider(
+        LocalShowWhitespace provides showWhitespace,
+        LocalDiffHighlights provides highlights,
+        LocalEditorFocusReturn provides focusReturn,
+    ) {
+        val editing = fileEdit
+
+        if (editing != null) {
+            FileEditorPane(fileEditingOf(viewModel, editing), wrapLines)
+        } else {
+            DiffPaneContent(viewModel, onCloseDiffView, onConfirmAction, isClosable, headerActions, sideLabels, logToggle)
+        }
     }
 }
 
@@ -211,13 +229,14 @@ private fun DiffPaneContent(
         }
     }
 
-    // Fork-only: the field had the focus, and the tab's keys need it somewhere in the tab once the edit ends
-    val isEditingHunk = hunkEdit != null
-    var wasEditingHunk by remember { mutableStateOf(false) }
+    // Fork-only: an editor's field had the focus when it went, and the tab's keys need it somewhere in the tab
+    val focusReturn = LocalEditorFocusReturn.current
 
-    LaunchedEffect(isEditingHunk) {
-        if (wasEditingHunk && !isEditingHunk) focusRequester.requestFocus()
-        wasEditingHunk = isEditingHunk
+    LaunchedEffect(focusReturn?.pending) {
+        if (focusReturn?.pending == true) {
+            focusReturn.pending = false
+            focusRequester.requestFocus()
+        }
     }
 
     Column(
@@ -263,6 +282,11 @@ private fun DiffPaneContent(
                     // Fork-only: the file in the editor, at the line in view; a deleted file has nothing to open
                     canOpenFile = diffType.statusType != StatusType.REMOVED,
                     editorLine = { viewModel.shownDiffFile()?.second },
+                    // Fork-only, B2: the file edited whole in Leaf, at the line in view
+                    onEditWholeFile = (diffType as? DiffType.UncommittedDiff)?.takeIf { canEditWholeFile(it) }?.let { uncommitted ->
+                        { viewModel.editWholeFile(uncommitted, viewModel.shownDiffFile()?.second) }
+                    },
+                    tooLongToEdit = diffResult.newLineCount() > MAX_FILE_EDIT_LINES,
                     viewMenu = {
                         DiffViewMenu(
                             diffType = diffType,
@@ -355,6 +379,9 @@ private fun DiffPaneContent(
                     onType = { viewModel.hunkEdits.type(it) },
                     onDone = { viewModel.hunkEdits.done() },
                     onCancel = { viewModel.hunkEdits.cancel() },
+                    onWholeFile = (diffType as? DiffType.UncommittedDiff)
+                        ?.takeIf { canEditWholeFile(it) && diffResult.newLineCount() <= MAX_FILE_EDIT_LINES }
+                        ?.let { uncommitted -> { viewModel.editWholeFile(uncommitted) } },
                 )
                 // Fork-only: lines that don't wrap scroll sideways together, back to their start in another file
                 val sideways = remember(wrapLines, diffType.filePath) { if (wrapLines) null else SidewaysScroll() }
@@ -1192,6 +1219,9 @@ private fun DiffHeader(
     canOpenFile: Boolean = true,
     /** Fork-only: the line that the editor opens the file at, when the file's menu opens. */
     editorLine: () -> Int? = { null },
+    /** Fork-only, B2: "Edit the whole file" in the file's menu, greyed out when [tooLongToEdit]. */
+    onEditWholeFile: (() -> Unit)? = null,
+    tooLongToEdit: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -1243,6 +1273,8 @@ private fun DiffHeader(
                             fontWeight = FontWeight.Medium,
                             line = editorLine,
                             modifier = Modifier.padding(end = 16.dp),
+                            onEditWholeFile = onEditWholeFile,
+                            tooLongToEdit = tooLongToEdit,
                         )
                     }
 
@@ -1771,4 +1803,25 @@ fun formatDiff(
             }
         }
     }
+}
+
+/** The whole file's editor's actions, from the view model (fork-only, B2). */
+private fun fileEditingOf(viewModel: RepositoryOpenViewModel, state: FileEditState) = FileEditing(
+    state = state,
+    onType = { viewModel.fileEdits.type(it) },
+    onSave = { viewModel.fileEdits.save() },
+    onSaveAndClose = { viewModel.fileEdits.saveAndClose() },
+    onBack = { viewModel.fileEdits.back() },
+    onShowMarker = { viewModel.fileEdits.showMarker(it) },
+    onPutBack = { viewModel.fileEdits.putBack(it) },
+    onLeaveSave = { viewModel.fileEdits.saveAndLeave() },
+    onLeaveDiscard = { viewModel.fileEdits.discardAndLeave() },
+    onKeepEditing = { viewModel.fileEdits.keepEditing() },
+)
+
+/** The lines of a text diff's new version, which the whole file's editor would take (fork-only, B2); 0 without hunks. */
+private fun DiffResult.newLineCount(): Int = when (this) {
+    is DiffResult.Text -> hunks.firstOrNull()?.newText?.size() ?: 0
+    is DiffResult.TextSplit -> hunks.firstOrNull()?.sourceHunk?.newText?.size() ?: 0
+    else -> 0
 }

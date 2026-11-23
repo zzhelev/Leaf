@@ -120,6 +120,8 @@ fun RepositoryOpenPage(
             onOpen = { path, line -> repositoryOpenViewModel.openInEditor(path, line, isAtMenu = true) },
             onChooseEditor = { path, line -> repositoryOpenViewModel.chooseEditor(path, line, isAtMenu = true) },
             onShow = { path -> repositoryOpenViewModel.showInFileManager(path) },
+            // Fork-only, B2 (docs/fork/inline-editing.md)
+            onEditWholeFile = { path -> repositoryOpenViewModel.editWholeFile(path) },
         )
     }
 
@@ -189,6 +191,9 @@ fun RepositoryOpenPage(
                         } else if (repositoryOpenViewModel.hunkEdits.state.value != null) {
                             // Fork-only: Done of a hunk edited in place (docs/fork/inline-editing.md)
                             repositoryOpenViewModel.hunkEdits.done()
+                        } else if (repositoryOpenViewModel.fileEdits.state.value != null) {
+                            // Fork-only: Save of the whole file's editor (B2)
+                            repositoryOpenViewModel.fileEdits.save()
                         } else {
                             repositoryOpenViewModel.stash()
                         }
@@ -798,8 +803,10 @@ fun MainContentView(
                 } else {
                     Column {
                         val hunkEdit by viewModel.hunkEdits.state.collectAsState()
-                        // Fork-only: a hunk edited in place keeps its diff on screen until the edit ends (docs/fork/inline-editing.md)
-                        val showDiff = diffSelected?.entries?.count() == 1 || hunkEdit != null
+                        val fileEdit by viewModel.fileEdits.state.collectAsState()
+                        // Fork-only: a hunk edited in place, or the file edited whole, keeps the pane on screen until the
+                        // edit ends (docs/fork/inline-editing.md)
+                        val showDiff = diffSelected?.entries?.count() == 1 || hunkEdit != null || fileEdit != null
                         val tabFocusRequester = LocalTabFocusRequester.current
                         val logFocusRequester = remember { FocusRequester() }
                         val keepsLog by viewModel.diffKeepsLog.collectAsState()

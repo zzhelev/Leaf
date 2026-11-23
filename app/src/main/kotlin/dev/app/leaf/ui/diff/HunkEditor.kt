@@ -23,6 +23,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -37,6 +38,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
@@ -56,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.app.leaf.app.generated.resources.Res
+import dev.app.leaf.app.generated.resources.file_edit_from_hunk
 import dev.app.leaf.app.generated.resources.hunk_edit_cancel
 import dev.app.leaf.app.generated.resources.hunk_edit_discard
 import dev.app.leaf.app.generated.resources.hunk_edit_done
@@ -72,6 +75,7 @@ import dev.app.leaf.domain.models.DiffType
 import dev.app.leaf.domain.models.Hunk
 import dev.app.leaf.domain.models.Line
 import dev.app.leaf.domain.models.LineType
+import dev.app.leaf.repositoryopen.HunkEditLeave
 import dev.app.leaf.repositoryopen.HunkEditState
 import dev.app.leaf.theme.addFile
 import dev.app.leaf.theme.bottomEdge
@@ -104,6 +108,8 @@ class HunkEditing(
     val onType: (TextFieldValue) -> Unit,
     val onDone: () -> Unit,
     val onCancel: () -> Unit,
+    /** Fork-only, B2: the whole file, with the lines typed carried over; null where it can't be edited whole. */
+    val onWholeFile: (() -> Unit)? = null,
 ) {
     /** The hunk being edited, which no other hunk's buttons may change the file under. */
     val editedHunk: Hunk? get() = state?.hunk
@@ -113,6 +119,30 @@ class HunkEditing(
 }
 
 val LocalHunkEditing = compositionLocalOf<HunkEditing?> { null }
+
+/**
+ * Whether an editor's field (a hunk's, the whole file's) had the focus when it went (fork-only): the diff pane then takes
+ * it, so that the tab's keys go on working. A field that lost it to a click elsewhere leaves it there.
+ */
+@Stable
+class EditorFocusReturn {
+    var pending by mutableStateOf(false)
+}
+
+val LocalEditorFocusReturn = compositionLocalOf<EditorFocusReturn?> { null }
+
+/** Notes whether the field has the focus, and asks the pane for it when the field goes while it has it. */
+@Composable
+internal fun Modifier.returningFocusOnDispose(): Modifier {
+    val focusReturn = LocalEditorFocusReturn.current
+    var hasFocus by remember { mutableStateOf(false) }
+
+    DisposableEffect(focusReturn) {
+        onDispose { if (hasFocus) focusReturn?.pending = true }
+    }
+
+    return onFocusChanged { hasFocus = it.isFocused }
+}
 
 /** The hunk header's part while its hunk is edited: "Editing", Cancel and Done, in place of the hunk's buttons. */
 @Composable
@@ -133,6 +163,14 @@ fun HunkEditControls(editing: HunkEditing) {
                 .background(pill.background)
                 .padding(horizontal = 8.dp, vertical = 1.dp),
         )
+
+        editing.onWholeFile?.let { onWholeFile ->
+            SecondaryButton(
+                text = stringResource(Res.string.file_edit_from_hunk),
+                colors = MaterialTheme.styleColors.neutral,
+                onClick = onWholeFile,
+            )
+        }
 
         SecondaryButton(
             text = stringResource(Res.string.hunk_edit_cancel),
@@ -252,6 +290,7 @@ fun HunkEditorField(
                     }
                 },
                 modifier = Modifier
+                    .returningFocusOnDispose()
                     .focusRequester(focusRequester)
                     .semantics { contentDescription = fieldName }
                     .onPreviewKeyEvent { event ->
@@ -283,9 +322,21 @@ fun HunkEditLeaveStrip(
     onDiscard: () -> Unit,
     onKeepEditing: () -> Unit,
 ) {
-    val strip = MaterialTheme.styleColors.warningStrip
-    val name = File(state.edit.path).name
     val leave = state.leave ?: return
+    EditLeaveStripContent(File(state.edit.path).name, leave, onSave, onDiscard, onKeepEditing)
+}
+
+/** The question about edits not saved: Save, Discard or Keep editing, naming [fileName]. */
+@Composable
+internal fun EditLeaveStripContent(
+    fileName: String,
+    leave: HunkEditLeave,
+    onSave: () -> Unit,
+    onDiscard: () -> Unit,
+    onKeepEditing: () -> Unit,
+) {
+    val strip = MaterialTheme.styleColors.warningStrip
+    val name = fileName
     val text = if (leave.then == null && !leave.isEscape) {
         stringResource(Res.string.hunk_edit_left, name)
     } else {

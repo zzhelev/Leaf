@@ -312,6 +312,8 @@ fun TaskType.errorTitle(): String {
         TaskType.OpenInEditor -> "Could not open the file"
         TaskType.ShowInFileManager -> "Could not show the file"
         TaskType.EditHunk -> "The lines weren't saved"
+        TaskType.SaveFileEdit -> "The file wasn't saved"
+        TaskType.OpenFileEdit -> "The file can't be edited here"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"
         TaskType.AddRemote -> "Adding remote failed"

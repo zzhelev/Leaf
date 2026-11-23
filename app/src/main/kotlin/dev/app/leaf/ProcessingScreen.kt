@@ -213,6 +213,8 @@ fun getTitle(taskType: TaskType): String {
         TaskType.OpenInEditor -> "Opening the editor"
         TaskType.ShowInFileManager -> "Opening the file manager"
         TaskType.EditHunk -> "Saving the lines"
+        TaskType.SaveFileEdit -> "Saving the file"
+        TaskType.OpenFileEdit -> "Opening the file"
         TaskType.ResetRepoState -> "Resetting repository state"
         TaskType.ResetToCommit -> "Resetting to commit"
         TaskType.RevertCommit -> "Reverting commit"

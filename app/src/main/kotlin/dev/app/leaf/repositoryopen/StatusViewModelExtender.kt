@@ -1018,6 +1018,9 @@ class StatusViewModelExtender @AssistedInject constructor(
         }
     }
 
+    /** Fork-only: selects [entry] alone, as a click on it does: the whole file's editor opens on its diff. */
+    fun selectEntry(entry: StatusEntry) = selectEntries(entry.entryType, listOf(entry), addToExisting = false)
+
     private fun selectEntries(entryType: EntryType, entries: List<StatusEntry>, addToExisting: Boolean) {
         val newValue = addSelectedDiffUseCase(
             diffSelected.value,

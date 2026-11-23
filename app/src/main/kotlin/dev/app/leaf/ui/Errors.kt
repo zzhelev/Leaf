@@ -18,6 +18,7 @@ import dev.app.leaf.app.generated.resources.error_editor_failed
 import dev.app.leaf.app.generated.resources.error_hunk_edit_file_changed
 import dev.app.leaf.app.generated.resources.error_hunk_edit_not_a_file
 import dev.app.leaf.app.generated.resources.error_hunk_edit_write_failed
+import dev.app.leaf.app.generated.resources.error_file_edit_too_long
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.error_discard_changed_since
 import dev.app.leaf.app.generated.resources.error_discard_not_found
@@ -582,6 +583,7 @@ fun AppError.getErrorText(): String {
             is HunkEditError.FileChanged -> stringResource(Res.string.error_hunk_edit_file_changed, path)
             is HunkEditError.NotAFile -> stringResource(Res.string.error_hunk_edit_not_a_file, path)
             is HunkEditError.WriteFailed -> stringResource(Res.string.error_hunk_edit_write_failed, path, message)
+            is HunkEditError.TooLong -> stringResource(Res.string.error_file_edit_too_long, path, lineCount, maxLines)
         }
     }
 }

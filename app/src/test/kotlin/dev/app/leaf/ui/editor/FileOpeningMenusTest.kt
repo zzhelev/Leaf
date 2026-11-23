@@ -24,8 +24,10 @@ import dev.app.leaf.ui.diff.editorLineOf
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.lib.ObjectId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 private const val SEPARATOR = "---"
@@ -170,6 +172,50 @@ class FileOpeningMenusTest {
         assertNotNull(items[0].customIcon, "drawn by the editor's icon")
         assertNull(items[1].customIcon)
         assertNotNull(items[1].icon)
+    }
+
+    @Test
+    fun `an Unstaged file's menu starts with Edit the whole file, a Staged one's doesn't`() {
+        fun menu(entry: StatusEntry) = statusEntryContextMenuItems(
+            statusEntry = entry,
+            entryType = entry.entryType,
+            onReset = {},
+            onDelete = {},
+            onBlame = {},
+            onHistory = {},
+            onCopyFilePath = {},
+            onOpenFileInFolder = {},
+            fileOpening = FileOpening(
+                choice = EditorChoice.Installed(intellij),
+                onOpen = { _, _ -> },
+                onChooseEditor = { _, _ -> },
+                onShow = {},
+                onEditWholeFile = { path -> calls += "edit whole $path" },
+            ),
+        )
+
+        val unstaged = menu(StatusEntry(PATH, StatusType.MODIFIED, EntryType.UNSTAGED))
+        assertEquals(listOf("Edit the whole file", "Open in IntelliJ IDEA"), labelsOf(unstaged).take(2))
+        unstaged.textEntries().first().onClick()
+        assertEquals(listOf("edit whole $PATH"), calls)
+
+        assertEquals("Open in IntelliJ IDEA", labelsOf(menu(StatusEntry(PATH, StatusType.MODIFIED, EntryType.STAGED))).first())
+        assertEquals("Edit the whole file", labelsOf(menu(StatusEntry(PATH, StatusType.ADDED, EntryType.UNSTAGED))).first(), "a new file")
+        assertTrue("Edit the whole file" !in labelsOf(menu(StatusEntry(PATH, StatusType.REMOVED, EntryType.UNSTAGED))))
+    }
+
+    @Test
+    fun `the header's file menu starts with Edit the whole file, greyed out for a file too long`() {
+        val opening = opening(EditorChoice.Installed(intellij))
+        val items = headerFileItems(opening, PATH, line = 3, canOpen = true, onEditWholeFile = { calls += "edit whole" })
+
+        assertEquals(listOf("Edit the whole file", SEPARATOR, "Open in IntelliJ IDEA at line 3"), labelsOf(items).take(3))
+        items.textEntries().first().onClick()
+        assertEquals(listOf("edit whole"), calls)
+
+        val tooLong = headerFileItems(opening, PATH, 3, true, onEditWholeFile = {}, tooLong = true).textEntries().first()
+        assertFalse(tooLong.isEnabled)
+        assertEquals("Too long", composed { tooLong.hint?.invoke() })
     }
 
     @Test

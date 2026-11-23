@@ -117,4 +117,6 @@ sealed interface TaskType {
 
     // Fork-only: Done of a hunk edited in place, which the discard strip tells about, with Undo
     data object EditHunk : TaskType
+    data object SaveFileEdit : TaskType
+    data object OpenFileEdit : TaskType
 }

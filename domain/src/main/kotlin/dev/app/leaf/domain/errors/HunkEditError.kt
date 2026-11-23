@@ -14,6 +14,9 @@ sealed interface HunkEditError : GitError {
     /** Nothing that Leaf writes lines into is there: the file is gone, or a folder or a symbolic link is in its place. */
     data class NotAFile(override val path: String) : HunkEditError
 
+    /** The file has more lines than the whole file's editor takes ([lineCount] of them, B2). */
+    data class TooLong(override val path: String, val lineCount: Int, val maxLines: Int) : HunkEditError
+
     /** The file couldn't be written, with the system's [message]. */
     data class WriteFailed(override val path: String, val message: String) : HunkEditError
 }

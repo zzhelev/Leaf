@@ -64,6 +64,9 @@ fun statusEntryContextMenuItems(
             path = statusEntry.filePath,
             canOpen = statusEntry.statusType != StatusType.REMOVED,
             onShowWithoutOpening = onOpenFileInFolder,
+            // Fork-only, B2: an Unstaged text file, modified or new, without conflicts
+            canEditWholeFile = entryType == EntryType.UNSTAGED &&
+                    statusEntry.statusType in listOf(StatusType.MODIFIED, StatusType.ADDED),
         )
 
         if (statusEntry.statusType != StatusType.ADDED) {

@@ -9,6 +9,8 @@ import dev.app.leaf.domain.editor.ShowInFileManagerUseCase
 import dev.app.leaf.domain.editor.OpenInEditorUseCase
 import dev.app.leaf.domain.conflicts.EditorSyntax
 import dev.app.leaf.domain.editing.EditHunkUseCase
+import dev.app.leaf.domain.editing.ReadFileForEditUseCase
+import dev.app.leaf.domain.editing.SaveFileEditUseCase
 import dev.app.leaf.domain.highlighting.highlightedTextOf
 import dev.app.leaf.domain.editor.IExternalEditors
 import dev.app.leaf.domain.editor.EditorChoice
@@ -269,6 +271,9 @@ class RepositoryOpenViewModel @Inject constructor(
     externalEditors: IExternalEditors,
     // Fork-only: a hunk edited in place (docs/fork/inline-editing.md)
     private val editHunkUseCase: EditHunkUseCase,
+    // Fork-only: the whole file's editor (docs/fork/inline-editing.md, B2)
+    private val readFileForEditUseCase: ReadFileForEditUseCase,
+    private val saveFileEditUseCase: SaveFileEditUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -1260,6 +1265,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.COMMIT_EDITOR -> commitEditor.cancel()
                 CloseableView.COMMIT_MESSAGE_EDITOR -> statusViewModelExtender.expandMessage(false)
                 CloseableView.HUNK_EDIT -> hunkEdits.escape()
+                CloseableView.FILE_EDIT -> fileEdits.back()
 
             }
         }
@@ -2024,30 +2030,38 @@ class RepositoryOpenViewModel @Inject constructor(
     fun whenConflictResolverLeft(then: () -> Unit) {
         // Fork-only: a hunk edited in place asks first too (docs/fork/inline-editing.md)
         hunkEdits.leaveThen {
-            val resolver = conflictResolverViewModel
+            fileEdits.leaveThen {
+                val resolver = conflictResolverViewModel
 
-            if (resolver == null) then() else resolver.leaveThen(then)
+                if (resolver == null) then() else resolver.leaveThen(then)
+            }
         }
     }
 
     /** Whether the resolver, or a hunk edited in place, has changes that aren't saved, which closing the tab would lose. */
     val conflictResolverHasUnsavedChanges: Boolean
-        get() = conflictResolverViewModel?.hasUnsavedChanges == true || hunkEdits.hasUnsavedChanges
+        get() = conflictResolverViewModel?.hasUnsavedChanges == true || hunkEdits.hasUnsavedChanges ||
+                fileEdits.hasUnsavedChanges
 
     /**
      * The resolver's file when it has changes that aren't saved, or else the file of a hunk edited in place with lines
      * typed, which quitting Leaf would lose (fork-only).
      */
     val conflictResolverUnsavedFile: String?
-        get() = conflictResolverViewModel?.unsavedFile ?: hunkEdits.unsavedFile
+        get() = conflictResolverViewModel?.unsavedFile ?: hunkEdits.unsavedFile ?: fileEdits.unsavedFile
 
     /** Saves a hunk edited in place, then the resolver's file, before Leaf quits: see [ConflictResolverViewModel.saveBeforeQuit]. */
     fun saveConflictResolverBeforeQuit(onSaved: () -> Unit, onFailed: () -> Unit) {
         hunkEdits.saveBeforeQuit(
             onSaved = {
-                val resolver = conflictResolverViewModel
+                fileEdits.saveBeforeQuit(
+                    onSaved = {
+                        val resolver = conflictResolverViewModel
 
-                if (resolver == null) onSaved() else resolver.saveBeforeQuit(onSaved, onFailed)
+                        if (resolver == null) onSaved() else resolver.saveBeforeQuit(onSaved, onFailed)
+                    },
+                    onFailed = onFailed,
+                )
             },
             onFailed = onFailed,
         )
@@ -2436,6 +2450,48 @@ class RepositoryOpenViewModel @Inject constructor(
             if (editing) addCloseableView(CloseableView.HUNK_EDIT) else removeCloseableView(CloseableView.HUNK_EDIT)
         },
     )
+
+    /** Fork-only: the working file edited whole, in the diff pane's place (`docs/fork/inline-editing.md`, B2). */
+    val fileEdits = FileEditController(
+        scope = viewModelScope,
+        diffResult = diffResult,
+        read = { path -> readFileForEditUseCase(path) },
+        write = { edit, typed -> saveFileEditUseCase(edit, typed) },
+        highlight = { path, text -> highlightTextUseCase(path, text) },
+        onEditing = { editing ->
+            if (editing) addCloseableView(CloseableView.FILE_EDIT) else removeCloseableView(CloseableView.FILE_EDIT)
+        },
+    )
+
+    /**
+     * Fork-only: opens the file of the diff shown whole, at [caretLine]. A hunk edited in place goes with it: the lines
+     * typed are in the file, not saved yet, and the hunk's field closes once the file's editor shows.
+     */
+    fun editWholeFile(diffType: DiffType.UncommittedDiff, caretLine: Int? = null) {
+        val hunk = hunkEdits.state.value?.takeIf { it.diff.diffType.filePath == diffType.filePath }
+
+        if (hunk == null) {
+            fileEdits.open(diffType, caretLine)
+        } else {
+            val caretInHunk = hunk.value.text.take(hunk.value.selection.end).count { it == '\n' }
+
+            fileEdits.open(
+                diffType = diffType,
+                caretLine = hunk.edit.start + 1 + caretInHunk,
+                carried = hunk.edit to hunk.value.text,
+                onOpened = { hunkEdits.cancel() },
+            )
+        }
+    }
+
+    /** Fork-only: "Edit the whole file" of an Unstaged file's menu: selects it, as a click does, and opens it whole. */
+    fun editWholeFile(path: String) {
+        val entry = statusState.value.unstaged.firstOrNull { it.filePath == path } ?: return
+        val diffType = DiffType.UncommittedDiff(entry, EntryType.UNSTAGED)
+
+        statusViewModelExtender.selectEntry(entry)
+        editWholeFile(diffType)
+    }
 
     val isRepositoryInSafeState = repositoryState
         .map { it == RepositoryState.SAFE }

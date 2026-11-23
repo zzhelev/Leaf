@@ -18,4 +18,5 @@ enum class CloseableView {
     COMMIT_EDITOR, // Fork-only: the commit editor, which Esc cancels, keeping its plan
     COMMIT_MESSAGE_EDITOR, // Fork-only: the commit message in the centre pane, which Esc puts back in the changes pane
     HUNK_EDIT, // Fork-only: a hunk edited in place, which Esc cancels, asking first about lines typed
+    FILE_EDIT, // Fork-only: the whole file's editor, which Esc leaves for the diff, asking first about lines not saved
 }

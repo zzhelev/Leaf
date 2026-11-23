@@ -7,6 +7,10 @@ import dev.app.leaf.domain.interfaces.IGetDiscardRecordsGitAction
 import dev.app.leaf.domain.interfaces.IPlanDiscardRestoreGitAction
 import dev.app.leaf.domain.interfaces.IRestoreDiscardGitAction
 import dev.app.leaf.domain.interfaces.IWriteHunkEditGitAction
+import dev.app.leaf.domain.interfaces.IReadFileForEditGitAction
+import dev.app.leaf.domain.interfaces.IWriteFileEditGitAction
+import dev.app.leaf.data.git.workspace.ReadFileForEditGitAction
+import dev.app.leaf.data.git.workspace.WriteFileEditGitAction
 import dev.app.leaf.data.git.workspace.WriteHunkEditGitAction
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.GetWorktreePathGitAction
@@ -474,6 +478,15 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsWriteHunkEditGitAction(action: WriteHunkEditGitAction): IWriteHunkEditGitAction
+
+    // Fork-only: the whole file's editor (docs/fork/inline-editing.md, B2)
+    @Binds
+    @TabScope
+    fun bindsReadFileForEditGitAction(action: ReadFileForEditGitAction): IReadFileForEditGitAction
+
+    @Binds
+    @TabScope
+    fun bindsWriteFileEditGitAction(action: WriteFileEditGitAction): IWriteFileEditGitAction
 
     @Binds
     @TabScope

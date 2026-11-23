@@ -52,6 +52,8 @@ class FileOpening(
     val onOpen: (path: String, line: Int?) -> Unit,
     val onChooseEditor: (path: String, line: Int?) -> Unit,
     val onShow: (path: String) -> Unit,
+    /** Fork-only, B2: edits an Unstaged file whole in Leaf (`docs/fork/inline-editing.md`). */
+    val onEditWholeFile: ((path: String) -> Unit)? = null,
 )
 
 /** Provided by the tab's page, so that the menus of upstream's lists don't need another parameter each. */
@@ -128,7 +130,15 @@ fun MutableList<ContextMenuElement>.addFileOpeningItems(
     path: String,
     canOpen: Boolean,
     onShowWithoutOpening: () -> Unit,
+    /** Fork-only, B2: an Unstaged text file, which "Edit the whole file" edits in Leaf. */
+    canEditWholeFile: Boolean = false,
 ) {
+    val editWholeFile = opening?.onEditWholeFile
+
+    if (canEditWholeFile && editWholeFile != null) {
+        addEditWholeFileItem(onClick = { editWholeFile(path) }, tooLong = false)
+    }
+
     if (opening != null) {
         addOpeningItems(opening, path, line = null, canOpen = canOpen, withShortcut = false)
     } else {
@@ -182,9 +192,36 @@ private fun MutableList<ContextMenuElement>.addOpeningItems(
     )
 }
 
-/** The items of a header's file name ([FileNameMenu]). */
-fun headerFileItems(opening: FileOpening, path: String, line: Int?, canOpen: Boolean): List<ContextMenuElement> =
-    buildList { addOpeningItems(opening, path, line, canOpen, withShortcut = true) }
+/**
+ * The items of a header's file name ([FileNameMenu]); with [onEditWholeFile], "Edit the whole file" first, which a file
+ * too long for the editor ([tooLong]) has greyed out.
+ */
+fun headerFileItems(
+    opening: FileOpening,
+    path: String,
+    line: Int?,
+    canOpen: Boolean,
+    onEditWholeFile: (() -> Unit)? = null,
+    tooLong: Boolean = false,
+): List<ContextMenuElement> = buildList {
+    if (onEditWholeFile != null) {
+        addEditWholeFileItem(onEditWholeFile, tooLong)
+        add(ContextMenuElement.ContextSeparator)
+    }
+
+    addOpeningItems(opening, path, line, canOpen, withShortcut = true)
+}
+
+/** "Edit the whole file" (fork-only, B2), greyed out with why for a file too long for the editor. */
+private fun MutableList<ContextMenuElement>.addEditWholeFileItem(onClick: () -> Unit, tooLong: Boolean) {
+    addContextMenu(
+        composableLabel = { stringResource(Res.string.file_edit_whole) },
+        icon = { painterResource(Res.drawable.edit) },
+        onClick = onClick,
+        hint = if (tooLong) ({ stringResource(Res.string.file_edit_too_long) }) else null,
+        isEnabled = !tooLong,
+    )
+}
 
 /** A diff line's item that opens [path] at [line] in the repository's editor. */
 fun MutableList<ContextMenuElement>.addOpenAtLineItem(opening: FileOpening, path: String, line: Int) {
@@ -213,6 +250,9 @@ fun FileNameMenu(
     fontWeight: FontWeight?,
     modifier: Modifier = Modifier,
     line: () -> Int? = { null },
+    /** Fork-only, B2: "Edit the whole file" first in the menu, greyed out when [tooLongToEdit]. */
+    onEditWholeFile: (() -> Unit)? = null,
+    tooLongToEdit: Boolean = false,
 ) {
     val opening = LocalFileOpening.current
 
@@ -222,7 +262,7 @@ fun FileNameMenu(
     }
 
     Box(modifier = modifier.clip(RoundedCornerShape(4.dp))) {
-        DropDownMenu(items = { headerFileItems(opening, path, line(), canOpen) }) {
+        DropDownMenu(items = { headerFileItems(opening, path, line(), canOpen, onEditWholeFile, tooLongToEdit) }) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
