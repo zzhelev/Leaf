@@ -704,10 +704,27 @@ and Ctrl+F (⌘F) keeps the log search while the log has the focus.
 **Opening a file in an editor (fork-only, 2026-11-23, `domain/editor/`, `data/editor/`, `ui/editor/`,
 `repositoryopen/FileOpeningController.kt`):** a file's menu (Staged, Unstaged, a commit's Files changed, the amended
 commit's group) starts with "Open in IntelliJ IDEA", "Open in another editor…" and "Show in Finder" ("Show in Explorer",
-"Show in file manager"), which replaces "Open file in folder". The diff's and blame's headers have an editor button
-first, and an uncommitted diff's line has "Open in IntelliJ IDEA at line 47" in its right-click menu. ⌘E (Ctrl+E
-elsewhere, `KeybindingOption.OPEN_IN_EDITOR`) opens the shown diff's file. Option A of the Design artifact "Leaf edit
-files" (A1 to A4), chosen with the user as drawn; B1 to B3 there are the editing inside Leaf that comes later.
+"Show in file manager"), which replaces "Open file in folder". The file's name in the diff's and blame's headers, with a
+⌄ after it, opens the same items, and an uncommitted diff's line has "Open in IntelliJ IDEA at line 47" in its
+right-click menu. ⌘E (Ctrl+E elsewhere, `KeybindingOption.OPEN_IN_EDITOR`) opens the shown diff's file, or blame's.
+Option A of the Design artifact "Leaf edit files" (A1 to A4), chosen with the user as drawn; B1 to B3 there are the
+editing inside Leaf that comes later. The headers' items are option C3 of the same artifact, chosen after a try of A: A's
+editor button made a busy header busier (nine buttons, which left a 534 px pane's file name about 100 px), and its `</>`
+icon didn't say "open the file". C1 (the View options menu as ⋯, with the file on top) was turned down: it mixes the
+file's actions with how the diff looks.
+- **The headers' file name** (`FileNameMenu`, `headerFileItems`, both in `ui/editor/FileOpening.kt`): the name, with a ⌄
+  at all times (not only on hover, so that it can be found), opens a dropdown (upstream's `DropDownMenu`, which records
+  where it opened in `lastContextMenuPosition` too, for the picker): "Open in IntelliJ IDEA at line 40" with the
+  shortcut at its right (only here, where it opens this file), "Open in another editor…" and "Show in Finder"; a deleted
+  file only the last. The diff's folder stays selectable text, the name doesn't (`DisableSelection`). Blame's path is now
+  its folder and the name. Outside a tab (no `LocalFileOpening`), the name alone.
+- **What ⌘E opens** (`openInEditorTarget`): the tab's keys open the shown diff's file, leave the key to blame while it's
+  open (`Blame`'s own `onPreviewKeyEvent` opens its file at its first line in view), and do nothing under the conflict
+  resolver or file history. It used to open the diff hidden under them.
+- **Icons:** the item that opens a file has the editor's own app icon (`EditorMenuIcon`, `AppIconOrOpenIcon`, drawn as it
+  is through the fork-only `ContextTextEntry.customIcon`), else a box with an arrow (`open_in_new`), which "Open in
+  another editor…", the default app and a command of one's own have too. The pencil was out, as it means Rename and Edit
+  lines in Leaf.
 - **The editors** (`KNOWN_EDITORS`, `KnownEditor`, `EditorKind`): VS Code and the editors built on it (Insiders,
   VSCodium, Cursor, Windsurf), Zed, Sublime Text, the JetBrains IDEs, Xcode, TextMate, BBEdit, Nova, Kate, gedit and
   Notepad++. Their ids are stored, so they never change. `ExternalEditors` (app singleton) finds them once, and again
@@ -735,10 +752,11 @@ files" (A1 to A4), chosen with the user as drawn; B1 to B3 there are the editing
   (`EditorChoice.NotInstalled`), and opening it says so (`EditorError.NotInstalled`).
 - **The picker** (`EditorPickerPopup`, `EditorPickerList`): "Open in another editor…", and "Open in editor…" while none
   is chosen, open it where the file's menu was (`lastContextMenuPosition`, a fork-only global in `ContextMenu.kt`, as one
-  menu is open at a time), or in the window's middle from ⌘E and the header buttons. The editors with their app icons
+  menu is open at a time; the headers' name menu records its place too), or in the window's middle from ⌘E. The editors
+with their app icons
   (`appIcon`: the PNG of 32 pixels or more in the `.icns` file that the app's `Info.plist` names, `InstalledEditor.icon`,
-  `pngOfIcns`; Java's `FileSystemView` gives a folder for an `.app` outside the Aqua look), "Default" after the default,
-  then "Default app for .kt files", and a box: "Use
+  `pngOfIcns`; Java's `FileSystemView` gives a folder for an `.app` outside the Aqua look; the box with an arrow without
+  one), "Default" after the default, then "Default app for .kt files", and a box: "Use
   from now on" (checked) while there's no default, which the pick becomes; else "Use for leaf from now on" (unchecked),
   the repository's own, or none of its own when it's the default (`FileOpeningController.pick`). ↑ ↓, Enter and Esc as
   in the clone dialog's list.
@@ -746,9 +764,9 @@ files" (A1 to A4), chosen with the user as drawn; B1 to B3 there are the editing
   the worktree" (the default) gives the editor the worktree's folder; "Open the file alone" gives none, which a JetBrains
   IDE opens in LightEdit (`-e`, which takes no line). The main worktree's files always open with it.
 - **Lines** (`shownDiffFile`, `editorLineOf`): an uncommitted diff's lines are the working tree's or the index's, so the
-  header button and ⌘E open at the first line in view (`anchorAt`), and a line's item at its new-version number (a
+  header's name menu and ⌘E open at the first line in view (`anchorAt`, read when the menu opens), and a line's item at its new-version number (a
   removed line where it was). A commit's diff, a comparison's and file history's open the file as it is now, without a
-  line. Blame's header opens at its first line in view. A deleted file has nothing to open; "Show in Finder" shows the
+  line. Blame's name menu and ⌘E open at its first line in view. A deleted file has nothing to open; "Show in Finder" shows the
   nearest folder that exists (`ShowInFileManagerUseCase`).
 - **Running** (`OpenInEditorUseCase`, `TaskType.OpenInEditor`, a background task: no processing screen, no toast, and
   `ErrorDialog` for a failure; `EditorLauncher`): the program with the login shell's variables (so a custom command
@@ -757,14 +775,19 @@ files" (A1 to A4), chosen with the user as drawn; B1 to B3 there are the editing
   `EditorError.Failed` with what it printed). One that runs on, as a JetBrains IDE's Linux script does, is left running.
   "Show in Finder" is `open -R`, `explorer /select,` (whose exit code says nothing), and on Linux the freedesktop
   `FileManager1.ShowItems` over D-Bus, else `xdg-open` on the folder.
-- **Not done:** the menus' items show Leaf's code icon, not the editor's; the shortcut's hint is in the header button's
-  tooltip only, as the menus' file may not be the shown diff's; a comparison's file list has no menu; Windows and Linux
-  weren't run (the commands come from the editors' docs).
+- **Not done:** the file lists' menus show no shortcut, as their file may not be the shown diff's; a comparison's file
+  list has no menu; file history's header has no name menu; Windows and Linux weren't run (the commands come from the
+  editors' docs).
 - Tests: `EditorCommandsTest`, `EditorSettingsTest` (domain), `ExternalEditorsTest` (app bundles with XML and binary
   plists, renamed and nested apps, PATH and installer folders), `EditorLauncherTest` (arguments, variables and folder as
   given, an error code with its output, a program left running, one that can't start or reads its input),
   `EditorSettingsStorageTest` (data), `FileOpeningControllerTest`, `FileOpeningMenusTest`, `EditorPickerTest`,
-  `AppIconsTest`, `EditorSettingsPageTest`, `OpenInEditorKeybindingTest` (app). 10 mutations (the folder and LightEdit
+  `AppIconsTest`, `EditorSettingsPageTest`, `OpenInEditorKeybindingTest`, `FileNameMenuTest` (app: a real click on the
+  name inside a selectable path, the items at the line when the menu opens, where it opened, a deleted file, blame's
+  name and ⌘E, the editor's icon drawn as it is, a menu entry's own icon, what ⌘E opens; PNGs of the name with
+  `LEAF_RENDER_DIR`). 7 mutations of the name menu (what ⌘E opens, the shortcut in a list's menu, the line read when the
+  menu opens, an app icon tinted, the dropdown's place, an entry's own icon, blame's ⌘E) were each caught by a named
+  test. 10 mutations (the folder and LightEdit
   arguments, the repository's editor first, the linked worktree's rule, the default taking a repository's own away, the
   exit code check, the first app found winning, a deleted file's items, the picker's box, a commit's lines) were each
   caught by a named test. On this Mac, detection found all 8 installed editors in 0.2 s.

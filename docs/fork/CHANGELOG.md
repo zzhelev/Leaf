@@ -6,13 +6,16 @@ This file covers fork-only changes on `main` (called `fork/main` until 2026-10-0
 
 - **Request:** the user's: a file's menu had only "Open file in folder", and small edits need an editor.
 - **Now:** a file's menu starts with "Open in IntelliJ IDEA" (the editor chosen in Settings › Tools › Editor, or the
-  repository's own), "Open in another editor…" and "Show in Finder", which selects the file. The diff's and blame's
-  headers have an editor button that opens the file at the first line in view, an uncommitted diff's line opens at its
-  line from its right-click menu, and ⌘E (Ctrl+E) opens the shown diff's file. Leaf finds the editors on the computer
+  repository's own), "Open in another editor…" and "Show in Finder", which selects the file. The file's name in the
+  diff's and blame's headers, with a ⌄ after it, opens the same items, at the first line in view; an uncommitted diff's
+  line opens at its line from its right-click menu, and ⌘E (Ctrl+E) opens the shown diff's file, or blame's. The item
+  that opens a file has the editor's own app icon. Leaf finds the editors on the computer
   (VS Code and its family, Zed, Sublime Text, the JetBrains IDEs, Xcode, TextMate and others), and a command of the
   user's own can stand in for them. A linked worktree's file opens in the editor's window for that worktree, or alone.
-- **Chosen with the user:** option A of the Design artifact "Leaf edit files", as drawn. Editing inside Leaf (B1 to B3
-  there) comes later.
+- **Chosen with the user:** option A of the Design artifact "Leaf edit files", as drawn. After a try, the headers' editor
+  button became the file name's menu (C3 there): the button made a busy header busier, and its `</>` icon didn't say
+  "open the file". Editing inside Leaf (B1 to B3 there) comes later.
+- **Fixed on the way:** ⌘E opened the diff hidden under blame, file history or the conflict resolver.
 - Details: CLAUDE.md, "Git operations", Opening a file in an editor.
 
 ## File history and the commit editor show the author date (2026-11-20)
