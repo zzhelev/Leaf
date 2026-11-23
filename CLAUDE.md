@@ -701,6 +701,74 @@ and Ctrl+F (⌘F) keeps the log search while the log has the focus.
   keys, two were caught; the third took out a reset of `isBarFocused` when the strip closes, which the row's own focus
   event already does, and that code went. Three for the strip's two modes were each caught.
 
+**Opening a file in an editor (fork-only, 2026-11-23, `domain/editor/`, `data/editor/`, `ui/editor/`,
+`repositoryopen/FileOpeningController.kt`):** a file's menu (Staged, Unstaged, a commit's Files changed, the amended
+commit's group) starts with "Open in IntelliJ IDEA", "Open in another editor…" and "Show in Finder" ("Show in Explorer",
+"Show in file manager"), which replaces "Open file in folder". The diff's and blame's headers have an editor button
+first, and an uncommitted diff's line has "Open in IntelliJ IDEA at line 47" in its right-click menu. ⌘E (Ctrl+E
+elsewhere, `KeybindingOption.OPEN_IN_EDITOR`) opens the shown diff's file. Option A of the Design artifact "Leaf edit
+files" (A1 to A4), chosen with the user as drawn; B1 to B3 there are the editing inside Leaf that comes later.
+- **The editors** (`KNOWN_EDITORS`, `KnownEditor`, `EditorKind`): VS Code and the editors built on it (Insiders,
+  VSCodium, Cursor, Windsurf), Zed, Sublime Text, the JetBrains IDEs, Xcode, TextMate, BBEdit, Nova, Kate, gedit and
+  Notepad++. Their ids are stored, so they never change. `ExternalEditors` (app singleton) finds them once, and again
+  when Settings opens, the picker opens, or a chosen editor isn't where it was:
+  - macOS: the `.app` bundles in `/Applications`, `~/Applications` and `/Applications/Setapp`, and in the folders in
+    them, by `CFBundleIdentifier` (`bundleIdOf`: the XML `Info.plist` read as text, a binary one through `plutil`, as
+    Xcode's is), so a renamed app is found; then the editor's tool inside the bundle (`macTools`: VS Code's
+    `Contents/Resources/app/bin/code`, Zed's `Contents/MacOS/cli`, Xcode's `xed`, TextMate's `mate`).
+  - Linux: the commands on the login shell's PATH, JetBrains Toolbox's `scripts` folder, `~/.local/bin` and `/snap/bin`.
+  - Windows: where the installers put them (`%LOCALAPPDATA%`, `%PROGRAMFILES%`, Toolbox's `.cmd` scripts), else `.cmd`
+    and `.exe` on the PATH.
+- **The command** (`editorCommand`, checked against each tool's own help and docs on 2026-11-23): VS Code's family gets
+  `[worktree] --goto file:line`, and opens the file in the window that has the worktree, or a new one with it; JetBrains
+  IDEs start through `open -na <app> --args [worktree] --line n file` on macOS, as Toolbox's scripts do (a running IDE
+  takes the arguments), and their script elsewhere; Zed `[worktree] file:line`; Sublime `file:line`; `xed --line n`;
+  `mate -l n`; any other editor the file alone (`open -a` on macOS). An editor without its tool opens through
+  `open -a`, without a line.
+- **Which editor:** Settings › Tools › Editor (`EditorSettingsPage`, `AppConfig.Editor`, key `editor`, no key for none):
+  not chosen, the editors found, "Default app for each file type" (`DEFAULT_APP_EDITOR`, `OpenFileInExternalAppUseCase`)
+  or "Custom command" (`CUSTOM_EDITOR`, `editor_command`: split as a shell splits words, `{file}`, `{line}` (1 without
+  one) and `{folder}` replaced in each word, the file last when it has no `{file}`). A repository can have its own
+  (`AppConfig.RepositoryEditors`, `repository_editors`, JSON from the real path of the repository's shared git dir,
+  `sharedGitDirOf`, to an editor id), listed under "Repositories with their own editor" with × to take it away.
+  `EditorSettings.editorFor` takes the repository's, else the default. A chosen editor that isn't found keeps its name
+  (`EditorChoice.NotInstalled`), and opening it says so (`EditorError.NotInstalled`).
+- **The picker** (`EditorPickerPopup`, `EditorPickerList`): "Open in another editor…", and "Open in editor…" while none
+  is chosen, open it where the file's menu was (`lastContextMenuPosition`, a fork-only global in `ContextMenu.kt`, as one
+  menu is open at a time), or in the window's middle from ⌘E and the header buttons. The editors with their app icons
+  (`appIcon`: the PNG of 32 pixels or more in the `.icns` file that the app's `Info.plist` names, `InstalledEditor.icon`,
+  `pngOfIcns`; Java's `FileSystemView` gives a folder for an `.app` outside the Aqua look), "Default" after the default,
+  then "Default app for .kt files", and a box: "Use
+  from now on" (checked) while there's no default, which the pick becomes; else "Use for leaf from now on" (unchecked),
+  the repository's own, or none of its own when it's the default (`FileOpeningController.pick`). ↑ ↓, Enter and Esc as
+  in the clone dialog's list.
+- **A linked worktree's file** (`folderToOpenWith`, `AppConfig.EditorLinkedWorktree`, `editor_linked_worktree`): "Open
+  the worktree" (the default) gives the editor the worktree's folder; "Open the file alone" gives none, which a JetBrains
+  IDE opens in LightEdit (`-e`, which takes no line). The main worktree's files always open with it.
+- **Lines** (`shownDiffFile`, `editorLineOf`): an uncommitted diff's lines are the working tree's or the index's, so the
+  header button and ⌘E open at the first line in view (`anchorAt`), and a line's item at its new-version number (a
+  removed line where it was). A commit's diff, a comparison's and file history's open the file as it is now, without a
+  line. Blame's header opens at its first line in view. A deleted file has nothing to open; "Show in Finder" shows the
+  nearest folder that exists (`ShowInFileManagerUseCase`).
+- **Running** (`OpenInEditorUseCase`, `TaskType.OpenInEditor`, a background task: no processing screen, no toast, and
+  `ErrorDialog` for a failure; `EditorLauncher`): the program with the login shell's variables (so a custom command
+  finds the PATH's tools when Leaf was opened from the Finder), in the working tree, its output to a temporary file, and
+  it counts as started unless it can't start or ends within 3 s with an exit code other than 0 (`startAndCheck`,
+  `EditorError.Failed` with what it printed). One that runs on, as a JetBrains IDE's Linux script does, is left running.
+  "Show in Finder" is `open -R`, `explorer /select,` (whose exit code says nothing), and on Linux the freedesktop
+  `FileManager1.ShowItems` over D-Bus, else `xdg-open` on the folder.
+- **Not done:** the menus' items show Leaf's code icon, not the editor's; the shortcut's hint is in the header button's
+  tooltip only, as the menus' file may not be the shown diff's; a comparison's file list has no menu; Windows and Linux
+  weren't run (the commands come from the editors' docs).
+- Tests: `EditorCommandsTest`, `EditorSettingsTest` (domain), `ExternalEditorsTest` (app bundles with XML and binary
+  plists, renamed and nested apps, PATH and installer folders), `EditorLauncherTest` (arguments, variables and folder as
+  given, an error code with its output, a program left running, one that can't start or reads its input),
+  `EditorSettingsStorageTest` (data), `FileOpeningControllerTest`, `FileOpeningMenusTest`, `EditorPickerTest`,
+  `AppIconsTest`, `EditorSettingsPageTest`, `OpenInEditorKeybindingTest` (app). 10 mutations (the folder and LightEdit
+  arguments, the repository's editor first, the linked worktree's rule, the default taking a repository's own away, the
+  exit code check, the first app found winning, a deleted file's items, the picker's box, a commit's lines) were each
+  caught by a named test. On this Mac, detection found all 8 installed editors in 0.2 s.
+
 **Diff of a conflicted file (fork-only, `data/git/diff/UnmergedDiffEntry.kt`):** the unstaged diff of a file with
 conflicts compares the working file with ours (stage 2). For a file that both sides changed, that's what
 `git diff --ours` shows.

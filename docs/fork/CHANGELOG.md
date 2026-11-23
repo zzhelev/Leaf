@@ -2,6 +2,19 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Open a file in an editor (2026-11-23)
+
+- **Request:** the user's: a file's menu had only "Open file in folder", and small edits need an editor.
+- **Now:** a file's menu starts with "Open in IntelliJ IDEA" (the editor chosen in Settings › Tools › Editor, or the
+  repository's own), "Open in another editor…" and "Show in Finder", which selects the file. The diff's and blame's
+  headers have an editor button that opens the file at the first line in view, an uncommitted diff's line opens at its
+  line from its right-click menu, and ⌘E (Ctrl+E) opens the shown diff's file. Leaf finds the editors on the computer
+  (VS Code and its family, Zed, Sublime Text, the JetBrains IDEs, Xcode, TextMate and others), and a command of the
+  user's own can stand in for them. A linked worktree's file opens in the editor's window for that worktree, or alone.
+- **Chosen with the user:** option A of the Design artifact "Leaf edit files", as drawn. Editing inside Leaf (B1 to B3
+  there) comes later.
+- Details: CLAUDE.md, "Git operations", Opening a file in an editor.
+
 ## File history and the commit editor show the author date (2026-11-20)
 
 - **Request:** the user's, after the log's Author date column: file history's rows, the strip above its diff and the
