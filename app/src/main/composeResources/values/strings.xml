@@ -2240,4 +2240,46 @@
     <string name="settings_linux_title_bar_wsl">Not available under WSL.</string>
     <string name="settings_linux_title_bar_tiling">Not available with a tiling window manager, which places windows itself.</string>
     <string name="settings_linux_title_bar_unknown_desktop">Not available on a desktop that Leaf doesn't know.</string>
+
+    <!-- Fork-only: opening a file in an editor -->
+    <string name="editor_open_in">Open in %1$s</string>
+    <string name="editor_open_in_at_line">Open in %1$s at line %2$d</string>
+    <string name="editor_open_with_default_app">Open with default app</string>
+    <string name="editor_open_in_editor">Open in editor</string>
+    <string name="editor_open_in_editor_at_line">Open in editor at line %1$d</string>
+    <string name="editor_choose">Open in editor…</string>
+    <string name="editor_open_in_another">Open in another editor…</string>
+    <string name="editor_show_in_finder">Show in Finder</string>
+    <string name="editor_show_in_explorer">Show in Explorer</string>
+    <string name="editor_show_in_file_manager">Show in file manager</string>
+    <string name="editor_picker_title">Open %1$s in</string>
+    <string name="editor_picker_default">Default</string>
+    <string name="editor_picker_default_app_for">Default app for .%1$s files</string>
+    <string name="editor_picker_default_app">Default app</string>
+    <string name="editor_picker_none_found">Leaf found no editors</string>
+    <string name="editor_picker_remember_default">Use from now on</string>
+    <string name="editor_picker_remember_repository">Use for %1$s from now on</string>
+    <string name="settings_entry_editor">Editor</string>
+    <string name="settings_editor_title">Editor</string>
+    <string name="settings_editor_subtitle">Opens files from the file lists, the diff and blame</string>
+    <string name="settings_editor_not_chosen">Not chosen</string>
+    <string name="settings_editor_not_found">%1$s (not found)</string>
+    <string name="settings_editor_default_app">Default app for each file type</string>
+    <string name="settings_editor_custom">Custom command</string>
+    <string name="settings_editor_command_title">Command</string>
+    <string name="settings_editor_command_subtitle">{file}, {line} and {folder} stand for the file, its line and its worktree</string>
+    <string name="settings_editor_linked_worktree_title">A file in a linked worktree</string>
+    <string name="settings_editor_linked_worktree_subtitle">When the editor doesn't have that worktree open</string>
+    <string name="settings_editor_linked_worktree_open_worktree">Open the worktree</string>
+    <string name="settings_editor_linked_worktree_open_file">Open the file alone</string>
+    <string name="settings_editor_repositories_title">Repositories with their own editor</string>
+    <string name="settings_editor_repositories_subtitle">Set from “Open in another editor…” in a file's menu</string>
+    <string name="settings_editor_repositories_none">None</string>
+    <string name="settings_editor_repository_remove">Remove %1$s</string>
+    <string name="error_editor_not_installed">Leaf can't find %1$s on this computer. Choose an editor in Settings › Editor.</string>
+    <string name="error_editor_file_missing">The working tree has no file at\n\n%1$s</string>
+    <string name="error_editor_no_custom_command">Settings › Editor runs a command of your own, and it's empty.</string>
+    <string name="error_editor_start_failed">Leaf couldn't start\n\n%1$s\n\n%2$s</string>
+    <string name="error_editor_failed">This command ended with exit code %2$d:\n\n%1$s\n\n%3$s</string>
+    <string name="error_editor_failed_silently">This command ended with exit code %2$d:\n\n%1$s</string>
 </resources>

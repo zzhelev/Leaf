@@ -28,6 +28,7 @@ import dev.app.leaf.theme.onBackgroundSecondary
 import dev.app.leaf.ui.FilesGroupHeader
 import dev.app.leaf.ui.FilesSection
 import dev.app.leaf.ui.context_menu.committedChangesEntriesContextMenuItems
+import dev.app.leaf.ui.editor.FileOpening
 import org.eclipse.jgit.diff.DiffEntry
 import org.jetbrains.compose.resources.stringResource
 
@@ -41,6 +42,8 @@ internal fun amendedFilesSection(
     onAction: (StatusAction) -> Unit,
     onBlameFile: (String) -> Unit,
     onHistoryFile: (String) -> Unit,
+    /** Fork-only: "Open in …" and "Show in Finder" in a file's menu. */
+    fileOpening: FileOpening? = null,
 ): FilesSection<DiffEntry> = FilesSection(
     header = { AmendedGroupHeader(group, onToggle = { onAction(StatusAction.ToggleAmendedGroup) }) },
     rows = if (group.isCollapsed) emptyList() else group.rows,
@@ -55,6 +58,7 @@ internal fun amendedFilesSection(
             onBlame = { onBlameFile(entry.filePath) },
             onHistory = { onHistoryFile(entry.filePath) },
             onOpenFileInFolder = { onAction(StatusAction.OpenInFolder(entry.parentDirectoryPath)) },
+            fileOpening = fileOpening,
         )
     },
     message = if (!group.isCollapsed && group.error != null) {

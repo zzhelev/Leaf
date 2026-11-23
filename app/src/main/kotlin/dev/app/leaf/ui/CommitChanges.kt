@@ -40,6 +40,7 @@ import dev.app.leaf.theme.tertiarySurface
 import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
 import dev.app.leaf.ui.context_menu.committedChangesEntriesContextMenuItems
+import dev.app.leaf.ui.editor.LocalFileOpening
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -107,6 +108,9 @@ private fun CommitChangesView(
     onParentClicked: (hash: String) -> Unit = {},
     onToggleMoreParents: () -> Unit = {},
 ) {
+    // Fork-only: "Open in …" and "Show in Finder" in a file's menu
+    val fileOpening = LocalFileOpening.current
+
     val tabFocusRequester = LocalTabFocusRequester.current
     val commit = commitChangesState.commit
 
@@ -208,6 +212,7 @@ private fun CommitChangesView(
                                 onBlame = { onBlame(diffEntry.filePath) },
                                 onHistory = { onHistory(diffEntry.filePath) },
                                 onOpenFileInFolder = { onOpenFileInFolder(diffEntry.parentDirectoryPath) },
+                                fileOpening = fileOpening,
                             )
                         },
                     )

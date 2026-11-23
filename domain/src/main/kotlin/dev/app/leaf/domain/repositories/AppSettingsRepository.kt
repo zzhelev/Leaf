@@ -78,6 +78,12 @@ interface AppSettingsRepository {
     // Tools
     val terminalPath: Flow<String?>
 
+    /** Fork-only: Settings › Editor, see [dev.app.leaf.domain.editor.EditorSettings]. */
+    val editor: Flow<String?>
+    val editorCommand: Flow<String?>
+    val editorLinkedWorktree: Flow<String?>
+    val repositoryEditors: Flow<Map<String, String>?>
+
     suspend fun setConfiguration(appConfig: AppConfig)
 
     var latestTabsOpened: String

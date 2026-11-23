@@ -17,6 +17,7 @@ import javax.inject.Singleton
         GitCliModule::class,
         ServicesModule::class,
         HighlightingModule::class,
+        EditorModule::class,
     ]
 )
 interface AppComponent {

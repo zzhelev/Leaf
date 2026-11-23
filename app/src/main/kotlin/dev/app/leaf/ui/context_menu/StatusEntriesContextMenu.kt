@@ -8,6 +8,8 @@ import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.canOpenInMergeTool
 import dev.app.leaf.domain.models.hasConflicts
 import dev.app.leaf.domain.models.isUntracked
+import dev.app.leaf.ui.editor.FileOpening
+import dev.app.leaf.ui.editor.addFileOpeningItems
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -24,6 +26,8 @@ fun statusEntryContextMenuItems(
     conflictActions: ConflictMenuActions? = null,
     /** Fork-only: opens the ignore dialog, offered for an untracked file in Unstaged. */
     onIgnore: (() -> Unit)? = null,
+    /** Fork-only: "Open in …", "Open in another editor…" and "Show in Finder", which replaces "Open file in folder". */
+    fileOpening: FileOpening? = null,
 ): List<ContextMenuElement> {
     return mutableListOf<ContextMenuElement>().apply {
         if (conflictActions != null && statusEntry.conflict != null) {
@@ -53,6 +57,14 @@ fun statusEntryContextMenuItems(
 
             add(ContextMenuElement.ContextSeparator)
         }
+
+        // Fork-only: a deleted file has nothing to open, and "Show in Finder" shows its folder
+        addFileOpeningItems(
+            opening = fileOpening,
+            path = statusEntry.filePath,
+            canOpen = statusEntry.statusType != StatusType.REMOVED,
+            onShowWithoutOpening = onOpenFileInFolder,
+        )
 
         if (statusEntry.statusType != StatusType.ADDED) {
             // Fork-only: discarding a staged rename undoes the move (`docs/fork/status-renames.md`)
@@ -120,13 +132,6 @@ fun statusEntryContextMenuItems(
                 onClick = onIgnore,
             )
         }
-
-        addContextMenu(
-            composableLabel = { stringResource(Res.string.status_entries_context_menu_open_file_in_folder) },
-            icon = { painterResource(Res.drawable.folder_open) },
-            onClick = onOpenFileInFolder,
-        )
-
 
         add(ContextMenuElement.ContextSeparator)
 

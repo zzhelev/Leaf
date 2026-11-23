@@ -9,6 +9,12 @@ import dev.app.leaf.domain.index.conversionSteps
 import dev.app.leaf.domain.worktrees.shellLines
 import dev.app.leaf.ui.status.consequence
 import dev.app.leaf.ui.status.summary
+import dev.app.leaf.app.generated.resources.error_editor_not_installed
+import dev.app.leaf.app.generated.resources.error_editor_file_missing
+import dev.app.leaf.app.generated.resources.error_editor_no_custom_command
+import dev.app.leaf.app.generated.resources.error_editor_start_failed
+import dev.app.leaf.app.generated.resources.error_editor_failed_silently
+import dev.app.leaf.app.generated.resources.error_editor_failed
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.error_discard_changed_since
 import dev.app.leaf.app.generated.resources.error_discard_not_found
@@ -236,6 +242,8 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is CloneCheckoutError -> error.monospaceParts()
     is LfsDownloadFirstError -> files.map { it.path }
     is SeveralPushUrlsError -> urls
+    is EditorError.FileMissing -> listOf(path)
+    is EditorError.Failed -> listOf(command)
     else -> emptyList()
 }
 
@@ -548,6 +556,21 @@ fun AppError.getErrorText(): String {
             is SshSigningError.SigningUnsupported -> stringResource(Res.string.error_ssh_signing_unsupported, this.program, this.output)
             SshSigningError.Cancelled -> stringResource(Res.string.error_ssh_signing_cancelled)
             is SshSigningError.SigningFailed -> stringResource(Res.string.error_ssh_signing_failed, this.program, this.output)
+        }
+
+        is EditorError -> when (this) {
+            is EditorError.NotInstalled -> stringResource(Res.string.error_editor_not_installed, name)
+            is EditorError.FileMissing -> stringResource(Res.string.error_editor_file_missing, path)
+            EditorError.NoCustomCommand -> stringResource(Res.string.error_editor_no_custom_command)
+            is EditorError.Failed -> {
+                val code = exitCode
+
+                when {
+                    code == null -> stringResource(Res.string.error_editor_start_failed, command, output)
+                    output.isBlank() -> stringResource(Res.string.error_editor_failed_silently, command, code)
+                    else -> stringResource(Res.string.error_editor_failed, command, code, output)
+                }
+            }
         }
     }
 }

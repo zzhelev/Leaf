@@ -16,6 +16,7 @@ import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,8 @@ import dev.app.leaf.theme.headerBackground
 import dev.app.leaf.theme.inCodeFont
 import dev.app.leaf.ui.components.PrimaryButton
 import dev.app.leaf.ui.components.ScrollableLazyColumn
+import dev.app.leaf.ui.editor.LocalFileOpening
+import dev.app.leaf.ui.editor.OpenInEditorButton
 import dev.app.leaf.ui.diff.colouredLine
 import dev.app.leaf.ui.find.BlameFindText
 import dev.app.leaf.ui.find.FindBar
@@ -108,7 +111,23 @@ fun Blame(
                     false
             },
     ) {
-        Header(filePath, onClose = onClose)
+        // Fork-only: the file in the editor, at the first line in view, which blame shows as the working tree has it
+        val fileOpening = LocalFileOpening.current
+        val firstLine by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex + 1 } }
+
+        Header(
+            filePath,
+            onClose = onClose,
+            editorButton = fileOpening?.let { opening ->
+                {
+                    OpenInEditorButton(
+                        choice = opening.choice,
+                        line = firstLine,
+                        onClick = { opening.onOpen(filePath, firstLine) },
+                    )
+                }
+            },
+        )
 
         if (find.isOpen) {
             FindBar(
@@ -272,6 +291,7 @@ fun MinimizedBlame(
 private fun Header(
     filePath: String,
     onClose: () -> Unit,
+    editorButton: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -288,6 +308,8 @@ private fun Header(
         )
 
         Spacer(modifier = Modifier.weight(1f))
+
+        editorButton?.invoke()
 
         IconButton(
             onClick = onClose,

@@ -56,7 +56,11 @@ import dev.app.leaf.ui.components.SidewaysScroll
 import dev.app.leaf.ui.components.UnwrappedLine
 import dev.app.leaf.ui.components.SecondaryButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import dev.app.leaf.domain.diff.anchorAt
 import dev.app.leaf.ui.context_menu.ContextMenu
+import dev.app.leaf.ui.editor.LocalFileOpening
+import dev.app.leaf.ui.editor.OpenInEditorButton
+import dev.app.leaf.ui.editor.addOpenAtLineItem
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
@@ -242,6 +246,30 @@ private fun DiffPaneContent(
                     onChangeDiffType = { viewModel.changeTextDiffType(it) },
                     onDisplayFullFile = { viewModel.changeDisplayFullFile(it) },
                     logToggle = logToggle,
+                    // Fork-only: a deleted file has nothing to open
+                    editorButton = if (diffType.statusType != StatusType.REMOVED) {
+                        {
+                            val editorChoice by viewModel.editorChoice.collectAsState()
+                            val listState by viewModel.lazyListState.collectAsState()
+                            val line by remember(diffResult, listState, diffType) {
+                                derivedStateOf {
+                                    if (diffType is DiffType.UncommittedDiff && diffResult is DiffResult.TextDiff) {
+                                        diffResult.anchorAt(listState.firstVisibleItemIndex)?.let { it.newLine + 1 }
+                                    } else {
+                                        null
+                                    }
+                                }
+                            }
+
+                            OpenInEditorButton(
+                                choice = editorChoice,
+                                line = line,
+                                onClick = { viewModel.openShownDiffInEditor() },
+                            )
+                        }
+                    } else {
+                        null
+                    },
                     viewMenu = {
                         DiffViewMenu(
                             diffType = diffType,
@@ -711,6 +739,7 @@ fun HunkUnifiedTextDiff(
                             selectedText = selectedText,
                             actions = actions,
                             onLineAction = onLineAction,
+                            openAt = editorLineOf(diffType, line),
                         ) {
                             DiffLine(
                                 highestLineNumberLength,
@@ -931,6 +960,7 @@ fun SplitDiffLineSide(
                     selectedText,
                     actions = actions,
                     onLineAction = { onLineAction(line, it) },
+                    openAt = editorLineOf(diffType, line),
                 ) {
                     SplitDiffLine(
                         highestLineNumberLength = highestLineNumberLength,
@@ -952,15 +982,45 @@ fun DiffContextMenu(
     selectedText: AnnotatedString,
     actions: List<LineAction>,
     onLineAction: (LineAction) -> Unit,
+    /** Fork-only: the file and line that "Open in … at line" opens, for an uncommitted diff's line. */
+    openAt: EditorLine? = null,
     content: @Composable () -> Unit,
 ) {
+    val fileOpening = LocalFileOpening.current
+
     ContextMenu(
         enabled = selectedText.isEmpty(),
-        items = { lineActionMenuItems(actions, onLineAction) },
+        items = {
+            val lineItems = lineActionMenuItems(actions, onLineAction)
+
+            if (fileOpening != null && openAt != null) {
+                buildList {
+                    addOpenAtLineItem(fileOpening, openAt.path, openAt.line)
+                    if (lineItems.isNotEmpty()) add(ContextMenuElement.ContextSeparator)
+                    addAll(lineItems)
+                }
+            } else {
+                lineItems
+            }
+        },
     ) {
         content()
     }
 }
+
+/** Fork-only: a file and its line (from 1) to open in the editor. */
+data class EditorLine(val path: String, val line: Int)
+
+/**
+ * The working tree's file and line that [line] stands for: an uncommitted diff's new side, which is the working tree's
+ * or the index's. A removed line stands for where it was. A commit's lines may not be the file's now: none.
+ */
+fun editorLineOf(diffType: DiffType, line: Line): EditorLine? =
+    if (diffType is DiffType.UncommittedDiff && diffType.statusType != StatusType.REMOVED) {
+        EditorLine(diffType.filePath, line.displayNewLineNumber)
+    } else {
+        null
+    }
 
 enum class SelectableSide {
     BOTH,
@@ -1050,6 +1110,8 @@ private fun DiffHeader(
     /** The View menu (fork-only), for any text diff: added and deleted files' lines can be long too. */
     viewMenu: @Composable () -> Unit,
     logToggle: (@Composable () -> Unit)?,
+    /** Fork-only: opens the file in the editor, first among the header's buttons. */
+    editorButton: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1109,6 +1171,8 @@ private fun DiffHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            editorButton?.invoke()
+
             headerActions?.invoke()
 
             if (diffType.statusType != StatusType.ADDED && diffType.statusType != StatusType.REMOVED && isTextDiff) {

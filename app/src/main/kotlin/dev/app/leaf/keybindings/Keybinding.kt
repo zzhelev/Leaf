@@ -147,6 +147,11 @@ enum class KeybindingOption {
      */
     SELECT_ALL,
     COPY,
+
+    /**
+     * Used to open the shown diff's file in the editor (fork-only), at the first line in view of an uncommitted diff
+     */
+    OPEN_IN_EDITOR,
 }
 
 
@@ -256,6 +261,9 @@ private fun baseKeybindings() = mapOf(
         Keybinding(key = Key.C, control = true),
         Keybinding(key = Key.Insert, control = true),
     ),
+    KeybindingOption.OPEN_IN_EDITOR to listOf(
+        Keybinding(key = Key.E, control = true),
+    ),
 )
 
 private fun linuxKeybindings(): Map<KeybindingOption, List<Keybinding>> = baseKeybindings()
@@ -284,6 +292,7 @@ private fun macKeybindings(): Map<KeybindingOption, List<Keybinding>> {
         KeybindingOption.QUICK_ACTIONS,
         KeybindingOption.FIND,
         KeybindingOption.SELECT_ALL,
+        KeybindingOption.OPEN_IN_EDITOR,
     )
 
     for (key in keysToReplaceControlWithCommand) {

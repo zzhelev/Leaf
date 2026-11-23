@@ -1,5 +1,14 @@
 package dev.app.leaf.repositoryopen
 
+import dev.app.leaf.domain.diff.anchorAt
+import dev.app.leaf.domain.models.DiffResult
+import dev.app.leaf.domain.models.DiffType
+import dev.app.leaf.domain.models.StatusType
+import dev.app.leaf.domain.models.RepositorySelectionState
+import dev.app.leaf.domain.editor.ShowInFileManagerUseCase
+import dev.app.leaf.domain.editor.OpenInEditorUseCase
+import dev.app.leaf.domain.editor.IExternalEditors
+import dev.app.leaf.domain.editor.EditorChoice
 import dev.app.leaf.domain.discards.DiscardNotice
 import dev.app.leaf.domain.discards.DiscardNotices
 import dev.app.leaf.domain.discards.DiscardRecord
@@ -251,6 +260,10 @@ class RepositoryOpenViewModel @Inject constructor(
     private val discardNotices: DiscardNotices,
     private val planDiscardRestoreUseCase: PlanDiscardRestoreUseCase,
     private val restoreDiscardUseCase: RestoreDiscardUseCase,
+    // Fork-only: opening files in an editor, and showing them in the file manager
+    private val openInEditorUseCase: OpenInEditorUseCase,
+    private val showInFileManagerUseCase: ShowInFileManagerUseCase,
+    externalEditors: IExternalEditors,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -1064,6 +1077,33 @@ class RepositoryOpenViewModel @Inject constructor(
     )
 
     val commitParentsState = commitParents.state
+
+    // Fork-only: "Open in …", "Open in another editor…" and "Show in Finder" in the file menus, the diff and blame
+    private val fileOpening = FileOpeningController(
+        scope = viewModelScope,
+        gitDir = repositoryDataRepository.repositorySelectionState.map { (it as? RepositorySelectionState.Open)?.path },
+        editorSettings = appSettings.editorSettings,
+        editors = externalEditors,
+        openInEditor = { path, line, editorId -> openInEditorUseCase(path, line, editorId) },
+        showInFileManager = { path -> showInFileManagerUseCase(path) },
+        saveSetting = { config -> settings.setConfiguration(config) },
+    )
+
+    /** What "Open in …" opens the tab's files with. */
+    val editorChoice: StateFlow<EditorChoice> = fileOpening.choice
+
+    /** The picker of "Open in another editor…", or null while it's closed. */
+    val editorPicker: StateFlow<EditorPickerState?> = fileOpening.picker
+
+    fun openInEditor(path: String, line: Int?, isAtMenu: Boolean) = fileOpening.open(path, line, isAtMenu)
+
+    fun chooseEditor(path: String, line: Int?, isAtMenu: Boolean) = fileOpening.chooseEditor(path, line, isAtMenu)
+
+    fun pickEditor(editorId: String, remember: Boolean) = fileOpening.pick(editorId, remember)
+
+    fun closeEditorPicker() = fileOpening.closePicker()
+
+    fun showInFileManager(path: String) = fileOpening.show(path)
 
     fun onParentClicked(hash: String) = commitParents.onParentClicked(hash)
 
@@ -2430,6 +2470,35 @@ class RepositoryOpenViewModel @Inject constructor(
 
     fun openFileWithExternalApp(path: String) {
         openFileInExternalAppUseCase(path)
+    }
+
+    /**
+     * The file of the shown diff and the line to open it at (fork-only): the first line of the new version in view, for
+     * an uncommitted diff, whose lines are the working tree's or the index's. A commit's lines may not be the file's
+     * now, so it has none, and a deleted file is nothing to open.
+     */
+    fun shownDiffFile(): Pair<String, Int?>? {
+        val loaded = diffResult.value as? ViewDiffResult.Loaded ?: return null
+        val diffType = loaded.diffType
+
+        if (diffType.statusType == StatusType.REMOVED) return null
+
+        val line = if (diffType is DiffType.UncommittedDiff) {
+            (loaded.diffResult as? DiffResult.TextDiff)
+                ?.anchorAt(lazyListState.value.firstVisibleItemIndex)
+                ?.let { it.newLine + 1 }
+        } else {
+            null
+        }
+
+        return diffType.filePath to line
+    }
+
+    /** ⌘E and the diff header's button: the shown diff's file, at the line in view (fork-only). */
+    fun openShownDiffInEditor(isAtMenu: Boolean = false) {
+        val (path, line) = shownDiffFile() ?: return
+
+        openInEditor(path, line, isAtMenu)
     }
 
     fun discardHunkLine(entry: DiffEntry, hunk: Hunk, line: Line) = discardHunkLineUseCase(entry, hunk, line)

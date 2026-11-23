@@ -110,4 +110,8 @@ sealed interface TaskType {
     data object ResolveConflict : TaskType
     data object ConvertIndex : TaskType
     data object SetUpGitLfs : TaskType
+
+    // Fork-only: opening a file in an editor, or showing it in the file manager. Neither shows progress or a toast.
+    data object OpenInEditor : TaskType
+    data object ShowInFileManager : TaskType
 }

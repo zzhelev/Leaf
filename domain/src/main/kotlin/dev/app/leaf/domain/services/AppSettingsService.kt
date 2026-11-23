@@ -4,6 +4,8 @@ import dev.app.leaf.common.flows.defaultIfNull
 import dev.app.leaf.domain.commitmessage.CommitMessageHints
 import dev.app.leaf.domain.commitmessage.CommitMessageRuler
 import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
+import dev.app.leaf.domain.editor.EditorSettings
+import dev.app.leaf.domain.editor.LinkedWorktreeOpening
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.AvatarProviderType
 import dev.app.leaf.domain.models.DiffTextViewType
@@ -170,6 +172,22 @@ class AppSettingsService @Inject constructor(
         get() = appSettingsRepository.diffShowWhitespace.defaultIfNull { false }
     val cacheCredentialsInMemory: Flow<Boolean> get() = appSettingsRepository.cacheCredentialsInMemory.defaultIfNull { DEFAULT_CACHE_CREDENTIALS_IN_MEMORY }
     val terminalPath: Flow<String?> get() = appSettingsRepository.terminalPath
+
+    /** Fork-only: Settings › Editor, as one setting. See [EditorSettings]. */
+    val editorSettings: Flow<EditorSettings>
+        get() = combine(
+            appSettingsRepository.editor,
+            appSettingsRepository.editorCommand,
+            appSettingsRepository.editorLinkedWorktree,
+            appSettingsRepository.repositoryEditors,
+        ) { editor, command, linkedWorktree, repositoryEditors ->
+            EditorSettings(
+                editor = editor?.takeIf { it.isNotBlank() },
+                customCommand = command.orEmpty(),
+                linkedWorktree = LinkedWorktreeOpening.of(linkedWorktree),
+                repositoryEditors = repositoryEditors.orEmpty(),
+            )
+        }
 
     companion object {
         val DEFAULT_THEME = Theme.Dark

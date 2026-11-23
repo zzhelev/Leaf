@@ -142,6 +142,10 @@ val settings = listOf(
             onAction
         )
     },
+    // Fork-only: the editor that files open in
+    SettingsEntry.Entry(Res.drawable.code, Res.string.settings_entry_editor) { state, onAction ->
+        EditorSettingsPage(state.editor, onAction)
+    },
     SettingsEntry.Entry(Res.drawable.info, Res.string.settings_entry_logs) { state, onAction -> Logs(state, onAction) },
 )
 

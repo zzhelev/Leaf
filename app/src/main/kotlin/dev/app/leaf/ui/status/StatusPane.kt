@@ -80,6 +80,7 @@ import dev.app.leaf.ui.components.*
 import dev.app.leaf.ui.components.sort.FilesSortMenuButton
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
 import dev.app.leaf.ui.components.sort.SortMenuItem
+import dev.app.leaf.ui.editor.LocalFileOpening
 import dev.app.leaf.ui.context_menu.ConflictMenuActions
 import dev.app.leaf.ui.context_menu.ContextMenuElement
 import dev.app.leaf.ui.context_menu.statusDirEntriesContextMenuItems
@@ -457,7 +458,14 @@ fun StatusChangesList(
     // Fork-only (upstream issue 260): the files of the commit that Amend rewrites, after Staged's own rows
     val amendedSection = if (entryType == EntryType.STAGED) {
         statusState.amended?.let { group ->
-            amendedFilesSection(group, statusState.selectedAmendedEntry, onAction, onBlameFile, onHistoryFile)
+            amendedFilesSection(
+                group,
+                statusState.selectedAmendedEntry,
+                onAction,
+                onBlameFile,
+                onHistoryFile,
+                LocalFileOpening.current,
+            )
         }
     } else {
         null
@@ -571,6 +579,9 @@ fun ChangesList(
     fold: SectionFold? = null,
     count: Int? = null,
 ) {
+    // Fork-only: "Open in …" and "Show in Finder" in a file's menu
+    val fileOpening = LocalFileOpening.current
+
     fun entriesContextMenu(): (StatusEntry) -> List<ContextMenuElement> = { statusEntry ->
         statusEntryContextMenuItems(
             statusEntry = statusEntry,
@@ -593,6 +604,7 @@ fun ChangesList(
                 onUseSide = { side -> onUseConflictSide(listOf(statusEntry), side) },
                 onResolve = { onAction(StatusAction.OpenInResolver(statusEntry)) },
             ),
+            fileOpening = fileOpening,
         )
     }
 

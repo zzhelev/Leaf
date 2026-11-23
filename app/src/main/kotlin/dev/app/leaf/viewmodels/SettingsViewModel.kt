@@ -1,5 +1,8 @@
 package dev.app.leaf.viewmodels
 
+import kotlinx.coroutines.flow.flow
+import dev.app.leaf.ui.dialogs.settings.EditorSettingsState
+import dev.app.leaf.domain.editor.IExternalEditors
 import androidx.compose.runtime.Immutable
 import dev.app.leaf.LogsRepository
 import dev.app.leaf.TabViewModel
@@ -55,6 +58,8 @@ class SettingsViewModel @Inject constructor(
     private val stylesService: StylesService,
     private val openFilePickerUseCase: OpenFilePickerUseCase,
     private val saveFilePickerUseCase: SaveFilePickerUseCase,
+    // Fork-only: the editors that Settings › Editor offers
+    private val externalEditors: IExternalEditors,
 ) : TabViewModel() {
     /** What the last import or export of a style gave, until dismissed (fork-only). */
     private val styleNotice = MutableStateFlow<StyleNotice?>(null)
@@ -138,6 +143,15 @@ class SettingsViewModel @Inject constructor(
             )
         }
 
+        // Fork-only: Settings › Editor, with the editors on this computer, looked for again whenever Settings opens
+        val editor: Flow<EditorSettingsState> = kotlinx.coroutines.flow.combine(
+            appSettingsService.editorSettings,
+            flow {
+                emit(null)
+                emit(externalEditors.installed(refresh = true))
+            },
+        ) { settings, installed -> EditorSettingsState(settings, installed) }
+
         return combine(
             appSettingsService.scaleUi,
             appearance,
@@ -167,6 +181,7 @@ class SettingsViewModel @Inject constructor(
             appSettingsService.terminalPath,
             appSettingsService.gitExecutablePath,
             gitExecutable,
+            editor,
         ) { scaleUi,
             appearance,
             linesHeightType,
@@ -194,7 +209,8 @@ class SettingsViewModel @Inject constructor(
             cacheCredentialsInMemory,
             terminalPath,
             gitExecutablePath,
-            gitExecutable ->
+            gitExecutable,
+            editor ->
 
             SettingsViewState(
                 scaleUi,
@@ -234,6 +250,7 @@ class SettingsViewModel @Inject constructor(
                 terminalPath,
                 gitExecutablePath,
                 gitExecutable,
+                editor = editor,
             )
         }
     }
@@ -338,6 +355,8 @@ data class SettingsViewState(
     val gitExecutablePath: String?,
     /** Null while git is being located. */
     val gitExecutable: Either<GitExecutable, GitCliError>?,
+    /** Settings › Editor (fork-only). */
+    val editor: EditorSettingsState = EditorSettingsState(),
 )
 
 sealed interface SettingsAction {

@@ -26,18 +26,29 @@ private val modified = StatusEntry("README.md", StatusType.MODIFIED)
  * (fork-only).
  */
 class ConflictContextMenuTest {
+    // Fork-only: without a tab's editors, the file opening group after the conflict's items is "Show in Finder" alone
+    private val showInFileManager = when (dev.app.leaf.common.currentOs) {
+        dev.app.leaf.common.OS.MAC -> "Show in Finder"
+        dev.app.leaf.common.OS.WINDOWS -> "Show in Explorer"
+        else -> "Show in file manager"
+    }
+
     @Test
     fun `a file that both sides changed gets the merge tool, ours and theirs, first`() {
         assertEquals(
-            listOf("Open in external merge tool", "Use ours", "Use theirs", "Blame file"),
-            labels(bothChanged).take(4),
+            listOf("Open in external merge tool", "Use ours", "Use theirs", showInFileManager, "Blame file"),
+            labels(bothChanged).take(5),
         )
     }
 
     @Test
     fun `a file that git mergetool can't merge gets ours and theirs only`() {
         for (entry in listOf(deletedByThem, linkAgainstFile, bothChanged.copy(filePath = "[ab].txt"))) {
-            assertEquals(listOf("Use ours", "Use theirs", "Blame file"), labels(entry).take(3), entry.filePath)
+            assertEquals(
+                listOf("Use ours", "Use theirs", showInFileManager, "Blame file"),
+                labels(entry).take(4),
+                entry.filePath,
+            )
         }
     }
 

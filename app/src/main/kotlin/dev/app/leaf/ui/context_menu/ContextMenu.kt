@@ -126,6 +126,13 @@ fun DropDownMenuText(
 /** Where an element is, which isn't a state: elements move at every frame of a scroll, and a state would recompose them. */
 private class ElementPosition(var offsetToRoot: Offset? = null)
 
+/**
+ * Fork-only: where the last context menu opened, in the window, for a popup that one of its entries opens in its place
+ * (the editor picker of "Open in another editor…"). One menu is open at a time.
+ */
+var lastContextMenuPosition: IntOffset? = null
+    private set
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun Modifier.contextMenu(enabled: Boolean, items: () -> List<ContextMenuElement>): Modifier {
@@ -148,7 +155,11 @@ private fun Modifier.contextMenu(enabled: Boolean, items: () -> List<ContextMenu
                     } else {
                         lastCheck = currentCheck
                         event.changes.forEach { it.consume() }
-                        elementPosition.offsetToRoot?.let { setPopupPosition(it + event.changes[0].position) }
+                        elementPosition.offsetToRoot?.let {
+                            val position = it + event.changes[0].position
+                            lastContextMenuPosition = IntOffset(position.x.toInt(), position.y.toInt())
+                            setPopupPosition(position)
+                        }
                     }
                 }
             }

@@ -31,6 +31,8 @@ class KeyNamesTest {
         KeybindingOption.FIND,
         KeybindingOption.FIND_NEXT,
         KeybindingOption.FIND_PREVIOUS,
+        // Fork-only: the diff's and blame's editor button, in its tooltip
+        KeybindingOption.OPEN_IN_EDITOR,
     )
 
     @Test

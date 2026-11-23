@@ -62,6 +62,18 @@ sealed interface AppConfig {
     data class DiffDisplayFullFile(val value: Boolean) : AppConfig
     data class DiffTextViewType(val value: dev.app.leaf.domain.models.DiffTextViewType) : AppConfig
     data class TerminalPath(val value: String) : AppConfig
+
+    /** The editor that opens files, see [dev.app.leaf.domain.editor.EditorSettings.editor] (fork-only). */
+    data class Editor(val id: String?) : AppConfig
+
+    /** The command of the user's own editor, see [dev.app.leaf.domain.editor.customEditorCommand] (fork-only). */
+    data class EditorCommand(val command: String) : AppConfig
+
+    /** How a file in a linked worktree opens (fork-only). */
+    data class EditorLinkedWorktree(val value: dev.app.leaf.domain.editor.LinkedWorktreeOpening) : AppConfig
+
+    /** The editors chosen for one repository, by its common git dir's real path (fork-only). */
+    data class RepositoryEditors(val editors: Map<String, String>) : AppConfig
     data class GitExecutablePath(val value: String) : AppConfig
     data class RemoteOperationsWithGit(val value: Boolean) : AppConfig
     data class RefPanel(val value: RefPanelSettings) : AppConfig

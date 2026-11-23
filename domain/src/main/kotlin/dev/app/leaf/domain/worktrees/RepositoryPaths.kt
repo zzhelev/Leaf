@@ -79,6 +79,12 @@ private fun realPath(file: File): String = try {
     file.absoluteFile.toPath().normalize().toString()
 }
 
+/**
+ * The real path of the git dir that the worktrees of [gitDir]'s repository share: the one that a linked worktree's
+ * `commondir` file names, or [gitDir] itself. It stands for the repository whichever worktree a tab shows.
+ */
+fun sharedGitDirOf(gitDir: String): String = realPath(commonGitDirOf(gitDir) ?: File(gitDir))
+
 /** Whether [gitDir] is a linked worktree's git dir (`<common git dir>/worktrees/<name>`): it has a `commondir` file. */
 fun isLinkedWorktreeGitDir(gitDir: String): Boolean = File(gitDir, COMMON_DIR_FILE).isFile
 

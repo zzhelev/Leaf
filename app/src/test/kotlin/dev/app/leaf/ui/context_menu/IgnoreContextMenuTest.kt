@@ -22,7 +22,8 @@ class IgnoreContextMenuTest {
         val items = fileMenu(untracked, EntryType.UNSTAGED, onIgnore = { calls += "ignore" })
         val labels = labelsOf(items)
 
-        assertEquals(listOf("Delete file", "Ignore…", "Open file in folder"), labels.take(3))
+        // Fork-only: "Show in Finder" opens the menu, before what changes the file
+        assertEquals(listOf("Delete file", "Ignore…"), labels.drop(1).take(2))
 
         items[labels.indexOf("Ignore…")].onClick()
 

@@ -309,6 +309,8 @@ fun TaskType.errorTitle(): String {
         TaskType.ResolveConflict -> "Could not resolve the conflicts"
         TaskType.ConvertIndex -> "Could not convert the index"
         TaskType.SetUpGitLfs -> "Could not set up git-lfs"
+        TaskType.OpenInEditor -> "Could not open the file"
+        TaskType.ShowInFileManager -> "Could not show the file"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"
         TaskType.AddRemote -> "Adding remote failed"

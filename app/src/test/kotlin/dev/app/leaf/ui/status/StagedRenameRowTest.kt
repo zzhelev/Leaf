@@ -36,6 +36,13 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 
+/** "Show in Finder", "Show in Explorer" or "Show in file manager", as the menus say it on this system. */
+private fun showInFileManagerText() = when (dev.app.leaf.common.currentOs) {
+    dev.app.leaf.common.OS.MAC -> "Show in Finder"
+    dev.app.leaf.common.OS.WINDOWS -> "Show in Explorer"
+    else -> "Show in file manager"
+}
+
 private const val DIR = "app/src/main/kotlin/dev/app/leaf/ui"
 private val RENAME = StatusEntry(
     "$DIR/changes/StatusPane.kt",
@@ -82,12 +89,13 @@ class StagedRenameRowTest {
         val entries = menu(RENAME)
         val labels = labelsOf(entries)
 
+        // Fork-only: without a tab's editors, the file opening items are "Show in Finder" alone
         assertEquals(
             listOf(
+                showInFileManagerText(),
                 "Undo the move…",
                 "Blame file",
                 "File history",
-                "Open file in folder",
                 "Copy path",
                 "Copy relative path",
             ),
@@ -101,7 +109,7 @@ class StagedRenameRowTest {
         val entries = menu(STRINGS)
         val labels = labelsOf(entries)
 
-        assertEquals("Discard file changes", labels.first())
+        assertEquals(listOf(showInFileManagerText(), "Discard file changes"), labels.take(2))
         assertEquals(null, hintOf(entries[labels.indexOf("File history")]))
     }
 

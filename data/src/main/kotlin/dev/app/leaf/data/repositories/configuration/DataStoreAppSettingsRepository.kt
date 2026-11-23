@@ -12,6 +12,7 @@ import dev.app.leaf.data.repositories.configuration.mappers.LinesHeightMapper
 import dev.app.leaf.data.repositories.configuration.mappers.TextDiffViewTypeMapper
 import dev.app.leaf.data.repositories.configuration.mappers.ThemeMapper
 import dev.app.leaf.domain.commitmessage.ConventionalCommitsMode
+import dev.app.leaf.domain.editor.RepositoryEditorsCodec
 import dev.app.leaf.domain.models.AppConfig
 import dev.app.leaf.domain.models.CenterSplitSizes
 import dev.app.leaf.domain.models.CommitChangesSectionSizes
@@ -101,6 +102,12 @@ private val diffShowWhitespacePreference get() = booleanPreferencesKey("diff_sho
 
 private val cacheCredentialsPreference get() = booleanPreferencesKey("cache_credentials_in_memory")
 private val terminalPathPreference get() = stringPreferencesKey("terminal_path")
+
+// Fork-only: Settings › Editor
+private val editorPreference get() = stringPreferencesKey("editor")
+private val editorCommandPreference get() = stringPreferencesKey("editor_command")
+private val editorLinkedWorktreePreference get() = stringPreferencesKey("editor_linked_worktree")
+private val repositoryEditorsPreference get() = stringPreferencesKey("repository_editors")
 
 operator fun <T> Flow<Preferences>.get(key: Preferences.Key<T>): Flow<T?> {
     return this.map { it[key] }
@@ -222,6 +229,12 @@ class DataStoreAppSettingsRepository @Inject constructor(
     // Tools
     override val terminalPath get() = preferences.data[terminalPathPreference]
 
+    override val editor get() = preferences.data[editorPreference]
+    override val editorCommand get() = preferences.data[editorCommandPreference]
+    override val editorLinkedWorktree get() = preferences.data[editorLinkedWorktreePreference]
+    override val repositoryEditors
+        get() = preferences.data[repositoryEditorsPreference].map { it?.let(RepositoryEditorsCodec::decode) }
+
     override suspend fun setConfiguration(appConfig: AppConfig) {
         preferences.apply {
             when (appConfig) {
@@ -278,6 +291,13 @@ class DataStoreAppSettingsRepository @Inject constructor(
                 is AppConfig.DiffDisplayFullFile -> setValue(diffDisplayFullFilePreference, appConfig.value)
                 is AppConfig.DiffTextViewType -> setValue(diffTextViewTypePreference, textDiffViewTypeMapper.toData(appConfig.value))
                 is AppConfig.TerminalPath -> setValue(terminalPathPreference, appConfig.value)
+                // No editor chosen is no key
+                is AppConfig.Editor -> setValue(editorPreference, appConfig.id?.takeIf { it.isNotBlank() })
+                is AppConfig.EditorCommand -> setValue(editorCommandPreference, appConfig.command)
+                is AppConfig.EditorLinkedWorktree ->
+                    setValue(editorLinkedWorktreePreference, appConfig.value.storedName)
+                is AppConfig.RepositoryEditors ->
+                    setValue(repositoryEditorsPreference, RepositoryEditorsCodec.encode(appConfig.editors))
                 is AppConfig.RefPanel -> setValue(
                     refPanelSettingsPreference,
                     SortSettingsCodec.encodeRefPanelSettings(appConfig.value)

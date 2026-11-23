@@ -34,6 +34,9 @@ import dev.app.leaf.keybindings.KeybindingOption
 import dev.app.leaf.keybindings.matchesBinding
 import dev.app.leaf.ui.*
 import dev.app.leaf.ui.compare.ComparisonFullView
+import dev.app.leaf.ui.editor.EditorPickerPopup
+import dev.app.leaf.ui.editor.FileOpening
+import dev.app.leaf.ui.editor.LocalFileOpening
 import dev.app.leaf.ui.compare.ComparisonPane
 import dev.app.leaf.ui.components.BottomInfoBar
 import dev.app.leaf.ui.components.BranchesPaneToggle
@@ -106,6 +109,17 @@ fun RepositoryOpenPage(
     // Fork-only: the views that find searches (upstream issues 275 and 312)
     val findTargets = remember { FindTargets() }
     var showOpenPopup by remember { mutableStateOf(false) }
+    // Fork-only: opening files in an editor, which the file menus, the diff and blame offer
+    val editorChoice by repositoryOpenViewModel.editorChoice.collectAsState()
+    val editorPicker by repositoryOpenViewModel.editorPicker.collectAsState()
+    val fileOpening = remember(editorChoice) {
+        FileOpening(
+            choice = editorChoice,
+            onOpen = { path, line -> repositoryOpenViewModel.openInEditor(path, line, isAtMenu = true) },
+            onChooseEditor = { path, line -> repositoryOpenViewModel.chooseEditor(path, line, isAtMenu = true) },
+            onShow = { path -> repositoryOpenViewModel.showInFileManager(path) },
+        )
+    }
 
     // Fork-only: whether the tab, or anything in it, has the focus
     var tabHasFocus by remember { mutableStateOf(false) }
@@ -238,6 +252,12 @@ fun RepositoryOpenPage(
                         true
                     }
 
+                    // Fork-only: the shown diff's file in the editor, at the line in view
+                    it.matchesBinding(KeybindingOption.OPEN_IN_EDITOR) && repositoryOpenViewModel.shownDiffFile() != null -> {
+                        repositoryOpenViewModel.openShownDiffInEditor()
+                        true
+                    }
+
                     // Fork-only: find in the diff, file history or blame (upstream issues 275 and 312), or else the log's
                     // search field, in the bar above the log's columns
                     findTargets.onKeyEvent(it, onFindInLog = { repositoryOpenViewModel.focusLogSearch() }) -> true
@@ -250,7 +270,16 @@ fun RepositoryOpenPage(
         CompositionLocalProvider(
             LocalTabFocusRequester provides focusRequester,
             LocalFindTargets provides findTargets,
+            LocalFileOpening provides fileOpening,
         ) {
+            editorPicker?.let { picker ->
+                EditorPickerPopup(
+                    state = picker,
+                    onPick = { editorId, remember -> repositoryOpenViewModel.pickEditor(editorId, remember) },
+                    onClose = { repositoryOpenViewModel.closeEditorPicker() },
+                )
+            }
+
             Column(modifier = Modifier.weight(1f)) {
                 if (!resolverFocused) {
                     // Fork-only: Leaf's toolbar (docs/fork/window-chrome.md), in place of upstream's Menu
