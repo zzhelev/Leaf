@@ -186,6 +186,9 @@ fun RepositoryOpenPage(
                         // Fork-only: Save in the conflict resolver, as git can't stash while files have conflicts
                         if (showConflictResolver) {
                             repositoryOpenViewModel.saveInConflictResolver()
+                        } else if (repositoryOpenViewModel.hunkEdits.state.value != null) {
+                            // Fork-only: Done of a hunk edited in place (docs/fork/inline-editing.md)
+                            repositoryOpenViewModel.hunkEdits.done()
                         } else {
                             repositoryOpenViewModel.stash()
                         }
@@ -794,7 +797,9 @@ fun MainContentView(
                     )
                 } else {
                     Column {
-                        val showDiff = diffSelected?.entries?.count() == 1
+                        val hunkEdit by viewModel.hunkEdits.state.collectAsState()
+                        // Fork-only: a hunk edited in place keeps its diff on screen until the edit ends (docs/fork/inline-editing.md)
+                        val showDiff = diffSelected?.entries?.count() == 1 || hunkEdit != null
                         val tabFocusRequester = LocalTabFocusRequester.current
                         val logFocusRequester = remember { FocusRequester() }
                         val keepsLog by viewModel.diffKeepsLog.collectAsState()

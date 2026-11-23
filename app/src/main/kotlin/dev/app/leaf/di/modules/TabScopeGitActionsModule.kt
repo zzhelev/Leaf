@@ -6,6 +6,8 @@ import dev.app.leaf.data.git.discards.RestoreDiscardGitAction
 import dev.app.leaf.domain.interfaces.IGetDiscardRecordsGitAction
 import dev.app.leaf.domain.interfaces.IPlanDiscardRestoreGitAction
 import dev.app.leaf.domain.interfaces.IRestoreDiscardGitAction
+import dev.app.leaf.domain.interfaces.IWriteHunkEditGitAction
+import dev.app.leaf.data.git.workspace.WriteHunkEditGitAction
 import dev.app.leaf.common.TabScope
 import dev.app.leaf.data.git.GetWorktreePathGitAction
 import dev.app.leaf.data.git.author.LoadAuthorGitAction
@@ -467,6 +469,11 @@ interface TabScopeGitActionsModule {
     @Binds
     @TabScope
     fun bindsResetHunkGitAction(action: ResetHunkGitAction): IResetHunkGitAction
+
+    // Fork-only: Done of a hunk edited in place (docs/fork/inline-editing.md)
+    @Binds
+    @TabScope
+    fun bindsWriteHunkEditGitAction(action: WriteHunkEditGitAction): IWriteHunkEditGitAction
 
     @Binds
     @TabScope

@@ -15,6 +15,9 @@ import dev.app.leaf.app.generated.resources.error_editor_no_custom_command
 import dev.app.leaf.app.generated.resources.error_editor_start_failed
 import dev.app.leaf.app.generated.resources.error_editor_failed_silently
 import dev.app.leaf.app.generated.resources.error_editor_failed
+import dev.app.leaf.app.generated.resources.error_hunk_edit_file_changed
+import dev.app.leaf.app.generated.resources.error_hunk_edit_not_a_file
+import dev.app.leaf.app.generated.resources.error_hunk_edit_write_failed
 import dev.app.leaf.app.generated.resources.Res
 import dev.app.leaf.app.generated.resources.error_discard_changed_since
 import dev.app.leaf.app.generated.resources.error_discard_not_found
@@ -244,6 +247,7 @@ private fun AppError.monospaceParts(): List<String> = when (this) {
     is SeveralPushUrlsError -> urls
     is EditorError.FileMissing -> listOf(path)
     is EditorError.Failed -> listOf(command)
+    is HunkEditError -> listOf(path)
     else -> emptyList()
 }
 
@@ -571,6 +575,13 @@ fun AppError.getErrorText(): String {
                     else -> stringResource(Res.string.error_editor_failed, command, code, output)
                 }
             }
+        }
+
+        // Fork-only: Done of a hunk edited in place (docs/fork/inline-editing.md)
+        is HunkEditError -> when (this) {
+            is HunkEditError.FileChanged -> stringResource(Res.string.error_hunk_edit_file_changed, path)
+            is HunkEditError.NotAFile -> stringResource(Res.string.error_hunk_edit_not_a_file, path)
+            is HunkEditError.WriteFailed -> stringResource(Res.string.error_hunk_edit_write_failed, path, message)
         }
     }
 }

@@ -178,6 +178,7 @@ private fun DiscardRow(record: DiscardRecord, now: Long, onRestore: () -> Unit) 
             painterResource(
                 when (record.kind) {
                     DiscardKind.HUNK, DiscardKind.LINE -> Res.drawable.remove
+                    DiscardKind.EDIT -> Res.drawable.edit
                     else -> Res.drawable.delete
                 }
             ),
@@ -238,6 +239,7 @@ internal fun discardRowDetail(record: DiscardRecord): String {
         DiscardKind.ALL -> stringResource(Res.string.recently_discarded_kind_all)
         DiscardKind.HUNK -> stringResource(Res.string.recently_discarded_kind_hunk)
         DiscardKind.LINE -> stringResource(Res.string.recently_discarded_kind_line)
+        DiscardKind.EDIT -> stringResource(Res.string.recently_discarded_kind_edit)
         DiscardKind.DELETE -> stringResource(Res.string.recently_discarded_kind_deleted)
     }
     val deleted = record.deletedPaths.size

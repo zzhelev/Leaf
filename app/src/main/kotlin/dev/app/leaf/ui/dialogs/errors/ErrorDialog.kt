@@ -311,6 +311,7 @@ fun TaskType.errorTitle(): String {
         TaskType.SetUpGitLfs -> "Could not set up git-lfs"
         TaskType.OpenInEditor -> "Could not open the file"
         TaskType.ShowInFileManager -> "Could not show the file"
+        TaskType.EditHunk -> "The lines weren't saved"
         TaskType.RepositoryClone -> "Could not clone the repository"
         TaskType.RepositoryInit -> "Could not create the repository"
         TaskType.AddRemote -> "Adding remote failed"

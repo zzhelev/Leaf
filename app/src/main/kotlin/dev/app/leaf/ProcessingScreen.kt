@@ -212,6 +212,7 @@ fun getTitle(taskType: TaskType): String {
         TaskType.SetUpGitLfs -> "Setting up git-lfs"
         TaskType.OpenInEditor -> "Opening the editor"
         TaskType.ShowInFileManager -> "Opening the file manager"
+        TaskType.EditHunk -> "Saving the lines"
         TaskType.ResetRepoState -> "Resetting repository state"
         TaskType.ResetToCommit -> "Resetting to commit"
         TaskType.RevertCommit -> "Reverting commit"

@@ -114,4 +114,7 @@ sealed interface TaskType {
     // Fork-only: opening a file in an editor, or showing it in the file manager. Neither shows progress or a toast.
     data object OpenInEditor : TaskType
     data object ShowInFileManager : TaskType
+
+    // Fork-only: Done of a hunk edited in place, which the discard strip tells about, with Undo
+    data object EditHunk : TaskType
 }

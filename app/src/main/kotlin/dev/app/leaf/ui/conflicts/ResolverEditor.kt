@@ -92,12 +92,12 @@ class EditActions(
 class PartEditing(val edit: ResolverEdit, val firstNumber: Int, val actions: EditActions)
 
 /** The space between the line numbers and the field's border, the border, and between the border and the text. */
-private val FieldStart = 10.dp
-private val FieldBorder = 1.dp
-private val FieldTextStart = 5.dp
+internal val FieldStart = 10.dp
+internal val FieldBorder = 1.dp
+internal val FieldTextStart = 5.dp
 
 /** The space left after the longest line typed, as after the file's longest line, while lines don't wrap. */
-private val FieldEndMargin = 24.dp
+internal val FieldEndMargin = 24.dp
 
 /** A key for a row of the lists: its chunk and its row in the chunk, which stay when other chunks change their rows. */
 internal fun rowKey(chunk: Int, row: Int): Long = (chunk.toLong() shl 32) or row.toLong()
@@ -420,7 +420,7 @@ internal fun PartEditor(
 
 /** The result's line numbers next to the field's lines, from [first], placed where the field lays each line out. */
 @Composable
-private fun EditorLineNumbers(first: Int, numberWidth: Int, text: String, layout: TextLayoutResult?) {
+internal fun EditorLineNumbers(first: Int, numberWidth: Int, text: String, layout: TextLayoutResult?) {
     val starts = remember(text) {
         buildList {
             add(0)
@@ -528,7 +528,7 @@ internal object TabsAsSpaces : VisualTransformation {
  * Lays the field out on lines that don't wrap, at least as wide as the column, and places it the sideways offset to
  * the left, as the rows' lines are.
  */
-private class FieldSidewaysElement(private val sideways: SidewaysScroll) : ModifierNodeElement<FieldSidewaysNode>() {
+internal class FieldSidewaysElement(private val sideways: SidewaysScroll) : ModifierNodeElement<FieldSidewaysNode>() {
     override fun create() = FieldSidewaysNode(sideways)
 
     override fun update(node: FieldSidewaysNode) {
@@ -540,7 +540,7 @@ private class FieldSidewaysElement(private val sideways: SidewaysScroll) : Modif
     override fun hashCode() = System.identityHashCode(sideways)
 }
 
-private class FieldSidewaysNode(var sideways: SidewaysScroll) : Modifier.Node(), LayoutModifierNode {
+internal class FieldSidewaysNode(var sideways: SidewaysScroll) : Modifier.Node(), LayoutModifierNode {
     override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
         val offset = sideways.offset.roundToInt()
 

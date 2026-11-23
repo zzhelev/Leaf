@@ -55,12 +55,15 @@ import dev.app.leaf.ui.components.ScrollableLazyColumn
 import dev.app.leaf.ui.components.SidewaysScroll
 import dev.app.leaf.ui.components.UnwrappedLine
 import dev.app.leaf.ui.components.SecondaryButton
+import dev.app.leaf.repositoryopen.canEditHunk
 import dev.app.leaf.ui.components.tooltip.DelayedTooltip
+import dev.app.leaf.ui.components.tooltip.InstantTooltip
 import dev.app.leaf.ui.context_menu.ContextMenu
 import dev.app.leaf.ui.editor.LocalFileOpening
 import dev.app.leaf.ui.editor.FileNameMenu
 import dev.app.leaf.ui.editor.addOpenAtLineItem
 import dev.app.leaf.ui.context_menu.ContextMenuElement
+import dev.app.leaf.ui.context_menu.addContextMenu
 import dev.app.leaf.ui.context_menu.SelectionAwareTextContextMenu
 import dev.app.leaf.ui.dialogs.ConfirmableAction
 import dev.app.leaf.ui.find.addFindStyles
@@ -93,6 +96,7 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 import java.io.FileInputStream
 import java.text.NumberFormat
 import kotlin.math.max
@@ -170,7 +174,9 @@ private fun DiffPaneContent(
     val wrapLines by viewModel.diffWrapLines.collectAsState()
     val whitespaceMode by viewModel.diffWhitespace.collectAsState()
     val showWhitespace by viewModel.diffShowWhitespace.collectAsState()
-    val viewDiffResult = diffResultState.value ?: return
+    // Fork-only: a hunk edited in place keeps the diff that it started from (docs/fork/inline-editing.md)
+    val hunkEdit by viewModel.hunkEdits.state.collectAsState()
+    val viewDiffResult = hunkEdit?.diff ?: diffResultState.value ?: return
     val isRepositoryInSafeState by viewModel.isRepositoryInSafeState.collectAsState(false)
     val conflictSides by viewModel.conflictSides.collectAsState()
     val focusRequester = remember { FocusRequester() }
@@ -203,6 +209,15 @@ private fun DiffPaneContent(
         viewModel.closeViewFlow.collectLatest {
             if (it == CloseableView.DIFF && isClosable) closeDiffView()
         }
+    }
+
+    // Fork-only: the field had the focus, and the tab's keys need it somewhere in the tab once the edit ends
+    val isEditingHunk = hunkEdit != null
+    var wasEditingHunk by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isEditingHunk) {
+        if (wasEditingHunk && !isEditingHunk) focusRequester.requestFocus()
+        wasEditingHunk = isEditingHunk
     }
 
     Column(
@@ -272,9 +287,9 @@ private fun DiffPaneContent(
                         ?.let(::DiffFindText)
                 }
 
-                FindTarget(find, isAvailable = findText != null)
+                FindTarget(find, isAvailable = findText != null && hunkEdit == null)
 
-                if (findText != null && find.isOpen) {
+                if (findText != null && find.isOpen && hunkEdit == null) {
                     FindBar(
                         state = find,
                         lineCount = findText.lineCount,
@@ -284,6 +299,16 @@ private fun DiffPaneContent(
                             find.goToLine(line, findText, showCompleteFile.takeIf { !isDisplayFullFile })
                         },
                         focusAfterClose = focusRequester,
+                    )
+                }
+
+                // Fork-only: leaving a hunk edited in place with lines typed asks what to do with them
+                hunkEdit?.takeIf { it.leave != null }?.let { edit ->
+                    HunkEditLeaveStrip(
+                        state = edit,
+                        onSave = { viewModel.hunkEdits.saveAndLeave() },
+                        onDiscard = { viewModel.hunkEdits.discardAndLeave() },
+                        onKeepEditing = { viewModel.hunkEdits.keepEditing() },
                     )
                 }
 
@@ -318,8 +343,19 @@ private fun DiffPaneContent(
                     sideLabels(diffResult is DiffResult.TextSplit)
                 }
 
-                val scrollState by viewModel.lazyListState.collectAsState()
-                val diffFind = findText?.let { DiffFind(find, it, scrollState, source = diffType.filePath) }
+                val shownScrollState by viewModel.lazyListState.collectAsState()
+                // Fork-only: another file's selection gives the view model another list state, which the edit keeps out
+                val editScrollState = remember(hunkEdit?.edit) { shownScrollState }
+                val scrollState = if (hunkEdit != null) editScrollState else shownScrollState
+                val diffFind = findText?.takeIf { hunkEdit == null }?.let { DiffFind(find, it, scrollState, source = diffType.filePath) }
+                val hunkEditing = HunkEditing(
+                    state = hunkEdit,
+                    canEdit = { hunk -> canEditHunk(diffType, hunk) },
+                    onStart = { hunk, caretLine -> viewModel.hunkEdits.start(viewDiffResult, hunk, caretLine) },
+                    onType = { viewModel.hunkEdits.type(it) },
+                    onDone = { viewModel.hunkEdits.done() },
+                    onCancel = { viewModel.hunkEdits.cancel() },
+                )
                 // Fork-only: lines that don't wrap scroll sideways together, back to their start in another file
                 val sideways = remember(wrapLines, diffType.filePath) { if (wrapLines) null else SidewaysScroll() }
 
@@ -329,6 +365,7 @@ private fun DiffPaneContent(
                     RenamedWithoutChanges(renamedWithoutChanges)
                 } else when (diffResult) {
                     is DiffResult.TextSplit -> DiffLines(sideways, diffResult, lineTextStart(diffType), diffFind) {
+                        CompositionLocalProvider(LocalHunkEditing provides hunkEditing) {
                         HunkSplitTextDiff(
                             diffType = diffType,
                             scrollState = scrollState,
@@ -352,9 +389,11 @@ private fun DiffPaneContent(
                             },
                             onDiscardLine = ::discardLine,
                         )
+                        }
                     }
 
                     is DiffResult.Text -> DiffLines(sideways, diffResult, lineTextStart(diffType), diffFind) {
+                        CompositionLocalProvider(LocalHunkEditing provides hunkEditing) {
                         HunkUnifiedTextDiff(
                             diffType = diffType,
                             scrollState = scrollState,
@@ -378,6 +417,7 @@ private fun DiffPaneContent(
                             },
                             onDiscardLine = ::discardLine,
                         )
+                        }
                     }
 
                     is DiffResult.NonText -> {
@@ -670,6 +710,9 @@ fun HunkUnifiedTextDiff(
 ) {
     val hunks = diffResult.hunks
     var selectedText by remember { mutableStateOf(AnnotatedString("")) }
+    // Fork-only: a hunk edited in place, whose lines no other hunk's buttons change meanwhile (docs/fork/inline-editing.md)
+    val hunkEditing = LocalHunkEditing.current
+    val editedHunk = hunkEditing?.editedHunk
 
     CompositionLocalProvider(
         LocalTextContextMenu provides SelectionAwareTextContextMenu {
@@ -683,16 +726,21 @@ fun HunkUnifiedTextDiff(
                 state = scrollState
             ) {
                 for (hunk in hunks) {
+                    val isEdited = hunkEditing != null && hunk === editedHunk
+                    // Fork-only: a hunk of a diff that ignored whitespace can't be applied as a patch
+                    val hunkActions = canUseHunkActions && !hunk.ignoresWhitespace && editedHunk == null
+
                     item {
                         DisableSelection {
                             HunkHeader(
                                 header = hunk.header,
                                 diffType = diffType,
-                                // Fork-only: a hunk of a diff that ignored whitespace can't be applied as a patch
-                                canUseHunkActions = canUseHunkActions && !hunk.ignoresWhitespace,
+                                canUseHunkActions = hunkActions,
                                 onUnstageHunk = { onUnstageHunk(diffResult.diffEntry, hunk) },
                                 onStageHunk = { onStageHunk(diffResult.diffEntry, hunk) },
                                 onResetHunk = { onResetHunk(diffResult.diffEntry, hunk) },
+                                onEdit = hunkEditing?.takeIf { it.offersEdit(hunk) }?.let { { it.onStart(hunk, null) } },
+                                editing = hunkEditing?.takeIf { isEdited },
                             )
                         }
                     }
@@ -702,9 +750,14 @@ fun HunkUnifiedTextDiff(
                     val highestLineNumber = max(oldHighestLineNumber, newHighestLineNumber)
                     val highestLineNumberLength = highestLineNumber.toString().count()
 
+                    if (isEdited) {
+                        editedHunkItems(hunk, diffType, highestLineNumberLength, hunkEditing)
+                        continue
+                    }
+
                     items(hunk.lines) { line ->
                         // Fork-only: the line's buttons and its menu offer the same actions (DiffLineActions.kt)
-                        val actions = lineActions(line, diffType, canUseHunkActions && !hunk.ignoresWhitespace)
+                        val actions = lineActions(line, diffType, hunkActions)
                         val onLineAction = { action: LineAction ->
                             if (action == LineAction.DISCARD) {
                                 onDiscardLine(diffResult.diffEntry, hunk, line)
@@ -718,6 +771,7 @@ fun HunkUnifiedTextDiff(
                             actions = actions,
                             onLineAction = onLineAction,
                             openAt = editorLineOf(diffType, line),
+                            onEditLines = editLinesAction(hunkEditing, hunk, line),
                         ) {
                             DiffLine(
                                 highestLineNumberLength,
@@ -748,6 +802,9 @@ fun HunkSplitTextDiff(
     onDiscardLine: (DiffEntry, Hunk, Line) -> Unit,
 ) {
     val hunks = diffResult.hunks
+    // Fork-only: a hunk edited in place (docs/fork/inline-editing.md)
+    val hunkEditing = LocalHunkEditing.current
+    val editedHunk = hunkEditing?.editedHunk
 
     /**
      * Disables selection in one side when the other is being selected
@@ -768,15 +825,21 @@ fun HunkSplitTextDiff(
                 state = scrollState
             ) {
                 for (splitHunk in hunks) {
+                    val isEdited = hunkEditing != null && splitHunk.sourceHunk === editedHunk
+                    val hunkActions = canUseHunkActions && !splitHunk.sourceHunk.ignoresWhitespace && editedHunk == null
+
                     item {
                         DisableSelection {
                             HunkHeader(
                                 header = splitHunk.sourceHunk.header,
                                 diffType = diffType,
-                                canUseHunkActions = canUseHunkActions && !splitHunk.sourceHunk.ignoresWhitespace,
+                                canUseHunkActions = hunkActions,
                                 onUnstageHunk = { onUnstageHunk(diffResult.diffEntry, splitHunk.sourceHunk) },
                                 onStageHunk = { onStageHunk(diffResult.diffEntry, splitHunk.sourceHunk) },
                                 onResetHunk = { onResetHunk(diffResult.diffEntry, splitHunk.sourceHunk) },
+                                onEdit = hunkEditing?.takeIf { it.offersEdit(splitHunk.sourceHunk) }
+                                    ?.let { { it.onStart(splitHunk.sourceHunk, null) } },
+                                editing = hunkEditing?.takeIf { isEdited },
                             )
                         }
                     }
@@ -786,6 +849,12 @@ fun HunkSplitTextDiff(
                     val highestLineNumber = max(oldHighestLineNumber, newHighestLineNumber)
                     val highestLineNumberLength = highestLineNumber.toString().count()
 
+                    // Fork-only: as in unified, across both columns (docs/fork/inline-editing.md)
+                    if (isEdited) {
+                        editedHunkItems(splitHunk.sourceHunk, diffType, highestLineNumberLength, hunkEditing)
+                        continue
+                    }
+
                     items(splitHunk.lines) { linesPair ->
                         SplitDiffLine(
                             highestLineNumberLength = highestLineNumberLength,
@@ -794,7 +863,7 @@ fun HunkSplitTextDiff(
                             selectableSide = selectableSide,
                             diffType = diffType,
                             selectedText = selectedText,
-                            canUseLineActions = canUseHunkActions && !splitHunk.sourceHunk.ignoresWhitespace,
+                            canUseLineActions = hunkActions,
                             onLineAction = { line, action ->
                                 if (action == LineAction.DISCARD) {
                                     onDiscardLine(diffResult.diffEntry, splitHunk.sourceHunk, line)
@@ -962,6 +1031,8 @@ fun DiffContextMenu(
     onLineAction: (LineAction) -> Unit,
     /** Fork-only: the file and line that "Open in … at line" opens, for an uncommitted diff's line. */
     openAt: EditorLine? = null,
+    /** Fork-only: "Edit these lines", which edits the line's hunk in place from it (docs/fork/inline-editing.md). */
+    onEditLines: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val fileOpening = LocalFileOpening.current
@@ -969,7 +1040,17 @@ fun DiffContextMenu(
     ContextMenu(
         enabled = selectedText.isEmpty(),
         items = {
-            val lineItems = lineActionMenuItems(actions, onLineAction)
+            val lineItems = buildList {
+                if (onEditLines != null) {
+                    addContextMenu(
+                        composableLabel = { stringResource(Res.string.hunk_edit_lines) },
+                        icon = { painterResource(Res.drawable.edit) },
+                        onClick = onEditLines,
+                    )
+                }
+
+                addAll(lineActionMenuItems(actions, onLineAction))
+            }
 
             if (fileOpening != null && openAt != null) {
                 buildList {
@@ -1014,6 +1095,10 @@ fun HunkHeader(
     onUnstageHunk: () -> Unit,
     onStageHunk: () -> Unit,
     onResetHunk: () -> Unit,
+    /** Fork-only: Edit, which edits the hunk's lines in place (docs/fork/inline-editing.md); null leaves it out. */
+    onEdit: (() -> Unit)? = null,
+    /** Fork-only: the hunk is being edited, so "Editing", Cancel and Done take the place of its buttons. */
+    editing: HunkEditing? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1030,8 +1115,23 @@ fun HunkHeader(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Fork-only: a hunk edited in place, and Edit, which is offered during a merge or rebase too
+        if (editing != null) {
+            HunkEditControls(editing)
+        } else if (onEdit != null) {
+            InstantTooltip(text = stringResource(Res.string.hunk_edit_tooltip)) {
+                SecondaryButton(
+                    text = stringResource(Res.string.hunk_edit),
+                    colors = MaterialTheme.styleColors.neutral,
+                    onClick = onEdit,
+                    modifier = Modifier.padding(start = 16.dp),
+                )
+            }
+        }
+
         // Hunks options are only visible when repository is a normal state (not during merge/rebase)
         if (
+            editing == null &&
             (diffType is DiffType.UncommittedDiff && canUseHunkActions) &&
             diffType.hasHunkActions
         ) {

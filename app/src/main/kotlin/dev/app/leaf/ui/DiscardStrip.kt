@@ -124,6 +124,8 @@ internal fun discardStripText(notice: DiscardNotice): String {
     return when (record.kind) {
         DiscardKind.HUNK -> stringResource(Res.string.discard_strip_hunk, first)
         DiscardKind.LINE -> stringResource(Res.string.discard_strip_line, first)
+        // Fork-only: a hunk edited in place (docs/fork/inline-editing.md)
+        DiscardKind.EDIT -> stringResource(Res.string.discard_strip_edit, first)
         DiscardKind.DELETE -> stringResource(Res.string.discard_strip_deleted_one, first)
         DiscardKind.CHANGES, DiscardKind.STAGED_CHANGES, DiscardKind.ALL -> {
             val changed = record.paths.size - record.deletedPaths.size

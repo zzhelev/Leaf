@@ -31,6 +31,9 @@ enum class DiscardKind {
 
     /** "Delete file" on an untracked file, or a folder that holds another repository. */
     DELETE,
+
+    /** Done of a hunk edited in place, which replaced its lines (fork-only, `docs/fork/inline-editing.md`). */
+    EDIT,
 }
 
 /**

@@ -1375,6 +1375,7 @@
     </plurals>
     <string name="discard_strip_hunk">Discarded a hunk of %1$s.</string>
     <string name="discard_strip_line">Discarded a line of %1$s.</string>
+    <string name="discard_strip_edit">Edited lines of %1$s.</string>
     <string name="discard_strip_deleted_one">Deleted %1$s.</string>
     <plurals name="discard_strip_deleted">
         <item quantity="one">Deleted %1$d new file.</item>
@@ -1422,6 +1423,7 @@
     <string name="recently_discarded_kind_staged_changes">Staged changes</string>
     <string name="recently_discarded_kind_all">Discard all</string>
     <string name="recently_discarded_kind_hunk">A hunk</string>
+    <string name="recently_discarded_kind_edit">Lines edited</string>
     <string name="recently_discarded_kind_line">A line</string>
     <string name="recently_discarded_kind_deleted">Deleted</string>
     <plurals name="recently_discarded_deleted_new_files">
@@ -2250,6 +2252,21 @@
     <string name="editor_choose">Open in editor…</string>
     <string name="editor_open_in_another">Open in another editor…</string>
     <string name="editor_file_menu">File menu</string>
+    <string name="hunk_edit">Edit</string>
+    <string name="hunk_edit_tooltip">Edit these lines in place</string>
+    <string name="hunk_edit_lines">Edit these lines</string>
+    <string name="hunk_edit_editing">Editing</string>
+    <string name="hunk_edit_cancel">Cancel</string>
+    <string name="hunk_edit_done">Done</string>
+    <string name="hunk_edit_field">Lines of %1$s</string>
+    <string name="hunk_edit_left">You moved on from %1$s with edits that aren't saved.</string>
+    <string name="hunk_edit_unsaved">%1$s has edits that aren't saved.</string>
+    <string name="hunk_edit_save">Save</string>
+    <string name="hunk_edit_discard">Discard</string>
+    <string name="hunk_edit_keep_editing">Keep editing</string>
+    <string name="error_hunk_edit_file_changed">Leaf didn't save the lines, as the file changed after the diff was shown:\n\n%1$s\n\nWhat you typed is still in the field. Copy it, then Cancel to see the file as it is now.</string>
+    <string name="error_hunk_edit_not_a_file">Leaf didn't save the lines, as there's no file to write them into:\n\n%1$s\n\nIt's gone, or a folder or a link is in its place.</string>
+    <string name="error_hunk_edit_write_failed">Leaf couldn't write the lines into:\n\n%1$s\n\n%2$s</string>
     <string name="editor_show_in_finder">Show in Finder</string>
     <string name="editor_show_in_explorer">Show in Explorer</string>
     <string name="editor_show_in_file_manager">Show in file manager</string>

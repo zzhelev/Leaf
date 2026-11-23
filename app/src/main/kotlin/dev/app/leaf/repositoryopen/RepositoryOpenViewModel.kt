@@ -7,6 +7,9 @@ import dev.app.leaf.domain.models.StatusType
 import dev.app.leaf.domain.models.RepositorySelectionState
 import dev.app.leaf.domain.editor.ShowInFileManagerUseCase
 import dev.app.leaf.domain.editor.OpenInEditorUseCase
+import dev.app.leaf.domain.conflicts.EditorSyntax
+import dev.app.leaf.domain.editing.EditHunkUseCase
+import dev.app.leaf.domain.highlighting.highlightedTextOf
 import dev.app.leaf.domain.editor.IExternalEditors
 import dev.app.leaf.domain.editor.EditorChoice
 import dev.app.leaf.domain.discards.DiscardNotice
@@ -264,6 +267,8 @@ class RepositoryOpenViewModel @Inject constructor(
     private val openInEditorUseCase: OpenInEditorUseCase,
     private val showInFileManagerUseCase: ShowInFileManagerUseCase,
     externalEditors: IExternalEditors,
+    // Fork-only: a hunk edited in place (docs/fork/inline-editing.md)
+    private val editHunkUseCase: EditHunkUseCase,
 ) : IVerticalSplitPaneConfig by verticalSplitPaneConfig,
     TabViewModel() {
     val completedTasks = repositoryStateRepository.completedTasks
@@ -1254,6 +1259,7 @@ class RepositoryOpenViewModel @Inject constructor(
                 CloseableView.LOG_SELECTION -> logSelectionController.clear()
                 CloseableView.COMMIT_EDITOR -> commitEditor.cancel()
                 CloseableView.COMMIT_MESSAGE_EDITOR -> statusViewModelExtender.expandMessage(false)
+                CloseableView.HUNK_EDIT -> hunkEdits.escape()
 
             }
         }
@@ -2016,24 +2022,35 @@ class RepositoryOpenViewModel @Inject constructor(
      * Discard or Cancel.
      */
     fun whenConflictResolverLeft(then: () -> Unit) {
-        val resolver = conflictResolverViewModel
+        // Fork-only: a hunk edited in place asks first too (docs/fork/inline-editing.md)
+        hunkEdits.leaveThen {
+            val resolver = conflictResolverViewModel
 
-        if (resolver == null) then() else resolver.leaveThen(then)
+            if (resolver == null) then() else resolver.leaveThen(then)
+        }
     }
 
-    /** Whether the resolver has changes that aren't saved, which closing the tab would lose. */
+    /** Whether the resolver, or a hunk edited in place, has changes that aren't saved, which closing the tab would lose. */
     val conflictResolverHasUnsavedChanges: Boolean
-        get() = conflictResolverViewModel?.hasUnsavedChanges == true
+        get() = conflictResolverViewModel?.hasUnsavedChanges == true || hunkEdits.hasUnsavedChanges
 
-    /** The resolver's file when it has changes that aren't saved, which quitting Leaf would lose (fork-only). */
+    /**
+     * The resolver's file when it has changes that aren't saved, or else the file of a hunk edited in place with lines
+     * typed, which quitting Leaf would lose (fork-only).
+     */
     val conflictResolverUnsavedFile: String?
-        get() = conflictResolverViewModel?.unsavedFile
+        get() = conflictResolverViewModel?.unsavedFile ?: hunkEdits.unsavedFile
 
-    /** Saves the resolver's file before Leaf quits: see [ConflictResolverViewModel.saveBeforeQuit]. */
+    /** Saves a hunk edited in place, then the resolver's file, before Leaf quits: see [ConflictResolverViewModel.saveBeforeQuit]. */
     fun saveConflictResolverBeforeQuit(onSaved: () -> Unit, onFailed: () -> Unit) {
-        val resolver = conflictResolverViewModel
+        hunkEdits.saveBeforeQuit(
+            onSaved = {
+                val resolver = conflictResolverViewModel
 
-        if (resolver == null) onSaved() else resolver.saveBeforeQuit(onSaved, onFailed)
+                if (resolver == null) onSaved() else resolver.saveBeforeQuit(onSaved, onFailed)
+            },
+            onFailed = onFailed,
+        )
     }
 
     /** Esc in the resolver: finishes editing first, then leaves Focus, then closes it. */
@@ -2399,6 +2416,26 @@ class RepositoryOpenViewModel @Inject constructor(
         diffHighlightsLoader.show(result)
         result
     }.stateIn(initialValue = null as ViewDiffResult?)
+
+    /**
+     * Fork-only: a hunk of an Unstaged diff edited in place (`docs/fork/inline-editing.md`), which keeps the diff that it
+     * started from on screen while it lasts. The field starts in the colours that the diff shows its lines in.
+     */
+    val hunkEdits = HunkEditController(
+        scope = viewModelScope,
+        diffResult = diffResult,
+        write = { edit, typed -> editHunkUseCase(edit, typed) },
+        syntaxOf = { hunk, edit ->
+            val versions = diffHighlights.value
+            EditorSyntax(
+                text = edit.text,
+                highlighted = highlightedTextOf(edit.lines.indices.map { versions.spansOf(hunk.newText, edit.start + it) }),
+            )
+        },
+        onEditing = { editing ->
+            if (editing) addCloseableView(CloseableView.HUNK_EDIT) else removeCloseableView(CloseableView.HUNK_EDIT)
+        },
+    )
 
     val isRepositoryInSafeState = repositoryState
         .map { it == RepositoryState.SAFE }

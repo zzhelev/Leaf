@@ -17,4 +17,5 @@ enum class CloseableView {
     LOG_SELECTION, // Fork-only: a range of commits selected in the log with Shift
     COMMIT_EDITOR, // Fork-only: the commit editor, which Esc cancels, keeping its plan
     COMMIT_MESSAGE_EDITOR, // Fork-only: the commit message in the centre pane, which Esc puts back in the changes pane
+    HUNK_EDIT, // Fork-only: a hunk edited in place, which Esc cancels, asking first about lines typed
 }
