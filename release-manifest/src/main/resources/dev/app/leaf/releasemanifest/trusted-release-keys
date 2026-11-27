@@ -1,0 +1,5 @@
+# The keys that may sign Leaf's releases (docs/fork/auto-update.md, section 2), one a line: its name, which names its
+# signature file (leaf-update.json.<name>.sig), then its public half as ssh-keygen writes it. "github" signs in the
+# release workflow, with the secret of its release-signing environment; a key named after a computer signs there with
+# sign-release.sh; "backup" is kept offline. Leaf and both scripts read this file. A key is added or dropped by a
+# release that a key already here signed.
