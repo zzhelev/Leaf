@@ -106,9 +106,10 @@ unset SSH_AUTH_SOCK
 ssh-keygen -q -Y sign -n "$namespace" -f "$key" "$manifest" || fail "ssh-keygen couldn't sign with $key"
 
 # Leaf's check, done by ssh-keygen: the key must be the one that Leaf trusts as $name
-awk -v namespace="$namespace" '
+# Not -v namespace: gawk 5 refuses its builtin's name as a variable
+awk -v signing_namespace="$namespace" '
     /^[[:space:]]*(#|$)/ { next }
-    NF >= 3 { printf "%s namespaces=\"%s\" %s %s\n", $1, namespace, $2, $3 }
+    NF >= 3 { printf "%s namespaces=\"%s\" %s %s\n", $1, signing_namespace, $2, $3 }
 ' "$trusted" > "$work/allowed-signers"
 
 grep -q "^$name " "$work/allowed-signers" || fail "Leaf trusts no key named $name ($trusted)"
