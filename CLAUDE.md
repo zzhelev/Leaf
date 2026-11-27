@@ -98,7 +98,15 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
      `refs/tags/leaf-X.Y.Z` in place of `main`.
   3. The Release Build workflow builds everything and creates a draft release: a macOS DMG (Apple Silicon, signed ad
      hoc), a Windows installer and portable ZIP, Linux jars (x86_64 and aarch64), Debian packages (amd64 and
-     arm64), and a `.sha256` file for each. Review the draft, write the notes, publish.
+     arm64), and a `.sha256` file for each. Each build job also attests its files (`actions/attest`). Review the
+     draft, write the notes, publish.
+     - Fork-only, being built (`docs/fork/auto-update.md`): the release is signed one of two ways, and Leaf will
+       update itself from it either way. Approve the `sign` job (the run's "Review deployments", environment
+       `release-signing`): it signs `leaf-update.json` with the `LEAF_RELEASE_KEY` secret, and the `attach` job attaches
+       both to the draft. Or reject it and run `release-manifest/sign-release.sh X.Y.Z` on a computer whose key Leaf
+       trusts: it checks the draft's files against GitHub's attestations, asks for the key's passphrase and attaches
+       the manifest and its signature. The keys are set up in section 11 of that doc; until then the sign job fails,
+       and the draft is made anyway.
   4. After publishing, update `latest.json` on `main` (`appVersion`, `appCode` = the new `APP_VERSION_CODE`,
      `downloadUrl` = the release page) and push. Installed copies then show the update banner.
      `UpdatesRepository.update` checks once for the whole app, every 5 minutes, and compares `appCode` only. A failed
@@ -266,6 +274,14 @@ asking.
   kotlin-textmate's (MIT, a Kotlin port of vscode-textmate) in its own package `dev.textmate`, on Joni and jcodings.
   Only `data`'s `TextMateHighlighter` uses it. `textmate/README.md` says what Leaf changed in the copy, each a commit of
   its own, which differences from VS Code remain, and how to take a later fix from kotlin-textmate.
+- `release-manifest` (fork-only, 2026-11-22, `docs/fork/auto-update.md`): what Leaf knows about a release it can
+  update from: the manifest of its files' hashes (`ReleaseManifest`), the keys that may sign it (`TRUSTED_RELEASE_KEYS`,
+  read from the resource file `trusted-release-keys`, and `REQUIRED_SIGNATURES`), and the check of their SSHSIG
+  signatures with the JDK's Ed25519 (`verifySshSignature`, `checkReleaseSignatures`). kotlinx.serialization only.
+  Next to it, three POSIX shell scripts: `sign-manifest.sh` writes and signs the manifest, with the shell's tools and
+  ssh-keygen only, and checks the signature against the same keys file; `attach-manifest.sh` attaches it through `gh`;
+  `sign-release.sh` signs on a computer with both. `SignManifestScriptTest` and `SignReleaseScriptTest` run them, the
+  second through a stand-in for `gh`.
 - `rs`: the binary `leaf-askpass` (`rs/leaf-askpass.rs`, standard library only), the askpass program, credential
   helper and LFS filter of the git commands Leaf runs (see Remote operations). It ships in the app's jar, and
   `AskpassHelper` extracts it to `<app data>/tmp/askpass-<hash>/` the first time it's needed.

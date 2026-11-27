@@ -2,6 +2,23 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Signed releases, the first step to Leaf updating itself (2026-11-26)
+
+- **Request:** the user's: Leaf should update itself, with the builds on GitHub. The first version (2026-11-22) signed
+  each release on the user's computers, so that the GitHub account alone couldn't decide what Leaf installs. On
+  2026-11-26 the user chose to keep a key in GitHub as well (D12), knowing that whoever controls the account or the
+  release workflow can then sign, and to keep signing on a computer as the other way (D13).
+- **Now:** each build job of the release workflow attests its files, and the draft is made as before. On a tag, a
+  `sign` job in the `release-signing` environment (only `leaf-*` tags, the user's approval) writes `leaf-update.json`
+  with each file's size and SHA-256 and signs it with the `LEAF_RELEASE_KEY` secret, using only the shell's tools and
+  ssh-keygen, and an `attach` job attaches both. Or `release-manifest/sign-release.sh` signs on a computer: it checks the
+  tag and every file's attestation, signs with the computer's key and attaches the result, adding only its signature
+  when the draft has the same manifest. The module `release-manifest` (the manifest, the trusted keys file, the SSHSIG
+  check that Leaf will run, and the three scripts) is new. Third-party actions in the workflow are pinned to commits.
+- **Not yet:** the keys and the environment, which the user sets up, and Leaf checking, downloading and installing
+  (steps 2 to 4).
+- Details: `docs/fork/auto-update.md`, sections 2, 5 and 11.
+
 ## Edit the whole file (2026-11-23)
 
 - **Request:** the user's, after B1: B2 of the Design artifact "Leaf edit files", the working file whole, to see how a
