@@ -7,6 +7,12 @@ name: Release Build
 # - Running the workflow by hand (Actions tab, "Run workflow") only builds. The files are kept as workflow artifacts
 #   for a week.
 # The macOS build is signed ad hoc. Signing with a Developer ID and notarizing need Apple credentials as secrets.
+# Each build job attests its files: GitHub's signed record of the workflow and commit that built them.
+# On a tag, the draft release is made, and the sign job writes the update manifest (leaf-update.json, each file's size
+# and SHA-256) and signs it with the key that Leaf trusts as "github", which Leaf checks before it updates itself
+# (docs/fork/auto-update.md). The key is the LEAF_RELEASE_KEY secret of the release-signing environment, which only
+# leaf-* tags may use and which waits for the maintainer's approval. The attach job then attaches both to the draft.
+# Rejecting the sign job instead leaves the release to be signed on a computer (release-manifest/sign-release.sh).
 
 on:
   push:
@@ -42,6 +48,10 @@ jobs:
 
   build_macos:
     needs: version
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     runs-on: macos-latest
     env:
       VERSION: ${{ needs.version.outputs.version }}
@@ -55,7 +65,8 @@ jobs:
             echo "::error::The fonts are Git LFS pointers"
             exit 1
           fi
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned to a commit: a tag or branch can be moved to other code. This is the stable branch's commit.
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       - name: Set up the JetBrains JDK 25, which includes jlink, jpackage and the jmods
         uses: actions/setup-java@v6
         with:
@@ -69,7 +80,12 @@ jobs:
         run: |
           mkdir Output
           mv app/build/compose/binaries/main/dmg/Leaf-*.dmg "Output/Leaf-$VERSION-macos-arm64.dmg"
-          cd Output && for f in *; do shasum -a 256 "$f" > "$f.sha256"; done
+      - name: Attest the files
+        uses: actions/attest@v4
+        with:
+          subject-path: 'Output/*'
+      - name: Add checksums
+        run: cd Output && for f in *; do shasum -a 256 "$f" > "$f.sha256"; done
       - uses: actions/upload-artifact@v7
         with:
           name: leaf-macos-arm64
@@ -78,6 +94,10 @@ jobs:
 
   build_windows:
     needs: version
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     runs-on: windows-latest
     env:
       VERSION: ${{ needs.version.outputs.version }}
@@ -92,7 +112,8 @@ jobs:
             echo "::error::The fonts are Git LFS pointers"
             exit 1
           fi
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned to a commit: a tag or branch can be moved to other code. This is the stable branch's commit.
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       - name: Set up the JetBrains JDK 25, which includes jlink, jpackage and the jmods
         uses: actions/setup-java@v6
         with:
@@ -114,6 +135,10 @@ jobs:
       - name: Build the portable ZIP
         shell: pwsh
         run: Compress-Archive -Path app/build/compose/binaries/main/app/Leaf/* -DestinationPath "Output/Leaf-$env:VERSION-windows-x64-portable.zip"
+      - name: Attest the files
+        uses: actions/attest@v4
+        with:
+          subject-path: 'Output/*'
       - name: Add checksums
         shell: bash
         run: cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
@@ -125,6 +150,10 @@ jobs:
 
   build_linux:
     needs: version
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -148,7 +177,8 @@ jobs:
             echo "::error::The fonts are Git LFS pointers"
             exit 1
           fi
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned to a commit: a tag or branch can be moved to other code. This is the stable branch's commit.
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       - name: Install cross and the Rust target
         run: |
           cargo install cross --locked
@@ -167,7 +197,12 @@ jobs:
         run: |
           mkdir Output
           mv app/build/libs/Leaf-linux-${{ matrix.suffix }}-*.jar "Output/Leaf-$VERSION-linux-${{ matrix.suffix }}.jar"
-          cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
+      - name: Attest the files
+        uses: actions/attest@v4
+        with:
+          subject-path: 'Output/*'
+      - name: Add checksums
+        run: cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
       - uses: actions/upload-artifact@v7
         with:
           name: leaf-linux-${{ matrix.suffix }}
@@ -176,6 +211,10 @@ jobs:
 
   build_linux_deb:
     needs: version
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     # Built natively on Ubuntu 22.04, because jpackage can't build a package for another CPU, and because the package
     # works on systems as old as the one it was built on:
     # - The package's dependencies are the build system's package names. Ubuntu 24.04's renamed libraries (such as
@@ -202,7 +241,8 @@ jobs:
             echo "::error::The fonts are Git LFS pointers"
             exit 1
           fi
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned to a commit: a tag or branch can be moved to other code. This is the stable branch's commit.
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       # jpackage lists only the libraries it finds installed as dependencies. skiko's arm64 library needs libEGL.so.1,
       # and the arm64 runner has no libegl1, so without it the package would lack that dependency.
       - name: Install fakeroot, which jpackage needs to build a .deb, and libegl1
@@ -227,13 +267,76 @@ jobs:
         run: |
           mkdir Output
           mv app/build/compose/binaries/main/deb/leaf_*_${{ matrix.arch }}.deb "Output/Leaf-$VERSION-linux-${{ matrix.arch }}.deb"
-          cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
+      - name: Attest the files
+        uses: actions/attest@v4
+        with:
+          subject-path: 'Output/*'
+      - name: Add checksums
+        run: cd Output && for f in *; do sha256sum "$f" > "$f.sha256"; done
       - uses: actions/upload-artifact@v7
         with:
           name: leaf-linux-deb-${{ matrix.arch }}
           path: Output/*
           retention-days: 7
 
+  # The only job with the signing key, so it runs nothing that could read it: GitHub's own actions, pinned to commits,
+  # and release-manifest/sign-manifest.sh, which uses the shell's tools and ssh-keygen. No build tools, no third-party
+  # actions, and no token that can write: the attach job attaches what it signed.
+  sign:
+    if: startsWith(github.ref, 'refs/tags/leaf-')
+    needs: [version, build_macos, build_windows, build_linux, build_linux_deb]
+    runs-on: ubuntu-latest
+    environment: release-signing
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            release-manifest/sign-manifest.sh
+            release-manifest/src/main/resources/dev/app/leaf/releasemanifest/trusted-release-keys
+            app/src/main/kotlin/dev/app/leaf/AppConstants.kt
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: files
+          merge-multiple: true
+      - id: code
+        name: Read the version code
+        run: |
+          constants=app/src/main/kotlin/dev/app/leaf/AppConstants.kt
+          app_version=$(sed -n 's/^ *const val APP_VERSION = "\(.*\)"$/\1/p' "$constants")
+          code=$(sed -n 's/^ *const val APP_VERSION_CODE = \([0-9][0-9]*\)$/\1/p' "$constants")
+          if [[ "$app_version" != "$VERSION" ]]; then
+            echo "::error::APP_VERSION in AppConstants.kt is $app_version, not $VERSION"
+            exit 1
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Write and sign the update manifest
+        env:
+          LEAF_RELEASE_KEY: ${{ secrets.LEAF_RELEASE_KEY }}
+          CODE: ${{ steps.code.outputs.code }}
+        run: |
+          if [[ -z "$LEAF_RELEASE_KEY" ]]; then
+            echo "::error::No LEAF_RELEASE_KEY secret in the release-signing environment (docs/fork/auto-update.md, section 11)"
+            exit 1
+          fi
+          umask 077
+          key="$RUNNER_TEMP/leaf-release-key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$LEAF_RELEASE_KEY" > "$key"
+          release-manifest/sign-manifest.sh "$VERSION" "$CODE" files "$key" github signed
+      # Not named leaf-*, so that the release job, which takes those, doesn't attach it before the attach job checks it
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: update-manifest
+          path: signed/*
+          retention-days: 7
+
+  # Doesn't wait for the sign job: the draft is made whether the release is signed here or on a computer
   release:
     if: startsWith(github.ref, 'refs/tags/leaf-')
     needs: [version, build_macos, build_windows, build_linux, build_linux_deb]
@@ -244,12 +347,37 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: Output
+          pattern: leaf-*
           merge-multiple: true
       - name: Create a draft release
-        uses: softprops/action-gh-release@v3
+        # Pinned to a commit, as this step gets the token that writes the release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           draft: true
           name: Leaf ${{ needs.version.outputs.version }}
           body: |
             Draft created by the release workflow. Write the release notes, then publish it.
           files: Output/*
+
+  # Attaches the signed manifest to the draft. When the draft has one already, signed on a computer, it must be the
+  # same bytes, and only the signature is added.
+  attach:
+    if: startsWith(github.ref, 'refs/tags/leaf-')
+    needs: [release, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: release-manifest/attach-manifest.sh
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: update-manifest
+          path: signed
+      - name: Attach the manifest and its signature to the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: release-manifest/attach-manifest.sh "$GITHUB_REF_NAME" signed
