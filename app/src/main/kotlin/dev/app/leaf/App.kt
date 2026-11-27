@@ -51,6 +51,8 @@ import dev.app.leaf.common.OS
 import dev.app.leaf.common.currentOs
 import dev.app.leaf.common.printLog
 import dev.app.leaf.common.systemSeparator
+import dev.app.leaf.updates.MacUpdates
+import dev.app.leaf.updates.macBundleOf
 import dev.app.leaf.data.git.signers.GpgProgramSigner
 import dev.app.leaf.data.git.signers.SshProgramSigner
 import dev.app.leaf.data.shell.LoginShellEnvironment
@@ -238,6 +240,7 @@ class App @Inject constructor(
     private val loginShellEnvironment: LoginShellEnvironment,
     private val textSizes: TextSizeController,
     private val windowPlacements: WindowPlacements,
+    private val macUpdates: MacUpdates,
 ) {
     @OptIn(ExperimentalFoundationApi::class)
     suspend fun start(args: Array<String>) {
@@ -245,6 +248,13 @@ class App @Inject constructor(
         logUncaughtErrors()
         // Fork-only: what this run is on, for bug reports that attach leaf.log
         printLog(TAG, runtimeDescription())
+        // Fork-only: completes an update that the last run installed (docs/fork/auto-update.md, step 3)
+        if (currentOs.isMac()) {
+            macUpdates.finishAtStart(
+                AppConstants.APP_VERSION,
+                macBundleOf(System.getProperty("jpackage.app-path"), System.getProperty("java.home")),
+            )
+        }
         // In the background, so that the shell has usually finished before the first hook needs its PATH
         loginShellEnvironment.prewarm()
         // Fork-only: turning "Cache credentials in memory" off forgets what was kept
