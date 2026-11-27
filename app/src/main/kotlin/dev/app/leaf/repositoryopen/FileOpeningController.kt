@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -40,6 +41,9 @@ data class EditorPickerState(
     val isAtMenu: Boolean,
 )
 
+/** The tab's repository, once worked out: the common git dir by which its own editor is kept, or none. */
+private data class TabRepository(val sharedGitDir: String?)
+
 /**
  * Opening a tab's files in an editor and showing them in the file manager (fork-only): which editor "Open in …" names
  * for the tab's repository, and the picker that chooses another.
@@ -55,31 +59,53 @@ class FileOpeningController(
 ) {
     private val installed = MutableStateFlow<List<InstalledEditor>?>(null)
 
-    /** The common git dir of the tab's repository, by which its own editor is kept. */
-    private val repository: StateFlow<String?> = gitDir
+    /**
+     * The tab's repository, null until it's worked out, on the IO threads. Until then, its own editor isn't known: the
+     * default isn't taken in its place, which "Open in …" would name for a moment, and Remember would save as the
+     * default.
+     */
+    private val repository: StateFlow<TabRepository?> = gitDir
         .distinctUntilChanged()
-        .map { it?.let(::sharedGitDirOf) }
+        .map { TabRepository(it?.let(::sharedGitDirOf)) }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, null)
+
+    private suspend fun sharedGitDir(): String? = repository.filterNotNull().first().sharedGitDir
 
     init {
         scope.launch { installed.value = editors.installed() }
     }
 
+    /** [choice], or null until the tab's repository is worked out. */
+    private val settledChoice: StateFlow<EditorChoice?> =
+        combine(editorSettings, repository.filterNotNull(), installed) { settings, repository, found ->
+            editorChoice(settings.editorFor(repository.sharedGitDir), found.orEmpty(), settings.customCommand)
+        }.stateIn(scope, SharingStarted.Eagerly, null)
+
     /**
-     * What "Open in …" opens the tab's files with. Until the editors were looked for, a chosen editor counts as not
-     * installed, which only its name is taken from: opening looks for it.
+     * What "Open in …" opens the tab's files with, none until the tab's repository is worked out. Until the editors
+     * were looked for, a chosen editor counts as not installed, which only its name is taken from: opening looks for it.
      */
-    val choice: StateFlow<EditorChoice> = combine(editorSettings, repository, installed) { settings, repository, found ->
-        editorChoice(settings.editorFor(repository), found.orEmpty(), settings.customCommand)
-    }.stateIn(scope, SharingStarted.Eagerly, EditorChoice.None)
+    val choice: StateFlow<EditorChoice> = settledChoice
+        .map { it ?: EditorChoice.None }
+        .stateIn(scope, SharingStarted.Eagerly, EditorChoice.None)
 
     private val _picker = MutableStateFlow<EditorPickerState?>(null)
     val picker: StateFlow<EditorPickerState?> = _picker
 
     /** Opens [path] at [line] in the repository's editor, or asks which editor when none was chosen yet. */
     fun open(path: String, line: Int?, isAtMenu: Boolean) {
-        if (choice.value == EditorChoice.None) {
+        val settled = settledChoice.value
+
+        if (settled == null) {
+            scope.launch { openWith(settledChoice.filterNotNull().first(), path, line, isAtMenu) }
+        } else {
+            openWith(settled, path, line, isAtMenu)
+        }
+    }
+
+    private fun openWith(choice: EditorChoice, path: String, line: Int?, isAtMenu: Boolean) {
+        if (choice == EditorChoice.None) {
             chooseEditor(path, line, isAtMenu)
         } else {
             openInEditor(path, line, null)
@@ -92,7 +118,7 @@ class FileOpeningController(
             val found = editors.installed(refresh = true)
             installed.value = found
             val settings = editorSettings.first()
-            val repository = repository.value
+            val repository = sharedGitDir()
 
             _picker.value = EditorPickerState(
                 path = path,
@@ -117,7 +143,7 @@ class FileOpeningController(
         scope.launch {
             if (remember) {
                 val settings = editorSettings.first()
-                val repository = repository.value
+                val repository = sharedGitDir()
 
                 when {
                     settings.editor == null || repository == null -> saveSetting(AppConfig.Editor(editorId))
