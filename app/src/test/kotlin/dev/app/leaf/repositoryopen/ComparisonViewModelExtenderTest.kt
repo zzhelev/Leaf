@@ -906,7 +906,10 @@ class ComparisonViewModelExtenderTest {
         withTimeout(5.seconds) { extender.state.first { it?.picker != null } }
 
         extender.onAction(ComparisonAction.PickSide(CompareSide.Branch("refs/heads/main", "m1")))
-        val state = loaded()
+        // The list's closing reaches the state on a path of its own, which can come after the comparison
+        val state = withTimeout(5.seconds) {
+            extender.state.first { it != null && !it.isLoading && it.comparison != null && it.picker == null }
+        }!!
 
         assertFalse(state.isPending)
         assertNull(state.picker)
