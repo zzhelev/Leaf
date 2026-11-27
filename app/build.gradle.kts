@@ -45,6 +45,7 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":data"))
     implementation(project(":domain"))
+    implementation(project(":release-manifest"))
 
     val composeDependency = when {
         currentOs() == OS.LINUX && isLinuxAarch64 -> libs.compose.desktop.linux.arm64
