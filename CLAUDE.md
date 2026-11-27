@@ -106,7 +106,9 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
        both to the draft. Or reject it and run `release-manifest/sign-release.sh X.Y.Z` on a computer whose key Leaf
        trusts: it checks the draft's files against GitHub's attestations, asks for the key's passphrase and attaches
        the manifest and its signature. The keys are set up in section 11 of that doc; until then the sign job fails,
-       and the draft is made anyway.
+       and the draft is made anyway. Leaf's side is in `app/.../updates/`: `ReleaseUpdates` checks a release's
+       manifest and downloads the file for this Leaf (`releaseFileKindOf`) into `<app data>/updates/` (step 2);
+       nothing calls it yet.
   4. After publishing, update `latest.json` on `main` (`appVersion`, `appCode` = the new `APP_VERSION_CODE`,
      `downloadUrl` = the release page) and push. Installed copies then show the update banner.
      `UpdatesRepository.update` checks once for the whole app, every 5 minutes, and compares `appCode` only. A failed

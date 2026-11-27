@@ -5,7 +5,7 @@
 | Question | Can Leaf update itself in a click, without making GitHub the only thing that decides what gets installed? What does the user see on each system? |
 | Verified against | `main` at `ec73cdbb`; Leaf 1.10.0 installed in `/Applications`; the files of release `leaf-1.10.0` |
 | Date | 2026-11-22, and 2026-11-26 for where the key lives |
-| Status | Decided with the user on 2026-11-22: the recommended answer to each of D1 to D10, and D11. On 2026-11-26 the user moved the signing key to GitHub (D12), and kept signing on a computer as the other way (D13, section 9). Step 0 done (section 10), and step 1 built, but for the keys and the environment, which the user sets up (section 11); nothing in Leaf itself yet |
+| Status | Decided with the user on 2026-11-22: the recommended answer to each of D1 to D10, and D11. On 2026-11-26 the user moved the signing key to GitHub (D12), and kept signing on a computer as the other way (D13, section 9). Step 0 done (section 10), step 1 built, but for the keys and the environment, which the user sets up (section 11), and step 2 built on 2026-11-27 (section 12): Leaf checks and downloads, and nothing calls it yet |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`.
 
@@ -333,7 +333,7 @@ update themselves.
    changed on 2026-11-26 to sign on GitHub or on a computer; the keys are the user's (section 11).
 2. **Checking and downloading,** without a UI: fetching the manifest and its signatures (checked as step 1 built it),
    the manifest's checks, the download, the kind. Tests with a local server (as `FakeLfsServer`) and signatures from
-   real ssh-keygen; mutations of each check.
+   real ssh-keygen; mutations of each check. Built on 2026-11-27 (section 12).
 3. **Installing,** one kind at a time: macOS first (the script tested against a bundle in a temporary folder, then end to
    end with a test build, D9), then the jar and the `.deb` in the Linux container used for the window frame, then
    Windows: the portable ZIP and the installer on GitHub's Windows runner (install the previous release silently, update
@@ -505,3 +505,47 @@ Once, by the user, as the private keys go through nobody else:
    `release-manifest/src/main/resources/dev/app/leaf/releasemanifest/trusted-release-keys`: `github`, `mac` (a name per
    computer) and `backup`, each followed by its `.pub` line. Public halves are safe to share. From the commit that adds
    them, a tag's sign job signs, and so does `sign-release.sh` on those computers.
+
+## 12. Step 2 (2026-11-27)
+
+Built on `feature/auto-update`, in `A/updates/`, next to the update check. Nothing calls it yet: step 4's UI will.
+`app` now depends on `release-manifest`.
+
+- **Which file** (`ReleaseFileKinds.kt`: `RunningLeaf`, from the JVM's properties and the jar that Leaf's classes come
+  from, and `releaseFileKindOf`), section 4's rules: a packaged macOS app on Apple Silicon takes the DMG; a packaged
+  Windows app on x64 the installer when `unins000.exe` is next to its launcher (`jpackage.app-path`), else the portable
+  ZIP; on Linux, jpackage's launcher (the `.deb`) or the packaged jar, for its CPU (`amd64` or `x86_64`, `aarch64`).
+  A dev run, an Intel Mac, another CPU, and a Windows launcher without a folder get none.
+- **Checking** (`ReleaseUpdates.verify`, from `latest.json`'s release), in order:
+  1. a file for this Leaf, or `ByHand(NOT_FOR_THIS_LEAF)`, and nothing is fetched;
+  2. `appVersion` three numbers, or refused, and nothing is fetched;
+  3. a trusted key at all, or `ByHand(NO_TRUSTED_KEYS)`: until `trusted-release-keys` has keys, every release is
+     downloaded by hand, as today;
+  4. the manifest: none (404) is `ByHand(NO_MANIFEST)`, over 64 KB refused;
+  5. each trusted key's signature file: a missing one counts as none, and so does one over 8 KB; then
+     `checkReleaseSignatures`, which must find `REQUIRED_SIGNATURES`;
+  6. a later `format` is `ByHand(NEWER_FORMAT)`;
+  7. the manifest's version and version code are `latest.json`'s, and the code is newer than this Leaf's;
+  8. the kind's file, or `ByHand(NO_FILE_FOR_THIS_LEAF)`: its name must be the kind's for that version, as it goes
+     into the address and the updates folder, its SHA-256 64 lower-case hex digits, its size from 1 byte to 1 GiB.
+
+  It ends as `Verified` (the manifest, the kind, the file and its address), `ByHand(reason)` (today's button, which
+  opens the release page), `Refused(reason)` (the user will be told why, and offered the release page) or
+  `Failed(reason)` (the network, a proxy, the server: try again).
+- **Downloading** (`ReleaseUpdates.download`): into `<app data>/updates/`, which keeps only that file, deleting what an
+  earlier update left there; a complete file already there isn't downloaded again. It's written as `<name>.part`, at
+  most one byte past the manifest's size, so that an answer that doesn't end can't fill the disk, hashed as it's
+  written, then: larger, or another SHA-256, is refused and deleted; shorter is a failure (a dropped connection, which Ktor's CIO engine ends without an error), and deleted too;
+  otherwise it's renamed into place. Cancelling deletes the `.part`. Progress is the bytes written and the size.
+- **Requests** go through Leaf's own clients, with the proxy that git-lfs would use for each address
+  (`ProxySettings.forRequestWithoutRepository`, as the update check), TLS certificates checked. GitHub answers a release
+  file with a redirect to its file servers, which the same client follows, so a redirect to a host that `NO_PROXY`
+  lists still goes through the proxy, as with LFS.
+- **Tests** (26): `ReleaseUpdatesTest` (a local server that serves release folders, with releases signed by
+  `sign-manifest.sh` and keys that the real ssh-keygen makes: each check, each kind's file, the download and its
+  progress, a changed, larger, shorter or missing file, an answer that doesn't end, one downloaded before, what an
+  earlier update left, a redirect, Cancel, the proxy asked for each address) and `ReleaseFileKindsTest`. 23 mutations
+  of the checks were each caught by a named test, one after a test was added: reading on past the manifest's size,
+  which only an answer that doesn't end shows.
+- **Not tried yet:** a real release, which needs the keys, and Windows, where `jpackage.app-path` and `unins000.exe`
+  are still to be seen.

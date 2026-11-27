@@ -2,6 +2,18 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Checking and downloading a signed release, step 2 of Leaf updating itself (2026-11-27)
+
+- **Request:** the user's, the next step of `docs/fork/auto-update.md`.
+- **Now:** `ReleaseUpdates` (`app/.../updates/`) takes the latest release that `latest.json` names, fetches its
+  `leaf-update.json` and the signatures of the keys that Leaf trusts, and checks them: enough signatures, the same
+  version and code as `latest.json`, newer than this Leaf, and a file for this copy of Leaf (`releaseFileKindOf`: the
+  macOS app, the Windows installer or portable ZIP, the Linux `.deb` or jar). It then downloads that file into
+  `<app data>/updates/`, never past its size, and keeps it only when its SHA-256 is the manifest's. A release without a
+  manifest, or one that this Leaf can't take, is downloaded by hand as before. Nothing calls it yet.
+- **Not yet:** installing (step 3), the UI (step 4), and a real release, which needs the keys.
+- Details: `docs/fork/auto-update.md`, section 12.
+
 ## Signed releases, the first step to Leaf updating itself (2026-11-26)
 
 - **Request:** the user's: Leaf should update itself, with the builds on GitHub. The first version (2026-11-22) signed
