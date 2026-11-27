@@ -5,7 +5,7 @@
 | Question | Can Leaf update itself in a click, without making GitHub the only thing that decides what gets installed? What does the user see on each system? |
 | Verified against | `main` at `ec73cdbb`; Leaf 1.10.0 installed in `/Applications`; the files of release `leaf-1.10.0` |
 | Date | 2026-11-22, and 2026-11-26 for where the key lives |
-| Status | Decided with the user on 2026-11-22: the recommended answer to each of D1 to D10, and D11. On 2026-11-26 the user moved the signing key to GitHub (D12), and kept signing on a computer as the other way (D13, section 9). Step 0 done (section 10), step 1 built, but for the keys and the environment, which the user sets up (section 11), and step 2 built on 2026-11-27 (section 12): Leaf checks and downloads, and nothing calls it yet |
+| Status | Decided with the user on 2026-11-22: the recommended answer to each of D1 to D10, and D11. On 2026-11-26 the user moved the signing key to GitHub (D12), and kept signing on a computer as the other way (D13, section 9). Step 0 done (section 10), step 1 built, but for the keys and the environment, which the user sets up (section 11), step 2 built on 2026-11-27 (section 12): Leaf checks and downloads, and step 3's macOS part the same day (section 13); nothing calls them yet |
 
 Path prefixes: `A/` = `app/src/main/kotlin/dev/app/leaf/`, `D/` = `domain/src/main/kotlin/dev/app/leaf/domain/`.
 
@@ -337,7 +337,8 @@ update themselves.
 3. **Installing,** one kind at a time: macOS first (the script tested against a bundle in a temporary folder, then end to
    end with a test build, D9), then the jar and the `.deb` in the Linux container used for the window frame, then
    Windows: the portable ZIP and the installer on GitHub's Windows runner (install the previous release silently, update
-   it, check the version), and on a real Windows machine for the UAC prompt and SmartScreen.
+   it, check the version), and on a real Windows machine for the UAC prompt and SmartScreen. macOS built on 2026-11-27,
+   but for the end to end run (section 13).
 4. **The UI:** mockups of the dialog, the bottom bar and the strip; the user picks; then build it, with the quit and the
    setting.
 5. **Docs:** `CLAUDE.md` (Releases, and a section of its own), the README's Download/Install, `docs/fork/CHANGELOG.md`.
@@ -549,3 +550,50 @@ Built on `feature/auto-update`, in `A/updates/`, next to the update check. Nothi
   which only an answer that doesn't end shows.
 - **Not tried yet:** a real release, which needs the keys, and Windows, where `jpackage.app-path` and `unins000.exe`
   are still to be seen.
+
+## 13. Step 3, macOS (2026-11-27)
+
+Built on `feature/auto-update`, in `A/updates/MacUpdates.kt`, as section 3 has it, with what step 0 proved. Nothing
+starts an install yet: step 4's Restart now and When Leaf quits will.
+
+- **Where Leaf is** (`macBundleOf`, `macInstallPlace`): the bundle from jpackage's layout only, the launcher
+  `<bundle>/Contents/MacOS/Leaf` (`jpackage.app-path`), else `java.home`, `<bundle>/Contents/runtime/Contents/Home`. A dev
+  run on IntelliJ's runtime (`IntelliJ IDEA.app/Contents/jbr/Contents/Home`) has none. A translocated copy and a folder
+  that can't be written are installed by hand, from the DMG.
+- **Preparing** (`MacUpdates.prepare`): mounts the DMG out of sight, at a folder of its own in the updates folder
+  (`diskutil image attach --mountOptions nobrowse --readOnly --mountPoint`, or `hdiutil attach -nobrowse -readonly` where
+  macOS has no `diskutil image`), copies its Leaf.app with `ditto` next to the installed one as `.Leaf-<version>.app`,
+  and checks the copy: `codesign --verify --deep --strict`, the bundle ID `io.github.zzhelev.leaf` and
+  `CFBundleShortVersionString`. It unmounts (`hdiutil detach`, forced when it must) whatever happens, deletes the DMG
+  once the copy checks out, and otherwise keeps no copy.
+- **Installing** (`MacUpdates.startInstall`): writes `install.json` (both versions and the paths) and
+  `install-macos.sh` into the updates folder, and starts the script with Leaf's process; the caller then quits. The
+  script, each step in `install.log`:
+  1. waits for Leaf to quit, 2 minutes at most; after that it says that Leaf didn't quit, and moves nothing;
+  2. renames the bundle to `.Leaf-<from>-old.app` and the copy into its place; a rename that fails puts the old one
+     back and opens it;
+  3. `lsregister -f`, then `open`;
+  4. waits for the new Leaf to delete the old copy: 30 seconds, then for as long as anything runs from the new bundle
+     (`pgrep`), 2 minutes more, so that a slow start isn't undone. When nothing runs from it, the new app goes to
+     `.Leaf-<to>-failed.app`, the old one comes back, and it's opened.
+
+  A line `failed: <reason>` in the log is what the next start tells the user.
+- **The next start** (`MacUpdates.finishAtStart`, early in `App.start`, on macOS): the new version, from the same
+  bundle, deletes the old copy, which tells the script that it runs, and a failed copy; the old version, back, deletes
+  the prepared and the failed copies and takes the reason from the log. Both keep what came of it in
+  `install-outcome.json`, which `takeOutcome` gives once, for step 4's strip or `ErrorDialog`. Another version, or
+  another copy of the same one, leaves the install as it is.
+- **Tests** (11): `MacUpdatesTest`. Preparing runs against DMGs that `hdiutil create` makes, holding an app signed ad
+  hoc as jpackage signs Leaf: the copy and its checks, another bundle ID, another version, a resource changed after
+  signing, a DMG without Leaf.app, a file that isn't a DMG, nothing left mounted. The script runs against app folders in
+  a temporary folder, with stand-ins for `open` and `lsregister`, so that LaunchServices never sees a test's app, and
+  the test playing the new Leaf: updated, a new Leaf that doesn't start, one that starts slowly, a bundle that can't be
+  moved, a Leaf that doesn't quit; and the next start's records. 19 mutations of the checks and the script were each
+  caught by a named test.
+- **Gatekeeper and fake apps:** nothing may run from inside a folder named `*.app` that isn't a signed app. Gatekeeper
+  kills such a program and tells the user that "“Leaf” is damaged" and should go to the Trash, as it did three times on
+  2026-11-27 while the slow start's stand-in ran a launcher inside its fake bundle, and a manual check ran a copy of
+  `sleep` inside one. The stand-in now starts a shell whose command line only names the launcher's path, which is what
+  the script's `pgrep` looks for; a run of all the tests then had no Gatekeeper rejection.
+- **Not yet:** the end to end run with a test build that trusts a test key and reads a local `latest.json` (D9), which
+  wants step 4's way to start an update; then the Linux jar and `.deb`, and Windows.

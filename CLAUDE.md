@@ -107,8 +107,9 @@ The fork ships as **Leaf**, and its code, build and storage use Leaf's own names
        trusts: it checks the draft's files against GitHub's attestations, asks for the key's passphrase and attaches
        the manifest and its signature. The keys are set up in section 11 of that doc; until then the sign job fails,
        and the draft is made anyway. Leaf's side is in `app/.../updates/`: `ReleaseUpdates` checks a release's
-       manifest and downloads the file for this Leaf (`releaseFileKindOf`) into `<app data>/updates/` (step 2);
-       nothing calls it yet.
+       manifest and downloads the file for this Leaf (`releaseFileKindOf`) into `<app data>/updates/` (step 2), and
+       `MacUpdates` installs a DMG over the running app with a script that swaps the two once Leaf has quit (step 3,
+       macOS); `App.start` finishes such an install. Nothing starts one yet.
   4. After publishing, update `latest.json` on `main` (`appVersion`, `appCode` = the new `APP_VERSION_CODE`,
      `downloadUrl` = the release page) and push. Installed copies then show the update banner.
      `UpdatesRepository.update` checks once for the whole app, every 5 minutes, and compares `appCode` only. A failed

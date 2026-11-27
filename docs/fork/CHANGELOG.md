@@ -2,6 +2,16 @@
 
 This file covers fork-only changes on `main` (called `fork/main` until 2026-10-05). Upstream history is in git.
 
+## Installing an update on macOS, step 3 of Leaf updating itself (2026-11-27)
+
+- **Request:** the user's, the next step of `docs/fork/auto-update.md`.
+- **Now:** `MacUpdates` (`app/.../updates/`) copies Leaf.app out of a downloaded DMG next to the installed one and checks
+  it (its signature, bundle ID and version), then starts a script that, once Leaf has quit, swaps the two, registers
+  and opens the new one, and puts the old one back when the new one doesn't start. The next start finishes it: the new
+  Leaf deletes the old copy, or the old one, back, says why the update failed. Nothing starts an install yet.
+- **Not yet:** the end to end run with a test build, the Linux jar and `.deb`, Windows, and the UI (step 4).
+- Details: `docs/fork/auto-update.md`, section 13.
+
 ## Checking and downloading a signed release, step 2 of Leaf updating itself (2026-11-27)
 
 - **Request:** the user's, the next step of `docs/fork/auto-update.md`.
