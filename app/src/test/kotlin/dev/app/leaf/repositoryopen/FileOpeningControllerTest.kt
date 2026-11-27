@@ -57,13 +57,15 @@ class FileOpeningControllerTest {
         editors = editors,
         openInEditor = { path, line, id -> synchronized(opened) { opened += Triple(path, line, id) } },
         showInFileManager = {},
+        // As the settings file does, the setting changes before the save returns: a test that waits for the save reads
+        // the new setting
         saveSetting = { config ->
-            synchronized(saved) { saved += config }
             settings.value = when (config) {
                 is AppConfig.Editor -> settings.value.copy(editor = config.id)
                 is AppConfig.RepositoryEditors -> settings.value.copy(repositoryEditors = config.editors)
                 else -> settings.value
             }
+            synchronized(saved) { saved += config }
         },
     )
 
