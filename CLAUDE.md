@@ -6282,6 +6282,9 @@ which deletes a link as a link, and add `FileUtils.IGNORE_ERRORS` for a best-eff
   - A test whose git commits (merges, rebases) gives git an identity in its global config: git makes one up from the
     account and the host on macOS, and refuses on Linux ("Committer identity unknown").
   - A PATH without git-lfs is `pathWithoutGitLfs` (`TestRemoteCommand.kt`): Linux installs git-lfs in `/usr/bin`.
+  - `awk` on GitHub's Ubuntu runners is gawk 5, which refuses names of its builtins as variables (`-v namespace=…`
+    stopped `sign-manifest.sh`, 2026-11-27); macOS's awk and Ubuntu's own mawk take them. A shell script's tests run
+    there too.
   - Compose's tests render with the app's fonts, which are LFS files: the workflow restores `.git/lfs/objects` from
     the Actions cache, keyed on the LFS objects' ids, and runs `git lfs pull`, so the 9.3 MB of fonts count against
     the account's LFS bandwidth (10 GiB a month free) only when they change. It installs `libgl1` and `libegl1` too.
